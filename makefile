@@ -1,4 +1,4 @@
-APPNAME=Test
+APPNAME=AzCore
 
 IDIR=src
 CC=g++

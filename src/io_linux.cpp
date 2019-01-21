@@ -5,6 +5,7 @@
 
 #include "io.hpp"
 
+// To use GLX, you need Xlib, but for Vulkan you can just use xcb
 #define IO_NO_XLIB
 
 #include <xcb/xcb.h>

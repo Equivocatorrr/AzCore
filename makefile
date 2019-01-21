@@ -73,10 +73,10 @@ releasew: _releasew shaders
 release: _releasel _releasew shaders
 
 packl: _debugl _releasel shaders
-	scripts/PackLinux.sh
+	scripts/PackLinux.sh $(APPNAME)
 
 packw: _debugw _releasew shaders
-	scripts/PackWindows.sh
+	scripts/PackWindows.sh $(APPNAME)
 
 
 .PHONY: clean shaders runl runw rundl rundw testl testdl

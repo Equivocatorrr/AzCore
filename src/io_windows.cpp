@@ -21,6 +21,24 @@ namespace io {
 
     #include "keycode/keytable_win.cpp"
 
+    String winGetInputName (u8 hid) {
+        // First make sure we're not anything that doesn't move
+        if ((hid >= 40 && hid <= 44) || hid >= 57) {
+            return HID_KEYCODE_NAMES[hid];
+        }
+        // Check if we even have a mapping at all
+        u8 keyCode = WIN_HID_TO_SCAN[hid];
+        if (keyCode == 255) {
+            return "None";
+        }
+        // If layout-dependent, update the label based on the layout
+        char label[2] = {
+            (char)MapVirtualKey(MapVirtualKey((u32)keyCode, MAPVK_VSC_TO_VK), MAPVK_VK_TO_CHAR),
+            0
+        };
+        return std::string(label);
+    }
+
     Window *focusedWindow=nullptr;
 
     struct WindowData {
@@ -82,9 +100,10 @@ namespace io {
         }
         // Mouse Controls
         case WM_MOUSEMOVE: {
-            // Input::mouseX = i32(i16(lParam));
-            // Input::mouseY = i32(lParam>>16);
-            // Input::controllerInput = false;
+            if (thisWindow->input != nullptr) {
+                thisWindow->input->cursor.x = i32(i16(lParam));
+                thisWindow->input->cursor.y = i32(lParam>>16);
+            }
             break;
         }
         case WM_MOUSEWHEEL: {
@@ -338,6 +357,10 @@ namespace io {
             }
         }
         return true;
+    }
+
+    String Window::InputName(u8 keyCode) const {
+        return winGetInputName(keyCode);
     }
 
 }

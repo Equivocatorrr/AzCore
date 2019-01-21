@@ -18,13 +18,13 @@ BEGIN
   BEGIN
     BLOCK "040904E4"
     BEGIN
-      VALUE "CompanyName", "Singularity"
-      VALUE "FileDescription", "Engine"
+      VALUE "CompanyName", "Azure Indie"
+      VALUE "FileDescription", "AzCore"
       VALUE "FileVersion", "1.0"
-      VALUE "InternalName", "Engine"
-      VALUE "LegalCopyright", "It's MINE"
+      VALUE "InternalName", "AzCore"
+      VALUE "LegalCopyright", "Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)"
       VALUE "OriginalFilename", "Test.exe"
-      VALUE "ProductName", "A blank engine, dude."
+      VALUE "ProductName", "An advanced window-system IO framework for games."
       VALUE "ProductVersion", "1.0"
     END
   END

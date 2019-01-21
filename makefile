@@ -23,7 +23,7 @@ DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 
 _OBJ = main.o io.o memory.o
 _OBJ_L = $(_OBJ) io_linux.o
-_OBJ_W = $(_OBJ) io_windows.o
+_OBJ_W = $(_OBJ) io_win32.o
 OBJ_L = $(patsubst %,$(ODIR)/Linux/Release/%,$(_OBJ_L))
 OBJ_W = $(patsubst %,$(ODIR)/Windows/Release/%,$(_OBJ_W))
 OBJ_LD = $(patsubst %,$(ODIR)/Linux/Debug/%,$(_OBJ_L))

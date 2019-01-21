@@ -24,7 +24,7 @@ namespace io {
     Use this class to write any and all debugging/status text.
     Use it the same way you would std::cout.
     Ex: io::cout << "Say it ain't so!!" << std::endl;
-    Entries in this class will be printed to terminal and log.txt   */
+    Entries in this class will be printed to terminal and a log file.   */
     class logStream {
         std::ofstream fstream;
         bool log; // Whether we're using a log file

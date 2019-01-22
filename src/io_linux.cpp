@@ -39,7 +39,8 @@ namespace io {
         reply = xcb_intern_atom_reply(connection, cookie, 0);
 
         if (reply == nullptr) {
-            throw std::runtime_error("Failed to get reply to a cookie for retrieving an XCB atom!");
+            error = "Failed to get reply to a cookie for retrieving an XCB atom!";
+            return 0;
         }
         xcb_atom_t atom = reply->atom;
         free(reply);
@@ -60,7 +61,7 @@ namespace io {
     String xkbGetInputName(xkb_keyboard *xkb, u8 hid) {
         char utf8[16];
         // First make sure we're not anything that doesn't move
-        if ((hid >= 40 && hid <= 44) || hid >= 57) {
+        if ((hid >= 40 && hid <= 44) || (hid >= 57 && hid <= 88) || hid >= 100) {
             return HID_KEYCODE_NAMES[hid];
         }
         // Check if we even have a mapping at all
@@ -69,7 +70,15 @@ namespace io {
             return "None";
         }
         // If layout-dependent, update the label based on the layout
-        xkb_state_key_get_utf8(xkb->stateNone, (xkb_keycode_t)keyCode, utf8, 16);
+        if (hid >= 100 || hid <= 88) { // Non-keypad
+            xkb_state_key_get_utf8(xkb->stateNone, (xkb_keycode_t)keyCode, utf8, 16);
+        } else { // Keypad
+            xkb_state_key_get_utf8(xkb->state, (xkb_keycode_t)keyCode, utf8, 16);
+            if (utf8[0] != '\0' && utf8[1] == '\0') { // Single-character from the keypad
+                // This is if numlock is on.
+                return HID_KEYCODE_NAMES[hid];
+            }
+        }
         if (utf8[0] != '\0') {
             return utf8;
         }
@@ -308,6 +317,12 @@ namespace io {
         delete data;
     }
 
+#ifndef IO_NO_XLIB
+    #define CLOSE_CONNECTION(data) XCloseDisplay(data->display)
+#else
+    #define CLOSE_CONNECTION(data) xcb_disconnect(data->connection)
+#endif
+
     bool Window::Open() {
         i32 defaultScreen=0;
 #ifndef IO_NO_XLIB
@@ -336,11 +351,7 @@ namespace io {
         }
 #endif
         if (xcb_errors_context_new(data->connection, &data->xcb_errors) == -1) {
-#ifndef IO_NO_XLIB
-            XCloseDisplay(data->display);
-#else
-            xcb_disconnect(data->connection);
-#endif
+            CLOSE_CONNECTION(data);
             error = "Can't get xcb_errors context";
             return false;
         }
@@ -366,11 +377,7 @@ namespace io {
 
         if (!depth) {
             xcb_errors_context_free(data->xcb_errors);
-#ifndef IO_NO_XLIB
-            XCloseDisplay(data->display);
-#else
-            xcb_disconnect(data->connection);
-#endif
+            CLOSE_CONNECTION(data);
             error = "Screen doesn't support ";
             error += std::to_string(data->windowDepth);
             error += "-bit depth!";
@@ -390,11 +397,7 @@ namespace io {
 
         if (!visual) {
             xcb_errors_context_free(data->xcb_errors);
-#ifndef IO_NO_XLIB
-            XCloseDisplay(data->display);
-#else
-            xcb_disconnect(data->connection);
-#endif
+            CLOSE_CONNECTION(data);
             error = "Screen doesn't support True Color";
             return false;
         }
@@ -411,11 +414,7 @@ namespace io {
             error = "Failed to create colormap: ";
             error += xcb_errors_get_name_for_error(data->xcb_errors, err->error_code, &extension);
             xcb_errors_context_free(data->xcb_errors);
-#ifndef IO_NO_XLIB
-            XCloseDisplay(data->display);
-#else
-            xcb_disconnect(data->connection);
-#endif
+            CLOSE_CONNECTION(data);
             return false;
         }
 
@@ -434,31 +433,19 @@ namespace io {
             error = "Error creating xcb window: ";
             error += xcb_errors_get_name_for_error(data->xcb_errors, err->error_code, &extension);
             xcb_errors_context_free(data->xcb_errors);
-#ifndef IO_NO_XLIB
-            XCloseDisplay(data->display);
-#else
-            xcb_disconnect(data->connection);
-#endif
+            CLOSE_CONNECTION(data);
             return false;
         }
 
         if (!xkbSetupKeyboard(&data->xkb, data->connection)) {
             xcb_destroy_window(data->connection, data->window);
-#ifndef IO_NO_XLIB
-            XCloseDisplay(data->display);
-#else
-            xcb_disconnect(data->connection);
-#endif
+            CLOSE_CONNECTION(data);
             return false;
         }
 
         if (!xkbSelectEventsForDevice(&data->xkb)) {
             xcb_destroy_window(data->connection, data->window);
-#ifndef IO_NO_XLIB
-            XCloseDisplay(data->display);
-#else
-            xcb_disconnect(data->connection);
-#endif
+            CLOSE_CONNECTION(data);
             return false;
         }
 
@@ -470,41 +457,25 @@ namespace io {
         if ((data->atoms[0] = xcbGetAtom(data->connection, true, "WM_PROTOCOLS")) == 0) {
             error = "Couldn't get WM_PROTOCOLS atom";
             xcb_destroy_window(data->connection, data->window);
-#ifndef IO_NO_XLIB
-            XCloseDisplay(data->display);
-#else
-            xcb_disconnect(data->connection);
-#endif
+            CLOSE_CONNECTION(data);
             return false;
         }
         if ((data->atoms[1] = xcbGetAtom(data->connection, false, "WM_DELETE_WINDOW")) == 0) {
             error = "Couldn't get WM_DELETE_WINDOW atom";
             xcb_destroy_window(data->connection, data->window);
-#ifndef IO_NO_XLIB
-            XCloseDisplay(data->display);
-#else
-            xcb_disconnect(data->connection);
-#endif
+            CLOSE_CONNECTION(data);
             return false;
         }
         if ((data->atoms[2] = xcbGetAtom(data->connection, false, "_NET_WM_STATE")) == 0) {
             error = "Couldn't get _NET_WM_STATE atom";
             xcb_destroy_window(data->connection, data->window);
-#ifndef IO_NO_XLIB
-            XCloseDisplay(data->display);
-#else
-            xcb_disconnect(data->connection);
-#endif
+            CLOSE_CONNECTION(data);
             return false;
         }
         if ((data->atoms[3] = xcbGetAtom(data->connection, false, "_NET_WM_STATE_FULLSCREEN")) == 0) {
             error = "Couldn't get _NET_WM_STATE_FULLSCREEN atom";
             xcb_destroy_window(data->connection, data->window);
-#ifndef IO_NO_XLIB
-            XCloseDisplay(data->display);
-#else
-            xcb_disconnect(data->connection);
-#endif
+            CLOSE_CONNECTION(data);
             return false;
         }
 
@@ -531,11 +502,7 @@ namespace io {
         }
         xkbCleanup(&data->xkb);
         xcb_destroy_window(data->connection, data->window);
-#ifndef IO_NO_XLIB
-        XCloseDisplay(data->display);
-#else
-        xcb_disconnect(data->connection);
-#endif
+        CLOSE_CONNECTION(data);
         xcb_errors_context_free(data->xcb_errors);
         open = false;
         return true;

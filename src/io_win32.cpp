@@ -19,15 +19,16 @@
 
 namespace io {
 
-    #include "keycode/keytable_win.cpp"
-
     String winGetInputName (u8 hid) {
+        if (hid == 255) {
+            return "Null";
+        }
         // First make sure we're not anything that doesn't move
-        if ((hid >= 40 && hid <= 44) || hid >= 57) {
-            return HID_KEYCODE_NAMES[hid];
+        if (hid < 0x04 || (hid >= 0x28 && hid <= 0x2c) || (hid >= 0x39 && hid <= 0x58) || hid >= 0x64) {
+            return KeyCodeName(hid);
         }
         // Check if we even have a mapping at all
-        u8 keyCode = WIN_HID_TO_SCAN[hid];
+        u8 keyCode = KeyCodeToWinScan(hid);
         if (keyCode == 255) {
             return "None";
         }
@@ -36,7 +37,7 @@ namespace io {
             (char)MapVirtualKey(MapVirtualKey((u32)keyCode, MAPVK_VSC_TO_VK), MAPVK_VK_TO_CHAR),
             0
         };
-        return std::string(label);
+        return String(label);
     }
 
     Window *focusedWindow=nullptr;
@@ -89,12 +90,12 @@ namespace io {
         }
         // Keyboard Controls
         case WM_KEYDOWN: {
-            keyCode = WIN_SCAN_TO_HID[(u8)(lParam>>16)];
+            keyCode = KeyCodeFromWinScan((u8)(lParam>>16));
             press = true;
             break;
         }
         case WM_KEYUP: {
-            keyCode = WIN_SCAN_TO_HID[(u8)(lParam>>16)];
+            keyCode = KeyCodeFromWinScan((u8)(lParam>>16));
             release = true;
             break;
         }
@@ -125,50 +126,50 @@ namespace io {
             break;
         }
         case WM_LBUTTONDOWN: {
-            keyCode = KC_MOUSE_Left;
+            keyCode = KC_MOUSE_LEFT;
             press = true;
             break;
         }
         case WM_LBUTTONUP: {
-            keyCode = KC_MOUSE_Left;
+            keyCode = KC_MOUSE_LEFT;
             release = true;
             break;
         }
         case WM_MBUTTONDOWN: {
-            keyCode = KC_MOUSE_Middle;
+            keyCode = KC_MOUSE_MIDDLE;
             press = true;
             break;
         }
         case WM_MBUTTONUP: {
-            keyCode = KC_MOUSE_Middle;
+            keyCode = KC_MOUSE_MIDDLE;
             release = true;
             break;
         }
         case WM_RBUTTONDOWN: {
-            keyCode = KC_MOUSE_Right;
+            keyCode = KC_MOUSE_RIGHT;
             press = true;
             break;
         }
         case WM_RBUTTONUP: {
-            keyCode = KC_MOUSE_Right;
+            keyCode = KC_MOUSE_RIGHT;
             release = true;
             break;
         }
         case WM_XBUTTONDOWN: {
             i16 i = HIWORD(wParam);
             if (i == XBUTTON1)
-                keyCode = KC_MOUSE_XOne;
+                keyCode = KC_MOUSE_XONE;
             else
-                keyCode = KC_MOUSE_XTwo;
+                keyCode = KC_MOUSE_XTWO;
             press = true;
             break;
         }
         case WM_XBUTTONUP: {
             i16 i = HIWORD(wParam); // XBUTTON1 = 1, XBUTTON2 = 2
             if (i == XBUTTON1)
-                keyCode = KC_MOUSE_XOne;
+                keyCode = KC_MOUSE_XONE;
             else
-                keyCode = KC_MOUSE_XTwo;
+                keyCode = KC_MOUSE_XTWO;
             release = true;
             break;
         }
@@ -221,7 +222,7 @@ namespace io {
                 thisWindow->input->Release(keyCode);
         }
 
-        if (keyCode == KC_MOUSE_XTwo || keyCode == KC_MOUSE_XOne)
+        if (keyCode == KC_MOUSE_XTWO || keyCode == KC_MOUSE_XONE)
             return TRUE;
 
         return 0;
@@ -349,7 +350,7 @@ namespace io {
                     focusedWindow = this;
                 }
                 if (msg.message == WM_KEYDOWN) {
-                    if (KC_KEY_F11 == WIN_SCAN_TO_HID[(u8)(msg.lParam>>16)])
+                    if (KC_KEY_F11 == KeyCodeFromWinScan((u8)(msg.lParam>>16)))
                         Fullscreen(!fullscreen);
                 }
                 TranslateMessage(&msg);

@@ -6,22 +6,13 @@
 #ifndef MATH_HPP
 #define MATH_HPP
 
+#include "basictypes.hpp"
+
 #include <cmath>
 
-typedef unsigned char u8;
-typedef unsigned short u16;
-typedef unsigned int u32;
-typedef unsigned long u64;
-typedef char i8;
-typedef short i16;
-typedef int i32;
-typedef long i64;
-typedef float f32;
-typedef double f64;
-
-const float halfpi = 1.5707963267948966;
-const float pi = 3.1415926535897932;
-const float tau = 6.2831853071795865;
+const f32 halfpi = 1.5707963267948966;
+const f32 pi = 3.1415926535897932;
+const f32 tau = 6.2831853071795865;
 
 template<typename T>
 struct vec2_t {
@@ -85,9 +76,12 @@ inline T dot(const vec2_t<T>& a, const vec2_t<T>& b) {
     return a.x*b.x + a.y*b.y;
 }
 
-template<typename T>
-inline T length(const vec2_t<T>& a) {
+inline f32 length(const vec2_t<f32>& a) {
     return sqrtf(a.x*a.x + a.y*a.y);
+}
+
+inline f64 length(const vec2_t<f64>& a) {
+    return sqrt(a.x*a.x + a.y*a.y);
 }
 
 template<typename T>

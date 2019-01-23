@@ -13,9 +13,6 @@
 
 namespace io {
 
-    #include "keycode/keytable.hpp"
-    #include "keycode/keycode.hpp"
-
     extern String error;
     extern vec2 screenSize;
 
@@ -43,6 +40,8 @@ namespace io {
         void MutexLock();
         void MutexUnlock();
     };
+
+    extern logStream cout;
 
     #define IO_BUTTON_PRESSED_BIT 0x01
     #define IO_BUTTON_DOWN_BIT 0x02

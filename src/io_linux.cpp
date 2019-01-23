@@ -28,8 +28,6 @@
 
 namespace io {
 
-    #include "keycode/keytable_evdev.cpp"
-
     xcb_atom_t xcbGetAtom(xcb_connection_t* connection, bool onlyIfExists, const std::string& name) {
         xcb_intern_atom_cookie_t cookie;
         xcb_intern_atom_reply_t *reply;
@@ -59,24 +57,27 @@ namespace io {
     };
 
     String xkbGetInputName(xkb_keyboard *xkb, u8 hid) {
+        if (hid == 255) {
+            return "Null";
+        }
         char utf8[16];
         // First make sure we're not anything that doesn't move
-        if ((hid >= 40 && hid <= 44) || (hid >= 57 && hid <= 88) || hid >= 100) {
-            return HID_KEYCODE_NAMES[hid];
+        if (hid < 0x04 || (hid >= 0x28 && hid <= 0x2c) || (hid >= 0x39 && hid <= 0x58) || hid >= 0x64) {
+            return KeyCodeName(hid);
         }
         // Check if we even have a mapping at all
-        u8 keyCode = EVDEV_HID_TO_NATIVE[hid];
+        u8 keyCode = KeyCodeToEvdev(hid);
         if (keyCode == 255) {
             return "None";
         }
         // If layout-dependent, update the label based on the layout
-        if (hid >= 100 || hid <= 88) { // Non-keypad
+        if (hid >= 0x64 || hid <= 0x58) { // Non-keypad
             xkb_state_key_get_utf8(xkb->stateNone, (xkb_keycode_t)keyCode, utf8, 16);
         } else { // Keypad
             xkb_state_key_get_utf8(xkb->state, (xkb_keycode_t)keyCode, utf8, 16);
             if (utf8[0] != '\0' && utf8[1] == '\0') { // Single-character from the keypad
                 // This is if numlock is on.
-                return HID_KEYCODE_NAMES[hid];
+                return KeyCodeName(hid);
             }
         }
         if (utf8[0] != '\0') {
@@ -566,7 +567,8 @@ namespace io {
                 }
                 case XCB_KEY_PRESS: {
                     xcb_key_press_event_t* ev = (xcb_key_press_event_t*)data->event;
-                    keyCode = EVDEV_NATIVE_TO_HID[ev->detail];
+                    cout << "XCB_KEY_PRESS scancode: " << std::hex << (u32)ev->detail << " evdev: " << std::dec << ev->detail-8 << std::endl;
+                    keyCode = KeyCodeFromEvdev(ev->detail);
                     char buffer[4] = {0};
                     xkb_state_key_get_utf8(data->xkb.state, (xkb_keycode_t)ev->detail, buffer, 4);
                     // if (buffer[1] == '\0')
@@ -578,7 +580,7 @@ namespace io {
                 }
                 case XCB_KEY_RELEASE: {
                     xcb_key_release_event_t* ev = (xcb_key_release_event_t*)data->event;
-                    keyCode = EVDEV_NATIVE_TO_HID[ev->detail];
+                    keyCode = KeyCodeFromEvdev(ev->detail);
                     release = true;
                     break;
                 }
@@ -586,43 +588,43 @@ namespace io {
                     xcb_button_press_event_t* ev = (xcb_button_press_event_t*)data->event;
                     switch(ev->detail) {
                         case 1:
-                            keyCode = KC_MOUSE_Left;
+                            keyCode = KC_MOUSE_LEFT;
                             break;
                         case 2:
-                            keyCode = KC_MOUSE_Middle;
+                            keyCode = KC_MOUSE_MIDDLE;
                             break;
                         case 3:
-                            keyCode = KC_MOUSE_Right;
+                            keyCode = KC_MOUSE_RIGHT;
                             break;
                         case 4:
-                            keyCode = KC_MOUSE_ScrollUp;
+                            keyCode = KC_MOUSE_SCROLLUP;
                             if (input != nullptr) {
                                 input->scroll.y += 1.0;
                             }
                             break;
                         case 5:
-                            keyCode = KC_MOUSE_ScrollDown;
+                            keyCode = KC_MOUSE_SCROLLDOWN;
                             if (input != nullptr) {
                                 input->scroll.y -= 1.0;
                             }
                             break;
                         case 6: // Sideways scrolling
-                            keyCode = KC_MOUSE_ScrollLeft;
+                            keyCode = KC_MOUSE_SCROLLLEFT;
                             if (input != nullptr) {
                                 input->scroll.x -= 1.0;
                             }
                             break;
                         case 7:
-                            keyCode = KC_MOUSE_ScrollRight;
+                            keyCode = KC_MOUSE_SCROLLRIGHT;
                             if (input != nullptr) {
                                 input->scroll.x += 1.0;
                             }
                             break;
                         case 8:
-                            keyCode = KC_MOUSE_XOne;
+                            keyCode = KC_MOUSE_XONE;
                             break;
                         case 9:
-                            keyCode = KC_MOUSE_XTwo;
+                            keyCode = KC_MOUSE_XTWO;
                             break;
                         default:
                             keyCode = 0;
@@ -635,31 +637,31 @@ namespace io {
                     xcb_button_release_event_t* ev = (xcb_button_release_event_t*)data->event;
                     switch(ev->detail) {
                         case 1:
-                            keyCode = KC_MOUSE_Left;
+                            keyCode = KC_MOUSE_LEFT;
                             break;
                         case 2:
-                            keyCode = KC_MOUSE_Middle;
+                            keyCode = KC_MOUSE_MIDDLE;
                             break;
                         case 3:
-                            keyCode = KC_MOUSE_Right;
+                            keyCode = KC_MOUSE_RIGHT;
                             break;
                         case 4:
-                            keyCode = KC_MOUSE_ScrollUp;
+                            keyCode = KC_MOUSE_SCROLLUP;
                             break;
                         case 5:
-                            keyCode = KC_MOUSE_ScrollDown;
+                            keyCode = KC_MOUSE_SCROLLDOWN;
                             break;
                         case 6: // Sideways scrolling
-                            keyCode = KC_MOUSE_ScrollLeft;
+                            keyCode = KC_MOUSE_SCROLLLEFT;
                             break;
                         case 7:
-                            keyCode = KC_MOUSE_ScrollRight;
+                            keyCode = KC_MOUSE_SCROLLRIGHT;
                             break;
                         case 8:
-                            keyCode = KC_MOUSE_XOne;
+                            keyCode = KC_MOUSE_XONE;
                             break;
                         case 9:
-                            keyCode = KC_MOUSE_XTwo;
+                            keyCode = KC_MOUSE_XTWO;
                             break;
                         default:
                             keyCode = 0;

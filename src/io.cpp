@@ -11,6 +11,7 @@ namespace io {
 
     String error = "No Error";
     vec2 screenSize;
+    logStream cout("io.log");
 
     logStream::logStream() : fstream("log.txt") , log(true) {
         if (!fstream.is_open()) {
@@ -95,15 +96,15 @@ namespace io {
     }
 
     void Input::Press(u8 keyCode) {
-        if (keyCode < 119 || keyCode > 157) {
+        if (keyCode < 0xb8 || keyCode > 0xde) {
             Any.Press();
             codeAny = keyCode;
         }
-        if (keyCode < 119 || (keyCode >= 224 && keyCode < 232)) {
+        if (keyCode < 0xa6 || (keyCode >= 0xb0 && keyCode < 0xb8) || keyCode >= 0xe0) {
             AnyKey.Press();
             codeAnyKey = keyCode;
         }
-        if (keyCode >= 232) {
+        if (keyCode >= 0xa6 && keyCode <= 0xae) {
             AnyMB.Press();
             codeAnyMB = keyCode;
         }
@@ -111,15 +112,15 @@ namespace io {
     }
 
     void Input::Release(u8 keyCode) {
-        if (keyCode < 119 || keyCode > 157) {
+        if (keyCode < 0xb8 || keyCode > 0xde) {
             Any.Release();
             codeAny = keyCode;
         }
-        if (keyCode < 119 || (keyCode >= 224 && keyCode < 232)) {
+        if (keyCode < 0xa6 || (keyCode >= 0xb0 && keyCode < 0xb8) || keyCode >= 0xe0) {
             AnyKey.Release();
             codeAnyKey = keyCode;
         }
-        if (keyCode >= 232) {
+        if (keyCode >= 0xa6 && keyCode <= 0xae) {
             AnyMB.Release();
             codeAnyMB = keyCode;
         }

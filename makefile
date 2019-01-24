@@ -45,7 +45,7 @@ $(ODIR)/Linux/Release/%.o: $(SDIR)/%.cpp $(DEPS)
 $(ODIR)/Windows/Release/%.o: $(SDIR)/%.cpp $(DEPS)
 	$(WCC) -c -o $@ $< -O2 $(CFLAGS) -DNDEBUG
 
-$(ODIR)/Windows/resources.o: $(IDIR)/resources.h $(SDIR)/resources.rc manifest.xml
+$(ODIR)/Windows/resources.o: $(IDIR)/resources.h $(SDIR)/resources.rc manifest.xml icon.ico
 	$(WRC) -o $@ $(RCFLAGS)
 
 _debugl: $(OBJ_LD)
@@ -64,7 +64,7 @@ _releasel: $(OBJ_L)
 	g++ -o $(BDIR)/Linux/Release/$(APPNAME) $^ $(CFLAGS) $(LCFLAGS) $(LIBS_L)
 
 _releasew: $(OBJ_W) $(ODIR)/Windows/resources.o
-	i686-w64-mingw32-g++ -o $(BDIR)/Windows/Release/$(APPNAME).exe $^ $(CFLAGS) $(WCFLAGS) $(LIBS_W)
+	i686-w64-mingw32-g++ -o $(BDIR)/Windows/Release/$(APPNAME).exe $^ $(CFLAGS) $(WCFLAGS) -mwindows $(LIBS_W)
 
 releasel: _releasel shaders
 

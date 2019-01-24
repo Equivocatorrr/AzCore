@@ -23,7 +23,7 @@ BEGIN
       VALUE "FileVersion", "1.0"
       VALUE "InternalName", "AzCore"
       VALUE "LegalCopyright", "Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)"
-      VALUE "OriginalFilename", "Test.exe"
+      VALUE "OriginalFilename", "AzCore.exe"
       VALUE "ProductName", "An advanced window-system IO framework for games."
       VALUE "ProductVersion", "1.0"
     END

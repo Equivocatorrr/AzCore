@@ -234,7 +234,7 @@ namespace io {
 
     bool Window::Open() {
         data->instance = GetModuleHandle(NULL);
-        data->windowIcon = LoadIcon(NULL,IDI_APPLICATION);
+        data->windowIcon = LoadIcon(data->instance,"icon.ico");
         data->windowIconSmall = data->windowIcon;
         data->windowClass.cbSize = sizeof(WNDCLASSEX);
         data->windowClass.style = CS_OWNDC;
@@ -288,6 +288,7 @@ namespace io {
             return false;
         }
         DestroyWindow(data->window);
+        UnregisterClass(data->windowClass.lpszClassName, data->instance);
 
         open = false;
         return true;
@@ -344,7 +345,7 @@ namespace io {
         MSG msg;
         while (PeekMessage(&msg, data->window, 0, 0, PM_REMOVE))
         {
-            if (msg.message == WM_QUIT || msg.message == WM_CLOSE || msg.message == WM_DESTROY)
+            if (msg.message == WM_QUIT)
             {
                 return false;
             }

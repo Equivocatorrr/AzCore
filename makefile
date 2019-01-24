@@ -1,6 +1,10 @@
 APPNAME=AzCore
 
 IDIR=src
+BDIR=bin
+SDIR=src
+ODIR=obj
+
 CC=g++
 WCC=i686-w64-mingw32-g++
 WRC=i686-w64-mingw32-windres $(SDIR)/resources.rc -O coff
@@ -9,15 +13,11 @@ CFLAGS=-I$(IDIR) -Wall -std=c++17 -fsingle-precision-constant
 LCFLAGS=-Wl,-z,origin -Wl,-rpath,'$$ORIGIN/lib'
 WCFLAGS=-D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -static -lpthread
 
-BDIR=bin
-SDIR=src
-ODIR=obj
-
-WIN32_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.1.82.0
+WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.1.82.0
 
 LIBS_L=-lvulkan -lxcb -lxcb-errors -levdev -lpthread -lxkbcommon -lxkbcommon-x11 -lxcb-xkb
 LIBS_L_GLX= $(LIBS_L) -lX11 -lX11-xcb
-LIBS_W=-L"$(WIN32_VULKAN_SDK)/Lib32/" -lvulkan-1 -lgdi32
+LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib32/" -lvulkan-1 -lgdi32
 
 _DEPS = ../makefile keycodes.hpp io.hpp math.hpp memory.hpp
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
@@ -32,7 +32,6 @@ OBJ_WD = $(patsubst %,$(ODIR)/Windows/Debug/%,$(_OBJ_W))
 
 _SHADERS =
 SHADERS = $(patsubst %,data/shaders/%,$(_SHADERS))
-
 
 $(ODIR)/Linux/Debug/%.o: $(SDIR)/%.cpp $(DEPS)
 	$(CC) -c -o $@ $< -g -rdynamic $(CFLAGS)

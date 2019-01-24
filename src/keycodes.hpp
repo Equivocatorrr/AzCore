@@ -327,4 +327,16 @@ u8 KeyCodeFromWinVK(u8 keyCode);
 u8 KeyCodeToWinScan(u8 keyCode);
 u8 KeyCodeFromWinScan(u8 keyCode);
 
+namespace io {
+    class logStream;
+}
+
+// Utility functions so you don't have to write both to and from maps
+// Creates the inverse based on the "To" map
+// This might not work if there are multiple mappings to KeyCodes
+// And with multiple mappings from KeyCodes, it will use the first.
+void PrintKeyCodeMapsEvdev(io::logStream& cout);
+void PrintKeyCodeMapsWinVK(io::logStream& cout);
+void PrintKeyCodeMapsWinScan(io::logStream& cout);
+
 #endif

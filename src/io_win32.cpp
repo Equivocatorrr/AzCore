@@ -92,12 +92,14 @@ namespace io {
         case WM_KEYDOWN: {
             // keyCode = KeyCodeFromWinVK((u8)wParam);
             keyCode = KeyCodeFromWinScan((u8)(lParam>>16));
+            cout << "WM_KEYDOWN scancode: 0x" << std::hex << (u32)((u8)(lParam>>16)) << " vk_code: 0x" << (u32)((u8)wParam) << std::endl;
             press = true;
             break;
         }
         case WM_KEYUP: {
             // keyCode = KeyCodeFromWinVK((u8)wParam);
             keyCode = KeyCodeFromWinScan((u8)(lParam>>16));
+            cout << "WM_KEYUP scancode: 0x" << std::hex << (u32)((u8)(lParam>>16)) << " vk_code: 0x" << (u32)((u8)wParam) << std::endl;
             release = true;
             break;
         }
@@ -342,7 +344,7 @@ namespace io {
         MSG msg;
         while (PeekMessage(&msg, data->window, 0, 0, PM_REMOVE))
         {
-            if (msg.message == WM_QUIT)
+            if (msg.message == WM_QUIT || msg.message == WM_CLOSE || msg.message == WM_DESTROY)
             {
                 return false;
             }

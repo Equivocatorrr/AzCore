@@ -7,8 +7,6 @@
 
 namespace io {
 
-    #include "keycode/keytable_common.cpp"
-
     String error = "No Error";
     vec2 screenSize;
     logStream cout("io.log");

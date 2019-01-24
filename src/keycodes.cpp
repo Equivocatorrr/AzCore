@@ -142,7 +142,7 @@ const u8 mapKeyCodeFromEvdev[256] = {
 0xff,   0xff,   0xff,   0xff,   0xff,   0xff,   0xff,   0x00    // 0xf8
 };
 
-// TODO: The Windows mappings are incomplete
+// TODO: The Windows mappings are incomplete and several of the miscellaneous keys may not work.
 
 const u8 mapKeyCodeToWinVK[256] = {
 0xff,   0xff,   0xff,   0xff,   0x41,   0x42,   0x43,   0x44,

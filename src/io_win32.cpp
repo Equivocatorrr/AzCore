@@ -90,11 +90,13 @@ namespace io {
         }
         // Keyboard Controls
         case WM_KEYDOWN: {
+            // keyCode = KeyCodeFromWinVK((u8)wParam);
             keyCode = KeyCodeFromWinScan((u8)(lParam>>16));
             press = true;
             break;
         }
         case WM_KEYUP: {
+            // keyCode = KeyCodeFromWinVK((u8)wParam);
             keyCode = KeyCodeFromWinScan((u8)(lParam>>16));
             release = true;
             break;

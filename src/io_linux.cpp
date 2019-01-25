@@ -303,12 +303,6 @@ namespace io {
     Window::Window() {
         data = new WindowData;
         data->windowDepth = 24;
-        name = "Unnamed";
-        width = 1280;
-        height = 720;
-        windowedWidth = 1280;
-        windowedHeight = 720;
-        screenSize = vec2(1280.0, 720.0);
     }
 
     Window::~Window() {

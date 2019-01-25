@@ -143,7 +143,13 @@ const u8 mapKeyCodeFromEvdev[256] = {
 0xff,   0xff,   0xff,   0xff,   0xff,   0xff,   0xff,   0xff    // 0xf8
 };
 
-// TODO: The Windows mappings are incomplete and several of the miscellaneous keys may not work.
+/*
+    TODO: The Windows mappings are incomplete and several of the
+    miscellaneous keys may not work. Perhaps a raw input scheme would
+    be better, since to achieve behavior on Windows like how it works
+    in Linux would require a bunch of logic combining the Virtual Key
+    codes and scan codes.
+*/
 
 const u8 mapKeyCodeToWinVK[256] = {
 0xff,   0xff,   0xff,   0xff,   0x41,   0x42,   0x43,   0x44,   // 0x00

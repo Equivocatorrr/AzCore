@@ -1,7 +1,8 @@
 /*
     File: io.hpp
     Author: Philip Haynes
-    Description: Handles keyboard, mouse, joysticks, windows, logging, ect.
+    Description: Handles keyboard, mouse, gamepads/joysticks, windows, logging, ect.
+    TODO: Add raw input support (including gamepads/joysticks)
 */
 #ifndef IO_HPP
 #define IO_HPP
@@ -87,19 +88,22 @@ namespace io {
         Generic window class that can receive events and display an image.  */
     class Window {
         // Opaque type for clean cross-platform implementation
-        struct WindowData *data=nullptr;
-        // logStream cout{logStream("window.log")};
+        struct WindowData *data = nullptr;
     public:
-        bool open=false;
-        bool resized=false;
-        bool focused=true;
-        bool fullscreen=false;
-        u16 width, height;
-        u16 windowedWidth, windowedHeight;
-        i16 x, y;
-        i16 windowedX, windowedY;
-        String name;
-        Input *input=nullptr;
+        bool    open            = false;
+        bool    resized         = false;
+        bool    focused         = true;
+        bool    fullscreen      = false;
+        u16     width           = 1280;
+        u16     height          =  720;
+        u16     windowedWidth   = 1280;
+        u16     windowedHeight  =  720;
+        i16     x               = 0;
+        i16     y               = 0;
+        i16     windowedX       = 0;
+        i16     windowedY       = 0;
+        String  name            = "AzCore";
+        Input  *input           = nullptr;
         Window();
         ~Window();
         bool Open();

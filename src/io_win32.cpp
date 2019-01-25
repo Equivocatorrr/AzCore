@@ -47,16 +47,11 @@ namespace io {
 		HWND window;
 		WNDCLASSEX windowClass;
 		HICON windowIcon, windowIconSmall;
+        String windowClassName;
     };
 
     Window::Window() {
         data = new WindowData;
-        name = "Unnamed";
-        width = 1280;
-        height = 720;
-        windowedWidth = 1280;
-        windowedHeight = 720;
-        screenSize = vec2(1280.0, 720.0);
     }
 
     Window::~Window() {
@@ -232,6 +227,8 @@ namespace io {
         return 0;
     }
 
+    u32 classNum = 0; // Prevent identical windowClasses
+
     bool Window::Open() {
         data->instance = GetModuleHandle(NULL);
         data->windowIcon = LoadIcon(data->instance,"icon.ico");
@@ -246,11 +243,14 @@ namespace io {
         data->windowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
         data->windowClass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
         data->windowClass.lpszMenuName = NULL;
-        data->windowClass.lpszClassName = name.c_str();
+
+        data->windowClassName = "AzCore";
+        data->windowClassName += std::to_string(classNum++);
+        data->windowClass.lpszClassName = data->windowClassName.c_str();
         data->windowClass.hIconSm = data->windowIconSmall;
         if (!RegisterClassEx(&data->windowClass)) {
             error = "Failed to register window class: ";
-            error += GetLastError();
+            error += std::to_string(GetLastError());
             return false;
         }
 
@@ -261,11 +261,11 @@ namespace io {
         rect.bottom = height;
         AdjustWindowRect(&rect,WS_WINDOWED,FALSE);
         focusedWindow = this;
-        data->window = CreateWindowEx(0,name.c_str(),name.c_str(),WS_WINDOWED, CW_USEDEFAULT, CW_USEDEFAULT,
+        data->window = CreateWindowEx(0,data->windowClassName.c_str(),name.c_str(),WS_WINDOWED, CW_USEDEFAULT, CW_USEDEFAULT,
                 rect.right-rect.left, rect.bottom-rect.top, NULL, NULL, data->instance, 0);
         if (data->window==NULL) {
             error = "Failed to create window: ";
-            error += GetLastError();
+            error += std::to_string(GetLastError());
             return false;
         }
         open = true;

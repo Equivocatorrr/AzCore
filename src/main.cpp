@@ -18,24 +18,15 @@ i32 main(i32 argumentCount, char** argumentValues) {
     PrintKeyCodeMapsWinVK(cout);
     PrintKeyCodeMapsWinScan(cout);
 
-    io::Window window, window2;
+    io::Window window;
     io::Input input;
     window.input = &input;
-    window2.input = &input;
     if (!window.Open()) {
         cout << "Failed to open Window: " << io::error << std::endl;
         return 1;
     }
-    if (!window2.Open()) {
-        cout << "Failed to open Window 2: " << io::error << std::endl;
-        return 1;
-    }
     if(!window.Show()) {
         cout << "Failed to show Window: " << io::error << std::endl;
-        return 1;
-    }
-    if(!window2.Show()) {
-        cout << "Failed to show Window 2: " << io::error << std::endl;
         return 1;
     }
     do {
@@ -48,14 +39,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
             cout << "\t" << window.InputName(input.codeAny) << std::endl;
         }
         input.Tick(1.0/60.0);
-    } while (window.Update() && window2.Update());
+    } while (window.Update());
     cout << "Last io::error was \"" << io::error << "\"" << std::endl;
     if (!window.Close()) {
         cout << "Failed to close Window: " << io::error << std::endl;
-        return 1;
-    }
-    if (!window2.Close()) {
-        cout << "Failed to close Window 2: " << io::error << std::endl;
         return 1;
     }
 

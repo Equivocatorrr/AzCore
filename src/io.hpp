@@ -1,46 +1,19 @@
 /*
     File: io.hpp
     Author: Philip Haynes
-    Description: Handles keyboard, mouse, gamepads/joysticks, windows, logging, ect.
+    Description: Handles keyboard, mouse, gamepads/joysticks, windows, ect.
     TODO: Add raw input support (including gamepads/joysticks)
 */
 #ifndef IO_HPP
 #define IO_HPP
 
 #include "common.hpp"
-
-#include <iostream>
-#include <fstream>
+#include "log_stream.hpp"
 
 namespace io {
 
     extern String error;
     extern vec2 screenSize;
-
-    /*  class: out
-    Author: Philip Haynes
-    Use this class to write any and all debugging/status text.
-    Use it the same way you would std::cout.
-    Ex: io::cout << "Say it ain't so!!" << std::endl;
-    Entries in this class will be printed to terminal and a log file.   */
-    class logStream {
-        std::ofstream fstream;
-        bool log; // Whether we're using a log file
-        Mutex mutex;
-    public:
-        logStream();
-        logStream(String logFilename);
-        template<typename T> logStream& operator<<(const T& something) {
-            std::cout << something;
-            if (log)
-                fstream << something;
-            return *this;
-        }
-        typedef std::ostream& (*stream_function)(std::ostream&);
-        logStream& operator<<(stream_function func);
-        void MutexLock();
-        void MutexUnlock();
-    };
 
     extern logStream cout;
 

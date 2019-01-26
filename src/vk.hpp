@@ -38,6 +38,21 @@ namespace vk {
         Type type = UNKNOWN;
     };
 
+    /*  struct: PhysicalDevice
+        Author: Philip Haynes
+        Some kind of GPU which we use to create our logical device  */
+    struct PhysicalDevice{
+        i32 score; // How the device rates for desirability (to choose a logical default)
+        VkPhysicalDevice physicalDevice;
+        VkPhysicalDeviceProperties properties;
+        VkPhysicalDeviceFeatures features;
+        Array<VkExtensionProperties> extensionsAvailable{};
+        Array<VkQueueFamilyProperties> queueFamiliesAvailable{};
+        VkPhysicalDeviceMemoryProperties memoryProperties;
+        bool Initialize(VkInstance instance);
+        bool PrintInfo();
+    };
+
     /*  class: Instance
         Author: Philip Haynes
         More or less the context for the whole renderer.
@@ -52,7 +67,7 @@ namespace vk {
         bool reconfigured = false;
         bool enableLayers = false;
         VkInstance instance;
-        VkDebugReportCallbackEXT callback;
+        VkDebugReportCallbackEXT debugReportCallback;
         VkApplicationInfo appInfo = {
             .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
             .pApplicationName = "AzCore Test",
@@ -65,7 +80,8 @@ namespace vk {
         Array<const char*> extensionsRequired{};
         Array<VkLayerProperties> layersAvailable;
         Array<const char*> layersRequired{};
-        Array<Node> nodes{0}; // Probably don't need this since WE OWN THE WORLD!!!
+
+        Array<PhysicalDevice> physicalDevices{};
     public:
 
         Instance();
@@ -79,8 +95,8 @@ namespace vk {
         // If the instance is active, you must call this for the changes to be effective.
         bool Reconfigure();
 
-        bool CreateAll(); // Constructs the entire tree
-        bool DestroyAll(); // Cleans everything up
+        bool Initialize(); // Constructs the entire tree
+        bool Deinitialize(); // Cleans everything up
     };
 
 }

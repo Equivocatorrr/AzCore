@@ -53,7 +53,49 @@ namespace vk {
         return VK_FALSE;
     }
 
+    bool PhysicalDevice::Initialize(VkInstance instance) {
+        vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+        vkGetPhysicalDeviceFeatures(physicalDevice, &features);
+
+        u32 extensionCount = 0;
+        vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
+        extensionsAvailable.resize(extensionCount);
+        vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, extensionsAvailable.data());
+
+        u32 queueFamiliesCount = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamiliesCount, nullptr);
+        queueFamiliesAvailable.resize(queueFamiliesCount);
+        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamiliesCount, queueFamiliesAvailable.data());
+
+        vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
+
+        score = 0;
+
+        if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+            score += 1000;
+        }
+
+        score += properties.limits.maxImageDimension2D;
+        return true;
+    }
+
+    bool PhysicalDevice::PrintInfo() {
+        cout << "Name: " << properties.deviceName
+            << "\nVulkan: "
+            << VK_VERSION_MAJOR(properties.apiVersion) << "."
+            << VK_VERSION_MINOR(properties.apiVersion) << "."
+            << VK_VERSION_PATCH(properties.apiVersion) << std::endl;
+        u64 deviceLocalMemory = 0;
+        for (u32 i = 0; i < memoryProperties.memoryHeapCount; i++) {
+            if (memoryProperties.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
+                deviceLocalMemory += memoryProperties.memoryHeaps[i].size;
+        }
+        cout << "Memory: " << deviceLocalMemory/1024/1024 << "MB" << std::endl;
+        return true;
+    }
+
     Instance::Instance() {
+        type = INSTANCE;
         u32 extensionCount = 0;
         vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
         extensionsAvailable.resize(extensionCount);
@@ -66,7 +108,7 @@ namespace vk {
 
     Instance::~Instance() {
         if (initted) {
-            if (!DestroyAll()) {
+            if (!Deinitialize()) {
                 cout << "Failed to clean up vk::Instance: " << error << std::endl;
             }
         }
@@ -96,6 +138,8 @@ namespace vk {
     }
 
     bool Instance::AddLayers(Array<const char*> layers) {
+        if (layers.size() > 0)
+            enableLayers = true;
         for (u32 i = 0; i < layers.size(); i++) {
             layersRequired.push_back(layers[i]);
         }
@@ -111,15 +155,15 @@ namespace vk {
             return false;
         }
         if (initted) {
-            if (!DestroyAll())
+            if (!Deinitialize())
                 return false;
-            if (!CreateAll())
+            if (!Initialize())
                 return false;
         }
         return true;
     }
 
-    bool Instance::CreateAll() {
+    bool Instance::Initialize() {
         cout << "--------Initializing Vulkan Tree--------" << std::endl;
         if (initted) {
             error = "Tree is already initialized!";
@@ -176,7 +220,7 @@ namespace vk {
             return false;
         }
         // Create the instance
-        VkInstanceCreateInfo createInfo;
+        VkInstanceCreateInfo createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         createInfo.pApplicationInfo = &appInfo;
         createInfo.enabledExtensionCount = extensionsRequired.size();
@@ -216,15 +260,50 @@ namespace vk {
             debugInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
             debugInfo.pfnCallback = debugCallback;
 
-            result = fpCreateDebugReportCallbackEXT(instance, &debugInfo, nullptr, &callback);
+            result = fpCreateDebugReportCallbackEXT(instance, &debugInfo, nullptr, &debugReportCallback);
         }
+        // Get our list of physical devices
+        u32 physicalDeviceCount = 0;
+        vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, nullptr);
+        if (physicalDeviceCount == 0) {
+            error = "Failed to find GPUs with Vulkan support";
+            vkDestroyInstance(instance, nullptr);
+            return false;
+        }
+        Array<VkPhysicalDevice> devices(physicalDeviceCount);
+        vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, devices.data());
+        // Sort them by score while adding them to our permanent list
+        for (u32 i = 0; i < physicalDeviceCount; i++) {
+            PhysicalDevice temp;
+            temp.physicalDevice = devices[i];
+            if (!temp.Initialize(instance)) {
+                vkDestroyInstance(instance, nullptr);
+                return false;
+            }
+            u32 spot;
+            for (spot = 0; spot < physicalDevices.size(); spot++) {
+                if (temp.score > physicalDevices[spot].score) {
+                    break;
+                }
+            }
+            physicalDevices.insert(physicalDevices.begin() + spot, temp);
+        }
+        cout << "Physical Devices:";
+        for (u32 i = 0; i < physicalDeviceCount; i++) {
+            cout << "\n\tDevice #" << i << "\n";
+            if (!physicalDevices[i].PrintInfo()) {
+                vkDestroyInstance(instance, nullptr);
+                return false;
+            }
+        }
+
         // Tell everything else to initialize here
         // If it fails, clean up the instance.
         initted = true;
         return true;
     }
 
-    bool Instance::DestroyAll() {
+    bool Instance::Deinitialize() {
         cout << "---------Destroying Vulkan Tree---------" << std::endl;
         if (!initted) {
             error = "Tree isn't initialized!";
@@ -232,7 +311,7 @@ namespace vk {
         }
         // Clean up everything else here
         if (enableLayers) {
-            fpDestroyDebugReportCallbackEXT(instance, callback, nullptr);
+            fpDestroyDebugReportCallbackEXT(instance, debugReportCallback, nullptr);
         }
         vkDestroyInstance(instance, nullptr);
         initted = false;

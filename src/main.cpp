@@ -21,7 +21,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     vk::Instance vkInstance;
     vkInstance.AppInfo("AzCore Test Program", 0, 1, 0);
-    if (!vkInstance.CreateAll()) {
+    if (!vkInstance.Initialize()) { // Do this once you've set up the structure of your program.
         cout << "Failed to initialize Vulkan: " << vk::error << std::endl;
     }
     io::Window window;
@@ -50,7 +50,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
         cout << "Failed to close Window: " << io::error << std::endl;
         return 1;
     }
-    if (!vkInstance.DestroyAll()) {
+    if (!vkInstance.Deinitialize()) { // This should be all you need to call to clean everything up
         cout << "Failed to cleanup Vulkan: " << vk::error << std::endl;
     }
     cout << "Last io::error was \"" << io::error << "\"" << std::endl;

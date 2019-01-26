@@ -539,14 +539,17 @@ namespace io {
         resized = false;
         while ((data->event = xcb_poll_for_event(data->connection))) {
             if (!xkbProcessEvent(&data->xkb, (xkb_generic_event_t*)data->event)) {
+                free(data->event);
                 return false;
             }
             u8 keyCode = 0;
             bool press=false, release=false;
             switch (data->event->response_type & ~0x80) {
                 case XCB_CLIENT_MESSAGE: {
-                    if (((xcb_client_message_event_t*)data->event)->data.data32[0] == data->atoms[1])
+                    if (((xcb_client_message_event_t*)data->event)->data.data32[0] == data->atoms[1]) {
+                        free(data->event);
                         return false; // Because this atom was bound to the close button
+                    }
                     break;
                 }
                 case XCB_CONFIGURE_NOTIFY: {

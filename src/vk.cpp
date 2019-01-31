@@ -56,7 +56,7 @@ namespace vk {
         return VK_FALSE;
     }
 
-    bool PhysicalDevice::Initialize(VkInstance instance) {
+    bool PhysicalDevice::Init(VkInstance instance) {
         vkGetPhysicalDeviceProperties(physicalDevice, &properties);
         vkGetPhysicalDeviceFeatures(physicalDevice, &features);
 
@@ -130,7 +130,7 @@ namespace vk {
 
     Instance::~Instance() {
         if (initted) {
-            if (!Deinitialize()) {
+            if (!Deinit()) {
                 cout << "Failed to clean up vk::Instance: " << error << std::endl;
             }
         }
@@ -182,15 +182,15 @@ namespace vk {
             return false;
         }
         if (initted) {
-            if (!Deinitialize())
+            if (!Deinit())
                 return false;
-            if (!Initialize())
+            if (!Init())
                 return false;
         }
         return true;
     }
 
-    bool Instance::Initialize() {
+    bool Instance::Init() {
         cout << "--------Initializing Vulkan Tree--------" << std::endl;
         if (initted) {
             error = "Tree is already initialized!";
@@ -313,7 +313,7 @@ namespace vk {
         for (u32 i = 0; i < physicalDeviceCount; i++) {
             PhysicalDevice temp;
             temp.physicalDevice = devices[i];
-            if (!temp.Initialize(instance)) {
+            if (!temp.Init(instance)) {
                 vkDestroyInstance(instance, nullptr);
                 return false;
             }
@@ -340,7 +340,7 @@ namespace vk {
         return true;
     }
 
-    bool Instance::Deinitialize() {
+    bool Instance::Deinit() {
         cout << "---------Destroying Vulkan Tree---------" << std::endl;
         if (!initted) {
             error = "Tree isn't initialized!";

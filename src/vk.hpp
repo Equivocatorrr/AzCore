@@ -30,7 +30,6 @@ namespace vk {
     enum Type {
         UNKNOWN=0,
         INSTANCE,
-        PHYSICAL_DEVICE,
         LOGICAL_DEVICE,
     };
 
@@ -53,7 +52,7 @@ namespace vk {
         Array<VkExtensionProperties> extensionsAvailable{};
         Array<VkQueueFamilyProperties> queueFamiliesAvailable{};
         VkPhysicalDeviceMemoryProperties memoryProperties;
-        bool Initialize(VkInstance instance);
+        bool Init(VkInstance instance);
         bool PrintInfo(VkSurfaceKHR surface=0, bool checkSurface=false);
     };
 
@@ -67,6 +66,9 @@ namespace vk {
         PhysicalDevice physicalDevice;
         VkDevice device;
         // TODO: What am I doing here again?
+    public:
+        bool Init(VkInstance inst);
+        bool Deinit();
     };
 
     /*  class: Instance
@@ -116,8 +118,8 @@ namespace vk {
         // If the instance is active, you must call this for the changes to be effective.
         bool Reconfigure();
 
-        bool Initialize(); // Constructs the entire tree
-        bool Deinitialize(); // Cleans everything up
+        bool Init(); // Constructs the entire tree
+        bool Deinit(); // Cleans everything up
     };
 
 }

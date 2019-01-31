@@ -16,6 +16,10 @@
 #include "common.hpp"
 #include <vulkan/vulkan.h>
 
+namespace io {
+    class Window;
+}
+
 namespace vk {
 
     extern String error;
@@ -41,7 +45,7 @@ namespace vk {
     /*  struct: PhysicalDevice
         Author: Philip Haynes
         Some kind of GPU which we use to create our logical device  */
-    struct PhysicalDevice{
+    struct PhysicalDevice {
         i32 score; // How the device rates for desirability (to choose a logical default)
         VkPhysicalDevice physicalDevice;
         VkPhysicalDeviceProperties properties;
@@ -50,7 +54,19 @@ namespace vk {
         Array<VkQueueFamilyProperties> queueFamiliesAvailable{};
         VkPhysicalDeviceMemoryProperties memoryProperties;
         bool Initialize(VkInstance instance);
-        bool PrintInfo();
+        bool PrintInfo(VkSurfaceKHR surface=0, bool checkSurface=false);
+    };
+
+    /*  class: LogicalDevice
+        Author: Philip Haynes
+        Our interface to actually use our physical GPUs to do work  */
+    class LogicalDevice : public Node {
+        bool initted = false;
+        bool reconfigured = false;
+        VkInstance instance;
+        PhysicalDevice physicalDevice;
+        VkDevice device;
+        // TODO: What am I doing here again?
     };
 
     /*  class: Instance
@@ -59,6 +75,7 @@ namespace vk {
         Manages the state of everything else in this toolkit.
         Used as a top-level control of all of the tasks created for it to execute.  */
     class Instance : public Node {
+        friend io::Window;
         PFN_vkCreateDebugReportCallbackEXT
             fpCreateDebugReportCallbackEXT;
         PFN_vkDestroyDebugReportCallbackEXT
@@ -67,6 +84,9 @@ namespace vk {
         bool reconfigured = false;
         bool enableLayers = false;
         VkInstance instance;
+        io::Window *surfaceWindow = nullptr;
+        VkSurfaceKHR surface;
+        bool useSurface = false;
         VkDebugReportCallbackEXT debugReportCallback;
         VkApplicationInfo appInfo = {
             .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -89,6 +109,7 @@ namespace vk {
 
         // Configuring functions
         bool AppInfo(const char *name, u32 versionMajor, u32 versionMinor, u32 versionPatch);
+        bool SetWindowForSurface(io::Window *window);
         bool AddExtensions(Array<const char*> extensions);
         bool AddLayers(Array<const char*> layers);
 

@@ -4,9 +4,14 @@
 */
 
 #include "io.hpp"
+#ifdef IO_FOR_VULKAN
+    #include "vk.hpp"
+#endif
 
 // To use GLX, you need Xlib, but for Vulkan you can just use xcb
-#define IO_NO_XLIB
+#ifdef IO_FOR_VULKAN
+    #define IO_NO_XLIB
+#endif
 
 #include <xcb/xcb.h>
 #ifndef IO_NO_XLIB
@@ -311,6 +316,24 @@ namespace io {
         }
         delete data;
     }
+
+#ifdef IO_FOR_VULKAN
+    bool Window::CreateVkSurface(vk::Instance *instance, VkSurfaceKHR *surface) {
+        if (!open) {
+            error = "CreateVkSurface was called before the window was created!";
+            return false;
+        }
+        VkXcbSurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
+        createInfo.connection = data->connection;
+        createInfo.window = data->window;
+        VkResult result = vkCreateXcbSurfaceKHR(instance->instance, &createInfo, nullptr, surface);
+		if (result != VK_SUCCESS) {
+			error = "Failed to create XCB surface!";
+            return false;
+		}
+        return true;
+    }
+#endif
 
 #ifndef IO_NO_XLIB
     #define CLOSE_CONNECTION(data) XCloseDisplay(data->display)

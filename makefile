@@ -9,7 +9,7 @@ CC=g++
 WCC=i686-w64-mingw32-g++
 WRC=i686-w64-mingw32-windres $(SDIR)/resources.rc -O coff
 RCFLAGS=-I $(IDIR)
-CFLAGS=-I$(IDIR) -Wall -std=c++17 -fsingle-precision-constant
+CFLAGS=-I$(IDIR) -Wall -std=c++17 -fsingle-precision-constant -DIO_FOR_VULKAN
 LCFLAGS=-Wl,-z,origin -Wl,-rpath,'$$ORIGIN/lib'
 WCFLAGS=-D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -static -lpthread
 

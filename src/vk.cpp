@@ -3,6 +3,9 @@
     Author: Philip Haynes
 */
 #include "vk.hpp"
+#ifdef IO_FOR_VULKAN
+    #include "io.hpp"
+#endif
 #include "log_stream.hpp"
 #include <cstring>
 
@@ -79,18 +82,37 @@ namespace vk {
         return true;
     }
 
-    bool PhysicalDevice::PrintInfo() {
+    bool PhysicalDevice::PrintInfo(VkSurfaceKHR surface, bool checkSurface) {
+        // Basic info
         cout << "Name: " << properties.deviceName
             << "\nVulkan: "
             << VK_VERSION_MAJOR(properties.apiVersion) << "."
             << VK_VERSION_MINOR(properties.apiVersion) << "."
             << VK_VERSION_PATCH(properties.apiVersion) << std::endl;
+        // Memory
         u64 deviceLocalMemory = 0;
         for (u32 i = 0; i < memoryProperties.memoryHeapCount; i++) {
             if (memoryProperties.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
                 deviceLocalMemory += memoryProperties.memoryHeaps[i].size;
         }
         cout << "Memory: " << deviceLocalMemory/1024/1024 << "MB" << std::endl;
+        // Queue families
+        cout << "Queue Families:";
+        for (u32 i = 0; i < queueFamiliesAvailable.size(); i++) {
+            const VkQueueFamilyProperties &props = queueFamiliesAvailable[i];
+            cout << "\n\tFamily[" << i << "] Queue count: " << props.queueCount
+                << "\tSupports: "
+                << ((props.queueFlags & VK_QUEUE_COMPUTE_BIT) ? "COMPUTE " : "")
+                << ((props.queueFlags & VK_QUEUE_GRAPHICS_BIT) ? "GRAPHICS " : "")
+                << ((props.queueFlags & VK_QUEUE_TRANSFER_BIT) ? "TRANSFER " : "");
+            if (checkSurface) {
+                VkBool32 presentSupport = false;
+                vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport);
+                if (presentSupport)
+                    cout << "PRESENT";
+            }
+        }
+        cout << std::endl;
         return true;
     }
 
@@ -124,6 +146,11 @@ namespace vk {
             cout << "Warning: vk::Instance::AppInfo should be used before initializing." << std::endl;
             reconfigured = true;
         }
+        return true;
+    }
+
+    bool Instance::SetWindowForSurface(io::Window *window) {
+        useSurface = ((surfaceWindow = window) != nullptr);
         return true;
     }
 
@@ -169,27 +196,27 @@ namespace vk {
             error = "Tree is already initialized!";
             return false;
         }
+        // Put together all needed extensions.
+        Array<const char*> extensionsAll(extensionsRequired);
         if (enableLayers) {
-            bool needToAdd = true;
-            /* Since we might call CreateAll multiple times we
-               should avoid adding this extension multiple times. */
-            for (u32 i = extensionsRequired.size()-1; i >= 0; i--) {
-                if (strcmp(extensionsRequired[i], VK_EXT_DEBUG_REPORT_EXTENSION_NAME) == 0) {
-                    needToAdd = false;
-                    break;
-                }
-            }
-            if (needToAdd) {
-                extensionsRequired.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
-            }
+            extensionsAll.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+        }
+        if (useSurface) {
+            extensionsAll.push_back("VK_KHR_surface");
+#ifdef __unix
+            extensionsAll.push_back("VK_KHR_xcb_surface");
+#elif defined(_WIN32)
+            extensionsAll.push_back("VK_KHR_win32_surface");
+#endif
         }
         // Check required extensions
-        Array<const char*> extensionsUnavailable(extensionsRequired);
-        for (u32 i = 0; i < extensionsAvailable.size(); i++) {
-            for (u32 j = 0; j < extensionsRequired.size(); j++) {
-                if (strcmp(extensionsRequired[j], extensionsAvailable[i].extensionName) == 0) {
+        Array<const char*> extensionsUnavailable(extensionsAll);
+        for (i32 i = 0; i < (i32)extensionsUnavailable.size(); i++) {
+            for (i32 j = 0; j < (i32)extensionsAvailable.size(); j++) {
+                if (strcmp(extensionsUnavailable[i], extensionsAvailable[j].extensionName) == 0) {
                     extensionsUnavailable.erase(extensionsUnavailable.begin() + i);
                     i--;
+                    break;
                 }
             }
         }
@@ -223,8 +250,8 @@ namespace vk {
         VkInstanceCreateInfo createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         createInfo.pApplicationInfo = &appInfo;
-        createInfo.enabledExtensionCount = extensionsRequired.size();
-        createInfo.ppEnabledExtensionNames = extensionsRequired.data();
+        createInfo.enabledExtensionCount = extensionsAll.size();
+        createInfo.ppEnabledExtensionNames = extensionsAll.data();
 
         if (enableLayers) {
             createInfo.enabledLayerCount = layersRequired.size();
@@ -262,6 +289,16 @@ namespace vk {
 
             result = fpCreateDebugReportCallbackEXT(instance, &debugInfo, nullptr, &debugReportCallback);
         }
+        // Create a surface if we want one
+#ifdef IO_FOR_VULKAN
+        if (useSurface) {
+            if (!surfaceWindow->CreateVkSurface(this, &surface)) {
+                error = "Failed to CreateVkSurface!";
+                vkDestroyInstance(instance, nullptr);
+                return false;
+            }
+        }
+#endif
         // Get our list of physical devices
         u32 physicalDeviceCount = 0;
         vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, nullptr);
@@ -291,7 +328,7 @@ namespace vk {
         cout << "Physical Devices:";
         for (u32 i = 0; i < physicalDeviceCount; i++) {
             cout << "\n\tDevice #" << i << "\n";
-            if (!physicalDevices[i].PrintInfo()) {
+            if (!physicalDevices[i].PrintInfo(surface, useSurface)) {
                 vkDestroyInstance(instance, nullptr);
                 return false;
             }

@@ -7,8 +7,21 @@
 #ifndef IO_HPP
 #define IO_HPP
 
+#ifdef IO_FOR_VULKAN
+    #ifdef __unix
+        #define VK_USE_PLATFORM_XCB_KHR
+    #elif defined(_WIN32)
+        #define VK_USE_PLATFORM_WIN32_KHR
+    #endif
+    #include <vulkan/vulkan.h>
+#endif
+
 #include "common.hpp"
 #include "log_stream.hpp"
+
+namespace vk {
+    class Instance;
+}
 
 namespace io {
 
@@ -60,8 +73,12 @@ namespace io {
         Author: Philip Haynes
         Generic window class that can receive events and display an image.  */
     class Window {
+        friend vk::Instance;
         // Opaque type for clean cross-platform implementation
         struct WindowData *data = nullptr;
+#ifdef IO_FOR_VULKAN
+        bool CreateVkSurface(vk::Instance *instance, VkSurfaceKHR *surface);
+#endif
     public:
         bool    open            = false;
         bool    resized         = false;

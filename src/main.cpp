@@ -21,14 +21,16 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     vk::Instance vkInstance;
     vkInstance.AppInfo("AzCore Test Program", 0, 1, 0);
-    if (!vkInstance.Initialize()) { // Do this once you've set up the structure of your program.
-        cout << "Failed to initialize Vulkan: " << vk::error << std::endl;
-    }
     io::Window window;
     io::Input input;
     window.input = &input;
     if (!window.Open()) {
         cout << "Failed to open Window: " << io::error << std::endl;
+        return 1;
+    }
+    vkInstance.SetWindowForSurface(&window);
+    if (!vkInstance.Initialize()) { // Do this once you've set up the structure of your program.
+        cout << "Failed to initialize Vulkan: " << vk::error << std::endl;
         return 1;
     }
     if(!window.Show()) {

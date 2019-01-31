@@ -57,10 +57,10 @@ namespace vk {
         bool PrintInfo(VkSurfaceKHR surface=0, bool checkSurface=false);
     };
 
-    /*  class: LogicalDevice
+    /*  class: Device
         Author: Philip Haynes
         Our interface to actually use our physical GPUs to do work  */
-    class LogicalDevice : public Node {
+    class Device : public Node {
         bool initted = false;
         bool reconfigured = false;
         VkInstance instance;

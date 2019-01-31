@@ -347,6 +347,11 @@ namespace vk {
             return false;
         }
         // Clean up everything else here
+#ifdef IO_FOR_VULKAN
+        if (useSurface) {
+            vkDestroySurfaceKHR(instance, surface, nullptr);
+        }
+#endif
         if (enableLayers) {
             fpDestroyDebugReportCallbackEXT(instance, debugReportCallback, nullptr);
         }

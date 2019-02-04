@@ -121,6 +121,21 @@ T clamp(T a, T b, T c) {
 }
 
 template<typename T>
+T angleDiff(T from, T to) {
+    T diff = to - from;
+    while (diff >= pi)
+        diff -= tau;
+    while (diff < -pi)
+        diff += tau;
+    return diff;
+}
+
+template<typename T> inline
+T angleDir(T from, T to) {
+    return angleDiff(from, to) >= 0 ? 1 : -1;
+}
+
+template<typename T>
 struct mat2_t {
     union {
         struct {

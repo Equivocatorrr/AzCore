@@ -2,7 +2,9 @@
     File: math.hpp
     Author: Philip Haynes
     Description: Common math routines and data types.
-    Note: Vector math is right-handed.
+    Notes:
+        - Vector math is right-handed.
+        - Be aware of memory alignment when dealing with GPU memory.
 */
 #ifndef MATH_HPP
 #define MATH_HPP
@@ -703,12 +705,19 @@ struct mat4_t {
             h.x1 * a.v.x1 + h.y1 * a.v.y1 + h.z1 * a.v.z1 + h.w1 * a.v.w1,
             h.x1 * a.v.x2 + h.y1 * a.v.y2 + h.z1 * a.v.z2 + h.w1 * a.v.w2,
             h.x1 * a.v.x3 + h.y1 * a.v.y3 + h.z1 * a.v.z3 + h.w1 * a.v.w3,
+            h.x1 * a.v.x4 + h.y1 * a.v.y4 + h.z1 * a.v.z4 + h.w1 * a.v.w4,
             h.x2 * a.v.x1 + h.y2 * a.v.y1 + h.z2 * a.v.z1 + h.w2 * a.v.w1,
             h.x2 * a.v.x2 + h.y2 * a.v.y2 + h.z2 * a.v.z2 + h.w2 * a.v.w2,
             h.x2 * a.v.x3 + h.y2 * a.v.y3 + h.z2 * a.v.z3 + h.w2 * a.v.w3,
+            h.x2 * a.v.x4 + h.y2 * a.v.y4 + h.z2 * a.v.z4 + h.w2 * a.v.w4,
             h.x3 * a.v.x1 + h.y3 * a.v.y1 + h.z3 * a.v.z1 + h.w3 * a.v.w1,
             h.x3 * a.v.x2 + h.y3 * a.v.y2 + h.z3 * a.v.z2 + h.w3 * a.v.w2,
-            h.x3 * a.v.x3 + h.y3 * a.v.y3 + h.z3 * a.v.z3 + h.w3 * a.v.w3
+            h.x3 * a.v.x3 + h.y3 * a.v.y3 + h.z3 * a.v.z3 + h.w3 * a.v.w3,
+            h.x3 * a.v.x4 + h.y3 * a.v.y4 + h.z3 * a.v.z4 + h.w3 * a.v.w4,
+            h.x4 * a.v.x1 + h.y4 * a.v.y1 + h.z4 * a.v.z1 + h.w4 * a.v.w1,
+            h.x4 * a.v.x2 + h.y4 * a.v.y2 + h.z4 * a.v.z2 + h.w4 * a.v.w2,
+            h.x4 * a.v.x3 + h.y4 * a.v.y3 + h.z4 * a.v.z3 + h.w4 * a.v.w3,
+            h.x4 * a.v.x4 + h.y4 * a.v.y4 + h.z4 * a.v.z4 + h.w4 * a.v.w4
         );
     }
     inline vec4_t<T> operator*(const vec4_t<T>& a) const {
@@ -766,8 +775,65 @@ struct quat_t {
     quat_t() : data{1, 0, 0, 0} {}
     quat_t(T a) : data{a, 0, 0, 0} {}
     quat_t(T a, vec3_t<T> v) : scalar(a), vector(v) {}
+    quat_t(vec4_t<T> v) : wxyz(v) {}
     quat_t(T a, T b, T c, T d) : w(a), x(b), y(c), z(d) {}
     quat_t(T d[4]) : data{d} {}
+
+    inline quat_t<T> operator*(const quat_t<T>& a) const {
+        return quat_t<T>(
+            w*a.w - x*a.x - y*a.y - z*a.z,
+            w*a.x + x*a.w + y*a.z - z*a.y,
+            w*a.y - x*a.z + y*a.w + z*a.x,
+            w*a.z + x*a.y - y*a.x + z*a.w
+        );
+    }
+    inline quat_t<T> operator/(const T& a) const {
+        return quat_t<T>(wxyz/a);
+    }
+    inline quat_t<T> Conjugate() const {
+        return quat_t<T>(scalar, -vector);
+    }
+    inline T Norm() const {
+        return length(wxyz);
+    }
+    inline quat_t<T> Reciprocal() const {
+        return Conjugate() / square(Norm()); // For unit quaternions just use Conjugate()
+    }
+    // Make a rotation quaternion
+    static inline quat_t<T> Rotation(const T& angle, const vec3_t<T>& axis) {
+        return quat_t<T>(cos(angle/2.0), normalize(axis) * sin(angle/2.0));
+    }
+    // A one-off rotation of a point
+    static vec3_t<T> RotatePoint(vec3_t<T> point, T angle, vec3_t<T> axis) {
+        quat_t<T> rot = Rotation(angle, axis);
+        rot = rot * quat_t<T>(T(0), point) * rot.Conjugate();
+        return rot.vector;
+    }
+    // Using this quaternion for a one-off rotation of a point
+    vec3_t<T> RotatePoint(vec3_t<T> point) const {
+        return ((*this) * quat_t<T>(T(0), point) * Conjugate()).vector;
+    }
+    // Rotating this quaternion about an axis
+    quat_t<T> Rotate(T angle, vec3_t<T> axis) const {
+        quat_t<T> rot = Rotation(angle, axis);
+        return rot * (*this) * rot.Conjugate();
+    }
+    // Rotate this quaternion by using a specified rotation quaternion
+    quat_t<T> Rotate(quat_t<T> rotation) const {
+        return rotation * (*this) * rotation.Conjugate();
+    }
+    // Convert this rotation quaternion into a matrix
+    inline mat3_t<T> ToMatrix() const {
+        const T ir = w*x, jr = w*y, kr = w*z,
+                ii = x*x, ij = x*y, ik = x*z,
+                jj = y*y, jk = y*z,
+                kk = z*z;
+        return mat3_t<T>(
+            1-2*(jj+kk),      2*(ij-kr),      2*(ik+jr),
+              2*(ij+kr),    1-2*(ii+kk),      2*(jk-ir),
+              2*(ik-jr),      2*(jk+ir),    1-2*(ii+jj)
+        );
+    }
 };
 
 typedef vec2_t<f32> vec2;
@@ -790,5 +856,8 @@ typedef mat3_t<f64> mat3d;
 
 typedef mat4_t<f32> mat4;
 typedef mat4_t<f64> mat4d;
+
+typedef quat_t<f32> quat;
+typedef quat_t<f64> quatd;
 
 #endif

@@ -197,6 +197,29 @@ void UnitTestQuat(io::logStream& cout) {
     Print(m2 * m, cout);
 }
 
+void UnitTestSlerp(io::logStream& cout) {
+    cout << "Unit testing slerp:\n";
+    quat a(0.0, 1.0, 0.0, 0.0);
+    quat b(0.0, 0.0, 1.0, 0.0);
+    cout << "With a = ";
+    Print(a.wxyz, cout);
+    cout << " and x = ";
+    Print(b.wxyz, cout);
+    cout << "\nslerp(a,b,-1.0) = ";
+    Print(slerp(a,b,-1.0).wxyz, cout);
+    cout << "\nslerp(a,b,0.0) = ";
+    Print(slerp(a,b,0.0).wxyz, cout);
+    cout << "\nslerp(a,b,1/3) = ";
+    Print(slerp(a,b,1.0/3.0).wxyz, cout);
+    cout << "\nslerp(a,b,0.5) = ";
+    Print(slerp(a,b,0.5).wxyz, cout);
+    cout << "\nslerp(a,b,1.0) = ";
+    Print(slerp(a,b,1.0).wxyz, cout);
+    cout << "\nslerp(a,b,2.0) = ";
+    Print(slerp(a,b,2.0).wxyz, cout);
+    cout << std::endl;
+}
+
 i32 main(i32 argumentCount, char** argumentValues) {
     io::logStream cout("test.log");
 
@@ -240,6 +263,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
             UnitTestMat3(cout);
             UnitTestMat4(cout);
             UnitTestQuat(cout);
+            UnitTestSlerp(cout);
         }
         input.Tick(1.0/60.0);
     } while (window.Update());

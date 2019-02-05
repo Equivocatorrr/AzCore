@@ -147,6 +147,56 @@ void UnitTestMat4(io::logStream& cout) {
     Print(m.Transpose(), cout);
 }
 
+void UnitTestQuat(io::logStream& cout) {
+    cout << "Unit testing quaternions\n";
+    quat q;
+    cout << "Rotation(pi/4, {1.0, 0.0, 0.0}):\n";
+    q = quat::Rotation(pi/4.0, {1.0, 0.0, 0.0});
+    Print(q.wxyz, cout);
+    cout << std::endl;
+    Print(q.ToMatrix(), cout);
+    cout << "Rotation(pi/4, {0.0, 1.0, 0.0}):\n";
+    q = quat::Rotation(pi/4.0, {0.0, 1.0, 0.0});
+    Print(q.wxyz, cout);
+    cout << std::endl;
+    Print(q.ToMatrix(), cout);
+    cout << "Rotation(pi/4, {0.0, 0.0, 1.0}):\n";
+    q = quat::Rotation(pi/4.0, {0.0, 0.0, 1.0});
+    Print(q.wxyz, cout);
+    cout << std::endl;
+    Print(q.ToMatrix(), cout);
+    cout << "Multiplying two pi/2 rotations on different axes:\nq1: ";
+    mat3 m = mat3::Rotation(pi/2.0, {1.0, 0.0, 0.0});
+    q = quat::Rotation(pi/2.0, {1.0, 0.0, 0.0});
+    Print(q.wxyz, cout);
+    cout << "\nToMatrix():\n";
+    Print(q.ToMatrix(), cout);
+    cout << "Control Matrix:\n";
+    Print(m, cout);
+    cout << "q2: ";
+    mat3 m2 = mat3::Rotation(pi/2.0, {0.0, 1.0, 0.0});
+    quat q2 = quat::Rotation(pi/2.0, {0.0, 1.0, 0.0});
+    Print(q2.wxyz, cout);
+    cout << "\nToMatrix():\n";
+    Print(q2.ToMatrix(), cout);
+    cout << "Control Matrix:\n";
+    Print(m2, cout);
+    cout << "q1*q2: ";
+    quat q3 = q * q2;
+    Print(q3.wxyz, cout);
+    cout << "\nToMatrix():\n";
+    Print(q3.ToMatrix(), cout);
+    cout << "Control Matrix:\n";
+    Print(m * m2, cout);
+    cout << "q2*q1: ";
+    q3 = q2 * q;
+    Print(q3.wxyz, cout);
+    cout << "\nToMatrix():\n";
+    Print(q3.ToMatrix(), cout);
+    cout << "Control Matrix:\n";
+    Print(m2 * m, cout);
+}
+
 i32 main(i32 argumentCount, char** argumentValues) {
     io::logStream cout("test.log");
 
@@ -187,7 +237,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
             cout << "\t" << window.InputName(input.codeAny) << std::endl;
         }
         if (input.Pressed(KC_KEY_T)) {
+            UnitTestMat3(cout);
             UnitTestMat4(cout);
+            UnitTestQuat(cout);
         }
         input.Tick(1.0/60.0);
     } while (window.Update());

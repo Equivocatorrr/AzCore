@@ -203,7 +203,7 @@ void UnitTestSlerp(io::logStream& cout) {
     quat b(0.0, 0.0, 1.0, 0.0);
     cout << "With a = ";
     Print(a.wxyz, cout);
-    cout << " and x = ";
+    cout << " and b = ";
     Print(b.wxyz, cout);
     cout << "\nslerp(a,b,-1.0) = ";
     Print(slerp(a,b,-1.0).wxyz, cout);

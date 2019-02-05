@@ -92,6 +92,7 @@ namespace vk {
         VkDebugReportCallbackEXT debugReportCallback;
         VkApplicationInfo appInfo = {
             .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+            .pNext = nullptr,
             .pApplicationName = "AzCore Test",
             .applicationVersion = 1,
             .pEngineName = "AzCore",

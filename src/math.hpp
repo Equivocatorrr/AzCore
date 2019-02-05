@@ -465,7 +465,13 @@ struct vec4_t {
             T x, y, z, w;
         };
         struct {
+            vec3_t<T> xyz;
+        };
+        struct {
             T r, g, b, a;
+        };
+        struct {
+            vec3_t<T> rgb;
         };
         struct {
             T data[4];
@@ -737,6 +743,31 @@ struct mat4_t {
             h.x4/a + h.y4/a + h.z4/a + h.w4/a
         );
     }
+};
+
+template<typename T>
+struct quat_t {
+    union {
+        struct {
+            T w, x, y, z;
+        };
+        struct {
+            T scalar;
+            vec3_t<T> vector;
+        };
+        struct {
+            vec4_t<T> wxyz;
+        };
+        struct {
+            T data[4];
+        };
+    };
+
+    quat_t() : data{1, 0, 0, 0} {}
+    quat_t(T a) : data{a, 0, 0, 0} {}
+    quat_t(T a, vec3_t<T> v) : scalar(a), vector(v) {}
+    quat_t(T a, T b, T c, T d) : w(a), x(b), y(c), z(d) {}
+    quat_t(T d[4]) : data{d} {}
 };
 
 typedef vec2_t<f32> vec2;

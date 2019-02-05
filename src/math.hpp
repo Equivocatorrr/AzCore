@@ -787,8 +787,17 @@ struct quat_t {
             w*a.z + x*a.y - y*a.x + z*a.w
         );
     }
+    inline quat_t<T> operator*(const T& a) const {
+        return quat_t<T>(wxyz*a);
+    }
     inline quat_t<T> operator/(const T& a) const {
         return quat_t<T>(wxyz/a);
+    }
+    inline quat_t<T> operator-(const quat_t<T>& a) const {
+        return quat_t<T>(wxyz-a.wxyz);
+    }
+    inline quat_t<T> operator+(const quat_t<T>& a) const {
+        return quat_t<T>(wxyz+a.wxyz);
     }
     inline quat_t<T> Conjugate() const {
         return quat_t<T>(scalar, -vector);
@@ -835,6 +844,30 @@ struct quat_t {
         );
     }
 };
+
+template<typename T>
+inline quat_t<T> normalize(const quat_t<T>& a) {
+    return a / a.Norm();
+}
+
+template<typename T>
+quat_t<T> slerp(quat_t<T> a, quat_t<T> b, T factor) {
+    a = normalize(a);
+    b = normalize(b);
+    T d = dot(a.vector, b.vector);
+    if (d < 0.0) {
+        b = -b.wxyz;
+        d *= -1.0;
+    }
+    const T threshold = 0.999;
+    if (d > threshold) {
+        return normalize(a + (b-a)*factor);
+    }
+    T thetaMax = acos(d);
+    T theta = thetaMax*factor;
+    T base = sin(theta) / sin(thetaMax);
+    return a*(cos(theta) - d*base) + b*base;
+}
 
 typedef vec2_t<f32> vec2;
 typedef vec2_t<f64> vec2d;

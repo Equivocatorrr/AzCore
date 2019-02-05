@@ -20,9 +20,9 @@ enum Axis {
 };
 
 enum Plane {
-    XY,     XZ,     XW,
-    YX=XY,  YZ,     YW,
-    ZX=XZ,  ZY=YZ,  ZW
+    XY=0,   XZ=1,   XW=2,
+    YX=XY,  YZ=3,   YW=4,
+    ZX=XZ,  ZY=YZ,  ZW=5
 };
 
 inline f32 cos(const f32& a) { return cosf(a); }
@@ -378,6 +378,7 @@ struct mat3_t {
                 );
             }
         }
+        return mat3_t<T>();
     }
     inline mat3_t<T> RotateBasic(const T& angle, const Axis& axis) const {
         return mat3_t<T>::RotationBasic(angle, axis) * (*this);
@@ -610,7 +611,7 @@ struct mat4_t {
                 return mat4_t<T>(
                     T(1), T(0), T(0), T(0),
                     T(0), T(1), T(0), T(0),
-                    T(0), T(0), c     -s,
+                    T(0), T(0), c,    -s,
                     T(0), T(0), s,    c
                 );
             }
@@ -631,6 +632,7 @@ struct mat4_t {
                 );
             }
         }
+        return mat4_t<T>();
     }
     // For using 3D-axis rotations
     static mat4_t<T> RotationBasic(T angle, Axis axis) {
@@ -645,6 +647,7 @@ struct mat4_t {
                 return RotationBasic(angle, Plane::ZW);
             }
         }
+        return mat4_t<T>();
     }
     inline mat4_t<T> RotateBasic(const T& angle, const Plane& plane) const {
         return mat4_t<T>::RotationBasic(angle, plane) * (*this);
@@ -653,24 +656,24 @@ struct mat4_t {
         return mat4_t<T>::RotationBasic(angle, axis) * (*this);
     }
     // Useful for arbitrary 3D-axes
-    static mat4_t<T> Rotation(T angle, vec4_t<T> axis) {
+    static mat4_t<T> Rotation(T angle, vec3_t<T> axis) {
         T s = sin(angle), c = cos(angle);
         T ic = 1-c;
-        vec4_t<T> a = normalize(axis);
+        vec3_t<T> a = normalize(axis);
         T xx = square(a.x), yy = square(a.y), zz = square(a.z),
             xy = a.x*a.y,     xz = a.x*a.z,     yz = a.y*a.z;
         return mat4_t<T>(
             c + xx*ic,          xy*ic - a.z*s,      xz*ic + a.y*s,  T(0),
             xy*ic + a.z*s,      c + yy*ic,          yz*ic - a.x*s,  T(0),
-            xz*ic - a.y*s,      yz*ic + a.x*s,      c + zz*ic,       T(0),
+            xz*ic - a.y*s,      yz*ic + a.x*s,      c + zz*ic,      T(0),
             T(0),               T(0),               T(0),           T(1)
         );
     }
-    inline mat4_t<T> Rotate(const T& angle, const vec4_t<T> axis) const {
+    inline mat4_t<T> Rotate(const T& angle, const vec3_t<T> axis) const {
         return mat4_t<T>::Rotation(angle, axis) * (*this);
     }
     static mat4_t<T> Scaler(vec4_t<T> scale) {
-        return mat4_t<T>(scale.x, T(0), T(0), T(0), T(0), scale.y, T(0), T(0), T(0), T(0), scale.z, T(0), T(0), T(0), scale.w);
+        return mat4_t<T>(scale.x, T(0), T(0), T(0), T(0), scale.y, T(0), T(0), T(0), T(0), scale.z, T(0), T(0), T(0), T(0), scale.w);
     }
     inline mat4_t<T> Scale(const vec4_t<T>& scale) const {
         return mat4_t<T>::Scaler(scale) * (*this);

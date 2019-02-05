@@ -18,7 +18,6 @@
     #include <X11/Xlib.h>
     #include <X11/Xlib-xcb.h>
 #endif
-#include <xcb/xcb_errors.h>
 #include <xcb/xproto.h>
 #include <linux/input.h>
 #include <xkbcommon/xkbcommon.h>
@@ -294,7 +293,6 @@ namespace io {
         Display *display;
 #endif
         xcb_connection_t* connection;
-        xcb_errors_context_t *xcb_errors;
         xcb_colormap_t colormap;
         i32 visualID;
         xcb_window_t window;
@@ -368,11 +366,6 @@ namespace io {
             return false;
         }
 #endif
-        if (xcb_errors_context_new(data->connection, &data->xcb_errors) == -1) {
-            CLOSE_CONNECTION(data);
-            error = "Can't get xcb_errors context";
-            return false;
-        }
 
         /* Find XCB screen */
         data->screen = 0;
@@ -394,7 +387,6 @@ namespace io {
         }
 
         if (!depth) {
-            xcb_errors_context_free(data->xcb_errors);
             CLOSE_CONNECTION(data);
             error = "Screen doesn't support ";
             error += std::to_string(data->windowDepth);
@@ -414,7 +406,6 @@ namespace io {
         }
 
         if (!visual) {
-            xcb_errors_context_free(data->xcb_errors);
             CLOSE_CONNECTION(data);
             error = "Screen doesn't support True Color";
             return false;
@@ -428,10 +419,7 @@ namespace io {
 
 
         if (xcb_generic_error_t *err = xcb_request_check(data->connection, cookie)) {
-            const char *extension;
-            error = "Failed to create colormap: ";
-            error += xcb_errors_get_name_for_error(data->xcb_errors, err->error_code, &extension);
-            xcb_errors_context_free(data->xcb_errors);
+            error = "Failed to create colormap: " + std::to_string(err->error_code);
             CLOSE_CONNECTION(data);
             return false;
         }
@@ -447,10 +435,7 @@ namespace io {
         data->window = xcb_generate_id(data->connection);
         cookie = xcb_create_window_checked(data->connection, data->windowDepth, data->window, data->screen->root, x, y, width, height, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, data->visualID, mask, values);
         if (xcb_generic_error_t *err = xcb_request_check(data->connection, cookie)) {
-            const char *extension;
-            error = "Error creating xcb window: ";
-            error += xcb_errors_get_name_for_error(data->xcb_errors, err->error_code, &extension);
-            xcb_errors_context_free(data->xcb_errors);
+            error = "Error creating xcb window: " + std::to_string(err->error_code);
             CLOSE_CONNECTION(data);
             return false;
         }
@@ -521,7 +506,6 @@ namespace io {
         xkbCleanup(&data->xkb);
         xcb_destroy_window(data->connection, data->window);
         CLOSE_CONNECTION(data);
-        xcb_errors_context_free(data->xcb_errors);
         open = false;
         return true;
     }

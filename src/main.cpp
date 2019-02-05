@@ -220,6 +220,48 @@ void UnitTestSlerp(io::logStream& cout) {
     cout << std::endl;
 }
 
+void UnitTestRNG(RandomNumberGenerator& rng, io::logStream& cout) {
+    cout << "Unit testing RandomNumberGenerator\n";
+    {
+        u32 count[100] = {0};
+        for (u32 i = 0; i < 100000; i++) {
+            count[rng.Generate()%100]++;
+        }
+        cout << std::dec << "After 100000 numbers generated, 0-100 has the following counts:\n{";
+        for (u32 i = 0; i < 100; i++) {
+            if (count[i] < 10)
+                cout << " ";
+            if (count[i] < 100)
+                cout << " ";
+            if (count[i] < 1000)
+                cout << " ";
+            cout << count[i];
+            if (i != 99) {
+                cout << ", ";
+                if (i%10 == 9)
+                    cout << "\n ";
+            }
+        }
+        cout << "}" << std::endl;
+    }
+    u16 *count = new u16[1000000];
+    for (u32 i = 0; i < 1000000; i++) {
+        count[i] = 0;
+    }
+    cout << "After 10,000,000 numbers generated, 0-1,000,000 missed ";
+    for (u32 i = 0; i < 10000000; i++) {
+        count[rng.Generate()%1000000]++;
+    }
+    u32 total = 0;
+    for (u32 i = 0; i < 1000000; i++) {
+        if (count[i] == 0) {
+            total++;
+        }
+    }
+    delete[] count;
+    cout << total << " indices." << std::endl;
+}
+
 i32 main(i32 argumentCount, char** argumentValues) {
     io::logStream cout("test.log");
 
@@ -250,6 +292,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
         cout << "Failed to show Window: " << io::error << std::endl;
         return 1;
     }
+    RandomNumberGenerator rng;
     do {
         if (input.Any.Pressed()) {
             cout << "Pressed HID " << std::hex << (u32)input.codeAny << std::endl;
@@ -264,6 +307,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
             UnitTestMat4(cout);
             UnitTestQuat(cout);
             UnitTestSlerp(cout);
+        }
+        if (input.Pressed(KC_KEY_R)) {
+            UnitTestRNG(rng, cout);
         }
         input.Tick(1.0/60.0);
     } while (window.Update());

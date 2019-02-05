@@ -11,11 +11,22 @@
 
 #include "basictypes.hpp"
 
+#include <chrono>
+
+using Nanoseconds = std::chrono::nanoseconds;
+using Milliseconds = std::chrono::milliseconds;
+using SteadyClock = std::chrono::steady_clock;
+using SteadyClockTime = std::chrono::steady_clock::time_point;
+
 #include <cmath>
 
-const f32 halfpi = 1.5707963267948966;
-const f32 pi = 3.1415926535897932;
-const f32 tau = 6.2831853071795865;
+const f64 halfpi64  = 1.5707963267948966;
+const f64 pi64      = 3.1415926535897932;
+const f64 tau64     = 6.2831853071795865;
+
+const f32 halfpi    = (f32)halfpi64;
+const f32 pi        = (f32)pi64;
+const f32 tau       = (f32)tau64;
 
 enum Axis {
     X=0, Y=1, Z=2
@@ -35,6 +46,32 @@ inline f32 acos(const f32& a) { return acosf(a); }
 inline f32 atan(const f32& a) { return atanf(a); }
 inline f32 atan2(const f32& y, const f32& x) { return atan2f(y, x); }
 inline f32 sqrt(const f32& a) { return sqrtf(a); }
+
+struct RandomNumberGenerator {
+    u32 x, y, z, c;
+    RandomNumberGenerator() {
+        Seed(SteadyClock::now().time_since_epoch().count());
+    }
+    u32 Generate() {
+        u64 t;
+        x = 314527869 * x + 1234567;
+        y ^= y << 5;
+        y ^= y >> 7;
+        y ^= y << 22;
+        t = 4294584393ULL * (u64)z + (u64)c;
+        c = t >> 32; z = t;
+        return x + y + z;
+    }
+    void Seed(u64 seed) {
+        // The power of keysmashes!
+        if (seed == 0)
+            seed += 3478596;
+        x = seed;
+        y = seed * 16807;
+        z = seed * 47628;
+        c = seed * 32497;
+    }
+};
 
 template<typename T>
 inline T square(const T a) {

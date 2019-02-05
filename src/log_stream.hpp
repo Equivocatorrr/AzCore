@@ -9,6 +9,7 @@
 #include "common.hpp"
 
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 
 namespace io {

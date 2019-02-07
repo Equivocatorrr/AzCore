@@ -542,6 +542,58 @@ struct mat4_t {
 };
 
 template<typename T>
+struct complex_t {
+    union {
+        struct {
+            T real, imag;
+        };
+        struct {
+            vec2_t<T> vector;
+        };
+        struct {
+            T x, y;
+        };
+    };
+
+    complex_t();
+    complex_t(T a);
+    complex_t(T a, T b);
+    complex_t(vec2_t<T> vec);
+    complex_t(T d[2]);
+
+    inline complex_t<T> operator*(const complex_t<T>& a) const {
+        return complex_t<T>(real*a.real - imag*a.imag, real*a.imag + imag*a.real);
+    }
+    inline complex_t<T> operator*(const T& a) const {
+        return complex_t<T>(real*a, imag*a);
+    }
+    inline complex_t<T> operator/(const complex_t<T>& a) const {
+        return (*this) * a.Reciprocal();
+    }
+    inline complex_t<T> operator/(const T& a) const {
+        return complex_t<T>(real/a, imag/a);
+    }
+    inline complex_t<T> operator+(const complex_t<T>& a) const {
+        return complex_t<T>(real + a.real, imag + a.imag);
+    }
+    inline complex_t<T> operator+(const T& a) const {
+        return complex_t<T>(real + a, imag);
+    }
+    inline complex_t<T> operator-(const complex_t<T>& a) const {
+        return complex_t<T>(real - a.real, imag - a.imag);
+    }
+    inline complex_t<T> operator-(const T& a) const {
+        return complex_t<T>(real - a, imag);
+    }
+    inline complex_t<T> Conjugate() const {
+        return complex_t<T>(real, -imag);
+    }
+    inline complex_t<T> Reciprocal() const {
+        return Conjugate() / dot(vector, vector);
+    }
+};
+
+template<typename T>
 struct quat_t {
     union {
         struct {
@@ -577,6 +629,9 @@ struct quat_t {
     inline quat_t<T> operator*(const T& a) const {
         return quat_t<T>(wxyz*a);
     }
+    inline quat_t<T> operator/(const quat_t<T>& a) const {
+        return (*this) * a.Reciprocal();
+    }
     inline quat_t<T> operator/(const T& a) const {
         return quat_t<T>(wxyz/a);
     }
@@ -593,7 +648,7 @@ struct quat_t {
         return length(wxyz);
     }
     inline quat_t<T> Reciprocal() const {
-        return Conjugate() / square(Norm()); // For unit quaternions just use Conjugate()
+        return Conjugate() / dot(wxyz, wxyz); // For unit quaternions just use Conjugate()
     }
     // Make a rotation quaternion
     static inline quat_t<T> Rotation(const T& angle, const vec3_t<T>& axis) {
@@ -639,6 +694,9 @@ typedef mat3_t<f64> mat3d;
 
 typedef mat4_t<f32> mat4;
 typedef mat4_t<f64> mat4d;
+
+typedef complex_t<f32> complex;
+typedef complex_t<f64> complexd;
 
 typedef quat_t<f32> quat;
 typedef quat_t<f64> quatd;

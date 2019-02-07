@@ -468,6 +468,22 @@ mat4_t<T> mat4_t<T>::Scaler(vec4_t<T> scale) {
     return mat4_t<T>(scale.x, T(0), T(0), T(0), T(0), scale.y, T(0), T(0), T(0), T(0), scale.z, T(0), T(0), T(0), T(0), scale.w);
 }
 
+
+template<typename T>
+complex_t<T>::complex_t() : x(0) , y(0) {}
+
+template<typename T>
+complex_t<T>::complex_t(T a) : x(a) , y(0) {}
+
+template<typename T>
+complex_t<T>::complex_t(T a, T b) : x(a) , y(b) {}
+
+template<typename T>
+complex_t<T>::complex_t(vec2_t<T> vec) : vector(vec) {}
+
+template<typename T>
+complex_t<T>::complex_t(T d[2]) : x(d[0]) , y(d[1]) {}
+
 template<typename T>
 quat_t<T>::quat_t() : data{1, 0, 0, 0} {}
 
@@ -522,7 +538,7 @@ mat3_t<T> quat_t<T>::ToMatrix() const {
     );
 }
 
-// Here's how we make sure the templates we want are implemented.
+// Make sure the templates we want are implemented.
 
 template struct vec2_t<f32>;
 template struct vec2_t<f64>;
@@ -544,6 +560,9 @@ template struct mat3_t<f64>;
 
 template struct mat4_t<f32>;
 template struct mat4_t<f64>;
+
+template struct complex_t<f32>;
+template struct complex_t<f64>;
 
 template struct quat_t<f32>;
 template struct quat_t<f64>;

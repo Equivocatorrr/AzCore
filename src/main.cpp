@@ -151,12 +151,12 @@ void UnitTestComplex(io::logStream& cout) {
     cout << "Unit testing complex numbers\n";
     complex c, z;
     for (i32 y = -30; y <= 30; y++) {
-        for (i32 x = -80; x <= 40; x++) {
+        for (i32 x = -70; x <= 50; x++) {
             c = z = complex(f32(x)/40.0, f32(y)/25.0);
             const char val[] = "`*+%";
             u32 its = 0;
             for (; its < 39; its++) {
-                z = z*z + c;
+                z = pow(z,4.0) + c;
                 if (abs(z) > 2.0)
                     break;
             }

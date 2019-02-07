@@ -594,6 +594,11 @@ struct complex_t {
 };
 
 template<typename T>
+inline T length(const complex_t<T>& a) {
+    return sqrt(a.x*a.x + a.y*a.y);
+}
+
+template<typename T>
 struct quat_t {
     union {
         struct {

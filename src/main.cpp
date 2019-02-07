@@ -150,17 +150,17 @@ void UnitTestMat4(io::logStream& cout) {
 void UnitTestComplex(io::logStream& cout) {
     cout << "Unit testing complex numbers\n";
     complex c, z;
-    for (i32 y = -30; y <= 30; y++) {
+    for (i32 y = -40; y <= 40; y++) {
         for (i32 x = -70; x <= 50; x++) {
-            c = z = complex(f32(x)/40.0, f32(y)/25.0);
-            const char val[] = "`*+%";
+            c = z = complex(f32(x)/40.0, f32(y)/20.0);
+            const char val[] = " `*+%";
             u32 its = 0;
-            for (; its < 39; its++) {
+            for (; its < 14; its++) {
                 z = pow(z,4.0) + c;
                 if (abs(z) > 2.0)
                     break;
             }
-            cout << val[its/10];
+            cout << val[its/3];
         }
         cout << "\n";
     }

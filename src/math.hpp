@@ -15,8 +15,8 @@
 
 using Nanoseconds = std::chrono::nanoseconds;
 using Milliseconds = std::chrono::milliseconds;
-using SteadyClock = std::chrono::steady_clock;
-using SteadyClockTime = std::chrono::steady_clock::time_point;
+using Clock = std::chrono::steady_clock;
+using ClockTime = std::chrono::steady_clock::time_point;
 
 #include <cmath>
 
@@ -47,30 +47,15 @@ inline f32 atan(const f32& a) { return atanf(a); }
 inline f32 atan2(const f32& y, const f32& x) { return atan2f(y, x); }
 inline f32 sqrt(const f32& a) { return sqrtf(a); }
 
+/*  struct: RandomNumberGenerator
+    Author: Philip Haynes
+    Uses the JKISS generator by David Jones
+    From http://www0.cs.ucl.ac.uk/staff/d.jones/GoodPracticeRNG.pdf */
 struct RandomNumberGenerator {
     u32 x, y, z, c;
-    RandomNumberGenerator() {
-        Seed(SteadyClock::now().time_since_epoch().count());
-    }
-    u32 Generate() {
-        u64 t;
-        x = 314527869 * x + 1234567;
-        y ^= y << 5;
-        y ^= y >> 7;
-        y ^= y << 22;
-        t = 4294584393ULL * (u64)z + (u64)c;
-        c = t >> 32; z = t;
-        return x + y + z;
-    }
-    void Seed(u64 seed) {
-        // The power of keysmashes!
-        if (seed == 0)
-            seed += 3478596;
-        x = seed;
-        y = seed * 16807;
-        z = seed * 47628;
-        c = seed * 32497;
-    }
+    RandomNumberGenerator(); // Automatically seeds itself based on time.
+    u32 Generate();
+    void Seed(u64 seed);
 };
 
 template<typename T>
@@ -105,18 +90,17 @@ inline T clamp(T a, T b, T c) {
 }
 
 template<typename T>
-T angleDiff(T from, T to) {
-    T diff = to - from;
-    while (diff >= pi)
-        diff -= tau;
-    while (diff < -pi)
-        diff += tau;
-    return diff;
+inline T sign(T a) {
+    return a >= 0 ? 1 : -1;
 }
+
+// Finds the shortest distance from one angle to another.
+f32 angleDiff(f32 from, f32 to);
+f64 angleDiff(f64 from, f64 to);
 
 template<typename T>
 inline T angleDir(const T& from, const T& to) {
-    return angleDiff(from, to) >= 0 ? 1 : -1;
+    return sign(angleDiff(from, to));
 }
 
 template<typename T>
@@ -138,9 +122,9 @@ struct vec2_t {
         };
     };
 
-    vec2_t<T>() : x(0) , y(0) {}
-    vec2_t<T>(T a) : x(a) , y (a) {}
-    vec2_t<T>(T a, T b) : x(a) , y(b) {}
+    vec2_t();
+    vec2_t(T a);
+    vec2_t(T a, T b);
     inline vec2_t<T> operator+(const vec2_t<T>& a) const { return vec2_t<T>(x+a.x, y+a.y); }
     inline vec2_t<T> operator-(const vec2_t<T>& a) const { return vec2_t<T>(x-a.x, y-a.y); }
     inline vec2_t<T> operator-() const { return vec2_t<T>(-x, -y); }
@@ -148,37 +132,13 @@ struct vec2_t {
     inline vec2_t<T> operator/(const vec2_t<T>& a) const { return vec2_t<T>(x/a.x, y/a.y); }
     inline vec2_t<T> operator*(const T& a) const { return vec2_t<T>(x*a, y*a); }
     inline vec2_t<T> operator/(const T& a) const { return vec2_t<T>(x/a, y/a); }
-    inline T& operator[](const unsigned& i) { return data[i]; }
-    vec2_t<T> operator+=(const vec2_t<T>& a) {
-        x += a.x;
-        y += a.y;
-        return *this;
-    }
-    vec2_t<T> operator-=(const vec2_t<T>& a) {
-        x -= a.x;
-        y -= a.y;
-        return *this;
-    }
-    vec2_t<T> operator/=(const vec2_t<T>& a) {
-        x /= a.x;
-        y /= a.y;
-        return *this;
-    }
-    vec2_t<T> operator/=(const T& a) {
-        x /= a;
-        y /= a;
-        return *this;
-    }
-    vec2_t<T> operator*=(const vec2_t<T>& a) {
-        x *= a.x;
-        y *= a.y;
-        return *this;
-    }
-    vec2_t<T> operator*=(const T& a) {
-        x *= a;
-        y *= a;
-        return *this;
-    }
+    inline T& operator[](const u32& i) { return data[i]; }
+    vec2_t<T> operator+=(const vec2_t<T>& a);
+    vec2_t<T> operator-=(const vec2_t<T>& a);
+    vec2_t<T> operator/=(const vec2_t<T>& a);
+    vec2_t<T> operator/=(const T& a);
+    vec2_t<T> operator*=(const vec2_t<T>& a);
+    vec2_t<T> operator*=(const T& a);
 };
 
 template<typename T>
@@ -206,37 +166,24 @@ struct mat2_t {
             T data[4];
         };
     };
-    mat2_t<T>() : h{1, 0, 0, 1} {}
-    mat2_t<T>(T a) : h{a, 0, 0, a} {}
-    mat2_t<T>(T a, T b, T c, T d) : h{a, b, c, d} {}
-    mat2_t<T>(vec2_t<T> a, vec2_t<T> b, bool rowMajor=true) {
-        if (rowMajor) {
-            h = {a.x, a.y, b.x, b.y};
-        } else {
-            h = {a.x, b.x, a.y, b.y};
-        }
-    }
-    mat2_t<T>(T d[4]) : data{d} {}
+    mat2_t();
+    mat2_t(T a);
+    mat2_t(T a, T b, T c, T d);
+    mat2_t(vec2_t<T> a, vec2_t<T> b, bool rowMajor=true);
+    mat2_t(T d[4]);
     inline vec2_t<T> Row1() const { return vec2_t<T>(h.x1, h.y1); }
     inline vec2_t<T> Row2() const { return vec2_t<T>(h.x2, h.y2); }
     inline vec2_t<T> Col1() const { return vec2_t<T>(v.x1, v.y1); }
     inline vec2_t<T> Col2() const { return vec2_t<T>(v.x2, v.y2); }
-    static mat2_t<T> Rotation(T angle) {
-        T s = sin(angle), c = cos(angle);
-        return mat2_t<T>(c, -s, s, c);
-    }
+    static mat2_t<T> Rotation(T angle);
     inline mat2_t<T> Rotate(const T& angle) const {
         return mat2_t<T>::Rotation(angle) * (*this);
     }
-    static mat2_t<T> Skewer(vec2_t<T> amount) {
-        return mat2_t<T>(T(1), amount.y, amount.x, T(1));
-    }
+    static mat2_t<T> Skewer(vec2_t<T> amount);
     inline mat2_t<T> Skew(const vec2_t<T>& amount) const {
         return mat2_t<T>::Skewer(amount) * (*this);
     }
-    static mat2_t<T> Scaler(vec2_t<T> scale) {
-        return mat2_t<T>(scale.x, T(0), T(0), scale.y);
-    }
+    static mat2_t<T> Scaler(vec2_t<T> scale);
     inline mat2_t<T> Scale(const vec2_t<T>& scale) const {
         return mat2_t<T>::Scaler(scale) * (*this);
     }
@@ -289,9 +236,9 @@ struct vec3_t {
         };
     };
 
-    vec3_t<T>() : x(0) , y(0) , z(0) {}
-    vec3_t<T>(T v) : x(v) , y (v) , z(v) {}
-    vec3_t<T>(T v1, T v2, T v3) : x(v1) , y(v2) , z(v3) {}
+    vec3_t();
+    vec3_t(T v);
+    vec3_t(T v1, T v2, T v3);
     inline vec3_t<T> operator+(const vec3_t<T>& v) const { return vec3_t<T>(x+v.x, y+v.y, z+v.z); }
     inline vec3_t<T> operator-(const vec3_t<T>& v) const { return vec3_t<T>(x-v.x, y-v.y, z-v.z); }
     inline vec3_t<T> operator-() const { return vec3_t<T>(-x, -y, -z); }
@@ -299,43 +246,13 @@ struct vec3_t {
     inline vec3_t<T> operator/(const vec3_t<T>& v) const { return vec3_t<T>(x/v.x, y/v.y, z/v.z); }
     inline vec3_t<T> operator*(const T& v) const { return vec3_t<T>(x*v, y*v, z*v); }
     inline vec3_t<T> operator/(const T& v) const { return vec3_t<T>(x/v, y/v, z/v); }
-    inline T& operator[](const unsigned& i) { return data[i]; }
-    vec3_t<T> operator+=(const vec3_t<T>& v) {
-        x += v.x;
-        y += v.y;
-        z += v.z;
-        return *this;
-    }
-    vec3_t<T> operator-=(const vec3_t<T>& v) {
-        x -= v.x;
-        y -= v.y;
-        z -= v.z;
-        return *this;
-    }
-    vec3_t<T> operator/=(const vec3_t<T>& v) {
-        x /= v.x;
-        y /= v.y;
-        z /= v.z;
-        return *this;
-    }
-    vec3_t<T> operator/=(const T& v) {
-        x /= v;
-        y /= v;
-        z /= v;
-        return *this;
-    }
-    vec3_t<T> operator*=(const vec3_t<T>& v) {
-        x *= v.x;
-        y *= v.y;
-        z *= v.z;
-        return *this;
-    }
-    vec3_t<T> operator*=(const T& v) {
-        x *= v;
-        y *= v;
-        z *= v;
-        return *this;
-    }
+    inline T& operator[](const u32& i) { return data[i]; }
+    vec3_t<T> operator+=(const vec3_t<T>& v);
+    vec3_t<T> operator-=(const vec3_t<T>& v);
+    vec3_t<T> operator/=(const vec3_t<T>& v);
+    vec3_t<T> operator/=(const T& v);
+    vec3_t<T> operator*=(const vec3_t<T>& v);
+    vec3_t<T> operator*=(const T& v);
 };
 
 template<typename T>
@@ -374,17 +291,11 @@ struct mat3_t {
             T data[9];
         };
     };
-    mat3_t<T>() : h{1, 0, 0, 0, 1, 0, 0, 0, 1} {}
-    mat3_t<T>(T a) : h{a, 0, 0, 0, a, 0, 0, 0, a} {}
-    mat3_t<T>(T x1, T y1, T z1, T x2, T y2, T z2, T x3, T y3, T z3) : data{x1, y1, z1, x2, y2, z2, x3, y3, z3} {}
-    mat3_t<T>(vec3_t<T> a, vec3_t<T> b, vec3_t<T> c, bool rowMajor=true) {
-        if (rowMajor) {
-            h = {a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z};
-        } else {
-            h = {a.x, b.x, c.x, a.y, b.y, c.y, a.z, b.z, c.z};
-        }
-    }
-    mat3_t<T>(T d[9]) : data{d} {}
+    mat3_t();
+    mat3_t(T a);
+    mat3_t(T x1, T y1, T z1, T x2, T y2, T z2, T x3, T y3, T z3);
+    mat3_t(vec3_t<T> a, vec3_t<T> b, vec3_t<T> c, bool rowMajor=true);
+    mat3_t(T d[9]);
     inline vec3_t<T> Row1() const { return vec3_t<T>(h.x1, h.y1, h.z1); }
     inline vec3_t<T> Row2() const { return vec3_t<T>(h.x2, h.y2, h.z2); }
     inline vec3_t<T> Row3() const { return vec3_t<T>(h.x3, h.y3, h.z3); }
@@ -392,55 +303,16 @@ struct mat3_t {
     inline vec3_t<T> Col2() const { return vec3_t<T>(v.x2, v.y2, v.z2); }
     inline vec3_t<T> Col3() const { return vec3_t<T>(v.x3, v.y3, v.z3); }
     // Only useful for rotations about aligned axes, such as {1, 0, 0}
-    static mat3_t<T> RotationBasic(T angle, Axis axis) {
-        T s = sin(angle), c = cos(angle);
-        switch(axis) {
-            case Axis::X: {
-                return mat3_t<T>(
-                    T(1), T(0), T(0),
-                    T(0), c,    -s,
-                    T(0), s,    c
-                );
-            }
-            case Axis::Y: {
-                return mat3_t<T>(
-                    c,    T(0), s,
-                    T(0), T(1), T(0),
-                    -s,   T(0), c
-                );
-            }
-            case Axis::Z: {
-                return mat3_t<T>(
-                    c,    -s,   T(0),
-                    s,    c,    T(0),
-                    T(0), T(0), T(1)
-                );
-            }
-        }
-        return mat3_t<T>();
-    }
+    static mat3_t<T> RotationBasic(T angle, Axis axis);
     inline mat3_t<T> RotateBasic(const T& angle, const Axis& axis) const {
         return mat3_t<T>::RotationBasic(angle, axis) * (*this);
     }
     // Useful for arbitrary axes
-    static mat3_t<T> Rotation(T angle, vec3_t<T> axis) {
-        T s = sin(angle), c = cos(angle);
-        T ic = 1-c;
-        vec3_t<T> a = normalize(axis);
-        T xx = square(a.x), yy = square(a.y), zz = square(a.z),
-            xy = a.x*a.y,     xz = a.x*a.z,     yz = a.y*a.z;
-        return mat3_t<T>(
-            c + xx*ic,          xy*ic - a.z*s,      xz*ic + a.y*s,
-            xy*ic + a.z*s,      c + yy*ic,          yz*ic - a.x*s,
-            xz*ic - a.y*s,      yz*ic + a.x*s,      c + zz*ic
-        );
-    }
+    static mat3_t<T> Rotation(T angle, vec3_t<T> axis);
     inline mat3_t<T> Rotate(const T& angle, const vec3_t<T> axis) const {
         return mat3_t<T>::Rotation(angle, axis) * (*this);
     }
-    static mat3_t<T> Scaler(vec3_t<T> scale) {
-        return mat3_t<T>(scale.x, T(0), T(0), T(0), scale.y, T(0), T(0), T(0), scale.z);
-    }
+    static mat3_t<T> Scaler(vec3_t<T> scale);
     inline mat3_t<T> Scale(const vec3_t<T>& scale) const {
         return mat3_t<T>::Scaler(scale) * (*this);
     }
@@ -482,14 +354,14 @@ struct mat3_t {
         );
     }
     inline mat3_t<T> operator/(const vec3_t<T>& a) const {
-        return vec3_t<T>(
+        return mat3_t<T>(
             h.x1/a.x + h.y1/a.y + h.z1/a.z,
             h.x2/a.x + h.y2/a.y + h.z2/a.z,
             h.x3/a.x + h.y3/a.y + h.z3/a.z
         );
     }
     inline mat3_t<T> operator/(const T& a) const {
-        return vec3_t<T>(
+        return mat3_t<T>(
             h.x1/a + h.y1/a + h.z1/a,
             h.x2/a + h.y2/a + h.z2/a,
             h.x3/a + h.y3/a + h.z3/a
@@ -517,9 +389,9 @@ struct vec4_t {
         };
     };
 
-    vec4_t<T>() : x(0) , y(0) , z(0) , w(0) {}
-    vec4_t<T>(T v) : x(v) , y (v) , z(v) , w(v) {}
-    vec4_t<T>(T v1, T v2, T v3, T v4) : x(v1) , y(v2) , z(v3) , w(v4) {}
+    vec4_t();
+    vec4_t(T v);
+    vec4_t(T v1, T v2, T v3, T v4);
     inline vec4_t<T> operator+(const vec4_t<T>& v) const { return vec4_t<T>(x+v.x, y+v.y, z+v.z, w+v.w); }
     inline vec4_t<T> operator-(const vec4_t<T>& v) const { return vec4_t<T>(x-v.x, y-v.y, z-v.z, w-v.w); }
     inline vec4_t<T> operator-() const { return vec4_t<T>(-x, -y, -z, -w); }
@@ -527,49 +399,13 @@ struct vec4_t {
     inline vec4_t<T> operator/(const vec4_t<T>& v) const { return vec4_t<T>(x/v.x, y/v.y, z/v.z, w/v.w); }
     inline vec4_t<T> operator*(const T& v) const { return vec4_t<T>(x*v, y*v, z*v, w*v); }
     inline vec4_t<T> operator/(const T& v) const { return vec4_t<T>(x/v, y/v, z/v, w/v); }
-    inline T& operator[](const unsigned& i) { return data[i]; }
-    vec4_t<T> operator+=(const vec4_t<T>& v) {
-        x += v.x;
-        y += v.y;
-        z += v.z;
-        w += v.w;
-        return *this;
-    }
-    vec4_t<T> operator-=(const vec4_t<T>& v) {
-        x -= v.x;
-        y -= v.y;
-        z -= v.z;
-        w -= v.w;
-        return *this;
-    }
-    vec4_t<T> operator/=(const vec4_t<T>& v) {
-        x /= v.x;
-        y /= v.y;
-        z /= v.z;
-        w /= v.w;
-        return *this;
-    }
-    vec4_t<T> operator/=(const T& v) {
-        x /= v;
-        y /= v;
-        z /= v;
-        w /= v;
-        return *this;
-    }
-    vec4_t<T> operator*=(const vec4_t<T>& v) {
-        x *= v.x;
-        y *= v.y;
-        z *= v.z;
-        w *= v.w;
-        return *this;
-    }
-    vec4_t<T> operator*=(const T& v) {
-        x *= v;
-        y *= v;
-        z *= v;
-        w *= v;
-        return *this;
-    }
+    inline T& operator[](const u32& i) { return data[i]; }
+    vec4_t<T> operator+=(const vec4_t<T>& v);
+    vec4_t<T> operator-=(const vec4_t<T>& v);
+    vec4_t<T> operator/=(const vec4_t<T>& v);
+    vec4_t<T> operator/=(const T& v);
+    vec4_t<T> operator*=(const vec4_t<T>& v);
+    vec4_t<T> operator*=(const T& v);
 };
 
 template<typename T>
@@ -601,20 +437,14 @@ struct mat4_t {
             T data[16];
         };
     };
-    mat4_t<T>() : h{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1} {}
-    mat4_t<T>(T a) : h{a, 0, 0, 0, 0, a, 0, 0, 0, 0, a, 0, 0, 0, 0, a} {}
-    mat4_t<T>(T x1, T y1, T z1, T w1,
-              T x2, T y2, T z2, T w2,
-              T x3, T y3, T z3, T w3,
-              T x4, T y4, T z4, T w4) : data{x1, y1, z1, w1, x2, y2, z2, w2, x3, y3, z3, w3, x4, y4, z4, w4} {}
-    mat4_t<T>(vec4_t<T> a, vec4_t<T> b, vec4_t<T> c, vec4_t<T> d, bool rowMajor=true) {
-        if (rowMajor) {
-            h = {a.x, a.y, a.z, a.w, b.x, b.y, b.z, b.w, c.x, c.y, c.z, c.w, d.x, d.y, d.z, d.w};
-        } else {
-            h = {a.x, b.x, c.x, d.x, a.y, b.y, c.y, d.y, a.z, b.z, c.z, d.z, a.w, b.w, c.w, d.w};
-        }
-    }
-    mat4_t<T>(T d[16]) : data{d} {}
+    mat4_t();
+    mat4_t(T a);
+    mat4_t(T x1, T y1, T z1, T w1,
+           T x2, T y2, T z2, T w2,
+           T x3, T y3, T z3, T w3,
+           T x4, T y4, T z4, T w4);
+    mat4_t(vec4_t<T> a, vec4_t<T> b, vec4_t<T> c, vec4_t<T> d, bool rowMajor=true);
+    mat4_t(T d[16]);
     inline vec4_t<T> Row1() const { return vec4_t<T>(h.x1, h.y1, h.z1, h.w1); }
     inline vec4_t<T> Row2() const { return vec4_t<T>(h.x2, h.y2, h.z2, h.w2); }
     inline vec4_t<T> Row3() const { return vec4_t<T>(h.x3, h.y3, h.z3, h.w3); }
@@ -625,75 +455,9 @@ struct mat4_t {
     inline vec4_t<T> Col4() const { return vec4_t<T>(v.x4, v.y4, v.z4, v.w4); }
     // Only useful for rotations about aligned planes, such as {{1, 0, 0, 0}, {0, 0, 0, 1}}
     // Note: The planes stay fixed in place and everything else rotates around them.
-    static mat4_t<T> RotationBasic(T angle, Plane plane) {
-        T s = sin(angle), c = cos(angle);
-        switch(plane) {
-            case Plane::XW: {
-                return mat4_t<T>(
-                    T(1), T(0), T(0), T(0),
-                    T(0), c,    -s,   T(0),
-                    T(0), s,    c,    T(0),
-                    T(0), T(0), T(0), T(1)
-                );
-            }
-            case Plane::YW: {
-                return mat4_t<T>(
-                    c,    T(0), s,    T(0),
-                    T(0), T(1), T(0), T(0),
-                    -s,   T(0), c,    T(0),
-                    T(0), T(0), T(0), T(1)
-                );
-            }
-            case Plane::ZW: {
-                return mat4_t<T>(
-                    c,    -s,   T(0), T(0),
-                    s,    c,    T(0), T(0),
-                    T(0), T(0), T(1), T(0),
-                    T(0), T(0), T(0), T(1)
-                );
-            }
-            case Plane::XY: {
-                return mat4_t<T>(
-                    T(1), T(0), T(0), T(0),
-                    T(0), T(1), T(0), T(0),
-                    T(0), T(0), c,    -s,
-                    T(0), T(0), s,    c
-                );
-            }
-            case Plane::YZ: {
-                return mat4_t<T>(
-                    c,    T(0), T(0), -s,
-                    T(0), T(1), T(0), T(0),
-                    T(0), T(0), T(1), T(0),
-                    s,    T(0), T(0), c
-                );
-            }
-            case Plane::ZX: {
-                return mat4_t<T>(
-                    T(1), T(0), T(0), T(0),
-                    T(0), c,    T(0), s,
-                    T(0), T(0), T(1), T(0),
-                    T(0), -s,   T(0), c
-                );
-            }
-        }
-        return mat4_t<T>();
-    }
+    static mat4_t<T> RotationBasic(T angle, Plane plane);
     // For using 3D-axis rotations
-    static mat4_t<T> RotationBasic(T angle, Axis axis) {
-        switch(axis) {
-            case Axis::X: {
-                return RotationBasic(angle, Plane::XW);
-            }
-            case Axis::Y: {
-                return RotationBasic(angle, Plane::YW);
-            }
-            case Axis::Z: {
-                return RotationBasic(angle, Plane::ZW);
-            }
-        }
-        return mat4_t<T>();
-    }
+    static mat4_t<T> RotationBasic(T angle, Axis axis);
     inline mat4_t<T> RotateBasic(const T& angle, const Plane& plane) const {
         return mat4_t<T>::RotationBasic(angle, plane) * (*this);
     }
@@ -701,25 +465,11 @@ struct mat4_t {
         return mat4_t<T>::RotationBasic(angle, axis) * (*this);
     }
     // Useful for arbitrary 3D-axes
-    static mat4_t<T> Rotation(T angle, vec3_t<T> axis) {
-        T s = sin(angle), c = cos(angle);
-        T ic = 1-c;
-        vec3_t<T> a = normalize(axis);
-        T xx = square(a.x), yy = square(a.y), zz = square(a.z),
-            xy = a.x*a.y,     xz = a.x*a.z,     yz = a.y*a.z;
-        return mat4_t<T>(
-            c + xx*ic,          xy*ic - a.z*s,      xz*ic + a.y*s,  T(0),
-            xy*ic + a.z*s,      c + yy*ic,          yz*ic - a.x*s,  T(0),
-            xz*ic - a.y*s,      yz*ic + a.x*s,      c + zz*ic,      T(0),
-            T(0),               T(0),               T(0),           T(1)
-        );
-    }
+    static mat4_t<T> Rotation(T angle, vec3_t<T> axis);
     inline mat4_t<T> Rotate(const T& angle, const vec3_t<T> axis) const {
         return mat4_t<T>::Rotation(angle, axis) * (*this);
     }
-    static mat4_t<T> Scaler(vec4_t<T> scale) {
-        return mat4_t<T>(scale.x, T(0), T(0), T(0), T(0), scale.y, T(0), T(0), T(0), T(0), scale.z, T(0), T(0), T(0), T(0), scale.w);
-    }
+    static mat4_t<T> Scaler(vec4_t<T> scale);
     inline mat4_t<T> Scale(const vec4_t<T>& scale) const {
         return mat4_t<T>::Scaler(scale) * (*this);
     }
@@ -774,7 +524,7 @@ struct mat4_t {
         );
     }
     inline mat4_t<T> operator/(const vec4_t<T>& a) const {
-        return vec4_t<T>(
+        return mat4_t<T>(
             h.x1/a.x + h.y1/a.y + h.z1/a.z + h.w1/a.w,
             h.x2/a.x + h.y2/a.y + h.z2/a.z + h.w2/a.w,
             h.x3/a.x + h.y3/a.y + h.z3/a.z + h.w3/a.w,
@@ -782,7 +532,7 @@ struct mat4_t {
         );
     }
     inline mat4_t<T> operator/(const T& a) const {
-        return vec4_t<T>(
+        return mat4_t<T>(
             h.x1/a + h.y1/a + h.z1/a + h.w1/a,
             h.x2/a + h.y2/a + h.z2/a + h.w2/a,
             h.x3/a + h.y3/a + h.z3/a + h.w3/a,
@@ -809,12 +559,12 @@ struct quat_t {
         };
     };
 
-    quat_t() : data{1, 0, 0, 0} {}
-    quat_t(T a) : data{a, 0, 0, 0} {}
-    quat_t(T a, vec3_t<T> v) : scalar(a), vector(v) {}
-    quat_t(vec4_t<T> v) : wxyz(v) {}
-    quat_t(T a, T b, T c, T d) : w(a), x(b), y(c), z(d) {}
-    quat_t(T d[4]) : data{d} {}
+    quat_t();
+    quat_t(T a);
+    quat_t(T a, vec3_t<T> v);
+    quat_t(vec4_t<T> v);
+    quat_t(T a, T b, T c, T d);
+    quat_t(T d[4]);
 
     inline quat_t<T> operator*(const quat_t<T>& a) const {
         return quat_t<T>(
@@ -850,36 +600,15 @@ struct quat_t {
         return quat_t<T>(cos(angle/2.0), normalize(axis) * sin(angle/2.0));
     }
     // A one-off rotation of a point
-    static vec3_t<T> RotatePoint(vec3_t<T> point, T angle, vec3_t<T> axis) {
-        quat_t<T> rot = Rotation(angle, axis);
-        rot = rot * quat_t<T>(T(0), point) * rot.Conjugate();
-        return rot.vector;
-    }
+    static vec3_t<T> RotatePoint(vec3_t<T> point, T angle, vec3_t<T> axis);
     // Using this quaternion for a one-off rotation of a point
-    vec3_t<T> RotatePoint(vec3_t<T> point) const {
-        return ((*this) * quat_t<T>(T(0), point) * Conjugate()).vector;
-    }
+    vec3_t<T> RotatePoint(vec3_t<T> point) const;
     // Rotating this quaternion about an axis
-    quat_t<T> Rotate(T angle, vec3_t<T> axis) const {
-        quat_t<T> rot = Rotation(angle, axis);
-        return rot * (*this) * rot.Conjugate();
-    }
+    quat_t<T> Rotate(T angle, vec3_t<T> axis) const;
     // Rotate this quaternion by using a specified rotation quaternion
-    quat_t<T> Rotate(quat_t<T> rotation) const {
-        return rotation * (*this) * rotation.Conjugate();
-    }
+    quat_t<T> Rotate(quat_t<T> rotation) const;
     // Convert this rotation quaternion into a matrix
-    inline mat3_t<T> ToMatrix() const {
-        const T ir = w*x, jr = w*y, kr = w*z,
-                ii = x*x, ij = x*y, ik = x*z,
-                jj = y*y, jk = y*z,
-                kk = z*z;
-        return mat3_t<T>(
-            1-2*(jj+kk),      2*(ij-kr),      2*(ik+jr),
-              2*(ij+kr),    1-2*(ii+kk),      2*(jk-ir),
-              2*(ik-jr),      2*(jk+ir),    1-2*(ii+jj)
-        );
-    }
+    mat3_t<T> ToMatrix() const;
 };
 
 template<typename T>
@@ -888,23 +617,7 @@ inline quat_t<T> normalize(const quat_t<T>& a) {
 }
 
 template<typename T>
-quat_t<T> slerp(quat_t<T> a, quat_t<T> b, T factor) {
-    a = normalize(a);
-    b = normalize(b);
-    T d = dot(a.vector, b.vector);
-    if (d < 0.0) {
-        b = -b.wxyz;
-        d *= -1.0;
-    }
-    const T threshold = 0.999;
-    if (d > threshold) {
-        return normalize(a + (b-a)*factor);
-    }
-    T thetaMax = acos(d);
-    T theta = thetaMax*factor;
-    T base = sin(theta) / sin(thetaMax);
-    return a*(cos(theta) - d*base) + b*base;
-}
+quat_t<T> slerp(quat_t<T> a, quat_t<T> b, T factor);
 
 typedef vec2_t<f32> vec2;
 typedef vec2_t<f64> vec2d;

@@ -85,6 +85,7 @@ enum Plane {
     inline f32 log(const f32& a) { return logf(a); }
     inline f32 log2(const f32& a) { return log2f(a); }
     inline f32 log10(const f32& a) { return log10f(a); }
+    inline f32 pow(const f32& a, const f32& b) { return powf(a, b); }
 #endif
 
 /*  struct: RandomNumberGenerator
@@ -137,6 +138,17 @@ inline T abs(T a) {
 template<typename T>
 inline T sign(T a) {
     return a >= 0 ? 1 : -1;
+}
+
+template<typename T, typename F>
+inline T lerp(T a, T b, F factor) {
+    factor = clamp(factor, F(0.0), F(1.0));
+    return a + (b-a) * factor;
+}
+
+template<typename T>
+inline T map(T in, T minFrom, T maxFrom, T minTo, T maxTo) {
+    return (in - minFrom) * (maxTo - minTo) / (maxFrom - minFrom);
 }
 
 // Finds the shortest distance from one angle to another.
@@ -656,6 +668,14 @@ inline T normalize(const T& a) {
         inline complex_t<T> operator-(const T& a) const {
             return complex_t<T>(real - a, imag);
         }
+        complex_t<T>& operator+=(const complex_t<T>& a);
+        complex_t<T>& operator-=(const complex_t<T>& a);
+        complex_t<T>& operator*=(const complex_t<T>& a);
+        complex_t<T>& operator/=(const complex_t<T>& a);
+        complex_t<T>& operator+=(const T& a);
+        complex_t<T>& operator-=(const T& a);
+        complex_t<T>& operator*=(const T& a);
+        complex_t<T>& operator/=(const T& a);
         inline complex_t<T> Conjugate() const {
             return complex_t<T>(real, -imag);
         }
@@ -730,6 +750,14 @@ inline T normalize(const T& a) {
         inline quat_t<T> operator+(const quat_t<T>& a) const {
             return quat_t<T>(w+a.w, x+a.x, y+a.y, z+a.z);
         }
+        quat_t<T>& operator+=(const quat_t<T>& a);
+        quat_t<T>& operator-=(const quat_t<T>& a);
+        quat_t<T>& operator*=(const quat_t<T>& a);
+        quat_t<T>& operator/=(const quat_t<T>& a);
+        quat_t<T>& operator+=(const T& a);
+        quat_t<T>& operator-=(const T& a);
+        quat_t<T>& operator*=(const T& a);
+        quat_t<T>& operator/=(const T& a);
         inline quat_t<T> Conjugate() const {
             return quat_t<T>(scalar, -vector);
         }
@@ -764,6 +792,12 @@ inline T normalize(const T& a) {
 
     template<typename T>
     quat_t<T> slerp(quat_t<T> a, quat_t<T> b, T factor);
+
+    template<typename T>
+    quat_t<T> exp(quat_t<T> a);
+
+    template<typename T>
+    quat_t<T> log(quat_t<T> a);
 
 #endif // MATH_QUATERNION
 

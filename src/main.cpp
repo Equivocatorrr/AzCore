@@ -220,6 +220,12 @@ void UnitTestQuat(io::logStream& cout) {
     Print(q3.ToMat3(), cout);
     cout << "Control Matrix:\n";
     Print(m2 * m, cout);
+    quat a(pi, 0, -1, 0);
+    a = exp(a);
+    cout << "exp(pi - j) = (" << a.w << " + " << a.x << "i + " << a.y << "j + " << a.z << "k)\n";
+    a = log(a);
+    cout << "log of previous value = (" << a.w << " + " << a.x << "i + " << a.y << "j + " << a.z << "k)\n";
+    cout << std::endl;
 }
 
 void UnitTestSlerp(io::logStream& cout) {

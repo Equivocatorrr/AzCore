@@ -481,6 +481,54 @@ void RandomNumberGenerator::Seed(u64 seed) {
     complex_t<T>::complex_t(T d[2]) : x(d[0]) , y(d[1]) {}
 
     template<typename T>
+    complex_t<T>& complex_t<T>::operator+=(const complex_t<T>& a) {
+        *this = *this + a;
+        return *this;
+    }
+
+    template<typename T>
+    complex_t<T>& complex_t<T>::operator-=(const complex_t<T>& a) {
+        *this = *this - a;
+        return *this;
+    }
+
+    template<typename T>
+    complex_t<T>& complex_t<T>::operator*=(const complex_t<T>& a) {
+        *this = *this * a;
+        return *this;
+    }
+
+    template<typename T>
+    complex_t<T>& complex_t<T>::operator/=(const complex_t<T>& a) {
+        *this = *this / a;
+        return *this;
+    }
+
+    template<typename T>
+    complex_t<T>& complex_t<T>::operator+=(const T& a) {
+        *this = *this + a;
+        return *this;
+    }
+
+    template<typename T>
+    complex_t<T>& complex_t<T>::operator-=(const T& a) {
+        *this = *this - a;
+        return *this;
+    }
+
+    template<typename T>
+    complex_t<T>& complex_t<T>::operator*=(const T& a) {
+        *this = *this * a;
+        return *this;
+    }
+
+    template<typename T>
+    complex_t<T>& complex_t<T>::operator/=(const T& a) {
+        *this = *this / a;
+        return *this;
+    }
+
+    template<typename T>
     complex_t<T> exp(const complex_t<T>& a) {
         return complex_t<T>(cos(a.imag), sin(a.imag)) * exp(a.real);
     }
@@ -518,6 +566,54 @@ void RandomNumberGenerator::Seed(u64 seed) {
 
     template<typename T>
     quat_t<T>::quat_t(T d[4]) : data{d[0], d[1], d[2], d[3]} {}
+
+    template<typename T>
+    quat_t<T>& quat_t<T>::operator+=(const quat_t<T>& a) {
+        *this = *this + a;
+        return *this;
+    }
+
+    template<typename T>
+    quat_t<T>& quat_t<T>::operator-=(const quat_t<T>& a) {
+        *this = *this - a;
+        return *this;
+    }
+
+    template<typename T>
+    quat_t<T>& quat_t<T>::operator*=(const quat_t<T>& a) {
+        *this = *this * a;
+        return *this;
+    }
+
+    template<typename T>
+    quat_t<T>& quat_t<T>::operator/=(const quat_t<T>& a) {
+        *this = *this / a;
+        return *this;
+    }
+
+    template<typename T>
+    quat_t<T>& quat_t<T>::operator+=(const T& a) {
+        *this = *this + a;
+        return *this;
+    }
+
+    template<typename T>
+    quat_t<T>& quat_t<T>::operator-=(const T& a) {
+        *this = *this - a;
+        return *this;
+    }
+
+    template<typename T>
+    quat_t<T>& quat_t<T>::operator*=(const T& a) {
+        *this = *this * a;
+        return *this;
+    }
+
+    template<typename T>
+    quat_t<T>& quat_t<T>::operator/=(const T& a) {
+        *this = *this / a;
+        return *this;
+    }
 
     template<typename T>
     vec3_t<T> quat_t<T>::RotatePoint(vec3_t<T> point, T angle, vec3_t<T> axis) {
@@ -574,11 +670,31 @@ void RandomNumberGenerator::Seed(u64 seed) {
         return a*(cos(theta) - d*base) + b*base;
     }
 
+    template<typename T>
+    quat_t<T> exp(quat_t<T> a) {
+        T theta = abs(a.vector);
+        return quat_t<T>(cos(theta), theta > 0.0000001 ? (a.vector * sin(theta) / theta) : vec3_t<T>(0)) * exp(a.scalar);
+    }
+
+    template<typename T>
+    quat_t<T> log(quat_t<T> a) {
+        // if (a.scalar < 0)
+        //     a *= -1;
+        T len = log(a.Norm());
+        T vLen = abs(a.vector);
+        T theta = atan2(vLen, a.scalar);
+        return quat_t<T>(len, vLen > 0.0000001 ? (a.vector / vLen * theta) : vec3_t<T>(theta, 0, 0));
+    }
+
     #ifdef MATH_F32
         template quat_t<f32> slerp(quat_t<f32>, quat_t<f32>, f32);
+        template quat_t<f32> exp(quat_t<f32>);
+        template quat_t<f32> log(quat_t<f32>);
     #endif
     #ifdef MATH_F64
         template quat_t<f64> slerp(quat_t<f64>, quat_t<f64>, f64);
+        template quat_t<f64> exp(quat_t<f64>);
+        template quat_t<f64> log(quat_t<f64>);
     #endif
 #endif // MATH_QUATERNION
 

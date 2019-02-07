@@ -553,6 +553,9 @@ struct complex_t {
         struct {
             T x, y;
         };
+        struct {
+            T data[2];
+        };
     };
 
     complex_t();

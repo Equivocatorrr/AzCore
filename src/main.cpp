@@ -147,6 +147,26 @@ void UnitTestMat4(io::logStream& cout) {
     Print(m.Transpose(), cout);
 }
 
+void UnitTestComplex(io::logStream& cout) {
+    cout << "Unit testing complex numbers\n";
+    complex c, z;
+    for (i32 y = -30; y <= 30; y++) {
+        for (i32 x = -80; x <= 40; x++) {
+            c = z = complex(f32(x)/40.0, f32(y)/25.0);
+            const char val[] = "`*+%";
+            u32 its = 0;
+            for (; its < 39; its++) {
+                z = z*z + c;
+                if (length(z) > 2.0)
+                    break;
+            }
+            cout << val[its/10];
+        }
+        cout << "\n";
+    }
+    cout << std::endl;
+}
+
 void UnitTestQuat(io::logStream& cout) {
     cout << "Unit testing quaternions\n";
     quat q;
@@ -305,6 +325,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
         if (input.Pressed(KC_KEY_T)) {
             UnitTestMat3(cout);
             UnitTestMat4(cout);
+            UnitTestComplex(cout);
             UnitTestQuat(cout);
             UnitTestSlerp(cout);
         }

@@ -458,6 +458,9 @@ inline T normalize(const T& a) {
             struct {
                 T r, g, b, a;
             };
+            struct {
+                T h, s, v;
+            };
     #ifdef MATH_VEC3
             struct {
                 vec3_t<T> xyz;
@@ -477,20 +480,20 @@ inline T normalize(const T& a) {
         vec4_t();
         vec4_t(T v);
         vec4_t(T v1, T v2, T v3, T v4);
-        inline vec4_t<T> operator+(const vec4_t<T>& v) const { return vec4_t<T>(x+v.x, y+v.y, z+v.z, w+v.w); }
-        inline vec4_t<T> operator-(const vec4_t<T>& v) const { return vec4_t<T>(x-v.x, y-v.y, z-v.z, w-v.w); }
+        inline vec4_t<T> operator+(const vec4_t<T>& vec) const { return vec4_t<T>(x+vec.x, y+vec.y, z+vec.z, w+vec.w); }
+        inline vec4_t<T> operator-(const vec4_t<T>& vec) const { return vec4_t<T>(x-vec.x, y-vec.y, z-vec.z, w-vec.w); }
         inline vec4_t<T> operator-() const { return vec4_t<T>(-x, -y, -z, -w); }
-        inline vec4_t<T> operator*(const vec4_t<T>& v) const { return vec4_t<T>(x*v.x, y*v.y, z*v.z, w*v.w); }
-        inline vec4_t<T> operator/(const vec4_t<T>& v) const { return vec4_t<T>(x/v.x, y/v.y, z/v.z, w/v.w); }
-        inline vec4_t<T> operator*(const T& v) const { return vec4_t<T>(x*v, y*v, z*v, w*v); }
-        inline vec4_t<T> operator/(const T& v) const { return vec4_t<T>(x/v, y/v, z/v, w/v); }
+        inline vec4_t<T> operator*(const vec4_t<T>& vec) const { return vec4_t<T>(x*vec.x, y*vec.y, z*vec.z, w*vec.w); }
+        inline vec4_t<T> operator/(const vec4_t<T>& vec) const { return vec4_t<T>(x/vec.x, y/vec.y, z/vec.z, w/vec.w); }
+        inline vec4_t<T> operator*(const T& vec) const { return vec4_t<T>(x*vec, y*vec, z*vec, w*vec); }
+        inline vec4_t<T> operator/(const T& vec) const { return vec4_t<T>(x/vec, y/vec, z/vec, w/vec); }
         inline T& operator[](const u32& i) { return data[i]; }
-        vec4_t<T> operator+=(const vec4_t<T>& v);
-        vec4_t<T> operator-=(const vec4_t<T>& v);
-        vec4_t<T> operator/=(const vec4_t<T>& v);
-        vec4_t<T> operator/=(const T& v);
-        vec4_t<T> operator*=(const vec4_t<T>& v);
-        vec4_t<T> operator*=(const T& v);
+        vec4_t<T> operator+=(const vec4_t<T>& vec);
+        vec4_t<T> operator-=(const vec4_t<T>& vec);
+        vec4_t<T> operator/=(const vec4_t<T>& vec);
+        vec4_t<T> operator/=(const T& vec);
+        vec4_t<T> operator*=(const vec4_t<T>& vec);
+        vec4_t<T> operator*=(const T& vec);
     };
 
     template<typename T>

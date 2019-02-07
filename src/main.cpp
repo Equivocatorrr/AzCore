@@ -157,7 +157,7 @@ void UnitTestComplex(io::logStream& cout) {
             u32 its = 0;
             for (; its < 39; its++) {
                 z = z*z + c;
-                if (length(z) > 2.0)
+                if (abs(z) > 2.0)
                     break;
             }
             cout << val[its/10];
@@ -174,45 +174,45 @@ void UnitTestQuat(io::logStream& cout) {
     q = quat::Rotation(pi/4.0, {1.0, 0.0, 0.0});
     Print(q.wxyz, cout);
     cout << std::endl;
-    Print(q.ToMatrix(), cout);
+    Print(q.ToMat3(), cout);
     cout << "Rotation(pi/4, {0.0, 1.0, 0.0}):\n";
     q = quat::Rotation(pi/4.0, {0.0, 1.0, 0.0});
     Print(q.wxyz, cout);
     cout << std::endl;
-    Print(q.ToMatrix(), cout);
+    Print(q.ToMat3(), cout);
     cout << "Rotation(pi/4, {0.0, 0.0, 1.0}):\n";
     q = quat::Rotation(pi/4.0, {0.0, 0.0, 1.0});
     Print(q.wxyz, cout);
     cout << std::endl;
-    Print(q.ToMatrix(), cout);
+    Print(q.ToMat3(), cout);
     cout << "Multiplying two pi/2 rotations on different axes:\nq1: ";
     mat3 m = mat3::Rotation(pi/2.0, {1.0, 0.0, 0.0});
     q = quat::Rotation(pi/2.0, {1.0, 0.0, 0.0});
     Print(q.wxyz, cout);
-    cout << "\nToMatrix():\n";
-    Print(q.ToMatrix(), cout);
+    cout << "\nToMat3():\n";
+    Print(q.ToMat3(), cout);
     cout << "Control Matrix:\n";
     Print(m, cout);
     cout << "q2: ";
     mat3 m2 = mat3::Rotation(pi/2.0, {0.0, 1.0, 0.0});
     quat q2 = quat::Rotation(pi/2.0, {0.0, 1.0, 0.0});
     Print(q2.wxyz, cout);
-    cout << "\nToMatrix():\n";
-    Print(q2.ToMatrix(), cout);
+    cout << "\nToMat3():\n";
+    Print(q2.ToMat3(), cout);
     cout << "Control Matrix:\n";
     Print(m2, cout);
     cout << "q1*q2: ";
     quat q3 = q * q2;
     Print(q3.wxyz, cout);
-    cout << "\nToMatrix():\n";
-    Print(q3.ToMatrix(), cout);
+    cout << "\nToMat3():\n";
+    Print(q3.ToMat3(), cout);
     cout << "Control Matrix:\n";
     Print(m * m2, cout);
     cout << "q2*q1: ";
     q3 = q2 * q;
     Print(q3.wxyz, cout);
-    cout << "\nToMatrix():\n";
-    Print(q3.ToMatrix(), cout);
+    cout << "\nToMat3():\n";
+    Print(q3.ToMat3(), cout);
     cout << "Control Matrix:\n";
     Print(m2 * m, cout);
 }

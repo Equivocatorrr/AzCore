@@ -485,11 +485,18 @@ void RandomNumberGenerator::Seed(u64 seed) {
         return complex_t<T>(cos(a.imag), sin(a.imag)) * exp(a.real);
     }
 
+    template<typename T>
+    complex_t<T> log(const complex_t<T>& a) {
+        return complex_t<T>(log(abs(a)), atan2(a.imag, a.real));
+    }
+
     #ifdef MATH_F32
         template complex_t<f32> exp(const complex_t<f32>&);
+        template complex_t<f32> log(const complex_t<f32>&);
     #endif
     #ifdef MATH_F64
         template complex_t<f64> exp(const complex_t<f64>&);
+        template complex_t<f64> log(const complex_t<f64>&);
     #endif
 #endif // MATH_COMPLEX
 

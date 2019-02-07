@@ -164,6 +164,11 @@ void UnitTestComplex(io::logStream& cout) {
         }
         cout << "\n";
     }
+    complex a(2, pi);
+    a = exp(a);
+    cout << "exp(2 + pi*i) = (" << a.real << " + " << a.imag << "i)\n";
+    a = log(a);
+    cout << "log of previous value = (" << a.real << " + " << a.imag << "i)\n";
     cout << std::endl;
 }
 

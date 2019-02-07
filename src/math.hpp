@@ -672,6 +672,9 @@ inline T normalize(const T& a) {
     template<typename T>
     complex_t<T> exp(const complex_t<T>& a);
 
+    template<typename T>
+    complex_t<T> log(const complex_t<T>& a);
+
 #endif // MATH_COMPLEX
 
 #ifdef MATH_QUATERNION

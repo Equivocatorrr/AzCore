@@ -538,13 +538,27 @@ void RandomNumberGenerator::Seed(u64 seed) {
         return complex_t<T>(log(abs(a)), atan2(a.imag, a.real));
     }
 
+    template<typename T>
+    complex_t<T> pow(const complex_t<T>& a, const complex_t<T>& e) {
+        return exp(log(a)*e);
+    }
+
+    template<typename T>
+    complex_t<T> pow(const complex_t<T>& a, const T& e) {
+        return exp(log(a)*e);
+    }
+
     #ifdef MATH_F32
         template complex_t<f32> exp(const complex_t<f32>&);
         template complex_t<f32> log(const complex_t<f32>&);
+        template complex_t<f32> pow(const complex_t<f32>&,const complex_t<f32>&);
+        template complex_t<f32> pow(const complex_t<f32>&,const f32&);
     #endif
     #ifdef MATH_F64
         template complex_t<f64> exp(const complex_t<f64>&);
         template complex_t<f64> log(const complex_t<f64>&);
+        template complex_t<f64> pow(const complex_t<f64>&,const complex_t<f64>&);
+        template complex_t<f64> pow(const complex_t<f64>&,const f64&);
     #endif
 #endif // MATH_COMPLEX
 
@@ -686,15 +700,28 @@ void RandomNumberGenerator::Seed(u64 seed) {
         return quat_t<T>(len, vLen > 0.0000001 ? (a.vector / vLen * theta) : vec3_t<T>(theta, 0, 0));
     }
 
+    template<typename T>
+    quat_t<T> pow(const quat_t<T>& a, const quat_t<T>& e) {
+        return exp(log(a)*e);
+    }
+
+    template<typename T>
+    quat_t<T> pow(const quat_t<T>& a, const T& e) {
+        return exp(log(a)*e);
+    }
+
     #ifdef MATH_F32
         template quat_t<f32> slerp(quat_t<f32>, quat_t<f32>, f32);
         template quat_t<f32> exp(quat_t<f32>);
         template quat_t<f32> log(quat_t<f32>);
+        template quat_t<f32> pow(const quat_t<f32>&, const quat_t<f32>&);
+        template quat_t<f32> pow(const quat_t<f32>&, const f32&);
     #endif
     #ifdef MATH_F64
         template quat_t<f64> slerp(quat_t<f64>, quat_t<f64>, f64);
         template quat_t<f64> exp(quat_t<f64>);
         template quat_t<f64> log(quat_t<f64>);
+        template quat_t<f64> pow(const quat_t<f64>&, const f64&);
     #endif
 #endif // MATH_QUATERNION
 

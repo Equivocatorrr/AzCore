@@ -695,6 +695,12 @@ inline T normalize(const T& a) {
     template<typename T>
     complex_t<T> log(const complex_t<T>& a);
 
+    template<typename T>
+    complex_t<T> pow(const complex_t<T>& a, const complex_t<T>& e);
+
+    template<typename T>
+    complex_t<T> pow(const complex_t<T>& a, const T& e);
+
 #endif // MATH_COMPLEX
 
 #ifdef MATH_QUATERNION
@@ -798,6 +804,12 @@ inline T normalize(const T& a) {
 
     template<typename T>
     quat_t<T> log(quat_t<T> a);
+
+    template<typename T>
+    quat_t<T> pow(const quat_t<T>& a, const quat_t<T>& e);
+
+    template<typename T>
+    quat_t<T> pow(const quat_t<T>& a, const T& e);
 
 #endif // MATH_QUATERNION
 

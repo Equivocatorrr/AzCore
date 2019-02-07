@@ -298,27 +298,30 @@ inline T normalize(const T& a) {
                 T r, g, b;
             };
             struct {
+                T h, s, v;
+            };
+            struct {
                 T data[3];
             };
         };
 
         vec3_t();
-        vec3_t(T v);
+        vec3_t(T a);
         vec3_t(T v1, T v2, T v3);
-        inline vec3_t<T> operator+(const vec3_t<T>& v) const { return vec3_t<T>(x+v.x, y+v.y, z+v.z); }
-        inline vec3_t<T> operator-(const vec3_t<T>& v) const { return vec3_t<T>(x-v.x, y-v.y, z-v.z); }
+        inline vec3_t<T> operator+(const vec3_t<T>& a) const { return vec3_t<T>(x+a.x, y+a.y, z+a.z); }
+        inline vec3_t<T> operator-(const vec3_t<T>& a) const { return vec3_t<T>(x-a.x, y-a.y, z-a.z); }
         inline vec3_t<T> operator-() const { return vec3_t<T>(-x, -y, -z); }
-        inline vec3_t<T> operator*(const vec3_t<T>& v) const { return vec3_t<T>(x*v.x, y*v.y, z*v.z); }
-        inline vec3_t<T> operator/(const vec3_t<T>& v) const { return vec3_t<T>(x/v.x, y/v.y, z/v.z); }
-        inline vec3_t<T> operator*(const T& v) const { return vec3_t<T>(x*v, y*v, z*v); }
-        inline vec3_t<T> operator/(const T& v) const { return vec3_t<T>(x/v, y/v, z/v); }
+        inline vec3_t<T> operator*(const vec3_t<T>& a) const { return vec3_t<T>(x*a.x, y*a.y, z*a.z); }
+        inline vec3_t<T> operator/(const vec3_t<T>& a) const { return vec3_t<T>(x/a.x, y/a.y, z/a.z); }
+        inline vec3_t<T> operator*(const T& a) const { return vec3_t<T>(x*a, y*a, z*a); }
+        inline vec3_t<T> operator/(const T& a) const { return vec3_t<T>(x/a, y/a, z/a); }
         inline T& operator[](const u32& i) { return data[i]; }
-        vec3_t<T> operator+=(const vec3_t<T>& v);
-        vec3_t<T> operator-=(const vec3_t<T>& v);
-        vec3_t<T> operator/=(const vec3_t<T>& v);
-        vec3_t<T> operator/=(const T& v);
-        vec3_t<T> operator*=(const vec3_t<T>& v);
-        vec3_t<T> operator*=(const T& v);
+        vec3_t<T> operator+=(const vec3_t<T>& a);
+        vec3_t<T> operator-=(const vec3_t<T>& a);
+        vec3_t<T> operator/=(const vec3_t<T>& a);
+        vec3_t<T> operator/=(const T& a);
+        vec3_t<T> operator*=(const vec3_t<T>& a);
+        vec3_t<T> operator*=(const T& a);
     };
 
     template<typename T>
@@ -339,6 +342,13 @@ inline T normalize(const T& a) {
     inline T abs(const vec3_t<T>& a) {
         return sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
     }
+
+    template<typename T>
+    vec3_t<T> hsvToRgb(vec3_t<T> hsv);
+
+    template<typename T>
+    vec3_t<T> rgbToHsv(vec3_t<T> rgb);
+
 #endif // MATH_VEC3
 
 #ifdef MATH_MAT3
@@ -454,6 +464,9 @@ inline T normalize(const T& a) {
             };
             struct {
                 vec3_t<T> rgb;
+            };
+            struct {
+                vec3_t<T> hsv;
             };
     #endif
             struct {

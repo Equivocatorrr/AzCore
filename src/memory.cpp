@@ -32,7 +32,6 @@ WString ToWString(const char *string) {
             chr += u32(string[++i]&0x3F);
         }
         out += (wchar_t)chr;
-        // printf("\t%u\n", chr);
     }
     return out;
 }

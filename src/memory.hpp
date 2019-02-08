@@ -12,11 +12,6 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <chrono>
-
-typedef std::chrono::nanoseconds Nanoseconds;
-typedef std::chrono::steady_clock Clock;
-typedef std::chrono::steady_clock::time_point ClockTime;
 
 template<typename T>
 using Array = std::vector<T>;
@@ -27,9 +22,14 @@ using Map = std::map<T, B>;
 using String = std::string;
 using WString = std::wstring;
 
+// Converts a UTF-8 string to Unicode string
 WString ToWString(const char *string);
 WString ToWString(String string);
 
+/*  struct: List
+    Author: Philip Haynes
+    Data structure useful for sparse chunks of data at a very wide range of indices.
+    Good for mapping values from Unicode characters, for example.     */
 template<typename T>
 struct List {
     List<T> *prev=nullptr, *next=nullptr;
@@ -93,6 +93,8 @@ struct List {
         }
         return *this;
     }
+    // This has to be const because changing values may require reallocating data
+    // And I'd rather not reallocate data just for a read since reading out of bounds is valid
     const T& operator[](const i32 index) const {
         if (index < first) {
             if (prev != nullptr) {
@@ -139,6 +141,8 @@ struct List {
             return true;
         }
     }
+    // Having this in a separate function is useful because it may
+    // have to allocate another List or expand an Array
     void Set(const i32 index, T value) {
         if (index < first-1) {
             if (prev == nullptr) {
@@ -190,6 +194,7 @@ struct List {
             }
         }
     }
+    // TODO: Can't say I remember what I was smoking when I implemented this...
     void Shift(const i32 amount) {
         last++;
         if (next != nullptr) {

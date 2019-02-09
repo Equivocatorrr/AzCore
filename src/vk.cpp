@@ -380,30 +380,14 @@ namespace vk {
         }
     }
 
-    u32 Device::AddQueue(Queue queue) {
-        queues.push_back(queue);
-        return queues.size() - 1;
+    ArrayPtr<Queue> Device::AddQueue() {
+        queues.push_back(Queue());
+        return ArrayPtr(queues, queues.size() - 1);
     }
 
-    Queue* Device::GetQueue(u32 index) {
-        if (index >= queues.size()) {
-            error = "Device::GetQueue index out of bounds";
-            return nullptr;
-        }
-        return &queues[index];
-    }
-
-    u32 Device::AddSwapchain(Swapchain swapchain) {
-        swapchains.push_back(swapchain);
-        return swapchains.size() - 1;
-    }
-
-    Swapchain* Device::GetSwapchain(u32 index) {
-        if (index >= swapchains.size()) {
-            error = "Device::GetSwapchain index out of bounds";
-            return nullptr;
-        }
-        return &swapchains[index];
+    ArrayPtr<Swapchain> Device::AddSwapchain() {
+        swapchains.push_back(Swapchain());
+        return ArrayPtr(swapchains, swapchains.size() - 1);
     }
 
     bool Device::Init(Instance *inst) {
@@ -657,17 +641,9 @@ namespace vk {
         }
     }
 
-    u32 Instance::AddDevice(Device device) {
-        devices.push_back(device);
-        return devices.size()-1;
-    }
-
-    Device* Instance::GetDevice(u32 index) {
-        if (index >= devices.size()) {
-            error = "Instance::GetDevice index is out of bounds";
-            return nullptr;
-        }
-        return &devices[index];
+    ArrayPtr<Device> Instance::AddDevice() {
+        devices.push_back(Device());
+        return ArrayPtr(devices, devices.size()-1);
     }
 
     bool Instance::Reconfigure() {

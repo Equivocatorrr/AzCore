@@ -23,6 +23,31 @@ WString ToWString(String string);
 template<typename T>
 using Array = std::vector<T>;
 
+/*  class: ArrayPtr
+    Author: Philip Haynes
+    Uses an index of an Array rather than an actual pointer     */
+template<typename T>
+class ArrayPtr {
+    Array<T> *array = nullptr;
+    u32 index = 0;
+public:
+    ArrayPtr() {}
+    ArrayPtr(Array<T>& a, u32 i) {
+        array = &a;
+        index = i;
+    }
+    void SetPtr(Array<T>& a, u32 i) {
+        array = &a;
+        index = i;
+    }
+    T& operator*() {
+        return (*array)[index];
+    }
+    T* operator->() {
+        return &(*array)[index];
+    }
+};
+
 #include <map>
 
 template<typename T, typename B>

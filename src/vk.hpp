@@ -139,11 +139,8 @@ namespace vk {
         ~Device();
 
         // Adds a queue and returns its index for later use
-        u32 AddQueue(Queue queue);
-        // Returns a pointer to a queue. Pointer is invalid if AddQueue is called again.
-        Queue* GetQueue(u32 index);
-        u32 AddSwapchain(Swapchain swapchain);
-        Swapchain* GetSwapchain(u32 index);
+        ArrayPtr<Queue> AddQueue();
+        ArrayPtr<Swapchain> AddSwapchain();
 
         bool Init(Instance *inst);
         bool Reconfigure();
@@ -192,10 +189,8 @@ namespace vk {
         u32 AddWindowForSurface(io::Window *window);
         void AddExtensions(Array<const char*> extensions);
         void AddLayers(Array<const char*> layers);
-        // Returns an index to the device
-        u32 AddDevice(Device device);
-        // For accessing the device. Pointer is invalid if AddDevice is called again.
-        Device* GetDevice(u32 index);
+
+        ArrayPtr<Device> AddDevice();
 
         // If the instance is active, you must call this for the changes to be effective.
         bool Reconfigure();

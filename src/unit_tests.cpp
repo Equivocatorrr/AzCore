@@ -274,7 +274,7 @@ void UnitTestRNG(RandomNumberGenerator& rng, io::logStream& cout) {
         }
         cout << "}" << std::endl;
     }
-    u16 *count = new u16[1000000];
+    UniquePtr<u16[]> count(new u16[1000000]);
     for (u32 i = 0; i < 1000000; i++) {
         count[i] = 0;
     }
@@ -288,6 +288,5 @@ void UnitTestRNG(RandomNumberGenerator& rng, io::logStream& cout) {
             total++;
         }
     }
-    delete[] count;
     cout << total << " indices." << std::endl;
 }

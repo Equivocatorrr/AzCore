@@ -35,10 +35,19 @@ using Map = std::map<T, B>;
 
 using Mutex = std::mutex;
 
+#include <memory>
+
+template<typename T, typename Deleter=std::default_delete<T>>
+using UniquePtr = std::unique_ptr<T, Deleter>;
+
+template<typename T>
+using SharedPtr = std::shared_ptr<T>;
+
 /*  struct: List
     Author: Philip Haynes
     Data structure useful for sparse chunks of data at a very wide range of indices.
-    Good for mapping values from Unicode characters, for example.     */
+    Good for mapping values from Unicode characters, for example.
+    Negative indices are also valid, if that's your thing.     */
 template<typename T>
 struct List {
     List<T> *prev=nullptr, *next=nullptr;

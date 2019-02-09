@@ -10,14 +10,6 @@
 #include "math.hpp"
 
 #include <string>
-#include <vector>
-#include <map>
-
-template<typename T>
-using Array = std::vector<T>;
-
-template<typename T, typename B>
-using Map = std::map<T, B>;
 
 using String = std::string;
 using WString = std::wstring;
@@ -25,6 +17,23 @@ using WString = std::wstring;
 // Converts a UTF-8 string to Unicode string
 WString ToWString(const char *string);
 WString ToWString(String string);
+
+#include <vector>
+
+template<typename T>
+using Array = std::vector<T>;
+
+#include <map>
+
+template<typename T, typename B>
+using Map = std::map<T, B>;
+
+#include <mutex>
+// #ifdef __MINGW32__
+// #include <mingw/mutex.h>
+// #endif
+
+using Mutex = std::mutex;
 
 /*  struct: List
     Author: Philip Haynes

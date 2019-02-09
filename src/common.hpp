@@ -9,13 +9,5 @@
 #include "math.hpp"
 #include "memory.hpp"
 #include "keycodes.hpp"
-#include "log_stream.hpp"
-
-#include <mutex>
-// #ifdef __MINGW32__
-// #include <mingw/mutex.h>
-// #endif
-
-using Mutex = std::mutex;
 
 #endif

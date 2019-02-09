@@ -4,7 +4,7 @@
     Does exactly as advertized.
 */
 
-#include "common.hpp"
+#include "log_stream.hpp"
 
 void Print(vec3 v, io::logStream& cout) {
     cout << "{";

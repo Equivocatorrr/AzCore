@@ -15,6 +15,14 @@ namespace vk {
 
     io::logStream cout("vk.log");
 
+    const char *QueueTypeString[5] = {
+        "UNDEFINED",
+        "COMPUTE",
+        "GRAPHICS",
+        "TRANSFER",
+        "PRESENT"
+    };
+
     String ErrorString(VkResult errorCode) {
         // Thanks to Sascha Willems for this snippet! :D
 		switch (errorCode) {
@@ -82,7 +90,7 @@ namespace vk {
         return true;
     }
 
-    bool PhysicalDevice::PrintInfo(VkSurfaceKHR surface, bool checkSurface) {
+    void PhysicalDevice::PrintInfo(VkSurfaceKHR surface, bool checkSurface) {
         // Basic info
         cout << "Name: " << properties.deviceName
             << "\nVulkan: "
@@ -113,11 +121,224 @@ namespace vk {
             }
         }
         cout << std::endl;
+    }
+
+    Device::Device() {
+        // type = LOGICAL_DEVICE;
+    }
+
+    Device::~Device() {
+        if (initted) {
+            if (!Deinit()) {
+                cout << "Failed to clean up vk::Device: " << error << std::endl;
+            }
+        }
+    }
+
+    u32 Device::AddQueue(Queue queue) {
+        if (initted) {
+            reconfigured = true;
+        }
+        queues.push_back(queue);
+        return queues.size() - 1;
+    }
+
+    Queue* Device::GetQueue(u32 index) {
+        if (index >= queues.size()) {
+            error = "Device::GetQueue index out of bounds";
+            return nullptr;
+        }
+        return &queues[index];
+    }
+
+    bool Device::Init(Instance *inst) {
+        cout << "------Initializing Logical Device-------" << std::endl;
+        if (initted) {
+            error = "Device is already initialized!";
+            return false;
+        }
+        if ((instance = inst) == nullptr) {
+            error = "Instance is nullptr!";
+            return false;
+        }
+
+        // Select physical device first based on needs.
+        // TODO: Right now we just choose the first in the pre-sorted list. We should instead select
+        //       them based on whether they have our desired features.
+        physicalDevice = instance->physicalDevices[0];
+
+        // Put together all our needed extensions
+        Array<const char*> extensionsAll(extensionsRequired);
+
+        // TODO: Find out what extensions we need based on context
+
+        // Verify that our device extensions are available
+        Array<const char*> extensionsUnavailable(extensionsAll);
+        for (i32 i = 0; i < (i32)extensionsUnavailable.size(); i++) {
+            for (i32 j = 0; j < (i32)physicalDevice.extensionsAvailable.size(); j++) {
+                if (strcmp(extensionsUnavailable[i], physicalDevice.extensionsAvailable[j].extensionName) == 0) {
+                    extensionsUnavailable.erase(extensionsUnavailable.begin() + i);
+                    i--;
+                    break;
+                }
+            }
+        }
+        if (extensionsUnavailable.size() > 0) {
+            error = "Device extensions unavailable:";
+            for (const char *extension : extensionsUnavailable) {
+                error += "\n\t";
+                error += extension;
+            }
+            return false;
+        }
+
+        VkPhysicalDeviceFeatures deviceFeatures;
+        // I'm not sure why these aren't bit-masked values,
+        // but I'm treating it like that anyway.
+        for (u32 i = 0; i < sizeof(VkPhysicalDeviceFeatures)/4; i++) {
+            *(((u32*)&deviceFeatures + i)) = *(((u32*)&deviceFeaturesRequired + i))
+            || (*(((u32*)&physicalDevice.features + i)) && *(((u32*)&deviceFeaturesOptional + i)));
+        }
+
+        // Set up queues
+        // First figure out which queue families each queue should use
+        const bool preferSameQueueFamilies = false;
+
+        // Make sure we have enough queues in every family
+        u32 queueFamilies = physicalDevice.queueFamiliesAvailable.size();
+        Array<u32> queuesPerFamily(queueFamilies);
+        for (u32 i = 0; i < queueFamilies; i++) {
+            queuesPerFamily[i] = physicalDevice.queueFamiliesAvailable[i].queueCount;
+        }
+
+        for (u32 i = 0; i < queues.size(); i++) {
+            for (u32 j = 0; j < queueFamilies; j++) {
+                if (queuesPerFamily[j] == 0)
+                    continue; // This family has been exhausted of queues, try the next.
+                VkQueueFamilyProperties& props = physicalDevice.queueFamiliesAvailable[j];
+                if (props.queueCount == 0)
+                    continue;
+                VkBool32 presentSupport = VK_FALSE;
+                if (instance->useSurface) {
+                    vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice.physicalDevice, j, instance->surface, &presentSupport);
+                }
+                switch(queues[i].queueType) {
+                    case COMPUTE: {
+                        if (props.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+                            queues[i].queueFamilyIndex = j;
+                        }
+                        break;
+                    }
+                    case GRAPHICS: {
+                        if (props.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+                            queues[i].queueFamilyIndex = j;
+                        }
+                        break;
+                    }
+                    case TRANSFER: {
+                        if (props.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+                            queues[i].queueFamilyIndex = j;
+                        }
+                        break;
+                    }
+                    case PRESENT: {
+                        if (presentSupport) {
+                            queues[i].queueFamilyIndex = j;
+                        }
+                        break;
+                    }
+                    default: {
+                        error = "queues[";
+                        error += std::to_string(i);
+                        error += "] has a QueueType of UNDEFINED!";
+                        return false;
+                    }
+                }
+                if (preferSameQueueFamilies && queues[i].queueFamilyIndex != -1)
+                    break;
+            }
+            if (queues[i].queueFamilyIndex == -1) {
+                error = "queues[";
+                error += std::to_string(i);
+                error += "] couldn't find a queue family :(";
+                return false;
+            }
+            queuesPerFamily[queues[i].queueFamilyIndex]--;
+        }
+
+        Array<VkDeviceQueueCreateInfo> queueCreateInfos{};
+        Array<Array<f32>> queuePriorities(queueFamilies);
+        for (u32 i = 0; i < queueFamilies; i++) {
+            for (u32 j = 0; j < queues.size(); j++) {
+                if (queues[j].queueFamilyIndex == (i32)i) {
+                    queuePriorities[i].push_back(queues[j].queuePriority);
+                }
+            }
+        }
+        for (u32 i = 0; i < queueFamilies; i++) {
+            cout << "Allocating " << queuePriorities[i].size() << " queues from family " << i << std::endl;
+            if (queuePriorities[i].size() != 0) {
+                VkDeviceQueueCreateInfo queueCreateInfo = {};
+                queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+                queueCreateInfo.queueFamilyIndex = i;
+                queueCreateInfo.queueCount = queuePriorities[i].size();
+                queueCreateInfo.pQueuePriorities = queuePriorities[i].data();
+                queueCreateInfos.push_back(queueCreateInfo);
+            }
+        }
+
+
+        VkDeviceCreateInfo createInfo = {};
+        createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        createInfo.pQueueCreateInfos = queueCreateInfos.data();
+        createInfo.queueCreateInfoCount = queueCreateInfos.size();
+
+        createInfo.pEnabledFeatures = &deviceFeatures;
+        createInfo.enabledExtensionCount = extensionsAll.size();
+        createInfo.ppEnabledExtensionNames = extensionsAll.data();
+
+        if (instance->enableLayers) {
+            createInfo.enabledLayerCount = instance->layersRequired.size();
+            createInfo.ppEnabledLayerNames = instance->layersRequired.data();
+        } else {
+            createInfo.enabledLayerCount = 0;
+        }
+
+        VkResult result = vkCreateDevice(physicalDevice.physicalDevice, &createInfo, nullptr, &device);
+        if (result != VK_SUCCESS) {
+            error = "Failed to create logical device: ";
+            error += ErrorString(result);
+            return false;
+        }
+        // Get our queues
+        for (u32 i = 0; i < queueFamilies; i++) {
+            u32 queueIndex = 0;
+            for (u32 j = 0; j < queues.size(); j++) {
+                if (queues[j].queueFamilyIndex == (i32)i) {
+                    vkGetDeviceQueue(device, i, queueIndex++, &queues[j].queue);
+                }
+            }
+        }
+        // Init everything else here
+        initted = true;
+        reconfigured = false;
+        return true;
+    }
+
+    bool Device::Deinit() {
+        cout << "--------Destroying Logical Device-------" << std::endl;
+        if (!initted) {
+            error = "Device isn't initialized!";
+            return false;
+        }
+        // Destroy everything allocated from the device here
+        vkDestroyDevice(device, nullptr);
+        initted = false;
         return true;
     }
 
     Instance::Instance() {
-        type = INSTANCE;
+        // type = INSTANCE;
         u32 extensionCount = 0;
         vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
         extensionsAvailable.resize(extensionCount);
@@ -136,7 +357,7 @@ namespace vk {
         }
     }
 
-    bool Instance::AppInfo(const char *name, u32 versionMajor, u32 versionMinor, u32 versionPatch) {
+    void Instance::AppInfo(const char *name, u32 versionMajor, u32 versionMinor, u32 versionPatch) {
         appInfo.pApplicationName = name;
         appInfo.applicationVersion = VK_MAKE_VERSION(versionMajor, versionMinor, versionPatch);
         if (initted) {
@@ -146,25 +367,25 @@ namespace vk {
             cout << "Warning: vk::Instance::AppInfo should be used before initializing." << std::endl;
             reconfigured = true;
         }
-        return true;
     }
 
-    bool Instance::SetWindowForSurface(io::Window *window) {
+    void Instance::SetWindowForSurface(io::Window *window) {
+        if (initted) {
+            reconfigured = true;
+        }
         useSurface = ((surfaceWindow = window) != nullptr);
-        return true;
     }
 
-    bool Instance::AddExtensions(Array<const char*> extensions) {
+    void Instance::AddExtensions(Array<const char*> extensions) {
         for (u32 i = 0; i < extensions.size(); i++) {
             extensionsRequired.push_back(extensions[i]);
         }
         if (initted) {
             reconfigured = true;
         }
-        return true;
     }
 
-    bool Instance::AddLayers(Array<const char*> layers) {
+    void Instance::AddLayers(Array<const char*> layers) {
         if (layers.size() > 0)
             enableLayers = true;
         for (u32 i = 0; i < layers.size(); i++) {
@@ -173,7 +394,22 @@ namespace vk {
         if (initted) {
             reconfigured = true;
         }
-        return true;
+    }
+
+    u32 Instance::AddDevice(Device device) {
+        if (initted) {
+            reconfigured = true;
+        }
+        devices.push_back(device);
+        return devices.size()-1;
+    }
+
+    Device* Instance::GetDevice(u32 index) {
+        if (index >= devices.size()) {
+            error = "Instance::GetDevice index is out of bounds";
+            return nullptr;
+        }
+        return &devices[index];
     }
 
     bool Instance::Reconfigure() {
@@ -188,6 +424,10 @@ namespace vk {
                 return false;
         }
         return true;
+    }
+
+    bool Instance::Initted() const {
+        return initted;
     }
 
     bool Instance::Init() {
@@ -299,39 +539,56 @@ namespace vk {
             }
         }
 #endif
-        // Get our list of physical devices
-        u32 physicalDeviceCount = 0;
-        vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, nullptr);
-        if (physicalDeviceCount == 0) {
-            error = "Failed to find GPUs with Vulkan support";
-            vkDestroyInstance(instance, nullptr);
-            return false;
-        }
-        Array<VkPhysicalDevice> devices(physicalDeviceCount);
-        vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, devices.data());
-        // Sort them by score while adding them to our permanent list
-        for (u32 i = 0; i < physicalDeviceCount; i++) {
-            PhysicalDevice temp;
-            temp.physicalDevice = devices[i];
-            if (!temp.Init(instance)) {
+        {
+            // Get our list of physical devices
+            u32 physicalDeviceCount = 0;
+            vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, nullptr);
+            if (physicalDeviceCount == 0) {
+                error = "Failed to find GPUs with Vulkan support";
                 vkDestroyInstance(instance, nullptr);
                 return false;
             }
-            u32 spot;
-            for (spot = 0; spot < physicalDevices.size(); spot++) {
-                if (temp.score > physicalDevices[spot].score) {
-                    break;
+            Array<VkPhysicalDevice> devices(physicalDeviceCount);
+            vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, devices.data());
+            // Sort them by score while adding them to our permanent list
+            for (u32 i = 0; i < physicalDeviceCount; i++) {
+                PhysicalDevice temp;
+                temp.physicalDevice = devices[i];
+                if (!temp.Init(instance)) {
+                    vkDestroyInstance(instance, nullptr);
+                    return false;
                 }
+                u32 spot;
+                for (spot = 0; spot < physicalDevices.size(); spot++) {
+                    if (temp.score > physicalDevices[spot].score) {
+                        break;
+                    }
+                }
+                physicalDevices.insert(physicalDevices.begin() + spot, temp);
             }
-            physicalDevices.insert(physicalDevices.begin() + spot, temp);
+            cout << "Physical Devices:";
+            for (u32 i = 0; i < physicalDeviceCount; i++) {
+                cout << "\n\tDevice #" << i << "\n";
+                physicalDevices[i].PrintInfo(surface, useSurface);
+            }
         }
-        cout << "Physical Devices:";
-        for (u32 i = 0; i < physicalDeviceCount; i++) {
-            cout << "\n\tDevice #" << i << "\n";
-            if (!physicalDevices[i].PrintInfo(surface, useSurface)) {
-                vkDestroyInstance(instance, nullptr);
-                return false;
+        // Initialize our logical devices according to their rules
+        bool failed = false;
+        for (u32 i = 0; i < devices.size(); i++) {
+            if (!devices[i].Init(this)) {
+                failed = true;
+                break;
             }
+        }
+        if (failed) {
+            // Deinit will fail for uninitialized devices, so copy the last error
+            String err = error;
+            for (u32 i = 0; i < devices.size(); i++) {
+                devices[i].Deinit();
+            }
+            vkDestroyInstance(instance, nullptr);
+            error = err;
+            return false;
         }
 
         // Tell everything else to initialize here
@@ -345,6 +602,9 @@ namespace vk {
         if (!initted) {
             error = "Tree isn't initialized!";
             return false;
+        }
+        for (u32 i = 0; i < devices.size(); i++) {
+            devices[i].Deinit();
         }
         // Clean up everything else here
 #ifdef IO_FOR_VULKAN

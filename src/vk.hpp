@@ -53,21 +53,56 @@ namespace vk {
         Array<VkQueueFamilyProperties> queueFamiliesAvailable{};
         VkPhysicalDeviceMemoryProperties memoryProperties;
         bool Init(VkInstance instance);
-        bool PrintInfo(VkSurfaceKHR surface=0, bool checkSurface=false);
+        void PrintInfo(VkSurfaceKHR surface=0, bool checkSurface=false);
     };
+
+    class Device;
+
+    extern const char *QueueTypeString[5];
+
+    enum QueueType {
+        UNDEFINED=0,
+        COMPUTE=1,
+        GRAPHICS=2,
+        TRANSFER=3,
+        PRESENT=4
+    };
+
+    /*  struct: Queue
+        Author: Philip Haynes
+        What we use to submit work to the GPU       */
+    struct Queue {
+        VkQueue queue;
+        i32 queueFamilyIndex = -1;
+        QueueType queueType = UNDEFINED;
+        f32 queuePriority = 1.0;
+    };
+
+    class Instance;
 
     /*  class: Device
         Author: Philip Haynes
         Our interface to actually use our physical GPUs to do work  */
-    class Device : public Node {
+    class Device {
         bool initted = false;
         bool reconfigured = false;
-        VkInstance instance;
+        Instance *instance = nullptr;
         PhysicalDevice physicalDevice;
         VkDevice device;
-        // TODO: What am I doing here again?
+        Array<Queue> queues{};
     public:
-        bool Init(VkInstance inst);
+        Array<const char*> extensionsRequired{};
+        VkPhysicalDeviceFeatures deviceFeaturesRequired{};
+        VkPhysicalDeviceFeatures deviceFeaturesOptional{};
+        Device();
+        ~Device();
+
+        // Adds a queue and returns its index for later use
+        u32 AddQueue(Queue queue);
+        // Returns a pointer to a queue. Pointer is invalid if AddQueue is called again.
+        Queue* GetQueue(u32 index);
+
+        bool Init(Instance *inst);
         bool Deinit();
     };
 
@@ -76,8 +111,9 @@ namespace vk {
         More or less the context for the whole renderer.
         Manages the state of everything else in this toolkit.
         Used as a top-level control of all of the tasks created for it to execute.  */
-    class Instance : public Node {
+    class Instance {
         friend io::Window;
+        friend Device;
         PFN_vkCreateDebugReportCallbackEXT
             fpCreateDebugReportCallbackEXT;
         PFN_vkDestroyDebugReportCallbackEXT
@@ -105,20 +141,27 @@ namespace vk {
         Array<const char*> layersRequired{};
 
         Array<PhysicalDevice> physicalDevices{};
+        // We hold and Init() the devices according to their parameters.
+        Array<Device> devices{};
     public:
 
         Instance();
         ~Instance();
 
         // Configuring functions
-        bool AppInfo(const char *name, u32 versionMajor, u32 versionMinor, u32 versionPatch);
-        bool SetWindowForSurface(io::Window *window);
-        bool AddExtensions(Array<const char*> extensions);
-        bool AddLayers(Array<const char*> layers);
+        void AppInfo(const char *name, u32 versionMajor, u32 versionMinor, u32 versionPatch);
+        void SetWindowForSurface(io::Window *window);
+        void AddExtensions(Array<const char*> extensions);
+        void AddLayers(Array<const char*> layers);
+        // Returns an index to the device
+        u32 AddDevice(Device device);
+        // For accessing the device. Pointer is invalid if AddDevice is called again.
+        Device* GetDevice(u32 index);
 
         // If the instance is active, you must call this for the changes to be effective.
         bool Reconfigure();
 
+        bool Initted() const;
         bool Init(); // Constructs the entire tree
         bool Deinit(); // Cleans everything up
     };

@@ -23,6 +23,40 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     vk::Instance vkInstance;
     vkInstance.AppInfo("AzCore Test Program", 0, 1, 0);
+
+    u32 vkDeviceId;
+    {
+        vk::Device vkDevice;
+        vkDevice.deviceFeaturesRequired.depthClamp = VK_TRUE;
+        vkDevice.deviceFeaturesOptional.samplerAnisotropy = VK_TRUE;
+
+        vkDeviceId = vkInstance.AddDevice(vkDevice);
+    }
+    vk::Device *vkDevice = vkInstance.GetDevice(vkDeviceId);
+    vkDevice->extensionsRequired = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+    };
+    {
+        vk::Queue vkQueue;
+        vkQueue.queueType = vk::GRAPHICS;
+        vkDevice->AddQueue(vkQueue);
+    }
+    {
+        vk::Queue vkQueue;
+        vkQueue.queueType = vk::PRESENT;
+        vkDevice->AddQueue(vkQueue);
+    }
+    {
+        vk::Queue vkQueue;
+        vkQueue.queueType = vk::TRANSFER;
+        vkDevice->AddQueue(vkQueue);
+    }
+    {
+        vk::Queue vkQueue;
+        vkQueue.queueType = vk::COMPUTE;
+        vkDevice->AddQueue(vkQueue);
+    }
+
     io::Window window;
     io::Input input;
     window.input = &input;

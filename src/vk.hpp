@@ -41,6 +41,14 @@ namespace vk {
         Type type = UNKNOWN;
     };
 
+    /*  struct: Window
+        Author: Philip Haynes
+        Everything we need to know about a window to use it for drawing     */
+    struct Window {
+        io::Window *surfaceWindow = nullptr;
+        VkSurfaceKHR surface;
+    };
+
     /*  struct: PhysicalDevice
         Author: Philip Haynes
         Some kind of GPU which we use to create our logical device  */
@@ -53,10 +61,10 @@ namespace vk {
         Array<VkQueueFamilyProperties> queueFamiliesAvailable{};
         VkPhysicalDeviceMemoryProperties memoryProperties;
         bool Init(VkInstance instance);
-        void PrintInfo(VkSurfaceKHR surface=0, bool checkSurface=false);
+        void PrintInfo(Array<Window> windows, bool checkSurface=false);
     };
 
-    class Device;
+    struct Device;
 
     extern const char *QueueTypeString[5];
 
@@ -78,19 +86,52 @@ namespace vk {
         f32 queuePriority = 1.0;
     };
 
-    class Instance;
+    /*  struct: Swapchain
+        Author: Philip Haynes
+        Manages how we interact with our window surface         */
+    struct Swapchain {
+        bool initted = false;
+        bool created = false;
+        Device *device = nullptr;
+        VkSwapchainKHR swapchain;
+        VkSurfaceKHR surface;
+        Array<VkImage> swapchainImages{};
+        VkSurfaceFormatKHR surfaceFormat;
+        VkPresentModeKHR presentMode;
+        VkExtent2D extent;
+        u32 imageCount = 2;
 
-    /*  class: Device
+        VkSurfaceCapabilitiesKHR surfaceCapabilities;
+        Array<VkSurfaceFormatKHR> surfaceFormats{};
+        Array<VkPresentModeKHR> presentModes{};
+
+        // Configuration
+        VkSurfaceFormatKHR formatPreferred = {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR}; // You probably won't need to change this
+        bool vsync = true; // To determine the ideal present mode
+        VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        u32 imageCountPreferred = 2;
+        i32 windowIndex = -1;
+
+        Swapchain();
+        ~Swapchain();
+        bool Init(Device *dev);
+        bool Create();
+        bool Reconfigure();
+        bool Deinit();
+    };
+
+    struct Instance;
+
+    /*  struct: Device
         Author: Philip Haynes
         Our interface to actually use our physical GPUs to do work  */
-    class Device {
+    struct Device {
         bool initted = false;
-        bool reconfigured = false;
         Instance *instance = nullptr;
         PhysicalDevice physicalDevice;
         VkDevice device;
         Array<Queue> queues{};
-    public:
+        Array<Swapchain> swapchains{};
         Array<const char*> extensionsRequired{};
         VkPhysicalDeviceFeatures deviceFeaturesRequired{};
         VkPhysicalDeviceFeatures deviceFeaturesOptional{};
@@ -101,30 +142,28 @@ namespace vk {
         u32 AddQueue(Queue queue);
         // Returns a pointer to a queue. Pointer is invalid if AddQueue is called again.
         Queue* GetQueue(u32 index);
+        u32 AddSwapchain(Swapchain swapchain);
+        Swapchain* GetSwapchain(u32 index);
 
         bool Init(Instance *inst);
+        bool Reconfigure();
         bool Deinit();
     };
 
-    /*  class: Instance
+    /*  struct: Instance
         Author: Philip Haynes
         More or less the context for the whole renderer.
         Manages the state of everything else in this toolkit.
         Used as a top-level control of all of the tasks created for it to execute.  */
-    class Instance {
-        friend io::Window;
-        friend Device;
+    struct Instance {
         PFN_vkCreateDebugReportCallbackEXT
             fpCreateDebugReportCallbackEXT;
         PFN_vkDestroyDebugReportCallbackEXT
             fpDestroyDebugReportCallbackEXT;
         bool initted = false;
-        bool reconfigured = false;
         bool enableLayers = false;
         VkInstance instance;
-        io::Window *surfaceWindow = nullptr;
-        VkSurfaceKHR surface;
-        bool useSurface = false;
+        Array<Window> windows{};
         VkDebugReportCallbackEXT debugReportCallback;
         VkApplicationInfo appInfo = {
             .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -143,14 +182,14 @@ namespace vk {
         Array<PhysicalDevice> physicalDevices{};
         // We hold and Init() the devices according to their parameters.
         Array<Device> devices{};
-    public:
 
         Instance();
         ~Instance();
 
         // Configuring functions
         void AppInfo(const char *name, u32 versionMajor, u32 versionMinor, u32 versionPatch);
-        void SetWindowForSurface(io::Window *window);
+        // Returns and index to the window, which you must use when creating Swapchains
+        u32 AddWindowForSurface(io::Window *window);
         void AddExtensions(Array<const char*> extensions);
         void AddLayers(Array<const char*> layers);
         // Returns an index to the device

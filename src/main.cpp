@@ -64,7 +64,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
         cout << "Failed to open Window: " << io::error << std::endl;
         return 1;
     }
-    vkInstance.SetWindowForSurface(&window);
+    vk::Swapchain vkSwapchain;
+    vkSwapchain.windowIndex = vkInstance.AddWindowForSurface(&window);
+    vkDevice->AddSwapchain(vkSwapchain);
     if (!vkInstance.Init()) { // Do this once you've set up the structure of your program.
         cout << "Failed to initialize Vulkan: " << vk::error << std::endl;
         return 1;

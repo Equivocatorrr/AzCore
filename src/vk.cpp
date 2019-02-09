@@ -3,9 +3,9 @@
     Author: Philip Haynes
 */
 #include "vk.hpp"
-#ifdef IO_FOR_VULKAN
+// #ifdef IO_FOR_VULKAN
     #include "io.hpp"
-#endif
+// #endif
 #include "log_stream.hpp"
 #include <cstring>
 
@@ -90,7 +90,7 @@ namespace vk {
         return true;
     }
 
-    void PhysicalDevice::PrintInfo(VkSurfaceKHR surface, bool checkSurface) {
+    void PhysicalDevice::PrintInfo(Array<Window> windows, bool checkSurface) {
         // Basic info
         cout << "Name: " << properties.deviceName
             << "\nVulkan: "
@@ -114,13 +114,258 @@ namespace vk {
                 << ((props.queueFlags & VK_QUEUE_GRAPHICS_BIT) ? "GRAPHICS " : "")
                 << ((props.queueFlags & VK_QUEUE_TRANSFER_BIT) ? "TRANSFER " : "");
             if (checkSurface) {
+                String presentString = "PRESENT on windows {";
                 VkBool32 presentSupport = false;
-                vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport);
-                if (presentSupport)
-                    cout << "PRESENT";
+                bool first = true;
+                for (u32 j = 0; j < windows.size(); j++) {
+                    vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, windows[j].surface, &presentSupport);
+                    if (presentSupport) {
+                        if (!first)
+                            presentString += ", ";
+                        presentString += std::to_string(j);
+                        first = false;
+                        break;
+                    }
+                }
+                presentString += "}";
+                if (!first)
+                    cout << presentString;
             }
         }
         cout << std::endl;
+    }
+
+    Swapchain::Swapchain() {
+
+    }
+
+    Swapchain::~Swapchain() {
+        if (initted) {
+            if (!Deinit()) {
+                cout << "Failed to clean up vk::Swapchain: " << error << std::endl;
+            }
+        }
+    }
+
+    bool Swapchain::Init(Device *dev) {
+        cout << "----Initializing Swapchain----" << std::endl;
+        if (initted) {
+            error = "Swapchain is already initialized!";
+            return false;
+        }
+        if ((device = dev) == nullptr) {
+            error = "Device is nullptr!";
+            return false;
+        }
+        if (windowIndex < 0) {
+            error = "Cannot create a swapchain without a window surface!";
+            return false;
+        }
+        if (windowIndex > (i32)device->instance->windows.size()) {
+            error = "Window index is out of bounds!";
+            return false;
+        }
+        surface = device->instance->windows[windowIndex].surface;
+        // Get information about what we can or can't do
+        VkPhysicalDevice physicalDevice = device->physicalDevice.physicalDevice;
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCapabilities);
+        u32 count;
+        vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &count, nullptr);
+        if (count != 0) {
+            surfaceFormats.resize(count);
+            vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &count, surfaceFormats.data());
+        }
+        vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &count, nullptr);
+        if (count != 0) {
+            presentModes.resize(count);
+            vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &count, presentModes.data());
+        }
+        // We'll probably re-create the swapchain a bunch of times without a full Deinit() Init() cycle
+        if (!Create()) {
+            return false;
+        }
+        initted = true;
+        return true;
+    }
+
+    bool Swapchain::Create() {
+        // Choose our surface format
+        {
+            bool found = false;
+            if (surfaceFormats.size() == 1 && surfaceFormats[0].format == VK_FORMAT_UNDEFINED) {
+                surfaceFormat = formatPreferred;
+                found = true;
+            } else {
+                for (const auto& format : surfaceFormats) {
+                    if (format.format == formatPreferred.format
+                    && format.colorSpace == formatPreferred.colorSpace) {
+                        surfaceFormat = formatPreferred;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found && surfaceFormats.size() > 0) {
+                cout << "We couldn't use our preferred window surface format!" << std::endl;
+                surfaceFormat = surfaceFormats[0];
+                found = true;
+            }
+            if (!found) {
+                error = "We don't have any surface formats to choose from!!! >:(";
+                return false;
+            }
+        }
+        // Choose our present mode
+        {
+            bool found = false;
+            if (vsync) {
+                for (const auto& mode : presentModes) {
+                    if (mode == VK_PRESENT_MODE_FIFO_KHR) {
+                        presentMode = mode;
+                        found = true;
+                        break;
+                    }
+                }
+            } else {
+                for (const auto& mode : presentModes) {
+                    if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+                        presentMode = mode;
+                        found = true;
+                        break; // Ideal choice, don't keep looking
+                    } else if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+                        presentMode = mode;
+                        found = true;
+                        // Acceptable choice, but keep looking
+                    }
+                }
+            }
+            if (!found && presentModes.size() > 0) {
+                cout << "Our preferred present modes aren't available, but we can still do something" << std::endl;
+                presentMode = presentModes[0];
+                found = true;
+            }
+    		if (!found) {
+        		error = "No adequate present modes available! ¯\\_(ツ)_/¯";
+                return false;
+    		}
+            cout << "Present Mode: ";
+            switch(presentMode) {
+    			case VK_PRESENT_MODE_FIFO_KHR:
+    				cout << "VK_PRESENT_MODE_FIFO_KHR" << std::endl;
+    				break;
+    			case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
+    				cout << "VK_PRESENT_MODE_FIFO_RELAXED_KHR" << std::endl;
+    				break;
+    			case VK_PRESENT_MODE_MAILBOX_KHR:
+    				cout << "VK_PRESENT_MODE_MAILBOX_KHR" << std::endl;
+    				break;
+    			case VK_PRESENT_MODE_IMMEDIATE_KHR:
+    				cout << "VK_PRESENT_MODE_IMMEDIATE_KHR" << std::endl;
+    				break;
+    			default:
+    				cout << "wtf the fuck" << std::endl;
+    				break;
+    		}
+        }
+        // Now we gotta find our extent
+        if (surfaceCapabilities.currentExtent.width != std::numeric_limits<u32>::max()) {
+            extent = surfaceCapabilities.currentExtent;
+        } else {
+            const io::Window *window = device->instance->windows[windowIndex].surfaceWindow;
+            extent = {(u32)window->width, (u32)window->height};
+
+            extent.width = max(surfaceCapabilities.minImageExtent.width,
+                           min(surfaceCapabilities.maxImageExtent.width, extent.width));
+            extent.height = max(surfaceCapabilities.minImageExtent.height,
+                            min(surfaceCapabilities.maxImageExtent.height, extent.height));
+        }
+        imageCount = max(surfaceCapabilities.minImageCount, min(surfaceCapabilities.maxImageCount, imageCountPreferred));
+        cout << "Swapchain will use " << imageCount << " images" << std::endl;
+        // Put it all together
+        VkSwapchainCreateInfoKHR createInfo = {};
+        createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+        createInfo.surface = surface;
+        createInfo.minImageCount = imageCount;
+        createInfo.imageFormat = surfaceFormat.format;
+        createInfo.imageColorSpace = surfaceFormat.colorSpace;
+        createInfo.imageExtent = extent;
+        createInfo.imageArrayLayers = 1;
+        createInfo.imageUsage = usage;
+        // TODO: Inherit imageUsage from ???
+
+        // Queue family sharing...ugh
+        Array<u32> queueFamilies{};
+        for (u32 i = 0; i < device->queues.size(); i++) {
+            bool found = false;
+            for (u32 j = 0; j < queueFamilies.size(); j++) {
+                if (device->queues[i].queueFamilyIndex == (i32)queueFamilies[i]) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                queueFamilies.push_back(device->queues[i].queueFamilyIndex);
+            }
+        }
+        if (queueFamilies.size() > 1) {
+            createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+            createInfo.queueFamilyIndexCount = queueFamilies.size();
+            createInfo.pQueueFamilyIndices = queueFamilies.data();
+            cout << "Swapchain image sharing mode is concurrent" << std::endl;
+        } else {
+            createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+            createInfo.queueFamilyIndexCount = 0;
+            createInfo.pQueueFamilyIndices = nullptr;
+            cout << "Swapchain image sharing mode is exclusive" << std::endl;
+        }
+        createInfo.preTransform = surfaceCapabilities.currentTransform;
+        createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+        createInfo.presentMode = presentMode;
+        createInfo.clipped = VK_TRUE;
+
+        if (created) {
+            VkSwapchainKHR oldSwapchain = swapchain;
+            createInfo.oldSwapchain = oldSwapchain;
+        }
+
+		VkSwapchainKHR newSwapchain;
+        VkResult result = vkCreateSwapchainKHR(device->device, &createInfo, nullptr, &newSwapchain);
+        if (result != VK_SUCCESS) {
+            error = "Failed to create swap chain: ";
+            error += ErrorString(result);
+            return false;
+        }
+        if (created) {
+            vkDestroySwapchainKHR(device->device, swapchain, nullptr);
+        }
+        swapchain = newSwapchain;
+
+        // Get our images
+        vkGetSwapchainImagesKHR(device->device, swapchain, &imageCount, nullptr);
+        swapchainImages.resize(imageCount);
+        vkGetSwapchainImagesKHR(device->device, swapchain, &imageCount, swapchainImages.data());
+
+        created = true;
+        return true;
+    }
+
+    bool Swapchain::Reconfigure() {
+        if (initted) {
+            if (!Create())
+                return false;
+        }
+        return true;
+    }
+
+    bool Swapchain::Deinit() {
+        if (!initted) {
+            error = "Swapchain isn't initialized!";
+            return false;
+        }
+        vkDestroySwapchainKHR(device->device, swapchain, nullptr);
+        initted = false;
+        created = false;
+        return true;
     }
 
     Device::Device() {
@@ -136,9 +381,6 @@ namespace vk {
     }
 
     u32 Device::AddQueue(Queue queue) {
-        if (initted) {
-            reconfigured = true;
-        }
         queues.push_back(queue);
         return queues.size() - 1;
     }
@@ -149,6 +391,19 @@ namespace vk {
             return nullptr;
         }
         return &queues[index];
+    }
+
+    u32 Device::AddSwapchain(Swapchain swapchain) {
+        swapchains.push_back(swapchain);
+        return swapchains.size() - 1;
+    }
+
+    Swapchain* Device::GetSwapchain(u32 index) {
+        if (index >= swapchains.size()) {
+            error = "Device::GetSwapchain index out of bounds";
+            return nullptr;
+        }
+        return &swapchains[index];
     }
 
     bool Device::Init(Instance *inst) {
@@ -202,7 +457,7 @@ namespace vk {
 
         // Set up queues
         // First figure out which queue families each queue should use
-        const bool preferSameQueueFamilies = false;
+        const bool preferSameQueueFamilies = true;
 
         // Make sure we have enough queues in every family
         u32 queueFamilies = physicalDevice.queueFamiliesAvailable.size();
@@ -219,8 +474,10 @@ namespace vk {
                 if (props.queueCount == 0)
                     continue;
                 VkBool32 presentSupport = VK_FALSE;
-                if (instance->useSurface) {
-                    vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice.physicalDevice, j, instance->surface, &presentSupport);
+                for (const Window& w : instance->windows) {
+                    vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice.physicalDevice, j, w.surface, &presentSupport);
+                    if (presentSupport)
+                        break;
                 }
                 switch(queues[i].queueType) {
                     case COMPUTE: {
@@ -319,9 +576,15 @@ namespace vk {
                 }
             }
         }
+        // Swapchains
+        for (u32 i = 0; i < swapchains.size(); i++) {
+            if (!swapchains[i].Init(this)) {
+                vkDestroyDevice(device, nullptr);
+                return false;
+            }
+        }
         // Init everything else here
         initted = true;
-        reconfigured = false;
         return true;
     }
 
@@ -330,6 +593,11 @@ namespace vk {
         if (!initted) {
             error = "Device isn't initialized!";
             return false;
+        }
+        for (u32 i = 0; i < swapchains.size(); i++) {
+            if (!swapchains[i].Deinit()) {
+                return false;
+            }
         }
         // Destroy everything allocated from the device here
         vkDestroyDevice(device, nullptr);
@@ -365,23 +633,19 @@ namespace vk {
             // and it won't change anything about the renderer itself...
             // Oh well, let's fire a warning.
             cout << "Warning: vk::Instance::AppInfo should be used before initializing." << std::endl;
-            reconfigured = true;
         }
     }
 
-    void Instance::SetWindowForSurface(io::Window *window) {
-        if (initted) {
-            reconfigured = true;
-        }
-        useSurface = ((surfaceWindow = window) != nullptr);
+    u32 Instance::AddWindowForSurface(io::Window *window) {
+        Window w;
+        w.surfaceWindow = window;
+        windows.push_back(w);
+        return windows.size()-1;
     }
 
     void Instance::AddExtensions(Array<const char*> extensions) {
         for (u32 i = 0; i < extensions.size(); i++) {
             extensionsRequired.push_back(extensions[i]);
-        }
-        if (initted) {
-            reconfigured = true;
         }
     }
 
@@ -391,15 +655,9 @@ namespace vk {
         for (u32 i = 0; i < layers.size(); i++) {
             layersRequired.push_back(layers[i]);
         }
-        if (initted) {
-            reconfigured = true;
-        }
     }
 
     u32 Instance::AddDevice(Device device) {
-        if (initted) {
-            reconfigured = true;
-        }
         devices.push_back(device);
         return devices.size()-1;
     }
@@ -413,10 +671,6 @@ namespace vk {
     }
 
     bool Instance::Reconfigure() {
-        if (!reconfigured) {
-            error = "Nothing to reconfigure";
-            return false;
-        }
         if (initted) {
             if (!Deinit())
                 return false;
@@ -441,7 +695,7 @@ namespace vk {
         if (enableLayers) {
             extensionsAll.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
         }
-        if (useSurface) {
+        if (windows.size() > 0) {
             extensionsAll.push_back("VK_KHR_surface");
 #ifdef __unix
             extensionsAll.push_back("VK_KHR_xcb_surface");
@@ -531,8 +785,8 @@ namespace vk {
         }
         // Create a surface if we want one
 #ifdef IO_FOR_VULKAN
-        if (useSurface) {
-            if (!surfaceWindow->CreateVkSurface(this, &surface)) {
+        for (Window& w : windows) {
+            if (!w.surfaceWindow->CreateVkSurface(this, &w.surface)) {
                 error = "Failed to CreateVkSurface!";
                 vkDestroyInstance(instance, nullptr);
                 return false;
@@ -569,7 +823,7 @@ namespace vk {
             cout << "Physical Devices:";
             for (u32 i = 0; i < physicalDeviceCount; i++) {
                 cout << "\n\tDevice #" << i << "\n";
-                physicalDevices[i].PrintInfo(surface, useSurface);
+                physicalDevices[i].PrintInfo(windows, windows.size() > 0);
             }
         }
         // Initialize our logical devices according to their rules
@@ -608,8 +862,8 @@ namespace vk {
         }
         // Clean up everything else here
 #ifdef IO_FOR_VULKAN
-        if (useSurface) {
-            vkDestroySurfaceKHR(instance, surface, nullptr);
+        for (const Window& w : windows) {
+            vkDestroySurfaceKHR(instance, w.surface, nullptr);
         }
 #endif
         if (enableLayers) {

@@ -93,8 +93,8 @@ namespace vk {
         bool initted = false;
         bool created = false;
         Device *device = nullptr;
-        VkSwapchainKHR swapchain;
-        VkSurfaceKHR surface;
+        VkSwapchainKHR swapchain{};
+        VkSurfaceKHR surface{};
         Array<VkImage> swapchainImages{};
         VkSurfaceFormatKHR surfaceFormat;
         VkPresentModeKHR presentMode;

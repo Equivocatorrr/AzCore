@@ -298,7 +298,7 @@ namespace vk {
         for (u32 i = 0; i < device->queues.size(); i++) {
             bool found = false;
             for (u32 j = 0; j < queueFamilies.size(); j++) {
-                if (device->queues[i].queueFamilyIndex == (i32)queueFamilies[i]) {
+                if (device->queues[i].queueFamilyIndex == (i32)queueFamilies[j]) {
                     found = true;
                     break;
                 }
@@ -489,9 +489,7 @@ namespace vk {
                         break;
                     }
                     default: {
-                        error = "queues[";
-                        error += std::to_string(i);
-                        error += "] has a QueueType of UNDEFINED!";
+                        error = "queues[" + std::to_string(i) + "] has a QueueType of UNDEFINED!";
                         return false;
                     }
                 }
@@ -499,9 +497,7 @@ namespace vk {
                     break;
             }
             if (queues[i].queueFamilyIndex == -1) {
-                error = "queues[";
-                error += std::to_string(i);
-                error += "] couldn't find a queue family :(";
+                error = "queues[" + std::to_string(i) + "] couldn't find a queue family :(";
                 return false;
             }
             queuesPerFamily[queues[i].queueFamilyIndex]--;
@@ -573,11 +569,11 @@ namespace vk {
     }
 
     bool Device::Deinit() {
-        cout << "--------Destroying Logical Device-------" << std::endl;
         if (!initted) {
             error = "Device isn't initialized!";
             return false;
         }
+        cout << "--------Destroying Logical Device-------" << std::endl;
         for (u32 i = 0; i < swapchains.size(); i++) {
             if (!swapchains[i].Deinit()) {
                 return false;
@@ -683,7 +679,7 @@ namespace vk {
         Array<const char*> extensionsUnavailable(extensionsAll);
         for (i32 i = 0; i < (i32)extensionsUnavailable.size(); i++) {
             for (i32 j = 0; j < (i32)extensionsAvailable.size(); j++) {
-                if (strcmp(extensionsUnavailable[i], extensionsAvailable[j].extensionName) == 0) {
+                if (equals(extensionsUnavailable[i], extensionsAvailable[j].extensionName)) {
                     extensionsUnavailable.erase(extensionsUnavailable.begin() + i);
                     i--;
                     break;
@@ -700,11 +696,12 @@ namespace vk {
         }
         // Check required layers
         Array<const char*> layersUnavailable(layersRequired);
-        for (u32 i = 0; i < layersAvailable.size(); i++) {
-            for (u32 j = 0; j < layersRequired.size(); j++) {
-                if (strcmp(layersRequired[j], layersAvailable[i].layerName) == 0) {
+        for (u32 i = 0; i < layersUnavailable.size(); i++) {
+            for (u32 j = 0; j < layersAvailable.size(); j++) {
+                if (equals(layersUnavailable[i], layersAvailable[j].layerName)) {
                     layersUnavailable.erase(layersUnavailable.begin() + i);
                     i--;
+                    break;
                 }
             }
         }

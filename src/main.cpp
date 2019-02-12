@@ -12,9 +12,16 @@
 i32 main(i32 argumentCount, char** argumentValues) {
     io::logStream cout("test.log");
 
+    bool enableLayers = false, enableCoreValidation = false;
+
     cout << "\nTest program.\n\tReceived " << argumentCount << " arguments:\n";
     for (i32 i = 0; i < argumentCount; i++) {
         cout << i << ": " << argumentValues[i] << std::endl;
+        if (equals(argumentValues[i], "--enable-layers")) {
+            enableLayers = true;
+        } else if (equals(argumentValues[i], "--core-validation")) {
+            enableCoreValidation = true;
+        }
     }
 
     // PrintKeyCodeMapsEvdev(cout);
@@ -23,6 +30,20 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     vk::Instance vkInstance;
     vkInstance.AppInfo("AzCore Test Program", 0, 1, 0);
+
+    if (enableLayers) {
+        cout << "Validation layers enabled." << std::endl;
+        Array<const char*> layers = {
+            "VK_LAYER_GOOGLE_threading",
+    		"VK_LAYER_LUNARG_parameter_validation",
+    		"VK_LAYER_LUNARG_object_tracker",
+    		"VK_LAYER_GOOGLE_unique_objects"
+        };
+        if (enableCoreValidation) {
+            layers.push_back("VK_LAYER_LUNARG_core_validation");
+        }
+        vkInstance.AddLayers(layers);
+    }
 
     ArrayPtr<vk::Device> vkDevice = vkInstance.AddDevice();
     vkDevice->deviceFeaturesRequired.depthClamp = VK_TRUE;
@@ -82,8 +103,11 @@ i32 main(i32 argumentCount, char** argumentValues) {
         cout << "Failed to close Window: " << io::error << std::endl;
         return 1;
     }
-    if (!vkInstance.Deinit()) { // This should be all you need to call to clean everything up
-        cout << "Failed to cleanup Vulkan: " << vk::error << std::endl;
+    // This should be all you need to call to clean everything up
+    // But you also could just let the vk::Instance go out of scope and it will
+    // clean itself up.
+    if (!vkInstance.Deinit()) {
+        cout << "Failed to cleanup Vulkan Tree: " << vk::error << std::endl;
     }
     cout << "Last io::error was \"" << io::error << "\"" << std::endl;
     cout << "Last vk::error was \"" << vk::error << "\"" << std::endl;

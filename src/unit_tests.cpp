@@ -5,6 +5,7 @@
 */
 
 #include "log_stream.hpp"
+#include "memory.hpp"
 
 void Print(vec3 v, io::logStream& cout) {
     cout << "{";
@@ -289,4 +290,38 @@ void UnitTestRNG(RandomNumberGenerator& rng, io::logStream& cout) {
         }
     }
     cout << total << " indices." << std::endl;
+}
+
+void Print(List<i32> list, io::logStream& cout) {
+    cout << "{";
+    bool first = true;
+    for (u32 i = 0; i < list.size(); i++) {
+        if (!first) {
+            cout << ", ";
+        }
+        cout << list[i];
+        first = false;
+    }
+    cout << "}";
+}
+
+void UnitTestList(io::logStream& cout) {
+    cout << "Unit testing List<i32>\n";
+    List<i32> list = {1, 2, 3, 4};
+    cout << "list.size() = " << list.size() << std::endl;
+    cout << "list = ";
+    Print(list, cout);
+    cout << "\nafter inserting 5 at index 0: ";
+    list.insert(0, 5);
+    Print(list, cout);
+    cout << "\nafter inserting 6 at index 3: ";
+    list.insert(3, 6);
+    Print(list, cout);
+    cout << "\nafter erasing index 2: ";
+    list.erase(2);
+    Print(list, cout);
+    cout << "\nafter erasing index 0: ";
+    list.erase(0);
+    Print(list, cout);
+    cout << std::endl;
 }

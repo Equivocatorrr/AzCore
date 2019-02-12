@@ -380,14 +380,14 @@ namespace vk {
         }
     }
 
-    ArrayPtr<Queue> Device::AddQueue() {
+    ListPtr<Queue> Device::AddQueue() {
         queues.push_back(Queue());
-        return ArrayPtr(queues, queues.size() - 1);
+        return ListPtr(queues, queues.size() - 1);
     }
 
-    ArrayPtr<Swapchain> Device::AddSwapchain() {
+    ListPtr<Swapchain> Device::AddSwapchain() {
         swapchains.push_back(Swapchain());
-        return ArrayPtr(swapchains, swapchains.size() - 1);
+        return ListPtr(swapchains, swapchains.size() - 1);
     }
 
     bool Device::Init(Instance *inst) {
@@ -637,9 +637,9 @@ namespace vk {
         }
     }
 
-    ArrayPtr<Device> Instance::AddDevice() {
+    ListPtr<Device> Instance::AddDevice() {
         devices.push_back(Device());
-        return ArrayPtr(devices, devices.size()-1);
+        return ListPtr(devices, devices.size()-1);
     }
 
     bool Instance::Reconfigure() {

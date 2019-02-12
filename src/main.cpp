@@ -45,16 +45,16 @@ i32 main(i32 argumentCount, char** argumentValues) {
         vkInstance.AddLayers(layers);
     }
 
-    ArrayPtr<vk::Device> vkDevice = vkInstance.AddDevice();
+    ListPtr<vk::Device> vkDevice = vkInstance.AddDevice();
     vkDevice->deviceFeaturesRequired.depthClamp = VK_TRUE;
     vkDevice->deviceFeaturesOptional.samplerAnisotropy = VK_TRUE;
     vkDevice->extensionsRequired = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
-    ArrayPtr<vk::Queue> queueGraphics = vkDevice->AddQueue();
-    ArrayPtr<vk::Queue> queuePresent = vkDevice->AddQueue();
-    ArrayPtr<vk::Queue> queueTransfer = vkDevice->AddQueue();
-    ArrayPtr<vk::Queue> queueCompute = vkDevice->AddQueue();
+    ListPtr<vk::Queue> queueGraphics = vkDevice->AddQueue();
+    ListPtr<vk::Queue> queuePresent = vkDevice->AddQueue();
+    ListPtr<vk::Queue> queueTransfer = vkDevice->AddQueue();
+    ListPtr<vk::Queue> queueCompute = vkDevice->AddQueue();
     queueGraphics->queueType = vk::GRAPHICS;
     queuePresent->queueType = vk::PRESENT;
     queueTransfer->queueType = vk::TRANSFER;
@@ -67,7 +67,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
         cout << "Failed to open Window: " << io::error << std::endl;
         return 1;
     }
-    ArrayPtr<vk::Swapchain> vkSwapchain = vkDevice->AddSwapchain();
+    ListPtr<vk::Swapchain> vkSwapchain = vkDevice->AddSwapchain();
     vkSwapchain->windowIndex = vkInstance.AddWindowForSurface(&window);
     if (!vkInstance.Init()) { // Do this once you've set up the structure of your program.
         cout << "Failed to initialize Vulkan: " << vk::error << std::endl;
@@ -93,6 +93,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
             UnitTestComplex(cout);
             UnitTestQuat(cout);
             UnitTestSlerp(cout);
+            UnitTestList(cout);
         }
         if (input.Pressed(KC_KEY_R)) {
             UnitTestRNG(rng, cout);

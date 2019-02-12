@@ -130,17 +130,16 @@ namespace vk {
         Instance *instance = nullptr;
         PhysicalDevice physicalDevice;
         VkDevice device;
-        Array<Queue> queues{};
-        Array<Swapchain> swapchains{};
+        List<Queue> queues{};
+        List<Swapchain> swapchains{};
         Array<const char*> extensionsRequired{};
         VkPhysicalDeviceFeatures deviceFeaturesRequired{};
         VkPhysicalDeviceFeatures deviceFeaturesOptional{};
         Device();
         ~Device();
 
-        // Adds a queue and returns its index for later use
-        ArrayPtr<Queue> AddQueue();
-        ArrayPtr<Swapchain> AddSwapchain();
+        ListPtr<Queue> AddQueue();
+        ListPtr<Swapchain> AddSwapchain();
 
         bool Init(Instance *inst);
         bool Reconfigure();
@@ -178,7 +177,7 @@ namespace vk {
 
         Array<PhysicalDevice> physicalDevices{};
         // We hold and Init() the devices according to their parameters.
-        Array<Device> devices{};
+        List<Device> devices{};
 
         Instance();
         ~Instance();
@@ -190,7 +189,7 @@ namespace vk {
         void AddExtensions(Array<const char*> extensions);
         void AddLayers(Array<const char*> layers);
 
-        ArrayPtr<Device> AddDevice();
+        ListPtr<Device> AddDevice();
 
         // If the instance is active, you must call this for the changes to be effective.
         bool Reconfigure();

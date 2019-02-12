@@ -9,6 +9,8 @@
 
 #include "math.hpp"
 
+#include <initializer_list>
+
 #include <string>
 
 using String = std::string;
@@ -39,7 +41,10 @@ using Array = std::vector<T>;
 
 /*  class: ArrayPtr
     Author: Philip Haynes
-    Uses an index of an Array rather than an actual pointer     */
+    Uses an index of an Array rather than an actual pointer.
+    Note that this can only be used with nested Arrays given that the array
+    it points to isn't moved. This means that the Arrays must be allocated
+    in ascending order, starting with the base array.     */
 template<typename T>
 class ArrayPtr {
     Array<T> *array = nullptr;
@@ -82,22 +87,219 @@ using UniquePtr = std::unique_ptr<T, Deleter>;
 template<typename T>
 using SharedPtr = std::shared_ptr<T>;
 
-/*  struct: List
+/*  class: List
+    Author: Philip Haynes
+    Just a linked list that can clean itself up.      */
+template<typename T>
+class List {
+    List<T> *next=nullptr;
+    u32 _size=0;
+    T value{};
+public:
+    List() {}
+    List(const T& a) {
+        value = a;
+    }
+    List(const List<T>& other) {
+        *this = other;
+    }
+    List(std::initializer_list<T> init) {
+        *this = init;
+    }
+    List(const Array<T>& array) {
+        *this = array;
+    }
+    ~List() {
+        if (next != nullptr) {
+            delete next;
+        }
+    }
+    List<T>& operator=(const List<T>& other) {
+        _size = 0;
+        if (next != nullptr) {
+            delete next;
+        }
+        next = nullptr;
+        if (other._size != 0)
+            push_back(other.value);
+        List<T> *it = other.next;
+        while (it != nullptr) {
+            push_back(it->value);
+            it = it->next;
+        }
+        return *this;
+    }
+    List<T>& operator=(const std::initializer_list<T> init) {
+        if (next != nullptr) {
+            delete next;
+        }
+        next = nullptr;
+        u32 prevSize = init.size()+1;
+        List<T> *it = this;
+        for (u32 i = 0; i < init.size(); i++) {
+            it->_size = --prevSize;
+            it->value = *(init.begin()+i);
+            if (i < init.size()-1) {
+                it->next = new List<T>();
+                it = it->next;
+            }
+        }
+        return *this;
+    }
+    List<T>& operator=(const Array<T>& array) {
+        if (next != nullptr) {
+            delete next;
+        }
+        next = nullptr;
+        u32 prevSize = array.size()+1;
+        List<T> *it = this;
+        for (u32 i = 0; i < array.size(); i++) {
+            it->_size = --prevSize;
+            it->value = array[i];
+            if (i < array.size()-1) {
+                it->next = new List<T>();
+                it = it->next;
+            }
+        }
+        return *this;
+    }
+    T& operator[](const u32 index) {
+        List<T> *it = this;
+        for (u32 i = 0; i < index; i++) {
+            it = it->next;
+        }
+        return it->value;
+    }
+    const T& operator[](const u32 index) const {
+        const List<T> *it = this;
+        for (u32 i = 0; i < index; i++) {
+            it = it->next;
+        }
+        return it->value;
+    }
+    void resize(u32 s) {
+        if (s > _size) {
+            for (u32 i = 0; i < s-_size; i++) {
+                push_back(T());
+            }
+        } else if (_size > s) {
+            List<T> *it = this;
+            for (u32 i = 0; i < s-1; i++) {
+                it->_size = s-i;
+                it = it->next;
+            }
+            delete it->next;
+            it->next = nullptr;
+        }
+        _size = s;
+    }
+    void push_back(const T& a) {
+        if (_size == 0) {
+            _size++;
+            value = a;
+            return;
+        }
+        List<T> *it = this;
+        while (it->next != nullptr) {
+            it->_size++;
+            it = it->next;
+        }
+        it->_size++;
+        it->next = new List<T>(a);
+    }
+    void insert(const u32 index, const T& a) {
+        if (index == 0) {
+            _size++;
+            List<T> *n = next;
+            next = new List<T>(value);
+            next->next = n;
+            next->_size = _size-1;
+            value = a;
+            return;
+        }
+        List<T> *it = this;
+        for (u32 i = 1; i < index; i++) {
+            it->_size++;
+            if (it->next == nullptr) {
+                it->next = new List<T>();
+            }
+            it = it->next;
+        }
+        List<T> *n = it->next;
+        it->next = new List<T>(a);
+        it->next->next = n;
+        it->next->_size = it->_size-1;
+    }
+    void erase(const u32 index) {
+        if (index == 0) {
+            _size--;
+            List<T> *n = next;
+            value = next->value;
+            next = next->next;
+            n->next = nullptr;
+            delete n;
+            return;
+        }
+        List<T> *it = this;
+        for (u32 i = 1; i < index; i++) {
+            it->_size--;
+            it = it->next;
+        }
+        List<T> *n = it->next;
+        it->next = it->next->next;
+        n->next = nullptr;
+        delete n;
+    }
+    const u32& size() const {
+        return _size;
+    }
+};
+
+/*  class: ListPtr
+    Author: Philip Haynes
+    Uses an index of a List rather than an actual pointer.
+    Using a List like this comes with the benefit that newly allocated memory
+    doesn't move previously allocated memory, meaning nested Lists are valid
+    even with sporadic allocations.
+    Note that this guarantee is invalid if the List is itself moved.     */
+template<typename T>
+class ListPtr {
+    List<T> *list = nullptr;
+    u32 index = 0;
+public:
+    ListPtr() {}
+    ListPtr(List<T>& a, u32 i) {
+        list = &a;
+        index = i;
+    }
+    void SetPtr(List<T>& a, u32 i) {
+        list = &a;
+        index = i;
+    }
+    T& operator*() {
+        return (*list)[index];
+    }
+    T* operator->() {
+        return &(*list)[index];
+    }
+};
+
+/*  struct: ArrayList
     Author: Philip Haynes
     Data structure useful for sparse chunks of data at a very wide range of indices.
     Good for mapping values from Unicode characters, for example.
     Negative indices are also valid, if that's your thing.     */
 template<typename T>
-struct List {
-    List<T> *prev=nullptr, *next=nullptr;
+struct ArrayList {
+    ArrayList<T> *prev=nullptr, *next=nullptr;
     i32 first=0, last=0;
-    T outOfBoundsValue=0;
+    T outOfBoundsValue{};
     Array<T> indices{Array<T>(1)};
-    List<T>() {}
-    List<T>(const List<T>& other) {
+    ArrayList<T>() {}
+    ArrayList<T>(const ArrayList<T>& other) {
         *this = other;
     }
-    ~List<T>() {
+    ~ArrayList<T>() {
         if (prev != nullptr) {
             prev->next = nullptr;
             delete prev;
@@ -107,7 +309,7 @@ struct List {
             delete next;
         }
     }
-    const List<T>& operator=(const List<T>& other) {
+    const ArrayList<T>& operator=(const ArrayList<T>& other) {
         first = other.first;
         last = other.last;
         outOfBoundsValue = other.outOfBoundsValue;
@@ -122,10 +324,10 @@ struct List {
         }
         next = nullptr;
         prev = nullptr;
-        List<T> *it = other.prev;
-        List<T> *me = this;
+        ArrayList<T> *it = other.prev;
+        ArrayList<T> *me = this;
         while (it != nullptr) {
-            List<T> *created = new List<T>;
+            ArrayList<T> *created = new ArrayList<T>;
             created->first = it->first;
             created->last = it->last;
             created->outOfBoundsValue = it->outOfBoundsValue;
@@ -138,7 +340,7 @@ struct List {
         it = other.next;
         me = this;
         while (it != nullptr) {
-            List<T> *created = new List<T>;
+            ArrayList<T> *created = new ArrayList<T>;
             created->first = it->first;
             created->last = it->last;
             created->outOfBoundsValue = it->outOfBoundsValue;
@@ -199,18 +401,18 @@ struct List {
         }
     }
     // Having this in a separate function is useful because it may
-    // have to allocate another List or expand an Array
+    // have to allocate another ArrayList or expand an Array
     void Set(const i32 index, T value) {
         if (index < first-1) {
             if (prev == nullptr) {
-                prev = new List<T>;
+                prev = new ArrayList<T>;
                 prev->next = this;
                 prev->first = index;
                 prev->last = index;
                 prev->outOfBoundsValue = outOfBoundsValue;
             }
             if (index > prev->last+1) {
-                List<T> *between = new List<T>;
+                ArrayList<T> *between = new ArrayList<T>;
                 between->next = this;
                 between->prev = prev;
                 between->first = index;
@@ -222,14 +424,14 @@ struct List {
             prev->Set(index, value);
         } else if (index > last+1) {
             if (next == nullptr) {
-                next = new List<T>;
+                next = new ArrayList<T>;
                 next->prev = this;
                 next->first = index;
                 next->last = index;
                 next->outOfBoundsValue = outOfBoundsValue;
             }
             if (index < next->first-1) {
-                List<T> *between = new List<T>;
+                ArrayList<T> *between = new ArrayList<T>;
                 between->prev = this;
                 between->next = next;
                 between->first = index;
@@ -252,12 +454,12 @@ struct List {
         }
     }
     // TODO: Can't say I remember what I was smoking when I implemented this...
-    void Shift(const i32 amount) {
-        last++;
-        if (next != nullptr) {
-            next->Shift(1);
-        }
-    }
+    // void Shift(const i32 amount) {
+    //     last++;
+    //     if (next != nullptr) {
+    //         next->Shift(1);
+    //     }
+    // }
     void Append(Array<T> &values) {
         if (next != nullptr) {
             next->Append(values);
@@ -292,7 +494,7 @@ struct List {
     }
     i32 First() {
         i32 actualFirst = first;
-        List<T> *it = prev;
+        ArrayList<T> *it = prev;
         while (it != nullptr) {
             actualFirst = it->first;
             it = it->prev;
@@ -301,7 +503,7 @@ struct List {
     }
     i32 Last() {
         i32 actualLast = last;
-        List<T> *it = next;
+        ArrayList<T> *it = next;
         while (it != nullptr) {
             actualLast = it->last;
             it = it->next;

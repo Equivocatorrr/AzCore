@@ -5,6 +5,14 @@
 
 #include "memory.hpp"
 
+bool equals(const char *a, const char *b) {
+   for (u32 i = 0; a[i] != 0; i++) {
+       if (a[i] != b[i])
+           return false;
+   }
+   return true;
+}
+
 WString ToWString(String string) {
     return ToWString(string.c_str());
 }

@@ -14,6 +14,20 @@
 using String = std::string;
 using WString = std::wstring;
 
+inline bool operator==(const String& a, const String& b) {
+    return a.compare(b) == 0;
+}
+
+inline bool operator==(const String& a, const char *b) {
+    return a.compare(b) == 0;
+}
+
+inline bool operator==(const char *b, const String& a) {
+    return a.compare(b) == 0;
+}
+
+bool equals(const char *a, const char *b);
+
 // Converts a UTF-8 string to Unicode string
 WString ToWString(const char *string);
 WString ToWString(String string);

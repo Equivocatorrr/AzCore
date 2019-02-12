@@ -110,7 +110,7 @@ namespace vk {
         bool vsync = true; // To determine the ideal present mode
         VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         u32 imageCountPreferred = 2;
-        i32 windowIndex = -1;
+        ArrayPtr<Window> window{};
 
         Swapchain();
         ~Swapchain();
@@ -138,8 +138,8 @@ namespace vk {
         Device();
         ~Device();
 
-        ListPtr<Queue> AddQueue();
-        ListPtr<Swapchain> AddSwapchain();
+        Queue* AddQueue();
+        Swapchain* AddSwapchain();
 
         bool Init(Instance *inst);
         bool Reconfigure();
@@ -184,12 +184,11 @@ namespace vk {
 
         // Configuring functions
         void AppInfo(const char *name, u32 versionMajor, u32 versionMinor, u32 versionPatch);
-        // Returns and index to the window, which you must use when creating Swapchains
-        u32 AddWindowForSurface(io::Window *window);
+        ArrayPtr<Window> AddWindowForSurface(io::Window *window);
         void AddExtensions(Array<const char*> extensions);
         void AddLayers(Array<const char*> layers);
 
-        ListPtr<Device> AddDevice();
+        Device* AddDevice();
 
         // If the instance is active, you must call this for the changes to be effective.
         bool Reconfigure();

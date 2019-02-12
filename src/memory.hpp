@@ -59,6 +59,9 @@ public:
         array = &a;
         index = i;
     }
+    bool Valid() const {
+        return array != nullptr;
+    }
     T& operator*() {
         return (*array)[index];
     }
@@ -87,26 +90,35 @@ using UniquePtr = std::unique_ptr<T, Deleter>;
 template<typename T>
 using SharedPtr = std::shared_ptr<T>;
 
+template<typename T>
+class List;
+
+/*  class: ListIndex
+    Author: Philip Haynes
+    A single index in a linked list     */
+template<typename T>
+class ListIndex {
+    friend class List<T>;
+    ListIndex<T> *next=nullptr;
+public:
+    T value{};
+};
+
 /*  class: List
     Author: Philip Haynes
     Just a linked list that can clean itself up.      */
 template<typename T>
 class List {
-    List<T> *next=nullptr;
+    ListIndex<T> *first=nullptr;
     u32 _size=0;
-    T value{};
 public:
     List() {}
-    List(const T& a) {
-        value = a;
-    }
     List(const List<T>& other) {
         *this = other;
     }
     List(const List<T>&& other) noexcept {
-        next = other.next;
+        first = other.first;
         _size = other._size;
-        value = std::move(other.value);
     }
     List(std::initializer_list<T> init) {
         *this = init;
@@ -115,68 +127,51 @@ public:
         *this = array;
     }
     ~List() {
-        if (next != nullptr) {
+        ListIndex<T> *next = first;
+        while (next != nullptr) {
+            first = next->next;
             delete next;
+            next = first;
         }
     }
     List<T>& operator=(const List<T>& other) {
-        _size = 0;
-        if (next != nullptr) {
-            delete next;
-        }
-        next = nullptr;
-        if (other._size != 0)
-            push_back(other.value);
-        List<T> *it = other.next;
-        while (it != nullptr) {
-            push_back(it->value);
+        resize(other._size);
+        ListIndex<T> *it = other.first;
+        ListIndex<T> *me = first;
+        for (u32 i = 0; i < _size; i++) {
+            me->value = it->value;
+            me = me->next;
             it = it->next;
         }
         return *this;
     }
     List<T>& operator=(const std::initializer_list<T> init) {
-        if (next != nullptr) {
-            delete next;
-        }
-        next = nullptr;
-        u32 prevSize = init.size()+1;
-        List<T> *it = this;
+        resize(init.size());
+        ListIndex<T> *it = first;
         for (u32 i = 0; i < init.size(); i++) {
-            it->_size = --prevSize;
             it->value = *(init.begin()+i);
-            if (i < init.size()-1) {
-                it->next = new List<T>();
-                it = it->next;
-            }
+            it = it->next;
         }
         return *this;
     }
     List<T>& operator=(const Array<T>& array) {
-        if (next != nullptr) {
-            delete next;
-        }
-        next = nullptr;
-        u32 prevSize = array.size()+1;
-        List<T> *it = this;
+        resize(array.size());
+        ListIndex<T> *it = first;
         for (u32 i = 0; i < array.size(); i++) {
-            it->_size = --prevSize;
             it->value = array[i];
-            if (i < array.size()-1) {
-                it->next = new List<T>();
-                it = it->next;
-            }
+            it = it->next;
         }
         return *this;
     }
     T& operator[](const u32 index) {
-        List<T> *it = this;
+        ListIndex<T> *it = first;
         for (u32 i = 0; i < index; i++) {
             it = it->next;
         }
         return it->value;
     }
     const T& operator[](const u32 index) const {
-        const List<T> *it = this;
+        const ListIndex<T> *it = first;
         for (u32 i = 0; i < index; i++) {
             it = it->next;
         }
@@ -188,70 +183,67 @@ public:
                 push_back(T());
             }
         } else if (_size > s) {
-            List<T> *it = this;
+            ListIndex<T> *it = first;
             for (u32 i = 0; i < s-1; i++) {
-                it->_size = s-i;
                 it = it->next;
             }
-            delete it->next;
-            it->next = nullptr;
+            ListIndex<T> *middle = it;
+            it = it->next;
+            for (u32 i = s; i < _size; i++) {
+                ListIndex<T> *n = it->next;
+                delete it;
+                it = n;
+            }
+            middle->next = nullptr;
         }
+        _size = s;
     }
     void push_back(const T& a) {
-        if (_size == 0) {
-            _size++;
-            value = a;
+        _size++;
+        if (_size == 1) {
+            first = new ListIndex<T>();
+            first->value = a;
             return;
         }
-        List<T> *it = this;
-        while (it->next != nullptr) {
-            it->_size++;
+        ListIndex<T> *it = first;
+        for (u32 i = 2; i < _size; i++) {
             it = it->next;
         }
-        it->_size++;
-        it->next = new List<T>(a);
+        it->next = new ListIndex<T>();
+        it->value = a;
     }
     void insert(const u32 index, const T& a) {
+        _size++;
         if (index == 0) {
-            _size++;
-            List<T> *n = next;
-            next = new List<T>(value);
-            next->next = n;
-            next->_size = _size-1;
-            value = a;
+            ListIndex<T> *f = first;
+            first = new ListIndex<T>();
+            first->value = a;
+            first->next = f;
             return;
         }
-        List<T> *it = this;
+        ListIndex<T> *it = first;
         for (u32 i = 1; i < index; i++) {
-            it->_size++;
-            if (it->next == nullptr) {
-                it->next = new List<T>();
-            }
             it = it->next;
         }
-        List<T> *n = it->next;
-        it->next = new List<T>(a);
+        ListIndex<T> *n = it->next;
+        it->next = new ListIndex<T>();
+        it->next->value = a;
         it->next->next = n;
-        it->next->_size = it->_size-1;
     }
     void erase(const u32 index) {
+        _size--;
         if (index == 0) {
-            _size--;
-            List<T> *n = next;
-            value = next->value;
-            next = next->next;
-            n->next = nullptr;
-            delete n;
+            ListIndex<T> *f = first;
+            first = first->next;
+            delete f;
             return;
         }
-        List<T> *it = this;
+        ListIndex<T> *it = first;
         for (u32 i = 1; i < index; i++) {
-            it->_size--;
             it = it->next;
         }
-        List<T> *n = it->next;
+        ListIndex<T> *n = it->next;
         it->next = it->next->next;
-        n->next = nullptr;
         delete n;
     }
     const u32& size() const {
@@ -259,49 +251,29 @@ public:
     }
 };
 
-/*  class: ListPtr
-    Author: Philip Haynes
-    Uses an index of a List rather than an actual pointer.
-    Using a List like this comes with the benefit that newly allocated memory
-    doesn't move previously allocated memory, meaning nested Lists are valid
-    even with sporadic allocations.
-    Note that this guarantee is invalid if the List is itself moved.     */
-template<typename T>
-class ListPtr {
-    List<T> *list = nullptr;
-    u32 index = 0;
-public:
-    ListPtr() {}
-    ListPtr(List<T>& a, u32 i) {
-        list = &a;
-        index = i;
-    }
-    void SetPtr(List<T>& a, u32 i) {
-        list = &a;
-        index = i;
-    }
-    T& operator*() {
-        return (*list)[index];
-    }
-    T* operator->() {
-        return &(*list)[index];
-    }
-};
-
-/*  struct: ArrayList
+/*  class: ArrayList
     Author: Philip Haynes
     Data structure useful for sparse chunks of data at a very wide range of indices.
     Good for mapping values from Unicode characters, for example.
     Negative indices are also valid, if that's your thing.     */
 template<typename T>
-struct ArrayList {
+class ArrayList {
     ArrayList<T> *prev=nullptr, *next=nullptr;
     i32 first=0, last=0;
     T outOfBoundsValue{};
     Array<T> indices{Array<T>(1)};
+public:
     ArrayList<T>() {}
     ArrayList<T>(const ArrayList<T>& other) {
         *this = other;
+    }
+    ArrayList<T>(const ArrayList<T>&& other) noexcept {
+        prev = other.prev;
+        next = other.next;
+        first = other.first;
+        last = other.last;
+        outOfBoundsValue = std::move(other.outOfBoundsValue);
+        indices = std::move(other.indices);
     }
     ~ArrayList<T>() {
         if (prev != nullptr) {

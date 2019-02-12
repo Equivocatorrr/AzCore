@@ -157,15 +157,11 @@ namespace vk {
             error = "Device is nullptr!";
             return false;
         }
-        if (windowIndex < 0) {
+        if (!window.Valid()) {
             error = "Cannot create a swapchain without a window surface!";
             return false;
         }
-        if (windowIndex > (i32)device->instance->windows.size()) {
-            error = "Window index is out of bounds!";
-            return false;
-        }
-        surface = device->instance->windows[windowIndex].surface;
+        surface = window->surface;
         // Get information about what we can or can't do
         VkPhysicalDevice physicalDevice = device->physicalDevice.physicalDevice;
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCapabilities);
@@ -271,8 +267,7 @@ namespace vk {
         if (surfaceCapabilities.currentExtent.width != std::numeric_limits<u32>::max()) {
             extent = surfaceCapabilities.currentExtent;
         } else {
-            const io::Window *window = device->instance->windows[windowIndex].surfaceWindow;
-            extent = {(u32)window->width, (u32)window->height};
+            extent = {(u32)window->surfaceWindow->width, (u32)window->surfaceWindow->height};
 
             extent.width = max(surfaceCapabilities.minImageExtent.width,
                            min(surfaceCapabilities.maxImageExtent.width, extent.width));
@@ -380,14 +375,14 @@ namespace vk {
         }
     }
 
-    ListPtr<Queue> Device::AddQueue() {
+    Queue* Device::AddQueue() {
         queues.push_back(Queue());
-        return ListPtr(queues, queues.size() - 1);
+        return &queues[queues.size()-1];
     }
 
-    ListPtr<Swapchain> Device::AddSwapchain() {
+    Swapchain* Device::AddSwapchain() {
         swapchains.push_back(Swapchain());
-        return ListPtr(swapchains, swapchains.size() - 1);
+        return &swapchains[swapchains.size()-1];
     }
 
     bool Device::Init(Instance *inst) {
@@ -616,11 +611,11 @@ namespace vk {
         }
     }
 
-    u32 Instance::AddWindowForSurface(io::Window *window) {
+    ArrayPtr<Window> Instance::AddWindowForSurface(io::Window *window) {
         Window w;
         w.surfaceWindow = window;
         windows.push_back(w);
-        return windows.size()-1;
+        return ArrayPtr<Window>(windows, windows.size()-1);
     }
 
     void Instance::AddExtensions(Array<const char*> extensions) {
@@ -637,9 +632,9 @@ namespace vk {
         }
     }
 
-    ListPtr<Device> Instance::AddDevice() {
+    Device* Instance::AddDevice() {
         devices.push_back(Device());
-        return ListPtr(devices, devices.size()-1);
+        return &devices[devices.size()-1];
     }
 
     bool Instance::Reconfigure() {

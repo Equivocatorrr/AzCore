@@ -701,6 +701,26 @@ inline T normalize(const T& a) {
     };
 
     template<typename T>
+    inline complex_t<T> operator*(const T& a, const complex_t<T>& b) {
+        return b*a;
+    }
+
+    template<typename T>
+    inline complex_t<T> operator/(const T& a, const complex_t<T>& b) {
+        return b/a;
+    }
+
+    template<typename T>
+    inline complex_t<T> operator+(const T& a, const complex_t<T>& b) {
+        return b+a;
+    }
+
+    template<typename T>
+    inline complex_t<T> operator-(const T& a, const complex_t<T>& b) {
+        return b-a;
+    }
+
+    template<typename T>
     inline T abs(const complex_t<T>& a) {
         return sqrt(a.x*a.x + a.y*a.y);
     }

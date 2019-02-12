@@ -135,6 +135,76 @@ namespace vk {
         cout << std::endl;
     }
 
+    void Image::Init(VkDevice dev) {
+        device = dev;
+    }
+
+    void Image::Clean() {
+		if (imageViewExists) {
+			vkDestroyImageView(device, imageView, nullptr);
+			imageViewExists = false;
+		}
+		if (imageExists) {
+			vkDestroyImage(device, image, nullptr);
+			imageExists = false;
+		}
+	}
+
+    bool Image::CreateImage(bool hostVisible) {
+        if (imageExists) {
+            error = "Attempting to create image that already exists!";
+            return false;
+        }
+		VkImageCreateInfo imageInfo{};
+        imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageInfo.extent.width = width;
+		imageInfo.extent.height = height;
+		imageInfo.extent.depth = 1;
+		imageInfo.mipLevels = mipLevels;
+		imageInfo.arrayLayers = 1; // TODO: Animations?
+		imageInfo.format = format;
+		imageInfo.tiling = hostVisible ? VK_IMAGE_TILING_LINEAR : VK_IMAGE_TILING_OPTIMAL;
+		imageInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+		imageInfo.usage = usage;
+		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		imageInfo.samples = samples;
+		imageInfo.flags = 0;
+
+        VkResult result = vkCreateImage(device, &imageInfo, nullptr, &image);
+		if (result != VK_SUCCESS) {
+			error = "Failed to create image: " + ErrorString(result);
+			return false;
+		}
+		imageExists = true;
+        return true;
+	}
+
+    bool Image::CreateImageView() {
+        if (imageViewExists) {
+            error = "Attempting to create an image view that already exists!";
+            return false;
+        }
+		VkImageViewCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		createInfo.image = image;
+		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		createInfo.format = format;
+		createInfo.subresourceRange.aspectMask = aspectFlags;
+		createInfo.subresourceRange.baseMipLevel = 0;
+		createInfo.subresourceRange.levelCount = mipLevels;
+		createInfo.subresourceRange.baseArrayLayer = 0;
+		createInfo.subresourceRange.layerCount = 1;
+
+        VkResult result = vkCreateImageView(device, &createInfo, nullptr, &imageView);
+		if (result != VK_SUCCESS) {
+            error = "Failed to create image view: " + ErrorString(result);
+			return false;
+		}
+		imageViewExists = true;
+        return true;
+	}
+
     Swapchain::Swapchain() {
 
     }
@@ -335,10 +405,28 @@ namespace vk {
         }
         swapchain = newSwapchain;
 
+        cout << "Acquiring images and creating image views..." << std::endl;
+
         // Get our images
+        Array<VkImage> imagesTemp;
         vkGetSwapchainImagesKHR(device->device, swapchain, &imageCount, nullptr);
-        swapchainImages.resize(imageCount);
-        vkGetSwapchainImagesKHR(device->device, swapchain, &imageCount, swapchainImages.data());
+        imagesTemp.resize(imageCount);
+        vkGetSwapchainImagesKHR(device->device, swapchain, &imageCount, imagesTemp.data());
+
+        images.resize(imageCount);
+        for (u32 i = 0; i < imageCount; i++) {
+            images[i].Clean();
+            images[i].Init(device->device);
+            images[i].image = imagesTemp[i];
+            images[i].format = surfaceFormat.format;
+            images[i].width = extent.width;
+            images[i].height = extent.height;
+            images[i].aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+            images[i].usage = usage;
+            if (!images[i].CreateImageView()) {
+                return false;
+            }
+        }
 
         created = true;
         return true;
@@ -356,6 +444,9 @@ namespace vk {
         if (!initted) {
             error = "Swapchain isn't initialized!";
             return false;
+        }
+        for (u32 i = 0; i < imageCount; i++) {
+            images[i].Clean();
         }
         vkDestroySwapchainKHR(device->device, swapchain, nullptr);
         initted = false;

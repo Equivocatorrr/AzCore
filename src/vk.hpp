@@ -66,6 +66,28 @@ namespace vk {
 
     struct Device;
 
+    /*  struct: Image
+        Author: Philip Haynes
+        How we handle device-local images       */
+    struct Image {
+        VkDevice device;
+        VkFormat format;
+        VkImageAspectFlags aspectFlags;
+        VkImageUsageFlags usage;
+        VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
+        u32 width, height, channels, mipLevels = 1;
+        VkImage image;
+        bool imageExists = false;
+        VkImageView imageView;
+        bool imageViewExists = false;
+
+        void Init(VkDevice dev);
+        void Clean();
+        bool CreateImage(bool hostVisible=false);
+        bool CreateImageView();
+        // void BindMemory(VulkanMemory memory, u32 index);
+    };
+
     extern const char *QueueTypeString[5];
 
     enum QueueType {
@@ -95,7 +117,7 @@ namespace vk {
         Device *device = nullptr;
         VkSwapchainKHR swapchain{};
         VkSurfaceKHR surface{};
-        Array<VkImage> swapchainImages{};
+        Array<Image> images{};
         VkSurfaceFormatKHR surfaceFormat;
         VkPresentModeKHR presentMode;
         VkExtent2D extent;

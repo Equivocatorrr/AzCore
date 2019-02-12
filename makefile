@@ -79,7 +79,7 @@ packw: _debugw _releasew shaders
 	scripts/PackWindows.sh $(APPNAME)
 
 
-.PHONY: clean shaders runl runw rundl rundw testl testdl
+.PHONY: clean shaders runl runw rundl rundlv rundw testl testdl testdlv
 
 clean:
 	rm -f $(ODIR)/Linux/Debug/*.o $(ODIR)/Windows/Debug/*.o $(ODIR)/Linux/Release/*.o $(ODIR)/Windows/Release/*.o *~ core $(INCDIR)/*~
@@ -104,6 +104,9 @@ runw:
 rundl:
 	./bin/Linux/Debug/$(APPNAME)
 
+rundlv:
+	./bin/Linux/Debug/$(APPNAME) --enable-layers --core-validation
+
 primusrundl:
 	primusrun bin/Linux/Debug/$(APPNAME)
 
@@ -115,3 +118,6 @@ testl: releasel
 
 testdl: debugl
 	./bin/Linux/Debug/$(APPNAME)
+
+testdlv: debugl
+	./bin/Linux/Debug/$(APPNAME) --enable-layers --core-validation

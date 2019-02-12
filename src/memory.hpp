@@ -103,6 +103,11 @@ public:
     List(const List<T>& other) {
         *this = other;
     }
+    List(const List<T>&& other) noexcept {
+        next = other.next;
+        _size = other._size;
+        value = std::move(other.value);
+    }
     List(std::initializer_list<T> init) {
         *this = init;
     }

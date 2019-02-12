@@ -305,23 +305,68 @@ void Print(List<i32> list, io::logStream& cout) {
     cout << "}";
 }
 
+void PrintRef(const List<i32>& list, io::logStream& cout) {
+    cout << "{";
+    bool first = true;
+    for (u32 i = 0; i < list.size(); i++) {
+        if (!first) {
+            cout << ", ";
+        }
+        cout << list[i];
+        first = false;
+    }
+    cout << "}";
+}
+
 void UnitTestList(io::logStream& cout) {
     cout << "Unit testing List<i32>\n";
     List<i32> list = {1, 2, 3, 4};
     cout << "list.size() = " << list.size() << std::endl;
     cout << "list = ";
     Print(list, cout);
+    cout << " by value, ";
+    PrintRef(list, cout);
+    cout << " by reference";
     cout << "\nafter inserting 5 at index 0: ";
     list.insert(0, 5);
     Print(list, cout);
+    cout << " by value, ";
+    PrintRef(list, cout);
+    cout << " by reference";
+    cout << "\nlist.size() = " << list.size() << std::endl;
     cout << "\nafter inserting 6 at index 3: ";
     list.insert(3, 6);
     Print(list, cout);
+    cout << " by value, ";
+    PrintRef(list, cout);
+    cout << " by reference";
+    cout << "\nlist.size() = " << list.size() << std::endl;
     cout << "\nafter erasing index 2: ";
     list.erase(2);
     Print(list, cout);
+    cout << " by value, ";
+    PrintRef(list, cout);
+    cout << " by reference";
+    cout << "\nlist.size() = " << list.size() << std::endl;
     cout << "\nafter erasing index 0: ";
     list.erase(0);
     Print(list, cout);
-    cout << std::endl;
+    cout << " by value, ";
+    PrintRef(list, cout);
+    cout << " by reference";
+    cout << "\nlist.size() = " << list.size() << std::endl;
+    cout << "\nafter resizing to 8: ";
+    list.resize(8);
+    Print(list, cout);
+    cout << " by value, ";
+    PrintRef(list, cout);
+    cout << " by reference";
+    cout << "\nlist.size() = " << list.size() << std::endl;
+    cout << "\nafter resizing to 3: ";
+    list.resize(3);
+    Print(list, cout);
+    cout << " by value, ";
+    PrintRef(list, cout);
+    cout << " by reference";
+    cout << "\nlist.size() = " << list.size() << std::endl;
 }

@@ -179,7 +179,7 @@ public:
     }
     void resize(u32 s) {
         if (s > _size) {
-            for (u32 i = 0; i < s-_size; i++) {
+            for (u32 i = _size; i < s; i++) {
                 push_back(T());
             }
         } else if (_size > s) {
@@ -191,7 +191,6 @@ public:
             delete it->next;
             it->next = nullptr;
         }
-        _size = s;
     }
     void push_back(const T& a) {
         if (_size == 0) {

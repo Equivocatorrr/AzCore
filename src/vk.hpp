@@ -88,6 +88,85 @@ namespace vk {
         // void BindMemory(VulkanMemory memory, u32 index);
     };
 
+    /*  struct: Attachment
+        Author: Philip Haynes
+        Some implicit attachment management that allows
+        automated MSAA and depth buffers to be created and used     */
+    struct Attachment {
+        Array<VkAttachmentDescription> descriptions{};
+
+        // Enabling different kinds of outputs
+        bool bufferColor = false;
+        bool bufferDepthStencil = false;
+        // Whether our buffers will be cleared before use
+        bool clearColor = false;
+        bool clearDepth = false;
+        bool clearStencil = false;
+        // Whether we should load previous values from the buffers
+        // Overwrites clearing if true
+        bool loadColor = false;
+        bool loadDepth = false;
+        bool loadStencil = false;
+        // Whether we hold on to our buffers
+        bool keepColor = false;
+        bool keepDepth = false;
+        bool keepStencil = false;
+        // Image formats
+        VkFormat formatColor = VK_FORMAT_B8G8R8A8_UNORM;
+        VkFormat formatDepthStencil = VK_FORMAT_D24_UNORM_S8_UINT;
+
+        void Config(VkSampleCountFlagBits sampleCount, bool resolveColor); // Generates basic descriptions
+    };
+
+    /*  struct: Subpass
+        Author: Philip Haynes
+        Basic configuration of a subpass, which is then completed by creation of the RenderPass */
+    struct Subpass {
+        Array<Attachment> attachmentDescriptions{}; // Each can contain up to 4 attachments
+        // Subpass configuration
+        Array<VkAttachmentReference> attachmentReferencesColor{};
+        Array<VkAttachmentReference> attachmentReferencesResolve{};
+        VkAttachmentReference attachmentReferenceDepthStencil{};
+        // Dependency configuration
+        VkAccessFlagBits initialAccess{};
+        VkAccessFlagBits finalAccess = VkAccessFlagBits(VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+        VkPipelineStageFlagBits initialAccessStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        VkPipelineStageFlagBits finalAccessStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        // NOTE: Do we need this? Can renderpasses be used outside of graphics? Probably not.
+        VkPipelineBindPoint pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        // Attachment configuration
+        // Change this to enable MSAA
+        VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT;
+        // Whether we should resolve our multi-sampled images
+        bool resolveColor = true;
+
+        ArrayPtr<Attachment> AddAttachment();
+
+        void Config();
+    };
+
+    /*  struct: RenderPass
+        Author: Philip Haynes
+        Automatically configures renderpass based on Subpasses      */
+    struct RenderPass {
+        bool initted = false;
+        bool created = false;
+        Device *device = nullptr;
+        VkRenderPass renderPass{};
+        Array<VkAttachmentDescription> attachments;
+        Array<VkSubpassDescription> subpassDescriptions;
+        Array<VkSubpassDependency> subpassDependencies;
+
+        // Configuration
+        List<Subpass> subpasses{};
+
+        Subpass* AddSubpass();
+
+        bool Init(Device *dev);
+        bool Create();
+        void Clean();
+    };
+
     extern const char *QueueTypeString[5];
 
     enum QueueType {

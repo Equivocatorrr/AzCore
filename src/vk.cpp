@@ -205,6 +205,204 @@ namespace vk {
         return true;
 	}
 
+    void Attachment::Config(VkSampleCountFlagBits sampleCount, bool resolveColor) {
+        descriptions.resize(0);
+        if (bufferColor) {
+            if (sampleCount != VK_SAMPLE_COUNT_1_BIT && resolveColor) {
+                // SSAA enabled, first attachment should be multisampled color buffer
+                VkAttachmentDescription description{};
+                description.format = formatColor;
+                description.samples = sampleCount;
+
+                if (clearColor) {
+                    description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+                } else {
+                    description.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+                }
+                if (loadColor) {
+                    description.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+                }
+
+                description.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+                description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+                description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+                if (loadColor) {
+                    description.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                } else {
+                    description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                }
+                description.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                descriptions.push_back(description);
+                // Next attachment should be the color buffer we resolve to
+                // Keep same format.
+                description.samples = VK_SAMPLE_COUNT_1_BIT;
+
+                description.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+                if (keepColor) {
+                    description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+                } else {
+                    description.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+                }
+
+                // We don't care about the stencil since we're a color buffer.
+                description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                // We also keep the same final layout as the first attachment.
+                descriptions.push_back(description);
+            } else {
+                // Resolving disabled or unnecessary
+                VkAttachmentDescription description{};
+                description.format = formatColor;
+                description.samples = sampleCount;
+
+                if (clearColor) {
+                    description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+                } else {
+                    description.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+                }
+                if (loadColor) {
+                    description.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+                }
+                if (keepColor) {
+                    description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+                } else {
+                    description.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+                }
+
+                description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+                description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+                description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                description.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                descriptions.push_back(description);
+            }
+        }
+        if (bufferDepthStencil) {
+            // Even with multisampling, we only have one attachment for depth/stencil
+            VkAttachmentDescription description{};
+            description.format = formatDepthStencil;
+            description.samples = sampleCount;
+
+            if (clearDepth) {
+                description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+            } else {
+                description.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            }
+            if (loadDepth) {
+                description.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+            }
+
+            if (keepDepth) {
+                description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+            } else {
+                description.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+            }
+
+            if (clearStencil) {
+                description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+            } else {
+                description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            }
+            if (loadStencil) {
+                description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+            }
+
+            if (keepStencil) {
+                description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+            } else {
+                description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+            }
+
+            description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            description.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            descriptions.push_back(description);
+        }
+    }
+
+    ArrayPtr<Attachment> Subpass::AddAttachment() {
+        attachmentDescriptions.push_back(Attachment());
+        return ArrayPtr<Attachment>(attachmentDescriptions, attachmentDescriptions.size()-1);
+    }
+
+    void Subpass::Config() {
+        for (u32 i = 0; i < attachmentDescriptions.size(); i++) {
+            attachmentDescriptions[i].Config(sampleCount, resolveColor);
+        }
+    }
+
+    Subpass* RenderPass::AddSubpass() {
+        subpasses.push_back(Subpass());
+        return &subpasses[subpasses.size()-1];
+    }
+
+    bool RenderPass::Init(Device *dev) {
+        cout << "--------Initializing RenderPass--------" << std::endl;
+        if (initted) {
+            error = "Renderpass is already initialized!";
+            return false;
+        }
+        if ((device = dev) == nullptr) {
+            error = "Device is nullptr!";
+            return false;
+        }
+        // First we need to configure our subpass attachments
+        u32 nextAttachmentIndex = 0; // Since each attachmentDescription can map to multiple attachments
+        for (u32 i = 0; i < subpasses.size(); i++) {
+            bool depthStencilTaken = false; // Verify that we only have one depth/stencil attachment
+            Subpass& subpass = subpasses[i];
+            subpass.Config();
+            subpass.attachmentReferencesColor.resize(0);
+            subpass.attachmentReferencesResolve.resize(0);
+
+            for (u32 j = 0; j < subpass.attachmentDescriptions.size(); j++) {
+                Attachment& attachment = subpass.attachmentDescriptions[j];
+                // Add all the attachment descriptions from this Attachment
+                attachments.resize(nextAttachmentIndex+attachment.descriptions.size());
+                for (u32 x = 0; x < attachment.descriptions.size(); x++) {
+                    attachments[nextAttachmentIndex + x] = attachment.descriptions[x];
+                }
+                if (attachment.bufferColor) {
+                    VkAttachmentReference ref{};
+                    ref.attachment = nextAttachmentIndex++;
+                    ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                    subpass.attachmentReferencesColor.push_back(ref);
+                    if (subpass.resolveColor && subpass.sampleCount != VK_SAMPLE_COUNT_1_BIT) {
+                        ref.attachment = nextAttachmentIndex++;
+                        subpass.attachmentReferencesResolve.push_back(ref);
+                    }
+                }
+                if (attachment.bufferDepthStencil) {
+                    if (depthStencilTaken) {
+                        error = "You can't have more than one depth/stencil attachment in a single subpass!";
+                        return false;
+                    }
+                    depthStencilTaken = true;
+                    VkAttachmentReference ref{};
+                    ref.attachment = nextAttachmentIndex++;
+                    ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+                    subpass.attachmentReferenceDepthStencil = ref;
+                }
+            }
+            VkSubpassDescription description{};
+            description.pipelineBindPoint = subpass.pipelineBindPoint;
+            description.colorAttachmentCount = subpass.attachmentReferencesColor.size();
+            description.pColorAttachments = subpass.attachmentReferencesColor.data();
+            if (subpass.attachmentReferencesResolve.size() != 0) {
+                description.pColorAttachments = subpass.attachmentReferencesResolve.data();
+            }
+            if (depthStencilTaken) {
+                description.pDepthStencilAttachment = &subpass.attachmentReferenceDepthStencil;
+            }
+            subpassDescriptions.push_back(description);
+        }
+        return true;
+    }
+
+    bool RenderPass::Create() {
+        return true;
+    }
+
     Swapchain::Swapchain() {
 
     }

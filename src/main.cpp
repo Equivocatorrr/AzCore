@@ -74,15 +74,17 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     vk::RenderPass* renderPass = vkDevice->AddRenderPass();
 
-    ArrayPtr<vk::Attachment> attachment = renderPass->AddAttachment();
-    attachment->bufferColor = true;
-    attachment->clearColor = true;
-    attachment->keepColor = true;
-    attachment->sampleCount = VK_SAMPLE_COUNT_4_BIT;
-    attachment->resolveColor = true;
+    ArrayPtr<vk::Attachment> attachment[2] = {renderPass->AddAttachment(), renderPass->AddAttachment(vkSwapchain)};
+    attachment[0]->bufferColor = true;
+    attachment[0]->clearColor = true;
+    attachment[0]->keepColor = true;
+    attachment[0]->sampleCount = VK_SAMPLE_COUNT_4_BIT;
+    attachment[0]->resolveColor = true;
 
-    ArrayPtr<vk::Subpass> subpass = renderPass->AddSubpass();
-    subpass->UseAttachment(attachment, vk::ATTACHMENT_DEPTH_STENCIL, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+    ArrayPtr<vk::Subpass> subpass[2] = {renderPass->AddSubpass(), renderPass->AddSubpass()};
+    subpass[0]->UseAttachment(attachment[0], vk::ATTACHMENT_ALL, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+    subpass[1]->UseAttachment(attachment[0], vk::ATTACHMENT_RESOLVE, VK_ACCESS_SHADER_READ_BIT);
+    subpass[1]->UseAttachment(attachment[1], vk::ATTACHMENT_COLOR, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 
     if (!vkInstance.Init()) { // Do this once you've set up the structure of your program.
         cout << "Failed to initialize Vulkan: " << vk::error << std::endl;

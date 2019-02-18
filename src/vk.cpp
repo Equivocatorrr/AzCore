@@ -221,7 +221,20 @@ namespace vk {
         return true;
 	}
 
+    Attachment::Attachment() {}
+
+    Attachment::Attachment(Swapchain *swch) {
+        swapchain = swch;
+        if (swapchain != nullptr) {
+            bufferColor = true;
+            keepColor = true;
+        }
+    }
+
     void Attachment::Config() {
+        if (swapchain != nullptr) {
+            formatColor = swapchain->surfaceFormat.format;
+        }
         descriptions.resize(0);
         if (bufferColor) {
             if (sampleCount != VK_SAMPLE_COUNT_1_BIT && resolveColor) {
@@ -346,8 +359,8 @@ namespace vk {
         return ArrayPtr<Subpass>(subpasses, subpasses.size()-1);
     }
 
-    ArrayPtr<Attachment> RenderPass::AddAttachment() {
-        attachments.push_back(Attachment());
+    ArrayPtr<Attachment> RenderPass::AddAttachment(Swapchain *swapchain) {
+        attachments.push_back(Attachment(swapchain));
         return ArrayPtr<Attachment>(attachments, attachments.size()-1);
     }
 

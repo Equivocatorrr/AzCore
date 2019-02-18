@@ -88,6 +88,8 @@ namespace vk {
         // void BindMemory(VulkanMemory memory, u32 index);
     };
 
+    struct Swapchain;
+
     /*  struct: Attachment
         Author: Philip Haynes
         Some implicit attachment management that allows
@@ -96,6 +98,8 @@ namespace vk {
         u32 firstIndex; // Which index in our RenderPass VkAttachmentDescripion Array corresponds to our 0
         Array<VkAttachmentDescription> descriptions{};
 
+        // If swapchain isn't nullptr, our color buffer is what's presented and we use its format
+        Swapchain *swapchain = nullptr;
         // Enabling different kinds of outputs
         bool bufferColor = false;
         bool bufferDepthStencil = false;
@@ -120,6 +124,8 @@ namespace vk {
         // Whether we should resolve our multi-sampled images
         bool resolveColor = false;
 
+        Attachment();
+        Attachment(Swapchain *swch);
         void Config(); // Generates basic descriptions
     };
 
@@ -191,7 +197,7 @@ namespace vk {
         VkPipelineStageFlagBits finalAccessStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
         ArrayPtr<Subpass> AddSubpass();
-        ArrayPtr<Attachment> AddAttachment();
+        ArrayPtr<Attachment> AddAttachment(Swapchain *swapchain = nullptr);
 
         ~RenderPass();
         bool Init(Device *dev);

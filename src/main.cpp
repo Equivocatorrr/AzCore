@@ -51,6 +51,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkDevice->extensionsRequired = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
+
     vk::Queue* queueGraphics = vkDevice->AddQueue();
     vk::Queue* queuePresent = vkDevice->AddQueue();
     vk::Queue* queueTransfer = vkDevice->AddQueue();
@@ -67,16 +68,22 @@ i32 main(i32 argumentCount, char** argumentValues) {
         cout << "Failed to open Window: " << io::error << std::endl;
         return 1;
     }
+
     vk::Swapchain* vkSwapchain = vkDevice->AddSwapchain();
     vkSwapchain->window = vkInstance.AddWindowForSurface(&window);
 
     vk::RenderPass* renderPass = vkDevice->AddRenderPass();
+
     ArrayPtr<vk::Attachment> attachment = renderPass->AddAttachment();
     attachment->bufferColor = true;
     attachment->clearColor = true;
     attachment->keepColor = true;
+    attachment->sampleCount = VK_SAMPLE_COUNT_4_BIT;
+    attachment->resolveColor = true;
+
     ArrayPtr<vk::Subpass> subpass = renderPass->AddSubpass();
-    subpass->UseAttachment(attachment, vk::ATTACHMENT_COLOR, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+    subpass->UseAttachment(attachment, vk::ATTACHMENT_DEPTH_STENCIL, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+
     if (!vkInstance.Init()) { // Do this once you've set up the structure of your program.
         cout << "Failed to initialize Vulkan: " << vk::error << std::endl;
         return 1;

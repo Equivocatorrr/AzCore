@@ -57,7 +57,7 @@ namespace vk {
 	}
 
     void PrintDashed(String str) {
-        i32 width = 80-(i32)str.size();
+        i32 width = 120-(i32)str.size();
         if (width > 0) {
             for (u32 i = (width+1)/2; i > 0; i--) {
                 cout << "-";
@@ -1063,20 +1063,30 @@ namespace vk {
         // Swapchains
         for (u32 i = 0; i < swapchains.size(); i++) {
             if (!swapchains[i].Init(this)) {
-                vkDestroyDevice(device, nullptr);
-                return false;
+                goto failed;
             }
         }
         // RenderPasses
         for (u32 i = 0; i < renderPasses.size(); i++) {
             if (!renderPasses[i].Init(this)) {
-                vkDestroyDevice(device, nullptr);
-                return false;
+                goto failed;
             }
         }
+
         // Init everything else here
         initted = true;
         return true;
+failed:
+        for (u32 i = 0; i < swapchains.size(); i++) {
+            if (swapchains[i].initted)
+            swapchains[i].Deinit();
+        }
+        for (u32 i = 0; i < renderPasses.size(); i++) {
+            if (renderPasses[i].initted)
+            renderPasses[i].Deinit();
+        }
+        vkDestroyDevice(device, nullptr);
+        return false;
     }
 
     bool Device::Deinit() {
@@ -1245,8 +1255,7 @@ namespace vk {
 
         VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
         if (result != VK_SUCCESS) {
-            error = "vkCreateInstance failed with error: ";
-            error += ErrorString(result);
+            error = "vkCreateInstance failed with error: " + ErrorString(result);
             return false;
         }
         if (enableLayers) {
@@ -1271,14 +1280,18 @@ namespace vk {
             debugInfo.pfnCallback = debugCallback;
 
             result = fpCreateDebugReportCallbackEXT(instance, &debugInfo, nullptr, &debugReportCallback);
+            if (result != VK_SUCCESS) {
+                error = "fpCreateDebugReportCallbackEXT failed with error: " + ErrorString(result);
+                vkDestroyInstance(instance, nullptr);
+                return false;
+            }
         }
         // Create a surface if we want one
 #ifdef IO_FOR_VULKAN
         for (Window& w : windows) {
             if (!w.surfaceWindow->CreateVkSurface(this, &w.surface)) {
-                error = "Failed to CreateVkSurface!";
-                vkDestroyInstance(instance, nullptr);
-                return false;
+                error = "Failed to CreateVkSurface: " + error;
+                goto failed;
             }
         }
 #endif
@@ -1298,8 +1311,7 @@ namespace vk {
                 PhysicalDevice temp;
                 temp.physicalDevice = devices[i];
                 if (!temp.Init(instance)) {
-                    vkDestroyInstance(instance, nullptr);
-                    return false;
+                    goto failed;
                 }
                 u32 spot;
                 for (spot = 0; spot < physicalDevices.size(); spot++) {
@@ -1316,28 +1328,26 @@ namespace vk {
             }
         }
         // Initialize our logical devices according to their rules
-        bool failed = false;
         for (u32 i = 0; i < devices.size(); i++) {
             if (!devices[i].Init(this)) {
-                failed = true;
-                break;
+                goto failed;
             }
-        }
-        if (failed) {
-            // Deinit will fail for uninitialized devices, so copy the last error
-            String err = error;
-            for (u32 i = 0; i < devices.size(); i++) {
-                devices[i].Deinit();
-            }
-            vkDestroyInstance(instance, nullptr);
-            error = err;
-            return false;
         }
 
         // Tell everything else to initialize here
         // If it fails, clean up the instance.
         initted = true;
         return true;
+failed:
+        for (u32 i = 0; i < devices.size(); i++) {
+            if (devices[i].initted)
+            devices[i].Deinit();
+        }
+        if (enableLayers) {
+            fpDestroyDebugReportCallbackEXT(instance, debugReportCallback, nullptr);
+        }
+        vkDestroyInstance(instance, nullptr);
+        return false;
     }
 
     bool Instance::Deinit() {

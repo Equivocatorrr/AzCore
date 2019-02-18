@@ -118,7 +118,7 @@ namespace vk {
         // Change this to enable MSAA
         VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT;
         // Whether we should resolve our multi-sampled images
-        bool resolveColor = true;
+        bool resolveColor = false;
 
         void Config(); // Generates basic descriptions
     };

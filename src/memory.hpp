@@ -39,17 +39,16 @@ WString ToWString(String string);
 template<typename T>
 using Array = std::vector<T>;
 
-/*  class: ArrayPtr
+/*  struct: ArrayPtr
     Author: Philip Haynes
     Uses an index of an Array rather than an actual pointer.
     Note that this can only be used with nested Arrays given that the array
     it points to isn't moved. This means that the Arrays must be allocated
     in ascending order, starting with the base array.     */
 template<typename T>
-class ArrayPtr {
+struct ArrayPtr {
     Array<T> *array = nullptr;
     u32 index = 0;
-public:
     ArrayPtr() {}
     ArrayPtr(Array<T>& a, u32 i) {
         array = &a;

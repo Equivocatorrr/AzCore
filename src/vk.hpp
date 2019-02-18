@@ -93,6 +93,7 @@ namespace vk {
         Some implicit attachment management that allows
         automated MSAA and depth buffers to be created and used     */
     struct Attachment {
+        u32 firstIndex; // Which index in our RenderPass VkAttachmentDescripion Array corresponds to our 0
         Array<VkAttachmentDescription> descriptions{};
 
         // Enabling different kinds of outputs
@@ -114,53 +115,84 @@ namespace vk {
         // Image formats
         VkFormat formatColor = VK_FORMAT_B8G8R8A8_UNORM;
         VkFormat formatDepthStencil = VK_FORMAT_D24_UNORM_S8_UINT;
+        // Change this to enable MSAA
+        VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT;
+        // Whether we should resolve our multi-sampled images
+        bool resolveColor = true;
 
-        void Config(VkSampleCountFlagBits sampleCount, bool resolveColor); // Generates basic descriptions
+        void Config(); // Generates basic descriptions
+    };
+
+    enum AttachmentType {
+        ATTACHMENT_COLOR,
+        ATTACHMENT_DEPTH_STENCIL,
+        ATTACHMENT_RESOLVE,
+        ATTACHMENT_ALL // Use this for rendering to an image, and the others for reading from one
+    };
+
+    /*  struct: AttachmentUsage
+        Author: Philip Haynes
+        Defines how a Subpass uses a given attachment in our RenderPass     */
+    struct AttachmentUsage {
+        u32 index; // Which attachment we're using
+        // Out of an Attachment that can have multiple attachments, this defines which one
+        AttachmentType type = ATTACHMENT_ALL;
+        VkAccessFlagBits accessFlags; // Describes how this attachment is accessed in the Subpass
     };
 
     /*  struct: Subpass
         Author: Philip Haynes
         Basic configuration of a subpass, which is then completed by creation of the RenderPass */
     struct Subpass {
-        Array<Attachment> attachmentDescriptions{}; // Each can contain up to 4 attachments
+        // The indices of attachments added to the RenderPass
+        Array<AttachmentUsage> attachments{};
         // Subpass configuration
-        Array<VkAttachmentReference> attachmentReferencesColor{};
-        Array<VkAttachmentReference> attachmentReferencesResolve{};
-        VkAttachmentReference attachmentReferenceDepthStencil{};
-        // Dependency configuration
-        VkAccessFlagBits initialAccess{};
-        VkAccessFlagBits finalAccess = VkAccessFlagBits(VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-        VkPipelineStageFlagBits initialAccessStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-        VkPipelineStageFlagBits finalAccessStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-        // NOTE: Do we need this? Can renderpasses be used outside of graphics? Probably not.
+        Array<VkAttachmentReference> referencesColor{};
+        Array<VkAttachmentReference> referencesResolve{};
+        Array<VkAttachmentReference> referencesInput{};
+        Array<u32> referencesPreserve{};
+        VkAttachmentReference referenceDepthStencil{};
+        // NOTE: Do we need this? Can renderpasses be used outside of graphics?
         VkPipelineBindPoint pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        // Attachment configuration
-        // Change this to enable MSAA
-        VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT;
-        // Whether we should resolve our multi-sampled images
-        bool resolveColor = true;
 
-        ArrayPtr<Attachment> AddAttachment();
-
-        void Config();
+        void UseAttachment(ArrayPtr<Attachment> attachment, AttachmentType type, VkAccessFlagBits accessFlags);
     };
 
     /*  struct: RenderPass
         Author: Philip Haynes
-        Automatically configures renderpass based on Subpasses      */
+        Automatically configures RenderPass based on Subpasses      */
     struct RenderPass {
         bool initted = false;
         bool created = false;
         Device *device = nullptr;
         VkRenderPass renderPass{};
-        Array<VkAttachmentDescription> attachments;
+        Array<VkAttachmentDescription> attachmentDescriptions;
         Array<VkSubpassDescription> subpassDescriptions;
         Array<VkSubpassDependency> subpassDependencies;
 
         // Configuration
-        List<Subpass> subpasses{};
+        Array<Subpass> subpasses{};
+        // Each can contain up to 3 actual attachments
+        Array<Attachment> attachments{};
 
-        Subpass* AddSubpass();
+        // Dependency configuration
+        // Use these to transition attachment image layouts
+        // Initial goes from external to subpass 0
+        bool initialTransition = true; // Whether we enable this transition
+        // The access mask we expect the first subpass attachments to be in
+        VkAccessFlagBits initialAccess = VK_ACCESS_MEMORY_READ_BIT;
+        // The stage at which we first start using our attachments
+        VkPipelineStageFlagBits initialAccessStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+
+        // Final goes from the last subpass to external
+        bool finalTransition = true;
+        // The access mask for transitioning our last subpass attachments for use outside of the RenderPass
+        VkAccessFlagBits finalAccess = VK_ACCESS_MEMORY_READ_BIT; // Default, used for swapchain presenting
+        // The stage at which our attachments are expected to be "done"
+        VkPipelineStageFlagBits finalAccessStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+        ArrayPtr<Subpass> AddSubpass();
+        ArrayPtr<Attachment> AddAttachment();
 
         bool Init(Device *dev);
         bool Create();
@@ -233,6 +265,7 @@ namespace vk {
         VkDevice device;
         List<Queue> queues{};
         List<Swapchain> swapchains{};
+        List<RenderPass> renderPasses{};
         Array<const char*> extensionsRequired{};
         VkPhysicalDeviceFeatures deviceFeaturesRequired{};
         VkPhysicalDeviceFeatures deviceFeaturesOptional{};
@@ -241,6 +274,7 @@ namespace vk {
 
         Queue* AddQueue();
         Swapchain* AddSwapchain();
+        RenderPass* AddRenderPass();
 
         bool Init(Instance *inst);
         bool Reconfigure();

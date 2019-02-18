@@ -205,7 +205,7 @@ namespace vk {
         return true;
 	}
 
-    void Attachment::Config(VkSampleCountFlagBits sampleCount, bool resolveColor) {
+    void Attachment::Config() {
         descriptions.resize(0);
         if (bufferColor) {
             if (sampleCount != VK_SAMPLE_COUNT_1_BIT && resolveColor) {
@@ -320,20 +320,19 @@ namespace vk {
         }
     }
 
-    ArrayPtr<Attachment> Subpass::AddAttachment() {
-        attachmentDescriptions.push_back(Attachment());
-        return ArrayPtr<Attachment>(attachmentDescriptions, attachmentDescriptions.size()-1);
+    void Subpass::UseAttachment(ArrayPtr<Attachment> attachment, AttachmentType type, VkAccessFlagBits accessFlags) {
+        AttachmentUsage usage = {attachment.index, type, accessFlags};
+        attachments.push_back(usage);
     }
 
-    void Subpass::Config() {
-        for (u32 i = 0; i < attachmentDescriptions.size(); i++) {
-            attachmentDescriptions[i].Config(sampleCount, resolveColor);
-        }
-    }
-
-    Subpass* RenderPass::AddSubpass() {
+    ArrayPtr<Subpass> RenderPass::AddSubpass() {
         subpasses.push_back(Subpass());
-        return &subpasses[subpasses.size()-1];
+        return ArrayPtr<Subpass>(subpasses, subpasses.size()-1);
+    }
+
+    ArrayPtr<Attachment> RenderPass::AddAttachment() {
+        attachments.push_back(Attachment());
+        return ArrayPtr<Attachment>(attachments, attachments.size()-1);
     }
 
     bool RenderPass::Init(Device *dev) {
@@ -346,60 +345,250 @@ namespace vk {
             error = "Device is nullptr!";
             return false;
         }
+        if (subpasses.size() == 0) {
+            error = "You must have at least 1 subpass in your renderpass!";
+            return false;
+        }
         // First we need to configure our subpass attachments
-        u32 nextAttachmentIndex = 0; // Since each attachmentDescription can map to multiple attachments
+        for (u32 i = 0; i < attachments.size(); i++) {
+            attachments[i].Config();
+        }
+        // First we concatenate our attachmentDescriptions from the Attachments
+        u32 nextAttachmentIndex = 0; // Since each Attachment can map to multiple attachments
+        for (u32 i = 0; i < attachments.size(); i++) {
+            attachments[i].firstIndex = nextAttachmentIndex;
+            attachmentDescriptions.resize(nextAttachmentIndex + attachments[i].descriptions.size());
+            for (u32 x = 0; x < attachments[i].descriptions.size(); x++) {
+                attachmentDescriptions[nextAttachmentIndex++] = attachments[i].descriptions[x];
+            }
+        }
         for (u32 i = 0; i < subpasses.size(); i++) {
             bool depthStencilTaken = false; // Verify that we only have one depth/stencil attachment
             Subpass& subpass = subpasses[i];
-            subpass.Config();
-            subpass.attachmentReferencesColor.resize(0);
-            subpass.attachmentReferencesResolve.resize(0);
+            subpass.referencesColor.resize(0);
+            subpass.referencesResolve.resize(0);
+            subpass.referencesInput.resize(0);
+            subpass.referencesPreserve.resize(0);
 
-            for (u32 j = 0; j < subpass.attachmentDescriptions.size(); j++) {
-                Attachment& attachment = subpass.attachmentDescriptions[j];
-                // Add all the attachment descriptions from this Attachment
-                attachments.resize(nextAttachmentIndex+attachment.descriptions.size());
-                for (u32 x = 0; x < attachment.descriptions.size(); x++) {
-                    attachments[nextAttachmentIndex + x] = attachment.descriptions[x];
+            for (u32 j = 0; j < subpass.attachments.size(); j++) {
+                String errorPrefix = "Subpass[" + std::to_string(i) + "] AttachmentUsage[" + std::to_string(j) + "] ";
+                AttachmentUsage& usage = subpass.attachments[j];
+                if (usage.index >= attachments.size()) {
+                    error = errorPrefix + "index is out of bounds: " + std::to_string(usage.index);
+                    return false;
                 }
+                Attachment& attachment = attachments[usage.index];
+                nextAttachmentIndex = attachment.firstIndex;
+                i32 colorIndex = -1;
+                i32 resolveIndex = -1;
+                i32 depthStencilIndex = -1;
                 if (attachment.bufferColor) {
-                    VkAttachmentReference ref{};
-                    ref.attachment = nextAttachmentIndex++;
-                    ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-                    subpass.attachmentReferencesColor.push_back(ref);
-                    if (subpass.resolveColor && subpass.sampleCount != VK_SAMPLE_COUNT_1_BIT) {
-                        ref.attachment = nextAttachmentIndex++;
-                        subpass.attachmentReferencesResolve.push_back(ref);
+                    colorIndex = nextAttachmentIndex++;
+                    if (attachment.resolveColor && attachment.sampleCount != VK_SAMPLE_COUNT_1_BIT) {
+                        resolveIndex = nextAttachmentIndex++;
                     }
                 }
                 if (attachment.bufferDepthStencil) {
                     if (depthStencilTaken) {
-                        error = "You can't have more than one depth/stencil attachment in a single subpass!";
+                        error = errorPrefix + "defines a second depth/stencil attachment. You can't have more than one depth/stencil attachment in a single subpass!";
                         return false;
                     }
                     depthStencilTaken = true;
+                    depthStencilIndex = nextAttachmentIndex++;
+                }
+                u32 index;
+                if (usage.type == ATTACHMENT_COLOR) {
+                    if (colorIndex != -1) {
+                        index = colorIndex;
+                    } else {
+                        error = errorPrefix + "expects there to be a color buffer when there is not!";
+                        return false;
+                    }
+                } else if (usage.type == ATTACHMENT_DEPTH_STENCIL) {
+                    if (depthStencilIndex != -1) {
+                        index = depthStencilIndex;
+                    } else {
+                        error = errorPrefix + "expects there to be a depth/stencil buffer when there is not!";
+                        return false;
+                    }
+                } else if (usage.type == ATTACHMENT_RESOLVE) {
+                    if (resolveIndex != -1) {
+                        index = resolveIndex;
+                    } else {
+                        error = errorPrefix + "expects there to be a resolved color buffer when there is not!";
+                        return false;
+                    }
+                } else if (usage.type != ATTACHMENT_ALL) {
+                    error = errorPrefix + "usage.type is an invalid value: " + std::to_string(usage.type);
+                    return false;
+                }
+                if (usage.accessFlags & VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT) {
+                    if (colorIndex == -1) {
+                        error = errorPrefix + "requests a color buffer for writing, but none is available.";
+                        return false;
+                    }
                     VkAttachmentReference ref{};
-                    ref.attachment = nextAttachmentIndex++;
+                    ref.attachment = colorIndex;
+                    ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                    subpass.referencesColor.push_back(ref);
+                    if (attachment.resolveColor && attachment.sampleCount != VK_SAMPLE_COUNT_1_BIT) {
+                        ref.attachment = resolveIndex;
+                        subpass.referencesResolve.push_back(ref);
+                    }
+                }
+                if (usage.accessFlags & (VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT) && attachment.bufferDepthStencil) {
+                    if (depthStencilIndex == -1) {
+                        error = errorPrefix + "requests a depth/stencil buffer for writing, but none is available.";
+                        return false;
+                    }
+                    VkAttachmentReference ref{};
+                    ref.attachment = index;
                     ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-                    subpass.attachmentReferenceDepthStencil = ref;
+                    subpass.referenceDepthStencil = ref;
+                }
+                if (usage.accessFlags & VK_ACCESS_SHADER_READ_BIT) {
+                    VkAttachmentReference ref{};
+                    ref.attachment = index;
+                    ref.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                    subpass.referencesInput.push_back(ref);
                 }
             }
             VkSubpassDescription description{};
             description.pipelineBindPoint = subpass.pipelineBindPoint;
-            description.colorAttachmentCount = subpass.attachmentReferencesColor.size();
-            description.pColorAttachments = subpass.attachmentReferencesColor.data();
-            if (subpass.attachmentReferencesResolve.size() != 0) {
-                description.pColorAttachments = subpass.attachmentReferencesResolve.data();
+            description.colorAttachmentCount = subpass.referencesColor.size();
+            description.pColorAttachments = subpass.referencesColor.data();
+            description.inputAttachmentCount = subpass.referencesInput.size();
+            description.pInputAttachments = subpass.referencesInput.data();
+            description.preserveAttachmentCount = subpass.referencesPreserve.size();
+            description.pPreserveAttachments = subpass.referencesPreserve.data();
+            if (subpass.referencesResolve.size() != 0) {
+                description.pColorAttachments = subpass.referencesResolve.data();
             }
             if (depthStencilTaken) {
-                description.pDepthStencilAttachment = &subpass.attachmentReferenceDepthStencil;
+                description.pDepthStencilAttachment = &subpass.referenceDepthStencil;
             }
             subpassDescriptions.push_back(description);
         }
+        // Now we configure our dependencies
+        if (initialTransition) {
+            VkSubpassDependency dep;
+            dep.srcSubpass = VK_SUBPASS_EXTERNAL; // Transition from before this RenderPass
+            dep.dstSubpass = 0; // Our first subpass
+            dep.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT; // Make sure the image is done being used
+            dep.dstStageMask = initialAccessStage; // The stage at which we need the image in a certain layout
+            dep.srcAccessMask = initialAccess;
+            bool depth = false;
+            bool color = false;
+            bool resolve = false;
+            for (AttachmentUsage& usage : subpasses[0].attachments) {
+                switch (usage.type) {
+                    case ATTACHMENT_COLOR: {
+                        color = true;
+                        break;
+                    }
+                    case ATTACHMENT_DEPTH_STENCIL: {
+                        depth = true;
+                        break;
+                    }
+                    case ATTACHMENT_RESOLVE: {
+                        resolve = true;
+                        break;
+                    }
+                    case ATTACHMENT_ALL: {
+                        if (attachments[usage.index].resolveColor && attachments[usage.index].sampleCount != VK_SAMPLE_COUNT_1_BIT) {
+                            resolve = true;
+                        } else {
+                            color = true;
+                        }
+                        break;
+                    }
+                }
+            }
+            if (depth && !color && !resolve) {
+                dep.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            } else if (color || resolve) {
+                dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            }
+            dep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+            subpassDependencies.push_back(dep);
+        }
+        for (u32 i = 1; i < subpasses.size()-1; i++) {
+            // VkSubpassDependency dep;
+            // dep.srcSubpass = i-1;
+            // dep.dstSubpass = i;
+            // TODO: Finish inter-subpass dependencies
+        }
+        if (finalTransition) {
+            VkSubpassDependency dep;
+            dep.srcSubpass = subpasses.size()-1; // Our last subpass
+            dep.dstSubpass = VK_SUBPASS_EXTERNAL; // Transition for use outside our RenderPass
+            dep.srcStageMask = finalAccessStage; // Make sure the image is done being used
+            dep.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+            bool depth = false;
+            bool color = false;
+            bool resolve = false;
+            for (AttachmentUsage& usage : subpasses[0].attachments) {
+                switch (usage.type) {
+                    case ATTACHMENT_COLOR: {
+                        color = true;
+                        break;
+                    }
+                    case ATTACHMENT_DEPTH_STENCIL: {
+                        depth = true;
+                        break;
+                    }
+                    case ATTACHMENT_RESOLVE: {
+                        resolve = true;
+                        break;
+                    }
+                    case ATTACHMENT_ALL: {
+                        if (attachments[usage.index].resolveColor && attachments[usage.index].sampleCount != VK_SAMPLE_COUNT_1_BIT) {
+                            resolve = true;
+                        } else {
+                            color = true;
+                        }
+                        break;
+                    }
+                }
+            }
+            if (depth && !color && !resolve) {
+                dep.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            } else if (color || resolve) {
+                dep.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            }
+            dep.dstAccessMask = finalAccess;
+            dep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+            subpassDependencies.push_back(dep);
+        }
+        if (!Create()) {
+            return false;
+        }
+        initted = true;
         return true;
     }
 
     bool RenderPass::Create() {
+        if (created) {
+            error = "Our RenderPass already exists!";
+            return false;
+        }
+        VkRenderPassCreateInfo renderPassInfo{};
+        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+        renderPassInfo.attachmentCount = attachmentDescriptions.size();
+        renderPassInfo.pAttachments = attachmentDescriptions.data();
+        renderPassInfo.subpassCount = subpassDescriptions.size();
+        renderPassInfo.pSubpasses = subpassDescriptions.data();
+        renderPassInfo.subpassCount = subpassDescriptions.size();
+        renderPassInfo.dependencyCount = subpassDependencies.size();
+        renderPassInfo.pDependencies = subpassDependencies.data();
+
+        VkResult result = vkCreateRenderPass(device->device, &renderPassInfo, nullptr, &renderPass);
+
+        if (result != VK_SUCCESS) {
+            error = "Failed to create RenderPass: " + ErrorString(result);
+            return false;
+        }
+        created = true;
         return true;
     }
 
@@ -674,6 +863,11 @@ namespace vk {
         return &swapchains[swapchains.size()-1];
     }
 
+    RenderPass* Device::AddRenderPass() {
+        renderPasses.push_back(RenderPass());
+        return &renderPasses[renderPasses.size()-1];
+    }
+
     bool Device::Init(Instance *inst) {
         cout << "------Initializing Logical Device-------" << std::endl;
         if (initted) {
@@ -843,6 +1037,13 @@ namespace vk {
         // Swapchains
         for (u32 i = 0; i < swapchains.size(); i++) {
             if (!swapchains[i].Init(this)) {
+                vkDestroyDevice(device, nullptr);
+                return false;
+            }
+        }
+        // RenderPasses
+        for (u32 i = 0; i < renderPasses.size(); i++) {
+            if (!renderPasses[i].Init(this)) {
                 vkDestroyDevice(device, nullptr);
                 return false;
             }

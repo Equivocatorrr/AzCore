@@ -137,7 +137,7 @@ namespace vk {
         u32 index; // Which attachment we're using
         // Out of an Attachment that can have multiple attachments, this defines which one
         AttachmentType type = ATTACHMENT_ALL;
-        VkAccessFlagBits accessFlags; // Describes how this attachment is accessed in the Subpass
+        VkAccessFlags accessFlags; // Describes how this attachment is accessed in the Subpass
     };
 
     /*  struct: Subpass
@@ -155,7 +155,7 @@ namespace vk {
         // NOTE: Do we need this? Can renderpasses be used outside of graphics?
         VkPipelineBindPoint pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
-        void UseAttachment(ArrayPtr<Attachment> attachment, AttachmentType type, VkAccessFlagBits accessFlags);
+        void UseAttachment(ArrayPtr<Attachment> attachment, AttachmentType type, VkAccessFlags accessFlags);
     };
 
     /*  struct: RenderPass
@@ -163,7 +163,6 @@ namespace vk {
         Automatically configures RenderPass based on Subpasses      */
     struct RenderPass {
         bool initted = false;
-        bool created = false;
         Device *device = nullptr;
         VkRenderPass renderPass{};
         Array<VkAttachmentDescription> attachmentDescriptions;
@@ -180,23 +179,23 @@ namespace vk {
         // Initial goes from external to subpass 0
         bool initialTransition = true; // Whether we enable this transition
         // The access mask we expect the first subpass attachments to be in
-        VkAccessFlagBits initialAccess = VK_ACCESS_MEMORY_READ_BIT;
+        VkAccessFlags initialAccess = VK_ACCESS_MEMORY_READ_BIT;
         // The stage at which we first start using our attachments
-        VkPipelineStageFlagBits initialAccessStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        VkPipelineStageFlagBits initialAccessStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
         // Final goes from the last subpass to external
         bool finalTransition = true;
         // The access mask for transitioning our last subpass attachments for use outside of the RenderPass
-        VkAccessFlagBits finalAccess = VK_ACCESS_MEMORY_READ_BIT; // Default, used for swapchain presenting
+        VkAccessFlags finalAccess = VK_ACCESS_MEMORY_READ_BIT; // Default, used for swapchain presenting
         // The stage at which our attachments are expected to be "done"
         VkPipelineStageFlagBits finalAccessStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
         ArrayPtr<Subpass> AddSubpass();
         ArrayPtr<Attachment> AddAttachment();
 
+        ~RenderPass();
         bool Init(Device *dev);
-        bool Create();
-        void Clean();
+        bool Deinit();
     };
 
     extern const char *QueueTypeString[5];

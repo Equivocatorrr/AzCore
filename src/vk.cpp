@@ -56,6 +56,22 @@ namespace vk {
 		}
 	}
 
+    void PrintDashed(String str) {
+        i32 width = 80-(i32)str.size();
+        if (width > 0) {
+            for (u32 i = (width+1)/2; i > 0; i--) {
+                cout << "-";
+            }
+            cout << str;
+            for (u32 i = width/2; i > 0; i--) {
+                cout << "-";
+            }
+        } else {
+            cout << str;
+        }
+        cout << std::endl;
+    }
+
     VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags,
         VkDebugReportObjectTypeEXT objType, u64 obj, size_t location,
         i32 code, const char* layerPrefix, const char* msg, void* userData) {
@@ -320,7 +336,7 @@ namespace vk {
         }
     }
 
-    void Subpass::UseAttachment(ArrayPtr<Attachment> attachment, AttachmentType type, VkAccessFlagBits accessFlags) {
+    void Subpass::UseAttachment(ArrayPtr<Attachment> attachment, AttachmentType type, VkAccessFlags accessFlags) {
         AttachmentUsage usage = {attachment.index, type, accessFlags};
         attachments.push_back(usage);
     }
@@ -335,8 +351,16 @@ namespace vk {
         return ArrayPtr<Attachment>(attachments, attachments.size()-1);
     }
 
+    RenderPass::~RenderPass() {
+        if (initted) {
+            if (!Deinit()) {
+                cout << "Failed to clean up vk::RenderPass: " << error << std::endl;
+            }
+        }
+    }
+
     bool RenderPass::Init(Device *dev) {
-        cout << "--------Initializing RenderPass--------" << std::endl;
+        PrintDashed("Initializing RenderPass");
         if (initted) {
             error = "Renderpass is already initialized!";
             return false;
@@ -396,7 +420,7 @@ namespace vk {
                     depthStencilTaken = true;
                     depthStencilIndex = nextAttachmentIndex++;
                 }
-                u32 index;
+                u32 index = 0;
                 if (usage.type == ATTACHMENT_COLOR) {
                     if (colorIndex != -1) {
                         index = colorIndex;
@@ -560,18 +584,7 @@ namespace vk {
             dep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
             subpassDependencies.push_back(dep);
         }
-        if (!Create()) {
-            return false;
-        }
-        initted = true;
-        return true;
-    }
-
-    bool RenderPass::Create() {
-        if (created) {
-            error = "Our RenderPass already exists!";
-            return false;
-        }
+        // Finally put it all together
         VkRenderPassCreateInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
         renderPassInfo.attachmentCount = attachmentDescriptions.size();
@@ -588,7 +601,19 @@ namespace vk {
             error = "Failed to create RenderPass: " + ErrorString(result);
             return false;
         }
-        created = true;
+        initted = true;
+        return true;
+    }
+
+    bool RenderPass::Deinit() {
+        PrintDashed("Destroying RenderPass");
+        if (!initted) {
+            error = "RenderPass hasn't been initialized yet!";
+            return false;
+        }
+
+        vkDestroyRenderPass(device->device, renderPass, nullptr);
+        initted = false;
         return true;
     }
 
@@ -605,7 +630,7 @@ namespace vk {
     }
 
     bool Swapchain::Init(Device *dev) {
-        cout << "----Initializing Swapchain----" << std::endl;
+        PrintDashed("Initializing Swapchain");
         if (initted) {
             error = "Swapchain is already initialized!";
             return false;
@@ -828,6 +853,7 @@ namespace vk {
     }
 
     bool Swapchain::Deinit() {
+        PrintDashed("Destroying Swapchain");
         if (!initted) {
             error = "Swapchain isn't initialized!";
             return false;
@@ -869,7 +895,7 @@ namespace vk {
     }
 
     bool Device::Init(Instance *inst) {
-        cout << "------Initializing Logical Device-------" << std::endl;
+        PrintDashed("Initializing Logical Device");
         if (initted) {
             error = "Device is already initialized!";
             return false;
@@ -1054,13 +1080,18 @@ namespace vk {
     }
 
     bool Device::Deinit() {
+        PrintDashed("Destroying Logical Device");
         if (!initted) {
             error = "Device isn't initialized!";
             return false;
         }
-        cout << "--------Destroying Logical Device-------" << std::endl;
         for (u32 i = 0; i < swapchains.size(); i++) {
             if (!swapchains[i].Deinit()) {
+                return false;
+            }
+        }
+        for (u32 i = 0; i < renderPasses.size(); i++) {
+            if (!renderPasses[i].Deinit()) {
                 return false;
             }
         }
@@ -1142,7 +1173,7 @@ namespace vk {
     }
 
     bool Instance::Init() {
-        cout << "--------Initializing Vulkan Tree--------" << std::endl;
+        PrintDashed("Initializing Vulkan Tree");
         if (initted) {
             error = "Tree is already initialized!";
             return false;
@@ -1310,7 +1341,7 @@ namespace vk {
     }
 
     bool Instance::Deinit() {
-        cout << "---------Destroying Vulkan Tree---------" << std::endl;
+        PrintDashed("Destroying Vulkan Tree");
         if (!initted) {
             error = "Tree isn't initialized!";
             return false;

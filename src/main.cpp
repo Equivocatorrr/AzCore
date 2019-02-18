@@ -14,7 +14,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     bool enableLayers = false, enableCoreValidation = false;
 
-    cout << "\nTest program.\n\tReceived " << argumentCount << " arguments:\n";
+    cout << "\nTest program received " << argumentCount << " arguments:\n";
     for (i32 i = 0; i < argumentCount; i++) {
         cout << i << ": " << argumentValues[i] << std::endl;
         if (equals(argumentValues[i], "--enable-layers")) {
@@ -69,6 +69,14 @@ i32 main(i32 argumentCount, char** argumentValues) {
     }
     vk::Swapchain* vkSwapchain = vkDevice->AddSwapchain();
     vkSwapchain->window = vkInstance.AddWindowForSurface(&window);
+
+    vk::RenderPass* renderPass = vkDevice->AddRenderPass();
+    ArrayPtr<vk::Attachment> attachment = renderPass->AddAttachment();
+    attachment->bufferColor = true;
+    attachment->clearColor = true;
+    attachment->keepColor = true;
+    ArrayPtr<vk::Subpass> subpass = renderPass->AddSubpass();
+    subpass->UseAttachment(attachment, vk::ATTACHMENT_COLOR, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
     if (!vkInstance.Init()) { // Do this once you've set up the structure of your program.
         cout << "Failed to initialize Vulkan: " << vk::error << std::endl;
         return 1;

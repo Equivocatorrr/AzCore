@@ -74,6 +74,11 @@ struct ArrayPtr {
 template<typename T, typename B>
 using Map = std::map<T, B>;
 
+#include <set>
+
+template<typename T>
+using Set = std::set<T>;
+
 #include <mutex>
 // #ifdef __MINGW32__
 // #include <mingw/mutex.h>

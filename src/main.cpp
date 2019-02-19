@@ -71,6 +71,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     vk::Swapchain* vkSwapchain = vkDevice->AddSwapchain();
     vkSwapchain->window = vkInstance.AddWindowForSurface(&window);
+    vkSwapchain->vsync = false;
 
     vk::RenderPass* renderPass = vkDevice->AddRenderPass();
 
@@ -82,9 +83,12 @@ i32 main(i32 argumentCount, char** argumentValues) {
     attachment[0]->resolveColor = true;
 
     ArrayPtr<vk::Subpass> subpass[2] = {renderPass->AddSubpass(), renderPass->AddSubpass()};
-    subpass[0]->UseAttachment(attachment[0], vk::ATTACHMENT_ALL, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-    subpass[1]->UseAttachment(attachment[0], vk::ATTACHMENT_RESOLVE, VK_ACCESS_SHADER_READ_BIT);
-    subpass[1]->UseAttachment(attachment[1], vk::ATTACHMENT_COLOR, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+    subpass[0]->UseAttachment(attachment[0], vk::ATTACHMENT_ALL,
+        VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+    subpass[1]->UseAttachment(attachment[0], vk::ATTACHMENT_RESOLVE,
+        VK_ACCESS_SHADER_READ_BIT);
+    subpass[1]->UseAttachment(attachment[1], vk::ATTACHMENT_COLOR,
+        VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 
     if (!vkInstance.Init()) { // Do this once you've set up the structure of your program.
         cout << "Failed to initialize Vulkan: " << vk::error << std::endl;

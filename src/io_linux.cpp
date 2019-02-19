@@ -415,7 +415,8 @@ namespace io {
         xcb_void_cookie_t cookie;
 
         data->colormap = xcb_generate_id(data->connection);
-        cookie = xcb_create_colormap_checked(data->connection, XCB_COLORMAP_ALLOC_NONE, data->colormap, data->screen->root, data->visualID);
+        cookie = xcb_create_colormap_checked(data->connection, XCB_COLORMAP_ALLOC_NONE,
+                    data->colormap, data->screen->root, data->visualID);
 
 
         if (xcb_generic_error_t *err = xcb_request_check(data->connection, cookie)) {
@@ -427,13 +428,15 @@ namespace io {
         u32 mask = XCB_CW_BACK_PIXEL | XCB_CW_BORDER_PIXEL | XCB_CW_EVENT_MASK | XCB_CW_COLORMAP;
         u32 values[] = {data->screen->black_pixel, data->screen->black_pixel,
             XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE |
-            XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_POINTER_MOTION | XCB_EVENT_MASK_STRUCTURE_NOTIFY | XCB_EVENT_MASK_FOCUS_CHANGE,
+            XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_POINTER_MOTION |
+            XCB_EVENT_MASK_STRUCTURE_NOTIFY | XCB_EVENT_MASK_FOCUS_CHANGE,
             data->colormap,
             0
         };
 
         data->window = xcb_generate_id(data->connection);
-        cookie = xcb_create_window_checked(data->connection, data->windowDepth, data->window, data->screen->root, x, y, width, height, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, data->visualID, mask, values);
+        cookie = xcb_create_window_checked(data->connection, data->windowDepth, data->window, data->screen->root,
+                    x, y, width, height, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, data->visualID, mask, values);
         if (xcb_generic_error_t *err = xcb_request_check(data->connection, cookie)) {
             error = "Error creating xcb window: " + std::to_string(err->error_code);
             CLOSE_CONNECTION(data);
@@ -482,7 +485,8 @@ namespace io {
             return false;
         }
 
-        xcb_change_property(data->connection, XCB_PROP_MODE_REPLACE, data->window, data->atoms[0], 4, 32, 1, &data->atoms[1]);
+        xcb_change_property(data->connection, XCB_PROP_MODE_REPLACE,
+            data->window, data->atoms[0], 4, 32, 1, &data->atoms[1]);
 
         open = true;
         return true;

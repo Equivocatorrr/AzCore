@@ -88,6 +88,63 @@ namespace vk {
         // void BindMemory(VulkanMemory memory, u32 index);
     };
 
+    struct DescriptorBinding {
+        u32 binding; // Which descriptor we're describing
+        u32 count; // How many descriptors in this set
+    };
+
+    /*  struct: DescriptorLayout
+        Author: Philip Haynes
+        Describes a single layout that may be used by multiple descriptor sets      */
+    struct DescriptorLayout {
+        bool exists = false;
+        VkDevice device;
+        VkDescriptorSetLayout layout;
+        // Configuration
+        VkDescriptorType type;
+        VkShaderStageFlagBits stage;
+        Array<DescriptorBinding> bindings;
+
+        ~DescriptorLayout();
+        void Init(VkDevice dev);
+        void Create();
+        void Clean();
+    };
+
+    struct DescriptorSet {
+        bool exists = false;
+        VkDescriptorSet set;
+        Array<DescriptorBinding> bindings;
+        ArrayPtr<DescriptorLayout> layout;
+    };
+
+    /*  struct: Descriptors
+        Author: Philip Haynes
+        Defines a descriptor pool and all descriptor sets from that pool    */
+    struct Descriptors {
+        VkDevice device;
+        bool exists = false;
+        VkDescriptorPool pool;
+
+        // Configuration
+        Array<DescriptorLayout> layouts{};
+        Array<DescriptorSet> sets{};
+        Array<VkDescriptorBufferInfo> bufferInfos{};
+        Array<VkDescriptorImageInfo> imageInfos{};
+
+        ~Descriptors();
+        void Init(VkDevice dev);
+        ArrayPtr<DescriptorLayout> AddLayout();
+        ArrayPtr<DescriptorSet> AddDescriptorSet();
+        bool AddUniformDescriptor(VkDescriptorBufferInfo *bufferInfo,
+                ArrayPtr<DescriptorSet> set, ArrayPtr<DescriptorLayout> layout, DescriptorBinding binding);
+        bool AddTextureDescriptor(VkDescriptorImageInfo *imageInfo,
+                ArrayPtr<DescriptorSet> set, ArrayPtr<DescriptorLayout> layout, DescriptorBinding binding);
+        void Create();
+        void Update();
+        void Clean();
+    };
+
     struct Swapchain;
 
     /*  struct: Attachment
@@ -95,7 +152,7 @@ namespace vk {
         Some implicit attachment management that allows
         automated MSAA and depth buffers to be created and used     */
     struct Attachment {
-        u32 firstIndex; // Which index in our RenderPass VkAttachmentDescripion Array corresponds to our 0
+        u32 firstIndex = 0; // Which index in our RenderPass VkAttachmentDescripion Array corresponds to our 0
         Array<VkAttachmentDescription> descriptions{};
 
         // If swapchain isn't nullptr, our color buffer is what's presented and we use its format

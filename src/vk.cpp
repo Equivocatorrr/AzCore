@@ -427,7 +427,8 @@ namespace vk {
                 }
                 if (attachment.bufferDepthStencil) {
                     if (depthStencilTaken) {
-                        error = errorPrefix + "defines a second depth/stencil attachment. You can't have more than one depth/stencil attachment in a single subpass!";
+                        error = errorPrefix + "defines a second depth/stencil attachment. "
+                                "You can't have more than one depth/stencil attachment in a single subpass!";
                         return false;
                     }
                     depthStencilTaken = true;
@@ -473,7 +474,8 @@ namespace vk {
                         subpass.referencesResolve.push_back(ref);
                     }
                 }
-                if (usage.accessFlags & (VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT) && attachment.bufferDepthStencil) {
+                if (usage.accessFlags & (VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
+                    VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT) && attachment.bufferDepthStencil) {
                     if (depthStencilIndex == -1) {
                         error = errorPrefix + "requests a depth/stencil buffer for writing, but none is available.";
                         return false;
@@ -959,6 +961,7 @@ namespace vk {
         // Set up queues
         // First figure out which queue families each queue should use
         const bool preferSameQueueFamilies = true;
+        const bool preferMonolithicQueues = true;
 
         // Make sure we have enough queues in every family
         u32 queueFamilies = physicalDevice.queueFamiliesAvailable.size();
@@ -1017,26 +1020,34 @@ namespace vk {
                 error = "queues[" + std::to_string(i) + "] couldn't find a queue family :(";
                 return false;
             }
-            queuesPerFamily[queues[i].queueFamilyIndex]--;
+            if (!preferMonolithicQueues) {
+                queuesPerFamily[queues[i].queueFamilyIndex]--;
+            }
         }
 
         Array<VkDeviceQueueCreateInfo> queueCreateInfos{};
-        Array<Array<f32>> queuePriorities(queueFamilies);
+        Array<Set<f32>> queuePriorities(queueFamilies);
         for (u32 i = 0; i < queueFamilies; i++) {
             for (u32 j = 0; j < queues.size(); j++) {
                 if (queues[j].queueFamilyIndex == (i32)i) {
-                    queuePriorities[i].push_back(queues[j].queuePriority);
+                    queuePriorities[i].insert(queues[j].queuePriority);
                 }
             }
         }
+        Array<Array<f32>> queuePrioritiesArray(queueFamilies);
         for (u32 i = 0; i < queueFamilies; i++) {
-            cout << "Allocating " << queuePriorities[i].size() << " queues from family " << i << std::endl;
-            if (queuePriorities[i].size() != 0) {
+            for (const f32& p : queuePriorities[i]) {
+                queuePrioritiesArray[i].push_back(p);
+            }
+        }
+        for (u32 i = 0; i < queueFamilies; i++) {
+            cout << "Allocating " << queuePrioritiesArray[i].size() << " queues from family " << i << std::endl;
+            if (queuePrioritiesArray[i].size() != 0) {
                 VkDeviceQueueCreateInfo queueCreateInfo = {};
                 queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
                 queueCreateInfo.queueFamilyIndex = i;
-                queueCreateInfo.queueCount = queuePriorities[i].size();
-                queueCreateInfo.pQueuePriorities = queuePriorities[i].data();
+                queueCreateInfo.queueCount = queuePrioritiesArray[i].size();
+                queueCreateInfo.pQueuePriorities = queuePrioritiesArray[i].data();
                 queueCreateInfos.push_back(queueCreateInfo);
             }
         }
@@ -1066,10 +1077,16 @@ namespace vk {
         }
         // Get our queues
         for (u32 i = 0; i < queueFamilies; i++) {
-            u32 queueIndex = 0;
             for (u32 j = 0; j < queues.size(); j++) {
                 if (queues[j].queueFamilyIndex == (i32)i) {
-                    vkGetDeviceQueue(device, i, queueIndex++, &queues[j].queue);
+                    u32 queueIndex = 0;
+                    for (u32 p = 0; p < queuePrioritiesArray[i].size(); p++) {
+                        if (queues[j].queuePriority == queuePrioritiesArray[i][p]) {
+                            queueIndex = p;
+                            break;
+                        }
+                    }
+                    vkGetDeviceQueue(device, i, queueIndex, &queues[j].queue);
                 }
             }
         }

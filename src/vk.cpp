@@ -260,6 +260,62 @@ namespace vk {
         }
     }
 
+    Sampler::~Sampler() {
+        Clean();
+    }
+
+    void Sampler::Init(VkDevice dev) {
+        device = dev;
+    }
+
+    bool Sampler::Create() {
+        if (exists) {
+            error = "Sampler already exists!";
+            return false;
+        }
+        VkSamplerCreateInfo createInfo = {};
+        createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        createInfo.magFilter = magFilter;
+		createInfo.minFilter = minFilter;
+		createInfo.addressModeU = addressModeU;
+		createInfo.addressModeV = addressModeV;
+		createInfo.addressModeW = addressModeW;
+        createInfo.maxAnisotropy = anisotropy;
+		if (anisotropy != 1) {
+			createInfo.anisotropyEnable = VK_TRUE;
+		} else {
+			createInfo.anisotropyEnable = VK_FALSE;
+		}
+		createInfo.borderColor = borderColor;
+		createInfo.unnormalizedCoordinates = (VkBool32)unnormalizedCoordinates;
+		createInfo.compareOp = compareOp;
+        if (compareOp == VK_COMPARE_OP_NEVER) {
+            createInfo.compareEnable = VK_FALSE;
+        } else {
+            createInfo.compareEnable = VK_TRUE;
+        }
+		createInfo.mipmapMode = mipmapMode;
+		createInfo.mipLodBias = mipLodBias;
+		createInfo.minLod = minLod;
+		createInfo.maxLod = maxLod;
+
+        VkResult result = vkCreateSampler(device, &createInfo, nullptr, &sampler);
+
+        if (result != VK_SUCCESS) {
+            error = "Failed to create sampler: " + ErrorString(result);
+            return false;
+        }
+        exists = true;
+        return true;
+    }
+
+    void Sampler::Clean() {
+        if (exists) {
+            vkDestroySampler(device, sampler, nullptr);
+            exists = false;
+        }
+    }
+
     DescriptorLayout::~DescriptorLayout() {
         Clean();
     }
@@ -1212,6 +1268,16 @@ namespace vk {
         return &buffers[buffers.size()-1];
     }
 
+    ArrayPtr<Sampler> Device::AddSampler() {
+        samplers.push_back(Sampler());
+        return ArrayPtr<Sampler>(samplers, samplers.size()-1);
+    }
+
+    Descriptors* Device::AddDescriptors() {
+        descriptors.push_back(Descriptors());
+        return &descriptors[descriptors.size()-1];
+    }
+
     bool Device::Init(Instance *inst) {
         PrintDashed("Initializing Logical Device");
         if (initted) {
@@ -1380,28 +1446,66 @@ namespace vk {
         }
         // Get our queues
         for (u32 i = 0; i < queueFamilies; i++) {
-            for (u32 j = 0; j < queues.size(); j++) {
-                if (queues[j].queueFamilyIndex == (i32)i) {
+            for (auto& queue : queues) {
+                if (queue.queueFamilyIndex == (i32)i) {
                     u32 queueIndex = 0;
                     for (u32 p = 0; p < queuePrioritiesArray[i].size(); p++) {
-                        if (queues[j].queuePriority == queuePrioritiesArray[i][p]) {
+                        if (queue.queuePriority == queuePrioritiesArray[i][p]) {
                             queueIndex = p;
                             break;
                         }
                     }
-                    vkGetDeviceQueue(device, i, queueIndex, &queues[j].queue);
+                    vkGetDeviceQueue(device, i, queueIndex, &queue.queue);
                 }
             }
         }
         // Swapchains
-        for (u32 i = 0; i < swapchains.size(); i++) {
-            if (!swapchains[i].Init(this)) {
+        for (auto& swapchain : swapchains) {
+            if (!swapchain.Init(this)) {
                 goto failed;
             }
         }
         // RenderPasses
-        for (u32 i = 0; i < renderPasses.size(); i++) {
-            if (!renderPasses[i].Init(this)) {
+        for (auto& renderPass : renderPasses) {
+            if (!renderPass.Init(this)) {
+                goto failed;
+            }
+        }
+        // Images
+        for (auto& imageArray : images) {
+            for (u32 i = 0; i < imageArray.size(); i++) {
+                imageArray[i].device = device;
+                if (!imageArray[i].CreateImage()) {
+                    goto failed;
+                }
+                if (!imageArray[i].CreateImageView()) {
+                    goto failed;
+                }
+            }
+        }
+        // Buffers
+        for (auto& bufferArray : buffers) {
+            for (u32 i = 0; i < bufferArray.size(); i++) {
+                bufferArray[i].device = device;
+                if (!bufferArray[i].Create()) {
+                    goto failed;
+                }
+            }
+        }
+        // Samplers
+        for (auto& sampler : samplers) {
+            sampler.device = device;
+            if (!sampler.Create()) {
+                goto failed;
+            }
+        }
+        // Descriptors
+        for (auto& descriptor : descriptors) {
+            descriptor.Init(device);
+            if (!descriptor.Create()) {
+                goto failed;
+            }
+            if (!descriptor.Update()) {
                 goto failed;
             }
         }
@@ -1410,13 +1514,29 @@ namespace vk {
         initted = true;
         return true;
 failed:
-        for (u32 i = 0; i < swapchains.size(); i++) {
-            if (swapchains[i].initted)
-            swapchains[i].Deinit();
+        for (auto& swapchain : swapchains) {
+            if (swapchain.initted)
+                swapchain.Deinit();
         }
-        for (u32 i = 0; i < renderPasses.size(); i++) {
-            if (renderPasses[i].initted)
-            renderPasses[i].Deinit();
+        for (auto& renderPass : renderPasses) {
+            if (renderPass.initted)
+                renderPass.Deinit();
+        }
+        for (auto& imageArray : images) {
+            for (u32 i = 0; i < imageArray.size(); i++) {
+                imageArray[i].Clean();
+            }
+        }
+        for (auto& bufferArray : buffers) {
+            for (u32 i = 0; i < bufferArray.size(); i++) {
+                bufferArray[i].Clean();
+            }
+        }
+        for (auto& sampler : samplers) {
+            sampler.Clean();
+        }
+        for (auto& descriptor : descriptors) {
+            descriptor.Clean();
         }
         vkDestroyDevice(device, nullptr);
         return false;

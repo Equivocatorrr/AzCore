@@ -129,6 +129,7 @@ namespace vk {
         // Change maxLod to an integer multiple of the number of mip levels you generate
         f32 maxLod = 0.0;
 
+        ~Sampler();
         void Init(VkDevice dev);
         bool Create();
         void Clean();
@@ -386,8 +387,10 @@ namespace vk {
         List<Queue> queues{};
         List<Swapchain> swapchains{};
         List<RenderPass> renderPasses{};
-        List<Array<Image>> images;
-        List<Array<Buffer>> buffers;
+        List<Array<Image>> images{};
+        List<Array<Buffer>> buffers{};
+        Array<Sampler> samplers{};
+        List<Descriptors> descriptors{};
 
         // Manual configuration (mostly unnecessary)
         Array<const char*> extensionsRequired{};
@@ -401,6 +404,8 @@ namespace vk {
         RenderPass* AddRenderPass();
         Array<Image>* AddImages(u32 count);
         Array<Buffer>* AddBuffers(u32 count);
+        ArrayPtr<Sampler> AddSampler();
+        Descriptors* AddDescriptors();
 
         bool Init(Instance *inst);
         bool Reconfigure();

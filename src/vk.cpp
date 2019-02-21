@@ -1320,12 +1320,33 @@ namespace vk {
         }
 
         VkPhysicalDeviceFeatures deviceFeatures;
-        // I'm not sure why these aren't bit-masked values,
-        // but I'm treating it like that anyway.
-        for (u32 i = 0; i < sizeof(VkPhysicalDeviceFeatures)/4; i++) {
-            *(((u32*)&deviceFeatures + i)) = *(((u32*)&deviceFeaturesRequired + i))
-            || (*(((u32*)&physicalDevice.features + i)) && *(((u32*)&deviceFeaturesOptional + i)));
+        {
+            // What features to we want?
+            bool anisotropy = false;
+            for (auto& sampler : samplers) {
+                if (sampler.anisotropy != 1) {
+                    anisotropy = true;
+                }
+            }
+            if (anisotropy) {
+                deviceFeaturesOptional.samplerAnisotropy = VK_TRUE;
+            }
+            // Which ones are available?
+            for (u32 i = 0; i < sizeof(VkPhysicalDeviceFeatures)/4; i++) {
+                // I'm not sure why these aren't bit-masked values,
+                // but I'm treating it like that anyway.
+                *(((u32*)&deviceFeatures + i)) = *(((u32*)&deviceFeaturesRequired + i))
+                || (*(((u32*)&physicalDevice.features + i)) && *(((u32*)&deviceFeaturesOptional + i)));
+            }
+            // Which ones don't we have that we wanted?
+            if (anisotropy && deviceFeatures.samplerAnisotropy == VK_FALSE) {
+                cout << "Sampler Anisotropy desired, but unavailable...disabling." << std::endl;
+                for (auto& sampler : samplers) {
+                    sampler.anisotropy = 1;
+                }
+            }
         }
+
 
         // Set up queues
         // First figure out which queue families each queue should use
@@ -1397,9 +1418,9 @@ namespace vk {
         Array<VkDeviceQueueCreateInfo> queueCreateInfos{};
         Array<Set<f32>> queuePriorities(queueFamilies);
         for (u32 i = 0; i < queueFamilies; i++) {
-            for (u32 j = 0; j < queues.size(); j++) {
-                if (queues[j].queueFamilyIndex == (i32)i) {
-                    queuePriorities[i].insert(queues[j].queuePriority);
+            for (auto& queue : queues) {
+                if (queue.queueFamilyIndex == (i32)i) {
+                    queuePriorities[i].insert(queue.queuePriority);
                 }
             }
         }

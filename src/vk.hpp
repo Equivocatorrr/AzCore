@@ -71,15 +71,17 @@ namespace vk {
         How we handle device-local images       */
     struct Image {
         VkDevice device;
+        VkImage image;
+        bool imageExists = false;
+        VkImageView imageView;
+        bool imageViewExists = false;
+
+        // Configuration
         VkFormat format;
         VkImageAspectFlags aspectFlags;
         VkImageUsageFlags usage;
         VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
         u32 width, height, channels, mipLevels = 1;
-        VkImage image;
-        bool imageExists = false;
-        VkImageView imageView;
-        bool imageViewExists = false;
 
         ~Image();
         void Init(VkDevice dev);
@@ -96,6 +98,8 @@ namespace vk {
         VkDevice device;
         VkBuffer buffer;
         bool exists = false;
+
+        // Configuration
         VkBufferUsageFlags usage;
         VkDeviceSize size;
 

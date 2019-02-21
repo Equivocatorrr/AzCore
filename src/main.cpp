@@ -90,6 +90,41 @@ i32 main(i32 argumentCount, char** argumentValues) {
     subpass[1]->UseAttachment(attachment[1], vk::ATTACHMENT_COLOR,
         VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 
+    Array<vk::Image> *images = vkDevice->AddImages(5);
+    for (vk::Image& image : *images) {
+        image.height = 64;
+        image.width = 64;
+        image.channels = 4;
+        image.format = VK_FORMAT_B8G8R8A8_UNORM;
+        image.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+        image.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
+    }
+
+    Array<vk::Buffer> *buffers = vkDevice->AddBuffers(2);
+    (*buffers)[0].size = sizeof(u32) * 4;
+    (*buffers)[1].size = sizeof(u32) * 16;
+    (*buffers)[0].usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    (*buffers)[1].usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+
+    ArrayPtr<vk::Sampler> vkSampler = vkDevice->AddSampler();
+    vkSampler->anisotropy = 16;
+
+    vk::Descriptors* vkDescriptors = vkDevice->AddDescriptors();
+    ArrayPtr<vk::DescriptorLayout> vkDescriptorLayout[2] = {vkDescriptors->AddLayout(), vkDescriptors->AddLayout()};
+    vkDescriptorLayout[0]->stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    vkDescriptorLayout[0]->type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    vkDescriptorLayout[0]->bindings.push_back({0, 5});
+    vkDescriptorLayout[1]->stage = VK_SHADER_STAGE_ALL_GRAPHICS;
+    vkDescriptorLayout[1]->type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    vkDescriptorLayout[1]->bindings.push_back({0, 2});
+
+    ArrayPtr<vk::DescriptorSet> vkDescriptorSets[2] = {
+        vkDescriptors->AddSet(vkDescriptorLayout[0]),
+        vkDescriptors->AddSet(vkDescriptorLayout[1])
+    };
+    vkDescriptorSets[0]->AddDescriptor(images, vkSampler, 0);
+    vkDescriptorSets[1]->AddDescriptor(buffers, 0);
+
     if (!vkInstance.Init()) { // Do this once you've set up the structure of your program.
         cout << "Failed to initialize Vulkan: " << vk::error << std::endl;
         return 1;

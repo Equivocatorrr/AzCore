@@ -81,16 +81,71 @@ namespace vk {
         VkImageView imageView;
         bool imageViewExists = false;
 
+        ~Image();
         void Init(VkDevice dev);
         void Clean();
         bool CreateImage(bool hostVisible=false);
         bool CreateImageView();
-        // void BindMemory(VulkanMemory memory, u32 index);
+        // void BindMemory(Memory memory, u32 index);
+    };
+
+    /*  struct: Buffer
+        Author: Philip Haynes
+        What we use for device-local generic data, and to stage transfers       */
+    struct Buffer {
+        VkDevice device;
+        VkBuffer buffer;
+        bool exists = false;
+        VkBufferUsageFlags usage;
+        VkDeviceSize size;
+
+        ~Buffer();
+        void Init(VkDevice dev);
+        bool Create();
+        // Bind our buffer to a memory at memory.offsets[index]
+        // void BindMemory(Memory memory, u32 index);
+        // void Copy(VkCommandBuffer commandBuffer, Buffer src);
+        void Clean();
+    };
+
+    struct Sampler {
+        bool exists = false;
+        VkDevice device;
+        VkSampler sampler;
+
+        // Configuration
+        VkFilter magFilter = VK_FILTER_LINEAR;
+        VkFilter minFilter = VK_FILTER_LINEAR;
+        VkSamplerAddressMode addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        VkSamplerAddressMode addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        VkSamplerAddressMode addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        u32 anisotropy = 1; // 1 is disabled, 4 is low, 8 is medium, and 16 is high
+        VkBorderColor borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+        bool unnormalizedCoordinates = false;
+        VkCompareOp compareOp = VK_COMPARE_OP_NEVER;
+        VkSamplerMipmapMode mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        f32 mipLodBias = 0.0;
+        f32 minLod = 0.0;
+        // Change maxLod to an integer multiple of the number of mip levels you generate
+        f32 maxLod = 0.0;
+
+        void Init(VkDevice dev);
+        bool Create();
+        void Clean();
+    };
+
+    struct BufferDescriptor {
+        Array<Buffer> *buffers;
+    };
+
+    struct ImageDescriptor {
+        Array<Image> *images;
+        ArrayPtr<Sampler> sampler;
     };
 
     struct DescriptorBinding {
         u32 binding; // Which descriptor we're describing
-        u32 count; // How many descriptors in this set
+        u32 count; // How many indices in this descriptor array
     };
 
     /*  struct: DescriptorLayout
@@ -102,20 +157,26 @@ namespace vk {
         VkDescriptorSetLayout layout;
         // Configuration
         VkDescriptorType type;
-        VkShaderStageFlagBits stage;
+        VkShaderStageFlags stage;
         Array<DescriptorBinding> bindings;
 
         ~DescriptorLayout();
         void Init(VkDevice dev);
-        void Create();
+        bool Create();
         void Clean();
     };
 
     struct DescriptorSet {
         bool exists = false;
         VkDescriptorSet set;
-        Array<DescriptorBinding> bindings;
         ArrayPtr<DescriptorLayout> layout;
+
+        Array<DescriptorBinding> bindings{};
+        Array<BufferDescriptor> bufferDescriptors{};
+        Array<ImageDescriptor> imageDescriptors{};
+
+        bool AddDescriptor(Array<Buffer> *buffers, u32 binding);
+        bool AddDescriptor(Array<Image> *images, ArrayPtr<Sampler> sampler, u32 binding);
     };
 
     /*  struct: Descriptors
@@ -129,19 +190,14 @@ namespace vk {
         // Configuration
         Array<DescriptorLayout> layouts{};
         Array<DescriptorSet> sets{};
-        Array<VkDescriptorBufferInfo> bufferInfos{};
-        Array<VkDescriptorImageInfo> imageInfos{};
 
         ~Descriptors();
         void Init(VkDevice dev);
         ArrayPtr<DescriptorLayout> AddLayout();
-        ArrayPtr<DescriptorSet> AddDescriptorSet();
-        bool AddUniformDescriptor(VkDescriptorBufferInfo *bufferInfo,
-                ArrayPtr<DescriptorSet> set, ArrayPtr<DescriptorLayout> layout, DescriptorBinding binding);
-        bool AddTextureDescriptor(VkDescriptorImageInfo *imageInfo,
-                ArrayPtr<DescriptorSet> set, ArrayPtr<DescriptorLayout> layout, DescriptorBinding binding);
-        void Create();
-        void Update();
+        ArrayPtr<DescriptorSet> AddSet(ArrayPtr<DescriptorLayout> layout);
+
+        bool Create();
+        bool Update();
         void Clean();
     };
 
@@ -325,9 +381,15 @@ namespace vk {
         Instance *instance = nullptr;
         PhysicalDevice physicalDevice;
         VkDevice device;
+
+        // Resources and structures
         List<Queue> queues{};
         List<Swapchain> swapchains{};
         List<RenderPass> renderPasses{};
+        List<Array<Image>> images;
+        List<Array<Buffer>> buffers;
+
+        // Manual configuration (mostly unnecessary)
         Array<const char*> extensionsRequired{};
         VkPhysicalDeviceFeatures deviceFeaturesRequired{};
         VkPhysicalDeviceFeatures deviceFeaturesOptional{};
@@ -337,6 +399,8 @@ namespace vk {
         Queue* AddQueue();
         Swapchain* AddSwapchain();
         RenderPass* AddRenderPass();
+        Array<Image>* AddImages(u32 count);
+        Array<Buffer>* AddBuffers(u32 count);
 
         bool Init(Instance *inst);
         bool Reconfigure();

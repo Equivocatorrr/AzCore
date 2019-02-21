@@ -151,6 +151,10 @@ namespace vk {
         cout << std::endl;
     }
 
+    Image::~Image() {
+        Clean();
+    }
+
     void Image::Init(VkDevice dev) {
         device = dev;
     }
@@ -220,6 +224,293 @@ namespace vk {
 		imageViewExists = true;
         return true;
 	}
+
+    Buffer::~Buffer() {
+        Clean();
+    }
+
+    void Buffer::Init(VkDevice dev) {
+        device = dev;
+    }
+
+    bool Buffer::Create() {
+        if (exists) {
+            error = "Buffer already exists!";
+            return false;
+        }
+        VkBufferCreateInfo createInfo = {};
+        createInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        createInfo.usage = usage;
+        createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        VkResult result = vkCreateBuffer(device, &createInfo, nullptr, &buffer);
+
+        if (result != VK_SUCCESS) {
+            error = "Failed to create buffer: " + ErrorString(result);
+            return false;
+        }
+        exists = true;
+        return true;
+    }
+
+    void Buffer::Clean() {
+        if (exists) {
+            vkDestroyBuffer(device, buffer, nullptr);
+            exists = false;
+        }
+    }
+
+    DescriptorLayout::~DescriptorLayout() {
+        Clean();
+    }
+
+    void DescriptorLayout::Init(VkDevice dev) {
+        device = dev;
+    }
+
+    bool DescriptorLayout::Create() {
+        if (exists) {
+            error = "DescriptorLayout already created!";
+            return false;
+        }
+        Array<VkDescriptorSetLayoutBinding> bindingInfo(bindings.size());
+        for (u32 i = 0; i < bindingInfo.size(); i++) {
+            bindingInfo[i].binding = bindings[i].binding;
+            bindingInfo[i].descriptorCount = bindings[i].count;
+            bindingInfo[i].descriptorType = type;
+            bindingInfo[i].stageFlags = stage;
+            bindingInfo[i].pImmutableSamplers = nullptr; // TODO: Use these
+        }
+        VkDescriptorSetLayoutCreateInfo createInfo = {};
+        createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        createInfo.bindingCount = bindingInfo.size();
+        createInfo.pBindings = bindingInfo.data();
+
+        VkResult result = vkCreateDescriptorSetLayout(device, &createInfo, nullptr, &layout);
+
+        if (result != VK_SUCCESS) {
+            error = "Failed to create Descriptor Set Layout: " + ErrorString(result);
+            return false;
+        }
+        exists = true;
+        return true;
+    }
+
+    void DescriptorLayout::Clean() {
+        if (exists) {
+            vkDestroyDescriptorSetLayout(device, layout, nullptr);
+            exists = false;
+        }
+    }
+
+    bool DescriptorSet::AddDescriptor(Array<Buffer> *buffers, u32 binding) {
+        // TODO: Support other types of descriptors
+        if (layout->type != VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+            error = "AddDescriptor failed because layout type is not for uniform buffers!";
+            return false;
+        }
+        for (u32 i = 0; i < layout->bindings.size(); i++) {
+            if (layout->bindings[i].binding == binding) {
+                if (layout->bindings[i].count != buffers->size()) {
+                    error = "AddDescriptor failed because buffers Array is wrong size("
+                          + std::to_string(buffers->size()) + ") for binding "
+                          + std::to_string(binding) + " which expects "
+                          + std::to_string(layout->bindings[i].count) + " buffers.";
+                    return false;
+                }
+                bindings.push_back(layout->bindings[i]);
+                break;
+            }
+        }
+        bufferDescriptors.push_back({buffers});
+        return true;
+    }
+
+    bool DescriptorSet::AddDescriptor(Array<Image> *images, ArrayPtr<Sampler> sampler, u32 binding) {
+        // TODO: Support other types of descriptors
+        if (layout->type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+            error = "AddDescriptor failed because layout type is not for combined image samplers!";
+            return false;
+        }
+        for (u32 i = 0; i < layout->bindings.size(); i++) {
+            if (layout->bindings[i].binding == binding) {
+                if (layout->bindings[i].count != images->size()) {
+                    error = "AddDescriptor failed because images Array is wrong size("
+                          + std::to_string(images->size()) + ") for binding "
+                          + std::to_string(binding) + " which expects "
+                          + std::to_string(layout->bindings[i].count) + " images.";
+                    return false;
+                }
+                bindings.push_back(layout->bindings[i]);
+                break;
+            }
+        }
+        imageDescriptors.push_back({images, sampler});
+        return true;
+    }
+
+    Descriptors::~Descriptors() {
+        Clean();
+    }
+
+    void Descriptors::Init(VkDevice dev) {
+        device = dev;
+    }
+
+    ArrayPtr<DescriptorLayout> Descriptors::AddLayout() {
+        layouts.push_back(DescriptorLayout());
+        return ArrayPtr<DescriptorLayout>(layouts, layouts.size()-1);
+    }
+
+    ArrayPtr<DescriptorSet> Descriptors::AddSet(ArrayPtr<DescriptorLayout> layout) {
+        DescriptorSet set{};
+        set.layout = layout;
+        sets.push_back(set);
+        return ArrayPtr<DescriptorSet>(sets, sets.size()-1);
+    }
+
+    bool Descriptors::Create() {
+        PrintDashed("Creating Descriptors");
+        if (exists) {
+            error = "Descriptors already exist!";
+            return false;
+        }
+        Array<VkDescriptorPoolSize> poolSizes(layouts.size());
+        for (u32 i = 0; i < layouts.size(); i++) {
+            if (!layouts[i].Create()) {
+                error = "Failed to created descriptor set layout[" + std::to_string(i) + "]: " + error;
+                Clean();
+                return false;
+            }
+            poolSizes[i].type = layouts[i].type;
+            poolSizes[i].descriptorCount = 0;
+            for (u32 j = 0; j < layouts[i].bindings.size(); j++) {
+                poolSizes[i].descriptorCount += layouts[i].bindings[j].count;
+            }
+        }
+
+        VkDescriptorPoolCreateInfo createInfo = {};
+        createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        createInfo.poolSizeCount = poolSizes.size();
+        createInfo.pPoolSizes = poolSizes.data();
+        createInfo.maxSets = sets.size();
+
+        VkResult result = vkCreateDescriptorPool(device, &createInfo, nullptr, &pool);
+
+        if (result != VK_SUCCESS) {
+            error = "Failed to create Descriptor Pool: " + ErrorString(result);
+            return false;
+        }
+        exists = true;
+        cout << "Allocating Descriptor Sets..." << std::endl;
+        Array<VkDescriptorSetLayout> setLayouts(sets.size());
+        for (u32 i = 0; i < sets.size(); i++) {
+            setLayouts[i] = sets[i].layout->layout;
+        }
+        VkDescriptorSetAllocateInfo allocInfo = {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool = pool;
+        allocInfo.descriptorSetCount = setLayouts.size();
+        allocInfo.pSetLayouts = setLayouts.data();
+
+        Array<VkDescriptorSet> setsTemp(sets.size());
+
+        result = vkAllocateDescriptorSets(device, &allocInfo, setsTemp.data());
+        if (result != VK_SUCCESS) {
+            error = "Failed to allocate Descriptor Sets: " + ErrorString(result);
+            Clean();
+            return false;
+        }
+        for (u32 i = 0; i < sets.size(); i++) {
+            sets[i].set = setsTemp[i];
+            sets[i].exists = true;
+        }
+
+        return true;
+    }
+
+    bool Descriptors::Update() {
+        // Find out how many of each we have ahead of time so we can size our arrays appropriately
+        u32 totalBufferInfos = 0;
+        u32 totalImageInfos = 0;
+
+        for (u32 i = 0; i < sets.size(); i++) {
+            for (u32 j = 0; j < sets[i].bufferDescriptors.size(); j++) {
+                totalBufferInfos += sets[i].bufferDescriptors[j].buffers->size();
+            }
+            for (u32 j = 0; j < sets[i].imageDescriptors.size(); j++) {
+                totalImageInfos += sets[i].imageDescriptors[j].images->size();
+            }
+        }
+
+        Array<VkWriteDescriptorSet> writes{};
+
+        Array<VkDescriptorBufferInfo> bufferInfos(totalBufferInfos);
+        Array<VkDescriptorImageInfo> imageInfos(totalImageInfos);
+
+        u32 bInfoOffset = 0;
+        u32 iInfoOffset = 0;
+
+        for (u32 i = 0; i < sets.size(); i++) {
+            u32 setBufferDescriptor = 0;
+            u32 setImageDescriptor = 0;
+            VkWriteDescriptorSet write = {};
+            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write.dstSet = sets[i].set;
+            write.dstArrayElement = 0;
+            write.descriptorType = sets[i].layout->type;
+            for (u32 j = 0; j < sets[i].bindings.size(); j++) {
+                write.dstBinding = sets[i].bindings[j].binding;
+                write.descriptorCount = sets[i].bindings[j].count;
+
+                switch(write.descriptorType) {
+                case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+                    for (u32 x = 0; x < sets[i].bindings[j].count; x++) {
+                        VkDescriptorBufferInfo bufferInfo = {};
+                        Buffer &buffer = (*sets[i].bufferDescriptors[setBufferDescriptor].buffers)[x];
+                        bufferInfo.buffer = buffer.buffer;
+                        bufferInfo.offset = 0;
+                        bufferInfo.range = buffer.size;
+                        bufferInfos[bInfoOffset++] = bufferInfo;
+                    }
+                    setBufferDescriptor++;
+                    write.pBufferInfo = &bufferInfos[bInfoOffset - sets[i].bindings[j].count];
+                    break;
+                case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+                    for (u32 x = 0; x < sets[i].bindings[j].count; x++) {
+                        VkDescriptorImageInfo imageInfo = {};
+                        ImageDescriptor &imageDescriptor = sets[i].imageDescriptors[setImageDescriptor];
+                        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                        imageInfo.imageView = (*imageDescriptor.images)[x].imageView;
+                        imageInfo.sampler = imageDescriptor.sampler->sampler;
+                        imageInfos[iInfoOffset++] = imageInfo;
+                    }
+                    setImageDescriptor++;
+                    write.pImageInfo = &imageInfos[iInfoOffset - sets[i].bindings[j].count];
+                    break;
+                default:
+                    error = "Unsupported descriptor type for updating descriptors!";
+                    return false;
+                }
+                writes.push_back(write);
+            }
+        }
+        // Well wasn't that just a lovely mess of code?
+        vkUpdateDescriptorSets(device, writes.size(), writes.data(), 0, nullptr);
+        return true;
+    }
+
+    void Descriptors::Clean() {
+        if (exists) {
+            vkDestroyDescriptorPool(device, pool, nullptr);
+            for (u32 i = 0; i < sets.size(); i++) {
+                sets[i].exists = false;
+            }
+        }
+        for (u32 i = 0; i < layouts.size(); i++) {
+            layouts[i].Clean();
+        }
+    }
 
     Attachment::Attachment() {}
 
@@ -907,6 +1198,18 @@ namespace vk {
     RenderPass* Device::AddRenderPass() {
         renderPasses.push_back(RenderPass());
         return &renderPasses[renderPasses.size()-1];
+    }
+
+    Array<Image>* Device::AddImages(u32 count) {
+        Array<Image> array(count);
+        images.push_back(array);
+        return &images[images.size()-1];
+    }
+
+    Array<Buffer>* Device::AddBuffers(u32 count) {
+        Array<Buffer> array(count);
+        buffers.push_back(array);
+        return &buffers[buffers.size()-1];
     }
 
     bool Device::Init(Instance *inst) {

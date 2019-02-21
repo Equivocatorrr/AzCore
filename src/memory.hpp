@@ -11,6 +11,8 @@
 
 #include <initializer_list>
 
+#include <stdexcept>
+
 #include <string>
 
 using String = std::string;
@@ -66,6 +68,36 @@ struct ArrayPtr {
     }
     T* operator->() {
         return &(*array)[index];
+    }
+};
+
+/*  struct: ArrayRange
+    Author: Philip Haynes
+    Using an index and count, points to a range of values from an Array.        */
+template<typename T>
+struct ArrayRange {
+    Array<T> *array = nullptr;
+    u32 index = 0;
+    u32 size = 0;
+    ArrayRange() {}
+    ArrayRange(Array<T>& a, u32 i, u32 s) {
+        array = &a;
+        index = i;
+        size = s;
+    }
+    void SetPtr(Array<T>& a, u32 i, u32 s) {
+        array = &a;
+        index = i;
+        size = s;
+    }
+    T& operator[](const u32& i) {
+        if (i >= size) {
+            throw std::out_of_range("ArrayRange dereferenced beyond size");
+        }
+        return (*array)[i+index];
+    }
+    const T& operator[](const u32& i) const {
+        return array[i+index];
     }
 };
 
@@ -250,7 +282,7 @@ public:
             it = it->next;
         }
         it->next = new ListIndex<T>();
-        it->value = a;
+        it->next->value = a;
     }
     void insert(const u32 index, const T& a) {
         _size++;

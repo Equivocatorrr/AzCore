@@ -100,15 +100,42 @@ using WeakPtr = std::weak_ptr<T>;
 template<typename T>
 class List;
 
+template<typename T>
+class ListIterator;
+
 /*  class: ListIndex
     Author: Philip Haynes
     A single index in a linked list     */
 template<typename T>
 class ListIndex {
     friend class List<T>;
+    friend class ListIterator<T>;
     ListIndex<T> *next=nullptr;
 public:
     T value{};
+};
+
+/*  class: ListIterator
+    Author: Philip Haynes
+    Iterating over our Linked List      */
+template<typename T>
+class ListIterator {
+    ListIndex<T> *me = nullptr;
+public:
+    ListIterator() {}
+    ListIterator(ListIndex<T> *a) {
+        me = a;
+    }
+    bool operator!=(const ListIterator<T> &other) {
+        return me != other.me;
+    }
+    const ListIterator<T>& operator++() {
+        me = me->next;
+        return *this;
+    }
+    T& operator*() {
+        return me->value;
+    }
 };
 
 /*  class: List
@@ -183,6 +210,12 @@ public:
             it = it->next;
         }
         return it->value;
+    }
+    ListIterator<T> begin() {
+        return ListIterator<T>(first);
+    }
+    ListIterator<T> end() {
+        return ListIterator<T>();
     }
     void resize(u32 s) {
         if (s > _size) {

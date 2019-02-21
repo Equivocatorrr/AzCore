@@ -1548,15 +1548,29 @@ failed:
             error = "Device isn't initialized!";
             return false;
         }
-        for (u32 i = 0; i < swapchains.size(); i++) {
-            if (!swapchains[i].Deinit()) {
-                return false;
+        for (auto& swapchain : swapchains) {
+            if (swapchain.initted)
+                swapchain.Deinit();
+        }
+        for (auto& renderPass : renderPasses) {
+            if (renderPass.initted)
+                renderPass.Deinit();
+        }
+        for (auto& imageArray : images) {
+            for (u32 i = 0; i < imageArray.size(); i++) {
+                imageArray[i].Clean();
             }
         }
-        for (u32 i = 0; i < renderPasses.size(); i++) {
-            if (!renderPasses[i].Deinit()) {
-                return false;
+        for (auto& bufferArray : buffers) {
+            for (u32 i = 0; i < bufferArray.size(); i++) {
+                bufferArray[i].Clean();
             }
+        }
+        for (auto& sampler : samplers) {
+            sampler.Clean();
+        }
+        for (auto& descriptor : descriptors) {
+            descriptor.Clean();
         }
         // Destroy everything allocated from the device here
         vkDestroyDevice(device, nullptr);

@@ -83,7 +83,6 @@ namespace vk {
         VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
         u32 width, height, channels, mipLevels = 1;
 
-        ~Image();
         void Init(VkDevice dev);
         void Clean();
         bool CreateImage(bool hostVisible=false);
@@ -103,13 +102,61 @@ namespace vk {
         VkBufferUsageFlags usage;
         VkDeviceSize size;
 
-        ~Buffer();
         void Init(VkDevice dev);
         bool Create();
         // Bind our buffer to a memory at memory.offsets[index]
         // void BindMemory(Memory memory, u32 index);
         // void Copy(VkCommandBuffer commandBuffer, Buffer src);
         void Clean();
+    };
+
+    /*  struct: Memory
+        Author: Philip Haynes
+        We use this to preinitialize memory allocations such that we can
+        use a singular allocation block to bind to multiple chunks of data.
+        TODO: Add a dynamic allocator.       */
+    struct Memory {
+        PhysicalDevice *physicalDevice;
+        VkDevice device;
+        VkDeviceMemory memory;
+        bool initted = false;
+        bool allocated = false;
+        bool mapped = false;
+        Array<VkDeviceSize> offsets{}; // size of each chunk is x[i+1] - x[i]
+        u32 memoryTypeBits = 0;
+        // What we really want
+        VkMemoryPropertyFlags memoryProperties;
+        // What we'll settle for if the above isn't available
+        VkMemoryPropertyFlags memoryPropertiesDeferred;
+
+        // Configuration
+        bool deviceLocal = true; // If false, it's host visible
+        Array<Image> images{};
+        Array<Buffer> buffers{};
+
+        ArrayPtr<Image> AddImage(Image image=Image());
+        ArrayPtr<Buffer> AddBuffer(Buffer buffer=Buffer());
+        ArrayRange<Image> AddImages(u32 count, Image image=Image());
+        ArrayRange<Buffer> AddBuffers(u32 count, Buffer buffer=Buffer());
+
+        // Behind the scenes
+        bool Init(PhysicalDevice *phy, VkDevice dev);
+        bool Deinit();
+        // Adds a chunk of memory for an image
+        // Returns the index to the corresponding offset or -1 for failure
+        i32 GetImageChunk(Image image, bool noChange=false);
+        i32 GetBufferChunk(Buffer buffer, bool noChange=false);
+        VkDeviceSize ChunkSize(u32 index);
+        i32 FindMemoryType();
+        // Allocates everything
+        bool Allocate();
+        // Allocates a chunk of data for later use
+        // bool PreAllocate(VkDeviceSize size, Buffer type);
+        // Copies any data from host-visible memory using offsets[index]
+        // void CopyData(void *src, VkDeviceSize size, u32 index);
+        // void CopyData2D(void *src, Image image, u32 index);
+        // void* MapMemory(VkDeviceSize size, u32 index); // Returns a pointer to our host-visible data
+        // void UnmapMemory();
     };
 
     struct Sampler {
@@ -140,11 +187,11 @@ namespace vk {
     };
 
     struct BufferDescriptor {
-        Array<Buffer> *buffers;
+        ArrayRange<Buffer> buffers;
     };
 
     struct ImageDescriptor {
-        Array<Image> *images;
+        ArrayRange<Image> images;
         ArrayPtr<Sampler> sampler;
     };
 
@@ -180,8 +227,10 @@ namespace vk {
         Array<BufferDescriptor> bufferDescriptors{};
         Array<ImageDescriptor> imageDescriptors{};
 
-        bool AddDescriptor(Array<Buffer> *buffers, u32 binding);
-        bool AddDescriptor(Array<Image> *images, ArrayPtr<Sampler> sampler, u32 binding);
+        bool AddDescriptor(ArrayRange<Buffer> buffers, u32 binding);
+        bool AddDescriptor(ArrayRange<Image> images, ArrayPtr<Sampler> sampler, u32 binding);
+        bool AddDescriptor(ArrayPtr<Buffer> buffer, u32 binding);
+        bool AddDescriptor(ArrayPtr<Image> image, ArrayPtr<Sampler> sampler, u32 binding);
     };
 
     /*  struct: Descriptors
@@ -391,8 +440,7 @@ namespace vk {
         List<Queue> queues{};
         List<Swapchain> swapchains{};
         List<RenderPass> renderPasses{};
-        List<Array<Image>> images{};
-        List<Array<Buffer>> buffers{};
+        List<Memory> memories{};
         Array<Sampler> samplers{};
         List<Descriptors> descriptors{};
 
@@ -406,9 +454,8 @@ namespace vk {
         Queue* AddQueue();
         Swapchain* AddSwapchain();
         RenderPass* AddRenderPass();
-        Array<Image>* AddImages(u32 count);
-        Array<Buffer>* AddBuffers(u32 count);
         ArrayPtr<Sampler> AddSampler();
+        Memory* AddMemory();
         Descriptors* AddDescriptors();
 
         bool Init(Instance *inst);

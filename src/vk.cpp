@@ -72,6 +72,20 @@ namespace vk {
         cout << std::endl;
     }
 
+    String FormatSize(u32 size) {
+        String str = "";
+        if (size > 1024*1024) {
+            str = std::to_string(size/(1024*1024)) + "MB ";
+            size -= size%(1024*1024);
+        }
+        if (size > 1024) {
+            str += std::to_string(size/1024) + "KB ";
+            size = size%1024;
+        }
+        str += std::to_string(size) + "B";
+        return str;
+    }
+
     VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags,
         VkDebugReportObjectTypeEXT objType, u64 obj, size_t location,
         i32 code, const char* layerPrefix, const char* msg, void* userData) {
@@ -151,10 +165,6 @@ namespace vk {
         cout << std::endl;
     }
 
-    Image::~Image() {
-        Clean();
-    }
-
     void Image::Init(VkDevice dev) {
         device = dev;
     }
@@ -225,10 +235,6 @@ namespace vk {
         return true;
 	}
 
-    Buffer::~Buffer() {
-        Clean();
-    }
-
     void Buffer::Init(VkDevice dev) {
         device = dev;
     }
@@ -258,6 +264,204 @@ namespace vk {
             vkDestroyBuffer(device, buffer, nullptr);
             exists = false;
         }
+    }
+
+    ArrayPtr<Image> Memory::AddImage(Image image) {
+        images.push_back(image);
+        return ArrayPtr<Image>(images, images.size()-1);
+    }
+
+    ArrayPtr<Buffer> Memory::AddBuffer(Buffer buffer) {
+        buffers.push_back(buffer);
+        return ArrayPtr<Buffer>(buffers, buffers.size()-1);
+    }
+
+    ArrayRange<Image> Memory::AddImages(u32 count, Image image) {
+        images.resize(images.size()+count, image);
+        return ArrayRange<Image>(images, images.size()-count, count);
+    }
+
+    ArrayRange<Buffer> Memory::AddBuffers(u32 count, Buffer buffer) {
+        buffers.resize(buffers.size()+count, buffer);
+        return ArrayRange<Buffer>(buffers, buffers.size()-count, count);
+    }
+
+    bool Memory::Init(PhysicalDevice *phy, VkDevice dev) {
+        PrintDashed("Initializing Memory");
+        if (initted) {
+            error = "Memory has already been initialized!";
+            return false;
+        }
+        if (allocated) {
+            error = "Memory has already been allocated!";
+            return false;
+        }
+        if ((physicalDevice = phy) == nullptr) {
+            error = "physicalDevice is nullptr!";
+            return false;
+        }
+        device = dev;
+        // First we figure out how big we are by going through the images and buffers
+        offsets.resize(1);
+        offsets[0] = 0;
+        memoryTypeBits = 0;
+        u32 index = 0;
+        VkResult result;
+        if (deviceLocal) {
+            memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        } else {
+            memoryProperties = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+        }
+
+        for (Image& image : images) {
+            image.Init(device);
+            if (!image.CreateImage(!deviceLocal)) {
+                goto failure;
+            }
+            if (GetImageChunk(image, memoryTypeBits!=0) == -1) {
+                goto failure;
+            }
+        }
+        for (Buffer& buffer : buffers) {
+            buffer.Init(device);
+            if (!buffer.Create()) {
+                goto failure;
+            }
+            if (GetBufferChunk(buffer, memoryTypeBits!=0) == -1) {
+                // There's a solid chance that memory types are incompatible between
+                // images and buffers, so this will probably fail if you have images too.
+                goto failure;
+            }
+        }
+        // Then allocate as much space as we need
+        if (!Allocate()) {
+            goto failure;
+        }
+        // Now bind our images and buffers to the memory
+        for (Image& image : images) {
+            result = vkBindImageMemory(device, image.image, memory, offsets[index++]);
+            if (result != VK_SUCCESS) {
+                error = "Failed to bind image to memory: " + ErrorString(result);
+                goto failure;
+            }
+            if (!image.CreateImageView()) {
+                goto failure;
+            }
+        }
+        for (Buffer& buffer : buffers) {
+            result = vkBindBufferMemory(device, buffer.buffer, memory, offsets[index++]);
+            if (result != VK_SUCCESS) {
+                error = "Failed to bind buffer to memory: " + ErrorString(result);
+                goto failure;
+            }
+        }
+        initted = true;
+        return true;
+failure:
+        for (Image& image : images) {
+            image.Clean();
+        }
+        for (Buffer& buffer : buffers) {
+            buffer.Clean();
+        }
+        if (allocated)
+            vkFreeMemory(device, memory, nullptr);
+        return false;
+    }
+
+    bool Memory::Deinit() {
+        if (!initted) {
+            error = "Memory isn't initialized!";
+            return false;
+        }
+        for (Image& image : images) {
+            image.Clean();
+        }
+        for (Buffer& buffer : buffers) {
+            buffer.Clean();
+        }
+        initted = false;
+        if (allocated)
+            vkFreeMemory(device, memory, nullptr);
+        allocated = false;
+        return true;
+    }
+
+    i32 Memory::GetImageChunk(Image image, bool noChange) {
+        i32 index = offsets.size()-1;
+        VkMemoryRequirements memReqs;
+        vkGetImageMemoryRequirements(device, image.image, &memReqs);
+        if (noChange && memoryTypeBits != memReqs.memoryTypeBits) {
+            error = "An image is incompatible with the memory previously alotted!";
+            return -1;
+        }
+        memoryTypeBits = memReqs.memoryTypeBits;
+
+        u32 alignedOffset = (memReqs.size/memReqs.alignment+1)*memReqs.alignment;
+
+        offsets.push_back(offsets.back() + alignedOffset);
+        return index;
+    }
+
+    i32 Memory::GetBufferChunk(Buffer buffer, bool noChange) {
+        i32 index = offsets.size()-1;
+        VkMemoryRequirements memReqs;
+        vkGetBufferMemoryRequirements(device, buffer.buffer, &memReqs);
+        if (noChange && memoryTypeBits != memReqs.memoryTypeBits) {
+            error = "A buffer is incompatible with the memory previously alotted!";
+            return -1;
+        }
+        memoryTypeBits = memReqs.memoryTypeBits;
+
+        u32 alignedOffset = (memReqs.size/memReqs.alignment+1)*memReqs.alignment;
+
+        offsets.push_back(offsets.back() + alignedOffset);
+        return index;
+    }
+
+    VkDeviceSize Memory::ChunkSize(u32 index) {
+        return offsets[index+1] - offsets[index];
+    }
+
+    i32 Memory::FindMemoryType() {
+        VkPhysicalDeviceMemoryProperties memProps = physicalDevice->memoryProperties;
+        for (u32 i = 0; i < memProps.memoryTypeCount; i++) {
+            if ((memoryTypeBits & (1 << i)) && (memProps.memoryTypes[i].propertyFlags & memoryProperties) == memoryProperties) {
+                return i;
+            }
+        }
+        for (u32 i = 0; i < memProps.memoryTypeCount; i++) {
+            if ((memoryTypeBits & (1 << i)) && (memProps.memoryTypes[i].propertyFlags & memoryPropertiesDeferred) == memoryPropertiesDeferred) {
+                return i;
+            }
+        }
+
+        error = "Failed to find a suitable memory type!";
+        return -1;
+    }
+
+    bool Memory::Allocate() {
+        if (allocated) {
+            error = "Memory already allocated!";
+            return false;
+        }
+        cout << "Allocating Memory with size: " << FormatSize(offsets.back()) << std::endl;
+        VkMemoryAllocateInfo allocInfo = {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.allocationSize = offsets.back();
+        i32 mti = FindMemoryType();
+        if (mti == -1) {
+            return false;
+        }
+        allocInfo.memoryTypeIndex = (u32)mti;
+
+        VkResult result = vkAllocateMemory(device, &allocInfo, nullptr, &memory);
+        if (result != VK_SUCCESS) {
+            error = "Failed to allocate memory: " + ErrorString(result);
+            return false;
+        }
+        allocated = true;
+        return true;
     }
 
     Sampler::~Sampler() {
@@ -359,7 +563,7 @@ namespace vk {
         }
     }
 
-    bool DescriptorSet::AddDescriptor(Array<Buffer> *buffers, u32 binding) {
+    bool DescriptorSet::AddDescriptor(ArrayRange<Buffer> buffers, u32 binding) {
         // TODO: Support other types of descriptors
         if (layout->type != VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
             error = "AddDescriptor failed because layout type is not for uniform buffers!";
@@ -367,9 +571,9 @@ namespace vk {
         }
         for (u32 i = 0; i < layout->bindings.size(); i++) {
             if (layout->bindings[i].binding == binding) {
-                if (layout->bindings[i].count != buffers->size()) {
-                    error = "AddDescriptor failed because buffers Array is wrong size("
-                          + std::to_string(buffers->size()) + ") for binding "
+                if (layout->bindings[i].count != buffers.size) {
+                    error = "AddDescriptor failed because input size is wrong("
+                          + std::to_string(buffers.size) + ") for binding "
                           + std::to_string(binding) + " which expects "
                           + std::to_string(layout->bindings[i].count) + " buffers.";
                     return false;
@@ -382,7 +586,7 @@ namespace vk {
         return true;
     }
 
-    bool DescriptorSet::AddDescriptor(Array<Image> *images, ArrayPtr<Sampler> sampler, u32 binding) {
+    bool DescriptorSet::AddDescriptor(ArrayRange<Image> images, ArrayPtr<Sampler> sampler, u32 binding) {
         // TODO: Support other types of descriptors
         if (layout->type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
             error = "AddDescriptor failed because layout type is not for combined image samplers!";
@@ -390,9 +594,9 @@ namespace vk {
         }
         for (u32 i = 0; i < layout->bindings.size(); i++) {
             if (layout->bindings[i].binding == binding) {
-                if (layout->bindings[i].count != images->size()) {
-                    error = "AddDescriptor failed because images Array is wrong size("
-                          + std::to_string(images->size()) + ") for binding "
+                if (layout->bindings[i].count != images.size) {
+                    error = "AddDescriptor failed because input size is wrong("
+                          + std::to_string(images.size) + ") for binding "
                           + std::to_string(binding) + " which expects "
                           + std::to_string(layout->bindings[i].count) + " images.";
                     return false;
@@ -403,6 +607,14 @@ namespace vk {
         }
         imageDescriptors.push_back({images, sampler});
         return true;
+    }
+
+    bool DescriptorSet::AddDescriptor(ArrayPtr<Buffer> buffer, u32 binding) {
+        return AddDescriptor(ArrayRange<Buffer>(*buffer.array, buffer.index, 1), binding);
+    }
+
+    bool DescriptorSet::AddDescriptor(ArrayPtr<Image> image, ArrayPtr<Sampler> sampler, u32 binding) {
+        return AddDescriptor(ArrayRange<Image>(*image.array, image.index, 1), sampler, binding);
     }
 
     Descriptors::~Descriptors() {
@@ -433,6 +645,7 @@ namespace vk {
         }
         Array<VkDescriptorPoolSize> poolSizes(layouts.size());
         for (u32 i = 0; i < layouts.size(); i++) {
+            layouts[i].Init(device);
             if (!layouts[i].Create()) {
                 error = "Failed to created descriptor set layout[" + std::to_string(i) + "]: " + error;
                 Clean();
@@ -492,10 +705,10 @@ namespace vk {
 
         for (u32 i = 0; i < sets.size(); i++) {
             for (u32 j = 0; j < sets[i].bufferDescriptors.size(); j++) {
-                totalBufferInfos += sets[i].bufferDescriptors[j].buffers->size();
+                totalBufferInfos += sets[i].bufferDescriptors[j].buffers.size;
             }
             for (u32 j = 0; j < sets[i].imageDescriptors.size(); j++) {
-                totalImageInfos += sets[i].imageDescriptors[j].images->size();
+                totalImageInfos += sets[i].imageDescriptors[j].images.size;
             }
         }
 
@@ -523,7 +736,7 @@ namespace vk {
                 case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
                     for (u32 x = 0; x < sets[i].bindings[j].count; x++) {
                         VkDescriptorBufferInfo bufferInfo = {};
-                        Buffer &buffer = (*sets[i].bufferDescriptors[setBufferDescriptor].buffers)[x];
+                        Buffer &buffer = sets[i].bufferDescriptors[setBufferDescriptor].buffers[x];
                         bufferInfo.buffer = buffer.buffer;
                         bufferInfo.offset = 0;
                         bufferInfo.range = buffer.size;
@@ -537,7 +750,7 @@ namespace vk {
                         VkDescriptorImageInfo imageInfo = {};
                         ImageDescriptor &imageDescriptor = sets[i].imageDescriptors[setImageDescriptor];
                         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                        imageInfo.imageView = (*imageDescriptor.images)[x].imageView;
+                        imageInfo.imageView = imageDescriptor.images[x].imageView;
                         imageInfo.sampler = imageDescriptor.sampler->sampler;
                         imageInfos[iInfoOffset++] = imageInfo;
                     }
@@ -566,6 +779,7 @@ namespace vk {
         for (u32 i = 0; i < layouts.size(); i++) {
             layouts[i].Clean();
         }
+        exists = false;
     }
 
     Attachment::Attachment() {}
@@ -1256,21 +1470,14 @@ namespace vk {
         return &renderPasses[renderPasses.size()-1];
     }
 
-    Array<Image>* Device::AddImages(u32 count) {
-        Array<Image> array(count);
-        images.push_back(array);
-        return &images[images.size()-1];
-    }
-
-    Array<Buffer>* Device::AddBuffers(u32 count) {
-        Array<Buffer> array(count);
-        buffers.push_back(array);
-        return &buffers[buffers.size()-1];
-    }
-
     ArrayPtr<Sampler> Device::AddSampler() {
         samplers.push_back(Sampler());
         return ArrayPtr<Sampler>(samplers, samplers.size()-1);
+    }
+
+    Memory* Device::AddMemory() {
+        memories.push_back(Memory());
+        return &memories[memories.size()-1];
     }
 
     Descriptors* Device::AddDescriptors() {
@@ -1492,25 +1699,10 @@ namespace vk {
                 goto failed;
             }
         }
-        // Images
-        for (auto& imageArray : images) {
-            for (u32 i = 0; i < imageArray.size(); i++) {
-                imageArray[i].device = device;
-                if (!imageArray[i].CreateImage()) {
-                    goto failed;
-                }
-                if (!imageArray[i].CreateImageView()) {
-                    goto failed;
-                }
-            }
-        }
-        // Buffers
-        for (auto& bufferArray : buffers) {
-            for (u32 i = 0; i < bufferArray.size(); i++) {
-                bufferArray[i].device = device;
-                if (!bufferArray[i].Create()) {
-                    goto failed;
-                }
+        // Memory
+        for (auto& memory : memories) {
+            if (!memory.Init(&physicalDevice, device)) {
+                goto failed;
             }
         }
         // Samplers
@@ -1543,15 +1735,9 @@ failed:
             if (renderPass.initted)
                 renderPass.Deinit();
         }
-        for (auto& imageArray : images) {
-            for (u32 i = 0; i < imageArray.size(); i++) {
-                imageArray[i].Clean();
-            }
-        }
-        for (auto& bufferArray : buffers) {
-            for (u32 i = 0; i < bufferArray.size(); i++) {
-                bufferArray[i].Clean();
-            }
+        for (auto& memory : memories) {
+            if (memory.initted)
+                memory.Deinit();
         }
         for (auto& sampler : samplers) {
             sampler.Clean();
@@ -1577,15 +1763,9 @@ failed:
             if (renderPass.initted)
                 renderPass.Deinit();
         }
-        for (auto& imageArray : images) {
-            for (u32 i = 0; i < imageArray.size(); i++) {
-                imageArray[i].Clean();
-            }
-        }
-        for (auto& bufferArray : buffers) {
-            for (u32 i = 0; i < bufferArray.size(); i++) {
-                bufferArray[i].Clean();
-            }
+        for (auto& memory : memories) {
+            if (memory.initted)
+                memory.Deinit();
         }
         for (auto& sampler : samplers) {
             sampler.Clean();

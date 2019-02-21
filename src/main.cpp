@@ -140,8 +140,14 @@ i32 main(i32 argumentCount, char** argumentValues) {
         vkDescriptors->AddSet(vkDescriptorLayout[0]),
         vkDescriptors->AddSet(vkDescriptorLayout[1])
     };
-    vkDescriptorSets[0]->AddDescriptor(vkImage, vkSampler, 0);
-    vkDescriptorSets[1]->AddDescriptor(vkBuffers, 0);
+    if (!vkDescriptorSets[0]->AddDescriptor(vkImage, vkSampler, 0)) {
+        cout << "Failed to add descriptor: " << vk::error << std::endl;
+        return 1;
+    }
+    if (!vkDescriptorSets[1]->AddDescriptor(vkBuffers, 0)) {
+        cout << "Failed to add descriptor: " << vk::error << std::endl;
+        return 1;
+    }
 
     if (!vkInstance.Init()) { // Do this once you've set up the structure of your program.
         cout << "Failed to initialize Vulkan: " << vk::error << std::endl;

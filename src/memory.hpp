@@ -97,7 +97,7 @@ struct ArrayRange {
         return (*array)[i+index];
     }
     const T& operator[](const u32& i) const {
-        return array[i+index];
+        return (*array)[i+index];
     }
 };
 

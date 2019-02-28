@@ -8,6 +8,7 @@
 // #endif
 #include "log_stream.hpp"
 #include <cstring>
+#include <fstream>
 
 namespace vk {
 
@@ -1214,9 +1215,62 @@ failure:
         return true;
     }
 
-    Swapchain::Swapchain() {
+    bool Shader::Init(VkDevice dev) {
+        if (initted) {
+            error = "Shader is already initialized!";
+            return false;
+        }
+        device = dev;
+        // Load in the code
+        std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
+        if (!file.is_open()) {
+            error = "Failed to load shader file: \"" + filename + "\"";
+            return false;
+        }
+
+        size_t fileSize = (size_t) file.tellg();
+        if (fileSize % 4 != 0) {
+            code.resize(fileSize/4+1, 0);
+        } else {
+            code.resize(fileSize/4);
+        }
+
+        file.seekg(0);
+        file.read((char*)code.data(), fileSize);
+        file.close();
+
+        // Now create the shader module
+        VkShaderModuleCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        createInfo.codeSize = fileSize;
+        createInfo.pCode = code.data();
+
+        VkResult result = vkCreateShaderModule(device, &createInfo, nullptr, &module);
+
+        if (result != VK_SUCCESS) {
+            error = "Failed to create shader module: " + ErrorString(result);
+            return false;
+        }
+        initted = true;
+        return true;
     }
+
+    void Shader::Clean() {
+        if (initted) {
+            code.resize(0);
+            vkDestroyShaderModule(device, module, nullptr);
+            initted = false;
+        }
+    }
+
+    ShaderRef::ShaderRef(String fn) : shader() , stages() , functionName(fn) {}
+
+    ShaderRef::ShaderRef(ArrayPtr<Shader> ptr, VkShaderStageFlags s, String fn) : shader(ptr) , stages(s) , functionName(fn) {}
+
+    ShaderRef::ShaderRef(ArrayRange<Shader> ptr, u32 index, VkShaderStageFlags s, String fn) : shader(*ptr.array, ptr.index + index) , stages(s) , functionName(fn) {}
+
+    Swapchain::Swapchain() {}
 
     Swapchain::~Swapchain() {
         if (initted) {
@@ -1506,6 +1560,16 @@ failure:
         return &descriptors[descriptors.size()-1];
     }
 
+    ArrayPtr<Shader> Device::AddShader() {
+        shaders.push_back(Shader());
+        return ArrayPtr<Shader>(shaders, shaders.size()-1);
+    }
+
+    ArrayRange<Shader> Device::AddShaders(u32 count) {
+        shaders.resize(shaders.size()+count);
+        return ArrayRange<Shader>(shaders, shaders.size()-count, count);
+    }
+
     bool Device::Init(Instance *inst) {
         PrintDashed("Initializing Logical Device");
         if (initted) {
@@ -1743,6 +1807,19 @@ failure:
                 goto failed;
             }
         }
+        // Shaders
+        for (auto& shader : shaders) {
+            if (!shader.Init(device)) {
+                goto failed;
+            }
+        }
+        // Pipelines
+
+        // Once the pipelines are set with all the shaders,
+        // we can clean them since they're no longer needed
+        for (auto& shader : shaders) {
+            shader.Clean();
+        }
 
         // Init everything else here
         initted = true;
@@ -1765,6 +1842,9 @@ failed:
         }
         for (auto& descriptor : descriptors) {
             descriptor.Clean();
+        }
+        for (auto& shader : shaders) {
+            shader.Clean();
         }
         vkDestroyDevice(device, nullptr);
         return false;
@@ -1794,6 +1874,7 @@ failed:
         for (auto& descriptor : descriptors) {
             descriptor.Clean();
         }
+        // We don't need to clean the shaders since they should have already been cleaned
         // Destroy everything allocated from the device here
         vkDestroyDevice(device, nullptr);
         initted = false;
@@ -2158,6 +2239,19 @@ failed:
                         return;
                     }
                     samplerIndex++;
+                }
+                deviceIndex++;
+            }
+        } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT) {
+            cout << "shader module at ";
+            for (Device& device : devices) {
+                u32 shaderIndex = 0;
+                for (Shader& shader : device.shaders) {
+                    if (shader.module == (VkShaderModule)obj) {
+                        cout << "devices[" << deviceIndex << "].shaders[" << shaderIndex << "]" << std::endl;
+                        return;
+                    }
+                    shaderIndex++;
                 }
                 deviceIndex++;
             }

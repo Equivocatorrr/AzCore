@@ -371,6 +371,35 @@ namespace vk {
         bool Deinit();
     };
 
+    /*  struct: Shader
+        Author: Philip Haynes
+        A single shader module, which can load in Spirv code for a single shader.   */
+    struct Shader {
+        bool initted = false;
+        VkDevice device;
+        Array<u32> code;
+        VkShaderModule module;
+
+        // Configuration
+        String filename{};
+
+        bool Init(VkDevice dev);
+        void Clean();
+    };
+
+    /*  struct: ShaderRef
+        Author: Philip Haynes
+        A reference to a single function in a shader module for a single shader stage.  */
+    struct ShaderRef {
+        ArrayPtr<Shader> shader;
+        VkShaderStageFlags stages;
+        String functionName; // Most shaders will probably use just this, but watch out
+
+        ShaderRef(String fn="main");
+        ShaderRef(ArrayPtr<Shader> ptr, VkShaderStageFlags s, String fn="main");
+        ShaderRef(ArrayRange<Shader> ptr, u32 index, VkShaderStageFlags s, String fn="main");
+    };
+
     extern const char *QueueTypeString[5];
 
     enum QueueType {
@@ -443,6 +472,7 @@ namespace vk {
         List<Memory> memories{};
         Array<Sampler> samplers{};
         List<Descriptors> descriptors{};
+        Array<Shader> shaders{};
 
         // Manual configuration (mostly unnecessary)
         Array<const char*> extensionsRequired{};
@@ -457,6 +487,8 @@ namespace vk {
         ArrayPtr<Sampler> AddSampler();
         Memory* AddMemory();
         Descriptors* AddDescriptors();
+        ArrayPtr<Shader> AddShader();
+        ArrayRange<Shader> AddShaders(u32 count);
 
         bool Init(Instance *inst);
         bool Reconfigure();

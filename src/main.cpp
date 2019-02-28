@@ -148,6 +148,15 @@ i32 main(i32 argumentCount, char** argumentValues) {
         return 1;
     }
 
+    ArrayRange<vk::Shader> shaders = vkDevice->AddShaders(2);
+    shaders[0].filename = "data/shaders/test.vert.spv";
+    shaders[1].filename = "data/shaders/test.frag.spv";
+
+    vk::ShaderRef shaderRefs[2] = {
+        vk::ShaderRef(shaders, 0, VK_SHADER_STAGE_VERTEX_BIT),
+        vk::ShaderRef(shaders, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+    };
+
     if (!vkInstance.Init()) { // Do this once you've set up the structure of your program.
         cout << "Failed to initialize Vulkan: " << vk::error << std::endl;
         return 1;

@@ -30,7 +30,7 @@ OBJ_W = $(patsubst %,$(ODIR)/Windows/Release/%,$(_OBJ_W))
 OBJ_LD = $(patsubst %,$(ODIR)/Linux/Debug/%,$(_OBJ_L))
 OBJ_WD = $(patsubst %,$(ODIR)/Windows/Debug/%,$(_OBJ_W))
 
-_SHADERS =
+_SHADERS = test.vert.spv test.frag.spv
 SHADERS = $(patsubst %,data/shaders/%,$(_SHADERS))
 
 $(ODIR)/Linux/Debug/%.o: $(SDIR)/%.cpp $(DEPS)

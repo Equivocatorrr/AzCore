@@ -100,14 +100,13 @@ i32 main(i32 argumentCount, char** argumentValues) {
     image.channels = 4;
     image.format = VK_FORMAT_R8G8B8A8_UNORM;
     image.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-    image.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-
-    ArrayPtr<vk::Image> vkStagingImage = vkImageStagingMemory->AddImage(image);
-    vkStagingImage->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-
     image.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
-    ArrayRange<vk::Image> vkImage = vkImageMemory->AddImages(3, image);
+    ArrayPtr<vk::Buffer> vkStagingImage = vkImageStagingMemory->AddBuffer();
+    vkStagingImage->size = image.height * image.width * image.channels;
+    vkStagingImage->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+
+    ArrayRange<vk::Image> vkImage = vkImageMemory->AddImages(2, image);
 
     vk::Memory *vkBufferStagingMemory = vkDevice->AddMemory();
     vkBufferStagingMemory->deviceLocal = false;
@@ -131,7 +130,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     ArrayPtr<vk::DescriptorLayout> vkDescriptorLayout[2] = {vkDescriptors->AddLayout(), vkDescriptors->AddLayout()};
     vkDescriptorLayout[0]->stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     vkDescriptorLayout[0]->type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    vkDescriptorLayout[0]->bindings.push_back({0, 3});
+    vkDescriptorLayout[0]->bindings.push_back({0, 2});
     vkDescriptorLayout[1]->stage = VK_SHADER_STAGE_ALL_GRAPHICS;
     vkDescriptorLayout[1]->type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     vkDescriptorLayout[1]->bindings.push_back({0, 2});

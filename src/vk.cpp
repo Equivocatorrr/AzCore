@@ -90,7 +90,11 @@ namespace vk {
         VkDebugReportObjectTypeEXT objType, u64 obj, size_t location,
         i32 code, const char* layerPrefix, const char* msg, void* userData) {
 
-        cout << "layer(" << layerPrefix << "):\n" << msg << "\n" << std::endl;
+        cout << "layer(" << layerPrefix << "):\n";
+        if (userData != nullptr) {
+            ((Instance*)userData)->PrintObjectLocation(objType, obj);
+        }
+        cout << msg << "\n" << std::endl;
         return VK_FALSE;
     }
 
@@ -220,6 +224,10 @@ namespace vk {
 		createInfo.image = image;
 		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		createInfo.format = format;
+		createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
 		createInfo.subresourceRange.aspectMask = aspectFlags;
 		createInfo.subresourceRange.baseMipLevel = 0;
 		createInfo.subresourceRange.levelCount = mipLevels;
@@ -246,6 +254,7 @@ namespace vk {
         }
         VkBufferCreateInfo createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        createInfo.size = size;
         createInfo.usage = usage;
         createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
@@ -364,8 +373,10 @@ failure:
         for (Buffer& buffer : buffers) {
             buffer.Clean();
         }
-        if (allocated)
+        if (allocated) {
             vkFreeMemory(device, memory, nullptr);
+            allocated = false;
+        }
         return false;
     }
 
@@ -397,7 +408,12 @@ failure:
         }
         memoryTypeBits = memReqs.memoryTypeBits;
 
-        u32 alignedOffset = (memReqs.size/memReqs.alignment+1)*memReqs.alignment;
+        u32 alignedOffset;
+        if (memReqs.size % memReqs.alignment == 0) {
+            alignedOffset = memReqs.size;
+        } else {
+            alignedOffset = (memReqs.size/memReqs.alignment+1)*memReqs.alignment;
+        }
 
         offsets.push_back(offsets.back() + alignedOffset);
         return index;
@@ -413,7 +429,12 @@ failure:
         }
         memoryTypeBits = memReqs.memoryTypeBits;
 
-        u32 alignedOffset = (memReqs.size/memReqs.alignment+1)*memReqs.alignment;
+        u32 alignedOffset;
+        if (memReqs.size % memReqs.alignment == 0) {
+            alignedOffset = memReqs.size;
+        } else {
+            alignedOffset = (memReqs.size/memReqs.alignment+1)*memReqs.alignment;
+        }
 
         offsets.push_back(offsets.back() + alignedOffset);
         return index;
@@ -1944,8 +1965,9 @@ failed:
             }
             VkDebugReportCallbackCreateInfoEXT debugInfo;
             debugInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
-            debugInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
+            debugInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
             debugInfo.pfnCallback = debugCallback;
+            debugInfo.pUserData = this;
 
             result = fpCreateDebugReportCallbackEXT(instance, &debugInfo, nullptr, &debugReportCallback);
             if (result != VK_SUCCESS) {
@@ -2039,6 +2061,230 @@ failed:
         vkDestroyInstance(instance, nullptr);
         initted = false;
         return true;
+    }
+
+    void Instance::PrintObjectLocation(VkDebugReportObjectTypeEXT objType, u64 obj) {
+        cout << "Object is ";
+        u32 deviceIndex = 0;
+        if (obj == VK_NULL_HANDLE) {
+            cout << "null handle!" << std::endl;
+            return;
+        } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT) {
+            cout << "device at ";
+            for (Device& device : devices) {
+                if (device.device == (VkDevice)obj) {
+                    cout << "devices[" << deviceIndex << "]" << std::endl;
+                    return;
+                }
+                deviceIndex++;
+            }
+        } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT) {
+            cout << "physical device at ";
+            for (PhysicalDevice& device : physicalDevices) {
+                if (device.physicalDevice == (VkPhysicalDevice)obj) {
+                    cout << "physicalDevices[" << deviceIndex << "]" << std::endl;
+                    return;
+                }
+                deviceIndex++;
+            }
+        } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_SURFACE_KHR_EXT) {
+            cout << "window at ";
+            for (Window& window : windows) {
+                if (window.surface == (VkSurfaceKHR)obj) {
+                    cout << "windows[" << deviceIndex << "]" << std::endl;
+                    return;
+                }
+                deviceIndex++;
+            }
+        } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_QUEUE_EXT) {
+            cout << "queue at ";
+            for (Device& device : devices) {
+                u32 queueIndex = 0;
+                for (Queue& queue : device.queues) {
+                    if (queue.queue == (VkQueue)obj) {
+                        cout << "devices[" << deviceIndex << "].queue[" << queueIndex << "]" << std::endl;
+                        return;
+                    }
+                    queueIndex++;
+                }
+                deviceIndex++;
+            }
+        } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_SWAPCHAIN_KHR_EXT) {
+            cout << "swapchain at ";
+            for (Device& device : devices) {
+                u32 swapchainIndex = 0;
+                for (Swapchain& swapchain : device.swapchains) {
+                    if (swapchain.swapchain == (VkSwapchainKHR)obj) {
+                        cout << "devices[" << deviceIndex << "].swapchain[" << swapchainIndex << "]" << std::endl;
+                        return;
+                    }
+                    swapchainIndex++;
+                }
+                deviceIndex++;
+            }
+        } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT) {
+            cout << "render pass at ";
+            for (Device& device : devices) {
+                u32 renderpassIndex = 0;
+                for (RenderPass& renderPass : device.renderPasses) {
+                    if (renderPass.renderPass == (VkRenderPass)obj) {
+                        cout << "devices[" << deviceIndex << "].renderPass[" << renderpassIndex << "]" << std::endl;
+                        return;
+                    }
+                    renderpassIndex++;
+                }
+                deviceIndex++;
+            }
+        } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT) {
+            cout << "device memory at ";
+            for (Device& device : devices) {
+                u32 memoryIndex = 0;
+                for (Memory& memory : device.memories) {
+                    if (memory.memory == (VkDeviceMemory)obj) {
+                        cout << "devices[" << deviceIndex << "].memories[" << memoryIndex << "]" << std::endl;
+                        return;
+                    }
+                    memoryIndex++;
+                }
+                deviceIndex++;
+            }
+        } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_EXT) {
+            cout << "sampler at ";
+            for (Device& device : devices) {
+                u32 samplerIndex = 0;
+                for (Sampler& sampler : device.samplers) {
+                    if (sampler.sampler == (VkSampler)obj) {
+                        cout << "devices[" << deviceIndex << "].samplers[" << samplerIndex << "]" << std::endl;
+                        return;
+                    }
+                    samplerIndex++;
+                }
+                deviceIndex++;
+            }
+        } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_POOL_EXT) {
+            cout << "descriptor pool at ";
+            for (Device& device : devices) {
+                u32 descriptorPoolIndex = 0;
+                for (Descriptors& descriptor : device.descriptors) {
+                    if (descriptor.pool == (VkDescriptorPool)obj) {
+                        cout << "devices[" << deviceIndex << "].descriptors[" << descriptorPoolIndex << "]" << std::endl;
+                        return;
+                    }
+                    descriptorPoolIndex++;
+                }
+                deviceIndex++;
+            }
+        } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_EXT) {
+            cout << "descriptor set at ";
+            for (Device& device : devices) {
+                u32 descriptorPoolIndex = 0;
+                for (Descriptors& descriptor : device.descriptors) {
+                    u32 descriptorSetIndex = 0;
+                    for (DescriptorSet& set : descriptor.sets) {
+                        if (set.set == (VkDescriptorSet)obj) {
+                            cout << "devices[" << deviceIndex << "].descriptors[" << descriptorPoolIndex << "].sets[" << descriptorSetIndex << "]" << std::endl;
+                            return;
+                        }
+                        descriptorSetIndex++;
+                    }
+                    descriptorPoolIndex++;
+                }
+                deviceIndex++;
+            }
+        } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT_EXT) {
+            cout << "descriptor set layout at ";
+            for (Device& device : devices) {
+                u32 descriptorPoolIndex = 0;
+                for (Descriptors& descriptor : device.descriptors) {
+                    u32 descriptorSetLayoutIndex = 0;
+                    for (DescriptorLayout& layout : descriptor.layouts) {
+                        if (layout.layout == (VkDescriptorSetLayout)obj) {
+                            cout << "devices[" << deviceIndex << "].descriptors[" << descriptorPoolIndex << "].layouts[" << descriptorSetLayoutIndex << "]" << std::endl;
+                            return;
+                        }
+                        descriptorSetLayoutIndex++;
+                    }
+                    descriptorPoolIndex++;
+                }
+                deviceIndex++;
+            }
+        } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT) {
+            cout << "image at ";
+            for (Device& device : devices) {
+                u32 memoryIndex = 0;
+                for (Memory& memory : device.memories) {
+                    u32 imageIndex = 0;
+                    for (Image& image : memory.images) {
+                        if (image.image == (VkImage)obj) {
+                            cout << "devices[" << deviceIndex << "].memories[" << memoryIndex << "].images[" << imageIndex << "]" << std::endl;
+                            return;
+                        }
+                        imageIndex++;
+                    }
+                    memoryIndex++;
+                }
+                u32 swapchainIndex = 0;
+                for (Swapchain& swapchain : device.swapchains) {
+                    u32 imageIndex = 0;
+                    for (Image& image : swapchain.images) {
+                        if (image.image == (VkImage)obj) {
+                            cout << "devices[" << deviceIndex << "].swapchains[" << swapchainIndex << "].images[" << imageIndex << "]" << std::endl;
+                            return;
+                        }
+                        imageIndex++;
+                    }
+                    memoryIndex++;
+                }
+                deviceIndex++;
+            }
+        } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT) {
+            cout << "buffer at ";
+            for (Device& device : devices) {
+                u32 memoryIndex = 0;
+                for (Memory& memory : device.memories) {
+                    u32 bufferIndex = 0;
+                    for (Buffer& buffer : memory.buffers) {
+                        if (buffer.buffer == (VkBuffer)obj) {
+                            cout << "devices[" << deviceIndex << "].memories[" << memoryIndex << "].buffers[" << bufferIndex << "]" << std::endl;
+                            return;
+                        }
+                        bufferIndex++;
+                    }
+                    memoryIndex++;
+                }
+                deviceIndex++;
+            }
+        } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT) {
+            cout << "image view at ";
+            for (Device& device : devices) {
+                u32 memoryIndex = 0;
+                for (Memory& memory : device.memories) {
+                    u32 imageIndex = 0;
+                    for (Image& image : memory.images) {
+                        if (image.imageView == (VkImageView)obj) {
+                            cout << "devices[" << deviceIndex << "].memories[" << memoryIndex << "].images[" << imageIndex << "]" << std::endl;
+                            return;
+                        }
+                        imageIndex++;
+                    }
+                    memoryIndex++;
+                }
+                u32 swapchainIndex = 0;
+                for (Swapchain& swapchain : device.swapchains) {
+                    u32 imageIndex = 0;
+                    for (Image& image : swapchain.images) {
+                        if (image.imageView == (VkImageView)obj) {
+                            cout << "devices[" << deviceIndex << "].swapchains[" << swapchainIndex << "].images[" << imageIndex << "]" << std::endl;
+                            return;
+                        }
+                        imageIndex++;
+                    }
+                    memoryIndex++;
+                }
+                deviceIndex++;
+            }
+        }
+        cout << "not found???" << std::endl;
     }
 
 }

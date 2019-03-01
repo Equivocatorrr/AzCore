@@ -1264,11 +1264,190 @@ failure:
         }
     }
 
-    ShaderRef::ShaderRef(String fn) : shader() , stages() , functionName(fn) {}
+    ShaderRef::ShaderRef(String fn) : shader() , stage() , functionName(fn) {}
 
-    ShaderRef::ShaderRef(ArrayPtr<Shader> ptr, VkShaderStageFlags s, String fn) : shader(ptr) , stages(s) , functionName(fn) {}
+    ShaderRef::ShaderRef(ArrayPtr<Shader> ptr, VkShaderStageFlagBits s, String fn) : shader(ptr) , stage(s) , functionName(fn) {}
 
-    ShaderRef::ShaderRef(ArrayRange<Shader> ptr, u32 index, VkShaderStageFlags s, String fn) : shader(*ptr.array, ptr.index + index) , stages(s) , functionName(fn) {}
+    ShaderRef::ShaderRef(ArrayRange<Shader> ptr, u32 index, VkShaderStageFlagBits s, String fn) : shader(*ptr.array, ptr.index + index) , stage(s) , functionName(fn) {}
+
+    Pipeline::Pipeline() {
+        // Time for a WHOLE LOTTA ASSUMPTIONS
+        inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+        inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+		rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+		rasterizer.depthClampEnable = VK_FALSE;
+		rasterizer.rasterizerDiscardEnable = VK_FALSE;
+		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+		rasterizer.lineWidth = 1.0;
+		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+		rasterizer.depthBiasEnable = VK_FALSE;
+		rasterizer.depthBiasConstantFactor = 0.0;
+		rasterizer.depthBiasClamp = 0.0;
+		rasterizer.depthBiasSlopeFactor = 0.0;
+
+		multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+		multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+		multisampling.minSampleShading = 1.0;
+		multisampling.pSampleMask = nullptr;
+		multisampling.alphaToCoverageEnable = VK_FALSE;
+		multisampling.alphaToOneEnable = VK_FALSE;
+
+		depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+		depthStencil.depthTestEnable = VK_FALSE;
+		depthStencil.depthWriteEnable = VK_FALSE;
+		depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+		depthStencil.depthBoundsTestEnable = VK_FALSE;
+		depthStencil.minDepthBounds = 0.0;
+		depthStencil.maxDepthBounds = 1.0;
+		depthStencil.stencilTestEnable = VK_FALSE;
+		depthStencil.front = {};
+		depthStencil.back = {};
+
+		colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+		colorBlending.logicOpEnable = VK_FALSE;
+		colorBlending.logicOp = VK_LOGIC_OP_COPY;
+		colorBlending.blendConstants[0] = 0.0;
+		colorBlending.blendConstants[1] = 0.0;
+		colorBlending.blendConstants[2] = 0.0;
+		colorBlending.blendConstants[3] = 0.0;
+    }
+
+    Pipeline::~Pipeline() {
+        if (initted) {
+            if (!Deinit()) {
+                cout << "Failed to clean up pipeline: " << error << std::endl;
+            }
+        }
+    }
+
+    bool Pipeline::Init(Device *dev) {
+        PrintDashed("Initializing Pipeline");
+        if (initted) {
+            error = "Pipeline is already initialized!";
+            return false;
+        }
+        if ((device = dev) == nullptr) {
+            error = "Device is nullptr!";
+            return false;
+        }
+        if (renderPass == nullptr) {
+            error = "Pipeline needs a renderPass!";
+            return false;
+        }
+        if (!renderPass->initted) {
+            error = "RenderPass isn't initialized!";
+            return false;
+        }
+        if (subpass >= renderPass->subpasses.size()) {
+            error = "subpass[" + std::to_string(subpass) + "] is out of bounds for the RenderPass which only has " + std::to_string(renderPass->subpasses.size()) + " subpasses!";
+            return false;
+        }
+        // First we grab our shaders
+        Array<VkPipelineShaderStageCreateInfo> shaderStages(shaders.size());
+        for (u32 i = 0; i < shaders.size(); i++) {
+            shaderStages[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            shaderStages[i].stage = shaders[i].stage;
+            shaderStages[i].module = shaders[i].shader->module;
+            shaderStages[i].pName = shaders[i].functionName.c_str();
+        }
+        // Then we set up our vertex buffers
+        vertexInputInfo.vertexBindingDescriptionCount = inputBindingDescriptions.size();
+        vertexInputInfo.pVertexBindingDescriptions = inputBindingDescriptions.data();
+        vertexInputInfo.vertexAttributeDescriptionCount = inputAttributeDescriptions.size();
+        vertexInputInfo.pVertexAttributeDescriptions = inputAttributeDescriptions.data();
+        // Viewport
+        VkViewport viewport = {};
+        viewport.x = 0.0;
+        viewport.y = 0.0;
+        viewport.width = (float) 640;
+        viewport.height = (float) 480;
+        viewport.minDepth = 0.0;
+        viewport.maxDepth = 1.0;
+
+        VkRect2D scissor = {};
+        scissor.offset = {0, 0};
+        scissor.extent = {640, 480};
+
+        VkPipelineViewportStateCreateInfo viewportState{};
+        viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+		viewportState.viewportCount = 1;
+		viewportState.pViewports = &viewport;
+		viewportState.scissorCount = 1;
+		viewportState.pScissors = &scissor;
+        // Color blending
+        colorBlending.attachmentCount = colorBlendAttachments.size();
+		colorBlending.pAttachments = colorBlendAttachments.data();
+        // Dynamic states
+        VkPipelineDynamicStateCreateInfo dynamicState{};
+        dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+		dynamicState.dynamicStateCount = dynamicStates.size();
+		dynamicState.pDynamicStates = dynamicStates.data();
+        // Pipeline layout
+        Array<VkDescriptorSetLayout> descriptorSetLayouts(descriptorLayouts.size());
+        for (u32 i = 0; i < descriptorLayouts.size(); i++) {
+            if (!descriptorLayouts[i]->exists) {
+                error = "descriptorLayouts[" + std::to_string(i) + "] doesn't exist!";
+                return false;
+            }
+            descriptorSetLayouts[i] = descriptorLayouts[i]->layout;
+        }
+        VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+        pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		pipelineLayoutInfo.setLayoutCount = descriptorSetLayouts.size();
+		pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
+		pipelineLayoutInfo.pushConstantRangeCount = pushConstantRanges.size();
+		pipelineLayoutInfo.pPushConstantRanges = pushConstantRanges.data();
+
+        VkResult result;
+        result = vkCreatePipelineLayout(device->device, &pipelineLayoutInfo, nullptr, &layout);
+        if (result != VK_SUCCESS) {
+            error = "Failed to create pipeline layout: " + ErrorString(result);
+            return false;
+        }
+        // Pipeline time!
+        VkGraphicsPipelineCreateInfo pipelineInfo{};
+        pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+		pipelineInfo.stageCount = shaderStages.size();
+		pipelineInfo.pStages = shaderStages.data();
+		pipelineInfo.pVertexInputState = &vertexInputInfo;
+		pipelineInfo.pInputAssemblyState = &inputAssembly;
+		pipelineInfo.pViewportState = &viewportState;
+		pipelineInfo.pRasterizationState = &rasterizer;
+		pipelineInfo.pMultisampleState = &multisampling;
+		pipelineInfo.pDepthStencilState = &depthStencil;
+		pipelineInfo.pColorBlendState = &colorBlending;
+		pipelineInfo.pDynamicState = &dynamicState;
+		pipelineInfo.layout = layout;
+		pipelineInfo.renderPass = renderPass->renderPass;
+		pipelineInfo.subpass = subpass;
+		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+		pipelineInfo.basePipelineIndex = -1;
+
+        result = vkCreateGraphicsPipelines(device->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
+        if (result != VK_SUCCESS) {
+            error = "Failed to create pipeline: " + ErrorString(result);
+            vkDestroyPipelineLayout(device->device, layout, nullptr);
+            return false;
+        }
+        initted = true;
+        return true;
+    }
+
+    bool Pipeline::Deinit() {
+        if (!initted) {
+            error = "Pipeline is not initted!";
+            return false;
+        }
+        vkDestroyPipeline(device->device, pipeline, nullptr);
+        vkDestroyPipelineLayout(device->device, layout, nullptr);
+        initted = false;
+        return true;
+    }
 
     Swapchain::Swapchain() {}
 
@@ -1570,6 +1749,11 @@ failure:
         return ArrayRange<Shader>(shaders, shaders.size()-count, count);
     }
 
+    Pipeline* Device::AddPipeline() {
+        pipelines.push_back(Pipeline());
+        return &pipelines[pipelines.size()-1];
+    }
+
     bool Device::Init(Instance *inst) {
         PrintDashed("Initializing Logical Device");
         if (initted) {
@@ -1814,6 +1998,11 @@ failure:
             }
         }
         // Pipelines
+        for (auto& pipeline : pipelines) {
+            if (!pipeline.Init(this)) {
+                goto failed;
+            }
+        }
 
         // Once the pipelines are set with all the shaders,
         // we can clean them since they're no longer needed
@@ -1846,6 +2035,11 @@ failed:
         for (auto& shader : shaders) {
             shader.Clean();
         }
+        for (auto& pipeline : pipelines) {
+            if (pipeline.initted) {
+                pipeline.Deinit();
+            }
+        }
         vkDestroyDevice(device, nullptr);
         return false;
     }
@@ -1875,6 +2069,11 @@ failed:
             descriptor.Clean();
         }
         // We don't need to clean the shaders since they should have already been cleaned
+        for (auto& pipeline : pipelines) {
+            if (pipeline.initted) {
+                pipeline.Deinit();
+            }
+        }
         // Destroy everything allocated from the device here
         vkDestroyDevice(device, nullptr);
         initted = false;

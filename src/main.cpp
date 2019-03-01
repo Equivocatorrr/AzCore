@@ -73,16 +73,16 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkSwapchain->window = vkInstance.AddWindowForSurface(&window);
     vkSwapchain->vsync = false;
 
-    vk::RenderPass* renderPass = vkDevice->AddRenderPass();
+    vk::RenderPass* vkRenderPass = vkDevice->AddRenderPass();
 
-    ArrayPtr<vk::Attachment> attachment[2] = {renderPass->AddAttachment(), renderPass->AddAttachment(vkSwapchain)};
+    ArrayPtr<vk::Attachment> attachment[2] = {vkRenderPass->AddAttachment(), vkRenderPass->AddAttachment(vkSwapchain)};
     attachment[0]->bufferColor = true;
     attachment[0]->clearColor = true;
     attachment[0]->keepColor = true;
     attachment[0]->sampleCount = VK_SAMPLE_COUNT_4_BIT;
     attachment[0]->resolveColor = true;
 
-    ArrayPtr<vk::Subpass> subpass[2] = {renderPass->AddSubpass(), renderPass->AddSubpass()};
+    ArrayPtr<vk::Subpass> subpass[2] = {vkRenderPass->AddSubpass(), vkRenderPass->AddSubpass()};
     subpass[0]->UseAttachment(attachment[0], vk::ATTACHMENT_ALL,
         VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
     subpass[1]->UseAttachment(attachment[0], vk::ATTACHMENT_RESOLVE,
@@ -156,6 +156,28 @@ i32 main(i32 argumentCount, char** argumentValues) {
         vk::ShaderRef(shaders, 0, VK_SHADER_STAGE_VERTEX_BIT),
         vk::ShaderRef(shaders, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
     };
+
+    vk::Pipeline *vkPipeline = vkDevice->AddPipeline();
+    vkPipeline->renderPass = vkRenderPass;
+    vkPipeline->subpass = 0;
+    vkPipeline->shaders.push_back(shaderRefs[0]);
+    vkPipeline->shaders.push_back(shaderRefs[1]);
+
+    VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
+    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
+                                        | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.blendEnable = VK_TRUE;
+    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
+    vkPipeline->colorBlendAttachments.push_back(colorBlendAttachment);
+
+    vkPipeline->descriptorLayouts.push_back(vkDescriptorLayout[0]);
+    vkPipeline->descriptorLayouts.push_back(vkDescriptorLayout[1]);
 
     if (!vkInstance.Init()) { // Do this once you've set up the structure of your program.
         cout << "Failed to initialize Vulkan: " << vk::error << std::endl;

@@ -392,12 +392,47 @@ namespace vk {
         A reference to a single function in a shader module for a single shader stage.  */
     struct ShaderRef {
         ArrayPtr<Shader> shader;
-        VkShaderStageFlags stages;
+        VkShaderStageFlagBits stage;
         String functionName; // Most shaders will probably use just this, but watch out
 
         ShaderRef(String fn="main");
-        ShaderRef(ArrayPtr<Shader> ptr, VkShaderStageFlags s, String fn="main");
-        ShaderRef(ArrayRange<Shader> ptr, u32 index, VkShaderStageFlags s, String fn="main");
+        ShaderRef(ArrayPtr<Shader> ptr, VkShaderStageFlagBits s, String fn="main");
+        ShaderRef(ArrayRange<Shader> ptr, u32 index, VkShaderStageFlagBits s, String fn="main");
+    };
+
+    /*  struct: Pipeline
+        Author: Philip Haynes
+        Everything you need for a complete graphics pipeline
+        Most things have usable defaults to help with brevity        */
+    struct Pipeline {
+        Device *device = nullptr;
+        RenderPass *renderPass = nullptr;
+        bool initted = false;
+        VkPipelineLayout layout;
+        VkPipeline pipeline;
+        VkPipelineMultisampleStateCreateInfo multisampling{}; // Infer most from RenderPass
+        Array<VkVertexInputBindingDescription> inputBindingDescriptions{};
+        Array<VkVertexInputAttributeDescription> inputAttributeDescriptions{};
+        VkPipelineVertexInputStateCreateInfo vertexInputInfo{}; // Infer from vertex buffer
+
+        // Configuration
+        Array<ShaderRef> shaders{};
+        u32 subpass = 0; // Of our RenderPass, which subpass are we used in?
+        bool multisampleShading = false;
+        // TODO: Break this up into simpler more bite-sized pieces
+        VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+        VkPipelineRasterizationStateCreateInfo rasterizer{};
+        VkPipelineDepthStencilStateCreateInfo depthStencil{};
+        Array<VkPipelineColorBlendAttachmentState> colorBlendAttachments{};
+        VkPipelineColorBlendStateCreateInfo colorBlending{};
+        Array<VkDynamicState> dynamicStates{};
+        Array<ArrayPtr<DescriptorLayout>> descriptorLayouts{};
+        Array<VkPushConstantRange> pushConstantRanges{};
+
+        Pipeline(); // We configure some defaults
+        ~Pipeline();
+        bool Init(Device *dev);
+        bool Deinit();
     };
 
     extern const char *QueueTypeString[5];
@@ -473,6 +508,7 @@ namespace vk {
         Array<Sampler> samplers{};
         List<Descriptors> descriptors{};
         Array<Shader> shaders{};
+        List<Pipeline> pipelines{};
 
         // Manual configuration (mostly unnecessary)
         Array<const char*> extensionsRequired{};
@@ -489,6 +525,7 @@ namespace vk {
         Descriptors* AddDescriptors();
         ArrayPtr<Shader> AddShader();
         ArrayRange<Shader> AddShaders(u32 count);
+        Pipeline* AddPipeline();
 
         bool Init(Instance *inst);
         bool Reconfigure();

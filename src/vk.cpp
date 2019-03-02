@@ -382,6 +382,7 @@ failure:
     }
 
     bool Memory::Deinit() {
+        PrintDashed("Destroying Memory");
         if (!initted) {
             error = "Memory isn't initialized!";
             return false;
@@ -792,6 +793,7 @@ failure:
     }
 
     void Descriptors::Clean() {
+        PrintDashed("Destroying Descriptors");
         if (exists) {
             vkDestroyDescriptorPool(device, pool, nullptr);
             for (u32 i = 0; i < sets.size(); i++) {
@@ -1347,6 +1349,10 @@ failure:
             error = "subpass[" + std::to_string(subpass) + "] is out of bounds for the RenderPass which only has " + std::to_string(renderPass->subpasses.size()) + " subpasses!";
             return false;
         }
+        if (renderPass->subpasses[subpass].referencesColor.size() != colorBlendAttachments.size()) {
+            error = "You must have one colorBlendAttachment per color attachment in the associated Subpass!\nThe subpass has " + std::to_string(renderPass->subpasses[subpass].referencesColor.size()) + " color attachments while the pipeline has " + std::to_string(colorBlendAttachments.size()) + " colorBlendAttachments.";
+            return false;
+        }
         // First we grab our shaders
         Array<VkPipelineShaderStageCreateInfo> shaderStages(shaders.size());
         for (u32 i = 0; i < shaders.size(); i++) {
@@ -1439,6 +1445,7 @@ failure:
     }
 
     bool Pipeline::Deinit() {
+        PrintDashed("Destroying Pipeline");
         if (!initted) {
             error = "Pipeline is not initted!";
             return false;
@@ -1802,10 +1809,34 @@ failure:
             for (auto& sampler : samplers) {
                 if (sampler.anisotropy != 1) {
                     anisotropy = true;
+                    break;
                 }
             }
             if (anisotropy) {
+                cout << "Enabling samplerAnisotropy optional device feature" << std::endl;
                 deviceFeaturesOptional.samplerAnisotropy = VK_TRUE;
+            }
+            bool independentBlending = false;
+            for (auto& pipeline : pipelines) {
+                for (u32 i = 1; i < pipeline.colorBlendAttachments.size(); i++) {
+                    VkPipelineColorBlendAttachmentState& s1 = pipeline.colorBlendAttachments[i-1];
+                    VkPipelineColorBlendAttachmentState& s2 = pipeline.colorBlendAttachments[i];
+                    if (s1.blendEnable != s2.blendEnable
+                    ||  s1.alphaBlendOp != s2.alphaBlendOp
+                    ||  s1.colorBlendOp != s2.colorBlendOp
+                    ||  s1.colorWriteMask != s2.colorWriteMask
+                    ||  s1.dstAlphaBlendFactor != s2.dstAlphaBlendFactor
+                    ||  s1.dstColorBlendFactor != s2.dstColorBlendFactor
+                    ||  s1.srcAlphaBlendFactor != s2.srcAlphaBlendFactor
+                    ||  s1.srcColorBlendFactor != s2.srcColorBlendFactor) {
+                        independentBlending = true;
+                        break;
+                    }
+                }
+            }
+            if (independentBlending) {
+                cout << "Enabling independentBlend device feature" << std::endl;
+                deviceFeaturesRequired.independentBlend = VK_TRUE;
             }
             // Which ones are available?
             for (u32 i = 0; i < sizeof(VkPhysicalDeviceFeatures)/4; i++) {

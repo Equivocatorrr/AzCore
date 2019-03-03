@@ -1462,6 +1462,54 @@ failure:
         Clean();
     }
 
+    ArrayPtr<CommandBuffer> CommandPool::AddCommandBuffer() {
+        commandBuffers.push_back(CommandBuffer());
+        return ArrayPtr<CommandBuffer>(commandBuffers, commandBuffers.size()-1);
+    }
+
+    CommandBuffer* CommandPool::CreateDynamicBuffer(bool secondary) {
+        if (!initted) {
+            error = "Command Pool is not initialized!";
+            return nullptr;
+        }
+        dynamicBuffers.push_back(CommandBuffer());
+        CommandBuffer *buffer = &dynamicBuffers[dynamicBuffers.size()-1];
+        buffer->secondary = secondary;
+        buffer->pool = this;
+        buffer->device = device;
+
+        VkCommandBufferAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.commandPool = commandPool;
+        allocInfo.commandBufferCount = 1;
+        allocInfo.level = secondary ? VK_COMMAND_BUFFER_LEVEL_SECONDARY : VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+
+        VkResult result = vkAllocateCommandBuffers(device->device, &allocInfo, &buffer->commandBuffer);
+        if (result != VK_SUCCESS) {
+            error = "Failed to allocate dynamic command buffer: " + ErrorString(result);
+            return nullptr;
+        }
+        return buffer;
+    }
+
+    void CommandPool::DestroyDynamicBuffer(CommandBuffer *buffer) {
+        if (!initted) {
+            return;
+        }
+        vkFreeCommandBuffers(device->device, commandPool, 1, &buffer->commandBuffer);
+        u32 i = 0;
+        for (CommandBuffer& b : dynamicBuffers) {
+            if (&b == buffer) {
+                break;
+            }
+            i++;
+        }
+        if (i >= dynamicBuffers.size()) {
+            return;
+        }
+        dynamicBuffers.erase(i);
+    }
+
     bool CommandPool::Init(Device *dev) {
         PrintDashed("Initializing Command Pool");
         if (initted) {
@@ -1494,6 +1542,58 @@ failure:
         if (result != VK_SUCCESS) {
             error = "Failed to create CommandPool: " + ErrorString(result);
             return false;
+        }
+
+        // Now the command buffers
+        u32 p = 0, s = 0;
+        Array<VkCommandBuffer> primaryBuffers;
+        Array<VkCommandBuffer> secondaryBuffers;
+        for (CommandBuffer& buffer : commandBuffers) {
+            if (buffer.secondary) {
+                s++;
+            } else {
+                p++;
+            }
+        }
+        cout << "Allocating " << p << " primary command buffers and " << s << " secondary command buffers." << std::endl;
+        primaryBuffers.resize(p);
+        secondaryBuffers.resize(s);
+        VkCommandBufferAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.commandPool = commandPool;
+        if (p != 0) {
+            allocInfo.commandBufferCount = p;
+            allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+
+            VkResult result = vkAllocateCommandBuffers(device->device, &allocInfo, primaryBuffers.data());
+            if (result != VK_SUCCESS) {
+                error = "Failed to allocate primary command buffers: " + ErrorString(result);
+                vkDestroyCommandPool(device->device, commandPool, nullptr);
+                return false;
+            }
+        }
+        if (s != 0) {
+            allocInfo.commandBufferCount = s;
+            allocInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+
+            VkResult result = vkAllocateCommandBuffers(device->device, &allocInfo, secondaryBuffers.data());
+            if (result != VK_SUCCESS) {
+                error = "Failed to allocate secondary command buffers: " + ErrorString(result);
+                vkDestroyCommandPool(device->device, commandPool, nullptr);
+                return false;
+            }
+        }
+        p = 0; s = 0;
+        for (CommandBuffer& buffer : commandBuffers) {
+            if (buffer.secondary) {
+                buffer.commandBuffer = secondaryBuffers[s];
+                s++;
+            } else {
+                buffer.commandBuffer = primaryBuffers[p];
+                p++;
+            }
+            buffer.device = device;
+            buffer.pool = this;
         }
         initted = true;
         return true;

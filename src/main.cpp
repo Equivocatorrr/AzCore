@@ -181,6 +181,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     vk::CommandPool* vkCommandPool = vkDevice->AddCommandPool(queueGraphics);
     vkCommandPool->transient = true;
+    ArrayPtr<vk::CommandBuffer> vkCommandBuffer = vkCommandPool->AddCommandBuffer();
+    vkCommandBuffer->simultaneousUse = true;
 
     if (!vkInstance.Init()) { // Do this once you've set up the structure of your program.
         cout << "Failed to initialize Vulkan: " << vk::error << std::endl;

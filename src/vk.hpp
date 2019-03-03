@@ -455,6 +455,40 @@ namespace vk {
         f32 queuePriority = 1.0;
     };
 
+    struct CommandPool;
+
+    /*  struct: CommandBuffer
+        Author: Philip Haynes
+        What we use to control our command buffers
+        that get allocated from Command Pools           */
+    struct CommandBuffer {
+        bool recording = false;
+        CommandPool *pool = nullptr;
+        Device *device = nullptr;
+        VkCommandBuffer commandBuffer;
+
+        // Configuration
+        // Use this if the command buffer will only be submitted once and then reused
+        bool oneTimeSubmit = false;
+        // Use this if the command buffer can be used multiple times without re-recording
+        bool simultaneousUse = false;
+
+        // Secondary-only stuff
+        bool secondary = false;
+        // Use this if it's a secondary command buffer completely inside a render pass
+        bool renderPassContinue = false;
+        // If used inside a render pass, we need to know which one, and then which subpass
+        RenderPass *renderPass = nullptr;
+        u32 subpass = 0;
+        // Do we know which framebuffer we'll be using? Not strictly necessary.
+        // Framebuffer *framebuffer;
+        // If the primary command buffer is running an occlusion query, this must be true
+        bool occlusionQueryEnable = false;
+        // We also need to know about the query
+        VkQueryControlFlags queryControlFlags{};
+        VkQueryPipelineStatisticFlags queryPipelineStatisticFlags{};
+    };
+
     /*  struct: CommandPool
         Author: Philip Haynes
         What we use to allocate command buffers.
@@ -463,6 +497,8 @@ namespace vk {
         bool initted = false;
         Device *device = nullptr;
         VkCommandPool commandPool;
+        Array<CommandBuffer> commandBuffers{};
+        List<CommandBuffer> dynamicBuffers{};
 
         // Configuration
         // Use when command buffers will be reset or freed shortly after executing
@@ -473,6 +509,13 @@ namespace vk {
         bool protectedMemory = false;
         // Which queue this pool will be used on
         Queue* queue;
+
+        ArrayPtr<CommandBuffer> AddCommandBuffer();
+
+        // Commands you can call after Vulkan Tree initialization
+        CommandBuffer* CreateDynamicBuffer(bool secondary=false);
+        void DestroyDynamicBuffer(CommandBuffer* buffer);
+
 
         CommandPool(Queue* q=nullptr);
         ~CommandPool();

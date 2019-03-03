@@ -793,8 +793,8 @@ failure:
     }
 
     void Descriptors::Clean() {
-        PrintDashed("Destroying Descriptors");
         if (exists) {
+            PrintDashed("Destroying Descriptors");
             vkDestroyDescriptorPool(device, pool, nullptr);
             for (u32 i = 0; i < sets.size(); i++) {
                 sets[i].exists = false;
@@ -1456,6 +1456,57 @@ failure:
         return true;
     }
 
+    CommandPool::CommandPool(Queue* q) : queue(q) {}
+
+    CommandPool::~CommandPool() {
+        Clean();
+    }
+
+    bool CommandPool::Init(Device *dev) {
+        PrintDashed("Initializing Command Pool");
+        if (initted) {
+            error = "CommandPool is already initialized!";
+            return false;
+        }
+        if ((device = dev) == nullptr) {
+            error = "Device is nullptr!";
+            return false;
+        }
+        if (queue == nullptr) {
+            error = "You must specify a queue to create a CommandPool!";
+            return false;
+        }
+        VkCommandPoolCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        createInfo.queueFamilyIndex = queue->queueFamilyIndex;
+        if (transient) {
+            createInfo.flags &= VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+        }
+        if (resettable) {
+            createInfo.flags &= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        }
+        if (protectedMemory) {
+            createInfo.flags &= VK_COMMAND_POOL_CREATE_PROTECTED_BIT;
+        }
+
+        VkResult result = vkCreateCommandPool(device->device, &createInfo, nullptr, &commandPool);
+
+        if (result != VK_SUCCESS) {
+            error = "Failed to create CommandPool: " + ErrorString(result);
+            return false;
+        }
+        initted = true;
+        return true;
+    }
+
+    void CommandPool::Clean() {
+        if (initted) {
+            PrintDashed("Destroying Command Pool");
+            vkDestroyCommandPool(device->device, commandPool, nullptr);
+            initted = false;
+        }
+    }
+
     Swapchain::Swapchain() {}
 
     Swapchain::~Swapchain() {
@@ -1761,6 +1812,11 @@ failure:
         return &pipelines[pipelines.size()-1];
     }
 
+    CommandPool* Device::AddCommandPool(Queue *queue) {
+        commandPools.push_back(CommandPool(queue));
+        return &commandPools[commandPools.size()-1];
+    }
+
     bool Device::Init(Instance *inst) {
         PrintDashed("Initializing Logical Device");
         if (initted) {
@@ -2034,6 +2090,12 @@ failure:
                 goto failed;
             }
         }
+        // CommandPools
+        for (auto& commandPool : commandPools) {
+            if (!commandPool.Init(this)) {
+                goto failed;
+            }
+        }
 
         // Once the pipelines are set with all the shaders,
         // we can clean them since they're no longer needed
@@ -2071,6 +2133,9 @@ failed:
                 pipeline.Deinit();
             }
         }
+        for (auto& commandPool : commandPools) {
+            commandPool.Clean();
+        }
         vkDestroyDevice(device, nullptr);
         return false;
     }
@@ -2104,6 +2169,9 @@ failed:
             if (pipeline.initted) {
                 pipeline.Deinit();
             }
+        }
+        for (auto& commandPool : commandPools) {
+            commandPool.Clean();
         }
         // Destroy everything allocated from the device here
         vkDestroyDevice(device, nullptr);

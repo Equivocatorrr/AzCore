@@ -455,6 +455,31 @@ namespace vk {
         f32 queuePriority = 1.0;
     };
 
+    /*  struct: CommandPool
+        Author: Philip Haynes
+        What we use to allocate command buffers.
+        For multi-threaded situations, we need one pool per thread.     */
+    struct CommandPool {
+        bool initted = false;
+        Device *device = nullptr;
+        VkCommandPool commandPool;
+
+        // Configuration
+        // Use when command buffers will be reset or freed shortly after executing
+        bool transient = false;
+        // Use when command buffers are meant to be reusable
+        bool resettable = false;
+        // I'm not sure what this is used for
+        bool protectedMemory = false;
+        // Which queue this pool will be used on
+        Queue* queue;
+
+        CommandPool(Queue* q=nullptr);
+        ~CommandPool();
+        bool Init(Device *dev);
+        void Clean();
+    };
+
     /*  struct: Swapchain
         Author: Philip Haynes
         Manages how we interact with our window surface         */
@@ -509,6 +534,7 @@ namespace vk {
         List<Descriptors> descriptors{};
         Array<Shader> shaders{};
         List<Pipeline> pipelines{};
+        List<CommandPool> commandPools{};
 
         // Manual configuration (mostly unnecessary)
         Array<const char*> extensionsRequired{};
@@ -526,6 +552,7 @@ namespace vk {
         ArrayPtr<Shader> AddShader();
         ArrayRange<Shader> AddShaders(u32 count);
         Pipeline* AddPipeline();
+        CommandPool* AddCommandPool(Queue* queue);
 
         bool Init(Instance *inst);
         bool Reconfigure();

@@ -58,7 +58,7 @@ namespace vk {
 	}
 
     void PrintDashed(String str) {
-        i32 width = 120-(i32)str.size();
+        i32 width = 80-(i32)str.size();
         if (width > 0) {
             for (u32 i = (width+1)/2; i > 0; i--) {
                 cout << "-";
@@ -77,11 +77,11 @@ namespace vk {
         String str = "";
         if (size > 1024*1024) {
             str = std::to_string(size/(1024*1024)) + "MB ";
-            size -= size%(1024*1024);
+            size %= (1024*1024);
         }
         if (size > 1024) {
             str += std::to_string(size/1024) + "KB ";
-            size = size%1024;
+            size %= 1024;
         }
         str += std::to_string(size) + "B";
         return str;
@@ -322,6 +322,8 @@ namespace vk {
         } else {
             memoryProperties = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
         }
+
+        cout << "Memory will create " << images.size() << " images and " << buffers.size() << " buffers." << std::endl;
 
         for (Image& image : images) {
             image.Init(device);
@@ -694,7 +696,7 @@ failure:
             return false;
         }
         exists = true;
-        cout << "Allocating Descriptor Sets..." << std::endl;
+        cout << "Allocating " << sets.size() << " Descriptor Sets." << std::endl;
         Array<VkDescriptorSetLayout> setLayouts(sets.size());
         for (u32 i = 0; i < sets.size(); i++) {
             setLayouts[i] = sets[i].layout->layout;
@@ -1085,31 +1087,31 @@ failure:
             }
             cout << "Subpass[" << i << "] is using the following attachments:\n";
             if (subpass.referencesColor.size() != 0) {
-                cout << "Color: ";
+                cout << "\tColor: ";
                 for (auto& ref : subpass.referencesColor) {
                     cout << ref.attachment << " ";
                 }
             }
             if (subpass.referencesResolve.size() != 0) {
-                cout << "\nResolve: ";
+                cout << "\n\tResolve: ";
                 for (auto& ref : subpass.referencesResolve) {
                     cout << ref.attachment << " ";
                 }
             }
             if (subpass.referencesInput.size() != 0) {
-                cout << "\nInput: ";
+                cout << "\n\tInput: ";
                 for (auto& ref : subpass.referencesInput) {
                     cout << ref.attachment << " ";
                 }
             }
             if (subpass.referencesPreserve.size() != 0) {
-                cout << "\nPreserve: ";
+                cout << "\n\tPreserve: ";
                 for (auto& ref : subpass.referencesPreserve) {
                     cout << ref << " ";
                 }
             }
             if (depthStencilTaken) {
-                cout << "\nDepth: " << subpass.referenceDepthStencil.attachment;
+                cout << "\n\tDepth: " << subpass.referenceDepthStencil.attachment;
             }
             cout << std::endl;
             VkSubpassDescription description{};
@@ -1570,6 +1572,27 @@ failure:
         // First we grab our shaders
         Array<VkPipelineShaderStageCreateInfo> shaderStages(shaders.size());
         for (u32 i = 0; i < shaders.size(); i++) {
+            switch (shaders[i].stage) {
+            case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
+                cout << "Tesselation Control ";
+                break;
+            case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
+                cout << "Tesselation Evaluation ";
+                break;
+            case VK_SHADER_STAGE_GEOMETRY_BIT:
+                cout << "Geometry ";
+                break;
+            case VK_SHADER_STAGE_VERTEX_BIT:
+                cout << "Vertex ";
+                break;
+            case VK_SHADER_STAGE_FRAGMENT_BIT:
+                cout << "Fragment ";
+                break;
+            default:
+                break;
+            }
+            cout << "Shader: \"" << shaders[i].shader->filename
+                 << "\" accessing function \"" << shaders[i].functionName << "\"" << std::endl;
             shaderStages[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
             shaderStages[i].stage = shaders[i].stage;
             shaderStages[i].module = shaders[i].shader->module;
@@ -1616,6 +1639,7 @@ failure:
             }
             descriptorSetLayouts[i] = descriptorLayouts[i]->layout;
         }
+        // TODO: Separate out pipeline layouts
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		pipelineLayoutInfo.setLayoutCount = descriptorSetLayouts.size();

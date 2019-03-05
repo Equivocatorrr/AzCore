@@ -975,7 +975,7 @@ failure:
         for (u32 i = 0; i < attachments.size(); i++) {
             attachments[i].Config();
         }
-        // First we concatenate our attachmentDescriptions from the Attachments
+        // Then we concatenate our attachmentDescriptions from the Attachments
         u32 nextAttachmentIndex = 0; // Since each Attachment can map to multiple attachments
         for (u32 i = 0; i < attachments.size(); i++) {
             attachments[i].firstIndex = nextAttachmentIndex;
@@ -1016,7 +1016,9 @@ failure:
                                 "You can't have more than one depth/stencil attachment in a single subpass!";
                         return false;
                     }
-                    depthStencilTaken = true;
+                    if (usage.type == ATTACHMENT_ALL || usage.type == ATTACHMENT_DEPTH_STENCIL) {
+                        depthStencilTaken = true;
+                    }
                     depthStencilIndex = nextAttachmentIndex++;
                 }
                 u32 index = 0;
@@ -1066,17 +1068,50 @@ failure:
                         return false;
                     }
                     VkAttachmentReference ref{};
-                    ref.attachment = index;
+                    ref.attachment = depthStencilIndex;
                     ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
                     subpass.referenceDepthStencil = ref;
                 }
-                if (usage.accessFlags & VK_ACCESS_SHADER_READ_BIT) {
+                if (usage.accessFlags & VK_ACCESS_INPUT_ATTACHMENT_READ_BIT) {
                     VkAttachmentReference ref{};
                     ref.attachment = index;
-                    ref.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                    if (usage.type == ATTACHMENT_COLOR || usage.type == ATTACHMENT_RESOLVE) {
+                        ref.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                    } else if (usage.type == ATTACHMENT_DEPTH_STENCIL) {
+                        ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+                    }
                     subpass.referencesInput.push_back(ref);
                 }
             }
+            cout << "Subpass[" << i << "] is using the following attachments:\n";
+            if (subpass.referencesColor.size() != 0) {
+                cout << "Color: ";
+                for (auto& ref : subpass.referencesColor) {
+                    cout << ref.attachment << " ";
+                }
+            }
+            if (subpass.referencesResolve.size() != 0) {
+                cout << "\nResolve: ";
+                for (auto& ref : subpass.referencesResolve) {
+                    cout << ref.attachment << " ";
+                }
+            }
+            if (subpass.referencesInput.size() != 0) {
+                cout << "\nInput: ";
+                for (auto& ref : subpass.referencesInput) {
+                    cout << ref.attachment << " ";
+                }
+            }
+            if (subpass.referencesPreserve.size() != 0) {
+                cout << "\nPreserve: ";
+                for (auto& ref : subpass.referencesPreserve) {
+                    cout << ref << " ";
+                }
+            }
+            if (depthStencilTaken) {
+                cout << "\nDepth: " << subpass.referenceDepthStencil.attachment;
+            }
+            cout << std::endl;
             VkSubpassDescription description{};
             description.pipelineBindPoint = subpass.pipelineBindPoint;
             description.colorAttachmentCount = subpass.referencesColor.size();
@@ -1086,7 +1121,7 @@ failure:
             description.preserveAttachmentCount = subpass.referencesPreserve.size();
             description.pPreserveAttachments = subpass.referencesPreserve.data();
             if (subpass.referencesResolve.size() != 0) {
-                description.pColorAttachments = subpass.referencesResolve.data();
+                description.pResolveAttachments = subpass.referencesResolve.data();
             }
             if (depthStencilTaken) {
                 description.pDepthStencilAttachment = &subpass.referenceDepthStencil;
@@ -1217,6 +1252,179 @@ failure:
         return true;
     }
 
+    Framebuffer::~Framebuffer() {
+        if (initted) {
+            if (!Deinit()) {
+                cout << "Failed to clean up vk::Framebuffer: " << error << std::endl;
+            }
+        }
+    }
+
+    bool Framebuffer::Init(Device *dev) {
+        PrintDashed("Initializing Framebuffer");
+        if (initted) {
+            error = "Framebuffer is already initialized!";
+            return false;
+        }
+        if ((device = dev) == nullptr) {
+            error = "Device is nullptr!";
+            return false;
+        }
+        if (!renderPass->initted) {
+            error = "RenderPass is not initialized!";
+            return false;
+        }
+        bool depth = false, color = false;
+        for (auto& attachment : renderPass->attachments) {
+            if (attachment.bufferDepthStencil) {
+                depth = true;
+            }
+            if (attachment.bufferColor) {
+                color = true;
+            }
+            if (attachment.swapchain != nullptr) {
+                width = attachment.swapchain->extent.width;
+                height = attachment.swapchain->extent.height;
+            }
+        }
+        cout << "Width: " << width << "  Height: " << height << std::endl;
+        if (ownMemory) {
+            // Create Memory objects according to the RenderPass attachments
+            if (depth && depthMemory == nullptr) {
+                cout << "Adding depth Memory to device." << std::endl;
+                depthMemory = device->AddMemory();
+            }
+            if (color && colorMemory == nullptr) {
+                cout << "Adding color Memory to device." << std::endl;
+                colorMemory = device->AddMemory();
+            }
+        } else {
+            // Verify that we have the memory we need
+            bool failed = false;
+            if (depth && depthMemory == nullptr) {
+                error = "Framebuffer set to use outside memory, but none is given for depth ";
+                failed = true;
+            }
+            if (color && colorMemory == nullptr) {
+                if (!failed) {
+                    error = "Framebuffer set to use outside memory, but none is given f";
+                }
+                error = error + "or color ";
+                failed = true;
+            }
+            if (failed) {
+                error.back() = '!';
+                return false;
+            }
+        }
+        if (ownImages) {
+            if (width == 0 || height == 0) {
+                error = "Framebuffer can't create images with size (" + std::to_string(width) + ", " + std::to_string(height) + ")!";
+                return false;
+            }
+            if (attachmentImages.size() == 0) {
+                // Create Images according to the RenderPass attachments
+                u32 i = 0;
+                for (auto& attachment : renderPass->attachmentDescriptions) {
+                    Image image;
+                    image.width = width;
+                    image.height = height;
+                    image.format = attachment.format;
+                    image.samples = attachment.samples;
+                    if (attachment.finalLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+                        cout << "Adding color image " << i << " to colorMemory." << std::endl;
+                        image.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+                        image.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+                        attachmentImages.push_back(colorMemory->AddImage(image));
+                    } else if (attachment.finalLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+                        cout << "Adding depth image " << i << " to depthMemory." << std::endl;
+                        image.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+                        image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+                        attachmentImages.push_back(depthMemory->AddImage(image));
+                    }
+                    i++;
+                }
+                // Now we need to make sure we know which images are also being used as input attachments
+                for (auto& subpass : renderPass->subpasses) {
+                    for (auto& input : subpass.referencesInput) {
+                        attachmentImages[input.attachment]->usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+                    }
+                }
+            } else {
+                // Probably resizing
+                for (auto& attachment : attachmentImages) {
+                    attachment->width = width;
+                    attachment->height = height;
+                }
+            }
+        } else {
+            // Verify the images are set up correctly
+            if (attachmentImages.size() != renderPass->attachmentDescriptions.size()) {
+                error = "RenderPass expects " + std::to_string(renderPass->attachmentDescriptions.size())
+                      + " attachment images but this framebuffer only has " + std::to_string(attachmentImages.size()) + ".";
+                return false;
+            }
+            if (attachmentImages.size() == 0) {
+                error = "Framebuffer has no attachment images!";
+                return false;
+            }
+            for (u32 i = 1; i < attachmentImages.size(); i++) {
+                if (attachmentImages[i]->width != width || attachmentImages[i]->height != height) {
+                    error = "All attached images must be the same width and height!";
+                    return false;
+                }
+            }
+        }
+        initted = true;
+        return true;
+    }
+
+    bool Framebuffer::Create() {
+        PrintDashed("Creating Framebuffer");
+        if (created) {
+            error = "Framebuffer already exists!";
+            return false;
+        }
+        Array<VkImageView> attachments(attachmentImages.size());
+        for (u32 i = 0; i < attachmentImages.size(); i++) {
+            if (!attachmentImages[i]->imageViewExists) {
+                error = "Framebuffer attachment " + std::to_string(i) + "'s image view has not been created!";
+                return false;
+            }
+            attachments[i] = attachmentImages[i]->imageView;
+        }
+        VkFramebufferCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        createInfo.renderPass = renderPass->renderPass;
+        createInfo.width = width;
+        createInfo.height = height;
+        createInfo.layers = 1;
+        createInfo.attachmentCount = attachments.size();
+        createInfo.pAttachments = attachments.data();
+
+        VkResult result = vkCreateFramebuffer(device->device, &createInfo, nullptr, &framebuffer);
+
+        if (result != VK_SUCCESS) {
+            error = "Failed to create framebuffer: " + ErrorString(result);
+            return false;
+        }
+        created = true;
+        return true;
+    }
+
+    bool Framebuffer::Deinit() {
+        if (!initted) {
+            error = "Framebuffer has not been initialized!";
+            return false;
+        }
+        if (created) {
+            vkDestroyFramebuffer(device->device, framebuffer, nullptr);
+            created = false;
+        }
+        initted = false;
+        return true;
+    }
+
     bool Shader::Init(VkDevice dev) {
         if (initted) {
             error = "Shader is already initialized!";
@@ -1269,8 +1477,6 @@ failure:
     ShaderRef::ShaderRef(String fn) : shader() , stage() , functionName(fn) {}
 
     ShaderRef::ShaderRef(ArrayPtr<Shader> ptr, VkShaderStageFlagBits s, String fn) : shader(ptr) , stage(s) , functionName(fn) {}
-
-    ShaderRef::ShaderRef(ArrayRange<Shader> ptr, u32 index, VkShaderStageFlagBits s, String fn) : shader(*ptr.array, ptr.index + index) , stage(s) , functionName(fn) {}
 
     Pipeline::Pipeline() {
         // Time for a WHOLE LOTTA ASSUMPTIONS
@@ -1352,6 +1558,14 @@ failure:
         if (renderPass->subpasses[subpass].referencesColor.size() != colorBlendAttachments.size()) {
             error = "You must have one colorBlendAttachment per color attachment in the associated Subpass!\nThe subpass has " + std::to_string(renderPass->subpasses[subpass].referencesColor.size()) + " color attachments while the pipeline has " + std::to_string(colorBlendAttachments.size()) + " colorBlendAttachments.";
             return false;
+        }
+        // Inherit multisampling information from renderPass
+        for (auto& attachment : renderPass->subpasses[subpass].attachments) {
+            if (attachment.accessFlags &
+                (VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)) {
+                multisampling.rasterizationSamples = renderPass->attachments[attachment.index].sampleCount;
+                break;
+            }
         }
         // First we grab our shaders
         Array<VkPipelineShaderStageCreateInfo> shaderStages(shaders.size());
@@ -1917,6 +2131,11 @@ failure:
         return &commandPools[commandPools.size()-1];
     }
 
+    Framebuffer* Device::AddFramebuffer() {
+        framebuffers.push_back(Framebuffer());
+        return &framebuffers[framebuffers.size()-1];
+    }
+
     bool Device::Init(Instance *inst) {
         PrintDashed("Initializing Logical Device");
         if (initted) {
@@ -2155,6 +2374,12 @@ failure:
                 goto failed;
             }
         }
+        // Framebuffer init phase, may allocate Memory objects with Images
+        for (auto& framebuffer : framebuffers) {
+            if (!framebuffer.Init(this)) {
+                goto failed;
+            }
+        }
         // Memory
         for (auto& memory : memories) {
             if (!memory.Init(&physicalDevice, device)) {
@@ -2196,9 +2421,16 @@ failure:
                 goto failed;
             }
         }
+        // Framebuffer create phase
+        for (auto& framebuffer : framebuffers) {
+            if (!framebuffer.Create()) {
+                goto failed;
+            }
+        }
 
         // Once the pipelines are set with all the shaders,
         // we can clean them since they're no longer needed
+        // NOTE: Unless we want to recreate the pipelines. Might reconsider this.
         for (auto& shader : shaders) {
             shader.Clean();
         }
@@ -2208,16 +2440,19 @@ failure:
         return true;
 failed:
         for (auto& swapchain : swapchains) {
-            if (swapchain.initted)
+            if (swapchain.initted) {
                 swapchain.Deinit();
+            }
         }
         for (auto& renderPass : renderPasses) {
-            if (renderPass.initted)
+            if (renderPass.initted) {
                 renderPass.Deinit();
+            }
         }
         for (auto& memory : memories) {
-            if (memory.initted)
+            if (memory.initted) {
                 memory.Deinit();
+            }
         }
         for (auto& sampler : samplers) {
             sampler.Clean();
@@ -2236,6 +2471,11 @@ failed:
         for (auto& commandPool : commandPools) {
             commandPool.Clean();
         }
+        for (auto& framebuffer : framebuffers) {
+            if (framebuffer.initted) {
+                framebuffer.Deinit();
+            }
+        }
         vkDestroyDevice(device, nullptr);
         return false;
     }
@@ -2247,16 +2487,19 @@ failed:
             return false;
         }
         for (auto& swapchain : swapchains) {
-            if (swapchain.initted)
+            if (swapchain.initted) {
                 swapchain.Deinit();
+            }
         }
         for (auto& renderPass : renderPasses) {
-            if (renderPass.initted)
+            if (renderPass.initted) {
                 renderPass.Deinit();
+            }
         }
         for (auto& memory : memories) {
-            if (memory.initted)
+            if (memory.initted) {
                 memory.Deinit();
+            }
         }
         for (auto& sampler : samplers) {
             sampler.Clean();
@@ -2272,6 +2515,11 @@ failed:
         }
         for (auto& commandPool : commandPools) {
             commandPool.Clean();
+        }
+        for (auto& framebuffer : framebuffers) {
+            if (framebuffer.initted) {
+                framebuffer.Deinit();
+            }
         }
         // Destroy everything allocated from the device here
         vkDestroyDevice(device, nullptr);
@@ -2506,6 +2754,9 @@ failed:
         // Tell everything else to initialize here
         // If it fails, clean up the instance.
         initted = true;
+        cout << "\n\n";
+        PrintDashed("Vulkan Tree Initialized");
+        cout << "\n\n";
         return true;
 failed:
         for (u32 i = 0; i < devices.size(); i++) {

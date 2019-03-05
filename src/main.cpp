@@ -77,6 +77,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     ArrayPtr<vk::Attachment> attachment[2] = {vkRenderPass->AddAttachment(), vkRenderPass->AddAttachment(vkSwapchain)};
     attachment[0]->bufferColor = true;
+    attachment[0]->bufferDepthStencil = true;
     attachment[0]->clearColor = true;
     attachment[0]->keepColor = true;
     attachment[0]->sampleCount = VK_SAMPLE_COUNT_4_BIT;
@@ -86,7 +87,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     subpass[0]->UseAttachment(attachment[0], vk::ATTACHMENT_ALL,
         VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
     subpass[1]->UseAttachment(attachment[0], vk::ATTACHMENT_RESOLVE,
-        VK_ACCESS_SHADER_READ_BIT);
+        VK_ACCESS_INPUT_ATTACHMENT_READ_BIT);
     subpass[1]->UseAttachment(attachment[1], vk::ATTACHMENT_COLOR,
         VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 
@@ -97,13 +98,12 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vk::Image image{};
     image.height = 64;
     image.width = 64;
-    image.channels = 4;
     image.format = VK_FORMAT_R8G8B8A8_UNORM;
     image.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
     image.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
     ArrayPtr<vk::Buffer> vkStagingImage = vkImageStagingMemory->AddBuffer();
-    vkStagingImage->size = image.height * image.width * image.channels;
+    vkStagingImage->size = image.height * image.width * 4;
     vkStagingImage->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
     ArrayRange<vk::Image> vkImage = vkImageMemory->AddImages(2, image);
@@ -153,8 +153,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkShaders[1].filename = "data/shaders/test.frag.spv";
 
     vk::ShaderRef vkShaderRefs[2] = {
-        vk::ShaderRef(vkShaders, 0, VK_SHADER_STAGE_VERTEX_BIT),
-        vk::ShaderRef(vkShaders, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+        vk::ShaderRef(vkShaders.GetPtr(0), VK_SHADER_STAGE_VERTEX_BIT),
+        vk::ShaderRef(vkShaders.GetPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT)
     };
 
     vk::Pipeline *vkPipeline = vkDevice->AddPipeline();
@@ -183,6 +183,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkCommandPool->transient = true;
     ArrayPtr<vk::CommandBuffer> vkCommandBuffer = vkCommandPool->AddCommandBuffer();
     vkCommandBuffer->simultaneousUse = true;
+
+    vk::Framebuffer* vkFramebuffer = vkDevice->AddFramebuffer();
+    vkFramebuffer->renderPass = vkRenderPass;
 
     if (!vkInstance.Init()) { // Do this once you've set up the structure of your program.
         cout << "Failed to initialize Vulkan: " << vk::error << std::endl;

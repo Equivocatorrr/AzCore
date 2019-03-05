@@ -81,7 +81,7 @@ namespace vk {
         VkImageAspectFlags aspectFlags;
         VkImageUsageFlags usage;
         VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
-        u32 width, height, channels, mipLevels = 1;
+        u32 width, height, mipLevels = 1;
 
         void Init(VkDevice dev);
         void Clean();
@@ -285,7 +285,7 @@ namespace vk {
         bool keepStencil = false;
         // Image formats
         VkFormat formatColor = VK_FORMAT_B8G8R8A8_UNORM;
-        VkFormat formatDepthStencil = VK_FORMAT_D24_UNORM_S8_UINT;
+        VkFormat formatDepthStencil = VK_FORMAT_D32_SFLOAT;
         // Change this to enable MSAA
         VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT;
         // Whether we should resolve our multi-sampled images
@@ -346,6 +346,7 @@ namespace vk {
         Array<Subpass> subpasses{};
         // Each can contain up to 3 actual attachments
         Array<Attachment> attachments{};
+        // TODO: Multiview renderPasses
 
         // Dependency configuration
         // Use these to transition attachment image layouts
@@ -368,6 +369,36 @@ namespace vk {
 
         ~RenderPass();
         bool Init(Device *dev);
+        bool Deinit();
+    };
+
+    /*  struct: Framebuffer
+        Author: Philip Haynes
+        All the actual images we're drawing to in a single render pass (including all subpasses).   */
+    struct Framebuffer {
+        bool initted = false, created = false;
+        Device *device = nullptr;
+        VkFramebuffer framebuffer;
+
+        // Configuration
+        RenderPass* renderPass = nullptr;
+        Array<ArrayPtr<Image>> attachmentImages{};
+        // If renderPass is connected to a swapchain, these values will be set automatically
+        u32 width=0, height=0;
+        // This means that the Framebuffer will create its own distinct memory.
+        // Disable this if you plan to allocate multiple framebuffers from a single memory pool.
+        bool ownMemory = true;
+        // If ownMemory is false, you need to provide valid Memory pointers
+        Memory* depthMemory = nullptr;
+        Memory* colorMemory = nullptr;
+        // This means that the framebuffer will automatically allocate images from the above memory.
+        // Disable this if you want more distinct control over the images.
+        bool ownImages = true;
+        // If ownImages is false, you need to provide valid attachmentImages.
+
+        ~Framebuffer();
+        bool Init(Device *dev);
+        bool Create();
         bool Deinit();
     };
 
@@ -397,7 +428,6 @@ namespace vk {
 
         ShaderRef(String fn="main");
         ShaderRef(ArrayPtr<Shader> ptr, VkShaderStageFlagBits s, String fn="main");
-        ShaderRef(ArrayRange<Shader> ptr, u32 index, VkShaderStageFlagBits s, String fn="main");
     };
 
     /*  struct: Pipeline
@@ -578,6 +608,7 @@ namespace vk {
         Array<Shader> shaders{};
         List<Pipeline> pipelines{};
         List<CommandPool> commandPools{};
+        List<Framebuffer> framebuffers{};
 
         // Manual configuration (mostly unnecessary)
         Array<const char*> extensionsRequired{};
@@ -596,6 +627,7 @@ namespace vk {
         ArrayRange<Shader> AddShaders(u32 count);
         Pipeline* AddPipeline();
         CommandPool* AddCommandPool(Queue* queue);
+        Framebuffer* AddFramebuffer();
 
         bool Init(Instance *inst);
         bool Reconfigure();

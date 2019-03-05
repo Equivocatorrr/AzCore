@@ -85,10 +85,13 @@ struct ArrayRange {
         index = i;
         size = s;
     }
-    void SetPtr(Array<T>& a, u32 i, u32 s) {
+    void SetRange(Array<T>& a, u32 i, u32 s) {
         array = &a;
         index = i;
         size = s;
+    }
+    ArrayPtr<T> GetPtr(const u32& i) {
+        return ArrayPtr<T>(*array, index+i);
     }
     T& operator[](const u32& i) {
         if (i >= size) {

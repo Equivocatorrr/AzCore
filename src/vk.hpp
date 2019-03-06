@@ -270,6 +270,11 @@ namespace vk {
         // Enabling different kinds of outputs
         bool bufferColor = false;
         bool bufferDepthStencil = false;
+        // The image layouts we expect the images to be in.
+        // You only need to change these if the contents of the images should be preserved between renderPasses.
+        // If clear is true or load is false, you can leave these be.
+        VkImageLayout initialLayoutColor = VK_IMAGE_LAYOUT_UNDEFINED;
+        VkImageLayout initialLayoutDepthStencil = VK_IMAGE_LAYOUT_UNDEFINED;
         // Whether our buffers will be cleared before use
         bool clearColor = false;
         bool clearDepth = false;
@@ -293,7 +298,7 @@ namespace vk {
 
         Attachment();
         Attachment(Swapchain *swch);
-        void Config(); // Generates basic descriptions
+        bool Config(); // Generates basic descriptions
     };
 
     enum AttachmentType {
@@ -353,6 +358,7 @@ namespace vk {
         // Initial goes from external to subpass 0
         bool initialTransition = true; // Whether we enable this transition
         // The access mask we expect the first subpass attachments to be in
+        // If we don't do anything with the attachments between frames, this should be the same as finalAccess.
         VkAccessFlags initialAccess = VK_ACCESS_MEMORY_READ_BIT;
         // The stage at which we first start using our attachments
         VkPipelineStageFlagBits initialAccessStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -378,11 +384,18 @@ namespace vk {
     struct Framebuffer {
         bool initted = false, created = false;
         Device *device = nullptr;
-        VkFramebuffer framebuffer;
+        Array<VkFramebuffer> framebuffers{};
 
         // Configuration
         RenderPass* renderPass = nullptr;
-        Array<ArrayPtr<Image>> attachmentImages{};
+        // If renderPass hooks up to a swapchain, so should the framebuffer.
+        // For swapchains with multiple buffers, we will have multiple framebuffers, one for each swapchain image.
+        // That way, we don't have to have duplicate images for back-end rendering,
+        // and only the final image should have multiple images allocated.
+        Swapchain* swapchain = nullptr;
+        // If swapchain is not nullptr, this will be set to however many swapchain images there are.
+        u32 numFramebuffers = 1;
+        Array<Array<ArrayPtr<Image>>> attachmentImages{};
         // If renderPass is connected to a swapchain, these values will be set automatically
         u32 width=0, height=0;
         // This means that the Framebuffer will create its own distinct memory.
@@ -392,7 +405,7 @@ namespace vk {
         Memory* depthMemory = nullptr;
         Memory* colorMemory = nullptr;
         // This means that the framebuffer will automatically allocate images from the above memory.
-        // Disable this if you want more distinct control over the images.
+        // Disable this if you want more precise control over the images.
         bool ownImages = true;
         // If ownImages is false, you need to provide valid attachmentImages.
 

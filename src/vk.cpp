@@ -278,22 +278,22 @@ namespace vk {
 
     ArrayPtr<Image> Memory::AddImage(Image image) {
         images.push_back(image);
-        return ArrayPtr<Image>(images, images.size()-1);
+        return ArrayPtr<Image>(&images, images.size()-1);
     }
 
     ArrayPtr<Buffer> Memory::AddBuffer(Buffer buffer) {
         buffers.push_back(buffer);
-        return ArrayPtr<Buffer>(buffers, buffers.size()-1);
+        return ArrayPtr<Buffer>(&buffers, buffers.size()-1);
     }
 
     ArrayRange<Image> Memory::AddImages(u32 count, Image image) {
         images.resize(images.size()+count, image);
-        return ArrayRange<Image>(images, images.size()-count, count);
+        return ArrayRange<Image>(&images, images.size()-count, count);
     }
 
     ArrayRange<Buffer> Memory::AddBuffers(u32 count, Buffer buffer) {
         buffers.resize(buffers.size()+count, buffer);
-        return ArrayRange<Buffer>(buffers, buffers.size()-count, count);
+        return ArrayRange<Buffer>(&buffers, buffers.size()-count, count);
     }
 
     bool Memory::Init(PhysicalDevice *phy, VkDevice dev) {
@@ -635,11 +635,11 @@ failure:
     }
 
     bool DescriptorSet::AddDescriptor(ArrayPtr<Buffer> buffer, u32 binding) {
-        return AddDescriptor(ArrayRange<Buffer>(*buffer.array, buffer.index, 1), binding);
+        return AddDescriptor(ArrayRange<Buffer>(buffer.array, buffer.index, 1), binding);
     }
 
     bool DescriptorSet::AddDescriptor(ArrayPtr<Image> image, ArrayPtr<Sampler> sampler, u32 binding) {
-        return AddDescriptor(ArrayRange<Image>(*image.array, image.index, 1), sampler, binding);
+        return AddDescriptor(ArrayRange<Image>(image.array, image.index, 1), sampler, binding);
     }
 
     Descriptors::~Descriptors() {
@@ -652,14 +652,14 @@ failure:
 
     ArrayPtr<DescriptorLayout> Descriptors::AddLayout() {
         layouts.push_back(DescriptorLayout());
-        return ArrayPtr<DescriptorLayout>(layouts, layouts.size()-1);
+        return ArrayPtr<DescriptorLayout>(&layouts, layouts.size()-1);
     }
 
     ArrayPtr<DescriptorSet> Descriptors::AddSet(ArrayPtr<DescriptorLayout> layout) {
         DescriptorSet set{};
         set.layout = layout;
         sets.push_back(set);
-        return ArrayPtr<DescriptorSet>(sets, sets.size()-1);
+        return ArrayPtr<DescriptorSet>(&sets, sets.size()-1);
     }
 
     bool Descriptors::Create() {
@@ -818,12 +818,16 @@ failure:
         }
     }
 
-    void Attachment::Config() {
+    bool Attachment::Config() {
         if (swapchain != nullptr) {
             formatColor = swapchain->surfaceFormat.format;
         }
         descriptions.resize(0);
         if (bufferColor) {
+            if (initialLayoutColor == VK_IMAGE_LAYOUT_UNDEFINED && loadColor) {
+                error = "For the contents of this attachment to be loaded, you must specify an initialLayout for Color.";
+                return false;
+            }
             if (sampleCount != VK_SAMPLE_COUNT_1_BIT && resolveColor) {
                 // SSAA enabled, first attachment should be multisampled color buffer
                 VkAttachmentDescription description{};
@@ -844,15 +848,14 @@ failure:
                 description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
                 description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
-                if (loadColor) {
-                    description.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                } else {
-                    description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-                }
+                description.initialLayout = initialLayoutColor;
                 description.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
                 descriptions.push_back(description);
+
                 // Next attachment should be the color buffer we resolve to
+
                 // Keep same format.
+
                 description.samples = VK_SAMPLE_COUNT_1_BIT;
 
                 description.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -863,8 +866,13 @@ failure:
                 }
 
                 // We don't care about the stencil since we're a color buffer.
+
                 description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-                // We also keep the same final layout as the first attachment.
+                if (swapchain != nullptr) {
+                    description.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+                } else {
+                    description.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                }
                 descriptions.push_back(description);
             } else {
                 // Resolving disabled or unnecessary
@@ -889,8 +897,12 @@ failure:
                 description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
                 description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
-                description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-                description.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                description.initialLayout = initialLayoutColor;
+                if (swapchain != nullptr) {
+                    description.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+                } else {
+                    description.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                }
                 descriptions.push_back(description);
             }
         }
@@ -930,10 +942,17 @@ failure:
                 description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
             }
 
-            description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            if (initialLayoutDepthStencil == VK_IMAGE_LAYOUT_UNDEFINED
+            && (loadDepth || loadStencil)) {
+                error = "For the contents of this attachment to be loaded, you must specify an initialLayout for DepthStencil.";
+                return false;
+            }
+
+            description.initialLayout = initialLayoutDepthStencil;
             description.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
             descriptions.push_back(description);
         }
+        return true;
     }
 
     void Subpass::UseAttachment(ArrayPtr<Attachment> attachment, AttachmentType type, VkAccessFlags accessFlags) {
@@ -943,12 +962,12 @@ failure:
 
     ArrayPtr<Subpass> RenderPass::AddSubpass() {
         subpasses.push_back(Subpass());
-        return ArrayPtr<Subpass>(subpasses, subpasses.size()-1);
+        return ArrayPtr<Subpass>(&subpasses, subpasses.size()-1);
     }
 
     ArrayPtr<Attachment> RenderPass::AddAttachment(Swapchain *swapchain) {
         attachments.push_back(Attachment(swapchain));
-        return ArrayPtr<Attachment>(attachments, attachments.size()-1);
+        return ArrayPtr<Attachment>(&attachments, attachments.size()-1);
     }
 
     RenderPass::~RenderPass() {
@@ -975,7 +994,10 @@ failure:
         }
         // First we need to configure our subpass attachments
         for (u32 i = 0; i < attachments.size(); i++) {
-            attachments[i].Config();
+            if (!attachments[i].Config()) {
+                error = "With attachment[" + std::to_string(i) + "]: " + error;
+                return false;
+            }
         }
         // Then we concatenate our attachmentDescriptions from the Attachments
         u32 nextAttachmentIndex = 0; // Since each Attachment can map to multiple attachments
@@ -1277,17 +1299,39 @@ failure:
             return false;
         }
         bool depth = false, color = false;
+        bool sameSwapchain = true;
         for (auto& attachment : renderPass->attachments) {
+            if (attachment.swapchain != nullptr && swapchain != nullptr) {
+                if (attachment.swapchain != swapchain) {
+                    sameSwapchain = false;
+                    if (attachment.swapchain->surfaceFormat.format != swapchain->surfaceFormat.format) {
+                        error = "Framebuffer swapchain differing from RenderPass swapchain: Surface formats do not match!";
+                        return false;
+                    }
+                }
+            }
+            if (attachment.swapchain != nullptr && swapchain == nullptr) {
+                error = "RenderPass is connected to a swapchain, but this Framebuffer is not!";
+                return false;
+            }
             if (attachment.bufferDepthStencil) {
                 depth = true;
             }
             if (attachment.bufferColor) {
-                color = true;
+                if (attachment.swapchain == nullptr
+                || (attachment.resolveColor && attachment.sampleCount != VK_SAMPLE_COUNT_1_BIT)) {
+                    color = true;
+                }
             }
-            if (attachment.swapchain != nullptr) {
-                width = attachment.swapchain->extent.width;
-                height = attachment.swapchain->extent.height;
-            }
+        }
+        if (!sameSwapchain) {
+            cout << "Warning: Framebuffer is using a different swapchain than RenderPass! This may be valid for swapchains that have the same surface formats, but that is not guaranteed to be the case.";
+            return false;
+        }
+        if (swapchain != nullptr) {
+            numFramebuffers = swapchain->imageCount;
+            width = swapchain->extent.width;
+            height = swapchain->extent.height;
         }
         cout << "Width: " << width << "  Height: " << height << std::endl;
         if (ownMemory) {
@@ -1325,6 +1369,7 @@ failure:
                 return false;
             }
             if (attachmentImages.size() == 0) {
+                Array<ArrayPtr<Image>> ourImages{};
                 // Create Images according to the RenderPass attachments
                 u32 i = 0;
                 for (auto& attachment : renderPass->attachmentDescriptions) {
@@ -1337,43 +1382,78 @@ failure:
                         cout << "Adding color image " << i << " to colorMemory." << std::endl;
                         image.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
                         image.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-                        attachmentImages.push_back(colorMemory->AddImage(image));
+                        ourImages.push_back(colorMemory->AddImage(image));
                     } else if (attachment.finalLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
                         cout << "Adding depth image " << i << " to depthMemory." << std::endl;
                         image.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
                         image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-                        attachmentImages.push_back(depthMemory->AddImage(image));
+                        ourImages.push_back(depthMemory->AddImage(image));
+                    } else if (attachment.finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+                        cout << "Adding null image " << i << " for replacement with swapchain images." << std::endl;
+                        ourImages.push_back(ArrayPtr<Image>());
                     }
                     i++;
                 }
                 // Now we need to make sure we know which images are also being used as input attachments
                 for (auto& subpass : renderPass->subpasses) {
                     for (auto& input : subpass.referencesInput) {
-                        attachmentImages[input.attachment]->usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+                        ourImages[input.attachment]->usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+                    }
+                }
+                // Now add ourImages to each index of attachmentImages
+                attachmentImages.resize(numFramebuffers, ourImages);
+                // Now replace any null ArrayPtr's with the actual swapchain images
+                for (u32 i = 0; i < numFramebuffers; i++) {
+                    bool once = false;
+                    for (auto& ptr : attachmentImages[i]) {
+                        if (ptr.array == nullptr) {
+                            if (once) {
+                                error = "You can't have multiple swapchain images in a single framebuffer!";
+                                return false;
+                            }
+                            once = true;
+                            ptr.SetPtr(&swapchain->images, i);
+                        }
                     }
                 }
             } else {
                 // Probably resizing
-                for (auto& attachment : attachmentImages) {
+                for (auto& attachment : attachmentImages[0]) {
                     attachment->width = width;
                     attachment->height = height;
                 }
             }
         } else {
             // Verify the images are set up correctly
-            if (attachmentImages.size() != renderPass->attachmentDescriptions.size()) {
-                error = "RenderPass expects " + std::to_string(renderPass->attachmentDescriptions.size())
-                      + " attachment images but this framebuffer only has " + std::to_string(attachmentImages.size()) + ".";
+            if (attachmentImages.size() != numFramebuffers) {
+                error = "attachmentImages must have the size numFramebuffers.";
                 return false;
             }
-            if (attachmentImages.size() == 0) {
-                error = "Framebuffer has no attachment images!";
-                return false;
-            }
-            for (u32 i = 1; i < attachmentImages.size(); i++) {
-                if (attachmentImages[i]->width != width || attachmentImages[i]->height != height) {
-                    error = "All attached images must be the same width and height!";
+            for (u32 i = 0; i < numFramebuffers; i++) {
+                if (attachmentImages[i].size() == 0) {
+                    error = "Framebuffer has no attachment images!";
                     return false;
+                }
+                if (attachmentImages[i].size() != renderPass->attachmentDescriptions.size()) {
+                    error = "RenderPass expects " + std::to_string(renderPass->attachmentDescriptions.size())
+                    + " attachment images but this framebuffer only has " + std::to_string(attachmentImages.size()) + ".";
+                    return false;
+                }
+                if (i >= 1) {
+                    if (attachmentImages[i-1].size() != attachmentImages[i].size()) {
+                        error = "attachmentImages[" + std::to_string(i-1) + "].size() is "
+                              + std::to_string(attachmentImages[i-1].size())
+                              + " while attachmentImages[" + std::to_string(i) + "].size() is "
+                              + std::to_string(attachmentImages[i].size())
+                              + ". These must be equal across every framebuffer!";
+                        return false;
+                    }
+                }
+                for (u32 j = 0; j < attachmentImages[i].size(); j++) {
+                    if (attachmentImages[i][j]->width != width || attachmentImages[i][j]->height != height) {
+                        error = "All attached images must be the same width and height!";
+                        return false;
+                    }
                 }
             }
         }
@@ -1387,28 +1467,32 @@ failure:
             error = "Framebuffer already exists!";
             return false;
         }
-        Array<VkImageView> attachments(attachmentImages.size());
-        for (u32 i = 0; i < attachmentImages.size(); i++) {
-            if (!attachmentImages[i]->imageViewExists) {
-                error = "Framebuffer attachment " + std::to_string(i) + "'s image view has not been created!";
+        cout << "Making " << numFramebuffers << " total framebuffers." << std::endl;
+        framebuffers.resize(numFramebuffers);
+        for (u32 fb = 0; fb < numFramebuffers; fb++) {
+            Array<VkImageView> attachments(attachmentImages[0].size());
+            for (u32 i = 0; i < attachmentImages[fb].size(); i++) {
+                if (!attachmentImages[fb][i]->imageViewExists) {
+                    error = "Framebuffer attachment " + std::to_string(i) + "'s image view has not been created!";
+                    return false;
+                }
+                attachments[i] = attachmentImages[fb][i]->imageView;
+            }
+            VkFramebufferCreateInfo createInfo{};
+            createInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+            createInfo.renderPass = renderPass->renderPass;
+            createInfo.width = width;
+            createInfo.height = height;
+            createInfo.layers = 1;
+            createInfo.attachmentCount = attachments.size();
+            createInfo.pAttachments = attachments.data();
+
+            VkResult result = vkCreateFramebuffer(device->device, &createInfo, nullptr, &framebuffers[fb]);
+
+            if (result != VK_SUCCESS) {
+                error = "Failed to create framebuffers[" + std::to_string(fb) + "]: " + ErrorString(result);
                 return false;
             }
-            attachments[i] = attachmentImages[i]->imageView;
-        }
-        VkFramebufferCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        createInfo.renderPass = renderPass->renderPass;
-        createInfo.width = width;
-        createInfo.height = height;
-        createInfo.layers = 1;
-        createInfo.attachmentCount = attachments.size();
-        createInfo.pAttachments = attachments.data();
-
-        VkResult result = vkCreateFramebuffer(device->device, &createInfo, nullptr, &framebuffer);
-
-        if (result != VK_SUCCESS) {
-            error = "Failed to create framebuffer: " + ErrorString(result);
-            return false;
         }
         created = true;
         return true;
@@ -1420,7 +1504,9 @@ failure:
             return false;
         }
         if (created) {
-            vkDestroyFramebuffer(device->device, framebuffer, nullptr);
+            for (u32 i = 0; i < framebuffers.size(); i++) {
+                vkDestroyFramebuffer(device->device, framebuffers[i], nullptr);
+            }
             created = false;
         }
         initted = false;
@@ -1702,7 +1788,7 @@ failure:
 
     ArrayPtr<CommandBuffer> CommandPool::AddCommandBuffer() {
         commandBuffers.push_back(CommandBuffer());
-        return ArrayPtr<CommandBuffer>(commandBuffers, commandBuffers.size()-1);
+        return ArrayPtr<CommandBuffer>(&commandBuffers, commandBuffers.size()-1);
     }
 
     CommandBuffer* CommandPool::CreateDynamicBuffer(bool secondary) {
@@ -2122,7 +2208,7 @@ failure:
 
     ArrayPtr<Sampler> Device::AddSampler() {
         samplers.push_back(Sampler());
-        return ArrayPtr<Sampler>(samplers, samplers.size()-1);
+        return ArrayPtr<Sampler>(&samplers, samplers.size()-1);
     }
 
     Memory* Device::AddMemory() {
@@ -2137,12 +2223,12 @@ failure:
 
     ArrayPtr<Shader> Device::AddShader() {
         shaders.push_back(Shader());
-        return ArrayPtr<Shader>(shaders, shaders.size()-1);
+        return ArrayPtr<Shader>(&shaders, shaders.size()-1);
     }
 
     ArrayRange<Shader> Device::AddShaders(u32 count) {
         shaders.resize(shaders.size()+count);
-        return ArrayRange<Shader>(shaders, shaders.size()-count, count);
+        return ArrayRange<Shader>(&shaders, shaders.size()-count, count);
     }
 
     Pipeline* Device::AddPipeline() {
@@ -2586,7 +2672,7 @@ failed:
         Window w;
         w.surfaceWindow = window;
         windows.push_back(w);
-        return ArrayPtr<Window>(windows, windows.size()-1);
+        return ArrayPtr<Window>(&windows, windows.size()-1);
     }
 
     void Instance::AddExtensions(Array<const char*> extensions) {

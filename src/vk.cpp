@@ -73,17 +73,36 @@ namespace vk {
         cout << std::endl;
     }
 
-    String FormatSize(u32 size) {
+    String FormatSize(u64 size) {
         String str = "";
+        bool space = false;
+        if (size > 1024*1024*1024) {
+            str = std::to_string(size/(1024*1024*1024)) + " GiB";
+            size %= (1024*1024*1024);
+            space = true;
+        }
         if (size > 1024*1024) {
-            str = std::to_string(size/(1024*1024)) + "MB ";
+            if (space) {
+                str += ", ";
+            }
+            str = std::to_string(size/(1024*1024)) + " MiB";
             size %= (1024*1024);
+            space = true;
         }
         if (size > 1024) {
-            str += std::to_string(size/1024) + "KB ";
+            if (space) {
+                str += ", ";
+            }
+            str += std::to_string(size/1024) + " KiB";
             size %= 1024;
+            space = true;
         }
-        str += std::to_string(size) + "B";
+        if (size > 0) {
+            if (space) {
+                str += ", ";
+            }
+            str += std::to_string(size) + " B";
+        }
         return str;
     }
 
@@ -138,7 +157,7 @@ namespace vk {
             if (memoryProperties.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
                 deviceLocalMemory += memoryProperties.memoryHeaps[i].size;
         }
-        cout << "Memory: " << deviceLocalMemory/1024/1024 << "MB" << std::endl;
+        cout << "Memory: " << FormatSize(deviceLocalMemory) << std::endl;
         // Queue families
         cout << "Queue Families:";
         for (u32 i = 0; i < queueFamiliesAvailable.size(); i++) {
@@ -1490,6 +1509,9 @@ failure:
             VkResult result = vkCreateFramebuffer(device->device, &createInfo, nullptr, &framebuffers[fb]);
 
             if (result != VK_SUCCESS) {
+                for (fb--; fb >= 0; fb--) {
+                    vkDestroyFramebuffer(device->device, framebuffers[fb], nullptr);
+                }
                 error = "Failed to create framebuffers[" + std::to_string(fb) + "]: " + ErrorString(result);
                 return false;
             }

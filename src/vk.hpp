@@ -28,15 +28,6 @@ namespace vk {
 
     extern String error;
 
-    /*  enum: Type
-        Author: Philip Haynes
-        How Nodes know what other Nodes are.    */
-    enum Type {
-        UNKNOWN=0,
-        INSTANCE,
-        LOGICAL_DEVICE,
-    };
-
     /*  struct: Window
         Author: Philip Haynes
         Everything we need to know about a window to use it for drawing     */

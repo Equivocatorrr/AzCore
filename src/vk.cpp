@@ -26,36 +26,36 @@ namespace vk {
 
     String ErrorString(VkResult errorCode) {
         // Thanks to Sascha Willems for this snippet! :D
-		switch (errorCode) {
+        switch (errorCode) {
 #define STR(r) case VK_ ##r: return #r
-			STR(NOT_READY);
-			STR(TIMEOUT);
-			STR(EVENT_SET);
-			STR(EVENT_RESET);
-			STR(INCOMPLETE);
-			STR(ERROR_OUT_OF_HOST_MEMORY);
-			STR(ERROR_OUT_OF_DEVICE_MEMORY);
-			STR(ERROR_INITIALIZATION_FAILED);
-			STR(ERROR_DEVICE_LOST);
-			STR(ERROR_MEMORY_MAP_FAILED);
-			STR(ERROR_LAYER_NOT_PRESENT);
-			STR(ERROR_EXTENSION_NOT_PRESENT);
-			STR(ERROR_FEATURE_NOT_PRESENT);
-			STR(ERROR_INCOMPATIBLE_DRIVER);
-			STR(ERROR_TOO_MANY_OBJECTS);
-			STR(ERROR_FORMAT_NOT_SUPPORTED);
-			STR(ERROR_SURFACE_LOST_KHR);
-			STR(ERROR_NATIVE_WINDOW_IN_USE_KHR);
-			STR(SUBOPTIMAL_KHR);
-			STR(ERROR_OUT_OF_DATE_KHR);
-			STR(ERROR_INCOMPATIBLE_DISPLAY_KHR);
-			STR(ERROR_VALIDATION_FAILED_EXT);
-			STR(ERROR_INVALID_SHADER_NV);
+            STR(NOT_READY);
+            STR(TIMEOUT);
+            STR(EVENT_SET);
+            STR(EVENT_RESET);
+            STR(INCOMPLETE);
+            STR(ERROR_OUT_OF_HOST_MEMORY);
+            STR(ERROR_OUT_OF_DEVICE_MEMORY);
+            STR(ERROR_INITIALIZATION_FAILED);
+            STR(ERROR_DEVICE_LOST);
+            STR(ERROR_MEMORY_MAP_FAILED);
+            STR(ERROR_LAYER_NOT_PRESENT);
+            STR(ERROR_EXTENSION_NOT_PRESENT);
+            STR(ERROR_FEATURE_NOT_PRESENT);
+            STR(ERROR_INCOMPATIBLE_DRIVER);
+            STR(ERROR_TOO_MANY_OBJECTS);
+            STR(ERROR_FORMAT_NOT_SUPPORTED);
+            STR(ERROR_SURFACE_LOST_KHR);
+            STR(ERROR_NATIVE_WINDOW_IN_USE_KHR);
+            STR(SUBOPTIMAL_KHR);
+            STR(ERROR_OUT_OF_DATE_KHR);
+            STR(ERROR_INCOMPATIBLE_DISPLAY_KHR);
+            STR(ERROR_VALIDATION_FAILED_EXT);
+            STR(ERROR_INVALID_SHADER_NV);
 #undef STR
-		default:
-			return "UNKNOWN_ERROR";
-		}
-	}
+        default:
+            return "UNKNOWN_ERROR";
+        }
+    }
 
     void PrintDashed(String str) {
         i32 width = 80-(i32)str.size();
@@ -194,74 +194,74 @@ namespace vk {
     }
 
     void Image::Clean() {
-		if (imageViewExists) {
-			vkDestroyImageView(device, imageView, nullptr);
-			imageViewExists = false;
-		}
-		if (imageExists) {
-			vkDestroyImage(device, image, nullptr);
-			imageExists = false;
-		}
-	}
+        if (imageViewExists) {
+            vkDestroyImageView(device, imageView, nullptr);
+            imageViewExists = false;
+        }
+        if (imageExists) {
+            vkDestroyImage(device, image, nullptr);
+            imageExists = false;
+        }
+    }
 
     bool Image::CreateImage(bool hostVisible) {
         if (imageExists) {
             error = "Attempting to create image that already exists!";
             return false;
         }
-		VkImageCreateInfo imageInfo{};
+        VkImageCreateInfo imageInfo{};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageInfo.extent.width = width;
-		imageInfo.extent.height = height;
-		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = mipLevels;
-		imageInfo.arrayLayers = 1; // TODO: Animations?
-		imageInfo.format = format;
-		imageInfo.tiling = hostVisible ? VK_IMAGE_TILING_LINEAR : VK_IMAGE_TILING_OPTIMAL;
-		imageInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-		imageInfo.usage = usage;
-		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		imageInfo.samples = samples;
-		imageInfo.flags = 0;
+        imageInfo.imageType = VK_IMAGE_TYPE_2D;
+        imageInfo.extent.width = width;
+        imageInfo.extent.height = height;
+        imageInfo.extent.depth = 1;
+        imageInfo.mipLevels = mipLevels;
+        imageInfo.arrayLayers = 1; // TODO: Animations?
+        imageInfo.format = format;
+        imageInfo.tiling = hostVisible ? VK_IMAGE_TILING_LINEAR : VK_IMAGE_TILING_OPTIMAL;
+        imageInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+        imageInfo.usage = usage;
+        imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        imageInfo.samples = samples;
+        imageInfo.flags = 0;
 
         VkResult result = vkCreateImage(device, &imageInfo, nullptr, &image);
-		if (result != VK_SUCCESS) {
-			error = "Failed to create image: " + ErrorString(result);
-			return false;
-		}
-		imageExists = true;
+        if (result != VK_SUCCESS) {
+            error = "Failed to create image: " + ErrorString(result);
+            return false;
+        }
+        imageExists = true;
         return true;
-	}
+    }
 
     bool Image::CreateImageView() {
         if (imageViewExists) {
             error = "Attempting to create an image view that already exists!";
             return false;
         }
-		VkImageViewCreateInfo createInfo{};
+        VkImageViewCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		createInfo.image = image;
-		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		createInfo.format = format;
-		createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-		createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-		createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-		createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-		createInfo.subresourceRange.aspectMask = aspectFlags;
-		createInfo.subresourceRange.baseMipLevel = 0;
-		createInfo.subresourceRange.levelCount = mipLevels;
-		createInfo.subresourceRange.baseArrayLayer = 0;
-		createInfo.subresourceRange.layerCount = 1;
+        createInfo.image = image;
+        createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        createInfo.format = format;
+        createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.subresourceRange.aspectMask = aspectFlags;
+        createInfo.subresourceRange.baseMipLevel = 0;
+        createInfo.subresourceRange.levelCount = mipLevels;
+        createInfo.subresourceRange.baseArrayLayer = 0;
+        createInfo.subresourceRange.layerCount = 1;
 
         VkResult result = vkCreateImageView(device, &createInfo, nullptr, &imageView);
-		if (result != VK_SUCCESS) {
+        if (result != VK_SUCCESS) {
             error = "Failed to create image view: " + ErrorString(result);
-			return false;
-		}
-		imageViewExists = true;
+            return false;
+        }
+        imageViewExists = true;
         return true;
-	}
+    }
 
     void Buffer::Init(VkDevice dev) {
         device = dev;
@@ -524,28 +524,28 @@ failure:
         VkSamplerCreateInfo createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
         createInfo.magFilter = magFilter;
-		createInfo.minFilter = minFilter;
-		createInfo.addressModeU = addressModeU;
-		createInfo.addressModeV = addressModeV;
-		createInfo.addressModeW = addressModeW;
+        createInfo.minFilter = minFilter;
+        createInfo.addressModeU = addressModeU;
+        createInfo.addressModeV = addressModeV;
+        createInfo.addressModeW = addressModeW;
         createInfo.maxAnisotropy = anisotropy;
-		if (anisotropy != 1) {
-			createInfo.anisotropyEnable = VK_TRUE;
-		} else {
-			createInfo.anisotropyEnable = VK_FALSE;
-		}
-		createInfo.borderColor = borderColor;
-		createInfo.unnormalizedCoordinates = (VkBool32)unnormalizedCoordinates;
-		createInfo.compareOp = compareOp;
+        if (anisotropy != 1) {
+            createInfo.anisotropyEnable = VK_TRUE;
+        } else {
+            createInfo.anisotropyEnable = VK_FALSE;
+        }
+        createInfo.borderColor = borderColor;
+        createInfo.unnormalizedCoordinates = (VkBool32)unnormalizedCoordinates;
+        createInfo.compareOp = compareOp;
         if (compareOp == VK_COMPARE_OP_NEVER) {
             createInfo.compareEnable = VK_FALSE;
         } else {
             createInfo.compareEnable = VK_TRUE;
         }
-		createInfo.mipmapMode = mipmapMode;
-		createInfo.mipLodBias = mipLodBias;
-		createInfo.minLod = minLod;
-		createInfo.maxLod = maxLod;
+        createInfo.mipmapMode = mipmapMode;
+        createInfo.mipLodBias = mipLodBias;
+        createInfo.minLod = minLod;
+        createInfo.maxLod = maxLod;
 
         VkResult result = vkCreateSampler(device, &createInfo, nullptr, &sampler);
 
@@ -1594,45 +1594,45 @@ failure:
         inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-		rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-		rasterizer.depthClampEnable = VK_FALSE;
-		rasterizer.rasterizerDiscardEnable = VK_FALSE;
-		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-		rasterizer.lineWidth = 1.0;
-		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-		rasterizer.depthBiasEnable = VK_FALSE;
-		rasterizer.depthBiasConstantFactor = 0.0;
-		rasterizer.depthBiasClamp = 0.0;
-		rasterizer.depthBiasSlopeFactor = 0.0;
+        rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+        rasterizer.depthClampEnable = VK_FALSE;
+        rasterizer.rasterizerDiscardEnable = VK_FALSE;
+        rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+        rasterizer.lineWidth = 1.0;
+        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+        rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+        rasterizer.depthBiasEnable = VK_FALSE;
+        rasterizer.depthBiasConstantFactor = 0.0;
+        rasterizer.depthBiasClamp = 0.0;
+        rasterizer.depthBiasSlopeFactor = 0.0;
 
-		multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-		multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-		multisampling.minSampleShading = 1.0;
-		multisampling.pSampleMask = nullptr;
-		multisampling.alphaToCoverageEnable = VK_FALSE;
-		multisampling.alphaToOneEnable = VK_FALSE;
+        multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+        multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        multisampling.minSampleShading = 1.0;
+        multisampling.pSampleMask = nullptr;
+        multisampling.alphaToCoverageEnable = VK_FALSE;
+        multisampling.alphaToOneEnable = VK_FALSE;
 
-		depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-		depthStencil.depthTestEnable = VK_FALSE;
-		depthStencil.depthWriteEnable = VK_FALSE;
-		depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
-		depthStencil.depthBoundsTestEnable = VK_FALSE;
-		depthStencil.minDepthBounds = 0.0;
-		depthStencil.maxDepthBounds = 1.0;
-		depthStencil.stencilTestEnable = VK_FALSE;
-		depthStencil.front = {};
-		depthStencil.back = {};
+        depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+        depthStencil.depthTestEnable = VK_FALSE;
+        depthStencil.depthWriteEnable = VK_FALSE;
+        depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+        depthStencil.depthBoundsTestEnable = VK_FALSE;
+        depthStencil.minDepthBounds = 0.0;
+        depthStencil.maxDepthBounds = 1.0;
+        depthStencil.stencilTestEnable = VK_FALSE;
+        depthStencil.front = {};
+        depthStencil.back = {};
 
-		colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-		colorBlending.logicOpEnable = VK_FALSE;
-		colorBlending.logicOp = VK_LOGIC_OP_COPY;
-		colorBlending.blendConstants[0] = 0.0;
-		colorBlending.blendConstants[1] = 0.0;
-		colorBlending.blendConstants[2] = 0.0;
-		colorBlending.blendConstants[3] = 0.0;
+        colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+        colorBlending.logicOpEnable = VK_FALSE;
+        colorBlending.logicOp = VK_LOGIC_OP_COPY;
+        colorBlending.blendConstants[0] = 0.0;
+        colorBlending.blendConstants[1] = 0.0;
+        colorBlending.blendConstants[2] = 0.0;
+        colorBlending.blendConstants[3] = 0.0;
     }
 
     Pipeline::~Pipeline() {
@@ -1726,18 +1726,18 @@ failure:
 
         VkPipelineViewportStateCreateInfo viewportState{};
         viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-		viewportState.viewportCount = 1;
-		viewportState.pViewports = &viewport;
-		viewportState.scissorCount = 1;
-		viewportState.pScissors = &scissor;
+        viewportState.viewportCount = 1;
+        viewportState.pViewports = &viewport;
+        viewportState.scissorCount = 1;
+        viewportState.pScissors = &scissor;
         // Color blending
         colorBlending.attachmentCount = colorBlendAttachments.size();
-		colorBlending.pAttachments = colorBlendAttachments.data();
+        colorBlending.pAttachments = colorBlendAttachments.data();
         // Dynamic states
         VkPipelineDynamicStateCreateInfo dynamicState{};
         dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-		dynamicState.dynamicStateCount = dynamicStates.size();
-		dynamicState.pDynamicStates = dynamicStates.data();
+        dynamicState.dynamicStateCount = dynamicStates.size();
+        dynamicState.pDynamicStates = dynamicStates.data();
         // Pipeline layout
         Array<VkDescriptorSetLayout> descriptorSetLayouts(descriptorLayouts.size());
         for (u32 i = 0; i < descriptorLayouts.size(); i++) {
@@ -1750,10 +1750,10 @@ failure:
         // TODO: Separate out pipeline layouts
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = descriptorSetLayouts.size();
-		pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
-		pipelineLayoutInfo.pushConstantRangeCount = pushConstantRanges.size();
-		pipelineLayoutInfo.pPushConstantRanges = pushConstantRanges.data();
+        pipelineLayoutInfo.setLayoutCount = descriptorSetLayouts.size();
+        pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
+        pipelineLayoutInfo.pushConstantRangeCount = pushConstantRanges.size();
+        pipelineLayoutInfo.pPushConstantRanges = pushConstantRanges.data();
 
         VkResult result;
         result = vkCreatePipelineLayout(device->device, &pipelineLayoutInfo, nullptr, &layout);
@@ -1764,21 +1764,23 @@ failure:
         // Pipeline time!
         VkGraphicsPipelineCreateInfo pipelineInfo{};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-		pipelineInfo.stageCount = shaderStages.size();
-		pipelineInfo.pStages = shaderStages.data();
-		pipelineInfo.pVertexInputState = &vertexInputInfo;
-		pipelineInfo.pInputAssemblyState = &inputAssembly;
-		pipelineInfo.pViewportState = &viewportState;
-		pipelineInfo.pRasterizationState = &rasterizer;
-		pipelineInfo.pMultisampleState = &multisampling;
-		pipelineInfo.pDepthStencilState = &depthStencil;
-		pipelineInfo.pColorBlendState = &colorBlending;
-		pipelineInfo.pDynamicState = &dynamicState;
-		pipelineInfo.layout = layout;
-		pipelineInfo.renderPass = renderPass->renderPass;
-		pipelineInfo.subpass = subpass;
-		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
-		pipelineInfo.basePipelineIndex = -1;
+        pipelineInfo.stageCount = shaderStages.size();
+        pipelineInfo.pStages = shaderStages.data();
+        pipelineInfo.pVertexInputState = &vertexInputInfo;
+        pipelineInfo.pInputAssemblyState = &inputAssembly;
+        pipelineInfo.pViewportState = &viewportState;
+        pipelineInfo.pRasterizationState = &rasterizer;
+        pipelineInfo.pMultisampleState = &multisampling;
+        pipelineInfo.pDepthStencilState = &depthStencil;
+        pipelineInfo.pColorBlendState = &colorBlending;
+        if (dynamicStates.size() != 0) {
+            pipelineInfo.pDynamicState = &dynamicState;
+        }
+        pipelineInfo.layout = layout;
+        pipelineInfo.renderPass = renderPass->renderPass;
+        pipelineInfo.subpass = subpass;
+        pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+        pipelineInfo.basePipelineIndex = -1;
 
         result = vkCreateGraphicsPipelines(device->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
         if (result != VK_SUCCESS) {
@@ -2153,28 +2155,28 @@ failure:
                 presentMode = presentModes[0];
                 found = true;
             }
-    		if (!found) {
-        		error = "No adequate present modes available! ¯\\_(ツ)_/¯";
+            if (!found) {
+                error = "No adequate present modes available! ¯\\_(ツ)_/¯";
                 return false;
-    		}
+            }
             cout << "Present Mode: ";
             switch(presentMode) {
-    			case VK_PRESENT_MODE_FIFO_KHR:
-    				cout << "VK_PRESENT_MODE_FIFO_KHR" << std::endl;
-    				break;
-    			case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
-    				cout << "VK_PRESENT_MODE_FIFO_RELAXED_KHR" << std::endl;
-    				break;
-    			case VK_PRESENT_MODE_MAILBOX_KHR:
-    				cout << "VK_PRESENT_MODE_MAILBOX_KHR" << std::endl;
-    				break;
-    			case VK_PRESENT_MODE_IMMEDIATE_KHR:
-    				cout << "VK_PRESENT_MODE_IMMEDIATE_KHR" << std::endl;
-    				break;
-    			default:
-    				cout << "wtf the fuck" << std::endl;
-    				break;
-    		}
+                case VK_PRESENT_MODE_FIFO_KHR:
+                    cout << "VK_PRESENT_MODE_FIFO_KHR" << std::endl;
+                    break;
+                case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
+                    cout << "VK_PRESENT_MODE_FIFO_RELAXED_KHR" << std::endl;
+                    break;
+                case VK_PRESENT_MODE_MAILBOX_KHR:
+                    cout << "VK_PRESENT_MODE_MAILBOX_KHR" << std::endl;
+                    break;
+                case VK_PRESENT_MODE_IMMEDIATE_KHR:
+                    cout << "VK_PRESENT_MODE_IMMEDIATE_KHR" << std::endl;
+                    break;
+                default:
+                    cout << "wtf the fuck" << std::endl;
+                    break;
+            }
         }
         // Now we gotta find our extent
         if (surfaceCapabilities.currentExtent.width != std::numeric_limits<u32>::max()) {
@@ -2236,7 +2238,7 @@ failure:
             createInfo.oldSwapchain = oldSwapchain;
         }
 
-		VkSwapchainKHR newSwapchain;
+        VkSwapchainKHR newSwapchain;
         VkResult result = vkCreateSwapchainKHR(device->device, &createInfo, nullptr, &newSwapchain);
         if (result != VK_SUCCESS) {
             error = "Failed to create swap chain: ";

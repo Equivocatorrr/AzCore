@@ -9,6 +9,10 @@
           but rather to reduce the total amount of code necessary to write in order
           to make good use of it. It does this by making several assumptions based on
           the context of the configurations it's given.
+          Also provided are numerous sanity checks to make development smoother, even
+          if you don't have a solid grasp of the Vulkan API.
+    TODO: Make the sanity checks meant for validating Vulkan-Tree structure optional
+          to reduce overhead.
 */
 #ifndef VK_HPP
 #define VK_HPP
@@ -31,14 +35,6 @@ namespace vk {
         UNKNOWN=0,
         INSTANCE,
         LOGICAL_DEVICE,
-    };
-
-    /*  struct: Node
-        Author: Philip Haynes
-        Any object that has a two-way relationship with another.
-        Simply used as a basis to keep references of multiple types of nodes.  */
-    struct Node {
-        Type type = UNKNOWN;
     };
 
     /*  struct: Window

@@ -1802,6 +1802,105 @@ failure:
         return true;
     }
 
+    bool CommandBuffer::Begin() {
+        if (commandBuffer == VK_NULL_HANDLE) {
+            error = "CommandBuffer doesn't exist!";
+            return false;
+        }
+        if (recording) {
+            error = "Cannot begin a CommandBuffer that's already recording!";
+            return false;
+        }
+        VkCommandBufferBeginInfo beginInfo = {};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+        if (secondary) {
+            VkCommandBufferInheritanceInfo inheritanceInfo = {};
+            inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+            if (renderPass != nullptr) {
+                if (!renderPass->initted) {
+                    error = "Associated RenderPass is not initialized!";
+                    return false;
+                }
+                inheritanceInfo.renderPass = renderPass->renderPass;
+                inheritanceInfo.subpass = subpass;
+            }
+            if (framebuffer != nullptr) {
+                if (!framebuffer->initted) {
+                    error = "Associated Framebuffer is not initialized!";
+                    return false;
+                }
+                inheritanceInfo.framebuffer = framebuffer->framebuffers[framebuffer->currentFramebuffer];
+            }
+            if (occlusionQueryEnable) {
+                inheritanceInfo.occlusionQueryEnable = VK_TRUE;
+                inheritanceInfo.queryFlags = queryControlFlags;
+                inheritanceInfo.pipelineStatistics = queryPipelineStatisticFlags;
+            }
+
+            beginInfo.pInheritanceInfo = &inheritanceInfo;
+
+            if (renderPassContinue) {
+                beginInfo.flags |= VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+            }
+        }
+
+        if (oneTimeSubmit) {
+            beginInfo.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        }
+        if (simultaneousUse) {
+            beginInfo.flags |= VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+        }
+
+        VkResult result = vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+        if (result != VK_SUCCESS) {
+            error = "Failed to begin CommandBuffer: " + ErrorString(result);
+            return false;
+        }
+
+        recording = true;
+        return true;
+    }
+
+    bool CommandBuffer::End() {
+        if (!recording) {
+            error = "Can't end a CommandBuffer that's not recording!";
+            return false;
+        }
+
+        VkResult result = vkEndCommandBuffer(commandBuffer);
+
+        if (result != VK_SUCCESS) {
+            error = "Failed to end CommandBuffer: " + ErrorString(result);
+            return false;
+        }
+        recording = false;
+        return true;
+    }
+
+    bool CommandBuffer::Reset() {
+        if (!pool->resettable) {
+            error = "This CommandBuffer was not allocated from a CommandPool that's resettable!";
+            return false;
+        }
+        if (recording) {
+            error = "Can't reset a CommandBuffer while recording!";
+            return false;
+        }
+        VkCommandBufferResetFlags resetFlags = {};
+        if (releaseResourcesOnReset) {
+            resetFlags = VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT;
+        }
+        VkResult result = vkResetCommandBuffer(commandBuffer, resetFlags);
+
+        if (result != VK_SUCCESS) {
+            error = "Failed to reset CommandBuffer: " + ErrorString(result);
+            return false;
+        }
+        return true;
+    }
+
     CommandPool::CommandPool(Queue* q) : queue(q) {}
 
     CommandPool::~CommandPool() {
@@ -1932,11 +2031,9 @@ failure:
         p = 0; s = 0;
         for (CommandBuffer& buffer : commandBuffers) {
             if (buffer.secondary) {
-                buffer.commandBuffer = secondaryBuffers[s];
-                s++;
+                buffer.commandBuffer = secondaryBuffers[s++];
             } else {
-                buffer.commandBuffer = primaryBuffers[p];
-                p++;
+                buffer.commandBuffer = primaryBuffers[p++];
             }
             buffer.device = device;
             buffer.pool = this;

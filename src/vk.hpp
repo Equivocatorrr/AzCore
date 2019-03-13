@@ -372,6 +372,7 @@ namespace vk {
         bool initted = false, created = false;
         Device *device = nullptr;
         Array<VkFramebuffer> framebuffers{};
+        u32 currentFramebuffer = 0; // This can be set manually, or inherited from a Swapchain image acquisition
 
         // Configuration
         RenderPass* renderPass = nullptr;
@@ -424,7 +425,7 @@ namespace vk {
     struct ShaderRef {
         ArrayPtr<Shader> shader;
         VkShaderStageFlagBits stage;
-        String functionName; // Most shaders will probably use just this, but watch out
+        String functionName; // Most shaders will probably use just main, but watch out
 
         ShaderRef(String fn="main");
         ShaderRef(ArrayPtr<Shader> ptr, VkShaderStageFlagBits s, String fn="main");
@@ -495,28 +496,35 @@ namespace vk {
         bool recording = false;
         CommandPool *pool = nullptr;
         Device *device = nullptr;
-        VkCommandBuffer commandBuffer;
+        VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
 
         // Configuration
         // Use this if the command buffer will only be submitted once and then reused
         bool oneTimeSubmit = false;
         // Use this if the command buffer can be used multiple times without re-recording
         bool simultaneousUse = false;
+        // Whether resetting the CommandBuffer should release resources back to the CommandPool
+        bool releaseResourcesOnReset = false;
 
         // Secondary-only stuff
-        bool secondary = false;
+        bool secondary = false; // If this is false, all the below configuration values are ignored.
         // Use this if it's a secondary command buffer completely inside a render pass
         bool renderPassContinue = false;
         // If used inside a render pass, we need to know which one, and then which subpass
         RenderPass *renderPass = nullptr;
         u32 subpass = 0;
         // Do we know which framebuffer we'll be using? Not strictly necessary.
-        // Framebuffer *framebuffer;
+        Framebuffer *framebuffer = nullptr;
         // If the primary command buffer is running an occlusion query, this must be true
         bool occlusionQueryEnable = false;
         // We also need to know about the query
         VkQueryControlFlags queryControlFlags{};
         VkQueryPipelineStatisticFlags queryPipelineStatisticFlags{};
+
+        // Usage functions
+        bool Begin(); // Starts recording
+        bool End();
+        bool Reset();
     };
 
     /*  struct: CommandPool

@@ -575,6 +575,12 @@ namespace vk {
         VkPresentModeKHR presentMode;
         VkExtent2D extent;
         u32 imageCount = 2;
+        u32 currentImage = 0;
+        bool buffer = true; // Which semaphore are we going to signal?
+        // We need semaphores to synchronize image acquisition
+        ArrayPtr<VkSemaphore> semaphores[2] = {{}};
+        // Keep pointers to all the Framebuffers that use our images so we can make sure they're using the right image.
+        Array<Framebuffer*> framebuffers{};
 
         VkSurfaceCapabilitiesKHR surfaceCapabilities;
         Array<VkSurfaceFormatKHR> surfaceFormats{};
@@ -586,8 +592,11 @@ namespace vk {
         VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         u32 imageCountPreferred = 2;
         ArrayPtr<Window> window{};
+        // How long we will wait for an image before timing out in nanoseconds
+        u64 timeout = UINT64_MAX;
 
-        Swapchain();
+        VkResult AcquireNextImage();
+
         ~Swapchain();
         bool Init(Device *dev);
         bool Create();
@@ -617,6 +626,7 @@ namespace vk {
         List<Pipeline> pipelines{};
         List<CommandPool> commandPools{};
         List<Framebuffer> framebuffers{};
+        Array<VkSemaphore> semaphores{};
 
         // Manual configuration (mostly unnecessary)
         Array<const char*> extensionsRequired{};
@@ -636,6 +646,7 @@ namespace vk {
         Pipeline* AddPipeline();
         CommandPool* AddCommandPool(Queue* queue);
         Framebuffer* AddFramebuffer();
+        ArrayPtr<VkSemaphore> AddSemaphore();
 
         bool Init(Instance *inst);
         bool Reconfigure();

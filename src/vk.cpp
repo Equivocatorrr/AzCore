@@ -1351,6 +1351,16 @@ failure:
             numFramebuffers = swapchain->imageCount;
             width = swapchain->extent.width;
             height = swapchain->extent.height;
+            bool found = false;
+            for (auto& ptr : swapchain->framebuffers) {
+                if (ptr == this) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                swapchain->framebuffers.push_back(this);
+            }
         }
         cout << "Width: " << width << "  Height: " << height << std::endl;
         if (ownMemory) {
@@ -2052,7 +2062,23 @@ failure:
         }
     }
 
-    Swapchain::Swapchain() {}
+    VkResult Swapchain::AcquireNextImage() {
+        if (!initted) {
+            error = "Swapchain is not initialized!";
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }
+        if (!created) {
+            error = "Swapchain does not exist!";
+            return VK_ERROR_OUT_OF_DATE_KHR;
+        }
+        buffer = !buffer;
+        VkResult result = vkAcquireNextImageKHR(device->device, swapchain, timeout,
+                                            *semaphores[buffer], VK_NULL_HANDLE, &currentImage);
+        return result;
+        // if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_TIMEOUT || result == VK_NOT_READY) {
+        //     return false; // Signal to skip rendering this frame.
+        // }
+    }
 
     Swapchain::~Swapchain() {
         if (initted) {
@@ -2367,6 +2393,11 @@ failure:
         return &framebuffers[framebuffers.size()-1];
     }
 
+    ArrayPtr<VkSemaphore> Device::AddSemaphore() {
+        semaphores.push_back(VK_NULL_HANDLE);
+        return ArrayPtr<VkSemaphore>(&semaphores, semaphores.size()-1);
+    }
+
     bool Device::Init(Instance *inst) {
         PrintDashed("Initializing Logical Device");
         if (initted) {
@@ -2658,6 +2689,16 @@ failure:
                 goto failed;
             }
         }
+        // Semaphores
+        cout << "Creating " << semaphores.size() << " semaphores..." << std::endl;
+        for (u32 i = 0; i < semaphores.size(); i++) {
+            const VkSemaphoreCreateInfo createInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+            VkResult result = vkCreateSemaphore(device, &createInfo, nullptr, &semaphores[i]);
+            if (result != VK_SUCCESS) {
+                error = "Failed to create semaphore[" + std::to_string(i) + "]: " + ErrorString(result);
+                goto failed;
+            }
+        }
 
         // Once the pipelines are set with all the shaders,
         // we can clean them since they're no longer needed
@@ -2707,6 +2748,12 @@ failed:
                 framebuffer.Deinit();
             }
         }
+        for (u32 i = 0; i < semaphores.size(); i++) {
+            if (semaphores[i] != VK_NULL_HANDLE) {
+                vkDestroySemaphore(device, semaphores[i], nullptr);
+                semaphores[i] = VK_NULL_HANDLE;
+            }
+        }
         vkDestroyDevice(device, nullptr);
         return false;
     }
@@ -2750,6 +2797,12 @@ failed:
         for (auto& framebuffer : framebuffers) {
             if (framebuffer.initted) {
                 framebuffer.Deinit();
+            }
+        }
+        for (u32 i = 0; i < semaphores.size(); i++) {
+            if (semaphores[i] != VK_NULL_HANDLE) {
+                vkDestroySemaphore(device, semaphores[i], nullptr);
+                semaphores[i] = VK_NULL_HANDLE;
             }
         }
         // Destroy everything allocated from the device here

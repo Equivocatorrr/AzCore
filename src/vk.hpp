@@ -1,9 +1,13 @@
 /*
     File: vk.hpp
     Author: Philip Haynes
-    Utilities to manage a Vulkan renderer in an RAII style.
+    Utilities to manage a Vulkan renderer that can handle many common use-cases.
     Using the classes in here, one should be able to set up an entire
     system that manages its own resources in a user-defined tree structure.
+
+    The ideal final product is one where recovering from most errors is done automatically,
+    or in a way that makes it easy for the developer to make a logical decision and
+    handle it gracefully.
 
     NOTE: This library is not intended to replace an understanding of the Vulkan API,
           but rather to reduce the total amount of code necessary to write in order
@@ -11,8 +15,16 @@
           the context of the configurations it's given.
           Also provided are numerous sanity checks to make development smoother, even
           if you don't have a solid grasp of the Vulkan API.
-    TODO: Make the sanity checks meant for validating Vulkan-Tree structure optional
+    TODO:
+        - Make the sanity checks meant for validating Vulkan-Tree structure optional
           to reduce overhead.
+        - Maybe make all sanity checks optional. You better be sure about this one.
+        - Add support for compute pipelines.
+        - Make control over memory more dynamic.
+        - Add some sort of texture caching/streaming setup in RAM.
+        - Add example implementations for more feature-complete pipelines
+              (including tesselation, geometry shaders, etc.)
+        - Add support for screenshots.
 */
 #ifndef VK_HPP
 #define VK_HPP

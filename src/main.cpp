@@ -46,11 +46,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
     }
 
     vk::Device* vkDevice = vkInstance.AddDevice();
-    vkDevice->deviceFeaturesRequired.depthClamp = VK_TRUE;
-    vkDevice->deviceFeaturesOptional.samplerAnisotropy = VK_TRUE;
-    vkDevice->extensionsRequired = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
-    };
 
     vk::Queue* queueGraphics = vkDevice->AddQueue();
     vk::Queue* queuePresent = vkDevice->AddQueue();

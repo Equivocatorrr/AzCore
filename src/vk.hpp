@@ -7,7 +7,7 @@
 
     NOTE: This library is not intended to replace an understanding of the Vulkan API,
           but rather to reduce the total amount of code necessary to write in order
-          to make good use of it. It does this by making several assumptions based on
+          to make good use of it. It does this by making several inferences based on
           the context of the configurations it's given.
           Also provided are numerous sanity checks to make development smoother, even
           if you don't have a solid grasp of the Vulkan API.
@@ -57,11 +57,13 @@ namespace vk {
         Author: Philip Haynes
         How we handle device-local images       */
     struct Image {
-        VkDevice device;
-        VkImage image;
-        bool imageExists = false;
-        VkImageView imageView;
-        bool imageViewExists = false;
+        struct {
+            VkDevice device;
+            VkImage image;
+            bool imageExists = false;
+            VkImageView imageView;
+            bool imageViewExists = false;
+        } data;
 
         // Configuration
         VkFormat format;
@@ -81,9 +83,11 @@ namespace vk {
         Author: Philip Haynes
         What we use for device-local generic data, and to stage transfers       */
     struct Buffer {
-        VkDevice device;
-        VkBuffer buffer;
-        bool exists = false;
+        struct {
+            VkDevice device;
+            VkBuffer buffer;
+            bool exists = false;
+        } data;
 
         // Configuration
         VkBufferUsageFlags usage;
@@ -103,23 +107,26 @@ namespace vk {
         use a singular allocation block to bind to multiple chunks of data.
         TODO: Add a dynamic allocator.       */
     struct Memory {
-        PhysicalDevice *physicalDevice;
-        VkDevice device;
-        VkDeviceMemory memory;
-        bool initted = false;
-        bool allocated = false;
-        bool mapped = false;
-        Array<VkDeviceSize> offsets{}; // size of each chunk is x[i+1] - x[i]
-        u32 memoryTypeBits = 0;
-        // What we really want
-        VkMemoryPropertyFlags memoryProperties;
-        // What we'll settle for if the above isn't available
-        VkMemoryPropertyFlags memoryPropertiesDeferred;
+        struct {
+            PhysicalDevice *physicalDevice;
+            VkDevice device;
+            VkDeviceMemory memory;
+            bool initted = false;
+            bool allocated = false;
+            bool mapped = false;
+            Array<VkDeviceSize> offsets{}; // size of each chunk is x[i+1] - x[i]
+            u32 memoryTypeBits = 0;
+            // What we really want
+            VkMemoryPropertyFlags memoryProperties;
+            // What we'll settle for if the above isn't available
+            VkMemoryPropertyFlags memoryPropertiesDeferred;
+
+            Array<Image> images{};
+            Array<Buffer> buffers{};
+        } data;
 
         // Configuration
         bool deviceLocal = true; // If false, it's host visible
-        Array<Image> images{};
-        Array<Buffer> buffers{};
 
         ArrayPtr<Image> AddImage(Image image=Image());
         ArrayPtr<Buffer> AddBuffer(Buffer buffer=Buffer());
@@ -147,9 +154,11 @@ namespace vk {
     };
 
     struct Sampler {
-        bool exists = false;
-        VkDevice device;
-        VkSampler sampler;
+        struct {
+            bool exists = false;
+            VkDevice device;
+            VkSampler sampler;
+        } data;
 
         // Configuration
         VkFilter magFilter = VK_FILTER_LINEAR;
@@ -191,9 +200,11 @@ namespace vk {
         Author: Philip Haynes
         Describes a single layout that may be used by multiple descriptor sets      */
     struct DescriptorLayout {
-        bool exists = false;
-        VkDevice device;
-        VkDescriptorSetLayout layout;
+        struct {
+            bool exists = false;
+            VkDevice device;
+            VkDescriptorSetLayout layout;
+        } data;
         // Configuration
         VkDescriptorType type;
         VkShaderStageFlags stage;
@@ -206,13 +217,15 @@ namespace vk {
     };
 
     struct DescriptorSet {
-        bool exists = false;
-        VkDescriptorSet set;
-        ArrayPtr<DescriptorLayout> layout;
+        struct {
+            bool exists = false;
+            VkDescriptorSet set;
+            ArrayPtr<DescriptorLayout> layout;
 
-        Array<DescriptorBinding> bindings{};
-        Array<BufferDescriptor> bufferDescriptors{};
-        Array<ImageDescriptor> imageDescriptors{};
+            Array<DescriptorBinding> bindings{};
+            Array<BufferDescriptor> bufferDescriptors{};
+            Array<ImageDescriptor> imageDescriptors{};
+        } data;
 
         bool AddDescriptor(ArrayRange<Buffer> buffers, u32 binding);
         bool AddDescriptor(ArrayRange<Image> images, ArrayPtr<Sampler> sampler, u32 binding);
@@ -224,13 +237,14 @@ namespace vk {
         Author: Philip Haynes
         Defines a descriptor pool and all descriptor sets from that pool    */
     struct Descriptors {
-        VkDevice device;
-        bool exists = false;
-        VkDescriptorPool pool;
+        struct {
+            VkDevice device;
+            bool exists = false;
+            VkDescriptorPool pool;
 
-        // Configuration
-        Array<DescriptorLayout> layouts{};
-        Array<DescriptorSet> sets{};
+            Array<DescriptorLayout> layouts{};
+            Array<DescriptorSet> sets{};
+        } data;
 
         ~Descriptors();
         void Init(VkDevice dev);
@@ -249,8 +263,10 @@ namespace vk {
         Some implicit attachment management that allows
         automated MSAA and depth buffers to be created and used     */
     struct Attachment {
-        u32 firstIndex = 0; // Which index in our RenderPass VkAttachmentDescripion Array corresponds to our 0
-        Array<VkAttachmentDescription> descriptions{};
+        struct {
+            u32 firstIndex = 0; // Which index in our RenderPass VkAttachmentDescripion Array corresponds to our 0
+            Array<VkAttachmentDescription> descriptions{};
+        } data;
 
         // If swapchain isn't nullptr, our color buffer is what's presented and we use its format
         Swapchain *swapchain = nullptr;
@@ -327,18 +343,20 @@ namespace vk {
         Author: Philip Haynes
         Automatically configures RenderPass based on Subpasses      */
     struct RenderPass {
-        bool initted = false;
-        Device *device = nullptr;
-        VkRenderPass renderPass{};
-        Array<VkAttachmentDescription> attachmentDescriptions;
-        Array<VkSubpassDescription> subpassDescriptions;
-        Array<VkSubpassDependency> subpassDependencies;
+        struct {
+            bool initted = false;
+            Device *device = nullptr;
+            VkRenderPass renderPass{};
+            Array<VkAttachmentDescription> attachmentDescriptions;
+            Array<VkSubpassDescription> subpassDescriptions;
+            Array<VkSubpassDependency> subpassDependencies;
 
-        // Configuration
-        Array<Subpass> subpasses{};
-        // Each can contain up to 3 actual attachments
-        Array<Attachment> attachments{};
-        // TODO: Multiview renderPasses
+            Array<Subpass> subpasses{};
+            // Each can contain up to 3 actual attachments
+            Array<Attachment> attachments{};
+            // TODO: Multiview renderPasses
+        } data;
+
 
         // Dependency configuration
         // Use these to transition attachment image layouts
@@ -369,10 +387,12 @@ namespace vk {
         Author: Philip Haynes
         All the actual images we're drawing to in a single render pass (including all subpasses).   */
     struct Framebuffer {
-        bool initted = false, created = false;
-        Device *device = nullptr;
-        Array<VkFramebuffer> framebuffers{};
-        u32 currentFramebuffer = 0; // This can be set manually, or inherited from a Swapchain image acquisition
+        struct {
+            bool initted = false, created = false;
+            Device *device = nullptr;
+            Array<VkFramebuffer> framebuffers{};
+            u32 currentFramebuffer = 0; // This can be set manually, or inherited from a Swapchain image acquisition
+        } data;
 
         // Configuration
         RenderPass* renderPass = nullptr;
@@ -407,10 +427,12 @@ namespace vk {
         Author: Philip Haynes
         A single shader module, which can load in Spirv code for a single shader.   */
     struct Shader {
-        bool initted = false;
-        VkDevice device;
-        Array<u32> code;
-        VkShaderModule module;
+        struct {
+            bool initted = false;
+            VkDevice device;
+            Array<u32> code;
+            VkShaderModule module;
+        } data;
 
         // Configuration
         String filename{};
@@ -436,17 +458,19 @@ namespace vk {
         Everything you need for a complete graphics pipeline
         Most things have usable defaults to help with brevity        */
     struct Pipeline {
-        Device *device = nullptr;
-        RenderPass *renderPass = nullptr;
-        bool initted = false;
-        VkPipelineLayout layout;
-        VkPipeline pipeline;
-        VkPipelineMultisampleStateCreateInfo multisampling{}; // Infer most from RenderPass
-        Array<VkVertexInputBindingDescription> inputBindingDescriptions{};
-        Array<VkVertexInputAttributeDescription> inputAttributeDescriptions{};
-        VkPipelineVertexInputStateCreateInfo vertexInputInfo{}; // Infer from vertex buffer
+        struct {
+            Device *device = nullptr;
+            bool initted = false;
+            VkPipelineLayout layout;
+            VkPipeline pipeline;
+            VkPipelineMultisampleStateCreateInfo multisampling{}; // Infer most from RenderPass
+            Array<VkVertexInputBindingDescription> inputBindingDescriptions{};
+            Array<VkVertexInputAttributeDescription> inputAttributeDescriptions{};
+            VkPipelineVertexInputStateCreateInfo vertexInputInfo{}; // Infer from vertex buffer
+        } data;
 
         // Configuration
+        RenderPass *renderPass = nullptr;
         Array<ShaderRef> shaders{};
         u32 subpass = 0; // Of our RenderPass, which subpass are we used in?
         bool multisampleShading = false;
@@ -480,7 +504,7 @@ namespace vk {
         Author: Philip Haynes
         What we use to submit work to the GPU       */
     struct Queue {
-        VkQueue queue;
+        VkQueue queue = VK_NULL_HANDLE;
         i32 queueFamilyIndex = -1;
         QueueType queueType = UNDEFINED;
         f32 queuePriority = 1.0;
@@ -493,10 +517,12 @@ namespace vk {
         What we use to control our command buffers
         that get allocated from Command Pools           */
     struct CommandBuffer {
-        bool recording = false;
-        CommandPool *pool = nullptr;
-        Device *device = nullptr;
-        VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+        struct {
+            bool recording = false;
+            CommandPool *pool = nullptr;
+            Device *device = nullptr;
+            VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+        } data;
 
         // Configuration
         // Use this if the command buffer will only be submitted once and then reused
@@ -530,13 +556,15 @@ namespace vk {
     /*  struct: CommandPool
         Author: Philip Haynes
         What we use to allocate command buffers.
-        For multi-threaded situations, we need one pool per thread.     */
+        For multi-threaded situations, we need one pool per thread to avoid using mutexes.     */
     struct CommandPool {
-        bool initted = false;
-        Device *device = nullptr;
-        VkCommandPool commandPool;
-        Array<CommandBuffer> commandBuffers{};
-        List<CommandBuffer> dynamicBuffers{};
+        struct {
+            bool initted = false;
+            Device *device = nullptr;
+            VkCommandPool commandPool;
+            Array<CommandBuffer> commandBuffers{};
+            List<CommandBuffer> dynamicBuffers{};
+        } data;
 
         // Configuration
         // Use when command buffers will be reset or freed shortly after executing
@@ -565,26 +593,28 @@ namespace vk {
         Author: Philip Haynes
         Manages how we interact with our window surface         */
     struct Swapchain {
-        bool initted = false;
-        bool created = false;
-        Device *device = nullptr;
-        VkSwapchainKHR swapchain{};
-        VkSurfaceKHR surface{};
-        Array<Image> images{};
-        VkSurfaceFormatKHR surfaceFormat;
-        VkPresentModeKHR presentMode;
-        VkExtent2D extent;
-        u32 imageCount = 2;
-        u32 currentImage = 0;
-        bool buffer = true; // Which semaphore are we going to signal?
-        // We need semaphores to synchronize image acquisition
-        ArrayPtr<VkSemaphore> semaphores[2] = {{}};
-        // Keep pointers to all the Framebuffers that use our images so we can make sure they're using the right image.
-        Array<Framebuffer*> framebuffers{};
+        struct {
+            bool initted = false;
+            bool created = false;
+            Device *device = nullptr;
+            VkSwapchainKHR swapchain{};
+            VkSurfaceKHR surface{};
+            Array<Image> images{};
+            VkSurfaceFormatKHR surfaceFormat;
+            VkPresentModeKHR presentMode;
+            VkExtent2D extent;
+            u32 imageCount = 2;
+            u32 currentImage = 0;
+            bool buffer = true; // Which semaphore are we going to signal?
+            // We need semaphores to synchronize image acquisition
+            ArrayPtr<VkSemaphore> semaphores[2] = {{}};
+            // Keep pointers to all the Framebuffers that use our images so we can make sure they're using the right image.
+            Array<Framebuffer*> framebuffers{};
 
-        VkSurfaceCapabilitiesKHR surfaceCapabilities;
-        Array<VkSurfaceFormatKHR> surfaceFormats{};
-        Array<VkPresentModeKHR> presentModes{};
+            VkSurfaceCapabilitiesKHR surfaceCapabilities;
+            Array<VkSurfaceFormatKHR> surfaceFormats{};
+            Array<VkPresentModeKHR> presentModes{};
+        } data;
 
         // Configuration
         VkSurfaceFormatKHR formatPreferred = {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR}; // You probably won't need to change this
@@ -604,34 +634,62 @@ namespace vk {
         bool Deinit();
     };
 
+    struct SemaphoreWait {
+        ArrayPtr<VkSemaphore> semaphore;
+        VkPipelineStageFlags dstStageMask;
+    };
+
+    /*  struct: QueueSubmission
+        Author: Philip Haynes
+        Manages a single VkSubmitInfo, making sure it's up to date, and only updating when necessary.   */
+    struct QueueSubmission {
+        struct {
+            VkSubmitInfo submitInfo={VK_STRUCTURE_TYPE_SUBMIT_INFO};
+            Array<VkCommandBuffer> commandBuffers{};
+            Array<VkSemaphore> waitSemaphores{};
+            Array<VkPipelineStageFlags> waitDstStageMasks{};
+            Array<VkSemaphore> signalSemaphores{};
+        } data;
+
+        // Configuration
+        Array<CommandBuffer*> commandBuffers{};
+        Array<SemaphoreWait> waitSemaphores{};
+        Array<ArrayPtr<VkSemaphore>> signalSemaphores{};
+
+        bool Config();
+    };
+
     struct Instance;
 
     /*  struct: Device
         Author: Philip Haynes
         Our interface to actually use our physical GPUs to do work  */
     struct Device {
-        bool initted = false;
-        Instance *instance = nullptr;
-        PhysicalDevice physicalDevice;
-        VkDevice device;
+        struct {
+            bool initted = false;
+            Instance *instance = nullptr;
+            PhysicalDevice physicalDevice;
+            VkDevice device;
 
-        // Resources and structures
-        List<Queue> queues{};
-        List<Swapchain> swapchains{};
-        List<RenderPass> renderPasses{};
-        List<Memory> memories{};
-        Array<Sampler> samplers{};
-        List<Descriptors> descriptors{};
-        Array<Shader> shaders{};
-        List<Pipeline> pipelines{};
-        List<CommandPool> commandPools{};
-        List<Framebuffer> framebuffers{};
-        Array<VkSemaphore> semaphores{};
+            // Resources and structures
+            List<Queue> queues{};
+            List<Swapchain> swapchains{};
+            List<RenderPass> renderPasses{};
+            List<Memory> memories{};
+            Array<Sampler> samplers{};
+            List<Descriptors> descriptors{};
+            Array<Shader> shaders{};
+            List<Pipeline> pipelines{};
+            List<CommandPool> commandPools{};
+            List<Framebuffer> framebuffers{};
+            Array<VkSemaphore> semaphores{};
+            List<QueueSubmission> queueSubmissions{};
 
-        // Manual configuration (mostly unnecessary)
-        Array<const char*> extensionsRequired{};
-        VkPhysicalDeviceFeatures deviceFeaturesRequired{};
-        VkPhysicalDeviceFeatures deviceFeaturesOptional{};
+            Array<const char*> extensionsRequired{};
+            VkPhysicalDeviceFeatures deviceFeaturesRequired{};
+            VkPhysicalDeviceFeatures deviceFeaturesOptional{};
+        } data;
+
         Device();
         ~Device();
 
@@ -647,6 +705,10 @@ namespace vk {
         CommandPool* AddCommandPool(Queue* queue);
         Framebuffer* AddFramebuffer();
         ArrayPtr<VkSemaphore> AddSemaphore();
+        QueueSubmission* AddQueueSubmission();
+
+        // TODO: Add Fence support to this
+        bool SubmitCommandBuffers(Queue* queue, Array<QueueSubmission*> submissions);
 
         bool Init(Instance *inst);
         bool Reconfigure();
@@ -659,32 +721,34 @@ namespace vk {
         Manages the state of everything else in this toolkit.
         Used as a top-level control of all of the tasks created for it to execute.  */
     struct Instance {
-        PFN_vkCreateDebugReportCallbackEXT
-            fpCreateDebugReportCallbackEXT;
-        PFN_vkDestroyDebugReportCallbackEXT
-            fpDestroyDebugReportCallbackEXT;
-        bool initted = false;
-        bool enableLayers = false;
-        VkInstance instance;
-        Array<Window> windows{};
-        VkDebugReportCallbackEXT debugReportCallback;
-        VkApplicationInfo appInfo = {
-            .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-            .pNext = nullptr,
-            .pApplicationName = "AzCore Test",
-            .applicationVersion = 1,
-            .pEngineName = "AzCore",
-            .engineVersion = VK_MAKE_VERSION(0, 1, 0),
-            .apiVersion = VK_API_VERSION_1_1
-        };
-        Array<VkExtensionProperties> extensionsAvailable;
-        Array<const char*> extensionsRequired{};
-        Array<VkLayerProperties> layersAvailable;
-        Array<const char*> layersRequired{};
+        struct {
+            PFN_vkCreateDebugReportCallbackEXT
+                fpCreateDebugReportCallbackEXT;
+            PFN_vkDestroyDebugReportCallbackEXT
+                fpDestroyDebugReportCallbackEXT;
+            bool initted = false;
+            bool enableLayers = false;
+            VkInstance instance;
+            Array<Window> windows{};
+            VkDebugReportCallbackEXT debugReportCallback;
+            VkApplicationInfo appInfo = {
+                .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+                .pNext = nullptr,
+                .pApplicationName = "AzCore Test",
+                .applicationVersion = 1,
+                .pEngineName = "AzCore",
+                .engineVersion = VK_MAKE_VERSION(0, 1, 0),
+                .apiVersion = VK_API_VERSION_1_1
+            };
+            Array<VkExtensionProperties> extensionsAvailable;
+            Array<const char*> extensionsRequired{};
+            Array<VkLayerProperties> layersAvailable;
+            Array<const char*> layersRequired{};
 
-        Array<PhysicalDevice> physicalDevices{};
-        // We hold and Init() the devices according to their parameters.
-        List<Device> devices{};
+            Array<PhysicalDevice> physicalDevices{};
+            // We hold and Init() the devices according to their parameters.
+            List<Device> devices{};
+        } data;
 
         Instance();
         ~Instance();

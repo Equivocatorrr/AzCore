@@ -190,22 +190,22 @@ namespace vk {
     }
 
     void Image::Init(VkDevice dev) {
-        device = dev;
+        data.device = dev;
     }
 
     void Image::Clean() {
-        if (imageViewExists) {
-            vkDestroyImageView(device, imageView, nullptr);
-            imageViewExists = false;
+        if (data.imageViewExists) {
+            vkDestroyImageView(data.device, data.imageView, nullptr);
+            data.imageViewExists = false;
         }
-        if (imageExists) {
-            vkDestroyImage(device, image, nullptr);
-            imageExists = false;
+        if (data.imageExists) {
+            vkDestroyImage(data.device, data.image, nullptr);
+            data.imageExists = false;
         }
     }
 
     bool Image::CreateImage(bool hostVisible) {
-        if (imageExists) {
+        if (data.imageExists) {
             error = "Attempting to create image that already exists!";
             return false;
         }
@@ -225,23 +225,23 @@ namespace vk {
         imageInfo.samples = samples;
         imageInfo.flags = 0;
 
-        VkResult result = vkCreateImage(device, &imageInfo, nullptr, &image);
+        VkResult result = vkCreateImage(data.device, &imageInfo, nullptr, &data.image);
         if (result != VK_SUCCESS) {
             error = "Failed to create image: " + ErrorString(result);
             return false;
         }
-        imageExists = true;
+        data.imageExists = true;
         return true;
     }
 
     bool Image::CreateImageView() {
-        if (imageViewExists) {
+        if (data.imageViewExists) {
             error = "Attempting to create an image view that already exists!";
             return false;
         }
         VkImageViewCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        createInfo.image = image;
+        createInfo.image = data.image;
         createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
         createInfo.format = format;
         createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -254,21 +254,21 @@ namespace vk {
         createInfo.subresourceRange.baseArrayLayer = 0;
         createInfo.subresourceRange.layerCount = 1;
 
-        VkResult result = vkCreateImageView(device, &createInfo, nullptr, &imageView);
+        VkResult result = vkCreateImageView(data.device, &createInfo, nullptr, &data.imageView);
         if (result != VK_SUCCESS) {
             error = "Failed to create image view: " + ErrorString(result);
             return false;
         }
-        imageViewExists = true;
+        data.imageViewExists = true;
         return true;
     }
 
     void Buffer::Init(VkDevice dev) {
-        device = dev;
+        data.device = dev;
     }
 
     bool Buffer::Create() {
-        if (exists) {
+        if (data.exists) {
             error = "Buffer already exists!";
             return false;
         }
@@ -278,87 +278,87 @@ namespace vk {
         createInfo.usage = usage;
         createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-        VkResult result = vkCreateBuffer(device, &createInfo, nullptr, &buffer);
+        VkResult result = vkCreateBuffer(data.device, &createInfo, nullptr, &data.buffer);
 
         if (result != VK_SUCCESS) {
             error = "Failed to create buffer: " + ErrorString(result);
             return false;
         }
-        exists = true;
+        data.exists = true;
         return true;
     }
 
     void Buffer::Clean() {
-        if (exists) {
-            vkDestroyBuffer(device, buffer, nullptr);
-            exists = false;
+        if (data.exists) {
+            vkDestroyBuffer(data.device, data.buffer, nullptr);
+            data.exists = false;
         }
     }
 
     ArrayPtr<Image> Memory::AddImage(Image image) {
-        images.push_back(image);
-        return ArrayPtr<Image>(&images, images.size()-1);
+        data.images.push_back(image);
+        return ArrayPtr<Image>(&data.images, data.images.size()-1);
     }
 
     ArrayPtr<Buffer> Memory::AddBuffer(Buffer buffer) {
-        buffers.push_back(buffer);
-        return ArrayPtr<Buffer>(&buffers, buffers.size()-1);
+        data.buffers.push_back(buffer);
+        return ArrayPtr<Buffer>(&data.buffers, data.buffers.size()-1);
     }
 
     ArrayRange<Image> Memory::AddImages(u32 count, Image image) {
-        images.resize(images.size()+count, image);
-        return ArrayRange<Image>(&images, images.size()-count, count);
+        data.images.resize(data.images.size()+count, image);
+        return ArrayRange<Image>(&data.images, data.images.size()-count, count);
     }
 
     ArrayRange<Buffer> Memory::AddBuffers(u32 count, Buffer buffer) {
-        buffers.resize(buffers.size()+count, buffer);
-        return ArrayRange<Buffer>(&buffers, buffers.size()-count, count);
+        data.buffers.resize(data.buffers.size()+count, buffer);
+        return ArrayRange<Buffer>(&data.buffers, data.buffers.size()-count, count);
     }
 
     bool Memory::Init(PhysicalDevice *phy, VkDevice dev) {
         PrintDashed("Initializing Memory");
-        if (initted) {
+        if (data.initted) {
             error = "Memory has already been initialized!";
             return false;
         }
-        if (allocated) {
+        if (data.allocated) {
             error = "Memory has already been allocated!";
             return false;
         }
-        if ((physicalDevice = phy) == nullptr) {
+        if ((data.physicalDevice = phy) == nullptr) {
             error = "physicalDevice is nullptr!";
             return false;
         }
-        device = dev;
+        data.device = dev;
         // First we figure out how big we are by going through the images and buffers
-        offsets.resize(1);
-        offsets[0] = 0;
-        memoryTypeBits = 0;
+        data.offsets.resize(1);
+        data.offsets[0] = 0;
+        data.memoryTypeBits = 0;
         u32 index = 0;
         VkResult result;
         if (deviceLocal) {
-            memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+            data.memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         } else {
-            memoryProperties = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+            data.memoryProperties = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
         }
 
-        cout << "Memory will create " << images.size() << " images and " << buffers.size() << " buffers." << std::endl;
+        cout << "Memory will create " << data.images.size() << " images and " << data.buffers.size() << " buffers." << std::endl;
 
-        for (Image& image : images) {
-            image.Init(device);
+        for (Image& image : data.images) {
+            image.Init(data.device);
             if (!image.CreateImage(!deviceLocal)) {
                 goto failure;
             }
-            if (GetImageChunk(image, memoryTypeBits!=0) == -1) {
+            if (GetImageChunk(image, data.memoryTypeBits!=0) == -1) {
                 goto failure;
             }
         }
-        for (Buffer& buffer : buffers) {
-            buffer.Init(device);
+        for (Buffer& buffer : data.buffers) {
+            buffer.Init(data.device);
             if (!buffer.Create()) {
                 goto failure;
             }
-            if (GetBufferChunk(buffer, memoryTypeBits!=0) == -1) {
+            if (GetBufferChunk(buffer, data.memoryTypeBits!=0) == -1) {
                 // There's a solid chance that memory types are incompatible between
                 // images and buffers, so this will probably fail if you have images too.
                 goto failure;
@@ -369,8 +369,8 @@ namespace vk {
             goto failure;
         }
         // Now bind our images and buffers to the memory
-        for (Image& image : images) {
-            result = vkBindImageMemory(device, image.image, memory, offsets[index++]);
+        for (Image& image : data.images) {
+            result = vkBindImageMemory(data.device, image.data.image, data.memory, data.offsets[index++]);
             if (result != VK_SUCCESS) {
                 error = "Failed to bind image to memory: " + ErrorString(result);
                 goto failure;
@@ -379,57 +379,57 @@ namespace vk {
                 goto failure;
             }
         }
-        for (Buffer& buffer : buffers) {
-            result = vkBindBufferMemory(device, buffer.buffer, memory, offsets[index++]);
+        for (Buffer& buffer : data.buffers) {
+            result = vkBindBufferMemory(data.device, buffer.data.buffer, data.memory, data.offsets[index++]);
             if (result != VK_SUCCESS) {
                 error = "Failed to bind buffer to memory: " + ErrorString(result);
                 goto failure;
             }
         }
-        initted = true;
+        data.initted = true;
         return true;
 failure:
-        for (Image& image : images) {
+        for (Image& image : data.images) {
             image.Clean();
         }
-        for (Buffer& buffer : buffers) {
+        for (Buffer& buffer : data.buffers) {
             buffer.Clean();
         }
-        if (allocated) {
-            vkFreeMemory(device, memory, nullptr);
-            allocated = false;
+        if (data.allocated) {
+            vkFreeMemory(data.device, data.memory, nullptr);
+            data.allocated = false;
         }
         return false;
     }
 
     bool Memory::Deinit() {
         PrintDashed("Destroying Memory");
-        if (!initted) {
+        if (!data.initted) {
             error = "Memory isn't initialized!";
             return false;
         }
-        for (Image& image : images) {
+        for (Image& image : data.images) {
             image.Clean();
         }
-        for (Buffer& buffer : buffers) {
+        for (Buffer& buffer : data.buffers) {
             buffer.Clean();
         }
-        initted = false;
-        if (allocated)
-            vkFreeMemory(device, memory, nullptr);
-        allocated = false;
+        data.initted = false;
+        if (data.allocated)
+            vkFreeMemory(data.device, data.memory, nullptr);
+        data.allocated = false;
         return true;
     }
 
     i32 Memory::GetImageChunk(Image image, bool noChange) {
-        i32 index = offsets.size()-1;
+        i32 index = data.offsets.size()-1;
         VkMemoryRequirements memReqs;
-        vkGetImageMemoryRequirements(device, image.image, &memReqs);
-        if (noChange && memoryTypeBits != memReqs.memoryTypeBits) {
+        vkGetImageMemoryRequirements(data.device, image.data.image, &memReqs);
+        if (noChange && data.memoryTypeBits != memReqs.memoryTypeBits) {
             error = "An image is incompatible with the memory previously alotted!";
             return -1;
         }
-        memoryTypeBits = memReqs.memoryTypeBits;
+        data.memoryTypeBits = memReqs.memoryTypeBits;
 
         u32 alignedOffset;
         if (memReqs.size % memReqs.alignment == 0) {
@@ -438,19 +438,19 @@ failure:
             alignedOffset = (memReqs.size/memReqs.alignment+1)*memReqs.alignment;
         }
 
-        offsets.push_back(offsets.back() + alignedOffset);
+        data.offsets.push_back(data.offsets.back() + alignedOffset);
         return index;
     }
 
     i32 Memory::GetBufferChunk(Buffer buffer, bool noChange) {
-        i32 index = offsets.size()-1;
+        i32 index = data.offsets.size()-1;
         VkMemoryRequirements memReqs;
-        vkGetBufferMemoryRequirements(device, buffer.buffer, &memReqs);
-        if (noChange && memoryTypeBits != memReqs.memoryTypeBits) {
+        vkGetBufferMemoryRequirements(data.device, buffer.data.buffer, &memReqs);
+        if (noChange && data.memoryTypeBits != memReqs.memoryTypeBits) {
             error = "A buffer is incompatible with the memory previously alotted!";
             return -1;
         }
-        memoryTypeBits = memReqs.memoryTypeBits;
+        data.memoryTypeBits = memReqs.memoryTypeBits;
 
         u32 alignedOffset;
         if (memReqs.size % memReqs.alignment == 0) {
@@ -459,23 +459,23 @@ failure:
             alignedOffset = (memReqs.size/memReqs.alignment+1)*memReqs.alignment;
         }
 
-        offsets.push_back(offsets.back() + alignedOffset);
+        data.offsets.push_back(data.offsets.back() + alignedOffset);
         return index;
     }
 
     VkDeviceSize Memory::ChunkSize(u32 index) {
-        return offsets[index+1] - offsets[index];
+        return data.offsets[index+1] - data.offsets[index];
     }
 
     i32 Memory::FindMemoryType() {
-        VkPhysicalDeviceMemoryProperties memProps = physicalDevice->memoryProperties;
+        VkPhysicalDeviceMemoryProperties memProps = data.physicalDevice->memoryProperties;
         for (u32 i = 0; i < memProps.memoryTypeCount; i++) {
-            if ((memoryTypeBits & (1 << i)) && (memProps.memoryTypes[i].propertyFlags & memoryProperties) == memoryProperties) {
+            if ((data.memoryTypeBits & (1 << i)) && (memProps.memoryTypes[i].propertyFlags & data.memoryProperties) == data.memoryProperties) {
                 return i;
             }
         }
         for (u32 i = 0; i < memProps.memoryTypeCount; i++) {
-            if ((memoryTypeBits & (1 << i)) && (memProps.memoryTypes[i].propertyFlags & memoryPropertiesDeferred) == memoryPropertiesDeferred) {
+            if ((data.memoryTypeBits & (1 << i)) && (memProps.memoryTypes[i].propertyFlags & data.memoryPropertiesDeferred) == data.memoryPropertiesDeferred) {
                 return i;
             }
         }
@@ -485,26 +485,26 @@ failure:
     }
 
     bool Memory::Allocate() {
-        if (allocated) {
+        if (data.allocated) {
             error = "Memory already allocated!";
             return false;
         }
-        cout << "Allocating Memory with size: " << FormatSize(offsets.back()) << std::endl;
+        cout << "Allocating Memory with size: " << FormatSize(data.offsets.back()) << std::endl;
         VkMemoryAllocateInfo allocInfo = {};
         allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = offsets.back();
+        allocInfo.allocationSize = data.offsets.back();
         i32 mti = FindMemoryType();
         if (mti == -1) {
             return false;
         }
         allocInfo.memoryTypeIndex = (u32)mti;
 
-        VkResult result = vkAllocateMemory(device, &allocInfo, nullptr, &memory);
+        VkResult result = vkAllocateMemory(data.device, &allocInfo, nullptr, &data.memory);
         if (result != VK_SUCCESS) {
             error = "Failed to allocate memory: " + ErrorString(result);
             return false;
         }
-        allocated = true;
+        data.allocated = true;
         return true;
     }
 
@@ -513,11 +513,11 @@ failure:
     }
 
     void Sampler::Init(VkDevice dev) {
-        device = dev;
+        data.device = dev;
     }
 
     bool Sampler::Create() {
-        if (exists) {
+        if (data.exists) {
             error = "Sampler already exists!";
             return false;
         }
@@ -547,20 +547,20 @@ failure:
         createInfo.minLod = minLod;
         createInfo.maxLod = maxLod;
 
-        VkResult result = vkCreateSampler(device, &createInfo, nullptr, &sampler);
+        VkResult result = vkCreateSampler(data.device, &createInfo, nullptr, &data.sampler);
 
         if (result != VK_SUCCESS) {
             error = "Failed to create sampler: " + ErrorString(result);
             return false;
         }
-        exists = true;
+        data.exists = true;
         return true;
     }
 
     void Sampler::Clean() {
-        if (exists) {
-            vkDestroySampler(device, sampler, nullptr);
-            exists = false;
+        if (data.exists) {
+            vkDestroySampler(data.device, data.sampler, nullptr);
+            data.exists = false;
         }
     }
 
@@ -569,11 +569,11 @@ failure:
     }
 
     void DescriptorLayout::Init(VkDevice dev) {
-        device = dev;
+        data.device = dev;
     }
 
     bool DescriptorLayout::Create() {
-        if (exists) {
+        if (data.exists) {
             error = "DescriptorLayout already created!";
             return false;
         }
@@ -590,66 +590,66 @@ failure:
         createInfo.bindingCount = bindingInfo.size();
         createInfo.pBindings = bindingInfo.data();
 
-        VkResult result = vkCreateDescriptorSetLayout(device, &createInfo, nullptr, &layout);
+        VkResult result = vkCreateDescriptorSetLayout(data.device, &createInfo, nullptr, &data.layout);
 
         if (result != VK_SUCCESS) {
             error = "Failed to create Descriptor Set Layout: " + ErrorString(result);
             return false;
         }
-        exists = true;
+        data.exists = true;
         return true;
     }
 
     void DescriptorLayout::Clean() {
-        if (exists) {
-            vkDestroyDescriptorSetLayout(device, layout, nullptr);
-            exists = false;
+        if (data.exists) {
+            vkDestroyDescriptorSetLayout(data.device, data.layout, nullptr);
+            data.exists = false;
         }
     }
 
     bool DescriptorSet::AddDescriptor(ArrayRange<Buffer> buffers, u32 binding) {
         // TODO: Support other types of descriptors
-        if (layout->type != VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+        if (data.layout->type != VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
             error = "AddDescriptor failed because layout type is not for uniform buffers!";
             return false;
         }
-        for (u32 i = 0; i < layout->bindings.size(); i++) {
-            if (layout->bindings[i].binding == binding) {
-                if (layout->bindings[i].count != buffers.size) {
+        for (u32 i = 0; i < data.layout->bindings.size(); i++) {
+            if (data.layout->bindings[i].binding == binding) {
+                if (data.layout->bindings[i].count != buffers.size) {
                     error = "AddDescriptor failed because input size is wrong("
                           + std::to_string(buffers.size) + ") for binding "
                           + std::to_string(binding) + " which expects "
-                          + std::to_string(layout->bindings[i].count) + " buffers.";
+                          + std::to_string(data.layout->bindings[i].count) + " buffers.";
                     return false;
                 }
-                bindings.push_back(layout->bindings[i]);
+                data.bindings.push_back(data.layout->bindings[i]);
                 break;
             }
         }
-        bufferDescriptors.push_back({buffers});
+        data.bufferDescriptors.push_back({buffers});
         return true;
     }
 
     bool DescriptorSet::AddDescriptor(ArrayRange<Image> images, ArrayPtr<Sampler> sampler, u32 binding) {
         // TODO: Support other types of descriptors
-        if (layout->type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+        if (data.layout->type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
             error = "AddDescriptor failed because layout type is not for combined image samplers!";
             return false;
         }
-        for (u32 i = 0; i < layout->bindings.size(); i++) {
-            if (layout->bindings[i].binding == binding) {
-                if (layout->bindings[i].count != images.size) {
+        for (u32 i = 0; i < data.layout->bindings.size(); i++) {
+            if (data.layout->bindings[i].binding == binding) {
+                if (data.layout->bindings[i].count != images.size) {
                     error = "AddDescriptor failed because input size is wrong("
                           + std::to_string(images.size) + ") for binding "
                           + std::to_string(binding) + " which expects "
-                          + std::to_string(layout->bindings[i].count) + " images.";
+                          + std::to_string(data.layout->bindings[i].count) + " images.";
                     return false;
                 }
-                bindings.push_back(layout->bindings[i]);
+                data.bindings.push_back(data.layout->bindings[i]);
                 break;
             }
         }
-        imageDescriptors.push_back({images, sampler});
+        data.imageDescriptors.push_back({images, sampler});
         return true;
     }
 
@@ -666,39 +666,39 @@ failure:
     }
 
     void Descriptors::Init(VkDevice dev) {
-        device = dev;
+        data.device = dev;
     }
 
     ArrayPtr<DescriptorLayout> Descriptors::AddLayout() {
-        layouts.push_back(DescriptorLayout());
-        return ArrayPtr<DescriptorLayout>(&layouts, layouts.size()-1);
+        data.layouts.push_back(DescriptorLayout());
+        return ArrayPtr<DescriptorLayout>(&data.layouts, data.layouts.size()-1);
     }
 
     ArrayPtr<DescriptorSet> Descriptors::AddSet(ArrayPtr<DescriptorLayout> layout) {
         DescriptorSet set{};
-        set.layout = layout;
-        sets.push_back(set);
-        return ArrayPtr<DescriptorSet>(&sets, sets.size()-1);
+        set.data.layout = layout;
+        data.sets.push_back(set);
+        return ArrayPtr<DescriptorSet>(&data.sets, data.sets.size()-1);
     }
 
     bool Descriptors::Create() {
         PrintDashed("Creating Descriptors");
-        if (exists) {
+        if (data.exists) {
             error = "Descriptors already exist!";
             return false;
         }
-        Array<VkDescriptorPoolSize> poolSizes(layouts.size());
-        for (u32 i = 0; i < layouts.size(); i++) {
-            layouts[i].Init(device);
-            if (!layouts[i].Create()) {
+        Array<VkDescriptorPoolSize> poolSizes(data.layouts.size());
+        for (u32 i = 0; i < data.layouts.size(); i++) {
+            data.layouts[i].Init(data.device);
+            if (!data.layouts[i].Create()) {
                 error = "Failed to created descriptor set layout[" + std::to_string(i) + "]: " + error;
                 Clean();
                 return false;
             }
-            poolSizes[i].type = layouts[i].type;
+            poolSizes[i].type = data.layouts[i].type;
             poolSizes[i].descriptorCount = 0;
-            for (u32 j = 0; j < layouts[i].bindings.size(); j++) {
-                poolSizes[i].descriptorCount += layouts[i].bindings[j].count;
+            for (u32 j = 0; j < data.layouts[i].bindings.size(); j++) {
+                poolSizes[i].descriptorCount += data.layouts[i].bindings[j].count;
             }
         }
 
@@ -706,37 +706,37 @@ failure:
         createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         createInfo.poolSizeCount = poolSizes.size();
         createInfo.pPoolSizes = poolSizes.data();
-        createInfo.maxSets = sets.size();
+        createInfo.maxSets = data.sets.size();
 
-        VkResult result = vkCreateDescriptorPool(device, &createInfo, nullptr, &pool);
+        VkResult result = vkCreateDescriptorPool(data.device, &createInfo, nullptr, &data.pool);
 
         if (result != VK_SUCCESS) {
             error = "Failed to create Descriptor Pool: " + ErrorString(result);
             return false;
         }
-        exists = true;
-        cout << "Allocating " << sets.size() << " Descriptor Sets." << std::endl;
-        Array<VkDescriptorSetLayout> setLayouts(sets.size());
-        for (u32 i = 0; i < sets.size(); i++) {
-            setLayouts[i] = sets[i].layout->layout;
+        data.exists = true;
+        cout << "Allocating " << data.sets.size() << " Descriptor Sets." << std::endl;
+        Array<VkDescriptorSetLayout> setLayouts(data.sets.size());
+        for (u32 i = 0; i < data.sets.size(); i++) {
+            setLayouts[i] = data.sets[i].data.layout->data.layout;
         }
         VkDescriptorSetAllocateInfo allocInfo = {};
         allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool = pool;
+        allocInfo.descriptorPool = data.pool;
         allocInfo.descriptorSetCount = setLayouts.size();
         allocInfo.pSetLayouts = setLayouts.data();
 
-        Array<VkDescriptorSet> setsTemp(sets.size());
+        Array<VkDescriptorSet> setsTemp(data.sets.size());
 
-        result = vkAllocateDescriptorSets(device, &allocInfo, setsTemp.data());
+        result = vkAllocateDescriptorSets(data.device, &allocInfo, setsTemp.data());
         if (result != VK_SUCCESS) {
             error = "Failed to allocate Descriptor Sets: " + ErrorString(result);
             Clean();
             return false;
         }
-        for (u32 i = 0; i < sets.size(); i++) {
-            sets[i].set = setsTemp[i];
-            sets[i].exists = true;
+        for (u32 i = 0; i < data.sets.size(); i++) {
+            data.sets[i].data.set = setsTemp[i];
+            data.sets[i].data.exists = true;
         }
 
         return true;
@@ -747,12 +747,12 @@ failure:
         u32 totalBufferInfos = 0;
         u32 totalImageInfos = 0;
 
-        for (u32 i = 0; i < sets.size(); i++) {
-            for (u32 j = 0; j < sets[i].bufferDescriptors.size(); j++) {
-                totalBufferInfos += sets[i].bufferDescriptors[j].buffers.size;
+        for (u32 i = 0; i < data.sets.size(); i++) {
+            for (u32 j = 0; j < data.sets[i].data.bufferDescriptors.size(); j++) {
+                totalBufferInfos += data.sets[i].data.bufferDescriptors[j].buffers.size;
             }
-            for (u32 j = 0; j < sets[i].imageDescriptors.size(); j++) {
-                totalImageInfos += sets[i].imageDescriptors[j].images.size;
+            for (u32 j = 0; j < data.sets[i].data.imageDescriptors.size(); j++) {
+                totalImageInfos += data.sets[i].data.imageDescriptors[j].images.size;
             }
         }
 
@@ -764,42 +764,42 @@ failure:
         u32 bInfoOffset = 0;
         u32 iInfoOffset = 0;
 
-        for (u32 i = 0; i < sets.size(); i++) {
+        for (u32 i = 0; i < data.sets.size(); i++) {
             u32 setBufferDescriptor = 0;
             u32 setImageDescriptor = 0;
             VkWriteDescriptorSet write = {};
             write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write.dstSet = sets[i].set;
+            write.dstSet = data.sets[i].data.set;
             write.dstArrayElement = 0;
-            write.descriptorType = sets[i].layout->type;
-            for (u32 j = 0; j < sets[i].bindings.size(); j++) {
-                write.dstBinding = sets[i].bindings[j].binding;
-                write.descriptorCount = sets[i].bindings[j].count;
+            write.descriptorType = data.sets[i].data.layout->type;
+            for (u32 j = 0; j < data.sets[i].data.bindings.size(); j++) {
+                write.dstBinding = data.sets[i].data.bindings[j].binding;
+                write.descriptorCount = data.sets[i].data.bindings[j].count;
 
                 switch(write.descriptorType) {
                 case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
-                    for (u32 x = 0; x < sets[i].bindings[j].count; x++) {
+                    for (u32 x = 0; x < data.sets[i].data.bindings[j].count; x++) {
                         VkDescriptorBufferInfo bufferInfo = {};
-                        Buffer &buffer = sets[i].bufferDescriptors[setBufferDescriptor].buffers[x];
-                        bufferInfo.buffer = buffer.buffer;
+                        Buffer &buffer = data.sets[i].data.bufferDescriptors[setBufferDescriptor].buffers[x];
+                        bufferInfo.buffer = buffer.data.buffer;
                         bufferInfo.offset = 0;
                         bufferInfo.range = buffer.size;
                         bufferInfos[bInfoOffset++] = bufferInfo;
                     }
                     setBufferDescriptor++;
-                    write.pBufferInfo = &bufferInfos[bInfoOffset - sets[i].bindings[j].count];
+                    write.pBufferInfo = &bufferInfos[bInfoOffset - data.sets[i].data.bindings[j].count];
                     break;
                 case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-                    for (u32 x = 0; x < sets[i].bindings[j].count; x++) {
+                    for (u32 x = 0; x < data.sets[i].data.bindings[j].count; x++) {
                         VkDescriptorImageInfo imageInfo = {};
-                        ImageDescriptor &imageDescriptor = sets[i].imageDescriptors[setImageDescriptor];
+                        ImageDescriptor &imageDescriptor = data.sets[i].data.imageDescriptors[setImageDescriptor];
                         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                        imageInfo.imageView = imageDescriptor.images[x].imageView;
-                        imageInfo.sampler = imageDescriptor.sampler->sampler;
+                        imageInfo.imageView = imageDescriptor.images[x].data.imageView;
+                        imageInfo.sampler = imageDescriptor.sampler->data.sampler;
                         imageInfos[iInfoOffset++] = imageInfo;
                     }
                     setImageDescriptor++;
-                    write.pImageInfo = &imageInfos[iInfoOffset - sets[i].bindings[j].count];
+                    write.pImageInfo = &imageInfos[iInfoOffset - data.sets[i].data.bindings[j].count];
                     break;
                 default:
                     error = "Unsupported descriptor type for updating descriptors!";
@@ -809,22 +809,22 @@ failure:
             }
         }
         // Well wasn't that just a lovely mess of code?
-        vkUpdateDescriptorSets(device, writes.size(), writes.data(), 0, nullptr);
+        vkUpdateDescriptorSets(data.device, writes.size(), writes.data(), 0, nullptr);
         return true;
     }
 
     void Descriptors::Clean() {
-        if (exists) {
+        if (data.exists) {
             PrintDashed("Destroying Descriptors");
-            vkDestroyDescriptorPool(device, pool, nullptr);
-            for (u32 i = 0; i < sets.size(); i++) {
-                sets[i].exists = false;
+            vkDestroyDescriptorPool(data.device, data.pool, nullptr);
+            for (u32 i = 0; i < data.sets.size(); i++) {
+                data.sets[i].data.exists = false;
             }
         }
-        for (u32 i = 0; i < layouts.size(); i++) {
-            layouts[i].Clean();
+        for (u32 i = 0; i < data.layouts.size(); i++) {
+            data.layouts[i].Clean();
         }
-        exists = false;
+        data.exists = false;
     }
 
     Attachment::Attachment() {}
@@ -839,9 +839,9 @@ failure:
 
     bool Attachment::Config() {
         if (swapchain != nullptr) {
-            formatColor = swapchain->surfaceFormat.format;
+            formatColor = swapchain->data.surfaceFormat.format;
         }
-        descriptions.resize(0);
+        data.descriptions.resize(0);
         if (bufferColor) {
             if (initialLayoutColor == VK_IMAGE_LAYOUT_UNDEFINED && loadColor) {
                 error = "For the contents of this attachment to be loaded, you must specify an initialLayout for Color.";
@@ -869,7 +869,7 @@ failure:
 
                 description.initialLayout = initialLayoutColor;
                 description.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-                descriptions.push_back(description);
+                data.descriptions.push_back(description);
 
                 // Next attachment should be the color buffer we resolve to
 
@@ -892,7 +892,7 @@ failure:
                 } else {
                     description.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
                 }
-                descriptions.push_back(description);
+                data.descriptions.push_back(description);
             } else {
                 // Resolving disabled or unnecessary
                 VkAttachmentDescription description{};
@@ -922,7 +922,7 @@ failure:
                 } else {
                     description.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
                 }
-                descriptions.push_back(description);
+                data.descriptions.push_back(description);
             }
         }
         if (bufferDepthStencil) {
@@ -969,7 +969,7 @@ failure:
 
             description.initialLayout = initialLayoutDepthStencil;
             description.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-            descriptions.push_back(description);
+            data.descriptions.push_back(description);
         }
         return true;
     }
@@ -980,17 +980,17 @@ failure:
     }
 
     ArrayPtr<Subpass> RenderPass::AddSubpass() {
-        subpasses.push_back(Subpass());
-        return ArrayPtr<Subpass>(&subpasses, subpasses.size()-1);
+        data.subpasses.push_back(Subpass());
+        return ArrayPtr<Subpass>(&data.subpasses, data.subpasses.size()-1);
     }
 
     ArrayPtr<Attachment> RenderPass::AddAttachment(Swapchain *swapchain) {
-        attachments.push_back(Attachment(swapchain));
-        return ArrayPtr<Attachment>(&attachments, attachments.size()-1);
+        data.attachments.push_back(Attachment(swapchain));
+        return ArrayPtr<Attachment>(&data.attachments, data.attachments.size()-1);
     }
 
     RenderPass::~RenderPass() {
-        if (initted) {
+        if (data.initted) {
             if (!Deinit()) {
                 cout << "Failed to clean up vk::RenderPass: " << error << std::endl;
             }
@@ -999,37 +999,37 @@ failure:
 
     bool RenderPass::Init(Device *dev) {
         PrintDashed("Initializing RenderPass");
-        if (initted) {
+        if (data.initted) {
             error = "Renderpass is already initialized!";
             return false;
         }
-        if ((device = dev) == nullptr) {
+        if ((data.device = dev) == nullptr) {
             error = "Device is nullptr!";
             return false;
         }
-        if (subpasses.size() == 0) {
+        if (data.subpasses.size() == 0) {
             error = "You must have at least 1 subpass in your renderpass!";
             return false;
         }
         // First we need to configure our subpass attachments
-        for (u32 i = 0; i < attachments.size(); i++) {
-            if (!attachments[i].Config()) {
+        for (u32 i = 0; i < data.attachments.size(); i++) {
+            if (!data.attachments[i].Config()) {
                 error = "With attachment[" + std::to_string(i) + "]: " + error;
                 return false;
             }
         }
         // Then we concatenate our attachmentDescriptions from the Attachments
         u32 nextAttachmentIndex = 0; // Since each Attachment can map to multiple attachments
-        for (u32 i = 0; i < attachments.size(); i++) {
-            attachments[i].firstIndex = nextAttachmentIndex;
-            attachmentDescriptions.resize(nextAttachmentIndex + attachments[i].descriptions.size());
-            for (u32 x = 0; x < attachments[i].descriptions.size(); x++) {
-                attachmentDescriptions[nextAttachmentIndex++] = attachments[i].descriptions[x];
+        for (u32 i = 0; i < data.attachments.size(); i++) {
+            data.attachments[i].data.firstIndex = nextAttachmentIndex;
+            data.attachmentDescriptions.resize(nextAttachmentIndex + data.attachments[i].data.descriptions.size());
+            for (u32 x = 0; x < data.attachments[i].data.descriptions.size(); x++) {
+                data.attachmentDescriptions[nextAttachmentIndex++] = data.attachments[i].data.descriptions[x];
             }
         }
-        for (u32 i = 0; i < subpasses.size(); i++) {
+        for (u32 i = 0; i < data.subpasses.size(); i++) {
             bool depthStencilTaken = false; // Verify that we only have one depth/stencil attachment
-            Subpass& subpass = subpasses[i];
+            Subpass& subpass = data.subpasses[i];
             subpass.referencesColor.resize(0);
             subpass.referencesResolve.resize(0);
             subpass.referencesInput.resize(0);
@@ -1038,12 +1038,12 @@ failure:
             for (u32 j = 0; j < subpass.attachments.size(); j++) {
                 String errorPrefix = "Subpass[" + std::to_string(i) + "] AttachmentUsage[" + std::to_string(j) + "] ";
                 AttachmentUsage& usage = subpass.attachments[j];
-                if (usage.index >= attachments.size()) {
+                if (usage.index >= data.attachments.size()) {
                     error = errorPrefix + "index is out of bounds: " + std::to_string(usage.index);
                     return false;
                 }
-                Attachment& attachment = attachments[usage.index];
-                nextAttachmentIndex = attachment.firstIndex;
+                Attachment& attachment = data.attachments[usage.index];
+                nextAttachmentIndex = attachment.data.firstIndex;
                 i32 colorIndex = -1;
                 i32 resolveIndex = -1;
                 i32 depthStencilIndex = -1;
@@ -1169,7 +1169,7 @@ failure:
             if (depthStencilTaken) {
                 description.pDepthStencilAttachment = &subpass.referenceDepthStencil;
             }
-            subpassDescriptions.push_back(description);
+            data.subpassDescriptions.push_back(description);
         }
         // Now we configure our dependencies
         if (initialTransition) {
@@ -1182,7 +1182,7 @@ failure:
             bool depth = false;
             bool color = false;
             bool resolve = false;
-            for (AttachmentUsage& usage : subpasses[0].attachments) {
+            for (AttachmentUsage& usage : data.subpasses[0].attachments) {
                 switch (usage.type) {
                     case ATTACHMENT_COLOR: {
                         color = true;
@@ -1197,7 +1197,7 @@ failure:
                         break;
                     }
                     case ATTACHMENT_ALL: {
-                        if (attachments[usage.index].resolveColor && attachments[usage.index].sampleCount != VK_SAMPLE_COUNT_1_BIT) {
+                        if (data.attachments[usage.index].resolveColor && data.attachments[usage.index].sampleCount != VK_SAMPLE_COUNT_1_BIT) {
                             resolve = true;
                         } else {
                             color = true;
@@ -1212,9 +1212,9 @@ failure:
                 dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
             }
             dep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-            subpassDependencies.push_back(dep);
+            data.subpassDependencies.push_back(dep);
         }
-        for (u32 i = 1; i < subpasses.size()-1; i++) {
+        for (u32 i = 1; i < data.subpasses.size()-1; i++) {
             // VkSubpassDependency dep;
             // dep.srcSubpass = i-1;
             // dep.dstSubpass = i;
@@ -1222,14 +1222,14 @@ failure:
         }
         if (finalTransition) {
             VkSubpassDependency dep;
-            dep.srcSubpass = subpasses.size()-1; // Our last subpass
+            dep.srcSubpass = data.subpasses.size()-1; // Our last subpass
             dep.dstSubpass = VK_SUBPASS_EXTERNAL; // Transition for use outside our RenderPass
             dep.srcStageMask = finalAccessStage; // Make sure the image is done being used
             dep.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
             bool depth = false;
             bool color = false;
             bool resolve = false;
-            for (AttachmentUsage& usage : subpasses[0].attachments) {
+            for (AttachmentUsage& usage : data.subpasses[0].attachments) {
                 switch (usage.type) {
                     case ATTACHMENT_COLOR: {
                         color = true;
@@ -1244,7 +1244,7 @@ failure:
                         break;
                     }
                     case ATTACHMENT_ALL: {
-                        if (attachments[usage.index].resolveColor && attachments[usage.index].sampleCount != VK_SAMPLE_COUNT_1_BIT) {
+                        if (data.attachments[usage.index].resolveColor && data.attachments[usage.index].sampleCount != VK_SAMPLE_COUNT_1_BIT) {
                             resolve = true;
                         } else {
                             color = true;
@@ -1260,43 +1260,43 @@ failure:
             }
             dep.dstAccessMask = finalAccess;
             dep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-            subpassDependencies.push_back(dep);
+            data.subpassDependencies.push_back(dep);
         }
         // Finally put it all together
         VkRenderPassCreateInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        renderPassInfo.attachmentCount = attachmentDescriptions.size();
-        renderPassInfo.pAttachments = attachmentDescriptions.data();
-        renderPassInfo.subpassCount = subpassDescriptions.size();
-        renderPassInfo.pSubpasses = subpassDescriptions.data();
-        renderPassInfo.subpassCount = subpassDescriptions.size();
-        renderPassInfo.dependencyCount = subpassDependencies.size();
-        renderPassInfo.pDependencies = subpassDependencies.data();
+        renderPassInfo.attachmentCount = data.attachmentDescriptions.size();
+        renderPassInfo.pAttachments = data.attachmentDescriptions.data();
+        renderPassInfo.subpassCount = data.subpassDescriptions.size();
+        renderPassInfo.pSubpasses = data.subpassDescriptions.data();
+        renderPassInfo.subpassCount = data.subpassDescriptions.size();
+        renderPassInfo.dependencyCount = data.subpassDependencies.size();
+        renderPassInfo.pDependencies = data.subpassDependencies.data();
 
-        VkResult result = vkCreateRenderPass(device->device, &renderPassInfo, nullptr, &renderPass);
+        VkResult result = vkCreateRenderPass(data.device->data.device, &renderPassInfo, nullptr, &data.renderPass);
 
         if (result != VK_SUCCESS) {
             error = "Failed to create RenderPass: " + ErrorString(result);
             return false;
         }
-        initted = true;
+        data.initted = true;
         return true;
     }
 
     bool RenderPass::Deinit() {
         PrintDashed("Destroying RenderPass");
-        if (!initted) {
+        if (!data.initted) {
             error = "RenderPass hasn't been initialized yet!";
             return false;
         }
 
-        vkDestroyRenderPass(device->device, renderPass, nullptr);
-        initted = false;
+        vkDestroyRenderPass(data.device->data.device, data.renderPass, nullptr);
+        data.initted = false;
         return true;
     }
 
     Framebuffer::~Framebuffer() {
-        if (initted) {
+        if (data.initted) {
             if (!Deinit()) {
                 cout << "Failed to clean up vk::Framebuffer: " << error << std::endl;
             }
@@ -1305,25 +1305,25 @@ failure:
 
     bool Framebuffer::Init(Device *dev) {
         PrintDashed("Initializing Framebuffer");
-        if (initted) {
+        if (data.initted) {
             error = "Framebuffer is already initialized!";
             return false;
         }
-        if ((device = dev) == nullptr) {
+        if ((data.device = dev) == nullptr) {
             error = "Device is nullptr!";
             return false;
         }
-        if (!renderPass->initted) {
+        if (!renderPass->data.initted) {
             error = "RenderPass is not initialized!";
             return false;
         }
         bool depth = false, color = false;
         bool sameSwapchain = true;
-        for (auto& attachment : renderPass->attachments) {
+        for (auto& attachment : renderPass->data.attachments) {
             if (attachment.swapchain != nullptr && swapchain != nullptr) {
                 if (attachment.swapchain != swapchain) {
                     sameSwapchain = false;
-                    if (attachment.swapchain->surfaceFormat.format != swapchain->surfaceFormat.format) {
+                    if (attachment.swapchain->data.surfaceFormat.format != swapchain->data.surfaceFormat.format) {
                         error = "Framebuffer swapchain differing from RenderPass swapchain: Surface formats do not match!";
                         return false;
                     }
@@ -1348,18 +1348,18 @@ failure:
             return false;
         }
         if (swapchain != nullptr) {
-            numFramebuffers = swapchain->imageCount;
-            width = swapchain->extent.width;
-            height = swapchain->extent.height;
+            numFramebuffers = swapchain->data.imageCount;
+            width = swapchain->data.extent.width;
+            height = swapchain->data.extent.height;
             bool found = false;
-            for (auto& ptr : swapchain->framebuffers) {
+            for (auto& ptr : swapchain->data.framebuffers) {
                 if (ptr == this) {
                     found = true;
                     break;
                 }
             }
             if (!found) {
-                swapchain->framebuffers.push_back(this);
+                swapchain->data.framebuffers.push_back(this);
             }
         }
         cout << "Width: " << width << "  Height: " << height << std::endl;
@@ -1367,11 +1367,11 @@ failure:
             // Create Memory objects according to the RenderPass attachments
             if (depth && depthMemory == nullptr) {
                 cout << "Adding depth Memory to device." << std::endl;
-                depthMemory = device->AddMemory();
+                depthMemory = data.device->AddMemory();
             }
             if (color && colorMemory == nullptr) {
                 cout << "Adding color Memory to device." << std::endl;
-                colorMemory = device->AddMemory();
+                colorMemory = data.device->AddMemory();
             }
         } else {
             // Verify that we have the memory we need
@@ -1401,7 +1401,7 @@ failure:
                 Array<ArrayPtr<Image>> ourImages{};
                 // Create Images according to the RenderPass attachments
                 u32 i = 0;
-                for (auto& attachment : renderPass->attachmentDescriptions) {
+                for (auto& attachment : renderPass->data.attachmentDescriptions) {
                     Image image;
                     image.width = width;
                     image.height = height;
@@ -1424,7 +1424,7 @@ failure:
                     i++;
                 }
                 // Now we need to make sure we know which images are also being used as input attachments
-                for (auto& subpass : renderPass->subpasses) {
+                for (auto& subpass : renderPass->data.subpasses) {
                     for (auto& input : subpass.referencesInput) {
                         ourImages[input.attachment]->usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
                     }
@@ -1441,7 +1441,7 @@ failure:
                                 return false;
                             }
                             once = true;
-                            ptr.SetPtr(&swapchain->images, i);
+                            ptr.SetPtr(&swapchain->data.images, i);
                         }
                     }
                 }
@@ -1463,8 +1463,8 @@ failure:
                     error = "Framebuffer has no attachment images!";
                     return false;
                 }
-                if (attachmentImages[i].size() != renderPass->attachmentDescriptions.size()) {
-                    error = "RenderPass expects " + std::to_string(renderPass->attachmentDescriptions.size())
+                if (attachmentImages[i].size() != renderPass->data.attachmentDescriptions.size()) {
+                    error = "RenderPass expects " + std::to_string(renderPass->data.attachmentDescriptions.size())
                     + " attachment images but this framebuffer only has " + std::to_string(attachmentImages.size()) + ".";
                     return false;
                 }
@@ -1486,71 +1486,71 @@ failure:
                 }
             }
         }
-        initted = true;
+        data.initted = true;
         return true;
     }
 
     bool Framebuffer::Create() {
         PrintDashed("Creating Framebuffer");
-        if (created) {
+        if (data.created) {
             error = "Framebuffer already exists!";
             return false;
         }
         cout << "Making " << numFramebuffers << " total framebuffers." << std::endl;
-        framebuffers.resize(numFramebuffers);
+        data.framebuffers.resize(numFramebuffers);
         for (u32 fb = 0; fb < numFramebuffers; fb++) {
             Array<VkImageView> attachments(attachmentImages[0].size());
             for (u32 i = 0; i < attachmentImages[fb].size(); i++) {
-                if (!attachmentImages[fb][i]->imageViewExists) {
+                if (!attachmentImages[fb][i]->data.imageViewExists) {
                     error = "Framebuffer attachment " + std::to_string(i) + "'s image view has not been created!";
                     return false;
                 }
-                attachments[i] = attachmentImages[fb][i]->imageView;
+                attachments[i] = attachmentImages[fb][i]->data.imageView;
             }
             VkFramebufferCreateInfo createInfo{};
             createInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-            createInfo.renderPass = renderPass->renderPass;
+            createInfo.renderPass = renderPass->data.renderPass;
             createInfo.width = width;
             createInfo.height = height;
             createInfo.layers = 1;
             createInfo.attachmentCount = attachments.size();
             createInfo.pAttachments = attachments.data();
 
-            VkResult result = vkCreateFramebuffer(device->device, &createInfo, nullptr, &framebuffers[fb]);
+            VkResult result = vkCreateFramebuffer(data.device->data.device, &createInfo, nullptr, &data.framebuffers[fb]);
 
             if (result != VK_SUCCESS) {
                 for (fb--; fb >= 0; fb--) {
-                    vkDestroyFramebuffer(device->device, framebuffers[fb], nullptr);
+                    vkDestroyFramebuffer(data.device->data.device, data.framebuffers[fb], nullptr);
                 }
                 error = "Failed to create framebuffers[" + std::to_string(fb) + "]: " + ErrorString(result);
                 return false;
             }
         }
-        created = true;
+        data.created = true;
         return true;
     }
 
     bool Framebuffer::Deinit() {
-        if (!initted) {
+        if (!data.initted) {
             error = "Framebuffer has not been initialized!";
             return false;
         }
-        if (created) {
-            for (u32 i = 0; i < framebuffers.size(); i++) {
-                vkDestroyFramebuffer(device->device, framebuffers[i], nullptr);
+        if (data.created) {
+            for (u32 i = 0; i < data.framebuffers.size(); i++) {
+                vkDestroyFramebuffer(data.device->data.device, data.framebuffers[i], nullptr);
             }
-            created = false;
+            data.created = false;
         }
-        initted = false;
+        data.initted = false;
         return true;
     }
 
     bool Shader::Init(VkDevice dev) {
-        if (initted) {
+        if (data.initted) {
             error = "Shader is already initialized!";
             return false;
         }
-        device = dev;
+        data.device = dev;
         // Load in the code
         std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
@@ -1561,36 +1561,36 @@ failure:
 
         size_t fileSize = (size_t) file.tellg();
         if (fileSize % 4 != 0) {
-            code.resize(fileSize/4+1, 0);
+            data.code.resize(fileSize/4+1, 0);
         } else {
-            code.resize(fileSize/4);
+            data.code.resize(fileSize/4);
         }
 
         file.seekg(0);
-        file.read((char*)code.data(), fileSize);
+        file.read((char*)data.code.data(), fileSize);
         file.close();
 
         // Now create the shader module
         VkShaderModuleCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
         createInfo.codeSize = fileSize;
-        createInfo.pCode = code.data();
+        createInfo.pCode = data.code.data();
 
-        VkResult result = vkCreateShaderModule(device, &createInfo, nullptr, &module);
+        VkResult result = vkCreateShaderModule(data.device, &createInfo, nullptr, &data.module);
 
         if (result != VK_SUCCESS) {
             error = "Failed to create shader module: " + ErrorString(result);
             return false;
         }
-        initted = true;
+        data.initted = true;
         return true;
     }
 
     void Shader::Clean() {
-        if (initted) {
-            code.resize(0);
-            vkDestroyShaderModule(device, module, nullptr);
-            initted = false;
+        if (data.initted) {
+            data.code.resize(0);
+            vkDestroyShaderModule(data.device, data.module, nullptr);
+            data.initted = false;
         }
     }
 
@@ -1604,7 +1604,7 @@ failure:
         inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        data.vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
         rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
         rasterizer.depthClampEnable = VK_FALSE;
@@ -1618,12 +1618,12 @@ failure:
         rasterizer.depthBiasClamp = 0.0;
         rasterizer.depthBiasSlopeFactor = 0.0;
 
-        multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-        multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-        multisampling.minSampleShading = 1.0;
-        multisampling.pSampleMask = nullptr;
-        multisampling.alphaToCoverageEnable = VK_FALSE;
-        multisampling.alphaToOneEnable = VK_FALSE;
+        data.multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+        data.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        data.multisampling.minSampleShading = 1.0;
+        data.multisampling.pSampleMask = nullptr;
+        data.multisampling.alphaToCoverageEnable = VK_FALSE;
+        data.multisampling.alphaToOneEnable = VK_FALSE;
 
         depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
         depthStencil.depthTestEnable = VK_FALSE;
@@ -1646,7 +1646,7 @@ failure:
     }
 
     Pipeline::~Pipeline() {
-        if (initted) {
+        if (data.initted) {
             if (!Deinit()) {
                 cout << "Failed to clean up pipeline: " << error << std::endl;
             }
@@ -1655,11 +1655,11 @@ failure:
 
     bool Pipeline::Init(Device *dev) {
         PrintDashed("Initializing Pipeline");
-        if (initted) {
+        if (data.initted) {
             error = "Pipeline is already initialized!";
             return false;
         }
-        if ((device = dev) == nullptr) {
+        if ((data.device = dev) == nullptr) {
             error = "Device is nullptr!";
             return false;
         }
@@ -1667,23 +1667,23 @@ failure:
             error = "Pipeline needs a renderPass!";
             return false;
         }
-        if (!renderPass->initted) {
+        if (!renderPass->data.initted) {
             error = "RenderPass isn't initialized!";
             return false;
         }
-        if (subpass >= renderPass->subpasses.size()) {
-            error = "subpass[" + std::to_string(subpass) + "] is out of bounds for the RenderPass which only has " + std::to_string(renderPass->subpasses.size()) + " subpasses!";
+        if (subpass >= renderPass->data.subpasses.size()) {
+            error = "subpass[" + std::to_string(subpass) + "] is out of bounds for the RenderPass which only has " + std::to_string(renderPass->data.subpasses.size()) + " subpasses!";
             return false;
         }
-        if (renderPass->subpasses[subpass].referencesColor.size() != colorBlendAttachments.size()) {
-            error = "You must have one colorBlendAttachment per color attachment in the associated Subpass!\nThe subpass has " + std::to_string(renderPass->subpasses[subpass].referencesColor.size()) + " color attachments while the pipeline has " + std::to_string(colorBlendAttachments.size()) + " colorBlendAttachments.";
+        if (renderPass->data.subpasses[subpass].referencesColor.size() != colorBlendAttachments.size()) {
+            error = "You must have one colorBlendAttachment per color attachment in the associated Subpass!\nThe subpass has " + std::to_string(renderPass->data.subpasses[subpass].referencesColor.size()) + " color attachments while the pipeline has " + std::to_string(colorBlendAttachments.size()) + " colorBlendAttachments.";
             return false;
         }
         // Inherit multisampling information from renderPass
-        for (auto& attachment : renderPass->subpasses[subpass].attachments) {
+        for (auto& attachment : renderPass->data.subpasses[subpass].attachments) {
             if (attachment.accessFlags &
                 (VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)) {
-                multisampling.rasterizationSamples = renderPass->attachments[attachment.index].sampleCount;
+                data.multisampling.rasterizationSamples = renderPass->data.attachments[attachment.index].sampleCount;
                 break;
             }
         }
@@ -1713,14 +1713,14 @@ failure:
                  << "\" accessing function \"" << shaders[i].functionName << "\"" << std::endl;
             shaderStages[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
             shaderStages[i].stage = shaders[i].stage;
-            shaderStages[i].module = shaders[i].shader->module;
+            shaderStages[i].module = shaders[i].shader->data.module;
             shaderStages[i].pName = shaders[i].functionName.c_str();
         }
         // Then we set up our vertex buffers
-        vertexInputInfo.vertexBindingDescriptionCount = inputBindingDescriptions.size();
-        vertexInputInfo.pVertexBindingDescriptions = inputBindingDescriptions.data();
-        vertexInputInfo.vertexAttributeDescriptionCount = inputAttributeDescriptions.size();
-        vertexInputInfo.pVertexAttributeDescriptions = inputAttributeDescriptions.data();
+        data.vertexInputInfo.vertexBindingDescriptionCount = data.inputBindingDescriptions.size();
+        data.vertexInputInfo.pVertexBindingDescriptions = data.inputBindingDescriptions.data();
+        data.vertexInputInfo.vertexAttributeDescriptionCount = data.inputAttributeDescriptions.size();
+        data.vertexInputInfo.pVertexAttributeDescriptions = data.inputAttributeDescriptions.data();
         // Viewport
         VkViewport viewport = {};
         viewport.x = 0.0;
@@ -1751,11 +1751,11 @@ failure:
         // Pipeline layout
         Array<VkDescriptorSetLayout> descriptorSetLayouts(descriptorLayouts.size());
         for (u32 i = 0; i < descriptorLayouts.size(); i++) {
-            if (!descriptorLayouts[i]->exists) {
+            if (!descriptorLayouts[i]->data.exists) {
                 error = "descriptorLayouts[" + std::to_string(i) + "] doesn't exist!";
                 return false;
             }
-            descriptorSetLayouts[i] = descriptorLayouts[i]->layout;
+            descriptorSetLayouts[i] = descriptorLayouts[i]->data.layout;
         }
         // TODO: Separate out pipeline layouts
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -1766,7 +1766,7 @@ failure:
         pipelineLayoutInfo.pPushConstantRanges = pushConstantRanges.data();
 
         VkResult result;
-        result = vkCreatePipelineLayout(device->device, &pipelineLayoutInfo, nullptr, &layout);
+        result = vkCreatePipelineLayout(data.device->data.device, &pipelineLayoutInfo, nullptr, &data.layout);
         if (result != VK_SUCCESS) {
             error = "Failed to create pipeline layout: " + ErrorString(result);
             return false;
@@ -1776,50 +1776,50 @@ failure:
         pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
         pipelineInfo.stageCount = shaderStages.size();
         pipelineInfo.pStages = shaderStages.data();
-        pipelineInfo.pVertexInputState = &vertexInputInfo;
+        pipelineInfo.pVertexInputState = &data.vertexInputInfo;
         pipelineInfo.pInputAssemblyState = &inputAssembly;
         pipelineInfo.pViewportState = &viewportState;
         pipelineInfo.pRasterizationState = &rasterizer;
-        pipelineInfo.pMultisampleState = &multisampling;
+        pipelineInfo.pMultisampleState = &data.multisampling;
         pipelineInfo.pDepthStencilState = &depthStencil;
         pipelineInfo.pColorBlendState = &colorBlending;
         if (dynamicStates.size() != 0) {
             pipelineInfo.pDynamicState = &dynamicState;
         }
-        pipelineInfo.layout = layout;
-        pipelineInfo.renderPass = renderPass->renderPass;
+        pipelineInfo.layout = data.layout;
+        pipelineInfo.renderPass = renderPass->data.renderPass;
         pipelineInfo.subpass = subpass;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
         pipelineInfo.basePipelineIndex = -1;
 
-        result = vkCreateGraphicsPipelines(device->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
+        result = vkCreateGraphicsPipelines(data.device->data.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &data.pipeline);
         if (result != VK_SUCCESS) {
             error = "Failed to create pipeline: " + ErrorString(result);
-            vkDestroyPipelineLayout(device->device, layout, nullptr);
+            vkDestroyPipelineLayout(data.device->data.device, data.layout, nullptr);
             return false;
         }
-        initted = true;
+        data.initted = true;
         return true;
     }
 
     bool Pipeline::Deinit() {
         PrintDashed("Destroying Pipeline");
-        if (!initted) {
+        if (!data.initted) {
             error = "Pipeline is not initted!";
             return false;
         }
-        vkDestroyPipeline(device->device, pipeline, nullptr);
-        vkDestroyPipelineLayout(device->device, layout, nullptr);
-        initted = false;
+        vkDestroyPipeline(data.device->data.device, data.pipeline, nullptr);
+        vkDestroyPipelineLayout(data.device->data.device, data.layout, nullptr);
+        data.initted = false;
         return true;
     }
 
     bool CommandBuffer::Begin() {
-        if (commandBuffer == VK_NULL_HANDLE) {
+        if (data.commandBuffer == VK_NULL_HANDLE) {
             error = "CommandBuffer doesn't exist!";
             return false;
         }
-        if (recording) {
+        if (data.recording) {
             error = "Cannot begin a CommandBuffer that's already recording!";
             return false;
         }
@@ -1830,19 +1830,19 @@ failure:
             VkCommandBufferInheritanceInfo inheritanceInfo = {};
             inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
             if (renderPass != nullptr) {
-                if (!renderPass->initted) {
+                if (!renderPass->data.initted) {
                     error = "Associated RenderPass is not initialized!";
                     return false;
                 }
-                inheritanceInfo.renderPass = renderPass->renderPass;
+                inheritanceInfo.renderPass = renderPass->data.renderPass;
                 inheritanceInfo.subpass = subpass;
             }
             if (framebuffer != nullptr) {
-                if (!framebuffer->initted) {
+                if (!framebuffer->data.initted) {
                     error = "Associated Framebuffer is not initialized!";
                     return false;
                 }
-                inheritanceInfo.framebuffer = framebuffer->framebuffers[framebuffer->currentFramebuffer];
+                inheritanceInfo.framebuffer = framebuffer->data.framebuffers[framebuffer->data.currentFramebuffer];
             }
             if (occlusionQueryEnable) {
                 inheritanceInfo.occlusionQueryEnable = VK_TRUE;
@@ -1864,39 +1864,39 @@ failure:
             beginInfo.flags |= VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
         }
 
-        VkResult result = vkBeginCommandBuffer(commandBuffer, &beginInfo);
+        VkResult result = vkBeginCommandBuffer(data.commandBuffer, &beginInfo);
 
         if (result != VK_SUCCESS) {
             error = "Failed to begin CommandBuffer: " + ErrorString(result);
             return false;
         }
 
-        recording = true;
+        data.recording = true;
         return true;
     }
 
     bool CommandBuffer::End() {
-        if (!recording) {
+        if (!data.recording) {
             error = "Can't end a CommandBuffer that's not recording!";
             return false;
         }
 
-        VkResult result = vkEndCommandBuffer(commandBuffer);
+        VkResult result = vkEndCommandBuffer(data.commandBuffer);
 
         if (result != VK_SUCCESS) {
             error = "Failed to end CommandBuffer: " + ErrorString(result);
             return false;
         }
-        recording = false;
+        data.recording = false;
         return true;
     }
 
     bool CommandBuffer::Reset() {
-        if (!pool->resettable) {
+        if (!data.pool->resettable) {
             error = "This CommandBuffer was not allocated from a CommandPool that's resettable!";
             return false;
         }
-        if (recording) {
+        if (data.recording) {
             error = "Can't reset a CommandBuffer while recording!";
             return false;
         }
@@ -1904,7 +1904,7 @@ failure:
         if (releaseResourcesOnReset) {
             resetFlags = VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT;
         }
-        VkResult result = vkResetCommandBuffer(commandBuffer, resetFlags);
+        VkResult result = vkResetCommandBuffer(data.commandBuffer, resetFlags);
 
         if (result != VK_SUCCESS) {
             error = "Failed to reset CommandBuffer: " + ErrorString(result);
@@ -1920,28 +1920,28 @@ failure:
     }
 
     ArrayPtr<CommandBuffer> CommandPool::AddCommandBuffer() {
-        commandBuffers.push_back(CommandBuffer());
-        return ArrayPtr<CommandBuffer>(&commandBuffers, commandBuffers.size()-1);
+        data.commandBuffers.push_back(CommandBuffer());
+        return ArrayPtr<CommandBuffer>(&data.commandBuffers, data.commandBuffers.size()-1);
     }
 
     CommandBuffer* CommandPool::CreateDynamicBuffer(bool secondary) {
-        if (!initted) {
+        if (!data.initted) {
             error = "Command Pool is not initialized!";
             return nullptr;
         }
-        dynamicBuffers.push_back(CommandBuffer());
-        CommandBuffer *buffer = &dynamicBuffers[dynamicBuffers.size()-1];
+        data.dynamicBuffers.push_back(CommandBuffer());
+        CommandBuffer *buffer = &data.dynamicBuffers[data.dynamicBuffers.size()-1];
         buffer->secondary = secondary;
-        buffer->pool = this;
-        buffer->device = device;
+        buffer->data.pool = this;
+        buffer->data.device = data.device;
 
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.commandPool = commandPool;
+        allocInfo.commandPool = data.commandPool;
         allocInfo.commandBufferCount = 1;
         allocInfo.level = secondary ? VK_COMMAND_BUFFER_LEVEL_SECONDARY : VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 
-        VkResult result = vkAllocateCommandBuffers(device->device, &allocInfo, &buffer->commandBuffer);
+        VkResult result = vkAllocateCommandBuffers(data.device->data.device, &allocInfo, &buffer->data.commandBuffer);
         if (result != VK_SUCCESS) {
             error = "Failed to allocate dynamic command buffer: " + ErrorString(result);
             return nullptr;
@@ -1950,30 +1950,30 @@ failure:
     }
 
     void CommandPool::DestroyDynamicBuffer(CommandBuffer *buffer) {
-        if (!initted) {
+        if (!data.initted) {
             return;
         }
-        vkFreeCommandBuffers(device->device, commandPool, 1, &buffer->commandBuffer);
+        vkFreeCommandBuffers(data.device->data.device, data.commandPool, 1, &buffer->data.commandBuffer);
         u32 i = 0;
-        for (CommandBuffer& b : dynamicBuffers) {
+        for (CommandBuffer& b : data.dynamicBuffers) {
             if (&b == buffer) {
                 break;
             }
             i++;
         }
-        if (i >= dynamicBuffers.size()) {
+        if (i >= data.dynamicBuffers.size()) {
             return;
         }
-        dynamicBuffers.erase(i);
+        data.dynamicBuffers.erase(i);
     }
 
     bool CommandPool::Init(Device *dev) {
         PrintDashed("Initializing Command Pool");
-        if (initted) {
+        if (data.initted) {
             error = "CommandPool is already initialized!";
             return false;
         }
-        if ((device = dev) == nullptr) {
+        if ((data.device = dev) == nullptr) {
             error = "Device is nullptr!";
             return false;
         }
@@ -1994,7 +1994,7 @@ failure:
             createInfo.flags &= VK_COMMAND_POOL_CREATE_PROTECTED_BIT;
         }
 
-        VkResult result = vkCreateCommandPool(device->device, &createInfo, nullptr, &commandPool);
+        VkResult result = vkCreateCommandPool(data.device->data.device, &createInfo, nullptr, &data.commandPool);
 
         if (result != VK_SUCCESS) {
             error = "Failed to create CommandPool: " + ErrorString(result);
@@ -2005,7 +2005,7 @@ failure:
         u32 p = 0, s = 0;
         Array<VkCommandBuffer> primaryBuffers;
         Array<VkCommandBuffer> secondaryBuffers;
-        for (CommandBuffer& buffer : commandBuffers) {
+        for (CommandBuffer& buffer : data.commandBuffers) {
             if (buffer.secondary) {
                 s++;
             } else {
@@ -2017,15 +2017,15 @@ failure:
         secondaryBuffers.resize(s);
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.commandPool = commandPool;
+        allocInfo.commandPool = data.commandPool;
         if (p != 0) {
             allocInfo.commandBufferCount = p;
             allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 
-            VkResult result = vkAllocateCommandBuffers(device->device, &allocInfo, primaryBuffers.data());
+            VkResult result = vkAllocateCommandBuffers(data.device->data.device, &allocInfo, primaryBuffers.data());
             if (result != VK_SUCCESS) {
                 error = "Failed to allocate primary command buffers: " + ErrorString(result);
-                vkDestroyCommandPool(device->device, commandPool, nullptr);
+                vkDestroyCommandPool(data.device->data.device, data.commandPool, nullptr);
                 return false;
             }
         }
@@ -2033,47 +2033,47 @@ failure:
             allocInfo.commandBufferCount = s;
             allocInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
 
-            VkResult result = vkAllocateCommandBuffers(device->device, &allocInfo, secondaryBuffers.data());
+            VkResult result = vkAllocateCommandBuffers(data.device->data.device, &allocInfo, secondaryBuffers.data());
             if (result != VK_SUCCESS) {
                 error = "Failed to allocate secondary command buffers: " + ErrorString(result);
-                vkDestroyCommandPool(device->device, commandPool, nullptr);
+                vkDestroyCommandPool(data.device->data.device, data.commandPool, nullptr);
                 return false;
             }
         }
         p = 0; s = 0;
-        for (CommandBuffer& buffer : commandBuffers) {
+        for (CommandBuffer& buffer : data.commandBuffers) {
             if (buffer.secondary) {
-                buffer.commandBuffer = secondaryBuffers[s++];
+                buffer.data.commandBuffer = secondaryBuffers[s++];
             } else {
-                buffer.commandBuffer = primaryBuffers[p++];
+                buffer.data.commandBuffer = primaryBuffers[p++];
             }
-            buffer.device = device;
-            buffer.pool = this;
+            buffer.data.device = data.device;
+            buffer.data.pool = this;
         }
-        initted = true;
+        data.initted = true;
         return true;
     }
 
     void CommandPool::Clean() {
-        if (initted) {
+        if (data.initted) {
             PrintDashed("Destroying Command Pool");
-            vkDestroyCommandPool(device->device, commandPool, nullptr);
-            initted = false;
+            vkDestroyCommandPool(data.device->data.device, data.commandPool, nullptr);
+            data.initted = false;
         }
     }
 
     VkResult Swapchain::AcquireNextImage() {
-        if (!initted) {
+        if (!data.initted) {
             error = "Swapchain is not initialized!";
             return VK_ERROR_INITIALIZATION_FAILED;
         }
-        if (!created) {
+        if (!data.created) {
             error = "Swapchain does not exist!";
             return VK_ERROR_OUT_OF_DATE_KHR;
         }
-        buffer = !buffer;
-        VkResult result = vkAcquireNextImageKHR(device->device, swapchain, timeout,
-                                            *semaphores[buffer], VK_NULL_HANDLE, &currentImage);
+        data.buffer = !data.buffer;
+        VkResult result = vkAcquireNextImageKHR(data.device->data.device, data.swapchain, timeout,
+                                            *data.semaphores[data.buffer], VK_NULL_HANDLE, &data.currentImage);
         return result;
         // if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_TIMEOUT || result == VK_NOT_READY) {
         //     return false; // Signal to skip rendering this frame.
@@ -2081,7 +2081,7 @@ failure:
     }
 
     Swapchain::~Swapchain() {
-        if (initted) {
+        if (data.initted) {
             if (!Deinit()) {
                 cout << "Failed to clean up vk::Swapchain: " << error << std::endl;
             }
@@ -2090,11 +2090,11 @@ failure:
 
     bool Swapchain::Init(Device *dev) {
         PrintDashed("Initializing Swapchain");
-        if (initted) {
+        if (data.initted) {
             error = "Swapchain is already initialized!";
             return false;
         }
-        if ((device = dev) == nullptr) {
+        if ((data.device = dev) == nullptr) {
             error = "Device is nullptr!";
             return false;
         }
@@ -2102,26 +2102,26 @@ failure:
             error = "Cannot create a swapchain without a window surface!";
             return false;
         }
-        surface = window->surface;
+        data.surface = window->surface;
         // Get information about what we can or can't do
-        VkPhysicalDevice physicalDevice = device->physicalDevice.physicalDevice;
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCapabilities);
+        VkPhysicalDevice physicalDevice = data.device->data.physicalDevice.physicalDevice;
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, data.surface, &data.surfaceCapabilities);
         u32 count;
-        vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &count, nullptr);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, data.surface, &count, nullptr);
         if (count != 0) {
-            surfaceFormats.resize(count);
-            vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &count, surfaceFormats.data());
+            data.surfaceFormats.resize(count);
+            vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, data.surface, &count, data.surfaceFormats.data());
         }
-        vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &count, nullptr);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, data.surface, &count, nullptr);
         if (count != 0) {
-            presentModes.resize(count);
-            vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &count, presentModes.data());
+            data.presentModes.resize(count);
+            vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, data.surface, &count, data.presentModes.data());
         }
         // We'll probably re-create the swapchain a bunch of times without a full Deinit() Init() cycle
         if (!Create()) {
             return false;
         }
-        initted = true;
+        data.initted = true;
         return true;
     }
 
@@ -2129,22 +2129,22 @@ failure:
         // Choose our surface format
         {
             bool found = false;
-            if (surfaceFormats.size() == 1 && surfaceFormats[0].format == VK_FORMAT_UNDEFINED) {
-                surfaceFormat = formatPreferred;
+            if (data.surfaceFormats.size() == 1 && data.surfaceFormats[0].format == VK_FORMAT_UNDEFINED) {
+                data.surfaceFormat = formatPreferred;
                 found = true;
             } else {
-                for (const auto& format : surfaceFormats) {
+                for (const auto& format : data.surfaceFormats) {
                     if (format.format == formatPreferred.format
                     && format.colorSpace == formatPreferred.colorSpace) {
-                        surfaceFormat = formatPreferred;
+                        data.surfaceFormat = formatPreferred;
                         found = true;
                         break;
                     }
                 }
             }
-            if (!found && surfaceFormats.size() > 0) {
+            if (!found && data.surfaceFormats.size() > 0) {
                 cout << "We couldn't use our preferred window surface format!" << std::endl;
-                surfaceFormat = surfaceFormats[0];
+                data.surfaceFormat = data.surfaceFormats[0];
                 found = true;
             }
             if (!found) {
@@ -2156,29 +2156,29 @@ failure:
         {
             bool found = false;
             if (vsync) {
-                for (const auto& mode : presentModes) {
+                for (const auto& mode : data.presentModes) {
                     if (mode == VK_PRESENT_MODE_FIFO_KHR) {
-                        presentMode = mode;
+                        data.presentMode = mode;
                         found = true;
                         break;
                     }
                 }
             } else {
-                for (const auto& mode : presentModes) {
+                for (const auto& mode : data.presentModes) {
                     if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
-                        presentMode = mode;
+                        data.presentMode = mode;
                         found = true;
                         break; // Ideal choice, don't keep looking
                     } else if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
-                        presentMode = mode;
+                        data.presentMode = mode;
                         found = true;
                         // Acceptable choice, but keep looking
                     }
                 }
             }
-            if (!found && presentModes.size() > 0) {
+            if (!found && data.presentModes.size() > 0) {
                 cout << "Our preferred present modes aren't available, but we can still do something" << std::endl;
-                presentMode = presentModes[0];
+                data.presentMode = data.presentModes[0];
                 found = true;
             }
             if (!found) {
@@ -2186,7 +2186,7 @@ failure:
                 return false;
             }
             cout << "Present Mode: ";
-            switch(presentMode) {
+            switch(data.presentMode) {
                 case VK_PRESENT_MODE_FIFO_KHR:
                     cout << "VK_PRESENT_MODE_FIFO_KHR" << std::endl;
                     break;
@@ -2205,42 +2205,42 @@ failure:
             }
         }
         // Now we gotta find our extent
-        if (surfaceCapabilities.currentExtent.width != std::numeric_limits<u32>::max()) {
-            extent = surfaceCapabilities.currentExtent;
+        if (data.surfaceCapabilities.currentExtent.width != std::numeric_limits<u32>::max()) {
+            data.extent = data.surfaceCapabilities.currentExtent;
         } else {
-            extent = {(u32)window->surfaceWindow->width, (u32)window->surfaceWindow->height};
+            data.extent = {(u32)window->surfaceWindow->width, (u32)window->surfaceWindow->height};
 
-            extent.width = max(surfaceCapabilities.minImageExtent.width,
-                           min(surfaceCapabilities.maxImageExtent.width, extent.width));
-            extent.height = max(surfaceCapabilities.minImageExtent.height,
-                            min(surfaceCapabilities.maxImageExtent.height, extent.height));
+            data.extent.width = max(data.surfaceCapabilities.minImageExtent.width,
+                           min(data.surfaceCapabilities.maxImageExtent.width, data.extent.width));
+            data.extent.height = max(data.surfaceCapabilities.minImageExtent.height,
+                            min(data.surfaceCapabilities.maxImageExtent.height, data.extent.height));
         }
-        imageCount = max(surfaceCapabilities.minImageCount, min(surfaceCapabilities.maxImageCount, imageCountPreferred));
-        cout << "Swapchain will use " << imageCount << " images" << std::endl;
+        data.imageCount = max(data.surfaceCapabilities.minImageCount, min(data.surfaceCapabilities.maxImageCount, imageCountPreferred));
+        cout << "Swapchain will use " << data.imageCount << " images" << std::endl;
         // Put it all together
         VkSwapchainCreateInfoKHR createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-        createInfo.surface = surface;
-        createInfo.minImageCount = imageCount;
-        createInfo.imageFormat = surfaceFormat.format;
-        createInfo.imageColorSpace = surfaceFormat.colorSpace;
-        createInfo.imageExtent = extent;
+        createInfo.surface = data.surface;
+        createInfo.minImageCount = data.imageCount;
+        createInfo.imageFormat = data.surfaceFormat.format;
+        createInfo.imageColorSpace = data.surfaceFormat.colorSpace;
+        createInfo.imageExtent = data.extent;
         createInfo.imageArrayLayers = 1;
         createInfo.imageUsage = usage;
         // TODO: Inherit imageUsage from ???
 
         // Queue family sharing...ugh
         Array<u32> queueFamilies{};
-        for (u32 i = 0; i < device->queues.size(); i++) {
+        for (u32 i = 0; i < data.device->data.queues.size(); i++) {
             bool found = false;
             for (u32 j = 0; j < queueFamilies.size(); j++) {
-                if (device->queues[i].queueFamilyIndex == (i32)queueFamilies[j]) {
+                if (data.device->data.queues[i].queueFamilyIndex == (i32)queueFamilies[j]) {
                     found = true;
                     break;
                 }
             }
             if (!found) {
-                queueFamilies.push_back(device->queues[i].queueFamilyIndex);
+                queueFamilies.push_back(data.device->data.queues[i].queueFamilyIndex);
             }
         }
         if (queueFamilies.size() > 1) {
@@ -2254,57 +2254,57 @@ failure:
             createInfo.pQueueFamilyIndices = nullptr;
             cout << "Swapchain image sharing mode is exclusive" << std::endl;
         }
-        createInfo.preTransform = surfaceCapabilities.currentTransform;
+        createInfo.preTransform = data.surfaceCapabilities.currentTransform;
         createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-        createInfo.presentMode = presentMode;
+        createInfo.presentMode = data.presentMode;
         createInfo.clipped = VK_TRUE;
 
-        if (created) {
-            VkSwapchainKHR oldSwapchain = swapchain;
+        if (data.created) {
+            VkSwapchainKHR oldSwapchain = data.swapchain;
             createInfo.oldSwapchain = oldSwapchain;
         }
 
         VkSwapchainKHR newSwapchain;
-        VkResult result = vkCreateSwapchainKHR(device->device, &createInfo, nullptr, &newSwapchain);
+        VkResult result = vkCreateSwapchainKHR(data.device->data.device, &createInfo, nullptr, &newSwapchain);
         if (result != VK_SUCCESS) {
             error = "Failed to create swap chain: ";
             error += ErrorString(result);
             return false;
         }
-        if (created) {
-            vkDestroySwapchainKHR(device->device, swapchain, nullptr);
+        if (data.created) {
+            vkDestroySwapchainKHR(data.device->data.device, data.swapchain, nullptr);
         }
-        swapchain = newSwapchain;
+        data.swapchain = newSwapchain;
 
         cout << "Acquiring images and creating image views..." << std::endl;
 
         // Get our images
         Array<VkImage> imagesTemp;
-        vkGetSwapchainImagesKHR(device->device, swapchain, &imageCount, nullptr);
-        imagesTemp.resize(imageCount);
-        vkGetSwapchainImagesKHR(device->device, swapchain, &imageCount, imagesTemp.data());
+        vkGetSwapchainImagesKHR(data.device->data.device, data.swapchain, &data.imageCount, nullptr);
+        imagesTemp.resize(data.imageCount);
+        vkGetSwapchainImagesKHR(data.device->data.device, data.swapchain, &data.imageCount, imagesTemp.data());
 
-        images.resize(imageCount);
-        for (u32 i = 0; i < imageCount; i++) {
-            images[i].Clean();
-            images[i].Init(device->device);
-            images[i].image = imagesTemp[i];
-            images[i].format = surfaceFormat.format;
-            images[i].width = extent.width;
-            images[i].height = extent.height;
-            images[i].aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-            images[i].usage = usage;
-            if (!images[i].CreateImageView()) {
+        data.images.resize(data.imageCount);
+        for (u32 i = 0; i < data.imageCount; i++) {
+            data.images[i].Clean();
+            data.images[i].Init(data.device->data.device);
+            data.images[i].data.image = imagesTemp[i];
+            data.images[i].format = data.surfaceFormat.format;
+            data.images[i].width = data.extent.width;
+            data.images[i].height = data.extent.height;
+            data.images[i].aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+            data.images[i].usage = usage;
+            if (!data.images[i].CreateImageView()) {
                 return false;
             }
         }
 
-        created = true;
+        data.created = true;
         return true;
     }
 
     bool Swapchain::Reconfigure() {
-        if (initted) {
+        if (data.initted) {
             if (!Create())
                 return false;
         }
@@ -2313,16 +2313,49 @@ failure:
 
     bool Swapchain::Deinit() {
         PrintDashed("Destroying Swapchain");
-        if (!initted) {
+        if (!data.initted) {
             error = "Swapchain isn't initialized!";
             return false;
         }
-        for (u32 i = 0; i < imageCount; i++) {
-            images[i].Clean();
+        for (u32 i = 0; i < data.imageCount; i++) {
+            data.images[i].Clean();
         }
-        vkDestroySwapchainKHR(device->device, swapchain, nullptr);
-        initted = false;
-        created = false;
+        vkDestroySwapchainKHR(data.device->data.device, data.swapchain, nullptr);
+        data.initted = false;
+        data.created = false;
+        return true;
+    }
+
+    bool QueueSubmission::Config() {
+        if (commandBuffers.size() == 0) {
+            error = "You can't submit 0 command buffers!";
+            return false;
+        }
+        data.commandBuffers.resize(commandBuffers.size());
+        for (u32 i = 0; i < commandBuffers.size(); i++) {
+            data.commandBuffers[i] = commandBuffers[i]->data.commandBuffer;
+        }
+        data.submitInfo.commandBufferCount = data.commandBuffers.size();
+        data.submitInfo.pCommandBuffers = data.commandBuffers.data();
+
+        data.waitSemaphores.resize(waitSemaphores.size());
+        data.waitDstStageMasks.resize(waitSemaphores.size());
+        for (u32 i = 0; i < waitSemaphores.size(); i++) {
+            data.waitSemaphores[i] = *waitSemaphores[i].semaphore;
+            data.waitDstStageMasks[i] = waitSemaphores[i].dstStageMask;
+        }
+        data.submitInfo.waitSemaphoreCount = waitSemaphores.size();
+        if (waitSemaphores.size() != 0) {
+            data.submitInfo.pWaitSemaphores = data.waitSemaphores.data();
+            data.submitInfo.pWaitDstStageMask = data.waitDstStageMasks.data();
+        }
+        data.signalSemaphores.resize(signalSemaphores.size());
+        for (u32 i = 0; i < signalSemaphores.size(); i++) {
+            data.signalSemaphores[i] = *signalSemaphores[i];
+        }
+        data.submitInfo.signalSemaphoreCount = data.signalSemaphores.size();
+        data.submitInfo.pSignalSemaphores = data.signalSemaphores.data();
+
         return true;
     }
 
@@ -2331,7 +2364,7 @@ failure:
     }
 
     Device::~Device() {
-        if (initted) {
+        if (data.initted) {
             if (!Deinit()) {
                 cout << "Failed to clean up vk::Device: " << error << std::endl;
             }
@@ -2339,72 +2372,98 @@ failure:
     }
 
     Queue* Device::AddQueue() {
-        queues.push_back(Queue());
-        return &queues[queues.size()-1];
+        data.queues.push_back(Queue());
+        return &data.queues[data.queues.size()-1];
     }
 
     Swapchain* Device::AddSwapchain() {
-        swapchains.push_back(Swapchain());
-        return &swapchains[swapchains.size()-1];
+        data.swapchains.push_back(Swapchain());
+        return &data.swapchains[data.swapchains.size()-1];
     }
 
     RenderPass* Device::AddRenderPass() {
-        renderPasses.push_back(RenderPass());
-        return &renderPasses[renderPasses.size()-1];
+        data.renderPasses.push_back(RenderPass());
+        return &data.renderPasses[data.renderPasses.size()-1];
     }
 
     ArrayPtr<Sampler> Device::AddSampler() {
-        samplers.push_back(Sampler());
-        return ArrayPtr<Sampler>(&samplers, samplers.size()-1);
+        data.samplers.push_back(Sampler());
+        return ArrayPtr<Sampler>(&data.samplers, data.samplers.size()-1);
     }
 
     Memory* Device::AddMemory() {
-        memories.push_back(Memory());
-        return &memories[memories.size()-1];
+        data.memories.push_back(Memory());
+        return &data.memories[data.memories.size()-1];
     }
 
     Descriptors* Device::AddDescriptors() {
-        descriptors.push_back(Descriptors());
-        return &descriptors[descriptors.size()-1];
+        data.descriptors.push_back(Descriptors());
+        return &data.descriptors[data.descriptors.size()-1];
     }
 
     ArrayPtr<Shader> Device::AddShader() {
-        shaders.push_back(Shader());
-        return ArrayPtr<Shader>(&shaders, shaders.size()-1);
+        data.shaders.push_back(Shader());
+        return ArrayPtr<Shader>(&data.shaders, data.shaders.size()-1);
     }
 
     ArrayRange<Shader> Device::AddShaders(u32 count) {
-        shaders.resize(shaders.size()+count);
-        return ArrayRange<Shader>(&shaders, shaders.size()-count, count);
+        data.shaders.resize(data.shaders.size()+count);
+        return ArrayRange<Shader>(&data.shaders, data.shaders.size()-count, count);
     }
 
     Pipeline* Device::AddPipeline() {
-        pipelines.push_back(Pipeline());
-        return &pipelines[pipelines.size()-1];
+        data.pipelines.push_back(Pipeline());
+        return &data.pipelines[data.pipelines.size()-1];
     }
 
     CommandPool* Device::AddCommandPool(Queue *queue) {
-        commandPools.push_back(CommandPool(queue));
-        return &commandPools[commandPools.size()-1];
+        data.commandPools.push_back(CommandPool(queue));
+        return &data.commandPools[data.commandPools.size()-1];
     }
 
     Framebuffer* Device::AddFramebuffer() {
-        framebuffers.push_back(Framebuffer());
-        return &framebuffers[framebuffers.size()-1];
+        data.framebuffers.push_back(Framebuffer());
+        return &data.framebuffers[data.framebuffers.size()-1];
     }
 
     ArrayPtr<VkSemaphore> Device::AddSemaphore() {
-        semaphores.push_back(VK_NULL_HANDLE);
-        return ArrayPtr<VkSemaphore>(&semaphores, semaphores.size()-1);
+        data.semaphores.push_back(VK_NULL_HANDLE);
+        return ArrayPtr<VkSemaphore>(&data.semaphores, data.semaphores.size()-1);
+    }
+
+    bool Device::SubmitCommandBuffers(Queue *queue, Array<QueueSubmission*> submissions) {
+        if (!data.initted) {
+            error = "Device not initialized!";
+            return false;
+        }
+        if (queue->queue == VK_NULL_HANDLE) {
+            error = "Queue is not valid!";
+            return false;
+        }
+        if (submissions.size() == 0) {
+            error = "submissions is an empty array!";
+            return false;
+        }
+        Array<VkSubmitInfo> submitInfos(submissions.size());
+        for (u32 i = 0; i < submitInfos.size(); i++) {
+            submitInfos[i] = submissions[i]->data.submitInfo;
+        }
+        VkResult result = vkQueueSubmit(queue->queue, submitInfos.size(), submitInfos.data(), VK_NULL_HANDLE);
+
+        if (result != VK_SUCCESS) {
+            error = "Failed to submit " + std::to_string(submitInfos.size()) + " submissions: " + ErrorString(result);
+            return false;
+        }
+        return true;
     }
 
     bool Device::Init(Instance *inst) {
         PrintDashed("Initializing Logical Device");
-        if (initted) {
+        if (data.initted) {
             error = "Device is already initialized!";
             return false;
         }
-        if ((instance = inst) == nullptr) {
+        if ((data.instance = inst) == nullptr) {
             error = "Instance is nullptr!";
             return false;
         }
@@ -2412,18 +2471,21 @@ failure:
         // Select physical device first based on needs.
         // TODO: Right now we just choose the first in the pre-sorted list. We should instead select
         //       them based on whether they have our desired features.
-        physicalDevice = instance->physicalDevices[0];
+        data.physicalDevice = data.instance->data.physicalDevices[0];
 
         // Put together all our needed extensions
-        Array<const char*> extensionsAll(extensionsRequired);
+        Array<const char*> extensionsAll(data.extensionsRequired);
 
         // TODO: Find out what extensions we need based on context
+        if (data.swapchains.size() != 0) {
+            extensionsAll.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+        }
 
         // Verify that our device extensions are available
         Array<const char*> extensionsUnavailable(extensionsAll);
         for (i32 i = 0; i < (i32)extensionsUnavailable.size(); i++) {
-            for (i32 j = 0; j < (i32)physicalDevice.extensionsAvailable.size(); j++) {
-                if (strcmp(extensionsUnavailable[i], physicalDevice.extensionsAvailable[j].extensionName) == 0) {
+            for (i32 j = 0; j < (i32)data.physicalDevice.extensionsAvailable.size(); j++) {
+                if (strcmp(extensionsUnavailable[i], data.physicalDevice.extensionsAvailable[j].extensionName) == 0) {
                     extensionsUnavailable.erase(extensionsUnavailable.begin() + i);
                     i--;
                     break;
@@ -2443,7 +2505,7 @@ failure:
         {
             // What features to we want?
             bool anisotropy = false;
-            for (auto& sampler : samplers) {
+            for (auto& sampler : data.samplers) {
                 if (sampler.anisotropy != 1) {
                     anisotropy = true;
                     break;
@@ -2451,10 +2513,10 @@ failure:
             }
             if (anisotropy) {
                 cout << "Enabling samplerAnisotropy optional device feature" << std::endl;
-                deviceFeaturesOptional.samplerAnisotropy = VK_TRUE;
+                data.deviceFeaturesOptional.samplerAnisotropy = VK_TRUE;
             }
             bool independentBlending = false;
-            for (auto& pipeline : pipelines) {
+            for (auto& pipeline : data.pipelines) {
                 for (u32 i = 1; i < pipeline.colorBlendAttachments.size(); i++) {
                     VkPipelineColorBlendAttachmentState& s1 = pipeline.colorBlendAttachments[i-1];
                     VkPipelineColorBlendAttachmentState& s2 = pipeline.colorBlendAttachments[i];
@@ -2473,19 +2535,19 @@ failure:
             }
             if (independentBlending) {
                 cout << "Enabling independentBlend device feature" << std::endl;
-                deviceFeaturesRequired.independentBlend = VK_TRUE;
+                data.deviceFeaturesRequired.independentBlend = VK_TRUE;
             }
             // Which ones are available?
             for (u32 i = 0; i < sizeof(VkPhysicalDeviceFeatures)/4; i++) {
                 // I'm not sure why these aren't bit-masked values,
                 // but I'm treating it like that anyway.
-                *(((u32*)&deviceFeatures + i)) = *(((u32*)&deviceFeaturesRequired + i))
-                || (*(((u32*)&physicalDevice.features + i)) && *(((u32*)&deviceFeaturesOptional + i)));
+                *(((u32*)&deviceFeatures + i)) = *(((u32*)&data.deviceFeaturesRequired + i))
+                || (*(((u32*)&data.physicalDevice.features + i)) && *(((u32*)&data.deviceFeaturesOptional + i)));
             }
             // Which ones don't we have that we wanted?
             if (anisotropy && deviceFeatures.samplerAnisotropy == VK_FALSE) {
                 cout << "Sampler Anisotropy desired, but unavailable...disabling." << std::endl;
-                for (auto& sampler : samplers) {
+                for (auto& sampler : data.samplers) {
                     sampler.anisotropy = 1;
                 }
             }
@@ -2498,47 +2560,47 @@ failure:
         const bool preferMonolithicQueues = true;
 
         // Make sure we have enough queues in every family
-        u32 queueFamilies = physicalDevice.queueFamiliesAvailable.size();
+        u32 queueFamilies = data.physicalDevice.queueFamiliesAvailable.size();
         Array<u32> queuesPerFamily(queueFamilies);
         for (u32 i = 0; i < queueFamilies; i++) {
-            queuesPerFamily[i] = physicalDevice.queueFamiliesAvailable[i].queueCount;
+            queuesPerFamily[i] = data.physicalDevice.queueFamiliesAvailable[i].queueCount;
         }
 
-        for (u32 i = 0; i < queues.size(); i++) {
+        for (u32 i = 0; i < data.queues.size(); i++) {
             for (u32 j = 0; j < queueFamilies; j++) {
                 if (queuesPerFamily[j] == 0)
                     continue; // This family has been exhausted of queues, try the next.
-                VkQueueFamilyProperties& props = physicalDevice.queueFamiliesAvailable[j];
+                VkQueueFamilyProperties& props = data.physicalDevice.queueFamiliesAvailable[j];
                 if (props.queueCount == 0)
                     continue;
                 VkBool32 presentSupport = VK_FALSE;
-                for (const Window& w : instance->windows) {
-                    vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice.physicalDevice, j, w.surface, &presentSupport);
+                for (const Window& w : data.instance->data.windows) {
+                    vkGetPhysicalDeviceSurfaceSupportKHR(data.physicalDevice.physicalDevice, j, w.surface, &presentSupport);
                     if (presentSupport)
                         break;
                 }
-                switch(queues[i].queueType) {
+                switch(data.queues[i].queueType) {
                     case COMPUTE: {
                         if (props.queueFlags & VK_QUEUE_COMPUTE_BIT) {
-                            queues[i].queueFamilyIndex = j;
+                            data.queues[i].queueFamilyIndex = j;
                         }
                         break;
                     }
                     case GRAPHICS: {
                         if (props.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-                            queues[i].queueFamilyIndex = j;
+                            data.queues[i].queueFamilyIndex = j;
                         }
                         break;
                     }
                     case TRANSFER: {
                         if (props.queueFlags & VK_QUEUE_TRANSFER_BIT) {
-                            queues[i].queueFamilyIndex = j;
+                            data.queues[i].queueFamilyIndex = j;
                         }
                         break;
                     }
                     case PRESENT: {
                         if (presentSupport) {
-                            queues[i].queueFamilyIndex = j;
+                            data.queues[i].queueFamilyIndex = j;
                         }
                         break;
                     }
@@ -2547,22 +2609,22 @@ failure:
                         return false;
                     }
                 }
-                if (preferSameQueueFamilies && queues[i].queueFamilyIndex != -1)
+                if (preferSameQueueFamilies && data.queues[i].queueFamilyIndex != -1)
                     break;
             }
-            if (queues[i].queueFamilyIndex == -1) {
+            if (data.queues[i].queueFamilyIndex == -1) {
                 error = "queues[" + std::to_string(i) + "] couldn't find a queue family :(";
                 return false;
             }
             if (!preferMonolithicQueues) {
-                queuesPerFamily[queues[i].queueFamilyIndex]--;
+                queuesPerFamily[data.queues[i].queueFamilyIndex]--;
             }
         }
 
         Array<VkDeviceQueueCreateInfo> queueCreateInfos{};
         Array<Set<f32>> queuePriorities(queueFamilies);
         for (u32 i = 0; i < queueFamilies; i++) {
-            for (auto& queue : queues) {
+            for (auto& queue : data.queues) {
                 if (queue.queueFamilyIndex == (i32)i) {
                     queuePriorities[i].insert(queue.queuePriority);
                 }
@@ -2596,14 +2658,14 @@ failure:
         createInfo.enabledExtensionCount = extensionsAll.size();
         createInfo.ppEnabledExtensionNames = extensionsAll.data();
 
-        if (instance->enableLayers) {
-            createInfo.enabledLayerCount = instance->layersRequired.size();
-            createInfo.ppEnabledLayerNames = instance->layersRequired.data();
+        if (data.instance->data.enableLayers) {
+            createInfo.enabledLayerCount = data.instance->data.layersRequired.size();
+            createInfo.ppEnabledLayerNames = data.instance->data.layersRequired.data();
         } else {
             createInfo.enabledLayerCount = 0;
         }
 
-        VkResult result = vkCreateDevice(physicalDevice.physicalDevice, &createInfo, nullptr, &device);
+        VkResult result = vkCreateDevice(data.physicalDevice.physicalDevice, &createInfo, nullptr, &data.device);
         if (result != VK_SUCCESS) {
             error = "Failed to create logical device: ";
             error += ErrorString(result);
@@ -2611,7 +2673,7 @@ failure:
         }
         // Get our queues
         for (u32 i = 0; i < queueFamilies; i++) {
-            for (auto& queue : queues) {
+            for (auto& queue : data.queues) {
                 if (queue.queueFamilyIndex == (i32)i) {
                     u32 queueIndex = 0;
                     for (u32 p = 0; p < queuePrioritiesArray[i].size(); p++) {
@@ -2620,44 +2682,44 @@ failure:
                             break;
                         }
                     }
-                    vkGetDeviceQueue(device, i, queueIndex, &queue.queue);
+                    vkGetDeviceQueue(data.device, i, queueIndex, &queue.queue);
                 }
             }
         }
         // Swapchains
-        for (auto& swapchain : swapchains) {
+        for (auto& swapchain : data.swapchains) {
             if (!swapchain.Init(this)) {
                 goto failed;
             }
         }
         // RenderPasses
-        for (auto& renderPass : renderPasses) {
+        for (auto& renderPass : data.renderPasses) {
             if (!renderPass.Init(this)) {
                 goto failed;
             }
         }
         // Framebuffer init phase, may allocate Memory objects with Images
-        for (auto& framebuffer : framebuffers) {
+        for (auto& framebuffer : data.framebuffers) {
             if (!framebuffer.Init(this)) {
                 goto failed;
             }
         }
         // Memory
-        for (auto& memory : memories) {
-            if (!memory.Init(&physicalDevice, device)) {
+        for (auto& memory : data.memories) {
+            if (!memory.Init(&data.physicalDevice, data.device)) {
                 goto failed;
             }
         }
         // Samplers
-        for (auto& sampler : samplers) {
-            sampler.device = device;
+        for (auto& sampler : data.samplers) {
+            sampler.data.device = data.device;
             if (!sampler.Create()) {
                 goto failed;
             }
         }
         // Descriptors
-        for (auto& descriptor : descriptors) {
-            descriptor.Init(device);
+        for (auto& descriptor : data.descriptors) {
+            descriptor.Init(data.device);
             if (!descriptor.Create()) {
                 goto failed;
             }
@@ -2666,34 +2728,34 @@ failure:
             }
         }
         // Shaders
-        for (auto& shader : shaders) {
-            if (!shader.Init(device)) {
+        for (auto& shader : data.shaders) {
+            if (!shader.Init(data.device)) {
                 goto failed;
             }
         }
         // Pipelines
-        for (auto& pipeline : pipelines) {
+        for (auto& pipeline : data.pipelines) {
             if (!pipeline.Init(this)) {
                 goto failed;
             }
         }
         // CommandPools
-        for (auto& commandPool : commandPools) {
+        for (auto& commandPool : data.commandPools) {
             if (!commandPool.Init(this)) {
                 goto failed;
             }
         }
         // Framebuffer create phase
-        for (auto& framebuffer : framebuffers) {
+        for (auto& framebuffer : data.framebuffers) {
             if (!framebuffer.Create()) {
                 goto failed;
             }
         }
         // Semaphores
-        cout << "Creating " << semaphores.size() << " semaphores..." << std::endl;
-        for (u32 i = 0; i < semaphores.size(); i++) {
+        cout << "Creating " << data.semaphores.size() << " semaphores..." << std::endl;
+        for (u32 i = 0; i < data.semaphores.size(); i++) {
             const VkSemaphoreCreateInfo createInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-            VkResult result = vkCreateSemaphore(device, &createInfo, nullptr, &semaphores[i]);
+            VkResult result = vkCreateSemaphore(data.device, &createInfo, nullptr, &data.semaphores[i]);
             if (result != VK_SUCCESS) {
                 error = "Failed to create semaphore[" + std::to_string(i) + "]: " + ErrorString(result);
                 goto failed;
@@ -2703,111 +2765,111 @@ failure:
         // Once the pipelines are set with all the shaders,
         // we can clean them since they're no longer needed
         // NOTE: Unless we want to recreate the pipelines. Might reconsider this.
-        for (auto& shader : shaders) {
+        for (auto& shader : data.shaders) {
             shader.Clean();
         }
 
         // Init everything else here
-        initted = true;
+        data.initted = true;
         return true;
 failed:
-        for (auto& swapchain : swapchains) {
-            if (swapchain.initted) {
+        for (auto& swapchain : data.swapchains) {
+            if (swapchain.data.initted) {
                 swapchain.Deinit();
             }
         }
-        for (auto& renderPass : renderPasses) {
-            if (renderPass.initted) {
+        for (auto& renderPass : data.renderPasses) {
+            if (renderPass.data.initted) {
                 renderPass.Deinit();
             }
         }
-        for (auto& memory : memories) {
-            if (memory.initted) {
+        for (auto& memory : data.memories) {
+            if (memory.data.initted) {
                 memory.Deinit();
             }
         }
-        for (auto& sampler : samplers) {
+        for (auto& sampler : data.samplers) {
             sampler.Clean();
         }
-        for (auto& descriptor : descriptors) {
+        for (auto& descriptor : data.descriptors) {
             descriptor.Clean();
         }
-        for (auto& shader : shaders) {
+        for (auto& shader : data.shaders) {
             shader.Clean();
         }
-        for (auto& pipeline : pipelines) {
-            if (pipeline.initted) {
+        for (auto& pipeline : data.pipelines) {
+            if (pipeline.data.initted) {
                 pipeline.Deinit();
             }
         }
-        for (auto& commandPool : commandPools) {
+        for (auto& commandPool : data.commandPools) {
             commandPool.Clean();
         }
-        for (auto& framebuffer : framebuffers) {
-            if (framebuffer.initted) {
+        for (auto& framebuffer : data.framebuffers) {
+            if (framebuffer.data.initted) {
                 framebuffer.Deinit();
             }
         }
-        for (u32 i = 0; i < semaphores.size(); i++) {
-            if (semaphores[i] != VK_NULL_HANDLE) {
-                vkDestroySemaphore(device, semaphores[i], nullptr);
-                semaphores[i] = VK_NULL_HANDLE;
+        for (u32 i = 0; i < data.semaphores.size(); i++) {
+            if (data.semaphores[i] != VK_NULL_HANDLE) {
+                vkDestroySemaphore(data.device, data.semaphores[i], nullptr);
+                data.semaphores[i] = VK_NULL_HANDLE;
             }
         }
-        vkDestroyDevice(device, nullptr);
+        vkDestroyDevice(data.device, nullptr);
         return false;
     }
 
     bool Device::Deinit() {
         PrintDashed("Destroying Logical Device");
-        if (!initted) {
+        if (!data.initted) {
             error = "Device isn't initialized!";
             return false;
         }
-        for (auto& swapchain : swapchains) {
-            if (swapchain.initted) {
+        for (auto& swapchain : data.swapchains) {
+            if (swapchain.data.initted) {
                 swapchain.Deinit();
             }
         }
-        for (auto& renderPass : renderPasses) {
-            if (renderPass.initted) {
+        for (auto& renderPass : data.renderPasses) {
+            if (renderPass.data.initted) {
                 renderPass.Deinit();
             }
         }
-        for (auto& memory : memories) {
-            if (memory.initted) {
+        for (auto& memory : data.memories) {
+            if (memory.data.initted) {
                 memory.Deinit();
             }
         }
-        for (auto& sampler : samplers) {
+        for (auto& sampler : data.samplers) {
             sampler.Clean();
         }
-        for (auto& descriptor : descriptors) {
+        for (auto& descriptor : data.descriptors) {
             descriptor.Clean();
         }
         // We don't need to clean the shaders since they should have already been cleaned
-        for (auto& pipeline : pipelines) {
-            if (pipeline.initted) {
+        for (auto& pipeline : data.pipelines) {
+            if (pipeline.data.initted) {
                 pipeline.Deinit();
             }
         }
-        for (auto& commandPool : commandPools) {
+        for (auto& commandPool : data.commandPools) {
             commandPool.Clean();
         }
-        for (auto& framebuffer : framebuffers) {
-            if (framebuffer.initted) {
+        for (auto& framebuffer : data.framebuffers) {
+            if (framebuffer.data.initted) {
                 framebuffer.Deinit();
             }
         }
-        for (u32 i = 0; i < semaphores.size(); i++) {
-            if (semaphores[i] != VK_NULL_HANDLE) {
-                vkDestroySemaphore(device, semaphores[i], nullptr);
-                semaphores[i] = VK_NULL_HANDLE;
+        for (u32 i = 0; i < data.semaphores.size(); i++) {
+            if (data.semaphores[i] != VK_NULL_HANDLE) {
+                vkDestroySemaphore(data.device, data.semaphores[i], nullptr);
+                data.semaphores[i] = VK_NULL_HANDLE;
             }
         }
         // Destroy everything allocated from the device here
-        vkDestroyDevice(device, nullptr);
-        initted = false;
+        vkDestroyDevice(data.device, nullptr);
+        data.initted = false;
         return true;
     }
 
@@ -2815,16 +2877,16 @@ failed:
         // type = INSTANCE;
         u32 extensionCount = 0;
         vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-        extensionsAvailable.resize(extensionCount);
-        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensionsAvailable.data());
+        data.extensionsAvailable.resize(extensionCount);
+        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, data.extensionsAvailable.data());
         u32 layerCount = 0;
         vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-        layersAvailable.resize(layerCount);
-        vkEnumerateInstanceLayerProperties(&layerCount, layersAvailable.data());
+        data.layersAvailable.resize(layerCount);
+        vkEnumerateInstanceLayerProperties(&layerCount, data.layersAvailable.data());
     }
 
     Instance::~Instance() {
-        if (initted) {
+        if (data.initted) {
             if (!Deinit()) {
                 cout << "Failed to clean up vk::Instance: " << error << std::endl;
             }
@@ -2832,9 +2894,9 @@ failed:
     }
 
     void Instance::AppInfo(const char *name, u32 versionMajor, u32 versionMinor, u32 versionPatch) {
-        appInfo.pApplicationName = name;
-        appInfo.applicationVersion = VK_MAKE_VERSION(versionMajor, versionMinor, versionPatch);
-        if (initted) {
+        data.appInfo.pApplicationName = name;
+        data.appInfo.applicationVersion = VK_MAKE_VERSION(versionMajor, versionMinor, versionPatch);
+        if (data.initted) {
             // Should we bother? It only really makes sense to call this at the beginning
             // and it won't change anything about the renderer itself...
             // Oh well, let's fire a warning.
@@ -2845,31 +2907,31 @@ failed:
     ArrayPtr<Window> Instance::AddWindowForSurface(io::Window *window) {
         Window w;
         w.surfaceWindow = window;
-        windows.push_back(w);
-        return ArrayPtr<Window>(&windows, windows.size()-1);
+        data.windows.push_back(w);
+        return ArrayPtr<Window>(&data.windows, data.windows.size()-1);
     }
 
     void Instance::AddExtensions(Array<const char*> extensions) {
         for (u32 i = 0; i < extensions.size(); i++) {
-            extensionsRequired.push_back(extensions[i]);
+            data.extensionsRequired.push_back(extensions[i]);
         }
     }
 
     void Instance::AddLayers(Array<const char*> layers) {
         if (layers.size() > 0)
-            enableLayers = true;
+            data.enableLayers = true;
         for (u32 i = 0; i < layers.size(); i++) {
-            layersRequired.push_back(layers[i]);
+            data.layersRequired.push_back(layers[i]);
         }
     }
 
     Device* Instance::AddDevice() {
-        devices.push_back(Device());
-        return &devices[devices.size()-1];
+        data.devices.push_back(Device());
+        return &data.devices[data.devices.size()-1];
     }
 
     bool Instance::Reconfigure() {
-        if (initted) {
+        if (data.initted) {
             if (!Deinit())
                 return false;
             if (!Init())
@@ -2879,21 +2941,21 @@ failed:
     }
 
     bool Instance::Initted() const {
-        return initted;
+        return data.initted;
     }
 
     bool Instance::Init() {
         PrintDashed("Initializing Vulkan Tree");
-        if (initted) {
+        if (data.initted) {
             error = "Tree is already initialized!";
             return false;
         }
         // Put together all needed extensions.
-        Array<const char*> extensionsAll(extensionsRequired);
-        if (enableLayers) {
+        Array<const char*> extensionsAll(data.extensionsRequired);
+        if (data.enableLayers) {
             extensionsAll.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
         }
-        if (windows.size() > 0) {
+        if (data.windows.size() > 0) {
             extensionsAll.push_back("VK_KHR_surface");
 #ifdef __unix
             extensionsAll.push_back("VK_KHR_xcb_surface");
@@ -2904,8 +2966,8 @@ failed:
         // Check required extensions
         Array<const char*> extensionsUnavailable(extensionsAll);
         for (i32 i = 0; i < (i32)extensionsUnavailable.size(); i++) {
-            for (i32 j = 0; j < (i32)extensionsAvailable.size(); j++) {
-                if (equals(extensionsUnavailable[i], extensionsAvailable[j].extensionName)) {
+            for (i32 j = 0; j < (i32)data.extensionsAvailable.size(); j++) {
+                if (equals(extensionsUnavailable[i], data.extensionsAvailable[j].extensionName)) {
                     extensionsUnavailable.erase(extensionsUnavailable.begin() + i);
                     i--;
                     break;
@@ -2921,10 +2983,10 @@ failed:
             return false;
         }
         // Check required layers
-        Array<const char*> layersUnavailable(layersRequired);
+        Array<const char*> layersUnavailable(data.layersRequired);
         for (u32 i = 0; i < layersUnavailable.size(); i++) {
-            for (u32 j = 0; j < layersAvailable.size(); j++) {
-                if (equals(layersUnavailable[i], layersAvailable[j].layerName)) {
+            for (u32 j = 0; j < data.layersAvailable.size(); j++) {
+                if (equals(layersUnavailable[i], data.layersAvailable[j].layerName)) {
                     layersUnavailable.erase(layersUnavailable.begin() + i);
                     i--;
                     break;
@@ -2942,36 +3004,36 @@ failed:
         // Create the instance
         VkInstanceCreateInfo createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-        createInfo.pApplicationInfo = &appInfo;
+        createInfo.pApplicationInfo = &data.appInfo;
         createInfo.enabledExtensionCount = extensionsAll.size();
         createInfo.ppEnabledExtensionNames = extensionsAll.data();
 
-        if (enableLayers) {
-            createInfo.enabledLayerCount = layersRequired.size();
-            createInfo.ppEnabledLayerNames = layersRequired.data();
+        if (data.enableLayers) {
+            createInfo.enabledLayerCount = data.layersRequired.size();
+            createInfo.ppEnabledLayerNames = data.layersRequired.data();
         } else {
             createInfo.enabledLayerCount = 0;
         }
 
-        VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
+        VkResult result = vkCreateInstance(&createInfo, nullptr, &data.instance);
         if (result != VK_SUCCESS) {
             error = "vkCreateInstance failed with error: " + ErrorString(result);
             return false;
         }
-        if (enableLayers) {
+        if (data.enableLayers) {
             // Use our debug report extension
-            fpCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)
-                    vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
-            if (fpCreateDebugReportCallbackEXT == nullptr) {
+            data.fpCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)
+                    vkGetInstanceProcAddr(data.instance, "vkCreateDebugReportCallbackEXT");
+            if (data.fpCreateDebugReportCallbackEXT == nullptr) {
                 error = "vkGetInstanceProcAddr failed to get vkCreateDebugReportCallbackEXT";
-                vkDestroyInstance(instance, nullptr);
+                vkDestroyInstance(data.instance, nullptr);
                 return false;
             }
-            fpDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)
-                    vkGetInstanceProcAddr(instance, "vkDestroyDebugReportCallbackEXT");
-            if (fpDestroyDebugReportCallbackEXT == nullptr) {
+            data.fpDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)
+                    vkGetInstanceProcAddr(data.instance, "vkDestroyDebugReportCallbackEXT");
+            if (data.fpDestroyDebugReportCallbackEXT == nullptr) {
                 error = "vkGetInstanceProcAddr failed to get vkDestroyDebugReportCallbackEXT";
-                vkDestroyInstance(instance, nullptr);
+                vkDestroyInstance(data.instance, nullptr);
                 return false;
             }
             VkDebugReportCallbackCreateInfoEXT debugInfo;
@@ -2980,16 +3042,16 @@ failed:
             debugInfo.pfnCallback = debugCallback;
             debugInfo.pUserData = this;
 
-            result = fpCreateDebugReportCallbackEXT(instance, &debugInfo, nullptr, &debugReportCallback);
+            result = data.fpCreateDebugReportCallbackEXT(data.instance, &debugInfo, nullptr, &data.debugReportCallback);
             if (result != VK_SUCCESS) {
                 error = "fpCreateDebugReportCallbackEXT failed with error: " + ErrorString(result);
-                vkDestroyInstance(instance, nullptr);
+                vkDestroyInstance(data.instance, nullptr);
                 return false;
             }
         }
         // Create a surface if we want one
 #ifdef IO_FOR_VULKAN
-        for (Window& w : windows) {
+        for (Window& w : data.windows) {
             if (!w.surfaceWindow->CreateVkSurface(this, &w.surface)) {
                 error = "Failed to CreateVkSurface: " + error;
                 goto failed;
@@ -2999,81 +3061,81 @@ failed:
         {
             // Get our list of physical devices
             u32 physicalDeviceCount = 0;
-            vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, nullptr);
+            vkEnumeratePhysicalDevices(data.instance, &physicalDeviceCount, nullptr);
             if (physicalDeviceCount == 0) {
                 error = "Failed to find GPUs with Vulkan support";
-                vkDestroyInstance(instance, nullptr);
+                vkDestroyInstance(data.instance, nullptr);
                 return false;
             }
             Array<VkPhysicalDevice> devices(physicalDeviceCount);
-            vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, devices.data());
+            vkEnumeratePhysicalDevices(data.instance, &physicalDeviceCount, devices.data());
             // Sort them by score while adding them to our permanent list
             for (u32 i = 0; i < physicalDeviceCount; i++) {
                 PhysicalDevice temp;
                 temp.physicalDevice = devices[i];
-                if (!temp.Init(instance)) {
+                if (!temp.Init(data.instance)) {
                     goto failed;
                 }
                 u32 spot;
-                for (spot = 0; spot < physicalDevices.size(); spot++) {
-                    if (temp.score > physicalDevices[spot].score) {
+                for (spot = 0; spot < data.physicalDevices.size(); spot++) {
+                    if (temp.score > data.physicalDevices[spot].score) {
                         break;
                     }
                 }
-                physicalDevices.insert(physicalDevices.begin() + spot, temp);
+                data.physicalDevices.insert(data.physicalDevices.begin() + spot, temp);
             }
             cout << "Physical Devices:";
             for (u32 i = 0; i < physicalDeviceCount; i++) {
                 cout << "\n\tDevice #" << i << "\n";
-                physicalDevices[i].PrintInfo(windows, windows.size() > 0);
+                data.physicalDevices[i].PrintInfo(data.windows, data.windows.size() > 0);
             }
         }
         // Initialize our logical devices according to their rules
-        for (u32 i = 0; i < devices.size(); i++) {
-            if (!devices[i].Init(this)) {
+        for (u32 i = 0; i < data.devices.size(); i++) {
+            if (!data.devices[i].Init(this)) {
                 goto failed;
             }
         }
 
         // Tell everything else to initialize here
         // If it fails, clean up the instance.
-        initted = true;
+        data.initted = true;
         cout << "\n\n";
         PrintDashed("Vulkan Tree Initialized");
         cout << "\n\n";
         return true;
 failed:
-        for (u32 i = 0; i < devices.size(); i++) {
-            if (devices[i].initted)
-            devices[i].Deinit();
+        for (u32 i = 0; i < data.devices.size(); i++) {
+            if (data.devices[i].data.initted)
+                data.devices[i].Deinit();
         }
-        if (enableLayers) {
-            fpDestroyDebugReportCallbackEXT(instance, debugReportCallback, nullptr);
+        if (data.enableLayers) {
+            data.fpDestroyDebugReportCallbackEXT(data.instance, data.debugReportCallback, nullptr);
         }
-        vkDestroyInstance(instance, nullptr);
+        vkDestroyInstance(data.instance, nullptr);
         return false;
     }
 
     bool Instance::Deinit() {
         PrintDashed("Destroying Vulkan Tree");
-        if (!initted) {
+        if (!data.initted) {
             error = "Tree isn't initialized!";
             return false;
         }
-        for (u32 i = 0; i < devices.size(); i++) {
-            devices[i].Deinit();
+        for (u32 i = 0; i < data.devices.size(); i++) {
+            data.devices[i].Deinit();
         }
         // Clean up everything else here
 #ifdef IO_FOR_VULKAN
-        for (const Window& w : windows) {
-            vkDestroySurfaceKHR(instance, w.surface, nullptr);
+        for (const Window& w : data.windows) {
+            vkDestroySurfaceKHR(data.instance, w.surface, nullptr);
         }
 #endif
-        if (enableLayers) {
-            fpDestroyDebugReportCallbackEXT(instance, debugReportCallback, nullptr);
+        if (data.enableLayers) {
+            data.fpDestroyDebugReportCallbackEXT(data.instance, data.debugReportCallback, nullptr);
         }
-        vkDestroyInstance(instance, nullptr);
-        initted = false;
+        vkDestroyInstance(data.instance, nullptr);
+        data.initted = false;
         return true;
     }
 
@@ -3085,8 +3147,8 @@ failed:
             return;
         } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT) {
             cout << "device at ";
-            for (Device& device : devices) {
-                if (device.device == (VkDevice)obj) {
+            for (Device& device : data.devices) {
+                if (device.data.device == (VkDevice)obj) {
                     cout << "devices[" << deviceIndex << "]" << std::endl;
                     return;
                 }
@@ -3094,7 +3156,7 @@ failed:
             }
         } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT) {
             cout << "physical device at ";
-            for (PhysicalDevice& device : physicalDevices) {
+            for (PhysicalDevice& device : data.physicalDevices) {
                 if (device.physicalDevice == (VkPhysicalDevice)obj) {
                     cout << "physicalDevices[" << deviceIndex << "]" << std::endl;
                     return;
@@ -3103,7 +3165,7 @@ failed:
             }
         } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_SURFACE_KHR_EXT) {
             cout << "window at ";
-            for (Window& window : windows) {
+            for (Window& window : data.windows) {
                 if (window.surface == (VkSurfaceKHR)obj) {
                     cout << "windows[" << deviceIndex << "]" << std::endl;
                     return;
@@ -3112,9 +3174,9 @@ failed:
             }
         } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_QUEUE_EXT) {
             cout << "queue at ";
-            for (Device& device : devices) {
+            for (Device& device : data.devices) {
                 u32 queueIndex = 0;
-                for (Queue& queue : device.queues) {
+                for (Queue& queue : device.data.queues) {
                     if (queue.queue == (VkQueue)obj) {
                         cout << "devices[" << deviceIndex << "].queue[" << queueIndex << "]" << std::endl;
                         return;
@@ -3125,10 +3187,10 @@ failed:
             }
         } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_SWAPCHAIN_KHR_EXT) {
             cout << "swapchain at ";
-            for (Device& device : devices) {
+            for (Device& device : data.devices) {
                 u32 swapchainIndex = 0;
-                for (Swapchain& swapchain : device.swapchains) {
-                    if (swapchain.swapchain == (VkSwapchainKHR)obj) {
+                for (Swapchain& swapchain : device.data.swapchains) {
+                    if (swapchain.data.swapchain == (VkSwapchainKHR)obj) {
                         cout << "devices[" << deviceIndex << "].swapchain[" << swapchainIndex << "]" << std::endl;
                         return;
                     }
@@ -3138,10 +3200,10 @@ failed:
             }
         } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT) {
             cout << "render pass at ";
-            for (Device& device : devices) {
+            for (Device& device : data.devices) {
                 u32 renderpassIndex = 0;
-                for (RenderPass& renderPass : device.renderPasses) {
-                    if (renderPass.renderPass == (VkRenderPass)obj) {
+                for (RenderPass& renderPass : device.data.renderPasses) {
+                    if (renderPass.data.renderPass == (VkRenderPass)obj) {
                         cout << "devices[" << deviceIndex << "].renderPass[" << renderpassIndex << "]" << std::endl;
                         return;
                     }
@@ -3151,10 +3213,10 @@ failed:
             }
         } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT) {
             cout << "device memory at ";
-            for (Device& device : devices) {
+            for (Device& device : data.devices) {
                 u32 memoryIndex = 0;
-                for (Memory& memory : device.memories) {
-                    if (memory.memory == (VkDeviceMemory)obj) {
+                for (Memory& memory : device.data.memories) {
+                    if (memory.data.memory == (VkDeviceMemory)obj) {
                         cout << "devices[" << deviceIndex << "].memories[" << memoryIndex << "]" << std::endl;
                         return;
                     }
@@ -3164,10 +3226,10 @@ failed:
             }
         } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_EXT) {
             cout << "sampler at ";
-            for (Device& device : devices) {
+            for (Device& device : data.devices) {
                 u32 samplerIndex = 0;
-                for (Sampler& sampler : device.samplers) {
-                    if (sampler.sampler == (VkSampler)obj) {
+                for (Sampler& sampler : device.data.samplers) {
+                    if (sampler.data.sampler == (VkSampler)obj) {
                         cout << "devices[" << deviceIndex << "].samplers[" << samplerIndex << "]" << std::endl;
                         return;
                     }
@@ -3177,10 +3239,10 @@ failed:
             }
         } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT) {
             cout << "shader module at ";
-            for (Device& device : devices) {
+            for (Device& device : data.devices) {
                 u32 shaderIndex = 0;
-                for (Shader& shader : device.shaders) {
-                    if (shader.module == (VkShaderModule)obj) {
+                for (Shader& shader : device.data.shaders) {
+                    if (shader.data.module == (VkShaderModule)obj) {
                         cout << "devices[" << deviceIndex << "].shaders[" << shaderIndex << "]" << std::endl;
                         return;
                     }
@@ -3190,10 +3252,10 @@ failed:
             }
         } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_POOL_EXT) {
             cout << "descriptor pool at ";
-            for (Device& device : devices) {
+            for (Device& device : data.devices) {
                 u32 descriptorPoolIndex = 0;
-                for (Descriptors& descriptor : device.descriptors) {
-                    if (descriptor.pool == (VkDescriptorPool)obj) {
+                for (Descriptors& descriptor : device.data.descriptors) {
+                    if (descriptor.data.pool == (VkDescriptorPool)obj) {
                         cout << "devices[" << deviceIndex << "].descriptors[" << descriptorPoolIndex << "]" << std::endl;
                         return;
                     }
@@ -3203,12 +3265,12 @@ failed:
             }
         } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_EXT) {
             cout << "descriptor set at ";
-            for (Device& device : devices) {
+            for (Device& device : data.devices) {
                 u32 descriptorPoolIndex = 0;
-                for (Descriptors& descriptor : device.descriptors) {
+                for (Descriptors& descriptor : device.data.descriptors) {
                     u32 descriptorSetIndex = 0;
-                    for (DescriptorSet& set : descriptor.sets) {
-                        if (set.set == (VkDescriptorSet)obj) {
+                    for (DescriptorSet& set : descriptor.data.sets) {
+                        if (set.data.set == (VkDescriptorSet)obj) {
                             cout << "devices[" << deviceIndex << "].descriptors[" << descriptorPoolIndex << "].sets[" << descriptorSetIndex << "]" << std::endl;
                             return;
                         }
@@ -3220,12 +3282,12 @@ failed:
             }
         } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT_EXT) {
             cout << "descriptor set layout at ";
-            for (Device& device : devices) {
+            for (Device& device : data.devices) {
                 u32 descriptorPoolIndex = 0;
-                for (Descriptors& descriptor : device.descriptors) {
+                for (Descriptors& descriptor : device.data.descriptors) {
                     u32 descriptorSetLayoutIndex = 0;
-                    for (DescriptorLayout& layout : descriptor.layouts) {
-                        if (layout.layout == (VkDescriptorSetLayout)obj) {
+                    for (DescriptorLayout& layout : descriptor.data.layouts) {
+                        if (layout.data.layout == (VkDescriptorSetLayout)obj) {
                             cout << "devices[" << deviceIndex << "].descriptors[" << descriptorPoolIndex << "].layouts[" << descriptorSetLayoutIndex << "]" << std::endl;
                             return;
                         }
@@ -3237,12 +3299,12 @@ failed:
             }
         } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT) {
             cout << "image at ";
-            for (Device& device : devices) {
+            for (Device& device : data.devices) {
                 u32 memoryIndex = 0;
-                for (Memory& memory : device.memories) {
+                for (Memory& memory : device.data.memories) {
                     u32 imageIndex = 0;
-                    for (Image& image : memory.images) {
-                        if (image.image == (VkImage)obj) {
+                    for (Image& image : memory.data.images) {
+                        if (image.data.image == (VkImage)obj) {
                             cout << "devices[" << deviceIndex << "].memories[" << memoryIndex << "].images[" << imageIndex << "]" << std::endl;
                             return;
                         }
@@ -3251,10 +3313,10 @@ failed:
                     memoryIndex++;
                 }
                 u32 swapchainIndex = 0;
-                for (Swapchain& swapchain : device.swapchains) {
+                for (Swapchain& swapchain : device.data.swapchains) {
                     u32 imageIndex = 0;
-                    for (Image& image : swapchain.images) {
-                        if (image.image == (VkImage)obj) {
+                    for (Image& image : swapchain.data.images) {
+                        if (image.data.image == (VkImage)obj) {
                             cout << "devices[" << deviceIndex << "].swapchains[" << swapchainIndex << "].images[" << imageIndex << "]" << std::endl;
                             return;
                         }
@@ -3266,12 +3328,12 @@ failed:
             }
         } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT) {
             cout << "buffer at ";
-            for (Device& device : devices) {
+            for (Device& device : data.devices) {
                 u32 memoryIndex = 0;
-                for (Memory& memory : device.memories) {
+                for (Memory& memory : device.data.memories) {
                     u32 bufferIndex = 0;
-                    for (Buffer& buffer : memory.buffers) {
-                        if (buffer.buffer == (VkBuffer)obj) {
+                    for (Buffer& buffer : memory.data.buffers) {
+                        if (buffer.data.buffer == (VkBuffer)obj) {
                             cout << "devices[" << deviceIndex << "].memories[" << memoryIndex << "].buffers[" << bufferIndex << "]" << std::endl;
                             return;
                         }
@@ -3283,12 +3345,12 @@ failed:
             }
         } else if (objType == VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT) {
             cout << "image view at ";
-            for (Device& device : devices) {
+            for (Device& device : data.devices) {
                 u32 memoryIndex = 0;
-                for (Memory& memory : device.memories) {
+                for (Memory& memory : device.data.memories) {
                     u32 imageIndex = 0;
-                    for (Image& image : memory.images) {
-                        if (image.imageView == (VkImageView)obj) {
+                    for (Image& image : memory.data.images) {
+                        if (image.data.imageView == (VkImageView)obj) {
                             cout << "devices[" << deviceIndex << "].memories[" << memoryIndex << "].images[" << imageIndex << "]" << std::endl;
                             return;
                         }
@@ -3297,10 +3359,10 @@ failed:
                     memoryIndex++;
                 }
                 u32 swapchainIndex = 0;
-                for (Swapchain& swapchain : device.swapchains) {
+                for (Swapchain& swapchain : device.data.swapchains) {
                     u32 imageIndex = 0;
-                    for (Image& image : swapchain.images) {
-                        if (image.imageView == (VkImageView)obj) {
+                    for (Image& image : swapchain.data.images) {
+                        if (image.data.imageView == (VkImageView)obj) {
                             cout << "devices[" << deviceIndex << "].swapchains[" << swapchainIndex << "].images[" << imageIndex << "]" << std::endl;
                             return;
                         }

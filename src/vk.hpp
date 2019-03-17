@@ -718,8 +718,8 @@ namespace vk {
     /*  struct: Instance
         Author: Philip Haynes
         More or less the context for the whole renderer.
-        Manages the state of everything else in this toolkit.
-        Used as a top-level control of all of the tasks created for it to execute.  */
+        Manages the state of everything created directly from the VkInstance.
+        Used as a top-level control of the Vulkan Tree.  */
     struct Instance {
         struct {
             PFN_vkCreateDebugReportCallbackEXT

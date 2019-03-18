@@ -38,6 +38,8 @@ namespace io {
 
 namespace vk {
 
+    String ErrorString(VkResult);
+
     extern String error;
 
     /*  struct: Window
@@ -294,6 +296,8 @@ namespace vk {
         bool clearColor = false;
         bool clearDepth = false;
         bool clearStencil = false;
+        VkClearColorValue clearColorValue = {0.0, 0.0, 0.0, 1.0};
+        VkClearDepthStencilValue clearDepthStencilValue = {1.0, 0};
         // Whether we should load previous values from the buffers
         // Overwrites clearing if true
         bool loadColor = false;
@@ -429,6 +433,8 @@ namespace vk {
         bool ownImages = true;
         // If ownImages is false, you need to provide valid attachmentImages.
 
+        void RenderPassBegin(VkCommandBuffer commandBuffer, bool subpassContentsInline=true);
+
         ~Framebuffer();
         bool Init(Device *dev);
         bool Create();
@@ -496,6 +502,8 @@ namespace vk {
         Array<ArrayPtr<DescriptorLayout>> descriptorLayouts{};
         Array<VkPushConstantRange> pushConstantRanges{};
 
+        void Bind(VkCommandBuffer commandBuffer);
+
         Pipeline(); // We configure some defaults
         ~Pipeline();
         bool Init(Device *dev);
@@ -560,7 +568,7 @@ namespace vk {
         VkQueryPipelineStatisticFlags queryPipelineStatisticFlags{};
 
         // Usage functions
-        bool Begin(); // Starts recording
+        VkCommandBuffer Begin(); // Starts recording. Returns VK_NULL_HANDLE on failure.
         bool End();
         bool Reset();
     };
@@ -638,6 +646,8 @@ namespace vk {
         u64 timeout = UINT64_MAX;
 
         VkResult AcquireNextImage();
+        ArrayPtr<VkSemaphore> SemaphoreImageAvailable();
+        bool Present(Queue *queue, Array<VkSemaphore> waitSemaphores);
 
         ~Swapchain();
         bool Init(Device *dev);
@@ -664,7 +674,7 @@ namespace vk {
         } data;
 
         // Configuration
-        Array<CommandBuffer*> commandBuffers{};
+        Array<ArrayPtr<CommandBuffer>> commandBuffers{};
         Array<SemaphoreWait> waitSemaphores{};
         Array<ArrayPtr<VkSemaphore>> signalSemaphores{};
 

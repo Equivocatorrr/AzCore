@@ -66,24 +66,21 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     vk::Swapchain* vkSwapchain = vkDevice->AddSwapchain();
     vkSwapchain->window = vkInstance.AddWindowForSurface(&window);
-    vkSwapchain->vsync = false;
+    vkSwapchain->vsync = true;
 
     vk::RenderPass* vkRenderPass = vkDevice->AddRenderPass();
 
-    ArrayPtr<vk::Attachment> attachment[2] = {vkRenderPass->AddAttachment(), vkRenderPass->AddAttachment(vkSwapchain)};
-    attachment[0]->bufferColor = true;
-    attachment[0]->bufferDepthStencil = true;
-    attachment[0]->clearColor = true;
-    attachment[0]->keepColor = true;
-    attachment[0]->sampleCount = VK_SAMPLE_COUNT_4_BIT;
-    attachment[0]->resolveColor = true;
+    ArrayPtr<vk::Attachment> attachment = vkRenderPass->AddAttachment(vkSwapchain);
+    // attachment->bufferColor = true;
+    // attachment->bufferDepthStencil = true;
+    attachment->clearColor = true;
+    attachment->clearColorValue = {0.0, 0.05, 0.1, 1.0};
+    // attachment->keepColor = true;
+    attachment->sampleCount = VK_SAMPLE_COUNT_8_BIT;
+    attachment->resolveColor = true;
 
-    ArrayPtr<vk::Subpass> subpass[2] = {vkRenderPass->AddSubpass(), vkRenderPass->AddSubpass()};
-    subpass[0]->UseAttachment(attachment[0], vk::ATTACHMENT_ALL,
-        VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-    subpass[1]->UseAttachment(attachment[0], vk::ATTACHMENT_RESOLVE,
-        VK_ACCESS_INPUT_ATTACHMENT_READ_BIT);
-    subpass[1]->UseAttachment(attachment[1], vk::ATTACHMENT_COLOR,
+    ArrayPtr<vk::Subpass> subpass = vkRenderPass->AddSubpass();
+    subpass->UseAttachment(attachment, vk::ATTACHMENT_COLOR,
         VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 
     vk::Memory *vkImageStagingMemory = vkDevice->AddMemory();
@@ -158,10 +155,14 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkPipeline->shaders.push_back(vkShaderRefs[0]);
     vkPipeline->shaders.push_back(vkShaderRefs[1]);
 
+    vkPipeline->dynamicStates = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR
+    };
     VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
                                         | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_TRUE;
+    colorBlendAttachment.blendEnable = VK_FALSE;
     colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
     colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
@@ -176,23 +177,32 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     vk::CommandPool* vkCommandPool = vkDevice->AddCommandPool(queueGraphics);
     vkCommandPool->transient = true;
+    vkCommandPool->resettable = true;
     ArrayPtr<vk::CommandBuffer> vkCommandBuffer = vkCommandPool->AddCommandBuffer();
-    vkCommandBuffer->simultaneousUse = true;
+    vkCommandBuffer->oneTimeSubmit = true;
 
     vk::Framebuffer* vkFramebuffer = vkDevice->AddFramebuffer();
     vkFramebuffer->renderPass = vkRenderPass;
     vkFramebuffer->swapchain = vkSwapchain;
 
+    ArrayPtr<VkSemaphore> semaphoreRenderFinished = vkDevice->AddSemaphore();
+
+    vk::QueueSubmission* vkQueueSubmission = vkDevice->AddQueueSubmission();
+    vkQueueSubmission->commandBuffers = {vkCommandBuffer};
+    vkQueueSubmission->signalSemaphores = {semaphoreRenderFinished};
+
     if (!vkInstance.Init()) { // Do this once you've set up the structure of your program.
         cout << "Failed to initialize Vulkan: " << vk::error << std::endl;
         return 1;
     }
+
     if(!window.Show()) {
         cout << "Failed to show Window: " << io::error << std::endl;
         return 1;
     }
     RandomNumberGenerator rng;
     do {
+        input.Tick(1.0/60.0);
         if (input.Any.Pressed()) {
             cout << "Pressed HID " << std::hex << (u32)input.codeAny << std::endl;
             cout << "\t" << window.InputName(input.codeAny) << std::endl;
@@ -212,7 +222,68 @@ i32 main(i32 argumentCount, char** argumentValues) {
         if (input.Pressed(KC_KEY_R)) {
             UnitTestRNG(rng, cout);
         }
-        input.Tick(1.0/60.0);
+
+        VkResult acquisitionResult = vkSwapchain->AcquireNextImage();
+
+        if (acquisitionResult == VK_ERROR_OUT_OF_DATE_KHR || acquisitionResult == VK_TIMEOUT || acquisitionResult == VK_NOT_READY) {
+            cout << "Skipping a frame because acquisition returned: " << vk::ErrorString(acquisitionResult) << std::endl;
+            continue; // Don't render this frame.
+        } else if (acquisitionResult != VK_SUCCESS) {
+            cout << vk::error << std::endl;
+            return 1;
+        }
+
+        // Begin recording commands
+
+        VkCommandBuffer cmdBuf = vkCommandBuffer->Begin();
+        if (cmdBuf == VK_NULL_HANDLE) {
+            cout << "Failed to Begin recording vkCommandBuffer: " << vk::error << std::endl;
+            return 1;
+        }
+
+        vkFramebuffer->RenderPassBegin(cmdBuf);
+
+        vkPipeline->Bind(cmdBuf);
+
+        VkViewport viewport{};
+        viewport.width = window.width;
+        viewport.height = window.height;
+        viewport.maxDepth = 1.0;
+        vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
+
+        VkRect2D scissor{};
+        scissor.extent = {window.width, window.height};
+        vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
+
+        vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+
+        vkCmdEndRenderPass(cmdBuf);
+
+        vkCommandBuffer->End();
+
+        // We have a different semaphore to wait on every frame for multi-buffered swapchains.
+        vkQueueSubmission->waitSemaphores = {
+            {vkSwapchain->SemaphoreImageAvailable(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT}
+        };
+        // Re-config because we changed which semaphore to wait on
+        if (!vkQueueSubmission->Config()) {
+            cout << "Failed to re-Config vkQueueSubmission: " << vk::error << std::endl;
+            return 1;
+        }
+
+        // Submit to queue
+        if (!vkDevice->SubmitCommandBuffers(queueGraphics, {vkQueueSubmission})) {
+            cout << "Failed to SubmitCommandBuffers: " << vk::error << std::endl;
+            return 1;
+        }
+
+        if (!vkSwapchain->Present(queuePresent, {*semaphoreRenderFinished})) {
+            cout << vk::error << std::endl;
+            return 1;
+        }
+
+        vkDeviceWaitIdle(vkDevice->data.device);
+
     } while (window.Update());
     if (!window.Close()) {
         cout << "Failed to close Window: " << io::error << std::endl;

@@ -1295,6 +1295,45 @@ failure:
         return true;
     }
 
+    void Framebuffer::RenderPassBegin(VkCommandBuffer commandBuffer, bool subpassContentsInline) {
+        VkRenderPassBeginInfo renderPassInfo{};
+        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = renderPass->data.renderPass;
+		renderPassInfo.framebuffer = data.framebuffers[data.currentFramebuffer];
+		renderPassInfo.renderArea.offset = {0, 0};
+		renderPassInfo.renderArea.extent.width = width;
+		renderPassInfo.renderArea.extent.height = height;
+
+		Array<VkClearValue> clearValues{};
+        u32 i = 0; // Index of actual attachment for clearValues
+        for (Attachment& attachment : renderPass->data.attachments) {
+            if (attachment.bufferColor) {
+                if (attachment.clearColor) {
+                    clearValues.resize(i+1);
+                    clearValues[i].color = attachment.clearColorValue;
+                }
+                i++;
+            }
+            if (attachment.bufferDepthStencil) {
+                if (attachment.clearDepth || attachment.clearStencil) {
+                    clearValues.resize(i+1);
+                    clearValues[i].depthStencil = attachment.clearDepthStencilValue;
+                }
+                i++;
+            }
+            if (attachment.resolveColor) {
+                i++;
+            }
+        }
+		renderPassInfo.clearValueCount = clearValues.size();
+        if (clearValues.size() != 0) {
+            renderPassInfo.pClearValues = clearValues.data();
+        }
+
+		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo,
+            subpassContentsInline ? VK_SUBPASS_CONTENTS_INLINE : VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+    }
+
     Framebuffer::~Framebuffer() {
         if (data.initted) {
             if (!Deinit()) {
@@ -1311,6 +1350,10 @@ failure:
         }
         if ((data.device = dev) == nullptr) {
             error = "Device is nullptr!";
+            return false;
+        }
+        if (renderPass == nullptr) {
+            error = "RenderPass is nullptr!";
             return false;
         }
         if (!renderPass->data.initted) {
@@ -1598,6 +1641,10 @@ failure:
 
     ShaderRef::ShaderRef(ArrayPtr<Shader> ptr, VkShaderStageFlagBits s, String fn) : shader(ptr) , stage(s) , functionName(fn) {}
 
+    void Pipeline::Bind(VkCommandBuffer commandBuffer) {
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipeline);
+    }
+
     Pipeline::Pipeline() {
         // Time for a WHOLE LOTTA ASSUMPTIONS
         inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -1814,14 +1861,14 @@ failure:
         return true;
     }
 
-    bool CommandBuffer::Begin() {
+    VkCommandBuffer CommandBuffer::Begin() {
         if (data.commandBuffer == VK_NULL_HANDLE) {
             error = "CommandBuffer doesn't exist!";
-            return false;
+            return VK_NULL_HANDLE;
         }
         if (data.recording) {
             error = "Cannot begin a CommandBuffer that's already recording!";
-            return false;
+            return VK_NULL_HANDLE;
         }
         VkCommandBufferBeginInfo beginInfo = {};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1832,7 +1879,7 @@ failure:
             if (renderPass != nullptr) {
                 if (!renderPass->data.initted) {
                     error = "Associated RenderPass is not initialized!";
-                    return false;
+                    return VK_NULL_HANDLE;
                 }
                 inheritanceInfo.renderPass = renderPass->data.renderPass;
                 inheritanceInfo.subpass = subpass;
@@ -1840,7 +1887,7 @@ failure:
             if (framebuffer != nullptr) {
                 if (!framebuffer->data.initted) {
                     error = "Associated Framebuffer is not initialized!";
-                    return false;
+                    return VK_NULL_HANDLE;
                 }
                 inheritanceInfo.framebuffer = framebuffer->data.framebuffers[framebuffer->data.currentFramebuffer];
             }
@@ -1868,11 +1915,11 @@ failure:
 
         if (result != VK_SUCCESS) {
             error = "Failed to begin CommandBuffer: " + ErrorString(result);
-            return false;
+            return VK_NULL_HANDLE;
         }
 
         data.recording = true;
-        return true;
+        return data.commandBuffer;
     }
 
     bool CommandBuffer::End() {
@@ -1985,13 +2032,13 @@ failure:
         createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         createInfo.queueFamilyIndex = queue->queueFamilyIndex;
         if (transient) {
-            createInfo.flags &= VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+            createInfo.flags |= VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
         }
         if (resettable) {
-            createInfo.flags &= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+            createInfo.flags |= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
         }
         if (protectedMemory) {
-            createInfo.flags &= VK_COMMAND_POOL_CREATE_PROTECTED_BIT;
+            createInfo.flags |= VK_COMMAND_POOL_CREATE_PROTECTED_BIT;
         }
 
         VkResult result = vkCreateCommandPool(data.device->data.device, &createInfo, nullptr, &data.commandPool);
@@ -2074,10 +2121,40 @@ failure:
         data.buffer = !data.buffer;
         VkResult result = vkAcquireNextImageKHR(data.device->data.device, data.swapchain, timeout,
                                             *data.semaphores[data.buffer], VK_NULL_HANDLE, &data.currentImage);
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_TIMEOUT || result == VK_NOT_READY) {
+            // Don't update framebuffers
+            return result;
+        } else if (result != VK_SUCCESS) {
+            error = "Failed to acquire swapchain image: " + ErrorString(result);
+            return result;
+        }
+        for (Framebuffer* framebuffer : data.framebuffers) {
+            framebuffer->data.currentFramebuffer = data.currentImage;
+        }
         return result;
-        // if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_TIMEOUT || result == VK_NOT_READY) {
-        //     return false; // Signal to skip rendering this frame.
-        // }
+    }
+
+    ArrayPtr<VkSemaphore> Swapchain::SemaphoreImageAvailable() {
+        return data.semaphores[data.buffer];
+    }
+
+    bool Swapchain::Present(Queue *queue, Array<VkSemaphore> waitSemaphores) {
+        VkPresentInfoKHR presentInfo{};
+        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        presentInfo.waitSemaphoreCount = waitSemaphores.size();
+        presentInfo.pWaitSemaphores = waitSemaphores.data();
+        presentInfo.swapchainCount = 1;
+        presentInfo.pSwapchains = &data.swapchain;
+        presentInfo.pImageIndices = &data.currentImage;
+
+        VkResult result = vkQueuePresentKHR(queue->queue, &presentInfo);
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+            cout << "Swapchain::Present Warning: vkQueuePresentKHR returned " << ErrorString(result) << std::endl;
+        } else if (result != VK_SUCCESS) {
+            error = "Failed to present swapchain image: " + ErrorString(result);
+            return false;
+        }
+        return true;
     }
 
     Swapchain::~Swapchain() {
@@ -2101,6 +2178,12 @@ failure:
         if (!window.Valid()) {
             error = "Cannot create a swapchain without a window surface!";
             return false;
+        }
+        if (!data.semaphores[0].Valid()) {
+            data.semaphores[0] = data.device->AddSemaphore();
+        }
+        if (!data.semaphores[1].Valid()) {
+            data.semaphores[1] = data.device->AddSemaphore();
         }
         data.surface = window->surface;
         // Get information about what we can or can't do
@@ -2429,6 +2512,11 @@ failure:
     ArrayPtr<VkSemaphore> Device::AddSemaphore() {
         data.semaphores.push_back(VK_NULL_HANDLE);
         return ArrayPtr<VkSemaphore>(&data.semaphores, data.semaphores.size()-1);
+    }
+
+    QueueSubmission* Device::AddQueueSubmission() {
+        data.queueSubmissions.push_back(QueueSubmission());
+        return &data.queueSubmissions[data.queueSubmissions.size()-1];
     }
 
     bool Device::SubmitCommandBuffers(Queue *queue, Array<QueueSubmission*> submissions) {

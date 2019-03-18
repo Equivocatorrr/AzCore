@@ -1314,14 +1314,14 @@ failure:
                 }
                 i++;
             }
+            if (attachment.resolveColor) {
+                i++;
+            }
             if (attachment.bufferDepthStencil) {
                 if (attachment.clearDepth || attachment.clearStencil) {
                     clearValues.resize(i+1);
                     clearValues[i].depthStencil = attachment.clearDepthStencilValue;
                 }
-                i++;
-            }
-            if (attachment.resolveColor) {
                 i++;
             }
         }
@@ -1339,6 +1339,12 @@ failure:
             if (!Deinit()) {
                 cout << "Failed to clean up vk::Framebuffer: " << error << std::endl;
             }
+        }
+        if (depthMemory != nullptr) {
+            delete depthMemory;
+        }
+        if (colorMemory != nullptr) {
+            delete colorMemory;
         }
     }
 
@@ -1409,12 +1415,10 @@ failure:
         if (ownMemory) {
             // Create Memory objects according to the RenderPass attachments
             if (depth && depthMemory == nullptr) {
-                cout << "Adding depth Memory to device." << std::endl;
-                depthMemory = data.device->AddMemory();
+                depthMemory = new Memory();
             }
             if (color && colorMemory == nullptr) {
-                cout << "Adding color Memory to device." << std::endl;
-                colorMemory = data.device->AddMemory();
+                colorMemory = new Memory();
             }
         } else {
             // Verify that we have the memory we need
@@ -1440,59 +1444,51 @@ failure:
                 error = "Framebuffer can't create images with size (" + std::to_string(width) + ", " + std::to_string(height) + ")!";
                 return false;
             }
-            if (attachmentImages.size() == 0) {
-                Array<ArrayPtr<Image>> ourImages{};
-                // Create Images according to the RenderPass attachments
-                u32 i = 0;
-                for (auto& attachment : renderPass->data.attachmentDescriptions) {
-                    Image image;
-                    image.width = width;
-                    image.height = height;
-                    image.format = attachment.format;
-                    image.samples = attachment.samples;
-                    if (attachment.finalLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-                        cout << "Adding color image " << i << " to colorMemory." << std::endl;
-                        image.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-                        image.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-                        ourImages.push_back(colorMemory->AddImage(image));
-                    } else if (attachment.finalLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-                        cout << "Adding depth image " << i << " to depthMemory." << std::endl;
-                        image.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
-                        image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-                        ourImages.push_back(depthMemory->AddImage(image));
-                    } else if (attachment.finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
-                        cout << "Adding null image " << i << " for replacement with swapchain images." << std::endl;
-                        ourImages.push_back(ArrayPtr<Image>());
-                    }
-                    i++;
+            Array<ArrayPtr<Image>> ourImages{};
+            // Create Images according to the RenderPass attachments
+            u32 i = 0;
+            for (auto& attachment : renderPass->data.attachmentDescriptions) {
+                Image image;
+                image.width = width;
+                image.height = height;
+                image.format = attachment.format;
+                image.samples = attachment.samples;
+                if (attachment.finalLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+                    cout << "Adding color image " << i << " to colorMemory." << std::endl;
+                    image.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+                    image.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+                    ourImages.push_back(colorMemory->AddImage(image));
+                } else if (attachment.finalLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+                    cout << "Adding depth image " << i << " to depthMemory." << std::endl;
+                    image.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+                    image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+                    ourImages.push_back(depthMemory->AddImage(image));
+                } else if (attachment.finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+                    cout << "Adding null image " << i << " for replacement with swapchain images." << std::endl;
+                    ourImages.push_back(ArrayPtr<Image>());
                 }
-                // Now we need to make sure we know which images are also being used as input attachments
-                for (auto& subpass : renderPass->data.subpasses) {
-                    for (auto& input : subpass.referencesInput) {
-                        ourImages[input.attachment]->usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
-                    }
+                i++;
+            }
+            // Now we need to make sure we know which images are also being used as input attachments
+            for (auto& subpass : renderPass->data.subpasses) {
+                for (auto& input : subpass.referencesInput) {
+                    ourImages[input.attachment]->usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
                 }
-                // Now add ourImages to each index of attachmentImages
-                attachmentImages.resize(numFramebuffers, ourImages);
-                // Now replace any null ArrayPtr's with the actual swapchain images
-                for (u32 i = 0; i < numFramebuffers; i++) {
-                    bool once = false;
-                    for (auto& ptr : attachmentImages[i]) {
-                        if (ptr.array == nullptr) {
-                            if (once) {
-                                error = "You can't have multiple swapchain images in a single framebuffer!";
-                                return false;
-                            }
-                            once = true;
-                            ptr.SetPtr(&swapchain->data.images, i);
+            }
+            // Now add ourImages to each index of attachmentImages
+            attachmentImages.resize(numFramebuffers, ourImages);
+            // Now replace any null ArrayPtr's with the actual swapchain images
+            for (u32 i = 0; i < numFramebuffers; i++) {
+                bool once = false;
+                for (auto& ptr : attachmentImages[i]) {
+                    if (ptr.array == nullptr) {
+                        if (once) {
+                            error = "You can't have multiple swapchain images in a single framebuffer!";
+                            return false;
                         }
+                        once = true;
+                        ptr.SetPtr(&swapchain->data.images, i);
                     }
-                }
-            } else {
-                // Probably resizing
-                for (auto& attachment : attachmentImages[0]) {
-                    attachment->width = width;
-                    attachment->height = height;
                 }
             }
         } else {
@@ -1539,6 +1535,18 @@ failure:
             error = "Framebuffer already exists!";
             return false;
         }
+        if (ownMemory) {
+            if (depthMemory != nullptr) {
+                 if (!depthMemory->Init(&data.device->data.physicalDevice, data.device->data.device)) {
+                     return false;
+                 }
+            }
+            if (colorMemory != nullptr) {
+                 if (!colorMemory->Init(&data.device->data.physicalDevice, data.device->data.device)) {
+                     return false;
+                 }
+            }
+        }
         cout << "Making " << numFramebuffers << " total framebuffers." << std::endl;
         data.framebuffers.resize(numFramebuffers);
         for (u32 fb = 0; fb < numFramebuffers; fb++) {
@@ -1573,17 +1581,35 @@ failure:
         return true;
     }
 
-    bool Framebuffer::Deinit() {
-        if (!data.initted) {
-            error = "Framebuffer has not been initialized!";
-            return false;
-        }
+    void Framebuffer::Destroy() {
         if (data.created) {
             for (u32 i = 0; i < data.framebuffers.size(); i++) {
                 vkDestroyFramebuffer(data.device->data.device, data.framebuffers[i], nullptr);
             }
             data.created = false;
         }
+    }
+
+    bool Framebuffer::Deinit() {
+        if (!data.initted) {
+            error = "Framebuffer has not been initialized!";
+            return false;
+        }
+        if (ownMemory) {
+            if (depthMemory != nullptr) {
+                if (!depthMemory->Deinit()) {
+                    return false;
+                }
+                depthMemory->data.images.resize(0);
+            }
+            if (colorMemory != nullptr) {
+                if (!colorMemory->Deinit()) {
+                    return false;
+                }
+                colorMemory->data.images.resize(0);
+            }
+        }
+        Destroy();
         data.initted = false;
         return true;
     }
@@ -2123,6 +2149,7 @@ failure:
                                             *data.semaphores[data.buffer], VK_NULL_HANDLE, &data.currentImage);
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_TIMEOUT || result == VK_NOT_READY) {
             // Don't update framebuffers
+            data.buffer = !data.buffer;
             return result;
         } else if (result != VK_SUCCESS) {
             error = "Failed to acquire swapchain image: " + ErrorString(result);
@@ -2153,6 +2180,31 @@ failure:
         } else if (result != VK_SUCCESS) {
             error = "Failed to present swapchain image: " + ErrorString(result);
             return false;
+        }
+        return true;
+    }
+
+    bool Swapchain::Resize() {
+        vkDeviceWaitIdle(data.device->data.device);
+        VkPhysicalDevice physicalDevice = data.device->data.physicalDevice.physicalDevice;
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, data.surface, &data.surfaceCapabilities);
+        if (data.created) {
+            if (!Create()) {
+                return false;
+            }
+        }
+        for (Framebuffer* framebuffer : data.framebuffers) {
+            if (framebuffer->data.created) {
+                if (!framebuffer->Deinit()) {
+                    return false;
+                }
+                if (!framebuffer->Init(data.device)) {
+                    return false;
+                }
+                if (!framebuffer->Create()) {
+                    return false;
+                }
+            }
         }
         return true;
     }
@@ -2209,6 +2261,7 @@ failure:
     }
 
     bool Swapchain::Create() {
+        PrintDashed("Creating Swapchain");
         // Choose our surface format
         {
             bool found = false;
@@ -2298,6 +2351,8 @@ failure:
             data.extent.height = max(data.surfaceCapabilities.minImageExtent.height,
                             min(data.surfaceCapabilities.maxImageExtent.height, data.extent.height));
         }
+
+        cout << "extent is {" << data.extent.width << ", " << data.extent.height << "}" << std::endl;
         data.imageCount = max(data.surfaceCapabilities.minImageCount, min(data.surfaceCapabilities.maxImageCount, imageCountPreferred));
         cout << "Swapchain will use " << data.imageCount << " images" << std::endl;
         // Put it all together

@@ -438,6 +438,7 @@ namespace vk {
         ~Framebuffer();
         bool Init(Device *dev);
         bool Create();
+        void Destroy();
         bool Deinit();
     };
 
@@ -648,6 +649,8 @@ namespace vk {
         VkResult AcquireNextImage();
         ArrayPtr<VkSemaphore> SemaphoreImageAvailable();
         bool Present(Queue *queue, Array<VkSemaphore> waitSemaphores);
+
+        bool Resize();
 
         ~Swapchain();
         bool Init(Device *dev);

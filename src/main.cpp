@@ -76,7 +76,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     attachment->clearColor = true;
     attachment->clearColorValue = {0.0, 0.05, 0.1, 1.0};
     // attachment->keepColor = true;
-    attachment->sampleCount = VK_SAMPLE_COUNT_8_BIT;
+    attachment->sampleCount = VK_SAMPLE_COUNT_4_BIT;
     attachment->resolveColor = true;
 
     ArrayPtr<vk::Subpass> subpass = vkRenderPass->AddSubpass();
@@ -221,6 +221,13 @@ i32 main(i32 argumentCount, char** argumentValues) {
         }
         if (input.Pressed(KC_KEY_R)) {
             UnitTestRNG(rng, cout);
+        }
+
+        if (window.resized) {
+            if (!vkSwapchain->Resize()) {
+                cout << "Failed to resize vkSwapchain: " << vk::error << std::endl;
+                return 1;
+            }
         }
 
         VkResult acquisitionResult = vkSwapchain->AcquireNextImage();

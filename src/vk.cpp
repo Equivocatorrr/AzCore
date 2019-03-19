@@ -1582,6 +1582,7 @@ failure:
     }
 
     void Framebuffer::Destroy() {
+        PrintDashed("Destroying Framebuffer");
         if (data.created) {
             for (u32 i = 0; i < data.framebuffers.size(); i++) {
                 vkDestroyFramebuffer(data.device->data.device, data.framebuffers[i], nullptr);
@@ -1591,6 +1592,7 @@ failure:
     }
 
     bool Framebuffer::Deinit() {
+        PrintDashed("De-Initializing Framebuffer");
         if (!data.initted) {
             error = "Framebuffer has not been initialized!";
             return false;

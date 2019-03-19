@@ -74,9 +74,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
     // attachment->bufferColor = true;
     // attachment->bufferDepthStencil = true;
     attachment->clearColor = true;
-    attachment->clearColorValue = {0.0, 0.05, 0.1, 1.0};
+    attachment->clearColorValue = {0.0, 0.05, 0.1, 0.2};
     // attachment->keepColor = true;
-    attachment->sampleCount = VK_SAMPLE_COUNT_4_BIT;
+    attachment->sampleCount = VK_SAMPLE_COUNT_8_BIT;
     attachment->resolveColor = true;
 
     ArrayPtr<vk::Subpass> subpass = vkRenderPass->AddSubpass();

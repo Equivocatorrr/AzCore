@@ -23,16 +23,24 @@ namespace io {
     class logStream {
         std::ofstream fstream;
         bool log; // Whether we're using a log file
+        bool flushed;
         Mutex mutex;
+        String prepend;
     public:
         logStream();
         logStream(String logFilename);
         template<typename T> logStream& operator<<(const T& something) {
+            if (flushed && prepend.size() != 0) {
+                std::cout << prepend;
+                flushed = false;
+            }
             std::cout << something;
             if (log)
                 fstream << something;
             return *this;
         }
+        logStream& operator<<(const char*);
+        logStream& operator<<(const String&);
         typedef std::ostream& (*stream_function)(std::ostream&);
         logStream& operator<<(stream_function func);
         void MutexLock();

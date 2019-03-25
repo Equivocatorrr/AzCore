@@ -2187,6 +2187,9 @@ failure:
     }
 
     bool Swapchain::Resize() {
+        cout << "\n\n";
+        PrintDashed("Resizing Swapchain");
+        cout << "\n";
         vkDeviceWaitIdle(data.device->data.device);
         VkPhysicalDevice physicalDevice = data.device->data.physicalDevice.physicalDevice;
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, data.surface, &data.surfaceCapabilities);

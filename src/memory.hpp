@@ -121,6 +121,18 @@ using Set = std::set<T>;
 
 using Mutex = std::mutex;
 
+#include <thread>
+
+using Thread = std::thread;
+
+#include <chrono>
+
+using Milliseconds = std::chrono::milliseconds;
+using Nanoseconds = std::chrono::nanoseconds;
+
+using Clock = std::chrono::steady_clock;
+using ClockTime = std::chrono::steady_clock::time_point;
+
 #include <memory>
 
 template<typename T, typename Deleter=std::default_delete<T>>

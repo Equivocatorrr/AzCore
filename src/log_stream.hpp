@@ -30,8 +30,8 @@ namespace io {
         logStream();
         logStream(String logFilename);
         template<typename T> logStream& operator<<(const T& something) {
-            if (flushed && prepend.size() != 0) {
-                std::cout << prepend;
+            if (flushed && prepend.size != 0) {
+                std::cout.write(prepend.data, prepend.size);
                 flushed = false;
             }
             std::cout << something;

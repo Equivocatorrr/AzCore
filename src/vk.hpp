@@ -206,8 +206,8 @@ namespace vk {
     };
 
     struct DescriptorBinding {
-        u32 binding; // Which descriptor we're describing
-        u32 count; // How many indices in this descriptor array
+        i32 binding; // Which descriptor we're describing
+        i32 count; // How many indices in this descriptor array
     };
 
     /*  struct: DescriptorLayout
@@ -222,7 +222,7 @@ namespace vk {
         // Configuration
         VkDescriptorType type;
         VkShaderStageFlags stage;
-        Array<DescriptorBinding> bindings;
+        Array<DescriptorBinding> bindings{};
 
         ~DescriptorLayout();
         void Init(VkDevice dev);
@@ -241,10 +241,10 @@ namespace vk {
             Array<ImageDescriptor> imageDescriptors{};
         } data;
 
-        bool AddDescriptor(ArrayRange<Buffer> buffers, u32 binding);
-        bool AddDescriptor(ArrayRange<Image> images, ArrayPtr<Sampler> sampler, u32 binding);
-        bool AddDescriptor(ArrayPtr<Buffer> buffer, u32 binding);
-        bool AddDescriptor(ArrayPtr<Image> image, ArrayPtr<Sampler> sampler, u32 binding);
+        bool AddDescriptor(ArrayRange<Buffer> buffers, i32 binding);
+        bool AddDescriptor(ArrayRange<Image> images, ArrayPtr<Sampler> sampler, i32 binding);
+        bool AddDescriptor(ArrayPtr<Buffer> buffer, i32 binding);
+        bool AddDescriptor(ArrayPtr<Image> image, ArrayPtr<Sampler> sampler, i32 binding);
     };
 
     /*  struct: Descriptors
@@ -278,7 +278,7 @@ namespace vk {
         automated MSAA and depth buffers to be created and used     */
     struct Attachment {
         struct {
-            u32 firstIndex = 0; // Which index in our RenderPass VkAttachmentDescripion Array corresponds to our 0
+            i32 firstIndex = 0; // Which index in our RenderPass VkAttachmentDescripion Array corresponds to our 0
             Array<VkAttachmentDescription> descriptions{};
         } data;
 
@@ -331,7 +331,7 @@ namespace vk {
         Author: Philip Haynes
         Defines how a Subpass uses a given attachment in our RenderPass     */
     struct AttachmentUsage {
-        u32 index; // Which attachment we're using
+        i32 index; // Which attachment we're using
         // Out of an Attachment that can have multiple attachments, this defines which one
         AttachmentType type = ATTACHMENT_ALL;
         VkAccessFlags accessFlags; // Describes how this attachment is accessed in the Subpass
@@ -418,7 +418,7 @@ namespace vk {
         // and only the final image should have multiple images allocated.
         Swapchain* swapchain = nullptr;
         // If swapchain is not nullptr, this will be set to however many swapchain images there are.
-        u32 numFramebuffers = 1;
+        i32 numFramebuffers = 1;
         Array<Array<ArrayPtr<Image>>> attachmentImages{};
         // If renderPass is connected to a swapchain, these values will be set automatically
         u32 width=0, height=0;
@@ -491,7 +491,7 @@ namespace vk {
         // Configuration
         RenderPass *renderPass = nullptr;
         Array<ShaderRef> shaders{};
-        u32 subpass = 0; // Of our RenderPass, which subpass are we used in?
+        i32 subpass = 0; // Of our RenderPass, which subpass are we used in?
         bool multisampleShading = false;
         // TODO: Break this up into simpler more bite-sized pieces
         VkPipelineInputAssemblyStateCreateInfo inputAssembly{};

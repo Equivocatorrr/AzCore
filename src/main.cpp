@@ -7,10 +7,12 @@
 #include "io.hpp"
 #include "vk.hpp"
 
+io::logStream cout("test.log");
+
 #include "unit_tests.cpp"
+#include "persistence.cpp"
 
 i32 main(i32 argumentCount, char** argumentValues) {
-    io::logStream cout("test.log");
 
     bool enableLayers = false, enableCoreValidation = false;
 
@@ -23,6 +25,35 @@ i32 main(i32 argumentCount, char** argumentValues) {
             enableCoreValidation = true;
         }
     }
+
+    // BigIntTest();
+    //
+    // CheckNumbersForHighPersistence();
+
+    UnitTestArrayAndString(cout);
+
+    // return 0;
+
+    // u64 test = 0xffffffffffffffff;
+    // u64 test2 = 0xfffd;
+    // Array<u32> initArray;
+    // for (u32 i = 0; i < 1; i++) {
+    //     const u32 vals[2] = {10, 1};
+    //     initArray.Append(vals[i%2]);
+    // }
+    // IntVar var1(initArray);
+    // initArray.front()--;
+    // IntVar var2(initArray);
+    // IntVar quotient;
+    // IntVar remainder;
+    // IntVar::QuotientAndRemainder(var1, var2, &quotient, &remainder);
+    // IntVar product = var1 * var2;
+    // // var2 = -var2;
+    // cout << "var1 = " << var1.HexString() << std::endl;
+    // cout << "var2 = " << var2.HexString() << std::endl;
+    // cout << "(var1 / var2) has a value of " << quotient.HexString() << " aka " << quotient.ToString() << std::endl;
+    // cout << "(var1 % var2) has a value of " << remainder.HexString() << " aka " << remainder.ToString() << std::endl;
+    // cout << "(var1 * var2) has a value of " << product.HexString() << " aka " << product.ToString() << std::endl;
 
     // PrintKeyCodeMapsEvdev(cout);
     // PrintKeyCodeMapsWinVK(cout);
@@ -40,7 +71,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     		"VK_LAYER_GOOGLE_unique_objects"
         };
         if (enableCoreValidation) {
-            layers.push_back("VK_LAYER_LUNARG_core_validation");
+            layers.Append("VK_LAYER_LUNARG_core_validation");
         }
         vkInstance.AddLayers(layers);
     }
@@ -71,11 +102,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vk::RenderPass* vkRenderPass = vkDevice->AddRenderPass();
 
     ArrayPtr<vk::Attachment> attachment = vkRenderPass->AddAttachment(vkSwapchain);
-    // attachment->bufferColor = true;
-    // attachment->bufferDepthStencil = true;
     attachment->clearColor = true;
-    attachment->clearColorValue = {0.0, 0.05, 0.1, 0.2};
-    // attachment->keepColor = true;
+    attachment->clearColorValue = {0.0, 0.05, 0.1, 1.0};
     attachment->sampleCount = VK_SAMPLE_COUNT_8_BIT;
     attachment->resolveColor = true;
 
@@ -122,10 +150,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
     ArrayPtr<vk::DescriptorLayout> vkDescriptorLayout[2] = {vkDescriptors->AddLayout(), vkDescriptors->AddLayout()};
     vkDescriptorLayout[0]->stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     vkDescriptorLayout[0]->type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    vkDescriptorLayout[0]->bindings.push_back({0, 2});
+    vkDescriptorLayout[0]->bindings.Append({0, 2});
     vkDescriptorLayout[1]->stage = VK_SHADER_STAGE_ALL_GRAPHICS;
     vkDescriptorLayout[1]->type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    vkDescriptorLayout[1]->bindings.push_back({0, 2});
+    vkDescriptorLayout[1]->bindings.Append({0, 2});
 
     ArrayPtr<vk::DescriptorSet> vkDescriptorSets[2] = {
         vkDescriptors->AddSet(vkDescriptorLayout[0]),
@@ -152,8 +180,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vk::Pipeline *vkPipeline = vkDevice->AddPipeline();
     vkPipeline->renderPass = vkRenderPass;
     vkPipeline->subpass = 0;
-    vkPipeline->shaders.push_back(vkShaderRefs[0]);
-    vkPipeline->shaders.push_back(vkShaderRefs[1]);
+    vkPipeline->shaders.Append(vkShaderRefs[0]);
+    vkPipeline->shaders.Append(vkShaderRefs[1]);
 
     vkPipeline->dynamicStates = {
         VK_DYNAMIC_STATE_VIEWPORT,
@@ -170,10 +198,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
     colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
     colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
 
-    vkPipeline->colorBlendAttachments.push_back(colorBlendAttachment);
+    vkPipeline->colorBlendAttachments.Append(colorBlendAttachment);
 
-    vkPipeline->descriptorLayouts.push_back(vkDescriptorLayout[0]);
-    vkPipeline->descriptorLayouts.push_back(vkDescriptorLayout[1]);
+    vkPipeline->descriptorLayouts.Append(vkDescriptorLayout[0]);
+    vkPipeline->descriptorLayouts.Append(vkDescriptorLayout[1]);
 
     vk::CommandPool* vkCommandPool = vkDevice->AddCommandPool(queueGraphics);
     vkCommandPool->transient = true;

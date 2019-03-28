@@ -19,10 +19,10 @@ LIBS_L=-lvulkan -lxcb -levdev -lpthread -lxkbcommon -lxkbcommon-x11 -lxcb-xkb
 LIBS_L_GLX= $(LIBS_L) -lX11 -lX11-xcb
 LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib32/" -lvulkan-1 -lgdi32
 
-_DEPS = ../makefile keycodes.hpp io.hpp math.hpp memory.hpp log_stream.hpp vk.hpp
+_DEPS = ../makefile keycodes.hpp io.hpp math.hpp memory.hpp log_stream.hpp persistence.cpp unit_tests.cpp vk.hpp bigint.hpp
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 
-_OBJ = main.o io.o memory.o keycodes.o log_stream.o vk.o math.o
+_OBJ = main.o io.o memory.o keycodes.o log_stream.o vk.o math.o bigint.o
 _OBJ_L = $(_OBJ) io_linux.o
 _OBJ_W = $(_OBJ) io_win32.o
 OBJ_L = $(patsubst %,$(ODIR)/Linux/Release/%,$(_OBJ_L))

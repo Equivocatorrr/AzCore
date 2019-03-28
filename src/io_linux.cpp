@@ -32,12 +32,12 @@
 
 namespace io {
 
-    xcb_atom_t xcbGetAtom(xcb_connection_t* connection, bool onlyIfExists, const std::string& name) {
+    xcb_atom_t xcbGetAtom(xcb_connection_t* connection, bool onlyIfExists, const String& name) {
         xcb_intern_atom_cookie_t cookie;
         xcb_intern_atom_reply_t *reply;
 
         // In order to access our close button event
-        cookie = xcb_intern_atom(connection, (u8)onlyIfExists, name.length(), name.c_str());
+        cookie = xcb_intern_atom(connection, (u8)onlyIfExists, name.size, name.data);
         reply = xcb_intern_atom_reply(connection, cookie, 0);
 
         if (reply == nullptr) {
@@ -389,7 +389,7 @@ namespace io {
         if (!depth) {
             CLOSE_CONNECTION(data);
             error = "Screen doesn't support ";
-            error += std::to_string(data->windowDepth);
+            error += ToString(data->windowDepth);
             error += "-bit depth!";
             return false;
         }
@@ -420,7 +420,7 @@ namespace io {
 
 
         if (xcb_generic_error_t *err = xcb_request_check(data->connection, cookie)) {
-            error = "Failed to create colormap: " + std::to_string(err->error_code);
+            error = "Failed to create colormap: " + ToString(err->error_code);
             CLOSE_CONNECTION(data);
             return false;
         }
@@ -438,7 +438,7 @@ namespace io {
         cookie = xcb_create_window_checked(data->connection, data->windowDepth, data->window, data->screen->root,
                     x, y, width, height, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, data->visualID, mask, values);
         if (xcb_generic_error_t *err = xcb_request_check(data->connection, cookie)) {
-            error = "Error creating xcb window: " + std::to_string(err->error_code);
+            error = "Error creating xcb window: " + ToString(err->error_code);
             CLOSE_CONNECTION(data);
             return false;
         }
@@ -456,9 +456,9 @@ namespace io {
         }
 
         xcb_change_property(data->connection, XCB_PROP_MODE_REPLACE, data->window,
-                XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, name.length(), name.c_str());
+                XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, name.size, name.data);
         xcb_change_property (data->connection, XCB_PROP_MODE_REPLACE, data->window,
-                XCB_ATOM_WM_ICON_NAME, XCB_ATOM_STRING, 8, name.length(), name.c_str());
+                XCB_ATOM_WM_ICON_NAME, XCB_ATOM_STRING, 8, name.size, name.data);
 
         if ((data->atoms[0] = xcbGetAtom(data->connection, true, "WM_PROTOCOLS")) == 0) {
             error = "Couldn't get WM_PROTOCOLS atom";

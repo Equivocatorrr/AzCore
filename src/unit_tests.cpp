@@ -295,7 +295,7 @@ void UnitTestRNG(RandomNumberGenerator& rng, io::logStream& cout) {
 void Print(List<i32> list, io::logStream& cout) {
     cout << "{";
     bool first = true;
-    for (u32 i = 0; i < list.size(); i++) {
+    for (i32 i = 0; i < list.size; i++) {
         if (!first) {
             cout << ", ";
         }
@@ -308,7 +308,7 @@ void Print(List<i32> list, io::logStream& cout) {
 void PrintRef(const List<i32>& list, io::logStream& cout) {
     cout << "{";
     bool first = true;
-    for (u32 i = 0; i < list.size(); i++) {
+    for (i32 i = 0; i < list.size; i++) {
         if (!first) {
             cout << ", ";
         }
@@ -321,52 +321,130 @@ void PrintRef(const List<i32>& list, io::logStream& cout) {
 void UnitTestList(io::logStream& cout) {
     cout << "Unit testing List<i32>\n";
     List<i32> list = {1, 2, 3, 4};
-    cout << "list.size() = " << list.size() << std::endl;
+    cout << "list.size = " << list.size << std::endl;
     cout << "list = ";
     Print(list, cout);
     cout << " by value, ";
     PrintRef(list, cout);
     cout << " by reference";
     cout << "\nafter inserting 5 at index 0: ";
-    list.insert(0, 5);
+    list.Insert(0, 5);
     Print(list, cout);
     cout << " by value, ";
     PrintRef(list, cout);
     cout << " by reference";
-    cout << "\nlist.size() = " << list.size() << std::endl;
+    cout << "\nlist.size = " << list.size << std::endl;
     cout << "\nafter inserting 6 at index 3: ";
-    list.insert(3, 6);
+    list.Insert(3, 6);
     Print(list, cout);
     cout << " by value, ";
     PrintRef(list, cout);
     cout << " by reference";
-    cout << "\nlist.size() = " << list.size() << std::endl;
+    cout << "\nlist.size = " << list.size << std::endl;
     cout << "\nafter erasing index 2: ";
-    list.erase(2);
+    list.Erase(2);
     Print(list, cout);
     cout << " by value, ";
     PrintRef(list, cout);
     cout << " by reference";
-    cout << "\nlist.size() = " << list.size() << std::endl;
+    cout << "\nlist.size = " << list.size << std::endl;
     cout << "\nafter erasing index 0: ";
-    list.erase(0);
+    list.Erase(0);
     Print(list, cout);
     cout << " by value, ";
     PrintRef(list, cout);
     cout << " by reference";
-    cout << "\nlist.size() = " << list.size() << std::endl;
+    cout << "\nlist.size = " << list.size << std::endl;
     cout << "\nafter resizing to 8: ";
-    list.resize(8);
+    list.Resize(8);
     Print(list, cout);
     cout << " by value, ";
     PrintRef(list, cout);
     cout << " by reference";
-    cout << "\nlist.size() = " << list.size() << std::endl;
+    cout << "\nlist.size = " << list.size << std::endl;
     cout << "\nafter resizing to 3: ";
-    list.resize(3);
+    list.Resize(3);
     Print(list, cout);
     cout << " by value, ";
     PrintRef(list, cout);
     cout << " by reference";
-    cout << "\nlist.size() = " << list.size() << std::endl;
+    cout << "\nlist.size = " << list.size << std::endl;
+}
+
+template<typename T>
+void PrintArray(const Array<T>& array, const char* name, io::logStream& cout) {
+    cout << name << " = {";
+    for (i32 i = 0; i < array.size; i++) {
+        cout << array[i];
+        if (i != array.size-1) {
+            cout << ", ";
+        }
+    }
+    cout << "}" << std::endl;
+}
+
+void UnitTestArrayAndString(io::logStream& cout) {
+    Array<u32> test1 = {
+        1, 2, 3, 4, 5, 6, 7, 8, 9
+    };
+    Array<String> test2 = {
+        "There once was a man who hated cheese.",
+        "He was also an absolute dick.",
+        "You should probably stay away from him."
+    };
+    PrintArray(test1, "test1", cout);
+    PrintArray(test2, "test2", cout);
+    cout << "Adding values to the end of both Arrays..." << std::endl;
+    test1 += 10;
+    test2 += "I think everything should be okay anyways.";
+    PrintArray(test1, "test1", cout);
+    PrintArray(test2, "test2", cout);
+    cout << "Adding values to the beginning of both Arrays..." << std::endl;
+    test1.Insert(0,0);
+    test2.Insert(0,"Once upon a time,");
+    PrintArray(test1, "test1", cout);
+    PrintArray(test2, "test2", cout);
+    cout << "Adding values to the middle of both Arrays..." << std::endl;
+    test1.Insert(7,67);
+    test2.Insert(3,"And he likes to hurt people.");
+    PrintArray(test1, "test1", cout);
+    PrintArray(test2, "test2", cout);
+    cout << "Erasing values from the middle of both Arrays..." << std::endl;
+    test1.Erase(6);
+    test1.Erase(7);
+    test2.Erase(5);
+    PrintArray(test1, "test1", cout);
+    PrintArray(test2, "test2", cout);
+    cout << "Reversing both Arrays..." << std::endl;
+    test1.Reverse();
+    test2.Reverse();
+    PrintArray(test1, "test1", cout);
+    PrintArray(test2, "test2", cout);
+    cout << "Appending both Arrays with other Arrays..." << std::endl;
+    test1 += {11, 12, 13, 14, 15};
+    test2 += {"What was I talking about?", "This is getting pretty weird!"};
+    PrintArray(test1, "test1", cout);
+    PrintArray(test2, "test2", cout);
+    cout << "Resizing both Arrays to 5..." << std::endl;
+    test1.Resize(5);
+    test2.Resize(5);
+    PrintArray(test1, "test1", cout);
+    PrintArray(test2, "test2", cout);
+    cout << "Using copy constructors..." << std::endl;
+    Array<u32> test3(test1);
+    Array<String> test4(test2);
+    PrintArray(test3, "test3", cout);
+    PrintArray(test4, "test4", cout);
+    cout << "Using copy assignment..." << std::endl;
+    Array<u32> test5;
+    test5 = test1;
+    Array<String> test6;
+    test6 = test2;
+    PrintArray(test5, "test5", cout);
+    PrintArray(test6, "test6", cout);
+    cout << "Printing them all added together with +..." << std::endl;
+    Array<u32> test7 = test1 + test3 + test5;
+    Array<String> test8 = test2 + test4 + test6;
+    PrintArray(test7, "test7", cout);
+    PrintArray(test8, "test8", cout);
 }

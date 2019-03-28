@@ -215,7 +215,7 @@ struct Array {
 
     Array<T, allocTail> operator+(T&& other) const {
         Array<T, allocTail> result(*this);
-        result += std::move(other);
+        result += other;
         return result;
     }
 
@@ -236,7 +236,7 @@ struct Array {
 
     Array<T, allocTail> operator+(Array<T, allocTail>&& other) const {
         Array<T, allocTail> result(*this);
-        result += std::move(other);
+        result += other;
         return result;
     }
 

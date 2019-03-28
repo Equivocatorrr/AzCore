@@ -36,19 +36,26 @@ public:
     }
 };
 
+template<typename T>
+i32 StringLength(const T* string, const T& terminator=0) {
+    i32 length = 0;
+    for (; string[length] != terminator; length++) {}
+    return length;
+}
+
 /*  struct: Array
     Author: Philip Haynes
     A replacement for std::vector which is hopefully less obnoxious to debug.   */
 template<typename T, i32 allocTail=0> // allocTail will allocate extra space at the end
 struct Array {
-    T *data = nullptr;
-    i32 allocated = 0;
-    i32 size = 0;
+    T *data;
+    i32 allocated;
+    i32 size;
 
-    Array() : data(nullptr) , allocated(0) , size(0) {
-        if (allocTail != 0) {
+    Array(bool tailInitialize = true) : data(nullptr) , allocated(0) , size(0) {
+        if (tailInitialize && allocTail != 0) { // To avoid double allocating when only one is necessary
             data = new T[allocTail];
-            for (i32 i = size; i < allocated+allocTail; i++) {
+            for (i32 i = size; i < size+allocTail; i++) {
                 data[i] = T();
             }
         }
@@ -57,8 +64,23 @@ struct Array {
         for (i32 i = 0; i < size; i++) {
             data[i] = value;
         }
-        for (i32 i = size; i < allocated+allocTail; i++) {
+        for (i32 i = size; i < size+allocTail; i++) {
             data[i] = T();
+        }
+    }
+    Array(const u32 newSize, const T& value=T()) : Array((i32)newSize, value) {}
+    Array(const std::initializer_list<T>& init) : allocated(init.size()) , size(allocated) {
+        if (size != 0 || allocTail != 0) {
+            data = new T[allocated + allocTail];
+            i32 i = 0;
+            for (const T& val : init) {
+                data[i++] = val;
+            }
+            for (i32 i = size; i < size+allocTail; i++) {
+                data[i] = T();
+            }
+        } else {
+            data = nullptr;
         }
     }
     Array(const Array<T, allocTail>& other) : allocated(other.size) , size(other.size) {
@@ -70,77 +92,47 @@ struct Array {
                 data[i] = other.data[i];
             }
         }
-        for (i32 i = size; i < allocated+allocTail; i++) {
+        for (i32 i = size; i < size+allocTail; i++) {
             data[i] = T();
         }
     }
-    Array(const std::initializer_list<T>& init) : allocated(init.size()) , size(allocated) {
-        if (size != 0 || allocTail != 0) {
-            data = new T[allocated + allocTail];
-            i32 i = 0;
-            for (const T& val : init) {
-                data[i++] = val;
-            }
-            for (i32 i = size; i < allocated+allocTail; i++) {
-                data[i] = T();
-            }
-        } else {
-            data = nullptr;
+    Array(Array<T, allocTail>&& other) noexcept : data(other.data) , allocated(other.allocated) , size(other.size) {
+        other.data = nullptr;
+        other.size = 0;
+        other.allocated = 0;
+    }
+
+    Array(const T* string) : allocated(StringLength(string)) , size(allocated) {
+        if (allocTail == 0) {
+            throw std::domain_error("Array string functions cannot be used without an allocTail of at least 1!");
+        }
+        data = new T[allocated+allocTail];
+        for (i32 i = 0; i <= size; i++) {
+            data[i] = string[i];
         }
     }
-    Array(const Array<T, allocTail>&& other) noexcept : data(other.data) , allocated(other.allocated) , size(other.size) {}
 
     ~Array() {
         if (data != nullptr) {
             delete[] data;
         }
-        data = nullptr;
     }
 
     Array<T, allocTail>& operator=(const Array<T, allocTail>& other) {
-        size = other.size;
-        if (size == 0 && allocTail == 0) {
-            return *this;
-        }
-        if (allocated >= size) {
-            if (std::is_trivially_copyable<T>::value) {
-                memcpy((void*)data, (void*)other.data, sizeof(T) * size);
-            } else {
-                for (i32 i = 0; i < size; i++) {
-                    data[i] = other.data[i];
-                }
-            }
-            for (i32 i = size; i < allocated+allocTail; i++) {
-                data[i] = T();
-            }
-            return *this;
-        }
-        // We definitely have to allocate
-        allocated = size;
-        if (data != nullptr) {
-            delete[] data;
-        }
-        data = new T[allocated + allocTail];
-        if (std::is_trivially_copyable<T>::value) {
-            memcpy((void*)data, (void*)other.data, sizeof(T) * allocated);
-        } else {
-            for (i32 i = 0; i < size; i++) {
-                data[i] = other.data[i];
-            }
-        }
-        for (i32 i = size; i < allocated+allocTail; i++) {
-            data[i] = T();
-        }
-        return *this;
+        Array<T, allocTail> value(other);
+        return operator=(std::move(value));
     }
 
-    Array<T, allocTail>& operator=(const Array<T, allocTail>&& other) {
+    Array<T, allocTail>& operator=(Array<T, allocTail>&& other) {
         if (data != nullptr) {
             delete[] data;
         }
         data = other.data;
         size = other.size;
         allocated = other.allocated;
+        other.data = nullptr;
+        other.size = 0;
+        other.allocated = 0;
         return *this;
     }
 
@@ -165,8 +157,19 @@ struct Array {
         for (const T& val : init) {
             data[i++] = val;
         }
-        for (i32 i = size; i < allocated+allocTail; i++) {
+        for (i32 i = size; i < size+allocTail; i++) {
             data[i] = T();
+        }
+        return *this;
+    }
+
+    Array<T, allocTail>& operator=(const T* string) {
+        if (allocTail == 0) {
+            throw std::domain_error("Array string functions cannot be used without an allocTail of at least 1!");
+        }
+        Resize(StringLength(string));
+        for (i32 i = 0; i <= size; i++) {
+            data[i] = string[i];
         }
         return *this;
     }
@@ -179,6 +182,19 @@ struct Array {
             if (data[i] != other.data[i]) {
                 return false;
             }
+        }
+        return true;
+    }
+
+    bool operator==(const T* string) const {
+        i32 i = 0;
+        for (; string[i] != 0 && i < size; i++) {
+            if (string[i] != data[i]) {
+                return false;
+            }
+        }
+        if (i != size) {
+            return false;
         }
         return true;
     }
@@ -197,13 +213,30 @@ struct Array {
         return data[index];
     }
 
-    inline T& operator+=(const T& value) {
-        return Append(value);
+    Array<T, allocTail> operator+(T&& other) const {
+        Array<T, allocTail> result(*this);
+        result += std::move(other);
+        return result;
     }
 
     Array<T, allocTail> operator+(const T& other) const {
         Array<T, allocTail> result(*this);
         result += other;
+        return result;
+    }
+
+    Array<T, allocTail> operator+(const T* string) const {
+        if (allocTail == 0) {
+            throw std::domain_error("Array string functions cannot be used without an allocTail of at least 1!");
+        }
+        Array<T, allocTail> result(*this);
+        result += string;
+        return result;
+    }
+
+    Array<T, allocTail> operator+(Array<T, allocTail>&& other) const {
+        Array<T, allocTail> result(*this);
+        result += std::move(other);
         return result;
     }
 
@@ -213,8 +246,24 @@ struct Array {
         return result;
     }
 
-    inline Array<T, allocTail> operator+=(const Array<T, allocTail>& other) {
+    inline T& operator+=(T&& value) {
+        return Append(value);
+    }
+
+    inline T& operator+=(const T& value) {
+        return Append(value);
+    }
+
+    inline Array<T, allocTail>& operator+=(const Array<T, allocTail>& other) {
         return Append(other);
+    }
+
+    inline Array<T, allocTail>& operator+=(Array<T, allocTail>&& other) {
+        return Append(other);
+    }
+
+    inline Array<T, allocTail>& operator+=(const T* string) {
+        return Append(string);
     }
 
     void Reserve(const i32 newSize) {
@@ -228,12 +277,12 @@ struct Array {
                 memcpy((void*)temp, (void*)data, sizeof(T) * size);
             } else {
                 for (i32 i = 0; i < size; i++) {
-                    temp[i] = data[i];
+                    temp[i] = std::move(data[i]);
                 }
             }
             delete[] data;
             data = temp;
-            for (i32 i = size; i < allocated+allocTail; i++) {
+            for (i32 i = size; i < size+allocTail; i++) {
                 data[i] = T();
             }
             return;
@@ -242,7 +291,7 @@ struct Array {
             delete[] data;
         }
         data = new T[newSize + allocTail];
-        for (i32 i = size; i < allocated+allocTail; i++) {
+        for (i32 i = size; i < size+allocTail; i++) {
             data[i] = T();
         }
     }
@@ -250,25 +299,11 @@ struct Array {
     void Resize(const i32 newSize, const T& value=T()) {
         if (newSize > allocated) {
             Reserve(max(newSize, (allocated >> 1) + 2));
-        } else if (newSize < (allocated>>1)) {
-            size = newSize;
-            allocated = size;
-            T *temp = new T[newSize + allocTail];
-            if (std::is_trivially_copyable<T>::value) {
-                memcpy((void*)temp, (void*)data, sizeof(T) * size);
-            } else {
-                for (i32 i = 0; i < size; i++) {
-                    temp[i] = data[i];
-                }
-            }
-            delete[] data;
-            data = temp;
-            for (i32 i = size; i < allocated+allocTail; i++) {
-                data[i] = T();
-            }
-            return;
         } else if (newSize == 0 && allocTail == 0) {
-            delete[] data;
+            if (data != nullptr) {
+                delete[] data;
+            }
+            data = nullptr;
             allocated = 0;
             size = 0;
             return;
@@ -277,6 +312,9 @@ struct Array {
             data[i] = value;
         }
         size = newSize;
+        for (i32 i = size; i < size+allocTail; i++) {
+            data[i] = T();
+        }
     }
 
     T& Append(const T& value) {
@@ -288,7 +326,7 @@ struct Array {
                     memcpy((void*)temp, (void*)data, sizeof(T) * size);
                 } else {
                     for (i32 i = 0; i < size; i++) {
-                        temp[i] = data[i];
+                        temp[i] = std::move(data[i]);
                     }
                 }
             }
@@ -296,30 +334,60 @@ struct Array {
                 delete[] data;
             }
             data = temp;
-            for (i32 i = size; i < allocated+allocTail; i++) {
-                data[i] = T();
-            }
         }
-        return data[size++] = value;
+        size++;
+        for (i32 i = size; i < size+allocTail; i++) {
+            data[i] = T();
+        }
+        return data[size-1] = value;
+    }
+
+    Array<T, allocTail>& Append(const T* string) {
+        if (allocTail == 0) {
+            throw std::domain_error("Array string functions cannot be used without an allocTail of at least 1!");
+        }
+        i32 newSize = size + StringLength(string);
+        Reserve(newSize);
+        for (i32 i = size; i <= newSize; i++) {
+            data[i] = string[i-size];
+        }
+        size = newSize;
+        return *this;
     }
 
     Array<T, allocTail>& Append(const Array<T, allocTail>& other) {
+        Array<T, allocTail> value(other);
+        return Append(std::move(value));
+    }
+
+    Array<T, allocTail>& Append(Array<T, allocTail>&& other) {
         i32 copyStart = size;
         Resize(size+other.size);
         if (std::is_trivially_copyable<T>::value) {
             memcpy((void*)(data+copyStart), (void*)other.data, sizeof(T) * other.size);
         } else {
             for (i32 i = copyStart; i < size; i++) {
-                data[i] = other.data[i-copyStart];
+                data[i] = std::move(other.data[i-copyStart]);
             }
         }
-        for (i32 i = size; i < allocated+allocTail; i++) {
+        for (i32 i = size; i < size+allocTail; i++) {
             data[i] = T();
         }
+        if (other.data != nullptr) {
+            delete[] other.data;
+        }
+        other.data = nullptr;
+        other.size = 0;
+        other.allocated = 0;
         return *this;
     }
 
     T& Insert(const i32 index, const T& value) {
+        T val(value);
+        return Insert(index, std::move(val));
+    }
+
+    T& Insert(const i32 index, T&& value) {
         if (index > size) {
             throw std::domain_error("Array::Insert index is out of bounds");
         }
@@ -327,30 +395,37 @@ struct Array {
             allocated += (allocated >> 1) + 2;
             T *temp = new T[allocated + allocTail];
             if (std::is_trivially_copyable<T>::value) {
-                memcpy((void*)temp, (void*)data, sizeof(T) * index);
-                temp[index] = value;
-                memcpy((void*)(temp+index+1), (void*)(data+index), sizeof(T) * (size-index));
+                if (index > 0) {
+                    memcpy((void*)temp, (void*)data, sizeof(T) * index);
+                }
+                temp[index] = std::move(value);
+                if (size-index > 0) {
+                    memcpy((void*)(temp+index+1), (void*)(data+index), sizeof(T) * (size-index));
+                }
             } else {
                 for (i32 i = 0; i < index; i++) {
-                    temp[i] = data[i];
+                    temp[i] = std::move(data[i]);
                 }
                 temp[index] = value;
                 for (i32 i = index+1; i < size+1; i++) {
-                    temp[i] = data[i-1];
+                    temp[i] = std::move(data[i-1]);
                 }
             }
             delete[] data;
             data = temp;
-            for (i32 i = 0; i < allocTail; i++) {
-                data[allocated+i] = T();
-            }
             size++;
+            for (i32 i = size; i < size+allocTail; i++) {
+                data[i] = T();
+            }
             return data[index];
         }
-        for (i32 i = size; i > index; i--) {
-            data[i] = data[i-1];
-        }
         size++;
+        for (i32 i = size-1; i > index; i--) {
+            data[i] = std::move(data[i-1]);
+        }
+        for (i32 i = size; i < size+allocTail; i++) {
+            data[i] = T();
+        }
         return data[index] = value;
     }
 
@@ -401,117 +476,13 @@ struct Array {
 // using String = std::string;
 // using WString = std::wstring;
 
-/*  struct: BasicString
-    Author: Philip Haynes
-    A basic string type, meant to typedef to String and WString */
-template<typename T>
-struct BasicString : public Array<T, 1> {
-    BasicString() : Array<T, 1>() {}
-    BasicString(const i32 newSize, const T& value=T()) : Array<T, 1>(newSize, value) {}
-    BasicString(const Array<T, 1>& other) : Array<T, 1>(other) {}
-    BasicString(const std::initializer_list<T>& init) : Array<T, 1>(init) {}
-    BasicString(const Array<T, 1>&& other) noexcept : Array<T, 1>(other) {}
+using String = Array<char, 1>;
+using WString = Array<wchar_t, 1>;
 
-    BasicString(const T* string) {
-        for (this->size = 0; string[this->size] != 0; this->size++) {}
-        this->allocated = this->size;
-        if (this->size != 0) {
-            this->data = new T[this->allocated + 1];
-            for (i32 i = 0; i <= this->size; i++) {
-                this->data[i] = string[i];
-            }
-        }
-    }
-
-    ~BasicString() {
-        Array<T,1>::~Array();
-    }
-
-    BasicString<T>& operator=(const T* string) {
-        i32 newSize = 0;
-        for (newSize = 0; string[newSize] != 0; newSize++) {}
-        this->Reserve(newSize);
-        this->size = newSize;
-        for (i32 i = 0; i <= this->size; i++) {
-            this->data[i] = string[i];
-        }
-        return *this;
-    }
-
-    bool operator==(const T* string) const {
-        i32 i = 0;
-        for (; string[i] != 0 && i < this->size; i++) {
-            if (string[i] != this->data[i]) {
-                return false;
-            }
-        }
-        if (i != this->size) {
-            return false;
-        }
-        return true;
-    }
-
-    BasicString<T> operator+(const T& value) const {
-        BasicString<T> result(*this);
-        result += value;
-        return result;
-    }
-
-    BasicString<T> operator+(const T* string) const {
-        BasicString<T> result(*this);
-        result += string;
-        return result;
-    }
-
-    inline BasicString<T> operator+(const BasicString<T>& other) const {
-        return Array<T, 1>::operator+((const Array<T,1>&)other);
-    }
-
-    inline BasicString<T>& operator+=(const T& value) {
-        return Append(value);
-    }
-
-    inline BasicString<T>& operator+=(const BasicString<T>& other) {
-        return Append(other);
-    }
-
-    inline BasicString<T>& operator+=(const T* string) {
-        return Append(string);
-    }
-
-    BasicString<T>& Append(const T* string) {
-        i32 i = 0;
-        for (; string[i] != 0; i++) {}
-        i32 oldSize = this->size;
-        this->Resize(oldSize+i);
-        for (i32 j = 0; string[j] != 0; j++) {
-            this->data[oldSize+j] = string[j];
-        }
-        return *this;
-    }
-
-    inline BasicString<T>& Append(const T& value) {
-        return (BasicString<T>&)Array<T,1>::Append(value);
-    }
-
-    inline BasicString<T>& Append(const BasicString<T>& other) {
-        return (BasicString<T>&)Array<T,1>::Append((const Array<T,1>&)other);
-    }
-};
-
-template<typename T>
-BasicString<T> operator+(const T* cString, const BasicString<T>& string) {
-    BasicString<T> result;
-    i32 size = 0;
-    for (; cString[size] != 0; size++) {}
-    result.Reserve(size+string.size);
-    result += cString;
-    result += string;
-    return result;
-}
-
-using String = BasicString<char>;
-using WString = BasicString<wchar_t>;
+String operator+(const char* cString, String&& string);
+String operator+(const char* cString, const String& string);
+WString operator+(const wchar_t* cString, WString&& string);
+WString operator+(const wchar_t* cString, const WString& string);
 
 String ToString(const u32& value, i32 base=10);
 String ToString(const u64& value, i32 base=10);

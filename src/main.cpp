@@ -26,11 +26,11 @@ i32 main(i32 argumentCount, char** argumentValues) {
         }
     }
 
+    UnitTestArrayAndString(cout);
+
     // BigIntTest();
     //
     // CheckNumbersForHighPersistence();
-
-    UnitTestArrayAndString(cout);
 
     // return 0;
 

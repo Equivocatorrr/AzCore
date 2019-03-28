@@ -396,7 +396,7 @@ void UnitTestArrayAndString(io::logStream& cout) {
     PrintArray(test2, "test2", cout);
     cout << "Adding values to the end of both Arrays..." << std::endl;
     test1 += 10;
-    test2 += "I think everything should be okay anyways.";
+    test2 += String("I think everything should be okay anyways.");
     PrintArray(test1, "test1", cout);
     PrintArray(test2, "test2", cout);
     cout << "Adding values to the beginning of both Arrays..." << std::endl;

@@ -6,11 +6,37 @@
 #include "memory.hpp"
 #include "bigint.hpp"
 
+String operator+(const char* cString, const String& string) {
+    String value(string);
+    return cString + std::move(value);
+}
+
+String operator+(const char* cString, String&& string) {
+    String result(false); // We don't initialize the tail
+    result.Reserve(StringLength(cString)+string.size);
+    result += cString;
+    result += string;
+    return result;
+}
+
+WString operator+(const char* cString, const WString& string) {
+    WString value(string);
+    return cString + std::move(value);
+}
+
+WString operator+(const wchar_t* cString, WString&& string) {
+    WString result(false); // We don't initialize the tail
+    result.Reserve(StringLength(cString)+string.size);
+    result += cString;
+    result += string;
+    return result;
+}
+
 String ToString(const u32& value, i32 base) {
-    String out;
     if (value == 0) {
         return "0";
     }
+    String out;
     u32 remaining = value;
     while (remaining != 0) {
         div_t val = div(remaining, base);
@@ -25,10 +51,10 @@ String ToString(const u32& value, i32 base) {
 }
 
 String ToString(const u64& value, i32 base) {
-    String out;
     if (value == 0) {
         return "0";
     }
+    String out;
     u64 remaining = value;
     while (remaining != 0) {
         lldiv_t val = lldiv(remaining, base);
@@ -43,10 +69,10 @@ String ToString(const u64& value, i32 base) {
 }
 
 String ToString(const i32& value, i32 base) {
-    String out;
     if (value == 0) {
         return "0";
     }
+    String out;
     bool negative = value < 0;
     i32 remaining = value;
     while (remaining != 0) {
@@ -65,10 +91,10 @@ String ToString(const i32& value, i32 base) {
 }
 
 String ToString(const i64& value, i32 base) {
-    String out;
     if (value == 0) {
         return "0";
     }
+    String out;
     bool negative = value < 0;
     i64 remaining = value;
     while (remaining != 0) {
@@ -87,7 +113,6 @@ String ToString(const i64& value, i32 base) {
 }
 
 String ToString(f32 value, i32 base) {
-    String iString, fString;
     const u32 byteCode = *((u32*)((void*)&value));
     const bool negative = (byteCode & 0x80000000) != 0;
     const u8 exponent = byteCode >> 23;
@@ -109,6 +134,7 @@ String ToString(f32 value, i32 base) {
     if (exponent == 127) {
         return ToString(negative ? -(i32)significand : (i32)significand, base) + ".0";
     }
+    String iString, fString;
     if (exponent > 103) {
         BigInt iPart(significand);
         iPart <<= (i32)exponent-127;

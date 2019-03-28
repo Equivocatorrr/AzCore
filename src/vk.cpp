@@ -2570,7 +2570,7 @@ failure:
     }
 
     ArrayPtr<VkSemaphore> Device::AddSemaphore() {
-        data.semaphores.Append(VK_NULL_HANDLE);
+        data.semaphores.Append((VkSemaphore)VK_NULL_HANDLE);
         return ArrayPtr<VkSemaphore>(&data.semaphores, data.semaphores.size-1);
     }
 

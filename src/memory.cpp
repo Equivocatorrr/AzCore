@@ -4,6 +4,153 @@
 */
 
 #include "memory.hpp"
+#include "bigint.hpp"
+
+String ToString(const u32& value, i32 base) {
+    String out;
+    if (value == 0) {
+        return "0";
+    }
+    u32 remaining = value;
+    while (remaining != 0) {
+        div_t val = div(remaining, base);
+        if (base >= 10) {
+            out += val.rem > 9 ? char(val.rem-10+'a') : char(val.rem+'0');
+        } else {
+            out += char(val.rem+'0');
+        }
+        remaining = val.quot;
+    }
+    return out.Reverse();
+}
+
+String ToString(const u64& value, i32 base) {
+    String out;
+    if (value == 0) {
+        return "0";
+    }
+    u64 remaining = value;
+    while (remaining != 0) {
+        lldiv_t val = lldiv(remaining, base);
+        if (base >= 10) {
+            out += val.rem > 9 ? char(val.rem-10+'a') : char(val.rem+'0');
+        } else {
+            out += char(val.rem+'0');
+        }
+        remaining = val.quot;
+    }
+    return out.Reverse();
+}
+
+String ToString(const i32& value, i32 base) {
+    String out;
+    if (value == 0) {
+        return "0";
+    }
+    bool negative = value < 0;
+    i32 remaining = value;
+    while (remaining != 0) {
+        div_t val = div(remaining, base);
+        if (base > 10) {
+            out += val.rem > 9 ? char(val.rem-10+'a') : char(val.rem+'0');
+        } else {
+            out += char(val.rem+'0');
+        }
+        remaining = val.quot;
+    }
+    if (negative) {
+        out += '-';
+    }
+    return out.Reverse();
+}
+
+String ToString(const i64& value, i32 base) {
+    String out;
+    if (value == 0) {
+        return "0";
+    }
+    bool negative = value < 0;
+    i64 remaining = value;
+    while (remaining != 0) {
+        lldiv_t val = lldiv(remaining, base);
+        if (base >= 10) {
+            out += val.rem > 9 ? char(val.rem-10+'a') : char(val.rem+'0');
+        } else {
+            out += char(val.rem+'0');
+        }
+        remaining = val.quot;
+    }
+    if (negative) {
+        out += '-';
+    }
+    return out.Reverse();
+}
+
+String ToString(f32 value, i32 base) {
+    String iString, fString;
+    const u32 byteCode = *((u32*)((void*)&value));
+    const bool negative = (byteCode & 0x80000000) != 0;
+    const u8 exponent = byteCode >> 23;
+    u32 significand = (byteCode & 0x007fffff) | (0x00800000); // Get our implicit bit in there.
+    if (exponent == 0x00) {
+        if (significand == 0x00800000) {
+            return negative ? "-0.0" : "0.0";
+        } else {
+            significand &= 0x007fffff; // Get that implicit bit out of here!
+        }
+    }
+    if (exponent == 0xff) {
+        if (significand == 0x00800000) {
+            return negative ? "-Infinity" : "Infinity";
+        } else {
+            return negative ? "-NaN" : "NaN";
+        }
+    }
+    if (exponent == 127) {
+        return ToString(negative ? -(i32)significand : (i32)significand, base) + ".0";
+    }
+    if (exponent > 103) {
+        BigInt iPart(significand);
+        iPart <<= (i32)exponent-127;
+        while (iPart != 0) {
+            u32 remainder;
+            BigInt::QuotientAndRemainder(iPart, base, &iPart, &remainder);
+            if (base >= 10) {
+                iString += remainder > 9 ? char(remainder-10+'a') : char(remainder+'0');
+            } else {
+                iString += char(remainder+'0');
+            }
+        }
+    } else {
+        // Integer part is 0
+        iString = "0";
+    }
+    if (exponent < 127) {
+        BigInt fPart(significand);
+        fPart <<= exponent;
+        fPart = fPart - ((fPart >> 127) << 127);
+        if (fPart == 0) {
+            fString = "0";
+        }
+        while (fPart != 0) {
+            u32 remainder;
+            BigInt::QuotientAndRemainder(fPart, base, &fPart, &remainder);
+            if (base >= 10) {
+                fString += remainder > 9 ? char(remainder-10+'a') : char(remainder+'0');
+            } else {
+                fString += char(remainder+'0');
+            }
+        }
+    } else {
+        // Fractional part is 0
+        fString = "0";
+    }
+    if (negative) {
+        return "-" + iString + "." + fString;
+    } else {
+        return iString + "." + fString;
+    }
+}
 
 bool equals(const char *a, const char *b) {
    for (u32 i = 0; a[i] != 0; i++) {
@@ -14,7 +161,7 @@ bool equals(const char *a, const char *b) {
 }
 
 WString ToWString(String string) {
-    return ToWString(string.c_str());
+    return ToWString(string.data);
 }
 
 WString ToWString(const char *string) {

@@ -447,4 +447,18 @@ void UnitTestArrayAndString(io::logStream& cout) {
     Array<String> test8 = test2 + test4 + test6;
     PrintArray(test7, "test7", cout);
     PrintArray(test8, "test8", cout);
+
+    cout << "Testing ToString on floats..." << std::endl;
+    f32 zero = 0.0;
+    f32 zeroN = -0.0;
+    f32 one = 1.0;
+    f32 oneN = -1.0;
+    f32 numsHigh = 123456.0;
+    f32 numsLow = 0.0123456;
+    cout << " zero = " << ToString(zero) << std::endl;
+    cout << "-zero = " << ToString(zeroN) << std::endl;
+    cout << "  one = " << ToString(one) << std::endl;
+    cout << " -one = " << ToString(oneN) << std::endl;
+    cout << "numsHigh = " << ToString(numsHigh) << std::endl;
+    cout << " numsLow = " << ToString(numsLow) << "\n" << std::endl;
 }

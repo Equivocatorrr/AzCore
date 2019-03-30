@@ -34,27 +34,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     // return 0;
 
-    // u64 test = 0xffffffffffffffff;
-    // u64 test2 = 0xfffd;
-    // Array<u32> initArray;
-    // for (u32 i = 0; i < 1; i++) {
-    //     const u32 vals[2] = {10, 1};
-    //     initArray.Append(vals[i%2]);
-    // }
-    // IntVar var1(initArray);
-    // initArray.front()--;
-    // IntVar var2(initArray);
-    // IntVar quotient;
-    // IntVar remainder;
-    // IntVar::QuotientAndRemainder(var1, var2, &quotient, &remainder);
-    // IntVar product = var1 * var2;
-    // // var2 = -var2;
-    // cout << "var1 = " << var1.HexString() << std::endl;
-    // cout << "var2 = " << var2.HexString() << std::endl;
-    // cout << "(var1 / var2) has a value of " << quotient.HexString() << " aka " << quotient.ToString() << std::endl;
-    // cout << "(var1 % var2) has a value of " << remainder.HexString() << " aka " << remainder.ToString() << std::endl;
-    // cout << "(var1 * var2) has a value of " << product.HexString() << " aka " << product.ToString() << std::endl;
-
     // PrintKeyCodeMapsEvdev(cout);
     // PrintKeyCodeMapsWinVK(cout);
     // PrintKeyCodeMapsWinScan(cout);
@@ -173,8 +152,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkShaders[1].filename = "data/shaders/test.frag.spv";
 
     vk::ShaderRef vkShaderRefs[2] = {
-        vk::ShaderRef(vkShaders.GetPtr(0), VK_SHADER_STAGE_VERTEX_BIT),
-        vk::ShaderRef(vkShaders.GetPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT)
+        vk::ShaderRef(vkShaders.Ptr(0), VK_SHADER_STAGE_VERTEX_BIT),
+        vk::ShaderRef(vkShaders.Ptr(1), VK_SHADER_STAGE_FRAGMENT_BIT)
     };
 
     vk::Pipeline *vkPipeline = vkDevice->AddPipeline();

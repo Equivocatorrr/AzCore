@@ -6,6 +6,9 @@
 #include "memory.hpp"
 #include "bigint.hpp"
 
+STRING_TERMINATOR(char, 0);
+STRING_TERMINATOR(wchar_t, 0);
+
 String operator+(const char* cString, const String& string) {
     String value(string);
     return cString + std::move(value);
@@ -112,10 +115,14 @@ String ToString(const i64& value, i32 base) {
     return out.Reverse();
 }
 
-String ToString(f32 value, i32 base) {
-    const u32 byteCode = *((u32*)((void*)&value));
+#include <cstdio> // For sprintf, as long as my own float to string implementation doesn't quite work.
+
+String ToString(const f32& value, i32 base) {
+    // TODO: Finish this implementation since sprintf can't do bases other than 10 and 16
+    u32 byteCode;
+    memcpy((void*)&byteCode, (void*)&value, sizeof(byteCode));
     const bool negative = (byteCode & 0x80000000) != 0;
-    const u8 exponent = byteCode >> 23;
+    u32 exponent = (byteCode >> 23) & 0xff;
     u32 significand = (byteCode & 0x007fffff) | (0x00800000); // Get our implicit bit in there.
     if (exponent == 0x00) {
         if (significand == 0x00800000) {
@@ -131,51 +138,47 @@ String ToString(f32 value, i32 base) {
             return negative ? "-NaN" : "NaN";
         }
     }
-    if (exponent == 127) {
+    if (exponent == 150) {
         return ToString(negative ? -(i32)significand : (i32)significand, base) + ".0";
     }
-    String iString, fString;
-    if (exponent > 103) {
-        BigInt iPart(significand);
-        iPart <<= (i32)exponent-127;
-        while (iPart != 0) {
-            u32 remainder;
-            BigInt::QuotientAndRemainder(iPart, base, &iPart, &remainder);
-            if (base >= 10) {
-                iString += remainder > 9 ? char(remainder-10+'a') : char(remainder+'0');
-            } else {
-                iString += char(remainder+'0');
-            }
-        }
-    } else {
-        // Integer part is 0
-        iString = "0";
+    /*
+    const f32 log2Base = log2((f32)base);
+    String out;
+    BigInt iPart(significand);
+    iPart <<= (i32)exponent-150 + 150.0*log2Base;
+    if (iPart == 0) {
+        out = "0";
     }
-    if (exponent < 127) {
-        BigInt fPart(significand);
-        fPart <<= exponent;
-        fPart = fPart - ((fPart >> 127) << 127);
-        if (fPart == 0) {
-            fString = "0";
+    i32 fractionalExponent = u32(((f32)exponent - 150.0 + (150.0*log2Base)) / log2Base);
+    i32 decimalExponent = u32(127.0 / log2Base);
+    while (iPart != 0 || fractionalExponent > 0) {
+        if (fractionalExponent-- == decimalExponent) {
+            out += '.';
         }
-        while (fPart != 0) {
-            u32 remainder;
-            BigInt::QuotientAndRemainder(fPart, base, &fPart, &remainder);
-            if (base >= 10) {
-                fString += remainder > 9 ? char(remainder-10+'a') : char(remainder+'0');
-            } else {
-                fString += char(remainder+'0');
-            }
+        u32 remainder;
+        BigInt::QuotientAndRemainder(iPart, base, &iPart, &remainder);
+        if (base >= 10) {
+            out += remainder > 9 ? char(remainder-10+'a') : char(remainder+'0');
+        } else {
+            out += char(remainder+'0');
         }
-    } else {
-        // Fractional part is 0
-        fString = "0";
     }
     if (negative) {
-        return "-" + iString + "." + fString;
-    } else {
-        return iString + "." + fString;
+        out += '-';
     }
+    return out.Reverse();
+    */
+    String out(false);
+    char buffer[64]; // Way more space than a single-precision float should ever need.
+    sprintf(buffer, "%f", (f64)value);
+    out += buffer;
+    i32 i = out.size-1;
+    for (; out[i] == '0'; i--) {}
+    if (out[i] == '.') {
+        i++; // Leave 1 trailing zero
+    }
+    out.Resize(i+1);
+    return out;
 }
 
 bool equals(const char *a, const char *b) {

@@ -36,37 +36,122 @@ public:
     }
 };
 
+
+/*  struct: StringTerminators
+    Author: Philip Haynes
+    If you want to use value-terminated strings with Arrays or StringLength, the correct
+    string terminator must be set. Most types will work with just the default constructor.  */
 template<typename T>
-i32 StringLength(const T* string, const T& terminator=0) {
+struct StringTerminators {
+    static T value;
+};
+// Macro to easily set a terminator. Must be called from one and only one .cpp file.
+// Definitions for char and wchar_t are done in memory.cpp
+#define STRING_TERMINATOR(TYPE, VAL) template<> TYPE StringTerminators<TYPE>::value = VAL
+
+template<typename T>
+i32 StringLength(const T* string) {
     i32 length = 0;
-    for (; string[length] != terminator; length++) {}
+    for (; string[length] != StringTerminators<T>::value; length++) {}
     return length;
 }
 
+template<typename T, i32 allocTail=0> struct Array;
+
+/*  struct: ArrayPtr
+    Author: Philip Haynes
+    Uses an index of an Array rather than an actual pointer.
+    Note that this can only be used with nested Arrays given that the array
+    it points to isn't moved. This means that the Arrays must be allocated
+    in ascending order, starting with the base array.     */
+template<typename T>
+struct ArrayPtr {
+    Array<T> *array = nullptr;
+    i32 index = 0;
+    ArrayPtr() {}
+    ArrayPtr(Array<T> *a, i32 i) {
+        array = a;
+        index = i;
+    }
+    void SetPtr(Array<T> *a, i32 i) {
+        array = a;
+        index = i;
+    }
+    bool Valid() const {
+        return array != nullptr;
+    }
+    T& operator*() {
+        return (*array)[index];
+    }
+    T* operator->() {
+        return &(*array)[index];
+    }
+};
+
+/*  struct: ArrayRange
+    Author: Philip Haynes
+    Using an index and count, points to a range of values from an Array.        */
+template<typename T>
+struct ArrayRange {
+    Array<T> *array = nullptr;
+    i32 index = 0;
+    i32 size = 0;
+    ArrayRange() {}
+    ArrayRange(Array<T> *a, i32 i, i32 s) {
+        array = a;
+        index = i;
+        size = s;
+    }
+    void SetRange(Array<T> *a, i32 i, i32 s) {
+        array = &a;
+        index = i;
+        size = s;
+    }
+    ArrayPtr<T> Ptr(const i32& i) {
+        return ArrayPtr<T>(array, index+i);
+    }
+    T& operator[](const i32& i) {
+        if (i >= size) {
+            throw std::out_of_range("ArrayRange index is out of bounds");
+        }
+        return (*array)[i+index];
+    }
+    const T& operator[](const i32& i) const {
+        return (*array)[i+index];
+    }
+};
+
 /*  struct: Array
     Author: Philip Haynes
-    A replacement for std::vector which is hopefully less obnoxious to debug.   */
-template<typename T, i32 allocTail=0> // allocTail will allocate extra space at the end
+    A replacement for std::vector which is nicer to work with, and can be used to
+    make strings of any data type so long as there is an allocTail of at least 1
+    (default is 0). Accessing data and size directly is the proper way to use this
+    type, so long as you don't modify size (unless you know what you're doing).   */
+template<typename T, i32 allocTail>
 struct Array {
     T *data;
     i32 allocated;
     i32 size;
 
+    void SetTerminator() {
+        if constexpr (allocTail != 0) {
+            for (i32 i = size; i < size+allocTail; i++) {
+                data[i] = StringTerminators<T>::value;
+            }
+        }
+    }
+
     Array(bool tailInitialize = true) : data(nullptr) , allocated(0) , size(0) {
         if (tailInitialize && allocTail != 0) { // To avoid double allocating when only one is necessary
             data = new T[allocTail];
-            for (i32 i = size; i < size+allocTail; i++) {
-                data[i] = T();
-            }
+            SetTerminator();
         }
     }
     Array(const i32 newSize, const T& value=T()) : data(new T[newSize + allocTail]) , allocated(newSize) , size(newSize) {
         for (i32 i = 0; i < size; i++) {
             data[i] = value;
         }
-        for (i32 i = size; i < size+allocTail; i++) {
-            data[i] = T();
-        }
+        SetTerminator();
     }
     Array(const u32 newSize, const T& value=T()) : Array((i32)newSize, value) {}
     Array(const std::initializer_list<T>& init) : allocated(init.size()) , size(allocated) {
@@ -76,9 +161,7 @@ struct Array {
             for (const T& val : init) {
                 data[i++] = val;
             }
-            for (i32 i = size; i < size+allocTail; i++) {
-                data[i] = T();
-            }
+            SetTerminator();
         } else {
             data = nullptr;
         }
@@ -92,9 +175,7 @@ struct Array {
                 data[i] = other.data[i];
             }
         }
-        for (i32 i = size; i < size+allocTail; i++) {
-            data[i] = T();
-        }
+        SetTerminator();
     }
     Array(Array<T, allocTail>&& other) noexcept : data(other.data) , allocated(other.allocated) , size(other.size) {
         other.data = nullptr;
@@ -103,13 +184,11 @@ struct Array {
     }
 
     Array(const T* string) : allocated(StringLength(string)) , size(allocated) {
-        if (allocTail == 0) {
-            throw std::domain_error("Array string functions cannot be used without an allocTail of at least 1!");
-        }
         data = new T[allocated+allocTail];
-        for (i32 i = 0; i <= size; i++) {
+        for (i32 i = 0; i < size; i++) {
             data[i] = string[i];
         }
+        SetTerminator();
     }
 
     ~Array() {
@@ -157,20 +236,16 @@ struct Array {
         for (const T& val : init) {
             data[i++] = val;
         }
-        for (i32 i = size; i < size+allocTail; i++) {
-            data[i] = T();
-        }
+        SetTerminator();
         return *this;
     }
 
     Array<T, allocTail>& operator=(const T* string) {
-        if (allocTail == 0) {
-            throw std::domain_error("Array string functions cannot be used without an allocTail of at least 1!");
-        }
         Resize(StringLength(string));
-        for (i32 i = 0; i <= size; i++) {
+        for (i32 i = 0; i < size; i++) {
             data[i] = string[i];
         }
+        SetTerminator();
         return *this;
     }
 
@@ -188,7 +263,7 @@ struct Array {
 
     bool operator==(const T* string) const {
         i32 i = 0;
-        for (; string[i] != 0 && i < size; i++) {
+        for (; string[i] != StringTerminators<T>::value && i < size; i++) {
             if (string[i] != data[i]) {
                 return false;
             }
@@ -201,14 +276,14 @@ struct Array {
 
     const T& operator[](const i32 index) const {
         if (index > size) {
-            throw std::domain_error("Array index is out of bounds");
+            throw std::out_of_range("Array index is out of bounds");
         }
         return data[index];
     }
 
     T& operator[](const i32 index) {
         if (index > size) {
-            throw std::domain_error("Array index is out of bounds");
+            throw std::out_of_range("Array index is out of bounds");
         }
         return data[index];
     }
@@ -226,9 +301,6 @@ struct Array {
     }
 
     Array<T, allocTail> operator+(const T* string) const {
-        if (allocTail == 0) {
-            throw std::domain_error("Array string functions cannot be used without an allocTail of at least 1!");
-        }
         Array<T, allocTail> result(*this);
         result += string;
         return result;
@@ -282,18 +354,14 @@ struct Array {
             }
             delete[] data;
             data = temp;
-            for (i32 i = size; i < size+allocTail; i++) {
-                data[i] = T();
-            }
+            SetTerminator();
             return;
         }
         if (data != nullptr) {
             delete[] data;
         }
         data = new T[newSize + allocTail];
-        for (i32 i = size; i < size+allocTail; i++) {
-            data[i] = T();
-        }
+        SetTerminator();
     }
 
     void Resize(const i32 newSize, const T& value=T()) {
@@ -312,9 +380,7 @@ struct Array {
             data[i] = value;
         }
         size = newSize;
-        for (i32 i = size; i < size+allocTail; i++) {
-            data[i] = T();
-        }
+        SetTerminator();
     }
 
     T& Append(const T& value) {
@@ -336,22 +402,18 @@ struct Array {
             data = temp;
         }
         size++;
-        for (i32 i = size; i < size+allocTail; i++) {
-            data[i] = T();
-        }
+        SetTerminator();
         return data[size-1] = value;
     }
 
     Array<T, allocTail>& Append(const T* string) {
-        if (allocTail == 0) {
-            throw std::domain_error("Array string functions cannot be used without an allocTail of at least 1!");
-        }
         i32 newSize = size + StringLength(string);
         Reserve(newSize);
-        for (i32 i = size; i <= newSize; i++) {
+        for (i32 i = size; i < newSize; i++) {
             data[i] = string[i-size];
         }
         size = newSize;
+        SetTerminator();
         return *this;
     }
 
@@ -370,9 +432,7 @@ struct Array {
                 data[i] = std::move(other.data[i-copyStart]);
             }
         }
-        for (i32 i = size; i < size+allocTail; i++) {
-            data[i] = T();
-        }
+        SetTerminator();
         if (other.data != nullptr) {
             delete[] other.data;
         }
@@ -389,7 +449,7 @@ struct Array {
 
     T& Insert(const i32 index, T&& value) {
         if (index > size) {
-            throw std::domain_error("Array::Insert index is out of bounds");
+            throw std::out_of_range("Array::Insert index is out of bounds");
         }
         if (size >= allocated) {
             allocated += (allocated >> 1) + 2;
@@ -414,24 +474,20 @@ struct Array {
             delete[] data;
             data = temp;
             size++;
-            for (i32 i = size; i < size+allocTail; i++) {
-                data[i] = T();
-            }
+            SetTerminator();
             return data[index];
         }
         size++;
         for (i32 i = size-1; i > index; i--) {
             data[i] = std::move(data[i-1]);
         }
-        for (i32 i = size; i < size+allocTail; i++) {
-            data[i] = T();
-        }
+        SetTerminator();
         return data[index] = value;
     }
 
     void Erase(const i32 index) {
         if (index >= size) {
-            throw std::domain_error("Array index is out of bounds");
+            throw std::out_of_range("Array::Erase index is out of bounds");
         }
         size--;
         if (std::is_trivially_copyable<T>::value) {
@@ -469,6 +525,20 @@ struct Array {
     inline T& Back() {
         return data[size-1];
     }
+
+    ArrayPtr<T> Ptr(const i32& index) {
+        if (index >= size) {
+            throw std::out_of_range("Array::Ptr index is out of bounds");
+        }
+        return ArrayPtr<T>(this, index);
+    }
+
+    ArrayRange<T> Range(const i32& index, const i32& _size) {
+        if (index+_size > size) {
+            throw std::out_of_range("Array::Range index + size is out of bounds");
+        }
+        return ArrayRange<T>(this, index, _size);
+    }
 };
 
 // #include <string>
@@ -505,69 +575,6 @@ WString ToWString(String string);
 //
 // template<typename T>
 // using Array = std::vector<T>;
-
-/*  struct: ArrayPtr
-    Author: Philip Haynes
-    Uses an index of an Array rather than an actual pointer.
-    Note that this can only be used with nested Arrays given that the array
-    it points to isn't moved. This means that the Arrays must be allocated
-    in ascending order, starting with the base array.     */
-template<typename T>
-struct ArrayPtr {
-    Array<T> *array = nullptr;
-    i32 index = 0;
-    ArrayPtr() {}
-    ArrayPtr(Array<T> *a, i32 i) {
-        array = a;
-        index = i;
-    }
-    void SetPtr(Array<T> *a, i32 i) {
-        array = a;
-        index = i;
-    }
-    bool Valid() const {
-        return array != nullptr;
-    }
-    T& operator*() {
-        return (*array)[index];
-    }
-    T* operator->() {
-        return &(*array)[index];
-    }
-};
-
-/*  struct: ArrayRange
-    Author: Philip Haynes
-    Using an index and count, points to a range of values from an Array.        */
-template<typename T>
-struct ArrayRange {
-    Array<T> *array = nullptr;
-    i32 index = 0;
-    i32 size = 0;
-    ArrayRange() {}
-    ArrayRange(Array<T> *a, i32 i, i32 s) {
-        array = a;
-        index = i;
-        size = s;
-    }
-    void SetRange(Array<T> *a, i32 i, i32 s) {
-        array = &a;
-        index = i;
-        size = s;
-    }
-    ArrayPtr<T> GetPtr(const i32& i) {
-        return ArrayPtr<T>(array, index+i);
-    }
-    T& operator[](const i32& i) {
-        if (i >= size) {
-            throw std::out_of_range("ArrayRange dereferenced beyond size");
-        }
-        return (*array)[i+index];
-    }
-    const T& operator[](const i32& i) const {
-        return (*array)[i+index];
-    }
-};
 
 #include <map>
 

@@ -297,22 +297,22 @@ namespace vk {
 
     ArrayPtr<Image> Memory::AddImage(Image image) {
         data.images.Append(image);
-        return ArrayPtr<Image>(&data.images, data.images.size-1);
+        return data.images.Ptr(data.images.size-1);
     }
 
     ArrayPtr<Buffer> Memory::AddBuffer(Buffer buffer) {
         data.buffers.Append(buffer);
-        return ArrayPtr<Buffer>(&data.buffers, data.buffers.size-1);
+        return data.buffers.Ptr(data.buffers.size-1);
     }
 
     ArrayRange<Image> Memory::AddImages(u32 count, Image image) {
         data.images.Resize(data.images.size+count, image);
-        return ArrayRange<Image>(&data.images, data.images.size-count, count);
+        return data.images.Range(data.images.size-count, count);
     }
 
     ArrayRange<Buffer> Memory::AddBuffers(u32 count, Buffer buffer) {
         data.buffers.Resize(data.buffers.size+count, buffer);
-        return ArrayRange<Buffer>(&data.buffers, data.buffers.size-count, count);
+        return data.buffers.Range(data.buffers.size-count, count);
     }
 
     bool Memory::Init(PhysicalDevice *phy, VkDevice dev) {
@@ -671,14 +671,14 @@ failure:
 
     ArrayPtr<DescriptorLayout> Descriptors::AddLayout() {
         data.layouts.Append(DescriptorLayout());
-        return ArrayPtr<DescriptorLayout>(&data.layouts, data.layouts.size-1);
+        return data.layouts.Ptr(data.layouts.size-1);
     }
 
     ArrayPtr<DescriptorSet> Descriptors::AddSet(ArrayPtr<DescriptorLayout> layout) {
         DescriptorSet set{};
         set.data.layout = layout;
         data.sets.Append(set);
-        return ArrayPtr<DescriptorSet>(&data.sets, data.sets.size-1);
+        return data.sets.Ptr(data.sets.size-1);
     }
 
     bool Descriptors::Create() {

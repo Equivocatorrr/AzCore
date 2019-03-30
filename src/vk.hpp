@@ -25,6 +25,9 @@
         - Add example implementations for more feature-complete pipelines
               (including tesselation, geometry shaders, etc.)
         - Add support for screenshots.
+        - Consider using List for everything to make the interface more uniform?
+          Or perhaps make a handle type that can be either ArrayPtr or a raw pointer.
+        - Maybe add ListRange type?
 */
 #ifndef VK_HPP
 #define VK_HPP

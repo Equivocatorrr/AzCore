@@ -169,15 +169,50 @@ String ToString(const f32& value, i32 base) {
     return out.Reverse();
     */
     String out(false);
-    char buffer[64]; // Way more space than a single-precision float should ever need.
-    sprintf(buffer, "%f", (f64)value);
-    out += buffer;
-    i32 i = out.size-1;
-    for (; out[i] == '0'; i--) {}
-    if (out[i] == '.') {
+    char buffer[64];
+    i32 i = sprintf(buffer, "%.8f", value) - 1;
+    for (; buffer[i] == '0'; i--) {}
+    if (buffer[i] == '.') {
         i++; // Leave 1 trailing zero
     }
-    out.Resize(i+1);
+    buffer[i+1] = 0;
+    out += buffer;
+    return out;
+}
+
+String ToString(const f64& value, i32 base) {
+    // TODO: Finish this implementation since sprintf can't do bases other than 10 and 16
+    u64 byteCode;
+    memcpy((void*)&byteCode, (void*)&value, sizeof(byteCode));
+    const bool negative = (byteCode & 0x8000000000000000) != 0;
+    u32 exponent = (byteCode >> 52) & 0x7ff;
+    u64 significand = (byteCode & 0x000fffffffffffff) | (0x0010000000000000); // Get our implicit bit in there.
+    if (exponent == 0x0) {
+        if (significand == 0x0010000000000000) {
+            return negative ? "-0.0" : "0.0";
+        } else {
+            significand &= 0x000fffffffffffff; // Get that implicit bit out of here!
+        }
+    }
+    if (exponent == 0x7ff) {
+        if (significand == 0x0010000000000000) {
+            return negative ? "-Infinity" : "Infinity";
+        } else {
+            return negative ? "-NaN" : "NaN";
+        }
+    }
+    if (exponent == 1075) {
+        return ToString(negative ? -(i64)significand : (i64)significand, base) + ".0";
+    }
+    String out(false);
+    char buffer[128];
+    i32 i = sprintf(buffer, "%.16f", value) - 1;
+    for (; buffer[i] == '0'; i--) {}
+    if (buffer[i] == '.') {
+        i++; // Leave 1 trailing zero
+    }
+    buffer[i+1] = 0;
+    out += buffer;
     return out;
 }
 

@@ -559,7 +559,7 @@ String ToString(const u64& value, i32 base=10);
 String ToString(const i32& value, i32 base=10);
 String ToString(const i64& value, i32 base=10);
 String ToString(const f32& value, i32 base=10);
-// String ToString(f64 value, i32 base=10);
+String ToString(const f64& value, i32 base=10);
 
 inline bool operator==(const char *b, const String& a) {
     return a == b;

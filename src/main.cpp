@@ -208,6 +208,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
         return 1;
     }
     RandomNumberGenerator rng;
+    bool resize = false;
     do {
         input.Tick(1.0/60.0);
         if (input.Any.Pressed()) {
@@ -230,18 +231,22 @@ i32 main(i32 argumentCount, char** argumentValues) {
             UnitTestRNG(rng, cout);
         }
 
-        if (window.resized) {
+        if (window.resized || resize) {
             if (!vkSwapchain->Resize()) {
                 cout << "Failed to resize vkSwapchain: " << vk::error << std::endl;
                 return 1;
             }
+            resize = false;
         }
 
         VkResult acquisitionResult = vkSwapchain->AcquireNextImage();
 
-        if (acquisitionResult == VK_ERROR_OUT_OF_DATE_KHR || acquisitionResult == VK_TIMEOUT || acquisitionResult == VK_NOT_READY) {
+        if (acquisitionResult == VK_ERROR_OUT_OF_DATE_KHR || acquisitionResult == VK_NOT_READY) {
             cout << "Skipping a frame because acquisition returned: " << vk::ErrorString(acquisitionResult) << std::endl;
+            resize = true;
             continue; // Don't render this frame.
+        } else if (acquisitionResult == VK_TIMEOUT) {
+            cout << "Skipping a frame because acquisition returned: " << vk::ErrorString(acquisitionResult) << std::endl;
         } else if (acquisitionResult != VK_SUCCESS) {
             cout << vk::error << std::endl;
             return 1;

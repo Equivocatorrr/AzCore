@@ -34,10 +34,10 @@ Milliseconds totalTimeTaken(0);
 
 Array<String> successfulFactorizations{};
 
-const i32 minimumDigits = 233;
+const i32 minimumDigits = 237;
 const i32 minimumPermutationDigits = 17;
-const i32 maximumDigits = 240;
-const i32 numThreads = 8;
+const i32 maximumDigits = 237;
+const i32 numThreads = 4;
 
 Mutex threadControlMutex;
 u32 activeThreads = 0;

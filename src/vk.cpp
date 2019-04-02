@@ -193,17 +193,6 @@ namespace vk {
         data.device = dev;
     }
 
-    void Image::Clean() {
-        if (data.imageViewExists) {
-            vkDestroyImageView(data.device, data.imageView, nullptr);
-            data.imageViewExists = false;
-        }
-        if (data.imageExists) {
-            vkDestroyImage(data.device, data.image, nullptr);
-            data.imageExists = false;
-        }
-    }
-
     bool Image::CreateImage(bool hostVisible) {
         if (data.imageExists) {
             error = "Attempting to create image that already exists!";
@@ -263,6 +252,29 @@ namespace vk {
         return true;
     }
 
+    void Image::CopyData(void *src, u32 bytesPerPixel) {
+        if (src == nullptr) {
+            cout << "Warning: Image::CopyData src is nullptr! Skipping copy." << std::endl;
+            return;
+        }
+        if (data.memory == nullptr) {
+            cout << "Warning: Image::CopyData: Image is not associated with a Memory object! Skipping copy." << std::endl;
+            return;
+        }
+        data.memory->CopyData2D(src, Ptr<Image>(this), data.offsetIndex, bytesPerPixel);
+    }
+
+    void Image::Clean() {
+        if (data.imageViewExists) {
+            vkDestroyImageView(data.device, data.imageView, nullptr);
+            data.imageViewExists = false;
+        }
+        if (data.imageExists) {
+            vkDestroyImage(data.device, data.image, nullptr);
+            data.imageExists = false;
+        }
+    }
+
     void Buffer::Init(VkDevice dev) {
         data.device = dev;
     }
@@ -288,6 +300,56 @@ namespace vk {
         return true;
     }
 
+    void Buffer::CopyData(void *src, VkDeviceSize copySize, VkDeviceSize dstOffset) {
+        if (src == nullptr) {
+            cout << "Warning: Buffer::CopyData src is nullptr! Skipping copy." << std::endl;
+            return;
+        }
+        if (data.memory == nullptr) {
+            cout << "Warning: Buffer::CopyData: Buffer is not associated with a Memory object! Skipping copy." << std::endl;
+            return;
+        }
+        if (copySize+dstOffset > size) {
+            cout << "Warning: Buffer::CopyData copySize+dstOffset goes beyond buffer size! Skipping copy." << std::endl;
+            return;
+        }
+        if (copySize == 0) {
+            copySize = size-dstOffset;
+        }
+        data.memory->CopyData(src, copySize, data.offsetIndex);
+    }
+
+    void Buffer::Copy(VkCommandBuffer commandBuffer, Ptr<Buffer> src,
+            VkDeviceSize copySize, VkDeviceSize dstOffset, VkDeviceSize srcOffset)
+    {
+        if (!src.Valid()) {
+            cout << "Warning: Buffer::Copy src is not a valid Ptr! Skipping copy." << std::endl;
+            return;
+        }
+        if (dstOffset >= size) {
+            cout << "Warning: Buffer::Copy dstOffset is greater than dst size! Skipping copy." << std::endl;
+            return;
+        }
+        if (srcOffset >= src->size) {
+            cout << "Warning: Buffer::Copy srcOffset is greater than src size! Skipping copy." << std::endl;
+            return;
+        }
+        if (copySize == 0) {
+            if (src->size-srcOffset > size-dstOffset) {
+                cout << "Warning: Buffer::Copy with unspecified copySize has a larger src size than dst at given offsets!" << std::endl;
+                copySize = size - dstOffset;
+            } else {
+                copySize = src->size - srcOffset;
+            }
+        }
+
+		VkBufferCopy copyRegion;
+		copyRegion.size = copySize;
+        copyRegion.dstOffset = dstOffset;
+        copyRegion.srcOffset = srcOffset;
+		vkCmdCopyBuffer(commandBuffer, src->data.buffer, data.buffer, 1, &copyRegion);
+    }
+
     void Buffer::Clean() {
         if (data.exists) {
             vkDestroyBuffer(data.device, data.buffer, nullptr);
@@ -295,24 +357,24 @@ namespace vk {
         }
     }
 
-    ArrayPtr<Image> Memory::AddImage(Image image) {
+    Ptr<Image> Memory::AddImage(Image image) {
         data.images.Append(image);
-        return data.images.Ptr(data.images.size-1);
+        return data.images.GetPtr(data.images.size-1);
     }
 
-    ArrayPtr<Buffer> Memory::AddBuffer(Buffer buffer) {
+    Ptr<Buffer> Memory::AddBuffer(Buffer buffer) {
         data.buffers.Append(buffer);
-        return data.buffers.Ptr(data.buffers.size-1);
+        return data.buffers.GetPtr(data.buffers.size-1);
     }
 
     ArrayRange<Image> Memory::AddImages(u32 count, Image image) {
         data.images.Resize(data.images.size+count, image);
-        return data.images.Range(data.images.size-count, count);
+        return data.images.GetRange(data.images.size-count, count);
     }
 
     ArrayRange<Buffer> Memory::AddBuffers(u32 count, Buffer buffer) {
         data.buffers.Resize(data.buffers.size+count, buffer);
-        return data.buffers.Range(data.buffers.size-count, count);
+        return data.buffers.GetRange(data.buffers.size-count, count);
     }
 
     bool Memory::Init(PhysicalDevice *phy, VkDevice dev) {
@@ -345,20 +407,22 @@ namespace vk {
         cout << "Memory will create " << data.images.size << " images and " << data.buffers.size << " buffers." << std::endl;
 
         for (Image& image : data.images) {
+            image.data.memory = this;
             image.Init(data.device);
             if (!image.CreateImage(!deviceLocal)) {
                 goto failure;
             }
-            if (GetImageChunk(image, data.memoryTypeBits!=0) == -1) {
+            if ((image.data.offsetIndex = GetImageChunk(image, data.memoryTypeBits!=0)) == -1) {
                 goto failure;
             }
         }
         for (Buffer& buffer : data.buffers) {
+            buffer.data.memory = this;
             buffer.Init(data.device);
             if (!buffer.Create()) {
                 goto failure;
             }
-            if (GetBufferChunk(buffer, data.memoryTypeBits!=0) == -1) {
+            if ((buffer.data.offsetIndex = GetBufferChunk(buffer, data.memoryTypeBits!=0)) == -1) {
                 // There's a solid chance that memory types are incompatible between
                 // images and buffers, so this will probably fail if you have images too.
                 goto failure;
@@ -463,7 +527,7 @@ failure:
         return index;
     }
 
-    VkDeviceSize Memory::ChunkSize(u32 index) {
+    VkDeviceSize Memory::ChunkSize(i32 index) {
         return data.offsets[index+1] - data.offsets[index];
     }
 
@@ -507,6 +571,100 @@ failure:
         data.allocated = true;
         return true;
     }
+
+    void Memory::CopyData(void *src, VkDeviceSize size, i32 index) {
+		if (src == nullptr) {
+			cout << "Warning: Memory::CopyData has nullptr src! Skipping copy." << std::endl;
+			return;
+		}
+        if (size == 0) {
+            cout << "Warning: Memory::CopyData has size of 0! Skipping copy." << std::endl;
+            return;
+        }
+		if ((data.memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0
+			&& (data.memoryPropertiesDeferred & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+			cout << "Warning: Memory::CopyData is trying to copy memory that isn't host coherent!" << std::endl;
+		}
+		if ((data.memoryProperties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0
+			&& (data.memoryPropertiesDeferred & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0) {
+			cout << "Warning: Memory::CopyData is trying to copy memory that isn't host visible!" << std::endl;
+		}
+		if (index >= data.offsets.size-1) {
+			cout << "Warning: Memory::CopyData offset index is out of bounds! Skipping copy." << std::endl;
+		}
+		void* dst;
+		vkMapMemory(data.device, data.memory, data.offsets[index], size, 0, &dst);
+			memcpy(dst, src, (size_t)size);
+		vkUnmapMemory(data.device, data.memory);
+	}
+
+    void Memory::CopyData2D(void *src, Ptr<Image> image, i32 index, u32 bytesPerPixel) {
+		if (src == nullptr) {
+			cout << "Warning: Memory::CopyData2D has nullptr src! Skipping copy." << std::endl;
+			return;
+		}
+        if (!image.Valid()) {
+            cout << "Warning: Memory::CopyData2D image is not a valid Ptr! Skipping copy." << std::endl;
+            return;
+        }
+        if (image->width == 0) {
+            cout << "Warning: Memory::CopyData2D image has width of 0! Skipping copy." << std::endl;
+            return;
+        }
+        if (image->height == 0) {
+            cout << "Warning: Memory::CopyData2D image has height of 0! Skipping copy." << std::endl;
+            return;
+        }
+		if ((data.memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0
+			&& (data.memoryPropertiesDeferred & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+			cout << "Warning: Memory::CopyData2D is trying to copy memory that isn't host coherent!" << std::endl;
+		}
+		if ((data.memoryProperties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0
+			&& (data.memoryPropertiesDeferred & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0) {
+			cout << "Warning: Memory::CopyData2D is trying to copy memory that isn't host visible!" << std::endl;
+		}
+		if (index >= data.offsets.size-1) {
+			cout << "Warning: Memory::CopyData2D offset index is out of bounds! Skipping copy." << std::endl;
+		}
+        VkImageSubresource subresource = {};
+		subresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		subresource.mipLevel = 0;
+		subresource.arrayLayer = 0;
+
+		VkSubresourceLayout stagingImageLayout;
+		vkGetImageSubresourceLayout(data.device, image->data.image, &subresource, &stagingImageLayout);
+
+		size_t size = data.offsets[index+1] - data.offsets[index];
+
+		void* dst;
+		vkMapMemory(data.device, data.memory, data.offsets[index], size, 0, &dst);
+
+		if (stagingImageLayout.rowPitch == image->width * bytesPerPixel) {
+			memcpy(dst, src, image->width * image->height * bytesPerPixel);
+		} else {
+			u8* dataBytes = reinterpret_cast<u8*>(dst);
+
+			for (u32 y = 0; y < image->height; y++) {
+				memcpy( &dataBytes[y * stagingImageLayout.rowPitch],
+						&reinterpret_cast<u8*>(src)[y * image->width * bytesPerPixel],
+						image->width * bytesPerPixel );
+			}
+		}
+		vkUnmapMemory(data.device, data.memory);
+	}
+
+    void* Memory::MapMemory(VkDeviceSize size, i32 index) {
+		void *ptr;
+		vkMapMemory(data.device, data.memory, data.offsets[index], size, 0, &ptr);
+		data.mapped = true;
+		return ptr;
+	}
+
+	void Memory::UnmapMemory() {
+		if (data.mapped)
+			vkUnmapMemory(data.device, data.memory);
+		data.mapped = false;
+	}
 
     Sampler::~Sampler() {
         Clean();
@@ -630,7 +788,7 @@ failure:
         return true;
     }
 
-    bool DescriptorSet::AddDescriptor(ArrayRange<Image> images, ArrayPtr<Sampler> sampler, i32 binding) {
+    bool DescriptorSet::AddDescriptor(ArrayRange<Image> images, Ptr<Sampler> sampler, i32 binding) {
         // TODO: Support other types of descriptors
         if (data.layout->type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
             error = "AddDescriptor failed because layout type is not for combined image samplers!";
@@ -653,12 +811,12 @@ failure:
         return true;
     }
 
-    bool DescriptorSet::AddDescriptor(ArrayPtr<Buffer> buffer, i32 binding) {
-        return AddDescriptor(ArrayRange<Buffer>(buffer.array, buffer.index, 1), binding);
+    bool DescriptorSet::AddDescriptor(Ptr<Buffer> buffer, i32 binding) {
+        return AddDescriptor(ArrayRange<Buffer>((Array<Buffer>*)buffer.ptr, buffer.index, 1), binding);
     }
 
-    bool DescriptorSet::AddDescriptor(ArrayPtr<Image> image, ArrayPtr<Sampler> sampler, i32 binding) {
-        return AddDescriptor(ArrayRange<Image>(image.array, image.index, 1), sampler, binding);
+    bool DescriptorSet::AddDescriptor(Ptr<Image> image, Ptr<Sampler> sampler, i32 binding) {
+        return AddDescriptor(ArrayRange<Image>((Array<Image>*)image.ptr, image.index, 1), sampler, binding);
     }
 
     Descriptors::~Descriptors() {
@@ -669,16 +827,16 @@ failure:
         data.device = dev;
     }
 
-    ArrayPtr<DescriptorLayout> Descriptors::AddLayout() {
+    Ptr<DescriptorLayout> Descriptors::AddLayout() {
         data.layouts.Append(DescriptorLayout());
-        return data.layouts.Ptr(data.layouts.size-1);
+        return data.layouts.GetPtr(data.layouts.size-1);
     }
 
-    ArrayPtr<DescriptorSet> Descriptors::AddSet(ArrayPtr<DescriptorLayout> layout) {
+    Ptr<DescriptorSet> Descriptors::AddSet(Ptr<DescriptorLayout> layout) {
         DescriptorSet set{};
         set.data.layout = layout;
         data.sets.Append(set);
-        return data.sets.Ptr(data.sets.size-1);
+        return data.sets.GetPtr(data.sets.size-1);
     }
 
     bool Descriptors::Create() {
@@ -829,16 +987,16 @@ failure:
 
     Attachment::Attachment() {}
 
-    Attachment::Attachment(Swapchain *swch) {
+    Attachment::Attachment(Ptr<Swapchain> swch) {
         swapchain = swch;
-        if (swapchain != nullptr) {
+        if (swapchain.Valid()) {
             bufferColor = true;
             keepColor = true;
         }
     }
 
     bool Attachment::Config() {
-        if (swapchain != nullptr) {
+        if (swapchain.Valid()) {
             formatColor = swapchain->data.surfaceFormat.format;
         }
         data.descriptions.Resize(0);
@@ -887,7 +1045,7 @@ failure:
                 // We don't care about the stencil since we're a color buffer.
 
                 description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-                if (swapchain != nullptr) {
+                if (swapchain.Valid()) {
                     description.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
                 } else {
                     description.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -917,7 +1075,7 @@ failure:
                 description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
                 description.initialLayout = initialLayoutColor;
-                if (swapchain != nullptr) {
+                if (swapchain.Valid()) {
                     description.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
                 } else {
                     description.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -974,19 +1132,19 @@ failure:
         return true;
     }
 
-    void Subpass::UseAttachment(ArrayPtr<Attachment> attachment, AttachmentType type, VkAccessFlags accessFlags) {
+    void Subpass::UseAttachment(Ptr<Attachment> attachment, AttachmentType type, VkAccessFlags accessFlags) {
         AttachmentUsage usage = {attachment.index, type, accessFlags};
         attachments.Append(usage);
     }
 
-    ArrayPtr<Subpass> RenderPass::AddSubpass() {
+    Ptr<Subpass> RenderPass::AddSubpass() {
         data.subpasses.Append(Subpass());
-        return ArrayPtr<Subpass>(&data.subpasses, data.subpasses.size-1);
+        return Ptr<Subpass>(&data.subpasses, data.subpasses.size-1);
     }
 
-    ArrayPtr<Attachment> RenderPass::AddAttachment(Swapchain *swapchain) {
+    Ptr<Attachment> RenderPass::AddAttachment(Ptr<Swapchain> swapchain) {
         data.attachments.Append(Attachment(swapchain));
-        return ArrayPtr<Attachment>(&data.attachments, data.attachments.size-1);
+        return Ptr<Attachment>(&data.attachments, data.attachments.size-1);
     }
 
     RenderPass::~RenderPass() {
@@ -1369,7 +1527,7 @@ failure:
         bool depth = false, color = false;
         bool sameSwapchain = true;
         for (auto& attachment : renderPass->data.attachments) {
-            if (attachment.swapchain != nullptr && swapchain != nullptr) {
+            if (attachment.swapchain.Valid() && swapchain.Valid()) {
                 if (attachment.swapchain != swapchain) {
                     sameSwapchain = false;
                     if (attachment.swapchain->data.surfaceFormat.format != swapchain->data.surfaceFormat.format) {
@@ -1408,7 +1566,7 @@ failure:
                 }
             }
             if (!found) {
-                swapchain->data.framebuffers.Append(this);
+                swapchain->data.framebuffers.Append(Ptr<Framebuffer>(this));
             }
         }
         cout << "Width: " << width << "  Height: " << height << std::endl;
@@ -1444,7 +1602,7 @@ failure:
                 error = "Framebuffer can't create images with size (" + ToString(width) + ", " + ToString(height) + ")!";
                 return false;
             }
-            Array<ArrayPtr<Image>> ourImages{};
+            Array<Ptr<Image>> ourImages{};
             // Create Images according to the RenderPass attachments
             u32 i = 0;
             for (auto& attachment : renderPass->data.attachmentDescriptions) {
@@ -1465,7 +1623,7 @@ failure:
                     ourImages.Append(depthMemory->AddImage(image));
                 } else if (attachment.finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
                     cout << "Adding null image " << i << " for replacement with swapchain images." << std::endl;
-                    ourImages.Append(ArrayPtr<Image>());
+                    ourImages.Append(Ptr<Image>());
                 }
                 i++;
             }
@@ -1477,17 +1635,17 @@ failure:
             }
             // Now add ourImages to each index of attachmentImages
             attachmentImages.Resize(numFramebuffers, ourImages);
-            // Now replace any null ArrayPtr's with the actual swapchain images
+            // Now replace any null Ptr's with the actual swapchain images
             for (i32 i = 0; i < numFramebuffers; i++) {
                 bool once = false;
                 for (auto& ptr : attachmentImages[i]) {
-                    if (ptr.array == nullptr) {
+                    if (ptr.ptr == nullptr) {
                         if (once) {
                             error = "You can't have multiple swapchain images in a single framebuffer!";
                             return false;
                         }
                         once = true;
-                        ptr.SetPtr(&swapchain->data.images, i);
+                        ptr.Set(&swapchain->data.images, i);
                     }
                 }
             }
@@ -1667,7 +1825,7 @@ failure:
 
     ShaderRef::ShaderRef(String fn) : shader() , stage() , functionName(fn) {}
 
-    ShaderRef::ShaderRef(ArrayPtr<Shader> ptr, VkShaderStageFlagBits s, String fn) : shader(ptr) , stage(s) , functionName(fn) {}
+    ShaderRef::ShaderRef(Ptr<Shader> ptr, VkShaderStageFlagBits s, String fn) : shader(ptr) , stage(s) , functionName(fn) {}
 
     void Pipeline::Bind(VkCommandBuffer commandBuffer) {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipeline);
@@ -1792,10 +1950,10 @@ failure:
             shaderStages[i].pName = shaders[i].functionName.data;
         }
         // Then we set up our vertex buffers
-        data.vertexInputInfo.vertexBindingDescriptionCount = data.inputBindingDescriptions.size;
-        data.vertexInputInfo.pVertexBindingDescriptions = data.inputBindingDescriptions.data;
-        data.vertexInputInfo.vertexAttributeDescriptionCount = data.inputAttributeDescriptions.size;
-        data.vertexInputInfo.pVertexAttributeDescriptions = data.inputAttributeDescriptions.data;
+        data.vertexInputInfo.vertexBindingDescriptionCount = inputBindingDescriptions.size;
+        data.vertexInputInfo.pVertexBindingDescriptions = inputBindingDescriptions.data;
+        data.vertexInputInfo.vertexAttributeDescriptionCount = inputAttributeDescriptions.size;
+        data.vertexInputInfo.pVertexAttributeDescriptions = inputAttributeDescriptions.data;
         // Viewport
         VkViewport viewport = {};
         viewport.x = 0.0;
@@ -1988,18 +2146,18 @@ failure:
         return true;
     }
 
-    CommandPool::CommandPool(Queue* q) : queue(q) {}
+    CommandPool::CommandPool(Ptr<Queue> q) : queue(q) {}
 
     CommandPool::~CommandPool() {
         Clean();
     }
 
-    ArrayPtr<CommandBuffer> CommandPool::AddCommandBuffer() {
+    Ptr<CommandBuffer> CommandPool::AddCommandBuffer() {
         data.commandBuffers.Append(CommandBuffer());
-        return ArrayPtr<CommandBuffer>(&data.commandBuffers, data.commandBuffers.size-1);
+        return Ptr<CommandBuffer>(&data.commandBuffers, data.commandBuffers.size-1);
     }
 
-    CommandBuffer* CommandPool::CreateDynamicBuffer(bool secondary) {
+    Ptr<CommandBuffer> CommandPool::CreateDynamicBuffer(bool secondary) {
         if (!data.initted) {
             error = "Command Pool is not initialized!";
             return nullptr;
@@ -2157,17 +2315,17 @@ failure:
             error = "Failed to acquire swapchain image: " + ErrorString(result);
             return result;
         }
-        for (Framebuffer* framebuffer : data.framebuffers) {
+        for (Ptr<Framebuffer> framebuffer : data.framebuffers) {
             framebuffer->data.currentFramebuffer = data.currentImage;
         }
         return result;
     }
 
-    ArrayPtr<VkSemaphore> Swapchain::SemaphoreImageAvailable() {
+    Ptr<VkSemaphore> Swapchain::SemaphoreImageAvailable() {
         return data.semaphores[data.buffer];
     }
 
-    bool Swapchain::Present(Queue *queue, Array<VkSemaphore> waitSemaphores) {
+    bool Swapchain::Present(Ptr<Queue> queue, Array<VkSemaphore> waitSemaphores) {
         VkPresentInfoKHR presentInfo{};
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         presentInfo.waitSemaphoreCount = waitSemaphores.size;
@@ -2198,7 +2356,7 @@ failure:
                 return false;
             }
         }
-        for (Framebuffer* framebuffer : data.framebuffers) {
+        for (Ptr<Framebuffer> framebuffer : data.framebuffers) {
             if (framebuffer->data.created) {
                 if (!framebuffer->Deinit()) {
                     return false;
@@ -2514,39 +2672,39 @@ failure:
         }
     }
 
-    Queue* Device::AddQueue() {
+    Ptr<Queue> Device::AddQueue() {
         data.queues.Append(Queue());
         return &data.queues[data.queues.size-1];
     }
 
-    Swapchain* Device::AddSwapchain() {
+    Ptr<Swapchain> Device::AddSwapchain() {
         data.swapchains.Append(Swapchain());
         return &data.swapchains[data.swapchains.size-1];
     }
 
-    RenderPass* Device::AddRenderPass() {
+    Ptr<RenderPass> Device::AddRenderPass() {
         data.renderPasses.Append(RenderPass());
         return &data.renderPasses[data.renderPasses.size-1];
     }
 
-    ArrayPtr<Sampler> Device::AddSampler() {
+    Ptr<Sampler> Device::AddSampler() {
         data.samplers.Append(Sampler());
-        return ArrayPtr<Sampler>(&data.samplers, data.samplers.size-1);
+        return Ptr<Sampler>(&data.samplers, data.samplers.size-1);
     }
 
-    Memory* Device::AddMemory() {
+    Ptr<Memory> Device::AddMemory() {
         data.memories.Append(Memory());
         return &data.memories[data.memories.size-1];
     }
 
-    Descriptors* Device::AddDescriptors() {
+    Ptr<Descriptors> Device::AddDescriptors() {
         data.descriptors.Append(Descriptors());
         return &data.descriptors[data.descriptors.size-1];
     }
 
-    ArrayPtr<Shader> Device::AddShader() {
+    Ptr<Shader> Device::AddShader() {
         data.shaders.Append(Shader());
-        return ArrayPtr<Shader>(&data.shaders, data.shaders.size-1);
+        return Ptr<Shader>(&data.shaders, data.shaders.size-1);
     }
 
     ArrayRange<Shader> Device::AddShaders(u32 count) {
@@ -2554,32 +2712,32 @@ failure:
         return ArrayRange<Shader>(&data.shaders, data.shaders.size-count, count);
     }
 
-    Pipeline* Device::AddPipeline() {
+    Ptr<Pipeline> Device::AddPipeline() {
         data.pipelines.Append(Pipeline());
         return &data.pipelines[data.pipelines.size-1];
     }
 
-    CommandPool* Device::AddCommandPool(Queue *queue) {
+    Ptr<CommandPool> Device::AddCommandPool(Ptr<Queue> queue) {
         data.commandPools.Append(CommandPool(queue));
         return &data.commandPools[data.commandPools.size-1];
     }
 
-    Framebuffer* Device::AddFramebuffer() {
+    Ptr<Framebuffer> Device::AddFramebuffer() {
         data.framebuffers.Append(Framebuffer());
         return &data.framebuffers[data.framebuffers.size-1];
     }
 
-    ArrayPtr<VkSemaphore> Device::AddSemaphore() {
+    Ptr<VkSemaphore> Device::AddSemaphore() {
         data.semaphores.Append((VkSemaphore)VK_NULL_HANDLE);
-        return ArrayPtr<VkSemaphore>(&data.semaphores, data.semaphores.size-1);
+        return Ptr<VkSemaphore>(&data.semaphores, data.semaphores.size-1);
     }
 
-    QueueSubmission* Device::AddQueueSubmission() {
+    Ptr<QueueSubmission> Device::AddQueueSubmission() {
         data.queueSubmissions.Append(QueueSubmission());
         return &data.queueSubmissions[data.queueSubmissions.size-1];
     }
 
-    bool Device::SubmitCommandBuffers(Queue *queue, Array<QueueSubmission*> submissions) {
+    bool Device::SubmitCommandBuffers(Ptr<Queue> queue, Array<Ptr<QueueSubmission>> submissions) {
         if (!data.initted) {
             error = "Device not initialized!";
             return false;
@@ -2909,6 +3067,11 @@ failure:
                 goto failed;
             }
         }
+        // Queue Submissions
+        cout << "Configuring " << data.queueSubmissions.size << " QueueSubmissions..." << std::endl;
+        for (auto& queueSubmission : data.queueSubmissions) {
+            queueSubmission.Config();
+        }
 
         // Once the pipelines are set with all the shaders,
         // we can clean them since they're no longer needed
@@ -3052,11 +3215,11 @@ failed:
         }
     }
 
-    ArrayPtr<Window> Instance::AddWindowForSurface(io::Window *window) {
+    Ptr<Window> Instance::AddWindowForSurface(io::Window *window) {
         Window w;
         w.surfaceWindow = window;
         data.windows.Append(w);
-        return ArrayPtr<Window>(&data.windows, data.windows.size-1);
+        return Ptr<Window>(&data.windows, data.windows.size-1);
     }
 
     void Instance::AddExtensions(Array<const char*> extensions) {
@@ -3073,7 +3236,7 @@ failed:
         }
     }
 
-    Device* Instance::AddDevice() {
+    Ptr<Device> Instance::AddDevice() {
         data.devices.Append(Device());
         return &data.devices[data.devices.size-1];
     }

@@ -55,12 +55,12 @@ i32 main(i32 argumentCount, char** argumentValues) {
         vkInstance.AddLayers(layers);
     }
 
-    vk::Device* vkDevice = vkInstance.AddDevice();
+    Ptr<vk::Device> vkDevice = vkInstance.AddDevice();
 
-    vk::Queue* queueGraphics = vkDevice->AddQueue();
-    vk::Queue* queuePresent = vkDevice->AddQueue();
-    vk::Queue* queueTransfer = vkDevice->AddQueue();
-    vk::Queue* queueCompute = vkDevice->AddQueue();
+    Ptr<vk::Queue> queueGraphics = vkDevice->AddQueue();
+    Ptr<vk::Queue> queuePresent = vkDevice->AddQueue();
+    Ptr<vk::Queue> queueTransfer = vkDevice->AddQueue();
+    Ptr<vk::Queue> queueCompute = vkDevice->AddQueue();
     queueGraphics->queueType = vk::GRAPHICS;
     queuePresent->queueType = vk::PRESENT;
     queueTransfer->queueType = vk::TRANSFER;
@@ -74,89 +74,57 @@ i32 main(i32 argumentCount, char** argumentValues) {
         return 1;
     }
 
-    vk::Swapchain* vkSwapchain = vkDevice->AddSwapchain();
+    Ptr<vk::Swapchain> vkSwapchain = vkDevice->AddSwapchain();
     vkSwapchain->window = vkInstance.AddWindowForSurface(&window);
     vkSwapchain->vsync = true;
 
-    vk::RenderPass* vkRenderPass = vkDevice->AddRenderPass();
+    Ptr<vk::RenderPass> vkRenderPass = vkDevice->AddRenderPass();
 
-    ArrayPtr<vk::Attachment> attachment = vkRenderPass->AddAttachment(vkSwapchain);
+    Ptr<vk::Attachment> attachment = vkRenderPass->AddAttachment(vkSwapchain);
     attachment->clearColor = true;
     attachment->clearColorValue = {0.0, 0.05, 0.1, 1.0};
     attachment->sampleCount = VK_SAMPLE_COUNT_8_BIT;
     attachment->resolveColor = true;
 
-    ArrayPtr<vk::Subpass> subpass = vkRenderPass->AddSubpass();
+    Ptr<vk::Subpass> subpass = vkRenderPass->AddSubpass();
     subpass->UseAttachment(attachment, vk::ATTACHMENT_COLOR,
         VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 
-    vk::Memory *vkImageStagingMemory = vkDevice->AddMemory();
-    vkImageStagingMemory->deviceLocal = false;
-    vk::Memory *vkImageMemory = vkDevice->AddMemory();
-
-    vk::Image image{};
-    image.height = 64;
-    image.width = 64;
-    image.format = VK_FORMAT_R8G8B8A8_UNORM;
-    image.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
-    image.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-
-    ArrayPtr<vk::Buffer> vkStagingImage = vkImageStagingMemory->AddBuffer();
-    vkStagingImage->size = image.height * image.width * 4;
-    vkStagingImage->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-
-    ArrayRange<vk::Image> vkImage = vkImageMemory->AddImages(2, image);
-
-    vk::Memory *vkBufferStagingMemory = vkDevice->AddMemory();
+    Ptr<vk::Memory> vkBufferStagingMemory = vkDevice->AddMemory();
     vkBufferStagingMemory->deviceLocal = false;
-    vk::Memory *vkBufferMemory = vkDevice->AddMemory();
+    Ptr<vk::Memory> vkBufferMemory = vkDevice->AddMemory();
+
+    Array<vec2> vertices = {
+        vec2(-0.5, -0.5),
+        vec2(-0.5, 0.5),
+        vec2(0.5, 0.5),
+        vec2(0.5, -0.5)
+    };
+    Array<u32> indices = {0, 1, 2, 2, 3, 0};
 
     ArrayRange<vk::Buffer> vkStagingBuffers = vkBufferStagingMemory->AddBuffers(2);
-    vkStagingBuffers[0].size = sizeof(u32) * 4;
-    vkStagingBuffers[1].size = sizeof(u32) * 16;
+    vkStagingBuffers[0].size = vertices.size * sizeof(vec2);
+    vkStagingBuffers[1].size = indices.size * sizeof(u32);
     vkStagingBuffers[0].usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     vkStagingBuffers[1].usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    ArrayRange<vk::Buffer> vkBuffers = vkBufferMemory->AddBuffers(2);
-    vkBuffers[0].size = sizeof(u32) * 4;
-    vkBuffers[1].size = sizeof(u32) * 16;
-    vkBuffers[0].usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    vkBuffers[1].usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 
-    ArrayPtr<vk::Sampler> vkSampler = vkDevice->AddSampler();
-    vkSampler->anisotropy = 16;
-
-    vk::Descriptors* vkDescriptors = vkDevice->AddDescriptors();
-    ArrayPtr<vk::DescriptorLayout> vkDescriptorLayout[2] = {vkDescriptors->AddLayout(), vkDescriptors->AddLayout()};
-    vkDescriptorLayout[0]->stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    vkDescriptorLayout[0]->type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    vkDescriptorLayout[0]->bindings.Append({0, 2});
-    vkDescriptorLayout[1]->stage = VK_SHADER_STAGE_ALL_GRAPHICS;
-    vkDescriptorLayout[1]->type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    vkDescriptorLayout[1]->bindings.Append({0, 2});
-
-    ArrayPtr<vk::DescriptorSet> vkDescriptorSets[2] = {
-        vkDescriptors->AddSet(vkDescriptorLayout[0]),
-        vkDescriptors->AddSet(vkDescriptorLayout[1])
-    };
-    if (!vkDescriptorSets[0]->AddDescriptor(vkImage, vkSampler, 0)) {
-        cout << "Failed to add descriptor: " << vk::error << std::endl;
-        return 1;
-    }
-    if (!vkDescriptorSets[1]->AddDescriptor(vkBuffers, 0)) {
-        cout << "Failed to add descriptor: " << vk::error << std::endl;
-        return 1;
-    }
+    Ptr<vk::Buffer> vkVertexBuffer = vkBufferMemory->AddBuffer();
+    Ptr<vk::Buffer> vkIndexBuffer = vkBufferMemory->AddBuffer();
+    vkVertexBuffer->size = vkStagingBuffers[0].size;
+    vkIndexBuffer->size = vkStagingBuffers[1].size;
+    vkVertexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    vkIndexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
     ArrayRange<vk::Shader> vkShaders = vkDevice->AddShaders(2);
     vkShaders[0].filename = "data/shaders/test.vert.spv";
     vkShaders[1].filename = "data/shaders/test.frag.spv";
 
     vk::ShaderRef vkShaderRefs[2] = {
-        vk::ShaderRef(vkShaders.Ptr(0), VK_SHADER_STAGE_VERTEX_BIT),
-        vk::ShaderRef(vkShaders.Ptr(1), VK_SHADER_STAGE_FRAGMENT_BIT)
+        vk::ShaderRef(vkShaders.ToPtr(0), VK_SHADER_STAGE_VERTEX_BIT),
+        vk::ShaderRef(vkShaders.ToPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT)
     };
 
-    vk::Pipeline *vkPipeline = vkDevice->AddPipeline();
+    Ptr<vk::Pipeline> vkPipeline = vkDevice->AddPipeline();
     vkPipeline->renderPass = vkRenderPass;
     vkPipeline->subpass = 0;
     vkPipeline->shaders.Append(vkShaderRefs[0]);
@@ -166,6 +134,18 @@ i32 main(i32 argumentCount, char** argumentValues) {
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR
     };
+    VkVertexInputAttributeDescription vertexInputAttributeDescription = {};
+    vertexInputAttributeDescription.binding = 0;
+    vertexInputAttributeDescription.location = 0;
+    vertexInputAttributeDescription.offset = 0;
+    vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
+    vkPipeline->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+    VkVertexInputBindingDescription vertexInputBindingDescription = {};
+    vertexInputBindingDescription.binding = 0;
+    vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    vertexInputBindingDescription.stride = sizeof(vec2);
+    vkPipeline->inputBindingDescriptions.Append(vertexInputBindingDescription);
+
     VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
                                         | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -179,29 +159,44 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     vkPipeline->colorBlendAttachments.Append(colorBlendAttachment);
 
-    vkPipeline->descriptorLayouts.Append(vkDescriptorLayout[0]);
-    vkPipeline->descriptorLayouts.Append(vkDescriptorLayout[1]);
-
-    vk::CommandPool* vkCommandPool = vkDevice->AddCommandPool(queueGraphics);
+    Ptr<vk::CommandPool> vkCommandPool = vkDevice->AddCommandPool(queueGraphics);
     vkCommandPool->transient = true;
     vkCommandPool->resettable = true;
-    ArrayPtr<vk::CommandBuffer> vkCommandBuffer = vkCommandPool->AddCommandBuffer();
+    Ptr<vk::CommandBuffer> vkCommandBuffer = vkCommandPool->AddCommandBuffer();
     vkCommandBuffer->oneTimeSubmit = true;
 
-    vk::Framebuffer* vkFramebuffer = vkDevice->AddFramebuffer();
+    Ptr<vk::Framebuffer> vkFramebuffer = vkDevice->AddFramebuffer();
     vkFramebuffer->renderPass = vkRenderPass;
     vkFramebuffer->swapchain = vkSwapchain;
 
-    ArrayPtr<VkSemaphore> semaphoreRenderFinished = vkDevice->AddSemaphore();
+    Ptr<VkSemaphore> semaphoreRenderFinished = vkDevice->AddSemaphore();
 
-    vk::QueueSubmission* vkQueueSubmission = vkDevice->AddQueueSubmission();
+    Ptr<vk::QueueSubmission> vkQueueSubmission = vkDevice->AddQueueSubmission();
     vkQueueSubmission->commandBuffers = {vkCommandBuffer};
     vkQueueSubmission->signalSemaphores = {semaphoreRenderFinished};
+
+    Ptr<vk::QueueSubmission> vkTransferQueueSubmission = vkDevice->AddQueueSubmission();
+    vkTransferQueueSubmission->commandBuffers = {vkCommandBuffer};
+    vkTransferQueueSubmission->signalSemaphores = {};
+    vkTransferQueueSubmission->waitSemaphores = {};
 
     if (!vkInstance.Init()) { // Do this once you've set up the structure of your program.
         cout << "Failed to initialize Vulkan: " << vk::error << std::endl;
         return 1;
     }
+
+    vkStagingBuffers[0].CopyData(vertices.data);
+    vkStagingBuffers[1].CopyData(indices.data);
+
+    VkCommandBuffer cmdBufCopy = vkCommandBuffer->Begin();
+    vkVertexBuffer->Copy(cmdBufCopy, vkStagingBuffers.ToPtr(0));
+    vkIndexBuffer->Copy(cmdBufCopy, vkStagingBuffers.ToPtr(1));
+    if (!vkCommandBuffer->End()) {
+        cout << "Failed to copy from staging buffers: " << vk::error << std::endl;
+        return 1;
+    }
+    vkDevice->SubmitCommandBuffers(queueGraphics, {vkTransferQueueSubmission});
+    vkQueueWaitIdle(queueGraphics->queue);
 
     if(!window.Show()) {
         cout << "Failed to show Window: " << io::error << std::endl;
@@ -274,7 +269,12 @@ i32 main(i32 argumentCount, char** argumentValues) {
         scissor.extent = {window.width, window.height};
         vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
-        vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+        VkDeviceSize zeroOffset = 0;
+
+        vkCmdBindVertexBuffers(cmdBuf, 0, 1, &vkVertexBuffer->data.buffer, &zeroOffset);
+        vkCmdBindIndexBuffer(cmdBuf, vkIndexBuffer->data.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+        vkCmdDrawIndexed(cmdBuf, 6, 1, 0, 0, 0);
 
         vkCmdEndRenderPass(cmdBuf);
 

@@ -26,7 +26,7 @@
               (including tesselation, geometry shaders, etc.)
         - Add support for screenshots.
         - Consider using List for everything to make the interface more uniform?
-          Or perhaps make a handle type that can be either ArrayPtr or a raw pointer.
+          Or perhaps make a handle type that can be either Ptr or a raw pointer.
         - Maybe add ListRange type?
 */
 #ifndef VK_HPP
@@ -69,6 +69,7 @@ namespace vk {
     };
 
     struct Device;
+    struct Memory;
 
     /*  struct: Image
         Author: Philip Haynes
@@ -80,6 +81,8 @@ namespace vk {
             bool imageExists = false;
             VkImageView imageView;
             bool imageViewExists = false;
+            Memory *memory = nullptr;
+            i32 offsetIndex;
         } data;
 
         // Configuration
@@ -90,9 +93,11 @@ namespace vk {
         u32 width, height, mipLevels = 1;
 
         void Init(VkDevice dev);
-        void Clean();
         bool CreateImage(bool hostVisible=false);
         bool CreateImageView();
+        // Copy to host-visible memory
+        void CopyData(void *src, u32 bytesPerPixel); // We assume we're copying from something big enough
+        void Clean();
         // void BindMemory(Memory memory, u32 index);
     };
 
@@ -104,6 +109,8 @@ namespace vk {
             VkDevice device;
             VkBuffer buffer;
             bool exists = false;
+            Memory *memory = nullptr;
+            i32 offsetIndex;
         } data;
 
         // Configuration
@@ -114,7 +121,11 @@ namespace vk {
         bool Create();
         // Bind our buffer to a memory at memory.offsets[index]
         // void BindMemory(Memory memory, u32 index);
-        // void Copy(VkCommandBuffer commandBuffer, Buffer src);
+        // Copy to host-visible memory
+        void CopyData(void *src, VkDeviceSize copySize=0, VkDeviceSize dstOffset=0);
+        // Record a copy command to commandBuffer
+        void Copy(VkCommandBuffer commandBuffer, Ptr<Buffer> src,
+                VkDeviceSize copySize=0, VkDeviceSize dstOffset=0, VkDeviceSize srcOffset=0);
         void Clean();
     };
 
@@ -145,8 +156,8 @@ namespace vk {
         // Configuration
         bool deviceLocal = true; // If false, it's host visible
 
-        ArrayPtr<Image> AddImage(Image image=Image());
-        ArrayPtr<Buffer> AddBuffer(Buffer buffer=Buffer());
+        Ptr<Image> AddImage(Image image=Image());
+        Ptr<Buffer> AddBuffer(Buffer buffer=Buffer());
         ArrayRange<Image> AddImages(u32 count, Image image=Image());
         ArrayRange<Buffer> AddBuffers(u32 count, Buffer buffer=Buffer());
 
@@ -157,17 +168,17 @@ namespace vk {
         // Returns the index to the corresponding offset or -1 for failure
         i32 GetImageChunk(Image image, bool noChange=false);
         i32 GetBufferChunk(Buffer buffer, bool noChange=false);
-        VkDeviceSize ChunkSize(u32 index);
+        VkDeviceSize ChunkSize(i32 index);
         i32 FindMemoryType();
         // Allocates everything
         bool Allocate();
         // Allocates a chunk of data for later use
         // bool PreAllocate(VkDeviceSize size, Buffer type);
-        // Copies any data from host-visible memory using offsets[index]
-        // void CopyData(void *src, VkDeviceSize size, u32 index);
-        // void CopyData2D(void *src, Image image, u32 index);
-        // void* MapMemory(VkDeviceSize size, u32 index); // Returns a pointer to our host-visible data
-        // void UnmapMemory();
+        // Copies any data to host-visible memory using offsets[index]
+        void CopyData(void *src, VkDeviceSize size, i32 index);
+        void CopyData2D(void *src, Ptr<Image> image, i32 index, u32 bytesPerPixel);
+        void* MapMemory(VkDeviceSize size, i32 index); // Returns a pointer to our host-visible data
+        void UnmapMemory();
     };
 
     struct Sampler {
@@ -205,7 +216,7 @@ namespace vk {
 
     struct ImageDescriptor {
         ArrayRange<Image> images;
-        ArrayPtr<Sampler> sampler;
+        Ptr<Sampler> sampler;
     };
 
     struct DescriptorBinding {
@@ -237,7 +248,7 @@ namespace vk {
         struct {
             bool exists = false;
             VkDescriptorSet set;
-            ArrayPtr<DescriptorLayout> layout;
+            Ptr<DescriptorLayout> layout;
 
             Array<DescriptorBinding> bindings{};
             Array<BufferDescriptor> bufferDescriptors{};
@@ -245,9 +256,9 @@ namespace vk {
         } data;
 
         bool AddDescriptor(ArrayRange<Buffer> buffers, i32 binding);
-        bool AddDescriptor(ArrayRange<Image> images, ArrayPtr<Sampler> sampler, i32 binding);
-        bool AddDescriptor(ArrayPtr<Buffer> buffer, i32 binding);
-        bool AddDescriptor(ArrayPtr<Image> image, ArrayPtr<Sampler> sampler, i32 binding);
+        bool AddDescriptor(ArrayRange<Image> images, Ptr<Sampler> sampler, i32 binding);
+        bool AddDescriptor(Ptr<Buffer> buffer, i32 binding);
+        bool AddDescriptor(Ptr<Image> image, Ptr<Sampler> sampler, i32 binding);
     };
 
     /*  struct: Descriptors
@@ -265,8 +276,8 @@ namespace vk {
 
         ~Descriptors();
         void Init(VkDevice dev);
-        ArrayPtr<DescriptorLayout> AddLayout();
-        ArrayPtr<DescriptorSet> AddSet(ArrayPtr<DescriptorLayout> layout);
+        Ptr<DescriptorLayout> AddLayout();
+        Ptr<DescriptorSet> AddSet(Ptr<DescriptorLayout> layout);
 
         bool Create();
         bool Update();
@@ -286,7 +297,7 @@ namespace vk {
         } data;
 
         // If swapchain isn't nullptr, our color buffer is what's presented and we use its format
-        Swapchain *swapchain = nullptr;
+        Ptr<Swapchain> swapchain = nullptr;
         // Enabling different kinds of outputs
         bool bufferColor = false;
         bool bufferDepthStencil = false;
@@ -319,7 +330,7 @@ namespace vk {
         bool resolveColor = false;
 
         Attachment();
-        Attachment(Swapchain *swch);
+        Attachment(Ptr<Swapchain> swch);
         bool Config(); // Generates basic descriptions
     };
 
@@ -355,7 +366,7 @@ namespace vk {
         // NOTE: Do we need this? Can renderpasses be used outside of graphics?
         VkPipelineBindPoint pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
-        void UseAttachment(ArrayPtr<Attachment> attachment, AttachmentType type, VkAccessFlags accessFlags);
+        void UseAttachment(Ptr<Attachment> attachment, AttachmentType type, VkAccessFlags accessFlags);
     };
 
     /*  struct: RenderPass
@@ -394,8 +405,8 @@ namespace vk {
         // The stage at which our attachments are expected to be "done"
         VkPipelineStageFlagBits finalAccessStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-        ArrayPtr<Subpass> AddSubpass();
-        ArrayPtr<Attachment> AddAttachment(Swapchain *swapchain = nullptr);
+        Ptr<Subpass> AddSubpass();
+        Ptr<Attachment> AddAttachment(Ptr<Swapchain> swapchain = nullptr);
 
         ~RenderPass();
         bool Init(Device *dev);
@@ -414,15 +425,15 @@ namespace vk {
         } data;
 
         // Configuration
-        RenderPass* renderPass = nullptr;
+        Ptr<RenderPass> renderPass = nullptr;
         // If renderPass hooks up to a swapchain, so should the framebuffer.
         // For swapchains with multiple buffers, we will have multiple framebuffers, one for each swapchain image.
         // That way, we don't have to have duplicate images for back-end rendering,
         // and only the final image should have multiple images allocated.
-        Swapchain* swapchain = nullptr;
+        Ptr<Swapchain> swapchain = nullptr;
         // If swapchain is not nullptr, this will be set to however many swapchain images there are.
         i32 numFramebuffers = 1;
-        Array<Array<ArrayPtr<Image>>> attachmentImages{};
+        Array<Array<Ptr<Image>>> attachmentImages{};
         // If renderPass is connected to a swapchain, these values will be set automatically
         u32 width=0, height=0;
         // This means that the Framebuffer will create its own distinct memory.
@@ -467,12 +478,12 @@ namespace vk {
         Author: Philip Haynes
         A reference to a single function in a shader module for a single shader stage.  */
     struct ShaderRef {
-        ArrayPtr<Shader> shader;
+        Ptr<Shader> shader;
         VkShaderStageFlagBits stage;
         String functionName; // Most shaders will probably use just main, but watch out
 
         ShaderRef(String fn="main");
-        ShaderRef(ArrayPtr<Shader> ptr, VkShaderStageFlagBits s, String fn="main");
+        ShaderRef(Ptr<Shader> ptr, VkShaderStageFlagBits s, String fn="main");
     };
 
     /*  struct: Pipeline
@@ -481,29 +492,29 @@ namespace vk {
         Most things have usable defaults to help with brevity        */
     struct Pipeline {
         struct {
-            Device *device = nullptr;
+            Ptr<Device> device = nullptr;
             bool initted = false;
             VkPipelineLayout layout;
             VkPipeline pipeline;
             VkPipelineMultisampleStateCreateInfo multisampling{}; // Infer most from RenderPass
-            Array<VkVertexInputBindingDescription> inputBindingDescriptions{};
-            Array<VkVertexInputAttributeDescription> inputAttributeDescriptions{};
             VkPipelineVertexInputStateCreateInfo vertexInputInfo{}; // Infer from vertex buffer
         } data;
 
         // Configuration
-        RenderPass *renderPass = nullptr;
+        Ptr<RenderPass> renderPass = nullptr;
         Array<ShaderRef> shaders{};
         i32 subpass = 0; // Of our RenderPass, which subpass are we used in?
         bool multisampleShading = false;
         // TODO: Break this up into simpler more bite-sized pieces
+        Array<VkVertexInputBindingDescription> inputBindingDescriptions{};
+        Array<VkVertexInputAttributeDescription> inputAttributeDescriptions{};
         VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
         VkPipelineRasterizationStateCreateInfo rasterizer{};
         VkPipelineDepthStencilStateCreateInfo depthStencil{};
         Array<VkPipelineColorBlendAttachmentState> colorBlendAttachments{};
         VkPipelineColorBlendStateCreateInfo colorBlending{};
         Array<VkDynamicState> dynamicStates{};
-        Array<ArrayPtr<DescriptorLayout>> descriptorLayouts{};
+        Array<Ptr<DescriptorLayout>> descriptorLayouts{};
         Array<VkPushConstantRange> pushConstantRanges{};
 
         void Bind(VkCommandBuffer commandBuffer);
@@ -598,16 +609,16 @@ namespace vk {
         // I'm not sure what this is used for
         bool protectedMemory = false;
         // Which queue this pool will be used on
-        Queue* queue;
+        Ptr<Queue> queue;
 
-        ArrayPtr<CommandBuffer> AddCommandBuffer();
+        Ptr<CommandBuffer> AddCommandBuffer();
 
         // Commands you can call after Vulkan Tree initialization
-        CommandBuffer* CreateDynamicBuffer(bool secondary=false);
+        Ptr<CommandBuffer> CreateDynamicBuffer(bool secondary=false);
         void DestroyDynamicBuffer(CommandBuffer* buffer);
 
 
-        CommandPool(Queue* q=nullptr);
+        CommandPool(Ptr<Queue> q=nullptr);
         ~CommandPool();
         bool Init(Device *dev);
         void Clean();
@@ -631,9 +642,9 @@ namespace vk {
             u32 currentImage = 0;
             bool buffer = true; // Which semaphore are we going to signal?
             // We need semaphores to synchronize image acquisition
-            ArrayPtr<VkSemaphore> semaphores[2] = {{}};
+            Ptr<VkSemaphore> semaphores[2] = {{}};
             // Keep pointers to all the Framebuffers that use our images so we can make sure they're using the right image.
-            Array<Framebuffer*> framebuffers{};
+            Array<Ptr<Framebuffer>> framebuffers{};
 
             VkSurfaceCapabilitiesKHR surfaceCapabilities;
             Array<VkSurfaceFormatKHR> surfaceFormats{};
@@ -645,13 +656,13 @@ namespace vk {
         bool vsync = true; // To determine the ideal present mode
         VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         u32 imageCountPreferred = 2;
-        ArrayPtr<Window> window{};
+        Ptr<Window> window{};
         // How long we will wait for an image before timing out in nanoseconds
         u64 timeout = UINT64_MAX;
 
         VkResult AcquireNextImage();
-        ArrayPtr<VkSemaphore> SemaphoreImageAvailable();
-        bool Present(Queue *queue, Array<VkSemaphore> waitSemaphores);
+        Ptr<VkSemaphore> SemaphoreImageAvailable();
+        bool Present(Ptr<Queue> queue, Array<VkSemaphore> waitSemaphores);
 
         bool Resize();
 
@@ -663,7 +674,7 @@ namespace vk {
     };
 
     struct SemaphoreWait {
-        ArrayPtr<VkSemaphore> semaphore;
+        Ptr<VkSemaphore> semaphore;
         VkPipelineStageFlags dstStageMask;
     };
 
@@ -680,9 +691,9 @@ namespace vk {
         } data;
 
         // Configuration
-        Array<ArrayPtr<CommandBuffer>> commandBuffers{};
+        Array<Ptr<CommandBuffer>> commandBuffers{};
         Array<SemaphoreWait> waitSemaphores{};
-        Array<ArrayPtr<VkSemaphore>> signalSemaphores{};
+        Array<Ptr<VkSemaphore>> signalSemaphores{};
 
         bool Config();
     };
@@ -721,22 +732,22 @@ namespace vk {
         Device();
         ~Device();
 
-        Queue* AddQueue();
-        Swapchain* AddSwapchain();
-        RenderPass* AddRenderPass();
-        ArrayPtr<Sampler> AddSampler();
-        Memory* AddMemory();
-        Descriptors* AddDescriptors();
-        ArrayPtr<Shader> AddShader();
+        Ptr<Queue> AddQueue();
+        Ptr<Swapchain> AddSwapchain();
+        Ptr<RenderPass> AddRenderPass();
+        Ptr<Sampler> AddSampler();
+        Ptr<Memory> AddMemory();
+        Ptr<Descriptors> AddDescriptors();
+        Ptr<Shader> AddShader();
         ArrayRange<Shader> AddShaders(u32 count);
-        Pipeline* AddPipeline();
-        CommandPool* AddCommandPool(Queue* queue);
-        Framebuffer* AddFramebuffer();
-        ArrayPtr<VkSemaphore> AddSemaphore();
-        QueueSubmission* AddQueueSubmission();
+        Ptr<Pipeline> AddPipeline();
+        Ptr<CommandPool> AddCommandPool(Ptr<Queue> queue);
+        Ptr<Framebuffer> AddFramebuffer();
+        Ptr<VkSemaphore> AddSemaphore();
+        Ptr<QueueSubmission> AddQueueSubmission();
 
         // TODO: Add Fence support to this
-        bool SubmitCommandBuffers(Queue* queue, Array<QueueSubmission*> submissions);
+        bool SubmitCommandBuffers(Ptr<Queue> queue, Array<Ptr<QueueSubmission>> submissions);
 
         bool Init(Instance *inst);
         bool Reconfigure();
@@ -783,11 +794,11 @@ namespace vk {
 
         // Configuring functions
         void AppInfo(const char *name, u32 versionMajor, u32 versionMinor, u32 versionPatch);
-        ArrayPtr<Window> AddWindowForSurface(io::Window *window);
+        Ptr<Window> AddWindowForSurface(io::Window *window);
         void AddExtensions(Array<const char*> extensions);
         void AddLayers(Array<const char*> layers);
 
-        Device* AddDevice();
+        Ptr<Device> AddDevice();
 
         // If the instance is active, you must call this for the changes to be effective.
         bool Reconfigure();

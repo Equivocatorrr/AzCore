@@ -58,33 +58,66 @@ i32 StringLength(const T* string) {
 
 template<typename T, i32 allocTail=0> struct Array;
 
-/*  struct: ArrayPtr
+/*  struct: Ptr
     Author: Philip Haynes
-    Uses an index of an Array rather than an actual pointer.
-    Note that this can only be used with nested Arrays given that the array
-    it points to isn't moved. This means that the Arrays must be allocated
-    in ascending order, starting with the base array.     */
+    May refer to either an index in an Array or just a raw pointer.     */
 template<typename T>
-struct ArrayPtr {
-    Array<T> *array = nullptr;
+struct Ptr {
+    void *ptr = nullptr;
     i32 index = 0;
-    ArrayPtr() {}
-    ArrayPtr(Array<T> *a, i32 i) {
-        array = a;
+    Ptr() {}
+    Ptr(T *a) {
+        ptr = a;
+        index = -1;
+    }
+    Ptr(Array<T> *a, i32 i) {
+        ptr = a;
         index = i;
     }
-    void SetPtr(Array<T> *a, i32 i) {
-        array = a;
+    void Set(Array<T> *a, i32 i) {
+        ptr = a;
         index = i;
+    }
+    void Set(T *a) {
+        ptr = a;
+        index = -1;
     }
     bool Valid() const {
-        return array != nullptr;
+        return ptr != nullptr;
+    }
+    bool operator==(T *other) const {
+        if (index < 0) {
+            return other == ptr;
+        } else {
+            return other == &(*reinterpret_cast<Array<T>*>(ptr))[index];
+        }
+    }
+    bool operator!=(T *other) const {
+        if (index < 0) {
+            return !(other == ptr);
+        } else {
+            return !(other == &(*reinterpret_cast<Array<T>*>(ptr))[index]);
+        }
+    }
+    bool operator==(Ptr<T> other) const {
+        return ptr == other.ptr;
+    }
+    bool operator!=(Ptr<T> other) const {
+        return ptr != other.ptr;
     }
     T& operator*() {
-        return (*array)[index];
+        if (index < 0) {
+            return *reinterpret_cast<T*>(ptr);
+        } else {
+            return (*reinterpret_cast<Array<T>*>(ptr))[index];
+        }
     }
     T* operator->() {
-        return &(*array)[index];
+        if (index < 0) {
+            return reinterpret_cast<T*>(ptr);
+        } else {
+            return &(*reinterpret_cast<Array<T>*>(ptr))[index];
+        }
     }
 };
 
@@ -102,13 +135,13 @@ struct ArrayRange {
         index = i;
         size = s;
     }
-    void SetRange(Array<T> *a, i32 i, i32 s) {
+    void Set(Array<T> *a, i32 i, i32 s) {
         array = &a;
         index = i;
         size = s;
     }
-    ArrayPtr<T> Ptr(const i32& i) {
-        return ArrayPtr<T>(array, index+i);
+    Ptr<T> ToPtr(const i32& i) {
+        return Ptr<T>(array, index+i);
     }
     T& operator[](const i32& i) {
         if (i >= size) {
@@ -526,14 +559,14 @@ struct Array {
         return data[size-1];
     }
 
-    ArrayPtr<T> Ptr(const i32& index) {
+    Ptr<T> GetPtr(const i32& index) {
         if (index >= size) {
-            throw std::out_of_range("Array::Ptr index is out of bounds");
+            throw std::out_of_range("Array::GetPtr index is out of bounds");
         }
-        return ArrayPtr<T>(this, index);
+        return Ptr<T>(this, index);
     }
 
-    ArrayRange<T> Range(const i32& index, const i32& _size) {
+    ArrayRange<T> GetRange(const i32& index, const i32& _size) {
         if (index+_size > size) {
             throw std::out_of_range("Array::Range index + size is out of bounds");
         }

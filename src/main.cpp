@@ -148,10 +148,12 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkTextureImage->format = VK_FORMAT_R8G8B8A8_UNORM;
     vkTextureImage->width = image.width;
     vkTextureImage->height = image.height;
+    vkTextureImage->mipLevels = floor(log2(max(image.width, image.height))) + 1;
     vkTextureImage->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
     Ptr<vk::Sampler> vkSampler = vkDevice->AddSampler();
-    // We can just use the defaults
+    vkSampler->maxLod = vkTextureImage->mipLevels;
+    vkSampler->anisotropy = 16;
 
     Ptr<vk::Descriptors> vkDescriptors = vkDevice->AddDescriptors();
     Ptr<vk::DescriptorLayout> vkDescriptorLayoutTexture = vkDescriptors->AddLayout();
@@ -252,7 +254,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     vkTextureImage->TransitionLayout(cmdBufCopy, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     vkTextureImage->Copy(cmdBufCopy, vkStagingBuffers.ToPtr(2));
-    vkTextureImage->TransitionLayout(cmdBufCopy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    vkTextureImage->GenerateMipMaps(cmdBufCopy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     if (!vkCommandBuffer->End()) {
         cout << "Failed to copy from staging buffers: " << vk::error << std::endl;
         return 1;

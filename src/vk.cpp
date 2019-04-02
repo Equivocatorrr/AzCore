@@ -264,13 +264,13 @@ namespace vk {
         data.memory->CopyData2D(src, Ptr<Image>(this), data.offsetIndex, bytesPerPixel);
     }
 
-    void Image::TransitionLayout(VkCommandBuffer commandBuffer, VkImageLayout from, VkImageLayout to) {
+    void Image::TransitionLayout(VkCommandBuffer commandBuffer, VkImageLayout from, VkImageLayout to, u32 baseMipLevel, u32 mipLevelCount) {
         VkImageSubresourceRange subresourceRange = {};
         subresourceRange.aspectMask = aspectFlags;
         subresourceRange.baseArrayLayer = 0;
         subresourceRange.layerCount = 1;
-        subresourceRange.baseMipLevel = 0;
-        subresourceRange.levelCount = mipLevels;
+        subresourceRange.baseMipLevel = baseMipLevel;
+        subresourceRange.levelCount = mipLevelCount;
 
         TransitionLayout(commandBuffer, from, to, subresourceRange);
     }
@@ -387,6 +387,46 @@ namespace vk {
 		copyRegion.imageOffset = {0, 0, 0};
 		copyRegion.imageExtent = {width, height, 1};
 		vkCmdCopyBufferToImage(commandBuffer, src->data.buffer, data.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+    }
+
+    void Image::GenerateMipMaps(VkCommandBuffer commandBuffer, VkImageLayout startingLayout, VkImageLayout finalLayout) {
+        if (mipLevels <= 1) {
+            cout << "Warning: Image::GenerateMipMaps only has 1 mipLevel.";
+            if (startingLayout != finalLayout) {
+                cout << " Doing the transition only." << std::endl;
+                TransitionLayout(commandBuffer, startingLayout, finalLayout);
+            } else {
+                cout << " We have nothing to do." << std::endl;
+            }
+            return;
+        }
+        TransitionLayout(commandBuffer, startingLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+        for (u32 mip = 1; mip < mipLevels; mip++) {
+            VkImageBlit imageBlit{};
+            imageBlit.srcSubresource.aspectMask = aspectFlags;
+            imageBlit.srcSubresource.layerCount = 1;
+            imageBlit.srcSubresource.mipLevel = mip-1;
+            imageBlit.srcOffsets[1].x = (i32)max(width >> (mip-1), 1u);
+            imageBlit.srcOffsets[1].y = (i32)max(height >> (mip-1), 1u);
+            imageBlit.srcOffsets[1].z = 1;
+
+            imageBlit.dstSubresource.aspectMask = aspectFlags;
+            imageBlit.dstSubresource.layerCount = 1;
+            imageBlit.dstSubresource.mipLevel = mip;
+            imageBlit.dstOffsets[1].x = (i32)max(width >> mip, 1u);
+            imageBlit.dstOffsets[1].y = (i32)max(height >> mip, 1u);
+            imageBlit.dstOffsets[1].z = 1;
+
+            TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mip, 1);
+
+            vkCmdBlitImage(commandBuffer, data.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                            data.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageBlit, VK_FILTER_LINEAR);
+
+            TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, mip, 1);
+        }
+
+        TransitionLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, finalLayout, 0, mipLevels);
     }
 
     void Image::Clean() {

@@ -98,9 +98,10 @@ namespace vk {
         bool CreateImageView();
         // Copy to host-visible memory
         void CopyData(void *src, u32 bytesPerPixel); // We assume we're copying from something big enough
-        void TransitionLayout(VkCommandBuffer commandBuffer, VkImageLayout from, VkImageLayout to);
+        void TransitionLayout(VkCommandBuffer commandBuffer, VkImageLayout from, VkImageLayout to, u32 baseMipLevel=0, u32 mipLevelCount=1);
         void TransitionLayout(VkCommandBuffer commandBuffer, VkImageLayout from, VkImageLayout to, VkImageSubresourceRange subResourceRange);
         void Copy(VkCommandBuffer commandBuffer, Ptr<Buffer> src);
+        void GenerateMipMaps(VkCommandBuffer commandBuffer, VkImageLayout startingLayout, VkImageLayout finalLayout);
         void Clean();
         // void BindMemory(Memory memory, u32 index);
     };

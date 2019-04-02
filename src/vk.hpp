@@ -70,6 +70,7 @@ namespace vk {
 
     struct Device;
     struct Memory;
+    struct Buffer;
 
     /*  struct: Image
         Author: Philip Haynes
@@ -87,7 +88,7 @@ namespace vk {
 
         // Configuration
         VkFormat format;
-        VkImageAspectFlags aspectFlags;
+        VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
         VkImageUsageFlags usage;
         VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
         u32 width, height, mipLevels = 1;
@@ -97,6 +98,9 @@ namespace vk {
         bool CreateImageView();
         // Copy to host-visible memory
         void CopyData(void *src, u32 bytesPerPixel); // We assume we're copying from something big enough
+        void TransitionLayout(VkCommandBuffer commandBuffer, VkImageLayout from, VkImageLayout to);
+        void TransitionLayout(VkCommandBuffer commandBuffer, VkImageLayout from, VkImageLayout to, VkImageSubresourceRange subResourceRange);
+        void Copy(VkCommandBuffer commandBuffer, Ptr<Buffer> src);
         void Clean();
         // void BindMemory(Memory memory, u32 index);
     };

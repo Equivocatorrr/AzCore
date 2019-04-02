@@ -7,6 +7,11 @@
 #include "io.hpp"
 #include "vk.hpp"
 
+#define pow(v, e) pow((double)v, (double)e)
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb/stb_image.h"
+#undef pow
+
 io::logStream cout("test.log");
 
 #include "unit_tests.cpp"
@@ -37,6 +42,21 @@ i32 main(i32 argumentCount, char** argumentValues) {
     // PrintKeyCodeMapsEvdev(cout);
     // PrintKeyCodeMapsWinVK(cout);
     // PrintKeyCodeMapsWinScan(cout);
+
+    struct Image {
+        UniquePtr<u8, void(&)(void*)> pixels;
+        i32 width;
+        i32 height;
+        i32 channels;
+        Image(const char *filename) : pixels(stbi_load(filename, &width, &height, &channels, 4), stbi_image_free) {
+            channels = 4;
+        }
+    };
+    Image image("data/icon.png");
+    if (image.pixels == nullptr) {
+        cout << "Failed to load image!" << std::endl;
+        return 1;
+    }
 
     vk::Instance vkInstance;
     vkInstance.AppInfo("AzCore Test Program", 0, 1, 0);
@@ -94,19 +114,28 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkBufferStagingMemory->deviceLocal = false;
     Ptr<vk::Memory> vkBufferMemory = vkDevice->AddMemory();
 
-    Array<vec2> vertices = {
-        vec2(-0.5, -0.5),
-        vec2(-0.5, 0.5),
-        vec2(0.5, 0.5),
-        vec2(0.5, -0.5)
+    Ptr<vk::Memory> vkImageMemory = vkDevice->AddMemory();
+
+    struct Vertex {
+        vec2 position;
+        vec2 texCoord;
+    };
+
+    Array<Vertex> vertices = {
+        {vec2(-0.5, -0.5), vec2(0.0, 0.0)},
+        {vec2(-0.5, 0.5), vec2(0.0, 1.0)},
+        {vec2(0.5, 0.5), vec2(1.0, 1.0)},
+        {vec2(0.5, -0.5), vec2(1.0, 0.0)}
     };
     Array<u32> indices = {0, 1, 2, 2, 3, 0};
 
-    ArrayRange<vk::Buffer> vkStagingBuffers = vkBufferStagingMemory->AddBuffers(2);
-    vkStagingBuffers[0].size = vertices.size * sizeof(vec2);
+    ArrayRange<vk::Buffer> vkStagingBuffers = vkBufferStagingMemory->AddBuffers(3);
+    vkStagingBuffers[0].size = vertices.size * sizeof(Vertex);
     vkStagingBuffers[1].size = indices.size * sizeof(u32);
+    vkStagingBuffers[2].size = image.width * image.height * image.channels;
     vkStagingBuffers[0].usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     vkStagingBuffers[1].usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    vkStagingBuffers[2].usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
     Ptr<vk::Buffer> vkVertexBuffer = vkBufferMemory->AddBuffer();
     Ptr<vk::Buffer> vkIndexBuffer = vkBufferMemory->AddBuffer();
@@ -114,6 +143,28 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkIndexBuffer->size = vkStagingBuffers[1].size;
     vkVertexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     vkIndexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+
+    Ptr<vk::Image> vkTextureImage = vkImageMemory->AddImage();
+    vkTextureImage->format = VK_FORMAT_R8G8B8A8_UNORM;
+    vkTextureImage->width = image.width;
+    vkTextureImage->height = image.height;
+    vkTextureImage->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+
+    Ptr<vk::Sampler> vkSampler = vkDevice->AddSampler();
+    // We can just use the defaults
+
+    Ptr<vk::Descriptors> vkDescriptors = vkDevice->AddDescriptors();
+    Ptr<vk::DescriptorLayout> vkDescriptorLayoutTexture = vkDescriptors->AddLayout();
+    vkDescriptorLayoutTexture->type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    vkDescriptorLayoutTexture->stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    vkDescriptorLayoutTexture->bindings.Resize(1);
+    vkDescriptorLayoutTexture->bindings[0].binding = 0;
+    vkDescriptorLayoutTexture->bindings[0].count = 1;
+    Ptr<vk::DescriptorSet> vkDescriptorSetTexture = vkDescriptors->AddSet(vkDescriptorLayoutTexture);
+    if (!vkDescriptorSetTexture->AddDescriptor(vkTextureImage, vkSampler, 0)) {
+        cout << "Failed to add Texture Descriptor: " << vk::error << std::endl;
+        return 1;
+    }
 
     ArrayRange<vk::Shader> vkShaders = vkDevice->AddShaders(2);
     vkShaders[0].filename = "data/shaders/test.vert.spv";
@@ -130,6 +181,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkPipeline->shaders.Append(vkShaderRefs[0]);
     vkPipeline->shaders.Append(vkShaderRefs[1]);
 
+    vkPipeline->descriptorLayouts.Append(vkDescriptorLayoutTexture);
+
     vkPipeline->dynamicStates = {
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR
@@ -137,19 +190,23 @@ i32 main(i32 argumentCount, char** argumentValues) {
     VkVertexInputAttributeDescription vertexInputAttributeDescription = {};
     vertexInputAttributeDescription.binding = 0;
     vertexInputAttributeDescription.location = 0;
-    vertexInputAttributeDescription.offset = 0;
+    vertexInputAttributeDescription.offset = offsetof(Vertex, position);
+    vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
+    vkPipeline->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+    vertexInputAttributeDescription.location = 1;
+    vertexInputAttributeDescription.offset = offsetof(Vertex, texCoord);
     vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
     vkPipeline->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
     VkVertexInputBindingDescription vertexInputBindingDescription = {};
     vertexInputBindingDescription.binding = 0;
     vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    vertexInputBindingDescription.stride = sizeof(vec2);
+    vertexInputBindingDescription.stride = sizeof(Vertex);
     vkPipeline->inputBindingDescriptions.Append(vertexInputBindingDescription);
 
     VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
                                         | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;
+    colorBlendAttachment.blendEnable = VK_TRUE;
     colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
     colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
@@ -187,16 +244,26 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     vkStagingBuffers[0].CopyData(vertices.data);
     vkStagingBuffers[1].CopyData(indices.data);
+    vkStagingBuffers[2].CopyData(image.pixels.get());
 
     VkCommandBuffer cmdBufCopy = vkCommandBuffer->Begin();
     vkVertexBuffer->Copy(cmdBufCopy, vkStagingBuffers.ToPtr(0));
     vkIndexBuffer->Copy(cmdBufCopy, vkStagingBuffers.ToPtr(1));
+
+    vkTextureImage->TransitionLayout(cmdBufCopy, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    vkTextureImage->Copy(cmdBufCopy, vkStagingBuffers.ToPtr(2));
+    vkTextureImage->TransitionLayout(cmdBufCopy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     if (!vkCommandBuffer->End()) {
         cout << "Failed to copy from staging buffers: " << vk::error << std::endl;
         return 1;
     }
     vkDevice->SubmitCommandBuffers(queueGraphics, {vkTransferQueueSubmission});
     vkQueueWaitIdle(queueGraphics->queue);
+
+    if (!vkDescriptors->Update()) {
+        cout << "Failed to update descriptors: " << vk::error << std::endl;
+        return 1;
+    }
 
     if(!window.Show()) {
         cout << "Failed to show Window: " << io::error << std::endl;
@@ -273,6 +340,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
         vkCmdBindVertexBuffers(cmdBuf, 0, 1, &vkVertexBuffer->data.buffer, &zeroOffset);
         vkCmdBindIndexBuffer(cmdBuf, vkIndexBuffer->data.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+        vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline->data.layout, 0, 1, &vkDescriptors->data.sets[0].data.set, 0, nullptr);
 
         vkCmdDrawIndexed(cmdBuf, 6, 1, 0, 0, 0);
 

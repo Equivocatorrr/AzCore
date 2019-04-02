@@ -264,6 +264,131 @@ namespace vk {
         data.memory->CopyData2D(src, Ptr<Image>(this), data.offsetIndex, bytesPerPixel);
     }
 
+    void Image::TransitionLayout(VkCommandBuffer commandBuffer, VkImageLayout from, VkImageLayout to) {
+        VkImageSubresourceRange subresourceRange = {};
+        subresourceRange.aspectMask = aspectFlags;
+        subresourceRange.baseArrayLayer = 0;
+        subresourceRange.layerCount = 1;
+        subresourceRange.baseMipLevel = 0;
+        subresourceRange.levelCount = mipLevels;
+
+        TransitionLayout(commandBuffer, from, to, subresourceRange);
+    }
+
+    void Image::TransitionLayout(VkCommandBuffer commandBuffer, VkImageLayout from, VkImageLayout to, VkImageSubresourceRange subresourceRange) {
+        VkImageMemoryBarrier barrier = {};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout = from;
+        barrier.newLayout = to;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = data.image;
+        barrier.subresourceRange = subresourceRange;
+
+        barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+
+        VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+
+        switch (from) {
+        case VK_IMAGE_LAYOUT_PREINITIALIZED:
+            barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+            srcStage = VK_PIPELINE_STAGE_HOST_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_UNDEFINED:
+            barrier.srcAccessMask = 0;
+            srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+        case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL:
+        case VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL:
+            // NOTE: Not sure exactly how to handle the last two cases???
+            barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            srcStage = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
+            barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+            srcStage = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            srcStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            break;
+        default:
+            cout << "Warning: Image::TransitionLayout from layout is not explicitly supported! Keeping defaults... This may not work as intended." << std::endl;
+            break;
+        }
+
+        switch (to) {
+        case VK_IMAGE_LAYOUT_GENERAL:
+            barrier.dstAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+            dstStage = VK_PIPELINE_STAGE_HOST_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+        case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL:
+        case VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL:
+            // NOTE: Not sure exactly how to handle the last two cases???
+            barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
+            barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+            dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            break;
+        default:
+            cout << "Warning: Image::TransitionLayout to layout is not explicitly supported! Keeping defaults... This may not work as intended." << std::endl;
+            break;
+        }
+
+        vkCmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    }
+
+    void Image::Copy(VkCommandBuffer commandBuffer, Ptr<Buffer> src) {
+        if (!src.Valid()) {
+            cout << "Warning: Image::Copy src is not a valid Ptr! Skipping copy." << std::endl;
+            return;
+        }
+
+		VkBufferImageCopy copyRegion = {};
+		copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		copyRegion.imageSubresource.mipLevel = 0;
+		copyRegion.imageSubresource.baseArrayLayer = 0;
+		copyRegion.imageSubresource.layerCount = 1;
+
+		copyRegion.imageOffset = {0, 0, 0};
+		copyRegion.imageExtent = {width, height, 1};
+		vkCmdCopyBufferToImage(commandBuffer, src->data.buffer, data.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+    }
+
     void Image::Clean() {
         if (data.imageViewExists) {
             vkDestroyImageView(data.device, data.imageView, nullptr);

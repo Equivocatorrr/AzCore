@@ -454,8 +454,8 @@ void UnitTestArrayAndString(io::logStream& cout) {
         f32 zeroN = -0.0;
         f32 one = 1.0;
         f32 oneN = -1.0;
-        f32 numsHigh = 123456.0;
-        f32 numsLow = 0.0123456;
+        f32 numsHigh = 10.0;
+        f32 numsLow = 0.01;
         cout << " zero = " << ToString(zero) << std::endl;
         cout << "-zero = " << ToString(zeroN) << std::endl;
         cout << "  one = " << ToString(one) << std::endl;

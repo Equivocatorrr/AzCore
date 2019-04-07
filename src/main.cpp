@@ -33,6 +33,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     UnitTestArrayAndString(cout);
 
+    // return 0;
+
     // BigIntTest();
     //
     // CheckNumbersForHighPersistence();
@@ -103,7 +105,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     Ptr<vk::Attachment> attachment = vkRenderPass->AddAttachment(vkSwapchain);
     attachment->clearColor = true;
     attachment->clearColorValue = {0.0, 0.05, 0.1, 1.0};
-    attachment->sampleCount = VK_SAMPLE_COUNT_8_BIT;
+    attachment->sampleCount = VK_SAMPLE_COUNT_4_BIT;
     attachment->resolveColor = true;
 
     Ptr<vk::Subpass> subpass = vkRenderPass->AddSubpass();
@@ -149,7 +151,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkTextureImage->width = image.width;
     vkTextureImage->height = image.height;
     vkTextureImage->mipLevels = floor(log2(max(image.width, image.height))) + 1;
-    vkTextureImage->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    vkTextureImage->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
     Ptr<vk::Sampler> vkSampler = vkDevice->AddSampler();
     vkSampler->maxLod = vkTextureImage->mipLevels;

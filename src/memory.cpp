@@ -141,33 +141,37 @@ String ToString(const f32& value, i32 base) {
     if (exponent == 150) {
         return ToString(negative ? -(i32)significand : (i32)significand, base) + ".0";
     }
-    /*
-    const f32 log2Base = log2((f32)base);
-    String out;
-    BigInt iPart(significand);
-    iPart <<= (i32)exponent-150 + 150.0*log2Base;
-    if (iPart == 0) {
-        out = "0";
-    }
-    i32 fractionalExponent = u32(((f32)exponent - 150.0 + (150.0*log2Base)) / log2Base);
-    i32 decimalExponent = u32(127.0 / log2Base);
-    while (iPart != 0 || fractionalExponent > 0) {
-        if (fractionalExponent-- == decimalExponent) {
-            out += '.';
-        }
-        u32 remainder;
-        BigInt::QuotientAndRemainder(iPart, base, &iPart, &remainder);
-        if (base >= 10) {
-            out += remainder > 9 ? char(remainder-10+'a') : char(remainder+'0');
-        } else {
-            out += char(remainder+'0');
-        }
-    }
-    if (negative) {
-        out += '-';
-    }
-    return out.Reverse();
-    */
+    // String iString(false), fString(false);
+    // if (exponent >= 127) {
+    //     BigInt iPart(significand);
+    //     iPart <<= (i32)exponent-150;
+    //     iString = ToString(iPart, base);
+    // } else {
+    //     iString = "0";
+    // }
+    // if (exponent < 150) {
+    //     u32 significandReversed = 0;
+    //     for (u32 i = 0; i < 24; i++) {
+    //         if (significand & (1 << i)) {
+    //             significandReversed |= 1 << (23-i);
+    //         }
+    //     }
+    //     // significandReversed = (1 << 24) - significandReversed;
+    //     BigInt fPart(significandReversed);
+    //     fPart >>= (i32)exponent - 126;
+    //     if (fPart == 0) {
+    //         fString = "0";
+    //     } else {
+    //         fString = ToString(fPart, base).Reverse() + " " + ToString(significandReversed, 16);
+    //     }
+    // } else {
+    //     fString = "0";
+    // }
+    // if (negative) {
+    //     return "-" + std::move(iString) + "." + std::move(fString) + " " + ToString(significand, 16);
+    // } else {
+    //     return std::move(iString) + "." + std::move(fString) + " " + ToString(significand, 16);
+    // }
     String out(false);
     char buffer[64];
     i32 i = sprintf(buffer, "%.8f", value) - 1;

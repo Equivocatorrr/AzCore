@@ -789,6 +789,15 @@ namespace vk {
             Array<PhysicalDevice> physicalDevices{};
             // We hold and Init() the devices according to their parameters.
             List<Device> devices{};
+
+            // Information about allocated data
+            struct Allocation {
+                void *ptr;
+                size_t size;
+            };
+            List<Allocation> allocations{};
+            size_t totalHeapMemory=0;
+            VkAllocationCallbacks allocationCallbacks;
         } data;
 
         Instance();

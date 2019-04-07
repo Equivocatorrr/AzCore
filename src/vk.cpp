@@ -118,6 +118,72 @@ namespace vk {
         return VK_FALSE;
     }
 
+    size_t align(const size_t& size, const size_t& alignment) {
+        if (size % alignment == 0) {
+            return size;
+        } else {
+            return (size/alignment+1)*alignment;
+        }
+    }
+
+    void* Allocate(void *pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope) {
+        Instance *instance = (Instance*)pUserData;
+        void *ptr = aligned_alloc(alignment, size);
+        size_t aligned = align(size, alignment);
+        instance->data.allocations.Append({ptr, aligned});
+        instance->data.totalHeapMemory += aligned;
+        return ptr;
+    }
+
+    void* Reallocate(void *pUserData, void *pOriginal, size_t size, size_t alignment, VkSystemAllocationScope allocationScope) {
+        if (pOriginal == nullptr) {
+            return Allocate(pUserData, size, alignment, allocationScope);
+        }
+        Instance *instance = (Instance*)pUserData;
+        void *ptr = aligned_alloc(alignment, size);
+        size_t aligned = align(size, alignment);
+        size_t originalSize = 0;
+        for (auto& i : instance->data.allocations) {
+            if (i.ptr == pOriginal) {
+                originalSize = i.size;
+                i.ptr = ptr;
+                i.size = aligned;
+                break;
+            }
+        }
+        instance->data.totalHeapMemory += size;
+        instance->data.totalHeapMemory -= originalSize;
+        memcpy(ptr, pOriginal, min(originalSize, size));
+        return ptr;
+    }
+
+    void Free(void *pUserData, void *pMemory) {
+        if (pMemory == nullptr) {
+            return;
+        }
+        Instance *instance = (Instance*)pUserData;
+        i32 index = 0;
+        size_t originalSize = 0;
+        for (auto& i : instance->data.allocations) {
+            if (i.ptr == pMemory) {
+                originalSize = i.size;
+                break;
+            }
+            index++;
+        }
+        instance->data.allocations.Erase(index);
+        instance->data.totalHeapMemory -= originalSize;
+        free(pMemory);
+    }
+
+    void InternalAllocationNotification(void *pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope) {
+        cout << "Internal Allocation of size " << size << std::endl;
+    }
+
+    void InternalFreeNotification(void *pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope) {
+        cout << "Internal Free of size " << size << std::endl;
+    }
+
     bool PhysicalDevice::Init(VkInstance instance) {
         vkGetPhysicalDeviceProperties(physicalDevice, &properties);
         vkGetPhysicalDeviceFeatures(physicalDevice, &features);
@@ -3491,7 +3557,16 @@ failed:
             createInfo.enabledLayerCount = 0;
         }
 
-        VkResult result = vkCreateInstance(&createInfo, nullptr, &data.instance);
+        data.allocationCallbacks = {
+            this,
+            Allocate,
+            Reallocate,
+            Free,
+            InternalAllocationNotification,
+            InternalFreeNotification
+        };
+
+        VkResult result = vkCreateInstance(&createInfo, &data.allocationCallbacks, &data.instance);
         if (result != VK_SUCCESS) {
             error = "vkCreateInstance failed with error: " + ErrorString(result);
             return false;
@@ -3502,26 +3577,26 @@ failed:
                     vkGetInstanceProcAddr(data.instance, "vkCreateDebugReportCallbackEXT");
             if (data.fpCreateDebugReportCallbackEXT == nullptr) {
                 error = "vkGetInstanceProcAddr failed to get vkCreateDebugReportCallbackEXT";
-                vkDestroyInstance(data.instance, nullptr);
+                vkDestroyInstance(data.instance, &data.allocationCallbacks);
                 return false;
             }
             data.fpDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)
                     vkGetInstanceProcAddr(data.instance, "vkDestroyDebugReportCallbackEXT");
             if (data.fpDestroyDebugReportCallbackEXT == nullptr) {
                 error = "vkGetInstanceProcAddr failed to get vkDestroyDebugReportCallbackEXT";
-                vkDestroyInstance(data.instance, nullptr);
+                vkDestroyInstance(data.instance, &data.allocationCallbacks);
                 return false;
             }
-            VkDebugReportCallbackCreateInfoEXT debugInfo;
+            VkDebugReportCallbackCreateInfoEXT debugInfo = {};
             debugInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
             debugInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
             debugInfo.pfnCallback = debugCallback;
             debugInfo.pUserData = this;
 
-            result = data.fpCreateDebugReportCallbackEXT(data.instance, &debugInfo, nullptr, &data.debugReportCallback);
+            result = data.fpCreateDebugReportCallbackEXT(data.instance, &debugInfo, &data.allocationCallbacks, &data.debugReportCallback);
             if (result != VK_SUCCESS) {
                 error = "fpCreateDebugReportCallbackEXT failed with error: " + ErrorString(result);
-                vkDestroyInstance(data.instance, nullptr);
+                vkDestroyInstance(data.instance, &data.allocationCallbacks);
                 return false;
             }
         }
@@ -3540,7 +3615,7 @@ failed:
             vkEnumeratePhysicalDevices(data.instance, &physicalDeviceCount, nullptr);
             if (physicalDeviceCount == 0) {
                 error = "Failed to find GPUs with Vulkan support";
-                vkDestroyInstance(data.instance, nullptr);
+                vkDestroyInstance(data.instance, &data.allocationCallbacks);
                 return false;
             }
             Array<VkPhysicalDevice> devices(physicalDeviceCount);
@@ -3578,6 +3653,7 @@ failed:
         data.initted = true;
         cout << "\n\n";
         PrintDashed("Vulkan Tree Initialized");
+        cout << "Total Heap Memory Used: " << FormatSize(data.totalHeapMemory) << "\nAcross " << data.allocations.size << " allocations." << std::endl;
         cout << "\n\n";
         return true;
 failed:
@@ -3586,9 +3662,9 @@ failed:
                 data.devices[i].Deinit();
         }
         if (data.enableLayers) {
-            data.fpDestroyDebugReportCallbackEXT(data.instance, data.debugReportCallback, nullptr);
+            data.fpDestroyDebugReportCallbackEXT(data.instance, data.debugReportCallback, &data.allocationCallbacks);
         }
-        vkDestroyInstance(data.instance, nullptr);
+        vkDestroyInstance(data.instance, &data.allocationCallbacks);
         return false;
     }
 
@@ -3604,14 +3680,20 @@ failed:
         // Clean up everything else here
 #ifdef IO_FOR_VULKAN
         for (const Window& w : data.windows) {
-            vkDestroySurfaceKHR(data.instance, w.surface, nullptr);
+            vkDestroySurfaceKHR(data.instance, w.surface, &data.allocationCallbacks);
         }
 #endif
         if (data.enableLayers) {
-            data.fpDestroyDebugReportCallbackEXT(data.instance, data.debugReportCallback, nullptr);
+            data.fpDestroyDebugReportCallbackEXT(data.instance, data.debugReportCallback, &data.allocationCallbacks);
         }
-        vkDestroyInstance(data.instance, nullptr);
+        vkDestroyInstance(data.instance, &data.allocationCallbacks);
         data.initted = false;
+        if (data.totalHeapMemory != 0) {
+            cout << "Some memory (" << FormatSize(data.totalHeapMemory) << ") was not freed by the Vulkan driver!\nallocations.size = " << data.allocations.size << std::endl;
+            for (auto& i : data.allocations) {
+                cout << "\tAllocation at address: " << i.ptr << " with size " << i.size << std::endl;
+            }
+        }
         return true;
     }
 

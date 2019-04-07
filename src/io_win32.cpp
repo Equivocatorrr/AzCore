@@ -73,7 +73,7 @@ namespace io {
         VkWin32SurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
 		createInfo.hinstance = data->instance;
 		createInfo.hwnd = data->window;
-        VkResult result = vkCreateWin32SurfaceKHR(instance->data.instance, &createInfo, nullptr, surface);
+        VkResult result = vkCreateWin32SurfaceKHR(instance->data.instance, &createInfo, &instance->data.allocationCallbacks, surface);
 		if (result != VK_SUCCESS) {
 			error = "Failed to create Win32 Surface!";
             return false;

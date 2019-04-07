@@ -324,7 +324,7 @@ namespace io {
         VkXcbSurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
         createInfo.connection = data->connection;
         createInfo.window = data->window;
-        VkResult result = vkCreateXcbSurfaceKHR(instance->data.instance, &createInfo, nullptr, surface);
+        VkResult result = vkCreateXcbSurfaceKHR(instance->data.instance, &createInfo, &instance->data.allocationCallbacks, surface);
 		if (result != VK_SUCCESS) {
 			error = "Failed to create XCB surface!";
             return false;

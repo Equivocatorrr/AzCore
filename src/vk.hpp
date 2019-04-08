@@ -16,9 +16,7 @@
           Also provided are numerous sanity checks to make development smoother, even
           if you don't have a solid grasp of the Vulkan API.
     TODO:
-        - Make the sanity checks meant for validating Vulkan-Tree structure optional
-          to reduce overhead.
-        - Maybe make all sanity checks optional. You better be sure about this one.
+        - Add pipeline cache support.
         - Add support for compute pipelines.
         - Make control over memory more dynamic.
         - Add some sort of texture caching/streaming setup in RAM.
@@ -28,6 +26,12 @@
 */
 #ifndef VK_HPP
 #define VK_HPP
+
+#ifdef NDEBUG
+    // This define will get rid of most sanity checks,
+    // especially those related to Vulkan Tree Structure.
+    #define VK_SANITY_CHECKS_MINIMAL
+#endif
 
 #include "common.hpp"
 #include <vulkan/vulkan.h>
@@ -803,7 +807,7 @@ namespace vk {
         Manages the state of everything created directly from the VkInstance.
         Used as a top-level control of the Vulkan Tree.  */
     struct Instance {
-        struct {
+        struct data_t {
             PFN_vkSetDebugUtilsObjectNameEXT
                 fpSetDebugUtilsObjectNameEXT;
             PFN_vkCreateDebugUtilsMessengerEXT

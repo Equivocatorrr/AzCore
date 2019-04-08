@@ -216,17 +216,23 @@ namespace vk {
         }
         Instance *instance = (Instance*)pUserData;
         size_t aligned = align(size, alignment);
-        void *ptr = aligned_alloc(alignment, aligned);
         size_t originalSize = 0;
+        Instance::data_t::Allocation *allocation = nullptr;
         for (auto& i : instance->data.allocations) {
             if (i.ptr == pOriginal) {
                 originalSize = i.size;
-                i.ptr = ptr;
-                i.size = aligned;
+                allocation = &i;
                 break;
             }
         }
-        instance->data.totalHeapMemory += size;
+        if (aligned <= originalSize) {
+            // cout << "Reallocate doesn't need to do anything, returning original ptr" << std::endl;
+            return pOriginal;
+        }
+        void *ptr = aligned_alloc(alignment, aligned);
+        allocation->ptr = ptr;
+        allocation->size = aligned;
+        instance->data.totalHeapMemory += aligned;
         instance->data.totalHeapMemory -= originalSize;
         memcpy(ptr, pOriginal, min(originalSize, size));
         free(pOriginal);
@@ -252,14 +258,6 @@ namespace vk {
         instance->data.totalHeapMemory -= originalSize;
         free(pMemory);
     }
-
-    // void InternalAllocationNotification(void *pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope) {
-    //     cout << "Internal Allocation of size " << size << std::endl;
-    // }
-    //
-    // void InternalFreeNotification(void *pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope) {
-    //     cout << "Internal Free of size " << size << std::endl;
-    // }
 
     bool PhysicalDevice::Init(VkInstance instance) {
         vkGetPhysicalDeviceProperties(physicalDevice, &properties);
@@ -341,10 +339,12 @@ namespace vk {
     }
 
     bool Image::CreateImage(bool hostVisible) {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.imageExists) {
             error = "Attempting to create image that already exists!";
             return false;
         }
+#endif
         VkImageCreateInfo imageInfo{};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -381,10 +381,12 @@ namespace vk {
     }
 
     bool Image::CreateImageView() {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.imageViewExists) {
             error = "Attempting to create an image view that already exists!";
             return false;
         }
+#endif
         VkImageViewCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         createInfo.image = data.image;
@@ -420,6 +422,7 @@ namespace vk {
     }
 
     void Image::CopyData(void *src, u32 bytesPerPixel) {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (src == nullptr) {
             cout << "Warning: Image::CopyData src is nullptr! Skipping copy." << std::endl;
             return;
@@ -428,6 +431,7 @@ namespace vk {
             cout << "Warning: Image::CopyData: Image is not associated with a Memory object! Skipping copy." << std::endl;
             return;
         }
+#endif
         data.memory->CopyData2D(src, Ptr<Image>(this), data.offsetIndex, bytesPerPixel);
     }
 
@@ -540,10 +544,12 @@ namespace vk {
     }
 
     void Image::Copy(VkCommandBuffer commandBuffer, Ptr<Buffer> src) {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (!src.Valid()) {
             cout << "Warning: Image::Copy src is not a valid Ptr! Skipping copy." << std::endl;
             return;
         }
+#endif
 
 		VkBufferImageCopy copyRegion = {};
 		copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -613,10 +619,12 @@ namespace vk {
     }
 
     bool Buffer::Create() {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.exists) {
             error = "Buffer already exists!";
             return false;
         }
+#endif
         VkBufferCreateInfo createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         createInfo.size = size;
@@ -644,6 +652,7 @@ namespace vk {
     }
 
     void Buffer::CopyData(void *src, VkDeviceSize copySize, VkDeviceSize dstOffset) {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (src == nullptr) {
             cout << "Warning: Buffer::CopyData src is nullptr! Skipping copy." << std::endl;
             return;
@@ -656,6 +665,7 @@ namespace vk {
             cout << "Warning: Buffer::CopyData copySize+dstOffset goes beyond buffer size! Skipping copy." << std::endl;
             return;
         }
+#endif
         if (copySize == 0) {
             copySize = size-dstOffset;
         }
@@ -665,6 +675,7 @@ namespace vk {
     void Buffer::Copy(VkCommandBuffer commandBuffer, Ptr<Buffer> src,
             VkDeviceSize copySize, VkDeviceSize dstOffset, VkDeviceSize srcOffset)
     {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (!src.Valid()) {
             cout << "Warning: Buffer::Copy src is not a valid Ptr! Skipping copy." << std::endl;
             return;
@@ -677,6 +688,7 @@ namespace vk {
             cout << "Warning: Buffer::Copy srcOffset is greater than src size! Skipping copy." << std::endl;
             return;
         }
+#endif
         if (copySize == 0) {
             if (src->size-srcOffset > size-dstOffset) {
                 cout << "Warning: Buffer::Copy with unspecified copySize has a larger src size than dst at given offsets!" << std::endl;
@@ -722,6 +734,7 @@ namespace vk {
 
     bool Memory::Init(Device *device, String debugMarker) {
         PrintDashed("Initializing Memory");
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             error = "Memory has already been initialized!";
             return false;
@@ -730,14 +743,13 @@ namespace vk {
             error = "Memory has already been allocated!";
             return false;
         }
-        if ((data.device = device) == nullptr) {
+        if (device == nullptr) {
             error = "device is nullptr!";
             return false;
         }
-        if ((data.physicalDevice = &device->data.physicalDevice) == nullptr) {
-            error = "physicalDevice is nullptr!";
-            return false;
-        }
+#endif
+        data.device = device;
+        data.physicalDevice = &device->data.physicalDevice;
         data.debugMarker = std::move(debugMarker);
         // First we figure out how big we are by going through the images and buffers
         data.offsets.Resize(1);
@@ -827,10 +839,12 @@ failure:
 
     bool Memory::Deinit() {
         PrintDashed("Destroying Memory");
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             error = "Memory isn't initialized!";
             return false;
         }
+#endif
         for (Image& image : data.images) {
             image.Clean();
         }
@@ -908,10 +922,12 @@ failure:
     }
 
     bool Memory::Allocate() {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.allocated) {
             error = "Memory already allocated!";
             return false;
         }
+#endif
         cout << "Allocating Memory with size: " << FormatSize(data.offsets.Back()) << std::endl;
         VkMemoryAllocateInfo allocInfo = {};
         allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -932,6 +948,7 @@ failure:
     }
 
     void Memory::CopyData(void *src, VkDeviceSize size, i32 index) {
+#ifndef VK_SANITY_CHECKS_MINIMAL
 		if (src == nullptr) {
 			cout << "Warning: Memory::CopyData has nullptr src! Skipping copy." << std::endl;
 			return;
@@ -951,6 +968,7 @@ failure:
 		if (index >= data.offsets.size-1) {
 			cout << "Warning: Memory::CopyData offset index is out of bounds! Skipping copy." << std::endl;
 		}
+#endif
 		void* dst;
 		vkMapMemory(data.device->data.device, data.memory, data.offsets[index], size, 0, &dst);
 			memcpy(dst, src, (size_t)size);
@@ -958,6 +976,7 @@ failure:
 	}
 
     void Memory::CopyData2D(void *src, Ptr<Image> image, i32 index, u32 bytesPerPixel) {
+#ifndef VK_SANITY_CHECKS_MINIMAL
 		if (src == nullptr) {
 			cout << "Warning: Memory::CopyData2D has nullptr src! Skipping copy." << std::endl;
 			return;
@@ -985,6 +1004,7 @@ failure:
 		if (index >= data.offsets.size-1) {
 			cout << "Warning: Memory::CopyData2D offset index is out of bounds! Skipping copy." << std::endl;
 		}
+#endif
         VkImageSubresource subresource = {};
 		subresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		subresource.mipLevel = 0;
@@ -1035,10 +1055,12 @@ failure:
     }
 
     bool Sampler::Create() {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.exists) {
             error = "Sampler already exists!";
             return false;
         }
+#endif
         VkSamplerCreateInfo createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
         createInfo.magFilter = magFilter;
@@ -1102,10 +1124,12 @@ failure:
     }
 
     bool DescriptorLayout::Create() {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.exists) {
             error = "DescriptorLayout already created!";
             return false;
         }
+#endif
         Array<VkDescriptorSetLayoutBinding> bindingInfo(bindings.size);
         for (i32 i = 0; i < bindingInfo.size; i++) {
             bindingInfo[i].binding = bindings[i].binding;
@@ -1171,10 +1195,12 @@ failure:
 
     bool DescriptorSet::AddDescriptor(Range<Image> images, Ptr<Sampler> sampler, i32 binding) {
         // TODO: Support other types of descriptors
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.layout->type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
             error = "AddDescriptor failed because layout type is not for combined image samplers!";
             return false;
         }
+#endif
         for (i32 i = 0; i < data.layout->bindings.size; i++) {
             if (data.layout->bindings[i].binding == binding) {
                 if (data.layout->bindings[i].count != images.size) {
@@ -1223,10 +1249,12 @@ failure:
 
     bool Descriptors::Create() {
         PrintDashed("Creating Descriptors");
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.exists) {
             error = "Descriptors already exist!";
             return false;
         }
+#endif
         Array<VkDescriptorPoolSize> poolSizes(data.layouts.size);
         for (i32 i = 0; i < data.layouts.size; i++) {
             data.layouts[i].Init(data.device);
@@ -1404,10 +1432,12 @@ failure:
         }
         data.descriptions.Resize(0);
         if (bufferColor) {
+#ifndef VK_SANITY_CHECKS_MINIMAL
             if (initialLayoutColor == VK_IMAGE_LAYOUT_UNDEFINED && loadColor) {
                 error = "For the contents of this attachment to be loaded, you must specify an initialLayout for Color.";
                 return false;
             }
+#endif
             if (sampleCount != VK_SAMPLE_COUNT_1_BIT && resolveColor) {
                 // SSAA enabled, first attachment should be multisampled color buffer
                 VkAttachmentDescription description{};
@@ -1521,12 +1551,13 @@ failure:
             } else {
                 description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
             }
-
+#ifndef VK_SANITY_CHECKS_MINIMAL
             if (initialLayoutDepthStencil == VK_IMAGE_LAYOUT_UNDEFINED
             && (loadDepth || loadStencil)) {
                 error = "For the contents of this attachment to be loaded, you must specify an initialLayout for DepthStencil.";
                 return false;
             }
+#endif
 
             description.initialLayout = initialLayoutDepthStencil;
             description.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -1597,13 +1628,14 @@ failure:
         }
     }
 
-    bool RenderPass::Init(Device *dev, String debugMarker) {
+    bool RenderPass::Init(Device *device, String debugMarker) {
         PrintDashed("Initializing RenderPass");
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             error = "Renderpass is already initialized!";
             return false;
         }
-        if ((data.device = dev) == nullptr) {
+        if (device == nullptr) {
             error = "Device is nullptr!";
             return false;
         }
@@ -1611,6 +1643,8 @@ failure:
             error = "You must have at least 1 subpass in your renderpass!";
             return false;
         }
+#endif
+        data.device = device;
         data.debugMarker = std::move(debugMarker);
         // First we need to configure our subpass attachments
         for (i32 i = 0; i < data.attachments.size; i++) {
@@ -1896,10 +1930,12 @@ failure:
 
     bool RenderPass::Deinit() {
         PrintDashed("Destroying RenderPass");
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             error = "RenderPass hasn't been initialized yet!";
             return false;
         }
+#endif
 
         vkDestroyRenderPass(data.device->data.device, data.renderPass, nullptr);
         data.initted = false;
@@ -1920,13 +1956,14 @@ failure:
         }
     }
 
-    bool Framebuffer::Init(Device *dev, String debugMarker) {
+    bool Framebuffer::Init(Device *device, String debugMarker) {
         PrintDashed("Initializing Framebuffer");
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             error = "Framebuffer is already initialized!";
             return false;
         }
-        if ((data.device = dev) == nullptr) {
+        if (device == nullptr) {
             error = "Device is nullptr!";
             return false;
         }
@@ -1938,13 +1975,14 @@ failure:
             error = "RenderPass is not initialized!";
             return false;
         }
+#endif
+        data.device = device;
         data.debugMarker = std::move(debugMarker);
         bool depth = false, color = false;
-        bool sameSwapchain = true;
         for (auto& attachment : renderPass->data.attachments) {
+#ifndef VK_SANITY_CHECKS_MINIMAL
             if (attachment.swapchain.Valid() && swapchain.Valid()) {
                 if (attachment.swapchain != swapchain) {
-                    sameSwapchain = false;
                     if (attachment.swapchain->data.surfaceFormat.format != swapchain->data.surfaceFormat.format) {
                         error = "Framebuffer swapchain differing from RenderPass swapchain: Surface formats do not match!";
                         return false;
@@ -1955,6 +1993,7 @@ failure:
                 error = "RenderPass is connected to a swapchain, but this Framebuffer is not!";
                 return false;
             }
+#endif
             if (attachment.bufferDepthStencil) {
                 depth = true;
             }
@@ -1964,10 +2003,6 @@ failure:
                     color = true;
                 }
             }
-        }
-        if (!sameSwapchain) {
-            cout << "Warning: Framebuffer is using a different swapchain than RenderPass! This may be valid for swapchains that have the same surface formats, but that is not guaranteed to be the case.";
-            return false;
         }
         if (swapchain != nullptr) {
             numFramebuffers = swapchain->data.imageCount;
@@ -1995,6 +2030,7 @@ failure:
             }
         } else {
             // Verify that we have the memory we need
+#ifndef VK_SANITY_CHECKS_MINIMAL
             bool failed = false;
             if (depth && depthMemory == nullptr) {
                 error = "Framebuffer set to use outside memory, but none is given for depth ";
@@ -2011,6 +2047,7 @@ failure:
                 error.Back() = '!';
                 return false;
             }
+#endif
         }
         if (ownImages) {
             if (width == 0 || height == 0) {
@@ -2066,6 +2103,7 @@ failure:
             }
         } else {
             // Verify the images are set up correctly
+#ifndef VK_SANITY_CHECKS_MINIMAL
             if (attachmentImages.size != numFramebuffers) {
                 error = "attachmentImages must have the size numFramebuffers.";
                 return false;
@@ -2097,6 +2135,7 @@ failure:
                     }
                 }
             }
+#endif
         }
         data.initted = true;
         return true;
@@ -2104,10 +2143,12 @@ failure:
 
     bool Framebuffer::Create() {
         PrintDashed("Creating Framebuffer");
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.created) {
             error = "Framebuffer already exists!";
             return false;
         }
+#endif
         if (ownMemory) {
             if (depthMemory != nullptr) {
                 if (data.debugMarker.size == 0) {
@@ -2190,10 +2231,12 @@ failure:
 
     bool Framebuffer::Deinit() {
         PrintDashed("De-Initializing Framebuffer");
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             error = "Framebuffer has not been initialized!";
             return false;
         }
+#endif
         if (ownMemory) {
             if (depthMemory != nullptr) {
                 if (!depthMemory->Deinit()) {
@@ -2214,14 +2257,17 @@ failure:
     }
 
     bool Shader::Init(Device *device, String debugMarker) {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             error = "Shader is already initialized!";
             return false;
         }
-        if ((data.device = device) == nullptr) {
+        if (device == nullptr) {
             error = "Device is nullptr!";
             return false;
         }
+#endif
+        data.device = device;
         data.debugMarker = std::move(debugMarker);
         // Load in the code
         std::ifstream file(filename.data, std::ios::ate | std::ios::binary);
@@ -2338,13 +2384,14 @@ failure:
         }
     }
 
-    bool Pipeline::Init(Device *dev, String debugMarker) {
+    bool Pipeline::Init(Device *device, String debugMarker) {
         PrintDashed("Initializing Pipeline");
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             error = "Pipeline is already initialized!";
             return false;
         }
-        if ((data.device = dev) == nullptr) {
+        if (device == nullptr) {
             error = "Device is nullptr!";
             return false;
         }
@@ -2364,6 +2411,8 @@ failure:
             error = "You must have one colorBlendAttachment per color attachment in the associated Subpass!\nThe subpass has " + ToString(renderPass->data.subpasses[subpass].referencesColor.size) + " color attachments while the pipeline has " + ToString(colorBlendAttachments.size) + " colorBlendAttachments.";
             return false;
         }
+#endif
+        data.device = device;
         data.debugMarker = std::move(debugMarker);
         // Inherit multisampling information from renderPass
         for (auto& attachment : renderPass->data.subpasses[subpass].attachments) {
@@ -2437,10 +2486,12 @@ failure:
         // Pipeline layout
         Array<VkDescriptorSetLayout> descriptorSetLayouts(descriptorLayouts.size);
         for (i32 i = 0; i < descriptorLayouts.size; i++) {
+#ifndef VK_SANITY_CHECKS_MINIMAL
             if (!descriptorLayouts[i]->data.exists) {
                 error = "descriptorLayouts[" + ToString(i) + "] doesn't exist!";
                 return false;
             }
+#endif
             descriptorSetLayouts[i] = descriptorLayouts[i]->data.layout;
         }
         // TODO: Separate out pipeline layouts
@@ -2510,10 +2561,12 @@ failure:
 
     bool Pipeline::Deinit() {
         PrintDashed("Destroying Pipeline");
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             error = "Pipeline is not initted!";
             return false;
         }
+#endif
         vkDestroyPipeline(data.device->data.device, data.pipeline, nullptr);
         vkDestroyPipelineLayout(data.device->data.device, data.layout, nullptr);
         data.initted = false;
@@ -2521,6 +2574,7 @@ failure:
     }
 
     VkCommandBuffer CommandBuffer::Begin() {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.commandBuffer == VK_NULL_HANDLE) {
             error = "CommandBuffer doesn't exist!";
             return VK_NULL_HANDLE;
@@ -2529,6 +2583,7 @@ failure:
             error = "Cannot begin a CommandBuffer that's already recording!";
             return VK_NULL_HANDLE;
         }
+#endif
         VkCommandBufferBeginInfo beginInfo = {};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -2536,18 +2591,22 @@ failure:
             VkCommandBufferInheritanceInfo inheritanceInfo = {};
             inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
             if (renderPass != nullptr) {
+#ifndef VK_SANITY_CHECKS_MINIMAL
                 if (!renderPass->data.initted) {
                     error = "Associated RenderPass is not initialized!";
                     return VK_NULL_HANDLE;
                 }
+#endif
                 inheritanceInfo.renderPass = renderPass->data.renderPass;
                 inheritanceInfo.subpass = subpass;
             }
             if (framebuffer != nullptr) {
+#ifndef VK_SANITY_CHECKS_MINIMAL
                 if (!framebuffer->data.initted) {
                     error = "Associated Framebuffer is not initialized!";
                     return VK_NULL_HANDLE;
                 }
+#endif
                 inheritanceInfo.framebuffer = framebuffer->data.framebuffers[framebuffer->data.currentFramebuffer];
             }
             if (occlusionQueryEnable) {
@@ -2582,10 +2641,12 @@ failure:
     }
 
     bool CommandBuffer::End() {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.recording) {
             error = "Can't end a CommandBuffer that's not recording!";
             return false;
         }
+#endif
 
         VkResult result = vkEndCommandBuffer(data.commandBuffer);
 
@@ -2598,6 +2659,7 @@ failure:
     }
 
     bool CommandBuffer::Reset() {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.pool->resettable) {
             error = "This CommandBuffer was not allocated from a CommandPool that's resettable!";
             return false;
@@ -2606,6 +2668,7 @@ failure:
             error = "Can't reset a CommandBuffer while recording!";
             return false;
         }
+#endif
         VkCommandBufferResetFlags resetFlags = {};
         if (releaseResourcesOnReset) {
             resetFlags = VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT;
@@ -2631,10 +2694,12 @@ failure:
     }
 
     Ptr<CommandBuffer> CommandPool::CreateDynamicBuffer(bool secondary) {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             error = "Command Pool is not initialized!";
             return nullptr;
         }
+#endif
         data.dynamicBuffers.Append(CommandBuffer());
         CommandBuffer *buffer = &data.dynamicBuffers[data.dynamicBuffers.size-1];
         buffer->secondary = secondary;
@@ -2656,9 +2721,11 @@ failure:
     }
 
     void CommandPool::DestroyDynamicBuffer(CommandBuffer *buffer) {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             return;
         }
+#endif
         vkFreeCommandBuffers(data.device->data.device, data.commandPool, 1, &buffer->data.commandBuffer);
         i32 i = 0;
         for (CommandBuffer& b : data.dynamicBuffers) {
@@ -2673,13 +2740,14 @@ failure:
         data.dynamicBuffers.Erase(i);
     }
 
-    bool CommandPool::Init(Device *dev, String debugMarker) {
+    bool CommandPool::Init(Device *device, String debugMarker) {
         PrintDashed("Initializing Command Pool");
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             error = "CommandPool is already initialized!";
             return false;
         }
-        if ((data.device = dev) == nullptr) {
+        if (device == nullptr) {
             error = "Device is nullptr!";
             return false;
         }
@@ -2687,6 +2755,8 @@ failure:
             error = "You must specify a queue to create a CommandPool!";
             return false;
         }
+#endif
+        data.device = device;
         data.debugMarker = std::move(debugMarker);
         VkCommandPoolCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -2789,6 +2859,7 @@ failure:
     }
 
     VkResult Swapchain::AcquireNextImage() {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             error = "Swapchain is not initialized!";
             return VK_ERROR_INITIALIZATION_FAILED;
@@ -2797,6 +2868,7 @@ failure:
             error = "Swapchain does not exist!";
             return VK_ERROR_OUT_OF_DATE_KHR;
         }
+#endif
         data.buffer = !data.buffer;
         VkResult result = vkAcquireNextImageKHR(data.device->data.device, data.swapchain, timeout,
                                             data.semaphores[data.buffer]->semaphore, VK_NULL_HANDLE, &data.currentImage);
@@ -2873,13 +2945,14 @@ failure:
         }
     }
 
-    bool Swapchain::Init(Device *dev, String debugMarker) {
+    bool Swapchain::Init(Device *device, String debugMarker) {
         PrintDashed("Initializing Swapchain");
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             error = "Swapchain is already initialized!";
             return false;
         }
-        if ((data.device = dev) == nullptr) {
+        if (device == nullptr) {
             error = "Device is nullptr!";
             return false;
         }
@@ -2887,6 +2960,8 @@ failure:
             error = "Cannot create a swapchain without a window surface!";
             return false;
         }
+#endif
+        data.device = device;
         if (!data.semaphores[0].Valid()) {
             data.semaphores[0] = data.device->AddSemaphore();
         }
@@ -3062,8 +3137,7 @@ failure:
         VkSwapchainKHR newSwapchain;
         VkResult result = vkCreateSwapchainKHR(data.device->data.device, &createInfo, nullptr, &newSwapchain);
         if (result != VK_SUCCESS) {
-            error = "Failed to create swap chain: ";
-            error += ErrorString(result);
+            error = "Failed to create swap chain: " + ErrorString(result);
             return false;
         }
         if (data.created) {
@@ -3131,10 +3205,12 @@ failure:
 
     bool Swapchain::Deinit() {
         PrintDashed("Destroying Swapchain");
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             error = "Swapchain isn't initialized!";
             return false;
         }
+#endif
         for (u32 i = 0; i < data.imageCount; i++) {
             data.images[i].Clean();
         }
@@ -3145,10 +3221,12 @@ failure:
     }
 
     bool QueueSubmission::Config() {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (commandBuffers.size == 0) {
             error = "You can't submit 0 command buffers!";
             return false;
         }
+#endif
         data.commandBuffers.Resize(commandBuffers.size);
         for (i32 i = 0; i < commandBuffers.size; i++) {
             data.commandBuffers[i] = commandBuffers[i]->data.commandBuffer;
@@ -3255,6 +3333,7 @@ failure:
     }
 
     bool Device::SubmitCommandBuffers(Ptr<Queue> queue, Array<Ptr<QueueSubmission>> submissions) {
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             error = "Device not initialized!";
             return false;
@@ -3267,6 +3346,7 @@ failure:
             error = "submissions is an empty array!";
             return false;
         }
+#endif
         Array<VkSubmitInfo> submitInfos(submissions.size);
         for (i32 i = 0; i < submitInfos.size; i++) {
             submitInfos[i] = submissions[i]->data.submitInfo;
@@ -3280,16 +3360,19 @@ failure:
         return true;
     }
 
-    bool Device::Init(Instance *inst, String debugMarker) {
+    bool Device::Init(Instance *instance, String debugMarker) {
         PrintDashed("Initializing Logical Device");
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             error = "Device is already initialized!";
             return false;
         }
-        if ((data.instance = inst) == nullptr) {
+        if (instance == nullptr) {
             error = "Instance is nullptr!";
             return false;
         }
+#endif
+        data.instance = instance;
         data.debugMarker = std::move(debugMarker);
 
         // Select physical device first based on needs.
@@ -3740,10 +3823,12 @@ failed:
 
     bool Device::Deinit() {
         PrintDashed("Destroying Logical Device");
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             error = "Device isn't initialized!";
             return false;
         }
+#endif
         for (auto& swapchain : data.swapchains) {
             if (swapchain.data.initted) {
                 swapchain.Deinit();
@@ -3814,12 +3899,14 @@ failed:
     void Instance::AppInfo(const char *name, u32 versionMajor, u32 versionMinor, u32 versionPatch) {
         data.appInfo.pApplicationName = name;
         data.appInfo.applicationVersion = VK_MAKE_VERSION(versionMajor, versionMinor, versionPatch);
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             // Should we bother? It only really makes sense to call this at the beginning
             // and it won't change anything about the renderer itself...
             // Oh well, let's fire a warning.
             cout << "Warning: vk::Instance::AppInfo should be used before initializing." << std::endl;
         }
+#endif
     }
 
     Ptr<Window> Instance::AddWindowForSurface(io::Window *window) {
@@ -3864,10 +3951,12 @@ failed:
 
     bool Instance::Init() {
         PrintDashed("Initializing Vulkan Tree");
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             error = "Tree is already initialized!";
             return false;
         }
+#endif
         // Put together all needed extensions.
         Array<const char*> extensionsAll(data.extensionsRequired);
         if (data.enableLayers) {
@@ -4054,10 +4143,12 @@ failed:
 
     bool Instance::Deinit() {
         PrintDashed("Destroying Vulkan Tree");
+#ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             error = "Tree isn't initialized!";
             return false;
         }
+#endif
         for (i32 i = 0; i < data.devices.size; i++) {
             data.devices[i].Deinit();
         }

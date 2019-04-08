@@ -105,7 +105,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     Ptr<vk::Attachment> attachment = vkRenderPass->AddAttachment(vkSwapchain);
     attachment->clearColor = true;
     attachment->clearColorValue = {0.0, 0.05, 0.1, 1.0};
-    attachment->sampleCount = VK_SAMPLE_COUNT_4_BIT;
+    // attachment->sampleCount = VK_SAMPLE_COUNT_4_BIT;
     attachment->resolveColor = true;
 
     Ptr<vk::Subpass> subpass = vkRenderPass->AddSubpass();
@@ -156,6 +156,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     Ptr<vk::Sampler> vkSampler = vkDevice->AddSampler();
     vkSampler->maxLod = vkTextureImage->mipLevels;
     vkSampler->anisotropy = 16;
+    vkSampler->mipLodBias = -0.5;
 
     Ptr<vk::Descriptors> vkDescriptors = vkDevice->AddDescriptors();
     Ptr<vk::DescriptorLayout> vkDescriptorLayoutTexture = vkDescriptors->AddLayout();

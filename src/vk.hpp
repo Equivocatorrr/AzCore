@@ -163,8 +163,8 @@ namespace vk {
 
         Ptr<Image> AddImage(Image image=Image());
         Ptr<Buffer> AddBuffer(Buffer buffer=Buffer());
-        ArrayRange<Image> AddImages(u32 count, Image image=Image());
-        ArrayRange<Buffer> AddBuffers(u32 count, Buffer buffer=Buffer());
+        Range<Image> AddImages(u32 count, Image image=Image());
+        Range<Buffer> AddBuffers(u32 count, Buffer buffer=Buffer());
 
         // Behind the scenes
         bool Init(Device *device, String debugMarker = String(false));
@@ -217,11 +217,11 @@ namespace vk {
     };
 
     struct BufferDescriptor {
-        ArrayRange<Buffer> buffers;
+        Range<Buffer> buffers;
     };
 
     struct ImageDescriptor {
-        ArrayRange<Image> images;
+        Range<Image> images;
         Ptr<Sampler> sampler;
     };
 
@@ -263,8 +263,8 @@ namespace vk {
             Array<ImageDescriptor> imageDescriptors{};
         } data;
 
-        bool AddDescriptor(ArrayRange<Buffer> buffers, i32 binding);
-        bool AddDescriptor(ArrayRange<Image> images, Ptr<Sampler> sampler, i32 binding);
+        bool AddDescriptor(Range<Buffer> buffers, i32 binding);
+        bool AddDescriptor(Range<Image> images, Ptr<Sampler> sampler, i32 binding);
         bool AddDescriptor(Ptr<Buffer> buffer, i32 binding);
         bool AddDescriptor(Ptr<Image> image, Ptr<Sampler> sampler, i32 binding);
     };
@@ -766,7 +766,7 @@ namespace vk {
         Ptr<Memory> AddMemory();
         Ptr<Descriptors> AddDescriptors();
         Ptr<Shader> AddShader();
-        ArrayRange<Shader> AddShaders(u32 count);
+        Range<Shader> AddShaders(u32 count);
         Ptr<Pipeline> AddPipeline();
         Ptr<CommandPool> AddCommandPool(Ptr<Queue> queue);
         Ptr<Framebuffer> AddFramebuffer();
@@ -788,13 +788,6 @@ namespace vk {
         Used as a top-level control of the Vulkan Tree.  */
     struct Instance {
         struct {
-            // PFN_vkCreateDebugReportCallbackEXT
-            //     fpCreateDebugReportCallbackEXT;
-            // PFN_vkDestroyDebugReportCallbackEXT
-            //     fpDestroyDebugReportCallbackEXT;
-            // PFN_vkDebugMarkerSetObjectNameEXT
-            //     fpDebugMarkerSetObjectNameEXT;
-            // VkDebugReportCallbackEXT debugReportCallback;
             PFN_vkSetDebugUtilsObjectNameEXT
                 fpSetDebugUtilsObjectNameEXT;
             PFN_vkCreateDebugUtilsMessengerEXT

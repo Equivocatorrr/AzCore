@@ -710,12 +710,12 @@ namespace vk {
         return data.buffers.GetPtr(data.buffers.size-1);
     }
 
-    ArrayRange<Image> Memory::AddImages(u32 count, Image image) {
+    Range<Image> Memory::AddImages(u32 count, Image image) {
         data.images.Resize(data.images.size+count, image);
         return data.images.GetRange(data.images.size-count, count);
     }
 
-    ArrayRange<Buffer> Memory::AddBuffers(u32 count, Buffer buffer) {
+    Range<Buffer> Memory::AddBuffers(u32 count, Buffer buffer) {
         data.buffers.Resize(data.buffers.size+count, buffer);
         return data.buffers.GetRange(data.buffers.size-count, count);
     }
@@ -1146,7 +1146,7 @@ failure:
         }
     }
 
-    bool DescriptorSet::AddDescriptor(ArrayRange<Buffer> buffers, i32 binding) {
+    bool DescriptorSet::AddDescriptor(Range<Buffer> buffers, i32 binding) {
         // TODO: Support other types of descriptors
         if (data.layout->type != VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
             error = "AddDescriptor failed because layout type is not for uniform buffers!";
@@ -1169,7 +1169,7 @@ failure:
         return true;
     }
 
-    bool DescriptorSet::AddDescriptor(ArrayRange<Image> images, Ptr<Sampler> sampler, i32 binding) {
+    bool DescriptorSet::AddDescriptor(Range<Image> images, Ptr<Sampler> sampler, i32 binding) {
         // TODO: Support other types of descriptors
         if (data.layout->type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
             error = "AddDescriptor failed because layout type is not for combined image samplers!";
@@ -1193,11 +1193,11 @@ failure:
     }
 
     bool DescriptorSet::AddDescriptor(Ptr<Buffer> buffer, i32 binding) {
-        return AddDescriptor(ArrayRange<Buffer>((Array<Buffer>*)buffer.ptr, buffer.index, 1), binding);
+        return AddDescriptor(Range<Buffer>((Array<Buffer>*)buffer.ptr, buffer.index, 1), binding);
     }
 
     bool DescriptorSet::AddDescriptor(Ptr<Image> image, Ptr<Sampler> sampler, i32 binding) {
-        return AddDescriptor(ArrayRange<Image>((Array<Image>*)image.ptr, image.index, 1), sampler, binding);
+        return AddDescriptor(Range<Image>((Array<Image>*)image.ptr, image.index, 1), sampler, binding);
     }
 
     Descriptors::~Descriptors() {
@@ -3224,9 +3224,9 @@ failure:
         return Ptr<Shader>(&data.shaders, data.shaders.size-1);
     }
 
-    ArrayRange<Shader> Device::AddShaders(u32 count) {
+    Range<Shader> Device::AddShaders(u32 count) {
         data.shaders.Resize(data.shaders.size+count);
-        return ArrayRange<Shader>(&data.shaders, data.shaders.size-count, count);
+        return Range<Shader>(&data.shaders, data.shaders.size-count, count);
     }
 
     Ptr<Pipeline> Device::AddPipeline() {
@@ -3948,40 +3948,6 @@ failed:
             return false;
         }
         if (data.enableLayers) {
-            // // Use our debug report extension
-            // data.fpCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)
-            //         vkGetInstanceProcAddr(data.instance, "vkCreateDebugReportCallbackEXT");
-            // if (data.fpCreateDebugReportCallbackEXT == nullptr) {
-            //     error = "vkGetInstanceProcAddr failed to get vkCreateDebugReportCallbackEXT";
-            //     vkDestroyInstance(data.instance, &data.allocationCallbacks);
-            //     return false;
-            // }
-            // data.fpDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)
-            //         vkGetInstanceProcAddr(data.instance, "vkDestroyDebugReportCallbackEXT");
-            // if (data.fpDestroyDebugReportCallbackEXT == nullptr) {
-            //     error = "vkGetInstanceProcAddr failed to get vkDestroyDebugReportCallbackEXT";
-            //     vkDestroyInstance(data.instance, &data.allocationCallbacks);
-            //     return false;
-            // }
-            // data.fpDebugMarkerSetObjectNameEXT = (PFN_vkDebugMarkerSetObjectNameEXT)
-            //         vkGetInstanceProcAddr(data.instance, "vkDebugMarkerSetObjectNameEXT");
-            // if (data.fpDebugMarkerSetObjectNameEXT == nullptr) {
-            //     error = "vkGetInstanceProcAddr failed to get vkDebugMarkerSetObjectNameEXT";
-            //     vkDestroyInstance(data.instance, &data.allocationCallbacks);
-            //     return false;
-            // }
-            // VkDebugReportCallbackCreateInfoEXT debugInfo = {};
-            // debugInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
-            // debugInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
-            // debugInfo.pfnCallback = debugCallback;
-            // debugInfo.pUserData = this;
-            //
-            // result = data.fpCreateDebugReportCallbackEXT(data.instance, &debugInfo, &data.allocationCallbacks, &data.debugReportCallback);
-            // if (result != VK_SUCCESS) {
-            //     error = "fpCreateDebugReportCallbackEXT failed with error: " + ErrorString(result);
-            //     vkDestroyInstance(data.instance, &data.allocationCallbacks);
-            //     return false;
-            // }
             data.fpCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)
                     vkGetInstanceProcAddr(data.instance, "vkCreateDebugUtilsMessengerEXT");
             if (data.fpCreateDebugUtilsMessengerEXT == nullptr) {
@@ -4110,7 +4076,7 @@ failed:
         if (data.totalHeapMemory != 0) {
             cout << "Some memory (" << FormatSize(data.totalHeapMemory) << ") was not freed by the Vulkan driver!\nallocations.size = " << data.allocations.size << std::endl;
             for (auto& i : data.allocations) {
-                cout << "\tAllocation at address: " << i.ptr << " with size " << i.size << " freed." << std::endl;
+                cout << "\tAllocation at address: " << i.ptr << " with size " << i.size << " freed by Instance." << std::endl;
                 free(i.ptr);
             }
             data.allocations.Resize(0);

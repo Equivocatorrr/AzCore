@@ -57,6 +57,8 @@ i32 StringLength(const T* string) {
 }
 
 template<typename T, i32 allocTail=0> struct Array;
+template<typename T> struct ListIndex;
+template<typename T> struct List;
 
 /*  struct: Ptr
     Author: Philip Haynes
@@ -121,36 +123,89 @@ struct Ptr {
     }
 };
 
-/*  struct: ArrayRange
+/*  struct: Range
     Author: Philip Haynes
-    Using an index and count, points to a range of values from an Array.        */
+    Using an index and count, points to a range of values from an Array or a List.        */
 template<typename T>
-struct ArrayRange {
-    Array<T> *array = nullptr;
+struct Range {
+    void *ptr = nullptr;
     i32 index = 0;
     i32 size = 0;
-    ArrayRange() {}
-    ArrayRange(Array<T> *a, i32 i, i32 s) {
-        array = a;
+    Range() {}
+    Range(Array<T> *a, i32 i, i32 s) {
+        ptr = a;
         index = i;
+        size = s;
+    }
+    Range(List<T> *a, i32 i, i32 s) {
+        ListIndex<T> *it = a->first;
+        for (index = 0; index < i; index++) {
+            it = it->next;
+        }
+        ptr = it;
+        index = -1;
         size = s;
     }
     void Set(Array<T> *a, i32 i, i32 s) {
-        array = &a;
+        ptr = a;
         index = i;
         size = s;
     }
+    void Set(List<T> *a, i32 i, i32 s) {
+        ListIndex<T> *it = a->first;
+        for (index = 0; index < i; index++) {
+            it = it->next;
+        }
+        ptr = it;
+        index = -1;
+        size = s;
+    }
     Ptr<T> ToPtr(const i32& i) {
-        return Ptr<T>(array, index+i);
+        if (i >= size) {
+            throw std::out_of_range("Range index is out of bounds");
+        }
+        if (index >= 0) {
+            return Ptr<T>((Array<T>*)ptr, index+i);
+        } else {
+            ListIndex<T> *it = (ListIndex<T>*)ptr;
+            for (index = 0; index < i; index++) {
+                it = it->next;
+            }
+            index = -1;
+            return Ptr<T>(&it->value);
+        }
+    }
+    bool Valid() const {
+        return ptr != nullptr;
     }
     T& operator[](const i32& i) {
         if (i >= size) {
-            throw std::out_of_range("ArrayRange index is out of bounds");
+            throw std::out_of_range("Range index is out of bounds");
         }
-        return (*array)[i+index];
+        if (index >= 0) {
+            return (*((Array<T>*)ptr))[i+index];
+        } else {
+            ListIndex<T> *it = (ListIndex<T>*)ptr;
+            for (index = 0; index < i; index++) {
+                it = it->next;
+            }
+            index = -1;
+            return it->value;
+        }
     }
     const T& operator[](const i32& i) const {
-        return (*array)[i+index];
+        if (i >= size) {
+            throw std::out_of_range("Range index is out of bounds");
+        }
+        if (index >= 0) {
+            return (*((Array<T>*)ptr))[i+index];
+        } else {
+            ListIndex<T> *it = (ListIndex<T>*)ptr;
+            for (i32 ii = 0; ii < i; ii++) {
+                it = it->next;
+            }
+            return it->value;
+        }
     }
 };
 
@@ -566,11 +621,11 @@ struct Array {
         return Ptr<T>(this, index);
     }
 
-    ArrayRange<T> GetRange(const i32& index, const i32& _size) {
+    Range<T> GetRange(const i32& index, const i32& _size) {
         if (index+_size > size) {
             throw std::out_of_range("Array::Range index + size is out of bounds");
         }
-        return ArrayRange<T>(this, index, _size);
+        return Range<T>(this, index, _size);
     }
 };
 
@@ -655,15 +710,12 @@ class List;
 template<typename T>
 class ListIterator;
 
-/*  class: ListIndex
+/*  struct: ListIndex
     Author: Philip Haynes
     A single index in a linked list     */
 template<typename T>
-class ListIndex {
-    friend class List<T>;
-    friend class ListIterator<T>;
+struct ListIndex {
     ListIndex<T> *next=nullptr;
-public:
     T value{};
 };
 

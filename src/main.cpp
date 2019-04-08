@@ -131,7 +131,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     };
     Array<u32> indices = {0, 1, 2, 2, 3, 0};
 
-    ArrayRange<vk::Buffer> vkStagingBuffers = vkBufferStagingMemory->AddBuffers(3);
+    Range<vk::Buffer> vkStagingBuffers = vkBufferStagingMemory->AddBuffers(3);
     vkStagingBuffers[0].size = vertices.size * sizeof(Vertex);
     vkStagingBuffers[1].size = indices.size * sizeof(u32);
     vkStagingBuffers[2].size = image.width * image.height * image.channels;
@@ -170,7 +170,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
         return 1;
     }
 
-    ArrayRange<vk::Shader> vkShaders = vkDevice->AddShaders(2);
+    Range<vk::Shader> vkShaders = vkDevice->AddShaders(2);
     vkShaders[0].filename = "data/shaders/test.vert.spv";
     vkShaders[1].filename = "data/shaders/test.frag.spv";
 

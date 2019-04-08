@@ -6,8 +6,8 @@
 #include "memory.hpp"
 #include "bigint.hpp"
 
-STRING_TERMINATOR(char, 0);
-STRING_TERMINATOR(wchar_t, 0);
+STRING_TERMINATOR(char, '\0');
+STRING_TERMINATOR(wchar_t, L'\0');
 
 String operator+(const char* cString, const String& string) {
     String value(string);

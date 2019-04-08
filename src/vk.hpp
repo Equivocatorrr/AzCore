@@ -74,11 +74,12 @@ namespace vk {
         How we handle device-local images       */
     struct Image {
         struct {
-            VkDevice device;
+            Device *device = nullptr;
             VkImage image;
             bool imageExists = false;
             VkImageView imageView;
             bool imageViewExists = false;
+            String debugMarker[2] = {String(false), String(false)}; // One for image, the other for imageView
             Memory *memory = nullptr;
             i32 offsetIndex;
         } data;
@@ -90,7 +91,7 @@ namespace vk {
         VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
         u32 width, height, mipLevels = 1;
 
-        void Init(VkDevice dev);
+        void Init(Device *device, String debugMarker = String(false));
         bool CreateImage(bool hostVisible=false);
         bool CreateImageView();
         // Copy to host-visible memory
@@ -108,8 +109,9 @@ namespace vk {
         What we use for device-local generic data, and to stage transfers       */
     struct Buffer {
         struct {
-            VkDevice device;
+            Device *device = nullptr;
             VkBuffer buffer;
+            String debugMarker = String(false);
             bool exists = false;
             Memory *memory = nullptr;
             i32 offsetIndex;
@@ -119,7 +121,7 @@ namespace vk {
         VkBufferUsageFlags usage;
         VkDeviceSize size;
 
-        void Init(VkDevice dev);
+        void Init(Device *dev, String debugMarker = String(false));
         bool Create();
         // Bind our buffer to a memory at memory.offsets[index]
         // void BindMemory(Memory memory, u32 index);
@@ -139,8 +141,9 @@ namespace vk {
     struct Memory {
         struct {
             PhysicalDevice *physicalDevice;
-            VkDevice device;
+            Device *device = nullptr;
             VkDeviceMemory memory;
+            String debugMarker = String(false);
             bool initted = false;
             bool allocated = false;
             bool mapped = false;
@@ -164,7 +167,7 @@ namespace vk {
         ArrayRange<Buffer> AddBuffers(u32 count, Buffer buffer=Buffer());
 
         // Behind the scenes
-        bool Init(PhysicalDevice *phy, VkDevice dev);
+        bool Init(Device *device, String debugMarker = String(false));
         bool Deinit();
         // Adds a chunk of memory for an image
         // Returns the index to the corresponding offset or -1 for failure
@@ -186,8 +189,9 @@ namespace vk {
     struct Sampler {
         struct {
             bool exists = false;
-            VkDevice device;
+            Device *device = nullptr;
             VkSampler sampler;
+            String debugMarker = String(false);
         } data;
 
         // Configuration
@@ -207,7 +211,7 @@ namespace vk {
         f32 maxLod = 0.0;
 
         ~Sampler();
-        void Init(VkDevice dev);
+        void Init(Device *device, String debugMarker = String(false));
         bool Create();
         void Clean();
     };
@@ -232,8 +236,9 @@ namespace vk {
     struct DescriptorLayout {
         struct {
             bool exists = false;
-            VkDevice device;
+            Device *device = nullptr;
             VkDescriptorSetLayout layout;
+            String debugMarker = String(false);
         } data;
         // Configuration
         VkDescriptorType type;
@@ -241,7 +246,7 @@ namespace vk {
         Array<DescriptorBinding> bindings{};
 
         ~DescriptorLayout();
-        void Init(VkDevice dev);
+        void Init(Device *device, String debugMarker = String(false));
         bool Create();
         void Clean();
     };
@@ -250,6 +255,7 @@ namespace vk {
         struct {
             bool exists = false;
             VkDescriptorSet set;
+            String debugMarker = String(false);
             Ptr<DescriptorLayout> layout;
 
             Array<DescriptorBinding> bindings{};
@@ -268,16 +274,17 @@ namespace vk {
         Defines a descriptor pool and all descriptor sets from that pool    */
     struct Descriptors {
         struct {
-            VkDevice device;
+            Device *device = nullptr;
             bool exists = false;
             VkDescriptorPool pool;
+            String debugMarker = String(false);
 
             Array<DescriptorLayout> layouts{};
             Array<DescriptorSet> sets{};
         } data;
 
         ~Descriptors();
-        void Init(VkDevice dev);
+        void Init(Device *device, String debugMarker = String(false));
         Ptr<DescriptorLayout> AddLayout();
         Ptr<DescriptorSet> AddSet(Ptr<DescriptorLayout> layout);
 
@@ -379,6 +386,7 @@ namespace vk {
             bool initted = false;
             Device *device = nullptr;
             VkRenderPass renderPass{};
+            String debugMarker = String(false);
             Array<VkAttachmentDescription> attachmentDescriptions;
             Array<VkSubpassDescription> subpassDescriptions;
             Array<VkSubpassDependency> subpassDependencies;
@@ -411,7 +419,7 @@ namespace vk {
         Ptr<Attachment> AddAttachment(Ptr<Swapchain> swapchain = nullptr);
 
         ~RenderPass();
-        bool Init(Device *dev);
+        bool Init(Device *dev, String debugMarker = String(false));
         bool Deinit();
     };
 
@@ -422,7 +430,9 @@ namespace vk {
         struct {
             bool initted = false, created = false;
             Device *device = nullptr;
+            String debugMarker = String(false);
             Array<VkFramebuffer> framebuffers{};
+            Array<String> debugMarkers{};
             u32 currentFramebuffer = 0; // This can be set manually, or inherited from a Swapchain image acquisition
         } data;
 
@@ -452,10 +462,18 @@ namespace vk {
         void RenderPassBegin(VkCommandBuffer commandBuffer, bool subpassContentsInline=true);
 
         ~Framebuffer();
-        bool Init(Device *dev);
+        bool Init(Device *dev, String debugMarker = String(false));
         bool Create();
         void Destroy();
         bool Deinit();
+    };
+
+    /*  struct: Semaphore
+        Author: Philip Haynes
+        Only really holds the semaphore and the debugMarker string.     */
+    struct Semaphore {
+        VkSemaphore semaphore = VK_NULL_HANDLE;
+        String debugMarker = String(false);
     };
 
     /*  struct: Shader
@@ -464,15 +482,16 @@ namespace vk {
     struct Shader {
         struct {
             bool initted = false;
-            VkDevice device;
+            Device *device = nullptr;
             Array<u32> code;
             VkShaderModule module;
+            String debugMarker = String(false);
         } data;
 
         // Configuration
         String filename{};
 
-        bool Init(VkDevice dev);
+        bool Init(Device *device, String debugMarker = String(false));
         void Clean();
     };
 
@@ -498,6 +517,7 @@ namespace vk {
             bool initted = false;
             VkPipelineLayout layout;
             VkPipeline pipeline;
+            String debugMarker = String(false);
             VkPipelineMultisampleStateCreateInfo multisampling{}; // Infer most from RenderPass
             VkPipelineVertexInputStateCreateInfo vertexInputInfo{}; // Infer from vertex buffer
         } data;
@@ -523,7 +543,7 @@ namespace vk {
 
         Pipeline(); // We configure some defaults
         ~Pipeline();
-        bool Init(Device *dev);
+        bool Init(Device *dev, String debugMarker = String(false));
         bool Deinit();
     };
 
@@ -542,6 +562,7 @@ namespace vk {
         What we use to submit work to the GPU       */
     struct Queue {
         VkQueue queue = VK_NULL_HANDLE;
+        String debugMarker = String(false);
         i32 queueFamilyIndex = -1;
         QueueType queueType = UNDEFINED;
         f32 queuePriority = 1.0;
@@ -559,6 +580,7 @@ namespace vk {
             CommandPool *pool = nullptr;
             Device *device = nullptr;
             VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+            String debugMarker = String(false);
         } data;
 
         // Configuration
@@ -599,6 +621,7 @@ namespace vk {
             bool initted = false;
             Device *device = nullptr;
             VkCommandPool commandPool;
+            String debugMarker = String(false);
             Array<CommandBuffer> commandBuffers{};
             List<CommandBuffer> dynamicBuffers{};
         } data;
@@ -622,7 +645,7 @@ namespace vk {
 
         CommandPool(Ptr<Queue> q=nullptr);
         ~CommandPool();
-        bool Init(Device *dev);
+        bool Init(Device *dev, String debugMarker = String(false));
         void Clean();
     };
 
@@ -635,6 +658,7 @@ namespace vk {
             bool created = false;
             Device *device = nullptr;
             VkSwapchainKHR swapchain{};
+            String debugMarker = String(false);
             VkSurfaceKHR surface{};
             Array<Image> images{};
             VkSurfaceFormatKHR surfaceFormat;
@@ -644,7 +668,7 @@ namespace vk {
             u32 currentImage = 0;
             bool buffer = true; // Which semaphore are we going to signal?
             // We need semaphores to synchronize image acquisition
-            Ptr<VkSemaphore> semaphores[2] = {{}};
+            Ptr<Semaphore> semaphores[2] = {{}};
             // Keep pointers to all the Framebuffers that use our images so we can make sure they're using the right image.
             Array<Ptr<Framebuffer>> framebuffers{};
 
@@ -663,20 +687,20 @@ namespace vk {
         u64 timeout = UINT64_MAX;
 
         VkResult AcquireNextImage();
-        Ptr<VkSemaphore> SemaphoreImageAvailable();
+        Ptr<Semaphore> SemaphoreImageAvailable();
         bool Present(Ptr<Queue> queue, Array<VkSemaphore> waitSemaphores);
 
         bool Resize();
 
         ~Swapchain();
-        bool Init(Device *dev);
+        bool Init(Device *dev, String debugMarker = String(false));
         bool Create();
         bool Reconfigure();
         bool Deinit();
     };
 
     struct SemaphoreWait {
-        Ptr<VkSemaphore> semaphore;
+        Ptr<Semaphore> semaphore;
         VkPipelineStageFlags dstStageMask;
     };
 
@@ -695,7 +719,7 @@ namespace vk {
         // Configuration
         Array<Ptr<CommandBuffer>> commandBuffers{};
         Array<SemaphoreWait> waitSemaphores{};
-        Array<Ptr<VkSemaphore>> signalSemaphores{};
+        Array<Ptr<Semaphore>> signalSemaphores{};
 
         bool Config();
     };
@@ -711,6 +735,7 @@ namespace vk {
             Instance *instance = nullptr;
             PhysicalDevice physicalDevice;
             VkDevice device;
+            String debugMarker = String(false);
 
             // Resources and structures
             List<Queue> queues{};
@@ -723,7 +748,7 @@ namespace vk {
             List<Pipeline> pipelines{};
             List<CommandPool> commandPools{};
             List<Framebuffer> framebuffers{};
-            Array<VkSemaphore> semaphores{};
+            Array<Semaphore> semaphores{};
             List<QueueSubmission> queueSubmissions{};
 
             Array<const char*> extensionsRequired{};
@@ -745,13 +770,13 @@ namespace vk {
         Ptr<Pipeline> AddPipeline();
         Ptr<CommandPool> AddCommandPool(Ptr<Queue> queue);
         Ptr<Framebuffer> AddFramebuffer();
-        Ptr<VkSemaphore> AddSemaphore();
+        Ptr<Semaphore> AddSemaphore();
         Ptr<QueueSubmission> AddQueueSubmission();
 
         // TODO: Add Fence support to this
         bool SubmitCommandBuffers(Ptr<Queue> queue, Array<Ptr<QueueSubmission>> submissions);
 
-        bool Init(Instance *inst);
+        bool Init(Instance *inst, String debugMarker=String(false));
         bool Reconfigure();
         bool Deinit();
     };
@@ -763,15 +788,24 @@ namespace vk {
         Used as a top-level control of the Vulkan Tree.  */
     struct Instance {
         struct {
-            PFN_vkCreateDebugReportCallbackEXT
-                fpCreateDebugReportCallbackEXT;
-            PFN_vkDestroyDebugReportCallbackEXT
-                fpDestroyDebugReportCallbackEXT;
+            // PFN_vkCreateDebugReportCallbackEXT
+            //     fpCreateDebugReportCallbackEXT;
+            // PFN_vkDestroyDebugReportCallbackEXT
+            //     fpDestroyDebugReportCallbackEXT;
+            // PFN_vkDebugMarkerSetObjectNameEXT
+            //     fpDebugMarkerSetObjectNameEXT;
+            // VkDebugReportCallbackEXT debugReportCallback;
+            PFN_vkSetDebugUtilsObjectNameEXT
+                fpSetDebugUtilsObjectNameEXT;
+            PFN_vkCreateDebugUtilsMessengerEXT
+                fpCreateDebugUtilsMessengerEXT;
+            PFN_vkDestroyDebugUtilsMessengerEXT
+                fpDestroyDebugUtilsMessengerEXT;
+            VkDebugUtilsMessengerEXT debugUtilsMessenger;
             bool initted = false;
             bool enableLayers = false;
             VkInstance instance;
             Array<Window> windows{};
-            VkDebugReportCallbackEXT debugReportCallback;
             VkApplicationInfo appInfo = {
                 .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
                 .pNext = nullptr,
@@ -809,6 +843,9 @@ namespace vk {
         void AddExtensions(Array<const char*> extensions);
         void AddLayers(Array<const char*> layers);
 
+        // Change this if you want to distinguish between multiple instances (Why would you tho?)
+        String debugMarker = "";
+
         Ptr<Device> AddDevice();
 
         // If the instance is active, you must call this for the changes to be effective.
@@ -819,7 +856,7 @@ namespace vk {
         bool Deinit(); // Cleans everything up
 
         // Debug
-        void PrintObjectLocation(VkDebugReportObjectTypeEXT objType, u64 obj);
+        void PrintObjectLocation(VkDebugReportObjectTypeEXT objType, u64 obj); // Deprecated
     };
 
 }

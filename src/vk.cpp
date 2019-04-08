@@ -57,6 +57,53 @@ namespace vk {
         }
     }
 
+    String ObjectTypeString(VkObjectType type) {
+        switch (type) {
+#define STR(r) case VK_OBJECT_TYPE_ ##r: return #r
+            STR(UNKNOWN);
+            STR(INSTANCE);
+            STR(PHYSICAL_DEVICE);
+            STR(DEVICE);
+            STR(QUEUE);
+            STR(SEMAPHORE);
+            STR(COMMAND_BUFFER);
+            STR(FENCE);
+            STR(DEVICE_MEMORY);
+            STR(BUFFER);
+            STR(IMAGE);
+            STR(EVENT);
+            STR(QUERY_POOL);
+            STR(BUFFER_VIEW);
+            STR(IMAGE_VIEW);
+            STR(SHADER_MODULE);
+            STR(PIPELINE_CACHE);
+            STR(PIPELINE_LAYOUT);
+            STR(RENDER_PASS);
+            STR(PIPELINE);
+            STR(DESCRIPTOR_SET_LAYOUT);
+            STR(SAMPLER);
+            STR(DESCRIPTOR_POOL);
+            STR(DESCRIPTOR_SET);
+            STR(FRAMEBUFFER);
+            STR(COMMAND_POOL);
+            STR(SAMPLER_YCBCR_CONVERSION);
+            STR(DESCRIPTOR_UPDATE_TEMPLATE);
+            STR(SURFACE_KHR);
+            STR(SWAPCHAIN_KHR);
+            STR(DISPLAY_KHR);
+            STR(DISPLAY_MODE_KHR);
+            STR(DEBUG_REPORT_CALLBACK_EXT);
+            STR(OBJECT_TABLE_NVX);
+            STR(INDIRECT_COMMANDS_LAYOUT_NVX);
+            STR(DEBUG_UTILS_MESSENGER_EXT);
+            STR(VALIDATION_CACHE_EXT);
+            STR(ACCELERATION_STRUCTURE_NV);
+#undef STR
+        default:
+            return "UNKNOWN_DEFAULT";
+        }
+    }
+
     void PrintDashed(String str) {
         i32 width = 80-(i32)str.size;
         if (width > 0) {
@@ -106,15 +153,41 @@ namespace vk {
         return str;
     }
 
-    VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags,
-        VkDebugReportObjectTypeEXT objType, long unsigned int obj, size_t location,
-        i32 code, const char* layerPrefix, const char* msg, void* userData) {
+    VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageTypes, const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void* userData) {
 
-        cout << "layer(" << layerPrefix << "):\n";
-        if (userData != nullptr) {
-            ((Instance*)userData)->PrintObjectLocation(objType, obj);
+        const VkDebugUtilsMessengerCallbackDataEXT& data = *pCallbackData;
+
+        cout.MutexLock();
+
+        PrintDashed("Validation Message Begin");
+
+        cout << "Message ID Name: \"" << data.pMessageIdName << "\"\nMessage: \"" << data.pMessage << "\n";
+
+        cout << data.queueLabelCount << " Queue Labels:\n";
+        for (u32 i = 0; i < data.queueLabelCount; i++) {
+            const VkDebugUtilsLabelEXT& label = data.pQueueLabels[i];
+            cout << "\t" << label.pLabelName << " with color {" << label.color[0] << ", " << label.color[1] << ", " << label.color[2] << ", " << label.color[3] << "}\n";
         }
-        cout << msg << "\n" << std::endl;
+        cout << data.cmdBufLabelCount << " Command Buffer Labels:\n";
+        for (u32 i = 0; i < data.cmdBufLabelCount; i++) {
+            const VkDebugUtilsLabelEXT& label = data.pCmdBufLabels[i];
+            cout << "\t" << label.pLabelName << " with color {" << label.color[0] << ", " << label.color[1] << ", " << label.color[2] << ", " << label.color[3] << "}\n";
+        }
+        cout << data.objectCount << " Objects:\n";
+        for (u32 i = 0; i < data.objectCount; i++) {
+            const VkDebugUtilsObjectNameInfoEXT& name = data.pObjects[i];
+            cout << "\tType: " << ObjectTypeString(name.objectType) << " with name: ";
+            if (name.pObjectName != nullptr) {
+                cout << name.pObjectName << "\n";
+            } else {
+                cout << "nullptr\n";
+            }
+        }
+
+        PrintDashed("Validation Message End");
+
+        cout.MutexUnlock();
+
         return VK_FALSE;
     }
 
@@ -128,20 +201,22 @@ namespace vk {
 
     void* Allocate(void *pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope) {
         Instance *instance = (Instance*)pUserData;
-        void *ptr = aligned_alloc(alignment, size);
         size_t aligned = align(size, alignment);
+        // cout << "Allocate size " << size << " with alignment " << alignment << " should be " << aligned << std::endl;
+        void *ptr = aligned_alloc(alignment, aligned);
         instance->data.allocations.Append({ptr, aligned});
         instance->data.totalHeapMemory += aligned;
         return ptr;
     }
 
     void* Reallocate(void *pUserData, void *pOriginal, size_t size, size_t alignment, VkSystemAllocationScope allocationScope) {
+        // cout << "Reallocate" << std::endl;
         if (pOriginal == nullptr) {
             return Allocate(pUserData, size, alignment, allocationScope);
         }
         Instance *instance = (Instance*)pUserData;
-        void *ptr = aligned_alloc(alignment, size);
         size_t aligned = align(size, alignment);
+        void *ptr = aligned_alloc(alignment, aligned);
         size_t originalSize = 0;
         for (auto& i : instance->data.allocations) {
             if (i.ptr == pOriginal) {
@@ -154,10 +229,12 @@ namespace vk {
         instance->data.totalHeapMemory += size;
         instance->data.totalHeapMemory -= originalSize;
         memcpy(ptr, pOriginal, min(originalSize, size));
+        free(pOriginal);
         return ptr;
     }
 
     void Free(void *pUserData, void *pMemory) {
+        // cout << "Free" << std::endl;
         if (pMemory == nullptr) {
             return;
         }
@@ -176,13 +253,13 @@ namespace vk {
         free(pMemory);
     }
 
-    void InternalAllocationNotification(void *pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope) {
-        cout << "Internal Allocation of size " << size << std::endl;
-    }
-
-    void InternalFreeNotification(void *pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope) {
-        cout << "Internal Free of size " << size << std::endl;
-    }
+    // void InternalAllocationNotification(void *pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope) {
+    //     cout << "Internal Allocation of size " << size << std::endl;
+    // }
+    //
+    // void InternalFreeNotification(void *pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope) {
+    //     cout << "Internal Free of size " << size << std::endl;
+    // }
 
     bool PhysicalDevice::Init(VkInstance instance) {
         vkGetPhysicalDeviceProperties(physicalDevice, &properties);
@@ -255,8 +332,12 @@ namespace vk {
         cout << std::endl;
     }
 
-    void Image::Init(VkDevice dev) {
-        data.device = dev;
+    void Image::Init(Device *device, String debugMarker) {
+        data.device = device;
+        if (debugMarker.size != 0) {
+            data.debugMarker[0] = debugMarker;
+            data.debugMarker[1] = std::move(debugMarker);
+        }
     }
 
     bool Image::CreateImage(bool hostVisible) {
@@ -280,11 +361,21 @@ namespace vk {
         imageInfo.samples = samples;
         imageInfo.flags = 0;
 
-        VkResult result = vkCreateImage(data.device, &imageInfo, nullptr, &data.image);
+        VkResult result = vkCreateImage(data.device->data.device, &imageInfo, nullptr, &data.image);
         if (result != VK_SUCCESS) {
             error = "Failed to create image: " + ErrorString(result);
             return false;
         }
+
+        if (data.debugMarker[0].size != 0) {
+            VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+            nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+            nameInfo.objectType = VK_OBJECT_TYPE_IMAGE;
+            nameInfo.objectHandle = (u64)data.image;
+            nameInfo.pObjectName = data.debugMarker[0].data;
+            data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
+        }
+
         data.imageExists = true;
         return true;
     }
@@ -309,11 +400,21 @@ namespace vk {
         createInfo.subresourceRange.baseArrayLayer = 0;
         createInfo.subresourceRange.layerCount = 1;
 
-        VkResult result = vkCreateImageView(data.device, &createInfo, nullptr, &data.imageView);
+        VkResult result = vkCreateImageView(data.device->data.device, &createInfo, nullptr, &data.imageView);
         if (result != VK_SUCCESS) {
             error = "Failed to create image view: " + ErrorString(result);
             return false;
         }
+
+        if (data.debugMarker[1].size != 0) {
+            VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+            nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+            nameInfo.objectType = VK_OBJECT_TYPE_IMAGE_VIEW;
+            nameInfo.objectHandle = (u64)data.imageView;
+            nameInfo.pObjectName = data.debugMarker[1].data;
+            data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
+        }
+
         data.imageViewExists = true;
         return true;
     }
@@ -497,17 +598,18 @@ namespace vk {
 
     void Image::Clean() {
         if (data.imageViewExists) {
-            vkDestroyImageView(data.device, data.imageView, nullptr);
+            vkDestroyImageView(data.device->data.device, data.imageView, nullptr);
             data.imageViewExists = false;
         }
         if (data.imageExists) {
-            vkDestroyImage(data.device, data.image, nullptr);
+            vkDestroyImage(data.device->data.device, data.image, nullptr);
             data.imageExists = false;
         }
     }
 
-    void Buffer::Init(VkDevice dev) {
-        data.device = dev;
+    void Buffer::Init(Device *device, String debugMarker) {
+        data.device = device;
+        data.debugMarker = std::move(debugMarker);
     }
 
     bool Buffer::Create() {
@@ -521,12 +623,22 @@ namespace vk {
         createInfo.usage = usage;
         createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-        VkResult result = vkCreateBuffer(data.device, &createInfo, nullptr, &data.buffer);
+        VkResult result = vkCreateBuffer(data.device->data.device, &createInfo, nullptr, &data.buffer);
 
         if (result != VK_SUCCESS) {
             error = "Failed to create buffer: " + ErrorString(result);
             return false;
         }
+
+        if (data.debugMarker.size != 0) {
+            VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+            nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+            nameInfo.objectType = VK_OBJECT_TYPE_BUFFER;
+            nameInfo.objectHandle = (u64)data.buffer;
+            nameInfo.pObjectName = data.debugMarker.data;
+            data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
+        }
+
         data.exists = true;
         return true;
     }
@@ -583,7 +695,7 @@ namespace vk {
 
     void Buffer::Clean() {
         if (data.exists) {
-            vkDestroyBuffer(data.device, data.buffer, nullptr);
+            vkDestroyBuffer(data.device->data.device, data.buffer, nullptr);
             data.exists = false;
         }
     }
@@ -608,7 +720,7 @@ namespace vk {
         return data.buffers.GetRange(data.buffers.size-count, count);
     }
 
-    bool Memory::Init(PhysicalDevice *phy, VkDevice dev) {
+    bool Memory::Init(Device *device, String debugMarker) {
         PrintDashed("Initializing Memory");
         if (data.initted) {
             error = "Memory has already been initialized!";
@@ -618,11 +730,15 @@ namespace vk {
             error = "Memory has already been allocated!";
             return false;
         }
-        if ((data.physicalDevice = phy) == nullptr) {
+        if ((data.device = device) == nullptr) {
+            error = "device is nullptr!";
+            return false;
+        }
+        if ((data.physicalDevice = &device->data.physicalDevice) == nullptr) {
             error = "physicalDevice is nullptr!";
             return false;
         }
-        data.device = dev;
+        data.debugMarker = std::move(debugMarker);
         // First we figure out how big we are by going through the images and buffers
         data.offsets.Resize(1);
         data.offsets[0] = 0;
@@ -639,7 +755,12 @@ namespace vk {
 
         for (Image& image : data.images) {
             image.data.memory = this;
-            image.Init(data.device);
+            if (data.debugMarker.size == 0) {
+                image.Init(data.device);
+            } else {
+                image.Init(data.device, data.debugMarker + ".images[" + ToString(index) + "]");
+                index++;
+            }
             if (!image.CreateImage(!deviceLocal)) {
                 goto failure;
             }
@@ -647,9 +768,15 @@ namespace vk {
                 goto failure;
             }
         }
+        index = 0;
         for (Buffer& buffer : data.buffers) {
             buffer.data.memory = this;
-            buffer.Init(data.device);
+            if (data.debugMarker.size == 0) {
+                buffer.Init(data.device);
+            } else {
+                buffer.Init(data.device, data.debugMarker + ".buffers[" + ToString(index) + "]");
+                index++;
+            }
             if (!buffer.Create()) {
                 goto failure;
             }
@@ -663,9 +790,10 @@ namespace vk {
         if (!Allocate()) {
             goto failure;
         }
+        index = 0;
         // Now bind our images and buffers to the memory
         for (Image& image : data.images) {
-            result = vkBindImageMemory(data.device, image.data.image, data.memory, data.offsets[index++]);
+            result = vkBindImageMemory(data.device->data.device, image.data.image, data.memory, data.offsets[index++]);
             if (result != VK_SUCCESS) {
                 error = "Failed to bind image to memory: " + ErrorString(result);
                 goto failure;
@@ -675,7 +803,7 @@ namespace vk {
             }
         }
         for (Buffer& buffer : data.buffers) {
-            result = vkBindBufferMemory(data.device, buffer.data.buffer, data.memory, data.offsets[index++]);
+            result = vkBindBufferMemory(data.device->data.device, buffer.data.buffer, data.memory, data.offsets[index++]);
             if (result != VK_SUCCESS) {
                 error = "Failed to bind buffer to memory: " + ErrorString(result);
                 goto failure;
@@ -691,7 +819,7 @@ failure:
             buffer.Clean();
         }
         if (data.allocated) {
-            vkFreeMemory(data.device, data.memory, nullptr);
+            vkFreeMemory(data.device->data.device, data.memory, nullptr);
             data.allocated = false;
         }
         return false;
@@ -711,7 +839,7 @@ failure:
         }
         data.initted = false;
         if (data.allocated)
-            vkFreeMemory(data.device, data.memory, nullptr);
+            vkFreeMemory(data.device->data.device, data.memory, nullptr);
         data.allocated = false;
         return true;
     }
@@ -719,7 +847,7 @@ failure:
     i32 Memory::GetImageChunk(Image image, bool noChange) {
         i32 index = data.offsets.size-1;
         VkMemoryRequirements memReqs;
-        vkGetImageMemoryRequirements(data.device, image.data.image, &memReqs);
+        vkGetImageMemoryRequirements(data.device->data.device, image.data.image, &memReqs);
         if (noChange && data.memoryTypeBits != memReqs.memoryTypeBits) {
             error = "An image is incompatible with the memory previously alotted!";
             return -1;
@@ -740,7 +868,7 @@ failure:
     i32 Memory::GetBufferChunk(Buffer buffer, bool noChange) {
         i32 index = data.offsets.size-1;
         VkMemoryRequirements memReqs;
-        vkGetBufferMemoryRequirements(data.device, buffer.data.buffer, &memReqs);
+        vkGetBufferMemoryRequirements(data.device->data.device, buffer.data.buffer, &memReqs);
         if (noChange && data.memoryTypeBits != memReqs.memoryTypeBits) {
             error = "A buffer is incompatible with the memory previously alotted!";
             return -1;
@@ -794,7 +922,7 @@ failure:
         }
         allocInfo.memoryTypeIndex = (u32)mti;
 
-        VkResult result = vkAllocateMemory(data.device, &allocInfo, nullptr, &data.memory);
+        VkResult result = vkAllocateMemory(data.device->data.device, &allocInfo, nullptr, &data.memory);
         if (result != VK_SUCCESS) {
             error = "Failed to allocate memory: " + ErrorString(result);
             return false;
@@ -824,9 +952,9 @@ failure:
 			cout << "Warning: Memory::CopyData offset index is out of bounds! Skipping copy." << std::endl;
 		}
 		void* dst;
-		vkMapMemory(data.device, data.memory, data.offsets[index], size, 0, &dst);
+		vkMapMemory(data.device->data.device, data.memory, data.offsets[index], size, 0, &dst);
 			memcpy(dst, src, (size_t)size);
-		vkUnmapMemory(data.device, data.memory);
+		vkUnmapMemory(data.device->data.device, data.memory);
 	}
 
     void Memory::CopyData2D(void *src, Ptr<Image> image, i32 index, u32 bytesPerPixel) {
@@ -863,12 +991,12 @@ failure:
 		subresource.arrayLayer = 0;
 
 		VkSubresourceLayout stagingImageLayout;
-		vkGetImageSubresourceLayout(data.device, image->data.image, &subresource, &stagingImageLayout);
+		vkGetImageSubresourceLayout(data.device->data.device, image->data.image, &subresource, &stagingImageLayout);
 
 		size_t size = data.offsets[index+1] - data.offsets[index];
 
 		void* dst;
-		vkMapMemory(data.device, data.memory, data.offsets[index], size, 0, &dst);
+		vkMapMemory(data.device->data.device, data.memory, data.offsets[index], size, 0, &dst);
 
 		if (stagingImageLayout.rowPitch == image->width * bytesPerPixel) {
 			memcpy(dst, src, image->width * image->height * bytesPerPixel);
@@ -881,19 +1009,19 @@ failure:
 						image->width * bytesPerPixel );
 			}
 		}
-		vkUnmapMemory(data.device, data.memory);
+		vkUnmapMemory(data.device->data.device, data.memory);
 	}
 
     void* Memory::MapMemory(VkDeviceSize size, i32 index) {
 		void *ptr;
-		vkMapMemory(data.device, data.memory, data.offsets[index], size, 0, &ptr);
+		vkMapMemory(data.device->data.device, data.memory, data.offsets[index], size, 0, &ptr);
 		data.mapped = true;
 		return ptr;
 	}
 
 	void Memory::UnmapMemory() {
 		if (data.mapped)
-			vkUnmapMemory(data.device, data.memory);
+			vkUnmapMemory(data.device->data.device, data.memory);
 		data.mapped = false;
 	}
 
@@ -901,8 +1029,9 @@ failure:
         Clean();
     }
 
-    void Sampler::Init(VkDevice dev) {
-        data.device = dev;
+    void Sampler::Init(Device *device, String debugMarker) {
+        data.device = device;
+        data.debugMarker = std::move(debugMarker);
     }
 
     bool Sampler::Create() {
@@ -936,19 +1065,29 @@ failure:
         createInfo.minLod = minLod;
         createInfo.maxLod = maxLod;
 
-        VkResult result = vkCreateSampler(data.device, &createInfo, nullptr, &data.sampler);
+        VkResult result = vkCreateSampler(data.device->data.device, &createInfo, nullptr, &data.sampler);
 
         if (result != VK_SUCCESS) {
             error = "Failed to create sampler: " + ErrorString(result);
             return false;
         }
+
+        if (data.debugMarker.size != 0) {
+            VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+            nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+            nameInfo.objectType = VK_OBJECT_TYPE_SAMPLER;
+            nameInfo.objectHandle = (u64)data.sampler;
+            nameInfo.pObjectName = data.debugMarker.data;
+            data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
+        }
+
         data.exists = true;
         return true;
     }
 
     void Sampler::Clean() {
         if (data.exists) {
-            vkDestroySampler(data.device, data.sampler, nullptr);
+            vkDestroySampler(data.device->data.device, data.sampler, nullptr);
             data.exists = false;
         }
     }
@@ -957,8 +1096,9 @@ failure:
         Clean();
     }
 
-    void DescriptorLayout::Init(VkDevice dev) {
-        data.device = dev;
+    void DescriptorLayout::Init(Device *device, String debugMarker) {
+        data.device = device;
+        data.debugMarker = std::move(debugMarker);
     }
 
     bool DescriptorLayout::Create() {
@@ -979,19 +1119,29 @@ failure:
         createInfo.bindingCount = bindingInfo.size;
         createInfo.pBindings = bindingInfo.data;
 
-        VkResult result = vkCreateDescriptorSetLayout(data.device, &createInfo, nullptr, &data.layout);
+        VkResult result = vkCreateDescriptorSetLayout(data.device->data.device, &createInfo, nullptr, &data.layout);
 
         if (result != VK_SUCCESS) {
             error = "Failed to create Descriptor Set Layout: " + ErrorString(result);
             return false;
         }
+
+        if (data.debugMarker.size != 0) {
+            VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+            nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+            nameInfo.objectType = VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT;
+            nameInfo.objectHandle = (u64)data.layout;
+            nameInfo.pObjectName = data.debugMarker.data;
+            data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
+        }
+
         data.exists = true;
         return true;
     }
 
     void DescriptorLayout::Clean() {
         if (data.exists) {
-            vkDestroyDescriptorSetLayout(data.device, data.layout, nullptr);
+            vkDestroyDescriptorSetLayout(data.device->data.device, data.layout, nullptr);
             data.exists = false;
         }
     }
@@ -1054,8 +1204,9 @@ failure:
         Clean();
     }
 
-    void Descriptors::Init(VkDevice dev) {
-        data.device = dev;
+    void Descriptors::Init(Device *device, String debugMarker) {
+        data.device = device;
+        data.debugMarker = std::move(debugMarker);
     }
 
     Ptr<DescriptorLayout> Descriptors::AddLayout() {
@@ -1097,12 +1248,22 @@ failure:
         createInfo.pPoolSizes = poolSizes.data;
         createInfo.maxSets = data.sets.size;
 
-        VkResult result = vkCreateDescriptorPool(data.device, &createInfo, nullptr, &data.pool);
+        VkResult result = vkCreateDescriptorPool(data.device->data.device, &createInfo, nullptr, &data.pool);
 
         if (result != VK_SUCCESS) {
             error = "Failed to create Descriptor Pool: " + ErrorString(result);
             return false;
         }
+
+        if (data.debugMarker.size != 0) {
+            VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+            nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+            nameInfo.objectType = VK_OBJECT_TYPE_DESCRIPTOR_POOL;
+            nameInfo.objectHandle = (u64)data.pool;
+            nameInfo.pObjectName = data.debugMarker.data;
+            data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
+        }
+
         data.exists = true;
         cout << "Allocating " << data.sets.size << " Descriptor Sets." << std::endl;
         Array<VkDescriptorSetLayout> setLayouts(data.sets.size);
@@ -1117,7 +1278,7 @@ failure:
 
         Array<VkDescriptorSet> setsTemp(data.sets.size);
 
-        result = vkAllocateDescriptorSets(data.device, &allocInfo, setsTemp.data);
+        result = vkAllocateDescriptorSets(data.device->data.device, &allocInfo, setsTemp.data);
         if (result != VK_SUCCESS) {
             error = "Failed to allocate Descriptor Sets: " + ErrorString(result);
             Clean();
@@ -1126,6 +1287,17 @@ failure:
         for (i32 i = 0; i < data.sets.size; i++) {
             data.sets[i].data.set = setsTemp[i];
             data.sets[i].data.exists = true;
+
+            if (data.debugMarker.size != 0) {
+                data.sets[i].data.debugMarker = data.debugMarker + ".sets[" + ToString(i) + "]";
+                VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+                nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+                nameInfo.objectType = VK_OBJECT_TYPE_DESCRIPTOR_SET;
+                nameInfo.objectHandle = (u64)data.sets[i].data.set;
+                nameInfo.pObjectName = data.sets[i].data.debugMarker.data;
+                data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
+            }
+
         }
 
         return true;
@@ -1198,14 +1370,14 @@ failure:
             }
         }
         // Well wasn't that just a lovely mess of code?
-        vkUpdateDescriptorSets(data.device, writes.size, writes.data, 0, nullptr);
+        vkUpdateDescriptorSets(data.device->data.device, writes.size, writes.data, 0, nullptr);
         return true;
     }
 
     void Descriptors::Clean() {
         if (data.exists) {
             PrintDashed("Destroying Descriptors");
-            vkDestroyDescriptorPool(data.device, data.pool, nullptr);
+            vkDestroyDescriptorPool(data.device->data.device, data.pool, nullptr);
             for (i32 i = 0; i < data.sets.size; i++) {
                 data.sets[i].data.exists = false;
             }
@@ -1386,7 +1558,7 @@ failure:
         }
     }
 
-    bool RenderPass::Init(Device *dev) {
+    bool RenderPass::Init(Device *dev, String debugMarker) {
         PrintDashed("Initializing RenderPass");
         if (data.initted) {
             error = "Renderpass is already initialized!";
@@ -1400,6 +1572,7 @@ failure:
             error = "You must have at least 1 subpass in your renderpass!";
             return false;
         }
+        data.debugMarker = std::move(debugMarker);
         // First we need to configure our subpass attachments
         for (i32 i = 0; i < data.attachments.size; i++) {
             if (!data.attachments[i].Config()) {
@@ -1668,6 +1841,16 @@ failure:
             error = "Failed to create RenderPass: " + ErrorString(result);
             return false;
         }
+
+        if (data.debugMarker.size != 0) {
+            VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+            nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+            nameInfo.objectType = VK_OBJECT_TYPE_RENDER_PASS;
+            nameInfo.objectHandle = (u64)data.renderPass;
+            nameInfo.pObjectName = data.debugMarker.data;
+            data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
+        }
+
         data.initted = true;
         return true;
     }
@@ -1737,7 +1920,7 @@ failure:
         }
     }
 
-    bool Framebuffer::Init(Device *dev) {
+    bool Framebuffer::Init(Device *dev, String debugMarker) {
         PrintDashed("Initializing Framebuffer");
         if (data.initted) {
             error = "Framebuffer is already initialized!";
@@ -1755,6 +1938,7 @@ failure:
             error = "RenderPass is not initialized!";
             return false;
         }
+        data.debugMarker = std::move(debugMarker);
         bool depth = false, color = false;
         bool sameSwapchain = true;
         for (auto& attachment : renderPass->data.attachments) {
@@ -1926,18 +2110,33 @@ failure:
         }
         if (ownMemory) {
             if (depthMemory != nullptr) {
-                 if (!depthMemory->Init(&data.device->data.physicalDevice, data.device->data.device)) {
-                     return false;
+                if (data.debugMarker.size == 0) {
+                     if (!depthMemory->Init(data.device)) {
+                         return false;
+                     }
+                 } else {
+                     if (!depthMemory->Init(data.device, data.debugMarker + ".depthMemory")) {
+                         return false;
+                     }
                  }
             }
             if (colorMemory != nullptr) {
-                 if (!colorMemory->Init(&data.device->data.physicalDevice, data.device->data.device)) {
-                     return false;
+                if (data.debugMarker.size == 0) {
+                     if (!colorMemory->Init(data.device)) {
+                         return false;
+                     }
+                 } else {
+                     if (!colorMemory->Init(data.device, data.debugMarker + ".colorMemory")) {
+                         return false;
+                     }
                  }
             }
         }
         cout << "Making " << numFramebuffers << " total framebuffers." << std::endl;
         data.framebuffers.Resize(numFramebuffers);
+        if (data.debugMarker.size != 0) {
+            data.debugMarkers.Resize(numFramebuffers);
+        }
         for (i32 fb = 0; fb < numFramebuffers; fb++) {
             Array<VkImageView> attachments(attachmentImages[0].size);
             for (i32 i = 0; i < attachmentImages[fb].size; i++) {
@@ -1964,6 +2163,15 @@ failure:
                 }
                 error = "Failed to create framebuffers[" + ToString(fb) + "]: " + ErrorString(result);
                 return false;
+            }
+            if (data.debugMarker.size != 0) {
+                data.debugMarkers[fb] = data.debugMarker + ".framebuffers[" + ToString(fb) + "]";
+                VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+                nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+                nameInfo.objectType = VK_OBJECT_TYPE_FRAMEBUFFER;
+                nameInfo.objectHandle = (u64)data.framebuffers[fb];
+                nameInfo.pObjectName = data.debugMarkers[fb].data;
+                data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
             }
         }
         data.created = true;
@@ -2005,12 +2213,16 @@ failure:
         return true;
     }
 
-    bool Shader::Init(VkDevice dev) {
+    bool Shader::Init(Device *device, String debugMarker) {
         if (data.initted) {
             error = "Shader is already initialized!";
             return false;
         }
-        data.device = dev;
+        if ((data.device = device) == nullptr) {
+            error = "Device is nullptr!";
+            return false;
+        }
+        data.debugMarker = std::move(debugMarker);
         // Load in the code
         std::ifstream file(filename.data, std::ios::ate | std::ios::binary);
 
@@ -2036,7 +2248,16 @@ failure:
         createInfo.codeSize = fileSize;
         createInfo.pCode = data.code.data;
 
-        VkResult result = vkCreateShaderModule(data.device, &createInfo, nullptr, &data.module);
+        VkResult result = vkCreateShaderModule(data.device->data.device, &createInfo, nullptr, &data.module);
+
+        if (data.debugMarker.size != 0) {
+            VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+            nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+            nameInfo.objectType = VK_OBJECT_TYPE_SHADER_MODULE;
+            nameInfo.objectHandle = (u64)data.module;
+            nameInfo.pObjectName = data.debugMarker.data;
+            data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
+        }
 
         if (result != VK_SUCCESS) {
             error = "Failed to create shader module: " + ErrorString(result);
@@ -2049,7 +2270,7 @@ failure:
     void Shader::Clean() {
         if (data.initted) {
             data.code.Resize(0);
-            vkDestroyShaderModule(data.device, data.module, nullptr);
+            vkDestroyShaderModule(data.device->data.device, data.module, nullptr);
             data.initted = false;
         }
     }
@@ -2117,7 +2338,7 @@ failure:
         }
     }
 
-    bool Pipeline::Init(Device *dev) {
+    bool Pipeline::Init(Device *dev, String debugMarker) {
         PrintDashed("Initializing Pipeline");
         if (data.initted) {
             error = "Pipeline is already initialized!";
@@ -2143,6 +2364,7 @@ failure:
             error = "You must have one colorBlendAttachment per color attachment in the associated Subpass!\nThe subpass has " + ToString(renderPass->data.subpasses[subpass].referencesColor.size) + " color attachments while the pipeline has " + ToString(colorBlendAttachments.size) + " colorBlendAttachments.";
             return false;
         }
+        data.debugMarker = std::move(debugMarker);
         // Inherit multisampling information from renderPass
         for (auto& attachment : renderPass->data.subpasses[subpass].attachments) {
             if (attachment.accessFlags &
@@ -2235,6 +2457,16 @@ failure:
             error = "Failed to create pipeline layout: " + ErrorString(result);
             return false;
         }
+
+        if (data.debugMarker.size != 0) {
+            VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+            nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+            nameInfo.objectType = VK_OBJECT_TYPE_PIPELINE_LAYOUT;
+            nameInfo.objectHandle = (u64)data.layout;
+            nameInfo.pObjectName = data.debugMarker.data;
+            data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
+        }
+
         // Pipeline time!
         VkGraphicsPipelineCreateInfo pipelineInfo{};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -2262,6 +2494,16 @@ failure:
             vkDestroyPipelineLayout(data.device->data.device, data.layout, nullptr);
             return false;
         }
+
+        if (data.debugMarker.size != 0) {
+            VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+            nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+            nameInfo.objectType = VK_OBJECT_TYPE_PIPELINE;
+            nameInfo.objectHandle = (u64)data.pipeline;
+            nameInfo.pObjectName = data.debugMarker.data;
+            data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
+        }
+
         data.initted = true;
         return true;
     }
@@ -2431,7 +2673,7 @@ failure:
         data.dynamicBuffers.Erase(i);
     }
 
-    bool CommandPool::Init(Device *dev) {
+    bool CommandPool::Init(Device *dev, String debugMarker) {
         PrintDashed("Initializing Command Pool");
         if (data.initted) {
             error = "CommandPool is already initialized!";
@@ -2445,6 +2687,7 @@ failure:
             error = "You must specify a queue to create a CommandPool!";
             return false;
         }
+        data.debugMarker = std::move(debugMarker);
         VkCommandPoolCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         createInfo.queueFamilyIndex = queue->queueFamilyIndex;
@@ -2463,6 +2706,15 @@ failure:
         if (result != VK_SUCCESS) {
             error = "Failed to create CommandPool: " + ErrorString(result);
             return false;
+        }
+
+        if (data.debugMarker.size != 0) {
+            VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+            nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+            nameInfo.objectType = VK_OBJECT_TYPE_COMMAND_POOL;
+            nameInfo.objectHandle = (u64)data.commandPool;
+            nameInfo.pObjectName = data.debugMarker.data;
+            data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
         }
 
         // Now the command buffers
@@ -2505,6 +2757,7 @@ failure:
             }
         }
         p = 0; s = 0;
+        i32 index = 0;
         for (CommandBuffer& buffer : data.commandBuffers) {
             if (buffer.secondary) {
                 buffer.data.commandBuffer = secondaryBuffers[s++];
@@ -2513,6 +2766,15 @@ failure:
             }
             buffer.data.device = data.device;
             buffer.data.pool = this;
+            if (data.debugMarker.size != 0) {
+                buffer.data.debugMarker = data.debugMarker + ".commandBuffer[" + ToString(index) + "]";
+                VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+                nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+                nameInfo.objectType = VK_OBJECT_TYPE_COMMAND_BUFFER;
+                nameInfo.objectHandle = (u64)buffer.data.commandBuffer;
+                nameInfo.pObjectName = buffer.data.debugMarker.data;
+                data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
+            }
         }
         data.initted = true;
         return true;
@@ -2537,7 +2799,7 @@ failure:
         }
         data.buffer = !data.buffer;
         VkResult result = vkAcquireNextImageKHR(data.device->data.device, data.swapchain, timeout,
-                                            *data.semaphores[data.buffer], VK_NULL_HANDLE, &data.currentImage);
+                                            data.semaphores[data.buffer]->semaphore, VK_NULL_HANDLE, &data.currentImage);
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_TIMEOUT || result == VK_NOT_READY) {
             // Don't update framebuffers
             data.buffer = !data.buffer;
@@ -2546,13 +2808,13 @@ failure:
             error = "Failed to acquire swapchain image: " + ErrorString(result);
             return result;
         }
-        for (Ptr<Framebuffer> framebuffer : data.framebuffers) {
+        for (Ptr<Framebuffer>& framebuffer : data.framebuffers) {
             framebuffer->data.currentFramebuffer = data.currentImage;
         }
         return result;
     }
 
-    Ptr<VkSemaphore> Swapchain::SemaphoreImageAvailable() {
+    Ptr<Semaphore> Swapchain::SemaphoreImageAvailable() {
         return data.semaphores[data.buffer];
     }
 
@@ -2611,7 +2873,7 @@ failure:
         }
     }
 
-    bool Swapchain::Init(Device *dev) {
+    bool Swapchain::Init(Device *dev, String debugMarker) {
         PrintDashed("Initializing Swapchain");
         if (data.initted) {
             error = "Swapchain is already initialized!";
@@ -2632,6 +2894,7 @@ failure:
             data.semaphores[1] = data.device->AddSemaphore();
         }
         data.surface = window->surface;
+        data.debugMarker = std::move(debugMarker);
         // Get information about what we can or can't do
         VkPhysicalDevice physicalDevice = data.device->data.physicalDevice.physicalDevice;
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, data.surface, &data.surfaceCapabilities);
@@ -2808,6 +3071,15 @@ failure:
         }
         data.swapchain = newSwapchain;
 
+        if (data.debugMarker.size != 0) {
+            VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+            nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+            nameInfo.objectType = VK_OBJECT_TYPE_SWAPCHAIN_KHR;
+            nameInfo.objectHandle = (u64)data.swapchain;
+            nameInfo.pObjectName = data.debugMarker.data;
+            data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
+        }
+
         cout << "Acquiring images and creating image views..." << std::endl;
 
         // Get our images
@@ -2819,13 +3091,27 @@ failure:
         data.images.Resize(data.imageCount);
         for (u32 i = 0; i < data.imageCount; i++) {
             data.images[i].Clean();
-            data.images[i].Init(data.device->data.device);
+            if (data.debugMarker.size == 0) {
+                data.images[i].Init(data.device);
+            } else {
+                data.images[i].Init(data.device, data.debugMarker + ".images[" + ToString(i) + "]");
+            }
             data.images[i].data.image = imagesTemp[i];
             data.images[i].format = data.surfaceFormat.format;
             data.images[i].width = data.extent.width;
             data.images[i].height = data.extent.height;
             data.images[i].aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
             data.images[i].usage = usage;
+
+            if (data.debugMarker.size != 0) {
+                VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+                nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+                nameInfo.objectType = VK_OBJECT_TYPE_IMAGE;
+                nameInfo.objectHandle = (u64)data.images[i].data.image;
+                nameInfo.pObjectName = data.images[i].data.debugMarker[0].data;
+                data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
+            }
+
             if (!data.images[i].CreateImageView()) {
                 return false;
             }
@@ -2873,7 +3159,7 @@ failure:
         data.waitSemaphores.Resize(waitSemaphores.size);
         data.waitDstStageMasks.Resize(waitSemaphores.size);
         for (i32 i = 0; i < waitSemaphores.size; i++) {
-            data.waitSemaphores[i] = *waitSemaphores[i].semaphore;
+            data.waitSemaphores[i] = waitSemaphores[i].semaphore->semaphore;
             data.waitDstStageMasks[i] = waitSemaphores[i].dstStageMask;
         }
         data.submitInfo.waitSemaphoreCount = waitSemaphores.size;
@@ -2883,7 +3169,7 @@ failure:
         }
         data.signalSemaphores.Resize(signalSemaphores.size);
         for (i32 i = 0; i < signalSemaphores.size; i++) {
-            data.signalSemaphores[i] = *signalSemaphores[i];
+            data.signalSemaphores[i] = signalSemaphores[i]->semaphore;
         }
         data.submitInfo.signalSemaphoreCount = data.signalSemaphores.size;
         data.submitInfo.pSignalSemaphores = data.signalSemaphores.data;
@@ -2958,9 +3244,9 @@ failure:
         return &data.framebuffers[data.framebuffers.size-1];
     }
 
-    Ptr<VkSemaphore> Device::AddSemaphore() {
-        data.semaphores.Append((VkSemaphore)VK_NULL_HANDLE);
-        return Ptr<VkSemaphore>(&data.semaphores, data.semaphores.size-1);
+    Ptr<Semaphore> Device::AddSemaphore() {
+        data.semaphores.Append(Semaphore());
+        return Ptr<Semaphore>(&data.semaphores, data.semaphores.size-1);
     }
 
     Ptr<QueueSubmission> Device::AddQueueSubmission() {
@@ -2994,7 +3280,7 @@ failure:
         return true;
     }
 
-    bool Device::Init(Instance *inst) {
+    bool Device::Init(Instance *inst, String debugMarker) {
         PrintDashed("Initializing Logical Device");
         if (data.initted) {
             error = "Device is already initialized!";
@@ -3004,6 +3290,7 @@ failure:
             error = "Instance is nullptr!";
             return false;
         }
+        data.debugMarker = std::move(debugMarker);
 
         // Select physical device first based on needs.
         // TODO: Right now we just choose the first in the pre-sorted list. We should instead select
@@ -3208,7 +3495,18 @@ failure:
             error += ErrorString(result);
             return false;
         }
+
+        if (data.debugMarker.size != 0) {
+            VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+            nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+            nameInfo.objectType = VK_OBJECT_TYPE_DEVICE;
+            nameInfo.objectHandle = (u64)data.device;
+            nameInfo.pObjectName = data.debugMarker.data;
+            data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device, &nameInfo);
+        }
+
         // Get our queues
+        i32 index = 0;
         for (i32 i = 0; i < queueFamilies; i++) {
             for (auto& queue : data.queues) {
                 if (queue.queueFamilyIndex == (i32)i) {
@@ -3220,19 +3518,44 @@ failure:
                         }
                     }
                     vkGetDeviceQueue(data.device, i, queueIndex, &queue.queue);
+                    if (data.debugMarker.size != 0) {
+                        queue.debugMarker = data.debugMarker + ".queues[" + ToString(index) + "]";
+                        VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+                        nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+                        nameInfo.objectType = VK_OBJECT_TYPE_QUEUE;
+                        nameInfo.objectHandle = (u64)queue.queue;
+                        nameInfo.pObjectName = queue.debugMarker.data;
+                        data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device, &nameInfo);
+                        index++;
+                    }
                 }
             }
         }
         // Swapchains
         for (auto& swapchain : data.swapchains) {
-            if (!swapchain.Init(this)) {
-                goto failed;
+            if (data.debugMarker.size == 0) {
+                if (!swapchain.Init(this)) {
+                    goto failed;
+                }
+            } else {
+                if (!swapchain.Init(this, data.debugMarker + ".swapchains[" + ToString(index) + "]")) {
+                    goto failed;
+                }
+                index++;
             }
         }
         // RenderPasses
+        index = 0;
         for (auto& renderPass : data.renderPasses) {
-            if (!renderPass.Init(this)) {
-                goto failed;
+            if (data.debugMarker.size == 0) {
+                if (!renderPass.Init(this)) {
+                    goto failed;
+                }
+            } else {
+                if (!renderPass.Init(this, data.debugMarker + ".renderPasses[" + ToString(index) + "]")) {
+                    goto failed;
+                }
+                index++;
             }
         }
         // Framebuffer init phase, may allocate Memory objects with Images
@@ -3242,21 +3565,41 @@ failure:
             }
         }
         // Memory
+        index = 0;
         for (auto& memory : data.memories) {
-            if (!memory.Init(&data.physicalDevice, data.device)) {
-                goto failed;
+            if (data.debugMarker.size == 0) {
+                if (!memory.Init(this)) {
+                    goto failed;
+                }
+            } else {
+                if (!memory.Init(this, data.debugMarker + ".memories[" + ToString(index) + "]")) {
+                    goto failed;
+                }
+                index++;
             }
         }
         // Samplers
+        index = 0;
         for (auto& sampler : data.samplers) {
-            sampler.data.device = data.device;
+            if (data.debugMarker.size == 0) {
+                sampler.Init(this);
+            } else {
+                sampler.Init(this, data.debugMarker + ".samplers[" + ToString(index) + "]");
+                index++;
+            }
             if (!sampler.Create()) {
                 goto failed;
             }
         }
         // Descriptors
+        index = 0;
         for (auto& descriptor : data.descriptors) {
-            descriptor.Init(data.device);
+            if (data.debugMarker.size == 0) {
+                descriptor.Init(this);
+            } else {
+                descriptor.Init(this, data.debugMarker + ".descriptors[" + ToString(index) + "]");
+                index++;
+            }
             if (!descriptor.Create()) {
                 goto failed;
             }
@@ -3265,21 +3608,45 @@ failure:
             }
         }
         // Shaders
+        index = 0;
         for (auto& shader : data.shaders) {
-            if (!shader.Init(data.device)) {
-                goto failed;
+            if (data.debugMarker.size == 0) {
+                if (!shader.Init(this)) {
+                    goto failed;
+                }
+            } else {
+                if (!shader.Init(this, data.debugMarker + ".shaders[" + ToString(index) + "]")) {
+                    goto failed;
+                }
+                index++;
             }
         }
         // Pipelines
+        index = 0;
         for (auto& pipeline : data.pipelines) {
-            if (!pipeline.Init(this)) {
-                goto failed;
+            if (data.debugMarker.size == 0) {
+                if (!pipeline.Init(this)) {
+                    goto failed;
+                }
+            } else {
+                if (!pipeline.Init(this, data.debugMarker + ".pipelines[" + ToString(index) + "]")) {
+                    goto failed;
+                }
+                index++;
             }
         }
         // CommandPools
+        index = 0;
         for (auto& commandPool : data.commandPools) {
-            if (!commandPool.Init(this)) {
-                goto failed;
+            if (data.debugMarker.size == 0) {
+                if (!commandPool.Init(this)) {
+                    goto failed;
+                }
+            } else {
+                if (!commandPool.Init(this, data.debugMarker + ".commandPools[" + ToString(index) + "]")) {
+                    goto failed;
+                }
+                index++;
             }
         }
         // Framebuffer create phase
@@ -3292,10 +3659,19 @@ failure:
         cout << "Creating " << data.semaphores.size << " semaphores..." << std::endl;
         for (i32 i = 0; i < data.semaphores.size; i++) {
             const VkSemaphoreCreateInfo createInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-            VkResult result = vkCreateSemaphore(data.device, &createInfo, nullptr, &data.semaphores[i]);
+            VkResult result = vkCreateSemaphore(data.device, &createInfo, nullptr, &data.semaphores[i].semaphore);
             if (result != VK_SUCCESS) {
                 error = "Failed to create semaphore[" + ToString(i) + "]: " + ErrorString(result);
                 goto failed;
+            }
+            if (data.debugMarker.size != 0) {
+                data.semaphores[i].debugMarker = data.debugMarker + ".semaphores[" + ToString(i) + "]";
+                VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+                nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+                nameInfo.objectType = VK_OBJECT_TYPE_SEMAPHORE;
+                nameInfo.objectHandle = (u64)data.semaphores[i].semaphore;
+                nameInfo.pObjectName = data.semaphores[i].debugMarker.data;
+                data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device, &nameInfo);
             }
         }
         // Queue Submissions
@@ -3353,9 +3729,9 @@ failed:
             }
         }
         for (i32 i = 0; i < data.semaphores.size; i++) {
-            if (data.semaphores[i] != VK_NULL_HANDLE) {
-                vkDestroySemaphore(data.device, data.semaphores[i], nullptr);
-                data.semaphores[i] = VK_NULL_HANDLE;
+            if (data.semaphores[i].semaphore != VK_NULL_HANDLE) {
+                vkDestroySemaphore(data.device, data.semaphores[i].semaphore, nullptr);
+                data.semaphores[i].semaphore = VK_NULL_HANDLE;
             }
         }
         vkDestroyDevice(data.device, nullptr);
@@ -3404,9 +3780,9 @@ failed:
             }
         }
         for (i32 i = 0; i < data.semaphores.size; i++) {
-            if (data.semaphores[i] != VK_NULL_HANDLE) {
-                vkDestroySemaphore(data.device, data.semaphores[i], nullptr);
-                data.semaphores[i] = VK_NULL_HANDLE;
+            if (data.semaphores[i].semaphore != VK_NULL_HANDLE) {
+                vkDestroySemaphore(data.device, data.semaphores[i].semaphore, nullptr);
+                data.semaphores[i].semaphore = VK_NULL_HANDLE;
             }
         }
         // Destroy everything allocated from the device here
@@ -3495,7 +3871,7 @@ failed:
         // Put together all needed extensions.
         Array<const char*> extensionsAll(data.extensionsRequired);
         if (data.enableLayers) {
-            extensionsAll.Append(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+            extensionsAll.Append(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }
         if (data.windows.size > 0) {
             extensionsAll.Append("VK_KHR_surface");
@@ -3562,8 +3938,8 @@ failed:
             Allocate,
             Reallocate,
             Free,
-            InternalAllocationNotification,
-            InternalFreeNotification
+            nullptr,
+            nullptr
         };
 
         VkResult result = vkCreateInstance(&createInfo, &data.allocationCallbacks, &data.instance);
@@ -3572,33 +3948,68 @@ failed:
             return false;
         }
         if (data.enableLayers) {
-            // Use our debug report extension
-            data.fpCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)
-                    vkGetInstanceProcAddr(data.instance, "vkCreateDebugReportCallbackEXT");
-            if (data.fpCreateDebugReportCallbackEXT == nullptr) {
-                error = "vkGetInstanceProcAddr failed to get vkCreateDebugReportCallbackEXT";
+            // // Use our debug report extension
+            // data.fpCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)
+            //         vkGetInstanceProcAddr(data.instance, "vkCreateDebugReportCallbackEXT");
+            // if (data.fpCreateDebugReportCallbackEXT == nullptr) {
+            //     error = "vkGetInstanceProcAddr failed to get vkCreateDebugReportCallbackEXT";
+            //     vkDestroyInstance(data.instance, &data.allocationCallbacks);
+            //     return false;
+            // }
+            // data.fpDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)
+            //         vkGetInstanceProcAddr(data.instance, "vkDestroyDebugReportCallbackEXT");
+            // if (data.fpDestroyDebugReportCallbackEXT == nullptr) {
+            //     error = "vkGetInstanceProcAddr failed to get vkDestroyDebugReportCallbackEXT";
+            //     vkDestroyInstance(data.instance, &data.allocationCallbacks);
+            //     return false;
+            // }
+            // data.fpDebugMarkerSetObjectNameEXT = (PFN_vkDebugMarkerSetObjectNameEXT)
+            //         vkGetInstanceProcAddr(data.instance, "vkDebugMarkerSetObjectNameEXT");
+            // if (data.fpDebugMarkerSetObjectNameEXT == nullptr) {
+            //     error = "vkGetInstanceProcAddr failed to get vkDebugMarkerSetObjectNameEXT";
+            //     vkDestroyInstance(data.instance, &data.allocationCallbacks);
+            //     return false;
+            // }
+            // VkDebugReportCallbackCreateInfoEXT debugInfo = {};
+            // debugInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
+            // debugInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
+            // debugInfo.pfnCallback = debugCallback;
+            // debugInfo.pUserData = this;
+            //
+            // result = data.fpCreateDebugReportCallbackEXT(data.instance, &debugInfo, &data.allocationCallbacks, &data.debugReportCallback);
+            // if (result != VK_SUCCESS) {
+            //     error = "fpCreateDebugReportCallbackEXT failed with error: " + ErrorString(result);
+            //     vkDestroyInstance(data.instance, &data.allocationCallbacks);
+            //     return false;
+            // }
+            data.fpCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)
+                    vkGetInstanceProcAddr(data.instance, "vkCreateDebugUtilsMessengerEXT");
+            if (data.fpCreateDebugUtilsMessengerEXT == nullptr) {
+                error = "vkGetInstanceProcAddr failed to get vkCreateDebugUtilsMessengerEXT";
                 vkDestroyInstance(data.instance, &data.allocationCallbacks);
                 return false;
             }
-            data.fpDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)
-                    vkGetInstanceProcAddr(data.instance, "vkDestroyDebugReportCallbackEXT");
-            if (data.fpDestroyDebugReportCallbackEXT == nullptr) {
-                error = "vkGetInstanceProcAddr failed to get vkDestroyDebugReportCallbackEXT";
+            data.fpDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)
+                    vkGetInstanceProcAddr(data.instance, "vkDestroyDebugUtilsMessengerEXT");
+            if (data.fpDestroyDebugUtilsMessengerEXT == nullptr) {
+                error = "vkGetInstanceProcAddr failed to get vkDestroyDebugUtilsMessengerEXT";
                 vkDestroyInstance(data.instance, &data.allocationCallbacks);
                 return false;
             }
-            VkDebugReportCallbackCreateInfoEXT debugInfo = {};
-            debugInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
-            debugInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
-            debugInfo.pfnCallback = debugCallback;
-            debugInfo.pUserData = this;
+            data.fpSetDebugUtilsObjectNameEXT = (PFN_vkSetDebugUtilsObjectNameEXT)
+                    vkGetInstanceProcAddr(data.instance, "vkSetDebugUtilsObjectNameEXT");
+            if (data.fpSetDebugUtilsObjectNameEXT == nullptr) {
+                error = "vkGetInstanceProcAddr failed to get vkSetDebugUtilsObjectNameEXT";
+                vkDestroyInstance(data.instance, &data.allocationCallbacks);
+                return false;
+            }
+            VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
+            createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+            createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+            createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+            createInfo.pfnUserCallback = debugCallback;
+            result = data.fpCreateDebugUtilsMessengerEXT(data.instance, &createInfo, nullptr, &data.debugUtilsMessenger);
 
-            result = data.fpCreateDebugReportCallbackEXT(data.instance, &debugInfo, &data.allocationCallbacks, &data.debugReportCallback);
-            if (result != VK_SUCCESS) {
-                error = "fpCreateDebugReportCallbackEXT failed with error: " + ErrorString(result);
-                vkDestroyInstance(data.instance, &data.allocationCallbacks);
-                return false;
-            }
         }
         // Create a surface if we want one
 #ifdef IO_FOR_VULKAN
@@ -3643,8 +4054,14 @@ failed:
         }
         // Initialize our logical devices according to their rules
         for (i32 i = 0; i < data.devices.size; i++) {
-            if (!data.devices[i].Init(this)) {
-                goto failed;
+            if (data.enableLayers) {
+                if (!data.devices[i].Init(this, debugMarker + ".devices[" + ToString(i) + "]")) {
+                    goto failed;
+                }
+            } else {
+                if (!data.devices[i].Init(this)) {
+                    goto failed;
+                }
             }
         }
 
@@ -3662,7 +4079,8 @@ failed:
                 data.devices[i].Deinit();
         }
         if (data.enableLayers) {
-            data.fpDestroyDebugReportCallbackEXT(data.instance, data.debugReportCallback, &data.allocationCallbacks);
+            // data.fpDestroyDebugReportCallbackEXT(data.instance, data.debugReportCallback, &data.allocationCallbacks);
+            data.fpDestroyDebugUtilsMessengerEXT(data.instance, data.debugUtilsMessenger, nullptr);
         }
         vkDestroyInstance(data.instance, &data.allocationCallbacks);
         return false;
@@ -3684,7 +4102,8 @@ failed:
         }
 #endif
         if (data.enableLayers) {
-            data.fpDestroyDebugReportCallbackEXT(data.instance, data.debugReportCallback, &data.allocationCallbacks);
+            // data.fpDestroyDebugReportCallbackEXT(data.instance, data.debugReportCallback, &data.allocationCallbacks);
+            data.fpDestroyDebugUtilsMessengerEXT(data.instance, data.debugUtilsMessenger, nullptr);
         }
         vkDestroyInstance(data.instance, &data.allocationCallbacks);
         data.initted = false;

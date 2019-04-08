@@ -230,7 +230,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkFramebuffer->renderPass = vkRenderPass;
     vkFramebuffer->swapchain = vkSwapchain;
 
-    Ptr<VkSemaphore> semaphoreRenderFinished = vkDevice->AddSemaphore();
+    Ptr<vk::Semaphore> semaphoreRenderFinished = vkDevice->AddSemaphore();
 
     Ptr<vk::QueueSubmission> vkQueueSubmission = vkDevice->AddQueueSubmission();
     vkQueueSubmission->commandBuffers = {vkCommandBuffer};
@@ -313,6 +313,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
             continue; // Don't render this frame.
         } else if (acquisitionResult == VK_TIMEOUT) {
             cout << "Skipping a frame because acquisition returned: " << vk::ErrorString(acquisitionResult) << std::endl;
+            continue;
         } else if (acquisitionResult != VK_SUCCESS) {
             cout << vk::error << std::endl;
             return 1;
@@ -369,7 +370,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
             return 1;
         }
 
-        if (!vkSwapchain->Present(queuePresent, {*semaphoreRenderFinished})) {
+        if (!vkSwapchain->Present(queuePresent, {semaphoreRenderFinished->semaphore})) {
             cout << vk::error << std::endl;
             return 1;
         }
@@ -377,15 +378,15 @@ i32 main(i32 argumentCount, char** argumentValues) {
         vkDeviceWaitIdle(vkDevice->data.device);
 
     } while (window.Update());
-    if (!window.Close()) {
-        cout << "Failed to close Window: " << io::error << std::endl;
-        return 1;
-    }
     // This should be all you need to call to clean everything up
     // But you also could just let the vk::Instance go out of scope and it will
     // clean itself up.
     if (!vkInstance.Deinit()) {
         cout << "Failed to cleanup Vulkan Tree: " << vk::error << std::endl;
+    }
+    if (!window.Close()) {
+        cout << "Failed to close Window: " << io::error << std::endl;
+        return 1;
     }
     cout << "Last io::error was \"" << io::error << "\"" << std::endl;
     cout << "Last vk::error was \"" << vk::error << "\"" << std::endl;

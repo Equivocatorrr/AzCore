@@ -327,7 +327,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
             return 1;
         }
 
-        vkFramebuffer->RenderPassBegin(cmdBuf);
+        vkRenderPass->Begin(cmdBuf, vkFramebuffer);
 
         vkPipeline->Bind(cmdBuf);
 

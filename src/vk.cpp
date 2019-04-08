@@ -1550,6 +1550,45 @@ failure:
         return Ptr<Attachment>(&data.attachments, data.attachments.size-1);
     }
 
+    void RenderPass::Begin(VkCommandBuffer commandBuffer, Ptr<Framebuffer> framebuffer, bool subpassContentsInline) {
+        VkRenderPassBeginInfo renderPassInfo{};
+        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = data.renderPass;
+		renderPassInfo.framebuffer = framebuffer->data.framebuffers[framebuffer->data.currentFramebuffer];
+		renderPassInfo.renderArea.offset = {0, 0};
+		renderPassInfo.renderArea.extent.width = framebuffer->width;
+		renderPassInfo.renderArea.extent.height = framebuffer->height;
+
+		Array<VkClearValue> clearValues{};
+        u32 i = 0; // Index of actual attachment for clearValues
+        for (Attachment& attachment : data.attachments) {
+            if (attachment.bufferColor) {
+                if (attachment.clearColor) {
+                    clearValues.Resize(i+1);
+                    clearValues[i].color = attachment.clearColorValue;
+                }
+                i++;
+            }
+            if (attachment.resolveColor) {
+                i++;
+            }
+            if (attachment.bufferDepthStencil) {
+                if (attachment.clearDepth || attachment.clearStencil) {
+                    clearValues.Resize(i+1);
+                    clearValues[i].depthStencil = attachment.clearDepthStencilValue;
+                }
+                i++;
+            }
+        }
+		renderPassInfo.clearValueCount = clearValues.size;
+        if (clearValues.size != 0) {
+            renderPassInfo.pClearValues = clearValues.data;
+        }
+
+		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo,
+            subpassContentsInline ? VK_SUBPASS_CONTENTS_INLINE : VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+    }
+
     RenderPass::~RenderPass() {
         if (data.initted) {
             if (!Deinit()) {
@@ -1865,45 +1904,6 @@ failure:
         vkDestroyRenderPass(data.device->data.device, data.renderPass, nullptr);
         data.initted = false;
         return true;
-    }
-
-    void Framebuffer::RenderPassBegin(VkCommandBuffer commandBuffer, bool subpassContentsInline) {
-        VkRenderPassBeginInfo renderPassInfo{};
-        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = renderPass->data.renderPass;
-		renderPassInfo.framebuffer = data.framebuffers[data.currentFramebuffer];
-		renderPassInfo.renderArea.offset = {0, 0};
-		renderPassInfo.renderArea.extent.width = width;
-		renderPassInfo.renderArea.extent.height = height;
-
-		Array<VkClearValue> clearValues{};
-        u32 i = 0; // Index of actual attachment for clearValues
-        for (Attachment& attachment : renderPass->data.attachments) {
-            if (attachment.bufferColor) {
-                if (attachment.clearColor) {
-                    clearValues.Resize(i+1);
-                    clearValues[i].color = attachment.clearColorValue;
-                }
-                i++;
-            }
-            if (attachment.resolveColor) {
-                i++;
-            }
-            if (attachment.bufferDepthStencil) {
-                if (attachment.clearDepth || attachment.clearStencil) {
-                    clearValues.Resize(i+1);
-                    clearValues[i].depthStencil = attachment.clearDepthStencilValue;
-                }
-                i++;
-            }
-        }
-		renderPassInfo.clearValueCount = clearValues.size;
-        if (clearValues.size != 0) {
-            renderPassInfo.pClearValues = clearValues.data;
-        }
-
-		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo,
-            subpassContentsInline ? VK_SUBPASS_CONTENTS_INLINE : VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
     }
 
     Framebuffer::~Framebuffer() {

@@ -42,6 +42,32 @@ namespace vk {
 
     extern String error;
 
+    struct Window;
+    struct PhysicalDevice;
+    struct Image;
+    struct Buffer;
+    struct Memory;
+    struct Sampler;
+    struct DescriptorLayout;
+    struct DescriptorSet;
+    struct Descriptors;
+    struct Attachment;
+    struct Subpass;
+    struct RenderPass;
+    struct Framebuffer;
+    struct Semaphore;
+    struct Shader;
+    struct ShaderRef;
+    struct Pipeline;
+    struct Queue;
+    struct CommandBuffer;
+    struct CommandPool;
+    struct Swapchain;
+    struct SemaphoreWait;
+    struct QueueSubmission;
+    struct Device;
+    struct Instance;
+
     /*  struct: Window
         Author: Philip Haynes
         Everything we need to know about a window to use it for drawing     */
@@ -64,10 +90,6 @@ namespace vk {
         bool Init(VkInstance instance);
         void PrintInfo(Array<Window> windows, bool checkSurface=false);
     };
-
-    struct Device;
-    struct Memory;
-    struct Buffer;
 
     /*  struct: Image
         Author: Philip Haynes
@@ -293,8 +315,6 @@ namespace vk {
         void Clean();
     };
 
-    struct Swapchain;
-
     /*  struct: Attachment
         Author: Philip Haynes
         Some implicit attachment management that allows
@@ -418,6 +438,8 @@ namespace vk {
         Ptr<Subpass> AddSubpass();
         Ptr<Attachment> AddAttachment(Ptr<Swapchain> swapchain = nullptr);
 
+        void Begin(VkCommandBuffer commandBuffer, Ptr<Framebuffer> framebuffer, bool subpassContentsInline=true);
+
         ~RenderPass();
         bool Init(Device *dev, String debugMarker = String(false));
         bool Deinit();
@@ -458,8 +480,6 @@ namespace vk {
         // Disable this if you want more precise control over the images.
         bool ownImages = true;
         // If ownImages is false, you need to provide valid attachmentImages.
-
-        void RenderPassBegin(VkCommandBuffer commandBuffer, bool subpassContentsInline=true);
 
         ~Framebuffer();
         bool Init(Device *dev, String debugMarker = String(false));
@@ -567,8 +587,6 @@ namespace vk {
         QueueType queueType = UNDEFINED;
         f32 queuePriority = 1.0;
     };
-
-    struct CommandPool;
 
     /*  struct: CommandBuffer
         Author: Philip Haynes
@@ -723,8 +741,6 @@ namespace vk {
 
         bool Config();
     };
-
-    struct Instance;
 
     /*  struct: Device
         Author: Philip Haynes

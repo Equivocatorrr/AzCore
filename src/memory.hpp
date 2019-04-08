@@ -770,6 +770,14 @@ struct List {
             for (i32 i = size; i < s; i++) {
                 Append(T());
             }
+        } else if (s == 0) {
+            ListIndex<T> *it = first;
+            while (it != nullptr) {
+                ListIndex<T> *next = it->next;
+                delete it;
+                it = next;
+            }
+            first = nullptr;
         } else if (size > s) {
             ListIndex<T> *it = first;
             for (i32 i = 0; i < s-1; i++) {

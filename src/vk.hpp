@@ -854,9 +854,6 @@ namespace vk {
         bool Initted() const;
         bool Init(); // Constructs the entire tree
         bool Deinit(); // Cleans everything up
-
-        // Debug
-        void PrintObjectLocation(VkDebugReportObjectTypeEXT objType, u64 obj); // Deprecated
     };
 
 }

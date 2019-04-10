@@ -4,8 +4,8 @@
     Description: High-level definition of the structure of our program.
 */
 
-#include "io.hpp"
-#include "vk.hpp"
+#include "AzCore/io.hpp"
+#include "AzCore/vk.hpp"
 
 #define pow(v, e) pow((double)v, (double)e)
 #define STB_IMAGE_IMPLEMENTATION
@@ -13,9 +13,6 @@
 #undef pow
 
 io::logStream cout("test.log");
-
-#include "unit_tests.cpp"
-#include "persistence.cpp"
 
 i32 main(i32 argumentCount, char** argumentValues) {
 
@@ -30,20 +27,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
             enableCoreValidation = true;
         }
     }
-
-    UnitTestArrayAndString(cout);
-
-    // return 0;
-
-    // BigIntTest();
-    //
-    // CheckNumbersForHighPersistence();
-
-    // return 0;
-
-    // PrintKeyCodeMapsEvdev(cout);
-    // PrintKeyCodeMapsWinVK(cout);
-    // PrintKeyCodeMapsWinScan(cout);
 
     struct Image {
         UniquePtr<u8, void(&)(void*)> pixels;
@@ -98,7 +81,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     Ptr<vk::Swapchain> vkSwapchain = vkDevice->AddSwapchain();
     vkSwapchain->window = vkInstance.AddWindowForSurface(&window);
-    vkSwapchain->vsync = true;
+    vkSwapchain->vsync = false;
 
     Ptr<vk::RenderPass> vkRenderPass = vkDevice->AddRenderPass();
 
@@ -106,7 +89,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     attachment->clearColor = true;
     attachment->clearColorValue = {0.0, 0.05, 0.1, 1.0};
     // attachment->sampleCount = VK_SAMPLE_COUNT_4_BIT;
-    attachment->resolveColor = true;
+    // attachment->resolveColor = true;
 
     Ptr<vk::Subpass> subpass = vkRenderPass->AddSubpass();
     subpass->UseAttachment(attachment, vk::ATTACHMENT_COLOR,
@@ -277,7 +260,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
     RandomNumberGenerator rng;
     bool resize = false;
     do {
-        input.Tick(1.0/60.0);
         if (input.Any.Pressed()) {
             cout << "Pressed HID " << std::hex << (u32)input.codeAny << std::endl;
             cout << "\t" << window.InputName(input.codeAny) << std::endl;
@@ -286,17 +268,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
             cout << "Released  HID " << std::hex << (u32)input.codeAny << std::endl;
             cout << "\t" << window.InputName(input.codeAny) << std::endl;
         }
-        if (input.Pressed(KC_KEY_T)) {
-            UnitTestMat3(cout);
-            UnitTestMat4(cout);
-            UnitTestComplex(cout);
-            UnitTestQuat(cout);
-            UnitTestSlerp(cout);
-            UnitTestList(cout);
-        }
-        if (input.Pressed(KC_KEY_R)) {
-            UnitTestRNG(rng, cout);
-        }
+        input.Tick(1.0/60.0);
 
         if (window.resized || resize) {
             if (!vkSwapchain->Resize()) {

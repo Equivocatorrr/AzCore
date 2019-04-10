@@ -1,4 +1,8 @@
-#include "bigint.hpp"
+#include "AzCore/log_stream.hpp"
+#include "AzCore/memory.hpp"
+#include "AzCore/bigint.hpp"
+
+io::logStream cout("checks.log");
 
 u64 StringToU64(String str) {
     u64 number = 0;
@@ -509,4 +513,8 @@ void CheckHighPersistenceNumbersForSingleDigitFactorability() {
     }
 
     cout << std::endl;
+}
+
+i32 main(i32 argumentCount, char** argumentValues) {
+    CheckNumbersForHighPersistence();
 }

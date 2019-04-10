@@ -4,8 +4,8 @@
     Does exactly as advertized.
 */
 
-#include "log_stream.hpp"
-#include "memory.hpp"
+#include "AzCore/log_stream.hpp"
+#include "AzCore/memory.hpp"
 
 void Print(vec3 v, io::logStream& cout) {
     cout << "{";
@@ -478,4 +478,30 @@ void UnitTestArrayAndString(io::logStream& cout) {
         cout << "numsHigh = " << ToString(numsHigh) << std::endl;
         cout << " numsLow = " << ToString(numsLow) << "\n" << std::endl;
     }
+}
+
+i32 main(i32 argumentCount, char** argumentValues) {
+    io::logStream cout("test.log");
+
+    cout << "Doing unit tests..." << std::endl;
+
+    cout << "RandomNumberGenerator:" << std::endl;
+    RandomNumberGenerator rng;
+    UnitTestRNG(rng, cout);
+    cout << "List:" << std::endl;
+    UnitTestList(cout);
+    cout << "Mat3:" << std::endl;
+    UnitTestMat3(cout);
+    cout << "Mat4:" << std::endl;
+    UnitTestMat4(cout);
+    cout << "Quat:" << std::endl;
+    UnitTestQuat(cout);
+    cout << "Slerp:" << std::endl;
+    UnitTestSlerp(cout);
+    cout << "Complex:" << std::endl;
+    UnitTestComplex(cout);
+    cout << "Array and String:" << std::endl;
+    UnitTestArrayAndString(cout);
+
+    cout << "Unit tests complete." << std::endl;
 }

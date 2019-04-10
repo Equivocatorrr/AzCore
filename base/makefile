@@ -12,7 +12,15 @@ WCFLAGS=-D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -static -lpthr
 
 WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.1.82.0
 
-# These are all the libraries you need to link to in order to use the entire library
+# These are all the library dependencies you need to link to in order to use the entire library
+#		Linux:
+#	memory.o: pthread
+#	io_linux.o: xcb, evdev, xkbcommon, xkbcommon-x11, xcb-xkb
+#		- GLX: X11, X11-xcb
+#	vk.o: vulkan
+#		Windows:
+#	io_windows.o: gdi32
+#	vk.o: vulkan-1
 #LIBS_L=-lvulkan -lxcb -levdev -lpthread -lxkbcommon -lxkbcommon-x11 -lxcb-xkb
 #LIBS_L_GLX= $(LIBS_L) -lX11 -lX11-xcb
 #LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib32/" -lvulkan-1 -lgdi32

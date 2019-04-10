@@ -264,6 +264,10 @@ namespace vk {
             }
             index++;
         }
+        if (index == instance->data.allocations.size) {
+            cout << "Attempted to free memory that we don't have in our list of allocations: " << (u64)pMemory << std::endl;
+            return;
+        }
         instance->data.allocations.Erase(index);
         instance->data.totalHeapMemory -= originalSize;
         free(pMemory);
@@ -3839,6 +3843,7 @@ failed:
             return false;
         }
 #endif
+        vkDeviceWaitIdle(data.device);
         for (auto& swapchain : data.swapchains) {
             if (swapchain.data.initted) {
                 swapchain.Deinit();

@@ -1,2 +1,11 @@
 *.gch
 *.log
+*.o
+*.dll
+*.zip
+*.tar.gz
+*.exe
+*.spv
+GitStats
+Exports
+bin

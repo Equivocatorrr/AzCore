@@ -1,7 +1,6 @@
 *.gch
 *.log
 *.o
-*.dll
 *.zip
 *.tar.gz
 *.exe
@@ -9,3 +8,4 @@
 GitStats
 Exports
 bin
+obj

@@ -29,18 +29,23 @@ OBJ_LD = $(patsubst %,$(ODIR)/Linux/Debug/%,$(_OBJ_L))
 OBJ_WD = $(patsubst %,$(ODIR)/Windows/Debug/%,$(_OBJ_W))
 
 $(ODIR)/Linux/Debug/%.o: $(SDIR)/AzCore/%.cpp $(DEPS)
+	@mkdir -p $(@D)
 	$(CC) -c -o $@ $< -g -rdynamic $(CFLAGS)
 
 $(ODIR)/Windows/Debug/%.o: $(SDIR)/AzCore/%.cpp $(DEPS)
+	@mkdir -p $(@D)
 	$(WCC) -c -o $@ $< -g $(CFLAGS)
 
 $(ODIR)/Linux/Release/%.o: $(SDIR)/AzCore/%.cpp $(DEPS)
+	@mkdir -p $(@D)
 	$(CC) -c -o $@ $< -g -O2 $(CFLAGS) -DNDEBUG
 
 $(ODIR)/Windows/Release/%.o: $(SDIR)/AzCore/%.cpp $(DEPS)
+	@mkdir -p $(@D)
 	$(WCC) -c -o $@ $< -O2 $(CFLAGS) -DNDEBUG
 
 $(ODIR)/Windows/resources.o: $(IDIR)/resources.h $(SDIR)/resources.rc manifest.xml icon.ico
+	@mkdir -p $(@D)
 	$(WRC) -o $@ $(RCFLAGS)
 
 .PHONY: debugl debugw debug releasel releasew release all clean
@@ -60,4 +65,4 @@ release: releasel releasew
 all: debug release
 
 clean:
-	rm -f $(ODIR)/Linux/Debug/*.o $(ODIR)/Windows/Debug/*.o $(ODIR)/Linux/Release/*.o $(ODIR)/Windows/Release/*.o *~ core $(INCDIR)/*~
+	rm -r $(ODIR)

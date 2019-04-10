@@ -51,15 +51,19 @@ _SHADERS = test.vert.spv test.frag.spv
 SHADERS = $(patsubst %,data/shaders/%,$(_SHADERS))
 
 $(ODIR)/Linux/Debug/%.o: $(SDIR)/%.cpp $(DEPS)
+	@mkdir -p $(@D)
 	$(CC) -c -o $@ $< -g -rdynamic $(CFLAGS)
 
 $(ODIR)/Windows/Debug/%.o: $(SDIR)/%.cpp $(DEPS)
+	@mkdir -p $(@D)
 	$(WCC) -c -o $@ $< -g $(CFLAGS)
 
 $(ODIR)/Linux/Release/%.o: $(SDIR)/%.cpp $(DEPS)
+	@mkdir -p $(@D)
 	$(CC) -c -o $@ $< -g -O2 $(CFLAGS) -DNDEBUG
 
 $(ODIR)/Windows/Release/%.o: $(SDIR)/%.cpp $(DEPS)
+	@mkdir -p $(@D)
 	$(WCC) -c -o $@ $< -O2 $(CFLAGS) -DNDEBUG
 
 .PHONY: azcorel azcorew azcoredl azcoredw clean _debugl _debugw debugl debugw debug _releasel _releasew releasel releasew release all shaders runl runw rundl rundlv rundw testl testdl testdlv
@@ -77,9 +81,11 @@ azcoredw:
 	$(MAKE) -C $(AZCORE_BASE) debugw
 
 _debugl: $(OBJ_LD) azcoredl
+	@mkdir -p  $(BDIR)/Linux/Debug
 	g++ -o $(BDIR)/Linux/Debug/$(APPNAME) $(OBJ_LD) $(AZCORE_OBJ_LD) -g -rdynamic $(CFLAGS) $(LCFLAGS) $(LIBS_L)
 
 _debugw: $(OBJ_WD) $(WINDOWS_RESOURCES) azcoredw
+	@mkdir -p $(BDIR)/Windows/Debug
 	i686-w64-mingw32-g++ -o $(BDIR)/Windows/Debug/$(APPNAME).exe $(OBJ_WD) $(WINDOWS_RESOURCES) $(AZCORE_OBJ_WD) -g $(CFLAGS) $(WCFLAGS) $(LIBS_W)
 
 debugl: _debugl shaders
@@ -89,9 +95,11 @@ debugw: _debugw shaders
 debug: _debugl _debugw shaders
 
 _releasel: $(OBJ_L) azcorel
+	@mkdir -p $(BDIR)/Linux/Release
 	g++ -o $(BDIR)/Linux/Release/$(APPNAME) $(OBJ_L) $(AZCORE_OBJ_L) $(CFLAGS) $(LCFLAGS) $(LIBS_L)
 
 _releasew: $(OBJ_W) $(WINDOWS_RESOURCES) azcorew
+	@mkdir -p $(BDIR)/Windows/Release
 	i686-w64-mingw32-g++ -o $(BDIR)/Windows/Release/$(APPNAME).exe $(OBJ_W) $(WINDOWS_RESOURCES) $(AZCORE_OBJ_W) $(CFLAGS) $(WCFLAGS) -mwindows $(LIBS_W)
 
 releasel: azcorel _releasel shaders
@@ -107,12 +115,14 @@ packw: _debugw _releasew shaders
 	scripts/PackWindows.sh $(APPNAME)
 
 clean:
-	rm -f $(ODIR)/Linux/Debug/*.o $(ODIR)/Windows/Debug/*.o $(ODIR)/Linux/Release/*.o $(ODIR)/Windows/Release/*.o *~ core $(INCDIR)/*~
+	rm -r $(ODIR) $(BDIR)
 
 data/shaders/%.vert.spv: src/shaders/%.vert
+	@mkdir -p $(@D)
 	./scripts/CompileShaders.sh $^ vert $@
 
 data/shaders/%.frag.spv: src/shaders/%.frag
+	@mkdir -p $(@D)
 	./scripts/CompileShaders.sh $^ frag $@
 
 shaders: $(SHADERS)

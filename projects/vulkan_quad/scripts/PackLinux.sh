@@ -1,7 +1,8 @@
 #Used to easily package the binaries and their libraries
 echo "Packing everything needed to distribute on Linux . . ."
-rm -r Exports/Linux/*
-rm Exports/Linux.tar.gz
+rm -r Exports/Linux*
+
+mkdir -p Exports/Linux
 
 cp -r data Exports/Linux/data
 

@@ -115,7 +115,7 @@ packw: _debugw _releasew shaders
 	scripts/PackWindows.sh $(APPNAME)
 
 clean:
-	rm -r $(ODIR) $(BDIR)
+	rm -r $(ODIR) $(BDIR) Exports
 
 data/shaders/%.vert.spv: src/shaders/%.vert
 	@mkdir -p $(@D)

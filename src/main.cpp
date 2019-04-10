@@ -156,7 +156,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     Ptr<vk::Sampler> vkSampler = vkDevice->AddSampler();
     vkSampler->maxLod = vkTextureImage->mipLevels;
     vkSampler->anisotropy = 16;
-    vkSampler->mipLodBias = -0.5;
+    vkSampler->mipLodBias = -0.5; // Keep things crisp
 
     Ptr<vk::Descriptors> vkDescriptors = vkDevice->AddDescriptors();
     Ptr<vk::DescriptorLayout> vkDescriptorLayoutTexture = vkDescriptors->AddLayout();

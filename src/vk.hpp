@@ -30,6 +30,7 @@
 #ifdef NDEBUG
     // This define will get rid of most sanity checks,
     // especially those related to Vulkan Tree Structure.
+    // It's advised to keep the sanity checks when designing your program.
     #define VK_SANITY_CHECKS_MINIMAL
 #endif
 

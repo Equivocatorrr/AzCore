@@ -97,7 +97,8 @@ namespace vk {
             STR(INDIRECT_COMMANDS_LAYOUT_NVX);
             STR(DEBUG_UTILS_MESSENGER_EXT);
             STR(VALIDATION_CACHE_EXT);
-            STR(ACCELERATION_STRUCTURE_NV);
+            // Not defined on some older versions of the API
+            // STR(ACCELERATION_STRUCTURE_NV);
 #undef STR
         default:
             return "UNKNOWN_DEFAULT";

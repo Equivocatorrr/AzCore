@@ -8,6 +8,7 @@
 // #endif
 #include "log_stream.hpp"
 #include <cstring>
+#include <cstdlib>
 #include <fstream>
 
 namespace vk {
@@ -200,17 +201,21 @@ namespace vk {
         }
     }
 
-    void* Allocate(void *pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope) {
+    VKAPI_ATTR void* VKAPI_CALL Allocate(void *pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope) {
         Instance *instance = (Instance*)pUserData;
         size_t aligned = align(size, alignment);
         // cout << "Allocate size " << size << " with alignment " << alignment << " should be " << aligned << std::endl;
+#ifdef __unix
         void *ptr = aligned_alloc(alignment, aligned);
+#elif defined(_WIN32)
+        void *ptr = _aligned_malloc(alignment, aligned);
+#endif
         instance->data.allocations.Append({ptr, aligned});
         instance->data.totalHeapMemory += aligned;
         return ptr;
     }
 
-    void* Reallocate(void *pUserData, void *pOriginal, size_t size, size_t alignment, VkSystemAllocationScope allocationScope) {
+    VKAPI_ATTR void* VKAPI_CALL Reallocate(void *pUserData, void *pOriginal, size_t size, size_t alignment, VkSystemAllocationScope allocationScope) {
         // cout << "Reallocate" << std::endl;
         if (pOriginal == nullptr) {
             return Allocate(pUserData, size, alignment, allocationScope);
@@ -230,7 +235,11 @@ namespace vk {
             // cout << "Reallocate doesn't need to do anything, returning original ptr" << std::endl;
             return pOriginal;
         }
+#ifdef __unix
         void *ptr = aligned_alloc(alignment, aligned);
+#elif defined(_WIN32)
+        void *ptr = _aligned_malloc(alignment, aligned);
+#endif
         allocation->ptr = ptr;
         allocation->size = aligned;
         instance->data.totalHeapMemory += aligned;
@@ -240,7 +249,7 @@ namespace vk {
         return ptr;
     }
 
-    void Free(void *pUserData, void *pMemory) {
+    VKAPI_ATTR void VKAPI_CALL Free(void *pUserData, void *pMemory) {
         // cout << "Free" << std::endl;
         if (pMemory == nullptr) {
             return;
@@ -4023,14 +4032,12 @@ failed:
             createInfo.enabledLayerCount = 0;
         }
 
-        data.allocationCallbacks = {
-            this,
-            Allocate,
-            Reallocate,
-            Free,
-            nullptr,
-            nullptr
-        };
+        data.allocationCallbacks.pUserData = this;
+        data.allocationCallbacks.pfnAllocation = Allocate;
+        data.allocationCallbacks.pfnReallocation = Reallocate;
+        data.allocationCallbacks.pfnFree = Free;
+        data.allocationCallbacks.pfnInternalAllocation = nullptr;
+        data.allocationCallbacks.pfnInternalFree = nullptr;
 
         VkResult result = vkCreateInstance(&createInfo, &data.allocationCallbacks, &data.instance);
         if (result != VK_SUCCESS) {
@@ -4064,7 +4071,7 @@ failed:
             createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
             createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
             createInfo.pfnUserCallback = debugCallback;
-            result = data.fpCreateDebugUtilsMessengerEXT(data.instance, &createInfo, nullptr, &data.debugUtilsMessenger);
+            result = data.fpCreateDebugUtilsMessengerEXT(data.instance, &createInfo, &data.allocationCallbacks, &data.debugUtilsMessenger);
 
         }
         // Create a surface if we want one
@@ -4082,8 +4089,7 @@ failed:
             vkEnumeratePhysicalDevices(data.instance, &physicalDeviceCount, nullptr);
             if (physicalDeviceCount == 0) {
                 error = "Failed to find GPUs with Vulkan support";
-                vkDestroyInstance(data.instance, &data.allocationCallbacks);
-                return false;
+                goto failed;
             }
             Array<VkPhysicalDevice> devices(physicalDeviceCount);
             vkEnumeratePhysicalDevices(data.instance, &physicalDeviceCount, devices.data);
@@ -4136,7 +4142,7 @@ failed:
         }
         if (data.enableLayers) {
             // data.fpDestroyDebugReportCallbackEXT(data.instance, data.debugReportCallback, &data.allocationCallbacks);
-            data.fpDestroyDebugUtilsMessengerEXT(data.instance, data.debugUtilsMessenger, nullptr);
+            data.fpDestroyDebugUtilsMessengerEXT(data.instance, data.debugUtilsMessenger, &data.allocationCallbacks);
         }
         vkDestroyInstance(data.instance, &data.allocationCallbacks);
         return false;
@@ -4156,12 +4162,11 @@ failed:
         // Clean up everything else here
 #ifdef IO_FOR_VULKAN
         for (const Window& w : data.windows) {
-            vkDestroySurfaceKHR(data.instance, w.surface, &data.allocationCallbacks);
+            vkDestroySurfaceKHR(data.instance, w.surface, nullptr);
         }
 #endif
         if (data.enableLayers) {
-            // data.fpDestroyDebugReportCallbackEXT(data.instance, data.debugReportCallback, &data.allocationCallbacks);
-            data.fpDestroyDebugUtilsMessengerEXT(data.instance, data.debugUtilsMessenger, nullptr);
+            data.fpDestroyDebugUtilsMessengerEXT(data.instance, data.debugUtilsMessenger, &data.allocationCallbacks);
         }
         vkDestroyInstance(data.instance, &data.allocationCallbacks);
         data.initted = false;

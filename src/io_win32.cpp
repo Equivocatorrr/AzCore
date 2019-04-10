@@ -73,7 +73,7 @@ namespace io {
         VkWin32SurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
 		createInfo.hinstance = data->instance;
 		createInfo.hwnd = data->window;
-        VkResult result = vkCreateWin32SurfaceKHR(instance->data.instance, &createInfo, &instance->data.allocationCallbacks, surface);
+        VkResult result = vkCreateWin32SurfaceKHR(instance->data.instance, &createInfo, nullptr, surface);
 		if (result != VK_SUCCESS) {
 			error = "Failed to create Win32 Surface!";
             return false;
@@ -266,12 +266,12 @@ namespace io {
         data->windowClass.lpszMenuName = NULL;
 
         data->windowClassName = "AzCore";
-        data->windowClassName += std::to_string(classNum++);
-        data->windowClass.lpszClassName = data->windowClassName.c_str();
+        data->windowClassName += ToString(classNum++);
+        data->windowClass.lpszClassName = data->windowClassName.data;
         data->windowClass.hIconSm = data->windowIconSmall;
         if (!RegisterClassEx(&data->windowClass)) {
             error = "Failed to register window class: ";
-            error += std::to_string(GetLastError());
+            error += ToString((u32)GetLastError());
             return false;
         }
 
@@ -282,11 +282,11 @@ namespace io {
         rect.bottom = height;
         AdjustWindowRect(&rect,WS_WINDOWED,FALSE);
         focusedWindow = this;
-        data->window = CreateWindowEx(0,data->windowClassName.c_str(),name.c_str(),WS_WINDOWED, CW_USEDEFAULT, CW_USEDEFAULT,
+        data->window = CreateWindowEx(0,data->windowClassName.data,name.data,WS_WINDOWED, CW_USEDEFAULT, CW_USEDEFAULT,
                 rect.right-rect.left, rect.bottom-rect.top, NULL, NULL, data->instance, 0);
         if (data->window==NULL) {
             error = "Failed to create window: ";
-            error += std::to_string(GetLastError());
+            error += ToString((u32)GetLastError());
             return false;
         }
         open = true;

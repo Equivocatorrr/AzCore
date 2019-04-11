@@ -47,9 +47,9 @@ namespace io {
 
     struct WindowData {
         HINSTANCE instance;
-		HWND window;
-		WNDCLASSEX windowClass;
-		HICON windowIcon, windowIconSmall;
+        HWND window;
+        WNDCLASSEX windowClass;
+        HICON windowIcon, windowIconSmall;
         String windowClassName;
     };
 
@@ -71,13 +71,13 @@ namespace io {
             return false;
         }
         VkWin32SurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
-		createInfo.hinstance = data->instance;
-		createInfo.hwnd = data->window;
+        createInfo.hinstance = data->instance;
+        createInfo.hwnd = data->window;
         VkResult result = vkCreateWin32SurfaceKHR(instance->data.instance, &createInfo, nullptr, surface);
-		if (result != VK_SUCCESS) {
-			error = "Failed to create Win32 Surface!";
+        if (result != VK_SUCCESS) {
+            error = "Failed to create Win32 Surface!";
             return false;
-		}
+        }
         return true;
     }
 #endif

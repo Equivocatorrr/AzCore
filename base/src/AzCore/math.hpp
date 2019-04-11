@@ -117,12 +117,12 @@ inline T median(T a, T b, T c) {
 
 template<typename T>
 inline T min(T a, T b) {
-	return a > b ? b : a;
+    return a > b ? b : a;
 }
 
 template<typename T>
 inline T max(T a, T b) {
-	return a > b ? a : b;
+    return a > b ? a : b;
 }
 
 template<typename T>

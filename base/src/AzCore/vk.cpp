@@ -565,15 +565,15 @@ namespace vk {
         }
 #endif
 
-		VkBufferImageCopy copyRegion = {};
-		copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		copyRegion.imageSubresource.mipLevel = 0;
-		copyRegion.imageSubresource.baseArrayLayer = 0;
-		copyRegion.imageSubresource.layerCount = 1;
+        VkBufferImageCopy copyRegion = {};
+        copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        copyRegion.imageSubresource.mipLevel = 0;
+        copyRegion.imageSubresource.baseArrayLayer = 0;
+        copyRegion.imageSubresource.layerCount = 1;
 
-		copyRegion.imageOffset = {0, 0, 0};
-		copyRegion.imageExtent = {width, height, 1};
-		vkCmdCopyBufferToImage(commandBuffer, src->data.buffer, data.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+        copyRegion.imageOffset = {0, 0, 0};
+        copyRegion.imageExtent = {width, height, 1};
+        vkCmdCopyBufferToImage(commandBuffer, src->data.buffer, data.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
     }
 
     void Image::GenerateMipMaps(VkCommandBuffer commandBuffer, VkImageLayout startingLayout, VkImageLayout finalLayout) {
@@ -712,11 +712,11 @@ namespace vk {
             }
         }
 
-		VkBufferCopy copyRegion;
-		copyRegion.size = copySize;
+        VkBufferCopy copyRegion;
+        copyRegion.size = copySize;
         copyRegion.dstOffset = dstOffset;
         copyRegion.srcOffset = srcOffset;
-		vkCmdCopyBuffer(commandBuffer, src->data.buffer, data.buffer, 1, &copyRegion);
+        vkCmdCopyBuffer(commandBuffer, src->data.buffer, data.buffer, 1, &copyRegion);
     }
 
     void Buffer::Clean() {
@@ -963,38 +963,38 @@ failure:
 
     void Memory::CopyData(void *src, VkDeviceSize size, i32 index) {
 #ifndef VK_SANITY_CHECKS_MINIMAL
-		if (src == nullptr) {
-			cout << "Warning: Memory::CopyData has nullptr src! Skipping copy." << std::endl;
-			return;
-		}
+        if (src == nullptr) {
+            cout << "Warning: Memory::CopyData has nullptr src! Skipping copy." << std::endl;
+            return;
+        }
         if (size == 0) {
             cout << "Warning: Memory::CopyData has size of 0! Skipping copy." << std::endl;
             return;
         }
-		if ((data.memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0
-			&& (data.memoryPropertiesDeferred & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
-			cout << "Warning: Memory::CopyData is trying to copy memory that isn't host coherent!" << std::endl;
-		}
-		if ((data.memoryProperties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0
-			&& (data.memoryPropertiesDeferred & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0) {
-			cout << "Warning: Memory::CopyData is trying to copy memory that isn't host visible!" << std::endl;
-		}
-		if (index >= data.offsets.size-1) {
-			cout << "Warning: Memory::CopyData offset index is out of bounds! Skipping copy." << std::endl;
-		}
+        if ((data.memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0
+            && (data.memoryPropertiesDeferred & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+            cout << "Warning: Memory::CopyData is trying to copy memory that isn't host coherent!" << std::endl;
+        }
+        if ((data.memoryProperties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0
+            && (data.memoryPropertiesDeferred & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0) {
+            cout << "Warning: Memory::CopyData is trying to copy memory that isn't host visible!" << std::endl;
+        }
+        if (index >= data.offsets.size-1) {
+            cout << "Warning: Memory::CopyData offset index is out of bounds! Skipping copy." << std::endl;
+        }
 #endif
-		void* dst;
-		vkMapMemory(data.device->data.device, data.memory, data.offsets[index], size, 0, &dst);
-			memcpy(dst, src, (size_t)size);
-		vkUnmapMemory(data.device->data.device, data.memory);
-	}
+        void* dst;
+        vkMapMemory(data.device->data.device, data.memory, data.offsets[index], size, 0, &dst);
+            memcpy(dst, src, (size_t)size);
+        vkUnmapMemory(data.device->data.device, data.memory);
+    }
 
     void Memory::CopyData2D(void *src, Ptr<Image> image, i32 index, u32 bytesPerPixel) {
 #ifndef VK_SANITY_CHECKS_MINIMAL
-		if (src == nullptr) {
-			cout << "Warning: Memory::CopyData2D has nullptr src! Skipping copy." << std::endl;
-			return;
-		}
+        if (src == nullptr) {
+            cout << "Warning: Memory::CopyData2D has nullptr src! Skipping copy." << std::endl;
+            return;
+        }
         if (!image.Valid()) {
             cout << "Warning: Memory::CopyData2D image is not a valid Ptr! Skipping copy." << std::endl;
             return;
@@ -1007,57 +1007,57 @@ failure:
             cout << "Warning: Memory::CopyData2D image has height of 0! Skipping copy." << std::endl;
             return;
         }
-		if ((data.memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0
-			&& (data.memoryPropertiesDeferred & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
-			cout << "Warning: Memory::CopyData2D is trying to copy memory that isn't host coherent!" << std::endl;
-		}
-		if ((data.memoryProperties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0
-			&& (data.memoryPropertiesDeferred & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0) {
-			cout << "Warning: Memory::CopyData2D is trying to copy memory that isn't host visible!" << std::endl;
-		}
-		if (index >= data.offsets.size-1) {
-			cout << "Warning: Memory::CopyData2D offset index is out of bounds! Skipping copy." << std::endl;
-		}
+        if ((data.memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0
+            && (data.memoryPropertiesDeferred & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+            cout << "Warning: Memory::CopyData2D is trying to copy memory that isn't host coherent!" << std::endl;
+        }
+        if ((data.memoryProperties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0
+            && (data.memoryPropertiesDeferred & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0) {
+            cout << "Warning: Memory::CopyData2D is trying to copy memory that isn't host visible!" << std::endl;
+        }
+        if (index >= data.offsets.size-1) {
+            cout << "Warning: Memory::CopyData2D offset index is out of bounds! Skipping copy." << std::endl;
+        }
 #endif
         VkImageSubresource subresource = {};
-		subresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		subresource.mipLevel = 0;
-		subresource.arrayLayer = 0;
+        subresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        subresource.mipLevel = 0;
+        subresource.arrayLayer = 0;
 
-		VkSubresourceLayout stagingImageLayout;
-		vkGetImageSubresourceLayout(data.device->data.device, image->data.image, &subresource, &stagingImageLayout);
+        VkSubresourceLayout stagingImageLayout;
+        vkGetImageSubresourceLayout(data.device->data.device, image->data.image, &subresource, &stagingImageLayout);
 
-		size_t size = data.offsets[index+1] - data.offsets[index];
+        size_t size = data.offsets[index+1] - data.offsets[index];
 
-		void* dst;
-		vkMapMemory(data.device->data.device, data.memory, data.offsets[index], size, 0, &dst);
+        void* dst;
+        vkMapMemory(data.device->data.device, data.memory, data.offsets[index], size, 0, &dst);
 
-		if (stagingImageLayout.rowPitch == image->width * bytesPerPixel) {
-			memcpy(dst, src, image->width * image->height * bytesPerPixel);
-		} else {
-			u8* dataBytes = reinterpret_cast<u8*>(dst);
+        if (stagingImageLayout.rowPitch == image->width * bytesPerPixel) {
+            memcpy(dst, src, image->width * image->height * bytesPerPixel);
+        } else {
+            u8* dataBytes = reinterpret_cast<u8*>(dst);
 
-			for (u32 y = 0; y < image->height; y++) {
-				memcpy( &dataBytes[y * stagingImageLayout.rowPitch],
-						&reinterpret_cast<u8*>(src)[y * image->width * bytesPerPixel],
-						image->width * bytesPerPixel );
-			}
-		}
-		vkUnmapMemory(data.device->data.device, data.memory);
-	}
+            for (u32 y = 0; y < image->height; y++) {
+                memcpy( &dataBytes[y * stagingImageLayout.rowPitch],
+                        &reinterpret_cast<u8*>(src)[y * image->width * bytesPerPixel],
+                        image->width * bytesPerPixel );
+            }
+        }
+        vkUnmapMemory(data.device->data.device, data.memory);
+    }
 
     void* Memory::MapMemory(VkDeviceSize size, i32 index) {
-		void *ptr;
-		vkMapMemory(data.device->data.device, data.memory, data.offsets[index], size, 0, &ptr);
-		data.mapped = true;
-		return ptr;
-	}
+        void *ptr;
+        vkMapMemory(data.device->data.device, data.memory, data.offsets[index], size, 0, &ptr);
+        data.mapped = true;
+        return ptr;
+    }
 
-	void Memory::UnmapMemory() {
-		if (data.mapped)
-			vkUnmapMemory(data.device->data.device, data.memory);
-		data.mapped = false;
-	}
+    void Memory::UnmapMemory() {
+        if (data.mapped)
+            vkUnmapMemory(data.device->data.device, data.memory);
+        data.mapped = false;
+    }
 
     Sampler::~Sampler() {
         Clean();
@@ -1598,13 +1598,13 @@ failure:
     void RenderPass::Begin(VkCommandBuffer commandBuffer, Ptr<Framebuffer> framebuffer, bool subpassContentsInline) {
         VkRenderPassBeginInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = data.renderPass;
-		renderPassInfo.framebuffer = framebuffer->data.framebuffers[framebuffer->data.currentFramebuffer];
-		renderPassInfo.renderArea.offset = {0, 0};
-		renderPassInfo.renderArea.extent.width = framebuffer->width;
-		renderPassInfo.renderArea.extent.height = framebuffer->height;
+        renderPassInfo.renderPass = data.renderPass;
+        renderPassInfo.framebuffer = framebuffer->data.framebuffers[framebuffer->data.currentFramebuffer];
+        renderPassInfo.renderArea.offset = {0, 0};
+        renderPassInfo.renderArea.extent.width = framebuffer->width;
+        renderPassInfo.renderArea.extent.height = framebuffer->height;
 
-		Array<VkClearValue> clearValues{};
+        Array<VkClearValue> clearValues{};
         u32 i = 0; // Index of actual attachment for clearValues
         for (Attachment& attachment : data.attachments) {
             if (attachment.bufferColor) {
@@ -1625,12 +1625,12 @@ failure:
                 i++;
             }
         }
-		renderPassInfo.clearValueCount = clearValues.size;
+        renderPassInfo.clearValueCount = clearValues.size;
         if (clearValues.size != 0) {
             renderPassInfo.pClearValues = clearValues.data;
         }
 
-		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo,
+        vkCmdBeginRenderPass(commandBuffer, &renderPassInfo,
             subpassContentsInline ? VK_SUBPASS_CONTENTS_INLINE : VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
     }
 

@@ -50,9 +50,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
         cout << "Validation layers enabled." << std::endl;
         Array<const char*> layers = {
             "VK_LAYER_GOOGLE_threading",
-    		"VK_LAYER_LUNARG_parameter_validation",
-    		"VK_LAYER_LUNARG_object_tracker",
-    		"VK_LAYER_GOOGLE_unique_objects"
+            "VK_LAYER_LUNARG_parameter_validation",
+            "VK_LAYER_LUNARG_object_tracker",
+            "VK_LAYER_GOOGLE_unique_objects"
         };
         if (enableCoreValidation) {
             layers.Append("VK_LAYER_LUNARG_core_validation");

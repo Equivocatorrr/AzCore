@@ -325,10 +325,10 @@ namespace io {
         createInfo.connection = data->connection;
         createInfo.window = data->window;
         VkResult result = vkCreateXcbSurfaceKHR(instance->data.instance, &createInfo, nullptr, surface);
-		if (result != VK_SUCCESS) {
-			error = "Failed to create XCB surface!";
+        if (result != VK_SUCCESS) {
+            error = "Failed to create XCB surface!";
             return false;
-		}
+        }
         return true;
     }
 #endif

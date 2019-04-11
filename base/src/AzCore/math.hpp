@@ -278,12 +278,6 @@ inline T normalize(const T& a) {
                 h.x2*a, h.y2*a
             );
         }
-        inline mat2_t<T> operator/(const vec2_t<T>& a) const {
-            return mat2_t<T>(
-                h.x1/a.x, h.y1/a.y,
-                h.x2/a.x, h.y2/a.y
-            );
-        }
     };
 #endif // MATH_MAT2
 
@@ -431,18 +425,11 @@ inline T normalize(const T& a) {
                 h.x3*a, h.y3*a, h.z3*a
             );
         }
-        inline mat3_t<T> operator/(const vec3_t<T>& a) const {
-            return mat3_t<T>(
-                h.x1/a.x + h.y1/a.y + h.z1/a.z,
-                h.x2/a.x + h.y2/a.y + h.z2/a.z,
-                h.x3/a.x + h.y3/a.y + h.z3/a.z
-            );
-        }
         inline mat3_t<T> operator/(const T& a) const {
             return mat3_t<T>(
-                h.x1/a + h.y1/a + h.z1/a,
-                h.x2/a + h.y2/a + h.z2/a,
-                h.x3/a + h.y3/a + h.z3/a
+                h.x1/a, h.y1/a, h.z1/a,
+                h.x2/a, h.y2/a, h.z2/a,
+                h.x3/a, h.y3/a, h.z3/a
             );
         }
     };
@@ -613,20 +600,12 @@ inline T normalize(const T& a) {
                 h.x4*a, h.y4*a, h.z4*a, h.w4*a
             );
         }
-        inline mat4_t<T> operator/(const vec4_t<T>& a) const {
-            return mat4_t<T>(
-                h.x1/a.x + h.y1/a.y + h.z1/a.z + h.w1/a.w,
-                h.x2/a.x + h.y2/a.y + h.z2/a.z + h.w2/a.w,
-                h.x3/a.x + h.y3/a.y + h.z3/a.z + h.w3/a.w,
-                h.x4/a.x + h.y4/a.y + h.z4/a.z + h.w4/a.w
-            );
-        }
         inline mat4_t<T> operator/(const T& a) const {
             return mat4_t<T>(
-                h.x1/a + h.y1/a + h.z1/a + h.w1/a,
-                h.x2/a + h.y2/a + h.z2/a + h.w2/a,
-                h.x3/a + h.y3/a + h.z3/a + h.w3/a,
-                h.x4/a + h.y4/a + h.z4/a + h.w4/a
+                h.x1/a, h.y1/a, h.z1/a, h.w1/a,
+                h.x2/a, h.y2/a, h.z2/a, h.w2/a,
+                h.x3/a, h.y3/a, h.z3/a, h.w3/a,
+                h.x4/a, h.y4/a, h.z4/a, h.w4/a
             );
         }
     };
@@ -707,7 +686,7 @@ inline T normalize(const T& a) {
 
     template<typename T>
     inline complex_t<T> operator/(const T& a, const complex_t<T>& b) {
-        return b/a;
+        return complex_t<T>(a)/b;
     }
 
     template<typename T>

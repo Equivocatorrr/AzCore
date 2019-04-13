@@ -26,7 +26,7 @@ providing many informative sanity checks that should help you design your progra
 you want in a way that provides you with contextual information.
 While this may help significantly in designing a Vulkan program, it won't replace an understanding of the Vulkan API, and only
 shallowly abstracts some concepts. The vast majority of the structures mirror those provided by the Vulkan API almost exactly,
-but does so in an RAII style that describes the relationship between structures.
+but does so in a style that describes the relationship between structures.
 
 In my estimations thus far, the framework divides the necessary lines of code by about ten when compared to writing raw Vulkan
 code.

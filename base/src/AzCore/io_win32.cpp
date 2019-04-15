@@ -362,6 +362,25 @@ namespace io {
         return true;
     }
 
+    bool Window::Resize(u32 w, u32 h) {
+        if (!open) {
+            error = "Window hasn't been created yet";
+            return false;
+        }
+        if (fullscreen) {
+            error = "Fullscreen windows can't be resized";
+            return false;
+        }
+        RECT rect;
+        rect.left = 0;
+        rect.top = 0;
+        rect.right = w;
+        rect.bottom = h;
+        AdjustWindowRect(&rect, WS_WINDOWED, FALSE);
+        SetWindowPos(data->window, 0, 0, 0, rect.right-rect.left, rect.bottom-rect.top, SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
+        return true;
+    }
+
     bool Window::Update() {
         MSG msg;
         while (PeekMessage(&msg, data->window, 0, 0, PM_REMOVE))

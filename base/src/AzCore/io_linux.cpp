@@ -514,6 +514,10 @@ namespace io {
         return true;
     }
 
+    #define _NET_WM_STATE_REMOVE        0    // remove/unset property
+    #define _NET_WM_STATE_ADD           1    // add/set property
+    #define _NET_WM_STATE_TOGGLE        2    // toggle property
+
     bool Window::Fullscreen(bool fs) {
         if (!open) {
             error = "Window hasn't been created yet";
@@ -523,10 +527,6 @@ namespace io {
             return true;
 
         fullscreen = fs;
-
-        #define _NET_WM_STATE_REMOVE        0    // remove/unset property
-        #define _NET_WM_STATE_ADD           1    // add/set property
-        #define _NET_WM_STATE_TOGGLE        2    // toggle property
 
         xcb_client_message_event_t ev;
         ev.response_type = XCB_CLIENT_MESSAGE;
@@ -541,6 +541,21 @@ namespace io {
 
         xcb_send_event(data->connection, 1, data->window, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT
                 | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY, (const char*)(&ev));
+        xcb_flush(data->connection);
+        return true;
+    }
+
+    bool Window::Resize(u32 w, u32 h) {
+        if (!open) {
+            error = "Window hasn't been created yet";
+            return false;
+        }
+        if (fullscreen) {
+            error = "Fullscreen windows can't be resized";
+            return false;
+        }
+        const u32 values[2] = {w, h};
+        xcb_configure_window(data->connection, data->window, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, values);
         xcb_flush(data->connection);
         return true;
     }

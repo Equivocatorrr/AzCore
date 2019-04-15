@@ -99,6 +99,7 @@ namespace io {
         bool Open();
         bool Show();
         bool Fullscreen(bool fullscreen);
+        bool Resize(u32 w, u32 h);
         bool Update();
         bool Close();
         String InputName(u8 keyCode) const;

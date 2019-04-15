@@ -99,6 +99,8 @@ struct RandomNumberGenerator {
     void Seed(u64 seed);
 };
 
+f32 random(f32 min, f32 max, RandomNumberGenerator& rng);
+
 template<typename T>
 inline T square(const T a) {
     return a*a;

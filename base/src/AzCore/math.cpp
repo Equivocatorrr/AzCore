@@ -30,6 +30,11 @@ void RandomNumberGenerator::Seed(u64 seed) {
     c = seed * 32497;
 }
 
+f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
+    u32 num = rng.Generate();
+    return ((f64)num * (f64)(max-min) / (f64)UINT32_MAX) + (f64)min;
+}
+
 #ifdef MATH_F32
     f32 angleDiff(f32 from, f32 to) {
         f32 diff = to - from;

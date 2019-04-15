@@ -44,7 +44,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     }
 
     vk::Instance vkInstance;
-    vkInstance.AppInfo("AzCore Test Program", 0, 1, 0);
+    vkInstance.AppInfo("AzCore Test Program", 1, 0, 0);
 
     if (enableLayers) {
         cout << "Validation layers enabled." << std::endl;

@@ -389,17 +389,32 @@ namespace vk {
         Author: Philip Haynes
         Basic configuration of a subpass, which is then completed by creation of the RenderPass */
     struct Subpass {
-        // The indices of attachments added to the RenderPass
-        Array<AttachmentUsage> attachments{};
-        // Subpass configuration
-        Array<VkAttachmentReference> referencesColor{};
-        Array<VkAttachmentReference> referencesResolve{};
-        Array<VkAttachmentReference> referencesInput{};
-        Array<u32> referencesPreserve{};
-        VkAttachmentReference referenceDepthStencil{};
+        struct {
+            // The indices of attachments added to the RenderPass
+            Array<AttachmentUsage> attachments{};
+            // Subpass configuration
+            Array<VkAttachmentReference> referencesColor{};
+            Array<VkAttachmentReference> referencesResolve{};
+            Array<VkAttachmentReference> referencesInput{};
+            Array<u32> referencesPreserve{};
+            VkAttachmentReference referenceDepthStencil{};
+        } data;
         // NOTE: Do we need this? Can renderpasses be used outside of graphics?
         VkPipelineBindPoint pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
+        // Use one or more images from attachment, depends on AttachmentType
+        // For single-subpass renderpasses, ATTACHMENT_ALL should suffice
+        // For input attachments, you have to specify which image you're using
+        //      Color inputs should be ATTACHMENT_COLOR
+        //      Depth/Stencil inputs should be ATTACHMENT_DEPTH_STENCIL
+        //      Resolved multisampled inputs should be ATTACHMENT_RESOLVE
+        // accessFlags should reflect how the image is accessed in the subpass
+        //      For single-subpass renderpasses, the following should suffice:
+        //          VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
+        //      For depth-only subpasses try:
+        //          VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
+        //      For input attachments, try:
+        //          VK_ACCESS_INPUT_ATTACHMENT_READ_BIT
         void UseAttachment(Ptr<Attachment> attachment, AttachmentType type, VkAccessFlags accessFlags);
     };
 

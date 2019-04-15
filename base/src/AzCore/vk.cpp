@@ -134,7 +134,7 @@ namespace vk {
             if (space) {
                 str += ", ";
             }
-            str = ToString(size/(1024*1024)) + " MiB";
+            str += ToString(size/(1024*1024)) + " MiB";
             size %= (1024*1024);
             space = true;
         }
@@ -1582,7 +1582,7 @@ failure:
 
     void Subpass::UseAttachment(Ptr<Attachment> attachment, AttachmentType type, VkAccessFlags accessFlags) {
         AttachmentUsage usage = {attachment.index, type, accessFlags};
-        attachments.Append(usage);
+        data.attachments.Append(usage);
     }
 
     Ptr<Subpass> RenderPass::AddSubpass() {
@@ -1679,14 +1679,14 @@ failure:
         for (i32 i = 0; i < data.subpasses.size; i++) {
             bool depthStencilTaken = false; // Verify that we only have one depth/stencil attachment
             Subpass& subpass = data.subpasses[i];
-            subpass.referencesColor.Resize(0);
-            subpass.referencesResolve.Resize(0);
-            subpass.referencesInput.Resize(0);
-            subpass.referencesPreserve.Resize(0);
+            subpass.data.referencesColor.Resize(0);
+            subpass.data.referencesResolve.Resize(0);
+            subpass.data.referencesInput.Resize(0);
+            subpass.data.referencesPreserve.Resize(0);
 
-            for (i32 j = 0; j < subpass.attachments.size; j++) {
+            for (i32 j = 0; j < subpass.data.attachments.size; j++) {
                 String errorPrefix = "Subpass[" + ToString(i) + "] AttachmentUsage[" + ToString(j) + "] ";
-                AttachmentUsage& usage = subpass.attachments[j];
+                AttachmentUsage& usage = subpass.data.attachments[j];
                 if (usage.index >= data.attachments.size) {
                     error = errorPrefix + "index is out of bounds: " + ToString(usage.index);
                     return false;
@@ -1747,10 +1747,10 @@ failure:
                     VkAttachmentReference ref{};
                     ref.attachment = colorIndex;
                     ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-                    subpass.referencesColor.Append(ref);
+                    subpass.data.referencesColor.Append(ref);
                     if (attachment.resolveColor && attachment.sampleCount != VK_SAMPLE_COUNT_1_BIT) {
                         ref.attachment = resolveIndex;
-                        subpass.referencesResolve.Append(ref);
+                        subpass.data.referencesResolve.Append(ref);
                     }
                 }
                 if (usage.accessFlags & (VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
@@ -1762,7 +1762,7 @@ failure:
                     VkAttachmentReference ref{};
                     ref.attachment = depthStencilIndex;
                     ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-                    subpass.referenceDepthStencil = ref;
+                    subpass.data.referenceDepthStencil = ref;
                 }
                 if (usage.accessFlags & VK_ACCESS_INPUT_ATTACHMENT_READ_BIT) {
                     VkAttachmentReference ref{};
@@ -1772,51 +1772,51 @@ failure:
                     } else if (usage.type == ATTACHMENT_DEPTH_STENCIL) {
                         ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
                     }
-                    subpass.referencesInput.Append(ref);
+                    subpass.data.referencesInput.Append(ref);
                 }
             }
             cout << "Subpass[" << i << "] is using the following attachments:\n";
-            if (subpass.referencesColor.size != 0) {
+            if (subpass.data.referencesColor.size != 0) {
                 cout << "\tColor: ";
-                for (auto& ref : subpass.referencesColor) {
+                for (auto& ref : subpass.data.referencesColor) {
                     cout << ref.attachment << " ";
                 }
             }
-            if (subpass.referencesResolve.size != 0) {
+            if (subpass.data.referencesResolve.size != 0) {
                 cout << "\n\tResolve: ";
-                for (auto& ref : subpass.referencesResolve) {
+                for (auto& ref : subpass.data.referencesResolve) {
                     cout << ref.attachment << " ";
                 }
             }
-            if (subpass.referencesInput.size != 0) {
+            if (subpass.data.referencesInput.size != 0) {
                 cout << "\n\tInput: ";
-                for (auto& ref : subpass.referencesInput) {
+                for (auto& ref : subpass.data.referencesInput) {
                     cout << ref.attachment << " ";
                 }
             }
-            if (subpass.referencesPreserve.size != 0) {
+            if (subpass.data.referencesPreserve.size != 0) {
                 cout << "\n\tPreserve: ";
-                for (auto& ref : subpass.referencesPreserve) {
+                for (auto& ref : subpass.data.referencesPreserve) {
                     cout << ref << " ";
                 }
             }
             if (depthStencilTaken) {
-                cout << "\n\tDepth: " << subpass.referenceDepthStencil.attachment;
+                cout << "\n\tDepth: " << subpass.data.referenceDepthStencil.attachment;
             }
             cout << std::endl;
             VkSubpassDescription description{};
             description.pipelineBindPoint = subpass.pipelineBindPoint;
-            description.colorAttachmentCount = subpass.referencesColor.size;
-            description.pColorAttachments = subpass.referencesColor.data;
-            description.inputAttachmentCount = subpass.referencesInput.size;
-            description.pInputAttachments = subpass.referencesInput.data;
-            description.preserveAttachmentCount = subpass.referencesPreserve.size;
-            description.pPreserveAttachments = subpass.referencesPreserve.data;
-            if (subpass.referencesResolve.size != 0) {
-                description.pResolveAttachments = subpass.referencesResolve.data;
+            description.colorAttachmentCount = subpass.data.referencesColor.size;
+            description.pColorAttachments = subpass.data.referencesColor.data;
+            description.inputAttachmentCount = subpass.data.referencesInput.size;
+            description.pInputAttachments = subpass.data.referencesInput.data;
+            description.preserveAttachmentCount = subpass.data.referencesPreserve.size;
+            description.pPreserveAttachments = subpass.data.referencesPreserve.data;
+            if (subpass.data.referencesResolve.size != 0) {
+                description.pResolveAttachments = subpass.data.referencesResolve.data;
             }
             if (depthStencilTaken) {
-                description.pDepthStencilAttachment = &subpass.referenceDepthStencil;
+                description.pDepthStencilAttachment = &subpass.data.referenceDepthStencil;
             }
             data.subpassDescriptions.Append(description);
         }
@@ -1831,7 +1831,7 @@ failure:
             bool depth = false;
             bool color = false;
             bool resolve = false;
-            for (AttachmentUsage& usage : data.subpasses[0].attachments) {
+            for (AttachmentUsage& usage : data.subpasses[0].data.attachments) {
                 switch (usage.type) {
                     case ATTACHMENT_COLOR: {
                         color = true;
@@ -1878,7 +1878,7 @@ failure:
             bool depth = false;
             bool color = false;
             bool resolve = false;
-            for (AttachmentUsage& usage : data.subpasses[0].attachments) {
+            for (AttachmentUsage& usage : data.subpasses[0].data.attachments) {
                 switch (usage.type) {
                     case ATTACHMENT_COLOR: {
                         color = true;
@@ -2095,7 +2095,7 @@ failure:
             }
             // Now we need to make sure we know which images are also being used as input attachments
             for (auto& subpass : renderPass->data.subpasses) {
-                for (auto& input : subpass.referencesInput) {
+                for (auto& input : subpass.data.referencesInput) {
                     ourImages[input.attachment]->usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
                 }
             }
@@ -2421,15 +2421,15 @@ failure:
             error = "subpass[" + ToString(subpass) + "] is out of bounds for the RenderPass which only has " + ToString(renderPass->data.subpasses.size) + " subpasses!";
             return false;
         }
-        if (renderPass->data.subpasses[subpass].referencesColor.size != colorBlendAttachments.size) {
-            error = "You must have one colorBlendAttachment per color attachment in the associated Subpass!\nThe subpass has " + ToString(renderPass->data.subpasses[subpass].referencesColor.size) + " color attachments while the pipeline has " + ToString(colorBlendAttachments.size) + " colorBlendAttachments.";
+        if (renderPass->data.subpasses[subpass].data.referencesColor.size != colorBlendAttachments.size) {
+            error = "You must have one colorBlendAttachment per color attachment in the associated Subpass!\nThe subpass has " + ToString(renderPass->data.subpasses[subpass].data.referencesColor.size) + " color attachments while the pipeline has " + ToString(colorBlendAttachments.size) + " colorBlendAttachments.";
             return false;
         }
 #endif
         data.device = device;
         data.debugMarker = std::move(debugMarker);
         // Inherit multisampling information from renderPass
-        for (auto& attachment : renderPass->data.subpasses[subpass].attachments) {
+        for (auto& attachment : renderPass->data.subpasses[subpass].data.attachments) {
             if (attachment.accessFlags &
                 (VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)) {
                 data.multisampling.rasterizationSamples = renderPass->data.attachments[attachment.index].sampleCount;

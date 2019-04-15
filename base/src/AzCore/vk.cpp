@@ -3437,6 +3437,7 @@ failure:
                 data.deviceFeaturesOptional.samplerAnisotropy = VK_TRUE;
             }
             bool independentBlending = false;
+            bool wideLines = false;
             for (auto& pipeline : data.pipelines) {
                 for (i32 i = 1; i < pipeline.colorBlendAttachments.size; i++) {
                     VkPipelineColorBlendAttachmentState& s1 = pipeline.colorBlendAttachments[i-1];
@@ -3453,10 +3454,17 @@ failure:
                         break;
                     }
                 }
+                if (pipeline.rasterizer.lineWidth != 1.0) {
+                    wideLines = true;
+                }
             }
             if (independentBlending) {
                 cout << "Enabling independentBlend device feature" << std::endl;
                 data.deviceFeaturesRequired.independentBlend = VK_TRUE;
+            }
+            if (wideLines) {
+                cout << "Enabling wideLines device feature" << std::endl;
+                data.deviceFeaturesRequired.wideLines = VK_TRUE;
             }
             // Which ones are available?
             for (u32 i = 0; i < sizeof(VkPhysicalDeviceFeatures)/4; i++) {

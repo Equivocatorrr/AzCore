@@ -2604,7 +2604,7 @@ failure:
         if (secondary) {
             VkCommandBufferInheritanceInfo inheritanceInfo = {};
             inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
-            if (renderPass != nullptr) {
+            if (renderPass.Valid()) {
 #ifndef VK_SANITY_CHECKS_MINIMAL
                 if (!renderPass->data.initted) {
                     error = "Associated RenderPass is not initialized!";
@@ -2614,7 +2614,7 @@ failure:
                 inheritanceInfo.renderPass = renderPass->data.renderPass;
                 inheritanceInfo.subpass = subpass;
             }
-            if (framebuffer != nullptr) {
+            if (framebuffer.Valid()) {
 #ifndef VK_SANITY_CHECKS_MINIMAL
                 if (!framebuffer->data.initted) {
                     error = "Associated Framebuffer is not initialized!";

@@ -634,10 +634,10 @@ namespace vk {
         // Use this if it's a secondary command buffer completely inside a render pass
         bool renderPassContinue = false;
         // If used inside a render pass, we need to know which one, and then which subpass
-        RenderPass *renderPass = nullptr;
+        Ptr<RenderPass> renderPass = nullptr;
         u32 subpass = 0;
         // Do we know which framebuffer we'll be using? Not strictly necessary.
-        Framebuffer *framebuffer = nullptr;
+        Ptr<Framebuffer> framebuffer = nullptr;
         // If the primary command buffer is running an occlusion query, this must be true
         bool occlusionQueryEnable = false;
         // We also need to know about the query

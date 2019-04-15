@@ -552,6 +552,214 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 
 #endif // MATH_MAT4
 
+#ifdef MATH_VEC5
+    template<typename T>
+    vec5_t<T>::vec5_t() : x(0) , y(0) , z(0) , w(0) , v(0) {}
+
+    template<typename T>
+    vec5_t<T>::vec5_t(T vec) : x(vec) , y (vec) , z(vec) , w(vec) , v(vec) {}
+
+    template<typename T>
+    vec5_t<T>::vec5_t(T v1, T v2, T v3, T v4, T v5) : x(v1) , y(v2) , z(v3) , w(v4) , v(v5) {}
+
+    template<typename T>
+    vec5_t<T> vec5_t<T>::operator+=(const vec5_t<T>& vec) {
+        x += vec.x;
+        y += vec.y;
+        z += vec.z;
+        w += vec.w;
+        v += vec.v;
+        return *this;
+    }
+
+    template<typename T>
+    vec5_t<T> vec5_t<T>::operator-=(const vec5_t<T>& vec) {
+        x -= vec.x;
+        y -= vec.y;
+        z -= vec.z;
+        w -= vec.w;
+        v -= vec.v;
+        return *this;
+    }
+
+    template<typename T>
+    vec5_t<T> vec5_t<T>::operator/=(const vec5_t<T>& vec) {
+        x /= vec.x;
+        y /= vec.y;
+        z /= vec.z;
+        w /= vec.w;
+        v /= vec.v;
+        return *this;
+    }
+
+    template<typename T>
+    vec5_t<T> vec5_t<T>::operator/=(const T& vec) {
+        x /= vec;
+        y /= vec;
+        z /= vec;
+        w /= vec;
+        v /= vec;
+        return *this;
+    }
+
+    template<typename T>
+    vec5_t<T> vec5_t<T>::operator*=(const vec5_t<T>& vec) {
+        x *= vec.x;
+        y *= vec.y;
+        z *= vec.z;
+        w *= vec.w;
+        v *= vec.v;
+        return *this;
+    }
+
+    template<typename T>
+    vec5_t<T> vec5_t<T>::operator*=(const T& vec) {
+        x *= vec;
+        y *= vec;
+        z *= vec;
+        w *= vec;
+        v *= vec;
+        return *this;
+    }
+
+#endif // MATH_VEC5
+
+#ifdef MATH_MAT5
+    template<typename T>
+    mat5_t<T>::mat5_t() : h{1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1} {}
+
+    template<typename T>
+    mat5_t<T>::mat5_t(T a) : h{a, 0, 0, 0, 0, 0, a, 0, 0, 0, 0, 0, a, 0, 0, 0, 0, 0, a, 0, 0, 0, 0, 0, a} {}
+
+    template<typename T>
+    mat5_t<T>::mat5_t(T x1, T y1, T z1, T w1, T v1,
+                      T x2, T y2, T z2, T w2, T v2,
+                      T x3, T y3, T z3, T w3, T v3,
+                      T x4, T y4, T z4, T w4, T v4,
+                      T x5, T y5, T z5, T w5, T v5) :
+            data{x1, y1, z1, w1, v1, x2, y2, z2, w2, v2, x3, y3, z3, w3, v3, x4, y4, z4, w4, v4, x5, y5, z5, w5, v5} {}
+
+    template<typename T>
+    mat5_t<T>::mat5_t(vec5_t<T> a, vec5_t<T> b, vec5_t<T> c, vec5_t<T> d, vec5_t<T> e, bool rowMajor) {
+        if (rowMajor) {
+            h = {a.x, a.y, a.z, a.w, a.v,
+                 b.x, b.y, b.z, b.w, b.v,
+                 c.x, c.y, c.z, c.w, c.v,
+                 d.x, d.y, d.z, d.w, d.v,
+                 e.x, e.y, e.z, e.w, e.v};
+        } else {
+            h = {a.x, b.x, c.x, d.x, e.x,
+                 a.y, b.y, c.y, d.y, e.y,
+                 a.z, b.z, c.z, d.z, e.z,
+                 a.w, b.w, c.w, d.w, e.w,
+                 a.v, b.v, c.v, d.v, e.v};
+        }
+    }
+
+    template<typename T>
+    mat5_t<T>::mat5_t(T d[25]) : data{d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[9], d[10], d[11], d[12], d[13], d[14], d[15], d[16], d[17], d[18], d[19], d[20], d[21], d[22], d[23], d[24]} {}
+
+    template<typename T>
+    mat5_t<T> mat5_t<T>::RotationBasic(T angle, Plane plane) {
+        T s = sin(angle), c = cos(angle);
+        switch(plane) {
+            case Plane::XW: {
+                return mat5_t<T>(
+                    T(1), T(0), T(0), T(0), T(0),
+                    T(0), c,    -s,   T(0), T(0),
+                    T(0), s,    c,    T(0), T(0),
+                    T(0), T(0), T(0), T(1), T(0),
+                    T(0), T(0), T(0), T(0), T(1)
+                );
+            }
+            case Plane::YW: {
+                return mat5_t<T>(
+                    c,    T(0), s,    T(0), T(0),
+                    T(0), T(1), T(0), T(0), T(0),
+                    -s,   T(0), c,    T(0), T(0),
+                    T(0), T(0), T(0), T(1), T(0),
+                    T(0), T(0), T(0), T(0), T(1)
+                );
+            }
+            case Plane::ZW: {
+                return mat5_t<T>(
+                    c,    -s,   T(0), T(0), T(0),
+                    s,    c,    T(0), T(0), T(0),
+                    T(0), T(0), T(1), T(0), T(0),
+                    T(0), T(0), T(0), T(1), T(0),
+                    T(0), T(0), T(0), T(0), T(1)
+                );
+            }
+            case Plane::XY: {
+                return mat5_t<T>(
+                    T(1), T(0), T(0), T(0), T(0),
+                    T(0), T(1), T(0), T(0), T(0),
+                    T(0), T(0), c,    -s,   T(0),
+                    T(0), T(0), s,    c,    T(0),
+                    T(0), T(0), T(0), T(0), T(1)
+                );
+            }
+            case Plane::YZ: {
+                return mat5_t<T>(
+                    c,    T(0), T(0), -s,   T(0),
+                    T(0), T(1), T(0), T(0), T(0),
+                    T(0), T(0), T(1), T(0), T(0),
+                    s,    T(0), T(0), c,    T(0),
+                    T(0), T(0), T(0), T(0), T(1)
+                );
+            }
+            case Plane::ZX: {
+                return mat5_t<T>(
+                    T(1), T(0), T(0), T(0), T(0),
+                    T(0), c,    T(0), s,    T(0),
+                    T(0), T(0), T(1), T(0), T(0),
+                    T(0), -s,   T(0), c,    T(0),
+                    T(0), T(0), T(0), T(0), T(1)
+                );
+            }
+        }
+        return mat5_t<T>();
+    }
+
+    template<typename T>
+    mat5_t<T> mat5_t<T>::RotationBasic(T angle, Axis axis) {
+        switch(axis) {
+            case Axis::X: {
+                return RotationBasic(angle, Plane::XW);
+            }
+            case Axis::Y: {
+                return RotationBasic(angle, Plane::YW);
+            }
+            case Axis::Z: {
+                return RotationBasic(angle, Plane::ZW);
+            }
+        }
+        return mat5_t<T>();
+    }
+
+    template<typename T>
+    mat5_t<T> mat5_t<T>::Rotation(T angle, vec3_t<T> axis) {
+        T s = sin(angle), c = cos(angle);
+        T ic = 1-c;
+        vec3_t<T> a = normalize(axis);
+        T xx = square(a.x), yy = square(a.y), zz = square(a.z),
+            xy = a.x*a.y,     xz = a.x*a.z,     yz = a.y*a.z;
+        return mat5_t<T>(
+            c + xx*ic,          xy*ic - a.z*s,      xz*ic + a.y*s,  T(0),  T(0),
+            xy*ic + a.z*s,      c + yy*ic,          yz*ic - a.x*s,  T(0),  T(0),
+            xz*ic - a.y*s,      yz*ic + a.x*s,      c + zz*ic,      T(0),  T(0),
+            T(0),               T(0),               T(0),           T(1),  T(0),
+            T(0),               T(0),               T(0),           T(0),  T(1)
+        );
+    }
+
+    template<typename T>
+    mat5_t<T> mat5_t<T>::Scaler(vec5_t<T> scale) {
+        return mat5_t<T>(scale.x, T(0), T(0), T(0), T(0), T(0), scale.y, T(0), T(0), T(0), T(0), T(0), scale.z, T(0), T(0), T(0), T(0), T(0), scale.w, T(0), T(0), T(0), T(0), T(0), scale.v);
+    }
+
+#endif // MATH_MAT5
+
 #ifdef MATH_COMPLEX
     template<typename T>
     complex_t<T>::complex_t() : x(0) , y(0) {}
@@ -842,6 +1050,15 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
     #endif
     template struct vec4_t<i32>;
 #endif
+#ifdef MATH_VEC5
+    #ifdef MATH_F32
+        template struct vec5_t<f32>;
+    #endif
+    #ifdef MATH_F64
+        template struct vec5_t<f64>;
+    #endif
+    template struct vec5_t<i32>;
+#endif
 #ifdef MATH_MAT2
     #ifdef MATH_F32
         template struct mat2_t<f32>;
@@ -864,6 +1081,14 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
     #endif
     #ifdef MATH_F64
         template struct mat4_t<f64>;
+    #endif
+#endif
+#ifdef MATH_MAT5
+    #ifdef MATH_F32
+        template struct mat5_t<f32>;
+    #endif
+    #ifdef MATH_F64
+        template struct mat5_t<f64>;
     #endif
 #endif
 #ifdef MATH_COMPLEX

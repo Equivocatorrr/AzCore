@@ -758,6 +758,8 @@ namespace vk {
         Array<Ptr<CommandBuffer>> commandBuffers{};
         Array<SemaphoreWait> waitSemaphores{};
         Array<Ptr<Semaphore>> signalSemaphores{};
+        // Set this to true if the queue submission isn't fully-defined at tree initialization
+        bool noAutoConfig = false;
 
         bool Config();
     };

@@ -3774,7 +3774,9 @@ failure:
         // Queue Submissions
         cout << "Configuring " << data.queueSubmissions.size << " QueueSubmissions..." << std::endl;
         for (auto& queueSubmission : data.queueSubmissions) {
-            queueSubmission.Config();
+            if (!queueSubmission.noAutoConfig) {
+                queueSubmission.Config();
+            }
         }
 
         // Once the pipelines are set with all the shaders,

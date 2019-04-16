@@ -738,6 +738,40 @@ namespace vk {
         vkCmdCopyBuffer(commandBuffer, src->data.buffer, data.buffer, 1, &copyRegion);
     }
 
+    void Buffer::QueueOwnershipRelease(VkCommandBuffer commandBuffer, Ptr<Queue> srcQueue, Ptr<Queue> dstQueue,
+                                       VkAccessFlags srcAccessMask, VkPipelineStageFlags srcStageMask) {
+        if (srcQueue->queueFamilyIndex == dstQueue->queueFamilyIndex) {
+            return; // No transfer necessary
+        }
+        VkBufferMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        barrier.buffer = data.buffer;
+        barrier.size = size;
+        barrier.srcQueueFamilyIndex = static_cast<u32>(srcQueue->queueFamilyIndex);
+        barrier.dstQueueFamilyIndex = static_cast<u32>(dstQueue->queueFamilyIndex);
+        barrier.srcAccessMask = srcAccessMask;
+        barrier.dstAccessMask = 0;
+
+        vkCmdPipelineBarrier(commandBuffer, srcStageMask, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 1, &barrier, 0, nullptr);
+    }
+
+    void Buffer::QueueOwnershipAcquire(VkCommandBuffer commandBuffer, Ptr<Queue> srcQueue, Ptr<Queue> dstQueue,
+                                       VkAccessFlags dstAccessMask, VkPipelineStageFlags dstStageMask) {
+        if (srcQueue->queueFamilyIndex == dstQueue->queueFamilyIndex) {
+            return; // No transfer necessary
+        }
+        VkBufferMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        barrier.buffer = data.buffer;
+        barrier.size = size;
+        barrier.srcQueueFamilyIndex = static_cast<u32>(srcQueue->queueFamilyIndex);
+        barrier.dstQueueFamilyIndex = static_cast<u32>(dstQueue->queueFamilyIndex);
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = dstAccessMask;
+
+        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, dstStageMask, 0, 0, nullptr, 1, &barrier, 0, nullptr);
+    }
+
     void Buffer::Clean() {
         if (data.exists) {
             vkDestroyBuffer(data.device->data.device, data.buffer, nullptr);
@@ -3520,7 +3554,7 @@ failure:
 
         // Set up queues
         // First figure out which queue families each queue should use
-        const bool preferSameQueueFamilies = false;
+        const bool preferSameQueueFamilies = true;
         const bool preferMonolithicQueues = true;
 
         // Make sure we have enough queues in every family

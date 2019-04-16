@@ -157,6 +157,10 @@ namespace vk {
         // Record a copy command to commandBuffer
         void Copy(VkCommandBuffer commandBuffer, Ptr<Buffer> src,
                 VkDeviceSize copySize=0, VkDeviceSize dstOffset=0, VkDeviceSize srcOffset=0);
+        void QueueOwnershipRelease(VkCommandBuffer commandBuffer, Ptr<Queue> srcQueue, Ptr<Queue> dstQueue,
+                                   VkAccessFlags srcAccessMask, VkPipelineStageFlags srcStageMask);
+        void QueueOwnershipAcquire(VkCommandBuffer commandBuffer, Ptr<Queue> srcQueue, Ptr<Queue> dstQueue,
+                                   VkAccessFlags dstAccessMask, VkPipelineStageFlags dstStageMask);
         void Clean();
     };
 

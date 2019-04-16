@@ -245,6 +245,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
     bool enableStereoGraphic = false;
     bool resized = false;
 
+    // bool first = true;
+
     while (true) {
         input.Tick(1.0/60.0);
         if (!window.Update()) {
@@ -318,6 +320,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
             cout << "Failed to Begin recording vkCommandBufferDraw: " << vk::error << std::endl;
             return 1;
         }
+        // You can explicitly transfer ownership like this, but since we're using a semaphore, we don't have to.
+        // vkVertexBuffer->QueueOwnershipAcquire(cmdBuf, queueTransfer, queueGraphics,
+        //         VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
         vkRenderPass->Begin(cmdBuf, vkFramebuffer);
 
         vk::CmdSetViewportAndScissor(cmdBuf, window.width, window.height);
@@ -475,11 +480,20 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
         vkCmdEndRenderPass(cmdBuf);
 
+        // vkVertexBuffer->QueueOwnershipRelease(cmdBuf, queueGraphics, queueTransfer,
+        //         VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT);
         vkCommandBufferAllDrawing->End();
 
         vkStagingBuffer->CopyData(vertices, sizeof(Vertex) * vertex);
         cmdBuf = vkCommandBufferTransfer->Begin();
+        // if (!first) {
+        //     vkVertexBuffer->QueueOwnershipAcquire(cmdBuf, queueGraphics, queueTransfer,
+        //             VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+        // }
+        // first = false;
         vkVertexBuffer->Copy(cmdBuf, vkStagingBuffer, sizeof(Vertex) * vertex);
+        // vkVertexBuffer->QueueOwnershipRelease(cmdBuf, queueTransfer, queueGraphics,
+        //         VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
         vkCommandBufferTransfer->End();
 
         if (!queueSubmissionDraw->Config()) {

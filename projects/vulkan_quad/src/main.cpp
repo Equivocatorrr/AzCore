@@ -219,6 +219,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
     Ptr<vk::QueueSubmission> vkQueueSubmission = vkDevice->AddQueueSubmission();
     vkQueueSubmission->commandBuffers = {vkCommandBuffer};
     vkQueueSubmission->signalSemaphores = {semaphoreRenderFinished};
+    vkQueueSubmission->waitSemaphores = {vk::SemaphoreWait(vkSwapchain, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)};
+    // We don't necessarily have to do this, but might as well since we manually config every frame.
+    vkQueueSubmission->noAutoConfig = true;
 
     Ptr<vk::QueueSubmission> vkTransferQueueSubmission = vkDevice->AddQueueSubmission();
     vkTransferQueueSubmission->commandBuffers = {vkCommandBuffer};
@@ -246,7 +249,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
         return 1;
     }
     vkDevice->SubmitCommandBuffers(queueGraphics, {vkTransferQueueSubmission});
-    vkQueueWaitIdle(queueGraphics->queue);
+    vk::QueueWaitIdle(queueGraphics);
 
     if (!vkDescriptors->Update()) {
         cout << "Failed to update descriptors: " << vk::error << std::endl;
@@ -304,20 +307,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
         vkPipeline->Bind(cmdBuf);
 
-        VkViewport viewport{};
-        viewport.width = window.width;
-        viewport.height = window.height;
-        viewport.maxDepth = 1.0;
-        vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
+        vk::CmdSetViewportAndScissor(cmdBuf, window.width, window.height);
 
-        VkRect2D scissor{};
-        scissor.extent = {window.width, window.height};
-        vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
-
-        VkDeviceSize zeroOffset = 0;
-
-        vkCmdBindVertexBuffers(cmdBuf, 0, 1, &vkVertexBuffer->data.buffer, &zeroOffset);
-        vkCmdBindIndexBuffer(cmdBuf, vkIndexBuffer->data.buffer, 0, VK_INDEX_TYPE_UINT32);
+        vk::CmdBindVertexBuffer(cmdBuf, 0, vkVertexBuffer);
+        vk::CmdBindIndexBuffer(cmdBuf, vkIndexBuffer, VK_INDEX_TYPE_UINT32);
 
         vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline->data.layout, 0, 1, &vkDescriptors->data.sets[0].data.set, 0, nullptr);
 
@@ -327,11 +320,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
         vkCommandBuffer->End();
 
-        // We have a different semaphore to wait on every frame for multi-buffered swapchains.
-        vkQueueSubmission->waitSemaphores = {
-            {vkSwapchain->SemaphoreImageAvailable(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT}
-        };
-        // Re-config because we changed which semaphore to wait on
+        // We have to re-config any QueueSubmissions connected to a Swapchain every time we acquire a Swapchain image.
         if (!vkQueueSubmission->Config()) {
             cout << "Failed to re-Config vkQueueSubmission: " << vk::error << std::endl;
             return 1;
@@ -348,7 +337,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
             return 1;
         }
 
-        vkDeviceWaitIdle(vkDevice->data.device);
+        vk::DeviceWaitIdle(vkDevice);
 
     } while (window.Update());
     // This should be all you need to call to clean everything up

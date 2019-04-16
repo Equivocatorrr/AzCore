@@ -273,6 +273,25 @@ namespace vk {
         free(pMemory);
     }
 
+    void CmdBindVertexBuffers(VkCommandBuffer commandBuffer, u32 firstBinding,
+                              Array<Ptr<Buffer>> buffers, Array<VkDeviceSize> offsets) {
+        if (offsets.size == 0) {
+            // We can automatically put them all after each other
+            offsets.Resize(buffers.size);
+            for (i32 i = 1; i < buffers.size; i++) {
+                offsets[i] = offsets[i-1] + buffers[i]->size;
+            }
+        } else if (offsets.size != buffers.size) {
+            error = "CmdBindVertexBuffers needs offsets to either be empty or the same size as buffers";
+            return;
+        }
+        Array<VkBuffer> vkBuffers(buffers.size);
+        for (i32 i = 0; i < buffers.size; i++) {
+            vkBuffers[i] = buffers[i]->data.buffer;
+        }
+        vkCmdBindVertexBuffers(commandBuffer, firstBinding, vkBuffers.size, vkBuffers.data, offsets.data);
+    }
+
     bool PhysicalDevice::Init(VkInstance instance) {
         vkGetPhysicalDeviceProperties(physicalDevice, &properties);
         vkGetPhysicalDeviceFeatures(physicalDevice, &features);
@@ -3234,6 +3253,12 @@ failure:
         return true;
     }
 
+    SemaphoreWait::SemaphoreWait(Ptr<Semaphore> inSemaphore, VkPipelineStageFlags inDstStageMask) :
+        semaphore(inSemaphore) , swapchain() , dstStageMask(inDstStageMask) {}
+
+    SemaphoreWait::SemaphoreWait(Ptr<Swapchain> inSwapchain, VkPipelineStageFlags inDstStageMask) :
+        semaphore() , swapchain(inSwapchain) , dstStageMask(inDstStageMask) {}
+
     bool QueueSubmission::Config() {
 #ifndef VK_SANITY_CHECKS_MINIMAL
         if (commandBuffers.size == 0) {
@@ -3251,7 +3276,17 @@ failure:
         data.waitSemaphores.Resize(waitSemaphores.size);
         data.waitDstStageMasks.Resize(waitSemaphores.size);
         for (i32 i = 0; i < waitSemaphores.size; i++) {
-            data.waitSemaphores[i] = waitSemaphores[i].semaphore->semaphore;
+            if (waitSemaphores[i].semaphore.Valid()) {
+                data.waitSemaphores[i] = waitSemaphores[i].semaphore->semaphore;
+            } else {
+#ifndef VK_SANITY_CHECKS_MINIMAL
+                if (!waitSemaphores[i].swapchain.Valid()) {
+                    error = "Neither the semaphore Ptr nor the swapchain Ptr are valid!";
+                    return false;
+                }
+#endif
+                data.waitSemaphores[i] = waitSemaphores[i].swapchain->SemaphoreImageAvailable()->semaphore;
+            }
             data.waitDstStageMasks[i] = waitSemaphores[i].dstStageMask;
         }
         data.submitInfo.waitSemaphoreCount = waitSemaphores.size;
@@ -3485,7 +3520,7 @@ failure:
 
         // Set up queues
         // First figure out which queue families each queue should use
-        const bool preferSameQueueFamilies = true;
+        const bool preferSameQueueFamilies = false;
         const bool preferMonolithicQueues = true;
 
         // Make sure we have enough queues in every family

@@ -739,7 +739,11 @@ namespace vk {
 
     struct SemaphoreWait {
         Ptr<Semaphore> semaphore;
+        Ptr<Swapchain> swapchain;
         VkPipelineStageFlags dstStageMask;
+        SemaphoreWait()=default;
+        SemaphoreWait(Ptr<Semaphore> inSemaphore, VkPipelineStageFlags inDstStageMask);
+        SemaphoreWait(Ptr<Swapchain> inSwapchain, VkPipelineStageFlags inDstStageMask);
     };
 
     /*  struct: QueueSubmission
@@ -886,6 +890,55 @@ namespace vk {
         bool Init(); // Constructs the entire tree
         bool Deinit(); // Cleans everything up
     };
+
+    void CmdBindVertexBuffers(VkCommandBuffer commandBuffer, u32 firstBinding,
+                              Array<Ptr<Buffer>> buffers, Array<VkDeviceSize> offsets={});
+
+    inline void CmdBindVertexBuffer(VkCommandBuffer commandBuffer, u32 binding,
+                                    Ptr<Buffer> buffer, VkDeviceSize offset=0) {
+        vkCmdBindVertexBuffers(commandBuffer, binding, 1, &buffer->data.buffer, &offset);
+    }
+
+    inline void CmdBindIndexBuffer(VkCommandBuffer commandBuffer, Ptr<Buffer> buffer,
+                                    VkIndexType indexType, VkDeviceSize offset=0) {
+        vkCmdBindIndexBuffer(commandBuffer, buffer->data.buffer, offset, indexType);
+    }
+
+    inline void CmdSetViewport(VkCommandBuffer commandBuffer, f32 width, f32 height,
+                               f32 minDepth=0.0, f32 maxDepth=1.0, f32 x=0.0, f32 y=0.0) {
+        VkViewport viewport;
+        viewport.width = width;
+        viewport.height = height;
+        viewport.minDepth = minDepth;
+        viewport.maxDepth = maxDepth;
+        viewport.x = x;
+        viewport.y = y;
+        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+    }
+
+    inline void CmdSetScissor(VkCommandBuffer commandBuffer, u32 width, u32 height, i32 x=0, i32 y=0) {
+        VkRect2D scissor;
+        scissor.extent.width = width;
+        scissor.extent.height = height;
+        scissor.offset.x = x;
+        scissor.offset.y = y;
+        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+    }
+
+    inline void CmdSetViewportAndScissor(VkCommandBuffer commandBuffer, f32 width, f32 height,
+                                         f32 minDepth=0.0, f32 maxDepth=0.0, f32 x=0.0, f32 y=0.0) {
+        CmdSetViewport(commandBuffer, width, height, minDepth, maxDepth, x, y);
+        CmdSetScissor(commandBuffer, static_cast<u32>(width), static_cast<u32>(height),
+                      static_cast<i32>(x), static_cast<i32>(y));
+    }
+
+    inline void QueueWaitIdle(Ptr<Queue> queue) {
+        vkQueueWaitIdle(queue->queue);
+    }
+
+    inline void DeviceWaitIdle(Ptr<Device> device) {
+        vkDeviceWaitIdle(device->data.device);
+    }
 
 }
 

@@ -217,7 +217,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
     queueSubmissionDraw->commandBuffers = {vkCommandBufferAllDrawing};
     queueSubmissionDraw->signalSemaphores = {semaphoreRenderFinished};
     // Since we're transferring the vertex buffer every frame
-    queueSubmissionDraw->waitSemaphores = {{semaphoreTransferComplete, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT}, {}};
+    queueSubmissionDraw->waitSemaphores = {
+        vk::SemaphoreWait(semaphoreTransferComplete, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT),
+        vk::SemaphoreWait(vkSwapchain, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+    };
     queueSubmissionDraw->noAutoConfig = true;
 
     if (!instance.Init()) {
@@ -317,18 +320,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
         }
         vkRenderPass->Begin(cmdBuf, vkFramebuffer);
 
-        VkViewport viewport{};
-        viewport.width = window.width;
-        viewport.height = window.height;
-        viewport.maxDepth = 1.0;
-        vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
+        vk::CmdSetViewportAndScissor(cmdBuf, window.width, window.height);
 
-        VkRect2D scissor{};
-        scissor.extent = {window.width, window.height};
-        vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
-
-        VkDeviceSize zeroOffset = 0;
-        vkCmdBindVertexBuffers(cmdBuf, 0, 1, &vkVertexBuffer->data.buffer, &zeroOffset);
+        vk::CmdBindVertexBuffer(cmdBuf, 0, vkVertexBuffer);
 
         vec5 points[16] = {
             {-1.0, -1.0, -1.0, -1.0,  1.0},
@@ -488,8 +482,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
         vkVertexBuffer->Copy(cmdBuf, vkStagingBuffer, sizeof(Vertex) * vertex);
         vkCommandBufferTransfer->End();
 
-        queueSubmissionDraw->waitSemaphores[1] = {vkSwapchain->SemaphoreImageAvailable(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-
         if (!queueSubmissionDraw->Config()) {
             cout << "Failed to re-Config queueSubmissionDraw: " << vk::error << std::endl;
             return 1;
@@ -508,11 +500,13 @@ i32 main(i32 argumentCount, char** argumentValues) {
             return 1;
         }
 
-        vkDeviceWaitIdle(device->data.device);
+        vk::DeviceWaitIdle(device);
 
     }
     instance.Deinit();
     window.Close();
+    cout << "Last io::error was \"" << io::error << "\"" << std::endl;
+    cout << "Last vk::error was \"" << vk::error << "\"" << std::endl;
 
     delete[] vertices;
 

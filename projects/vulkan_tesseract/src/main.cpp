@@ -18,7 +18,7 @@ struct Vertex {
 };
 
 void DrawCircle(VkCommandBuffer cmdBuf, Vertex *vertices, u32 *vertex, vec2 center, f32 radius, vec4 color, f32 aspectRatio, f32 depth) {
-    u32 circumference = min(max(sqrt(radius*tau*1200.0), 4.0), 80.0);
+    u32 circumference = min(max(sqrt(radius*tau*1600.0), 4.0), 80.0);
     center.x *= aspectRatio;
     vertices[(*vertex)++] = {color, center, depth-radius};
     for (u32 i = 0; i <= circumference; i++) {
@@ -26,7 +26,6 @@ void DrawCircle(VkCommandBuffer cmdBuf, Vertex *vertices, u32 *vertex, vec2 cent
         vertices[(*vertex)++] = {color, center + vec2(sin(angle)*radius*aspectRatio, cos(angle)*radius), depth};
     }
     vkCmdDraw(cmdBuf, circumference+2, 1, *vertex - circumference - 2, 0);
-    vkCmdDraw(cmdBuf, 1, 1, UINT32_MAX, 0);
 }
 
 void DrawQuad(VkCommandBuffer cmdBuf, Vertex *vertices, u32 *vertex, vec2 points[4], vec4 colors[4], f32 depths[4]) {
@@ -34,7 +33,6 @@ void DrawQuad(VkCommandBuffer cmdBuf, Vertex *vertices, u32 *vertex, vec2 points
         vertices[(*vertex)++] = {colors[i], points[i], depths[i]};
     }
     vkCmdDraw(cmdBuf, 4, 1, *vertex - 4, 0);
-    vkCmdDraw(cmdBuf, 1, 1, UINT32_MAX, 0);
 }
 
 void DrawLine(VkCommandBuffer cmdBuf, Vertex *vertices, u32 *vertex, vec2 p1, vec2 p2, vec4 color, f32 depth) {
@@ -168,7 +166,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
     pipelineTriangleFan->shaders = vkShaderRefs;
     pipelineTriangleFan->dynamicStates = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
     pipelineTriangleFan->inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
-    pipelineTriangleFan->inputAssembly.primitiveRestartEnable = VK_TRUE;
     pipelineTriangleFan->inputBindingDescriptions = {inputBindingDescription};
     pipelineTriangleFan->inputAttributeDescriptions = inputAttributeDescriptions;
     pipelineTriangleFan->colorBlendAttachments.Append(colorBlendAttachment);
@@ -246,11 +243,16 @@ i32 main(i32 argumentCount, char** argumentValues) {
     bool resized = false;
 
     // bool first = true;
+    const u32 framerate = 60;
+    ClockTime frameEnd = Clock::now() + Milliseconds(1000/framerate-1);
 
     while (true) {
-        input.Tick(1.0/60.0);
+        input.Tick(1.0/(f32)framerate);
         if (!window.Update()) {
             break;
+        }
+        if (window.resized) {
+            resized = true;
         }
         if (input.Pressed(KC_KEY_ESC)) {
             break;
@@ -291,7 +293,15 @@ i32 main(i32 argumentCount, char** argumentValues) {
             }
         }
 
-        if (resized || window.resized) {
+        if (input.Pressed(KC_KEY_V)) {
+            vkSwapchain->vsync = !vkSwapchain->vsync;
+            if (!vkSwapchain->Reconfigure()) {
+                cout << "Failed to switch VSync: " << vk::error << std::endl;
+                return 1;
+            }
+        }
+
+        if (resized) {
             if (!vkSwapchain->Resize()) {
                 cout << "Failed to resize vkSwapchain: " << vk::error << std::endl;
                 return 1;
@@ -512,6 +522,14 @@ i32 main(i32 argumentCount, char** argumentValues) {
         if (!vkSwapchain->Present(queuePresent, {semaphoreRenderFinished->semaphore})) {
             cout << "Failed to present: " << vk::error << std::endl;
             return 1;
+        }
+
+        ClockTime now = Clock::now();
+        if (std::chrono::duration_cast<Milliseconds>(frameEnd-now).count() > 2) {
+            std::this_thread::sleep_until(frameEnd);
+            frameEnd += Nanoseconds(1000000000/framerate);
+        } else {
+            frameEnd = now + Milliseconds(1000/framerate-1);
         }
 
         vk::DeviceWaitIdle(device);

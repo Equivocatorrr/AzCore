@@ -2,7 +2,8 @@
     File: io.hpp
     Author: Philip Haynes
     Description: Handles keyboard, mouse, gamepads/joysticks, windows, ect.
-    TODO: Add raw input support (including gamepads/joysticks)
+    TODO:
+        - Add raw input support (including gamepads/joysticks)
 */
 #ifndef IO_HPP
 #define IO_HPP
@@ -56,17 +57,26 @@ namespace io {
     struct Input {
         ButtonState Any, AnyKey, AnyMB;
         u8 codeAny, codeAnyKey, codeAnyMB;
+        char charAny; // This can be associated with AnyKey only
         ButtonState inputs[256];
+        ButtonState inputsChar[128];
         vec2i cursor;
         vec2 scroll;
         Input();
         void Press(u8 keyCode);
         void Release(u8 keyCode);
+        void PressChar(char character);
+        void ReleaseChar(char character);
         void ReleaseAll();
         void Tick(f32 timestep);
+        // These are keyboard-layout agnostic.
         bool Pressed(u8 keyCode) const;
         bool Down(u8 keyCode) const;
         bool Released(u8 keyCode) const;
+        // These are keyboard-layout dependent.
+        bool PressedChar(char character) const;
+        bool DownChar(char character) const;
+        bool ReleasedChar(char character) const;
     };
 
     /*  class: Window
@@ -103,6 +113,7 @@ namespace io {
         bool Update();
         bool Close();
         String InputName(u8 keyCode) const;
+        u8 KeyCodeFromChar(char character) const;
     };
 }
 

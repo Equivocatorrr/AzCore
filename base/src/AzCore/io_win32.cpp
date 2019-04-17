@@ -89,6 +89,7 @@ namespace io {
             return 0;
         }
         u8 keyCode = 0;
+        char character = '\0';
         bool press=false, release=false;
         switch (uMsg)
         {
@@ -109,6 +110,7 @@ namespace io {
             // keyCode = KeyCodeFromWinVK((u8)wParam);
             keyCode = KeyCodeFromWinScan((u8)(lParam>>16));
             // cout << "WM_KEYDOWN scancode: 0x" << std::hex << (u32)((u8)(lParam>>16)) << " vk_code: 0x" << (u32)((u8)wParam) << std::endl;
+            character = (char)MapVirtualKey(wParam, MAPVK_VK_TO_CHAR);
             press = true;
             break;
         }
@@ -116,6 +118,7 @@ namespace io {
             // keyCode = KeyCodeFromWinVK((u8)wParam);
             keyCode = KeyCodeFromWinScan((u8)(lParam>>16));
             // cout << "WM_KEYUP scancode: 0x" << std::hex << (u32)((u8)(lParam>>16)) << " vk_code: 0x" << (u32)((u8)wParam) << std::endl;
+            character = (char)MapVirtualKey(wParam, MAPVK_VK_TO_CHAR);
             release = true;
             break;
         }
@@ -236,10 +239,22 @@ namespace io {
         }
 
         if (thisWindow->input != nullptr && thisWindow->focused) {
-            if (press)
-                thisWindow->input->Press(keyCode);
-            if (release)
-                thisWindow->input->Release(keyCode);
+            if (press) {
+                if (keyCode != 0) {
+                    thisWindow->input->Press(keyCode);
+                }
+                if (character != '\0') {
+                    thisWindow->input->PressChar(character);
+                }
+            }
+            if (release) {
+                if (keyCode != 0) {
+                    thisWindow->input->Release(keyCode);
+                }
+                if (character != '\0') {
+                    thisWindow->input->ReleaseChar(character);
+                }
+            }
         }
 
         if (keyCode == KC_MOUSE_XTWO || keyCode == KC_MOUSE_XONE)

@@ -96,6 +96,18 @@ namespace io {
         inputs[keyCode].Release();
     }
 
+    void Input::PressChar(char character) {
+        AnyKey.Press();
+        charAny = character;
+        inputsChar[(u8)character].Press();
+    }
+
+    void Input::ReleaseChar(char character) {
+        AnyKey.Release();
+        charAny = character;
+        inputsChar[(u8)character].Release();
+    }
+
     void Input::ReleaseAll() {
         if (Any.Down())
             Any.Release();
@@ -108,6 +120,11 @@ namespace io {
                 inputs[i].Release();
             }
         }
+        for (u16 i = 0; i < 128; i++) {
+            if (inputsChar[i].Down()) {
+                inputsChar[i].Release();
+            }
+        }
     }
 
     void Input::Tick(f32 timestep) {
@@ -117,6 +134,9 @@ namespace io {
         scroll = vec2(0.0);
         for (u16 i = 0; i < 256; i++) {
             inputs[i].Tick(timestep);
+        }
+        for (u16 i = 0; i < 128; i++) {
+            inputsChar[i].Tick(timestep);
         }
     }
 
@@ -130,6 +150,27 @@ namespace io {
 
     bool Input::Released(u8 keyCode) const {
         return inputs[keyCode].Released();
+    }
+
+    bool Input::PressedChar(char character) const {
+        if (character & 0x80) {
+            return false;
+        }
+        return inputsChar[ (u8)character ].Pressed();
+    }
+
+    bool Input::DownChar(char character) const {
+        if (character & 0x80) {
+            return false;
+        }
+        return inputsChar[ (u8)character ].Down();
+    }
+
+    bool Input::ReleasedChar(char character) const {
+        if (character & 0x80) {
+            return false;
+        }
+        return inputsChar[ (u8)character ].Released();
     }
 
 }

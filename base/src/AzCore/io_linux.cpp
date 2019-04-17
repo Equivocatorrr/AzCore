@@ -569,6 +569,7 @@ namespace io {
                 return false;
             }
             u8 keyCode = 0;
+            char character = '\0';
             bool press=false, release=false;
             switch (data->event->response_type & ~0x80) {
                 case XCB_CLIENT_MESSAGE: {
@@ -594,8 +595,12 @@ namespace io {
                     keyCode = KeyCodeFromEvdev(ev->detail);
                     char buffer[4] = {0};
                     xkb_state_key_get_utf8(data->xkb.state, (xkb_keycode_t)ev->detail, buffer, 4);
-                    // if (buffer[1] == '\0')
-                    //     handleCharInput(buffer[0]);
+                    if (buffer[1] == '\0') {
+                        if (!(buffer[0] & 0x80)) {
+                            character = buffer[0];
+                        }
+                        // handleCharInput(buffer[0]);
+                    }
                     if (keyCode == KC_KEY_F11)
                         changeFullscreen = true;
                     press = true;
@@ -604,6 +609,13 @@ namespace io {
                 case XCB_KEY_RELEASE: {
                     xcb_key_release_event_t* ev = (xcb_key_release_event_t*)data->event;
                     keyCode = KeyCodeFromEvdev(ev->detail);
+                    char buffer[4] = {0};
+                    xkb_state_key_get_utf8(data->xkb.state, (xkb_keycode_t)ev->detail, buffer, 4);
+                    if (buffer[1] == '\0') {
+                        if (!(buffer[0] & 0x80)) {
+                            character = buffer[0];
+                        }
+                    }
                     release = true;
                     break;
                 }
@@ -722,11 +734,27 @@ namespace io {
             }
             free(data->event);
 
+            if (character >= 'a' && character <= 'z') {
+                character += 'A'-'a';
+            }
+
             if (input != nullptr && focused) {
-                if (press)
-                    input->Press(keyCode);
-                if (release)
-                    input->Release(keyCode);
+                if (press) {
+                    if (keyCode != 0) {
+                        input->Press(keyCode);
+                    }
+                    if (character != '\0') {
+                        input->PressChar(character);
+                    }
+                }
+                if (release) {
+                    if (keyCode != 0) {
+                        input->Release(keyCode);
+                    }
+                    if (character != '\0') {
+                        input->ReleaseChar(character);
+                    }
+                }
             }
         }
 

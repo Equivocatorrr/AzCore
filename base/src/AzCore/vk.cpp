@@ -3554,7 +3554,7 @@ failure:
 
         // Set up queues
         // First figure out which queue families each queue should use
-        const bool preferSameQueueFamilies = true;
+        const bool preferSameQueueFamilies = false;
         const bool preferMonolithicQueues = true;
 
         // Make sure we have enough queues in every family
@@ -3573,6 +3573,7 @@ failure:
                     continue;
                 VkBool32 presentSupport = VK_FALSE;
                 for (const Window& w : data.instance->data.windows) {
+                    // TODO: Does this work in all cases or do we need to differentiate between windows?
                     vkGetPhysicalDeviceSurfaceSupportKHR(data.physicalDevice.physicalDevice, j, w.surface, &presentSupport);
                     if (presentSupport)
                         break;

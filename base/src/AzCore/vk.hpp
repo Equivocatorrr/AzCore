@@ -16,6 +16,7 @@
           Also provided are numerous sanity checks to make development smoother, even
           if you don't have a solid grasp of the Vulkan API.
     TODO:
+        - Ongoing: Add detection of features based on use.
         - Add pipeline cache support.
         - Add support for compute pipelines.
         - Make control over memory more dynamic.
@@ -742,6 +743,7 @@ namespace vk {
     };
 
     struct SemaphoreWait {
+        // TODO: Maybe make Ptr polymorphic?
         Ptr<Semaphore> semaphore;
         Ptr<Swapchain> swapchain;
         VkPipelineStageFlags dstStageMask;
@@ -766,7 +768,7 @@ namespace vk {
         Array<Ptr<CommandBuffer>> commandBuffers{};
         Array<SemaphoreWait> waitSemaphores{};
         Array<Ptr<Semaphore>> signalSemaphores{};
-        // Set this to true if the queue submission isn't fully-defined at tree initialization
+        // Set this to true if you plan to Config manually (like if it waits on a Swapchain)
         bool noAutoConfig = false;
 
         bool Config();

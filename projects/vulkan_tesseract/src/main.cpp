@@ -233,17 +233,21 @@ i32 main(i32 argumentCount, char** argumentValues) {
     Vertex *vertices = new Vertex[maxVertices];
 
     f32 rotateAngle = 0.0;
-    f32 eyeWidth = -0.2;
+    f32 eyeWidth = 0.1;
 
-    vec3 offset(0.0);
-    offset.z = 3.0;
+    vec4 offset(0.0);
+    vec2 facingAngleXY(0.0);
+    vec2 facingAngleZW(0.0);
     bool faceMode = false;
     bool pause = false;
     bool enableStereoGraphic = false;
     bool resized = false;
 
+    vec2i draggingOrigin[2];
+    vec2 draggingFacingAngleOrigin[2];
+
     // bool first = true;
-    const u32 framerate = 60;
+    const u32 framerate = 144;
     ClockTime frameEnd = Clock::now() + Milliseconds(1000/framerate-1);
 
     while (true) {
@@ -257,19 +261,36 @@ i32 main(i32 argumentCount, char** argumentValues) {
         if (input.Pressed(KC_KEY_ESC)) {
             break;
         }
-        if (input.Pressed(KC_KEY_F)) {
+        if (input.PressedChar('F')) {
             faceMode = !faceMode;
         }
         if (input.Pressed(KC_KEY_PAUSE)) {
             pause = !pause;
         }
 
+        if (input.Pressed(KC_MOUSE_LEFT)) {
+            draggingOrigin[0] = input.cursor;
+            draggingFacingAngleOrigin[0] = facingAngleXY;
+        }
+        if (input.Down(KC_MOUSE_LEFT)) {
+            vec2i diff = input.cursor-draggingOrigin[0];
+            facingAngleXY = draggingFacingAngleOrigin[0] + vec2((f32)diff.x, (f32)diff.y) * 0.005 / pi;
+        }
+
+        if (input.Pressed(KC_MOUSE_RIGHT)) {
+            draggingOrigin[1] = input.cursor;
+            draggingFacingAngleOrigin[1] = facingAngleZW;
+        }
+        if (input.Down(KC_MOUSE_RIGHT)) {
+            vec2i diff = input.cursor-draggingOrigin[1];
+            facingAngleZW = draggingFacingAngleOrigin[1] + vec2((f32)diff.x, (f32)diff.y) * 0.005 / pi;
+        }
+
         f32 aspectRatio = (f32)window.height / (f32)window.width;
 
-        if (input.Pressed(KC_KEY_Q)) {
+        if (input.Pressed(KC_KEY_1)) {
             enableStereoGraphic = !enableStereoGraphic;
             if (enableStereoGraphic) {
-                offset.x -= eyeWidth/2.0;
                 if (aspectRatio > 0.9) {
                     window.Resize(window.width * 2.0, window.height);
                     continue;
@@ -283,17 +304,15 @@ i32 main(i32 argumentCount, char** argumentValues) {
             }
         }
         if (enableStereoGraphic) {
-            if (input.Down(KC_KEY_A)) {
-                eyeWidth -= 0.01;
-                offset.x += 0.005;
+            if (input.Down(KC_KEY_Q)) {
+                eyeWidth -= 0.001;
             }
-            if (input.Down(KC_KEY_D)) {
-                eyeWidth += 0.01;
-                offset.x -= 0.005;
+            if (input.Down(KC_KEY_E)) {
+                eyeWidth += 0.001;
             }
         }
 
-        if (input.Pressed(KC_KEY_V)) {
+        if (input.PressedChar('V')) {
             vkSwapchain->vsync = !vkSwapchain->vsync;
             if (!vkSwapchain->Reconfigure()) {
                 cout << "Failed to switch VSync: " << vk::error << std::endl;
@@ -357,29 +376,50 @@ i32 main(i32 argumentCount, char** argumentValues) {
             {-1.0,  1.0,  1.0,  1.0,  1.0},
             { 1.0,  1.0,  1.0,  1.0,  1.0}
         };
+        mat5 model(1.0);
+        model = model.RotateBasic(rotateAngle, Plane::YW).RotateBasic(rotateAngle*halfpi, Plane::XZ);
         mat5 view(1.0);
-        view = view.RotateBasic(rotateAngle, Plane::YW).RotateBasic(rotateAngle*halfpi, Plane::XZ);
         view.h.v1 = offset.x;
         view.h.v2 = offset.y;
         view.h.v3 = offset.z;
+        view.h.v4 = offset.w;
 
-        if (input.Down(KC_KEY_UP)) {
-            offset.y += 0.05;
+        view = view.RotateBasic(facingAngleXY.x, Plane::YW).RotateBasic(facingAngleXY.y, Plane::XW);
+        view = view.RotateBasic(facingAngleZW.x, Plane::XY).RotateBasic(facingAngleZW.y, Plane::XZ);
+
+        mat4 viewRotationOnly;
+        for (u32 i = 0; i < 16; i++) {
+            viewRotationOnly.data[i] = view.data[i+i/4];
         }
-        if (input.Down(KC_KEY_DOWN)) {
-            offset.y -= 0.05;
+        viewRotationOnly = viewRotationOnly.Transpose();
+        vec4 moveX = viewRotationOnly * vec4(0.05, 0.0, 0.0, 0.0);
+        vec4 moveY = viewRotationOnly * vec4(0.0, 0.05, 0.0, 0.0);
+        vec4 moveZ = viewRotationOnly * vec4(0.0, 0.0, 0.05, 0.0);
+        vec4 moveW = viewRotationOnly * vec4(0.0, 0.0, 0.0, 0.05);
+
+        if (input.Down(KC_KEY_SPACE)) {
+            offset += moveY;
         }
-        if (input.Down(KC_KEY_RIGHT)) {
-            offset.x -= 0.05;
+        if (input.Down(KC_KEY_LEFTCTRL)) {
+            offset -= moveY;
         }
         if (input.Down(KC_KEY_LEFT)) {
-            offset.x += 0.05;
+            offset += moveW;
+        }
+        if (input.Down(KC_KEY_RIGHT)) {
+            offset -= moveW;
+        }
+        if (input.Down(KC_KEY_D)) {
+            offset -= moveX;
+        }
+        if (input.Down(KC_KEY_A)) {
+            offset += moveX;
         }
         if (input.Down(KC_KEY_W)) {
-            offset.z -= 0.05;
+            offset -= moveZ;
         }
         if (input.Down(KC_KEY_S)) {
-            offset.z += 0.05;
+            offset += moveZ;
         }
 
         if (!pause) {
@@ -389,19 +429,24 @@ i32 main(i32 argumentCount, char** argumentValues) {
         vec2 proj[2][16];
         f32 d[2][16];
 
+        mat5 modelView = view * model;
+        if (enableStereoGraphic) {
+            modelView.h.v1 -= eyeWidth/2.0;
+        }
+
         for (u32 i = 0; i < 16; i++) {
             vec5 projected[2];
-            projected[0] = view * points[i];
+            projected[0] = modelView * points[i];
             d[0][i] = max(projected[0].z+projected[0].w+projected[0].v, 0.000001);
             proj[0][i].x = projected[0].x / d[0][i] * aspectRatio;
             proj[0][i].y = projected[0].y / d[0][i];
             if (enableStereoGraphic) {
-                proj[0][i].x += 0.5;
-                view.h.v1 += eyeWidth;
-                projected[1] = view * points[i];
-                view.h.v1 -= eyeWidth;
+                proj[0][i].x -= 0.5;
+                modelView.h.v1 += eyeWidth;
+                projected[1] = modelView * points[i];
+                modelView.h.v1 -= eyeWidth;
                 d[1][i] = max(projected[1].z+projected[1].w+projected[1].v, 0.000001);
-                proj[1][i].x = projected[1].x / d[1][i] * aspectRatio - 0.5;
+                proj[1][i].x = projected[1].x / d[1][i] * aspectRatio + 0.5;
                 proj[1][i].y = projected[1].y / d[1][i];
             };
         }
@@ -440,6 +485,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
             };
             for (u32 eye = 0; eye < (enableStereoGraphic ? 2 : 1); eye++) {
+                if (enableStereoGraphic) {
+                    vk::CmdSetScissor(cmdBuf, window.width/2, window.height, eye * window.width / 2);
+                }
                 for (u32 i = 0; i < 24; i++) {
                     const u32 index[4] = {0, 1, 3, 2};
                     vec2 facePoints[4];
@@ -461,9 +509,12 @@ i32 main(i32 argumentCount, char** argumentValues) {
         }
 
         pipelineLines->Bind(cmdBuf);
-        for (u32 i = 0; i < 16; i++) {
-            for (u32 ii = i+1; ii < 16; ii++) {
-                for (u32 eye = 0; eye < (enableStereoGraphic ? 2 : 1); eye++) {
+        for (u32 eye = 0; eye < (enableStereoGraphic ? 2 : 1); eye++) {
+            if (enableStereoGraphic) {
+                vk::CmdSetScissor(cmdBuf, window.width/2, window.height, eye * window.width / 2);
+            }
+            for (u32 i = 0; i < 16; i++) {
+                for (u32 ii = i+1; ii < 16; ii++) {
                     f32 a = abs(points[i]-points[ii]);
                     const f32 epsilon = 0.0001;
                     if (a == median(a, 2.0-epsilon, 2.0+epsilon)) {
@@ -480,8 +531,11 @@ i32 main(i32 argumentCount, char** argumentValues) {
         }
         pipelineTriangleFan->Bind(cmdBuf);
 
-        for (u32 i = 0; i < 16; i++) {
-            for (u32 eye = 0; eye < (enableStereoGraphic ? 2 : 1); eye++) {
+        for (u32 eye = 0; eye < (enableStereoGraphic ? 2 : 1); eye++) {
+            if (enableStereoGraphic) {
+                vk::CmdSetScissor(cmdBuf, window.width/2, window.height, eye * window.width / 2);
+            }
+            for (u32 i = 0; i < 16; i++) {
                 if (d[eye][i] > 0.001) {
                     DrawCircle(cmdBuf, vertices, &vertex, proj[eye][i]/vec2(aspectRatio, 1.0), 0.05/d[eye][i], vec4(1.0), aspectRatio, d[eye][i]);
                 }

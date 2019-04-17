@@ -8,7 +8,7 @@ layout (location = 0) out vec4 outColor;
 
 void main() {
     outColor = inColor;
-    if (inDepth < 0.01) {
+    if (inDepth < 0.1) {
         discard;
     }
     gl_FragDepth = inDepth;

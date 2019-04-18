@@ -50,19 +50,19 @@ OBJ_WD = $(patsubst %,$(ODIR)/Windows/Debug/%,$(_OBJ))
 _SHADERS = test.vert.spv test.frag.spv
 SHADERS = $(patsubst %,data/shaders/%,$(_SHADERS))
 
-$(ODIR)/Linux/Debug/%.o: $(SDIR)/%.cpp $(DEPS)
+$(ODIR)/Linux/Debug/%.o: $(SDIR)/%.cpp $(DEPS) azcoredl
 	@mkdir -p $(@D)
 	$(CC) -c -o $@ $< -g -rdynamic $(CFLAGS)
 
-$(ODIR)/Windows/Debug/%.o: $(SDIR)/%.cpp $(DEPS)
+$(ODIR)/Windows/Debug/%.o: $(SDIR)/%.cpp $(DEPS) azcoredw
 	@mkdir -p $(@D)
 	$(WCC) -c -o $@ $< -g $(CFLAGS)
 
-$(ODIR)/Linux/Release/%.o: $(SDIR)/%.cpp $(DEPS)
+$(ODIR)/Linux/Release/%.o: $(SDIR)/%.cpp $(DEPS) azcorel
 	@mkdir -p $(@D)
 	$(CC) -c -o $@ $< -g -O2 $(CFLAGS) -DNDEBUG
 
-$(ODIR)/Windows/Release/%.o: $(SDIR)/%.cpp $(DEPS)
+$(ODIR)/Windows/Release/%.o: $(SDIR)/%.cpp $(DEPS) azcorew
 	@mkdir -p $(@D)
 	$(WCC) -c -o $@ $< -O2 $(CFLAGS) -DNDEBUG
 

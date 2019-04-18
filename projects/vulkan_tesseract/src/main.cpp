@@ -14,30 +14,29 @@ const u32 maxVertices = 8192;
 struct Vertex {
     vec4 color;
     vec2 pos;
-    f32 depth;
 };
 
-void DrawCircle(VkCommandBuffer cmdBuf, Vertex *vertices, u32 *vertex, vec2 center, f32 radius, vec4 color, f32 aspectRatio, f32 depth) {
+void DrawCircle(VkCommandBuffer cmdBuf, Vertex *vertices, u32 *vertex, vec2 center, f32 radius, vec4 color, f32 aspectRatio) {
     u32 circumference = min(max(sqrt(radius*tau*1600.0), 4.0), 80.0);
     center.x *= aspectRatio;
-    vertices[(*vertex)++] = {color, center, depth-radius};
+    vertices[(*vertex)++] = {color, center};
     for (u32 i = 0; i <= circumference; i++) {
         f32 angle = (f32)i * tau / (f32)circumference;
-        vertices[(*vertex)++] = {color, center + vec2(sin(angle)*radius*aspectRatio, cos(angle)*radius), depth};
+        vertices[(*vertex)++] = {color, center + vec2(sin(angle)*radius*aspectRatio, cos(angle)*radius)};
     }
     vkCmdDraw(cmdBuf, circumference+2, 1, *vertex - circumference - 2, 0);
 }
 
-void DrawQuad(VkCommandBuffer cmdBuf, Vertex *vertices, u32 *vertex, vec2 points[4], vec4 colors[4], f32 depths[4]) {
+void DrawQuad(VkCommandBuffer cmdBuf, Vertex *vertices, u32 *vertex, vec2 points[4], vec4 colors[4]) {
     for (u32 i = 0; i < 4; i++) {
-        vertices[(*vertex)++] = {colors[i], points[i], depths[i]};
+        vertices[(*vertex)++] = {colors[i], points[i]};
     }
     vkCmdDraw(cmdBuf, 4, 1, *vertex - 4, 0);
 }
 
-void DrawLine(VkCommandBuffer cmdBuf, Vertex *vertices, u32 *vertex, vec2 p1, vec2 p2, vec4 color, f32 depth) {
-    vertices[(*vertex)++] = {color, p1, depth};
-    vertices[(*vertex)++] = {color, p2, depth};
+void DrawLine(VkCommandBuffer cmdBuf, Vertex *vertices, u32 *vertex, vec2 p1, vec2 p2, vec4 color) {
+    vertices[(*vertex)++] = {color, p1};
+    vertices[(*vertex)++] = {color, p2};
     vkCmdDraw(cmdBuf, 2, 1, *vertex - 2, 0);
 }
 
@@ -146,7 +145,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     inputBindingDescription.binding = 0;
     inputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
     inputBindingDescription.stride = sizeof(Vertex);
-    Array<VkVertexInputAttributeDescription> inputAttributeDescriptions(3);
+    Array<VkVertexInputAttributeDescription> inputAttributeDescriptions(2);
     inputAttributeDescriptions[0].binding = 0;
     inputAttributeDescriptions[0].location = 0;
     inputAttributeDescriptions[0].offset = offsetof(Vertex, color);
@@ -155,10 +154,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
     inputAttributeDescriptions[1].location = 1;
     inputAttributeDescriptions[1].offset = offsetof(Vertex, pos);
     inputAttributeDescriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
-    inputAttributeDescriptions[2].binding = 0;
-    inputAttributeDescriptions[2].location = 2;
-    inputAttributeDescriptions[2].offset = offsetof(Vertex, depth);
-    inputAttributeDescriptions[2].format = VK_FORMAT_R32_SFLOAT;
 
     Ptr<vk::Pipeline> pipelineTriangleFan = device->AddPipeline();
     pipelineTriangleFan->renderPass = vkRenderPass;
@@ -492,7 +487,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
                     const u32 index[4] = {0, 1, 3, 2};
                     vec2 facePoints[4];
                     vec4 colors[4];
-                    f32 depths[4];
                     for (u32 ii = 0; ii < 4; ii++) {
                         facePoints[ii] = proj[eye][planes[i][index[ii]]];
                         colors[ii].a = 0.25;
@@ -501,9 +495,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
                             clamp(1.0/d[eye][planes[i][index[ii]]]*4.0, 0.0, 1.0),
                             1.0
                         ));
-                        depths[ii] = d[eye][planes[i][index[ii]]];
                     }
-                    DrawQuad(cmdBuf, vertices, &vertex, facePoints, colors, depths);
+                    DrawQuad(cmdBuf, vertices, &vertex, facePoints, colors);
                 }
             }
         }
@@ -522,8 +515,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
                         color1.rgb = hsvToRgb(vec3((f32)i / 16.0, clamp(1.0/d[eye][i]*4.0, 0.0, 1.0), 1.0));
                         vec4 color2(0.5);
                         color2.rgb = hsvToRgb(vec3((f32)ii / 16.0, clamp(1.0/d[eye][ii]*4.0, 0.0, 1.0), 1.0));
-                        vertices[vertex++] = {color1, proj[eye][i], d[eye][i]};
-                        vertices[vertex++] = {color2, proj[eye][ii], d[eye][ii]};
+                        vertices[vertex++] = {color1, proj[eye][i]};
+                        vertices[vertex++] = {color2, proj[eye][ii]};
                         vkCmdDraw(cmdBuf, 2, 1, vertex-2, 0);
                     }
                 }
@@ -537,7 +530,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
             }
             for (u32 i = 0; i < 16; i++) {
                 if (d[eye][i] > 0.001) {
-                    DrawCircle(cmdBuf, vertices, &vertex, proj[eye][i]/vec2(aspectRatio, 1.0), 0.05/d[eye][i], vec4(1.0), aspectRatio, d[eye][i]);
+                    DrawCircle(cmdBuf, vertices, &vertex, proj[eye][i]/vec2(aspectRatio, 1.0), 0.05/d[eye][i], vec4(1.0), aspectRatio);
                 }
             }
         }

@@ -15,6 +15,23 @@
 
 #include <stdexcept>
 
+bool isSystemBigEndian();
+
+u16 bytesToU16(char bytes[2], bool swapEndian);
+u32 bytesToU32(char bytes[4], bool swapEndian);
+u64 bytesToU64(char bytes[8], bool swapEndian);
+
+i16 bytesToI16(char bytes[2], bool swapEndian);
+i32 bytesToI32(char bytes[4], bool swapEndian);
+i64 bytesToI64(char bytes[8], bool swapEndian);
+
+f32 bytesToF32(char bytes[4], bool swapEndian);
+f64 bytesToF64(char bytes[8], bool swapEndian);
+
+u16 endianSwap(u16 in, bool swapEndian = true);
+u32 endianSwap(u32 in, bool swapEndian = true);
+u64 endianSwap(u64 in, bool swapEndian = true);
+
 /*  class: ArrayIterator
     Author: Philip Haynes
     Because const correctness can't work without it...      */

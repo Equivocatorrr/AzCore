@@ -424,6 +424,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
         vec2 proj[2][16];
         f32 d[2][16];
 
+        const f32 fov = 120.0;
+        const f32 fovFac = 1.0 / tan(fov*pi/360.0);
         mat5 modelView = view * model;
         if (enableStereoGraphic) {
             modelView.h.v1 -= eyeWidth/2.0;
@@ -433,16 +435,16 @@ i32 main(i32 argumentCount, char** argumentValues) {
             vec5 projected[2];
             projected[0] = modelView * points[i];
             d[0][i] = max(projected[0].z+projected[0].w+projected[0].v, 0.000001);
-            proj[0][i].x = projected[0].x / d[0][i] * aspectRatio;
-            proj[0][i].y = projected[0].y / d[0][i];
+            proj[0][i].x = projected[0].x / d[0][i] * aspectRatio * fovFac;
+            proj[0][i].y = projected[0].y / d[0][i] * fovFac;
             if (enableStereoGraphic) {
                 proj[0][i].x -= 0.5;
                 modelView.h.v1 += eyeWidth;
                 projected[1] = modelView * points[i];
                 modelView.h.v1 -= eyeWidth;
                 d[1][i] = max(projected[1].z+projected[1].w+projected[1].v, 0.000001);
-                proj[1][i].x = projected[1].x / d[1][i] * aspectRatio + 0.5;
-                proj[1][i].y = projected[1].y / d[1][i];
+                proj[1][i].x = projected[1].x / d[1][i] * aspectRatio * fovFac + 0.5;
+                proj[1][i].y = projected[1].y / d[1][i] * fovFac;
             };
         }
         if (faceMode) {

@@ -194,11 +194,12 @@ namespace vk {
     }
 
     size_t align(const size_t& size, const size_t& alignment) {
-        if (size % alignment == 0) {
-            return size;
-        } else {
-            return (size/alignment+1)*alignment;
-        }
+        // if (size % alignment == 0) {
+        //     return size;
+        // } else {
+        //     return (size/alignment+1)*alignment;
+        // }
+        return (size + alignment-1) & ~(alignment-1);
     }
 
     VKAPI_ATTR void* VKAPI_CALL Allocate(void *pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope) {

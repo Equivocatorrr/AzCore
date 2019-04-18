@@ -32,6 +32,8 @@ u16 endianSwap(u16 in, bool swapEndian = true);
 u32 endianSwap(u32 in, bool swapEndian = true);
 u64 endianSwap(u64 in, bool swapEndian = true);
 
+size_t align(const size_t& size, const size_t& alignment);
+
 /*  class: ArrayIterator
     Author: Philip Haynes
     Because const correctness can't work without it...      */

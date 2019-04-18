@@ -174,6 +174,15 @@ u64 endianSwap(u64 in, bool swapEndian) {
     return b_out.val;
 }
 
+size_t align(const size_t& size, const size_t& alignment) {
+    // if (size % alignment == 0) {
+    //     return size;
+    // } else {
+    //     return (size/alignment+1)*alignment;
+    // }
+    return (size + alignment-1) & ~(alignment-1);
+}
+
 STRING_TERMINATOR(char, '\0');
 STRING_TERMINATOR(wchar_t, L'\0');
 

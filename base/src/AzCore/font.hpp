@@ -34,11 +34,11 @@ namespace font {
     typedef i64 longDateTime_t;
 
     union Tag_t {
-        char name[4];
         u32 data;
+        char name[4];
     };
 
-    Tag_t operator "" _Tag(const char[5], size_t);
+    constexpr Tag_t operator "" _Tag(const char[5], size_t);
 
     namespace tables {
 
@@ -86,6 +86,18 @@ namespace font {
             u32 dsigLength;
             u32 dsigOffset;
             bool Read(std::ifstream &file, bool swapEndian);
+        };
+
+        struct cmap_encoding {
+            u16 platformID;
+            u16 platformSpecificID;
+            u32 offset; // Bytes from beginning of cmap table
+        };
+
+        struct cmap {
+            u16 version; // Must be set to zero
+            u16 numberSubtables; // How many encoding subtables there are
+            Array<cmap_encoding> encodingRecords;
         };
 
         /*  struct: head

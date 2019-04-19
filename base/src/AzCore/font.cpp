@@ -7,14 +7,18 @@
 
 #define LOG_VERBOSE
 
+String ToString(font::Tag_t tag) {
+    String string(4);
+    for (u32 x = 0; x < 4; x++) {
+        string[x] = tag.name[x];
+    }
+    return string;
+}
+
 namespace font {
 
-    Tag_t operator "" _Tag(const char name[5], size_t size) {
-        Tag_t out;
-        for (u32 i = 0; i < 4; i++) {
-            out.name[i] = name[i];
-        }
-        return out;
+    constexpr Tag_t operator "" _Tag(const char name[5], size_t size) {
+        return Tag_t{*reinterpret_cast<const u32*>(name)};
     }
 
     u16 readU16(std::ifstream &file, bool swapEndian) {
@@ -42,11 +46,11 @@ namespace font {
 
     namespace tables {
 
-        u32 Checksum(u32 *table, u32 length) {
+        u32 Checksum(u32 *table, u32 length, bool swapEndian) {
             u32 sum = 0;
             u32 *end = table + ((length+3) & ~3) / sizeof(u32);
             while (table < end) {
-                sum += *table++;
+                sum += endianSwap(*table++, swapEndian);
             }
             return sum;
         }
@@ -129,7 +133,6 @@ namespace font {
 
         data.ttcHeader.Read(data.file, swapEndian);
 
-#ifdef LOG_VERBOSE
         if (data.ttcHeader.ttcTag.data == endianSwap((u32)0x10000,swapEndian)) {
             cout << "TrueType outline" << std::endl;
         } else if (data.ttcHeader.ttcTag == "true"_Tag) {
@@ -141,10 +144,9 @@ namespace font {
         } else if (data.ttcHeader.ttcTag == "ttcf"_Tag) {
             cout << "TrueType Collection" << std::endl;
         } else {
-            error = "Unknown sfntVersion for file: \"" + filename + "\"";
+            error = "Unknown font type for file: \"" + filename + "\"";
             return false;
         }
-#endif
 
         data.offsetTables.Resize(data.ttcHeader.numFonts);
         for (u32 i = 0; i < data.ttcHeader.numFonts; i++) {
@@ -166,11 +168,7 @@ namespace font {
                     data.offsetMax = record.offset + record.length;
                 }
 #ifdef LOG_VERBOSE
-                char name[5] = {0};
-                for (u32 x = 0; x < 4; x++) {
-                    name[x] = record.tableTag.name[x];
-                }
-                cout << "\tTable: \"" << name << "\"\n\t\toffset = " << record.offset << ", length = " << record.length << std::endl;
+                cout << "\tTable: \"" << ToString(record.tableTag) << "\"\n\t\toffset = " << record.offset << ", length = " << record.length << std::endl;
 #endif
             }
         }
@@ -184,6 +182,23 @@ namespace font {
         data.file.read(data.tableData.data, data.offsetMax-data.offsetMin);
 
         data.file.close();
+
+        // Checksum verifications
+
+        for (u32 i = 0; i < data.ttcHeader.numFonts; i++) {
+            tables::Offset &offsetTable = data.offsetTables[i];
+            for (u32 ii = 0; ii < offsetTable.numTables; ii++) {
+                tables::Record &record = offsetTable.tables[ii];
+                char *ptr = data.tableData.data + record.offset - data.offsetMin;
+                if (record.tableTag == "head"_Tag) {
+                    ((tables::head*)ptr)->checkSumAdjustment = 0;
+                }
+                u32 checksum = tables::Checksum((u32*)ptr, record.length, swapEndian);
+                if (checksum != record.checkSum) {
+                    cout << "Checksum for table " << ToString(record.tableTag) << " didn't match!" << std::endl;
+                }
+            }
+        }
         return true;
     }
 

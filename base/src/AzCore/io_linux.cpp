@@ -32,6 +32,140 @@
 
 namespace io {
 
+    struct RawInputDeviceData {
+        libevdev *dev;
+        i32 fd;
+        Array<input_event> syncBuffer;
+    };
+
+    RawInputDevice::RawInputDevice() {
+        data = new RawInputDeviceData;
+        data->dev = nullptr;
+        data->fd = -1;
+    }
+
+    RawInputDevice::~RawInputDevice() {
+        if (data->dev != nullptr) {
+            libevdev_free(data->dev);
+        }
+        if (data->fd > -1) {
+            close(data->fd);
+        }
+        delete data;
+    }
+
+    bool RawInputDevice::Init() {
+        data->dev = libevdev_new();
+        if (data->dev == nullptr) {
+            return false;
+        }
+        i32 rc = libevdev_set_fd(data->dev, data->fd);
+        if (rc < 0) {
+            return false;
+        }
+        if (libevdev_has_event_type(data->dev, EV_REL) &&
+            libevdev_has_event_code(data->dev, EV_REL, REL_X) &&
+            libevdev_has_event_code(data->dev, EV_REL, REL_Y) &&
+            libevdev_has_event_code(data->dev, EV_KEY, BTN_MOUSE) &&
+            libevdev_has_event_code(data->dev, EV_KEY, BTN_LEFT)) {
+            type = MOUSE;
+        } else if (libevdev_has_event_code(data->dev, EV_KEY, BTN_JOYSTICK)) {
+            type = JOYSTICK;
+        } else if (libevdev_has_event_code(data->dev, EV_KEY, BTN_GAMEPAD)) {
+            type = GAMEPAD;
+        } else if (libevdev_has_event_code(data->dev, EV_KEY, KEY_KEYBOARD)) {
+            type = KEYBOARD;
+        } else {
+            type = UNSUPPORTED;
+        }
+        return true;
+    }
+
+    bool GetRawInputDeviceEvent(RawInputDevice *rid, input_event *dst) {
+        input_event ev;
+        i32 rc;
+        if (rid->data->syncBuffer.size > 0) {
+            ev = rid->data->syncBuffer[0];
+            rid->data->syncBuffer.Erase(0);
+            *dst = ev;
+            return true;
+        }
+        rc = libevdev_next_event(rid->data->dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
+        if (rc < 0) {
+            if (rc == -EAGAIN) {
+                return false;
+            } else {
+                error = "GetRawInputDeviceEvent error: libevdev_next_event returned errno "
+                      + ToString(-rc) + " (" + strerror(-rc) + ")";
+                return false;
+            }
+        } else if (rc == LIBEVDEV_READ_STATUS_SYNC) {
+            while (rc == LIBEVDEV_READ_STATUS_SYNC) {
+                rc = libevdev_next_event(rid->data->dev, LIBEVDEV_READ_FLAG_SYNC, &ev);
+                if (rc < 0) {
+                    if (rc != -EAGAIN) {
+                        error = "GetRawInputDeviceEvent error: Sync error: "
+                                "libevdev_next_event return errno " + ToString(-rc)
+                              + " (" + strerror(-rc) + ")";
+                        return false;
+                    }
+                    break;
+                }
+                if (!(ev.type == EV_SYN && ev.type == SYN_REPORT)) {
+                    rid->data->syncBuffer.Append(ev);
+                }
+            }
+            if (rid->data->syncBuffer.size > 0) {
+                ev = rid->data->syncBuffer[0];
+                rid->data->syncBuffer.Erase(0);
+                *dst = ev;
+                return true;
+            } else {
+                cout << "GetRawInputDeviceEvent warning: Sync was empty!" << std::endl;
+                return false;
+            }
+        } else if (rc == LIBEVDEV_READ_STATUS_SUCCESS) {
+            *dst = ev;
+            return true;
+        }
+        return false;
+    }
+
+    struct RawInputData {
+        u32 frame;
+    };
+
+    bool RawInput::Init() {
+        data = new RawInputData;
+        data->frame = 0;
+        for (u32 i = 0; i < 32; i++) {
+            String path = "/dev/input/event" + ToString(i);
+            i32 fd = open(path.data, O_RDONLY | O_NONBLOCK);
+            if (fd < 0) {
+                if (errno == EACCES) {
+                    error = "Permission denied opening device with path \""
+                          + path;
+                    return false;
+                }
+                continue;
+            }
+            // We got a live one boys!
+            devices.Append(RawInputDevice());
+            RawInputDevice *device = &devices[devices.size-1];
+            device->data->fd = fd;
+            if (!device->Init()) {
+                devices.Erase(devices.size-1);
+            }
+        }
+        return true;
+    }
+
+    RawInput::~RawInput() {
+        if (data != nullptr) {
+            delete data;
+        }
+    }
+
     xcb_atom_t xcbGetAtom(xcb_connection_t* connection, bool onlyIfExists, const String& name) {
         xcb_intern_atom_cookie_t cookie;
         xcb_intern_atom_reply_t *reply;
@@ -388,9 +522,7 @@ namespace io {
 
         if (!depth) {
             CLOSE_CONNECTION(data);
-            error = "Screen doesn't support ";
-            error += ToString(data->windowDepth);
-            error += "-bit depth!";
+            error = "Screen doesn't support " + ToString(data->windowDepth) + "-bit depth!";
             return false;
         }
 

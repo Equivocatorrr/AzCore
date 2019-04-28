@@ -31,6 +31,39 @@ namespace io {
 
     extern logStream cout;
 
+    enum RawInputDeviceType {
+        UNSUPPORTED=0,
+        KEYBOARD=1,
+        MOUSE=2,
+        GAMEPAD=3,
+        JOYSTICK=4
+    };
+
+    extern const char *RawInputDeviceTypeString[5];
+
+    /*  struct: RawInputDevice
+        Author: Philip Haynes
+        A generic interface to raw input devices.   */
+    struct RawInputDevice {
+        struct RawInputDeviceData *data = nullptr;
+        RawInputDeviceType type;
+
+        RawInputDevice();
+        ~RawInputDevice();
+        bool Init();
+    };
+
+    /*  struct: RawInput
+        Author: Philip Haynes
+        Manages all RawInputDevices */
+    struct RawInput {
+        struct RawInputData *data = nullptr;
+        List<RawInputDevice> devices;
+
+        ~RawInput();
+        bool Init();
+    };
+
     #define IO_BUTTON_PRESSED_BIT 0x01
     #define IO_BUTTON_DOWN_BIT 0x02
     #define IO_BUTTON_RELEASED_BIT 0x04

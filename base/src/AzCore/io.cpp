@@ -11,6 +11,14 @@ namespace io {
     vec2 screenSize;
     logStream cout("io.log");
 
+    const char *RawInputDeviceTypeString[5] = {
+        "Unsupported",
+        "Keyboard",
+        "Mouse",
+        "Gamepad",
+        "Joystick"
+    };
+
     ButtonState::ButtonState() : state(0) , canRepeat(false) , repeatTimer(0.4) {}
 
     void ButtonState::Set(bool pressed, bool down, bool released) {

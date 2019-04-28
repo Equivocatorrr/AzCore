@@ -6,13 +6,7 @@
 #include "memory.hpp"
 #include "bigint.hpp"
 
-bool isSystemBigEndian() {
-    union {
-        char bytes[2];
-        u16 data = 1;
-    } val;
-    return val.bytes[1] == 1;
-}
+SystemEndianness_t SysEndian{1};
 
 u16 bytesToU16(char bytes[2], bool swapEndian) {
     union {

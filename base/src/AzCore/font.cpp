@@ -17,87 +17,97 @@ String ToString(font::Tag_t tag) {
 
 namespace font {
 
-    constexpr Tag_t operator "" _Tag(const char name[5], size_t size) {
-        return Tag_t{*reinterpret_cast<const u32*>(name)};
+    constexpr Tag_t::Tag_t(const u32 in) : data(in) {}
+
+    constexpr Tag_t::Tag_t(const char *in) : name{in[0],in[1],in[2],in[3]} {}
+
+    constexpr Tag_t operator "" _Tag(const char *name, const size_t size) {
+        return Tag_t(name);
     }
 
-    u16 readU16(std::ifstream &file, bool swapEndian) {
-        u16 buffer;
-        file.read((char*)&buffer, 2);
-        return endianSwap(buffer, swapEndian);
+    Tag_t operator "" _Tag(const u64 in) {
+        // We keep tags in Big Endian no matter what because they're usually expressed as a string.
+        return Tag_t(endianSwap((u32)in, SysEndian.little));
     }
-    u32 readU32(std::ifstream &file, bool swapEndian) {
-        u32 buffer;
-        file.read((char*)&buffer, 4);
-        return endianSwap(buffer, swapEndian);
+
+    Tag_t readTag(std::ifstream &file) {
+        Tag_t buffer;
+        file.read(buffer.name, 4);
+        return buffer;
     }
-    u64 readU64(std::ifstream &file, bool swapEndian) {
-        u64 buffer;
-        file.read((char*)&buffer, 8);
-        return endianSwap(buffer, swapEndian);
+
+    Tag_t bytesToTag(char *buffer) {
+        return Tag_t(*reinterpret_cast<const u32*>(buffer));
+    }
+
+    Fixed_t bytesToFixed(char *buffer, const bool swapEndian) {
+        return {
+            bytesToI16(&buffer[0], swapEndian),
+            bytesToU16(&buffer[2], swapEndian)
+        };
     }
 
     String error = "No Error";
     io::logStream cout("font.log");
 
-    bool operator==(Tag_t a, Tag_t b) {
+    inline bool operator==(const Tag_t &a, const Tag_t &b) {
         return a.data == b.data;
     }
 
     namespace tables {
 
-        u32 Checksum(u32 *table, u32 length, bool swapEndian) {
+        // When doing checksums, the data has to still be in big endian or this won't work.
+        u32 Checksum(u32 *table, const u32 length) {
             u32 sum = 0;
             u32 *end = table + ((length+3) & ~3) / sizeof(u32);
             while (table < end) {
-                sum += endianSwap(*table++, swapEndian);
+                sum += endianSwap(*table++, SysEndian.little);
             }
             return sum;
         }
 
-        void Offset::Read(std::ifstream &file, bool swapEndian) {
+        void Offset::Read(std::ifstream &file) {
             char buffer[12];
             file.read(buffer, 12);
             sfntVersion.data = *(u32*)buffer;
-            numTables = bytesToU16(&buffer[4], swapEndian);
-            searchRange = bytesToU16(&buffer[6], swapEndian);
-            entrySelector = bytesToU16(&buffer[8], swapEndian);
-            rangeShift = bytesToU16(&buffer[10], swapEndian);
+            numTables = bytesToU16(&buffer[4], SysEndian.little);
+            searchRange = bytesToU16(&buffer[6], SysEndian.little);
+            entrySelector = bytesToU16(&buffer[8], SysEndian.little);
+            rangeShift = bytesToU16(&buffer[10], SysEndian.little);
             tables.Resize(numTables);
             for (u32 i = 0; i < numTables; i++) {
-                tables[i].Read(file, swapEndian);
+                tables[i].Read(file);
             }
         }
 
-        bool TTCHeader::Read(std::ifstream &file, bool swapEndian) {
-            ttcTag.data = readU32(file, false);
+        bool TTCHeader::Read(std::ifstream &file) {
+            ttcTag = readTag(file);
             if (ttcTag == "ttcf"_Tag) {
                 {
                     char buffer[8];
                     file.read(buffer, 8);
-                    majorVersion = bytesToU16(&buffer[0], swapEndian);
-                    minorVersion = bytesToU16(&buffer[2], swapEndian);
-                    numFonts = bytesToU32(&buffer[4], swapEndian);
+                    version = bytesToFixed(&buffer[0], SysEndian.little);
+                    numFonts = bytesToU32(&buffer[4], SysEndian.little);
                 }
                 offsetTables.Resize(numFonts);
                 file.read((char*)offsetTables.data, numFonts * 4);
-                if (swapEndian) {
+                if (SysEndian.little) {
                     for (u32 i = 0; i < numFonts; i++) {
                         offsetTables[i] = endianSwap(offsetTables[i]);
                     }
                 }
-                if (majorVersion == 2) {
+                if (version.major == 2) {
                     char buffer[12];
                     file.read(buffer, 12);
                     dsigTag.data = bytesToU32(&buffer[0], false);
-                    dsigLength = bytesToU32(&buffer[4], swapEndian);
-                    dsigOffset = bytesToU32(&buffer[8], swapEndian);
-                } else if (majorVersion != 1) {
-                    error = "Unknown TTC file version: " + ToString(majorVersion) + "." + ToString(minorVersion);
+                    dsigLength = bytesToU32(&buffer[4], SysEndian.little);
+                    dsigOffset = bytesToU32(&buffer[8], SysEndian.little);
+                } else if (version.major != 1) {
+                    error = "Unknown TTC file version: " + ToString(version.major) + "." + ToString(version.minor);
                     return false;
                 }
             } else {
-                majorVersion = 0;
+                version.major = 0;
                 numFonts = 1;
                 offsetTables.Resize(1);
                 offsetTables[0] = 0;
@@ -105,14 +115,51 @@ namespace font {
             return true;
         }
 
-        void Record::Read(std::ifstream &file, bool swapEndian) {
+        void Record::Read(std::ifstream &file) {
             char buffer[sizeof(Record)];
             file.read(buffer, sizeof(Record));
             tableTag.data = *(u32*)buffer;
-            checkSum = bytesToU32(&buffer[4], swapEndian);
-            offset = bytesToU32(&buffer[8], swapEndian);
-            length = bytesToU32(&buffer[12], swapEndian);
+            checkSum = bytesToU32(&buffer[4], SysEndian.little);
+            offset = bytesToU32(&buffer[8], SysEndian.little);
+            length = bytesToU32(&buffer[12], SysEndian.little);
         }
+
+#define ENDIAN_SWAP(in) in = endianSwap(in)
+
+        void head::EndianSwap() {
+            ENDIAN_SWAP(version.major);
+            ENDIAN_SWAP(version.minor);
+            ENDIAN_SWAP(fontRevision.major);
+            ENDIAN_SWAP(fontRevision.minor);
+            ENDIAN_SWAP(checkSumAdjustment);
+            ENDIAN_SWAP(magicNumber);
+            ENDIAN_SWAP(flags);
+            ENDIAN_SWAP(unitsPerEm);
+            ENDIAN_SWAP(created);
+            ENDIAN_SWAP(modified);
+            ENDIAN_SWAP(xMin);
+            ENDIAN_SWAP(yMin);
+            ENDIAN_SWAP(xMax);
+            ENDIAN_SWAP(yMax);
+            ENDIAN_SWAP(macStyle);
+            ENDIAN_SWAP(lowestRecPPEM);
+            ENDIAN_SWAP(fontDirectionHint);
+            ENDIAN_SWAP(indexToLocFormat);
+            ENDIAN_SWAP(glyphDataFormat);
+        }
+
+        void cmap_encoding::EndianSwap() {
+            ENDIAN_SWAP(platformID);
+            ENDIAN_SWAP(platformSpecificID);
+            ENDIAN_SWAP(offset);
+        }
+
+        void cmap_index::EndianSwap() {
+            ENDIAN_SWAP(version);
+            ENDIAN_SWAP(numberSubtables);
+        }
+
+#undef EndianSwap
 
     }
 
@@ -129,11 +176,9 @@ namespace font {
             return false;
         }
 
-        const bool swapEndian = !isSystemBigEndian();
+        data.ttcHeader.Read(data.file);
 
-        data.ttcHeader.Read(data.file, swapEndian);
-
-        if (data.ttcHeader.ttcTag.data == endianSwap((u32)0x10000,swapEndian)) {
+        if (data.ttcHeader.ttcTag == 0x10000_Tag) {
             cout << "TrueType outline" << std::endl;
         } else if (data.ttcHeader.ttcTag == "true"_Tag) {
             cout << "TrueType" << std::endl;
@@ -152,7 +197,7 @@ namespace font {
         for (u32 i = 0; i < data.ttcHeader.numFonts; i++) {
             data.file.seekg(data.ttcHeader.offsetTables[i]);
             tables::Offset &offsetTable = data.offsetTables[i];
-            offsetTable.Read(data.file, swapEndian);
+            offsetTable.Read(data.file);
 #ifdef LOG_VERBOSE
             cout << "Font[" << i << "]\n\tnumTables: " << offsetTable.numTables
                  << "\n\tsearchRange: " << offsetTable.searchRange
@@ -166,6 +211,17 @@ namespace font {
                 }
                 if (record.offset + record.length > data.offsetMax) {
                     data.offsetMax = record.offset + record.length;
+                }
+                // Keep track of unique tables
+                bool found = false;
+                for (i32 u = 0; u < data.uniqueTables.size; u++) {
+                    if (record.offset == data.uniqueTables[u].offset) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    data.uniqueTables.Append(record);
                 }
 #ifdef LOG_VERBOSE
                 cout << "\tTable: \"" << ToString(record.tableTag) << "\"\n\t\toffset = " << record.offset << ", length = " << record.length << std::endl;
@@ -185,17 +241,43 @@ namespace font {
 
         // Checksum verifications
 
-        for (u32 i = 0; i < data.ttcHeader.numFonts; i++) {
-            tables::Offset &offsetTable = data.offsetTables[i];
-            for (u32 ii = 0; ii < offsetTable.numTables; ii++) {
-                tables::Record &record = offsetTable.tables[ii];
+        u32 checksumsCompleted = 0;
+        u32 checksumsCorrect = 0;
+
+        for (i32 i = 0; i < data.uniqueTables.size; i++) {
+            tables::Record &record = data.uniqueTables[i];
+            char *ptr = data.tableData.data + record.offset - data.offsetMin;
+            if (record.tableTag == "head"_Tag || record.tableTag == "bhed"_Tag) {
+                ((tables::head*)ptr)->checkSumAdjustment = 0;
+            }
+            u32 checksum = tables::Checksum((u32*)ptr, record.length);
+            if (checksum != record.checkSum) {
+                cout << "Checksum for table " << ToString(record.tableTag) << " didn't match!" << std::endl;
+            } else {
+                checksumsCorrect++;
+            }
+            checksumsCompleted++;
+        }
+        cout << "Checksums completed. " << checksumsCorrect << "/" << checksumsCompleted
+             << " correct.\n" << std::endl;
+
+        if (SysEndian.little) {
+            for (i32 i = 0; i < data.uniqueTables.size; i++) {
+                tables::Record &record = data.uniqueTables[i];
                 char *ptr = data.tableData.data + record.offset - data.offsetMin;
-                if (record.tableTag == "head"_Tag) {
-                    ((tables::head*)ptr)->checkSumAdjustment = 0;
-                }
-                u32 checksum = tables::Checksum((u32*)ptr, record.length, swapEndian);
-                if (checksum != record.checkSum) {
-                    cout << "Checksum for table " << ToString(record.tableTag) << " didn't match!" << std::endl;
+                Tag_t &tag = record.tableTag;
+                if (tag == "head"_Tag || tag == "bhed"_Tag) {
+                    ((tables::head*)ptr)->EndianSwap();
+                } else if (tag == "cmap"_Tag) {
+                    tables::cmap_index *index = (tables::cmap_index*)ptr;
+                    index->EndianSwap();
+                    for (u32 enc = 0; enc < index->numberSubtables; enc++) {
+                        tables::cmap_encoding *encoding = (tables::cmap_encoding*)(index + 4 + enc * sizeof(tables::cmap_encoding));
+                        encoding->EndianSwap();
+                        // TODO: EVERYTHING ELSE WITH CMAP
+                    }
+                } else {
+                    cout << ToString(record.tableTag) << " table not necessary/supported." << std::endl;
                 }
             }
         }

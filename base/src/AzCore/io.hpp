@@ -50,6 +50,7 @@ namespace io {
 
         RawInputDevice();
         ~RawInputDevice();
+        RawInputDevice(RawInputDevice&& other);
         bool Init();
     };
 

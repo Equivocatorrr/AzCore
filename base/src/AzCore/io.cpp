@@ -19,6 +19,12 @@ namespace io {
         "Joystick"
     };
 
+    RawInputDevice::RawInputDevice(RawInputDevice&& other) {
+        data = other.data;
+        other.data = nullptr;
+        type = other.type;
+    }
+
     ButtonState::ButtonState() : state(0) , canRepeat(false) , repeatTimer(0.4) {}
 
     void ButtonState::Set(bool pressed, bool down, bool released) {

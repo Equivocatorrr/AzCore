@@ -9,6 +9,9 @@
 
 io::logStream cout("main.log");
 
+// NOTE: Using an immediate-mode renderer like this isn't necessarily a good idea.
+//       It's just an easy way to do things that would otherwise require special shaders.
+
 const u32 maxVertices = 8192;
 
 struct Vertex {
@@ -17,7 +20,7 @@ struct Vertex {
 };
 
 void DrawCircle(VkCommandBuffer cmdBuf, Vertex *vertices, u32 *vertex, vec2 center, f32 radius, vec4 color, f32 aspectRatio) {
-    u32 circumference = min(max(sqrt(radius*tau*1600.0), 4.0), 80.0);
+    u32 circumference = clamp(sqrt(radius*tau*1600.0), 5.0, 80.0);
     center.x *= aspectRatio;
     vertices[(*vertex)++] = {color, center};
     for (u32 i = 0; i <= circumference; i++) {
@@ -53,6 +56,12 @@ i32 main(i32 argumentCount, char** argumentValues) {
             enableCoreValidation = true;
         }
     }
+
+    cout << "Initializing RawInput" << std::endl;
+    io::RawInput rawInput;
+    rawInput.Init();
+
+    return 0;
 
     io::Input input;
     io::Window window;

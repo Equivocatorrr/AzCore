@@ -35,6 +35,7 @@ namespace io {
     struct RawInputDeviceData {
         libevdev *dev;
         i32 fd;
+        String path;
         Array<input_event> syncBuffer;
     };
 
@@ -45,16 +46,25 @@ namespace io {
     }
 
     RawInputDevice::~RawInputDevice() {
-        if (data->dev != nullptr) {
-            libevdev_free(data->dev);
+        if (data != nullptr) {
+            if (data->dev != nullptr) {
+                libevdev_free(data->dev);
+            }
+            if (data->fd > -1) {
+                close(data->fd);
+            }
+            delete data;
         }
-        if (data->fd > -1) {
-            close(data->fd);
-        }
-        delete data;
     }
+    //
+    // RawInputDevice::RawInputDevice(const RawInputDevice& other) {
+    //     data = new RawInputDeviceData;
+    //     *data = *other.data;
+    //     type = other.type;
+    // }
 
     bool RawInputDevice::Init() {
+        cout << "Initializing RawInputDevice from path " << data->path << std::endl;
         data->dev = libevdev_new();
         if (data->dev == nullptr) {
             return false;
@@ -77,7 +87,14 @@ namespace io {
             type = KEYBOARD;
         } else {
             type = UNSUPPORTED;
+            return false;
         }
+        cout << "RawInputDevice from path \"" << data->path << "\":\n"
+        "\tType: " << RawInputDeviceTypeString[type] << "\n"
+        "\tName: " << libevdev_get_name(data->dev) << "\n"
+        "\tID: bus " << libevdev_get_id_bustype(data->dev)
+        << " vendor " << libevdev_get_id_vendor(data->dev)
+        << " product " << libevdev_get_id_product(data->dev) << std::endl;
         return true;
     }
 
@@ -150,11 +167,11 @@ namespace io {
                 continue;
             }
             // We got a live one boys!
-            devices.Append(RawInputDevice());
-            RawInputDevice *device = &devices[devices.size-1];
-            device->data->fd = fd;
-            if (!device->Init()) {
-                devices.Erase(devices.size-1);
+            RawInputDevice device;
+            device.data->fd = fd;
+            device.data->path = std::move(path);
+            if (device.Init()) {
+                devices.Append(std::move(device));
             }
         }
         return true;

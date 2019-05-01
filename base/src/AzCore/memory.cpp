@@ -188,8 +188,8 @@ String operator+(const char* cString, const String& string) {
 String operator+(const char* cString, String&& string) {
     String result(false); // We don't initialize the tail
     result.Reserve(StringLength(cString)+string.size);
-    result += cString;
-    result += string;
+    result.Append(cString);
+    result.Append(std::move(string));
     return result;
 }
 
@@ -201,8 +201,8 @@ WString operator+(const char* cString, const WString& string) {
 WString operator+(const wchar_t* cString, WString&& string) {
     WString result(false); // We don't initialize the tail
     result.Reserve(StringLength(cString)+string.size);
-    result += cString;
-    result += string;
+    result.Append(cString);
+    result.Append(std::move(string));
     return result;
 }
 

@@ -24,9 +24,15 @@ namespace font {
 
     // These are the basic types used for TrueType fonts
     typedef i16 shortFrac_t;
-    struct Fixed_t {
-        i16 iPart;
-        u16 fPart;
+    union Fixed_t {
+        struct {
+            i16 iPart;
+            u16 fPart;
+        }; // For the actual fractions
+        struct {
+            u16 major;
+            u16 minor;
+        }; // For versions
     };
     typedef i16 FWord_t;
     typedef u16 uFWord_t;
@@ -36,9 +42,13 @@ namespace font {
     union Tag_t {
         u32 data;
         char name[4];
+        Tag_t()=default;
+        constexpr Tag_t(const u32 in);
+        constexpr Tag_t(const char *in);
     };
 
-    constexpr Tag_t operator "" _Tag(const char[5], size_t);
+    constexpr Tag_t operator "" _Tag(const char*, const size_t);
+    Tag_t operator "" _Tag(const u64);
 
     namespace tables {
 
@@ -53,7 +63,7 @@ namespace font {
             u32 offset; // Offset from beginning of the font file.
             u32 length;
 
-            void Read(std::ifstream &file, bool swapEndian);
+            void Read(std::ifstream &file);
         };
 
         /*  struct: Offset
@@ -70,7 +80,7 @@ namespace font {
             u16 entrySelector; // log2(maximum power of 2 that's <= numTables)
             u16 rangeShift; // numTables * 16 - searchRange
             Array<tables::Record> tables;
-            void Read(std::ifstream &file, bool swapEndian);
+            void Read(std::ifstream &file);
         };
 
         /*  struct: TTCHeader
@@ -78,26 +88,26 @@ namespace font {
             Contains information about the fonts contained in this collection.  */
         struct TTCHeader {
             Tag_t ttcTag;
-            u16 majorVersion;
-            u16 minorVersion;
+            Fixed_t version;
             u32 numFonts;
             Array<u32> offsetTables; // Offsets to the individial offset tables
             Tag_t dsigTag;
             u32 dsigLength;
             u32 dsigOffset;
-            bool Read(std::ifstream &file, bool swapEndian);
+            bool Read(std::ifstream &file);
         };
 
         struct cmap_encoding {
             u16 platformID;
             u16 platformSpecificID;
             u32 offset; // Bytes from beginning of cmap table
+            void EndianSwap();
         };
 
-        struct cmap {
+        struct cmap_index {
             u16 version; // Must be set to zero
             u16 numberSubtables; // How many encoding subtables there are
-            Array<cmap_encoding> encodingRecords;
+            void EndianSwap();
         };
 
         /*  struct: head
@@ -149,6 +159,7 @@ namespace font {
                 // -2 - Like -1 but contains neutrals
             i16 indexToLocFormat; // 0 for short offsets, 1 for long
             i16 glyphDataFormat; // 0 for current format
+            void EndianSwap();
         };
 
         // Same exact thing, only used to indicate that the font doesn't
@@ -165,6 +176,9 @@ namespace font {
             std::ifstream file;
             tables::TTCHeader ttcHeader;
             Array<tables::Offset> offsetTables;
+            // In the case of font collections, we should determine which tables
+            // are unique since some of them will be shared between fonts.
+            Array<tables::Record> uniqueTables;
             u32 offsetMin = UINT32_MAX;
             u32 offsetMax = 0;
             // Holds all of the tables, which can then be read by referencing

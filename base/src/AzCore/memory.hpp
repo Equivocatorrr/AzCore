@@ -15,7 +15,16 @@
 
 #include <stdexcept>
 
-bool isSystemBigEndian();
+struct SystemEndianness_t {
+    union {
+        u16 _bytes;
+        struct {
+            bool little, big;
+        };
+    };
+};
+
+extern SystemEndianness_t SysEndian;
 
 u16 bytesToU16(char bytes[2], bool swapEndian);
 u32 bytesToU32(char bytes[4], bool swapEndian);
@@ -31,6 +40,16 @@ f64 bytesToF64(char bytes[8], bool swapEndian);
 u16 endianSwap(u16 in, bool swapEndian = true);
 u32 endianSwap(u32 in, bool swapEndian = true);
 u64 endianSwap(u64 in, bool swapEndian = true);
+
+inline i16 endianSwap(i16 in, bool swapEndian = true) {
+    return endianSwap((u16)in);
+}
+inline i32 endianSwap(i32 in, bool swapEndian = true) {
+    return endianSwap((u32)in);
+}
+inline i64 endianSwap(i64 in, bool swapEndian = true) {
+    return endianSwap((u64)in);
+}
 
 size_t align(const size_t& size, const size_t& alignment);
 
@@ -397,36 +416,36 @@ struct Array {
 
     Array<T, allocTail> operator+(T&& other) const {
         Array<T, allocTail> result(*this);
-        result += other;
+        result.Append(std::move(other));
         return result;
     }
 
     Array<T, allocTail> operator+(const T& other) const {
         Array<T, allocTail> result(*this);
-        result += other;
+        result.Append(other);
         return result;
     }
 
     Array<T, allocTail> operator+(const T* string) const {
         Array<T, allocTail> result(*this);
-        result += string;
+        result.Append(string);
         return result;
     }
 
     Array<T, allocTail> operator+(Array<T, allocTail>&& other) const {
         Array<T, allocTail> result(*this);
-        result += other;
+        result.Append(std::move(other));
         return result;
     }
 
     Array<T, allocTail> operator+(const Array<T, allocTail>& other) const {
         Array<T, allocTail> result(*this);
-        result += other;
+        result.Append(other);
         return result;
     }
 
     inline T& operator+=(T&& value) {
-        return Append(value);
+        return Append(std::move(value));
     }
 
     inline T& operator+=(const T& value) {
@@ -438,7 +457,7 @@ struct Array {
     }
 
     inline Array<T, allocTail>& operator+=(Array<T, allocTail>&& other) {
-        return Append(other);
+        return Append(std::move(other));
     }
 
     inline Array<T, allocTail>& operator+=(const T* string) {
@@ -511,6 +530,29 @@ struct Array {
         size++;
         SetTerminator();
         return data[size-1] = value;
+    }
+
+    T& Append(T&& value) {
+        if (size >= allocated) {
+            allocated += (allocated >> 1) + 2;
+            T *temp = new T[allocated + allocTail];
+            if (size > 0) {
+                if (std::is_trivially_copyable<T>::value) {
+                    memcpy((void*)temp, (void*)data, sizeof(T) * size);
+                } else {
+                    for (i32 i = 0; i < size; i++) {
+                        temp[i] = std::move(data[i]);
+                    }
+                }
+            }
+            if (data != nullptr) {
+                delete[] data;
+            }
+            data = temp;
+        }
+        size++;
+        SetTerminator();
+        return data[size-1] = std::move(value);
     }
 
     Array<T, allocTail>& Append(const T* string) {
@@ -734,8 +776,11 @@ class ListIterator;
     A single index in a linked list     */
 template<typename T>
 struct ListIndex {
-    ListIndex<T> *next=nullptr;
-    T value{};
+    ListIndex<T> *next;
+    T value;
+    ListIndex() : next(nullptr) , value() {}
+    ListIndex(const T& a) : next(nullptr) , value(a) {}
+    ListIndex(T&& a) : next(nullptr) , value(std::move(a)) {}
 };
 
 /*  class: ListIterator
@@ -772,7 +817,7 @@ struct List {
     List(const List<T>& other) : first(nullptr) , size(0) {
         *this = other;
     }
-    List(const List<T>&& other) noexcept : first(other.first) , size(other.size) {}
+    List(List<T>&& other) noexcept : first(other.first) , size(other.size) { other.first = nullptr; }
     List(std::initializer_list<T> init) : first(nullptr) , size(0) {
         *this = init;
     }
@@ -797,6 +842,15 @@ struct List {
             it = it->next;
         }
         return *this;
+    }
+    List<T>& operator=(List<T>&& other) {
+        if (first != nullptr) {
+            delete first;
+        }
+        first = other.first;
+        other.first = nullptr;
+        size = other.size;
+        other.size = 0;
     }
     List<T>& operator=(const std::initializer_list<T> init) {
         Resize(init.size());
@@ -868,23 +922,32 @@ struct List {
     void Append(const T& a) {
         size++;
         if (size == 1) {
-            first = new ListIndex<T>();
-            first->value = a;
+            first = new ListIndex<T>(a);
             return;
         }
         ListIndex<T> *it = first;
         for (i32 i = 2; i < size; i++) {
             it = it->next;
         }
-        it->next = new ListIndex<T>();
-        it->next->value = a;
+        it->next = new ListIndex<T>(a);
+    }
+    void Append(T&& a) {
+        size++;
+        if (size == 1) {
+            first = new ListIndex<T>(std::move(a));
+            return;
+        }
+        ListIndex<T> *it = first;
+        for (i32 i = 2; i < size; i++) {
+            it = it->next;
+        }
+        it->next = new ListIndex<T>(std::move(a));
     }
     void Insert(const i32 index, const T& a) {
         size++;
         if (index == 0) {
             ListIndex<T> *f = first;
-            first = new ListIndex<T>();
-            first->value = a;
+            first = new ListIndex<T>(a);
             first->next = f;
             return;
         }
@@ -893,8 +956,23 @@ struct List {
             it = it->next;
         }
         ListIndex<T> *n = it->next;
-        it->next = new ListIndex<T>();
-        it->next->value = a;
+        it->next = new ListIndex<T>(a);
+        it->next->next = n;
+    }
+    void Insert(const i32 index, T&& a) {
+        size++;
+        if (index == 0) {
+            ListIndex<T> *f = first;
+            first = new ListIndex<T>(std::move(a));
+            first->next = f;
+            return;
+        }
+        ListIndex<T> *it = first;
+        for (i32 i = 1; i < index; i++) {
+            it = it->next;
+        }
+        ListIndex<T> *n = it->next;
+        it->next = new ListIndex<T>(std::move(a));
         it->next->next = n;
     }
     void Erase(const i32 index) {

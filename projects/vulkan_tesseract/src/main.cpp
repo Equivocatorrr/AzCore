@@ -59,7 +59,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     cout << "Initializing RawInput" << std::endl;
     io::RawInput rawInput;
-    rawInput.Init();
+    if (!rawInput.Init()) {
+        cout << "Failed to Init RawInput: " << io::error << std::endl;
+    }
 
     return 0;
 

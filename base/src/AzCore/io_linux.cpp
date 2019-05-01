@@ -35,15 +35,9 @@ namespace io {
     struct RawInputDeviceData {
         libevdev *dev;
         i32 fd;
-        String path;
+        String path{false}; // Don't allocate a zero-size string
         Array<input_event> syncBuffer;
     };
-
-    RawInputDevice::RawInputDevice() {
-        data = new RawInputDeviceData;
-        data->dev = nullptr;
-        data->fd = -1;
-    }
 
     RawInputDevice::~RawInputDevice() {
         if (data != nullptr) {
@@ -56,39 +50,51 @@ namespace io {
             delete data;
         }
     }
-    //
-    // RawInputDevice::RawInputDevice(const RawInputDevice& other) {
-    //     data = new RawInputDeviceData;
-    //     *data = *other.data;
-    //     type = other.type;
-    // }
 
-    bool RawInputDevice::Init() {
-        cout << "Initializing RawInputDevice from path " << data->path << std::endl;
-        data->dev = libevdev_new();
-        if (data->dev == nullptr) {
+    RawInputDevice& RawInputDevice::operator=(RawInputDevice&& other) {
+        if (data != nullptr) {
+            delete data;
+        }
+        data = other.data;
+        other.data = nullptr;
+        type = other.type;
+        return *this;
+    }
+
+    bool RawInputDevice::Init(i32 fd, String&& path) {
+        libevdev *dev = libevdev_new();
+        if (dev == nullptr) {
             return false;
         }
-        i32 rc = libevdev_set_fd(data->dev, data->fd);
+        i32 rc = libevdev_set_fd(dev, fd);
         if (rc < 0) {
+            libevdev_free(dev);
             return false;
         }
-        if (libevdev_has_event_type(data->dev, EV_REL) &&
-            libevdev_has_event_code(data->dev, EV_REL, REL_X) &&
-            libevdev_has_event_code(data->dev, EV_REL, REL_Y) &&
-            libevdev_has_event_code(data->dev, EV_KEY, BTN_MOUSE) &&
-            libevdev_has_event_code(data->dev, EV_KEY, BTN_LEFT)) {
+        if (libevdev_has_event_type(dev, EV_REL) &&
+            libevdev_has_event_code(dev, EV_REL, REL_X) &&
+            libevdev_has_event_code(dev, EV_REL, REL_Y) &&
+            libevdev_has_event_code(dev, EV_KEY, BTN_MOUSE) &&
+            libevdev_has_event_code(dev, EV_KEY, BTN_LEFT)) {
             type = MOUSE;
-        } else if (libevdev_has_event_code(data->dev, EV_KEY, BTN_JOYSTICK)) {
+        } else if (libevdev_has_event_code(dev, EV_KEY, BTN_JOYSTICK)) {
             type = JOYSTICK;
-        } else if (libevdev_has_event_code(data->dev, EV_KEY, BTN_GAMEPAD)) {
+        } else if (libevdev_has_event_code(dev, EV_KEY, BTN_GAMEPAD)) {
             type = GAMEPAD;
-        } else if (libevdev_has_event_code(data->dev, EV_KEY, KEY_KEYBOARD)) {
+        } else if (libevdev_has_event_code(dev, EV_KEY, KEY_KEYBOARD)) {
             type = KEYBOARD;
         } else {
             type = UNSUPPORTED;
+            libevdev_free(dev);
             return false;
         }
+        if (data != nullptr) {
+            delete data;
+        }
+        data = new RawInputDeviceData;
+        data->fd = fd;
+        data->path = std::move(path);
+        data->dev = dev;
         cout << "RawInputDevice from path \"" << data->path << "\":\n"
         "\tType: " << RawInputDeviceTypeString[type] << "\n"
         "\tName: " << libevdev_get_name(data->dev) << "\n"
@@ -153,27 +159,38 @@ namespace io {
     };
 
     bool RawInput::Init() {
+        devices.Reserve(4);
         data = new RawInputData;
         data->frame = 0;
-        for (u32 i = 0; i < 32; i++) {
-            String path = "/dev/input/event" + ToString(i);
-            i32 fd = open(path.data, O_RDONLY | O_NONBLOCK);
+        ClockTime start = Clock::now();
+        char path[] = "/dev/input/eventXX";
+        for (u32 i = 0; i < 64; i++) {
+            if (i < 10) {
+                path[16] = i+'0';
+                path[17] = 0;
+            } else {
+                path[16] = i/10+'0';
+                path[17] = i%10+'0';
+            }
+            // cout << path << std::endl;
+            i32 fd = open(path, O_RDONLY | O_NONBLOCK);
             if (fd < 0) {
                 if (errno == EACCES) {
-                    error = "Permission denied opening device with path \""
-                          + path;
+                    error = "Permission denied opening device with path \"";
+                    error += path;
                     return false;
                 }
                 continue;
             }
             // We got a live one boys!
             RawInputDevice device;
-            device.data->fd = fd;
-            device.data->path = std::move(path);
-            if (device.Init()) {
+            if (device.Init(fd, std::move(path))) {
                 devices.Append(std::move(device));
             }
         }
+        cout << "Total time to check 64 raw input devices: "
+        << (f64)std::chrono::duration_cast<Nanoseconds>(Clock::now()-start).count() / 1000000000.0d
+        << " seconds" << std::endl;
         return true;
     }
 

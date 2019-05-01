@@ -48,10 +48,11 @@ namespace io {
         struct RawInputDeviceData *data = nullptr;
         RawInputDeviceType type;
 
-        RawInputDevice();
+        RawInputDevice() = default;
         ~RawInputDevice();
         RawInputDevice(RawInputDevice&& other);
-        bool Init();
+        RawInputDevice& operator=(RawInputDevice&& other);
+        bool Init(i32 fd, String&& path);
     };
 
     /*  struct: RawInput
@@ -59,7 +60,7 @@ namespace io {
         Manages all RawInputDevices */
     struct RawInput {
         struct RawInputData *data = nullptr;
-        List<RawInputDevice> devices;
+        Array<RawInputDevice> devices;
 
         ~RawInput();
         bool Init();

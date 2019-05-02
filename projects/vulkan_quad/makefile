@@ -28,7 +28,7 @@ WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.1.82.0
 
 LIBS_L=-lvulkan -lxcb -levdev -lpthread -lxkbcommon -lxkbcommon-x11 -lxcb-xkb
 LIBS_L_GLX= $(LIBS_L) -lX11 -lX11-xcb
-LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib32/" -lvulkan-1 -lgdi32
+LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib32/" -lvulkan-1 -lgdi32 -ldinput8 -ldxguid
 
 _DEPS =
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS)) makefile

@@ -19,7 +19,7 @@ WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.1.82.0
 #		- GLX: X11, X11-xcb
 #	vk.o: vulkan
 #		Windows:
-#	io_windows.o: gdi32
+#	io_win32.o: gdi32 dinput8 dxguid
 #	vk.o: vulkan-1
 #LIBS_L=-lvulkan -lxcb -levdev -lpthread -lxkbcommon -lxkbcommon-x11 -lxcb-xkb
 #LIBS_L_GLX= $(LIBS_L) -lX11 -lX11-xcb

@@ -22,6 +22,196 @@
 
 namespace io {
 
+    u32 classNum = 0; // Prevent identical windowClasses
+
+    struct RawInputDeviceData {
+        u32 uhhh;
+    };
+
+    RawInputDevice::~RawInputDevice() {
+        if (data != nullptr) {
+            delete data;
+        }
+    }
+
+    RawInputDevice& RawInputDevice::operator=(RawInputDevice&& other) {
+        if (data != nullptr) {
+            delete data;
+        }
+        data = other.data;
+        other.data = nullptr;
+        type = other.type;
+        rawInput = other.rawInput;
+        return *this;
+    }
+
+    bool RawInputDevice::Init(i32 fd, String&& path, u32 enableMask) {
+        return true;
+    }
+
+    struct RawInputData {
+        HINSTANCE instance;
+        HWND window;
+        WNDCLASS windowClass;
+        String windowClassName{false};
+    };
+
+    RawInput::~RawInput() {
+        if (data != nullptr) {
+            DestroyWindow(data->window);
+            UnregisterClass(data->windowClass.lpszClassName, data->instance);
+            delete data;
+        }
+    }
+
+    LRESULT CALLBACK RawInputProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+    bool RawInput::Init(u32 enableMask) {
+        devices.Reserve(4);
+        data = new RawInputData;
+        // Use a hidden window to receive messages
+        data->instance = GetModuleHandle(NULL);
+        data->windowClass.style = CS_OWNDC;
+        data->windowClass.lpfnWndProc = RawInputProcedure;
+        data->windowClass.cbClsExtra = 0;
+        data->windowClass.cbWndExtra = sizeof(LONG_PTR);
+        data->windowClass.hInstance = data->instance;
+        data->windowClass.hIcon = NULL;
+        data->windowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
+        data->windowClass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+        data->windowClass.lpszMenuName = NULL;
+
+        data->windowClassName = "AzCore";
+        data->windowClassName += ToString(classNum++);
+        data->windowClass.lpszClassName = data->windowClassName.data;
+        if (!RegisterClass(&data->windowClass)) {
+            error = "Failed to register RawInput window class: " + ToString((u32)GetLastError());
+            return false;
+        }
+        data->window = CreateWindow(data->windowClassName.data,
+                "You shouldn't be able to see this.",
+                WS_WINDOWED, CW_USEDEFAULT, CW_USEDEFAULT,
+                0, 0, HWND_MESSAGE, NULL, data->instance, (LPVOID)this);
+        if (data->window == NULL) {
+            error = "Failed to create window: " + ToString((u32)GetLastError());
+            return false;
+        }
+
+        Array<RAWINPUTDEVICE> rids;
+        rids.Reserve(4);
+        if (enableMask & IO_RAW_INPUT_ENABLE_KEYBOARD_BIT) {
+            RAWINPUTDEVICE rid;
+            rid.usUsagePage = 0x01;
+            rid.usUsage = 0x06;
+            rid.dwFlags = 0;
+            rid.hwndTarget = data->window;
+            rids += rid;
+        }
+        if (enableMask & IO_RAW_INPUT_ENABLE_MOUSE_BIT) {
+            RAWINPUTDEVICE rid;
+            rid.usUsagePage = 0x01;
+            rid.usUsage = 0x02;
+            rid.dwFlags = 0;
+            rid.hwndTarget = data->window;
+            rids += rid;
+        }
+        if (enableMask & IO_RAW_INPUT_ENABLE_GAMEPAD_BIT) {
+            RAWINPUTDEVICE rid;
+            rid.usUsagePage = 0x01;
+            rid.usUsage = 0x05;
+            rid.dwFlags = 0;
+            rid.hwndTarget = data->window;
+            rids += rid;
+        }
+        if (enableMask & IO_RAW_INPUT_ENABLE_JOYSTICK_BIT) {
+            RAWINPUTDEVICE rid;
+            rid.usUsagePage = 0x01;
+            rid.usUsage = 0x04;
+            rid.dwFlags = 0;
+            rid.hwndTarget = data->window;
+            rids += rid;
+        }
+
+        if (!RegisterRawInputDevices(rids.data, rids.size, sizeof(RAWINPUTDEVICE))) {
+            error = "Failed to RegisterRawInputDevices: " + ToString((u32)GetLastError());
+            return false;
+        }
+
+        return true;
+    }
+
+    void RawInput::Update(f32 timestep) {
+        // TODO: The rest of the raw input device types.
+        AnyGP.Tick(timestep);
+        // for (i32 i = 0; i < gamepads.size; i++) {
+        //     gamepads[i].Update(timestep, i);
+        // }
+        MSG msg;
+        while (PeekMessage(&msg, data->window, 0, 0, PM_REMOVE))
+        {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+    }
+
+    LRESULT CALLBACK RawInputProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+        if (uMsg == WM_CREATE) {
+            SetLastError(0);
+            SetWindowLongPtr(hWnd, 0, (LONG_PTR)((CREATESTRUCT*)lParam)->lpCreateParams);
+            if (GetLastError()) {
+                cout << "Failed to SetWindowLongPtr: " + ToString((u32)GetLastError());
+            }
+            return 0;
+        }
+
+        RawInput *rawInput = (RawInput*)GetWindowLongPtr(hWnd, 0);
+        if (rawInput == nullptr) {
+            return DefWindowProc(hWnd, uMsg, wParam, lParam);
+        }
+
+        if (uMsg == WM_INPUT) {
+            UINT dwSize;
+
+            GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
+            if (dwSize == 0) {
+                return 0;
+            }
+            LPBYTE lpb = new BYTE[dwSize];
+
+            if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, lpb, &dwSize, sizeof(RAWINPUTHEADER)) != dwSize) {
+                cout << "GetRawInputData didn't return the correct size!" << std::endl;
+            }
+
+            RAWINPUT *raw = (RAWINPUT*)lpb;
+            RID_DEVICE_INFO deviceInfo;
+            deviceInfo.cbSize = sizeof(RID_DEVICE_INFO);
+            UINT deviceInfoSize = sizeof(RID_DEVICE_INFO);
+            GetRawInputDeviceInfo(raw->header.hDevice, RIDI_DEVICEINFO, &deviceInfo, &deviceInfoSize);
+            if (raw->header.dwType == RIM_TYPEKEYBOARD) {
+                // TODO: Implement keyboards
+                // cout << "Raw Input from KEYBOARD:\n"
+                // "Vendor: " << deviceInfo.hid.dwVendorId <<
+                // "Product: " << deviceInfo.hid.dwProductId <<
+                // "Version: " << deviceInfo.hid.dwVersionNumber << std::endl;
+            } else if (raw->header.dwType == RIM_TYPEMOUSE) {
+                // TODO: Implement mice
+                // cout << "Raw Input from MOUSE:\n"
+                // "Vendor: " << deviceInfo.hid.dwVendorId <<
+                // "Product: " << deviceInfo.hid.dwProductId <<
+                // "Version: " << deviceInfo.hid.dwVersionNumber << std::endl;
+            } else if (raw->header.dwType == RIM_TYPEHID) {
+                // HID means not keyboard or mouse
+                cout << "Raw Input from HID:\n"
+                "Vendor: " << deviceInfo.hid.dwVendorId <<
+                "Product: " << deviceInfo.hid.dwProductId <<
+                "Version: " << deviceInfo.hid.dwVersionNumber << std::endl;
+            }
+
+            return 0;
+        }
+        return DefWindowProc(hWnd, uMsg, wParam, lParam);
+    }
+
     String winGetInputName (u8 hid) {
         if (hid == 255) {
             return "Null";
@@ -50,7 +240,7 @@ namespace io {
         HWND window;
         WNDCLASSEX windowClass;
         HICON windowIcon, windowIconSmall;
-        String windowClassName;
+        String windowClassName{false};
     };
 
     Window::Window() {
@@ -109,6 +299,22 @@ namespace io {
         case WM_KEYDOWN: {
             // keyCode = KeyCodeFromWinVK((u8)wParam);
             keyCode = KeyCodeFromWinScan((u8)(lParam>>16));
+            if (wParam >= VK_NUMPAD1 && wParam <= VK_NUMPAD9) {
+                keyCode = KC_KEY_KP1 + wParam - VK_NUMPAD1;
+            } else if (wParam == VK_NUMPAD0) {
+                keyCode = KC_KEY_KP0;
+            } else if (wParam == VK_NUMLOCK) {
+                keyCode = KC_KEY_NUMLOCK;
+            } else if (wParam == VK_DECIMAL) {
+                keyCode = KC_KEY_KPDOT;
+            } else if (wParam == VK_MULTIPLY) {
+                keyCode = KC_KEY_KPASTERISK;
+            } else if (wParam == VK_DIVIDE) {
+                keyCode = KC_KEY_KPSLASH;
+            } else if (wParam == VK_MULTIPLY) {
+                keyCode = KC_KEY_KPASTERISK;
+            }
+            // cout << "KeyCode down: " << KeyCodeName(keyCode) << std::endl;
             // cout << "WM_KEYDOWN scancode: 0x" << std::hex << (u32)((u8)(lParam>>16)) << " vk_code: 0x" << (u32)((u8)wParam) << std::endl;
             character = (char)MapVirtualKey(wParam, MAPVK_VK_TO_CHAR);
             press = true;
@@ -117,8 +323,24 @@ namespace io {
         case WM_KEYUP: {
             // keyCode = KeyCodeFromWinVK((u8)wParam);
             keyCode = KeyCodeFromWinScan((u8)(lParam>>16));
+            if (wParam >= VK_NUMPAD1 && wParam <= VK_NUMPAD9) {
+                keyCode = KC_KEY_KP1 + wParam - VK_NUMPAD1;
+            } else if (wParam == VK_NUMPAD0) {
+                keyCode = KC_KEY_KP0;
+            } else if (wParam == VK_NUMLOCK) {
+                keyCode = KC_KEY_NUMLOCK;
+            } else if (wParam == VK_DECIMAL) {
+                keyCode = KC_KEY_KPDOT;
+            } else if (wParam == VK_MULTIPLY) {
+                keyCode = KC_KEY_KPASTERISK;
+            } else if (wParam == VK_DIVIDE) {
+                keyCode = KC_KEY_KPSLASH;
+            } else if (wParam == VK_MULTIPLY) {
+                keyCode = KC_KEY_KPASTERISK;
+            }
+            // cout << "KeyCode up: " << KeyCodeName(keyCode) << std::endl;
             // cout << "WM_KEYUP scancode: 0x" << std::hex << (u32)((u8)(lParam>>16)) << " vk_code: 0x" << (u32)((u8)wParam) << std::endl;
-            character = (char)MapVirtualKey(wParam, MAPVK_VK_TO_CHAR);
+            // character = (char)MapVirtualKey(wParam, MAPVK_VK_TO_CHAR);
             release = true;
             break;
         }
@@ -262,8 +484,6 @@ namespace io {
 
         return 0;
     }
-
-    u32 classNum = 0; // Prevent identical windowClasses
 
     bool Window::Open() {
         data->instance = GetModuleHandle(NULL);

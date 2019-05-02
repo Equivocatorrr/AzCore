@@ -22,7 +22,38 @@ namespace io {
     RawInputDevice::RawInputDevice(RawInputDevice&& other) {
         data = other.data;
         other.data = nullptr;
+        rawInput = other.rawInput;
         type = other.type;
+    }
+
+    bool Gamepad::Pressed(u8 keyCode) const {
+        if (keyCode >= KC_GP_AXIS_LS_RIGHT && keyCode <= KC_GP_AXIS_RT_IN) {
+            return axisPush[ keyCode-KC_GP_AXIS_LS_RIGHT ].Pressed();
+        } else if (keyCode >= KC_GP_BTN_A && keyCode <= KC_GP_BTN_THUMBR) {
+            return button[ keyCode-KC_GP_BTN_A ].Pressed();
+        } else {
+            return false;
+        }
+    }
+
+    bool Gamepad::Down(u8 keyCode) const {
+        if (keyCode >= KC_GP_AXIS_LS_RIGHT && keyCode <= KC_GP_AXIS_RT_IN) {
+            return axisPush[ keyCode-KC_GP_AXIS_LS_RIGHT ].Down();
+        } else if (keyCode >= KC_GP_BTN_A && keyCode <= KC_GP_BTN_THUMBR) {
+            return button[ keyCode-KC_GP_BTN_A ].Down();
+        } else {
+            return false;
+        }
+    }
+
+    bool Gamepad::Released(u8 keyCode) const {
+        if (keyCode >= KC_GP_AXIS_LS_RIGHT && keyCode <= KC_GP_AXIS_RT_IN) {
+            return axisPush[ keyCode-KC_GP_AXIS_LS_RIGHT ].Released();
+        } else if (keyCode >= KC_GP_BTN_A && keyCode <= KC_GP_BTN_THUMBR) {
+            return button[ keyCode-KC_GP_BTN_A ].Released();
+        } else {
+            return false;
+        }
     }
 
     ButtonState::ButtonState() : state(0) , canRepeat(false) , repeatTimer(0.4) {}

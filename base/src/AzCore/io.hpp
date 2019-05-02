@@ -17,6 +17,19 @@
     #include <vulkan/vulkan.h>
 #endif
 
+// For most gamepads, these values should be sufficient.
+#define IO_GAMEPAD_MAX_BUTTONS 15
+#define IO_GAMEPAD_MAX_AXES 8
+
+#define IO_GP_AXIS_LS_X        0x00
+#define IO_GP_AXIS_LS_Y        0x01
+#define IO_GP_AXIS_RS_X        0x03
+#define IO_GP_AXIS_RS_Y        0x04
+#define IO_GP_AXIS_LT          0x02
+#define IO_GP_AXIS_RT          0x05
+#define IO_GP_AXIS_H0_X        0x06
+#define IO_GP_AXIS_H0_Y        0x07
+
 #include "common.hpp"
 #include "log_stream.hpp"
 
@@ -30,41 +43,6 @@ namespace io {
     extern vec2 screenSize;
 
     extern logStream cout;
-
-    enum RawInputDeviceType {
-        UNSUPPORTED=0,
-        KEYBOARD=1,
-        MOUSE=2,
-        GAMEPAD=3,
-        JOYSTICK=4
-    };
-
-    extern const char *RawInputDeviceTypeString[5];
-
-    /*  struct: RawInputDevice
-        Author: Philip Haynes
-        A generic interface to raw input devices.   */
-    struct RawInputDevice {
-        struct RawInputDeviceData *data = nullptr;
-        RawInputDeviceType type;
-
-        RawInputDevice() = default;
-        ~RawInputDevice();
-        RawInputDevice(RawInputDevice&& other);
-        RawInputDevice& operator=(RawInputDevice&& other);
-        bool Init(i32 fd, String&& path);
-    };
-
-    /*  struct: RawInput
-        Author: Philip Haynes
-        Manages all RawInputDevices */
-    struct RawInput {
-        struct RawInputData *data = nullptr;
-        Array<RawInputDevice> devices;
-
-        ~RawInput();
-        bool Init();
-    };
 
     #define IO_BUTTON_PRESSED_BIT 0x01
     #define IO_BUTTON_DOWN_BIT 0x02
@@ -84,6 +62,86 @@ namespace io {
         bool Pressed() const;
         bool Down() const;
         bool Released() const;
+    };
+
+    enum RawInputDeviceType {
+        UNSUPPORTED=0,
+        KEYBOARD=1,
+        MOUSE=2,
+        GAMEPAD=3,
+        JOYSTICK=4
+    };
+
+    extern const char *RawInputDeviceTypeString[5];
+
+    #define IO_RAW_INPUT_ENABLE_KEYBOARD_BIT    0x01
+    #define IO_RAW_INPUT_ENABLE_MOUSE_BIT       0x02
+    #define IO_RAW_INPUT_ENABLE_GAMEPAD_BIT     0x04
+    #define IO_RAW_INPUT_ENABLE_JOYSTICK_BIT    0x08
+
+    struct RawInput;
+
+    /*  struct: RawInputDevice
+        Author: Philip Haynes
+        A generic interface to raw input devices.   */
+    struct RawInputDevice {
+        struct RawInputDeviceData *data = nullptr;
+        RawInput *rawInput;
+        RawInputDeviceType type;
+
+        RawInputDevice() = default;
+        ~RawInputDevice();
+        RawInputDevice(RawInputDevice&& other);
+        RawInputDevice& operator=(RawInputDevice&& other);
+        bool Init(i32 fd, String&& path, u32 enableMask);
+    };
+
+    /*  struct: Gamepad
+        Author: Philip Haynes
+        Utilities to use a RawInputDevice as a gamepad.     */
+    struct Gamepad {
+        Ptr<RawInputDevice> rawInputDevice;
+        f32 deadZone = 0.05; // A value between 0.0 and 1.0, should probably not be very high.
+        // Basic button interface
+        ButtonState button[IO_GAMEPAD_MAX_BUTTONS];
+        // An axis has moved beyond 50% in its direction.
+        // Even indices are all negative directions while odd indices are positive.
+        // Negative push is AXIS_INDEX*2
+        // Positive push is AXIS_INDEX*2 + 1
+        ButtonState axisPush[IO_GAMEPAD_MAX_AXES*2];
+        // Axis values are between -1.0 and 1.0
+        union {
+            struct {
+                vec2 LS;
+                f32 LT;
+                vec2 RS;
+                f32 RT;
+                vec2 H0;
+                // If you plan on expanding the axes, be sure to add them here too!
+            } vec{{0.0, 0.0},0.0,{0.0, 0.0,},0.0,{0.0,0.0}};
+            f32 array[IO_GAMEPAD_MAX_AXES];
+        } axis;
+
+        void Update(f32 timestep, i32 index);
+        bool Pressed(u8 keyCode) const;
+        bool Down(u8 keyCode) const;
+        bool Released(u8 keyCode) const;
+    };
+
+    /*  struct: RawInput
+        Author: Philip Haynes
+        Manages all RawInputDevices */
+    struct RawInput {
+        struct RawInputData *data = nullptr;
+        Array<RawInputDevice> devices;
+        Array<Gamepad> gamepads;
+        ButtonState AnyGP;
+        u8 AnyGPCode; // Which button/axisPush was pressed
+        i32 AnyGPIndex; // Index into gamepads of the device that pressed a button/axisPush
+
+        ~RawInput();
+        bool Init(u32 enableMask);
+        void Update(f32 timestep);
     };
 
     /*  struct: Input

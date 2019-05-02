@@ -59,11 +59,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     cout << "Initializing RawInput" << std::endl;
     io::RawInput rawInput;
-    if (!rawInput.Init()) {
+    if (!rawInput.Init(IO_RAW_INPUT_ENABLE_GAMEPAD_BIT)) {
         cout << "Failed to Init RawInput: " << io::error << std::endl;
     }
-
-    return 0;
 
     io::Input input;
     io::Window window;
@@ -238,6 +236,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     Vertex *vertices = new Vertex[maxVertices];
 
+    i32 gamepadIndex = -1; // Which gamepad we're reading input from
+
     f32 rotateAngle = 0.0;
     f32 eyeWidth = 0.1;
 
@@ -257,6 +257,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
     ClockTime frameEnd = Clock::now() + Milliseconds(1000/framerate-1);
 
     while (true) {
+        rawInput.Update(1.0/(f32)framerate);
+        if (rawInput.AnyGP.Pressed()) {
+            gamepadIndex = rawInput.AnyGPIndex;
+        }
         input.Tick(1.0/(f32)framerate);
         if (!window.Update()) {
             break;
@@ -272,6 +276,16 @@ i32 main(i32 argumentCount, char** argumentValues) {
         }
         if (input.Pressed(KC_KEY_PAUSE)) {
             pause = !pause;
+        }
+
+        if (gamepadIndex >= 0) {
+            if (rawInput.gamepads[gamepadIndex].Pressed(KC_GP_BTN_START)) {
+                pause = !pause;
+            }
+            if (rawInput.gamepads[gamepadIndex].Pressed(KC_GP_BTN_SELECT)) {
+                break;
+            }
+            facingAngleXY += rawInput.gamepads[gamepadIndex].axis.vec.RS * vec2(-pi, pi) / (f32)framerate;
         }
 
         if (input.Pressed(KC_MOUSE_LEFT)) {
@@ -426,6 +440,13 @@ i32 main(i32 argumentCount, char** argumentValues) {
         }
         if (input.Down(KC_KEY_S)) {
             offset += moveZ;
+        }
+
+        if (gamepadIndex >=0) {
+            offset -= moveX * 50.0 * rawInput.gamepads[gamepadIndex].axis.vec.LS.x / (f32)framerate;
+            offset += moveZ * 50.0 * rawInput.gamepads[gamepadIndex].axis.vec.LS.y / (f32)framerate;
+            offset += moveY * 50.0 * rawInput.gamepads[gamepadIndex].axis.vec.RT / (f32)framerate;
+            offset -= moveY * 50.0 * rawInput.gamepads[gamepadIndex].axis.vec.LT / (f32)framerate;
         }
 
         if (!pause) {

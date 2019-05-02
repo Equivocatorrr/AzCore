@@ -58,10 +58,11 @@ namespace io {
         data = other.data;
         other.data = nullptr;
         type = other.type;
+        rawInput = other.rawInput;
         return *this;
     }
 
-    bool RawInputDevice::Init(i32 fd, String&& path) {
+    bool RawInputDevice::Init(i32 fd, String&& path, u32 enableMask) {
         libevdev *dev = libevdev_new();
         if (dev == nullptr) {
             return false;
@@ -76,12 +77,28 @@ namespace io {
             libevdev_has_event_code(dev, EV_REL, REL_Y) &&
             libevdev_has_event_code(dev, EV_KEY, BTN_MOUSE) &&
             libevdev_has_event_code(dev, EV_KEY, BTN_LEFT)) {
+            if (!(enableMask & IO_RAW_INPUT_ENABLE_MOUSE_BIT)) {
+                libevdev_free(dev);
+                return false;
+            }
             type = MOUSE;
         } else if (libevdev_has_event_code(dev, EV_KEY, BTN_JOYSTICK)) {
+            if (!(enableMask & IO_RAW_INPUT_ENABLE_JOYSTICK_BIT)) {
+                libevdev_free(dev);
+                return false;
+            }
             type = JOYSTICK;
         } else if (libevdev_has_event_code(dev, EV_KEY, BTN_GAMEPAD)) {
+            if (!(enableMask & IO_RAW_INPUT_ENABLE_GAMEPAD_BIT)) {
+                libevdev_free(dev);
+                return false;
+            }
             type = GAMEPAD;
         } else if (libevdev_has_event_code(dev, EV_KEY, KEY_KEYBOARD)) {
+            if (!(enableMask & IO_RAW_INPUT_ENABLE_KEYBOARD_BIT)) {
+                libevdev_free(dev);
+                return false;
+            }
             type = KEYBOARD;
         } else {
             type = UNSUPPORTED;
@@ -104,7 +121,7 @@ namespace io {
         return true;
     }
 
-    bool GetRawInputDeviceEvent(RawInputDevice *rid, input_event *dst) {
+    bool GetRawInputDeviceEvent(Ptr<RawInputDevice> rid, input_event *dst) {
         input_event ev;
         i32 rc;
         if (rid->data->syncBuffer.size > 0) {
@@ -158,7 +175,13 @@ namespace io {
         u32 frame;
     };
 
-    bool RawInput::Init() {
+    RawInput::~RawInput() {
+        if (data != nullptr) {
+            delete data;
+        }
+    }
+
+    bool RawInput::Init(u32 enableMask) {
         devices.Reserve(4);
         data = new RawInputData;
         data->frame = 0;
@@ -184,8 +207,28 @@ namespace io {
             }
             // We got a live one boys!
             RawInputDevice device;
-            if (device.Init(fd, std::move(path))) {
+            if (device.Init(fd, std::move(path), enableMask)) {
+                device.rawInput = this;
                 devices.Append(std::move(device));
+                switch (device.type) {
+                case KEYBOARD:
+                    // TODO: Implement raw keyboards
+                    break;
+                case MOUSE:
+                    // TODO: Implement raw mice
+                    break;
+                case GAMEPAD: {
+                    Gamepad gamepad;
+                    gamepad.rawInputDevice = devices.GetPtr(devices.size-1);
+                    gamepads.Append(gamepad);
+                    break;
+                }
+                case JOYSTICK:
+                    // TODO: Implement raw joysticks
+                    break;
+                case UNSUPPORTED:
+                    break;
+                }
             }
         }
         cout << "Total time to check 64 raw input devices: "
@@ -194,9 +237,102 @@ namespace io {
         return true;
     }
 
-    RawInput::~RawInput() {
-        if (data != nullptr) {
-            delete data;
+    void RawInput::Update(f32 timestep) {
+        // TODO: The rest of the raw input device types.
+        AnyGP.Tick(timestep);
+        for (i32 i = 0; i < gamepads.size; i++) {
+            gamepads[i].Update(timestep, i);
+        }
+    }
+
+    void Gamepad::Update(f32 timestep, i32 index) {
+        if (!rawInputDevice.Valid()) {
+            return;
+        }
+        for (u32 i = 0; i < IO_GAMEPAD_MAX_BUTTONS; i++) {
+            button[i].Tick(timestep);
+        }
+        for (u32 i = 0; i < IO_GAMEPAD_MAX_AXES*2; i++) {
+            axisPush[i].Tick(timestep);
+        }
+        input_event ev;
+        while (GetRawInputDeviceEvent(rawInputDevice, &ev)) {
+            if (ev.type == EV_SYN && ev.code == SYN_REPORT) {
+                continue;
+            }
+            if (ev.type == EV_KEY) {
+                // Button presses
+                i32 bIndex = ev.code - 0x130;
+                if (bIndex >= IO_GAMEPAD_MAX_BUTTONS || bIndex < 0) {
+                    continue; // Unsupported
+                }
+                rawInputDevice->rawInput->AnyGPCode = bIndex + KC_GP_BTN_A;
+                if (ev.value) {
+                    rawInputDevice->rawInput->AnyGP.state = IO_BUTTON_PRESSED_BIT;
+                    button[bIndex].Press();
+                } else {
+                    rawInputDevice->rawInput->AnyGP.state = IO_BUTTON_RELEASED_BIT;
+                    button[bIndex].Release();
+                }
+                rawInputDevice->rawInput->AnyGPIndex = index;
+            } else if(ev.type == EV_ABS) {
+                // Axis movements
+                f32 maxRange = 32767.0;
+                f32 minRange = -32768.0;
+                f32 deadZoneTemp = maxRange * deadZone;
+                i32 aIndex = ev.code;
+                if (aIndex > 5) {
+                    // A hat perhaps?
+                    aIndex -= 10;
+                    maxRange = 1.0;
+                    minRange = -1.0;
+                    deadZoneTemp = 0.0;
+                }
+                if (aIndex == IO_GP_AXIS_LT || aIndex == IO_GP_AXIS_RT) {
+                    maxRange = 255.0;
+                    minRange = -255.0;
+                    deadZoneTemp = 0.0;
+                }
+                if (aIndex >= IO_GAMEPAD_MAX_AXES || aIndex < 0)
+                    continue; // Unsupported
+                f32 val = (f32)ev.value;
+                if (abs(val) < deadZoneTemp) {
+                    axis.array[aIndex] = 0.0;
+                } else {
+                    if (val >= 0.0) {
+                        axis.array[aIndex] = (val-deadZoneTemp) / (maxRange-deadZoneTemp);
+                    } else {
+                        axis.array[aIndex] = (val+deadZoneTemp) / (-minRange-deadZoneTemp);
+                    }
+                    if (abs(axis.array[aIndex]) > 0.1) {
+                        rawInputDevice->rawInput->AnyGPCode = aIndex + KC_GP_AXIS_LS_X;
+                        rawInputDevice->rawInput->AnyGP.state = IO_BUTTON_PRESSED_BIT;
+                        rawInputDevice->rawInput->AnyGPIndex = index;
+                    }
+                }
+                if (axis.array[aIndex] > 0.5 && !axisPush[aIndex*2].Down()) {
+                    rawInputDevice->rawInput->AnyGPCode = aIndex*2 + KC_GP_AXIS_LS_RIGHT;
+                    axisPush[aIndex*2].Press();
+                    rawInputDevice->rawInput->AnyGPIndex = index;
+                }
+                if (axis.array[aIndex] < -0.5 && !axisPush[aIndex*2+1].Down()) {
+                    rawInputDevice->rawInput->AnyGPCode = aIndex*2 + KC_GP_AXIS_LS_LEFT;
+                    axisPush[aIndex*2+1].Press();
+                    rawInputDevice->rawInput->AnyGPIndex = index;
+                }
+                if (axis.array[aIndex] < 0.5 && axisPush[aIndex*2].Down()) {
+                    rawInputDevice->rawInput->AnyGPCode = aIndex*2 + KC_GP_AXIS_LS_RIGHT;
+                    rawInputDevice->rawInput->AnyGP.state = IO_BUTTON_RELEASED_BIT;
+                    axisPush[aIndex*2].Release();
+                    rawInputDevice->rawInput->AnyGPIndex = index;
+                }
+                if (axis.array[aIndex] > -0.5 && axisPush[aIndex*2+1].Down()) {
+                    rawInputDevice->rawInput->AnyGPCode = aIndex*2 + KC_GP_AXIS_LS_LEFT;
+                    rawInputDevice->rawInput->AnyGP.state = IO_BUTTON_RELEASED_BIT;
+                    axisPush[aIndex*2+1].Release();
+                    rawInputDevice->rawInput->AnyGPIndex = index;
+                }
+            }
         }
     }
 

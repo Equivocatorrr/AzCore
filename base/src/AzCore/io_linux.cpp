@@ -893,8 +893,9 @@ namespace io {
                 }
                 case XCB_KEY_PRESS: {
                     xcb_key_press_event_t* ev = (xcb_key_press_event_t*)data->event;
-                    // cout << "XCB_KEY_PRESS scancode: " << std::hex << (u32)ev->detail << " evdev: " << std::dec << ev->detail-8 << std::endl;
                     keyCode = KeyCodeFromEvdev(ev->detail);
+                    // cout << "KeyCode down: " << KeyCodeName(keyCode) << std::endl;
+                    // cout << "XCB_KEY_PRESS scancode: " << std::hex << (u32)ev->detail << " evdev: " << std::dec << ev->detail-8 << std::endl;
                     char buffer[4] = {0};
                     xkb_state_key_get_utf8(data->xkb.state, (xkb_keycode_t)ev->detail, buffer, 4);
                     if (buffer[1] == '\0') {

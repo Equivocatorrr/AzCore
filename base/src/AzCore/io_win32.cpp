@@ -12,6 +12,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <dinput.h>
 
 #define WS_FULLSCREEN (WS_SYSMENU | WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_VISIBLE)
 #define WS_WINDOWED (WS_OVERLAPPEDWINDOW | WS_VISIBLE)
@@ -45,31 +46,34 @@ namespace io {
         return *this;
     }
 
-    bool RawInputDevice::Init(i32 fd, String&& path, u32 enableMask) {
+    bool RawInputDevice::Init(i32 fd, String&& path, RawInputFeatureBits enableMask) {
         return true;
     }
 
     struct RawInputData {
         HINSTANCE instance;
-        HWND window;
-        WNDCLASS windowClass;
         String windowClassName{false};
+        WNDCLASS windowClass;
+        HWND window;
+        IDirectInput8 *directInput=nullptr;
     };
 
     RawInput::~RawInput() {
         if (data != nullptr) {
             DestroyWindow(data->window);
             UnregisterClass(data->windowClass.lpszClassName, data->instance);
+            // DirectInput
+
             delete data;
         }
     }
 
     LRESULT CALLBACK RawInputProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-    bool RawInput::Init(u32 enableMask) {
+    bool RawInput::Init(RawInputFeatureBits enableMask) {
         devices.Reserve(4);
         data = new RawInputData;
-        // Use a hidden window to receive messages
+        // Use a hidden message-only window to receive keyboard/mouse input messages
         data->instance = GetModuleHandle(NULL);
         data->windowClass.style = CS_OWNDC;
         data->windowClass.lpfnWndProc = RawInputProcedure;
@@ -98,8 +102,8 @@ namespace io {
         }
 
         Array<RAWINPUTDEVICE> rids;
-        rids.Reserve(4);
-        if (enableMask & IO_RAW_INPUT_ENABLE_KEYBOARD_BIT) {
+        rids.Reserve(2);
+        if (enableMask & RAW_INPUT_ENABLE_KEYBOARD_BIT) {
             RAWINPUTDEVICE rid;
             rid.usUsagePage = 0x01;
             rid.usUsage = 0x06;
@@ -107,7 +111,7 @@ namespace io {
             rid.hwndTarget = data->window;
             rids += rid;
         }
-        if (enableMask & IO_RAW_INPUT_ENABLE_MOUSE_BIT) {
+        if (enableMask & RAW_INPUT_ENABLE_MOUSE_BIT) {
             RAWINPUTDEVICE rid;
             rid.usUsagePage = 0x01;
             rid.usUsage = 0x02;
@@ -115,26 +119,47 @@ namespace io {
             rid.hwndTarget = data->window;
             rids += rid;
         }
-        if (enableMask & IO_RAW_INPUT_ENABLE_GAMEPAD_BIT) {
-            RAWINPUTDEVICE rid;
-            rid.usUsagePage = 0x01;
-            rid.usUsage = 0x05;
-            rid.dwFlags = 0;
-            rid.hwndTarget = data->window;
-            rids += rid;
-        }
-        if (enableMask & IO_RAW_INPUT_ENABLE_JOYSTICK_BIT) {
-            RAWINPUTDEVICE rid;
-            rid.usUsagePage = 0x01;
-            rid.usUsage = 0x04;
-            rid.dwFlags = 0;
-            rid.hwndTarget = data->window;
-            rids += rid;
-        }
+        //
+        // We Probably don't need these at all since these are handled by DirectInput and XInput
+        //
+        // if (enableMask & RAW_INPUT_ENABLE_GAMEPAD_BIT) {
+        //     RAWINPUTDEVICE rid;
+        //     rid.usUsagePage = 0x01;
+        //     rid.usUsage = 0x05;
+        //     rid.dwFlags = 0;
+        //     rid.hwndTarget = data->window;
+        //     rids += rid;
+        // }
+        // if (enableMask & RAW_INPUT_ENABLE_JOYSTICK_BIT) {
+        //     RAWINPUTDEVICE rid;
+        //     rid.usUsagePage = 0x01;
+        //     rid.usUsage = 0x04;
+        //     rid.dwFlags = 0;
+        //     rid.hwndTarget = data->window;
+        //     rids += rid;
+        // }
 
         if (!RegisterRawInputDevices(rids.data, rids.size, sizeof(RAWINPUTDEVICE))) {
             error = "Failed to RegisterRawInputDevices: " + ToString((u32)GetLastError());
             return false;
+        }
+
+        // DirectInput
+
+        if (enableMask & (RAW_INPUT_ENABLE_GAMEPAD_BIT | RAW_INPUT_ENABLE_JOYSTICK_BIT)) {
+            if (DirectInput8Create(data->instance, DIRECTINPUT_VERSION, IID_IDirectInput8A, (LPVOID*)&data->directInput, NULL) != DI_OK) {
+                error = "Failed to DirectInput8Create: " + ToString((u32)GetLastError());
+                return false;
+            }
+            cout << "Created DirectInput8!" << std::endl;
+            {
+                // Enumerate DirectInput devices
+                // if (EnumDevices() != DI_OK) {
+                //     error = "Failed to
+                // }
+            }
+
+            // TODO: Support XInput
         }
 
         return true;

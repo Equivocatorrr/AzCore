@@ -61,20 +61,20 @@ namespace io {
     void ButtonState::Set(bool pressed, bool down, bool released) {
         state = 0;
         if (pressed)
-            state |= IO_BUTTON_PRESSED_BIT;
+            state |= BUTTON_PRESSED_BIT;
         if (down)
-            state |= IO_BUTTON_DOWN_BIT;
+            state |= BUTTON_DOWN_BIT;
         if (released)
-            state |= IO_BUTTON_RELEASED_BIT;
+            state |= BUTTON_RELEASED_BIT;
     }
 
     void ButtonState::Tick(f32 timestep) {
-        state &= IO_BUTTON_DOWN_BIT;
+        state &= BUTTON_DOWN_BIT;
         if (state && canRepeat) {
             if (repeatTimer > 0.0) {
                 repeatTimer -= timestep;
                 if (repeatTimer <= 0.0) {
-                    state |= IO_BUTTON_PRESSED_BIT;
+                    state |= BUTTON_PRESSED_BIT;
                     repeatTimer += 1.0 / 15.0;
                 }
             }
@@ -84,24 +84,24 @@ namespace io {
     }
 
     void ButtonState::Press() {
-        state |= IO_BUTTON_PRESSED_BIT | IO_BUTTON_DOWN_BIT;
+        state |= BUTTON_PRESSED_BIT | BUTTON_DOWN_BIT;
     }
 
     void ButtonState::Release() {
-        state |= IO_BUTTON_RELEASED_BIT;
-        state &= ~IO_BUTTON_DOWN_BIT;
+        state |= BUTTON_RELEASED_BIT;
+        state &= ~BUTTON_DOWN_BIT;
     }
 
     bool ButtonState::Pressed() const {
-        return (state & IO_BUTTON_PRESSED_BIT) != 0;
+        return (state & BUTTON_PRESSED_BIT) != 0;
     }
 
     bool ButtonState::Down() const {
-        return (state & IO_BUTTON_DOWN_BIT) != 0;
+        return (state & BUTTON_DOWN_BIT) != 0;
     }
 
     bool ButtonState::Released() const {
-        return (state & IO_BUTTON_RELEASED_BIT) != 0;
+        return (state & BUTTON_RELEASED_BIT) != 0;
     }
 
     Input::Input() {

@@ -62,7 +62,7 @@ namespace io {
         return *this;
     }
 
-    bool RawInputDevice::Init(i32 fd, String&& path, u32 enableMask) {
+    bool RawInputDevice::Init(i32 fd, String&& path, RawInputFeatureBits enableMask) {
         libevdev *dev = libevdev_new();
         if (dev == nullptr) {
             return false;
@@ -77,25 +77,25 @@ namespace io {
             libevdev_has_event_code(dev, EV_REL, REL_Y) &&
             libevdev_has_event_code(dev, EV_KEY, BTN_MOUSE) &&
             libevdev_has_event_code(dev, EV_KEY, BTN_LEFT)) {
-            if (!(enableMask & IO_RAW_INPUT_ENABLE_MOUSE_BIT)) {
+            if (!(enableMask & RAW_INPUT_ENABLE_MOUSE_BIT)) {
                 libevdev_free(dev);
                 return false;
             }
             type = MOUSE;
         } else if (libevdev_has_event_code(dev, EV_KEY, BTN_JOYSTICK)) {
-            if (!(enableMask & IO_RAW_INPUT_ENABLE_JOYSTICK_BIT)) {
+            if (!(enableMask & RAW_INPUT_ENABLE_JOYSTICK_BIT)) {
                 libevdev_free(dev);
                 return false;
             }
             type = JOYSTICK;
         } else if (libevdev_has_event_code(dev, EV_KEY, BTN_GAMEPAD)) {
-            if (!(enableMask & IO_RAW_INPUT_ENABLE_GAMEPAD_BIT)) {
+            if (!(enableMask & RAW_INPUT_ENABLE_GAMEPAD_BIT)) {
                 libevdev_free(dev);
                 return false;
             }
             type = GAMEPAD;
         } else if (libevdev_has_event_code(dev, EV_KEY, KEY_KEYBOARD)) {
-            if (!(enableMask & IO_RAW_INPUT_ENABLE_KEYBOARD_BIT)) {
+            if (!(enableMask & RAW_INPUT_ENABLE_KEYBOARD_BIT)) {
                 libevdev_free(dev);
                 return false;
             }
@@ -181,7 +181,7 @@ namespace io {
         }
     }
 
-    bool RawInput::Init(u32 enableMask) {
+    bool RawInput::Init(RawInputFeatureBits enableMask) {
         devices.Reserve(4);
         data = new RawInputData;
         data->frame = 0;
@@ -268,10 +268,10 @@ namespace io {
                 }
                 rawInputDevice->rawInput->AnyGPCode = bIndex + KC_GP_BTN_A;
                 if (ev.value) {
-                    rawInputDevice->rawInput->AnyGP.state = IO_BUTTON_PRESSED_BIT;
+                    rawInputDevice->rawInput->AnyGP.state = BUTTON_PRESSED_BIT;
                     button[bIndex].Press();
                 } else {
-                    rawInputDevice->rawInput->AnyGP.state = IO_BUTTON_RELEASED_BIT;
+                    rawInputDevice->rawInput->AnyGP.state = BUTTON_RELEASED_BIT;
                     button[bIndex].Release();
                 }
                 rawInputDevice->rawInput->AnyGPIndex = index;
@@ -288,7 +288,7 @@ namespace io {
                     minRange = -1.0;
                     deadZoneTemp = 0.0;
                 }
-                if (aIndex == IO_GP_AXIS_LT || aIndex == IO_GP_AXIS_RT) {
+                if (aIndex == GP_AXIS_LT || aIndex == GP_AXIS_RT) {
                     maxRange = 255.0;
                     minRange = -255.0;
                     deadZoneTemp = 0.0;
@@ -306,7 +306,7 @@ namespace io {
                     }
                     if (abs(axis.array[aIndex]) > 0.1) {
                         rawInputDevice->rawInput->AnyGPCode = aIndex + KC_GP_AXIS_LS_X;
-                        rawInputDevice->rawInput->AnyGP.state = IO_BUTTON_PRESSED_BIT;
+                        rawInputDevice->rawInput->AnyGP.state = BUTTON_PRESSED_BIT;
                         rawInputDevice->rawInput->AnyGPIndex = index;
                     }
                 }
@@ -322,13 +322,13 @@ namespace io {
                 }
                 if (axis.array[aIndex] < 0.5 && axisPush[aIndex*2].Down()) {
                     rawInputDevice->rawInput->AnyGPCode = aIndex*2 + KC_GP_AXIS_LS_RIGHT;
-                    rawInputDevice->rawInput->AnyGP.state = IO_BUTTON_RELEASED_BIT;
+                    rawInputDevice->rawInput->AnyGP.state = BUTTON_RELEASED_BIT;
                     axisPush[aIndex*2].Release();
                     rawInputDevice->rawInput->AnyGPIndex = index;
                 }
                 if (axis.array[aIndex] > -0.5 && axisPush[aIndex*2+1].Down()) {
                     rawInputDevice->rawInput->AnyGPCode = aIndex*2 + KC_GP_AXIS_LS_LEFT;
-                    rawInputDevice->rawInput->AnyGP.state = IO_BUTTON_RELEASED_BIT;
+                    rawInputDevice->rawInput->AnyGP.state = BUTTON_RELEASED_BIT;
                     axisPush[aIndex*2+1].Release();
                     rawInputDevice->rawInput->AnyGPIndex = index;
                 }

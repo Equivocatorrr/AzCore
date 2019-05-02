@@ -21,15 +21,6 @@
 #define IO_GAMEPAD_MAX_BUTTONS 15
 #define IO_GAMEPAD_MAX_AXES 8
 
-#define IO_GP_AXIS_LS_X        0x00
-#define IO_GP_AXIS_LS_Y        0x01
-#define IO_GP_AXIS_RS_X        0x03
-#define IO_GP_AXIS_RS_Y        0x04
-#define IO_GP_AXIS_LT          0x02
-#define IO_GP_AXIS_RT          0x05
-#define IO_GP_AXIS_H0_X        0x06
-#define IO_GP_AXIS_H0_Y        0x07
-
 #include "common.hpp"
 #include "log_stream.hpp"
 
@@ -44,10 +35,11 @@ namespace io {
 
     extern logStream cout;
 
-    #define IO_BUTTON_PRESSED_BIT 0x01
-    #define IO_BUTTON_DOWN_BIT 0x02
-    #define IO_BUTTON_RELEASED_BIT 0x04
-
+    enum ButtonStateBits {
+        BUTTON_PRESSED_BIT  = 0x01,
+        BUTTON_DOWN_BIT     = 0x02,
+        BUTTON_RELEASED_BIT = 0x04
+    };
     /*  struct: ButtonState
         Author: Philip Haynes   */
     struct ButtonState {
@@ -65,19 +57,25 @@ namespace io {
     };
 
     enum RawInputDeviceType {
-        UNSUPPORTED=0,
-        KEYBOARD=1,
-        MOUSE=2,
-        GAMEPAD=3,
-        JOYSTICK=4
+        UNSUPPORTED = 0,
+        KEYBOARD    = 1,
+        MOUSE       = 2,
+        GAMEPAD     = 3,
+        JOYSTICK    = 4
     };
 
     extern const char *RawInputDeviceTypeString[5];
 
-    #define IO_RAW_INPUT_ENABLE_KEYBOARD_BIT    0x01
-    #define IO_RAW_INPUT_ENABLE_MOUSE_BIT       0x02
-    #define IO_RAW_INPUT_ENABLE_GAMEPAD_BIT     0x04
-    #define IO_RAW_INPUT_ENABLE_JOYSTICK_BIT    0x08
+    enum RawInputFeatureBits {
+        RAW_INPUT_ENABLE_KEYBOARD_BIT        = 0x01,
+        RAW_INPUT_ENABLE_MOUSE_BIT           = 0x02,
+        RAW_INPUT_ENABLE_GAMEPAD_BIT         = 0x04,
+        RAW_INPUT_ENABLE_JOYSTICK_BIT        = 0x08,
+        // Some aggregate values
+        RAW_INPUT_ENABLE_KEYBOARD_MOUSE      = 0x03,
+        RAW_INPUT_ENABLE_GAMEPAD_JOYSTICK    = 0x0c,
+        RAW_INPUT_ENABLE_ALL                 = 0x0f
+    };
 
     struct RawInput;
 
@@ -93,9 +91,19 @@ namespace io {
         ~RawInputDevice();
         RawInputDevice(RawInputDevice&& other);
         RawInputDevice& operator=(RawInputDevice&& other);
-        bool Init(i32 fd, String&& path, u32 enableMask);
+        bool Init(i32 fd, String&& path, RawInputFeatureBits enableMask);
     };
 
+    enum GamepadAxisArrayIndices {
+        GP_AXIS_LS_X    = 0x00,
+        GP_AXIS_LS_Y    = 0x01,
+        GP_AXIS_RS_X    = 0x03,
+        GP_AXIS_RS_Y    = 0x04,
+        GP_AXIS_LT      = 0x02,
+        GP_AXIS_RT      = 0x05,
+        GP_AXIS_H0_X    = 0x06,
+        GP_AXIS_H0_Y    = 0x07
+    };
     /*  struct: Gamepad
         Author: Philip Haynes
         Utilities to use a RawInputDevice as a gamepad.     */
@@ -140,7 +148,7 @@ namespace io {
         i32 AnyGPIndex; // Index into gamepads of the device that pressed a button/axisPush
 
         ~RawInput();
-        bool Init(u32 enableMask);
+        bool Init(RawInputFeatureBits enableMask);
         void Update(f32 timestep);
     };
 

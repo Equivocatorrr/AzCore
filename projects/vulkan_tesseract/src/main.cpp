@@ -59,7 +59,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     cout << "Initializing RawInput" << std::endl;
     io::RawInput rawInput;
-    if (!rawInput.Init(IO_RAW_INPUT_ENABLE_GAMEPAD_BIT)) {
+    if (!rawInput.Init(io::RAW_INPUT_ENABLE_GAMEPAD_JOYSTICK)) {
         cout << "Failed to Init RawInput: " << io::error << std::endl;
     }
 
@@ -253,7 +253,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vec2 draggingFacingAngleOrigin[2];
 
     // bool first = true;
-    const u32 framerate = 144;
+    const u32 framerate = 60;
     ClockTime frameEnd = Clock::now() + Milliseconds(1000/framerate-1);
 
     while (true) {
@@ -443,14 +443,14 @@ i32 main(i32 argumentCount, char** argumentValues) {
         }
 
         if (gamepadIndex >=0) {
-            offset -= moveX * 50.0 * rawInput.gamepads[gamepadIndex].axis.vec.LS.x / (f32)framerate;
-            offset += moveZ * 50.0 * rawInput.gamepads[gamepadIndex].axis.vec.LS.y / (f32)framerate;
-            offset += moveY * 50.0 * rawInput.gamepads[gamepadIndex].axis.vec.RT / (f32)framerate;
-            offset -= moveY * 50.0 * rawInput.gamepads[gamepadIndex].axis.vec.LT / (f32)framerate;
+            offset -= moveX * 100.0 * rawInput.gamepads[gamepadIndex].axis.vec.LS.x / (f32)framerate;
+            offset += moveZ * 100.0 * rawInput.gamepads[gamepadIndex].axis.vec.LS.y / (f32)framerate;
+            offset += moveY * 100.0 * rawInput.gamepads[gamepadIndex].axis.vec.RT / (f32)framerate;
+            offset -= moveY * 100.0 * rawInput.gamepads[gamepadIndex].axis.vec.LT / (f32)framerate;
         }
 
         if (!pause) {
-            rotateAngle += 0.004;
+            rotateAngle += 0.5 / (f32)framerate;
         }
 
         vec2 proj[2][16];

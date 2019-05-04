@@ -62,7 +62,7 @@ namespace io {
         return *this;
     }
 
-    bool RawInputDevice::Init(i32 fd, String&& path, RawInputFeatureBits enableMask) {
+    bool RawInputDeviceInit(RawInputDevice *rid, i32 fd, String&& path, RawInputFeatureBits enableMask) {
         libevdev *dev = libevdev_new();
         if (dev == nullptr) {
             return false;
@@ -81,43 +81,43 @@ namespace io {
                 libevdev_free(dev);
                 return false;
             }
-            type = MOUSE;
+            rid->type = MOUSE;
         } else if (libevdev_has_event_code(dev, EV_KEY, BTN_JOYSTICK)) {
             if (!(enableMask & RAW_INPUT_ENABLE_JOYSTICK_BIT)) {
                 libevdev_free(dev);
                 return false;
             }
-            type = JOYSTICK;
+            rid->type = JOYSTICK;
         } else if (libevdev_has_event_code(dev, EV_KEY, BTN_GAMEPAD)) {
             if (!(enableMask & RAW_INPUT_ENABLE_GAMEPAD_BIT)) {
                 libevdev_free(dev);
                 return false;
             }
-            type = GAMEPAD;
+            rid->type = GAMEPAD;
         } else if (libevdev_has_event_code(dev, EV_KEY, KEY_KEYBOARD)) {
             if (!(enableMask & RAW_INPUT_ENABLE_KEYBOARD_BIT)) {
                 libevdev_free(dev);
                 return false;
             }
-            type = KEYBOARD;
+            rid->type = KEYBOARD;
         } else {
-            type = UNSUPPORTED;
+            rid->type = UNSUPPORTED;
             libevdev_free(dev);
             return false;
         }
-        if (data != nullptr) {
-            delete data;
+        if (rid->data != nullptr) {
+            delete rid->data;
         }
-        data = new RawInputDeviceData;
-        data->fd = fd;
-        data->path = std::move(path);
-        data->dev = dev;
-        cout << "RawInputDevice from path \"" << data->path << "\":\n"
-        "\tType: " << RawInputDeviceTypeString[type] << "\n"
-        "\tName: " << libevdev_get_name(data->dev) << "\n"
-        "\tID: bus " << libevdev_get_id_bustype(data->dev)
-        << " vendor " << libevdev_get_id_vendor(data->dev)
-        << " product " << libevdev_get_id_product(data->dev) << std::endl;
+        rid->data = new RawInputDeviceData;
+        rid->data->fd = fd;
+        rid->data->path = std::move(path);
+        rid->data->dev = dev;
+        cout << "RawInputDevice from path \"" << rid->data->path << "\":\n"
+        "\tType: " << RawInputDeviceTypeString[rid->type] << "\n"
+        "\tName: " << libevdev_get_name(dev) << "\n"
+        "\tID: bus " << libevdev_get_id_bustype(dev)
+        << " vendor " << libevdev_get_id_vendor(dev)
+        << " product " << libevdev_get_id_product(dev) << std::endl;
         return true;
     }
 
@@ -207,7 +207,7 @@ namespace io {
             }
             // We got a live one boys!
             RawInputDevice device;
-            if (device.Init(fd, std::move(path), enableMask)) {
+            if (RawInputDeviceInit(&device, fd, std::move(path), enableMask)) {
                 device.rawInput = this;
                 devices.Append(std::move(device));
                 switch (device.type) {

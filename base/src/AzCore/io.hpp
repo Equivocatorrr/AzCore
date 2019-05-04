@@ -91,7 +91,6 @@ namespace io {
         ~RawInputDevice();
         RawInputDevice(RawInputDevice&& other);
         RawInputDevice& operator=(RawInputDevice&& other);
-        bool Init(i32 fd, String&& path, RawInputFeatureBits enableMask);
     };
 
     enum GamepadAxisArrayIndices {

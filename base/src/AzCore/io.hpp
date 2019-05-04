@@ -112,10 +112,13 @@ namespace io {
         // Basic button interface
         ButtonState button[IO_GAMEPAD_MAX_BUTTONS];
         // An axis has moved beyond 50% in its direction.
-        // Even indices are all negative directions while odd indices are positive.
-        // Negative push is AXIS_INDEX*2
-        // Positive push is AXIS_INDEX*2 + 1
+        // Even indices are all positive directions while odd indices are negative.
+        // Positive push is AXIS_INDEX*2
+        // Negative push is AXIS_INDEX*2 + 1
         ButtonState axisPush[IO_GAMEPAD_MAX_AXES*2];
+        // For an 8-directional hat, these are the in-between directions
+        // Since axisPush already contains the 4 main directions
+        ButtonState hat[4];
         // Axis values are between -1.0 and 1.0
         union {
             struct {

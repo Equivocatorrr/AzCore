@@ -245,6 +245,21 @@ namespace io {
         }
     }
 
+    void handleButton(ButtonState &dst, bool down, u8 keyCode, RawInput *rawInput, i32 index) {
+        if (down && !dst.Down()) {
+            rawInput->AnyGPCode = keyCode;
+            rawInput->AnyGP.state = BUTTON_PRESSED_BIT;
+            dst.Press();
+            rawInput->AnyGPIndex = index;
+        }
+        if (!down && dst.Down()) {
+            rawInput->AnyGPCode = keyCode;
+            rawInput->AnyGP.state = BUTTON_RELEASED_BIT;
+            dst.Release();
+            rawInput->AnyGPIndex = index;
+        }
+    }
+
     void Gamepad::Update(f32 timestep, i32 index) {
         if (!rawInputDevice.Valid()) {
             return;
@@ -254,6 +269,9 @@ namespace io {
         }
         for (u32 i = 0; i < IO_GAMEPAD_MAX_AXES*2; i++) {
             axisPush[i].Tick(timestep);
+        }
+        for (u32 i = 0; i < 4; i++) {
+            hat[i].Tick(timestep);
         }
         input_event ev;
         while (GetRawInputDeviceEvent(rawInputDevice, &ev)) {
@@ -310,30 +328,46 @@ namespace io {
                         rawInputDevice->rawInput->AnyGPIndex = index;
                     }
                 }
-                if (axis.array[aIndex] > 0.5 && !axisPush[aIndex*2].Down()) {
-                    rawInputDevice->rawInput->AnyGPCode = aIndex*2 + KC_GP_AXIS_LS_RIGHT;
-                    axisPush[aIndex*2].Press();
-                    rawInputDevice->rawInput->AnyGPIndex = index;
-                }
-                if (axis.array[aIndex] < -0.5 && !axisPush[aIndex*2+1].Down()) {
-                    rawInputDevice->rawInput->AnyGPCode = aIndex*2 + KC_GP_AXIS_LS_LEFT;
-                    axisPush[aIndex*2+1].Press();
-                    rawInputDevice->rawInput->AnyGPIndex = index;
-                }
-                if (axis.array[aIndex] < 0.5 && axisPush[aIndex*2].Down()) {
-                    rawInputDevice->rawInput->AnyGPCode = aIndex*2 + KC_GP_AXIS_LS_RIGHT;
-                    rawInputDevice->rawInput->AnyGP.state = BUTTON_RELEASED_BIT;
-                    axisPush[aIndex*2].Release();
-                    rawInputDevice->rawInput->AnyGPIndex = index;
-                }
-                if (axis.array[aIndex] > -0.5 && axisPush[aIndex*2+1].Down()) {
-                    rawInputDevice->rawInput->AnyGPCode = aIndex*2 + KC_GP_AXIS_LS_LEFT;
-                    rawInputDevice->rawInput->AnyGP.state = BUTTON_RELEASED_BIT;
-                    axisPush[aIndex*2+1].Release();
-                    rawInputDevice->rawInput->AnyGPIndex = index;
-                }
+                handleButton(axisPush[aIndex*2], axis.array[aIndex] > 0.5,    aIndex*2 + KC_GP_AXIS_LS_RIGHT,
+                             rawInputDevice->rawInput, index);
+                handleButton(axisPush[aIndex*2+1], axis.array[aIndex] < -0.5, aIndex*2 + KC_GP_AXIS_LS_LEFT,
+                             rawInputDevice->rawInput, index);
             }
         }
+        if (axis.vec.H0.x != 0.0 && axis.vec.H0.y != 0.0) {
+            axis.vec.H0 = normalize(axis.vec.H0);
+            // cout << "H0.x = " << axis.vec.H0.x << ", H0.y = " << axis.vec.H0.y << std::endl;
+        }
+        handleButton(hat[0], axis.vec.H0.x > 0.0 && axis.vec.H0.y < 0.0, KC_GP_AXIS_H0_UP_RIGHT,
+                     rawInputDevice->rawInput, index);
+        handleButton(hat[1], axis.vec.H0.x > 0.0 && axis.vec.H0.y > 0.0, KC_GP_AXIS_H0_DOWN_RIGHT,
+                     rawInputDevice->rawInput, index);
+        handleButton(hat[2], axis.vec.H0.x < 0.0 && axis.vec.H0.y > 0.0, KC_GP_AXIS_H0_DOWN_LEFT,
+                     rawInputDevice->rawInput, index);
+        handleButton(hat[3], axis.vec.H0.x < 0.0 && axis.vec.H0.y < 0.0, KC_GP_AXIS_H0_UP_LEFT,
+                     rawInputDevice->rawInput, index);
+        // for (u32 i = 0; i < IO_GAMEPAD_MAX_AXES; i++) {
+        //     if (axisPush[i*2].Pressed()) {
+        //         cout << "Pressed " << KeyCodeName(i*2 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+        //     }
+        //     if (axisPush[i*2+1].Pressed()) {
+        //         cout << "Pressed " << KeyCodeName(i*2+1 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+        //     }
+        //     if (axisPush[i*2].Released()) {
+        //         cout << "Released " << KeyCodeName(i*2 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+        //     }
+        //     if (axisPush[i*2+1].Released()) {
+        //         cout << "Released " << KeyCodeName(i*2+1 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+        //     }
+        // }
+        // for (u32 i = 0; i < 4; i++) {
+        //     if (hat[i].Pressed()) {
+        //         cout << "Pressed " << KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT) << std::endl;
+        //     }
+        //     if (hat[i].Released()) {
+        //         cout << "Released " << KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT) << std::endl;
+        //     }
+        // }
     }
 
     xcb_atom_t xcbGetAtom(xcb_connection_t* connection, bool onlyIfExists, const String& name) {

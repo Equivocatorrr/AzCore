@@ -31,6 +31,8 @@ namespace io {
             return axisPush[ keyCode-KC_GP_AXIS_LS_RIGHT ].Pressed();
         } else if (keyCode >= KC_GP_BTN_A && keyCode <= KC_GP_BTN_THUMBR) {
             return button[ keyCode-KC_GP_BTN_A ].Pressed();
+        } else if (keyCode >= KC_GP_AXIS_H0_UP_RIGHT && keyCode <= KC_GP_AXIS_H0_UP_LEFT) {
+            return hat[ keyCode-KC_GP_AXIS_H0_UP_RIGHT ].Pressed();
         } else {
             return false;
         }
@@ -41,6 +43,8 @@ namespace io {
             return axisPush[ keyCode-KC_GP_AXIS_LS_RIGHT ].Down();
         } else if (keyCode >= KC_GP_BTN_A && keyCode <= KC_GP_BTN_THUMBR) {
             return button[ keyCode-KC_GP_BTN_A ].Down();
+        } else if (keyCode >= KC_GP_AXIS_H0_UP_RIGHT && keyCode <= KC_GP_AXIS_H0_UP_LEFT) {
+            return hat[ keyCode-KC_GP_AXIS_H0_UP_RIGHT ].Down();
         } else {
             return false;
         }
@@ -51,6 +55,8 @@ namespace io {
             return axisPush[ keyCode-KC_GP_AXIS_LS_RIGHT ].Released();
         } else if (keyCode >= KC_GP_BTN_A && keyCode <= KC_GP_BTN_THUMBR) {
             return button[ keyCode-KC_GP_BTN_A ].Released();
+        } else if (keyCode >= KC_GP_AXIS_H0_UP_RIGHT && keyCode <= KC_GP_AXIS_H0_UP_LEFT) {
+            return hat[ keyCode-KC_GP_AXIS_H0_UP_RIGHT ].Released();
         } else {
             return false;
         }

@@ -241,6 +241,11 @@ const u8 KC_KEY_KPRIGHTPAREN        = 0xb7; // Keypad )
 // 0xdd  Keypad Hexadecimal
 
 // Special keycodes for GamePads, replacing unused Keypad definitions
+const u8 KC_GP_AXIS_H0_UP_RIGHT     = 0xb2; // GamePad Hat (D-pad) Northeast
+const u8 KC_GP_AXIS_H0_DOWN_RIGHT   = 0xb3; // GamePad Hat (D-pad) Southeast
+const u8 KC_GP_AXIS_H0_DOWN_LEFT    = 0xb4; // GamePad Hat (D-pad) Southwest
+const u8 KC_GP_AXIS_H0_UP_LEFT      = 0xb5; // GamePad Hat (D-pad) Northwest
+
 const u8 KC_GP_BTN_SOUTH            = 0xb8; // GamePad A
 const u8 KC_GP_BTN_A = KC_GP_BTN_SOUTH;
 const u8 KC_GP_BTN_EAST             = 0xb9; // GamePad B

@@ -52,6 +52,9 @@ namespace io {
 
     struct RawInputDeviceData {
         IDirectInputDevice8 *device = nullptr;
+        u32 numAxes = 0;
+        u32 numButtons = 0;
+        u32 numHats = 0;
     };
 
     RawInputDevice::~RawInputDevice() {
@@ -216,6 +219,7 @@ namespace io {
                     error = "Failed to EnumObjects: " + ToString((u32)GetLastError());
                     return false;
                 }
+                cout << "Device has " << rid.data->numAxes << " axes, " << rid.data->numButtons << " buttons, and " << rid.data->numHats << " hats." << std::endl;
                 if (rid.data->device->Acquire() != DI_OK) {
                     error = "Failed to Acquire: " + ToString((u32)GetLastError());
                     return false;
@@ -282,6 +286,9 @@ namespace io {
         for (u32 i = 0; i < IO_GAMEPAD_MAX_AXES*2; i++) {
             axisPush[i].Tick(timestep);
         }
+        for (u32 i = 0; i < 4; i++) {
+            hat[i].Tick(timestep);
+        }
         HRESULT result;
         DIJOYSTATE state;
 
@@ -319,38 +326,108 @@ namespace io {
         axis.vec.RS.y = mapAxisWithDeadZone(axisRY, minRange, maxRange, deadZoneTemp);
         axis.vec.RT   = mapAxisWithDeadZone(axisRZ, minRange, maxRange, deadZoneTemp);
 
+        // We only support 1 hat right now
+        if (LOWORD(state.rgdwPOV[0]) == 0xFFFF) {
+            axis.vec.H0 = vec2(0.0);
+        } else {
+            f32 hatDirection = (f32)state.rgdwPOV[0] / 36000.0 * tau; // Radians clockwise from north
+            axis.vec.H0.y = mapAxisWithDeadZone(-cos(hatDirection), -1.0, 1.0, 0.0000001);
+            axis.vec.H0.x = mapAxisWithDeadZone(sin(hatDirection), -1.0, 1.0, 0.0000001);
+            // cout << "H0.x = " << axis.vec.H0.x << ", H0.y = " << axis.vec.H0.y << std::endl;
+        }
+
         for (u32 i = 0; i < IO_GAMEPAD_MAX_AXES; i++) {
             if (abs(axis.array[i]) > 0.1) {
                 rawInputDevice->rawInput->AnyGPCode = i + KC_GP_AXIS_LS_X;
                 rawInputDevice->rawInput->AnyGP.state = BUTTON_PRESSED_BIT;
                 rawInputDevice->rawInput->AnyGPIndex = index;
             }
-            handleButton(axisPush[i*2], axis.array[i] >    0.5, i*2 + KC_GP_AXIS_LS_RIGHT,
+            handleButton(axisPush[i*2], axis.array[i] > 0.5,    i*2 + KC_GP_AXIS_LS_RIGHT,
                          rawInputDevice->rawInput, index);
             handleButton(axisPush[i*2+1], axis.array[i] < -0.5, i*2 + KC_GP_AXIS_LS_LEFT,
                          rawInputDevice->rawInput, index);
+            // if (axisPush[i*2].Pressed()) {
+            //     cout << "Pressed " << KeyCodeName(i*2 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+            // }
+            // if (axisPush[i*2+1].Pressed()) {
+            //     cout << "Pressed " << KeyCodeName(i*2+1 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+            // }
+            // if (axisPush[i*2].Released()) {
+            //     cout << "Released " << KeyCodeName(i*2 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+            // }
+            // if (axisPush[i*2+1].Released()) {
+            //     cout << "Released " << KeyCodeName(i*2+1 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+            // }
         }
+        handleButton(hat[0], axis.vec.H0.x > 0.0 && axis.vec.H0.y < 0.0, KC_GP_AXIS_H0_UP_RIGHT,
+                     rawInputDevice->rawInput, index);
+        handleButton(hat[1], axis.vec.H0.x > 0.0 && axis.vec.H0.y > 0.0, KC_GP_AXIS_H0_DOWN_RIGHT,
+                     rawInputDevice->rawInput, index);
+        handleButton(hat[2], axis.vec.H0.x < 0.0 && axis.vec.H0.y > 0.0, KC_GP_AXIS_H0_DOWN_LEFT,
+                     rawInputDevice->rawInput, index);
+        handleButton(hat[3], axis.vec.H0.x < 0.0 && axis.vec.H0.y < 0.0, KC_GP_AXIS_H0_UP_LEFT,
+                     rawInputDevice->rawInput, index);
 
-        // These are the mappings for the Logitech Gamepad F310
-        // They're probably not the same for everything, such as
-        // gamepads that have C and Z buttons, as well as secondary trigger buttons
-        handleButton(button[ 0], state.rgbButtons[ 0], KC_GP_BTN_A,         rawInputDevice->rawInput, index);
-        handleButton(button[ 1], state.rgbButtons[ 1], KC_GP_BTN_B,         rawInputDevice->rawInput, index);
-        handleButton(button[ 3], state.rgbButtons[ 2], KC_GP_BTN_X,         rawInputDevice->rawInput, index);
-        handleButton(button[ 4], state.rgbButtons[ 3], KC_GP_BTN_Y,         rawInputDevice->rawInput, index);
-        handleButton(button[ 6], state.rgbButtons[ 4], KC_GP_BTN_TL,        rawInputDevice->rawInput, index);
-        handleButton(button[ 7], state.rgbButtons[ 5], KC_GP_BTN_TR,        rawInputDevice->rawInput, index);
-        handleButton(button[10], state.rgbButtons[ 6], KC_GP_BTN_SELECT,    rawInputDevice->rawInput, index);
-        handleButton(button[11], state.rgbButtons[ 7], KC_GP_BTN_START,     rawInputDevice->rawInput, index);
-        handleButton(button[12], state.rgbButtons[ 8], KC_GP_BTN_MODE,      rawInputDevice->rawInput, index);
-        handleButton(button[13], state.rgbButtons[ 9], KC_GP_BTN_THUMBL,    rawInputDevice->rawInput, index);
-        handleButton(button[14], state.rgbButtons[10], KC_GP_BTN_THUMBR,    rawInputDevice->rawInput, index);
+        // for (u32 i = 0; i < 4; i++) {
+        //     if (hat[i].Pressed()) {
+        //         cout << "Pressed " << KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT) << std::endl;
+        //     }
+        //     if (hat[i].Released()) {
+        //         cout << "Released " << KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT) << std::endl;
+        //     }
+        // }
 
-        for (u32 i = 0; i < 32; i++) {
-            if (state.rgbButtons[i]) {
-                cout << "Button[" << i << "] is down!" << std::endl;
+        // NOTE: The only mapping I've tested is for the Logitech Gamepad F310.
+        //       The other ones are more or less guesses based on some deduction and research.
+        if (rawInputDevice->data->numButtons == 10) {
+            // It would appear that some gamepads don't give you access to that middle button
+            // In those cases, it would just be missing from the list.
+            handleButton(button[ 0], state.rgbButtons[ 0], KC_GP_BTN_A,         rawInputDevice->rawInput, index);
+            handleButton(button[ 1], state.rgbButtons[ 1], KC_GP_BTN_B,         rawInputDevice->rawInput, index);
+            handleButton(button[ 3], state.rgbButtons[ 2], KC_GP_BTN_X,         rawInputDevice->rawInput, index);
+            handleButton(button[ 4], state.rgbButtons[ 3], KC_GP_BTN_Y,         rawInputDevice->rawInput, index);
+            handleButton(button[ 6], state.rgbButtons[ 4], KC_GP_BTN_TL,        rawInputDevice->rawInput, index);
+            handleButton(button[ 7], state.rgbButtons[ 5], KC_GP_BTN_TR,        rawInputDevice->rawInput, index);
+            handleButton(button[10], state.rgbButtons[ 6], KC_GP_BTN_SELECT,    rawInputDevice->rawInput, index);
+            handleButton(button[11], state.rgbButtons[ 7], KC_GP_BTN_START,     rawInputDevice->rawInput, index);
+            handleButton(button[13], state.rgbButtons[ 8], KC_GP_BTN_THUMBL,    rawInputDevice->rawInput, index);
+            handleButton(button[14], state.rgbButtons[ 9], KC_GP_BTN_THUMBR,    rawInputDevice->rawInput, index);
+        } else if (rawInputDevice->data->numButtons == 15) {
+            // This should be a 1:1 mapping to the keycodes
+            for (u32 i = 0; i < 15; i++) {
+                handleButton(button[i], state.rgbButtons[i], KC_GP_BTN_A + i,   rawInputDevice->rawInput, index);
             }
+        } else if (rawInputDevice->data->numButtons == 14) {
+            // This should be a 1:1 mapping to the keycodes except for the MODE button
+            for (u32 i = 0; i < 12; i++) {
+                handleButton(button[i], state.rgbButtons[i], KC_GP_BTN_A + i,   rawInputDevice->rawInput, index);
+            }
+            handleButton(button[13], state.rgbButtons[12], KC_GP_BTN_THUMBL,    rawInputDevice->rawInput, index);
+            handleButton(button[14], state.rgbButtons[13], KC_GP_BTN_THUMBR,    rawInputDevice->rawInput, index);
+        } else /* if (rawInputDevice->data->numButtons == 11) */ {
+            // These are the mappings for the Logitech Gamepad F310
+            // This is our default for an unknown layout.
+            // NOTE: Is this really necessary? I really don't know.
+            handleButton(button[ 0], state.rgbButtons[ 0], KC_GP_BTN_A,         rawInputDevice->rawInput, index);
+            handleButton(button[ 1], state.rgbButtons[ 1], KC_GP_BTN_B,         rawInputDevice->rawInput, index);
+            handleButton(button[ 3], state.rgbButtons[ 2], KC_GP_BTN_X,         rawInputDevice->rawInput, index);
+            handleButton(button[ 4], state.rgbButtons[ 3], KC_GP_BTN_Y,         rawInputDevice->rawInput, index);
+            handleButton(button[ 6], state.rgbButtons[ 4], KC_GP_BTN_TL,        rawInputDevice->rawInput, index);
+            handleButton(button[ 7], state.rgbButtons[ 5], KC_GP_BTN_TR,        rawInputDevice->rawInput, index);
+            handleButton(button[10], state.rgbButtons[ 6], KC_GP_BTN_SELECT,    rawInputDevice->rawInput, index);
+            handleButton(button[11], state.rgbButtons[ 7], KC_GP_BTN_START,     rawInputDevice->rawInput, index);
+            handleButton(button[12], state.rgbButtons[ 8], KC_GP_BTN_MODE,      rawInputDevice->rawInput, index);
+            handleButton(button[13], state.rgbButtons[ 9], KC_GP_BTN_THUMBL,    rawInputDevice->rawInput, index);
+            handleButton(button[14], state.rgbButtons[10], KC_GP_BTN_THUMBR,    rawInputDevice->rawInput, index);
         }
+
+        // You can use this to determine what button maps from where.
+        // If you want to improve one of the above mappings or add one, this is your best bet.
+        // for (u32 i = 0; i < 32; i++) {
+        //     if (state.rgbButtons[i]) {
+        //         cout << "Button[" << i << "] is down!" << std::endl;
+        //     }
+        // }
     }
 
     LRESULT CALLBACK RawInputProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -461,6 +538,7 @@ namespace io {
 
 
         if (devInst->dwType & DIDFT_AXIS) {
+            rid->data->numAxes++;
             DIPROPRANGE range;
             range.diph.dwSize = sizeof(DIPROPRANGE);
             range.diph.dwHeaderSize = sizeof(DIPROPHEADER);
@@ -476,6 +554,10 @@ namespace io {
             if (rid->data->device->SetProperty(DIPROP_RANGE, &range.diph) != DI_OK) {
                 return DIENUM_STOP;
             }
+        } else if (devInst->dwType & DIDFT_BUTTON) {
+            rid->data->numButtons++;
+        } else if (devInst->dwType & DIDFT_POV) {
+            rid->data->numHats++;
         }
         return DIENUM_CONTINUE;
     }

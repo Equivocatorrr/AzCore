@@ -210,16 +210,17 @@ String ToString(const u32& value, i32 base) {
     if (value == 0) {
         return "0";
     }
-    String out;
+    String out(false);
     u32 remaining = value;
     while (remaining != 0) {
-        div_t val = div(remaining, base);
-        if (base >= 10) {
-            out += val.rem > 9 ? char(val.rem-10+'a') : char(val.rem+'0');
+        u32 quot = remaining/base;
+        u32 rem  = remaining%base;
+        if (base > 10) {
+            out.Append(rem > 9 ? char(rem+'a'-10) : char(rem+'0'));
         } else {
-            out += char(val.rem+'0');
+            out.Append(char(rem+'0'));
         }
-        remaining = val.quot;
+        remaining = quot;
     }
     return out.Reverse();
 }
@@ -228,16 +229,17 @@ String ToString(const u64& value, i32 base) {
     if (value == 0) {
         return "0";
     }
-    String out;
+    String out(false);
     u64 remaining = value;
     while (remaining != 0) {
-        lldiv_t val = lldiv(remaining, base);
-        if (base >= 10) {
-            out += val.rem > 9 ? char(val.rem-10+'a') : char(val.rem+'0');
+        u64 quot = remaining/base;
+        u64 rem  = remaining%base;
+        if (base > 10) {
+            out.Append(rem > 9 ? char(rem+'a'-10) : char(rem+'0'));
         } else {
-            out += char(val.rem+'0');
+            out.Append(char(rem+'0'));
         }
-        remaining = val.quot;
+        remaining = quot;
     }
     return out.Reverse();
 }
@@ -250,13 +252,14 @@ String ToString(const i32& value, i32 base) {
     bool negative = value < 0;
     i32 remaining = value;
     while (remaining != 0) {
-        div_t val = div(remaining, base);
+        i32 quot = remaining/base;
+        i32 rem  = remaining%base;
         if (base > 10) {
-            out += val.rem > 9 ? char(val.rem-10+'a') : char(val.rem+'0');
+            out.Append(rem > 9 ? char(rem+'a'-10) : char(rem+'0'));
         } else {
-            out += char(val.rem+'0');
+            out.Append(char(rem+'0'));
         }
-        remaining = val.quot;
+        remaining = quot;
     }
     if (negative) {
         out += '-';
@@ -272,13 +275,14 @@ String ToString(const i64& value, i32 base) {
     bool negative = value < 0;
     i64 remaining = value;
     while (remaining != 0) {
-        lldiv_t val = lldiv(remaining, base);
-        if (base >= 10) {
-            out += val.rem > 9 ? char(val.rem-10+'a') : char(val.rem+'0');
+        i64 quot = remaining/base;
+        i64 rem  = remaining%base;
+        if (base > 10) {
+            out.Append(rem > 9 ? char(rem+'a'-10) : char(rem+'0'));
         } else {
-            out += char(val.rem+'0');
+            out.Append(char(rem+'0'));
         }
-        remaining = val.quot;
+        remaining = quot;
     }
     if (negative) {
         out += '-';

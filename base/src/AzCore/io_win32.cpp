@@ -235,6 +235,10 @@ namespace io {
     void RawInput::Update(f32 timestep) {
         // TODO: The rest of the raw input device types.
         AnyGP.Tick(timestep);
+        if (window != nullptr) {
+            if (!window->focused)
+                return;
+        }
         MSG msg;
         while (PeekMessage(&msg, data->window, 0, 0, PM_REMOVE))
         {

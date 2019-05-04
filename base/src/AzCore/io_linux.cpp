@@ -240,6 +240,10 @@ namespace io {
     void RawInput::Update(f32 timestep) {
         // TODO: The rest of the raw input device types.
         AnyGP.Tick(timestep);
+        if (window != nullptr) {
+            if (!window->focused)
+                return;
+        }
         for (i32 i = 0; i < gamepads.size; i++) {
             gamepads[i].Update(timestep, i);
         }

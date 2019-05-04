@@ -74,6 +74,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
         return 1;
     }
 
+    rawInput.window = &window;
+
     vk::Instance instance;
     instance.AppInfo("AzCore Tesseract", 1, 0, 0);
     Ptr<vk::Window> vkWindow = instance.AddWindowForSurface(&window);

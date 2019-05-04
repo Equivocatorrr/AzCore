@@ -650,6 +650,28 @@ struct Array {
         }
     }
 
+    void Clear(const bool noAllocTail=false) {
+        if constexpr (allocTail == 0) {
+            if (data != nullptr) {
+                delete[] data;
+                data = nullptr;
+            }
+        } else {
+            if (noAllocTail) {
+                if (data != nullptr) {
+                    delete[] data;
+                    data = nullptr;
+                }
+            } else {
+                if (data != nullptr) {
+                    delete[] data;
+                    data = new T[allocTail];
+                }
+            }
+        }
+        size = 0;
+    }
+
     Array<T, allocTail>& Reverse() {
         for (i32 i = 0; i < size/2; i++) {
             T buf = data[i];

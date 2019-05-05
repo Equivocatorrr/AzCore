@@ -193,6 +193,8 @@ namespace vk {
         return VK_FALSE;
     }
 
+#ifndef VK_NO_ALLOCATION_CALLBACKS
+
     VKAPI_ATTR void* VKAPI_CALL Allocate(void *pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope) {
         Instance *instance = (Instance*)pUserData;
         size_t aligned = align(size, alignment);
@@ -264,6 +266,8 @@ namespace vk {
         instance->data.totalHeapMemory -= originalSize;
         free(pMemory);
     }
+
+#endif // VK_NO_ALLOCATION_CALLBACKS
 
     void CmdBindVertexBuffers(VkCommandBuffer commandBuffer, u32 firstBinding,
                               Array<Ptr<Buffer>> buffers, Array<VkDeviceSize> offsets) {
@@ -4109,6 +4113,8 @@ failed:
             createInfo.enabledLayerCount = 0;
         }
 
+#ifndef VK_NO_ALLOCATION_CALLBACKS
+
         data.allocationCallbacks.pUserData = this;
         data.allocationCallbacks.pfnAllocation = Allocate;
         data.allocationCallbacks.pfnReallocation = Reallocate;
@@ -4117,6 +4123,9 @@ failed:
         data.allocationCallbacks.pfnInternalFree = nullptr;
 
         VkResult result = vkCreateInstance(&createInfo, &data.allocationCallbacks, &data.instance);
+#else
+        VkResult result = vkCreateInstance(&createInfo, nullptr, &data.instance);
+#endif
         if (result != VK_SUCCESS) {
             error = "vkCreateInstance failed with error: " + ErrorString(result);
             return false;
@@ -4126,21 +4135,33 @@ failed:
                     vkGetInstanceProcAddr(data.instance, "vkCreateDebugUtilsMessengerEXT");
             if (data.fpCreateDebugUtilsMessengerEXT == nullptr) {
                 error = "vkGetInstanceProcAddr failed to get vkCreateDebugUtilsMessengerEXT";
+#ifndef VK_NO_ALLOCATION_CALLBACKS
                 vkDestroyInstance(data.instance, &data.allocationCallbacks);
+#else
+                vkDestroyInstance(data.instance, nullptr);
+#endif
                 return false;
             }
             data.fpDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)
                     vkGetInstanceProcAddr(data.instance, "vkDestroyDebugUtilsMessengerEXT");
             if (data.fpDestroyDebugUtilsMessengerEXT == nullptr) {
                 error = "vkGetInstanceProcAddr failed to get vkDestroyDebugUtilsMessengerEXT";
+#ifndef VK_NO_ALLOCATION_CALLBACKS
                 vkDestroyInstance(data.instance, &data.allocationCallbacks);
+#else
+                vkDestroyInstance(data.instance, nullptr);
+#endif
                 return false;
             }
             data.fpSetDebugUtilsObjectNameEXT = (PFN_vkSetDebugUtilsObjectNameEXT)
                     vkGetInstanceProcAddr(data.instance, "vkSetDebugUtilsObjectNameEXT");
             if (data.fpSetDebugUtilsObjectNameEXT == nullptr) {
                 error = "vkGetInstanceProcAddr failed to get vkSetDebugUtilsObjectNameEXT";
+#ifndef VK_NO_ALLOCATION_CALLBACKS
                 vkDestroyInstance(data.instance, &data.allocationCallbacks);
+#else
+                vkDestroyInstance(data.instance, nullptr);
+#endif
                 return false;
             }
             VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
@@ -4148,7 +4169,7 @@ failed:
             createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
             createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
             createInfo.pfnUserCallback = debugCallback;
-            result = data.fpCreateDebugUtilsMessengerEXT(data.instance, &createInfo, &data.allocationCallbacks, &data.debugUtilsMessenger);
+            result = data.fpCreateDebugUtilsMessengerEXT(data.instance, &createInfo, nullptr, &data.debugUtilsMessenger);
 
         }
         // Create a surface if we want one
@@ -4219,9 +4240,13 @@ failed:
         }
         if (data.enableLayers) {
             // data.fpDestroyDebugReportCallbackEXT(data.instance, data.debugReportCallback, &data.allocationCallbacks);
-            data.fpDestroyDebugUtilsMessengerEXT(data.instance, data.debugUtilsMessenger, &data.allocationCallbacks);
+            data.fpDestroyDebugUtilsMessengerEXT(data.instance, data.debugUtilsMessenger, nullptr);
         }
+#ifndef VK_NO_ALLOCATION_CALLBACKS
         vkDestroyInstance(data.instance, &data.allocationCallbacks);
+#else
+        vkDestroyInstance(data.instance, nullptr);
+#endif
         return false;
     }
 
@@ -4243,10 +4268,10 @@ failed:
         }
 #endif
         if (data.enableLayers) {
-            data.fpDestroyDebugUtilsMessengerEXT(data.instance, data.debugUtilsMessenger, &data.allocationCallbacks);
+            data.fpDestroyDebugUtilsMessengerEXT(data.instance, data.debugUtilsMessenger, nullptr);
         }
+#ifndef VK_NO_ALLOCATION_CALLBACKS
         vkDestroyInstance(data.instance, &data.allocationCallbacks);
-        data.initted = false;
         if (data.totalHeapMemory != 0) {
             cout << "Some memory (" << FormatSize(data.totalHeapMemory) << ") was not freed by the Vulkan driver!\nallocations.size = " << data.allocations.size << std::endl;
             for (auto& i : data.allocations) {
@@ -4255,6 +4280,10 @@ failed:
             }
             data.allocations.Resize(0);
         }
+#else
+        vkDestroyInstance(data.instance, nullptr);
+#endif
+        data.initted = false;
         return true;
     }
 

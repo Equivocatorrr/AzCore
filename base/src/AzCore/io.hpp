@@ -200,6 +200,7 @@ namespace io {
         bool    resized         = false;
         bool    focused         = true;
         bool    fullscreen      = false;
+        bool    quit            = false;
         u16     width           = 1280;
         u16     height          =  720;
         u16     windowedWidth   = 1280;

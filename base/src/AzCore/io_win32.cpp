@@ -145,47 +145,49 @@ namespace io {
             return false;
         }
 
-        Array<RAWINPUTDEVICE> rids;
-        rids.Reserve(2);
-        if (enableMask & RAW_INPUT_ENABLE_KEYBOARD_BIT) {
-            RAWINPUTDEVICE rid;
-            rid.usUsagePage = 0x01;
-            rid.usUsage = 0x06;
-            rid.dwFlags = 0;
-            rid.hwndTarget = data->window;
-            rids += rid;
-        }
-        if (enableMask & RAW_INPUT_ENABLE_MOUSE_BIT) {
-            RAWINPUTDEVICE rid;
-            rid.usUsagePage = 0x01;
-            rid.usUsage = 0x02;
-            rid.dwFlags = 0;
-            rid.hwndTarget = data->window;
-            rids += rid;
-        }
-        //
-        // We Probably don't need these at all since these are handled by DirectInput and XInput
-        //
-        // if (enableMask & RAW_INPUT_ENABLE_GAMEPAD_BIT) {
-        //     RAWINPUTDEVICE rid;
-        //     rid.usUsagePage = 0x01;
-        //     rid.usUsage = 0x05;
-        //     rid.dwFlags = 0;
-        //     rid.hwndTarget = data->window;
-        //     rids += rid;
-        // }
-        // if (enableMask & RAW_INPUT_ENABLE_JOYSTICK_BIT) {
-        //     RAWINPUTDEVICE rid;
-        //     rid.usUsagePage = 0x01;
-        //     rid.usUsage = 0x04;
-        //     rid.dwFlags = 0;
-        //     rid.hwndTarget = data->window;
-        //     rids += rid;
-        // }
+        if (enableMask & RAW_INPUT_ENABLE_KEYBOARD_MOUSE) {
+            Array<RAWINPUTDEVICE> rids;
+            rids.Reserve(2);
+            if (enableMask & RAW_INPUT_ENABLE_KEYBOARD_BIT) {
+                RAWINPUTDEVICE rid;
+                rid.usUsagePage = 0x01;
+                rid.usUsage = 0x06;
+                rid.dwFlags = 0;
+                rid.hwndTarget = data->window;
+                rids += rid;
+            }
+            if (enableMask & RAW_INPUT_ENABLE_MOUSE_BIT) {
+                RAWINPUTDEVICE rid;
+                rid.usUsagePage = 0x01;
+                rid.usUsage = 0x02;
+                rid.dwFlags = 0;
+                rid.hwndTarget = data->window;
+                rids += rid;
+            }
+            //
+            // We Probably don't need these at all since these are handled by DirectInput and XInput
+            //
+            // if (enableMask & RAW_INPUT_ENABLE_GAMEPAD_BIT) {
+            //     RAWINPUTDEVICE rid;
+            //     rid.usUsagePage = 0x01;
+            //     rid.usUsage = 0x05;
+            //     rid.dwFlags = 0;
+            //     rid.hwndTarget = data->window;
+            //     rids += rid;
+            // }
+            // if (enableMask & RAW_INPUT_ENABLE_JOYSTICK_BIT) {
+            //     RAWINPUTDEVICE rid;
+            //     rid.usUsagePage = 0x01;
+            //     rid.usUsage = 0x04;
+            //     rid.dwFlags = 0;
+            //     rid.hwndTarget = data->window;
+            //     rids += rid;
+            // }
 
-        if (!RegisterRawInputDevices(rids.data, rids.size, sizeof(RAWINPUTDEVICE))) {
-            error = "Failed to RegisterRawInputDevices: " + ToString((u32)GetLastError());
-            return false;
+            if (!RegisterRawInputDevices(rids.data, rids.size, sizeof(RAWINPUTDEVICE))) {
+                error = "Failed to RegisterRawInputDevices: " + ToString((u32)GetLastError());
+                return false;
+            }
         }
 
         // DirectInput
@@ -297,13 +299,13 @@ namespace io {
         DIJOYSTATE state;
 
         result = rawInputDevice->data->device->Poll();
-        if (result != DI_OK) {
+        if (result != DI_OK && result != DI_NOEFFECT) {
             result = rawInputDevice->data->device->Acquire();
             while (result == DIERR_INPUTLOST) {
                 cout << "DIERR_INPUTLOST" << std::endl;
                 result = rawInputDevice->data->device->Acquire();
             }
-
+            cout << "Poll failed: " << result << std::endl;
             return;
         }
 
@@ -322,6 +324,13 @@ namespace io {
         f32 axisRX = (f32)state.lRx;
         f32 axisRY = (f32)state.lRy;
         f32 axisRZ = (f32)state.lRz;
+
+        if (rawInputDevice->data->numAxes == 5) {
+            // Probably combined Z-axes because Microsoft is a dum dum
+            axisRZ = map(axisLZ, maxRange/2.0, maxRange, minRange, maxRange);
+            axisLZ = max(axisRZ, 0.0);
+            axisRZ = max(-axisRZ, 0.0);
+        }
 
         axis.vec.LS.x = mapAxisWithDeadZone(axisLX, minRange, maxRange, deadZoneTemp);
         axis.vec.LS.y = mapAxisWithDeadZone(axisLY, minRange, maxRange, deadZoneTemp);
@@ -642,9 +651,8 @@ namespace io {
         }
         // Dealing with the close button
         case WM_CLOSE: {
-            PostQuitMessage(0);
+            focusedWindow->quit = true;
             return 0;
-            break;
         }
         case WM_DESTROY: {
             return 0;
@@ -707,20 +715,20 @@ namespace io {
             break;
         }
         case WM_MOUSEWHEEL: {
-            // Input::scrollY = float(HIWORD(wParam))/120.0;
-            // if (Input::scrollY > 0)
-            //     keyCode = KC_MOUSE_ScrollUp;
-            // else
-            //     keyCode = KC_MOUSE_ScrollDown;
+            thisWindow->input->scroll.y = f32(HIWORD(wParam))/120.0;
+            if (thisWindow->input->scroll.y > 0)
+                keyCode = KC_MOUSE_SCROLLUP;
+            else
+                keyCode = KC_MOUSE_SCROLLDOWN;
             press = true;
             break;
         }
         case WM_MOUSEHWHEEL: {
-            // Input::scrollX = float(HIWORD(wParam))/120.0;
-            // if (Input::scrollX > 0)
-            //     keyCode = KC_MOUSE_ScrollRight;
-            // else
-            //     keyCode = KC_MOUSE_ScrollLeft;
+            thisWindow->input->scroll.x = f32(HIWORD(wParam))/120.0;
+            if (thisWindow->input->scroll.x > 0)
+                keyCode = KC_MOUSE_SCROLLRIGHT;
+            else
+                keyCode = KC_MOUSE_SCROLLLEFT;
             press = true;
             break;
         }
@@ -974,14 +982,12 @@ namespace io {
         MSG msg;
         while (PeekMessage(&msg, data->window, 0, 0, PM_REMOVE))
         {
-            if (msg.message == WM_QUIT)
-            {
+            if (quit || msg.message == WM_QUIT) {
                 return false;
-            }
-            else
-            {
+            } else {
                 if (msg.message == WM_SETFOCUS) {
                     focusedWindow = this;
+                    focused = true;
                 }
                 if (msg.message == WM_KEYDOWN) {
                     if (KC_KEY_F11 == KeyCodeFromWinScan((u8)(msg.lParam>>16)))

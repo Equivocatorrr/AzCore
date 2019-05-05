@@ -202,7 +202,7 @@ namespace vk {
 #ifdef __unix
         void *ptr = aligned_alloc(alignment, aligned);
 #elif defined(_WIN32)
-        void *ptr = _aligned_malloc(alignment, aligned);
+        void *ptr = malloc(aligned);
 #endif
         instance->data.allocations.Append({ptr, aligned});
         instance->data.totalHeapMemory += aligned;
@@ -232,7 +232,7 @@ namespace vk {
 #ifdef __unix
         void *ptr = aligned_alloc(alignment, aligned);
 #elif defined(_WIN32)
-        void *ptr = _aligned_malloc(alignment, aligned);
+        void *ptr = malloc(aligned);
 #endif
         allocation->ptr = ptr;
         allocation->size = aligned;

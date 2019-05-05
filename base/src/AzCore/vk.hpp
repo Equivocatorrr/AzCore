@@ -36,7 +36,7 @@
 #endif
 
 // Having this defined makes keeping track of host memory precisely impossible
-#define VK_NO_ALLOCATION_CALLBACKS
+// #define VK_NO_ALLOCATION_CALLBACKS
 
 #include "common.hpp"
 #include <vulkan/vulkan.h>

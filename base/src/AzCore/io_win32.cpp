@@ -327,7 +327,6 @@ namespace io {
 
         if (rawInputDevice->data->numAxes == 5) {
             // Probably combined Z-axes because Microsoft is a dum dum
-            // cout << "axisLZ = " << axisLZ << ", axisRZ = " << axisRZ << std::endl;
             axisRZ = map(axisLZ, maxRange/2.0, maxRange, minRange, maxRange);
             axisLZ = max(axisRZ, 0.0);
             axisRZ = max(-axisRZ, 0.0);
@@ -652,12 +651,10 @@ namespace io {
         }
         // Dealing with the close button
         case WM_CLOSE: {
-            cout << "Received WM_CLOSE" << std::endl;
             focusedWindow->quit = true;
             return 0;
         }
         case WM_DESTROY: {
-            cout << "Received WM_DESTROY" << std::endl;
             return 0;
         }
         // Keyboard Controls

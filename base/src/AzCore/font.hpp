@@ -110,6 +110,74 @@ namespace font {
             void EndianSwap();
         };
 
+        /*
+            Here we have the 3 cmap formats supported by Apple's implementations.
+            This should be sufficient for reading just about any font file.
+            structs:
+                cmap_format_any
+                    - this one will parse the data from any of the following structs, whichever is appropriate
+                cmap_format0
+                    - Windows encoding 0
+                    - Supports up to 256 glyphs with one 8-bit index per glyph
+                cmap_format4
+                    - Unicode encoding 3
+                    - Windows encoding 1
+                    - Support for Unicode Basic Multilingual Plane (UCS-2)
+                cmap_format12
+                    - Unicode encoding 4
+                    - Microsoft encoding 10
+                    - Support for full Unicode (UCS-4)
+        */
+        struct cmap_format_any {
+            u16 format; // Varies. Used to determine which kind of table we are.
+            // Will polymorph if format is supported or return false to indicate it's not supported
+            bool EndianSwap();
+        };
+
+        struct cmap_format0 {
+            u16 format;                     // Should be 0
+            u16 length;                     // Length in bytes of the subtable, including header. Should be 262.
+            u16 language;                   // Should be 0 for tables that aren't Macintosh platform cmaps.
+            u8 glpyhIndexArray[256];        // The mapping
+            void EndianSwap();
+        };
+
+        struct cmap_format4 {
+            u16 format;                     // Should be 4
+            u16 length;
+            u16 language;
+            // Can't say I understand why these are how they are
+            u16 segCountX2;                 // 2 * segCount
+            u16 searchRange;                // 2 * (2*floor(log2(segCount)))
+            u16 entrySelector;              // log2(searchRange/2)
+            u16 rangeShift;                 // (2 * segCount) - searchRange
+            // The data past this point is variable-sized like so
+            // u16 endCode[segCount];       // Ending character code for each segment, last = 0xFFFF
+            // u16 reservedPad;             // Should be zero.
+            // u16 startCode[segCount];     // Starting character code for each segment.
+            // u16 idDelta[segCount];       // Delta for all character codes in segment.
+            // u16 idRangeOffset[segCount]; // Offset in bytes to glpyhIndexArray, or 0
+            // u16 glpyhIndexArray[segCount];
+            void EndianSwap();
+        };
+
+        struct cmap_format12_group {
+            u32 startCharCode;              // First character code in this group
+            u32 endCharCode;                // Last character code in this group
+            u32 startGlpyhCode;             // Glyph index corresponding to the starting character code.
+            void EndianSwap();
+        };
+
+        struct cmap_format12 {
+            Fixed_t format; // Should be 12.0
+            u32 length; // Byte length of this subtable including the header.
+            u32 language;
+            u32 nGroups; // Number of groupings which follow
+            //  The data past this point is variable-sized like so
+            // cmap_format12_group groups[nGroups];
+            void EndianSwap();
+        };
+
         /*  struct: head
             Author: Philip Haynes
             Contains all the information in a standard 'head' table.    */
@@ -179,6 +247,7 @@ namespace font {
             // In the case of font collections, we should determine which tables
             // are unique since some of them will be shared between fonts.
             Array<tables::Record> uniqueTables;
+            Array<u32> cmaps; // Offset from beginning of tableData for chosen encodings
             u32 offsetMin = UINT32_MAX;
             u32 offsetMax = 0;
             // Holds all of the tables, which can then be read by referencing

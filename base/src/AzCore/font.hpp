@@ -159,6 +159,22 @@ namespace font {
             // u16 idRangeOffset[segCount]; // Offset in bytes to glpyhIndexArray, or 0
             // u16 glpyhIndexArray[segCount];
             void EndianSwap();
+            // Easy accessors
+            inline u16& endCode(const u16 i) {
+                return *(&rangeShift + 1 + i);
+            }
+            inline u16& startCode(const u16 i) {
+                return *(&rangeShift + segCountX2/2 + 2 + i);
+            }
+            inline u16& idDelta(const u16 i) {
+                return *(&rangeShift + segCountX2 + 2 + i);
+            }
+            inline u16& idRangeOffset(const u16 i) {
+                return *(&rangeShift + segCountX2*3/2 + 2 + i);
+            }
+            inline u16& glyphIndexArray(const u16 i) {
+                return *(&rangeShift + segCountX2*2 + 2 + i);
+            }
         };
 
         struct cmap_format12_group {
@@ -176,6 +192,9 @@ namespace font {
             //  The data past this point is variable-sized like so
             // cmap_format12_group groups[nGroups];
             void EndianSwap();
+            inline cmap_format12_group& groups(const u32 i) {
+                return *((cmap_format12_group*)((char*)this + sizeof(cmap_format12) + sizeof(cmap_format12_group) * i));
+            }
         };
 
         /*  struct: head
@@ -233,6 +252,116 @@ namespace font {
         // Same exact thing, only used to indicate that the font doesn't
         // have any glyph outlines and only contains embedded bitmaps.
         typedef head bhed;
+
+        /*  struct: maxp
+            Author: Philip Haynes
+            Maximum Profile. Necessary for its numGlyphs data.      */
+        struct maxp {
+            Fixed_t version;
+            u16 numGlyphs;
+            // If version is 1.0 then the following data is valid, otherwise ignore them
+            u16 maxPoints;              // Max points in a non-composite glyph
+            u16 maxContours;            // Max contours in a non-composite glyph
+            u16 maxCompositePoints;     // Max points in a composite glyph
+            u16 maxCompositeContours;   // Max contours in a composite glyph
+            u16 maxZones;               // 1 if instructions don't use the Twilight Zone (Z0) or 2 if they do
+            u16 maxTwilightPoints;      // Maximum points used in Z0
+            u16 maxStorage;             // Number of storage area locations
+            u16 maxFunctionDefs;        // Number of FDEFs, equal to the highest function number +1
+            u16 maxInstructionDefs;     // Number of IDEFs.
+            // Maximum stack depth across Font Program ('fpgm' table),
+            // CVT Program ('prep' table) and all glyph instructions (in 'glyf' table)
+            u16 maxStackElements;
+            u16 maxSizeOfInstructions;  // Maximum byte count for glyph instructions
+            u16 maxComponentElements;   // Maximum number of components referenced at top level for any composite glyph
+            u16 maxComponentDepth;      // Maximum levels of recursion; 1 for simple components
+            void EndianSwap();
+        };
+
+        /*  struct: loca
+            Author: Philip Haynes
+            Index to Location. Used to carry the offsets into the 'glyf' table of character indices. */
+        struct loca {
+            // All data in this table is variable-sized in the following forms
+            // Short version, for when head.indexToLocFormat == 0
+            // u16 offsets[maxp.numGlyphs + 1]; // This version is the actual offset / 2
+            // Long version, for when head.indexToLocFormat == 1
+            // u32 offsets[maxp.numGlyphs + 1];
+            void EndianSwap(u16 numGlyphs, bool longOffsets);
+            inline u16& offsets16(const u16 i) {
+                return *((u16*)this + i);
+            }
+            inline u32& offsets32(const u16 i) {
+                return *((u32*)this + i);
+            }
+        };
+
+        /*  struct: glyf_header
+            Author: Philip Haynes
+            Beginning of every glyph definition.        */
+        struct glyf_header {
+            i16 numberOfContours; // if >= 0, it's a simple glyph. if < 0 then it's a composite glyph.
+            i16 xMin;
+            i16 yMin;
+            i16 xMax;
+            i16 yMax;
+            void EndianSwap();
+        };
+
+        /*  struct: glyf
+            Author: Philip Haynes
+            The actual glyph outline data. Cannot be parsed correctly without the loca table.      */
+        struct glyf {
+            /*  All data in this table is of variable size AND offset
+                Since the actual offsets of glyphs depend on the loca table,
+                I'm just going to describe the anatomy of a single glyph:
+            glyf_header header;
+
+                For a simple glyph:
+            u16 endPtsOfContours[header.numberOfContours];
+            u16 instructionLength;
+            u8 instructions[instructionLength];
+            u8 flags[...]; // Actual array size varies based on contents according to the following rules:
+                Bit 0: Point is on-curve
+                Bit 1: xCoord is 1 byte, else xCoord is 2 bytes
+                Bit 2: yCoord is 1 byte, else yCoord is 2 bytes
+                Bit 3: Repeat this set of flags n times. n is the next u8.
+                Bit 4: Dual meaning
+                    - If bit 1 is set:
+                        - 1: xCoord is positive
+                        - 0: xCoord is negative
+                    - If bit 1 is not set:
+                        - 1: xCoord is the same as the previous and doesn't have an entry in the xCoords array
+                        - 0: xCoord in the array is a delta vector from the previous xCoord
+                Bit 5: Same as bit 4, but refers to bit 2 and yCoord
+            u8 or i16 xCoord[...];
+            u8 or i16 yCoord[...];
+
+                For a compound glyph:
+            u16 flags;
+                Bit 0:  arguments are 2-byte, else arguments are 1 byte
+                Bit 1:  arguments are xy values, else arguments are points
+                Bit 2:  Round xy values to grid
+                Bit 3:  There is a simple scale for the component, else scale is 1.0
+                Bit 4:  obsolete
+                Bit 5:  At least one additional glyph follows this one
+                Bit 6:  x direction has different scale than y direction
+                Bit 7:  There is a 2-by-2 transformation matrix that will be used to scale the component
+                Bit 8:  Instructions for the component character follow the last component
+                Bit 9:  Use metrics from this component for the compound glyph
+                Bit 10: The components of this compound glyph overlap
+            u16 glyphIndex; // Glyph index of the component
+                The arguments are unsigned if they're points, and signed if they're offsets.
+            i16 or u16 or i8 or u8 argument1; // X-offset for component or point number
+            i16 or u16 or i8 or u8 argument2; // Y-offset for component or point number
+                In the case of Instructions as per flags bit 8, they come after the last component as follows:
+            u16 numInstructions;
+            u8 instructions[numInstructions];
+            */
+            void EndianSwap(loca *loc, u16 numGlyphs, bool longOffsets);
+            static void EndianSwapSimple(glyf_header *header);
+            static void EndianSwapCompound(glyf_header *header);
+        };
 
     }
 

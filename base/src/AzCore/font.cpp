@@ -127,26 +127,6 @@ namespace font {
 #define ENDIAN_SWAP(in) in = endianSwap((in))
 #define ENDIAN_SWAP_FIXED(in) in.major = endianSwap(in.major); in.minor = endianSwap(in.minor)
 
-        void head::EndianSwap() {
-            ENDIAN_SWAP_FIXED(version);
-            ENDIAN_SWAP_FIXED(fontRevision);
-            ENDIAN_SWAP(checkSumAdjustment);
-            ENDIAN_SWAP(magicNumber);
-            ENDIAN_SWAP(flags);
-            ENDIAN_SWAP(unitsPerEm);
-            ENDIAN_SWAP(created);
-            ENDIAN_SWAP(modified);
-            ENDIAN_SWAP(xMin);
-            ENDIAN_SWAP(yMin);
-            ENDIAN_SWAP(xMax);
-            ENDIAN_SWAP(yMax);
-            ENDIAN_SWAP(macStyle);
-            ENDIAN_SWAP(lowestRecPPEM);
-            ENDIAN_SWAP(fontDirectionHint);
-            ENDIAN_SWAP(indexToLocFormat);
-            ENDIAN_SWAP(glyphDataFormat);
-        }
-
         void cmap_encoding::EndianSwap() {
             ENDIAN_SWAP(platformID);
             ENDIAN_SWAP(platformSpecificID);
@@ -215,6 +195,246 @@ namespace font {
                 ptr->EndianSwap();
                 ptr++;
             }
+        }
+
+        void head::EndianSwap() {
+            ENDIAN_SWAP_FIXED(version);
+            ENDIAN_SWAP_FIXED(fontRevision);
+            ENDIAN_SWAP(checkSumAdjustment);
+            ENDIAN_SWAP(magicNumber);
+            ENDIAN_SWAP(flags);
+            ENDIAN_SWAP(unitsPerEm);
+            ENDIAN_SWAP(created);
+            ENDIAN_SWAP(modified);
+            ENDIAN_SWAP(xMin);
+            ENDIAN_SWAP(yMin);
+            ENDIAN_SWAP(xMax);
+            ENDIAN_SWAP(yMax);
+            ENDIAN_SWAP(macStyle);
+            ENDIAN_SWAP(lowestRecPPEM);
+            ENDIAN_SWAP(fontDirectionHint);
+            ENDIAN_SWAP(indexToLocFormat);
+            ENDIAN_SWAP(glyphDataFormat);
+        }
+
+        void maxp::EndianSwap() {
+            ENDIAN_SWAP_FIXED(version);
+            ENDIAN_SWAP(numGlyphs);
+            // Version 0.5 only needs the above
+            if (version.major == 1 && version.minor == 0) {
+                ENDIAN_SWAP(maxPoints);
+                ENDIAN_SWAP(maxContours);
+                ENDIAN_SWAP(maxCompositePoints);
+                ENDIAN_SWAP(maxCompositeContours);
+                ENDIAN_SWAP(maxZones);
+                ENDIAN_SWAP(maxTwilightPoints);
+                ENDIAN_SWAP(maxStorage);
+                ENDIAN_SWAP(maxFunctionDefs);
+                ENDIAN_SWAP(maxInstructionDefs);
+                ENDIAN_SWAP(maxStackElements);
+                ENDIAN_SWAP(maxSizeOfInstructions);
+                ENDIAN_SWAP(maxComponentElements);
+                ENDIAN_SWAP(maxComponentDepth);
+            }
+        }
+
+        void loca::EndianSwap(u16 numGlyphs, bool longOffsets) {
+            if (longOffsets) {
+                for (u16 i = 0; i <= numGlyphs; i++) {
+                    u32& offset = offsets32(i);
+                    ENDIAN_SWAP(offset);
+                }
+            } else {
+                for (u16 i = 0; i <= numGlyphs; i++) {
+                    u16& offset = offsets16(i);
+                    ENDIAN_SWAP(offset);
+                }
+            }
+        }
+
+        void glyf_header::EndianSwap() {
+            ENDIAN_SWAP(numberOfContours);
+            ENDIAN_SWAP(xMin);
+            ENDIAN_SWAP(yMin);
+            ENDIAN_SWAP(xMax);
+            ENDIAN_SWAP(yMax);
+        }
+
+        void glyf::EndianSwap(loca *loc, u16 numGlyphs, bool longOffsets) {
+            #define DO_SWAP()   header->EndianSwap();                   \
+                                if (header->numberOfContours >= 0) {    \
+                                    EndianSwapSimple(header);           \
+                                } else {                                \
+                                    EndianSwapCompound(header);         \
+                                }
+            if (longOffsets) {
+                Set<u32> offsetsDone;
+                for (u16 i = 0; i < numGlyphs; i++) {
+                    if (offsetsDone.count(loc->offsets32(i)) == 0) {
+                        glyf_header *header = (glyf_header*)((char*)this + loc->offsets32(i));
+                        cout << "Long offset: " << loc->offsets32(i) << std::endl;
+                        DO_SWAP();
+                        offsetsDone.insert(loc->offsets32(i));
+                    }
+                }
+            } else {
+                Set<u16> offsetsDone;
+                for (u16 i = 0; i < numGlyphs; i++) {
+                    if (offsetsDone.count(loc->offsets16(i)) == 0) {
+                        glyf_header *header = (glyf_header*)(((char*)this) + loc->offsets16(i) * 2);
+                        cout << "Short offset[" << i << "]: " << loc->offsets16(i) * 2 << std::endl;
+                        DO_SWAP();
+                        offsetsDone.insert(loc->offsets16(i));
+                    }
+                }
+            }
+            #undef DO_SWAP
+        }
+
+        void glyf::EndianSwapSimple(glyf_header *header) {
+            char *ptr = (char*)(header+1);
+            u16* endPtsOfContours = (u16*)ptr;
+            cout << "Simple Glyph with " << header->numberOfContours << " contours..." << std::endl;
+            for (i16 i = 0; i < header->numberOfContours; i++) {
+                ENDIAN_SWAP(*(u16*)ptr);
+                ptr += 2;
+            }
+            u16& instructionLength = ENDIAN_SWAP(*(u16*)ptr);
+            cout << "instructionLength = " << instructionLength << std::endl;
+            ptr += instructionLength + 2;
+            // Now it gets weird
+            u16 nPoints;
+            if (header->numberOfContours > 0) {
+                nPoints = endPtsOfContours[header->numberOfContours-1];
+            } else {
+                nPoints = 0;
+            }
+            cout << "We have " << nPoints << " points..." << std::endl;
+            // Now figure out how many flag bytes there actually are
+            u8 *flags = (u8*)ptr;
+            u16 nFlags = nPoints;
+            for (u16 i = 0; i < nFlags; i++) {
+                if (flags[i] & 0x08) { // Bit 3
+                    nFlags -= flags[++i] - 1;
+                }
+            }
+            cout << "We have " << nFlags << " flags..." << std::endl;
+            ptr += nFlags; // We should be at the beginning of the xCoord array
+            // We only need to swap endians for xCoords that are 2-bytes in width
+            u16 repeatCount = 0;
+            for (u16 i = 0; i < nFlags; i++) {
+                if (flags[i] & 0x02) {
+                    // cout << "xCoord is u8" << std::endl;
+                    ptr++;
+                } else {
+                    if (!(flags[i] & 0x10)) {
+                        // cout << "xCoord is u16" << std::endl;
+                        ENDIAN_SWAP(*(u16*)ptr);
+                        ptr += 2;
+                    } else {
+                        // cout << "xCoord is repeated" << std::endl;
+                    }
+                }
+                if (repeatCount) {
+                    repeatCount--;
+                    if (repeatCount) {
+                        i--; // Stay on same flag
+                    } else {
+                        i++; // Skip byte that held repeatCount
+                    }
+                } else if (flags[i] & 0x08 && i+1 < nFlags) {
+                    repeatCount = (u16)flags[i+1];
+                    // cout << "Repeat " << repeatCount << " times" << std::endl;
+                    if (repeatCount != 0) {
+                        i--; // Stay on same flag
+                    } else {
+                        i++;
+                    }
+                }
+            }
+            // Same thing for yCoord array
+            for (u16 i = 0; i < nFlags; i++) {
+                if (flags[i] & 0x04) {
+                    // cout << "yCoord is u8" << std::endl;
+                    ptr++;
+                } else {
+                    if (!(flags[i] & 0x20)) {
+                        // cout << "yCoord is u16" << std::endl;
+                        ENDIAN_SWAP(*(u16*)ptr);
+                        ptr += 2;
+                    } else {
+                        // cout << "yCoord is repeated" << std::endl;
+                    }
+                }
+                if (repeatCount) {
+                    repeatCount--;
+                    if (repeatCount) {
+                        i--; // Stay on same flag
+                    } else {
+                        i++; // Skip byte that held repeatCount
+                    }
+                } else if (flags[i] & 0x08 && i+1 < nFlags) {
+                    repeatCount = (u16)flags[i+1];
+                    // cout << "Repeat " << repeatCount << " times" << std::endl;
+                    if (repeatCount != 0) {
+                        i--; // Stay on same flag
+                    } else {
+                        i++;
+                    }
+                }
+            }
+            cout << "Completed! Total size: " << u32(ptr-(char*)header) << "\n" << std::endl;
+            // Simple my ASS
+        }
+
+        void glyf::EndianSwapCompound(glyf_header *header) {
+            char *ptr = (char*)(header+1);
+            u16 *flags;
+            u16 components = 0;
+            do {
+                components++;
+                flags = (u16*)ptr;
+                ENDIAN_SWAP(*flags);
+                ptr += 2;
+                u16& glyphIndex = *(u16*)ptr;
+                ENDIAN_SWAP(glyphIndex);
+                ptr += 2;
+                if (*flags & 0x01) { // Bit 0
+                    u16 *arguments = (u16*)ptr;
+                    ENDIAN_SWAP(arguments[0]);
+                    ENDIAN_SWAP(arguments[1]);
+                    ptr += 4;
+                } else {
+                    ptr += 2;
+                }
+                if (*flags & 0x08) { // Bit 3
+                    F2Dot14_t& scale = *(F2Dot14_t*)ptr;
+                    ENDIAN_SWAP(scale);
+                    ptr += 2;
+                }
+                if (*flags & 0x40) { // Bit 6
+                    F2Dot14_t *scale = (F2Dot14_t*)ptr;
+                    ENDIAN_SWAP(scale[0]);
+                    ENDIAN_SWAP(scale[1]);
+                    ptr += 4;
+                }
+                if (*flags & 0x80) { // Bit 7
+                    F2Dot14_t *scale = (F2Dot14_t*)ptr;
+                    ENDIAN_SWAP(scale[0]);
+                    ENDIAN_SWAP(scale[1]);
+                    ENDIAN_SWAP(scale[2]);
+                    ENDIAN_SWAP(scale[3]);
+                    ptr += 8;
+                }
+            } while (*flags & 0x20); // Bit 5
+            if (*flags & 0x0100) { // Bit 8
+                u16& numInstructions = *(u16*)ptr;
+                ENDIAN_SWAP(numInstructions);
+                ptr += 2 + numInstructions;
+            }
+            cout << "Compound Glyph with " << components << " component glyphs..." << std::endl;
+            // That was somehow simpler than the "Simple" Glyph... tsk
+            cout << "Completed! Total size: " << u32(ptr-(char*)header) << "\n" << std::endl;
         }
 
 #undef ENDIAN_SWAP
@@ -317,18 +537,25 @@ namespace font {
             }
             checksumsCompleted++;
         }
-        cout << "Checksums completed. " << checksumsCorrect << "/" << checksumsCompleted
-             << " correct.\n" << std::endl;
+        cout << "Checksums completed. " << checksumsCorrect
+             << "/" << checksumsCompleted << " correct.\n" << std::endl;
+
+        // File is in big-endian, so we may need to swap the data before we can use it.
 
         if (SysEndian.little) {
+            u16 numGlyphs = 0;
+            bool longOffsets = false;
             for (i32 i = 0; i < data.uniqueTables.size; i++) {
                 tables::Record &record = data.uniqueTables[i];
                 char *ptr = data.tableData.data + record.offset - data.offsetMin;
-                Tag_t &tag = record.tableTag;
+                const Tag_t &tag = record.tableTag;
                 Array<u32> uniqueEncodingOffsets;
                 if (tag == "head"_Tag || tag == "bhed"_Tag) {
                     tables::head *head = (tables::head*)ptr;
                     head->EndianSwap();
+                    if (head->indexToLocFormat == 1) {
+                        longOffsets = true;
+                    }
                 } else if (tag == "cmap"_Tag) {
                     tables::cmap_index *index = (tables::cmap_index*)ptr;
                     index->EndianSwap();
@@ -343,8 +570,41 @@ namespace font {
                             }
                         }
                     }
-                } else {
-                    cout << ToString(record.tableTag) << " table not necessary/supported." << std::endl;
+                } else if (tag == "maxp"_Tag) {
+                    tables::maxp *maxp = (tables::maxp*)ptr;
+                    maxp->EndianSwap();
+                    numGlyphs = maxp->numGlyphs;
+                }
+            }
+            // To parse the 'loca' table correctly, head needs to be parsed first
+            tables::loca *loca = nullptr;
+            for (i32 i = 0; i < data.uniqueTables.size; i++) {
+                tables::Record &record = data.uniqueTables[i];
+                char *ptr = data.tableData.data + record.offset - data.offsetMin;
+                const Tag_t &tag = record.tableTag;
+                if (tag == "loca"_Tag) {
+                    loca = (tables::loca*)ptr;
+                    loca->EndianSwap(numGlyphs, longOffsets);
+                    u32 locaGlyphs = record.length / (2 << (u32)longOffsets)-1;
+                    if (numGlyphs != locaGlyphs) {
+                        error = "Glyph counts don't match between maxp(" + ToString(numGlyphs)
+                              + ") and loca(" + ToString(locaGlyphs) + ")";
+                        return false;
+                    }
+                }
+            }
+            // To parse the 'glyf' table correctly, loca needs to be parsed first
+            for (i32 i = 0; i < data.uniqueTables.size; i++) {
+                tables::Record &record = data.uniqueTables[i];
+                char *ptr = data.tableData.data + record.offset - data.offsetMin;
+                const Tag_t &tag = record.tableTag;
+                if (tag == "glyf"_Tag) {
+                    if (loca == nullptr) {
+                        error = "Cannot parse glyf table without a loca table!";
+                        return false;
+                    }
+                    tables::glyf *glyf = (tables::glyf*)ptr;
+                    glyf->EndianSwap(loca, numGlyphs, longOffsets);
                 }
             }
         }
@@ -360,17 +620,18 @@ namespace font {
                 tables::Record &record = offsetTable.tables[ii];
                 char *ptr = data.tableData.data + record.offset - data.offsetMin;
                 Tag_t &tag = record.tableTag;
+#ifdef LOG_VERBOSE
                 if (tag == "head"_Tag || tag == "bhed"_Tag) {
                     tables::head *head = (tables::head*)ptr;
-#ifdef LOG_VERBOSE
                     cout << "\thead table:\nVersion " << head->version.major << "." << head->version.minor
                          << " Revision: " << head->fontRevision.major << "." << head->fontRevision.minor
                          << "\nFlags: 0x" << std::hex << head->flags << " MacStyle: 0x" << head->macStyle
                          << std::dec << " unitsPerEm: " << head->unitsPerEm
                          << "\nxMin: " << head->xMin << " xMax: " << head->xMax
                          << " yMin: " << head->yMin << " yMax " << head->yMax << "\n" << std::endl;
+                }
 #endif
-                } else if (tag == "cmap"_Tag) {
+                if (tag == "cmap"_Tag) {
                     tables::cmap_index *index = (tables::cmap_index*)ptr;
 #ifdef LOG_VERBOSE
                     cout << "\tcmap table:\nVersion " << index->version
@@ -384,7 +645,8 @@ namespace font {
                              << "\nOffset: " << encoding->offset
                              << "\nFormat: " << *((u16*)(ptr+encoding->offset)) << "\n";
 #endif
-                        #define CHOOSE(in) chosenCmap = in; data.cmaps[i] = u32((char*)index - data.tableData.data) + encoding->offset
+                        #define CHOOSE(in) chosenCmap = in; \
+                                data.cmaps[i] = u32((char*)index - data.tableData.data) + encoding->offset
                         if (encoding->platformID == 0 && encoding->platformSpecificID == 4) {
                             CHOOSE(4);
                         } else if (encoding->platformID == 0 && encoding->platformSpecificID == 3 && chosenCmap < 4) {

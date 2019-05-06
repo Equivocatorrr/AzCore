@@ -17,6 +17,9 @@ typedef long long i64;
 typedef float f32;
 typedef double f64;
 
+typedef u16 char16;
+typedef u32 char32;
+
 static_assert(sizeof(u8)  == 1);
 static_assert(sizeof(u16) == 2);
 static_assert(sizeof(u32) == 4);

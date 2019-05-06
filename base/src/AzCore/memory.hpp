@@ -51,6 +51,23 @@ inline i64 endianSwap(i64 in, bool swapEndian = true) {
     return endianSwap((u64)in);
 }
 
+template<typename T>
+inline T endianFromL(T in) {
+    return endianSwap(in, SysEndian.big);
+}
+template<typename T>
+inline T endianToL(T in) {
+    return endianSwap(in, SysEndian.big);
+}
+template<typename T>
+inline T endianFromB(T in) {
+    return endianSwap(in, SysEndian.little);
+}
+template<typename T>
+inline T endianToB(T in) {
+    return endianSwap(in, SysEndian.little);
+}
+
 size_t align(const size_t& size, const size_t& alignment);
 
 /*  class: ArrayIterator
@@ -400,6 +417,15 @@ struct Array {
         return true;
     }
 
+    bool Contains(const T& val) const {
+        for (i32 i = 0; i < size; i++) {
+            if (val == data[i]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     const T& operator[](const i32 index) const {
         if (index > size) {
             throw std::out_of_range("Array index is out of bounds");
@@ -718,12 +744,12 @@ struct Array {
 // using WString = std::wstring;
 
 using String = Array<char, 1>;
-using WString = Array<wchar_t, 1>;
+using WString = Array<char32, 1>;
 
 String operator+(const char* cString, String&& string);
 String operator+(const char* cString, const String& string);
-WString operator+(const wchar_t* cString, WString&& string);
-WString operator+(const wchar_t* cString, const WString& string);
+WString operator+(const char32* cString, WString&& string);
+WString operator+(const char32* cString, const WString& string);
 
 String ToString(const u32& value, i32 base=10);
 String ToString(const u64& value, i32 base=10);

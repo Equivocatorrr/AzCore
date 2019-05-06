@@ -178,7 +178,7 @@ size_t align(const size_t& size, const size_t& alignment) {
 }
 
 STRING_TERMINATOR(char, '\0');
-STRING_TERMINATOR(wchar_t, L'\0');
+STRING_TERMINATOR(char32, 0u);
 
 String operator+(const char* cString, const String& string) {
     String value(string);
@@ -193,12 +193,12 @@ String operator+(const char* cString, String&& string) {
     return result;
 }
 
-WString operator+(const char* cString, const WString& string) {
+WString operator+(const char32* cString, const WString& string) {
     WString value(string);
     return cString + std::move(value);
 }
 
-WString operator+(const wchar_t* cString, WString&& string) {
+WString operator+(const char32* cString, WString&& string) {
     WString result(false); // We don't initialize the tail
     result.Reserve(StringLength(cString)+string.size);
     result.Append(cString);
@@ -410,7 +410,7 @@ WString ToWString(String string) {
 WString ToWString(const char *string) {
     WString out;
     for (u32 i = 0; string[i] != 0; i++) {
-        u32 chr = string[i];
+        char32 chr = string[i];
         if (!(chr & 0x80)) {
             chr &= 0x7F;
         } else if ((chr & 0xE0) == 0xC0) {
@@ -429,7 +429,7 @@ WString ToWString(const char *string) {
             chr += u32(string[++i]&0x3F) << 6;
             chr += u32(string[++i]&0x3F);
         }
-        out += (wchar_t)chr;
+        out += chr;
     }
     return out;
 }

@@ -359,6 +359,13 @@ namespace io {
                          rawInputDevice->rawInput, index);
             handleButton(axisPush[i*2+1], axis.array[i] < -0.5, i*2 + KC_GP_AXIS_LS_LEFT,
                          rawInputDevice->rawInput, index);
+            if (axisCurve != 1.0) {
+                bool negative = axis.array[i] < 0.0;
+                axis.array[i] = pow(abs(axis.array[i]), axisCurve);
+                if (negative) {
+                    axis.array[i] *= -1.0;
+                }
+            }
             // if (axisPush[i*2].Pressed()) {
             //     cout << "Pressed " << KeyCodeName(i*2 + KC_GP_AXIS_LS_RIGHT) << std::endl;
             // }

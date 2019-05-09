@@ -332,6 +332,13 @@ namespace io {
                         rawInputDevice->rawInput->AnyGPIndex = index;
                     }
                 }
+                if (axisCurve != 1.0) {
+                    bool negative = axis.array[aIndex] < 0.0;
+                    axis.array[aIndex] = pow(abs(axis.array[aIndex]), axisCurve);
+                    if (negative) {
+                        axis.array[aIndex] *= -1.0;
+                    }
+                }
                 handleButton(axisPush[aIndex*2], axis.array[aIndex] > 0.5,    aIndex*2 + KC_GP_AXIS_LS_RIGHT,
                              rawInputDevice->rawInput, index);
                 handleButton(axisPush[aIndex*2+1], axis.array[aIndex] < -0.5, aIndex*2 + KC_GP_AXIS_LS_LEFT,

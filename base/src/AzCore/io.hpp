@@ -109,6 +109,7 @@ namespace io {
     struct Gamepad {
         Ptr<RawInputDevice> rawInputDevice;
         f32 deadZone = 0.05; // A value between 0.0 and 1.0, should probably not be very high.
+        f32 axisCurve = 1.0; // 1.0 is linear, 2.0 is squared, 0.5 is sqrt
         // Basic button interface
         ButtonState button[IO_GAMEPAD_MAX_BUTTONS];
         // An axis has moved beyond 50% in its direction.

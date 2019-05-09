@@ -15,6 +15,14 @@ String ToString(font::Tag_t tag) {
     return string;
 }
 
+// font::tables::cffs::Offset24 endianSwap(font::tables::cffs::Offset24 in) {
+//     font::tables::cffs::Offset24 out;
+//     for (u32 i = 0; i < 3; i++) {
+//         out.bytes[i] = in.bytes[2-i];
+//     }
+//     return out;
+// }
+
 namespace font {
 
     constexpr Tag_t::Tag_t(const u32 in) : data(in) {}
@@ -55,6 +63,227 @@ namespace font {
     }
 
     namespace tables {
+
+        namespace cffs {
+
+            typedef String (*fpCharStringOperatorResolution)(u8**, u8*);
+
+            u32 Offset24::value() const {
+                return (u32)bytes[0] + ((u32)bytes[1] << 8) + ((u32)bytes[2] << 12);
+            }
+
+            void Offset24::set(u32 val) {
+                bytes[0] = val;
+                bytes[1] = val >> 8;
+                bytes[2] = val >> 12;
+            }
+
+            const char* boolString[2] = {
+                "false",
+                "true"
+            };
+
+            String OperandString(u8 **data) {
+                String out(false);
+                const u8 b0 = **data;
+                if (b0 >= 32 && b0 <= 246) {
+                    out += ToString((i32)b0 - 139);
+                    (*data)++;
+                } else if (b0 >= 247 && b0 <= 254) {
+                    const u8 b1 = *((*data)+1);
+                    if (b0 < 251) {
+                        out += ToString(((i32)b0 - 247)*256 + (i32)b1 + 108);
+                    } else {
+                        out += ToString(-((i32)b0 - 251)*256 - (i32)b1 - 108);
+                    }
+                    *data += 2;
+                } else if (b0 == 28) {
+                    const u8 b1 = *((*data)+1);
+                    const u8 b2 = *((*data)+2);
+                    out += ToString(((i16)b1<<8) | ((i32)b2));
+                    *data += 3;
+                } else if (b0 == 29) {
+                    const u8 b1 = *((*data)+1);
+                    const u8 b2 = *((*data)+2);
+                    const u8 b3 = *((*data)+3);
+                    const u8 b4 = *((*data)+4);
+                    out += ToString(((i32)b1<<24) | ((i32)b2<<16) | ((i32)b3<<8) | ((i32)b4));
+                    *data += 5;
+                } else if (b0 == 30) {
+                    u8 nibbles[2];
+                    do {
+                        (*data)++;
+                        nibbles[0] = (**data) >> 4;
+                        nibbles[1] = (**data) & 0x0f;
+                        for (i32 i = 0; i < 2; i++) {
+                            if (nibbles[i] < 0xa) {
+                                out.Append(nibbles[i] + '0');
+                            } else if (nibbles[i] == 0xa) {
+                                out.Append('.');
+                            } else if (nibbles[i] == 0xb) {
+                                out.Append('E');
+                            } else if (nibbles[i] == 0xc) {
+                                out.Append("E-");
+                            } else if (nibbles[i] == 0xe) {
+                                out.Append('-');
+                            } else {
+                                break;
+                            }
+                        }
+                    } while (nibbles[0] != 0xf && nibbles[1] != 0xf);
+                    (*data)++;
+                } else {
+                    out += "Operand ERROR " + ToString((u16)b0);
+                }
+                return out;
+            }
+
+            String DictOperatorResolution(u8 **data, u8 *firstOperand) {
+                String out(false);
+                u8 operator1 = *(*data)++;
+#define GETSID() out += ToString(endianSwap(*(SID*)firstOperand)); firstOperand += 2
+#define GETARR()                            \
+out += '{';                                 \
+for (;*firstOperand != operator1;) {        \
+    out += OperandString(&firstOperand);    \
+    if (*firstOperand != operator1) {       \
+        out += ", ";                        \
+    }                                       \
+}                                           \
+out += '}';
+                if (operator1 == 12) {
+                    u8 operator2 = *(*data)++;
+                    if (operator2 == 0) {
+                        out += "Copyright: ";
+                        GETSID();
+                    } else if (operator2 == 1) {
+                        out += "isFixedPitch: ";
+                        out += boolString[*firstOperand];
+                    } else if (operator2 == 2) {
+                        out += "italicAngle: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 3) {
+                        out += "UnderlinePosition: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 4) {
+                        out += "UnderlineThickness: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 5) {
+                        out += "PaintType: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 6) {
+                        out += "CharstringType: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 7) {
+                        out += "FontMatrix: ";
+                        GETARR();
+                    } else if (operator2 == 8) {
+                        out += "StrokeWidth: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 20) {
+                        out += "SyntheticBase: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 21) {
+                        out += "PostScript: ";
+                        GETSID();
+                    } else if (operator2 == 22) {
+                        out += "BaseFontName: ";
+                        GETSID();
+                    } else if (operator2 == 23) {
+                        out += "BaseFontBlend(delta): ";
+                        GETARR();
+                    } else if (operator2 == 30) { // Here there be CIDFont Operators
+                        out += "Registry: ";
+                        GETSID();
+                        out += " Ordering: ";
+                        GETSID();
+                        out += " Supplement: " + OperandString(&firstOperand);
+                    } else if (operator2 == 31) {
+                        out += "CIDFontVersion: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 32) {
+                        out += "CIDFontRevision: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 33) {
+                        out += "CIDFontType: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 34) {
+                        out += "CIDCount: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 35) {
+                        out += "UIDBase: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 36) {
+                        out += "FDArray: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 37) {
+                        out += "FDSelect: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 38) {
+                        out += "CIDFontName: ";
+                        GETSID();
+                    }
+                } else if (operator1 == 0) {
+                    out += "Version: ";
+                    GETSID();
+                } else if (operator1 == 1) {
+                    out += "Notice: ";
+                    GETSID();
+                } else if (operator1 == 2) {
+                    out += "FullName: ";
+                    GETSID();
+                } else if (operator1 == 3) {
+                    out += "FamilyName: ";
+                    GETSID();
+                } else if (operator1 == 4) {
+                    out += "Weight: ";
+                    GETSID();
+                } else if (operator1 == 5) {
+                    out += "FontBBox: ";
+                    GETARR();
+                } else if (operator1 == 14) {
+                    out += "XUID: ";
+                    GETARR();
+                } else if (operator1 == 15) {
+                    out += "charset: ";
+                    out += OperandString(&firstOperand);
+                } else if (operator1 == 16) {
+                    out += "Encoding: ";
+                    out += OperandString(&firstOperand);
+                } else if (operator1 == 17) {
+                    out += "CharStrings: ";
+                    out += OperandString(&firstOperand);
+                } else if (operator1 == 18) {
+                    out += "Private: size: ";
+                    out += OperandString(&firstOperand) + ", offset: " + OperandString(&firstOperand);
+                } else {
+                    out += "Operator ERROR";
+                }
+#undef GETSID
+                return out;
+            }
+
+            String CharString(u8 *start, u8 *end, fpCharStringOperatorResolution OperatorResolution) {
+                String out(false);
+                out.Reserve(i32(end-start));
+                u8 *firstOperand = start;
+                while (start <= end) {
+                    const u8 b0 = *start;
+                    if (b0 <= 21) {
+                        out += OperatorResolution(&start, firstOperand);
+                        out += "\n";
+                        firstOperand = start;
+                    } else if (!(b0 == 31 || b0 == 255 || (b0 <= 27 && b0 >= 22))) {
+                        OperandString(&start);
+                    } else {
+                        out += "ERROR #" + ToString((u16)b0);
+                        start++;
+                    }
+                }
+                return out;
+            }
+
+        }
 
         // When doing checksums, the data has to still be in big endian or this won't work.
         u32 Checksum(u32 *table, const u32 length) {
@@ -437,6 +666,68 @@ namespace font {
             cout << "Completed! Total size: " << u32(ptr-(char*)header) << "\n" << std::endl;
         }
 
+        void cffs::index::EndianSwap(char **ptr, char **dataStart, char **dataEnd) {
+            ENDIAN_SWAP(count);
+            *ptr += 2;
+            u32 firstOffset = 1;
+            u32 lastOffset = 1;
+            if (count != 0) {
+                cout << "offSize = " << (u32)offSize << std::endl;
+                (*ptr)++; // Getting over offSize
+                for (u16 i = 0; i < count+1; i++) {
+                    u32 offset;
+                    if (offSize == 1) {
+                        offset = *((*ptr)++);
+                    } else if (offSize == 2) {
+                        cffs::Offset16 *off = (cffs::Offset16*)*ptr;
+                        ENDIAN_SWAP(*off);
+                        offset = *off;
+                        *ptr += 2;
+                    } else if (offSize == 3) {
+                        cffs::Offset24 *off = (cffs::Offset24*)*ptr;
+                        offset = off->value();
+                        *ptr += 3;
+                    } else if (offSize == 4) {
+                        cffs::Offset32 *off = (cffs::Offset32*)*ptr;
+                        ENDIAN_SWAP(*off);
+                        offset = *off;
+                        *ptr += 4;
+                    } else {
+                        cout << "Unsupported offSize: " << (u32)offSize << std::endl;
+                        return;
+                    }
+                    cout << "Offset[" << i << "]: " << offset << std::endl;
+                    if (i == 0) {
+                        firstOffset = offset;
+                    } else if (i == count) {
+                        lastOffset = offset;
+                    }
+                }
+            }
+            *dataStart = *ptr + firstOffset - 1;
+            *dataEnd = *ptr + lastOffset - 1;
+            *ptr += lastOffset - 1;
+        }
+
+        void cff::EndianSwap() {
+            char *ptr = (char*)this + header.size;
+            cffs::index *nameIndex = (cffs::index*)ptr;
+            char *nameIndexDataStart, *nameIndexDataEnd;
+            cout << "nameIndex:\n";
+            nameIndex->EndianSwap(&ptr, &nameIndexDataStart, &nameIndexDataEnd);
+            cout << "nameIndex data dump:\n";
+            for (char *i = nameIndexDataStart; i < nameIndexDataEnd; i++) {
+                cout << *i;
+            }
+            cout << std::endl;
+
+            cffs::index *dictIndex = (cffs::index*)ptr;
+            char *dictIndexDataStart, *dictIndexDataEnd;
+            cout << "dictIndex:\n";
+            dictIndex->EndianSwap(&ptr, &dictIndexDataStart, &dictIndexDataEnd);
+            cout << "dictIndex charstrings:\n" << cffs::CharString((u8*)dictIndexDataStart, (u8*)dictIndexDataEnd, cffs::DictOperatorResolution) << std::endl;
+        }
+
 #undef ENDIAN_SWAP
 #undef ENDIAN_SWAP_FIXED
 
@@ -473,6 +764,7 @@ namespace font {
         }
 
         data.offsetTables.Resize(data.ttcHeader.numFonts);
+        Set<u32> uniqueOffsets;
         for (u32 i = 0; i < data.ttcHeader.numFonts; i++) {
             data.file.seekg(data.ttcHeader.offsetTables[i]);
             tables::Offset &offsetTable = data.offsetTables[i];
@@ -492,15 +784,9 @@ namespace font {
                     data.offsetMax = record.offset + record.length;
                 }
                 // Keep track of unique tables
-                bool found = false;
-                for (i32 u = 0; u < data.uniqueTables.size; u++) {
-                    if (record.offset == data.uniqueTables[u].offset) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
+                if (uniqueOffsets.count(record.offset) == 0) {
                     data.uniqueTables.Append(record);
+                    uniqueOffsets.insert(record.offset);
                 }
 #ifdef LOG_VERBOSE
                 cout << "\tTable: \"" << ToString(record.tableTag) << "\"\n\t\toffset = " << record.offset << ", length = " << record.length << std::endl;
@@ -574,6 +860,9 @@ namespace font {
                     tables::maxp *maxp = (tables::maxp*)ptr;
                     maxp->EndianSwap();
                     numGlyphs = maxp->numGlyphs;
+                } else if (tag == "CFF "_Tag) {
+                    tables::cff *cff = (tables::cff*)ptr;
+                    cff->EndianSwap();
                 }
             }
             // To parse the 'loca' table correctly, head needs to be parsed first
@@ -614,6 +903,9 @@ namespace font {
         data.cmaps.Resize(data.ttcHeader.numFonts); // One per font
 
         for (i32 i = 0; i < data.offsetTables.size; i++) {
+#ifdef LOG_VERBOSE
+            cout << "\nFont[" << i << "]\n\n";
+#endif
             tables::Offset &offsetTable = data.offsetTables[i];
             i16 chosenCmap = -1; // -1 is not found, bigger is better
             for (i32 ii = 0; ii < offsetTable.numTables; ii++) {
@@ -629,6 +921,14 @@ namespace font {
                          << std::dec << " unitsPerEm: " << head->unitsPerEm
                          << "\nxMin: " << head->xMin << " xMax: " << head->xMax
                          << " yMin: " << head->yMin << " yMax " << head->yMax << "\n" << std::endl;
+                } else if (tag == "CFF "_Tag) {
+                    tables::cff *cff = (tables::cff*)ptr;
+                    cout << "\tCFF version: " << (u32)cff->header.versionMajor << "." << (u32)cff->header.versionMinor
+                         << "\nheader.size: " << (u32)cff->header.size
+                         << ", header.offSize: " << (u32)cff->header.offSize << std::endl;
+                } else if (tag == "maxp"_Tag) {
+                    tables::maxp *maxp = (tables::maxp*)ptr;
+                    cout << "\tmaxp table:\nnumGlyphs: " << maxp->numGlyphs << "\n" << std::endl;
                 }
 #endif
                 if (tag == "cmap"_Tag) {
@@ -639,12 +939,12 @@ namespace font {
 #endif
                     for (u32 enc = 0; enc < index->numberSubtables; enc++) {
                         tables::cmap_encoding *encoding = (tables::cmap_encoding*)(ptr + 4 + enc * sizeof(tables::cmap_encoding));
-#ifdef LOG_VERBOSE
-                        cout << "\tEncoding[" << enc << "]:\nPlatformID: " << encoding->platformID
-                             << " PlatformSpecificID: " << encoding->platformSpecificID
-                             << "\nOffset: " << encoding->offset
-                             << "\nFormat: " << *((u16*)(ptr+encoding->offset)) << "\n";
-#endif
+// #ifdef LOG_VERBOSE
+//                         cout << "\tEncoding[" << enc << "]:\nPlatformID: " << encoding->platformID
+//                              << " PlatformSpecificID: " << encoding->platformSpecificID
+//                              << "\nOffset: " << encoding->offset
+//                              << "\nFormat: " << *((u16*)(ptr+encoding->offset)) << "\n";
+// #endif
                         #define CHOOSE(in) chosenCmap = in; \
                                 data.cmaps[i] = u32((char*)index - data.tableData.data) + encoding->offset
                         if (encoding->platformID == 0 && encoding->platformSpecificID == 4) {

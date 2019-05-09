@@ -363,6 +363,66 @@ namespace font {
             static void EndianSwapCompound(glyf_header *header);
         };
 
+        namespace cffs {
+
+            /*
+            Information on the CFF table is courtesy of Adobe.
+            http://wwwimages.adobe.com/www.adobe.com/content/dam/acom/en/devnet/font/pdfs/5176.CFF.pdf
+            */
+
+            // Data types used in a CFF table
+            typedef u8 Card8;       // 1-byte unsigned integer. Range: 0-255
+            typedef u16 Card16;     // 2-byte unsigned integer. Range: 0-65535
+            typedef u8 OffSize;     // Size of an Offset. Range: 1-4
+            typedef u8 Offset8;     // When OffSize is 1
+            typedef u16 Offset16;   // When OffSize is 2
+            struct Offset24 {       // When OffSize is 3
+                u8 bytes[3];        // Always big-endian
+                u32 value() const;
+                void set(u32 val);
+            };
+            // I'm probably being paranoid here, but if these assertions failed it would be a huge pain to debug.
+            // I believe "#pragma pack(1)" could fix it, but according to the C99 standard, these should pass.
+            // I guess it depends on how the C++ compiler conforms to C memory standards. GCC passes.
+            static_assert(sizeof(Offset24) == 3);
+            static_assert(sizeof(Offset24)*3 == sizeof(Offset24[3]));
+            typedef u32 Offset32;   // When OffSize is 4
+            typedef u16 SID;        // 2-byte string identifier. Range: 0-64999
+
+            struct index {
+                Card16 count;               // Number of objects stored in this index
+                // If count is 0, then the entire struct is 2 bytes exactly, and everything past this point isn't there.
+                OffSize offSize;
+                /*  The rest of the data varies in size and offset as follows:
+                OffsetXX offset[count+1];   // Data type depend on offSize.
+                    Offsets are relative to the byte preceding data.
+                Card8 data[...];
+                */
+                void EndianSwap(char **ptr, char** dataStart, char** dataEnd);
+            };
+
+            struct header {
+                Card8 versionMajor; // Should be at least 1
+                Card8 versionMinor; // We don't care about this unless we want to support extensions
+                Card8 size;         // Size of this header, used to locate the Name INDEX since it may vary between versions
+                OffSize offSize;    // Specifies the size of all offsets into the CFF data.
+            };
+
+        };
+
+        /*  struct: cff
+            Author: Philip Haynes
+            Compact Font Format table.     */
+        struct cff {
+            cffs::header header; // We probably only need version 1.0???
+            /* All data beyond this point is of variable offset
+                Starting at an offset of header.size
+            cffs::index nameIndex;
+            cffs::index dictIndex;
+            */
+            void EndianSwap();
+        };
+
     }
 
     /*  struct: Font

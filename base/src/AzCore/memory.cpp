@@ -211,6 +211,7 @@ String ToString(const u32& value, i32 base) {
         return "0";
     }
     String out(false);
+    out.Reserve(i32(log((f32)value) / log((f32)base))+1);
     u32 remaining = value;
     while (remaining != 0) {
         u32 quot = remaining/base;
@@ -230,6 +231,7 @@ String ToString(const u64& value, i32 base) {
         return "0";
     }
     String out(false);
+    out.Reserve(i32((f32)log((f64)value) / log((f32)base))+1);
     u64 remaining = value;
     while (remaining != 0) {
         u64 quot = remaining/base;
@@ -248,9 +250,10 @@ String ToString(const i32& value, i32 base) {
     if (value == 0) {
         return "0";
     }
-    String out;
+    String out(false);
+    out.Reserve(i32(log((f32)value) / log((f32)base))+1);
     bool negative = value < 0;
-    i32 remaining = value;
+    i32 remaining = abs(value);
     while (remaining != 0) {
         i32 quot = remaining/base;
         i32 rem  = remaining%base;
@@ -271,9 +274,10 @@ String ToString(const i64& value, i32 base) {
     if (value == 0) {
         return "0";
     }
-    String out;
+    String out(false);
+    out.Reserve(i32((f32)log((f64)value) / log((f32)base))+1);
     bool negative = value < 0;
-    i64 remaining = value;
+    i64 remaining = abs(value);
     while (remaining != 0) {
         i64 quot = remaining/base;
         i64 rem  = remaining%base;

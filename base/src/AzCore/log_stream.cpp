@@ -64,7 +64,7 @@ namespace io {
     }
 
     logStream& logStream::operator<<(const String& string) {
-        return *this << string.data;
+        return *this << (const char*)string.data;
     }
 
     logStream& logStream::operator<<(stream_function func) {

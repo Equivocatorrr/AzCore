@@ -389,6 +389,61 @@ namespace font {
             typedef u32 Offset32;   // When OffSize is 4
             typedef u16 SID;        // 2-byte string identifier. Range: 0-64999
 
+            constexpr u32 nStdStrings = 391;
+            extern const char *stdStrings[nStdStrings];
+
+            /*  struct: dict
+                Author: Philip Haynes
+                Information parsed from DICT charstrings with appropriate defaults.       */
+            struct dict {
+                // NOTE: Should we use f64 for all the real numbers since they're
+                //       not explicitly integers in any cases, at least per the spec.
+                SID version;
+                SID Notice;
+                SID Copyright;
+                SID FullName;
+                SID FamilyName;
+                SID Weight;
+                bool isFixedPitch = false;
+                i32 ItalicAngle = 0;
+                i32 UnderlinePosition = -100;
+                i32 UnderlineThickness = 50;
+                i32 PaintType = 0;
+                i32 CharstringType = 2;
+                Array<f32> FontMatrix = {0.001, 0.0, 0.0, 0.001, 0.0, 0.0};
+                i32 UniqueID;
+                Array<i32> FontBBox = {0, 0, 0, 0};
+                f32 StrokeWidth = 0.0;
+                Array<i32> XUID;
+                i32 charset = 0;
+                i32 Encoding = 0;
+                i32 CharStrings;
+                struct {
+                    i32 size;
+                    i32 offset;
+                } Private;
+                i32 SyntheticBase;
+                SID PostScript;
+                SID BaseFontName;
+                Array<i32> BaseFontBlend;
+                // CIDFont Operator Extensions
+                struct {
+                    SID registry;
+                    SID ordering;
+                    i32 supplement;
+                } ROS;
+                f32 CIDFontVersion = 0;
+                f32 CIDFontRevision = 0;
+                i32 CIDFontType = 0;
+                i32 CIDCount = 8720;
+                i32 UIDBase;
+                i32 FDArray;
+                i32 FDSelect;
+                SID FontName;
+                void ParseCharString(u8 *data, u32 size);
+                void ResolveOperator(u8 **data, u8 *firstOperand);
+            };
+
             struct index {
                 Card16 count;               // Number of objects stored in this index
                 // If count is 0, then the entire struct is 2 bytes exactly, and everything past this point isn't there.
@@ -398,7 +453,8 @@ namespace font {
                     Offsets are relative to the byte preceding data.
                 Card8 data[...];
                 */
-                void EndianSwap(char **ptr, char** dataStart, char** dataEnd);
+                // Returns an Array of offsets into data
+                Array<u32> EndianSwap(char **ptr, char** dataStart);
             };
 
             struct header {
@@ -419,6 +475,8 @@ namespace font {
                 Starting at an offset of header.size
             cffs::index nameIndex;
             cffs::index dictIndex;
+            cffs::index stringsIndex;
+            cffs::index gsubrIndex; // Stands for Global Subroutines
             */
             void EndianSwap();
         };

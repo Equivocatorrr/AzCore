@@ -66,6 +66,8 @@ namespace font {
 
         namespace cffs {
 
+            #include "font_cff_std_strings.c"
+
             typedef String (*fpCharStringOperatorResolution)(u8**, u8*);
 
             u32 Offset24::value() const {
@@ -82,6 +84,34 @@ namespace font {
                 "false",
                 "true"
             };
+
+            void OperandPassover(u8 **data) {
+                const u8 b0 = **data;
+                if (b0 >= 32 && b0 <= 246) {
+                    (*data)++;
+                } else if (b0 >= 247 && b0 <= 254) {
+                    *data += 2;
+                } else if (b0 == 28) {
+                    *data += 3;
+                } else if (b0 == 29) {
+                    *data += 5;
+                } else if (b0 == 30) {
+                    u8 nibbles[2];
+                    do {
+                        (*data)++;
+                        nibbles[0] = (**data) >> 4;
+                        nibbles[1] = (**data) & 0x0f;
+                        for (i32 i = 0; i < 2; i++) {
+                            if (nibbles[i] == 0xf) {
+                                break;
+                            }
+                        }
+                    } while (nibbles[0] != 0xf && nibbles[1] != 0xf);
+                    (*data)++;
+                } else {
+                    cout << "Operand ERROR "<< (u16)b0;
+                }
+            }
 
             String OperandString(u8 **data) {
                 String out(false);
@@ -134,6 +164,182 @@ namespace font {
                     (*data)++;
                 } else {
                     out += "Operand ERROR " + ToString((u16)b0);
+                }
+                return out;
+            }
+
+            i32 OperandI32(u8 **data) {
+                i64 out = 0;
+                const u8 b0 = **data;
+                if (b0 >= 32 && b0 <= 246) {
+                    out = (i32)b0 - 139;
+                    (*data)++;
+                } else if (b0 >= 247 && b0 <= 254) {
+                    const u8 b1 = *((*data)+1);
+                    if (b0 < 251) {
+                        out = ((i32)b0 - 247)*256 + (i32)b1 + 108;
+                    } else {
+                        out = -((i32)b0 - 251)*256 - (i32)b1 - 108;
+                    }
+                    *data += 2;
+                } else if (b0 == 28) {
+                    const u8 b1 = *((*data)+1);
+                    const u8 b2 = *((*data)+2);
+                    out = ((i32)b1<<8) | ((i32)b2);
+                    *data += 3;
+                } else if (b0 == 29) {
+                    const u8 b1 = *((*data)+1);
+                    const u8 b2 = *((*data)+2);
+                    const u8 b3 = *((*data)+3);
+                    const u8 b4 = *((*data)+4);
+                    out = ((i32)b1<<24) | ((i32)b2<<16) | ((i32)b3<<8) | ((i32)b4);
+                    *data += 5;
+                } else if (b0 == 30) {
+                    u8 nibbles[2];
+                    i32 dec = -1;
+                    bool expPos = false;
+                    bool expNeg = false;
+                    i32 exponent = 0;
+                    bool negative = false;
+                    do {
+                        (*data)++;
+                        nibbles[0] = (**data) >> 4;
+                        nibbles[1] = (**data) & 0x0f;
+                        for (i32 i = 0; i < 2; i++) {
+                            if (nibbles[i] < 0xa) {
+                                if (expPos) {
+                                    exponent *= 10;
+                                    exponent += (i32)nibbles[i];
+                                } else if (expNeg) {
+                                    exponent *= 10;
+                                    exponent -= (i32)nibbles[i];
+                                } else {
+                                    if (dec > -1) {
+                                        dec++;
+                                    }
+                                    out *= 10;
+                                    out += (i32)nibbles[i];
+                                }
+                            } else if (nibbles[i] == 0xa) {
+                                // Decimal Point
+                                dec = 0;
+                            } else if (nibbles[i] == 0xb) {
+                                expPos = true;
+                            } else if (nibbles[i] == 0xc) {
+                                expNeg = true;
+                            } else if (nibbles[i] == 0xe) {
+                                negative = true;
+                            } else {
+                                break;
+                            }
+                        }
+                    } while (nibbles[0] != 0xf && nibbles[1] != 0xf);
+                    if (dec >= 0) {
+                        exponent -= dec;
+                    }
+                    if (exponent < 0) {
+                        for (i32 i = exponent; i < 0; i++) {
+                            out /= 10;
+                        }
+                    } else if (exponent > 0) {
+                        for (i32 i = exponent; i > 0; i--) {
+                            out *= 10;
+                        }
+                    }
+                    if (negative) {
+                        out *= -1;
+                    }
+                    (*data)++;
+                } else {
+                    cout << "Operand ERROR " << (u16)b0;
+                }
+                return out;
+            }
+
+            f32 OperandF32(u8 **data) {
+                f64 out = 0; // We use greater precision for parsing the real values
+                const u8 b0 = **data;
+                if (b0 >= 32 && b0 <= 246) {
+                    out = (i32)b0 - 139;
+                    (*data)++;
+                } else if (b0 >= 247 && b0 <= 254) {
+                    const u8 b1 = *((*data)+1);
+                    if (b0 < 251) {
+                        out = ((i32)b0 - 247)*256 + (i32)b1 + 108;
+                    } else {
+                        out = -((i32)b0 - 251)*256 - (i32)b1 - 108;
+                    }
+                    *data += 2;
+                } else if (b0 == 28) {
+                    const u8 b1 = *((*data)+1);
+                    const u8 b2 = *((*data)+2);
+                    out = ((i32)b1<<8) | ((i32)b2);
+                    *data += 3;
+                } else if (b0 == 29) {
+                    const u8 b1 = *((*data)+1);
+                    const u8 b2 = *((*data)+2);
+                    const u8 b3 = *((*data)+3);
+                    const u8 b4 = *((*data)+4);
+                    out = ((i32)b1<<24) | ((i32)b2<<16) | ((i32)b3<<8) | ((i32)b4);
+                    *data += 5;
+                } else if (b0 == 30) {
+                    u8 nibbles[2];
+                    i32 dec = -1;
+                    bool expPos = false;
+                    bool expNeg = false;
+                    i32 exponent = 0;
+                    bool negative = false;
+                    do {
+                        (*data)++;
+                        nibbles[0] = (**data) >> 4;
+                        nibbles[1] = (**data) & 0x0f;
+                        for (i32 i = 0; i < 2; i++) {
+                            if (nibbles[i] < 0xa) {
+                                if (expPos) {
+                                    exponent *= 10;
+                                    exponent += (i32)nibbles[i];
+                                } else if (expNeg) {
+                                    exponent *= 10;
+                                    exponent -= (i32)nibbles[i];
+                                } else {
+                                    if (dec > -1) {
+                                        dec++;
+                                    }
+                                    out *= 10;
+                                    out += (i32)nibbles[i];
+                                }
+                            } else if (nibbles[i] == 0xa) {
+                                // Decimal Point
+                                dec = 0;
+                            } else if (nibbles[i] == 0xb) {
+                                expPos = true;
+                            } else if (nibbles[i] == 0xc) {
+                                expNeg = true;
+                            } else if (nibbles[i] == 0xe) {
+                                negative = true;
+                            } else {
+                                break;
+                            }
+                        }
+                    } while (nibbles[0] != 0xf && nibbles[1] != 0xf);
+                    if (dec >= 0) {
+                        exponent -= dec;
+                    }
+                    if (exponent < 0) {
+                        for (i32 i = exponent; i < 0; i++) {
+                            out /= 10.0d;
+                        }
+                    } else if (exponent > 0) {
+                        for (i32 i = exponent; i > 0; i--) {
+                            out *= 10.0d;
+                        }
+                    }
+                    if (negative) {
+                        out *= -1.0;
+                    }
+                    (*data)++;
+                } else {
+                    cout << "Operand ERROR " << (u16)b0;
                 }
                 return out;
             }
@@ -260,6 +466,7 @@ out += '}';
                     out += "Operator ERROR";
                 }
 #undef GETSID
+#undef GETARR
                 return out;
             }
 
@@ -274,13 +481,116 @@ out += '}';
                         out += "\n";
                         firstOperand = start;
                     } else if (!(b0 == 31 || b0 == 255 || (b0 <= 27 && b0 >= 22))) {
-                        OperandString(&start);
+                        OperandPassover(&start);
                     } else {
                         out += "ERROR #" + ToString((u16)b0);
                         start++;
                     }
                 }
                 return out;
+            }
+
+            void dict::ParseCharString(u8 *data, u32 size) {
+                u8 *firstOperand = data;
+                for (u8 *end = data+size; end > data;) {
+                    const u8 b0 = *data;
+                    if (b0 <= 21) {
+                        ResolveOperator(&data, firstOperand);
+                        firstOperand = data;
+                    } else if (!(b0 == 31 || b0 == 255 || (b0 <= 27 && b0 >= 22))) {
+                        OperandPassover(&data);
+                    } else {
+                        cout << "ERROR #" << (u16)b0;
+                        data++;
+                    }
+                }
+            }
+
+            void dict::ResolveOperator(u8 **data, u8 *firstOperand) {
+                u8 operator1 = *(*data)++;
+#define GETSID(var) (var) = endianSwap(*(SID*)firstOperand); firstOperand += 2
+#define GETARR(arr, ophandler)              \
+arr.Clear();                                \
+for (;*firstOperand != operator1;) {        \
+    arr.Append(ophandler(&firstOperand));   \
+}
+                if (operator1 == 12) {
+                    u8 operator2 = *(*data)++;
+                    if (operator2 == 0) {
+                        GETSID(Copyright);
+                    } else if (operator2 == 1) {
+                        isFixedPitch = *firstOperand;
+                    } else if (operator2 == 2) {
+                        ItalicAngle = OperandI32(&firstOperand);
+                    } else if (operator2 == 3) {
+                        UnderlinePosition = OperandI32(&firstOperand);
+                    } else if (operator2 == 4) {
+                        UnderlineThickness = OperandI32(&firstOperand);
+                    } else if (operator2 == 5) {
+                        PaintType = OperandI32(&firstOperand);
+                    } else if (operator2 == 6) {
+                        CharstringType = OperandI32(&firstOperand);
+                    } else if (operator2 == 7) {
+                        GETARR(FontMatrix, OperandF32);
+                    } else if (operator2 == 8) {
+                        StrokeWidth = OperandF32(&firstOperand);
+                    } else if (operator2 == 20) {
+                        SyntheticBase = OperandI32(&firstOperand);
+                    } else if (operator2 == 21) {
+                        GETSID(PostScript);
+                    } else if (operator2 == 22) {
+                        GETSID(BaseFontName);
+                    } else if (operator2 == 23) {
+                        GETARR(BaseFontBlend, OperandI32);
+                    } else if (operator2 == 30) { // Here there be CIDFont Operators
+                        GETSID(ROS.registry);
+                        GETSID(ROS.ordering);
+                        ROS.supplement = OperandI32(&firstOperand);
+                    } else if (operator2 == 31) {
+                        CIDFontVersion = OperandF32(&firstOperand);
+                    } else if (operator2 == 32) {
+                        CIDFontRevision = OperandF32(&firstOperand);
+                    } else if (operator2 == 33) {
+                        CIDFontType = OperandI32(&firstOperand);
+                    } else if (operator2 == 34) {
+                        CIDCount = OperandI32(&firstOperand);
+                    } else if (operator2 == 35) {
+                        UIDBase = OperandI32(&firstOperand);
+                    } else if (operator2 == 36) {
+                        FDArray = OperandI32(&firstOperand);
+                    } else if (operator2 == 37) {
+                        FDSelect = OperandI32(&firstOperand);
+                    } else if (operator2 == 38) {
+                        GETSID(FontName);
+                    }
+                } else if (operator1 == 0) {
+                    GETSID(version);
+                } else if (operator1 == 1) {
+                    GETSID(Notice);
+                } else if (operator1 == 2) {
+                    GETSID(FullName);
+                } else if (operator1 == 3) {
+                    GETSID(FamilyName);
+                } else if (operator1 == 4) {
+                    GETSID(Weight);
+                } else if (operator1 == 5) {
+                    GETARR(FontBBox, OperandI32);
+                } else if (operator1 == 14) {
+                    GETARR(XUID, OperandI32);
+                } else if (operator1 == 15) {
+                    charset = OperandI32(&firstOperand);
+                } else if (operator1 == 16) {
+                    Encoding = OperandI32(&firstOperand);
+                } else if (operator1 == 17) {
+                    CharStrings = OperandI32(&firstOperand);
+                } else if (operator1 == 18) {
+                    Private.size = OperandI32(&firstOperand);
+                    Private.offset = OperandI32(&firstOperand);
+                } else {
+                    cout << "Operator Error" << std::endl;
+                }
+#undef GETSID
+#undef GETARR
             }
 
         }
@@ -666,13 +976,14 @@ out += '}';
             cout << "Completed! Total size: " << u32(ptr-(char*)header) << "\n" << std::endl;
         }
 
-        void cffs::index::EndianSwap(char **ptr, char **dataStart, char **dataEnd) {
+        Array<u32> cffs::index::EndianSwap(char **ptr, char **dataStart) {
             ENDIAN_SWAP(count);
             *ptr += 2;
-            u32 firstOffset = 1;
             u32 lastOffset = 1;
+            Array<u32> offsets;
             if (count != 0) {
-                cout << "offSize = " << (u32)offSize << std::endl;
+                offsets.Resize(count+1);
+                cout << "count = " << count << ", offSize = " << (u32)offSize << std::endl;
                 (*ptr)++; // Getting over offSize
                 for (u16 i = 0; i < count+1; i++) {
                     u32 offset;
@@ -694,38 +1005,75 @@ out += '}';
                         *ptr += 4;
                     } else {
                         cout << "Unsupported offSize: " << (u32)offSize << std::endl;
-                        return;
+                        return Array<u32>();
                     }
-                    cout << "Offset[" << i << "]: " << offset << std::endl;
-                    if (i == 0) {
-                        firstOffset = offset;
-                    } else if (i == count) {
+                    if (i == count) {
                         lastOffset = offset;
                     }
+                    offsets[i] = offset;
                 }
             }
-            *dataStart = *ptr + firstOffset - 1;
-            *dataEnd = *ptr + lastOffset - 1;
+            *dataStart = *ptr - 1;
             *ptr += lastOffset - 1;
+            return offsets;
         }
 
         void cff::EndianSwap() {
             char *ptr = (char*)this + header.size;
             cffs::index *nameIndex = (cffs::index*)ptr;
-            char *nameIndexDataStart, *nameIndexDataEnd;
+            char *nameIndexData;
             cout << "nameIndex:\n";
-            nameIndex->EndianSwap(&ptr, &nameIndexDataStart, &nameIndexDataEnd);
-            cout << "nameIndex data dump:\n";
-            for (char *i = nameIndexDataStart; i < nameIndexDataEnd; i++) {
-                cout << *i;
+            Array<u32> nameIndexOffsets = nameIndex->EndianSwap(&ptr, &nameIndexData);
+            cout << "nameIndex data:\n";
+            for (i32 i = 0; i < nameIndexOffsets.size-1; i++) {
+                String string(nameIndexOffsets[i+1] - nameIndexOffsets[i]);
+                memcpy(string.data, nameIndexData + nameIndexOffsets[i], string.size);
+                cout << "[" << i << "]=\"" << string << "\" ";
             }
             cout << std::endl;
 
             cffs::index *dictIndex = (cffs::index*)ptr;
-            char *dictIndexDataStart, *dictIndexDataEnd;
+            char *dictIndexData;
             cout << "dictIndex:\n";
-            dictIndex->EndianSwap(&ptr, &dictIndexDataStart, &dictIndexDataEnd);
-            cout << "dictIndex charstrings:\n" << cffs::CharString((u8*)dictIndexDataStart, (u8*)dictIndexDataEnd, cffs::DictOperatorResolution) << std::endl;
+            Array<u32> dictIndexOffsets = dictIndex->EndianSwap(&ptr, &dictIndexData);
+            cout << "dictIndex charstrings:\n" << cffs::CharString((u8*)dictIndexData+dictIndexOffsets[0], (u8*)dictIndexData + dictIndexOffsets[dictIndexOffsets.size-1], cffs::DictOperatorResolution) << std::endl;
+            cffs::dict dictIndexValues;
+            dictIndexValues.ParseCharString((u8*)dictIndexData+dictIndexOffsets[0], dictIndexOffsets[1]-dictIndexOffsets[0]);
+
+            cffs::index *stringsIndex = (cffs::index*)ptr;
+            char *stringsIndexData;
+            cout << "stringsIndex:\n";
+            Array<u32> stringsIndexOffsets = stringsIndex->EndianSwap(&ptr, &stringsIndexData);
+            cout << "stringsIndex data:\n";
+            for (i32 i = 0; i < stringsIndexOffsets.size-1; i++) {
+                String string(stringsIndexOffsets[i+1] - stringsIndexOffsets[i]);
+                memcpy(string.data, stringsIndexData + stringsIndexOffsets[i], string.size);
+                cout << "\n[" << i << "]=\"" << string << "\" ";
+            }
+            cout << std::endl;
+
+            cffs::index *gsubrIndex = (cffs::index*)ptr;
+            char *gsubrIndexData;
+            cout << "gsubrIndex:\n";
+            Array<u32> gsubrIndexOffsets = gsubrIndex->EndianSwap(&ptr, &gsubrIndexData);
+            // cout << "gsubrIndex data dump:\n" << std::hex;
+            // for (i32 i = 0; i < gsubrIndexOffsets.size-1; i++) {
+            //     String string(gsubrIndexOffsets[i+1] - gsubrIndexOffsets[i]);
+            //     memcpy(string.data, gsubrIndexData + gsubrIndexOffsets[i], string.size);
+            //     cout << "\n[" << i << "]=\"";
+            //     for (i32 i = 0; i < string.size; i++) {
+            //         cout << "0x" << (u32)(u8)string[i];
+            //         if (i < string.size-1) {
+            //             cout << ", ";
+            //         }
+            //     }
+            //     cout << "\" ";
+            // }
+            // cout << std::endl;
+
+            char *charsets = (char*)this + dictIndexValues.charset;
+
+            cout << "Charsets format = " << (i32)*charsets << std::endl;
         }
 
 #undef ENDIAN_SWAP

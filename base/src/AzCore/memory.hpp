@@ -696,6 +696,7 @@ struct Array {
             }
         }
         size = 0;
+        allocated = 0;
     }
 
     Array<T, allocTail>& Reverse() {

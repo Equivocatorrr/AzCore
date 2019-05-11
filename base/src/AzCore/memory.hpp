@@ -98,11 +98,11 @@ public:
     string terminator must be set. Most types will work with just the default constructor.  */
 template<typename T>
 struct StringTerminators {
-    static T value;
+    static const T value;
 };
 // Macro to easily set a terminator. Must be called from one and only one .cpp file.
 // Definitions for char and wchar_t are done in memory.cpp
-#define STRING_TERMINATOR(TYPE, VAL) template<> TYPE StringTerminators<TYPE>::value = VAL
+#define STRING_TERMINATOR(TYPE, VAL) template<> const TYPE StringTerminators<TYPE>::value = VAL
 
 template<typename T>
 i32 StringLength(const T* string) {
@@ -311,7 +311,7 @@ struct Array {
     }
     Array(const Array<T, allocTail>& other) : allocated(other.size) , size(other.size) {
         data = new T[allocated + allocTail];
-        if (std::is_trivially_copyable<T>::value) {
+        if constexpr (std::is_trivially_copyable<T>::value) {
             memcpy((void*)data, (void*)other.data, sizeof(T) * allocated);
         } else {
             for (i32 i = 0; i < size; i++) {
@@ -497,7 +497,7 @@ struct Array {
         allocated = newSize;
         if (size > 0) {
             T *temp = new T[newSize + allocTail];
-            if (std::is_trivially_copyable<T>::value) {
+            if constexpr (std::is_trivially_copyable<T>::value) {
                 memcpy((void*)temp, (void*)data, sizeof(T) * size);
             } else {
                 for (i32 i = 0; i < size; i++) {
@@ -540,7 +540,7 @@ struct Array {
             allocated += (allocated >> 1) + 2;
             T *temp = new T[allocated + allocTail];
             if (size > 0) {
-                if (std::is_trivially_copyable<T>::value) {
+                if constexpr (std::is_trivially_copyable<T>::value) {
                     memcpy((void*)temp, (void*)data, sizeof(T) * size);
                 } else {
                     for (i32 i = 0; i < size; i++) {
@@ -563,7 +563,7 @@ struct Array {
             allocated += (allocated >> 1) + 2;
             T *temp = new T[allocated + allocTail];
             if (size > 0) {
-                if (std::is_trivially_copyable<T>::value) {
+                if constexpr (std::is_trivially_copyable<T>::value) {
                     memcpy((void*)temp, (void*)data, sizeof(T) * size);
                 } else {
                     for (i32 i = 0; i < size; i++) {
@@ -600,7 +600,7 @@ struct Array {
     Array<T, allocTail>& Append(Array<T, allocTail>&& other) {
         i32 copyStart = size;
         Resize(size+other.size);
-        if (std::is_trivially_copyable<T>::value) {
+        if constexpr (std::is_trivially_copyable<T>::value) {
             memcpy((void*)(data+copyStart), (void*)other.data, sizeof(T) * other.size);
         } else {
             for (i32 i = copyStart; i < size; i++) {
@@ -629,7 +629,7 @@ struct Array {
         if (size >= allocated) {
             allocated += (allocated >> 1) + 2;
             T *temp = new T[allocated + allocTail];
-            if (std::is_trivially_copyable<T>::value) {
+            if constexpr (std::is_trivially_copyable<T>::value) {
                 if (index > 0) {
                     memcpy((void*)temp, (void*)data, sizeof(T) * index);
                 }
@@ -665,7 +665,7 @@ struct Array {
             throw std::out_of_range("Array::Erase index is out of bounds");
         }
         size--;
-        if (std::is_trivially_copyable<T>::value) {
+        if constexpr (std::is_trivially_copyable<T>::value) {
             if (size > index) {
                 memcpy((void*)(data+index), (void*)(data+index+1), sizeof(T) * (size-index));
             }

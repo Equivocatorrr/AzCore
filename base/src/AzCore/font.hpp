@@ -68,6 +68,7 @@ namespace font {
 
             void Read(std::ifstream &file);
         };
+        static_assert(sizeof(Record) == 16);
 
         /*  struct: Offset
             Author: Philip Haynes
@@ -82,9 +83,10 @@ namespace font {
             u16 searchRange; // (maximum power of 2 that's <= numTables) * 16
             u16 entrySelector; // log2(maximum power of 2 that's <= numTables)
             u16 rangeShift; // numTables * 16 - searchRange
-            Array<tables::Record> tables;
+            Array<Record> tables;
             void Read(std::ifstream &file);
         };
+        static_assert(sizeof(Offset) == 12 + sizeof(Array<Record>));
 
         /*  struct: TTCHeader
             Author: Philip Haynes
@@ -99,6 +101,7 @@ namespace font {
             u32 dsigOffset;
             bool Read(std::ifstream &file);
         };
+        static_assert(sizeof(TTCHeader) == 24 + sizeof(Array<u32>));
 
         struct cmap_encoding {
             u16 platformID;
@@ -106,12 +109,14 @@ namespace font {
             u32 offset; // Bytes from beginning of cmap table
             void EndianSwap();
         };
+        static_assert(sizeof(cmap_encoding) == 8);
 
         struct cmap_index {
             u16 version; // Must be set to zero
             u16 numberSubtables; // How many encoding subtables there are
             void EndianSwap();
         };
+        static_assert(sizeof(cmap_index) == 4);
 
         /*
             Here we have the 3 cmap formats supported by Apple's implementations.
@@ -144,6 +149,7 @@ namespace font {
             u8 glpyhIndexArray[256];        // The mapping
             void EndianSwap();
         };
+        static_assert(sizeof(cmap_format0) == 262);
 
         struct cmap_format4 {
             u16 format;                     // Should be 4
@@ -179,6 +185,7 @@ namespace font {
                 return *(&rangeShift + segCountX2*2 + 2 + i);
             }
         };
+        static_assert(sizeof(cmap_format4) == 14);
 
         struct cmap_format12_group {
             u32 startCharCode;              // First character code in this group
@@ -186,6 +193,7 @@ namespace font {
             u32 startGlpyhCode;             // Glyph index corresponding to the starting character code.
             void EndianSwap();
         };
+        static_assert(sizeof(cmap_format12_group) == 12);
 
         struct cmap_format12 {
             Fixed_t format; // Should be 12.0
@@ -199,6 +207,7 @@ namespace font {
                 return *((cmap_format12_group*)((char*)this + sizeof(cmap_format12) + sizeof(cmap_format12_group) * i));
             }
         };
+        static_assert(sizeof(cmap_format12) == 16);
 
         /*  struct: head
             Author: Philip Haynes
@@ -251,6 +260,7 @@ namespace font {
             i16 glyphDataFormat; // 0 for current format
             void EndianSwap();
         };
+        static_assert(sizeof(head) == 54);
 
         // Same exact thing, only used to indicate that the font doesn't
         // have any glyph outlines and only contains embedded bitmaps.
@@ -280,6 +290,7 @@ namespace font {
             u16 maxComponentDepth;      // Maximum levels of recursion; 1 for simple components
             void EndianSwap();
         };
+        static_assert(sizeof(maxp) == 32);
 
         /*  struct: loca
             Author: Philip Haynes
@@ -310,6 +321,7 @@ namespace font {
             i16 yMax;
             void EndianSwap();
         };
+        static_assert(sizeof(glyf_header) == 10);
 
         /*  struct: glyf
             Author: Philip Haynes
@@ -431,12 +443,14 @@ namespace font {
                 Card8 nLeft; // Glyphs left in range (excluding first)
                 void EndianSwap();
             };
+            static_assert(sizeof(charset_range1) == 3);
 
             struct charset_range2 {
                 SID first; // First glyph in range.
                 Card16 nLeft; // Glyphs left in range (excluding first)
                 void EndianSwap();
             };
+            static_assert(sizeof(charset_range2) == 4);
 
             struct charset_format1 {
                 Card8 format; // Should be 1
@@ -478,6 +492,7 @@ namespace font {
                 Card16 first;   // First glyph in range
                 Card8 fd;       // Which index of FDArray the range maps to.
             };
+            static_assert(sizeof(FDSelect_range3) == 3);
 
             struct FDSelect_format3 {
                 Card8 format; // Should be 3
@@ -486,6 +501,7 @@ namespace font {
                 // Card16 sentinel; // Used to delimit the last range element
                 void EndianSwap();
             };
+            static_assert(sizeof(FDSelect_format3) == 3);
 
             /*  struct: dict
                 Author: Philip Haynes
@@ -574,13 +590,16 @@ namespace font {
                 // Returns an Array of offsets into data
                 Array<u32> EndianSwap(char **ptr, char** dataStart);
             };
+            static_assert(sizeof(index) == 3);
 
             struct header {
                 Card8 versionMajor; // Should be at least 1
                 Card8 versionMinor; // We don't care about this unless we want to support extensions
                 Card8 size;         // Size of this header, used to locate the Name INDEX since it may vary between versions
                 OffSize offSize;    // Specifies the size of all offsets into the CFF data.
+                // At least that's what the spec says. It looks like actual fonts don't care about this value.
             };
+            static_assert(sizeof(header) == 4);
 
         };
 

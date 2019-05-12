@@ -361,175 +361,88 @@ for (;*firstOperand != operator1;) {        \
     }                                       \
 }                                           \
 out += '}';
-                if (operator1 == 12) {
-                    u8 operator2 = *(*data)++;
-                    // Start with Private DICT data since there may be more than 1?
-                    if (operator2 == 9) {
-                        out += "BlueScale: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 10) {
-                        out += "BlueShift: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 11) {
-                        out += "BlueFuzz: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 12) {
-                        out += "StemSnapH: ";
-                        GETARR();
-                    } else if (operator2 == 13) {
-                        out += "StemSnapV: ";
-                        GETARR();
-                    } else if (operator2 == 14) {
-                        out += "ForceBold: ";
-                        out += boolString[*firstOperand];
-                    } else if (operator2 == 17) {
-                        out += "LanguageGroup: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 18) {
-                        out += "ExpansionFactor: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 19) {
-                        out += "initialRandomSeed: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 0) { // Top DICT
-                        out += "Copyright: ";
-                        GETSID();
-                    } else if (operator2 == 1) {
-                        out += "isFixedPitch: ";
-                        out += boolString[*firstOperand];
-                    } else if (operator2 == 2) {
-                        out += "italicAngle: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 3) {
-                        out += "UnderlinePosition: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 4) {
-                        out += "UnderlineThickness: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 5) {
-                        out += "PaintType: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 6) {
-                        out += "CharstringType: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 7) {
-                        out += "FontMatrix: ";
-                        GETARR();
-                    } else if (operator2 == 8) {
-                        out += "StrokeWidth: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 20) {
-                        out += "SyntheticBase: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 21) {
-                        out += "PostScript: ";
-                        GETSID();
-                    } else if (operator2 == 22) {
-                        out += "BaseFontName: ";
-                        GETSID();
-                    } else if (operator2 == 23) {
-                        out += "BaseFontBlend(delta): ";
-                        GETARR();
-                    } else if (operator2 == 30) { // Here there be CIDFont Operators
-                        out += "Registry: ";
-                        GETSID();
-                        out += " Ordering: ";
-                        GETSID();
-                        out += " Supplement: " + OperandString(&firstOperand);
-                    } else if (operator2 == 31) {
-                        out += "CIDFontVersion: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 32) {
-                        out += "CIDFontRevision: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 33) {
-                        out += "CIDFontType: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 34) {
-                        out += "CIDCount: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 35) {
-                        out += "UIDBase: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 36) {
-                        out += "FDArray: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 37) {
-                        out += "FDSelect: ";
-                        out += OperandString(&firstOperand);
-                    } else if (operator2 == 38) {
-                        out += "CIDFontName: ";
-                        GETSID();
-                    } else {
-                        out += "Operator ERROR 12 " + ToString((u32)operator2);
+#define CASE_VAL(op, var) case op : { out += #var ": "; out += OperandString(&firstOperand); break; }
+#define CASE_BOOL(op, var) case op : { out += #var ": "; out += boolString[*firstOperand!=0]; break; }
+#define CASE_SID(op, var) case op : { out += #var ": "; GETSID(); break; }
+#define CASE_ARR(op, var) case op : { out += #var ": "; GETARR(); break; }
+                switch(operator1) {
+                    case 12: {
+                        u8 operator2 = *(*data)++;
+                        switch(operator2) {
+                            // Private DICT
+                            CASE_VAL(        9, BlueScale);
+                            CASE_VAL(       10, BlueShift);
+                            CASE_VAL(       11, BlueFuzz);
+                            CASE_ARR(       12, StemSnapH);
+                            CASE_ARR(       13, StemSnapV);
+                            CASE_BOOL(      14, ForceBold);
+                            CASE_VAL(       17, LanguageGroup);
+                            CASE_VAL(       18, ExpansionFactor);
+                            CASE_VAL(       19, initialRandomSeed);
+                            // Top DICT
+                            CASE_SID(        0, Copyright);
+                            CASE_BOOL(       1, isFixedPitch);
+                            CASE_VAL(        2, ItalicAngle);
+                            CASE_VAL(        3, UnderlinePosition);
+                            CASE_VAL(        4, UnderlineThickness);
+                            CASE_VAL(        5, PaintType);
+                            CASE_VAL(        6, CharstringType);
+                            CASE_ARR(        7, FontMatrix);
+                            CASE_VAL(        8, StrokeWidth);
+                            CASE_VAL(       20, SyntheticBase);
+                            CASE_SID(       21, PostScript);
+                            CASE_SID(       22, BaseFontName);
+                            CASE_ARR(       23, BaseFontBlend);
+                            // CIDFont-only Operators
+                            case 30: { out += "Registry: "; GETSID(); out += " Ordering: "; GETSID();
+                                out += " Supplement: " + OperandString(&firstOperand); break; }
+                            CASE_VAL(       31, CIDFontVersion);
+                            CASE_VAL(       32, CIDFontRevision);
+                            CASE_VAL(       33, CIDFontType);
+                            CASE_VAL(       34, CIDCount);
+                            CASE_VAL(       35, UIDBase);
+                            CASE_VAL(       36, FDArray);
+                            CASE_VAL(       37, FDSelect);
+                            CASE_SID(       38, FontName);
+                            default: {
+                                cout << "Operator Error 12:" << operator2 << std::endl;
+                            }
+                        }
+                        break;
                     }
-                } else if (operator1 == 6) { // Private DICT
-                    out += "BlueValues: ";
-                    GETARR();
-                } else if (operator1 == 7) {
-                    out += "OtherBlues: ";
-                    GETARR();
-                } else if (operator1 == 8) {
-                    out += "FamilyBlues: ";
-                    GETARR();
-                } else if (operator1 == 9) {
-                    out += "FamilyOtherBlues: ";
-                    GETARR();
-                } else if (operator1 == 10) {
-                    out += "StdHW: ";
-                    out += OperandString(&firstOperand);
-                } else if (operator1 == 11) {
-                    out += "StdVW: ";
-                    out += OperandString(&firstOperand);
-                } else if (operator1 == 19) {
-                    out += "Subrs: ";
-                    out += OperandString(&firstOperand);
-                } else if (operator1 == 20) {
-                    out += "defaultWidthX: ";
-                    out += OperandString(&firstOperand);
-                } else if (operator1 == 21) {
-                    out += "nominalWidthX: ";
-                    out += OperandString(&firstOperand);
-                } else if (operator1 == 0) { // Top DICT
-                    out += "Version: ";
-                    GETSID();
-                } else if (operator1 == 1) {
-                    out += "Notice: ";
-                    GETSID();
-                } else if (operator1 == 2) {
-                    out += "FullName: ";
-                    GETSID();
-                } else if (operator1 == 3) {
-                    out += "FamilyName: ";
-                    GETSID();
-                } else if (operator1 == 4) {
-                    out += "Weight: ";
-                    GETSID();
-                } else if (operator1 == 5) {
-                    out += "FontBBox: ";
-                    GETARR();
-                } else if (operator1 == 13) {
-                    out += "UniqueID: ";
-                    out += OperandString(&firstOperand);
-                } else if (operator1 == 14) {
-                    out += "XUID: ";
-                    GETARR();
-                } else if (operator1 == 15) {
-                    out += "charset: ";
-                    out += OperandString(&firstOperand);
-                } else if (operator1 == 16) {
-                    out += "Encoding: ";
-                    out += OperandString(&firstOperand);
-                } else if (operator1 == 17) {
-                    out += "CharStrings: ";
-                    out += OperandString(&firstOperand);
-                } else if (operator1 == 18) {
-                    out += "Private: offset: ";
-                    out += OperandString(&firstOperand) + ", size: " + OperandString(&firstOperand);
-                } else {
-                    out += "Operator ERROR " + ToString((u32)operator1);
-
+                    // Private DICT
+                    CASE_ARR(        6, BlueValues);
+                    CASE_ARR(        7, OtherBlues);
+                    CASE_ARR(        8, FamilyBlues);
+                    CASE_ARR(        9, FamilyOtherBlues);
+                    CASE_VAL(       10, StdHW);
+                    CASE_VAL(       11, StdVW);
+                    CASE_VAL(       13, UniqueID);
+                    CASE_VAL(       19, Subrs);
+                    CASE_VAL(       20, defaultWidthX);
+                    CASE_VAL(       21, nominalWidthX);
+                    // Top DICT
+                    CASE_SID(        0, version);
+                    CASE_SID(        1, Notice);
+                    CASE_SID(        2, FullName);
+                    CASE_SID(        3, FamilyName);
+                    CASE_SID(        4, Weight);
+                    CASE_ARR(        5, FontBBox);
+                    CASE_ARR(       14, XUID);
+                    CASE_VAL(       15, charset);
+                    CASE_VAL(       16, Encoding);
+                    CASE_VAL(       17, CharStrings);
+                    case 18: { out += "Private: offset: " + OperandString(&firstOperand)
+                        + ", size: " + OperandString(&firstOperand); break; }
+                    default: {
+                        cout << "Operator Error " << operator1 << std::endl;
+                        break;
+                    }
                 }
+#undef CASE_VAL
+#undef CASE_BOOL
+#undef CASE_SID
+#undef CASE_ARR
 #undef GETSID
 #undef GETARR
                 return out;
@@ -579,117 +492,92 @@ arr.Clear();                                \
 for (;*firstOperand != operator1;) {        \
     arr.Append(ophandler(&firstOperand));   \
 }
-                if (operator1 == 12) {
-                    u8 operator2 = *(*data)++;
-                    if (operator2 == 9) { // Private DICT
-                        BlueScale = OperandF32(&firstOperand);
-                    } else if (operator2 == 10) {
-                        BlueShift = OperandF32(&firstOperand);
-                    } else if (operator2 == 11) {
-                        BlueFuzz = OperandF32(&firstOperand);
-                    } else if (operator2 == 12) {
-                        GETARR(StemSnapH, OperandF32);
-                    } else if (operator2 == 13) {
-                        GETARR(StemSnapV, OperandF32);
-                    } else if (operator2 == 14) {
-                        ForceBold = *firstOperand != 0;
-                    } else if (operator2 == 17) {
-                        LanguageGroup = OperandI32(&firstOperand);
-                    } else if (operator2 == 18) {
-                        ExpansionFactor = OperandF32(&firstOperand);
-                    } else if (operator2 == 19) {
-                        initialRandomSeed = OperandI32(&firstOperand);
-                    } else if (operator2 == 0) { // Top DICT
-                        GETSID(Copyright);
-                    } else if (operator2 == 1) {
-                        isFixedPitch = *firstOperand != 0;
-                    } else if (operator2 == 2) {
-                        ItalicAngle = OperandI32(&firstOperand);
-                    } else if (operator2 == 3) {
-                        UnderlinePosition = OperandI32(&firstOperand);
-                    } else if (operator2 == 4) {
-                        UnderlineThickness = OperandI32(&firstOperand);
-                    } else if (operator2 == 5) {
-                        PaintType = OperandI32(&firstOperand);
-                    } else if (operator2 == 6) {
-                        CharstringType = OperandI32(&firstOperand);
-                    } else if (operator2 == 7) {
-                        GETARR(FontMatrix, OperandF32);
-                    } else if (operator2 == 8) {
-                        StrokeWidth = OperandF32(&firstOperand);
-                    } else if (operator2 == 20) {
-                        SyntheticBase = OperandI32(&firstOperand);
-                    } else if (operator2 == 21) {
-                        GETSID(PostScript);
-                    } else if (operator2 == 22) {
-                        GETSID(BaseFontName);
-                    } else if (operator2 == 23) {
-                        GETARR(BaseFontBlend, OperandI32);
-                    } else if (operator2 == 30) { // Here there be CIDFont Operators
-                        GETSID(ROS.registry);
-                        GETSID(ROS.ordering);
-                        ROS.supplement = OperandI32(&firstOperand);
-                    } else if (operator2 == 31) {
-                        CIDFontVersion = OperandF32(&firstOperand);
-                    } else if (operator2 == 32) {
-                        CIDFontRevision = OperandF32(&firstOperand);
-                    } else if (operator2 == 33) {
-                        CIDFontType = OperandI32(&firstOperand);
-                    } else if (operator2 == 34) {
-                        CIDCount = OperandI32(&firstOperand);
-                    } else if (operator2 == 35) {
-                        UIDBase = OperandI32(&firstOperand);
-                    } else if (operator2 == 36) {
-                        FDArray = OperandI32(&firstOperand);
-                    } else if (operator2 == 37) {
-                        FDSelect = OperandI32(&firstOperand);
-                    } else if (operator2 == 38) {
-                        GETSID(FontName);
+#define CASE_F32(op, var) case op : { var = OperandF32(&firstOperand); break; }
+#define CASE_I32(op, var) case op : { var = OperandI32(&firstOperand); break; }
+#define CASE_BOOL(op, var) case op : { var = *firstOperand != 0; break; }
+#define CASE_SID(op, var) case op : { GETSID(var); break; }
+#define CASE_ARR_F32(op, var) case op : { GETARR(var, OperandF32); break; }
+#define CASE_ARR_I32(op, var) case op : { GETARR(var, OperandI32); break; }
+                switch(operator1) {
+                    case 12: {
+                        u8 operator2 = *(*data)++;
+                        switch(operator2) {
+                            // Private DICT
+                            CASE_F32(        9, BlueScale);
+                            CASE_F32(       10, BlueShift);
+                            CASE_F32(       11, BlueFuzz);
+                            CASE_ARR_F32(   12, StemSnapH);
+                            CASE_ARR_F32(   13, StemSnapV);
+                            CASE_BOOL(      14, ForceBold);
+                            CASE_I32(       17, LanguageGroup);
+                            CASE_F32(       18, ExpansionFactor);
+                            CASE_I32(       19, initialRandomSeed);
+                            // Top DICT
+                            CASE_SID(        0, Copyright);
+                            CASE_BOOL(       1, isFixedPitch);
+                            CASE_I32(        2, ItalicAngle);
+                            CASE_I32(        3, UnderlinePosition);
+                            CASE_I32(        4, UnderlineThickness);
+                            CASE_I32(        5, PaintType);
+                            CASE_I32(        6, CharstringType);
+                            CASE_ARR_F32(    7, FontMatrix);
+                            CASE_F32(        8, StrokeWidth);
+                            CASE_I32(       20, SyntheticBase);
+                            CASE_SID(       21, PostScript);
+                            CASE_SID(       22, BaseFontName);
+                            CASE_ARR_I32(   23, BaseFontBlend);
+                            // CIDFont-only Operators
+                            case 30: { GETSID(ROS.registry); GETSID(ROS.ordering);
+                                ROS.supplement = OperandI32(&firstOperand); break; }
+                            CASE_F32(       31, CIDFontVersion);
+                            CASE_F32(       32, CIDFontRevision);
+                            CASE_I32(       33, CIDFontType);
+                            CASE_I32(       34, CIDCount);
+                            CASE_I32(       35, UIDBase);
+                            CASE_I32(       36, FDArray);
+                            CASE_I32(       37, FDSelect);
+                            CASE_SID(       38, FontName);
+                            default: {
+                                cout << "Operator Error 12:" << operator2 << std::endl;
+                            }
+                        }
+                        break;
                     }
-                } else if (operator1 == 6) { // Private DICT
-                    GETARR(BlueValues, OperandI32);
-                } else if (operator1 == 7) {
-                    GETARR(OtherBlues, OperandI32);
-                } else if (operator1 == 8) {
-                    GETARR(FamilyBlues, OperandI32);
-                } else if (operator1 == 9) {
-                    GETARR(FamilyOtherBlues, OperandI32);
-                } else if (operator1 == 10) {
-                    StdHW = OperandF32(&firstOperand);
-                } else if (operator1 == 11) {
-                    StdVW = OperandF32(&firstOperand);
-                } else if (operator1 == 19) {
-                    Subrs = OperandI32(&firstOperand);
-                } else if (operator1 == 20) {
-                    defaultWidthX = OperandI32(&firstOperand);
-                } else if (operator1 == 21) {
-                    nominalWidthX = OperandI32(&firstOperand);
-                } else if (operator1 == 0) { // Top DICT
-                    GETSID(version);
-                } else if (operator1 == 1) {
-                    GETSID(Notice);
-                } else if (operator1 == 2) {
-                    GETSID(FullName);
-                } else if (operator1 == 3) {
-                    GETSID(FamilyName);
-                } else if (operator1 == 4) {
-                    GETSID(Weight);
-                } else if (operator1 == 5) {
-                    GETARR(FontBBox, OperandI32);
-                } else if (operator1 == 14) {
-                    GETARR(XUID, OperandI32);
-                } else if (operator1 == 15) {
-                    charset = OperandI32(&firstOperand);
-                } else if (operator1 == 16) {
-                    Encoding = OperandI32(&firstOperand);
-                } else if (operator1 == 17) {
-                    CharStrings = OperandI32(&firstOperand);
-                } else if (operator1 == 18) {
-                    Private.offset = OperandI32(&firstOperand);
-                    Private.size = OperandI32(&firstOperand);
-                } else {
-                    cout << "Operator Error" << std::endl;
+                    // Private DICT
+                    CASE_ARR_I32(    6, BlueValues);
+                    CASE_ARR_I32(    7, OtherBlues);
+                    CASE_ARR_I32(    8, FamilyBlues);
+                    CASE_ARR_I32(    9, FamilyOtherBlues);
+                    CASE_F32(       10, StdHW);
+                    CASE_F32(       11, StdVW);
+                    CASE_I32(       13, UniqueID);
+                    CASE_I32(       19, Subrs);
+                    CASE_I32(       20, defaultWidthX);
+                    CASE_I32(       21, nominalWidthX);
+                    // Top DICT
+                    CASE_SID(        0, version);
+                    CASE_SID(        1, Notice);
+                    CASE_SID(        2, FullName);
+                    CASE_SID(        3, FamilyName);
+                    CASE_SID(        4, Weight);
+                    CASE_ARR_I32(    5, FontBBox);
+                    CASE_ARR_I32(   14, XUID);
+                    CASE_I32(       15, charset);
+                    CASE_I32(       16, Encoding);
+                    CASE_I32(       17, CharStrings);
+                    case 18: { Private.offset = OperandI32(&firstOperand);
+                        Private.size = OperandI32(&firstOperand); break; }
+                    default: {
+                        cout << "Operator Error " << operator1 << std::endl;
+                        break;
+                    }
                 }
+#undef CASE_F32
+#undef CASE_I32
+#undef CASE_BOOL
+#undef CASE_SID
+#undef CASE_ARR_F32
+#undef CASE_ARR_I32
 #undef GETSID
 #undef GETARR
             }

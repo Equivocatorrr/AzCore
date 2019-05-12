@@ -66,7 +66,7 @@ namespace font {
 
         namespace cffs {
 
-            #include "font_cff_std_strings.c"
+            #include "font_cff_std_data.c"
 
             typedef String (*fpCharStringOperatorResolution)(u8**, u8*);
 
@@ -109,7 +109,8 @@ namespace font {
                     } while (nibbles[0] != 0xf && nibbles[1] != 0xf);
                     (*data)++;
                 } else {
-                    cout << "Operand ERROR "<< (u16)b0;
+                    cout << "Operand ERROR " << (u16)b0;
+                    (*data)++;
                 }
             }
 
@@ -164,6 +165,7 @@ namespace font {
                     (*data)++;
                 } else {
                     out += "Operand ERROR " + ToString((u16)b0);
+                    (*data)++;
                 }
                 return out;
             }
@@ -252,6 +254,7 @@ namespace font {
                     (*data)++;
                 } else {
                     cout << "Operand ERROR " << (u16)b0;
+                    (*data)++;
                 }
                 return out;
             }
@@ -340,6 +343,7 @@ namespace font {
                     (*data)++;
                 } else {
                     cout << "Operand ERROR " << (u16)b0;
+                    (*data)++;
                 }
                 return out;
             }
@@ -359,7 +363,35 @@ for (;*firstOperand != operator1;) {        \
 out += '}';
                 if (operator1 == 12) {
                     u8 operator2 = *(*data)++;
-                    if (operator2 == 0) {
+                    // Start with Private DICT data since there may be more than 1?
+                    if (operator2 == 9) {
+                        out += "BlueScale: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 10) {
+                        out += "BlueShift: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 11) {
+                        out += "BlueFuzz: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 12) {
+                        out += "StemSnapH: ";
+                        GETARR();
+                    } else if (operator2 == 13) {
+                        out += "StemSnapV: ";
+                        GETARR();
+                    } else if (operator2 == 14) {
+                        out += "ForceBold: ";
+                        out += boolString[*firstOperand];
+                    } else if (operator2 == 17) {
+                        out += "LanguageGroup: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 18) {
+                        out += "ExpansionFactor: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 19) {
+                        out += "initialRandomSeed: ";
+                        out += OperandString(&firstOperand);
+                    } else if (operator2 == 0) { // Top DICT
                         out += "Copyright: ";
                         GETSID();
                     } else if (operator2 == 1) {
@@ -428,8 +460,37 @@ out += '}';
                     } else if (operator2 == 38) {
                         out += "CIDFontName: ";
                         GETSID();
+                    } else {
+                        out += "Operator ERROR 12 " + ToString((u32)operator2);
                     }
-                } else if (operator1 == 0) {
+                } else if (operator1 == 6) { // Private DICT
+                    out += "BlueValues: ";
+                    GETARR();
+                } else if (operator1 == 7) {
+                    out += "OtherBlues: ";
+                    GETARR();
+                } else if (operator1 == 8) {
+                    out += "FamilyBlues: ";
+                    GETARR();
+                } else if (operator1 == 9) {
+                    out += "FamilyOtherBlues: ";
+                    GETARR();
+                } else if (operator1 == 10) {
+                    out += "StdHW: ";
+                    out += OperandString(&firstOperand);
+                } else if (operator1 == 11) {
+                    out += "StdVW: ";
+                    out += OperandString(&firstOperand);
+                } else if (operator1 == 19) {
+                    out += "Subrs: ";
+                    out += OperandString(&firstOperand);
+                } else if (operator1 == 20) {
+                    out += "defaultWidthX: ";
+                    out += OperandString(&firstOperand);
+                } else if (operator1 == 21) {
+                    out += "nominalWidthX: ";
+                    out += OperandString(&firstOperand);
+                } else if (operator1 == 0) { // Top DICT
                     out += "Version: ";
                     GETSID();
                 } else if (operator1 == 1) {
@@ -447,6 +508,9 @@ out += '}';
                 } else if (operator1 == 5) {
                     out += "FontBBox: ";
                     GETARR();
+                } else if (operator1 == 13) {
+                    out += "UniqueID: ";
+                    out += OperandString(&firstOperand);
                 } else if (operator1 == 14) {
                     out += "XUID: ";
                     GETARR();
@@ -460,24 +524,25 @@ out += '}';
                     out += "CharStrings: ";
                     out += OperandString(&firstOperand);
                 } else if (operator1 == 18) {
-                    out += "Private: size: ";
-                    out += OperandString(&firstOperand) + ", offset: " + OperandString(&firstOperand);
+                    out += "Private: offset: ";
+                    out += OperandString(&firstOperand) + ", size: " + OperandString(&firstOperand);
                 } else {
-                    out += "Operator ERROR";
+                    out += "Operator ERROR " + ToString((u32)operator1);
+
                 }
 #undef GETSID
 #undef GETARR
                 return out;
             }
 
-            String CharString(u8 *start, u8 *end, fpCharStringOperatorResolution OperatorResolution) {
+            String CharString(u8 *start, u8 *end) {
                 String out(false);
                 out.Reserve(i32(end-start));
                 u8 *firstOperand = start;
-                while (start <= end) {
+                while (start < end) {
                     const u8 b0 = *start;
                     if (b0 <= 21) {
-                        out += OperatorResolution(&start, firstOperand);
+                        out += DictOperatorResolution(&start, firstOperand);
                         out += "\n";
                         firstOperand = start;
                     } else if (!(b0 == 31 || b0 == 255 || (b0 <= 27 && b0 >= 22))) {
@@ -516,10 +581,28 @@ for (;*firstOperand != operator1;) {        \
 }
                 if (operator1 == 12) {
                     u8 operator2 = *(*data)++;
-                    if (operator2 == 0) {
+                    if (operator2 == 9) { // Private DICT
+                        BlueScale = OperandF32(&firstOperand);
+                    } else if (operator2 == 10) {
+                        BlueShift = OperandF32(&firstOperand);
+                    } else if (operator2 == 11) {
+                        BlueFuzz = OperandF32(&firstOperand);
+                    } else if (operator2 == 12) {
+                        GETARR(StemSnapH, OperandF32);
+                    } else if (operator2 == 13) {
+                        GETARR(StemSnapV, OperandF32);
+                    } else if (operator2 == 14) {
+                        ForceBold = *firstOperand != 0;
+                    } else if (operator2 == 17) {
+                        LanguageGroup = OperandI32(&firstOperand);
+                    } else if (operator2 == 18) {
+                        ExpansionFactor = OperandF32(&firstOperand);
+                    } else if (operator2 == 19) {
+                        initialRandomSeed = OperandI32(&firstOperand);
+                    } else if (operator2 == 0) { // Top DICT
                         GETSID(Copyright);
                     } else if (operator2 == 1) {
-                        isFixedPitch = *firstOperand;
+                        isFixedPitch = *firstOperand != 0;
                     } else if (operator2 == 2) {
                         ItalicAngle = OperandI32(&firstOperand);
                     } else if (operator2 == 3) {
@@ -563,7 +646,25 @@ for (;*firstOperand != operator1;) {        \
                     } else if (operator2 == 38) {
                         GETSID(FontName);
                     }
-                } else if (operator1 == 0) {
+                } else if (operator1 == 6) { // Private DICT
+                    GETARR(BlueValues, OperandI32);
+                } else if (operator1 == 7) {
+                    GETARR(OtherBlues, OperandI32);
+                } else if (operator1 == 8) {
+                    GETARR(FamilyBlues, OperandI32);
+                } else if (operator1 == 9) {
+                    GETARR(FamilyOtherBlues, OperandI32);
+                } else if (operator1 == 10) {
+                    StdHW = OperandF32(&firstOperand);
+                } else if (operator1 == 11) {
+                    StdVW = OperandF32(&firstOperand);
+                } else if (operator1 == 19) {
+                    Subrs = OperandI32(&firstOperand);
+                } else if (operator1 == 20) {
+                    defaultWidthX = OperandI32(&firstOperand);
+                } else if (operator1 == 21) {
+                    nominalWidthX = OperandI32(&firstOperand);
+                } else if (operator1 == 0) { // Top DICT
                     GETSID(version);
                 } else if (operator1 == 1) {
                     GETSID(Notice);
@@ -584,8 +685,8 @@ for (;*firstOperand != operator1;) {        \
                 } else if (operator1 == 17) {
                     CharStrings = OperandI32(&firstOperand);
                 } else if (operator1 == 18) {
-                    Private.size = OperandI32(&firstOperand);
                     Private.offset = OperandI32(&firstOperand);
+                    Private.size = OperandI32(&firstOperand);
                 } else {
                     cout << "Operator Error" << std::endl;
                 }
@@ -976,6 +1077,80 @@ for (;*firstOperand != operator1;) {        \
             cout << "Completed! Total size: " << u32(ptr-(char*)header) << "\n" << std::endl;
         }
 
+        void cffs::charset_format_any::EndianSwap(Card16 nGlyphs) {
+            if (format == 0) {
+                ((cffs::charset_format0*)this)->EndianSwap(nGlyphs);
+            } else if (format == 1) {
+                ((cffs::charset_format1*)this)->EndianSwap(nGlyphs);
+            } else if (format == 2) {
+                ((cffs::charset_format2*)this)->EndianSwap(nGlyphs);
+            } else {
+                cout << "Unsupported charset format " << (u32)format << std::endl;
+            }
+        }
+
+        void cffs::charset_format0::EndianSwap(Card16 nGlyphs) {
+            SID *glyph = (SID*)(&format + 1);
+            for (Card16 i = 0; i < nGlyphs-1; i++) {
+                ENDIAN_SWAP(*glyph);
+                glyph++;
+            }
+        }
+
+        void cffs::charset_range1::EndianSwap() {
+            ENDIAN_SWAP(first);
+        }
+
+        void cffs::charset_range2::EndianSwap() {
+            ENDIAN_SWAP(first);
+            ENDIAN_SWAP(nLeft);
+            cout << "charset_range2: first = " << (u32)first << ", nLeft = " << nLeft << std::endl;
+        }
+
+        void cffs::charset_format1::EndianSwap(Card16 nGlyphs) {
+            i32 glyphsRemaining = nGlyphs-1;
+            cffs::charset_range1 *range = (cffs::charset_range1*)(&format + 1);
+            while (glyphsRemaining > 0) {
+                range->EndianSwap();
+                glyphsRemaining -= range->nLeft+1;
+                range++;
+            }
+        }
+
+        void cffs::charset_format2::EndianSwap(Card16 nGlyphs) {
+            i32 glyphsRemaining = nGlyphs-1;
+            cffs::charset_range2 *range = (cffs::charset_range2*)(&format + 1);
+            while (glyphsRemaining > 0) {
+                range->EndianSwap();
+                glyphsRemaining -= range->nLeft+1;
+                range++;
+            }
+        }
+
+        void cffs::FDSelect_any::EndianSwap() {
+            if (format == 0) {
+                cout << "Format 0" << std::endl;
+            } else if (format == 3) {
+                cout << "Format 3" << std::endl;
+                ((cffs::FDSelect_format3*)this)->EndianSwap();
+            } else {
+                cout << "Unsupported FDSelect format " << format << std::endl;
+            }
+        }
+
+        void cffs::FDSelect_format3::EndianSwap() {
+            ENDIAN_SWAP(nRanges);
+            cout << "nRanges = " << nRanges << std::endl;
+            cffs::FDSelect_range3 *range = (cffs::FDSelect_range3*)(&format + 3);
+            for (u32 i = 0; i < (u32)nRanges; i++) {
+                ENDIAN_SWAP(range->first);
+                // cout << "Range[" << i << "].first = " << range->first << ", fd = " << (u32)range->fd << std::endl;
+                range++;
+            }
+            ENDIAN_SWAP(range->first);
+            // cout << "Sentinel = " << range->first << std::endl;
+        }
+
         Array<u32> cffs::index::EndianSwap(char **ptr, char **dataStart) {
             ENDIAN_SWAP(count);
             *ptr += 2;
@@ -985,21 +1160,21 @@ for (;*firstOperand != operator1;) {        \
                 offsets.Resize(count+1);
                 cout << "count = " << count << ", offSize = " << (u32)offSize << std::endl;
                 (*ptr)++; // Getting over offSize
-                for (u16 i = 0; i < count+1; i++) {
+                for (u32 i = 0; i < (u32)count+1; i++) {
                     u32 offset;
                     if (offSize == 1) {
-                        offset = *((*ptr)++);
+                        offset = *((u8*)(*ptr)++);
                     } else if (offSize == 2) {
-                        cffs::Offset16 *off = (cffs::Offset16*)*ptr;
+                        cffs::Offset16 *off = (cffs::Offset16*)(u8*)*ptr;
                         ENDIAN_SWAP(*off);
                         offset = *off;
                         *ptr += 2;
                     } else if (offSize == 3) {
-                        cffs::Offset24 *off = (cffs::Offset24*)*ptr;
+                        cffs::Offset24 *off = (cffs::Offset24*)(u8*)*ptr;
                         offset = off->value();
                         *ptr += 3;
                     } else if (offSize == 4) {
-                        cffs::Offset32 *off = (cffs::Offset32*)*ptr;
+                        cffs::Offset32 *off = (cffs::Offset32*)(u8*)*ptr;
                         ENDIAN_SWAP(*off);
                         offset = *off;
                         *ptr += 4;
@@ -1031,14 +1206,23 @@ for (;*firstOperand != operator1;) {        \
                 cout << "[" << i << "]=\"" << string << "\" ";
             }
             cout << std::endl;
+            if (nameIndexOffsets.size > 2) {
+                cout << "We only support CFF tables with 1 Name entry." << std::endl;
+                return;
+            }
 
             cffs::index *dictIndex = (cffs::index*)ptr;
             char *dictIndexData;
             cout << "dictIndex:\n";
             Array<u32> dictIndexOffsets = dictIndex->EndianSwap(&ptr, &dictIndexData);
-            cout << "dictIndex charstrings:\n" << cffs::CharString((u8*)dictIndexData+dictIndexOffsets[0], (u8*)dictIndexData + dictIndexOffsets[dictIndexOffsets.size-1], cffs::DictOperatorResolution) << std::endl;
+            cout << "dictIndex charstrings:\n" << cffs::CharString((u8*)dictIndexData+dictIndexOffsets[0], (u8*)dictIndexData + dictIndexOffsets[dictIndexOffsets.size-1]) << std::endl;
             cffs::dict dictIndexValues;
             dictIndexValues.ParseCharString((u8*)dictIndexData+dictIndexOffsets[0], dictIndexOffsets[1]-dictIndexOffsets[0]);
+
+            if (dictIndexValues.CharstringType != 2) {
+                cout << "Unsupported CharstringType " << dictIndexValues.CharstringType << std::endl;
+                return;
+            }
 
             cffs::index *stringsIndex = (cffs::index*)ptr;
             char *stringsIndexData;
@@ -1071,9 +1255,56 @@ for (;*firstOperand != operator1;) {        \
             // }
             // cout << std::endl;
 
-            char *charsets = (char*)this + dictIndexValues.charset;
+            if (dictIndexValues.CharStrings == -1) {
+                cout << "WHAAAT NO CHARSTRINGS???" << std::endl;
+                return;
+            }
 
-            cout << "Charsets format = " << (i32)*charsets << std::endl;
+            cout << "charStringsIndex:\n";
+            ptr = (char*)this + dictIndexValues.CharStrings;
+            cffs::index *charStringsIndex = (cffs::index*)ptr;
+            char *charStringsIndexData;
+            Array<u32> charStringsIndexOffsets = charStringsIndex->EndianSwap(&ptr, &charStringsIndexData);
+
+            // Do we have a predefined charset or a custom one?
+            if (dictIndexValues.charset == 0) {
+                // ISOAdobe charset
+                cout << "We are using the ISOAdobe predefined charset." << std::endl;
+            } else if (dictIndexValues.charset == 1) {
+                // Expert charset
+                cout << "We are using the Expert predefined charset." << std::endl;
+            } else if (dictIndexValues.charset == 2) {
+                // ExpertSubset charset
+                cout << "We are using the ExpertSubset predefined charset." << std::endl;
+            } else {
+                // Custom charset
+                cffs::charset_format_any *charset = (cffs::charset_format_any*)((char*)this + dictIndexValues.charset);
+                cout << "We are using a custom charset with format " << (i32)charset->format << std::endl;
+                charset->EndianSwap(charStringsIndex->count);
+            }
+
+            if (dictIndexValues.FDSelect != -1) {
+                if (dictIndexValues.FDArray == -1) {
+                    cout << "CIDFonts must have an FDArray!" << std::endl;
+                    return;
+                }
+                cout << "FDSelect:\n";
+                cffs::FDSelect_any *fdSelect = (cffs::FDSelect_any*)((char*)this + dictIndexValues.FDSelect);
+                fdSelect->EndianSwap();
+
+                cout << "FDArray:\n";
+                ptr = (char*)this + dictIndexValues.FDArray;
+                cffs::index *fdArray = (cffs::index*)ptr;
+                char *fdArrayData;
+                Array<u32> fdArrayOffsets = fdArray->EndianSwap(&ptr, &fdArrayData);
+                for (i32 i = 0; i < fdArrayOffsets.size-1; i++) {
+                    cout << "fontDictIndex[" << i << "] charstrings: "
+                         << cffs::CharString((u8*)fdArrayData+fdArrayOffsets[i], (u8*)fdArrayData+fdArrayOffsets[i+1])
+                         << std::endl;
+                }
+            }
+
+
         }
 
 #undef ENDIAN_SWAP

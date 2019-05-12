@@ -52,6 +52,9 @@ namespace font {
 
     namespace tables {
 
+        // All the structs used to represent data extracted directly from the file cannot have implicit alignment
+        #pragma pack(1)
+
         u32 Checksum(u32 *table, u32 length);
 
         /*  struct: Record
@@ -391,13 +394,105 @@ namespace font {
 
             constexpr u32 nStdStrings = 391;
             extern const char *stdStrings[nStdStrings];
+            extern const SID stdEncoding0[256];
+            extern const SID stdEncoding1[256];
+            inline const SID stdCharset0(const SID& in) {
+                return in > 228 ? 0 : in;
+            }
+            extern const SID stdCharset1[166];
+            extern const SID stdCharset2[87];
+
+            /*      Charsets
+                Author: Philip Haynes
+                With different formats come different responsibilities.
+                struct: charset_format_any
+                Can polymorph into the appropriate format, according to its format byte.
+                struct: charset_format0
+                Uses an array of SIDs with a size that depends on the CharStrings INDEX
+                struct: charset_format1
+                Uses an array of structs that hold SIDs and the number of glyphs left in the array as a byte.
+                struct: charset_format2
+                Same as format1 but uses Card16 instead of Card8 in the struct.     */
+            struct charset_format_any {
+                Card8 format;
+                // The rest of the data is specific to the format.
+                void EndianSwap(Card16 nGlyphs);
+            };
+
+            struct charset_format0 {
+                Card8 format; // Should be 0
+                // The rest of the data is variable-sized like so:
+                // SID glyph[nGlyphs-1]; // nGlyphs is the value of the count field in the CharStrings INDEX
+                void EndianSwap(Card16 nGlyphs);
+            };
+
+            struct charset_range1 {
+                SID first; // First glyph in range.
+                Card8 nLeft; // Glyphs left in range (excluding first)
+                void EndianSwap();
+            };
+
+            struct charset_range2 {
+                SID first; // First glyph in range.
+                Card16 nLeft; // Glyphs left in range (excluding first)
+                void EndianSwap();
+            };
+
+            struct charset_format1 {
+                Card8 format; // Should be 1
+                // The rest of the data is variable-sized like so:
+                // charset_range1 range[...];
+                void EndianSwap(Card16 nGlyphs);
+            };
+
+            struct charset_format2 {
+                Card8 format; // Should be 2
+                // The rest of the data is variable-sized like so:
+                // charset_range2 range[...];
+                void EndianSwap(Card16 nGlyphs);
+            };
+
+            /*          FDSelect & FDArray (Font Dict INDEX)
+                Author: Philip Haynes
+                Font DICT association for each glyph.
+                struct: FDSelect_any
+                Basic type that will polymorph based on its format.
+                struct: FDSelect_format0
+                For relatively randomly-ordered fonts.
+                struct: FDSelect_range3
+                Used for format3.
+                struct: FDSelect_format3
+                For more sequentially-ordered fonts.       */
+
+            struct FDSelect_any {
+                Card8 format;
+                void EndianSwap();
+            };
+
+            struct FDSelect_format0 {
+                Card8 format; // Should be 0
+                // Card8 fds[nGlyphs]; // nGlyphs is the count field of the CharStrings INDEX
+            };
+
+            struct FDSelect_range3 {
+                Card16 first;   // First glyph in range
+                Card8 fd;       // Which index of FDArray the range maps to.
+            };
+
+            struct FDSelect_format3 {
+                Card8 format; // Should be 3
+                Card16 nRanges;
+                // FDSelect_range3 range[nRanges];
+                // Card16 sentinel; // Used to delimit the last range element
+                void EndianSwap();
+            };
 
             /*  struct: dict
                 Author: Philip Haynes
                 Information parsed from DICT charstrings with appropriate defaults.       */
             struct dict {
                 // NOTE: Should we use f64 for all the real numbers since they're
-                //       not explicitly integers in any cases, at least per the spec.
+                //       not explicitly integers in any cases, at least per the spec?
                 SID version;
                 SID Notice;
                 SID Copyright;
@@ -417,16 +512,39 @@ namespace font {
                 Array<i32> XUID;
                 i32 charset = 0;
                 i32 Encoding = 0;
-                i32 CharStrings;
+                i32 CharStrings = -1;
                 struct {
-                    i32 size;
                     i32 offset;
+                    i32 size;
                 } Private;
                 i32 SyntheticBase;
                 SID PostScript;
                 SID BaseFontName;
-                Array<i32> BaseFontBlend;
-                // CIDFont Operator Extensions
+                Array<i32> BaseFontBlend; // Delta
+                //
+                //          Private DICT values
+                //
+                Array<i32> BlueValues; // Delta
+                Array<i32> OtherBlues; // Delta
+                Array<i32> FamilyBlues; // Delta
+                Array<i32> FamilyOtherBlues; // Delta
+                f32 BlueScale = 0.039625;
+                f32 BlueShift = 7;
+                f32 BlueFuzz = 1;
+                f32 StdHW;
+                f32 StdVW;
+                Array<f32> StemSnapH; // Delta
+                Array<f32> StemSnapV; // Delta
+                bool ForceBold = false;
+                i32 LanguageGroup = 0;
+                f32 ExpansionFactor = 0.06;
+                i32 initialRandomSeed = 0;
+                i32 Subrs; // Offset to local subrs, relative to start of Private DICT data
+                i32 defaultWidthX = 0;
+                i32 nominalWidthX = 0;
+                //
+                //          CIDFont Operator Extensions
+                //
                 struct {
                     SID registry;
                     SID ordering;
@@ -437,8 +555,8 @@ namespace font {
                 i32 CIDFontType = 0;
                 i32 CIDCount = 8720;
                 i32 UIDBase;
-                i32 FDArray;
-                i32 FDSelect;
+                i32 FDArray = -1;
+                i32 FDSelect = -1;
                 SID FontName;
                 void ParseCharString(u8 *data, u32 size);
                 void ResolveOperator(u8 **data, u8 *firstOperand);
@@ -481,6 +599,7 @@ namespace font {
             void EndianSwap();
         };
 
+        #pragma pack()
     }
 
     /*  struct: Font

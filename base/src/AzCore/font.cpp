@@ -351,7 +351,7 @@ namespace font {
             String DictOperatorResolution(u8 **data, u8 *firstOperand) {
                 String out(false);
                 u8 operator1 = *(*data)++;
-#define GETSID() out += ToString(endianSwap(*(SID*)firstOperand)); firstOperand += 2
+#define GETSID() out += ToString(endianFromB(*(SID*)firstOperand)); firstOperand += 2
 #define GETARR()                            \
 out += '{';                                 \
 for (;*firstOperand != operator1;) {        \
@@ -486,7 +486,7 @@ out += '}';
 
             void dict::ResolveOperator(u8 **data, u8 *firstOperand) {
                 u8 operator1 = *(*data)++;
-#define GETSID(var) (var) = endianSwap(*(SID*)firstOperand); firstOperand += 2
+#define GETSID(var) (var) = endianFromB(*(SID*)firstOperand); firstOperand += 2
 #define GETARR(arr, ophandler)              \
 arr.Clear();                                \
 for (;*firstOperand != operator1;) {        \
@@ -965,7 +965,7 @@ for (;*firstOperand != operator1;) {        \
             cout << "Completed! Total size: " << u32(ptr-(char*)header) << "\n" << std::endl;
         }
 
-        void cffs::charset_format_any::EndianSwap(Card16 nGlyphs) {
+        bool cffs::charset_format_any::EndianSwap(Card16 nGlyphs) {
             if (format == 0) {
                 ((cffs::charset_format0*)this)->EndianSwap(nGlyphs);
             } else if (format == 1) {
@@ -973,8 +973,10 @@ for (;*firstOperand != operator1;) {        \
             } else if (format == 2) {
                 ((cffs::charset_format2*)this)->EndianSwap(nGlyphs);
             } else {
-                cout << "Unsupported charset format " << (u32)format << std::endl;
+                error = "Unsupported charset format " + ToString((u16)format);
+                return false;
             }
+            return true;
         }
 
         void cffs::charset_format0::EndianSwap(Card16 nGlyphs) {
@@ -992,7 +994,9 @@ for (;*firstOperand != operator1;) {        \
         void cffs::charset_range2::EndianSwap() {
             ENDIAN_SWAP(first);
             ENDIAN_SWAP(nLeft);
+#ifdef LOG_VERBOSE
             cout << "charset_range2: first = " << (u32)first << ", nLeft = " << nLeft << std::endl;
+#endif
         }
 
         void cffs::charset_format1::EndianSwap(Card16 nGlyphs) {
@@ -1015,20 +1019,28 @@ for (;*firstOperand != operator1;) {        \
             }
         }
 
-        void cffs::FDSelect_any::EndianSwap() {
+        bool cffs::FDSelect_any::EndianSwap() {
             if (format == 0) {
+#ifdef LOG_VERBOSE
                 cout << "Format 0" << std::endl;
+#endif
             } else if (format == 3) {
+#ifdef LOG_VERBOSE
                 cout << "Format 3" << std::endl;
+#endif
                 ((cffs::FDSelect_format3*)this)->EndianSwap();
             } else {
-                cout << "Unsupported FDSelect format " << format << std::endl;
+                error = "Unsupported FDSelect format " + ToString((u16)format);
+                return false;
             }
+            return true;
         }
 
         void cffs::FDSelect_format3::EndianSwap() {
             ENDIAN_SWAP(nRanges);
+#ifdef LOG_VERBOSE
             cout << "nRanges = " << nRanges << std::endl;
+#endif
             cffs::FDSelect_range3 *range = (cffs::FDSelect_range3*)(&format + 3);
             for (u32 i = 0; i < (u32)nRanges; i++) {
                 ENDIAN_SWAP(range->first);
@@ -1039,14 +1051,18 @@ for (;*firstOperand != operator1;) {        \
             // cout << "Sentinel = " << range->first << std::endl;
         }
 
-        Array<u32> cffs::index::EndianSwap(char **ptr, char **dataStart) {
-            ENDIAN_SWAP(count);
+        bool cffs::index::Parse(char **ptr, u8 **dataStart, Array<u32> *dstOffsets, bool swapEndian) {
+            if (swapEndian) {
+                ENDIAN_SWAP(count);
+            }
             *ptr += 2;
             u32 lastOffset = 1;
             Array<u32> offsets;
             if (count != 0) {
                 offsets.Resize(count+1);
+#ifdef LOG_VERBOSE
                 cout << "count = " << count << ", offSize = " << (u32)offSize << std::endl;
+#endif
                 (*ptr)++; // Getting over offSize
                 for (u32 i = 0; i < (u32)count+1; i++) {
                     u32 offset;
@@ -1054,7 +1070,9 @@ for (;*firstOperand != operator1;) {        \
                         offset = *((u8*)(*ptr)++);
                     } else if (offSize == 2) {
                         cffs::Offset16 *off = (cffs::Offset16*)(u8*)*ptr;
-                        ENDIAN_SWAP(*off);
+                        if (swapEndian) {
+                            ENDIAN_SWAP(*off);
+                        }
                         offset = *off;
                         *ptr += 2;
                     } else if (offSize == 3) {
@@ -1063,12 +1081,14 @@ for (;*firstOperand != operator1;) {        \
                         *ptr += 3;
                     } else if (offSize == 4) {
                         cffs::Offset32 *off = (cffs::Offset32*)(u8*)*ptr;
-                        ENDIAN_SWAP(*off);
+                        if (swapEndian) {
+                            ENDIAN_SWAP(*off);
+                        }
                         offset = *off;
                         *ptr += 4;
                     } else {
-                        cout << "Unsupported offSize: " << (u32)offSize << std::endl;
-                        return Array<u32>();
+                        error = "Unsupported offSize: " + ToString((u32)offSize);
+                        return false;
                     }
                     if (i == count) {
                         lastOffset = offset;
@@ -1076,58 +1096,105 @@ for (;*firstOperand != operator1;) {        \
                     offsets[i] = offset;
                 }
             }
-            *dataStart = *ptr - 1;
+            *dataStart = (u8*)(*ptr - 1);
             *ptr += lastOffset - 1;
-            return offsets;
+            *dstOffsets = std::move(offsets);
+            return true;
         }
 
-        void cff::EndianSwap() {
+        bool cff::Parse(cffParsed *parsed, bool swapEndian) {
+            parsed->active = true;
             char *ptr = (char*)this + header.size;
-            cffs::index *nameIndex = (cffs::index*)ptr;
-            char *nameIndexData;
+
+            //
+            //                  nameIndex
+            //
+
+            parsed->nameIndex = (cffs::index*)ptr;
+#ifdef LOG_VERBOSE
             cout << "nameIndex:\n";
-            Array<u32> nameIndexOffsets = nameIndex->EndianSwap(&ptr, &nameIndexData);
+#endif
+            if (!parsed->nameIndex->Parse(&ptr, &parsed->nameIndexData, &parsed->nameIndexOffsets, swapEndian)) {
+                error = "nameIndex: " + error;
+                return false;
+            }
+#ifdef LOG_VERBOSE
             cout << "nameIndex data:\n";
-            for (i32 i = 0; i < nameIndexOffsets.size-1; i++) {
-                String string(nameIndexOffsets[i+1] - nameIndexOffsets[i]);
-                memcpy(string.data, nameIndexData + nameIndexOffsets[i], string.size);
+            for (i32 i = 0; i < parsed->nameIndexOffsets.size-1; i++) {
+                String string(parsed->nameIndexOffsets[i+1] - parsed->nameIndexOffsets[i]);
+                memcpy(string.data, parsed->nameIndexData + parsed->nameIndexOffsets[i], string.size);
                 cout << "[" << i << "]=\"" << string << "\" ";
             }
             cout << std::endl;
-            if (nameIndexOffsets.size > 2) {
-                cout << "We only support CFF tables with 1 Name entry." << std::endl;
-                return;
+#endif
+            if (parsed->nameIndexOffsets.size > 2) {
+                error = "We only support CFF tables with 1 Name entry (1 font).";
+                return false;
             }
 
-            cffs::index *dictIndex = (cffs::index*)ptr;
-            char *dictIndexData;
+            //
+            //                  dictIndex
+            //
+
+            parsed->dictIndex = (cffs::index*)ptr;
+#ifdef LOG_VERBOSE
             cout << "dictIndex:\n";
-            Array<u32> dictIndexOffsets = dictIndex->EndianSwap(&ptr, &dictIndexData);
-            cout << "dictIndex charstrings:\n" << cffs::CharString((u8*)dictIndexData+dictIndexOffsets[0], (u8*)dictIndexData + dictIndexOffsets[dictIndexOffsets.size-1]) << std::endl;
-            cffs::dict dictIndexValues;
-            dictIndexValues.ParseCharString((u8*)dictIndexData+dictIndexOffsets[0], dictIndexOffsets[1]-dictIndexOffsets[0]);
+#endif
+            if (!parsed->dictIndex->Parse(&ptr, &parsed->dictIndexData, &parsed->dictIndexOffsets, swapEndian)) {
+                error = "dictIndex: " + error;
+                return false;
+            }
+#ifdef LOG_VERBOSE
+            cout << "dictIndex charstrings:\n" << cffs::CharString(
+                parsed->dictIndexData + parsed->dictIndexOffsets[0],
+                parsed->dictIndexData + parsed->dictIndexOffsets[parsed->dictIndexOffsets.size-1]
+            ) << std::endl;
+#endif
+            parsed->dictIndexValues.ParseCharString(
+                parsed->dictIndexData + parsed->dictIndexOffsets[0],
+                parsed->dictIndexOffsets[1] - parsed->dictIndexOffsets[0]
+            );
 
-            if (dictIndexValues.CharstringType != 2) {
-                cout << "Unsupported CharstringType " << dictIndexValues.CharstringType << std::endl;
-                return;
+            if (parsed->dictIndexValues.CharstringType != 2) {
+                error = "Unsupported CharstringType " + ToString((u16)parsed->dictIndexValues.CharstringType);
+                return false;
             }
 
-            cffs::index *stringsIndex = (cffs::index*)ptr;
-            char *stringsIndexData;
+            //
+            //                  stringsIndex
+            //
+
+            parsed->stringsIndex = (cffs::index*)ptr;
+#ifdef LOG_VERBOSE
             cout << "stringsIndex:\n";
-            Array<u32> stringsIndexOffsets = stringsIndex->EndianSwap(&ptr, &stringsIndexData);
+#endif
+            if (!parsed->stringsIndex->Parse(&ptr, &parsed->stringsIndexData,
+                                             &parsed->stringsIndexOffsets, swapEndian)) {
+                error = "stringsIndex: " + error;
+                return false;
+            }
+#ifdef LOG_VERBOSE
             cout << "stringsIndex data:\n";
-            for (i32 i = 0; i < stringsIndexOffsets.size-1; i++) {
-                String string(stringsIndexOffsets[i+1] - stringsIndexOffsets[i]);
-                memcpy(string.data, stringsIndexData + stringsIndexOffsets[i], string.size);
+            for (i32 i = 0; i < parsed->stringsIndexOffsets.size-1; i++) {
+                String string(parsed->stringsIndexOffsets[i+1] - parsed->stringsIndexOffsets[i]);
+                memcpy(string.data, parsed->stringsIndexData + parsed->stringsIndexOffsets[i], string.size);
                 cout << "\n[" << i << "]=\"" << string << "\" ";
             }
             cout << std::endl;
+#endif
 
-            cffs::index *gsubrIndex = (cffs::index*)ptr;
-            char *gsubrIndexData;
+            //
+            //                  gsubrIndex
+            //
+
+            parsed->gsubrIndex = (cffs::index*)ptr;
+#ifdef LOG_VERBOSE
             cout << "gsubrIndex:\n";
-            Array<u32> gsubrIndexOffsets = gsubrIndex->EndianSwap(&ptr, &gsubrIndexData);
+#endif
+            if (!parsed->gsubrIndex->Parse(&ptr, &parsed->gsubrIndexData, &parsed->gsubrIndexOffsets, swapEndian)) {
+                error = "gsubrIndex: " + error;
+                return false;
+            }
             // cout << "gsubrIndex data dump:\n" << std::hex;
             // for (i32 i = 0; i < gsubrIndexOffsets.size-1; i++) {
             //     String string(gsubrIndexOffsets[i+1] - gsubrIndexOffsets[i]);
@@ -1143,56 +1210,96 @@ for (;*firstOperand != operator1;) {        \
             // }
             // cout << std::endl;
 
-            if (dictIndexValues.CharStrings == -1) {
-                cout << "WHAAAT NO CHARSTRINGS???" << std::endl;
-                return;
+            //
+            //                  charStringsIndex
+            //
+
+            if (parsed->dictIndexValues.CharStrings == -1) {
+                error = "CFF data has no CharStrings offset!";
+                return false;
             }
 
+#ifdef LOG_VERBOSE
             cout << "charStringsIndex:\n";
-            ptr = (char*)this + dictIndexValues.CharStrings;
-            cffs::index *charStringsIndex = (cffs::index*)ptr;
-            char *charStringsIndexData;
-            Array<u32> charStringsIndexOffsets = charStringsIndex->EndianSwap(&ptr, &charStringsIndexData);
+#endif
+            ptr = (char*)this + parsed->dictIndexValues.CharStrings;
+            parsed->charStringsIndex = (cffs::index*)ptr;
+            if (!parsed->charStringsIndex->Parse(&ptr, &parsed->charStringsIndexData,
+                                                 &parsed->charStringsIndexOffsets, swapEndian)) {
+                error = "charStringsIndex: " + error;
+                return false;
+            }
+
+            //
+            //                  charsets
+            //
 
             // Do we have a predefined charset or a custom one?
-            if (dictIndexValues.charset == 0) {
+            if (parsed->dictIndexValues.charset == 0) {
                 // ISOAdobe charset
+#ifdef LOG_VERBOSE
                 cout << "We are using the ISOAdobe predefined charset." << std::endl;
-            } else if (dictIndexValues.charset == 1) {
+#endif
+            } else if (parsed->dictIndexValues.charset == 1) {
                 // Expert charset
+#ifdef LOG_VERBOSE
                 cout << "We are using the Expert predefined charset." << std::endl;
-            } else if (dictIndexValues.charset == 2) {
+#endif
+            } else if (parsed->dictIndexValues.charset == 2) {
                 // ExpertSubset charset
+#ifdef LOG_VERBOSE
                 cout << "We are using the ExpertSubset predefined charset." << std::endl;
+#endif
             } else {
                 // Custom charset
-                cffs::charset_format_any *charset = (cffs::charset_format_any*)((char*)this + dictIndexValues.charset);
+                cffs::charset_format_any *charset = (cffs::charset_format_any*)((char*)this + parsed->dictIndexValues.charset);
+#ifdef LOG_VERBOSE
                 cout << "We are using a custom charset with format " << (i32)charset->format << std::endl;
-                charset->EndianSwap(charStringsIndex->count);
+#endif
+                if (swapEndian) {
+                    charset->EndianSwap(parsed->charStringsIndex->count);
+                }
             }
 
-            if (dictIndexValues.FDSelect != -1) {
-                if (dictIndexValues.FDArray == -1) {
-                    cout << "CIDFonts must have an FDArray!" << std::endl;
-                    return;
+            //
+            //                  CIDFont
+            //
+
+            if (parsed->dictIndexValues.FDSelect != -1) {
+                parsed->CIDFont = true;
+                if (parsed->dictIndexValues.FDArray == -1) {
+                    error = "CIDFonts must have an FDArray!";
+                    return false;
                 }
+#ifdef LOG_VERBOSE
                 cout << "FDSelect:\n";
-                cffs::FDSelect_any *fdSelect = (cffs::FDSelect_any*)((char*)this + dictIndexValues.FDSelect);
-                fdSelect->EndianSwap();
-
-                cout << "FDArray:\n";
-                ptr = (char*)this + dictIndexValues.FDArray;
-                cffs::index *fdArray = (cffs::index*)ptr;
-                char *fdArrayData;
-                Array<u32> fdArrayOffsets = fdArray->EndianSwap(&ptr, &fdArrayData);
-                for (i32 i = 0; i < fdArrayOffsets.size-1; i++) {
-                    cout << "fontDictIndex[" << i << "] charstrings: "
-                         << cffs::CharString((u8*)fdArrayData+fdArrayOffsets[i], (u8*)fdArrayData+fdArrayOffsets[i+1])
-                         << std::endl;
+#endif
+                parsed->fdSelect = (cffs::FDSelect_any*)((char*)this + parsed->dictIndexValues.FDSelect);
+                if (swapEndian) {
+                    parsed->fdSelect->EndianSwap();
                 }
+
+#ifdef LOG_VERBOSE
+                cout << "FDArray:\n";
+#endif
+                ptr = (char*)this + parsed->dictIndexValues.FDArray;
+                parsed->fdArray = (cffs::index*)ptr;
+                if (!parsed->fdArray->Parse(&ptr, &parsed->fdArrayData, &parsed->fdArrayOffsets, swapEndian)) {
+                    error = "FDArray: " + error;
+                    return false;
+                }
+#ifdef LOG_VERBOSE
+                for (i32 i = 0; i < parsed->fdArrayOffsets.size-1; i++) {
+                    cout << "fontDictIndex[" << i << "] charstrings: " << cffs::CharString(
+                        parsed->fdArrayData + parsed->fdArrayOffsets[i],
+                        parsed->fdArrayData + parsed->fdArrayOffsets[i+1]
+                    ) << std::endl;
+                }
+#endif
             }
 
-
+            // My, that was quite a lot of stuff... mostly logging ain't it?
+            return true;
         }
 
 #undef ENDIAN_SWAP
@@ -1319,7 +1426,9 @@ for (;*firstOperand != operator1;) {        \
                             uniqueEncodingOffsets.Append(encoding->offset);
                             tables::cmap_format_any *cmap = (tables::cmap_format_any*)(ptr + encoding->offset);
                             if (!cmap->EndianSwap()) {
+#ifdef LOG_VERBOSE
                                 cout << "Unsupported cmap table format " << cmap->format << std::endl;
+#endif
                             }
                         }
                     }
@@ -1327,9 +1436,6 @@ for (;*firstOperand != operator1;) {        \
                     tables::maxp *maxp = (tables::maxp*)ptr;
                     maxp->EndianSwap();
                     numGlyphs = maxp->numGlyphs;
-                } else if (tag == "CFF "_Tag) {
-                    tables::cff *cff = (tables::cff*)ptr;
-                    cff->EndianSwap();
                 }
             }
             // To parse the 'loca' table correctly, head needs to be parsed first
@@ -1430,6 +1536,11 @@ for (;*firstOperand != operator1;) {        \
 #ifdef LOG_VERBOSE
                     cout << std::endl;
 #endif
+                } else if (tag == "CFF "_Tag && !data.cffParsed.active) {
+                    tables::cff *cff = (tables::cff*)ptr;
+                    if (!cff->Parse(&data.cffParsed, SysEndian.little)) {
+                        return false;
+                    }
                 }
             }
             if (chosenCmap == -1) {

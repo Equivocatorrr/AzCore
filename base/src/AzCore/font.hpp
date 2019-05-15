@@ -428,7 +428,7 @@ namespace font {
             struct charset_format_any {
                 Card8 format;
                 // The rest of the data is specific to the format.
-                void EndianSwap(Card16 nGlyphs);
+                bool EndianSwap(Card16 nGlyphs);
             };
 
             struct charset_format0 {
@@ -480,7 +480,7 @@ namespace font {
 
             struct FDSelect_any {
                 Card8 format;
-                void EndianSwap();
+                bool EndianSwap();
             };
 
             struct FDSelect_format0 {
@@ -588,7 +588,7 @@ namespace font {
                 Card8 data[...];
                 */
                 // Returns an Array of offsets into data
-                Array<u32> EndianSwap(char **ptr, char** dataStart);
+                bool Parse(char **ptr, u8** dataStart, Array<u32> *dstOffsets, bool swapEndian);
             };
             static_assert(sizeof(index) == 3);
 
@@ -615,10 +615,39 @@ namespace font {
             cffs::index stringsIndex;
             cffs::index gsubrIndex; // Stands for Global Subroutines
             */
-            void EndianSwap();
+            bool Parse(struct cffParsed *parsed, bool swapEndian);
         };
 
-        #pragma pack()
+        #pragma pack() // We want alignment for parsed data for maximum efficiency
+
+        /*  struct: cffParsed
+        Author: Philip Haynes
+        Contains pointers to all the INDEX's and any data decompressed for easier use.  */
+        struct cffParsed {
+            bool active = false;    // Whether we're using CFF data or not.
+            bool CIDFont = false;   // Whether we're a CID-keyed Font
+            u8 *nameIndexData;
+            u8 *dictIndexData;
+            u8 *stringsIndexData;
+            u8 *gsubrIndexData;
+            u8 *charStringsIndexData;
+            u8 *fdArrayData;
+            cffs::index *nameIndex;
+            cffs::index *dictIndex;
+            cffs::index *stringsIndex;
+            cffs::index *gsubrIndex;
+            cffs::index *charStringsIndex;
+            cffs::FDSelect_any *fdSelect;
+            cffs::index *fdArray;
+            Array<u32> nameIndexOffsets;
+            Array<u32> dictIndexOffsets;
+            Array<u32> stringsIndexOffsets;
+            Array<u32> gsubrIndexOffsets;
+            Array<u32> charStringsIndexOffsets;
+            Array<u32> fdArrayOffsets;
+            cffs::dict dictIndexValues;
+        };
+
     }
 
     /*  struct: Font
@@ -633,6 +662,7 @@ namespace font {
             // are unique since some of them will be shared between fonts.
             Array<tables::Record> uniqueTables;
             Array<u32> cmaps; // Offset from beginning of tableData for chosen encodings
+            tables::cffParsed cffParsed; // Only used if we have CFF data
             u32 offsetMin = UINT32_MAX;
             u32 offsetMax = 0;
             // Holds all of the tables, which can then be read by referencing

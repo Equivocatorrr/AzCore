@@ -25,6 +25,121 @@ String ToString(font::Tag_t tag) {
 
 namespace font {
 
+    inline f32 BezierDerivative(f32 t, f32 p1, f32 p2, f32 p3) {
+        return 2.0 * ((1.0-t) * (p2-p1) + t * (p3-p2));
+    }
+
+    i32 Curve::Intersection(vec2 point) {
+        i32 winding = 0;
+        // Bezier(t) = (1-t)*((1-t)*p1 + t*p2) + t*((1-t)*p2 + t*p3)
+        // Bezier(t) = (1-t)*(1-t)*p1 + (1-t)t*(2*p2) + t^2*p3
+        // Bezier(t) = p1 - t(2*p1) + t^2(p1) + t(2*p2) - t^2(2*p2) + t^2(p3)
+        // Bezier(t) = t^2(p3 - 2*p2 + p1) + t(2*p2 - 2*p1) + p1
+        // Bezier'(t) = 2(1-t)(p2-p1) + 2t(p3-p2);
+
+        // Bezier(t) = (1-t)*p1 + t*p3
+        // Bezier(t) = t(p3 - p1) + p1
+        // t = -p1 / (p3 - p1)
+        f32 a, b, c; // coefficients of the curve: y = ax^2 + bx + c
+        a = p3.y - 2.0*p2.y + p1.y;
+        if (a == 0.0) {
+            // Straight line
+            if (p3.x == p1.x) {
+                // Vertical line
+                if (p3.x > point.x) {
+                    if (point.y == median(p3.y, point.y, p1.y)) {
+                        return p1.y < p3.y ? 1 : -1;
+                    }
+                }
+            } else {
+                // Now represents the line: y = ax + b
+                a = p3.y - p1.y;
+                if (a == 0.0) {
+                    // Horizontal line
+                    return 0;
+                } else {
+                    b = p1.y - point.y;
+                    f32 t = -b / a;
+                    if (t == median(0.0, t, 1.0)) {
+                        f32 x = (p3.x - p1.x) * t + p1.x;
+                        if (x > point.x) {
+                            return a > 0.0 ? 1 : -1;
+                        }
+                    }
+                }
+            }
+            return 0;
+        }
+        b = 2.0*(p2.y - p1.y);
+        c = p1.y - point.y;
+        const f32 bb = square(b);
+        const f32 ac4 = 4.0*a*c;
+        if (bb <= ac4) {
+            // We don't care about complex answers or tangent lines.
+            return 0;
+        }
+        const f32 squareRoot = sqrt(bb - ac4);
+        // cout << "squareRoot = " << squareRoot << std::endl;
+        f32 t1 = (-b + squareRoot) / (2.0 * a);
+        if (t1 == median(0.0, t1, 1.0)) {
+            f32 x = (p3.x - 2.0*p2.x + p1.x) * square(t1) + 2.0*(p2.x - p1.x) * t1 + p1.x;
+            if (x > point.x) {
+                // We have an intersection
+                winding += BezierDerivative(t1, p1.y, p2.y, p3.y) > 0.0 ? 1 : -1;
+            }
+        }
+        f32 t2 = (-b - squareRoot) / (2.0 * a);
+        if (t2 == median(0.0, t2, 1.0)) {
+            f32 x = (p3.x - 2.0*p2.x + p1.x) * square(t2) + 2.0*(p2.x - p1.x) * t2 + p1.x;
+            if (x > point.x) {
+                // We have an intersection
+                winding += BezierDerivative(t2, p1.y, p2.y, p3.y) > 0.0 ? 1 : -1;
+            }
+        }
+        return winding;
+    }
+
+    i32 Contour::Intersection(vec2 point) {
+        i32 winding = 0;
+        for (i32 i = 0; i < points.size-1; i += 2) {
+            Curve *curve = (Curve*)&points[i];
+            winding += curve->Intersection(point);
+        }
+        return winding;
+    }
+
+    void Contour::FromGlyfPoints(glyfPoint *glyfPoints, i32 count) {
+        points.Reserve(count);
+        bool lastOnCurve = glyfPoints[0].onCurve;
+        if (!lastOnCurve) {
+            points.Append((glyfPoints[count-1].coords + glyfPoints[0].coords) * 0.5);
+        }
+        points.Append(glyfPoints[0].coords);
+        for (i32 i = 1; i < count; i++) {
+            if (lastOnCurve == glyfPoints[i].onCurve) {
+                points.Append((glyfPoints[(i-1)%count].coords + glyfPoints[i].coords) * 0.5);
+            }
+            lastOnCurve = glyfPoints[i].onCurve;
+            points.Append(glyfPoints[i].coords);
+        }
+        if (lastOnCurve == glyfPoints[0].onCurve) {
+            points.Append((glyfPoints[count-1].coords + glyfPoints[0].coords) * 0.5);
+        }
+        points.Append(glyfPoints[0].coords);
+        // for (i32 i = 0; i < points.size; i++) {
+        //     cout << "point[" << i << "] = (" << points[i].x << "," << points[i].y << ")\n";
+        // }
+        // cout << std::endl;
+    }
+
+    bool Glyph::Inside(vec2 point) {
+        i32 winding = 0;
+        for (Contour& contour : contours) {
+            winding += contour.Intersection(point);
+        }
+        return winding != 0;
+    }
+
     constexpr Tag_t::Tag_t(const u32 in) : data(in) {}
 
     constexpr Tag_t::Tag_t(const char *in) : name{in[0],in[1],in[2],in[3]} {}
@@ -848,6 +963,160 @@ for (;*firstOperand != operator1;) {        \
             ENDIAN_SWAP(yMax);
         }
 
+        Glyph glyf_header::Parse(u16 unitsPerEm) {
+            Glyph out;
+            if (numberOfContours >= 0) {
+                out = ParseSimple(unitsPerEm);
+            } else {
+                out = ParseCompound(unitsPerEm);
+            }
+            return out;
+        }
+
+        Glyph glyf_header::ParseSimple(u16 unitsPerEm) {
+            Glyph out;
+            out.contours.Resize(numberOfContours);
+
+            // cout << "xMin = " << xMin << ", xMax = " << xMax << ", yMin = " << yMin << ", yMax = " << yMax << std::endl;
+
+            char *ptr = (char*)(this+1);
+            u16* endPtsOfContours = (u16*)ptr;
+            ptr += 2 * numberOfContours;
+            u16& instructionLength = *(u16*)ptr;
+            // cout << "instructionLength = " << instructionLength << std::endl;
+            ptr += instructionLength + 2;
+            // Now it gets weird
+            u16 nPoints;
+            if (numberOfContours > 0) {
+                nPoints = endPtsOfContours[numberOfContours-1] + 1;
+            } else {
+                nPoints = 0;
+            }
+            // Now figure out how many flag bytes there actually are
+            u8 *flags = (u8*)ptr;
+            u16 nFlags = nPoints;
+            for (u16 i = 0; i < nFlags; i++) {
+                if (flags[i] & 0x08) { // Bit 3
+                    nFlags -= flags[++i] - 1;
+                }
+            }
+            ptr += nFlags; // We should be at the beginning of the xCoord array
+            // cout << "nPoints = " << nPoints << ", nFlags = " << nFlags << std::endl;
+            Array<glyfPoint> points(nPoints);
+            u16 repeatCount = 0;
+            i32 pointIndex = 0;
+            i32 prevX = 0, prevY = 0;
+            for (u16 i = 0; i < nFlags; i++) {
+                if (flags[i] & 0x02) {
+                    i32 coord = *(u8*)ptr;
+                    if (!(flags[i] & 0x10)) {
+                        coord *= -1;
+                    }
+                    // cout << "short xCoord " << coord;
+                    coord += prevX;
+                    // cout << ", rel = " << coord << std::endl;
+                    prevX = coord;
+                    points[pointIndex].coords.x = (f32)coord;
+                    ptr++;
+                } else {
+                    if (!(flags[i] & 0x10)) {
+                        i32 coord = *(i16*)ptr;
+                        // cout << "long xCoord " << coord;
+                        coord += prevX;
+                        // cout << ", rel = " << coord << std::endl;
+                        prevX = coord;
+                        points[pointIndex].coords.x = (f32)coord;
+                        ptr += 2;
+                    } else {
+                        points[pointIndex].coords.x = (f32)prevX;
+                        // cout << "xCoord repeats, rel = " << prevX << std::endl;
+                        // repeat
+                    }
+                }
+                points[pointIndex].coords.x /= (f32)unitsPerEm;
+                points[pointIndex].onCurve = ((flags[i] & 0x01) == 0x01);
+                if (repeatCount) {
+                    repeatCount--;
+                    if (repeatCount) {
+                        i--; // Stay on same flag
+                    } else {
+                        i++; // Skip byte that held repeatCount
+                    }
+                } else if (flags[i] & 0x08 && i+1 < nFlags) {
+                    repeatCount = (u16)flags[i+1];
+                    if (repeatCount != 0) {
+                        i--; // Stay on same flag
+                    } else {
+                        i++;
+                    }
+                }
+                pointIndex++;
+            }
+            // Same thing for yCoord array
+            pointIndex = 0;
+            for (u16 i = 0; i < nFlags; i++) {
+                if (flags[i] & 0x04) {
+                    i32 coord = *(u8*)ptr;
+                    if (!(flags[i] & 0x20)) {
+                        coord *= -1;
+                    }
+                    // cout << "short yCoord " << coord;
+                    coord += prevY;
+                    // cout << ", rel = " << coord << std::endl;
+                    prevY = coord;
+                    points[pointIndex].coords.y = (f32)coord;
+                    ptr++;
+                } else {
+                    if (!(flags[i] & 0x20)) {
+                        i32 coord = *(i16*)ptr;
+                        // cout << "long yCoord " << coord;
+                        coord += prevY;
+                        // cout << ", rel = " << coord << std::endl;
+                        prevY = coord;
+                        points[pointIndex].coords.y = (f32)coord;
+                        ptr += 2;
+                    } else {
+                        points[pointIndex].coords.y = (f32)prevY;
+                        // cout << "yCoord repeats, rel = " << prevY << std::endl;
+                        // repeat
+                    }
+                }
+                points[pointIndex].coords.y /= (f32)unitsPerEm;
+                points[pointIndex].onCurve = ((flags[i] & 0x01) == 0x01);
+                if (repeatCount) {
+                    repeatCount--;
+                    if (repeatCount) {
+                        i--; // Stay on same flag
+                    } else {
+                        i++; // Skip byte that held repeatCount
+                    }
+                } else if (flags[i] & 0x08 && i+1 < nFlags) {
+                    repeatCount = (u16)flags[i+1];
+                    if (repeatCount != 0) {
+                        i--; // Stay on same flag
+                    } else {
+                        i++;
+                    }
+                }
+                pointIndex++;
+            }
+
+            // Now we expand our points to always include control points and convert to normalized coordinates.
+            glyfPoint *pt = points.data;
+            out.contours[0].FromGlyfPoints(pt, endPtsOfContours[0] + 1);
+            pt += endPtsOfContours[0] + 1;
+            for (i32 i = 1; i < out.contours.size; i++) {
+                out.contours[i].FromGlyfPoints(pt, endPtsOfContours[i] - endPtsOfContours[i-1]);
+                pt += endPtsOfContours[i] - endPtsOfContours[i-1];
+            }
+            return out;
+        }
+
+        Glyph glyf_header::ParseCompound(u16 unitsPerEm) {
+            Glyph out;
+            return out;
+        }
+
         void glyf::EndianSwap(loca *loc, u16 numGlyphs, bool longOffsets) {
             #define DO_SWAP()   header->EndianSwap();                   \
                                 if (header->numberOfContours >= 0) {    \
@@ -893,7 +1162,7 @@ for (;*firstOperand != operator1;) {        \
             // Now it gets weird
             u16 nPoints;
             if (header->numberOfContours > 0) {
-                nPoints = endPtsOfContours[header->numberOfContours-1];
+                nPoints = endPtsOfContours[header->numberOfContours-1] + 1;
             } else {
                 nPoints = 0;
             }
@@ -917,7 +1186,7 @@ for (;*firstOperand != operator1;) {        \
                 } else {
                     if (!(flags[i] & 0x10)) {
                         // cout << "xCoord is u16" << std::endl;
-                        ENDIAN_SWAP(*(u16*)ptr);
+                        ENDIAN_SWAP(*(i16*)ptr);
                         ptr += 2;
                     } else {
                         // cout << "xCoord is repeated" << std::endl;
@@ -948,7 +1217,7 @@ for (;*firstOperand != operator1;) {        \
                 } else {
                     if (!(flags[i] & 0x20)) {
                         // cout << "yCoord is u16" << std::endl;
-                        ENDIAN_SWAP(*(u16*)ptr);
+                        ENDIAN_SWAP(*(i16*)ptr);
                         ptr += 2;
                     } else {
                         // cout << "yCoord is repeated" << std::endl;
@@ -1672,11 +1941,30 @@ for (;*firstOperand != operator1;) {        \
             }
         }
         cout << "glyph " << glyph << " has a glyph index of " << glyphIndex << std::endl;
+        if (glyphIndex == 0) {
+            return;
+        }
         if (data.cffParsed.active) {
             cout << "Not yet implemented." << std::endl;
         } else if (data.glyfParsed.active) {
             tables::glyf_header *header = (tables::glyf_header*)((char*)data.glyfParsed.glyphData + data.glyfParsed.glyfOffsets[glyphIndex]);
-            cout << "numberOfContours = " << header->numberOfContours << std::endl;
+            if (header->numberOfContours <= 0) {
+                return;
+            }
+            // cout << "numberOfContours = " << header->numberOfContours << std::endl;
+            Glyph glyph = header->Parse(data.glyfParsed.header->unitsPerEm);
+            for (f32 y = 0.0; y <= 1.0; y += 1.0/60.0) {
+                for (f32 x = 0.0; x <= 1.0; x += 1.0/100.0) {
+                    vec2 point(x, 1.0-y);
+                    if (glyph.Inside(point)) {
+                        cout << 'X';
+                    } else {
+                        cout << ' ';
+                    }
+                }
+                cout << "\n";
+            }
+            cout << std::endl;
         } else {
             cout << "We don't have any supported glyph data!" << std::endl;
         }

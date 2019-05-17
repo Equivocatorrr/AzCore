@@ -16,9 +16,10 @@ i32 main(i32 argumentCount, char **argumentValues) {
         cout << "Failed to load font: " << font::error << std::endl;
         return 1;
     }
-    font.PrintGlyph((char32)'A');
-    font.PrintGlyph((char32)'.');
-    font.PrintGlyph((char32)'X');
-    font.PrintGlyph((char32)'0');
+    ClockTime start = Clock::now();
+    for (char32 i = 0; i < 256; i++) {
+        font.PrintGlyph(i);
+    }
+    cout << "Total time: " << std::chrono::duration_cast<Milliseconds>(Clock::now()-start).count() << "ms" << std::endl;
     return 0;
 }

@@ -22,6 +22,51 @@ namespace font {
     extern String error;
     extern io::logStream cout;
 
+    /*  struct: Curve
+        Author: Philip Haynes
+        Defines a single bezier curve.          */
+    struct Curve {
+        vec2 p1, p2, p3;
+        // Intersection assumes the ray is traveling in the x-positive direction from the point.
+        // Returns:
+        //      1 for clockwise-winding intersection
+        //      -1 for counter-clockwise-winding intersection
+        //      0 for no intersection
+        i32 Intersection(vec2 point);
+    };
+    static_assert(sizeof(Curve) == 24);
+
+    /*  struct: glyfPoint
+        Author: Philip Haynes
+        An intermediate representation of points parsed from a glyf table glyph.        */
+    struct glyfPoint {
+        vec2 coords;
+        bool onCurve;
+    };
+
+    /*  struct: Contour
+        Author: Philip Haynes
+        Defines a single glyph contour.      */
+    struct Contour {
+        // Points are stored continuously where the first is the starting point,
+        // every odd point is the bezier control point, and every even point is
+        // the end point of the last curve, and also the start of the next.
+        Array<vec2> points;
+        // Finds all intersections and returns the total winding number
+        i32 Intersection(vec2 point);
+        // Expands an array of glyfPoints into always having the control point available
+        void FromGlyfPoints(glyfPoint *glyfPoints, i32 count);
+    };
+
+    /*  struct: Glyph
+        Author: Philip Haynes
+        Defines a single glyph, including all the contours.     */
+    struct Glyph {
+        Array<Contour> contours;
+        // Returns whether a point is inside the glyph.
+        bool Inside(vec2 point);
+    };
+
     // These are the basic types used for TrueType fonts
     typedef i16 shortFrac_t;
     union Fixed_t {
@@ -321,6 +366,9 @@ namespace font {
             i16 xMax;
             i16 yMax;
             void EndianSwap();
+            Glyph Parse(u16 unitsPerEm);
+            Glyph ParseSimple(u16 unitsPerEm);
+            Glyph ParseCompound(u16 unitsPerEm);
         };
         static_assert(sizeof(glyf_header) == 10);
 

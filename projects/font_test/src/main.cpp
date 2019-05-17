@@ -16,5 +16,9 @@ i32 main(i32 argumentCount, char **argumentValues) {
         cout << "Failed to load font: " << font::error << std::endl;
         return 1;
     }
+    font.PrintGlyph((char32)'A');
+    font.PrintGlyph((char32)'.');
+    font.PrintGlyph((char32)'X');
+    font.PrintGlyph((char32)'0');
     return 0;
 }

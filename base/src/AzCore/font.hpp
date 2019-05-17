@@ -140,14 +140,16 @@ namespace font {
             u16 format; // Varies. Used to determine which kind of table we are.
             // Will polymorph if format is supported or return false to indicate it's not supported
             bool EndianSwap();
+            u32 GetGlyphIndex(char32 glyph); // Reads a single index
         };
 
         struct cmap_format0 {
             u16 format;                     // Should be 0
             u16 length;                     // Length in bytes of the subtable, including header. Should be 262.
             u16 language;                   // Should be 0 for tables that aren't Macintosh platform cmaps.
-            u8 glpyhIndexArray[256];        // The mapping
+            u8 glyphIndexArray[256];        // The mapping
             void EndianSwap();
+            u32 GetGlyphIndex(char32 glyph); // Reads a single index
         };
         static_assert(sizeof(cmap_format0) == 262);
 
@@ -157,7 +159,7 @@ namespace font {
             u16 language;
             // Can't say I understand why these are how they are
             u16 segCountX2;                 // 2 * segCount
-            u16 searchRange;                // 2 * (2*floor(log2(segCount)))
+            u16 searchRange;                // 2 * (2^floor(log2(segCount)))
             u16 entrySelector;              // log2(searchRange/2)
             u16 rangeShift;                 // (2 * segCount) - searchRange
             // The data past this point is variable-sized like so
@@ -166,7 +168,7 @@ namespace font {
             // u16 startCode[segCount];     // Starting character code for each segment.
             // u16 idDelta[segCount];       // Delta for all character codes in segment.
             // u16 idRangeOffset[segCount]; // Offset in bytes to glpyhIndexArray, or 0
-            // u16 glpyhIndexArray[segCount];
+            // u16 glpyhIndexArray[...];    // Keep this in big endian
             void EndianSwap();
             // Easy accessors
             inline u16& endCode(const u16 i) {
@@ -181,16 +183,14 @@ namespace font {
             inline u16& idRangeOffset(const u16 i) {
                 return *(&rangeShift + segCountX2*3/2 + 2 + i);
             }
-            inline u16& glyphIndexArray(const u16 i) {
-                return *(&rangeShift + segCountX2*2 + 2 + i);
-            }
+            u32 GetGlyphIndex(char32 glyph); // Reads a single index
         };
         static_assert(sizeof(cmap_format4) == 14);
 
         struct cmap_format12_group {
             u32 startCharCode;              // First character code in this group
             u32 endCharCode;                // Last character code in this group
-            u32 startGlpyhCode;             // Glyph index corresponding to the starting character code.
+            u32 startGlyphCode;             // Glyph index corresponding to the starting character code.
             void EndianSwap();
         };
         static_assert(sizeof(cmap_format12_group) == 12);
@@ -206,6 +206,7 @@ namespace font {
             inline cmap_format12_group& groups(const u32 i) {
                 return *((cmap_format12_group*)((char*)this + sizeof(cmap_format12) + sizeof(cmap_format12_group) * i));
             }
+            u32 GetGlyphIndex(char32 glyph); // Reads a single index
         };
         static_assert(sizeof(cmap_format12) == 16);
 
@@ -648,6 +649,18 @@ namespace font {
             cffs::dict dictIndexValues;
         };
 
+        /*  struct: glyfParsed
+            Author: Philip Haynes
+            Contains all the information needed to use a glyf table.        */
+        struct glyfParsed {
+            bool active = false;
+            head *header = nullptr;
+            maxp *maxProfile = nullptr;
+            loca *indexToLoc = nullptr;
+            glyf *glyphData;
+            Array<u32> glyfOffsets;
+        };
+
     }
 
     /*  struct: Font
@@ -662,7 +675,8 @@ namespace font {
             // are unique since some of them will be shared between fonts.
             Array<tables::Record> uniqueTables;
             Array<u32> cmaps; // Offset from beginning of tableData for chosen encodings
-            tables::cffParsed cffParsed; // Only used if we have CFF data
+            tables::cffParsed cffParsed;
+            tables::glyfParsed glyfParsed;
             u32 offsetMin = UINT32_MAX;
             u32 offsetMax = 0;
             // Holds all of the tables, which can then be read by referencing
@@ -672,6 +686,9 @@ namespace font {
         String filename = String(false);
 
         bool Load();
+
+        // Rasterizes a single glyph in the console
+        void PrintGlyph(char32 glyph);
     };
 
 }

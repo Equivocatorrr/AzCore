@@ -68,8 +68,6 @@ namespace font {
 
             #include "font_cff_std_data.c"
 
-            typedef String (*fpCharStringOperatorResolution)(u8**, u8*);
-
             u32 Offset24::value() const {
                 return (u32)bytes[0] + ((u32)bytes[1] << 8) + ((u32)bytes[2] << 12);
             }
@@ -681,12 +679,30 @@ for (;*firstOperand != operator1;) {        \
             return true;
         }
 
+        u32 cmap_format_any::GetGlyphIndex(char32 glyph) {
+            if (format == 0) {
+                return ((cmap_format0*)this)->GetGlyphIndex(glyph);
+            } else if (format == 4) {
+                return ((cmap_format4*)this)->GetGlyphIndex(glyph);
+            } else if (format == 12) {
+                return ((cmap_format12*)this)->GetGlyphIndex(glyph);
+            }
+            return 0;
+        }
+
         void cmap_format0::EndianSwap() {
             // format is already done.
             // NOTE: In this case it may be ideal to just ignore these values entirely
             //       but I'd rather be a completionist first and remove stuff later.
             ENDIAN_SWAP(length);
             ENDIAN_SWAP(language);
+        }
+
+        u32 cmap_format0::GetGlyphIndex(char32 glyph) {
+            if (glyph >= 256) {
+                return 0;
+            }
+            return (u32)glyphIndexArray[glyph];
         }
 
         void cmap_format4::EndianSwap() {
@@ -699,17 +715,46 @@ for (;*firstOperand != operator1;) {        \
             ENDIAN_SWAP(rangeShift);
             const u16 segCount = segCountX2 / 2;
             u16 *ptr = (u16*)(((char*)this) + sizeof(cmap_format4));
-            // 5 arrays of size segCount and 1 scalar
-            for (u16 i = 0; i < segCount*5+1; i++) {
+            // 4 arrays of size segCount and 1 scalar
+            for (u16 i = 0; i < segCount*4+1; i++) {
                 ENDIAN_SWAP(*ptr);
                 ptr++;
+            }
+        }
+
+        u32 cmap_format4::GetGlyphIndex(char32 glyph) {
+            u32 segment;
+            for (u32 i = 0; i*2 < segCountX2; i++) {
+                if (endCode(i) >= glyph) { // Find the first endCode >= glyph
+                    if (startCode(i) <= glyph) { // We're in the range
+                        segment = i;
+                        break;
+                    } else { // We're not in the range
+                        return 0;
+                    }
+                }
+            }
+            // If we got this far, we have a mapped segment.
+            if (idRangeOffset(segment) == 0) {
+                // cout << "idDelta(" << segment << ") = " << idDelta(segment) << std::endl;
+                return ((u32)idDelta(segment) + glyph) % 65536;
+            } else {
+                // idRangeOffset is in bytes, and we're working with an array of u16's, so divide offset by two.
+                u32 glyphIndex = endianFromB( // We keep the glyphIndexArray in big-endian
+                    *(&idRangeOffset(segment) + idRangeOffset(segment)/2 + (glyph - startCode(segment)))
+                );
+                if (glyphIndex == 0) {
+                    return 0;
+                } else {
+                    return (glyphIndex + (u32)idDelta(segment)) % 65536;
+                }
             }
         }
 
         void cmap_format12_group::EndianSwap() {
             ENDIAN_SWAP(startCharCode);
             ENDIAN_SWAP(endCharCode);
-            ENDIAN_SWAP(startGlpyhCode);
+            ENDIAN_SWAP(startGlyphCode);
         }
 
         void cmap_format12::EndianSwap() {
@@ -723,6 +768,21 @@ for (;*firstOperand != operator1;) {        \
                 ptr->EndianSwap();
                 ptr++;
             }
+        }
+
+        u32 cmap_format12::GetGlyphIndex(char32 glyph) {
+            cmap_format12_group *group = &groups(0);
+            for (u32 i = 0; i < nGroups; i++) {
+                if (group->endCharCode >= glyph) {
+                    if (group->startCharCode <= glyph) {
+                        return group->startGlyphCode + (glyph - group->startCharCode);
+                    } else {
+                        return 0;
+                    }
+                }
+                group++;
+            }
+            return 0;
         }
 
         void head::EndianSwap() {
@@ -1541,6 +1601,15 @@ for (;*firstOperand != operator1;) {        \
                     if (!cff->Parse(&data.cffParsed, SysEndian.little)) {
                         return false;
                     }
+                } else if (tag == "glyf"_Tag && !data.glyfParsed.active) {
+                    data.glyfParsed.active = true;
+                    data.glyfParsed.glyphData = (tables::glyf*)ptr;
+                } else if (tag == "loca"_Tag) {
+                    data.glyfParsed.indexToLoc = (tables::loca*)ptr;
+                } else if (tag == "maxp"_Tag) {
+                    data.glyfParsed.maxProfile = (tables::maxp*)ptr;
+                } else if (tag == "head"_Tag || tag == "bhed"_Tag) {
+                    data.glyfParsed.header = (tables::head*)ptr;
                 }
             }
             if (chosenCmap == -1) {
@@ -1558,7 +1627,59 @@ for (;*firstOperand != operator1;) {        \
             return false;
         }
 
+        if (data.glyfParsed.active) {
+            // This at least guarantees glyphData is valid
+            // NOTE: These tests are probably overkill, but then again if we're a big-endian system
+            //       they wouldn't have been done in the EndianSwap madness. Better safe than sorry???
+            if (data.glyfParsed.header == nullptr) {
+                error = "Can't use glyf without head!";
+                return false;
+            }
+            if (data.glyfParsed.maxProfile == nullptr) {
+                error = "Can't use glyf without maxp!";
+                return false;
+            }
+            if (data.glyfParsed.indexToLoc == nullptr) {
+                error = "Can't use glyf without loca!";
+                return false;
+            }
+            data.glyfParsed.glyfOffsets.Resize((u32)data.glyfParsed.maxProfile->numGlyphs+1);
+            if (data.glyfParsed.header->indexToLocFormat == 1) { // Long Offsets
+                for (u32 i = 0; i < (u32)data.glyfParsed.maxProfile->numGlyphs + 1; i++) {
+                    u32 *offsets = (u32*)data.glyfParsed.indexToLoc;
+                    data.glyfParsed.glyfOffsets[i] = offsets[i];
+                }
+            } else { // Short Offsets
+                for (u32 i = 0; i < (u32)data.glyfParsed.maxProfile->numGlyphs + 1; i++) {
+                    u16 *offsets = (u16*)data.glyfParsed.indexToLoc;
+                    data.glyfParsed.glyfOffsets[i] = offsets[i] * 2;
+                }
+            }
+        }
+
+        cout << "Successfully prepared \"" << filename << "\" for usage." << std::endl;
+
         return true;
+    }
+
+    void Font::PrintGlyph(char32 glyph) {
+        u32 glyphIndex = 0;
+        for (i32 i = 0; i < data.cmaps.size; i++) {
+            tables::cmap_format_any *cmap = (tables::cmap_format_any*)(data.tableData.data + data.cmaps[i]);
+            glyphIndex = cmap->GetGlyphIndex(glyph);
+            if (glyphIndex) {
+                break;
+            }
+        }
+        cout << "glyph " << glyph << " has a glyph index of " << glyphIndex << std::endl;
+        if (data.cffParsed.active) {
+            cout << "Not yet implemented." << std::endl;
+        } else if (data.glyfParsed.active) {
+            tables::glyf_header *header = (tables::glyf_header*)((char*)data.glyfParsed.glyphData + data.glyfParsed.glyfOffsets[glyphIndex]);
+            cout << "numberOfContours = " << header->numberOfContours << std::endl;
+        } else {
+            cout << "We don't have any supported glyph data!" << std::endl;
+        }
     }
 
 }

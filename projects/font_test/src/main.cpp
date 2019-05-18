@@ -17,9 +17,16 @@ i32 main(i32 argumentCount, char **argumentValues) {
         return 1;
     }
     ClockTime start = Clock::now();
-    for (char32 i = 0; i < 256; i++) {
-        font.PrintGlyph(i);
+    WString string = ToWString("私はハンバーガー");
+    for (char32 c : string) {
+        font.PrintGlyph(c);
     }
+    // for (u32 i = 0; i < 64; i++) {
+        for (char32 c = 32; c < 256; c++) {
+            font.PrintGlyph(c);
+        }
+    // }
+    font.PrintGlyph((char32)'2');
     cout << "Total time: " << std::chrono::duration_cast<Milliseconds>(Clock::now()-start).count() << "ms" << std::endl;
     return 0;
 }

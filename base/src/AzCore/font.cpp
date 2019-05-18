@@ -5,7 +5,7 @@
 
 #include "font.hpp"
 
-#define LOG_VERBOSE
+// #define LOG_VERBOSE
 
 String ToString(font::Tag_t tag) {
     String string(4);
@@ -29,7 +29,64 @@ namespace font {
         return 2.0 * ((1.0-t) * (p2-p1) + t * (p3-p2));
     }
 
-    i32 Curve::Intersection(vec2 point) {
+    inline i32 signToWinding(f32 d) {
+        if (d > 0.0) {
+            return 1;
+        } else{
+            return -1;
+        }
+    }
+
+    inline i32 BezierDerivativeSign(f32 t, f32 p1, f32 p2, f32 p3) {
+        return signToWinding((1.0-t) * (p2-p1) + t*(p3-p2));
+    }
+
+    i32 Line::Intersection(const vec2 &point) const {
+        // Bezier(t) = (1-t)*p1 + t*p3
+        // Bezier(t) = t(p3 - p1) + p1
+        // t = -p1 / (p3 - p1)
+
+        if (p2.x == p1.x) {
+            // Vertical line
+            if (p2.x >= point.x) {
+                if (point.y == median(p2.y, point.y, p1.y)) {
+                    return signToWinding(p2.y - p1.y);
+                }
+            }
+        } else {
+            f32 a, b; // coefficients of the line: y = ax + b
+            if (p2.y == p1.y) {
+                // Horizontal line
+                return 0;
+            } else {
+                a = p2.y - p1.y;
+                b = p1.y - point.y;
+                f32 t = -b / a;
+                if (t >= 0.0 && t < 1.0) {
+                    f32 x = (p2.x - p1.x) * t + p1.x;
+                    if (x >= point.x) {
+                        return signToWinding(a);
+                    }
+                }
+            }
+        }
+        return 0;
+    };
+
+    void Line::DistanceLess(const vec2 &point, f32& distSquared) const {
+        const f32 lengthSquared = square(p1.x-p2.x) + square(p1.y-p2.y);
+        const f32 t = clamp(dot(p2-p1, point-p1) / lengthSquared, 0.0, 1.0);
+        const vec2 projection = p1 + (p2 - p1) * t;
+        f32 dist = absSqr(point - projection);
+        if (dist < distSquared) {
+            distSquared = dist;
+        }
+    }
+
+    i32 Curve::Intersection(const vec2& point) const {
+        if (point.x > max(max(p1.x, p2.x), p3.x)) {
+            return 0;
+        }
         i32 winding = 0;
         // Bezier(t) = (1-t)*((1-t)*p1 + t*p2) + t*((1-t)*p2 + t*p3)
         // Bezier(t) = (1-t)*(1-t)*p1 + (1-t)t*(2*p2) + t^2*p3
@@ -37,40 +94,13 @@ namespace font {
         // Bezier(t) = t^2(p3 - 2*p2 + p1) + t(2*p2 - 2*p1) + p1
         // Bezier'(t) = 2(1-t)(p2-p1) + 2t(p3-p2);
 
-        // Bezier(t) = (1-t)*p1 + t*p3
-        // Bezier(t) = t(p3 - p1) + p1
-        // t = -p1 / (p3 - p1)
-        f32 a, b, c; // coefficients of the curve: y = ax^2 + bx + c
+        f32 a, b, c; // coefficients of the curve: y = ax^2 - bx + c
         a = p3.y - 2.0*p2.y + p1.y;
         if (a == 0.0) {
-            // Straight line
-            if (p3.x == p1.x) {
-                // Vertical line
-                if (p3.x > point.x) {
-                    if (point.y == median(p3.y, point.y, p1.y)) {
-                        return p1.y < p3.y ? 1 : -1;
-                    }
-                }
-            } else {
-                // Now represents the line: y = ax + b
-                a = p3.y - p1.y;
-                if (a == 0.0) {
-                    // Horizontal line
-                    return 0;
-                } else {
-                    b = p1.y - point.y;
-                    f32 t = -b / a;
-                    if (t == median(0.0, t, 1.0)) {
-                        f32 x = (p3.x - p1.x) * t + p1.x;
-                        if (x > point.x) {
-                            return a > 0.0 ? 1 : -1;
-                        }
-                    }
-                }
-            }
-            return 0;
+            Line line{p1, p3};
+            return line.Intersection(point);
         }
-        b = 2.0*(p2.y - p1.y);
+        b = -2.0*(p2.y - p1.y);
         c = p1.y - point.y;
         const f32 bb = square(b);
         const f32 ac4 = 4.0*a*c;
@@ -79,53 +109,149 @@ namespace font {
             return 0;
         }
         const f32 squareRoot = sqrt(bb - ac4);
-        // cout << "squareRoot = " << squareRoot << std::endl;
-        f32 t1 = (-b + squareRoot) / (2.0 * a);
-        if (t1 == median(0.0, t1, 1.0)) {
-            f32 x = (p3.x - 2.0*p2.x + p1.x) * square(t1) + 2.0*(p2.x - p1.x) * t1 + p1.x;
-            if (x > point.x) {
+        a *= 2.0;
+        f32 t1 = (b + squareRoot) / a;
+        f32 t2 = (b - squareRoot) / a;
+        a = (p3.x - 2.0*p2.x + p1.x);
+        b = 2.0*(p2.x - p1.x);
+        c = p1.x;
+        if (t1 >= 0.0 && t1 < 1.0) {
+            f32 x = a*square(t1) + b*t1 + c;
+            if (x >= point.x) {
                 // We have an intersection
-                winding += BezierDerivative(t1, p1.y, p2.y, p3.y) > 0.0 ? 1 : -1;
+                winding += BezierDerivativeSign(t1, p1.y, p2.y, p3.y);
             }
         }
-        f32 t2 = (-b - squareRoot) / (2.0 * a);
-        if (t2 == median(0.0, t2, 1.0)) {
-            f32 x = (p3.x - 2.0*p2.x + p1.x) * square(t2) + 2.0*(p2.x - p1.x) * t2 + p1.x;
-            if (x > point.x) {
+        if (t2 >= 0.0 && t2 < 1.0) {
+            f32 x = a*square(t2) + b*t2 + c;
+            if (x >= point.x) {
                 // We have an intersection
-                winding += BezierDerivative(t2, p1.y, p2.y, p3.y) > 0.0 ? 1 : -1;
+                winding += BezierDerivativeSign(t2, p1.y, p2.y, p3.y);
             }
         }
         return winding;
     }
 
-    i32 Contour::Intersection(vec2 point) {
+    vec2 Curve::Point(const f32& t) const {
+        const f32 tInv = 1.0 - t;
+        return p1 * square(tInv) + p2 * (2.0 * t * tInv) + p3 * square(t);
+    }
+
+    void Curve::DistanceLess(const vec2 &point, f32& distSquared) const {
+        // Try to do an early out if we can
+        {
+            f32 maxPointDist = max(max(absSqr(p1-p2), absSqr(p2-p3)), absSqr(p3-p1));
+            f32 minDistSquared = min(min(absSqr(p1-point), absSqr(p2-point)), absSqr(p3-point));
+            if (minDistSquared > distSquared + maxPointDist * 0.25) {
+                return;
+            }
+        }
+        // B(t) = (1-t)^2*p1 + 2t(1-t)*p2 + t^2*p3
+        // B'(t) = 2((1-t)(p2-p1) + t(p3-p2))
+        // M = p2 - p1
+        // N = p3 - p2 - M
+        // B'(t) = 2(M + t*N)
+        // dot(B(t) - point, B'(t)) = 0
+        // dot((1-t)^2*p1 + 2t(1-t)*p2 + t^2*p3 - point, 2(M + t*N)) = 0
+        // at^3 + bt^2 + ct + d = 0
+        // a = N^2
+        // b = 3*dot(M, N)
+        // c = 2*M^2 + dot(p1-point, N)
+        // d = dot(p1-point, M)
+        const vec2 m = p2 - p1;
+        const vec2 n = p3 - p2 - m;
+        const vec2 o = p1-point;
+
+        f32 a = absSqr(n);
+        f32 b = dot(m, n) * 3.0;
+        f32 c = absSqr(m) * 2.0 + dot(o, n);
+        f32 d = dot(o, m);
+        SolutionCubic<f32> solution = SolveCubic<f32>(a, b, c, d);
+        // We're guaranteed at least 1 solution.
+        f32 t = clamp(solution.x1, 0.0, 1.0);
+        f32 dist = absSqr(Point(t)-point);
+        if (dist < distSquared) {
+            distSquared = dist;
+        }
+        if (solution.x3Real) {
+            t = clamp(solution.x3, 0.0, 1.0);
+            dist = absSqr(Point(t)-point);
+            if (dist < distSquared) {
+                distSquared = dist;
+            }
+        }
+        if (solution.x2Real) {
+            t = clamp(solution.x2, 0.0, 1.0);
+            dist = absSqr(Point(t)-point);
+            if (dist < distSquared) {
+                distSquared = dist;
+            }
+        }
+    }
+
+    i32 Contour::Intersection(const vec2& point) const {
         i32 winding = 0;
-        for (i32 i = 0; i < points.size-1; i += 2) {
-            Curve *curve = (Curve*)&points[i];
-            winding += curve->Intersection(point);
+        for (const Curve& curve : curves) {
+            winding += curve.Intersection(point);
+        }
+        for (const Line& line : lines) {
+            winding += line.Intersection(point);
         }
         return winding;
+    }
+
+    void Contour::DistanceLess(const vec2 &point, f32& distSquared) const {
+        for (const Curve& curve : curves) {
+            curve.DistanceLess(point, distSquared);
+        }
+        for (const Line& line : lines) {
+            line.DistanceLess(point, distSquared);
+        }
     }
 
     void Contour::FromGlyfPoints(glyfPoint *glyfPoints, i32 count) {
-        points.Reserve(count);
-        bool lastOnCurve = glyfPoints[0].onCurve;
-        if (!lastOnCurve) {
-            points.Append((glyfPoints[count-1].coords + glyfPoints[0].coords) * 0.5);
-        }
-        points.Append(glyfPoints[0].coords);
-        for (i32 i = 1; i < count; i++) {
-            if (lastOnCurve == glyfPoints[i].onCurve) {
-                points.Append((glyfPoints[(i-1)%count].coords + glyfPoints[i].coords) * 0.5);
+        // curves.Reserve(count/3);
+        // lines.Reserve(count/3);
+        Curve curve;
+        Line line;
+        for (i32 i = 0; i < count; i++) {
+            if (glyfPoints[i%count].onCurve) {
+                if (glyfPoints[(i+1)%count].onCurve) {
+                    // Line segment
+                    line.p1 = glyfPoints[i%count].coords;
+                    line.p2 = glyfPoints[(i+1)%count].coords;
+                    lines.Append(line);
+                } else {
+                    // Bezier
+                    curve.p1 = glyfPoints[i%count].coords;
+                    curve.p2 = glyfPoints[(i+1)%count].coords;
+                    if (glyfPoints[(i+2)%count].onCurve) {
+                        curve.p3 = glyfPoints[(i+2)%count].coords;
+                        i++; // next iteration starts at i+2
+                    } else {
+                        curve.p3 = (glyfPoints[(i+1)%count].coords + glyfPoints[(i+2)%count].coords) * 0.5;
+                    }
+                    curves.Append(curve);
+                }
+            } else {
+                if (glyfPoints[(i+1)%count].onCurve) {
+                    // I don't think this should happen???
+                    cout << "WHAT" << std::endl;
+                    continue;
+                } else {
+                    // Implied on-curve points on either side
+                    curve.p1 = (glyfPoints[i%count].coords + glyfPoints[(i+1)%count].coords) * 0.5;
+                    curve.p2 = glyfPoints[(i+1)%count].coords;
+                    if (glyfPoints[(i+2)%count].onCurve) {
+                        curve.p3 = glyfPoints[(i+2)%count].coords;
+                        i++;
+                    } else {
+                        curve.p3 = (glyfPoints[(i+1)%count].coords + glyfPoints[(i+2)%count].coords) * 0.5;
+                    }
+                    curves.Append(curve);
+                }
             }
-            lastOnCurve = glyfPoints[i].onCurve;
-            points.Append(glyfPoints[i].coords);
         }
-        if (lastOnCurve == glyfPoints[0].onCurve) {
-            points.Append((glyfPoints[count-1].coords + glyfPoints[0].coords) * 0.5);
-        }
-        points.Append(glyfPoints[0].coords);
         // for (i32 i = 0; i < points.size; i++) {
         //     cout << "point[" << i << "] = (" << points[i].x << "," << points[i].y << ")\n";
         // }
@@ -138,6 +264,14 @@ namespace font {
             winding += contour.Intersection(point);
         }
         return winding != 0;
+    }
+
+    f32 Glyph::MinDistance(const vec2 &point) const {
+        f32 minDistSquared = 1000.0; // Glyphs should be normalized to the em square more or less.
+        for (const Contour& contour : contours) {
+            contour.DistanceLess(point, minDistSquared);
+        }
+        return sqrt(minDistSquared);
     }
 
     constexpr Tag_t::Tag_t(const u32 in) : data(in) {}
@@ -838,7 +972,7 @@ for (;*firstOperand != operator1;) {        \
         }
 
         u32 cmap_format4::GetGlyphIndex(char32 glyph) {
-            u32 segment;
+            u32 segment = 0;
             for (u32 i = 0; i*2 < segCountX2; i++) {
                 if (endCode(i) >= glyph) { // Find the first endCode >= glyph
                     if (startCode(i) <= glyph) { // We're in the range
@@ -1129,7 +1263,9 @@ for (;*firstOperand != operator1;) {        \
                 for (u16 i = 0; i < numGlyphs; i++) {
                     if (offsetsDone.count(loc->offsets32(i)) == 0) {
                         glyf_header *header = (glyf_header*)((char*)this + loc->offsets32(i));
+#ifdef LOG_VERBOSE
                         cout << "Long offset: " << loc->offsets32(i) << std::endl;
+#endif
                         DO_SWAP();
                         offsetsDone.insert(loc->offsets32(i));
                     }
@@ -1139,7 +1275,9 @@ for (;*firstOperand != operator1;) {        \
                 for (u16 i = 0; i < numGlyphs; i++) {
                     if (offsetsDone.count(loc->offsets16(i)) == 0) {
                         glyf_header *header = (glyf_header*)(((char*)this) + loc->offsets16(i) * 2);
+#ifdef LOG_VERBOSE
                         cout << "Short offset[" << i << "]: " << loc->offsets16(i) * 2 << std::endl;
+#endif
                         DO_SWAP();
                         offsetsDone.insert(loc->offsets16(i));
                     }
@@ -1151,13 +1289,17 @@ for (;*firstOperand != operator1;) {        \
         void glyf::EndianSwapSimple(glyf_header *header) {
             char *ptr = (char*)(header+1);
             u16* endPtsOfContours = (u16*)ptr;
+#ifdef LOG_VERBOSE
             cout << "Simple Glyph with " << header->numberOfContours << " contours..." << std::endl;
+#endif
             for (i16 i = 0; i < header->numberOfContours; i++) {
                 ENDIAN_SWAP(*(u16*)ptr);
                 ptr += 2;
             }
             u16& instructionLength = ENDIAN_SWAP(*(u16*)ptr);
+#ifdef LOG_VERBOSE
             cout << "instructionLength = " << instructionLength << std::endl;
+#endif
             ptr += instructionLength + 2;
             // Now it gets weird
             u16 nPoints;
@@ -1166,7 +1308,9 @@ for (;*firstOperand != operator1;) {        \
             } else {
                 nPoints = 0;
             }
+#ifdef LOG_VERBOSE
             cout << "We have " << nPoints << " points..." << std::endl;
+#endif
             // Now figure out how many flag bytes there actually are
             u8 *flags = (u8*)ptr;
             u16 nFlags = nPoints;
@@ -1175,7 +1319,9 @@ for (;*firstOperand != operator1;) {        \
                     nFlags -= flags[++i] - 1;
                 }
             }
+#ifdef LOG_VERBOSE
             cout << "We have " << nFlags << " flags..." << std::endl;
+#endif
             ptr += nFlags; // We should be at the beginning of the xCoord array
             // We only need to swap endians for xCoords that are 2-bytes in width
             u16 repeatCount = 0;
@@ -1240,7 +1386,9 @@ for (;*firstOperand != operator1;) {        \
                     }
                 }
             }
+#ifdef LOG_VERBOSE
             cout << "Completed! Total size: " << u32(ptr-(char*)header) << "\n" << std::endl;
+#endif
             // Simple my ASS
         }
 
@@ -1289,9 +1437,11 @@ for (;*firstOperand != operator1;) {        \
                 ENDIAN_SWAP(numInstructions);
                 ptr += 2 + numInstructions;
             }
+#ifdef LOG_VERBOSE
             cout << "Compound Glyph with " << components << " component glyphs..." << std::endl;
             // That was somehow simpler than the "Simple" Glyph... tsk
             cout << "Completed! Total size: " << u32(ptr-(char*)header) << "\n" << std::endl;
+#endif
         }
 
         bool cffs::charset_format_any::EndianSwap(Card16 nGlyphs) {
@@ -1940,7 +2090,11 @@ for (;*firstOperand != operator1;) {        \
                 break;
             }
         }
-        cout << "glyph " << glyph << " has a glyph index of " << glyphIndex << std::endl;
+        // cout << "glyph " << glyph << " has a glyph index of " << glyphIndex << std::endl;
+        static u64 totalParseTime = 0;
+        static u64 totalDrawTime = 0;
+        static u32 iterations = 0;
+        Nanoseconds glyphParseTime, glyphDrawTime;
         if (glyphIndex == 0) {
             return;
         }
@@ -1952,21 +2106,51 @@ for (;*firstOperand != operator1;) {        \
                 return;
             }
             // cout << "numberOfContours = " << header->numberOfContours << std::endl;
+            ClockTime start = Clock::now();
             Glyph glyph = header->Parse(data.glyfParsed.header->unitsPerEm);
-            for (f32 y = 0.0; y <= 1.0; y += 1.0/60.0) {
-                for (f32 x = 0.0; x <= 1.0; x += 1.0/100.0) {
-                    vec2 point(x, 1.0-y);
+            glyphParseTime = Clock::now()-start;
+            start = Clock::now();
+            const i32 minX = -2;
+            const i32 maxX = 48;
+            const i32 minY = -4;
+            const i32 maxY = 20;
+            const char distSymbolsPos[] = "X-.";
+            const char distSymbolsNeg[] = "@*'";
+            for (i32 y = maxY; y >= minY; y--) {
+                for (i32 x = minX; x <= maxX; x++) {
+                    vec2 point((f32)x / f32(maxX-minX), (f32)y / f32(maxY-minY));
+                    f32 dist = glyph.MinDistance(point);
+                    const f32 margin = 0.03;
                     if (glyph.Inside(point)) {
-                        cout << 'X';
+                        if (dist < margin) {
+                            cout << distSymbolsNeg[i32(dist/margin*3.0)];
+                        } else {
+                            cout << ' ';
+                        }
                     } else {
-                        cout << ' ';
+                        if (dist < margin) {
+                            cout << distSymbolsPos[i32(dist/margin*3.0)];
+                        } else {
+                            cout << ' ';
+                        }
                     }
                 }
                 cout << "\n";
             }
+            glyphDrawTime = Clock::now()-start;
             cout << std::endl;
         } else {
             cout << "We don't have any supported glyph data!" << std::endl;
+        }
+        totalParseTime += glyphParseTime.count();
+        totalDrawTime += glyphDrawTime.count();
+        iterations++;
+        // cout << "Glyph Parse Time: " << glyphParseTime.count() << "ns\n"
+        //     "Glyph Draw Time: " << glyphDrawTime.count() << "ns" << std::endl;
+        if (iterations%64 == 0) {
+            cout << "After " << iterations << " iterations, average glyph parse time is "
+                 << totalParseTime/iterations << "ns and average glyph draw time is "
+                 << totalDrawTime/iterations << "ns.\nTotal glyph parse time is " << totalParseTime/1000000 << "ms and total glyph draw time is " << totalDrawTime/1000000 << "ms." << std::endl;
         }
     }
 

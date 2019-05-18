@@ -32,9 +32,21 @@ namespace font {
         //      1 for clockwise-winding intersection
         //      -1 for counter-clockwise-winding intersection
         //      0 for no intersection
-        i32 Intersection(vec2 point);
+        i32 Intersection(const vec2& point) const;
+        vec2 Point(const f32& t) const;
+        void DistanceLess(const vec2& point, f32& distSquared) const;
     };
     static_assert(sizeof(Curve) == 24);
+
+    /*  struct: Line
+        Author: Philip Haynes
+        Defines a single line segment.          */
+    struct Line {
+        vec2 p1, p2;
+        i32 Intersection(const vec2& point) const;
+        void DistanceLess(const vec2& point, f32& distSquared) const;
+    };
+    static_assert(sizeof(Line) == 16);
 
     /*  struct: glyfPoint
         Author: Philip Haynes
@@ -51,9 +63,11 @@ namespace font {
         // Points are stored continuously where the first is the starting point,
         // every odd point is the bezier control point, and every even point is
         // the end point of the last curve, and also the start of the next.
-        Array<vec2> points;
+        Array<Curve> curves;
+        Array<Line> lines;
         // Finds all intersections and returns the total winding number
-        i32 Intersection(vec2 point);
+        i32 Intersection(const vec2& point) const;
+        void DistanceLess(const vec2& point, f32& distSquared) const;
         // Expands an array of glyfPoints into always having the control point available
         void FromGlyfPoints(glyfPoint *glyfPoints, i32 count);
     };
@@ -65,6 +79,7 @@ namespace font {
         Array<Contour> contours;
         // Returns whether a point is inside the glyph.
         bool Inside(vec2 point);
+        f32 MinDistance(const vec2& point) const;
     };
 
     // These are the basic types used for TrueType fonts

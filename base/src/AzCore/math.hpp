@@ -21,6 +21,8 @@
 #define MATH_MAT5
 #define MATH_COMPLEX
 #define MATH_QUATERNION
+// MATH_EQUATIONS adds solvers for linear, quadratic, and cubic equations
+#define MATH_EQUATIONS
 #define MATH_F32
 // #define MATH_F64
 
@@ -155,6 +157,11 @@ inline T map(T in, T minFrom, T maxFrom, T minTo, T maxTo) {
     return (in - minFrom) * (maxTo - minTo) / (maxFrom - minFrom);
 }
 
+template<typename T>
+inline T cubert(T a) {
+    return a >= T(0.0) ? pow(a, T(1.0/3.0)) : -pow(-a, T(1.0/3.0));
+}
+
 // Finds the shortest distance from one angle to another.
 #ifdef MATH_F32
     f32 angleDiff(f32 from, f32 to);
@@ -210,6 +217,11 @@ inline T normalize(const T& a) {
     template<typename T>
     inline T dot(const vec2_t<T>& a, const vec2_t<T>& b) {
         return a.x*b.x + a.y*b.y;
+    }
+
+    template<typename T>
+    inline T absSqr(const vec2_t<T>& a) {
+        return a.x*a.x + a.y*a.y;
     }
 
     template<typename T>
@@ -334,6 +346,11 @@ inline T normalize(const T& a) {
     template<typename T>
     inline T dot(const vec3_t<T>& a, const vec3_t<T>& b) {
         return a.x*b.x + a.y*b.y + a.z*b.z;
+    }
+
+    template<typename T>
+    inline T absSqr(const vec3_t<T>& a) {
+        return a.x*a.x + a.y*a.y + a.z*a.z;
     }
 
     template<typename T>
@@ -493,6 +510,11 @@ inline T normalize(const T& a) {
     }
 
     template<typename T>
+    inline T absSqr(const vec4_t<T>& a) {
+        return a.x*a.x + a.y*a.y + a.z*a.z + a.w*a.w;
+    }
+
+    template<typename T>
     inline T abs(const vec4_t<T>& a) {
         return sqrt(a.x*a.x + a.y*a.y + a.z*a.z + a.w*a.w);
     }
@@ -649,6 +671,11 @@ inline T normalize(const T& a) {
     template<typename T>
     inline T dot(const vec5_t<T>& a, const vec5_t<T>& b) {
         return a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w + a.v*b.v;
+    }
+
+    template<typename T>
+    inline T absSqr(const vec5_t<T>& a) {
+        return a.x*a.x + a.y*a.y + a.z*a.z + a.w*a.w + a.v*a.v;
     }
 
     template<typename T>
@@ -1010,6 +1037,120 @@ inline T normalize(const T& a) {
     quat_t<T> pow(const quat_t<T>& a, const T& e);
 
 #endif // MATH_QUATERNION
+
+#ifdef MATH_EQUATIONS
+
+template<typename T>
+struct SolutionLinear {
+    T x;
+    bool real=false;
+};
+
+template<typename T>
+SolutionLinear<T> SolveLinear(T a, T b) {
+    SolutionLinear<T> solution;
+    if (a != 0.0) {
+        solution.x = -b / a;
+        solution.real = true;
+    }
+    return solution;
+}
+
+template<typename T>
+struct SolutionQuadratic {
+    T x1, x2;
+    bool x1Real=false, x2Real=false;
+    SolutionQuadratic() = default;
+    SolutionQuadratic(const SolutionLinear<T>& solution) : x1(solution.x) , x1Real(solution.real) {}
+};
+
+template<typename T>
+SolutionQuadratic<T> SolveQuadratic(T a, T b, T c) {
+    SolutionQuadratic<T> solution;
+    if (a == 0.0) {
+        return SolveLinear<T>(b, c);
+    }
+    const T bb = square(b);
+    const T ac4 = 4.0*a*c;
+    if (bb < ac4) {
+        // We don't care about complex answers
+        return solution;
+    }
+    if (bb == ac4) {
+        solution.x1 = -b / a;
+        solution.x1Real = true;
+        return solution;
+    }
+    const T squareRoot = sqrt(bb - ac4);
+    a *= 2.0;
+    solution.x1 = (-b + squareRoot) / a;
+    solution.x1Real = true;
+    solution.x2 = (-b - squareRoot) / a;
+    solution.x2Real = true;
+    return solution;
+}
+
+template<typename T>
+struct SolutionCubic {
+    T x1, x2, x3;
+    bool x1Real=false, x2Real=false, x3Real=false;
+    SolutionCubic() = default;
+    SolutionCubic(const SolutionQuadratic<T>& solution) : x1(solution.x1) , x2(solution.x2) , x1Real(solution.x1Real) , x2Real(solution.x2Real) {}
+};
+
+template<typename T>
+SolutionCubic<T> SolveCubic(T a, T b, T c, T d) {
+    SolutionCubic<T> solution;
+    if (a == 0.0) {
+        return SolveQuadratic<T>(b, c, d);
+    }
+    // We'll use Cardano's formula
+    // First we need to be in terms of the depressed cubic.
+    // So we take our current form:
+    // ax^3 + bx^2 + cx + d = 0
+    // divide by a to get:
+    // x^3 + ix^2 + jx + k = 0
+    // where i = b/a, j = c/a, and k = d/a
+    T i = b/a;
+    T j = c/a;
+    T k = d/a;
+    // substitute t for x to get
+    // t^3 + pt + q
+    // where t = (x + i/3), p = (j - i^2/3), and q = (k + 2i^3/27 - ij/3)
+    T p = j - square(i) / 3.0;
+    T q = i * (2.0 * square(i) - 9.0 * j) / 27.0 + k;
+    T p3 = p*p*p;
+    T sqrD = square(q) + p3 * 4.0 / 27.0;
+    T offset = -i / 3.0; // Since t = (x + i/3), x = t - i/3
+    if (sqrD > 0.0) {
+        // We have a single real solution
+        T rootD = sqrt(sqrD);
+        T u = cubert((-q + rootD) * 0.5);
+        T v = cubert((-q - rootD) * 0.5);
+        solution.x1 = u + v + offset;
+        solution.x1Real = true;
+    } else if (sqrD < 0.0) {
+        // We have 3 real solutions
+        T u = 2.0 * sqrt(-p / 3.0);
+        T v = acos( -sqrt(-27.0/p3) * q * 0.5) / 3.0;
+        solution.x1 = u * cos(v) + offset;
+        solution.x2 = u * cos(v + tau / 3.0) + offset;
+        solution.x3 = u * cos(v + tau * 2.0/3.0) + offset;
+        solution.x1Real = true;
+        solution.x2Real = true;
+        solution.x3Real = true;
+    } else {
+        // We have 2 real solutions
+        T u = cubert(-q * 0.5);
+        solution.x1 = u * 2.0 + offset;
+        solution.x2 = -u + offset;
+        solution.x1Real = true;
+        solution.x2Real = true;
+    }
+    return solution;
+}
+
+#endif // MATH_EQUATIONS
 
 // Typedefs for nice naming conventions
 

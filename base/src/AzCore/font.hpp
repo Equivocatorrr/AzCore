@@ -35,6 +35,8 @@ namespace font {
         i32 Intersection(const vec2& point) const;
         vec2 Point(const f32& t) const;
         void DistanceLess(const vec2& point, f32& distSquared) const;
+        void Scale(const mat2& scale);
+        void Offset(const vec2& offset);
     };
     static_assert(sizeof(Curve) == 24);
 
@@ -45,6 +47,8 @@ namespace font {
         vec2 p1, p2;
         i32 Intersection(const vec2& point) const;
         void DistanceLess(const vec2& point, f32& distSquared) const;
+        void Scale(const mat2& scale);
+        void Offset(const vec2& offset);
     };
     static_assert(sizeof(Line) == 16);
 
@@ -70,6 +74,8 @@ namespace font {
         void DistanceLess(const vec2& point, f32& distSquared) const;
         // Expands an array of glyfPoints into always having the control point available
         void FromGlyfPoints(glyfPoint *glyfPoints, i32 count);
+        void Scale(const mat2& scale);
+        void Offset(const vec2& offset);
     };
 
     /*  struct: Glyph
@@ -80,6 +86,8 @@ namespace font {
         // Returns whether a point is inside the glyph.
         bool Inside(vec2 point);
         f32 MinDistance(const vec2& point) const;
+        void Scale(const mat2& scale);
+        void Offset(const vec2& offset);
     };
 
     // These are the basic types used for TrueType fonts
@@ -97,6 +105,7 @@ namespace font {
     typedef i16 FWord_t;
     typedef u16 uFWord_t;
     typedef i16 F2Dot14_t;
+    f32 ToF32(const F2Dot14_t& in);
     typedef i64 longDateTime_t;
 
     union Tag_t {
@@ -381,9 +390,6 @@ namespace font {
             i16 xMax;
             i16 yMax;
             void EndianSwap();
-            Glyph Parse(u16 unitsPerEm);
-            Glyph ParseSimple(u16 unitsPerEm);
-            Glyph ParseCompound(u16 unitsPerEm);
         };
         static_assert(sizeof(glyf_header) == 10);
 
@@ -429,6 +435,9 @@ namespace font {
                 Bit 8:  Instructions for the component character follow the last component
                 Bit 9:  Use metrics from this component for the compound glyph
                 Bit 10: The components of this compound glyph overlap
+                Bit 11: The composite is designed to have the component offset scaled.
+                Bit 12: The composite is designed not to have the component offset scaled.
+                    - This is the default if neither 11 nor 12 are set. Both should never be set simultaneously.
             u16 glyphIndex; // Glyph index of the component
                 The arguments are unsigned if they're points, and signed if they're offsets.
             i16 or u16 or i8 or u8 argument1; // X-offset for component or point number
@@ -722,6 +731,10 @@ namespace font {
             loca *indexToLoc = nullptr;
             glyf *glyphData;
             Array<u32> glyfOffsets;
+
+            Glyph GetGlyph(u32 glyphIndex);
+            Glyph ParseSimple(glyf_header *gheader, Array<glyfPoint> *dstArray=nullptr);
+            Glyph ParseCompound(glyf_header *gheader);
         };
 
     }

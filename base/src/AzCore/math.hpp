@@ -90,6 +90,9 @@ enum Plane {
     inline f32 log2(const f32& a) { return log2f(a); }
     inline f32 log10(const f32& a) { return log10f(a); }
     inline f32 pow(const f32& a, const f32& b) { return powf(a, b); }
+    inline f32 floor(const f32& a) { return floorf(a); }
+    inline f32 round(const f32& a) { return roundf(a); }
+    inline f32 ceil(const f32& a) { return ceilf(a); }
 #endif
 
 /*  struct: RandomNumberGenerator

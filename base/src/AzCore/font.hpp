@@ -63,29 +63,34 @@ namespace font {
     /*  struct: Contour
         Author: Philip Haynes
         Defines a single glyph contour.      */
-    struct Contour {
-        // Points are stored continuously where the first is the starting point,
-        // every odd point is the bezier control point, and every even point is
-        // the end point of the last curve, and also the start of the next.
-        Array<Curve> curves;
-        Array<Line> lines;
-        // Finds all intersections and returns the total winding number
-        i32 Intersection(const vec2& point) const;
-        void DistanceLess(const vec2& point, f32& distSquared) const;
-        // Expands an array of glyfPoints into always having the control point available
-        void FromGlyfPoints(glyfPoint *glyfPoints, i32 count);
-        void Scale(const mat2& scale);
-        void Offset(const vec2& offset);
-    };
+    // struct Contour {
+    //     Array<Curve> curves;
+    //     Array<Line> lines;
+    //     // Finds all intersections and returns the total winding number
+    //     i32 Intersection(const vec2& point) const;
+    //     // Finds the minimum distance between the contour and the point, and replaces distSquared if it's less.
+    //     void DistanceLess(const vec2& point, f32& distSquared) const;
+    //     // Expands an array of glyfPoints into always having the control point available
+    //     void FromGlyfPoints(glyfPoint *glyfPoints, i32 count);
+    //     void Scale(const mat2& scale);
+    //     void Offset(const vec2& offset);
+    // };
 
     /*  struct: Glyph
         Author: Philip Haynes
         Defines a single glyph, including all the contours.     */
     struct Glyph {
-        Array<Contour> contours;
+        // All coordinates are in Em units
+        Array<Curve> curves;
+        Array<Line> lines;
+        // Array<Contour> contours;
+        vec2 size; // Total dimensions of the contours
+        vec2 offset; // Origin point relative to contours
+        vec2 advance; // How far to advance
         // Returns whether a point is inside the glyph.
-        bool Inside(vec2 point);
+        bool Inside(const vec2& point) const;
         f32 MinDistance(const vec2& point) const;
+        void AddFromGlyfPoints(glyfPoint *glyfPoints, i32 count);
         void Scale(const mat2& scale);
         void Offset(const vec2& offset);
     };
@@ -451,6 +456,47 @@ namespace font {
             static void EndianSwapCompound(glyf_header *header);
         };
 
+        /*  struct: hhea
+            Author: Philip Haynes
+            Horizontal header table, used in conjunction with the hmtx table.       */
+        struct hhea {
+            Fixed_t version; // Should be 1.0
+            FWord_t ascent; // Distance from baseline of highest ascender
+            FWord_t descent; // Distance from baseline of lowest descender
+            FWord_t lineGap; // Typographic line gap.
+            uFWord_t advanceWidthMax;
+            FWord_t minLeftSideBearing;
+            FWord_t minRightSideBearing;
+            FWord_t xMaxExtent; // max(lsb + (xMax-xMin))
+            i16 caretSlopeRise; // Slope of the caret
+            i16 caretSlopeRun; // 1/0 for vertical
+            FWord_t caretOffset;
+            i16 reserved[4];
+            i16 metricDataFormat; // 0 for current format
+            u16 numOfLongHorMetrics; // Number of advance widths in hmtx. The only thing we actually care about...
+            void EndianSwap();
+        };
+
+        /*  struct: longHorMetric
+            Author: Philip Haynes
+            It's pretty straight forward.       */
+        struct longHorMetric {
+            uFWord_t advanceWidth;
+            FWord_t leftSideBearing;
+        };
+
+        /*  struct: hmtx
+            Author: Philip Haynes
+            Horizontal metrics table. Depends on hhea table.        */
+        struct hmtx {
+            /* All data in this table is of variable size and offset as follows:
+            longHorMetric hMetrics[numOfLongHorMetrics]; // From the hhea table
+            FWord_t leftSideBearing[...]; // Size is the total number of glyphs minus numOfLongHorMetrics
+            */
+            void EndianSwap(u16 numOfLongHorMetrics, u16 numGlyphs);
+            longHorMetric Metric(u32 glyphIndex, u16 numOfLongHorMetrics) const;
+        };
+
         namespace cffs {
 
             /*
@@ -730,11 +776,13 @@ namespace font {
             maxp *maxProfile = nullptr;
             loca *indexToLoc = nullptr;
             glyf *glyphData;
+            hhea *horHeader = nullptr;
+            hmtx *horMetrics = nullptr;
             Array<u32> glyfOffsets;
 
             Glyph GetGlyph(u32 glyphIndex);
             Glyph ParseSimple(glyf_header *gheader, Array<glyfPoint> *dstArray=nullptr);
-            Glyph ParseCompound(glyf_header *gheader);
+            Glyph ParseCompound(glyf_header *gheader, Array<glyfPoint> *dstArray=nullptr);
         };
 
     }
@@ -759,7 +807,7 @@ namespace font {
             // any of the offsetTables and finding the desired ones using tags
             Array<char> tableData;
         } data;
-        String filename = String(false);
+        String filename{};
 
         bool Load();
 

@@ -18,8 +18,10 @@ i32 main(i32 argumentCount, char **argumentValues) {
     }
     ClockTime start = Clock::now();
     WString string = ToWString("私ñÑēÈèéîêâô∵…ėȯȧıëäöïü学元気出区電話番号이작품희망");
-    for (char32 c : string) {
-        font.PrintGlyph(c);
+    for (u32 i = 0; i < 256; i++) {
+        for (char32 c : string) {
+            font.PrintGlyph(c);
+        }
     }
     // for (u32 i = 0; i < 64; i++) {
         // for (char32 c = 32; c < 256; c++) {

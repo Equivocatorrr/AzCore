@@ -5,7 +5,7 @@
 
 #include "font.hpp"
 
-// #define LOG_VERBOSE
+#define LOG_VERBOSE
 
 String ToString(font::Tag_t tag) {
     String string(4);
@@ -32,8 +32,10 @@ namespace font {
     inline i32 signToWinding(f32 d) {
         if (d > 0.0) {
             return 1;
-        } else{
+        } else if (d < 0.0) {
             return -1;
+        } else {
+            return 0;
         }
     }
 
@@ -49,8 +51,12 @@ namespace font {
         if (p2.x == p1.x) {
             // Vertical line
             if (p2.x >= point.x) {
-                if (point.y == median(p2.y, point.y, p1.y)) {
-                    return signToWinding(p2.y - p1.y);
+                if (point.y >= p1.y && point.y < p2.y) {
+                    return 1;
+                } else if (point.y >= p2.y && point.y < p1.y) {
+                    return -1;
+                } else {
+                    return 0;
                 }
             }
         } else {
@@ -62,10 +68,19 @@ namespace font {
                 a = p2.y - p1.y;
                 b = p1.y - point.y;
                 f32 t = -b / a;
-                if (t >= 0.0 && t < 1.0) {
-                    f32 x = (p2.x - p1.x) * t + p1.x;
-                    if (x >= point.x) {
-                        return signToWinding(a);
+                if (a > 0.0) {
+                    if (t >= 0.0 && t < 1.0) {
+                        f32 x = (p2.x - p1.x) * t + p1.x;
+                        if (x >= point.x) {
+                            return 1;
+                        }
+                    }
+                } else if (a < 0.0) {
+                    if (t > 0.0 && t <= 1.0) {
+                        f32 x = (p2.x - p1.x) * t + p1.x;
+                        if (x >= point.x) {
+                            return -1;
+                        }
                     }
                 }
             }
@@ -74,9 +89,10 @@ namespace font {
     };
 
     void Line::DistanceLess(const vec2 &point, f32& distSquared) const {
-        const f32 lengthSquared = square(p1.x-p2.x) + square(p1.y-p2.y);
-        const f32 t = clamp(dot(p2-p1, point-p1) / lengthSquared, 0.0, 1.0);
-        const vec2 projection = p1 + (p2 - p1) * t;
+        vec2 diff = p1-p2;
+        const f32 lengthSquared = absSqr(diff);
+        const f32 t = clamp(dot(diff, p1-point) / lengthSquared, 0.0, 1.0);
+        const vec2 projection = p1 - diff * t;
         f32 dist = absSqr(point - projection);
         if (dist < distSquared) {
             distSquared = dist;
@@ -125,14 +141,23 @@ namespace font {
         a = (p3.x - 2.0*p2.x + p1.x);
         b = 2.0*(p2.x - p1.x);
         c = p1.x;
-        if (t1 >= 0.0 && t1 < 1.0) {
+        bool t1InRange = false;
+        bool t2InRange = false;
+        if (p1.y < p3.y) {
+            t1InRange = t1 >= 0.0 && t1 < 1.0;
+            t2InRange = t2 >= 0.0 && t2 < 1.0;
+        } else {
+            t1InRange = t1 > 0.0 && t1 <= 1.0;
+            t2InRange = t2 > 0.0 && t2 <= 1.0;
+        }
+        if (t1InRange) {
             f32 x = a*square(t1) + b*t1 + c;
             if (x >= point.x) {
                 // We have an intersection
                 winding += BezierDerivativeSign(t1, p1.y, p2.y, p3.y);
             }
         }
-        if (t2 >= 0.0 && t2 < 1.0) {
+        if (t2InRange) {
             f32 x = a*square(t2) + b*t2 + c;
             if (x >= point.x) {
                 // We have an intersection
@@ -170,12 +195,12 @@ namespace font {
         // d = dot(p1-point, M)
         const vec2 m = p2 - p1;
         const vec2 n = p3 - p2 - m;
-        const vec2 o = p1-point;
+        const vec2 o = p1 - point;
 
-        f32 a = absSqr(n);
-        f32 b = dot(m, n) * 3.0;
-        f32 c = absSqr(m) * 2.0 + dot(o, n);
-        f32 d = dot(o, m);
+        const f32 a = absSqr(n);
+        const f32 b = dot(m, n) * 3.0;
+        const f32 c = absSqr(m) * 2.0 + dot(o, n);
+        const f32 d = dot(o, m);
         SolutionCubic<f32> solution = SolveCubic<f32>(a, b, c, d);
         // We're guaranteed at least 1 solution.
         f32 t = clamp(solution.x1, 0.0, 1.0);
@@ -211,7 +236,7 @@ namespace font {
         p3 = p3 + offset;
     }
 
-    i32 Contour::Intersection(const vec2& point) const {
+    bool Glyph::Inside(const vec2& point) const {
         i32 winding = 0;
         for (const Curve& curve : curves) {
             winding += curve.Intersection(point);
@@ -219,19 +244,21 @@ namespace font {
         for (const Line& line : lines) {
             winding += line.Intersection(point);
         }
-        return winding;
+        return winding != 0;
     }
 
-    void Contour::DistanceLess(const vec2 &point, f32& distSquared) const {
+    f32 Glyph::MinDistance(const vec2 &point) const {
+        f32 minDistSquared = 1000.0; // Glyphs should be normalized to the em square more or less.
         for (const Curve& curve : curves) {
-            curve.DistanceLess(point, distSquared);
+            curve.DistanceLess(point, minDistSquared);
         }
         for (const Line& line : lines) {
-            line.DistanceLess(point, distSquared);
+            line.DistanceLess(point, minDistSquared);
         }
+        return sqrt(minDistSquared);
     }
 
-    void Contour::FromGlyfPoints(glyfPoint *glyfPoints, i32 count) {
+    void Glyph::AddFromGlyfPoints(glyfPoint *glyfPoints, i32 count) {
         // curves.Reserve(count/3);
         // lines.Reserve(count/3);
         Curve curve;
@@ -280,7 +307,7 @@ namespace font {
         // cout << std::endl;
     }
 
-    void Contour::Scale(const mat2 &scale) {
+    void Glyph::Scale(const mat2 &scale) {
         for (Curve& curve : curves) {
             curve.Scale(scale);
         }
@@ -289,7 +316,7 @@ namespace font {
         }
     }
 
-    void Contour::Offset(const vec2 &offset) {
+    void Glyph::Offset(const vec2 &offset) {
         for (Curve& curve : curves) {
             curve.Offset(offset);
         }
@@ -298,33 +325,33 @@ namespace font {
         }
     }
 
-    bool Glyph::Inside(vec2 point) {
-        i32 winding = 0;
-        for (Contour& contour : contours) {
-            winding += contour.Intersection(point);
-        }
-        return winding != 0;
-    }
+    // bool Glyph::Inside(vec2 point) {
+    //     i32 winding = 0;
+    //     for (Contour& contour : contours) {
+    //         winding += contour.Intersection(point);
+    //     }
+    //     return winding != 0;
+    // }
 
-    f32 Glyph::MinDistance(const vec2 &point) const {
-        f32 minDistSquared = 1000.0; // Glyphs should be normalized to the em square more or less.
-        for (const Contour& contour : contours) {
-            contour.DistanceLess(point, minDistSquared);
-        }
-        return sqrt(minDistSquared);
-    }
+    // f32 Glyph::MinDistance(const vec2 &point) const {
+    //     f32 minDistSquared = 1000.0; // Glyphs should be normalized to the em square more or less.
+    //     for (const Contour& contour : contours) {
+    //         contour.DistanceLess(point, minDistSquared);
+    //     }
+    //     return sqrt(minDistSquared);
+    // }
 
-    void Glyph::Scale(const mat2 &scale) {
-        for (Contour& contour : contours) {
-            contour.Scale(scale);
-        }
-    }
+    // void Glyph::Scale(const mat2 &scale) {
+    //     for (Contour& contour : contours) {
+    //         contour.Scale(scale);
+    //     }
+    // }
 
-    void Glyph::Offset(const vec2 &offset) {
-        for (Contour& contour : contours) {
-            contour.Offset(offset);
-        }
-    }
+    // void Glyph::Offset(const vec2 &offset) {
+    //     for (Contour& contour : contours) {
+    //         contour.Offset(offset);
+    //     }
+    // }
 
     f32 ToF32(const F2Dot14_t& in) {
         f32 out;
@@ -434,7 +461,7 @@ namespace font {
             }
 
             String OperandString(u8 **data) {
-                String out(false);
+                String out;
                 const u8 b0 = **data;
                 if (b0 >= 32 && b0 <= 246) {
                     out += ToString((i32)b0 - 139);
@@ -668,7 +695,7 @@ namespace font {
             }
 
             String DictOperatorResolution(u8 **data, u8 *firstOperand) {
-                String out(false);
+                String out;
                 u8 operator1 = *(*data)++;
 #define GETSID() out += ToString(endianFromB(*(SID*)firstOperand)); firstOperand += 2
 #define GETARR()                            \
@@ -768,7 +795,7 @@ out += '}';
             }
 
             String CharString(u8 *start, u8 *end) {
-                String out(false);
+                String out;
                 out.Reserve(i32(end-start));
                 u8 *firstOperand = start;
                 while (start < end) {
@@ -1181,9 +1208,6 @@ for (;*firstOperand != operator1;) {        \
                 for (u16 i = 0; i < numGlyphs; i++) {
                     if (offsetsDone.count(loc->offsets32(i)) == 0) {
                         glyf_header *header = (glyf_header*)((char*)this + loc->offsets32(i));
-#ifdef LOG_VERBOSE
-                        cout << "Long offset: " << loc->offsets32(i) << std::endl;
-#endif
                         DO_SWAP();
                         offsetsDone.insert(loc->offsets32(i));
                     }
@@ -1193,9 +1217,6 @@ for (;*firstOperand != operator1;) {        \
                 for (u16 i = 0; i < numGlyphs; i++) {
                     if (offsetsDone.count(loc->offsets16(i)) == 0) {
                         glyf_header *header = (glyf_header*)(((char*)this) + loc->offsets16(i) * 2);
-#ifdef LOG_VERBOSE
-                        cout << "Short offset[" << i << "]: " << loc->offsets16(i) * 2 << std::endl;
-#endif
                         DO_SWAP();
                         offsetsDone.insert(loc->offsets16(i));
                     }
@@ -1207,17 +1228,11 @@ for (;*firstOperand != operator1;) {        \
         void glyf::EndianSwapSimple(glyf_header *header) {
             char *ptr = (char*)(header+1);
             u16* endPtsOfContours = (u16*)ptr;
-#ifdef LOG_VERBOSE
-            cout << "Simple Glyph with " << header->numberOfContours << " contours..." << std::endl;
-#endif
             for (i16 i = 0; i < header->numberOfContours; i++) {
                 ENDIAN_SWAP(*(u16*)ptr);
                 ptr += 2;
             }
             u16& instructionLength = ENDIAN_SWAP(*(u16*)ptr);
-#ifdef LOG_VERBOSE
-            cout << "instructionLength = " << instructionLength << std::endl;
-#endif
             ptr += instructionLength + 2;
             // Now it gets weird
             u16 nPoints;
@@ -1226,9 +1241,6 @@ for (;*firstOperand != operator1;) {        \
             } else {
                 nPoints = 0;
             }
-#ifdef LOG_VERBOSE
-            cout << "We have " << nPoints << " points..." << std::endl;
-#endif
             // Now figure out how many flag bytes there actually are
             u8 *flags = (u8*)ptr;
             u16 nFlags = nPoints;
@@ -1237,9 +1249,6 @@ for (;*firstOperand != operator1;) {        \
                     nFlags -= flags[++i] - 1;
                 }
             }
-#ifdef LOG_VERBOSE
-            cout << "We have " << nFlags << " flags..." << std::endl;
-#endif
             ptr += nFlags; // We should be at the beginning of the xCoord array
             // We only need to swap endians for xCoords that are 2-bytes in width
             u16 repeatCount = 0;
@@ -1304,9 +1313,6 @@ for (;*firstOperand != operator1;) {        \
                     }
                 }
             }
-#ifdef LOG_VERBOSE
-            cout << "Completed! Total size: " << u32(ptr-(char*)header) << "\n" << std::endl;
-#endif
             // Simple my ASS
         }
 
@@ -1355,11 +1361,7 @@ for (;*firstOperand != operator1;) {        \
                 ENDIAN_SWAP(numInstructions);
                 ptr += 2 + numInstructions;
             }
-#ifdef LOG_VERBOSE
-            cout << "Compound Glyph with " << components << " component glyphs..." << std::endl;
             // That was somehow simpler than the "Simple" Glyph... tsk
-            cout << "Completed! Total size: " << u32(ptr-(char*)header) << "\n" << std::endl;
-#endif
         }
 
         bool cffs::charset_format_any::EndianSwap(Card16 nGlyphs) {
@@ -1699,21 +1701,97 @@ for (;*firstOperand != operator1;) {        \
             return true;
         }
 
+        void hhea::EndianSwap() {
+            ENDIAN_SWAP_FIXED(version);
+            ENDIAN_SWAP(ascent);
+            ENDIAN_SWAP(descent);
+            ENDIAN_SWAP(lineGap);
+            ENDIAN_SWAP(advanceWidthMax);
+            ENDIAN_SWAP(minLeftSideBearing);
+            ENDIAN_SWAP(minRightSideBearing);
+            ENDIAN_SWAP(xMaxExtent);
+            ENDIAN_SWAP(caretSlopeRise);
+            ENDIAN_SWAP(caretSlopeRun);
+            ENDIAN_SWAP(caretOffset);
+            // Who cares about reserved garbage anyway???
+            ENDIAN_SWAP(metricDataFormat);
+            ENDIAN_SWAP(numOfLongHorMetrics);
+#ifdef LOG_VERBOSE
+            cout << "numOfLongHorMetrics = " << numOfLongHorMetrics << std::endl;
+#endif
+        }
+
+        void hmtx::EndianSwap(u16 numOfLongHorMetrics, u16 numGlyphs) {
+            longHorMetric *metrics = (longHorMetric*)this;
+            for (u32 i = 0; i < numOfLongHorMetrics; i++) {
+                ENDIAN_SWAP(metrics->advanceWidth);
+                ENDIAN_SWAP(metrics->leftSideBearing);
+                metrics++;
+            }
+            FWord_t *leftSideBearing = (FWord_t*)metrics;
+            for (u32 i = numOfLongHorMetrics; i < numGlyphs; i++) {
+                ENDIAN_SWAP(*leftSideBearing);
+                leftSideBearing++;
+            }
+        }
+
 #undef ENDIAN_SWAP
 #undef ENDIAN_SWAP_FIXED
 
         Glyph glyfParsed::GetGlyph(u32 glyphIndex) {
-            glyf_header *header = (glyf_header*)((char*)glyphData + glyfOffsets[glyphIndex]);
-            if (header->numberOfContours >= 0) {
-                return ParseSimple(header);
+            Glyph out;
+            glyf_header *gheader = (glyf_header*)((char*)glyphData + glyfOffsets[glyphIndex]);
+            if (gheader->numberOfContours >= 0) {
+                out = ParseSimple(gheader);
             } else {
-                return ParseCompound(header);
+                out = ParseCompound(gheader);
             }
+            vec2 minBounds(1000.0), maxBounds(-1000.0);
+            for (Curve& curve : out.curves) {
+                if (curve.p1.x < minBounds.x) { minBounds.x = curve.p1.x; }
+                if (curve.p2.x < minBounds.x) { minBounds.x = curve.p2.x; }
+                if (curve.p3.x < minBounds.x) { minBounds.x = curve.p3.x; }
+                if (curve.p1.y < minBounds.y) { minBounds.y = curve.p1.y; }
+                if (curve.p2.y < minBounds.y) { minBounds.y = curve.p2.y; }
+                if (curve.p3.y < minBounds.y) { minBounds.y = curve.p3.y; }
+                if (curve.p1.x > maxBounds.x) { maxBounds.x = curve.p1.x; }
+                if (curve.p2.x > maxBounds.x) { maxBounds.x = curve.p2.x; }
+                if (curve.p3.x > maxBounds.x) { maxBounds.x = curve.p3.x; }
+                if (curve.p1.y > maxBounds.y) { maxBounds.y = curve.p1.y; }
+                if (curve.p2.y > maxBounds.y) { maxBounds.y = curve.p2.y; }
+                if (curve.p3.y > maxBounds.y) { maxBounds.y = curve.p3.y; }
+            }
+            for (Line& line : out.lines) {
+                if (line.p1.x < minBounds.x) { minBounds.x = line.p1.x; }
+                if (line.p2.x < minBounds.x) { minBounds.x = line.p2.x; }
+                if (line.p1.y < minBounds.y) { minBounds.y = line.p1.y; }
+                if (line.p2.y < minBounds.y) { minBounds.y = line.p2.y; }
+                if (line.p1.x > maxBounds.x) { maxBounds.x = line.p1.x; }
+                if (line.p2.x > maxBounds.x) { maxBounds.x = line.p2.x; }
+                if (line.p1.y > maxBounds.y) { maxBounds.y = line.p1.y; }
+                if (line.p2.y > maxBounds.y) { maxBounds.y = line.p2.y; }
+            }
+            for (Curve& curve : out.curves) {
+                curve.p1 -= minBounds;
+                curve.p2 -= minBounds;
+                curve.p3 -= minBounds;
+            }
+            for (Line& line : out.lines) {
+                line.p1 -= minBounds;
+                line.p2 -= minBounds;
+            }
+            out.size = maxBounds - minBounds;
+            out.offset += minBounds;
+            longHorMetric metric = horMetrics->Metric(glyphIndex, horHeader->numOfLongHorMetrics);
+            f32 lsb = (f32)metric.leftSideBearing / (f32)header->unitsPerEm;
+            out.offset.x -= lsb;
+            // cout << "offset = { " << out.offset.x << ", " << out.offset.y
+            //      << " }, size = {" << out.size.x << ", " << out.size.y << " }" << std::endl;
+            return out;
         }
 
         Glyph glyfParsed::ParseSimple(glyf_header *gheader, Array<glyfPoint> *dstArray) {
             Glyph out;
-            out.contours.Resize(gheader->numberOfContours);
 
             // cout << "xMin = " << xMin << ", xMax = " << xMax << ", yMin = " << yMin << ", yMax = " << yMax << std::endl;
 
@@ -1841,10 +1919,10 @@ for (;*firstOperand != operator1;) {        \
 
             // Now we expand our points to always include control points and convert to normalized coordinates.
             glyfPoint *pt = points.data;
-            out.contours[0].FromGlyfPoints(pt, endPtsOfContours[0] + 1);
+            out.AddFromGlyfPoints(pt, endPtsOfContours[0] + 1);
             pt += endPtsOfContours[0] + 1;
-            for (i32 i = 1; i < out.contours.size; i++) {
-                out.contours[i].FromGlyfPoints(pt, endPtsOfContours[i] - endPtsOfContours[i-1]);
+            for (i32 i = 1; i < gheader->numberOfContours; i++) {
+                out.AddFromGlyfPoints(pt, endPtsOfContours[i] - endPtsOfContours[i-1]);
                 pt += endPtsOfContours[i] - endPtsOfContours[i-1];
             }
             if (dstArray != nullptr) {
@@ -1853,7 +1931,7 @@ for (;*firstOperand != operator1;) {        \
             return out;
         }
 
-        Glyph glyfParsed::ParseCompound(glyf_header *gheader) {
+        Glyph glyfParsed::ParseCompound(glyf_header *gheader, Array<glyfPoint> *dstArray) {
             Glyph out;
             char *ptr = (char*)(gheader+1);
             u16 *flags;
@@ -1928,41 +2006,59 @@ for (;*firstOperand != operator1;) {        \
             for (Component& component : components) {
                 Array<glyfPoint> componentPoints;
                 glyf_header *componentHeader = (glyf_header*)((char*)glyphData + glyfOffsets[component.glyphIndex]);
+                Glyph componentGlyph;
                 if (componentHeader->numberOfContours <= 0) {
-                    cout << "What the fuck???" << std::endl;
+                    componentGlyph = ParseCompound(componentHeader, &componentPoints);
+                } else {
+                    componentGlyph = ParseSimple(componentHeader, &componentPoints);
                 }
-                Glyph componentGlyph = ParseSimple(componentHeader, &componentPoints);
                 vec2 offset;
                 if (component.argsAreXY) {
-                    cout << "argsAreXY" << std::endl;
+                    // cout << "argsAreXY" << std::endl;
                     offset = vec2((f32)component.arguments[0], (f32)component.arguments[1]) / unitsPerEm;
                 } else {
-                    cout << "argsAre not XY" << std::endl;
+                    // cout << "argsAre not XY" << std::endl;
                     offset = componentPoints[component.arguments[1]].coords - allPoints[component.arguments[0]].coords;
                 }
                 if (component.scaledComponentOffset) {
-                    cout << "scaledComponentOffset" << std::endl;
+                    // cout << "scaledComponentOffset" << std::endl;
                     offset = component.scale * offset;
                 }
                 if (component.roundXY) {
-                    cout << "roundXY" << std::endl;
+                    // cout << "roundXY" << std::endl;
                     offset = vec2(round(offset.x*unitsPerEm), round(offset.y*unitsPerEm)) / unitsPerEm;
                 }
-                cout << "scale = { "
-                     << component.scale.h.x1 << ", "
-                     << component.scale.h.x2 << ", "
-                     << component.scale.h.y1 << ", "
-                     << component.scale.h.y2 << " }, offset = { "
-                     << offset.x << ", " << offset.y << " }" << std::endl;
+                // cout << "scale = { "
+                //      << component.scale.h.x1 << ", "
+                //      << component.scale.h.x2 << ", "
+                //      << component.scale.h.y1 << ", "
+                //      << component.scale.h.y2 << " }, offset = { "
+                //      << offset.x << ", " << offset.y << " }" << std::endl;
                 for (glyfPoint& point : componentPoints) {
                     point.coords = component.scale * point.coords;
                 }
-                allPoints.Append(componentPoints);
+                allPoints.Append(std::move(componentPoints));
                 componentGlyph.Scale(component.scale);
                 componentGlyph.Offset(offset);
-                out.contours.Append(componentGlyph.contours);
+                out.curves.Append(std::move(componentGlyph.curves));
+                out.lines.Append(std::move(componentGlyph.lines));
+            }
+            if (dstArray != nullptr) {
+                *dstArray = std::move(allPoints);
             }
             return out;
+        }
+
+        longHorMetric hmtx::Metric(u32 glyphIndex, u16 numOfLongHorMetrics) const {
+            if (glyphIndex < numOfLongHorMetrics) {
+                return *(((longHorMetric*)this) + glyphIndex);
+            }
+            longHorMetric metric;
+            metric.advanceWidth = (((longHorMetric*)this) + numOfLongHorMetrics-1)->advanceWidth;
+            FWord_t *leftSideBearing = (FWord_t*)(((longHorMetric*)this) + numOfLongHorMetrics);
+            leftSideBearing += glyphIndex - numOfLongHorMetrics;
+            metric.leftSideBearing = *leftSideBearing;
+            return metric;
         }
 
     }
@@ -2065,6 +2161,7 @@ for (;*firstOperand != operator1;) {        \
         if (SysEndian.little) {
             u16 numGlyphs = 0;
             bool longOffsets = false;
+            u16 numOfLongHorMetrics = 0;
             for (i32 i = 0; i < data.uniqueTables.size; i++) {
                 tables::Record &record = data.uniqueTables[i];
                 char *ptr = data.tableData.data + record.offset - data.offsetMin;
@@ -2096,9 +2193,14 @@ for (;*firstOperand != operator1;) {        \
                     tables::maxp *maxp = (tables::maxp*)ptr;
                     maxp->EndianSwap();
                     numGlyphs = maxp->numGlyphs;
+                } else if (tag == "hhea"_Tag) {
+                    tables::hhea *hhea = (tables::hhea*)ptr;
+                    hhea->EndianSwap();
+                    numOfLongHorMetrics = hhea->numOfLongHorMetrics;
                 }
             }
             // To parse the 'loca' table correctly, head needs to be parsed first
+            // To parse the 'hmtx' table correctly, hhea needs to be parsed first
             tables::loca *loca = nullptr;
             for (i32 i = 0; i < data.uniqueTables.size; i++) {
                 tables::Record &record = data.uniqueTables[i];
@@ -2113,6 +2215,9 @@ for (;*firstOperand != operator1;) {        \
                               + ") and loca(" + ToString(locaGlyphs) + ")";
                         return false;
                     }
+                } else if (tag == "hmtx"_Tag) {
+                    tables::hmtx *hmtx = (tables::hmtx*)ptr;
+                    hmtx->EndianSwap(numOfLongHorMetrics, numGlyphs);
                 }
             }
             // To parse the 'glyf' table correctly, loca needs to be parsed first
@@ -2210,6 +2315,10 @@ for (;*firstOperand != operator1;) {        \
                     data.glyfParsed.maxProfile = (tables::maxp*)ptr;
                 } else if (tag == "head"_Tag || tag == "bhed"_Tag) {
                     data.glyfParsed.header = (tables::head*)ptr;
+                } else if (tag == "hhea"_Tag) {
+                    data.glyfParsed.horHeader = (tables::hhea*)ptr;
+                } else if (tag == "hmtx"_Tag) {
+                    data.glyfParsed.horMetrics = (tables::hmtx*)ptr;
                 }
             }
             if (chosenCmap == -1) {
@@ -2243,6 +2352,14 @@ for (;*firstOperand != operator1;) {        \
                 error = "Can't use glyf without loca!";
                 return false;
             }
+            if (data.glyfParsed.horHeader == nullptr) {
+                error = "Can't use glyf without hhea!";
+                return false;
+            }
+            if (data.glyfParsed.horMetrics == nullptr) {
+                error = "Can't use glyf without hmtx!";
+                return false;
+            }
             data.glyfParsed.glyfOffsets.Resize((u32)data.glyfParsed.maxProfile->numGlyphs+1);
             if (data.glyfParsed.header->indexToLocFormat == 1) { // Long Offsets
                 for (u32 i = 0; i < (u32)data.glyfParsed.maxProfile->numGlyphs + 1; i++) {
@@ -2271,52 +2388,57 @@ for (;*firstOperand != operator1;) {        \
                 break;
             }
         }
-        // cout << "glyph " << glyph << " has a glyph index of " << glyphIndex << std::endl;
         static u64 totalParseTime = 0;
         static u64 totalDrawTime = 0;
         static u32 iterations = 0;
         Nanoseconds glyphParseTime, glyphDrawTime;
-        // if (glyphIndex == 0) {
-        //     cout << "No mapping available!" << std::endl;
-        //     return;
-        // }
+        glyphDrawTime = Nanoseconds(0);
         if (data.cffParsed.active) {
             cout << "Not yet implemented." << std::endl;
         } else if (data.glyfParsed.active) {
             ClockTime start = Clock::now();
             Glyph glyph = data.glyfParsed.GetGlyph(glyphIndex);
             glyphParseTime = Clock::now()-start;
-            start = Clock::now();
-            const i32 scale = 4;
-            const i32 minX = -1 * scale;
-            const i32 maxX = 24 * scale;
-            const i32 minY = -2 * scale;
-            const i32 maxY = 10 * scale;
-            const char distSymbolsPos[] = "X-.";
-            const char distSymbolsNeg[] = "@*'";
-            for (i32 y = maxY; y >= minY; y--) {
-                for (i32 x = minX; x <= maxX; x++) {
-                    vec2 point((f32)x / f32(maxX-minX), (f32)y / f32(maxY-minY));
+            const f32 margin = 0.15;
+            const i32 scale = 3;
+            i32 stepsX = 16 * scale;
+            i32 stepsY = 16 * scale;
+            // const char distSymbolsPos[] = "X-.";
+            // const char distSymbolsNeg[] = "@*'";
+            const f32 factorX = 1.0 / (f32)stepsX;
+            const f32 factorY = 1.0 / (f32)stepsY;
+            stepsY += i32(ceil(f32(stepsY) * margin * 2.0));
+            stepsX += i32(ceil(f32(stepsX) * margin * 2.0));
+            for (i32 y = stepsY-1; y >= 0; y--) {
+                for (i32 x = 0; x < stepsX; x++) {
+                    vec2 point((f32)x * factorX - margin, (f32)y * factorY - margin);
+                    // point *= max(glyph.size.x, glyph.size.y);
+                    // if (point.x > glyph.size.x + margin) {
+                    //     break;
+                    // }
+                    start = Clock::now();
                     f32 dist = glyph.MinDistance(point);
-                    const f32 margin = 0.03;
-                    if (glyph.Inside(point)) {
-                        if (dist < margin) {
-                            cout << distSymbolsNeg[i32(dist/margin*3.0)];
-                        } else {
-                            cout << ' ';
-                        }
-                    } else {
-                        if (dist < margin) {
-                            cout << distSymbolsPos[i32(dist/margin*3.0)];
-                        } else {
-                            cout << ' ';
-                        }
-                    }
+                    glyphDrawTime += Clock::now()-start;
+                    dist = dist;
+                    // if (glyph.Inside(point)) {
+                        // if (dist < margin) {
+                        //     cout << distSymbolsNeg[i32(dist/margin*3.0)];
+                        // } else {
+                        //     cout << ' ';
+                        // }
+                        // cout << 'X';
+                    // } else {
+                        // if (dist < margin) {
+                        //     cout << distSymbolsPos[i32(dist/margin*3.0)];
+                        // } else {
+                        //     cout << ',';
+                        // }
+                        // cout << ' ';
+                    // }
                 }
-                cout << "\n";
+                // cout << "\n";
             }
-            glyphDrawTime = Clock::now()-start;
-            cout << std::endl;
+            // cout << std::endl;
         } else {
             cout << "We don't have any supported glyph data!" << std::endl;
         }

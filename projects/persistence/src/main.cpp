@@ -19,7 +19,7 @@ u64 remainingPersistenceChecks = 0;
 u32 biggestSecondIterationNumberDigits = 0;
 
 u32 bestPersistence = 0;
-String bestPersistenceNum = "";
+String bestPersistenceNum;
 
 u32 checksCount = 0;
 
@@ -49,7 +49,7 @@ u32 completedThreads = 0;
 u32 remainingThreads = 0;
 
 String DurationString(u64 ms) {
-    String out = "";
+    String out;
     const u32 weeks = ms / 604800000;
     const u32 days = (ms / 86400000) % 7;
     const u32 hours = (ms / 3600000) % 24;
@@ -150,7 +150,7 @@ bool BetterPersistence(u32 per, String num) {
     return false;
 }
 
-void CheckPersistence(u32 minDigits, u32 maxDigits, u32 currentDigit=0, u32 totalDigits=0, String numStr="") {
+void CheckPersistence(u32 minDigits, u32 maxDigits, u32 currentDigit=0, u32 totalDigits=0, String numStr=String()) {
     const char digits[] = {'2', '3', '4', '5', '6', '7', '8', '9'};
     if (totalDigits > maxDigits) {
         return;
@@ -258,7 +258,7 @@ bool GetSingleDigitFactors(BigInt number, String *dstFactors) {
     return (number == 1);
 }
 
-bool CheckAllRearrangements(const DigitCounts& digits, String number="") {
+bool CheckAllRearrangements(const DigitCounts& digits, String number=String()) {
     bool success = false;
     bool constructed = true;
     for (u32 i = 0; i < 10; i++) {

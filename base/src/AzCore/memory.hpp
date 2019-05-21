@@ -667,7 +667,7 @@ struct Array {
         size--;
         if constexpr (std::is_trivially_copyable<T>::value) {
             if (size > index) {
-                memcpy((void*)(data+index), (void*)(data+index+1), sizeof(T) * (size-index));
+                memmove((void*)(data+index), (void*)(data+index+1), sizeof(T) * (size-index));
             }
         } else {
             for (i32 i = index; i < size-1; i++) {
@@ -866,7 +866,7 @@ struct List {
     List(const List<T>& other) : first(nullptr) , size(0) {
         *this = other;
     }
-    List(List<T>&& other) noexcept : first(other.first) , size(other.size) { other.first = nullptr; }
+    List(List<T>&& other) noexcept : first(other.first) , size(other.size) { other.first = nullptr; other.size = 0; }
     List(std::initializer_list<T> init) : first(nullptr) , size(0) {
         *this = init;
     }

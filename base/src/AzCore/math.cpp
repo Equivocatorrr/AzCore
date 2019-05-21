@@ -36,31 +36,32 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 }
 
 #ifdef MATH_F32
-    f32 angleDiff(f32 from, f32 to) {
-        f32 diff = to - from;
-        while (diff >= pi)
+    Radians32 angleDiff(Angle32 from, Angle32 to) {
+        Radians32 diff = Radians32(to) - Radians32(from);
+        while (diff >= pi) {
             diff -= tau;
-        while (diff < -pi)
+        }
+        while (diff < -pi) {
             diff += tau;
+        }
         return diff;
     }
 #endif
 #ifdef MATH_F64
-    f64 angleDiff(f64 from, f64 to) {
-        f64 diff = to - from;
-        while (diff >= pi64)
+    Radians64 angleDiff(Angle64 from, Angle64 to) {
+        Radians64 diff = Radians64(to) - Radians64(from);
+        while (diff >= pi64) {
             diff -= tau64;
-        while (diff < -pi64)
+        }
+        while (diff < -pi64) {
             diff += tau64;
+        }
         return diff;
     }
 #endif
 
 // Template stuff is pretty ugly, but it saves a lot of lines.
 #ifdef MATH_VEC2
-    template<typename T>
-    vec2_t<T>::vec2_t() : x(0) , y(0) {}
-
     template<typename T>
     vec2_t<T>::vec2_t(T a) : x(a) , y (a) {}
 
@@ -113,9 +114,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 
 #ifdef MATH_MAT2
     template<typename T>
-    mat2_t<T>::mat2_t() : h{1, 0, 0, 1} {}
-
-    template<typename T>
     mat2_t<T>::mat2_t(T a) : h{a, 0, 0, a} {}
 
     template<typename T>
@@ -152,9 +150,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 #endif // MATH_MAT2
 
 #ifdef MATH_VEC3
-    template<typename T>
-    vec3_t<T>::vec3_t() : x(0) , y(0) , z(0) {}
-
     template<typename T>
     vec3_t<T>::vec3_t(T a) : x(a) , y (a) , z(a) {}
 
@@ -296,9 +291,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 
 #ifdef MATH_MAT3
     template<typename T>
-    mat3_t<T>::mat3_t() : h{1, 0, 0, 0, 1, 0, 0, 0, 1} {}
-
-    template<typename T>
     mat3_t<T>::mat3_t(T a) : h{a, 0, 0, 0, a, 0, 0, 0, a} {}
 
     template<typename T>
@@ -368,9 +360,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 
 #ifdef MATH_VEC4
     template<typename T>
-    vec4_t<T>::vec4_t() : x(0) , y(0) , z(0) , w(0) {}
-
-    template<typename T>
     vec4_t<T>::vec4_t(T vec) : x(vec) , y (vec) , z(vec) , w(vec) {}
 
     template<typename T>
@@ -433,9 +422,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 #endif // MATH_VEC4
 
 #ifdef MATH_MAT4
-    template<typename T>
-    mat4_t<T>::mat4_t() : h{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1} {}
-
     template<typename T>
     mat4_t<T>::mat4_t(T a) : h{a, 0, 0, 0, 0, a, 0, 0, 0, 0, a, 0, 0, 0, 0, a} {}
 
@@ -554,9 +540,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 
 #ifdef MATH_VEC5
     template<typename T>
-    vec5_t<T>::vec5_t() : x(0) , y(0) , z(0) , w(0) , v(0) {}
-
-    template<typename T>
     vec5_t<T>::vec5_t(T vec) : x(vec) , y (vec) , z(vec) , w(vec) , v(vec) {}
 
     template<typename T>
@@ -625,9 +608,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 #endif // MATH_VEC5
 
 #ifdef MATH_MAT5
-    template<typename T>
-    mat5_t<T>::mat5_t() : h{1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1} {}
-
     template<typename T>
     mat5_t<T>::mat5_t(T a) : h{a, 0, 0, 0, 0, 0, a, 0, 0, 0, 0, 0, a, 0, 0, 0, 0, 0, a, 0, 0, 0, 0, 0, a} {}
 
@@ -762,9 +742,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 
 #ifdef MATH_COMPLEX
     template<typename T>
-    complex_t<T>::complex_t() : x(0) , y(0) {}
-
-    template<typename T>
     complex_t<T>::complex_t(T a) : x(a) , y(0) {}
 
     template<typename T>
@@ -859,9 +836,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 #endif // MATH_COMPLEX
 
 #ifdef MATH_QUATERNION
-    template<typename T>
-    quat_t<T>::quat_t() : data{1, 0, 0, 0} {}
-
     template<typename T>
     quat_t<T>::quat_t(T a) : data{a, 0, 0, 0} {}
 

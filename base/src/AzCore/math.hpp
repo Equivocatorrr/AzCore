@@ -165,16 +165,161 @@ inline T cubert(T a) {
     return a >= T(0.0) ? pow(a, T(1.0/3.0)) : -pow(-a, T(1.0/3.0));
 }
 
+template<typename T>
+inline T wrap(T a, T max) {
+    while (a > max) {
+        a -= max;
+    }
+    while (a < 0) {
+        a += max;
+    }
+    return a;
+}
+
+template<typename T>
+class Radians;
+template<typename T>
+class Angle;
+
+/*  class: Degrees
+    Author: Philip Haynes
+    A discrete type that represents an angle in degrees.    */
+template<typename T>
+class Degrees {
+    T _value;
+public:
+    Degrees() = default;
+    Degrees(T a) : _value(a) {}
+    Degrees(const Degrees<T>& a) : _value(a._value) {}
+    Degrees(const Radians<T>& a) : _value(a._value*tau64/360.0d) {}
+    Degrees<T>& operator+=(const Degrees<T>& other) { _value += other._value; return *this; }
+    Degrees<T>& operator-=(const Degrees<T>& other) { _value -= other._value; return *this; }
+    Degrees<T>& operator*=(const Degrees<T>& other) { _value *= other._value; return *this; }
+    Degrees<T>& operator/=(const Degrees<T>& other) { _value /= other._value; return *this; }
+    Degrees<T> operator+(const Degrees<T>& other) const { return Degrees<T>(_value+other._value); }
+    Degrees<T> operator-(const Degrees<T>& other) const { return Degrees<T>(_value-other._value); }
+    Degrees<T> operator*(const Degrees<T>& other) const { return Degrees<T>(_value*other._value); }
+    Degrees<T> operator/(const Degrees<T>& other) const { return Degrees<T>(_value/other._value); }
+    bool operator==(const Degrees<T>& other) const { return _value == other._value; }
+    bool operator!=(const Degrees<T>& other) const { return _value != other._value; }
+    bool operator<=(const Degrees<T>& other) const { return _value <= other._value; }
+    bool operator>=(const Degrees<T>& other) const { return _value >= other._value; }
+    bool operator<(const Degrees<T>& other) const { return _value < other._value; }
+    bool operator>(const Degrees<T>& other) const { return _value > other._value; }
+    const T value() const { return _value; }
+};
+
+/*  class: Radians
+    Author: Philip Haynes
+    A discrete type that represents an angle in radians.    */
+template<typename T>
+class Radians {
+    T _value;
+public:
+    Radians() = default;
+    Radians(T a) : _value(a) {}
+    Radians(const Radians<T>& a) : _value(a._value) {}
+    Radians(const Angle<T>& a) : _value(a.value()) {}
+    Radians(const Degrees<T>& a) {
+        if constexpr (std::is_same<T, f32>()) {
+            _value = a.value()*tau/360.0;
+        } else {
+            _value = a.value()*tau64/360.0d;
+        }
+    }
+    // Radians<T>& operator=(const Radians<T>& other) {
+    //     _value = other._value;
+    //     return *this;
+    // }
+    Radians<T>& operator+=(const Radians<T>& other) { _value += other._value; return *this; }
+    Radians<T>& operator-=(const Radians<T>& other) { _value -= other._value; return *this; }
+    Radians<T>& operator*=(const Radians<T>& other) { _value *= other._value; return *this; }
+    Radians<T>& operator/=(const Radians<T>& other) { _value /= other._value; return *this; }
+    Radians<T> operator+(const Radians<T>& other) const { return Radians<T>(_value+other._value); }
+    Radians<T> operator-(const Radians<T>& other) const { return Radians<T>(_value-other._value); }
+    Radians<T> operator*(const Radians<T>& other) const { return Radians<T>(_value*other._value); }
+    Radians<T> operator/(const Radians<T>& other) const { return Radians<T>(_value/other._value); }
+    bool operator==(const Radians<T>& other) const { return _value == other._value; }
+    bool operator!=(const Radians<T>& other) const { return _value != other._value; }
+    bool operator<=(const Radians<T>& other) const { return _value <= other._value; }
+    bool operator>=(const Radians<T>& other) const { return _value >= other._value; }
+    bool operator<(const Radians<T>& other) const { return _value < other._value; }
+    bool operator>(const Radians<T>& other) const { return _value > other._value; }
+    const T value() const { return _value; }
+};
+
+template<typename T>
+inline T sin(const Radians<T>& a) { return sin(a.value()); }
+template<typename T>
+inline T cos(const Radians<T>& a) { return cos(a.value()); }
+template<typename T>
+inline T tan(const Radians<T>& a) { return tan(a.value()); }
+
+/*  class: Angle
+    Author: Philip Haynes
+    A discrete type to represent all angles while regarding the circular nature of angles.   */
+template<typename T>
+class Angle {
+    Radians<T> _value;
+public:
+    Angle() = default;
+    Angle(const Angle<T>& other) : _value(other._value) {}
+    Angle(const T& other) : _value(Radians<T>(other)) {}
+    Angle(const Degrees<T>& other) : _value(Radians<T>(other)) {}
+    Angle(const Radians<T>& other) {
+        _value = other;
+        if constexpr (std::is_same<T, f32>()) {
+            while (_value > tau) {
+                _value -= tau;
+            }
+            while (_value < 0.0) {
+                _value += tau;
+            }
+        } else {
+            while (_value > tau64) {
+                _value -= tau64;
+            }
+            while (_value < 0.0d) {
+                _value += tau64;
+            }
+        }
+    }
+    Angle<T>& operator+=(const Radians<T>& other) { return *this = _value + other; }
+    Angle<T> operator+(const Radians<T>& other) const { return Angle<T>(_value+other); }
+    Radians<T> operator-(const Angle<T>& other) const;
+    bool operator==(const Angle<T>& other) const { return _value == other._value; }
+    bool operator!=(const Angle<T>& other) const { return _value != other._value; }
+    const T value() const { return _value.value(); }
+};
+
+template<typename T>
+inline T sin(const Angle<T>& a) { return sin(a.value()); }
+template<typename T>
+inline T cos(const Angle<T>& a) { return cos(a.value()); }
+template<typename T>
+inline T tan(const Angle<T>& a) { return tan(a.value()); }
+
 // Finds the shortest distance from one angle to another.
 #ifdef MATH_F32
-    f32 angleDiff(f32 from, f32 to);
+    typedef Degrees<f32> Degrees32;
+    typedef Radians<f32> Radians32;
+    typedef Angle<f32> Angle32;
+    Radians32 angleDiff(Angle32 from, Angle32 to);
 #endif
 #ifdef MATH_F64
-    f64 angleDiff(f64 from, f64 to);
+    typedef Degrees<f64> Degrees64;
+    typedef Radians<f64> Radians64;
+    typedef Angle<f64> Angle64;
+    Radians64 angleDiff(Angle64 from, Angle64 to);
 #endif
 
 template<typename T>
-inline T angleDir(const T& from, const T& to) {
+Radians<T> Angle<T>::operator-(const Angle<T>& to) const {
+    return angleDiff(*this, to);
+}
+
+template<typename T>
+inline Radians<T> angleDir(const Angle<T>& from, const Angle<T>& to) {
     return sign(angleDiff(from, to));
 }
 
@@ -198,7 +343,7 @@ inline T normalize(const T& a) {
             };
         };
 
-        vec2_t();
+        vec2_t() = default;
         vec2_t(T a);
         vec2_t(T a, T b);
         inline vec2_t<T> operator+(const vec2_t<T>& a) const { return vec2_t<T>(x+a.x, y+a.y); }
@@ -249,7 +394,7 @@ inline T normalize(const T& a) {
                 T data[4];
             };
         };
-        mat2_t();
+        mat2_t() = default;
         mat2_t(T a);
         mat2_t(T a, T b, T c, T d);
         mat2_t(vec2_t<T> a, vec2_t<T> b, bool rowMajor=true);
@@ -258,6 +403,9 @@ inline T normalize(const T& a) {
         inline vec2_t<T> Row2() const { return vec2_t<T>(h.x2, h.y2); }
         inline vec2_t<T> Col1() const { return vec2_t<T>(v.x1, v.y1); }
         inline vec2_t<T> Col2() const { return vec2_t<T>(v.x2, v.y2); }
+        inline static mat2_t<T> Identity() {
+            return mat2_t(1);
+        };
         static mat2_t<T> Rotation(T angle);
         inline mat2_t<T> Rotate(const T& angle) const {
             return mat2_t<T>::Rotation(angle) * (*this);
@@ -318,7 +466,7 @@ inline T normalize(const T& a) {
             };
         };
 
-        vec3_t();
+        vec3_t() = default;
         vec3_t(T a);
         vec3_t(T v1, T v2, T v3);
         inline vec3_t<T> operator+(const vec3_t<T>& a) const { return vec3_t<T>(x+a.x, y+a.y, z+a.z); }
@@ -387,7 +535,7 @@ inline T normalize(const T& a) {
                 T data[9];
             };
         };
-        mat3_t();
+        mat3_t() = default;
         mat3_t(T a);
         mat3_t(T x1, T y1, T z1, T x2, T y2, T z2, T x3, T y3, T z3);
         mat3_t(vec3_t<T> a, vec3_t<T> b, vec3_t<T> c, bool rowMajor=true);
@@ -398,6 +546,9 @@ inline T normalize(const T& a) {
         inline vec3_t<T> Col1() const { return vec3_t<T>(v.x1, v.y1, v.z1); }
         inline vec3_t<T> Col2() const { return vec3_t<T>(v.x2, v.y2, v.z2); }
         inline vec3_t<T> Col3() const { return vec3_t<T>(v.x3, v.y3, v.z3); }
+        inline static mat3_t<T> Identity() {
+            return mat3_t(1);
+        };
         // Only useful for rotations about aligned axes, such as {1, 0, 0}
         static mat3_t<T> RotationBasic(T angle, Axis axis);
         inline mat3_t<T> RotateBasic(const T& angle, const Axis& axis) const {
@@ -488,7 +639,7 @@ inline T normalize(const T& a) {
             };
         };
 
-        vec4_t();
+        vec4_t() = default;
         vec4_t(T v);
         vec4_t(T v1, T v2, T v3, T v4);
         inline vec4_t<T> operator+(const vec4_t<T>& vec) const { return vec4_t<T>(x+vec.x, y+vec.y, z+vec.z, w+vec.w); }
@@ -543,7 +694,7 @@ inline T normalize(const T& a) {
                 T data[16];
             };
         };
-        mat4_t();
+        mat4_t() = default;
         mat4_t(T a);
         mat4_t(T x1, T y1, T z1, T w1,
                T x2, T y2, T z2, T w2,
@@ -559,6 +710,9 @@ inline T normalize(const T& a) {
         inline vec4_t<T> Col2() const { return vec4_t<T>(v.x2, v.y2, v.z2, v.w2); }
         inline vec4_t<T> Col3() const { return vec4_t<T>(v.x3, v.y3, v.z3, v.w3); }
         inline vec4_t<T> Col4() const { return vec4_t<T>(v.x4, v.y4, v.z4, v.w4); }
+        inline static mat4_t<T> Identity() {
+            return mat4_t(1);
+        };
         // Only useful for rotations about aligned planes, such as {{1, 0, 0, 0}, {0, 0, 0, 1}}
         // Note: The planes stay fixed in place and everything else rotates around them.
         static mat4_t<T> RotationBasic(T angle, Plane plane);
@@ -652,7 +806,7 @@ inline T normalize(const T& a) {
             };
         };
 
-        vec5_t();
+        vec5_t() = default;
         vec5_t(T v);
         vec5_t(T v1, T v2, T v3, T v4, T v5);
         inline vec5_t<T> operator+(const vec5_t<T>& vec) const { return vec5_t<T>(x+vec.x, y+vec.y, z+vec.z, w+vec.w, v+vec.v); }
@@ -709,7 +863,7 @@ inline T normalize(const T& a) {
                 T data[25];
             };
         };
-        mat5_t();
+        mat5_t() = default;
         mat5_t(T a);
         mat5_t(T x1, T y1, T z1, T w1, T v1,
                T x2, T y2, T z2, T w2, T v2,
@@ -728,6 +882,9 @@ inline T normalize(const T& a) {
         inline vec5_t<T> Col3() const { return vec5_t<T>(v.x3, v.y3, v.z3, v.w3, v.v3); }
         inline vec5_t<T> Col4() const { return vec5_t<T>(v.x4, v.y4, v.z4, v.w4, v.v4); }
         inline vec5_t<T> Col5() const { return vec5_t<T>(v.x5, v.y5, v.z5, v.w5, v.v5); }
+        inline static mat5_t<T> Identity() {
+            return mat5_t(1);
+        };
         // Only useful for rotations about aligned planes, such as {{1, 0, 0, 0}, {0, 0, 0, 1}}
         // Note: The planes stay fixed in place and everything else rotates around them.
         // Note: The V-Dimension is always fixed in place
@@ -844,7 +1001,7 @@ inline T normalize(const T& a) {
             };
         };
 
-        complex_t();
+        complex_t() = default;
         complex_t(T a);
         complex_t(T a, T b);
 #ifdef MATH_VEC2
@@ -952,7 +1109,7 @@ inline T normalize(const T& a) {
             };
         };
 
-        quat_t();
+        quat_t() = default;
         quat_t(T a);
         quat_t(T a, vec3_t<T> v);
 #ifdef MATH_VEC4
@@ -1096,9 +1253,9 @@ SolutionQuadratic<T> SolveQuadratic(T a, T b, T c) {
 template<typename T>
 struct SolutionCubic {
     T x1, x2, x3;
-    bool x1Real=false, x2Real=false, x3Real=false;
+    bool x1Real, x2Real, x3Real;
     SolutionCubic() = default;
-    SolutionCubic(const SolutionQuadratic<T>& solution) : x1(solution.x1) , x2(solution.x2) , x1Real(solution.x1Real) , x2Real(solution.x2Real) {}
+    SolutionCubic(const SolutionQuadratic<T>& solution) : x1(solution.x1) , x2(solution.x2) , x1Real(solution.x1Real) , x2Real(solution.x2Real) , x3Real(false) {}
 };
 
 template<typename T>
@@ -1114,28 +1271,30 @@ SolutionCubic<T> SolveCubic(T a, T b, T c, T d) {
     // divide by a to get:
     // x^3 + ix^2 + jx + k = 0
     // where i = b/a, j = c/a, and k = d/a
-    T i = b/a;
-    T j = c/a;
-    T k = d/a;
+    const T i = b/a;
+    const T j = c/a;
+    const T k = d/a;
     // substitute t for x to get
     // t^3 + pt + q
     // where t = (x + i/3), p = (j - i^2/3), and q = (k + 2i^3/27 - ij/3)
-    T p = j - square(i) / 3.0;
-    T q = i * (2.0 * square(i) - 9.0 * j) / 27.0 + k;
-    T p3 = p*p*p;
-    T sqrD = square(q) + p3 * 4.0 / 27.0;
-    T offset = -i / 3.0; // Since t = (x + i/3), x = t - i/3
+    const T p = j - i*i / 3.0;
+    const T q = -i * (2.0 * i*i - 9.0 * j) / 27.0 - k;
+    const T p3 = p*p*p;
+    const T sqrD = q*q + p3 * 4.0 / 27.0;
+    const T offset = -i / 3.0; // Since t = (x + i/3), x = t - i/3
     if (sqrD > 0.0) {
         // We have a single real solution
-        T rootD = sqrt(sqrD);
-        T u = cubert((-q + rootD) * 0.5);
-        T v = cubert((-q - rootD) * 0.5);
+        const T rootD = sqrt(sqrD);
+        const T u = cubert((q + rootD) * 0.5);
+        const T v = cubert((q - rootD) * 0.5);
         solution.x1 = u + v + offset;
         solution.x1Real = true;
+        solution.x2Real = false;
+        solution.x3Real = false;
     } else if (sqrD < 0.0) {
         // We have 3 real solutions
-        T u = 2.0 * sqrt(-p / 3.0);
-        T v = acos( -sqrt(-27.0/p3) * q * 0.5) / 3.0;
+        const T u = 2.0 * sqrt(-p / 3.0);
+        const T v = acos( sqrt(-27.0/p3) * q * 0.5) / 3.0;
         solution.x1 = u * cos(v) + offset;
         solution.x2 = u * cos(v + tau / 3.0) + offset;
         solution.x3 = u * cos(v + tau * 2.0/3.0) + offset;
@@ -1144,11 +1303,12 @@ SolutionCubic<T> SolveCubic(T a, T b, T c, T d) {
         solution.x3Real = true;
     } else {
         // We have 2 real solutions
-        T u = cubert(-q * 0.5);
+        const T u = cubert(q * 0.5);
         solution.x1 = u * 2.0 + offset;
         solution.x2 = -u + offset;
         solution.x1Real = true;
         solution.x2Real = true;
+        solution.x3Real = false;
     }
     return solution;
 }

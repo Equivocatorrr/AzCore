@@ -7,6 +7,64 @@
 #include "AzCore/log_stream.hpp"
 #include "AzCore/memory.hpp"
 
+void Assert(bool condition, const char *messageOnFailure) {
+    if (!condition) {
+        throw std::runtime_error(messageOnFailure);
+    }
+}
+
+bool equals(f32 a, f32 b) {
+    const f32 epsilon = 0.000001;
+    const f32 epsilonFac[2] = { 1.0 + epsilon, 1.0 - epsilon };
+    if (a == b) {
+        return true;
+    }
+    return (a*epsilonFac[a<0] + epsilon >= b && a*epsilonFac[a>0] - epsilon <= b);
+}
+
+template<typename T>
+bool equals(T a, T b) {
+    return a == b;
+}
+
+bool equals(Angle32 a, Angle32 b) {
+    const f32 epsilon = 0.00001;
+    if (a == b) {
+        return true;
+    }
+    return (a-b <= epsilon);
+}
+
+inline String ToString(String a) {
+    return a;
+}
+
+inline String ToString(const char* a) {
+    return String(a);
+}
+
+inline String ToString(Angle32 angle) {
+    return ToString(angle.value());
+}
+
+template<typename T>
+void ExpectedValue(T a, T b, const char *messageOnFailure) {
+    if (!equals(a, b)) {
+        String err(messageOnFailure);
+        err += " Actual value " + ToString(a) + " != " + ToString(b);
+        throw std::runtime_error(err.data);
+    }
+}
+
+// Why the fuck does it take two separate macros just to turn __LINE__ into a C string???
+#define STR2(a) #a
+#define STR(a) STR2(a)
+#define ASSERT(condition) \
+    Assert((condition), "Assertion failed: " #condition " in file: " __FILE__ " on line: " STR(__LINE__) )
+
+#define EXPECTEDVALUE(a, b) \
+    ExpectedValue(a, b, "Expected value " #a " to be equal to " #b " in file: " __FILE__ " on line: " STR(__LINE__) )
+
 void Print(vec3 v, io::logStream& cout) {
     cout << "{";
     for (u32 i = 0; i < 3; i++) {
@@ -61,219 +119,680 @@ void Print(mat4 m, io::logStream& cout) {
     cout << "]" << std::endl;
 }
 
-void UnitTestMat3(io::logStream& cout) {
-    cout << "Unit testing mat3\n";
-    cout << "identity = \n";
-    Print(mat3(), cout);
-    cout << "\nRow1 = ";
-    Print(mat3().Row1(), cout);
-    cout << "\nRow2 = ";
-    Print(mat3().Row2(), cout);
-    cout << "\nRow3 = ";
-    Print(mat3().Row3(), cout);
-    cout << "\nCol1 = ";
-    Print(mat3().Col1(), cout);
-    cout << "\nCol2 = ";
-    Print(mat3().Col2(), cout);
-    cout << "\nCol3 = ";
-    Print(mat3().Col3(), cout);
-    cout << "\nRotated pi/4 around x-axis:\n";
-    Print(mat3::RotationBasic(halfpi/2, Axis::X), cout);
-    Print(mat3::Rotation(halfpi/2, {1.0, 0.0, 0.0}), cout);
-    cout << "\nRotated pi/4 around y-axis:\n";
-    Print(mat3::RotationBasic(halfpi/2, Axis::Y), cout);
-    Print(mat3::Rotation(halfpi/2, {0.0, 1.0, 0.0}), cout);
-    cout << "\nRotated pi/4 around z-axis:\n";
-    Print(mat3::RotationBasic(halfpi/2, Axis::Z), cout);
-    Print(mat3::Rotation(halfpi/2, {0.0, 0.0, 1.0}), cout);
-    cout << "\nScaled by {2.0, 2.0, 2.0}:\n";
-    Print(mat3::Scaler({2.0, 2.0, 2.0}), cout);
-    cout << "\nRotated by pi about {0.5, 0.5, 0.0}:\n";
-    Print(mat3::Rotation(pi, {0.5, 0.5, 0.0}), cout);
-    cout << "\nRotated by pi about {0.5, 0.5, 0.5}:\n";
-    Print(mat3::Rotation(pi, {0.5, 0.5, 0.5}), cout);
-    mat3 m = mat3(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);
-    cout << "New mat3 = \n";
-    Print(m, cout);
-    cout << "Transpose:\n";
-    Print(m.Transpose(), cout);
-}
-
-void UnitTestMat4(io::logStream& cout) {
-    cout << "Unit testing mat4\n";
-    cout << "identity = \n";
-    Print(mat4(), cout);
-    cout << "\nRow1 = ";
-    Print(mat4().Row1(), cout);
-    cout << "\nRow2 = ";
-    Print(mat4().Row2(), cout);
-    cout << "\nRow3 = ";
-    Print(mat4().Row3(), cout);
-    cout << "\nRow4 = ";
-    Print(mat4().Row4(), cout);
-    cout << "\nCol1 = ";
-    Print(mat4().Col1(), cout);
-    cout << "\nCol2 = ";
-    Print(mat4().Col2(), cout);
-    cout << "\nCol3 = ";
-    Print(mat4().Col3(), cout);
-    cout << "\nCol4 = ";
-    Print(mat4().Col4(), cout);
-    cout << "\nRotated pi/4 around xy-plane:\n";
-    Print(mat4::RotationBasic(halfpi/2, Plane::XY), cout);
-    cout << "\nRotated pi/4 around xz-plane:\n";
-    Print(mat4::RotationBasic(halfpi/2, Plane::XZ), cout);
-    cout << "\nRotated pi/4 around xw-plane:\n";
-    Print(mat4::RotationBasic(halfpi/2, Plane::XW), cout);
-    cout << "\nRotated pi/4 around yz-plane:\n";
-    Print(mat4::RotationBasic(halfpi/2, Plane::YZ), cout);
-    cout << "\nRotated pi/4 around yw-plane:\n";
-    Print(mat4::RotationBasic(halfpi/2, Plane::YW), cout);
-    cout << "\nRotated pi/4 around zw-plane:\n";
-    Print(mat4::RotationBasic(halfpi/2, Plane::ZW), cout);
-    cout << "\nScaled by {2.0, 2.0, 2.0, 2.0}:\n";
-    Print(mat4::Scaler({2.0, 2.0, 2.0, 2.0}), cout);
-    cout << "\nRotated by pi about {0.5, 0.5, 0.0}:\n";
-    Print(mat4::Rotation(pi, {0.5, 0.5, 0.0}), cout);
-    cout << "\nRotated by pi about {0.5, 0.5, 0.5}:\n";
-    Print(mat4::Rotation(pi, {0.5, 0.5, 0.5}), cout);
-    mat4 m = mat4( 1.0,  2.0,  3.0,  4.0,
-                   5.0,  6.0,  7.0,  8.0,
-                   9.0, 10.0, 11.0, 12.0,
-                  13.0, 14.0, 15.0, 16.0);
-    cout << "New mat4 = \n";
-    Print(m, cout);
-    cout << "Transpose:\n";
-    Print(m.Transpose(), cout);
-}
-
-void UnitTestComplex(io::logStream& cout) {
-    cout << "Unit testing complex numbers\n";
-    complex c, z;
-    for (i32 y = -40; y <= 40; y++) {
-        for (i32 x = -70; x <= 50; x++) {
-            c = z = complex(f32(x)/40.0, f32(y)/20.0);
-            const char val[] = " `*+%";
-            u32 its = 0;
-            for (; its < 14; its++) {
-                z = pow(z,4.0) + c;
-                if (abs(z) > 2.0)
-                    break;
-            }
-            cout << val[its/3];
-        }
-        cout << "\n";
+bool UnitTestMat2(io::logStream& cout) {
+    cout << "Unit testing mat2...\n";
+    mat2 matrix;
+    matrix = mat2::Identity();
+    try {
+        EXPECTEDVALUE(matrix.data[0], 1.0);
+        EXPECTEDVALUE(matrix.data[1], 0.0);
+        EXPECTEDVALUE(matrix.data[2], 0.0);
+        EXPECTEDVALUE(matrix.data[3], 1.0);
+        matrix = mat2(
+            1.0, 2.0,
+            3.0, 4.0
+        );
+        vec2 rows[2] = {
+            matrix.Row1(),
+            matrix.Row2()
+        };
+        EXPECTEDVALUE(rows[0].x, 1.0);
+        EXPECTEDVALUE(rows[0].y, 2.0);
+        EXPECTEDVALUE(rows[1].x, 3.0);
+        EXPECTEDVALUE(rows[1].y, 4.0);
+        vec2 columns[2] = {
+            matrix.Col1(),
+            matrix.Col2()
+        };
+        EXPECTEDVALUE(columns[0].x, 1.0);
+        EXPECTEDVALUE(columns[0].y, 3.0);
+        EXPECTEDVALUE(columns[1].x, 2.0);
+        EXPECTEDVALUE(columns[1].y, 4.0);
+        matrix = matrix.Rotate(halfpi);
+        EXPECTEDVALUE(matrix.h.x1,-3.0);
+        EXPECTEDVALUE(matrix.h.y1,-4.0);
+        EXPECTEDVALUE(matrix.h.x2, 1.0);
+        EXPECTEDVALUE(matrix.h.y2, 2.0);
+        matrix = matrix.Scale({2.0, 3.0});
+        EXPECTEDVALUE(matrix.h.x1,-6.0);
+        EXPECTEDVALUE(matrix.h.y1,-8.0);
+        EXPECTEDVALUE(matrix.h.x2, 3.0);
+        EXPECTEDVALUE(matrix.h.y2, 6.0);
+        matrix = matrix.Transpose();
+        EXPECTEDVALUE(matrix.v.x1,-6.0);
+        EXPECTEDVALUE(matrix.v.y1,-8.0);
+        EXPECTEDVALUE(matrix.v.x2, 3.0);
+        EXPECTEDVALUE(matrix.v.y2, 6.0);
+    } catch (std::runtime_error& err) {
+        cout << "Failed: " << err.what() << std::endl;
+        return false;
     }
-    complex a(2, pi);
-    a = exp(a);
-    cout << "exp(2 + pi*i) = (" << a.real << " + " << a.imag << "i)\n";
-    a = log(a);
-    cout << "log of previous value = (" << a.real << " + " << a.imag << "i)\n";
-    cout << std::endl;
+    cout << "...Success!" << std::endl;
+    return true;
 }
 
-void UnitTestQuat(io::logStream& cout) {
-    cout << "Unit testing quaternions\n";
-    quat q;
-    cout << "Rotation(pi/4, {1.0, 0.0, 0.0}):\n";
-    q = quat::Rotation(pi/4.0, {1.0, 0.0, 0.0});
-    Print(q.wxyz, cout);
-    cout << std::endl;
-    Print(q.ToMat3(), cout);
-    cout << "Rotation(pi/4, {0.0, 1.0, 0.0}):\n";
-    q = quat::Rotation(pi/4.0, {0.0, 1.0, 0.0});
-    Print(q.wxyz, cout);
-    cout << std::endl;
-    Print(q.ToMat3(), cout);
-    cout << "Rotation(pi/4, {0.0, 0.0, 1.0}):\n";
-    q = quat::Rotation(pi/4.0, {0.0, 0.0, 1.0});
-    Print(q.wxyz, cout);
-    cout << std::endl;
-    Print(q.ToMat3(), cout);
-    cout << "Multiplying two pi/2 rotations on different axes:\nq1: ";
-    mat3 m = mat3::Rotation(pi/2.0, {1.0, 0.0, 0.0});
-    q = quat::Rotation(pi/2.0, {1.0, 0.0, 0.0});
-    Print(q.wxyz, cout);
-    cout << "\nToMat3():\n";
-    Print(q.ToMat3(), cout);
-    cout << "Control Matrix:\n";
-    Print(m, cout);
-    cout << "q2: ";
-    mat3 m2 = mat3::Rotation(pi/2.0, {0.0, 1.0, 0.0});
-    quat q2 = quat::Rotation(pi/2.0, {0.0, 1.0, 0.0});
-    Print(q2.wxyz, cout);
-    cout << "\nToMat3():\n";
-    Print(q2.ToMat3(), cout);
-    cout << "Control Matrix:\n";
-    Print(m2, cout);
-    cout << "q1*q2: ";
-    quat q3 = q * q2;
-    Print(q3.wxyz, cout);
-    cout << "\nToMat3():\n";
-    Print(q3.ToMat3(), cout);
-    cout << "Control Matrix:\n";
-    Print(m * m2, cout);
-    cout << "q2*q1: ";
-    q3 = q2 * q;
-    Print(q3.wxyz, cout);
-    cout << "\nToMat3():\n";
-    Print(q3.ToMat3(), cout);
-    cout << "Control Matrix:\n";
-    Print(m2 * m, cout);
-    quat a(pi, 0, -1, 0);
-    a = exp(a);
-    cout << "exp(pi - j) = (" << a.w << " + " << a.x << "i + " << a.y << "j + " << a.z << "k)\n";
-    a = log(a);
-    cout << "log of previous value = (" << a.w << " + " << a.x << "i + " << a.y << "j + " << a.z << "k)\n";
-    cout << std::endl;
+bool UnitTestMat3(io::logStream& cout) {
+    cout << "Unit testing mat3...\n";
+    mat3 matrix;
+    matrix = mat3::Identity();
+    try {
+        EXPECTEDVALUE(matrix.data[0], 1.0);
+        EXPECTEDVALUE(matrix.data[1], 0.0);
+        EXPECTEDVALUE(matrix.data[2], 0.0);
+        EXPECTEDVALUE(matrix.data[3], 0.0);
+        EXPECTEDVALUE(matrix.data[4], 1.0);
+        EXPECTEDVALUE(matrix.data[5], 0.0);
+        EXPECTEDVALUE(matrix.data[6], 0.0);
+        EXPECTEDVALUE(matrix.data[7], 0.0);
+        EXPECTEDVALUE(matrix.data[8], 1.0);
+        matrix = mat3(
+            1.0, 2.0, 3.0,
+            4.0, 5.0, 6.0,
+            7.0, 8.0, 9.0
+        );
+        vec3 rows[3] = {
+            matrix.Row1(),
+            matrix.Row2(),
+            matrix.Row3()
+        };
+        EXPECTEDVALUE(rows[0].x, 1.0);
+        EXPECTEDVALUE(rows[0].y, 2.0);
+        EXPECTEDVALUE(rows[0].z, 3.0);
+        EXPECTEDVALUE(rows[1].x, 4.0);
+        EXPECTEDVALUE(rows[1].y, 5.0);
+        EXPECTEDVALUE(rows[1].z, 6.0);
+        EXPECTEDVALUE(rows[2].x, 7.0);
+        EXPECTEDVALUE(rows[2].y, 8.0);
+        EXPECTEDVALUE(rows[2].z, 9.0);
+        vec3 columns[3] = {
+            matrix.Col1(),
+            matrix.Col2(),
+            matrix.Col3()
+        };
+        EXPECTEDVALUE(columns[0].x, 1.0);
+        EXPECTEDVALUE(columns[0].y, 4.0);
+        EXPECTEDVALUE(columns[0].z, 7.0);
+        EXPECTEDVALUE(columns[1].x, 2.0);
+        EXPECTEDVALUE(columns[1].y, 5.0);
+        EXPECTEDVALUE(columns[1].z, 8.0);
+        EXPECTEDVALUE(columns[2].x, 3.0);
+        EXPECTEDVALUE(columns[2].y, 6.0);
+        EXPECTEDVALUE(columns[2].z, 9.0);
+        matrix = matrix.RotateBasic(halfpi, Axis::X);
+        EXPECTEDVALUE(matrix.h.x1, 1.0);
+        EXPECTEDVALUE(matrix.h.y1, 2.0);
+        EXPECTEDVALUE(matrix.h.z1, 3.0);
+        EXPECTEDVALUE(matrix.h.x2, -7.0);
+        EXPECTEDVALUE(matrix.h.y2, -8.0);
+        EXPECTEDVALUE(matrix.h.z2, -9.0);
+        EXPECTEDVALUE(matrix.h.x3, 4.0);
+        EXPECTEDVALUE(matrix.h.y3, 5.0);
+        EXPECTEDVALUE(matrix.h.z3, 6.0);
+        matrix = matrix.RotateBasic(halfpi, Axis::Y);
+        EXPECTEDVALUE(matrix.h.x1, 4.0);
+        EXPECTEDVALUE(matrix.h.y1, 5.0);
+        EXPECTEDVALUE(matrix.h.z1, 6.0);
+        EXPECTEDVALUE(matrix.h.x2, -7.0);
+        EXPECTEDVALUE(matrix.h.y2, -8.0);
+        EXPECTEDVALUE(matrix.h.z2, -9.0);
+        EXPECTEDVALUE(matrix.h.x3, -1.0);
+        EXPECTEDVALUE(matrix.h.y3, -2.0);
+        EXPECTEDVALUE(matrix.h.z3, -3.0);
+        matrix = matrix.RotateBasic(halfpi, Axis::Z);
+        EXPECTEDVALUE(matrix.h.x1, 7.0);
+        EXPECTEDVALUE(matrix.h.y1, 8.0);
+        EXPECTEDVALUE(matrix.h.z1, 9.0);
+        EXPECTEDVALUE(matrix.h.x2, 4.0);
+        EXPECTEDVALUE(matrix.h.y2, 5.0);
+        EXPECTEDVALUE(matrix.h.z2, 6.0);
+        EXPECTEDVALUE(matrix.h.x3, -1.0);
+        EXPECTEDVALUE(matrix.h.y3, -2.0);
+        EXPECTEDVALUE(matrix.h.z3, -3.0);
+        matrix = matrix.Rotate(pi, {sin(halfpi), cos(halfpi), 0.0});
+        EXPECTEDVALUE(matrix.h.x1, 7.0);
+        EXPECTEDVALUE(matrix.h.y1, 8.0);
+        EXPECTEDVALUE(matrix.h.z1, 9.0);
+        EXPECTEDVALUE(matrix.h.x2, -4.0);
+        EXPECTEDVALUE(matrix.h.y2, -5.0);
+        EXPECTEDVALUE(matrix.h.z2, -6.0);
+        EXPECTEDVALUE(matrix.h.x3, 1.0);
+        EXPECTEDVALUE(matrix.h.y3, 2.0);
+        EXPECTEDVALUE(matrix.h.z3, 3.0);
+        matrix = matrix.Rotate(halfpi, {0.0, 0.0, 1.0});
+        EXPECTEDVALUE(matrix.h.x1, 4.0);
+        EXPECTEDVALUE(matrix.h.y1, 5.0);
+        EXPECTEDVALUE(matrix.h.z1, 6.0);
+        EXPECTEDVALUE(matrix.h.x2, 7.0);
+        EXPECTEDVALUE(matrix.h.y2, 8.0);
+        EXPECTEDVALUE(matrix.h.z2, 9.0);
+        EXPECTEDVALUE(matrix.h.x3, 1.0);
+        EXPECTEDVALUE(matrix.h.y3, 2.0);
+        EXPECTEDVALUE(matrix.h.z3, 3.0);
+        matrix = matrix.Scale({2.0, 3.0, 3.5});
+        EXPECTEDVALUE(matrix.h.x1, 8.0);
+        EXPECTEDVALUE(matrix.h.y1, 10.0);
+        EXPECTEDVALUE(matrix.h.z1, 12.0);
+        EXPECTEDVALUE(matrix.h.x2, 21.0);
+        EXPECTEDVALUE(matrix.h.y2, 24.0);
+        EXPECTEDVALUE(matrix.h.z2, 27.0);
+        EXPECTEDVALUE(matrix.h.x3, 3.5);
+        EXPECTEDVALUE(matrix.h.y3, 7.0);
+        EXPECTEDVALUE(matrix.h.z3, 10.5);
+        matrix = matrix.Transpose();
+        EXPECTEDVALUE(matrix.v.x1, 8.0);
+        EXPECTEDVALUE(matrix.v.y1, 10.0);
+        EXPECTEDVALUE(matrix.v.z1, 12.0);
+        EXPECTEDVALUE(matrix.v.x2, 21.0);
+        EXPECTEDVALUE(matrix.v.y2, 24.0);
+        EXPECTEDVALUE(matrix.v.z2, 27.0);
+        EXPECTEDVALUE(matrix.v.x3, 3.5);
+        EXPECTEDVALUE(matrix.v.y3, 7.0);
+        EXPECTEDVALUE(matrix.v.z3, 10.5);
+    } catch (std::runtime_error& err) {
+        cout << "Failed: " << err.what() << std::endl;
+        return false;
+    }
+    cout << "...Success!" << std::endl;
+    return true;
 }
 
-void UnitTestSlerp(io::logStream& cout) {
-    cout << "Unit testing slerp:\n";
-    quat a(0.0, 1.0, 0.0, 0.0);
-    quat b(0.0, 0.0, 1.0, 0.0);
-    cout << "With a = ";
-    Print(a.wxyz, cout);
-    cout << " and b = ";
-    Print(b.wxyz, cout);
-    cout << "\nslerp(a,b,-1.0) = ";
-    Print(slerp(a,b,-1.0).wxyz, cout);
-    cout << "\nslerp(a,b,0.0) = ";
-    Print(slerp(a,b,0.0).wxyz, cout);
-    cout << "\nslerp(a,b,1/3) = ";
-    Print(slerp(a,b,1.0/3.0).wxyz, cout);
-    cout << "\nslerp(a,b,0.5) = ";
-    Print(slerp(a,b,0.5).wxyz, cout);
-    cout << "\nslerp(a,b,1.0) = ";
-    Print(slerp(a,b,1.0).wxyz, cout);
-    cout << "\nslerp(a,b,2.0) = ";
-    Print(slerp(a,b,2.0).wxyz, cout);
-    cout << std::endl;
+bool UnitTestMat4(io::logStream& cout) {
+    cout << "Unit testing mat4\n";
+    mat4 matrix;
+    matrix = mat4::Identity();
+    try {
+        EXPECTEDVALUE(matrix.data[ 0], 1.0);
+        EXPECTEDVALUE(matrix.data[ 1], 0.0);
+        EXPECTEDVALUE(matrix.data[ 2], 0.0);
+        EXPECTEDVALUE(matrix.data[ 3], 0.0);
+        EXPECTEDVALUE(matrix.data[ 4], 0.0);
+        EXPECTEDVALUE(matrix.data[ 5], 1.0);
+        EXPECTEDVALUE(matrix.data[ 6], 0.0);
+        EXPECTEDVALUE(matrix.data[ 7], 0.0);
+        EXPECTEDVALUE(matrix.data[ 8], 0.0);
+        EXPECTEDVALUE(matrix.data[ 9], 0.0);
+        EXPECTEDVALUE(matrix.data[10], 1.0);
+        EXPECTEDVALUE(matrix.data[11], 0.0);
+        EXPECTEDVALUE(matrix.data[12], 0.0);
+        EXPECTEDVALUE(matrix.data[13], 0.0);
+        EXPECTEDVALUE(matrix.data[14], 0.0);
+        EXPECTEDVALUE(matrix.data[15], 1.0);
+        matrix = mat4(
+             1.0,  2.0,  3.0,  4.0,
+             5.0,  6.0,  7.0,  8.0,
+             9.0, 10.0, 11.0, 12.0,
+            13.0, 14.0, 15.0, 16.0
+        );
+        vec4 rows[4] = {
+            matrix.Row1(),
+            matrix.Row2(),
+            matrix.Row3(),
+            matrix.Row4()
+        };
+        EXPECTEDVALUE(rows[0].x,  1.0);
+        EXPECTEDVALUE(rows[0].y,  2.0);
+        EXPECTEDVALUE(rows[0].z,  3.0);
+        EXPECTEDVALUE(rows[0].w,  4.0);
+        EXPECTEDVALUE(rows[1].x,  5.0);
+        EXPECTEDVALUE(rows[1].y,  6.0);
+        EXPECTEDVALUE(rows[1].z,  7.0);
+        EXPECTEDVALUE(rows[1].w,  8.0);
+        EXPECTEDVALUE(rows[2].x,  9.0);
+        EXPECTEDVALUE(rows[2].y, 10.0);
+        EXPECTEDVALUE(rows[2].z, 11.0);
+        EXPECTEDVALUE(rows[2].w, 12.0);
+        EXPECTEDVALUE(rows[3].x, 13.0);
+        EXPECTEDVALUE(rows[3].y, 14.0);
+        EXPECTEDVALUE(rows[3].z, 15.0);
+        EXPECTEDVALUE(rows[3].w, 16.0);
+        vec4 columns[4] = {
+            matrix.Col1(),
+            matrix.Col2(),
+            matrix.Col3(),
+            matrix.Col4()
+        };
+        EXPECTEDVALUE(columns[0].x,  1.0);
+        EXPECTEDVALUE(columns[0].y,  5.0);
+        EXPECTEDVALUE(columns[0].z,  9.0);
+        EXPECTEDVALUE(columns[0].w, 13.0);
+        EXPECTEDVALUE(columns[1].x,  2.0);
+        EXPECTEDVALUE(columns[1].y,  6.0);
+        EXPECTEDVALUE(columns[1].z, 10.0);
+        EXPECTEDVALUE(columns[1].w, 14.0);
+        EXPECTEDVALUE(columns[2].x,  3.0);
+        EXPECTEDVALUE(columns[2].y,  7.0);
+        EXPECTEDVALUE(columns[2].z, 11.0);
+        EXPECTEDVALUE(columns[2].w, 15.0);
+        EXPECTEDVALUE(columns[3].x,  4.0);
+        EXPECTEDVALUE(columns[3].y,  8.0);
+        EXPECTEDVALUE(columns[3].z, 12.0);
+        EXPECTEDVALUE(columns[3].w, 16.0);
+        matrix = matrix.RotateBasic(halfpi, Plane::XW);
+        EXPECTEDVALUE(matrix.h.x1,  1.0);
+        EXPECTEDVALUE(matrix.h.y1,  2.0);
+        EXPECTEDVALUE(matrix.h.z1,  3.0);
+        EXPECTEDVALUE(matrix.h.w1,  4.0);
+        EXPECTEDVALUE(matrix.h.x2, -9.0);
+        EXPECTEDVALUE(matrix.h.y2,-10.0);
+        EXPECTEDVALUE(matrix.h.z2,-11.0);
+        EXPECTEDVALUE(matrix.h.w2,-12.0);
+        EXPECTEDVALUE(matrix.h.x3,  5.0);
+        EXPECTEDVALUE(matrix.h.y3,  6.0);
+        EXPECTEDVALUE(matrix.h.z3,  7.0);
+        EXPECTEDVALUE(matrix.h.w3,  8.0);
+        EXPECTEDVALUE(matrix.h.x4, 13.0);
+        EXPECTEDVALUE(matrix.h.y4, 14.0);
+        EXPECTEDVALUE(matrix.h.z4, 15.0);
+        EXPECTEDVALUE(matrix.h.w4, 16.0);
+        matrix = matrix.RotateBasic(halfpi, Plane::YW);
+        EXPECTEDVALUE(matrix.h.x1,  5.0);
+        EXPECTEDVALUE(matrix.h.y1,  6.0);
+        EXPECTEDVALUE(matrix.h.z1,  7.0);
+        EXPECTEDVALUE(matrix.h.w1,  8.0);
+        EXPECTEDVALUE(matrix.h.x2, -9.0);
+        EXPECTEDVALUE(matrix.h.y2,-10.0);
+        EXPECTEDVALUE(matrix.h.z2,-11.0);
+        EXPECTEDVALUE(matrix.h.w2,-12.0);
+        EXPECTEDVALUE(matrix.h.x3, -1.0);
+        EXPECTEDVALUE(matrix.h.y3, -2.0);
+        EXPECTEDVALUE(matrix.h.z3, -3.0);
+        EXPECTEDVALUE(matrix.h.w3, -4.0);
+        EXPECTEDVALUE(matrix.h.x4, 13.0);
+        EXPECTEDVALUE(matrix.h.y4, 14.0);
+        EXPECTEDVALUE(matrix.h.z4, 15.0);
+        EXPECTEDVALUE(matrix.h.w4, 16.0);
+        matrix = matrix.RotateBasic(halfpi, Plane::ZW);
+        EXPECTEDVALUE(matrix.h.x1,  9.0);
+        EXPECTEDVALUE(matrix.h.y1, 10.0);
+        EXPECTEDVALUE(matrix.h.z1, 11.0);
+        EXPECTEDVALUE(matrix.h.w1, 12.0);
+        EXPECTEDVALUE(matrix.h.x2,  5.0);
+        EXPECTEDVALUE(matrix.h.y2,  6.0);
+        EXPECTEDVALUE(matrix.h.z2,  7.0);
+        EXPECTEDVALUE(matrix.h.w2,  8.0);
+        EXPECTEDVALUE(matrix.h.x3, -1.0);
+        EXPECTEDVALUE(matrix.h.y3, -2.0);
+        EXPECTEDVALUE(matrix.h.z3, -3.0);
+        EXPECTEDVALUE(matrix.h.w3, -4.0);
+        EXPECTEDVALUE(matrix.h.x4, 13.0);
+        EXPECTEDVALUE(matrix.h.y4, 14.0);
+        EXPECTEDVALUE(matrix.h.z4, 15.0);
+        EXPECTEDVALUE(matrix.h.w4, 16.0);
+        matrix = matrix.RotateBasic(halfpi, Plane::XY);
+        EXPECTEDVALUE(matrix.h.x1,  9.0);
+        EXPECTEDVALUE(matrix.h.y1, 10.0);
+        EXPECTEDVALUE(matrix.h.z1, 11.0);
+        EXPECTEDVALUE(matrix.h.w1, 12.0);
+        EXPECTEDVALUE(matrix.h.x2,  5.0);
+        EXPECTEDVALUE(matrix.h.y2,  6.0);
+        EXPECTEDVALUE(matrix.h.z2,  7.0);
+        EXPECTEDVALUE(matrix.h.w2,  8.0);
+        EXPECTEDVALUE(matrix.h.x3,-13.0);
+        EXPECTEDVALUE(matrix.h.y3,-14.0);
+        EXPECTEDVALUE(matrix.h.z3,-15.0);
+        EXPECTEDVALUE(matrix.h.w3,-16.0);
+        EXPECTEDVALUE(matrix.h.x4, -1.0);
+        EXPECTEDVALUE(matrix.h.y4, -2.0);
+        EXPECTEDVALUE(matrix.h.z4, -3.0);
+        EXPECTEDVALUE(matrix.h.w4, -4.0);
+        matrix = matrix.RotateBasic(halfpi, Plane::YZ);
+        EXPECTEDVALUE(matrix.h.x1,  1.0);
+        EXPECTEDVALUE(matrix.h.y1,  2.0);
+        EXPECTEDVALUE(matrix.h.z1,  3.0);
+        EXPECTEDVALUE(matrix.h.w1,  4.0);
+        EXPECTEDVALUE(matrix.h.x2,  5.0);
+        EXPECTEDVALUE(matrix.h.y2,  6.0);
+        EXPECTEDVALUE(matrix.h.z2,  7.0);
+        EXPECTEDVALUE(matrix.h.w2,  8.0);
+        EXPECTEDVALUE(matrix.h.x3,-13.0);
+        EXPECTEDVALUE(matrix.h.y3,-14.0);
+        EXPECTEDVALUE(matrix.h.z3,-15.0);
+        EXPECTEDVALUE(matrix.h.w3,-16.0);
+        EXPECTEDVALUE(matrix.h.x4,  9.0);
+        EXPECTEDVALUE(matrix.h.y4, 10.0);
+        EXPECTEDVALUE(matrix.h.z4, 11.0);
+        EXPECTEDVALUE(matrix.h.w4, 12.0);
+        matrix = matrix.RotateBasic(halfpi, Plane::ZX);
+        EXPECTEDVALUE(matrix.h.x1,  1.0);
+        EXPECTEDVALUE(matrix.h.y1,  2.0);
+        EXPECTEDVALUE(matrix.h.z1,  3.0);
+        EXPECTEDVALUE(matrix.h.w1,  4.0);
+        EXPECTEDVALUE(matrix.h.x2,  9.0);
+        EXPECTEDVALUE(matrix.h.y2, 10.0);
+        EXPECTEDVALUE(matrix.h.z2, 11.0);
+        EXPECTEDVALUE(matrix.h.w2, 12.0);
+        EXPECTEDVALUE(matrix.h.x3,-13.0);
+        EXPECTEDVALUE(matrix.h.y3,-14.0);
+        EXPECTEDVALUE(matrix.h.z3,-15.0);
+        EXPECTEDVALUE(matrix.h.w3,-16.0);
+        EXPECTEDVALUE(matrix.h.x4, -5.0);
+        EXPECTEDVALUE(matrix.h.y4, -6.0);
+        EXPECTEDVALUE(matrix.h.z4, -7.0);
+        EXPECTEDVALUE(matrix.h.w4, -8.0);
+        matrix = matrix.Rotate(pi, {sin(halfpi), cos(halfpi), 0.0});
+        EXPECTEDVALUE(matrix.h.x1,  1.0);
+        EXPECTEDVALUE(matrix.h.y1,  2.0);
+        EXPECTEDVALUE(matrix.h.z1,  3.0);
+        EXPECTEDVALUE(matrix.h.w1,  4.0);
+        EXPECTEDVALUE(matrix.h.x2, -9.0);
+        EXPECTEDVALUE(matrix.h.y2,-10.0);
+        EXPECTEDVALUE(matrix.h.z2,-11.0);
+        EXPECTEDVALUE(matrix.h.w2,-12.0);
+        EXPECTEDVALUE(matrix.h.x3, 13.0);
+        EXPECTEDVALUE(matrix.h.y3, 14.0);
+        EXPECTEDVALUE(matrix.h.z3, 15.0);
+        EXPECTEDVALUE(matrix.h.w3, 16.0);
+        EXPECTEDVALUE(matrix.h.x4, -5.0);
+        EXPECTEDVALUE(matrix.h.y4, -6.0);
+        EXPECTEDVALUE(matrix.h.z4, -7.0);
+        EXPECTEDVALUE(matrix.h.w4, -8.0);
+        matrix = matrix.Rotate(halfpi, {0.0, 0.0, 1.0});
+        EXPECTEDVALUE(matrix.h.x1,  9.0);
+        EXPECTEDVALUE(matrix.h.y1, 10.0);
+        EXPECTEDVALUE(matrix.h.z1, 11.0);
+        EXPECTEDVALUE(matrix.h.w1, 12.0);
+        EXPECTEDVALUE(matrix.h.x2,  1.0);
+        EXPECTEDVALUE(matrix.h.y2,  2.0);
+        EXPECTEDVALUE(matrix.h.z2,  3.0);
+        EXPECTEDVALUE(matrix.h.w2,  4.0);
+        EXPECTEDVALUE(matrix.h.x3, 13.0);
+        EXPECTEDVALUE(matrix.h.y3, 14.0);
+        EXPECTEDVALUE(matrix.h.z3, 15.0);
+        EXPECTEDVALUE(matrix.h.w3, 16.0);
+        EXPECTEDVALUE(matrix.h.x4, -5.0);
+        EXPECTEDVALUE(matrix.h.y4, -6.0);
+        EXPECTEDVALUE(matrix.h.z4, -7.0);
+        EXPECTEDVALUE(matrix.h.w4, -8.0);
+        matrix = matrix.Scale({2.0, 3.0, 3.5, 4.5});
+        EXPECTEDVALUE(matrix.h.x1, 18.0);
+        EXPECTEDVALUE(matrix.h.y1, 20.0);
+        EXPECTEDVALUE(matrix.h.z1, 22.0);
+        EXPECTEDVALUE(matrix.h.w1, 24.0);
+        EXPECTEDVALUE(matrix.h.x2,  3.0);
+        EXPECTEDVALUE(matrix.h.y2,  6.0);
+        EXPECTEDVALUE(matrix.h.z2,  9.0);
+        EXPECTEDVALUE(matrix.h.w2, 12.0);
+        EXPECTEDVALUE(matrix.h.x3, 45.5);
+        EXPECTEDVALUE(matrix.h.y3, 49.0);
+        EXPECTEDVALUE(matrix.h.z3, 52.5);
+        EXPECTEDVALUE(matrix.h.w3, 56.0);
+        EXPECTEDVALUE(matrix.h.x4,-22.5);
+        EXPECTEDVALUE(matrix.h.y4,-27.0);
+        EXPECTEDVALUE(matrix.h.z4,-31.5);
+        EXPECTEDVALUE(matrix.h.w4,-36.0);
+        matrix = matrix.Transpose();
+        EXPECTEDVALUE(matrix.v.x1, 18.0);
+        EXPECTEDVALUE(matrix.v.y1, 20.0);
+        EXPECTEDVALUE(matrix.v.z1, 22.0);
+        EXPECTEDVALUE(matrix.v.w1, 24.0);
+        EXPECTEDVALUE(matrix.v.x2,  3.0);
+        EXPECTEDVALUE(matrix.v.y2,  6.0);
+        EXPECTEDVALUE(matrix.v.z2,  9.0);
+        EXPECTEDVALUE(matrix.v.w2, 12.0);
+        EXPECTEDVALUE(matrix.v.x3, 45.5);
+        EXPECTEDVALUE(matrix.v.y3, 49.0);
+        EXPECTEDVALUE(matrix.v.z3, 52.5);
+        EXPECTEDVALUE(matrix.v.w3, 56.0);
+        EXPECTEDVALUE(matrix.v.x4,-22.5);
+        EXPECTEDVALUE(matrix.v.y4,-27.0);
+        EXPECTEDVALUE(matrix.v.z4,-31.5);
+        EXPECTEDVALUE(matrix.v.w4,-36.0);
+    } catch (std::runtime_error& err) {
+        cout << "Failed: " << err.what() << std::endl;
+        return false;
+    }
+    cout << "...Success!" << std::endl;
+    return true;
 }
 
-void UnitTestRNG(RandomNumberGenerator& rng, io::logStream& cout) {
-    cout << "Unit testing RandomNumberGenerator\n";
-    {
-        u32 count[100] = {0};
-        for (u32 i = 0; i < 100000; i++) {
-            count[rng.Generate()%100]++;
+bool UnitTestComplex(io::logStream& cout) {
+    cout << "Unit testing complex numbers\n";
+    // complex c, z;
+    // for (i32 y = -40; y <= 40; y++) {
+    //     for (i32 x = -70; x <= 50; x++) {
+    //         c = z = complex(f32(x)/40.0, f32(y)/20.0);
+    //         const char val[] = " `*+%";
+    //         u32 its = 0;
+    //         for (; its < 14; its++) {
+    //             z = pow(z,4.0) + c;
+    //             if (abs(z) > 2.0)
+    //                 break;
+    //         }
+    //         cout << val[its/3];
+    //     }
+    //     cout << "\n";
+    // }
+    // complex a(2, pi);
+    // a = exp(a);
+    // cout << "exp(2 + pi*i) = (" << a.real << " + " << a.imag << "i)\n";
+    // a = log(a);
+    // cout << "log of previous value = (" << a.real << " + " << a.imag << "i)\n";
+    // cout << std::endl;
+    try {
+        complex c;
+        for (Degrees32 degrees = -360.0; degrees < 360.0; degrees += 1.0) {
+            Angle32 angle = degrees;
+            c = exp(complex(0.0, angle.value()));
+            EXPECTEDVALUE(c.real, cos(angle));
+            EXPECTEDVALUE(c.imag, sin(angle));
+            c = log(c);
+            EXPECTEDVALUE(c.real, 0.0);
+            EXPECTEDVALUE(Angle32(c.imag), angle);
+            // Angle32 a = c.imag;
+            // f32 diff = (a-angle).value();
+            // cout << "diff = " << diff << ", degrees = " << degrees.value() << ", angle = " << angle.value()
+            //      << ", c.real = " << c.real << ", c.imag = " << c.imag << std::endl;
         }
-        cout << std::dec << "After 100000 numbers generated, 0-100 has the following counts:\n{";
-        for (u32 i = 0; i < 100; i++) {
-            if (count[i] < 10)
-                cout << " ";
-            if (count[i] < 100)
-                cout << " ";
-            if (count[i] < 1000)
-                cout << " ";
-            cout << count[i];
-            if (i != 99) {
-                cout << ", ";
-                if (i%10 == 9)
-                    cout << "\n ";
+
+        c = {1.0, 1.0};
+        c *= c;
+        EXPECTEDVALUE(c.real, 0.0);
+        EXPECTEDVALUE(c.imag, 2.0);
+        c /= 2.0;
+        EXPECTEDVALUE(c.real, 0.0);
+        EXPECTEDVALUE(c.imag, 1.0);
+        c *= c;
+        EXPECTEDVALUE(c.real, -1.0);
+        EXPECTEDVALUE(c.imag, 0.0);
+        c = {sin(pi*2.0/3.0), cos(pi/3.0)};
+        EXPECTEDVALUE(abs(c), 1.0);
+        c = pow(c, 2.0);
+        EXPECTEDVALUE(c.real, cos(pi/3.0));
+        EXPECTEDVALUE(c.imag, sin(pi*2.0/3.0));
+        // cout << "c.real = " << c.real << ", c.imag = " << c.imag << std::endl;
+    } catch (std::runtime_error& err) {
+        cout << "Failed: " << err.what() << std::endl;
+        return false;
+    }
+    cout << "...Success!" << std::endl;
+    return true;
+}
+
+void QuatVsMatrix(const quat& quaternion, const mat3& matrix) {
+    mat3 quatMatrix = quaternion.ToMat3();
+    EXPECTEDVALUE(quatMatrix.h.x1, matrix.h.x1);
+    EXPECTEDVALUE(quatMatrix.h.y1, matrix.h.y1);
+    EXPECTEDVALUE(quatMatrix.h.z1, matrix.h.z1);
+    EXPECTEDVALUE(quatMatrix.h.x2, matrix.h.x2);
+    EXPECTEDVALUE(quatMatrix.h.y2, matrix.h.y2);
+    EXPECTEDVALUE(quatMatrix.h.z2, matrix.h.z2);
+    EXPECTEDVALUE(quatMatrix.h.x3, matrix.h.x3);
+    EXPECTEDVALUE(quatMatrix.h.y3, matrix.h.y3);
+    EXPECTEDVALUE(quatMatrix.h.z3, matrix.h.z3);
+}
+
+bool UnitTestQuat(io::logStream& cout) {
+    cout << "Unit testing quaternions\n";
+    try {
+        quat quaternion;
+        mat3 matrix;
+        vec3 point1, point2;
+        for (Degrees32 degrees = -360.0; degrees <= 360.0; degrees += 5.0) {
+            Radians32 radians = degrees;
+            quaternion = quat::Rotation(radians.value(), {1.0, 0.0, 0.0});
+            matrix = mat3::Rotation(radians.value(), {1.0, 0.0, 0.0});
+            QuatVsMatrix(quaternion, matrix);
+            point1 = {1.0, 0.0, 0.0};
+            point2 = matrix * point1;
+            point1 = quaternion.RotatePoint(point1);
+            EXPECTEDVALUE(point1.x, point2.x);
+            EXPECTEDVALUE(point1.y, point2.y);
+            EXPECTEDVALUE(point1.z, point2.z);
+            quaternion = quat::Rotation(radians.value(), {0.0, 1.0, 0.0});
+            matrix = mat3::Rotation(radians.value(), {0.0, 1.0, 0.0});
+            QuatVsMatrix(quaternion, matrix);
+            point1 = {0.0, 1.0, 0.0};
+            point2 = matrix * point1;
+            point1 = quaternion.RotatePoint(point1);
+            EXPECTEDVALUE(point1.x, point2.x);
+            EXPECTEDVALUE(point1.y, point2.y);
+            EXPECTEDVALUE(point1.z, point2.z);
+            quaternion = quat::Rotation(radians.value(), {0.0, 0.0, 1.0});
+            matrix = mat3::Rotation(radians.value(), {0.0, 0.0, 1.0});
+            QuatVsMatrix(quaternion, matrix);
+            point1 = {0.0, 0.0, 1.0};
+            point2 = matrix * point1;
+            point1 = quaternion.RotatePoint(point1);
+            EXPECTEDVALUE(point1.x, point2.x);
+            EXPECTEDVALUE(point1.y, point2.y);
+            EXPECTEDVALUE(point1.z, point2.z);
+            quaternion = quat::Rotation(radians.value(), {0.0, 1.0, 1.0});
+            matrix = mat3::Rotation(radians.value(), {0.0, 1.0, 1.0});
+            QuatVsMatrix(quaternion, matrix);
+            point1 = {1.0, 2.0, 3.0};
+            point2 = matrix * point1;
+            point1 = quaternion.RotatePoint(point1);
+            EXPECTEDVALUE(point1.x, point2.x);
+            EXPECTEDVALUE(point1.y, point2.y);
+            EXPECTEDVALUE(point1.z, point2.z);
+            quaternion = quat::Rotation(radians.value(), {-1.0, 1.0, 0.0});
+            matrix = mat3::Rotation(radians.value(), {-1.0, 1.0, 0.0});
+            QuatVsMatrix(quaternion, matrix);
+            point1 = {-1.0, pi, 1.0};
+            point2 = matrix * point1;
+            point1 = quaternion.RotatePoint(point1);
+            EXPECTEDVALUE(point1.x, point2.x);
+            EXPECTEDVALUE(point1.y, point2.y);
+            EXPECTEDVALUE(point1.z, point2.z);
+            quaternion = quat::Rotation(radians.value(), {-1.0, 0.0, -1.0});
+            matrix = mat3::Rotation(radians.value(), {-1.0, 0.0, -1.0});
+            QuatVsMatrix(quaternion, matrix);
+            point1 = {1.0, 8.0, 3.0};
+            point2 = matrix * point1;
+            point1 = quaternion.RotatePoint(point1);
+            EXPECTEDVALUE(point1.x, point2.x);
+            EXPECTEDVALUE(point1.y, point2.y);
+            EXPECTEDVALUE(point1.z, point2.z);
+        }
+        // quat a(pi, 0, -1, 0);
+        // a = exp(a);
+        // cout << "exp(pi - j) = (" << a.w << " + " << a.x << "i + " << a.y << "j + " << a.z << "k)\n";
+        // a = log(a);
+        // cout << "log of previous value = (" << a.w << " + " << a.x << "i + " << a.y << "j + " << a.z << "k)\n";
+        // cout << std::endl;
+    } catch (std::runtime_error& err) {
+        cout << "Failed: " << err.what() << std::endl;
+        return false;
+    }
+    cout << "...Success!" << std::endl;
+    return true;
+}
+
+bool UnitTestSlerp(io::logStream& cout) {
+    cout << "Unit testing slerp...\n";
+    try {
+        quat a(0.0, 1.0, 0.0, 0.0);
+        quat b(0.0, 0.0, 1.0, 0.0);
+        quat c;
+        c = slerp(a,b, 0.0);
+        EXPECTEDVALUE(c.w, a.w);
+        EXPECTEDVALUE(c.x, a.x);
+        EXPECTEDVALUE(c.y, a.y);
+        EXPECTEDVALUE(c.z, a.z);
+        c = slerp(a,b, 1.0);
+        EXPECTEDVALUE(c.w, b.w);
+        EXPECTEDVALUE(c.x, b.x);
+        EXPECTEDVALUE(c.y, b.y);
+        EXPECTEDVALUE(c.z, b.z);
+        c = slerp(a,b, 0.5);
+        EXPECTEDVALUE(c.w, 0.0);
+        EXPECTEDVALUE(c.x, sin(pi/4));
+        EXPECTEDVALUE(c.y, sin(pi/4));
+        EXPECTEDVALUE(c.z, 0.0);
+        c = slerp(a,b, 1.0/3.0);
+        EXPECTEDVALUE(c.w, 0.0);
+        EXPECTEDVALUE(c.x, cos(pi/6));
+        EXPECTEDVALUE(c.y, sin(pi/6));
+        EXPECTEDVALUE(c.z, 0.0);
+        c = slerp(a,b, 2.0/3.0);
+        EXPECTEDVALUE(c.w, 0.0);
+        EXPECTEDVALUE(c.x, cos(tau/6));
+        EXPECTEDVALUE(c.y, sin(tau/6));
+        EXPECTEDVALUE(c.z, 0.0);
+    } catch (std::runtime_error& err) {
+        cout << "Failed: " << err.what() << std::endl;
+        return false;
+    }
+    cout << "...Success!" << std::endl;
+    return true;
+}
+
+bool UnitTestRNG(io::logStream& cout) {
+    RandomNumberGenerator rng;
+    cout << "Unit testing RandomNumberGenerator...\n";
+    {
+        u32 totalDelta = 0;
+        u32 totalDone = 0;
+        u32 maxDelta = 0;
+        u32 totalMissed = 0;
+        u16 count[500];
+        for (u32 num = 4; num <= 500; num+=2) {
+            for (u32 repeat = 0; repeat < 100; repeat++) {
+                for (u32 i = 0; i < num; i++) {
+                    count[i] = 0;
+                    totalDone++;
+                }
+                for (u32 i = 0; i < num * 15; i++) {
+                    count[rng.Generate()%num]++;
+                }
+                for (u32 i = 0; i < num; i++) {
+                    if (count[i] == 0) {
+                        totalMissed++;
+                    }
+                    i32 delta = count[i];
+                    delta = abs(delta-10);
+                    totalDelta += delta;
+                    if ((u32)delta > maxDelta) {
+                        maxDelta = delta;
+                    }
+                }
             }
         }
-        cout << "}" << std::endl;
+
+        f64 avgDelta = (f64)totalDelta / (f64)totalDone;
+
+        cout << "Average delta: " << avgDelta << ", max delta: " << maxDelta
+             << ", total missed: " << totalMissed << std::endl;
+        if (totalMissed > 10) {
+            cout << "Failed: Too many misses!" << std::endl;
+            return false;
+        }
+        // cout << std::dec << "After 100000 numbers generated, 0-100 has the following counts:\n{";
+        // for (u32 i = 0; i < 100; i++) {
+        //     if (count[i] < 10)
+        //         cout << " ";
+        //     if (count[i] < 100)
+        //         cout << " ";
+        //     if (count[i] < 1000)
+        //         cout << " ";
+        //     cout << count[i];
+        //     if (i != 99) {
+        //         cout << ", ";
+        //         if (i%10 == 9)
+        //             cout << "\n ";
+        //     }
+        // }
+        // cout << "}" << std::endl;
     }
     UniquePtr<u16[]> count(new u16[1000000]);
     for (u32 i = 0; i < 1000000; i++) {
@@ -290,85 +809,119 @@ void UnitTestRNG(RandomNumberGenerator& rng, io::logStream& cout) {
         }
     }
     cout << total << " indices." << std::endl;
-}
-
-void Print(List<i32> list, io::logStream& cout) {
-    cout << "{";
-    bool first = true;
-    for (i32 i = 0; i < list.size; i++) {
-        if (!first) {
-            cout << ", ";
-        }
-        cout << list[i];
-        first = false;
+    if (total > 100) {
+        cout << "Failed: Too many misses!" << std::endl;
+        return false;
     }
-    cout << "}";
+    cout << "...Success!" << std::endl;
+    return true;
 }
 
-void PrintRef(const List<i32>& list, io::logStream& cout) {
-    cout << "{";
-    bool first = true;
-    for (i32 i = 0; i < list.size; i++) {
-        if (!first) {
-            cout << ", ";
-        }
-        cout << list[i];
-        first = false;
+bool UnitTestList(io::logStream& cout) {
+    cout << "Unit testing List<i32>...\n";
+    try {
+        List<i32> list = {1, 2, 3, 4};
+        EXPECTEDVALUE(list.size, 4);
+        EXPECTEDVALUE(list[0], 1);
+        EXPECTEDVALUE(list[1], 2);
+        EXPECTEDVALUE(list[2], 3);
+        EXPECTEDVALUE(list[3], 4);
+        list.Insert(0, 5);
+        EXPECTEDVALUE(list.size, 5);
+        EXPECTEDVALUE(list[0], 5);
+        EXPECTEDVALUE(list[1], 1);
+        EXPECTEDVALUE(list[2], 2);
+        EXPECTEDVALUE(list[3], 3);
+        EXPECTEDVALUE(list[4], 4);
+        list.Insert(3, 6);
+        EXPECTEDVALUE(list.size, 6);
+        EXPECTEDVALUE(list[0], 5);
+        EXPECTEDVALUE(list[1], 1);
+        EXPECTEDVALUE(list[2], 2);
+        EXPECTEDVALUE(list[3], 6);
+        EXPECTEDVALUE(list[4], 3);
+        EXPECTEDVALUE(list[5], 4);
+        List<i32> secondList = list;
+        EXPECTEDVALUE(secondList.size, 6);
+        EXPECTEDVALUE(secondList[0], 5);
+        EXPECTEDVALUE(secondList[1], 1);
+        EXPECTEDVALUE(secondList[2], 2);
+        EXPECTEDVALUE(secondList[3], 6);
+        EXPECTEDVALUE(secondList[4], 3);
+        EXPECTEDVALUE(secondList[5], 4);
+        List<i32> thirdList = std::move(secondList);
+        EXPECTEDVALUE(secondList.size, 0);
+        EXPECTEDVALUE(thirdList.size, 6);
+        EXPECTEDVALUE(thirdList[0], 5);
+        EXPECTEDVALUE(thirdList[1], 1);
+        EXPECTEDVALUE(thirdList[2], 2);
+        EXPECTEDVALUE(thirdList[3], 6);
+        EXPECTEDVALUE(thirdList[4], 3);
+        EXPECTEDVALUE(thirdList[5], 4);
+        list.Erase(2);
+        EXPECTEDVALUE(list.size, 5);
+        EXPECTEDVALUE(list[0], 5);
+        EXPECTEDVALUE(list[1], 1);
+        EXPECTEDVALUE(list[2], 6);
+        EXPECTEDVALUE(list[3], 3);
+        EXPECTEDVALUE(list[4], 4);
+        list.Erase(0);
+        EXPECTEDVALUE(list.size, 4);
+        EXPECTEDVALUE(list[0], 1);
+        EXPECTEDVALUE(list[1], 6);
+        EXPECTEDVALUE(list[2], 3);
+        EXPECTEDVALUE(list[3], 4);
+        list.Resize(8);
+        EXPECTEDVALUE(list.size, 8);
+        EXPECTEDVALUE(list[0], 1);
+        EXPECTEDVALUE(list[1], 6);
+        EXPECTEDVALUE(list[2], 3);
+        EXPECTEDVALUE(list[3], 4);
+        EXPECTEDVALUE(list[4], 0);
+        EXPECTEDVALUE(list[5], 0);
+        EXPECTEDVALUE(list[6], 0);
+        EXPECTEDVALUE(list[7], 0);
+        list.Resize(3);
+        EXPECTEDVALUE(list.size, 3);
+        EXPECTEDVALUE(list[0], 1);
+        EXPECTEDVALUE(list[1], 6);
+        EXPECTEDVALUE(list[2], 3);
+        // TODO: Implement List concatenation.
+        // list.Append(thirdList);
+        // EXPECTEDVALUE(list.size, 9);
+        // EXPECTEDVALUE(list[0], 1);
+        // EXPECTEDVALUE(list[1], 6);
+        // EXPECTEDVALUE(list[2], 3);
+        // EXPECTEDVALUE(list[3], 5);
+        // EXPECTEDVALUE(list[4], 1);
+        // EXPECTEDVALUE(list[5], 2);
+        // EXPECTEDVALUE(list[6], 6);
+        // EXPECTEDVALUE(list[7], 3);
+        // EXPECTEDVALUE(list[8], 4);
+        // list.Append(std::move(thirdList));
+        // EXPECTEDVALUE(thirdList.size, 0);
+        // EXPECTEDVALUE(list.size, 15);
+        // EXPECTEDVALUE(list[0], 1);
+        // EXPECTEDVALUE(list[1], 6);
+        // EXPECTEDVALUE(list[2], 3);
+        // EXPECTEDVALUE(list[3], 5);
+        // EXPECTEDVALUE(list[4], 1);
+        // EXPECTEDVALUE(list[5], 2);
+        // EXPECTEDVALUE(list[6], 6);
+        // EXPECTEDVALUE(list[7], 3);
+        // EXPECTEDVALUE(list[8], 4);
+        // EXPECTEDVALUE(list[9], 5);
+        // EXPECTEDVALUE(list[10], 1);
+        // EXPECTEDVALUE(list[11], 2);
+        // EXPECTEDVALUE(list[12], 6);
+        // EXPECTEDVALUE(list[13], 3);
+        // EXPECTEDVALUE(list[14], 4);
+    } catch (std::runtime_error& err) {
+        cout << "Failed: " << err.what() << std::endl;
+        return false;
     }
-    cout << "}";
-}
-
-void UnitTestList(io::logStream& cout) {
-    cout << "Unit testing List<i32>\n";
-    List<i32> list = {1, 2, 3, 4};
-    cout << "list.size = " << list.size << std::endl;
-    cout << "list = ";
-    Print(list, cout);
-    cout << " by value, ";
-    PrintRef(list, cout);
-    cout << " by reference";
-    cout << "\nafter inserting 5 at index 0: ";
-    list.Insert(0, 5);
-    Print(list, cout);
-    cout << " by value, ";
-    PrintRef(list, cout);
-    cout << " by reference";
-    cout << "\nlist.size = " << list.size << std::endl;
-    cout << "\nafter inserting 6 at index 3: ";
-    list.Insert(3, 6);
-    Print(list, cout);
-    cout << " by value, ";
-    PrintRef(list, cout);
-    cout << " by reference";
-    cout << "\nlist.size = " << list.size << std::endl;
-    cout << "\nafter erasing index 2: ";
-    list.Erase(2);
-    Print(list, cout);
-    cout << " by value, ";
-    PrintRef(list, cout);
-    cout << " by reference";
-    cout << "\nlist.size = " << list.size << std::endl;
-    cout << "\nafter erasing index 0: ";
-    list.Erase(0);
-    Print(list, cout);
-    cout << " by value, ";
-    PrintRef(list, cout);
-    cout << " by reference";
-    cout << "\nlist.size = " << list.size << std::endl;
-    cout << "\nafter resizing to 8: ";
-    list.Resize(8);
-    Print(list, cout);
-    cout << " by value, ";
-    PrintRef(list, cout);
-    cout << " by reference";
-    cout << "\nlist.size = " << list.size << std::endl;
-    cout << "\nafter resizing to 3: ";
-    list.Resize(3);
-    Print(list, cout);
-    cout << " by value, ";
-    PrintRef(list, cout);
-    cout << " by reference";
-    cout << "\nlist.size = " << list.size << std::endl;
+    cout << "...Success!" << std::endl;
+    return true;
 }
 
 template<typename T>
@@ -383,101 +936,390 @@ void PrintArray(const Array<T>& array, const char* name, io::logStream& cout) {
     cout << "}" << std::endl;
 }
 
-void UnitTestArrayAndString(io::logStream& cout) {
-    Array<u32> test1 = {
-        1, 2, 3, 4, 5, 6, 7, 8, 9
-    };
-    Array<String> test2 = {
-        "There once was a man who hated cheese.",
-        "He was also an absolute dick.",
-        "You should probably stay away from him."
-    };
-    PrintArray(test1, "test1", cout);
-    PrintArray(test2, "test2", cout);
-    cout << "Adding values to the end of both Arrays..." << std::endl;
-    test1 += 10;
-    test2 += String("I think everything should be okay anyways.");
-    PrintArray(test1, "test1", cout);
-    PrintArray(test2, "test2", cout);
-    cout << "Adding values to the beginning of both Arrays..." << std::endl;
-    test1.Insert(0,0);
-    test2.Insert(0,"Once upon a time,");
-    PrintArray(test1, "test1", cout);
-    PrintArray(test2, "test2", cout);
-    cout << "Adding values to the middle of both Arrays..." << std::endl;
-    test1.Insert(7,67);
-    test2.Insert(3,"And he likes to hurt people.");
-    PrintArray(test1, "test1", cout);
-    PrintArray(test2, "test2", cout);
-    cout << "Erasing values from the middle of both Arrays..." << std::endl;
-    test1.Erase(6);
-    test1.Erase(7);
-    test2.Erase(5);
-    PrintArray(test1, "test1", cout);
-    PrintArray(test2, "test2", cout);
-    cout << "Reversing both Arrays..." << std::endl;
-    test1.Reverse();
-    test2.Reverse();
-    PrintArray(test1, "test1", cout);
-    PrintArray(test2, "test2", cout);
-    cout << "Appending both Arrays with other Arrays..." << std::endl;
-    test1 += {11, 12, 13, 14, 15};
-    test2 += {"What was I talking about?", "This is getting pretty weird!"};
-    PrintArray(test1, "test1", cout);
-    PrintArray(test2, "test2", cout);
-    cout << "Resizing both Arrays to 5..." << std::endl;
-    test1.Resize(5);
-    test2.Resize(5);
-    PrintArray(test1, "test1", cout);
-    PrintArray(test2, "test2", cout);
-    cout << "Using copy constructors..." << std::endl;
-    Array<u32> test3(test1);
-    Array<String> test4(test2);
-    PrintArray(test3, "test3", cout);
-    PrintArray(test4, "test4", cout);
-    cout << "Using copy assignment..." << std::endl;
-    Array<u32> test5;
-    test5 = test1;
-    Array<String> test6;
-    test6 = test2;
-    PrintArray(test5, "test5", cout);
-    PrintArray(test6, "test6", cout);
-    cout << "Printing them all added together with +..." << std::endl;
-    Array<u32> test7 = test1 + test3 + test5;
-    Array<String> test8 = test2 + test4 + test6;
-    PrintArray(test7, "test7", cout);
-    PrintArray(test8, "test8", cout);
+bool UnitTestArrayAndString(io::logStream& cout) {
+    cout << "Unit testing Array and String...\n";
+    try {
+        Array<i32> test1 = {
+            1, 2, 3, 4, 5, 6, 7, 8, 9
+        };
+        EXPECTEDVALUE(test1.size, 9);
+        EXPECTEDVALUE(test1[0], 1);
+        EXPECTEDVALUE(test1[1], 2);
+        EXPECTEDVALUE(test1[2], 3);
+        EXPECTEDVALUE(test1[3], 4);
+        EXPECTEDVALUE(test1[4], 5);
+        EXPECTEDVALUE(test1[5], 6);
+        EXPECTEDVALUE(test1[6], 7);
+        EXPECTEDVALUE(test1[7], 8);
+        EXPECTEDVALUE(test1[8], 9);
+        Array<String> test2 = {
+            "There once was a man who hated cheese.",
+            "He was also an absolute dick.",
+            "You should probably stay away from him."
+        };
+        EXPECTEDVALUE(test2.size, 3);
+        EXPECTEDVALUE(test2[0], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test2[1], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test2[2], String("You should probably stay away from him."));
+        // PrintArray(test1, "test1", cout);
+        // PrintArray(test2, "test2", cout);
+        // cout << "Adding values to the end of both Arrays..." << std::endl;
+        test1 += 10;
+        EXPECTEDVALUE(test1.size, 10);
+        EXPECTEDVALUE(test1[0], 1);
+        EXPECTEDVALUE(test1[1], 2);
+        EXPECTEDVALUE(test1[2], 3);
+        EXPECTEDVALUE(test1[3], 4);
+        EXPECTEDVALUE(test1[4], 5);
+        EXPECTEDVALUE(test1[5], 6);
+        EXPECTEDVALUE(test1[6], 7);
+        EXPECTEDVALUE(test1[7], 8);
+        EXPECTEDVALUE(test1[8], 9);
+        EXPECTEDVALUE(test1[9], 10);
+        test2 += String("I think everything should be okay anyways.");
+        EXPECTEDVALUE(test2.size, 4);
+        EXPECTEDVALUE(test2[0], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test2[1], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test2[2], String("You should probably stay away from him."));
+        EXPECTEDVALUE(test2[3], String("I think everything should be okay anyways."));
+        // PrintArray(test1, "test1", cout);
+        // PrintArray(test2, "test2", cout);
+        // cout << "Adding values to the beginning of both Arrays..." << std::endl;
+        test1.Insert(0,0);
+        EXPECTEDVALUE(test1.size, 11);
+        EXPECTEDVALUE(test1[0], 0);
+        EXPECTEDVALUE(test1[1], 1);
+        EXPECTEDVALUE(test1[2], 2);
+        EXPECTEDVALUE(test1[3], 3);
+        EXPECTEDVALUE(test1[4], 4);
+        EXPECTEDVALUE(test1[5], 5);
+        EXPECTEDVALUE(test1[6], 6);
+        EXPECTEDVALUE(test1[7], 7);
+        EXPECTEDVALUE(test1[8], 8);
+        EXPECTEDVALUE(test1[9], 9);
+        EXPECTEDVALUE(test1[10], 10);
+        test2.Insert(0, "Once upon a time,");
+        EXPECTEDVALUE(test2.size, 5);
+        EXPECTEDVALUE(test2[0], String("Once upon a time,"));
+        EXPECTEDVALUE(test2[1], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test2[2], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test2[3], String("You should probably stay away from him."));
+        EXPECTEDVALUE(test2[4], String("I think everything should be okay anyways."));
+        // PrintArray(test1, "test1", cout);
+        // PrintArray(test2, "test2", cout);
+        // cout << "Adding values to the middle of both Arrays..." << std::endl;
+        test1.Insert(7,67);
+        EXPECTEDVALUE(test1.size, 12);
+        EXPECTEDVALUE(test1[0], 0);
+        EXPECTEDVALUE(test1[1], 1);
+        EXPECTEDVALUE(test1[2], 2);
+        EXPECTEDVALUE(test1[3], 3);
+        EXPECTEDVALUE(test1[4], 4);
+        EXPECTEDVALUE(test1[5], 5);
+        EXPECTEDVALUE(test1[6], 6);
+        EXPECTEDVALUE(test1[7], 67);
+        EXPECTEDVALUE(test1[8], 7);
+        EXPECTEDVALUE(test1[9], 8);
+        EXPECTEDVALUE(test1[10], 9);
+        EXPECTEDVALUE(test1[11], 10);
+        test2.Insert(3,"And he likes to hurt people.");
+        EXPECTEDVALUE(test2.size, 6);
+        EXPECTEDVALUE(test2[0], String("Once upon a time,"));
+        EXPECTEDVALUE(test2[1], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test2[2], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test2[3], String("And he likes to hurt people."));
+        EXPECTEDVALUE(test2[4], String("You should probably stay away from him."));
+        EXPECTEDVALUE(test2[5], String("I think everything should be okay anyways."));
+        // PrintArray(test1, "test1", cout);
+        // PrintArray(test2, "test2", cout);
+        // cout << "Erasing values from the middle of both Arrays..." << std::endl;
+        test1.Erase(6);
+        EXPECTEDVALUE(test1.size, 11);
+        EXPECTEDVALUE(test1[0], 0);
+        EXPECTEDVALUE(test1[1], 1);
+        EXPECTEDVALUE(test1[2], 2);
+        EXPECTEDVALUE(test1[3], 3);
+        EXPECTEDVALUE(test1[4], 4);
+        EXPECTEDVALUE(test1[5], 5);
+        EXPECTEDVALUE(test1[6], 67);
+        EXPECTEDVALUE(test1[7], 7);
+        EXPECTEDVALUE(test1[8], 8);
+        EXPECTEDVALUE(test1[9], 9);
+        EXPECTEDVALUE(test1[10], 10);
+        test1.Erase(7);
+        EXPECTEDVALUE(test1.size, 10);
+        EXPECTEDVALUE(test1[0], 0);
+        EXPECTEDVALUE(test1[1], 1);
+        EXPECTEDVALUE(test1[2], 2);
+        EXPECTEDVALUE(test1[3], 3);
+        EXPECTEDVALUE(test1[4], 4);
+        EXPECTEDVALUE(test1[5], 5);
+        EXPECTEDVALUE(test1[6], 67);
+        EXPECTEDVALUE(test1[7], 8);
+        EXPECTEDVALUE(test1[8], 9);
+        EXPECTEDVALUE(test1[9], 10);
+        test2.Erase(5);
+        EXPECTEDVALUE(test2.size, 5);
+        EXPECTEDVALUE(test2[0], String("Once upon a time,"));
+        EXPECTEDVALUE(test2[1], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test2[2], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test2[3], String("And he likes to hurt people."));
+        EXPECTEDVALUE(test2[4], String("You should probably stay away from him."));
+        // PrintArray(test1, "test1", cout);
+        // PrintArray(test2, "test2", cout);
+        // cout << "Reversing both Arrays..." << std::endl;
+        test1.Reverse();
+        EXPECTEDVALUE(test1.size, 10);
+        EXPECTEDVALUE(test1[0], 10);
+        EXPECTEDVALUE(test1[1], 9);
+        EXPECTEDVALUE(test1[2], 8);
+        EXPECTEDVALUE(test1[3], 67);
+        EXPECTEDVALUE(test1[4], 5);
+        EXPECTEDVALUE(test1[5], 4);
+        EXPECTEDVALUE(test1[6], 3);
+        EXPECTEDVALUE(test1[7], 2);
+        EXPECTEDVALUE(test1[8], 1);
+        EXPECTEDVALUE(test1[9], 0);
+        test2.Reverse();
+        EXPECTEDVALUE(test2.size, 5);
+        EXPECTEDVALUE(test2[0], String("You should probably stay away from him."));
+        EXPECTEDVALUE(test2[1], String("And he likes to hurt people."));
+        EXPECTEDVALUE(test2[2], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test2[3], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test2[4], String("Once upon a time,"));
+        // PrintArray(test1, "test1", cout);
+        // PrintArray(test2, "test2", cout);
+        // cout << "Appending both Arrays with other Arrays..." << std::endl;
+        test1 += {11, 12, 13, 14, 15};
+        EXPECTEDVALUE(test1.size, 15);
+        EXPECTEDVALUE(test1[0], 10);
+        EXPECTEDVALUE(test1[1], 9);
+        EXPECTEDVALUE(test1[2], 8);
+        EXPECTEDVALUE(test1[3], 67);
+        EXPECTEDVALUE(test1[4], 5);
+        EXPECTEDVALUE(test1[5], 4);
+        EXPECTEDVALUE(test1[6], 3);
+        EXPECTEDVALUE(test1[7], 2);
+        EXPECTEDVALUE(test1[8], 1);
+        EXPECTEDVALUE(test1[9], 0);
+        EXPECTEDVALUE(test1[10], 11);
+        EXPECTEDVALUE(test1[11], 12);
+        EXPECTEDVALUE(test1[12], 13);
+        EXPECTEDVALUE(test1[13], 14);
+        EXPECTEDVALUE(test1[14], 15);
+        test2 += {"What was I talking about?", "This is getting pretty weird!"};
+        EXPECTEDVALUE(test2.size, 7);
+        EXPECTEDVALUE(test2[0], String("You should probably stay away from him."));
+        EXPECTEDVALUE(test2[1], String("And he likes to hurt people."));
+        EXPECTEDVALUE(test2[2], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test2[3], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test2[4], String("Once upon a time,"));
+        EXPECTEDVALUE(test2[5], String("What was I talking about?"));
+        EXPECTEDVALUE(test2[6], String("This is getting pretty weird!"));
+        // PrintArray(test1, "test1", cout);
+        // PrintArray(test2, "test2", cout);
+        // cout << "Resizing both Arrays to 5..." << std::endl;
+        test1.Resize(5);
+        EXPECTEDVALUE(test1.size, 5);
+        EXPECTEDVALUE(test1[0], 10);
+        EXPECTEDVALUE(test1[1], 9);
+        EXPECTEDVALUE(test1[2], 8);
+        EXPECTEDVALUE(test1[3], 67);
+        EXPECTEDVALUE(test1[4], 5);
+        test2.Resize(5);
+        EXPECTEDVALUE(test2.size, 5);
+        EXPECTEDVALUE(test2[0], String("You should probably stay away from him."));
+        EXPECTEDVALUE(test2[1], String("And he likes to hurt people."));
+        EXPECTEDVALUE(test2[2], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test2[3], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test2[4], String("Once upon a time,"));
+        // PrintArray(test1, "test1", cout);
+        // PrintArray(test2, "test2", cout);
+        // cout << "Using copy constructors..." << std::endl;
+        Array<i32> test3(test1);
+        EXPECTEDVALUE(test3.size, 5);
+        EXPECTEDVALUE(test3[0], 10);
+        EXPECTEDVALUE(test3[1], 9);
+        EXPECTEDVALUE(test3[2], 8);
+        EXPECTEDVALUE(test3[3], 67);
+        EXPECTEDVALUE(test3[4], 5);
+        Array<String> test4(test2);
+        EXPECTEDVALUE(test4.size, 5);
+        EXPECTEDVALUE(test4[0], String("You should probably stay away from him."));
+        EXPECTEDVALUE(test4[1], String("And he likes to hurt people."));
+        EXPECTEDVALUE(test4[2], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test4[3], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test4[4], String("Once upon a time,"));
+        // PrintArray(test3, "test3", cout);
+        // PrintArray(test4, "test4", cout);
+        // cout << "Using copy assignment..." << std::endl;
+        Array<i32> test5;
+        test5 = test1;
+        EXPECTEDVALUE(test5.size, 5);
+        EXPECTEDVALUE(test5[0], 10);
+        EXPECTEDVALUE(test5[1], 9);
+        EXPECTEDVALUE(test5[2], 8);
+        EXPECTEDVALUE(test5[3], 67);
+        EXPECTEDVALUE(test5[4], 5);
+        Array<String> test6;
+        test6 = test2;
+        EXPECTEDVALUE(test6.size, 5);
+        EXPECTEDVALUE(test6[0], String("You should probably stay away from him."));
+        EXPECTEDVALUE(test6[1], String("And he likes to hurt people."));
+        EXPECTEDVALUE(test6[2], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test6[3], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test6[4], String("Once upon a time,"));
+        // PrintArray(test5, "test5", cout);
+        // PrintArray(test6, "test6", cout);
+        // cout << "Printing them all added together with +..." << std::endl;
+        Array<i32> test7 = test1 + test3 + std::move(test5);
+        EXPECTEDVALUE(test5.size, 0);
+        EXPECTEDVALUE(test7.size, 15);
+        EXPECTEDVALUE(test7[0], 10);
+        EXPECTEDVALUE(test7[1], 9);
+        EXPECTEDVALUE(test7[2], 8);
+        EXPECTEDVALUE(test7[3], 67);
+        EXPECTEDVALUE(test7[4], 5);
+        EXPECTEDVALUE(test7[5], 10);
+        EXPECTEDVALUE(test7[6], 9);
+        EXPECTEDVALUE(test7[7], 8);
+        EXPECTEDVALUE(test7[8], 67);
+        EXPECTEDVALUE(test7[9], 5);
+        EXPECTEDVALUE(test7[10], 10);
+        EXPECTEDVALUE(test7[11], 9);
+        EXPECTEDVALUE(test7[12], 8);
+        EXPECTEDVALUE(test7[13], 67);
+        EXPECTEDVALUE(test7[14], 5);
+        Array<String> test8 = test2 + test4 + std::move(test6);
+        EXPECTEDVALUE(test6.size, 0);
+        EXPECTEDVALUE(test8.size, 15);
+        EXPECTEDVALUE(test8[0], String("You should probably stay away from him."));
+        EXPECTEDVALUE(test8[1], String("And he likes to hurt people."));
+        EXPECTEDVALUE(test8[2], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test8[3], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test8[4], String("Once upon a time,"));
+        EXPECTEDVALUE(test8[5], String("You should probably stay away from him."));
+        EXPECTEDVALUE(test8[6], String("And he likes to hurt people."));
+        EXPECTEDVALUE(test8[7], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test8[8], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test8[9], String("Once upon a time,"));
+        EXPECTEDVALUE(test8[10], String("You should probably stay away from him."));
+        EXPECTEDVALUE(test8[11], String("And he likes to hurt people."));
+        EXPECTEDVALUE(test8[12], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test8[13], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test8[14], String("Once upon a time,"));
+        // PrintArray(test7, "test7", cout);
+        // PrintArray(test8, "test8", cout);
+        test1 = std::move(test7);
+        EXPECTEDVALUE(test7.size, 0);
+        EXPECTEDVALUE(test1.size, 15);
+        EXPECTEDVALUE(test1[0], 10);
+        EXPECTEDVALUE(test1[1], 9);
+        EXPECTEDVALUE(test1[2], 8);
+        EXPECTEDVALUE(test1[3], 67);
+        EXPECTEDVALUE(test1[4], 5);
+        EXPECTEDVALUE(test1[5], 10);
+        EXPECTEDVALUE(test1[6], 9);
+        EXPECTEDVALUE(test1[7], 8);
+        EXPECTEDVALUE(test1[8], 67);
+        EXPECTEDVALUE(test1[9], 5);
+        EXPECTEDVALUE(test1[10], 10);
+        EXPECTEDVALUE(test1[11], 9);
+        EXPECTEDVALUE(test1[12], 8);
+        EXPECTEDVALUE(test1[13], 67);
+        EXPECTEDVALUE(test1[14], 5);
+        test2 = std::move(test8);
+        EXPECTEDVALUE(test8.size, 0);
+        EXPECTEDVALUE(test2.size, 15);
+        EXPECTEDVALUE(test2[0], String("You should probably stay away from him."));
+        EXPECTEDVALUE(test2[1], String("And he likes to hurt people."));
+        EXPECTEDVALUE(test2[2], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test2[3], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test2[4], String("Once upon a time,"));
+        EXPECTEDVALUE(test2[5], String("You should probably stay away from him."));
+        EXPECTEDVALUE(test2[6], String("And he likes to hurt people."));
+        EXPECTEDVALUE(test2[7], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test2[8], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test2[9], String("Once upon a time,"));
+        EXPECTEDVALUE(test2[10], String("You should probably stay away from him."));
+        EXPECTEDVALUE(test2[11], String("And he likes to hurt people."));
+        EXPECTEDVALUE(test2[12], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test2[13], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test2[14], String("Once upon a time,"));
 
-    {
-        cout << "Testing ToString on floats..." << std::endl;
-        f32 zero = 0.0;
-        f32 zeroN = -0.0;
-        f32 one = 1.0;
-        f32 oneN = -1.0;
-        f32 numsHigh = 10.0;
-        f32 numsLow = 0.01;
-        cout << " zero = " << ToString(zero) << std::endl;
-        cout << "-zero = " << ToString(zeroN) << std::endl;
-        cout << "  one = " << ToString(one) << std::endl;
-        cout << " -one = " << ToString(oneN) << std::endl;
-        cout << "numsHigh = " << ToString(numsHigh) << std::endl;
-        cout << " numsLow = " << ToString(numsLow) << "\n" << std::endl;
+        Array<i32> test9(std::move(test1));
+        EXPECTEDVALUE(test1.size, 0);
+        EXPECTEDVALUE(test9.size, 15);
+        EXPECTEDVALUE(test9[0], 10);
+        EXPECTEDVALUE(test9[1], 9);
+        EXPECTEDVALUE(test9[2], 8);
+        EXPECTEDVALUE(test9[3], 67);
+        EXPECTEDVALUE(test9[4], 5);
+        EXPECTEDVALUE(test9[5], 10);
+        EXPECTEDVALUE(test9[6], 9);
+        EXPECTEDVALUE(test9[7], 8);
+        EXPECTEDVALUE(test9[8], 67);
+        EXPECTEDVALUE(test9[9], 5);
+        EXPECTEDVALUE(test9[10], 10);
+        EXPECTEDVALUE(test9[11], 9);
+        EXPECTEDVALUE(test9[12], 8);
+        EXPECTEDVALUE(test9[13], 67);
+        EXPECTEDVALUE(test9[14], 5);
+        Array<String> test10(std::move(test2));
+        EXPECTEDVALUE(test2.size, 0);
+        EXPECTEDVALUE(test10.size, 15);
+        EXPECTEDVALUE(test10[0], String("You should probably stay away from him."));
+        EXPECTEDVALUE(test10[1], String("And he likes to hurt people."));
+        EXPECTEDVALUE(test10[2], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test10[3], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test10[4], String("Once upon a time,"));
+        EXPECTEDVALUE(test10[5], String("You should probably stay away from him."));
+        EXPECTEDVALUE(test10[6], String("And he likes to hurt people."));
+        EXPECTEDVALUE(test10[7], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test10[8], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test10[9], String("Once upon a time,"));
+        EXPECTEDVALUE(test10[10], String("You should probably stay away from him."));
+        EXPECTEDVALUE(test10[11], String("And he likes to hurt people."));
+        EXPECTEDVALUE(test10[12], String("He was also an absolute dick."));
+        EXPECTEDVALUE(test10[13], String("There once was a man who hated cheese."));
+        EXPECTEDVALUE(test10[14], String("Once upon a time,"));
+
+        // {
+        //     cout << "Testing ToString on floats..." << std::endl;
+        //     f32 zero = 0.0;
+        //     f32 zeroN = -0.0;
+        //     f32 one = 1.0;
+        //     f32 oneN = -1.0;
+        //     f32 numsHigh = 10.0;
+        //     f32 numsLow = 0.01;
+        //     cout << " zero = " << ToString(zero) << std::endl;
+        //     cout << "-zero = " << ToString(zeroN) << std::endl;
+        //     cout << "  one = " << ToString(one) << std::endl;
+        //     cout << " -one = " << ToString(oneN) << std::endl;
+        //     cout << "numsHigh = " << ToString(numsHigh) << std::endl;
+        //     cout << " numsLow = " << ToString(numsLow) << "\n" << std::endl;
+        // }
+        // {
+        //     cout << "Testing ToString on doubles..." << std::endl;
+        //     f64 zero = 0.0;
+        //     f64 zeroN = -0.0;
+        //     f64 one = 1.0;
+        //     f64 oneN = -1.0;
+        //     f64 numsHigh = 100000000000000.0d;
+        //     f64 numsLow = 0.000000000000001d;
+        //     cout << " zero = " << ToString(zero) << std::endl;
+        //     cout << "-zero = " << ToString(zeroN) << std::endl;
+        //     cout << "  one = " << ToString(one) << std::endl;
+        //     cout << " -one = " << ToString(oneN) << std::endl;
+        //     cout << "numsHigh = " << ToString(numsHigh) << std::endl;
+        //     cout << " numsLow = " << ToString(numsLow) << "\n" << std::endl;
+        // }
+    } catch (std::runtime_error& err) {
+        cout << "Failed: " << err.what() << std::endl;
+        return false;
     }
-    {
-        cout << "Testing ToString on doubles..." << std::endl;
-        f64 zero = 0.0;
-        f64 zeroN = -0.0;
-        f64 one = 1.0;
-        f64 oneN = -1.0;
-        f64 numsHigh = 100000000000000.0d;
-        f64 numsLow = 0.000000000000001d;
-        cout << " zero = " << ToString(zero) << std::endl;
-        cout << "-zero = " << ToString(zeroN) << std::endl;
-        cout << "  one = " << ToString(one) << std::endl;
-        cout << " -one = " << ToString(oneN) << std::endl;
-        cout << "numsHigh = " << ToString(numsHigh) << std::endl;
-        cout << " numsLow = " << ToString(numsLow) << "\n" << std::endl;
-    }
+    cout << "...Success!" << std::endl;
+    return true;
 }
 
 i32 main(i32 argumentCount, char** argumentValues) {
@@ -485,23 +1327,36 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     cout << "Doing unit tests..." << std::endl;
 
-    cout << "RandomNumberGenerator:" << std::endl;
-    RandomNumberGenerator rng;
-    UnitTestRNG(rng, cout);
-    cout << "List:" << std::endl;
-    UnitTestList(cout);
-    cout << "Mat3:" << std::endl;
-    UnitTestMat3(cout);
-    cout << "Mat4:" << std::endl;
-    UnitTestMat4(cout);
-    cout << "Quat:" << std::endl;
-    UnitTestQuat(cout);
-    cout << "Slerp:" << std::endl;
-    UnitTestSlerp(cout);
-    cout << "Complex:" << std::endl;
-    UnitTestComplex(cout);
-    cout << "Array and String:" << std::endl;
-    UnitTestArrayAndString(cout);
+    const u32 numTests = 9;
+    u32 numSuccessful = 0;
 
-    cout << "Unit tests complete." << std::endl;
+    if (UnitTestComplex(cout)) {
+        numSuccessful++;
+    }
+    if (UnitTestQuat(cout)) {
+        numSuccessful++;
+    }
+    if (UnitTestSlerp(cout)) {
+        numSuccessful++;
+    }
+    if (UnitTestMat2(cout)) {
+        numSuccessful++;
+    }
+    if (UnitTestMat3(cout)) {
+        numSuccessful++;
+    }
+    if (UnitTestMat4(cout)) {
+        numSuccessful++;
+    }
+    if (UnitTestList(cout)) {
+        numSuccessful++;
+    }
+    if (UnitTestArrayAndString(cout)) {
+        numSuccessful++;
+    }
+    if (UnitTestRNG(cout)) {
+        numSuccessful++;
+    }
+
+    cout << "Unit tests complete: " << numSuccessful << "/" << numTests << " were successful." << std::endl;
 }

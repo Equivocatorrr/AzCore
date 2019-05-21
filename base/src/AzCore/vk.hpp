@@ -110,7 +110,7 @@ namespace vk {
             bool imageExists = false;
             VkImageView imageView;
             bool imageViewExists = false;
-            String debugMarker[2] = {String(false), String(false)}; // One for image, the other for imageView
+            String debugMarker[2]={{}}; // One for image, the other for imageView
             Memory *memory = nullptr;
             i32 offsetIndex;
         } data;
@@ -122,7 +122,7 @@ namespace vk {
         VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
         u32 width, height, mipLevels = 1;
 
-        void Init(Device *device, String debugMarker = String(false));
+        void Init(Device *device, String debugMarker = String());
         bool CreateImage(bool hostVisible=false);
         bool CreateImageView();
         // Copy to host-visible memory
@@ -142,7 +142,7 @@ namespace vk {
         struct {
             Device *device = nullptr;
             VkBuffer buffer;
-            String debugMarker = String(false);
+            String debugMarker{};
             bool exists = false;
             Memory *memory = nullptr;
             i32 offsetIndex;
@@ -152,7 +152,7 @@ namespace vk {
         VkBufferUsageFlags usage;
         VkDeviceSize size;
 
-        void Init(Device *dev, String debugMarker = String(false));
+        void Init(Device *dev, String debugMarker = String());
         bool Create();
         // Bind our buffer to a memory at memory.offsets[index]
         // void BindMemory(Memory memory, u32 index);
@@ -178,7 +178,7 @@ namespace vk {
             PhysicalDevice *physicalDevice;
             Device *device = nullptr;
             VkDeviceMemory memory;
-            String debugMarker = String(false);
+            String debugMarker{};
             bool initted = false;
             bool allocated = false;
             bool mapped = false;
@@ -202,7 +202,7 @@ namespace vk {
         Range<Buffer> AddBuffers(u32 count, Buffer buffer=Buffer());
 
         // Behind the scenes
-        bool Init(Device *device, String debugMarker = String(false));
+        bool Init(Device *device, String debugMarker = String());
         bool Deinit();
         // Adds a chunk of memory for an image
         // Returns the index to the corresponding offset or -1 for failure
@@ -226,7 +226,7 @@ namespace vk {
             bool exists = false;
             Device *device = nullptr;
             VkSampler sampler;
-            String debugMarker = String(false);
+            String debugMarker{};
         } data;
 
         // Configuration
@@ -246,7 +246,7 @@ namespace vk {
         f32 maxLod = 0.0;
 
         ~Sampler();
-        void Init(Device *device, String debugMarker = String(false));
+        void Init(Device *device, String debugMarker = String());
         bool Create();
         void Clean();
     };
@@ -273,7 +273,7 @@ namespace vk {
             bool exists = false;
             Device *device = nullptr;
             VkDescriptorSetLayout layout;
-            String debugMarker = String(false);
+            String debugMarker{};
         } data;
         // Configuration
         VkDescriptorType type;
@@ -281,7 +281,7 @@ namespace vk {
         Array<DescriptorBinding> bindings{};
 
         ~DescriptorLayout();
-        void Init(Device *device, String debugMarker = String(false));
+        void Init(Device *device, String debugMarker = String());
         bool Create();
         void Clean();
     };
@@ -290,7 +290,7 @@ namespace vk {
         struct {
             bool exists = false;
             VkDescriptorSet set;
-            String debugMarker = String(false);
+            String debugMarker{};
             Ptr<DescriptorLayout> layout;
 
             Array<DescriptorBinding> bindings{};
@@ -312,14 +312,14 @@ namespace vk {
             Device *device = nullptr;
             bool exists = false;
             VkDescriptorPool pool;
-            String debugMarker = String(false);
+            String debugMarker{};
 
             Array<DescriptorLayout> layouts{};
             Array<DescriptorSet> sets{};
         } data;
 
         ~Descriptors();
-        void Init(Device *device, String debugMarker = String(false));
+        void Init(Device *device, String debugMarker = String());
         Ptr<DescriptorLayout> AddLayout();
         Ptr<DescriptorSet> AddSet(Ptr<DescriptorLayout> layout);
 
@@ -434,7 +434,7 @@ namespace vk {
             bool initted = false;
             Device *device = nullptr;
             VkRenderPass renderPass{};
-            String debugMarker = String(false);
+            String debugMarker{};
             Array<VkAttachmentDescription> attachmentDescriptions;
             Array<VkSubpassDescription> subpassDescriptions;
             Array<VkSubpassDependency> subpassDependencies;
@@ -469,7 +469,7 @@ namespace vk {
         void Begin(VkCommandBuffer commandBuffer, Ptr<Framebuffer> framebuffer, bool subpassContentsInline=true);
 
         ~RenderPass();
-        bool Init(Device *dev, String debugMarker = String(false));
+        bool Init(Device *dev, String debugMarker = String());
         bool Deinit();
     };
 
@@ -480,7 +480,7 @@ namespace vk {
         struct {
             bool initted = false, created = false;
             Device *device = nullptr;
-            String debugMarker = String(false);
+            String debugMarker{};
             Array<VkFramebuffer> framebuffers{};
             Array<String> debugMarkers{};
             u32 currentFramebuffer = 0; // This can be set manually, or inherited from a Swapchain image acquisition
@@ -510,7 +510,7 @@ namespace vk {
         // If ownImages is false, you need to provide valid attachmentImages.
 
         ~Framebuffer();
-        bool Init(Device *dev, String debugMarker = String(false));
+        bool Init(Device *dev, String debugMarker = String());
         bool Create();
         void Destroy();
         bool Deinit();
@@ -521,7 +521,7 @@ namespace vk {
         Only really holds the semaphore and the debugMarker string.     */
     struct Semaphore {
         VkSemaphore semaphore = VK_NULL_HANDLE;
-        String debugMarker = String(false);
+        String debugMarker{};
     };
 
     /*  struct: Shader
@@ -533,13 +533,13 @@ namespace vk {
             Device *device = nullptr;
             Array<u32> code;
             VkShaderModule module;
-            String debugMarker = String(false);
+            String debugMarker{};
         } data;
 
         // Configuration
         String filename{};
 
-        bool Init(Device *device, String debugMarker = String(false));
+        bool Init(Device *device, String debugMarker = String());
         void Clean();
     };
 
@@ -549,7 +549,7 @@ namespace vk {
     struct ShaderRef {
         Ptr<Shader> shader;
         VkShaderStageFlagBits stage;
-        String functionName; // Most shaders will probably use just main, but watch out
+        String functionName{}; // Most shaders will probably use just main, but watch out
 
         ShaderRef(String fn="main");
         ShaderRef(Ptr<Shader> ptr, VkShaderStageFlagBits s, String fn="main");
@@ -565,7 +565,7 @@ namespace vk {
             bool initted = false;
             VkPipelineLayout layout;
             VkPipeline pipeline;
-            String debugMarker = String(false);
+            String debugMarker{};
             VkPipelineMultisampleStateCreateInfo multisampling{}; // Infer most from RenderPass
             VkPipelineVertexInputStateCreateInfo vertexInputInfo{}; // Infer from vertex buffer
         } data;
@@ -591,7 +591,7 @@ namespace vk {
 
         Pipeline(); // We configure some defaults
         ~Pipeline();
-        bool Init(Device *dev, String debugMarker = String(false));
+        bool Init(Device *dev, String debugMarker = String());
         bool Deinit();
     };
 
@@ -610,7 +610,7 @@ namespace vk {
         What we use to submit work to the GPU       */
     struct Queue {
         VkQueue queue = VK_NULL_HANDLE;
-        String debugMarker = String(false);
+        String debugMarker{};
         i32 queueFamilyIndex = -1;
         QueueType queueType = UNDEFINED;
         f32 queuePriority = 1.0;
@@ -626,7 +626,7 @@ namespace vk {
             CommandPool *pool = nullptr;
             Device *device = nullptr;
             VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-            String debugMarker = String(false);
+            String debugMarker{};
         } data;
 
         // Configuration
@@ -667,7 +667,7 @@ namespace vk {
             bool initted = false;
             Device *device = nullptr;
             VkCommandPool commandPool;
-            String debugMarker = String(false);
+            String debugMarker{};
             Array<CommandBuffer> commandBuffers{};
             List<CommandBuffer> dynamicBuffers{};
         } data;
@@ -691,7 +691,7 @@ namespace vk {
 
         CommandPool(Ptr<Queue> q=nullptr);
         ~CommandPool();
-        bool Init(Device *dev, String debugMarker = String(false));
+        bool Init(Device *dev, String debugMarker = String());
         void Clean();
     };
 
@@ -704,7 +704,7 @@ namespace vk {
             bool created = false;
             Device *device = nullptr;
             VkSwapchainKHR swapchain{};
-            String debugMarker = String(false);
+            String debugMarker{};
             VkSurfaceKHR surface{};
             Array<Image> images{};
             VkSurfaceFormatKHR surfaceFormat;
@@ -739,7 +739,7 @@ namespace vk {
         bool Resize();
 
         ~Swapchain();
-        bool Init(Device *dev, String debugMarker = String(false));
+        bool Init(Device *dev, String debugMarker = String());
         bool Create();
         bool Reconfigure();
         bool Deinit();
@@ -786,7 +786,7 @@ namespace vk {
             Instance *instance = nullptr;
             PhysicalDevice physicalDevice;
             VkDevice device;
-            String debugMarker = String(false);
+            String debugMarker{};
 
             // Resources and structures
             List<Queue> queues{};
@@ -827,7 +827,7 @@ namespace vk {
         // TODO: Add Fence support to this
         bool SubmitCommandBuffers(Ptr<Queue> queue, Array<Ptr<QueueSubmission>> submissions);
 
-        bool Init(Instance *inst, String debugMarker=String(false));
+        bool Init(Instance *inst, String debugMarker=String());
         bool Reconfigure();
         bool Deinit();
     };
@@ -888,7 +888,7 @@ namespace vk {
         void AddLayers(Array<const char*> layers);
 
         // Change this if you want to distinguish between multiple instances (Why would you tho?)
-        String debugMarker = "";
+        String debugMarker;
 
         Ptr<Device> AddDevice();
 

@@ -777,7 +777,7 @@ BigInt BigInt::Trimmed() const {
 }
 
 String ToString(const BigInt& value, const i32 base) {
-    String tmp="", out;
+    String tmp, out;
     if (value.words.size == 0) {
         return "0";
     }
@@ -803,7 +803,7 @@ String ToString(const BigInt& value, const i32 base) {
 }
 
 String BigInt::Digits(const i32 base) const {
-    String out="";
+    String out;
     if (words.size == 0) {
         return "0";
     }

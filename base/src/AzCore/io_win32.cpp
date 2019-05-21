@@ -22,7 +22,7 @@
 #endif
 
 String ZeroPaddedString(String in, i32 minSize) {
-    String out(false);
+    String out;
     out.Reserve(minSize);
     for (i32 i = minSize; i > in.size; i--) {
         out += '0';
@@ -32,7 +32,7 @@ String ZeroPaddedString(String in, i32 minSize) {
 }
 
 String ToString(GUID guid) {
-    String out(false);
+    String out;
     out.Reserve(36);
     out += ZeroPaddedString(ToString((u32)guid.Data1, 16), 8) + '-'
          + ZeroPaddedString(ToString((u32)guid.Data2, 16), 4) + '-'
@@ -87,7 +87,7 @@ namespace io {
 
     struct RawInputData {
         HINSTANCE instance;
-        String windowClassName{false};
+        String windowClassName;
         WNDCLASS windowClass;
         HWND window;
         IDirectInput8 *directInput = nullptr;
@@ -610,7 +610,7 @@ namespace io {
         HWND window;
         WNDCLASSEX windowClass;
         HICON windowIcon, windowIconSmall;
-        String windowClassName{false};
+        String windowClassName;
     };
 
     Window::Window() {

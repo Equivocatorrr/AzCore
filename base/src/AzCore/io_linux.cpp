@@ -35,7 +35,7 @@ namespace io {
     struct RawInputDeviceData {
         libevdev *dev;
         i32 fd;
-        String path{false}; // Don't allocate a zero-size string
+        String path;
         Array<input_event> syncBuffer;
     };
 

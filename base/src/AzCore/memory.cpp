@@ -186,7 +186,7 @@ String operator+(const char* cString, const String& string) {
 }
 
 String operator+(const char* cString, String&& string) {
-    String result(false); // We don't initialize the tail
+    String result;
     result.Reserve(StringLength(cString)+string.size);
     result.Append(cString);
     result.Append(std::move(string));
@@ -199,7 +199,7 @@ WString operator+(const char32* cString, const WString& string) {
 }
 
 WString operator+(const char32* cString, WString&& string) {
-    WString result(false); // We don't initialize the tail
+    WString result;
     result.Reserve(StringLength(cString)+string.size);
     result.Append(cString);
     result.Append(std::move(string));
@@ -210,7 +210,7 @@ String ToString(const u32& value, i32 base) {
     if (value == 0) {
         return "0";
     }
-    String out(false);
+    String out;
     out.Reserve(i32(log((f32)value) / log((f32)base))+1);
     u32 remaining = value;
     while (remaining != 0) {
@@ -230,7 +230,7 @@ String ToString(const u64& value, i32 base) {
     if (value == 0) {
         return "0";
     }
-    String out(false);
+    String out;
     out.Reserve(i32((f32)log((f64)value) / log((f32)base))+1);
     u64 remaining = value;
     while (remaining != 0) {
@@ -250,7 +250,7 @@ String ToString(const i32& value, i32 base) {
     if (value == 0) {
         return "0";
     }
-    String out(false);
+    String out;
     out.Reserve(i32(log((f32)value) / log((f32)base))+1);
     bool negative = value < 0;
     i32 remaining = abs(value);
@@ -274,7 +274,7 @@ String ToString(const i64& value, i32 base) {
     if (value == 0) {
         return "0";
     }
-    String out(false);
+    String out;
     out.Reserve(i32((f32)log((f64)value) / log((f32)base))+1);
     bool negative = value < 0;
     i64 remaining = abs(value);
@@ -351,7 +351,7 @@ String ToString(const f32& value, i32 base) {
     // } else {
     //     return std::move(iString) + "." + std::move(fString) + " " + ToString(significand, 16);
     // }
-    String out(false);
+    String out;
     char buffer[64];
     i32 i = sprintf(buffer, "%.8f", value) - 1;
     for (; buffer[i] == '0'; i--) {}
@@ -387,7 +387,7 @@ String ToString(const f64& value, i32 base) {
     if (exponent == 1075) {
         return ToString(negative ? -(i64)significand : (i64)significand, base) + ".0";
     }
-    String out(false);
+    String out;
     char buffer[128];
     i32 i = sprintf(buffer, "%.16f", value) - 1;
     for (; buffer[i] == '0'; i--) {}

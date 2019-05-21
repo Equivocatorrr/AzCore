@@ -36,7 +36,7 @@ namespace io {
     }
 
     logStream& logStream::operator<<(const char* string) {
-        String actualOutput = "";
+        String actualOutput;
         if (prepend.size != 0) {
             if (flushed) {
                 std::cout.write(prepend.data, prepend.size);

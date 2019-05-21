@@ -123,7 +123,7 @@ namespace vk {
     }
 
     String FormatSize(u64 size) {
-        String str = "";
+        String str;
         bool space = false;
         if (size > 1024*1024*1024) {
             str = ToString(size/(1024*1024*1024)) + " GiB";

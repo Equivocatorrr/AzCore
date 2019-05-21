@@ -278,16 +278,18 @@ struct Array {
 
     void SetTerminator() {
         if constexpr (allocTail != 0) {
+            if (data == nullptr) {
+                data = (T*)&StringTerminators<T>::value;
+            }
             for (i32 i = size; i < size+allocTail; i++) {
                 data[i] = StringTerminators<T>::value;
             }
         }
     }
 
-    Array(bool tailInitialize = true) : data(nullptr) , allocated(0) , size(0) {
-        if (tailInitialize && allocTail != 0) { // To avoid double allocating when only one is necessary
-            data = new T[allocTail];
-            SetTerminator();
+    Array() : data(nullptr) , allocated(0) , size(0) {
+        if constexpr (allocTail != 0) {
+            data = (T*)&StringTerminators<T>::value;
         }
     }
     Array(const i32 newSize, const T& value=T()) : data(new T[newSize + allocTail]) , allocated(newSize) , size(newSize) {
@@ -304,10 +306,10 @@ struct Array {
             for (const T& val : init) {
                 data[i++] = val;
             }
-            SetTerminator();
         } else {
             data = nullptr;
         }
+        SetTerminator();
     }
     Array(const Array<T, allocTail>& other) : allocated(other.size) , size(other.size) {
         data = new T[allocated + allocTail];
@@ -335,7 +337,7 @@ struct Array {
     }
 
     ~Array() {
-        if (data != nullptr) {
+        if (allocated != 0) {
             delete[] data;
         }
     }
@@ -346,7 +348,7 @@ struct Array {
     }
 
     Array<T, allocTail>& operator=(Array<T, allocTail>&& other) {
-        if (data != nullptr) {
+        if (allocated != 0) {
             delete[] data;
         }
         data = other.data;
@@ -370,8 +372,9 @@ struct Array {
             }
         }
         // We definitely have to allocate
+        const bool doDelete = allocated != 0;
         allocated = size;
-        if (data != nullptr) {
+        if (doDelete) {
             delete[] data;
         }
         data = new T[allocated + allocTail];
@@ -494,6 +497,7 @@ struct Array {
         if (newSize <= allocated) {
             return;
         }
+        const bool doDelete = allocated != 0;
         allocated = newSize;
         if (size > 0) {
             T *temp = new T[newSize + allocTail];
@@ -509,7 +513,7 @@ struct Array {
             SetTerminator();
             return;
         }
-        if (data != nullptr) {
+        if (doDelete) {
             delete[] data;
         }
         data = new T[newSize + allocTail];
@@ -520,7 +524,7 @@ struct Array {
         if (newSize > allocated) {
             Reserve(max(newSize, (allocated >> 1) + 2));
         } else if (newSize == 0 && allocTail == 0) {
-            if (data != nullptr) {
+            if (allocated != 0) {
                 delete[] data;
             }
             data = nullptr;
@@ -537,6 +541,7 @@ struct Array {
 
     T& Append(const T& value) {
         if (size >= allocated) {
+            const bool doDelete = allocated != 0;
             allocated += (allocated >> 1) + 2;
             T *temp = new T[allocated + allocTail];
             if (size > 0) {
@@ -548,7 +553,7 @@ struct Array {
                     }
                 }
             }
-            if (data != nullptr) {
+            if (doDelete) {
                 delete[] data;
             }
             data = temp;
@@ -560,6 +565,7 @@ struct Array {
 
     T& Append(T&& value) {
         if (size >= allocated) {
+            const bool doDelete = allocated != 0;
             allocated += (allocated >> 1) + 2;
             T *temp = new T[allocated + allocTail];
             if (size > 0) {
@@ -571,7 +577,7 @@ struct Array {
                     }
                 }
             }
-            if (data != nullptr) {
+            if (doDelete) {
                 delete[] data;
             }
             data = temp;
@@ -608,7 +614,7 @@ struct Array {
             }
         }
         SetTerminator();
-        if (other.data != nullptr) {
+        if (other.allocated != 0) {
             delete[] other.data;
         }
         other.data = nullptr;
@@ -627,6 +633,7 @@ struct Array {
             throw std::out_of_range("Array::Insert index is out of bounds");
         }
         if (size >= allocated) {
+            const bool doDelete = allocated != 0;
             allocated += (allocated >> 1) + 2;
             T *temp = new T[allocated + allocTail];
             if constexpr (std::is_trivially_copyable<T>::value) {
@@ -646,7 +653,9 @@ struct Array {
                     temp[i] = std::move(data[i-1]);
                 }
             }
-            delete[] data;
+            if (doDelete) {
+                delete[] data;
+            }
             data = temp;
             size++;
             SetTerminator();
@@ -677,26 +686,13 @@ struct Array {
     }
 
     void Clear(const bool noAllocTail=false) {
-        if constexpr (allocTail == 0) {
-            if (data != nullptr) {
-                delete[] data;
-                data = nullptr;
-            }
-        } else {
-            if (noAllocTail) {
-                if (data != nullptr) {
-                    delete[] data;
-                    data = nullptr;
-                }
-            } else {
-                if (data != nullptr) {
-                    delete[] data;
-                    data = new T[allocTail];
-                }
-            }
+        if (allocated != 0) {
+            delete[] data;
         }
+        data = nullptr;
         size = 0;
         allocated = 0;
+        SetTerminator();
     }
 
     Array<T, allocTail>& Reverse() {

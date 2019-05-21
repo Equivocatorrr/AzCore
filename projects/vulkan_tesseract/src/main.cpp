@@ -251,8 +251,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
     bool enableStereoGraphic = false;
     bool resized = false;
 
-    vec2i draggingOrigin[2];
-    vec2 draggingFacingAngleOrigin[2];
+    vec2i draggingOrigin[2] = {vec2i(0), vec2i(0)};
+    vec2 draggingFacingAngleOrigin[2] = {vec2(0.0), vec2(0.0)};
 
     // bool first = true;
     const u32 framerate = 60;

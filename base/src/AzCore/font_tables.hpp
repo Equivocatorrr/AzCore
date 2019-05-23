@@ -4,6 +4,10 @@
     Separating out low-level table definitions so font.hpp
     can have more high-level structures.
 */
+
+#ifndef FONT_TABLES_HPP
+#define FONT_TABLES_HPP
+
 #include "common.hpp"
 
 namespace font {
@@ -710,3 +714,5 @@ struct glyfParsed {
 
 } // namespace tables
 } // namespace font
+
+#endif // FONT_TABLES_HPP

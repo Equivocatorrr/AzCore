@@ -85,8 +85,15 @@ i32 Line::Intersection(const vec2 &point) const {
 void Line::DistanceLess(const vec2 &point, f32& distSquared) const {
     vec2 diff = p1-p2;
     const f32 lengthSquared = absSqr(diff);
-    const f32 t = clamp(dot(diff, p1-point) / lengthSquared, 0.0, 1.0);
-    const vec2 projection = p1 - diff * t;
+    const f32 t = dot(diff, p1-point) / lengthSquared;
+    vec2 projection;
+    if (t < 0.0) {
+        projection = p1;
+    } else if (t > 1.0) {
+        projection = p2;
+    } else {
+        projection = p1 - diff * t;
+    }
     f32 dist = absSqr(point - projection);
     if (dist < distSquared) {
         distSquared = dist;
@@ -197,21 +204,37 @@ void Curve::DistanceLess(const vec2 &point, f32& distSquared) const {
     const f32 d = dot(o, m);
     SolutionCubic<f32> solution = SolveCubic<f32>(a, b, c, d);
     // We're guaranteed at least 1 solution.
-    f32 t = clamp(solution.x1, 0.0, 1.0);
-    f32 dist = absSqr(Point(t)-point);
+    f32 dist;
+    if (solution.x1 < 0.0) {
+        dist = absSqr(p1-point);
+    } else if (solution.x1 > 1.0) {
+        dist = absSqr(p3-point);
+    } else {
+        dist = absSqr(Point(solution.x1)-point);
+    }
     if (dist < distSquared) {
         distSquared = dist;
     }
     if (solution.x3Real) {
-        t = clamp(solution.x3, 0.0, 1.0);
-        dist = absSqr(Point(t)-point);
+        if (solution.x3 < 0.0) {
+            dist = absSqr(p1-point);
+        } else if (solution.x3 > 1.0) {
+            dist = absSqr(p3-point);
+        } else {
+            dist = absSqr(Point(solution.x3)-point);
+        }
         if (dist < distSquared) {
             distSquared = dist;
         }
     }
     if (solution.x2Real) {
-        t = clamp(solution.x2, 0.0, 1.0);
-        dist = absSqr(Point(t)-point);
+        if (solution.x2 < 0.0) {
+            dist = absSqr(p1-point);
+        } else if (solution.x2 > 1.0) {
+            dist = absSqr(p3-point);
+        } else {
+            dist = absSqr(Point(solution.x2)-point);
+        }
         if (dist < distSquared) {
             distSquared = dist;
         }
@@ -241,8 +264,8 @@ bool Glyph::Inside(const vec2& point) const {
     return winding != 0;
 }
 
-f32 Glyph::MinDistance(const vec2 &point) const {
-    f32 minDistSquared = 1000.0; // Glyphs should be normalized to the em square more or less.
+f32 Glyph::MinDistance(const vec2 &point, const f32& startingDist) const {
+    f32 minDistSquared = startingDist*startingDist; // Glyphs should be normalized to the em square more or less.
     for (const Curve& curve : curves) {
         curve.DistanceLess(point, minDistSquared);
     }
@@ -679,52 +702,62 @@ void Font::PrintGlyph(char32 glyph) {
     static u32 iterations = 0;
     Nanoseconds glyphParseTime, glyphDrawTime;
     glyphDrawTime = Nanoseconds(0);
+// #define DO_PRINT
     if (data.cffParsed.active) {
         cout << "Not yet implemented." << std::endl;
     } else if (data.glyfParsed.active) {
         ClockTime start = Clock::now();
         Glyph glyph = data.glyfParsed.GetGlyph(glyphIndex);
         glyphParseTime = Clock::now()-start;
-        const f32 margin = 0.15;
-        const i32 scale = 3;
+        const f32 margin = 0.03;
+        const i32 scale = 4;
         i32 stepsX = 16 * scale;
         i32 stepsY = 16 * scale;
-        // const char distSymbolsPos[] = "X-.";
-        // const char distSymbolsNeg[] = "@*'";
+#ifdef DO_PRINT
+        const char distSymbolsPos[] = "X-.";
+        const char distSymbolsNeg[] = "@*'";
+#endif
         const f32 factorX = 1.0 / (f32)stepsX;
         const f32 factorY = 1.0 / (f32)stepsY;
         stepsY += i32(ceil(f32(stepsY) * margin * 2.0));
         stepsX += i32(ceil(f32(stepsX) * margin * 2.0));
         for (i32 y = stepsY-1; y >= 0; y--) {
+            f32 prevDist = 1000.0;
             for (i32 x = 0; x < stepsX; x++) {
                 vec2 point((f32)x * factorX - margin, (f32)y * factorY - margin);
                 // point *= max(glyph.size.x, glyph.size.y);
-                // if (point.x > glyph.size.x + margin) {
-                //     break;
-                // }
+                if (point.x > glyph.size.x + margin) {
+                    break;
+                }
                 start = Clock::now();
-                f32 dist = glyph.MinDistance(point);
+                f32 dist = glyph.MinDistance(point, prevDist);
                 glyphDrawTime += Clock::now()-start;
-                dist = dist;
-                // if (glyph.Inside(point)) {
-                    // if (dist < margin) {
-                    //     cout << distSymbolsNeg[i32(dist/margin*3.0)];
-                    // } else {
-                    //     cout << ' ';
-                    // }
+                prevDist = dist + factorX; // Assume the worst change possible
+                if (glyph.Inside(point)) {
+#ifdef DO_PRINT
+                    if (dist < margin) {
+                        cout << distSymbolsNeg[i32(dist/margin*3.0)];
+                    } else {
+                        cout << ' ';
+                    }
                     // cout << 'X';
-                // } else {
-                    // if (dist < margin) {
-                    //     cout << distSymbolsPos[i32(dist/margin*3.0)];
-                    // } else {
-                    //     cout << ',';
-                    // }
+                } else {
+                    if (dist < margin) {
+                        cout << distSymbolsPos[i32(dist/margin*3.0)];
+                    } else {
+                        cout << ' ';
+                    }
                     // cout << ' ';
-                // }
+#endif
+                }
             }
-            // cout << "\n";
+#ifdef DO_PRINT
+            cout << "\n";
         }
-        // cout << std::endl;
+        cout << std::endl;
+#else
+        }
+#endif
     } else {
         cout << "We don't have any supported glyph data!" << std::endl;
     }

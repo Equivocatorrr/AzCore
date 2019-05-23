@@ -83,7 +83,7 @@ namespace font {
         vec2 advance; // How far to advance
         // Returns whether a point is inside the glyph.
         bool Inside(const vec2& point) const;
-        f32 MinDistance(const vec2& point) const;
+        f32 MinDistance(const vec2& point, const f32& startingDist) const;
         void AddFromGlyfPoints(glyfPoint *glyfPoints, i32 count);
         void Scale(const mat2& scale);
         void Offset(const vec2& offset);

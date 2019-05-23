@@ -19,6 +19,8 @@ String ToString(font::Tag_t tag) {
 
 namespace font {
 
+const f32 sdfDistance = 0.08; // Units in the Em square
+
 inline f32 BezierDerivative(f32 t, f32 p1, f32 p2, f32 p3) {
     return 2.0 * ((1.0-t) * (p2-p1) + t * (p3-p2));
 }
@@ -176,9 +178,10 @@ vec2 Curve::Point(const f32& t) const {
 void Curve::DistanceLess(const vec2 &point, f32& distSquared) const {
     // Try to do an early out if we can
     {
-        f32 maxPointDist = max(max(absSqr(p1-p2), absSqr(p2-p3)), absSqr(p3-p1));
+        f32 maxPointDistSquared = max(max(absSqr(p1-p2), absSqr(p2-p3)), absSqr(p3-p1));
         f32 minDistSquared = min(min(absSqr(p1-point), absSqr(p2-point)), absSqr(p3-point));
-        if (minDistSquared > distSquared + maxPointDist * 0.25) {
+        if (minDistSquared > distSquared + maxPointDistSquared * 0.25) {
+            // NOTE: Should this be maxPointDist*square(sin(pi/4)) ???
             return;
         }
     }
@@ -688,79 +691,86 @@ bool Font::Load() {
     return true;
 }
 
-void Font::PrintGlyph(char32 glyph) {
-    u32 glyphIndex = 0;
+u16 Font::GetGlyphIndex(char32 unicode) {
     for (i32 i = 0; i < data.cmaps.size; i++) {
         tables::cmap_format_any *cmap = (tables::cmap_format_any*)(data.tableData.data + data.cmaps[i]);
-        glyphIndex = cmap->GetGlyphIndex(glyph);
+        u16 glyphIndex = cmap->GetGlyphIndex(unicode);
         if (glyphIndex) {
-            break;
+            return glyphIndex;
         }
     }
+    return 0;
+}
+
+Glyph Font::GetGlyphByIndex(u16 index) {
+    if (data.cffParsed.active) {
+        // TODO: Something not stupid like this
+        throw std::runtime_error("CFF parsing not yet implemented!");
+    } else if (data.glyfParsed.active) {
+        return data.glyfParsed.GetGlyph(index);
+    }
+    throw std::runtime_error("No glyph data available/supported!");
+}
+
+Glyph Font::GetGlyph(char32 unicode) {
+    u16 glyphIndex = GetGlyphIndex(unicode);
+    return GetGlyphByIndex(glyphIndex);
+}
+
+void Font::PrintGlyph(char32 unicode) {
     static u64 totalParseTime = 0;
     static u64 totalDrawTime = 0;
     static u32 iterations = 0;
     Nanoseconds glyphParseTime, glyphDrawTime;
     glyphDrawTime = Nanoseconds(0);
-// #define DO_PRINT
-    if (data.cffParsed.active) {
-        cout << "Not yet implemented." << std::endl;
-    } else if (data.glyfParsed.active) {
-        ClockTime start = Clock::now();
-        Glyph glyph = data.glyfParsed.GetGlyph(glyphIndex);
-        glyphParseTime = Clock::now()-start;
-        const f32 margin = 0.03;
-        const i32 scale = 4;
-        i32 stepsX = 16 * scale;
-        i32 stepsY = 16 * scale;
-#ifdef DO_PRINT
-        const char distSymbolsPos[] = "X-.";
-        const char distSymbolsNeg[] = "@*'";
-#endif
-        const f32 factorX = 1.0 / (f32)stepsX;
-        const f32 factorY = 1.0 / (f32)stepsY;
-        stepsY += i32(ceil(f32(stepsY) * margin * 2.0));
-        stepsX += i32(ceil(f32(stepsX) * margin * 2.0));
-        for (i32 y = stepsY-1; y >= 0; y--) {
-            f32 prevDist = 1000.0;
-            for (i32 x = 0; x < stepsX; x++) {
-                vec2 point((f32)x * factorX - margin, (f32)y * factorY - margin);
-                // point *= max(glyph.size.x, glyph.size.y);
-                if (point.x > glyph.size.x + margin) {
-                    break;
-                }
-                start = Clock::now();
-                f32 dist = glyph.MinDistance(point, prevDist);
-                glyphDrawTime += Clock::now()-start;
-                prevDist = dist + factorX; // Assume the worst change possible
-                if (glyph.Inside(point)) {
-#ifdef DO_PRINT
-                    if (dist < margin) {
-                        cout << distSymbolsNeg[i32(dist/margin*3.0)];
-                    } else {
-                        cout << ' ';
-                    }
-                    // cout << 'X';
+    ClockTime start = Clock::now();
+    Glyph glyph;
+    try {
+        glyph = GetGlyph(unicode);
+    } catch (std::runtime_error &err) {
+        cout << "Failed to get glyph: " << err.what() << std::endl;
+        return;
+    }
+    glyphParseTime = Clock::now()-start;
+    const f32 margin = 0.03;
+    const i32 scale = 4;
+    i32 stepsX = 16 * scale;
+    i32 stepsY = 16 * scale;
+    const char distSymbolsPos[] = "X-.";
+    const char distSymbolsNeg[] = "@*'";
+    const f32 factorX = 1.0 / (f32)stepsX;
+    const f32 factorY = 1.0 / (f32)stepsY;
+    stepsY += i32(ceil(f32(stepsY) * margin * 2.0));
+    stepsX += i32(ceil(f32(stepsX) * margin * 2.0));
+    for (i32 y = stepsY-1; y >= 0; y--) {
+        f32 prevDist = 1000.0;
+        for (i32 x = 0; x < stepsX; x++) {
+            vec2 point((f32)x * factorX - margin, (f32)y * factorY - margin);
+            // point *= max(glyph.size.x, glyph.size.y);
+            if (point.x > glyph.size.x + margin) {
+                break;
+            }
+            start = Clock::now();
+            f32 dist = glyph.MinDistance(point, prevDist);
+            glyphDrawTime += Clock::now()-start;
+            prevDist = dist + factorX; // Assume the worst change possible
+            if (glyph.Inside(point)) {
+                if (dist < margin) {
+                    cout << distSymbolsNeg[i32(dist/margin*3.0)];
                 } else {
-                    if (dist < margin) {
-                        cout << distSymbolsPos[i32(dist/margin*3.0)];
-                    } else {
-                        cout << ' ';
-                    }
-                    // cout << ' ';
-#endif
+                    cout << ' ';
+                }
+            } else {
+                if (dist < margin) {
+                    cout << distSymbolsPos[i32(dist/margin*3.0)];
+                } else {
+                    cout << ' ';
                 }
             }
-#ifdef DO_PRINT
-            cout << "\n";
         }
-        cout << std::endl;
-#else
-        }
-#endif
-    } else {
-        cout << "We don't have any supported glyph data!" << std::endl;
+        cout << "\n";
     }
+    cout << std::endl;
     totalParseTime += glyphParseTime.count();
     totalDrawTime += glyphDrawTime.count();
     iterations++;
@@ -769,8 +779,242 @@ void Font::PrintGlyph(char32 glyph) {
     if (iterations%64 == 0) {
         cout << "After " << iterations << " iterations, average glyph parse time is "
              << totalParseTime/iterations << "ns and average glyph draw time is "
-             << totalDrawTime/iterations << "ns.\nTotal glyph parse time is " << totalParseTime/1000000 << "ms and total glyph draw time is " << totalDrawTime/1000000 << "ms." << std::endl;
+             << totalDrawTime/iterations << "ns.\nTotal glyph parse time is "
+             << totalParseTime/1000000 << "ms and total glyph draw time is "
+             << totalDrawTime/1000000 << "ms." << std::endl;
     }
+}
+
+//
+//      Some helper functions for FontBuilder
+//
+
+bool Intersects(const Box &a, const Box &b) {
+    return (a.min.x <= b.max.x
+         && a.max.x >= b.min.x
+         && a.min.y <= b.max.y
+         && a.max.y >= b.min.y);
+}
+
+bool Intersects(const Box &box, const vec2 &point) {
+    const f32 epsilon = 0.001;
+    return (point.x == median(box.min.x-epsilon, point.x, box.max.x+epsilon)
+         && point.y == median(box.min.y-epsilon, point.y, box.max.y+epsilon));
+}
+
+void InsertCorner(Array<vec2> &array, vec2 toInsert) {
+    // Make sure the corners are sorted by how far they are from the origin
+    float dist = max(toInsert.x, toInsert.y);
+    i32 insertPos = array.size;
+    for (i32 i = 0; i < array.size; i++) {
+        float dist2 = max(array[i].x, array[i].y);
+        if (dist == dist2) {
+            if (absSqr(toInsert) > absSqr(array[i]))
+                continue;
+        }
+        if (dist <= dist2) {
+            insertPos = i;
+            break;
+        }
+    }
+    array.Insert(insertPos, toInsert);
+}
+
+Box InsertBox(Array<Box> &boxes, Box toInsert) {
+    for (i32 i = boxes.size-1; i >= 0; i--) {
+        Box &box = boxes[i];
+        if (box.min.x == toInsert.min.x && abs(box.max.x - toInsert.max.x) < 0.01) {
+            box.max.x = max(box.max.x, toInsert.max.x);
+            box.max.y = toInsert.max.y;
+            return box;
+        } else if (box.min.y == toInsert.min.y && abs(box.max.y - toInsert.max.y) < 0.01) {
+            box.max.y = max(box.max.y, toInsert.max.y);
+            box.max.x = toInsert.max.x;
+            return box;
+        }
+    }
+    boxes.Append(toInsert);
+    return toInsert;
+}
+
+void PurgeCorners(Array<vec2> &corners, const Box &bounds) {
+    for (i32 i = 0; i < corners.size; i++) {
+        if (Intersects(bounds, corners[i])) {
+            corners.Erase(i);
+            i--;
+        }
+    }
+}
+
+bool FontBuilder::AddRange(char32 min, char32 max) {
+    if (font == nullptr) {
+        error = "You didn't give FontBuilder a Font*!";
+        return false;
+    }
+    for (char32 c = min; c <= max; c++) { // OI, THAT'S THE LANGUAGE THIS IS WRITTEN IN!!!
+        // Let the hype for such trivial things flow through you!
+        u16 glyphIndex = font->GetGlyphIndex(c);
+        if (allIndices.count(glyphIndex) == 0) {
+            indicesToAdd += glyphIndex;
+            allIndices.insert(glyphIndex);
+        }
+    }
+    return true;
+}
+
+bool FontBuilder::Build() {
+    if (font == nullptr) {
+        error = "You didn't give FontBuilder a Font*!";
+        return false;
+    }
+    if (indicesToAdd.size == 0) {
+        // Nothing to do.
+        return true;
+    }
+    Array<Glyph> glyphsToAdd(indicesToAdd.size);
+    for (i32 i = 0; i < indicesToAdd.size; i++) {
+        glyphsToAdd[i] = font->GetGlyphByIndex(indicesToAdd[i]);
+    }
+    struct SizeIndex {
+        i32 index;
+        vec2 size;
+    };
+    Array<SizeIndex> sortedIndices;
+    sortedIndices.Reserve(glyphsToAdd.size);
+    for (i32 i = glyphsToAdd.size-1; i >= 0; i--) {
+        SizeIndex sizeIndex = {i, glyphsToAdd[i].size};
+        i32 insertPos = 0;
+        for (i32 ii = 0; ii < sortedIndices.size; ii++) {
+            insertPos = ii;
+            if (sortedIndices[ii].size.x == sizeIndex.size.x) {
+                if (sortedIndices[ii].size.y >= sizeIndex.size.y)
+                    continue;
+            }
+            if (sortedIndices[ii].size.x <= sizeIndex.size.x) {
+                break;
+            }
+        }
+        sortedIndices.Insert(insertPos, sizeIndex);
+    }
+    if (corners.size == 0) {
+        corners.Append(vec2(0.0));
+        bounding = vec2(0.0);
+    }
+    f32 area = 0.0;
+    for (SizeIndex& si : sortedIndices) {
+        Glyph &glyph = glyphsToAdd[si.index];
+        Box box;
+        for (i32 i = 0; i < corners.size; i++) {
+            box.min = corners[i];
+            box.max = box.min + glyph.size + vec2(sdfDistance*2.0);
+            bool clear = true;
+            for (i32 ii = 0; ii < boxes.size; ii++) {
+                if (Intersects(box, boxes[ii])) {
+                    clear = false;
+                    break;
+                }
+            }
+            if (!clear) {
+                // Go to the next corner
+                continue;
+            }
+            glyph.pos = corners[i];
+            area += (box.max.x-box.min.x) * (box.max.y-box.min.y);
+            box = InsertBox(boxes, box);
+            PurgeCorners(corners, box);
+            if (box.max.x > bounding.x) {
+                bounding.x = box.max.x;
+            }
+            if (box.max.y > bounding.y) {
+                bounding.y = box.max.y;
+            }
+            box.max += vec2(0.002);
+            InsertCorner(corners, vec2(box.max.x, box.min.y));
+            InsertCorner(corners, vec2(box.min.x, box.max.y));
+            if (box.min.x != corners[i].x) {
+                box.min.x = corners[i].x;
+                InsertCorner(corners, vec2(box.min.x, box.max.y));
+            }
+            if (box.min.y != corners[i].y) {
+                box.min.y = corners[i].y;
+                InsertCorner(corners, vec2(box.max.x, box.min.y));
+            }
+            break;
+        }
+    }
+    f32 totalArea = bounding.x * bounding.y;
+    cout << "Of a total page area of " << totalArea << ", "
+         << u32(area/totalArea*100.0) << "% was used." << std::endl;
+    bounding.x = max(bounding.x, 1.0f);
+    bounding.y = max(bounding.y, 1.0f);
+    f32 boundSquare = max(bounding.x, bounding.y);
+    scale = boundSquare;
+    edge = sdfDistance*28.0;
+
+    dimensions = vec2i(32 << i32(log2(boundSquare*0.75)));
+    cout << "Texture dimensions = {" << dimensions.x << ", " << dimensions.y << "}" << std::endl;
+    pixels.Resize(dimensions.x * dimensions.y);
+    for (i32 i = 0; i < pixels.size; i+=8) {
+        u64 *px = (u64*)(pixels.data + i);
+        *px = 0;
+    }
+
+    // Now do the rendering
+    for (i32 i = 0; i < glyphsToAdd.size; i++) {
+        Glyph &glyph = glyphsToAdd[i];
+        if (glyph.size.x == 0.0 || glyph.size.y == 0.0) {
+            continue;
+        }
+        glyph.size += sdfDistance*2.0;
+        glyph.pos /= boundSquare;
+        glyph.size /= boundSquare;
+        glyph.offset /= boundSquare;
+        const i32 texX = glyph.pos.x*dimensions.x;
+        const i32 texY = glyph.pos.y*dimensions.y;
+        const i32 texW = glyph.size.x*dimensions.x;
+        const i32 texH = glyph.size.y*dimensions.y;
+
+        const f32 factorX = boundSquare / (f32)dimensions.x;
+        const f32 factorY = boundSquare / (f32)dimensions.y;
+
+        for (i32 y = 0; y <= texH; y++) {
+            f32 prevDist = 1000.0;
+            for (i32 x = 0; x <= texW; x++) {
+                vec2 point = vec2((f32)x * factorX - sdfDistance,
+                                  (f32)y * factorY - sdfDistance);
+                i32 xx = texX + x;
+                if (xx >= dimensions.x || xx < 0) {
+                    break;
+                }
+                i32 yy = texY + texH - y;
+                if (yy >= dimensions.y || yy < 0) {
+                    break;
+                }
+                u8& pixel = pixels[dimensions.x * yy + xx];
+                f32 dist = glyph.MinDistance(point, prevDist);
+                prevDist = dist + factorX; // Assume the worst change possible
+                if (glyph.Inside(point)) {
+                    if (dist < sdfDistance) {
+                        dist = (1.0 + dist / sdfDistance) * 0.5;
+                    } else {
+                        dist = 1.0;
+                    }
+                } else {
+                    if (dist < sdfDistance) {
+                        dist = (1.0 - dist / sdfDistance) * 0.5;
+                    } else {
+                        dist = 0.0;
+                    }
+                }
+                pixel = u8(dist*255.0);
+            }
+        }
+    }
+    for (i32 i = 0; i < indicesToAdd.size; i++) {
+        indexToId.Set(indicesToAdd[i], glyphs.size + i);
+    }
+    glyphs.Append(std::move(glyphsToAdd));
+    return true;
 }
 
 } // namespace font

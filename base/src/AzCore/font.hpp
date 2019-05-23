@@ -78,6 +78,7 @@ namespace font {
         Array<Curve> curves;
         Array<Line> lines;
         // Array<Contour> contours;
+        vec2 pos; // Position in atlas
         vec2 size; // Total dimensions of the contours
         vec2 offset; // Origin point relative to contours
         vec2 advance; // How far to advance
@@ -113,8 +114,45 @@ namespace font {
 
         bool Load();
 
+        u16 GetGlyphIndex(char32 unicode);
+        Glyph GetGlyphByIndex(u16 index);
+        Glyph GetGlyph(char32 unicode);
         // Rasterizes a single glyph in the console
-        void PrintGlyph(char32 glyph);
+        void PrintGlyph(char32 unicode);
+    };
+
+    struct Box {
+        vec2 min, max;
+    };
+
+    /*  struct: FontBuilder
+        Author: Philip Haynes
+        Automatically packs an atlas of signed distance field glyphs from a font file.   */
+    struct FontBuilder {
+        Font *font = nullptr;
+        vec2i dimensions; // Size of our image
+        Array<u8> pixels; // Actual image data
+        ArrayList<i32> indexToId; // Our mapping from glyph index to indices of the below Arrays
+        Array<Glyph> glyphs; // Actual glyph data, referenced by id
+        // Boxes are used to construct the atlas.
+        // We hold on to these in case we want to dynamically add more.
+        // Bounding boxes of glyphs placed in our atlas, referenced by id
+        Array<Box> boxes;
+        // Potential good places to put new boxes
+        Array<vec2> corners;
+        // How big our current atlas is
+        vec2 bounding;
+        f32 scale;
+        f32 edge;
+        // Which glyphs we need from the font. Not including ones already in the atlas.
+        Array<u16> indicesToAdd;
+        // Which glyphs are already accounted for and don't need to be added?
+        Set<u16> allIndices;
+
+        // Adds every available glyph in the range specified.
+        bool AddRange(char32 min, char32 max);
+        // Assembles the atlas and renders the glyphs into it.
+        bool Build();
     };
 
 } // namespace font

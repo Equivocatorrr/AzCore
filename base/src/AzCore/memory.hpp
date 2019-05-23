@@ -1206,10 +1206,10 @@ public:
             next->Set(index, value);
         } else {
             if (index == first-1) {
-                indices.insert(indices.begin(), value);
+                indices.Insert(0, value);
                 first--;
             } else if (index == last+1) {
-                indices.push_back(value);
+                indices.Append(value);
                 last++;
             } else {
                 indices[index-first] = value;
@@ -1227,18 +1227,18 @@ public:
         if (next != nullptr) {
             next->Append(values);
         } else {
-            indices.resize(indices.size()+values.size());
-            for (i32 i = 0; i < values.size(); i++) {
+            indices.Resize(indices.size+values.size);
+            for (i32 i = 0; i < values.size; i++) {
                 indices[i+last-first] = values[i];
             }
-            last += values.size();
+            last += values.size;
         }
     }
     void Append(T &value) {
         if (next != nullptr) {
             next->Append(value);
         } else {
-            indices.push_back(value);
+            indices.Append(value);
             last++;
         }
     }
@@ -1253,7 +1253,7 @@ public:
         }
         first = f;
         last = l;
-        indices.resize(last-first);
+        indices.Resize(last-first);
     }
     i32 First() {
         i32 actualFirst = first;

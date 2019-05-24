@@ -77,6 +77,7 @@ namespace font {
         // All coordinates are in Em units
         Array<Curve> curves;
         Array<Line> lines;
+        Array<u16> components;
         // Array<Contour> contours;
         vec2 pos; // Position in atlas
         vec2 size; // Total dimensions of the contours
@@ -145,12 +146,14 @@ namespace font {
         f32 scale;
         f32 edge;
         // Which glyphs we need from the font. Not including ones already in the atlas.
-        Array<u16> indicesToAdd;
+        Array<u16> indicesToAdd = {0};
         // Which glyphs are already accounted for and don't need to be added?
-        Set<u16> allIndices;
+        Set<u16> allIndices = {0};
 
         // Adds every available glyph in the range specified.
         bool AddRange(char32 min, char32 max);
+        // Adds any glyphs in the string that aren't already included
+        bool AddString(WString string);
         // Assembles the atlas and renders the glyphs into it.
         bool Build();
     };

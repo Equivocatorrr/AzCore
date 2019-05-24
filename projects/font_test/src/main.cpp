@@ -15,14 +15,14 @@ i32 main(i32 argumentCount, char **argumentValues) {
         cout << "In order to use this program, you must pass the name of a font file as an argument." << std::endl;
         return 0;
     }
+    ClockTime start = Clock::now();
     font::Font font;
     font.filename = argumentValues[1];
     if (!font.Load()) {
         cout << "Failed to load font: " << font::error << std::endl;
         return 1;
     }
-    ClockTime start = Clock::now();
-    // WString string = ToWString("私ñÑēÈèéîêâô∵…ėȯȧıëäöïü学元気出区電話番号이작품희망");
+    WString string = ToWString("私ñÑēÈèéîêâô∵…ėȯȧıëäöïü学元気出区電話番号이작품희망");
     // for (u32 i = 0; i < 256; i++) {
     //     for (char32 c : string) {
     //         font.PrintGlyph(c);
@@ -37,10 +37,15 @@ i32 main(i32 argumentCount, char **argumentValues) {
     font::FontBuilder fontBuilder;
     fontBuilder.font = &font;
     cout << "AddRange" << std::endl;
-    if (!fontBuilder.AddRange(0, 0xFFFF)) {
+    if (!fontBuilder.AddRange(0, 65535)) {
         cout << "Failed fontBuilder.AddRange: " << font::error << std::endl;
         return 1;
     }
+    // cout << "AddString" << std::endl;
+    // if (!fontBuilder.AddString(string)) {
+    //     cout << "Failed fontBuilder.AddString: " << font::error << std::endl;
+    //     return 1;
+    // }
     cout << "Build" << std::endl;
     if (!fontBuilder.Build()) {
         cout << "Failed fontBuilder.Build: " << font::error << std::endl;

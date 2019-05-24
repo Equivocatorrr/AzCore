@@ -19,7 +19,7 @@ String ToString(font::Tag_t tag) {
 
 namespace font {
 
-const f32 sdfDistance = 0.08; // Units in the Em square
+const f32 sdfDistance = 0.12; // Units in the Em square
 
 inline f32 BezierDerivative(f32 t, f32 p1, f32 p2, f32 p3) {
     return 2.0 * ((1.0-t) * (p2-p1) + t * (p3-p2));
@@ -823,11 +823,11 @@ void InsertCorner(Array<vec2> &array, vec2 toInsert) {
 Box InsertBox(Array<Box> &boxes, Box toInsert) {
     for (i32 i = boxes.size-1; i >= 0; i--) {
         Box &box = boxes[i];
-        if (box.min.x == toInsert.min.x && abs(box.max.x - toInsert.max.x) < 0.01) {
+        if (box.min.x == toInsert.min.x && abs(box.max.x - toInsert.max.x) < 0.025) {
             box.max.x = max(box.max.x, toInsert.max.x);
             box.max.y = toInsert.max.y;
             return box;
-        } else if (box.min.y == toInsert.min.y && abs(box.max.y - toInsert.max.y) < 0.01) {
+        } else if (box.min.y == toInsert.min.y && abs(box.max.y - toInsert.max.y) < 0.025) {
             box.max.y = max(box.max.y, toInsert.max.y);
             box.max.x = toInsert.max.x;
             return box;
@@ -862,6 +862,77 @@ bool FontBuilder::AddRange(char32 min, char32 max) {
     return true;
 }
 
+bool FontBuilder::AddString(WString string) {
+    if (font == nullptr) {
+        error = "You didn't give FontBuilder a Font*!";
+        return false;
+    }
+    for (char32 c : string) {
+        u16 glyphIndex = font->GetGlyphIndex(c);
+        if (allIndices.count(glyphIndex) == 0) {
+            indicesToAdd += glyphIndex;
+            allIndices.insert(glyphIndex);
+        }
+    }
+    return true;
+}
+
+const i32 numThreads = 8;
+
+void RenderThreadProc(FontBuilder *fontBuilder, Array<Glyph> *glyphsToAdd, const f32 boundSquare, const i32 threadId) {
+    vec2i &dimensions = fontBuilder->dimensions;
+    for (i32 i = threadId; i < glyphsToAdd->size; i+=numThreads) {
+        Glyph &glyph = (*glyphsToAdd)[i];
+        if (glyph.size.x == 0.0 || glyph.size.y == 0.0) {
+            continue;
+        }
+        glyph.size += sdfDistance*2.0;
+        glyph.pos /= boundSquare;
+        glyph.size /= boundSquare;
+        glyph.offset /= boundSquare;
+        const i32 texX = glyph.pos.x*dimensions.x;
+        const i32 texY = glyph.pos.y*dimensions.y;
+        const i32 texW = glyph.size.x*dimensions.x;
+        const i32 texH = glyph.size.y*dimensions.y;
+
+        const f32 factorX = boundSquare / (f32)dimensions.x;
+        const f32 factorY = boundSquare / (f32)dimensions.y;
+
+        for (i32 y = 0; y <= texH; y++) {
+            f32 prevDist = sdfDistance;
+            for (i32 x = 0; x <= texW; x++) {
+                vec2 point = vec2((f32)x * factorX - sdfDistance,
+                                  (f32)y * factorY - sdfDistance);
+                i32 xx = texX + x;
+                if (xx >= dimensions.x || xx < 0) {
+                    break;
+                }
+                i32 yy = texY + texH - y;
+                if (yy >= dimensions.y || yy < 0) {
+                    break;
+                }
+                u8& pixel = fontBuilder->pixels[dimensions.x * yy + xx];
+                f32 dist = glyph.MinDistance(point, prevDist);
+                prevDist = dist + factorX; // Assume the worst change possible
+                if (glyph.Inside(point)) {
+                    if (dist < sdfDistance) {
+                        dist = (1.0 + dist / sdfDistance) * 0.5;
+                    } else {
+                        dist = 1.0;
+                    }
+                } else {
+                    if (dist < sdfDistance) {
+                        dist = (1.0 - dist / sdfDistance) * 0.5;
+                    } else {
+                        dist = 0.0;
+                    }
+                }
+                pixel = u8(dist*255.0);
+            }
+        }
+    }
+}
+
 bool FontBuilder::Build() {
     if (font == nullptr) {
         error = "You didn't give FontBuilder a Font*!";
@@ -871,17 +942,34 @@ bool FontBuilder::Build() {
         // Nothing to do.
         return true;
     }
-    Array<Glyph> glyphsToAdd(indicesToAdd.size);
+    Array<Glyph> glyphsToAdd;
+    glyphsToAdd.Reserve(indicesToAdd.size);
     for (i32 i = 0; i < indicesToAdd.size; i++) {
-        glyphsToAdd[i] = font->GetGlyphByIndex(indicesToAdd[i]);
+        Glyph glyph = font->GetGlyphByIndex(indicesToAdd[i]);
+        if (glyph.components.size != 0) {
+            for (u16 index : glyph.components) {
+                if (allIndices.count(index) == 0) {
+                    indicesToAdd += index;
+                    allIndices.insert(index);
+                }
+            }
+            glyph.size = vec2(0.0);
+            glyph.curves.Clear();
+            glyph.lines.Clear();
+        }
+        glyphsToAdd.Append(std::move(glyph));
     }
     struct SizeIndex {
         i32 index;
         vec2 size;
     };
+    ClockTime start = Clock::now();
     Array<SizeIndex> sortedIndices;
-    sortedIndices.Reserve(glyphsToAdd.size);
+    sortedIndices.Reserve(glyphsToAdd.size/2);
     for (i32 i = glyphsToAdd.size-1; i >= 0; i--) {
+        if (glyphsToAdd[i].size.x == 0.0 || glyphsToAdd[i].size.y == 0.0) {
+            continue;
+        }
         SizeIndex sizeIndex = {i, glyphsToAdd[i].size};
         i32 insertPos = 0;
         for (i32 ii = 0; ii < sortedIndices.size; ii++) {
@@ -942,6 +1030,8 @@ bool FontBuilder::Build() {
             break;
         }
     }
+    Nanoseconds packingTime = Clock::now()-start;
+    cout << "Packing took " << packingTime.count() << "ns" << std::endl;
     f32 totalArea = bounding.x * bounding.y;
     cout << "Of a total page area of " << totalArea << ", "
          << u32(area/totalArea*100.0) << "% was used." << std::endl;
@@ -951,65 +1041,26 @@ bool FontBuilder::Build() {
     scale = boundSquare;
     edge = sdfDistance*28.0;
 
-    dimensions = vec2i(32 << i32(log2(boundSquare*0.75)));
+    dimensions = vec2i(32 << i32(log2(boundSquare)));
     cout << "Texture dimensions = {" << dimensions.x << ", " << dimensions.y << "}" << std::endl;
     pixels.Resize(dimensions.x * dimensions.y);
     for (i32 i = 0; i < pixels.size; i+=8) {
         u64 *px = (u64*)(pixels.data + i);
         *px = 0;
     }
-
+    start = Clock::now();
     // Now do the rendering
-    for (i32 i = 0; i < glyphsToAdd.size; i++) {
-        Glyph &glyph = glyphsToAdd[i];
-        if (glyph.size.x == 0.0 || glyph.size.y == 0.0) {
-            continue;
-        }
-        glyph.size += sdfDistance*2.0;
-        glyph.pos /= boundSquare;
-        glyph.size /= boundSquare;
-        glyph.offset /= boundSquare;
-        const i32 texX = glyph.pos.x*dimensions.x;
-        const i32 texY = glyph.pos.y*dimensions.y;
-        const i32 texW = glyph.size.x*dimensions.x;
-        const i32 texH = glyph.size.y*dimensions.y;
-
-        const f32 factorX = boundSquare / (f32)dimensions.x;
-        const f32 factorY = boundSquare / (f32)dimensions.y;
-
-        for (i32 y = 0; y <= texH; y++) {
-            f32 prevDist = 1000.0;
-            for (i32 x = 0; x <= texW; x++) {
-                vec2 point = vec2((f32)x * factorX - sdfDistance,
-                                  (f32)y * factorY - sdfDistance);
-                i32 xx = texX + x;
-                if (xx >= dimensions.x || xx < 0) {
-                    break;
-                }
-                i32 yy = texY + texH - y;
-                if (yy >= dimensions.y || yy < 0) {
-                    break;
-                }
-                u8& pixel = pixels[dimensions.x * yy + xx];
-                f32 dist = glyph.MinDistance(point, prevDist);
-                prevDist = dist + factorX; // Assume the worst change possible
-                if (glyph.Inside(point)) {
-                    if (dist < sdfDistance) {
-                        dist = (1.0 + dist / sdfDistance) * 0.5;
-                    } else {
-                        dist = 1.0;
-                    }
-                } else {
-                    if (dist < sdfDistance) {
-                        dist = (1.0 - dist / sdfDistance) * 0.5;
-                    } else {
-                        dist = 0.0;
-                    }
-                }
-                pixel = u8(dist*255.0);
-            }
+    Thread threads[numThreads];
+    for (i32 i = 0; i < numThreads; i++) {
+        threads[i] = Thread(RenderThreadProc, this, &glyphsToAdd, boundSquare, i);
+    }
+    for (i32 i = 0; i < numThreads; i++) {
+        if (threads[i].joinable()) {
+            threads[i].join();
         }
     }
+    Nanoseconds renderingTime = Clock::now() - start;
+    cout << "Rendering took " << renderingTime.count() << "ns" << std::endl;
     for (i32 i = 0; i < indicesToAdd.size; i++) {
         indexToId.Set(indicesToAdd[i], glyphs.size + i);
     }

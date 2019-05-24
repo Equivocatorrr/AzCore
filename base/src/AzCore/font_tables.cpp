@@ -1663,6 +1663,7 @@ Glyph glyfParsed::ParseCompound(glyf_header *gheader, Array<glyfPoint> *dstArray
             componentGlyph = ParseCompound(componentHeader, &componentPoints);
         } else {
             componentGlyph = ParseSimple(componentHeader, &componentPoints);
+            out.components.Append(component.glyphIndex);
         }
         vec2 offset;
         if (component.argsAreXY) {
@@ -1694,6 +1695,7 @@ Glyph glyfParsed::ParseCompound(glyf_header *gheader, Array<glyfPoint> *dstArray
         componentGlyph.Offset(offset);
         out.curves.Append(std::move(componentGlyph.curves));
         out.lines.Append(std::move(componentGlyph.lines));
+        out.components.Append(std::move(componentGlyph.components));
     }
     if (dstArray != nullptr) {
         *dstArray = std::move(allPoints);

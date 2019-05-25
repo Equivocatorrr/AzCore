@@ -161,7 +161,7 @@ namespace font {
     struct FontBuilder {
         Font *font = nullptr;
         i32 renderThreadCount = 0; // <1 means hardware concurrency
-        vec2i dimensions; // Size of our image
+        vec2i dimensions = vec2i(0); // Size of our image
         Array<u8> pixels; // Actual image data
         ArrayList<i32> indexToId; // Our mapping from glyph index to indices of the below Arrays
         Array<Glyph> glyphs; // Actual glyph data, referenced by id
@@ -170,6 +170,8 @@ namespace font {
         BoxListY boxes;
         // Potential good places to put new boxes
         Array<vec2> corners;
+        f32 area;
+        f32 boundSquare;
         // How big our current atlas is
         vec2 bounding;
         f32 scale;
@@ -178,6 +180,9 @@ namespace font {
         Array<u16> indicesToAdd = {0};
         // Which glyphs are already accounted for and don't need to be added?
         Set<u16> allIndices = {0};
+
+        // Resizes the image, keeping the pixels in the right spots.
+        void ResizeImage(i32 w, i32 h);
 
         // Adds every available glyph in the range specified.
         bool AddRange(char32 min, char32 max);

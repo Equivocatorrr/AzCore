@@ -820,23 +820,6 @@ void InsertCorner(Array<vec2> &array, vec2 toInsert) {
     array.Insert(insertPos, toInsert);
 }
 
-Box InsertBox(Array<Box> &boxes, Box toInsert) {
-    for (i32 i = boxes.size-1; i >= 0; i--) {
-        Box &box = boxes[i];
-        if (box.min.x == toInsert.min.x && abs(box.max.x - toInsert.max.x) < 0.025) {
-            box.max.x = max(box.max.x, toInsert.max.x);
-            box.max.y = toInsert.max.y;
-            return box;
-        } else if (box.min.y == toInsert.min.y && abs(box.max.y - toInsert.max.y) < 0.025) {
-            box.max.y = max(box.max.y, toInsert.max.y);
-            box.max.x = toInsert.max.x;
-            return box;
-        }
-    }
-    boxes.Append(toInsert);
-    return toInsert;
-}
-
 void PurgeCorners(Array<vec2> &corners, const Box &bounds) {
     for (i32 i = 0; i < corners.size; i++) {
         if (Intersects(bounds, corners[i])) {
@@ -899,6 +882,24 @@ bool BoxListY::Intersects(Box box) {
         }
     }
     return false;
+}
+
+void FontBuilder::ResizeImage(i32 w, i32 h) {
+    if (w == dimensions.x && h == dimensions.y) {
+        return;
+    }
+    Array<u8> newPixels(w*h);
+    for (i32 i = 0; i < newPixels.size; i+=8) {
+        u64 *px = (u64*)(newPixels.data + i);
+        *px = 0;
+    }
+    for (i32 y = 0; y < dimensions.y; y++) {
+        for (i32 x = 0; x < dimensions.x; x++) {
+            newPixels[y*w + x] = pixels[y*dimensions.x + x];
+        }
+    }
+    dimensions = vec2i(w, h);
+    pixels = std::move(newPixels);
 }
 
 bool FontBuilder::AddRange(char32 min, char32 max) {
@@ -1024,6 +1025,7 @@ bool FontBuilder::Build() {
             cout << "Using concurrency: " << renderThreadCount << std::endl;
         }
     }
+    ClockTime start = Clock::now();
     Array<Glyph> glyphsToAdd;
     glyphsToAdd.Reserve(indicesToAdd.size);
     for (i32 i = 0; i < indicesToAdd.size; i++) {
@@ -1041,12 +1043,14 @@ bool FontBuilder::Build() {
         }
         glyphsToAdd.Append(std::move(glyph));
     }
+    indicesToAdd.Clear();
+    cout << "Took " << FormatTime(Nanoseconds(Clock::now()-start)) << " to parse glyphs." << std::endl;
     cout << "Packing " << glyphsToAdd.size << " glyphs..." << std::endl;
     struct SizeIndex {
         i32 index;
         vec2 size;
     };
-    ClockTime start = Clock::now();
+    start = Clock::now();
     Array<SizeIndex> sortedIndices;
     sortedIndices.Reserve(glyphsToAdd.size/2);
     for (i32 i = glyphsToAdd.size-1; i >= 0; i--) {
@@ -1067,11 +1071,14 @@ bool FontBuilder::Build() {
         }
         sortedIndices.Insert(insertPos, sizeIndex);
     }
+    cout << "Took " << FormatTime(Nanoseconds(Clock::now()-start)) << " to sort by size." << std::endl;
     if (corners.size == 0) {
         corners.Append(vec2(0.0));
         bounding = vec2(0.0);
+        boundSquare = 0.0;
+        area = 0.0;
     }
-    f32 area = 0.0;
+    start = Clock::now();
     for (SizeIndex& si : sortedIndices) {
         Glyph &glyph = glyphsToAdd[si.index];
         Box box;
@@ -1107,23 +1114,24 @@ bool FontBuilder::Build() {
         }
     }
     Nanoseconds packingTime = Clock::now()-start;
-    cout << "Packing took " << FormatTime(packingTime) << std::endl;
+    cout << "Took " << FormatTime(packingTime) << " to pack glyphs." << std::endl;
     f32 totalArea = bounding.x * bounding.y;
     cout << "Of a total page area of " << totalArea << ", "
          << u32(area/totalArea*100.0) << "% was used." << std::endl;
     bounding.x = max(bounding.x, 1.0f);
     bounding.y = max(bounding.y, 1.0f);
-    f32 boundSquare = max(bounding.x, bounding.y);
+    // if (boundSquare == 0.0) {
+        boundSquare = i32(ceil(max(bounding.x, bounding.y))*128.0)/128;
+    // } else {
+    //     if (max(bounding.x, bounding.y) > boundSquare)
+    //         boundSquare *= 2.0;
+    // }
     scale = boundSquare;
-    edge = sdfDistance*28.0;
+    edge = sdfDistance*32.0;
 
-    dimensions = vec2i(32 << i32(log2(boundSquare)));
-    cout << "Texture dimensions = {" << dimensions.x << ", " << dimensions.y << "}" << std::endl;
-    pixels.Resize(dimensions.x * dimensions.y);
-    for (i32 i = 0; i < pixels.size; i+=8) {
-        u64 *px = (u64*)(pixels.data + i);
-        *px = 0;
-    }
+    vec2i dimensionsNew = vec2i(i32(boundSquare)*32);
+    cout << "Texture dimensions = {" << dimensionsNew.x << ", " << dimensionsNew.y << "}" << std::endl;
+    ResizeImage(dimensionsNew.x, dimensionsNew.y);
     start = Clock::now();
     // Now do the rendering
     Array<Thread> threads(renderThreadCount);

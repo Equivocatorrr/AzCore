@@ -36,20 +36,17 @@ i32 main(i32 argumentCount, char **argumentValues) {
     // font.PrintGlyph((char32)'2');
     font::FontBuilder fontBuilder;
     fontBuilder.font = &font;
-    cout << "AddRange" << std::endl;
-    if (!fontBuilder.AddRange(0, 65535)) {
-        cout << "Failed fontBuilder.AddRange: " << font::error << std::endl;
-        return 1;
-    }
-    // cout << "AddString" << std::endl;
-    // if (!fontBuilder.AddString(string)) {
-    //     cout << "Failed fontBuilder.AddString: " << font::error << std::endl;
-    //     return 1;
-    // }
-    cout << "Build" << std::endl;
-    if (!fontBuilder.Build()) {
-        cout << "Failed fontBuilder.Build: " << font::error << std::endl;
-        return 1;
+    for (i32 i = 0; i < 65536; i+=64) {
+        // cout << "AddRange" << std::endl;
+        if (!fontBuilder.AddRange(i, i+63)) {
+            cout << "Failed fontBuilder.AddRange: " << font::error << std::endl;
+            return 1;
+        }
+        // cout << "Build" << std::endl;
+        if (!fontBuilder.Build()) {
+            cout << "Failed fontBuilder.Build: " << font::error << std::endl;
+            return 1;
+        }
     }
     cout << "Total time: " << std::chrono::duration_cast<Milliseconds>(Clock::now()-start).count() << "ms" << std::endl;
     stbi_write_png("data/atlas.png", fontBuilder.dimensions.x, fontBuilder.dimensions.y, 1, fontBuilder.pixels.data, fontBuilder.dimensions.x);

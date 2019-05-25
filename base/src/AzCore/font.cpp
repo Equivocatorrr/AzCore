@@ -846,6 +846,61 @@ void PurgeCorners(Array<vec2> &corners, const Box &bounds) {
     }
 }
 
+const i32 boxListScale = 1;
+
+bool BoxListXNode::Intersects(Box box) {
+    for (i32 i = 0; i < boxes.size; i++) {
+        if (font::Intersects(box, boxes[i])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void BoxListX::AddBox(Box box) {
+    i32 minX = (i32)box.min.x / boxListScale;
+    i32 maxX = (i32)box.max.x / boxListScale + 1;
+    if (nodes.size < maxX) {
+        nodes.Resize(maxX);
+    }
+    for (i32 x = minX; x < maxX; x++) {
+        nodes[x].boxes.Append(box);
+    }
+}
+
+bool BoxListX::Intersects(Box box) {
+    i32 minX = (i32)box.min.x / boxListScale;
+    i32 maxX = min((i32)box.max.x / boxListScale + 1, nodes.size);
+    for (i32 x = minX; x < maxX; x++) {
+        if (nodes[x].Intersects(box)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void BoxListY::AddBox(Box box) {
+    i32 minY = (i32)box.min.y / boxListScale;
+    i32 maxY = (i32)box.max.y / boxListScale + 1;
+    if (lists.size < maxY) {
+        lists.Resize(maxY);
+    }
+    for (i32 y = minY; y < maxY; y++) {
+        lists[y].AddBox(box);
+    }
+}
+
+bool BoxListY::Intersects(Box box) {
+    i32 minY = (i32)box.min.y / boxListScale;
+    i32 maxY = min((i32)box.max.y / boxListScale + 1, lists.size);
+    for (i32 y = minY; y < maxY; y++) {
+        if (lists[y].Intersects(box)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool FontBuilder::AddRange(char32 min, char32 max) {
     if (font == nullptr) {
         error = "You didn't give FontBuilder a Font*!";
@@ -877,9 +932,7 @@ bool FontBuilder::AddString(WString string) {
     return true;
 }
 
-const i32 numThreads = 8;
-
-void RenderThreadProc(FontBuilder *fontBuilder, Array<Glyph> *glyphsToAdd, const f32 boundSquare, const i32 threadId) {
+void RenderThreadProc(FontBuilder *fontBuilder, Array<Glyph> *glyphsToAdd, const f32 boundSquare, const i32 numThreads, const i32 threadId) {
     vec2i &dimensions = fontBuilder->dimensions;
     for (i32 i = threadId; i < glyphsToAdd->size; i+=numThreads) {
         Glyph &glyph = (*glyphsToAdd)[i];
@@ -933,6 +986,24 @@ void RenderThreadProc(FontBuilder *fontBuilder, Array<Glyph> *glyphsToAdd, const
     }
 }
 
+String FormatTime(Nanoseconds time) {
+    String out;
+    u64 count = time.count();
+    const u64 unitTimes[] = {UINT64_MAX, 60000000000, 1000000000, 1000000, 1000, 1};
+    const char *unitStrings[] = {"m", "s", "ms", "μs", "ns"};
+    bool addSpace = false;
+    for (u32 i = 0; i < 5; i++) {
+        if (count > unitTimes[i+1]) {
+            if (addSpace) {
+                out += ' ';
+            }
+            out += ToString((count%unitTimes[i])/unitTimes[i+1]) + unitStrings[i];
+            addSpace = true;
+        }
+    }
+    return out;
+}
+
 bool FontBuilder::Build() {
     if (font == nullptr) {
         error = "You didn't give FontBuilder a Font*!";
@@ -942,15 +1013,26 @@ bool FontBuilder::Build() {
         // Nothing to do.
         return true;
     }
+    if (renderThreadCount < 1) {
+        renderThreadCount = std::thread::hardware_concurrency();
+        if (renderThreadCount == 0) {
+            // Couldn't get actual concurrency so this is just a guess.
+            // More than actual concurrency isn't really a bad thing since it's lockless, unless the kernel am dum.
+            renderThreadCount = 8;
+            cout << "Using default concurrency: " << renderThreadCount << std::endl;
+        } else {
+            cout << "Using concurrency: " << renderThreadCount << std::endl;
+        }
+    }
     Array<Glyph> glyphsToAdd;
     glyphsToAdd.Reserve(indicesToAdd.size);
     for (i32 i = 0; i < indicesToAdd.size; i++) {
         Glyph glyph = font->GetGlyphByIndex(indicesToAdd[i]);
         if (glyph.components.size != 0) {
-            for (u16 index : glyph.components) {
-                if (allIndices.count(index) == 0) {
-                    indicesToAdd += index;
-                    allIndices.insert(index);
+            for (Component& component : glyph.components) {
+                if (allIndices.count(component.glyphIndex) == 0) {
+                    indicesToAdd += component.glyphIndex;
+                    allIndices.insert(component.glyphIndex);
                 }
             }
             glyph.size = vec2(0.0);
@@ -959,6 +1041,7 @@ bool FontBuilder::Build() {
         }
         glyphsToAdd.Append(std::move(glyph));
     }
+    cout << "Packing " << glyphsToAdd.size << " glyphs..." << std::endl;
     struct SizeIndex {
         i32 index;
         vec2 size;
@@ -995,20 +1078,13 @@ bool FontBuilder::Build() {
         for (i32 i = 0; i < corners.size; i++) {
             box.min = corners[i];
             box.max = box.min + glyph.size + vec2(sdfDistance*2.0);
-            bool clear = true;
-            for (i32 ii = 0; ii < boxes.size; ii++) {
-                if (Intersects(box, boxes[ii])) {
-                    clear = false;
-                    break;
-                }
-            }
-            if (!clear) {
+            if (boxes.Intersects(box)) {
                 // Go to the next corner
                 continue;
             }
             glyph.pos = corners[i];
             area += (box.max.x-box.min.x) * (box.max.y-box.min.y);
-            box = InsertBox(boxes, box);
+            boxes.AddBox(box);
             PurgeCorners(corners, box);
             if (box.max.x > bounding.x) {
                 bounding.x = box.max.x;
@@ -1031,7 +1107,7 @@ bool FontBuilder::Build() {
         }
     }
     Nanoseconds packingTime = Clock::now()-start;
-    cout << "Packing took " << packingTime.count() << "ns" << std::endl;
+    cout << "Packing took " << FormatTime(packingTime) << std::endl;
     f32 totalArea = bounding.x * bounding.y;
     cout << "Of a total page area of " << totalArea << ", "
          << u32(area/totalArea*100.0) << "% was used." << std::endl;
@@ -1050,17 +1126,17 @@ bool FontBuilder::Build() {
     }
     start = Clock::now();
     // Now do the rendering
-    Thread threads[numThreads];
-    for (i32 i = 0; i < numThreads; i++) {
-        threads[i] = Thread(RenderThreadProc, this, &glyphsToAdd, boundSquare, i);
+    Array<Thread> threads(renderThreadCount);
+    for (i32 i = 0; i < renderThreadCount; i++) {
+        threads[i] = Thread(RenderThreadProc, this, &glyphsToAdd, boundSquare, renderThreadCount, i);
     }
-    for (i32 i = 0; i < numThreads; i++) {
+    for (i32 i = 0; i < renderThreadCount; i++) {
         if (threads[i].joinable()) {
             threads[i].join();
         }
     }
     Nanoseconds renderingTime = Clock::now() - start;
-    cout << "Rendering took " << renderingTime.count() << "ns" << std::endl;
+    cout << "Rendering took " << FormatTime(renderingTime) << std::endl;
     for (i32 i = 0; i < indicesToAdd.size; i++) {
         indexToId.Set(indicesToAdd[i], glyphs.size + i);
     }

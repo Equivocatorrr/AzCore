@@ -1587,7 +1587,7 @@ Glyph glyfParsed::ParseCompound(glyf_header *gheader, Array<glyfPoint> *dstArray
     Glyph out;
     char *ptr = (char*)(gheader+1);
     u16 *flags;
-    struct Component {
+    struct ComponentParse {
         u16 glyphIndex;
         i32 arguments[2];
         bool argsAreXY;
@@ -1596,58 +1596,57 @@ Glyph glyfParsed::ParseCompound(glyf_header *gheader, Array<glyfPoint> *dstArray
         bool scaledComponentOffset;
         mat2 scale;
     };
-    Array<Component> components;
+    Array<ComponentParse> componentsParse;
     do {
-        Component component;
-        component.scale = mat2(1.0);
+        ComponentParse componentParse;
+        componentParse.scale = mat2(1.0);
         flags = (u16*)ptr;
         ptr += 2;
-        component.glyphIndex = *(u16*)ptr;
+        componentParse.glyphIndex = *(u16*)ptr;
         ptr += 2;
-        component.argsAreXY = (*flags & 0x02) != 0;
+        componentParse.argsAreXY = (*flags & 0x02) != 0;
         if (*flags & 0x01) { // Bit 0
-            if (component.argsAreXY) {
+            if (componentParse.argsAreXY) {
                 i16 *arguments = (i16*)ptr;
-                component.arguments[0] = arguments[0];
-                component.arguments[1] = arguments[1];
+                componentParse.arguments[0] = arguments[0];
+                componentParse.arguments[1] = arguments[1];
             } else {
                 u16 *arguments = (u16*)ptr;
-                component.arguments[0] = arguments[0];
-                component.arguments[1] = arguments[1];
+                componentParse.arguments[0] = arguments[0];
+                componentParse.arguments[1] = arguments[1];
             }
             ptr += 4;
         } else {
-            if (component.argsAreXY) {
+            if (componentParse.argsAreXY) {
                 i8 *arguments = (i8*)ptr;
-                component.arguments[0] = (i32)arguments[0];
-                component.arguments[1] = (i32)arguments[1];
+                componentParse.arguments[0] = (i32)arguments[0];
+                componentParse.arguments[1] = (i32)arguments[1];
             } else {
                 u8 *arguments = (u8*)ptr;
-                component.arguments[0] = (i32)arguments[0];
-                component.arguments[1] = (i32)arguments[1];
+                componentParse.arguments[0] = (i32)arguments[0];
+                componentParse.arguments[1] = (i32)arguments[1];
             }
             ptr += 2;
         }
-        component.roundXY = (*flags & 0x03) != 0;
+        componentParse.roundXY = (*flags & 0x03) != 0;
         if (*flags & 0x08) { // Bit 3
             const F2Dot14_t& scale = *(F2Dot14_t*)ptr;
-            component.scale = mat2(ToF32(scale));
+            componentParse.scale = mat2(ToF32(scale));
             ptr += 2;
         }
         if (*flags & 0x40) { // Bit 6
             const F2Dot14_t *scale = (F2Dot14_t*)ptr;
-            const f32 scales[2] = { ToF32(scale[0]), ToF32(scale[1]) };
-            component.scale = mat2(scales[0], 0.0, scales[1], 0.0);
+            componentParse.scale = mat2(ToF32(scale[0]), 0.0, 0.0, ToF32(scale[1]));
             ptr += 4;
         }
         if (*flags & 0x80) { // Bit 7
             const F2Dot14_t *scale = (F2Dot14_t*)ptr;
-            component.scale = mat2(ToF32(scale[0]), ToF32(scale[1]), ToF32(scale[2]), ToF32(scale[3]));
+            componentParse.scale = mat2(ToF32(scale[0]), ToF32(scale[1]), ToF32(scale[2]), ToF32(scale[3]));
             ptr += 8;
         }
-        component.useMyMetrics = (*flags & 0x200) != 0; // Bit 9
-        component.scaledComponentOffset = (*flags & 0x800) != 0; // Bit 11
-        components.Append(component);
+        componentParse.useMyMetrics = (*flags & 0x200) != 0; // Bit 9
+        componentParse.scaledComponentOffset = (*flags & 0x800) != 0; // Bit 11
+        componentsParse.Append(componentParse);
     } while (*flags & 0x20); // Bit 5
     // if (*flags & 0x0100) { // Bit 8
     //     u16& numInstructions = *(u16*)ptr;
@@ -1655,31 +1654,39 @@ Glyph glyfParsed::ParseCompound(glyf_header *gheader, Array<glyfPoint> *dstArray
     // }
     const f32 unitsPerEm = (f32)header->unitsPerEm;
     Array<glyfPoint> allPoints;
-    for (Component& component : components) {
+    for (ComponentParse& componentParse : componentsParse) {
         Array<glyfPoint> componentPoints;
-        glyf_header *componentHeader = (glyf_header*)((char*)glyphData + glyfOffsets[component.glyphIndex]);
+        glyf_header *componentHeader = (glyf_header*)((char*)glyphData + glyfOffsets[componentParse.glyphIndex]);
         Glyph componentGlyph;
+        bool simple = false;
+        Component component;
         if (componentHeader->numberOfContours <= 0) {
             componentGlyph = ParseCompound(componentHeader, &componentPoints);
         } else {
             componentGlyph = ParseSimple(componentHeader, &componentPoints);
-            out.components.Append(component.glyphIndex);
+            simple = true;
+            component.glyphIndex = componentParse.glyphIndex;
         }
         vec2 offset;
-        if (component.argsAreXY) {
+        if (componentParse.argsAreXY) {
             // cout << "argsAreXY" << std::endl;
-            offset = vec2((f32)component.arguments[0], (f32)component.arguments[1]) / unitsPerEm;
+            offset = vec2((f32)componentParse.arguments[0], (f32)componentParse.arguments[1]) / unitsPerEm;
         } else {
             // cout << "argsAre not XY" << std::endl;
-            offset = componentPoints[component.arguments[1]].coords - allPoints[component.arguments[0]].coords;
+            offset = componentPoints[componentParse.arguments[1]].coords - allPoints[componentParse.arguments[0]].coords;
         }
-        if (component.scaledComponentOffset) {
+        if (componentParse.scaledComponentOffset) {
             // cout << "scaledComponentOffset" << std::endl;
-            offset = component.scale * offset;
+            offset = componentParse.scale * offset;
         }
-        if (component.roundXY) {
+        if (componentParse.roundXY) {
             // cout << "roundXY" << std::endl;
             offset = vec2(round(offset.x*unitsPerEm), round(offset.y*unitsPerEm)) / unitsPerEm;
+        }
+        if (simple) {
+            component.offset = offset;
+            component.transform = componentParse.scale;
+            out.components = {component};
         }
         // cout << "scale = { "
         //      << component.scale.h.x1 << ", "
@@ -1688,10 +1695,10 @@ Glyph glyfParsed::ParseCompound(glyf_header *gheader, Array<glyfPoint> *dstArray
         //      << component.scale.h.y2 << " }, offset = { "
         //      << offset.x << ", " << offset.y << " }" << std::endl;
         for (glyfPoint& point : componentPoints) {
-            point.coords = component.scale * point.coords;
+            point.coords = componentParse.scale * point.coords;
         }
         allPoints.Append(std::move(componentPoints));
-        componentGlyph.Scale(component.scale);
+        componentGlyph.Scale(componentParse.scale);
         componentGlyph.Offset(offset);
         out.curves.Append(std::move(componentGlyph.curves));
         out.lines.Append(std::move(componentGlyph.lines));

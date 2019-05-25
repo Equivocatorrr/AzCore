@@ -70,6 +70,15 @@ namespace font {
     //     void Offset(const vec2& offset);
     // };
 
+    /*  struct: Component
+        Author: Philip Haynes
+        Defines how a glyph should use a single component.  */
+    struct Component {
+        u16 glyphIndex;
+        vec2 offset; // Added to Glyph.offset for total offset
+        mat2 transform;
+    };
+
     /*  struct: Glyph
         Author: Philip Haynes
         Defines a single glyph, including all the contours.     */
@@ -77,7 +86,7 @@ namespace font {
         // All coordinates are in Em units
         Array<Curve> curves;
         Array<Line> lines;
-        Array<u16> components;
+        Array<Component> components;
         // Array<Contour> contours;
         vec2 pos; // Position in atlas
         vec2 size; // Total dimensions of the contours
@@ -126,19 +135,39 @@ namespace font {
         vec2 min, max;
     };
 
+    struct BoxListXNode {
+        Array<Box> boxes;
+
+        bool Intersects(Box box);
+    };
+
+    struct BoxListX {
+        Array<BoxListXNode> nodes;
+
+        void AddBox(Box box);
+        bool Intersects(Box box);
+    };
+
+    struct BoxListY {
+        Array<BoxListX> lists;
+
+        void AddBox(Box box);
+        bool Intersects(Box box);
+    };
+
     /*  struct: FontBuilder
         Author: Philip Haynes
         Automatically packs an atlas of signed distance field glyphs from a font file.   */
     struct FontBuilder {
         Font *font = nullptr;
+        i32 renderThreadCount = 0; // <1 means hardware concurrency
         vec2i dimensions; // Size of our image
         Array<u8> pixels; // Actual image data
         ArrayList<i32> indexToId; // Our mapping from glyph index to indices of the below Arrays
         Array<Glyph> glyphs; // Actual glyph data, referenced by id
         // Boxes are used to construct the atlas.
         // We hold on to these in case we want to dynamically add more.
-        // Bounding boxes of glyphs placed in our atlas, referenced by id
-        Array<Box> boxes;
+        BoxListY boxes;
         // Potential good places to put new boxes
         Array<vec2> corners;
         // How big our current atlas is

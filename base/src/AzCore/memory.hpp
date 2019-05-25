@@ -292,13 +292,17 @@ struct Array {
             data = (T*)&StringTerminators<T>::value;
         }
     }
-    Array(const i32 newSize, const T& value=T()) : data(new T[newSize + allocTail]) , allocated(newSize) , size(newSize) {
+    Array(const i32 newSize) : data(new T[newSize + allocTail]) , allocated(newSize) , size(newSize) {
+        SetTerminator();
+    }
+    Array(const i32 newSize, const T& value) : data(new T[newSize + allocTail]) , allocated(newSize) , size(newSize) {
         for (i32 i = 0; i < size; i++) {
             data[i] = value;
         }
         SetTerminator();
     }
-    Array(const u32 newSize, const T& value=T()) : Array((i32)newSize, value) {}
+    Array(const u32 newSize) : Array((i32)newSize) {}
+    Array(const u32 newSize, const T& value) : Array((i32)newSize, value) {}
     Array(const std::initializer_list<T>& init) : allocated(init.size()) , size(allocated) {
         if (size != 0 || allocTail != 0) {
             data = new T[allocated + allocTail];
@@ -520,7 +524,7 @@ struct Array {
         SetTerminator();
     }
 
-    void Resize(const i32 newSize, const T& value=T()) {
+    void Resize(const i32 newSize, const T& value) {
         if (newSize > allocated) {
             Reserve(max(newSize, (allocated >> 1) + 2));
         } else if (newSize == 0 && allocTail == 0) {
@@ -534,6 +538,22 @@ struct Array {
         }
         for (i32 i = size; i < newSize; i++) {
             data[i] = value;
+        }
+        size = newSize;
+        SetTerminator();
+    }
+
+    void Resize(const i32 newSize) {
+        if (newSize > allocated) {
+            Reserve(max(newSize, (allocated >> 1) + 2));
+        } else if (newSize == 0 && allocTail == 0) {
+            if (allocated != 0) {
+                delete[] data;
+            }
+            data = nullptr;
+            allocated = 0;
+            size = 0;
+            return;
         }
         size = newSize;
         SetTerminator();
@@ -685,7 +705,7 @@ struct Array {
         }
     }
 
-    void Clear(const bool noAllocTail=false) {
+    void Clear() {
         if (allocated != 0) {
             delete[] data;
         }

@@ -280,9 +280,10 @@ struct Array {
         if constexpr (allocTail != 0) {
             if (data == nullptr) {
                 data = (T*)&StringTerminators<T>::value;
-            }
-            for (i32 i = size; i < size+allocTail; i++) {
-                data[i] = StringTerminators<T>::value;
+            } else {
+                for (i32 i = size; i < size+allocTail; i++) {
+                    data[i] = StringTerminators<T>::value;
+                }
             }
         }
     }
@@ -292,10 +293,20 @@ struct Array {
             data = (T*)&StringTerminators<T>::value;
         }
     }
-    Array(const i32 newSize) : data(new T[newSize + allocTail]) , allocated(newSize) , size(newSize) {
+    Array(const i32 newSize) : allocated(newSize) , size(newSize) {
+        if (allocated) {
+            data = new T[allocated + allocTail];
+        } else {
+            data = nullptr;
+        }
         SetTerminator();
     }
-    Array(const i32 newSize, const T& value) : data(new T[newSize + allocTail]) , allocated(newSize) , size(newSize) {
+    Array(const i32 newSize, const T& value) : allocated(newSize) , size(newSize) {
+        if (allocated) {
+            data = new T[allocated + allocTail];
+        } else {
+            data = nullptr;
+        }
         for (i32 i = 0; i < size; i++) {
             data[i] = value;
         }
@@ -316,7 +327,11 @@ struct Array {
         SetTerminator();
     }
     Array(const Array<T, allocTail>& other) : allocated(other.size) , size(other.size) {
-        data = new T[allocated + allocTail];
+        if (allocated) {
+            data = new T[allocated + allocTail];
+        } else {
+            data = nullptr;
+        }
         if constexpr (std::is_trivially_copyable<T>::value) {
             memcpy((void*)data, (void*)other.data, sizeof(T) * allocated);
         } else {
@@ -333,7 +348,11 @@ struct Array {
     }
 
     Array(const T* string) : allocated(StringLength(string)) , size(allocated) {
-        data = new T[allocated+allocTail];
+        if (allocated) {
+            data = new T[allocated + allocTail];
+        } else {
+            data = nullptr;
+        }
         for (i32 i = 0; i < size; i++) {
             data[i] = string[i];
         }
@@ -374,17 +393,22 @@ struct Array {
             for (const T& val : init) {
                 data[i++] = val;
             }
-        }
-        // We definitely have to allocate
-        const bool doDelete = allocated != 0;
-        allocated = size;
-        if (doDelete) {
-            delete[] data;
-        }
-        data = new T[allocated + allocTail];
-        i32 i = 0;
-        for (const T& val : init) {
-            data[i++] = val;
+        } else {
+            // We definitely have to allocate
+            const bool doDelete = allocated != 0;
+            allocated = size;
+            if (doDelete) {
+                delete[] data;
+            }
+            if (allocated) {
+                data = new T[allocated + allocTail];
+            } else {
+                data = nullptr;
+            }
+            i32 i = 0;
+            for (const T& val : init) {
+                data[i++] = val;
+            }
         }
         SetTerminator();
         return *this;
@@ -520,21 +544,24 @@ struct Array {
         if (doDelete) {
             delete[] data;
         }
-        data = new T[newSize + allocTail];
+        if (allocated) {
+            data = new T[allocated + allocTail];
+        } else {
+            data = nullptr;
+        }
         SetTerminator();
     }
 
     void Resize(const i32 newSize, const T& value) {
         if (newSize > allocated) {
             Reserve(max(newSize, (allocated >> 1) + 2));
-        } else if (newSize == 0 && allocTail == 0) {
+        } else if (newSize == 0) {
             if (allocated != 0) {
                 delete[] data;
             }
             data = nullptr;
             allocated = 0;
             size = 0;
-            return;
         }
         for (i32 i = size; i < newSize; i++) {
             data[i] = value;
@@ -553,7 +580,6 @@ struct Array {
             data = nullptr;
             allocated = 0;
             size = 0;
-            return;
         }
         size = newSize;
         SetTerminator();

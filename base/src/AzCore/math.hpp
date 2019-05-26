@@ -157,7 +157,7 @@ inline T lerp(T a, T b, F factor) {
 
 template<typename T>
 inline T map(T in, T minFrom, T maxFrom, T minTo, T maxTo) {
-    return (in - minFrom) * (maxTo - minTo) / (maxFrom - minFrom);
+    return (in - minFrom) * (maxTo - minTo) / (maxFrom - minFrom) + minTo;
 }
 
 template<typename T>

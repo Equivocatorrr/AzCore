@@ -327,7 +327,7 @@ namespace io {
 
         if (rawInputDevice->data->numAxes == 5) {
             // Probably combined Z-axes because Microsoft is a dum dum
-            axisRZ = map(axisLZ, maxRange/2.0, maxRange, minRange, maxRange);
+            axisRZ = map(axisLZ, 0.0, maxRange, minRange, maxRange);
             axisLZ = max(axisRZ, 0.0);
             axisRZ = max(-axisRZ, 0.0);
         }

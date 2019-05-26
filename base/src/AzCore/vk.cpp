@@ -2509,7 +2509,7 @@ failure:
             }
             cout << "Shader: \"" << shaders[i].shader->filename
                  << "\" accessing function \"" << shaders[i].functionName << "\"" << std::endl;
-            shaderStages[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            shaderStages[i] = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
             shaderStages[i].stage = shaders[i].stage;
             shaderStages[i].module = shaders[i].shader->data.module;
             shaderStages[i].pName = shaders[i].functionName.data;

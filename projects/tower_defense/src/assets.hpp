@@ -19,14 +19,14 @@ struct Texture {
         i32 width, height, channels;
     } data;
 
-    String filename;
+    String filename = String();
 
     ~Texture();
     bool Load(u16 channels = 0); // set channels to force conversion, else inherit from the file.
 };
 
 struct Manager {
-    Array<Texture> textures;
+    Array<Texture> textures{};
 
     bool LoadAll();
 };

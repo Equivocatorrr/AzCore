@@ -40,7 +40,7 @@ AZCORE_OBJ_W = $(patsubst %,$(AZCORE_BASE)/obj/Windows/Release/%,$(_AZCORE_OBJ_W
 AZCORE_OBJ_LD = $(patsubst %,$(AZCORE_BASE)/obj/Linux/Debug/%,$(_AZCORE_OBJ_L))
 AZCORE_OBJ_WD = $(patsubst %,$(AZCORE_BASE)/obj/Windows/Debug/%,$(_AZCORE_OBJ_W))
 
-_OBJ = main.o
+_OBJ = main.o assets.o rendering.o
 OBJ_L = $(patsubst %,$(ODIR)/Linux/Release/%,$(_OBJ))
 OBJ_W = $(patsubst %,$(ODIR)/Windows/Release/%,$(_OBJ))
 OBJ_LD = $(patsubst %,$(ODIR)/Linux/Debug/%,$(_OBJ))
@@ -101,9 +101,9 @@ _releasew: $(OBJ_W) $(WINDOWS_RESOURCES) azcorew
 	@mkdir -p $(BDIR)/Windows/Release
 	i686-w64-mingw32-g++ -o $(BDIR)/Windows/Release/$(APPNAME).exe $(OBJ_W) $(WINDOWS_RESOURCES) $(AZCORE_OBJ_W) $(CFLAGS) $(WCFLAGS) -mwindows $(LIBS_W)
 
-releasel: azcorel _releasel shaders
+releasel: _releasel shaders
 
-releasew: azcorew _releasew shaders
+releasew: _releasew shaders
 
 release: _releasel _releasew shaders
 

@@ -32,7 +32,7 @@
     // This define will get rid of most sanity checks,
     // especially those related to Vulkan Tree Structure.
     // It's advised to keep the sanity checks when designing your program.
-    #define VK_SANITY_CHECKS_MINIMAL
+    // #define VK_SANITY_CHECKS_MINIMAL
 #endif
 
 // Having this defined makes keeping track of host memory precisely impossible
@@ -948,6 +948,8 @@ namespace vk {
     inline void DeviceWaitIdle(Ptr<Device> device) {
         vkDeviceWaitIdle(device->data.device);
     }
+
+    void CmdExecuteCommands(VkCommandBuffer commandBuffer, Array<Ptr<CommandBuffer>> commandBuffers);
 
 }
 

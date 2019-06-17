@@ -4287,4 +4287,13 @@ failed:
         return true;
     }
 
+    void CmdExecuteCommands(VkCommandBuffer commandBuffer, Array<Ptr<CommandBuffer>> commandBuffers) {
+        Array<VkCommandBuffer> cmdBufs;
+        cmdBufs.Reserve(commandBuffers.size);
+        for (auto& cmdBuf : commandBuffers) {
+            cmdBufs.Append(cmdBuf->data.commandBuffer);
+        }
+        vkCmdExecuteCommands(commandBuffer, cmdBufs.size, cmdBufs.data);
+    }
+
 }

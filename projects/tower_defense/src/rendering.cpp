@@ -188,6 +188,11 @@ bool Manager::Init() {
 
     data.pipeline2D->colorBlendAttachments.Append(colorBlendAttachment);
 
+    data.pipeline2D->pushConstantRanges = {
+        {/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
+        {/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 20}
+    };
+
     if (!data.instance.Init()) {
         error = "Failed to init vk::instance: " + vk::error;
         return false;
@@ -231,24 +236,6 @@ bool Manager::Draw() {
         data.resized = false;
     }
 
-    Array<VkCommandBuffer> commandBuffersSecondary;
-    commandBuffersSecondary.Reserve(data.commandBuffersSecondary.size);
-
-    for (auto& commandBuffer : data.commandBuffersSecondary) {
-        VkCommandBuffer cmdBuf = commandBuffer->Begin();
-        commandBuffersSecondary.Append(cmdBuf);
-    }
-
-    for (auto& renderCallback : data.renderCallbacks) {
-        renderCallback(this, commandBuffersSecondary);
-    }
-
-    for (auto& commandBuffer : data.commandBuffersSecondary) {
-        commandBuffer->End();
-    }
-
-    data.buffer = !data.buffer;
-
     VkResult acquisitionResult = data.swapchain->AcquireNextImage();
 
     if (acquisitionResult == VK_ERROR_OUT_OF_DATE_KHR || acquisitionResult == VK_NOT_READY) {
@@ -262,6 +249,24 @@ bool Manager::Draw() {
         error = "Failed to acquire swapchain image: " + vk::error;
         return false;
     }
+
+    Array<VkCommandBuffer> commandBuffersSecondary;
+    commandBuffersSecondary.Reserve(data.commandBuffersSecondary.size);
+
+    for (auto& commandBuffer : data.commandBuffersSecondary) {
+        VkCommandBuffer cmdBuf = commandBuffer->Begin();
+        commandBuffersSecondary.Append(cmdBuf);
+    }
+
+    for (auto& renderCallback : data.renderCallbacks) {
+        renderCallback.callback(renderCallback.userdata, this, commandBuffersSecondary);
+    }
+
+    for (auto& commandBuffer : data.commandBuffersSecondary) {
+        commandBuffer->End();
+    }
+
+    data.buffer = !data.buffer;
 
     VkCommandBuffer cmdBuf = data.commandBufferPrimary[data.buffer]->Begin();
     if (cmdBuf == VK_NULL_HANDLE) {

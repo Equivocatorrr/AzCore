@@ -25,9 +25,26 @@ struct Vertex {
     vec2 tex;
 };
 
+struct PushConstants {
+    struct {
+        mat2 transform = mat2(1.0);
+        vec2 origin = vec2(0.5);
+        vec2 position = vec2(0.0);
+    } vert;
+    struct {
+        vec4 color = vec4(1.0);
+        int texIndex = 0;
+    } frag;
+};
+
 extern String error;
 
-typedef void (*fpRenderCallback_t)(struct Manager*, Array<VkCommandBuffer>&);
+typedef void (*fpRenderCallback_t)(void*, struct Manager*, Array<VkCommandBuffer>&);
+
+struct RenderCallback {
+    fpRenderCallback_t callback;
+    void *userdata;
+};
 
 struct Manager {
     struct {
@@ -63,14 +80,14 @@ struct Manager {
         Ptr<vk::Descriptors> descriptors;
 
         // Functions to call every time Draw is called, in the order they're added.
-        Array<fpRenderCallback_t> renderCallbacks;
+        Array<RenderCallback> renderCallbacks;
     } data;
 
     io::Window *window = nullptr;
     Array<Assets::Texture> *textures = nullptr;
 
-    inline void AddRenderCallback(fpRenderCallback_t callback) {
-        data.renderCallbacks.Append(callback);
+    inline void AddRenderCallback(fpRenderCallback_t callback, void* userdata) {
+        data.renderCallbacks.Append({callback, userdata});
     }
 
     bool Init();

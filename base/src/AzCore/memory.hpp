@@ -278,7 +278,7 @@ struct Array {
 
     void SetTerminator() {
         if constexpr (allocTail != 0) {
-            if (data == nullptr) {
+            if (allocated == 0) {
                 data = (T*)&StringTerminators<T>::value;
             } else {
                 for (i32 i = size; i < size+allocTail; i++) {

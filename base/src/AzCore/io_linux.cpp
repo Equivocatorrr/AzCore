@@ -199,9 +199,8 @@ namespace io {
             i32 fd = open(path, O_RDONLY | O_NONBLOCK);
             if (fd < 0) {
                 if (errno == EACCES) {
-                    error = "Permission denied opening device with path \"";
-                    error += path;
-                    return false;
+                    cout << "Permission denied opening device with path \"" << path << std::endl;
+                    return true;
                 }
                 continue;
             }

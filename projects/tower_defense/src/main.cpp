@@ -53,8 +53,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     window.input = &input;
 
     Assets::Manager assets;
-    assets.textures.Resize(1);
-    assets.textures[0].filename = "data/test.tga";
+    assets.filesToLoad.Append("test.tga");
     assets.LoadAll();
 
     Rendering::Manager rendering;

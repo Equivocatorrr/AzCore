@@ -109,15 +109,15 @@ bool Manager::Init() {
     auto texImages = data.textureMemory->AddImages(textures->size, baseImage);
 
     for (i32 i = 0; i < texImages.size; i++) {
-        const i32 channels = (*textures)[i].data.channels;
+        const i32 channels = (*textures)[i].channels;
         if (channels == 3) {
             texImages[i].format = VK_FORMAT_R8G8B8_UNORM;
         } else if (channels != 4) {
             error = "Invalid channel count (" + ToString(channels) + ") in textures[" + ToString(i) + "]";
             return false;
         }
-        texImages[i].width = (*textures)[i].data.width;
-        texImages[i].height = (*textures)[i].data.height;
+        texImages[i].width = (*textures)[i].width;
+        texImages[i].height = (*textures)[i].height;
         texImages[i].mipLevels = floor(log2((f32)max(texImages[i].width, texImages[i].height))) + 1;
 
         data.textureSampler->maxLod = max(data.textureSampler->maxLod, (f32)texImages[i].mipLevels);
@@ -202,7 +202,7 @@ bool Manager::Init() {
     bufferStagingBuffers[0].CopyData(vertices.data);
     bufferStagingBuffers[1].CopyData(indices.data);
     for (i32 i = 0; i < texStagingBuffers.size; i++) {
-        texStagingBuffers[i].CopyData((*textures)[i].data.pixels);
+        texStagingBuffers[i].CopyData((*textures)[i].pixels.data);
     }
 
     VkCommandBuffer cmdBufCopy = data.commandBufferPrimary[0]->Begin();

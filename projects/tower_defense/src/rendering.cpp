@@ -270,6 +270,9 @@ bool Manager::Draw() {
 
     for (auto& commandBuffer : data.commandBuffersSecondary) {
         VkCommandBuffer cmdBuf = commandBuffer->Begin();
+        vk::CmdBindVertexBuffer(cmdBuf, 0, data.vertexBuffer);
+        vk::CmdBindIndexBuffer(cmdBuf, data.indexBuffer, VK_INDEX_TYPE_UINT32);
+        vk::CmdSetViewportAndScissor(cmdBuf, window->width, window->height);
         commandBuffersSecondary.Append(cmdBuf);
     }
 

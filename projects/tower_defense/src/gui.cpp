@@ -17,12 +17,10 @@ void Gui::EventAssetAcquire(Assets::Manager *assets) {
 
 void Gui::EventDraw(bool buffer, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) {
     Rendering::PushConstants pc = Rendering::PushConstants();
+    pc.frag.texIndex = imageIndex;
     f32 aspect = (f32)rendering->window->height / (f32)rendering->window->width;
     pc.vert.transform = pc.vert.transform.Scale(vec2(aspect, 1.0));
     rendering->data.pipeline2D->Bind(commandBuffer);
-    vk::CmdBindVertexBuffer(commandBuffer, 0, rendering->data.vertexBuffer);
-    vk::CmdBindIndexBuffer(commandBuffer, rendering->data.indexBuffer, VK_INDEX_TYPE_UINT32);
-    vk::CmdSetViewportAndScissor(commandBuffer, rendering->window->width, rendering->window->height);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, rendering->data.pipeline2D->data.layout,
             0, 1, &rendering->data.descriptors->data.sets[0].data.set, 0, nullptr);
     pc.Push(commandBuffer, rendering);

@@ -70,10 +70,7 @@ Type FilenameToType(String filename) {
 
 void Mapping::SetFilename(String name) {
     filename = std::move(name);
-    checkSum = 0;
-    for (i32 i = 0; i < filename.size; i++) {
-        checkSum += (filename[i] << (i%4)*8);
-    }
+    checkSum = CheckSum(filename);
 }
 
 bool Mapping::FilenameEquals(String name, u32 sum) {
@@ -81,6 +78,14 @@ bool Mapping::FilenameEquals(String name, u32 sum) {
         return filename == name;
     }
     return false;
+}
+
+u32 Mapping::CheckSum(String name) {
+    u32 checkSum = 0;
+    for (i32 i = 0; i < name.size; i++) {
+        checkSum += (name[i] << (i%4)*8);
+    }
+    return checkSum;
 }
 
 bool Texture::Load(String filename) {
@@ -120,6 +125,16 @@ bool Manager::LoadAll() {
         }
     }
     return true;
+}
+
+MapIndices Manager::FindMapping(String filename) {
+    i32 checkSum = Mapping::CheckSum(filename);
+    for (Mapping& mapping : mappings) {
+        if (mapping.FilenameEquals(filename, checkSum)) {
+            return mapping.ids;
+        }
+    }
+    return {0, 0};
 }
 
 }

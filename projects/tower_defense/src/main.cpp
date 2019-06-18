@@ -6,29 +6,14 @@
 
 #include "rendering.hpp"
 #include "assets.hpp"
+#include "objects.hpp"
+#include "gui.hpp"
 
 #include "AzCore/io.hpp"
 
 const char *title = "AzCore Tower Defense";
 
 io::logStream cout("main.log");
-
-void renderCallbackTest(void *userdata, Rendering::Manager *rendering, Array<VkCommandBuffer>& commandBuffers) {
-    Rendering::PushConstants pc = Rendering::PushConstants();
-    f32 aspect = (f32)rendering->window->height / (f32)rendering->window->width;
-    pc.vert.transform = pc.vert.transform.Scale(vec2(aspect, 1.0));
-    rendering->data.pipeline2D->Bind(commandBuffers[0]);
-    vk::CmdBindVertexBuffer(commandBuffers[0], 0, rendering->data.vertexBuffer);
-    vk::CmdBindIndexBuffer(commandBuffers[0], rendering->data.indexBuffer, VK_INDEX_TYPE_UINT32);
-    vk::CmdSetViewportAndScissor(commandBuffers[0], rendering->window->width, rendering->window->height);
-    vkCmdBindDescriptorSets(commandBuffers[0], VK_PIPELINE_BIND_POINT_GRAPHICS, rendering->data.pipeline2D->data.layout,
-            0, 1, &rendering->data.descriptors->data.sets[0].data.set, 0, nullptr);
-    vkCmdPushConstants(commandBuffers[0], rendering->data.pipeline2D->data.layout,
-            VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pc.vert), &pc.vert);
-    vkCmdPushConstants(commandBuffers[0], rendering->data.pipeline2D->data.layout,
-            VK_SHADER_STAGE_FRAGMENT_BIT, offsetof(Rendering::PushConstants, frag), sizeof(pc.frag), &pc.frag);
-    vkCmdDrawIndexed(commandBuffers[0], 6, 1, 0, 0, 0);
-}
 
 i32 main(i32 argumentCount, char** argumentValues) {
 
@@ -47,19 +32,25 @@ i32 main(i32 argumentCount, char** argumentValues) {
     cout << "Starting with layers " << (enableLayers ? "enabled" : "disabled")
          << " and core validation " << (enableCoreValidation ? "enabled" : "disabled") << std::endl;
 
+    Objects::Manager objects;
+    objects.Register(new Gui());
+
     io::Input input;
+    objects.input = &input;
     io::Window window;
+    objects.window = &window;
     window.name = title;
     window.input = &input;
 
     Assets::Manager assets;
-    assets.filesToLoad.Append("test.tga");
+    objects.GetAssets(&assets);
     assets.LoadAll();
+    objects.UseAssets(&assets);
 
     Rendering::Manager rendering;
     rendering.textures = &assets.textures;
     rendering.data.instance.AppInfo(title, 1, 0, 0);
-    rendering.AddRenderCallback(renderCallbackTest, nullptr);
+    objects.RegisterDrawing(&rendering);
 
     if (enableLayers) {
         Array<const char*> layers = {

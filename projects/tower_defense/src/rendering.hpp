@@ -20,21 +20,26 @@ namespace Assets {
 
 namespace Rendering {
 
+struct Manager;
+
 struct Vertex {
     vec2 pos;
     vec2 tex;
 };
 
 struct PushConstants {
-    struct {
+    struct vert_t {
         mat2 transform = mat2(1.0);
         vec2 origin = vec2(0.5);
         vec2 position = vec2(0.0);
+        void Push(VkCommandBuffer commandBuffer, Manager *rendering);
     } vert;
-    struct {
+    struct frag_t {
         vec4 color = vec4(1.0);
         int texIndex = 0;
+        void Push(VkCommandBuffer commandBuffer, Manager *rendering);
     } frag;
+    void Push(VkCommandBuffer commandBuffer, Manager *rendering);
 };
 
 extern String error;

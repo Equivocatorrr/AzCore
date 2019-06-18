@@ -36,6 +36,8 @@ struct Mapping {
     // Sets both the filename and the checksum.
     void SetFilename(String name);
     bool FilenameEquals(String name, u32 sum);
+
+    static u32 CheckSum(String name);
 };
 
 struct Texture {

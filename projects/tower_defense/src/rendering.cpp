@@ -15,6 +15,21 @@ io::logStream cout("rendering.log");
 
 String error = "No error.";
 
+void PushConstants::vert_t::Push(VkCommandBuffer commandBuffer, Manager *rendering) {
+    vkCmdPushConstants(commandBuffer, rendering->data.pipeline2D->data.layout,
+            VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(vert_t), this);
+}
+
+void PushConstants::frag_t::Push(VkCommandBuffer commandBuffer, Manager *rendering) {
+    vkCmdPushConstants(commandBuffer, rendering->data.pipeline2D->data.layout,
+            VK_SHADER_STAGE_FRAGMENT_BIT, offsetof(PushConstants, frag), sizeof(frag_t), this);
+}
+
+void PushConstants::Push(VkCommandBuffer commandBuffer, Manager *rendering) {
+    vert.Push(commandBuffer, rendering);
+    frag.Push(commandBuffer, rendering);
+}
+
 bool Manager::Init() {
     if (window == nullptr) {
         error = "Manager needs a window.";

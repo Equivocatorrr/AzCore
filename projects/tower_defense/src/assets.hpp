@@ -48,7 +48,7 @@ struct Texture {
 };
 
 struct Manager {
-    Array<String> filesToLoad{}; // Everything we want to actually load.
+    Array<String> filesToLoad{"TextureMissing.png"}; // Everything we want to actually load.
     Array<Mapping> mappings{};
     Array<Texture> textures{};
 

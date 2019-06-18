@@ -121,6 +121,7 @@ bool Manager::LoadAll() {
             mapping.type = TEXTURE;
             mapping.ids.index1 = nextTexIndex;
             mapping.SetFilename(filesToLoad[i]);
+            mappings.Append(mapping);
             break;
         }
     }

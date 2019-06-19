@@ -24,6 +24,8 @@ namespace font {
     extern String error;
     extern io::logStream cout;
 
+    extern const f32 sdfDistance;
+
     /*  struct: Curve
         Author: Philip Haynes
         Defines a single bezier curve.          */

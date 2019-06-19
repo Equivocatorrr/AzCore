@@ -34,11 +34,11 @@ struct Object {
 
 struct Manager {
     // buffer swaps every frame. Used for lockless multithreading.
-    bool buffer = false;
     Array<Object*> objects;
-    f32 timestep = 1.0/60.0;
     io::Input *input = nullptr;
     io::Window *window = nullptr;
+    bool buffer = false;
+    f32 timestep = 1.0/60.0;
 
     ~Manager();
     static void RenderCallback(void *userdata, Rendering::Manager *rendering, Array<VkCommandBuffer>& commandBuffers);

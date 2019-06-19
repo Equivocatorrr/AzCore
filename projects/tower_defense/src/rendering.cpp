@@ -25,9 +25,19 @@ void PushConstants::frag_t::Push(VkCommandBuffer commandBuffer, Manager *renderi
             VK_SHADER_STAGE_FRAGMENT_BIT, offsetof(PushConstants, frag), sizeof(frag_t), this);
 }
 
-void PushConstants::Push(VkCommandBuffer commandBuffer, Manager *rendering) {
+void PushConstants::font_t::Push(VkCommandBuffer commandBuffer, Manager *rendering) {
+    vkCmdPushConstants(commandBuffer, rendering->data.pipelineFont->data.layout,
+            VK_SHADER_STAGE_FRAGMENT_BIT, offsetof(PushConstants, frag), sizeof(frag_t) + sizeof(font_t), (char*)this - sizeof(frag_t));
+}
+
+void PushConstants::Push2D(VkCommandBuffer commandBuffer, Manager *rendering) {
     vert.Push(commandBuffer, rendering);
     frag.Push(commandBuffer, rendering);
+}
+
+void PushConstants::PushFont(VkCommandBuffer commandBuffer, Manager *rendering) {
+    vert.Push(commandBuffer, rendering);
+    font.Push(commandBuffer, rendering);
 }
 
 bool Manager::Init() {
@@ -92,6 +102,7 @@ bool Manager::Init() {
     data.stagingMemory->deviceLocal = false;
     data.bufferMemory = data.device->AddMemory();
     data.textureMemory = data.device->AddMemory();
+    data.fontMemory = data.device->AddMemory();
 
     // Unit square
     Array<Vertex> vertices = {
@@ -117,11 +128,14 @@ bool Manager::Init() {
     data.indexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
     auto texStagingBuffers = data.stagingMemory->AddBuffers(textures->size, baseBuffer);
+    auto fontStagingBuffers = data.stagingMemory->AddBuffers(fonts->size, baseBuffer);
 
     vk::Image baseImage = vk::Image();
     baseImage.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     baseImage.format = VK_FORMAT_R8G8B8A8_UNORM;
     auto texImages = data.textureMemory->AddImages(textures->size, baseImage);
+    baseImage.format = VK_FORMAT_R8_UNORM;
+    auto fontImages = data.fontMemory->AddImages(fonts->size, baseImage);
 
     for (i32 i = 0; i < texImages.size; i++) {
         const i32 channels = (*textures)[i].channels;
@@ -139,6 +153,15 @@ bool Manager::Init() {
 
         texStagingBuffers[i].size = channels * texImages[i].width * texImages[i].height;
     }
+    for (i32 i = 0; i < fontImages.size; i++) {
+        fontImages[i].width = (*fonts)[i].fontBuilder.dimensions.x;
+        fontImages[i].height = (*fonts)[i].fontBuilder.dimensions.y;
+        fontImages[i].mipLevels = floor(log2((f32)max(fontImages[i].width, fontImages[i].height))) + 1;
+
+        data.textureSampler->maxLod = max(data.textureSampler->maxLod, (f32)fontImages[i].mipLevels);
+
+        fontStagingBuffers[i].size = fontImages[i].width * fontImages[i].height;
+    }
 
     data.descriptors = data.device->AddDescriptors();
     Ptr<vk::DescriptorLayout> descriptorLayoutTexture = data.descriptors->AddLayout();
@@ -147,19 +170,33 @@ bool Manager::Init() {
     descriptorLayoutTexture->bindings.Resize(1);
     descriptorLayoutTexture->bindings[0].binding = 0;
     descriptorLayoutTexture->bindings[0].count = textures->size;
-    Ptr<vk::DescriptorSet> descriptorSetTexture = data.descriptors->AddSet(descriptorLayoutTexture);
-    if (!descriptorSetTexture->AddDescriptor(texImages, data.textureSampler, 0)) {
+    Ptr<vk::DescriptorLayout> descriptorLayoutFont = data.descriptors->AddLayout();
+    descriptorLayoutFont->type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorLayoutFont->stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    descriptorLayoutFont->bindings.Resize(1);
+    descriptorLayoutFont->bindings[0].binding = 0;
+    descriptorLayoutFont->bindings[0].count = fonts->size;
+
+    data.descriptorSet2D = data.descriptors->AddSet(descriptorLayoutTexture);
+    if (!data.descriptorSet2D->AddDescriptor(texImages, data.textureSampler, 0)) {
         error = "Failed to add Texture Descriptor: " + vk::error;
         return false;
     }
+    data.descriptorSetFont = data.descriptors->AddSet(descriptorLayoutFont);
+    if (!data.descriptorSetFont->AddDescriptor(fontImages, data.textureSampler, 0)) {
+        error = "Failed to add Font Descriptor: " + vk::error;
+        return false;
+    }
 
-    Range<vk::Shader> shaders = data.device->AddShaders(2);
+    Range<vk::Shader> shaders = data.device->AddShaders(3);
     shaders[0].filename = "data/shaders/2D.vert.spv";
     shaders[1].filename = "data/shaders/2D.frag.spv";
+    shaders[2].filename = "data/shaders/Font.frag.spv";
 
-    vk::ShaderRef shaderRefs[2] = {
+    vk::ShaderRef shaderRefs[3] = {
         vk::ShaderRef(shaders.ToPtr(0), VK_SHADER_STAGE_VERTEX_BIT),
-        vk::ShaderRef(shaders.ToPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT)
+        vk::ShaderRef(shaders.ToPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT),
+        vk::ShaderRef(shaders.ToPtr(2), VK_SHADER_STAGE_FRAGMENT_BIT)
     };
 
     data.pipeline2D = data.device->AddPipeline();
@@ -174,21 +211,35 @@ bool Manager::Init() {
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR
     };
+
+    data.pipelineFont = data.device->AddPipeline();
+    data.pipelineFont->renderPass = data.renderPass;
+    data.pipelineFont->subpass = 0;
+    data.pipelineFont->shaders.Append(shaderRefs[0]);
+    data.pipelineFont->shaders.Append(shaderRefs[2]);
+
+    data.pipelineFont->descriptorLayouts.Append(descriptorLayoutFont);
+
+    data.pipelineFont->dynamicStates = data.pipeline2D->dynamicStates;
+
     VkVertexInputAttributeDescription vertexInputAttributeDescription = {};
     vertexInputAttributeDescription.binding = 0;
     vertexInputAttributeDescription.location = 0;
     vertexInputAttributeDescription.offset = offsetof(Vertex, pos);
     vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
     data.pipeline2D->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+    data.pipelineFont->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
     vertexInputAttributeDescription.location = 1;
     vertexInputAttributeDescription.offset = offsetof(Vertex, tex);
     vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
     data.pipeline2D->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+    data.pipelineFont->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
     VkVertexInputBindingDescription vertexInputBindingDescription = {};
     vertexInputBindingDescription.binding = 0;
     vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
     vertexInputBindingDescription.stride = sizeof(Vertex);
     data.pipeline2D->inputBindingDescriptions.Append(vertexInputBindingDescription);
+    data.pipelineFont->inputBindingDescriptions.Append(vertexInputBindingDescription);
 
     VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
@@ -202,10 +253,15 @@ bool Manager::Init() {
     colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
 
     data.pipeline2D->colorBlendAttachments.Append(colorBlendAttachment);
+    data.pipelineFont->colorBlendAttachments.Append(colorBlendAttachment);
 
     data.pipeline2D->pushConstantRanges = {
         {/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
         {/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 20}
+    };
+    data.pipelineFont->pushConstantRanges = {
+        {/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
+        {/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 28}
     };
 
     if (!data.instance.Init()) {
@@ -219,6 +275,9 @@ bool Manager::Init() {
     for (i32 i = 0; i < texStagingBuffers.size; i++) {
         texStagingBuffers[i].CopyData((*textures)[i].pixels.data);
     }
+    for (i32 i = 0; i < fontStagingBuffers.size; i++) {
+        fontStagingBuffers[i].CopyData((*fonts)[i].fontBuilder.pixels.data);
+    }
 
     VkCommandBuffer cmdBufCopy = data.commandBufferPrimary[0]->Begin();
     data.vertexBuffer->Copy(cmdBufCopy, bufferStagingBuffers.ToPtr(0));
@@ -228,6 +287,11 @@ bool Manager::Init() {
         texImages[i].TransitionLayout(cmdBufCopy, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         texImages[i].Copy(cmdBufCopy, texStagingBuffers.ToPtr(i));
         texImages[i].GenerateMipMaps(cmdBufCopy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
+    for (i32 i = 0; i < fontStagingBuffers.size; i++) {
+        fontImages[i].TransitionLayout(cmdBufCopy, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        fontImages[i].Copy(cmdBufCopy, fontStagingBuffers.ToPtr(i));
+        fontImages[i].GenerateMipMaps(cmdBufCopy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
     if (!data.commandBufferPrimary[0]->End()) {
         error = "Failed to copy from staging buffers: " + vk::error;
@@ -319,6 +383,18 @@ bool Manager::Draw() {
     vk::DeviceWaitIdle(data.device);
 
     return true;
+}
+
+void Manager::BindPipeline2D(VkCommandBuffer commandBuffer) {
+    data.pipeline2D->Bind(commandBuffer);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipeline2D->data.layout,
+            0, 1, &data.descriptorSet2D->data.set, 0, nullptr);
+}
+
+void Manager::BindPipelineFont(VkCommandBuffer commandBuffer) {
+    data.pipelineFont->Bind(commandBuffer);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipelineFont->data.layout,
+            0, 1, &data.descriptorSetFont->data.set, 0, nullptr);
 }
 
 } // namespace Rendering

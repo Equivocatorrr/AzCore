@@ -49,6 +49,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     Rendering::Manager rendering;
     rendering.textures = &assets.textures;
+    rendering.fonts = &assets.fonts;
     rendering.data.instance.AppInfo(title, 1, 0, 0);
     objects.RegisterDrawing(&rendering);
 

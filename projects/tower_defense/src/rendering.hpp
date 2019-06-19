@@ -16,6 +16,7 @@ namespace io {
 
 namespace Assets {
     struct Texture;
+    struct Font;
 }
 
 namespace Rendering {
@@ -39,7 +40,13 @@ struct PushConstants {
         int texIndex = 0;
         void Push(VkCommandBuffer commandBuffer, Manager *rendering);
     } frag;
-    void Push(VkCommandBuffer commandBuffer, Manager *rendering);
+    struct font_t {
+        f32 edge = 0.1;
+        f32 bounds = 0.5;
+        void Push(VkCommandBuffer commandBuffer, Manager *rendering);
+    } font;
+    void Push2D(VkCommandBuffer commandBuffer, Manager *rendering);
+    void PushFont(VkCommandBuffer commandBuffer, Manager *rendering);
 };
 
 extern String error;
@@ -77,12 +84,16 @@ struct Manager {
         Ptr<vk::Memory> stagingMemory;
         Ptr<vk::Memory> bufferMemory; // Uniform buffers, vertex buffers, index buffers
         Ptr<vk::Memory> textureMemory;
+        Ptr<vk::Memory> fontMemory;
 
         Ptr<vk::Buffer> vertexBuffer;
         Ptr<vk::Buffer> indexBuffer;
 
         Ptr<vk::Pipeline> pipeline2D;
+        Ptr<vk::Pipeline> pipelineFont;
         Ptr<vk::Descriptors> descriptors;
+        Ptr<vk::DescriptorSet> descriptorSet2D;
+        Ptr<vk::DescriptorSet> descriptorSetFont;
 
         // Functions to call every time Draw is called, in the order they're added.
         Array<RenderCallback> renderCallbacks;
@@ -90,6 +101,7 @@ struct Manager {
 
     io::Window *window = nullptr;
     Array<Assets::Texture> *textures = nullptr;
+    Array<Assets::Font> *fonts = nullptr;
 
     inline void AddRenderCallback(fpRenderCallback_t callback, void* userdata) {
         data.renderCallbacks.Append({callback, userdata});
@@ -97,6 +109,9 @@ struct Manager {
 
     bool Init();
     bool Draw();
+
+    void BindPipeline2D(VkCommandBuffer commandBuffer);
+    void BindPipelineFont(VkCommandBuffer commandBuffer);
 };
 
 }

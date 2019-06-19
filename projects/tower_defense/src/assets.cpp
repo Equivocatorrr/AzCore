@@ -100,42 +100,64 @@ bool Texture::Load(String filename) {
     return true;
 }
 
+bool Font::Load(String filename) {
+    font.filename = "data/" + filename;
+    if (!font.Load()) {
+        error = "Failed to load font: " + font::error;
+        return false;
+    }
+    fontBuilder.font = &font;
+    fontBuilder.AddRange(0, 255);
+    if (!fontBuilder.Build()) {
+        error = "Failed to load font: " + font::error;
+        return false;
+    }
+    return true;
+}
+
 bool Manager::LoadAll() {
     for (i32 i = 0; i < filesToLoad.size; i++) {
         cout << "Loading asset \"" << filesToLoad[i] << "\": ";
         Type type = FilenameToType(filesToLoad[i]);
         i32 nextTexIndex = textures.size;
+        i32 nextFontIndex = fonts.size;
+        Mapping mapping;
         switch (type) {
         case NONE:
             cout << "Unknown file type." << std::endl;
             continue;
         case FONT:
             cout << "as font." << std::endl;
+            fonts.Append(Font());
+            fonts[nextFontIndex].Load(filesToLoad[i]);
+            mapping.type = FONT;
+            mapping.index = nextFontIndex;
+            mapping.SetFilename(filesToLoad[i]);
+            mappings.Append(std::move(mapping));
             break;
         case TEXTURE:
             cout << "as texture." << std::endl;
-            Texture texture;
-            texture.Load(filesToLoad[i]);
-            textures.Append(std::move(texture));
-            Mapping mapping;
+            textures.Append(Texture());
+            textures[nextTexIndex].Load(filesToLoad[i]);
             mapping.type = TEXTURE;
-            mapping.ids.index1 = nextTexIndex;
+            mapping.index = nextTexIndex;
             mapping.SetFilename(filesToLoad[i]);
-            mappings.Append(mapping);
+            mappings.Append(std::move(mapping));
             break;
         }
     }
     return true;
 }
 
-MapIndices Manager::FindMapping(String filename) {
+i32 Manager::FindMapping(String filename) {
     i32 checkSum = Mapping::CheckSum(filename);
     for (Mapping& mapping : mappings) {
         if (mapping.FilenameEquals(filename, checkSum)) {
-            return mapping.ids;
+            return mapping.index;
         }
     }
-    return {0, 0};
+    cout << "No mapping found for \"" << filename << "\"" << std::endl;
+    return 0;
 }
 
 }

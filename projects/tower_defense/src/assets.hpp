@@ -8,6 +8,7 @@
 #define ASSETS_HPP
 
 #include "AzCore/memory.hpp"
+#include "AzCore/font.hpp"
 
 namespace Assets {
 
@@ -19,20 +20,13 @@ enum Type {
     FONT
 };
 
-struct MapIndices {
-    // For assets that have a texture, index1 is the texture index,
-    // which refers to both the textures array and the index for Rendering Manager
-    // For fonts, which have a texture and extra font-specific data, index2 is the index of the fonts array.
-    i16 index1, index2;
-};
-
 // Used to retrieve indices to actual assets
 // Should be consistent with indices in the Rendering Manager
 struct Mapping {
     u32 checkSum; // Used as a simple hash value for filenames
     String filename; // Actual filename to be loaded
     Type type; // Determines what arrays contain our asset
-    MapIndices ids;
+    i32 index;
     // Sets both the filename and the checksum.
     void SetFilename(String name);
     bool FilenameEquals(String name, u32 sum);
@@ -44,16 +38,26 @@ struct Texture {
     Array<u8> pixels;
     i32 width, height, channels;
 
-    bool Load(String filename); // set channels to force conversion, else inherit from the file.
+    bool Load(String filename);
 };
 
+struct Font {
+    font::Font font;
+    font::FontBuilder fontBuilder;
+
+    bool Load(String filename);
+};
+
+constexpr i32 textureIndexBlank = 1;
+
 struct Manager {
-    Array<String> filesToLoad{"TextureMissing.png"}; // Everything we want to actually load.
+    Array<String> filesToLoad{"TextureMissing.png", "blank.bmp"}; // Everything we want to actually load.
     Array<Mapping> mappings{};
     Array<Texture> textures{};
+    Array<Font> fonts{};
 
     bool LoadAll();
-    MapIndices FindMapping(String filename);
+    i32 FindMapping(String filename);
 };
 
 } // namespace Assets

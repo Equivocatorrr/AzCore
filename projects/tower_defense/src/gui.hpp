@@ -7,9 +7,10 @@
 #define GUI_HPP
 
 #include "objects.hpp"
+#include "assets.hpp"
 
 struct Gui : public Objects::Object {
-    i32 imageIndex;
+    i32 fontIndex;
 
     ~Gui() = default;
 

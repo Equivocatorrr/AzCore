@@ -1390,7 +1390,7 @@ void hmtx::EndianSwap(u16 numOfLongHorMetrics, u16 numGlyphs) {
 #undef ENDIAN_SWAP
 #undef ENDIAN_SWAP_FIXED
 
-Glyph glyfParsed::GetGlyph(u32 glyphIndex) {
+Glyph glyfParsed::GetGlyph(u32 glyphIndex) const {
     Glyph out;
     glyf_header *gheader = (glyf_header*)((char*)glyphData + glyfOffsets[glyphIndex]);
     if (gheader->numberOfContours >= 0) {
@@ -1442,7 +1442,7 @@ Glyph glyfParsed::GetGlyph(u32 glyphIndex) {
     return out;
 }
 
-Glyph glyfParsed::ParseSimple(glyf_header *gheader, Array<glyfPoint> *dstArray) {
+Glyph glyfParsed::ParseSimple(glyf_header *gheader, Array<glyfPoint> *dstArray) const {
     Glyph out;
 
     // cout << "xMin = " << xMin << ", xMax = " << xMax << ", yMin = " << yMin << ", yMax = " << yMax << std::endl;
@@ -1583,7 +1583,7 @@ Glyph glyfParsed::ParseSimple(glyf_header *gheader, Array<glyfPoint> *dstArray) 
     return out;
 }
 
-Glyph glyfParsed::ParseCompound(glyf_header *gheader, Array<glyfPoint> *dstArray) {
+Glyph glyfParsed::ParseCompound(glyf_header *gheader, Array<glyfPoint> *dstArray) const {
     Glyph out;
     char *ptr = (char*)(gheader+1);
     u16 *flags;

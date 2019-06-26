@@ -707,9 +707,9 @@ struct glyfParsed {
     hmtx *horMetrics = nullptr;
     Array<u32> glyfOffsets;
 
-    Glyph GetGlyph(u32 glyphIndex);
-    Glyph ParseSimple(glyf_header *gheader, Array<glyfPoint> *dstArray=nullptr);
-    Glyph ParseCompound(glyf_header *gheader, Array<glyfPoint> *dstArray=nullptr);
+    Glyph GetGlyph(u32 glyphIndex) const;
+    Glyph ParseSimple(glyf_header *gheader, Array<glyfPoint> *dstArray=nullptr) const;
+    Glyph ParseCompound(glyf_header *gheader, Array<glyfPoint> *dstArray=nullptr) const;
 };
 
 } // namespace tables

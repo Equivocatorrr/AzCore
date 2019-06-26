@@ -126,11 +126,11 @@ namespace font {
 
         bool Load();
 
-        u16 GetGlyphIndex(char32 unicode);
-        Glyph GetGlyphByIndex(u16 index);
-        Glyph GetGlyph(char32 unicode);
+        u16 GetGlyphIndex(char32 unicode) const;
+        Glyph GetGlyphByIndex(u16 index) const;
+        Glyph GetGlyph(char32 unicode) const;
         // Rasterizes a single glyph in the console
-        void PrintGlyph(char32 unicode);
+        void PrintGlyph(char32 unicode) const;
     };
 
     struct Box {

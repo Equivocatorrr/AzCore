@@ -691,7 +691,7 @@ bool Font::Load() {
     return true;
 }
 
-u16 Font::GetGlyphIndex(char32 unicode) {
+u16 Font::GetGlyphIndex(char32 unicode) const {
     for (i32 i = 0; i < data.cmaps.size; i++) {
         tables::cmap_format_any *cmap = (tables::cmap_format_any*)(data.tableData.data + data.cmaps[i]);
         u16 glyphIndex = cmap->GetGlyphIndex(unicode);
@@ -702,7 +702,7 @@ u16 Font::GetGlyphIndex(char32 unicode) {
     return 0;
 }
 
-Glyph Font::GetGlyphByIndex(u16 index) {
+Glyph Font::GetGlyphByIndex(u16 index) const {
     if (data.cffParsed.active) {
         // TODO: Something not stupid like this
         throw std::runtime_error("CFF parsing not yet implemented!");
@@ -712,12 +712,12 @@ Glyph Font::GetGlyphByIndex(u16 index) {
     throw std::runtime_error("No glyph data available/supported!");
 }
 
-Glyph Font::GetGlyph(char32 unicode) {
+Glyph Font::GetGlyph(char32 unicode) const {
     u16 glyphIndex = GetGlyphIndex(unicode);
     return GetGlyphByIndex(glyphIndex);
 }
 
-void Font::PrintGlyph(char32 unicode) {
+void Font::PrintGlyph(char32 unicode) const {
     static u64 totalParseTime = 0;
     static u64 totalDrawTime = 0;
     static u32 iterations = 0;
@@ -1043,6 +1043,9 @@ bool FontBuilder::Build() {
         }
         glyphsToAdd.Append(std::move(glyph));
     }
+    for (i32 i = 0; i < indicesToAdd.size; i++) {
+        indexToId.Set(indicesToAdd[i], glyphs.size + i);
+    }
     indicesToAdd.Clear();
     cout << "Took " << FormatTime(Nanoseconds(Clock::now()-start)) << " to parse glyphs." << std::endl;
     cout << "Packing " << glyphsToAdd.size << " glyphs..." << std::endl;
@@ -1145,9 +1148,6 @@ bool FontBuilder::Build() {
     }
     Nanoseconds renderingTime = Clock::now() - start;
     cout << "Rendering took " << FormatTime(renderingTime) << std::endl;
-    for (i32 i = 0; i < indicesToAdd.size; i++) {
-        indexToId.Set(indicesToAdd[i], glyphs.size + i);
-    }
     glyphs.Append(std::move(glyphsToAdd));
     return true;
 }

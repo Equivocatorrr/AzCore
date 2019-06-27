@@ -8,6 +8,7 @@
 
 #include "AzCore/log_stream.hpp"
 #include "AzCore/io.hpp"
+#include "AzCore/font.hpp"
 
 namespace Rendering {
 
@@ -113,12 +114,47 @@ bool Manager::Init() {
     };
     Array<u32> indices = {0, 1, 2, 2, 3, 0};
 
+    Array<Vertex> fontVertices;
+    for (i32 i = 0; i < fonts->size; i++) {
+        for (font::Glyph& glyph : (*fonts)[i].fontBuilder.glyphs) {
+            if (glyph.info.size.x == 0.0 || glyph.info.size.y == 0.0) {
+                continue;
+            }
+            const f32 boundSquare = (*fonts)[i].fontBuilder.boundSquare;
+            f32 posLeft = -glyph.info.offset.x * boundSquare;
+            f32 posBot = (-glyph.info.offset.y - glyph.info.size.y) * boundSquare;
+            f32 posRight = (glyph.info.size.x - glyph.info.offset.x) * boundSquare;
+            f32 posTop = -glyph.info.offset.y * boundSquare;
+            f32 texLeft = glyph.info.pos.x;
+            f32 texBot = glyph.info.pos.y;
+            f32 texRight = (glyph.info.pos.x + glyph.info.size.x);
+            f32 texTop = (glyph.info.pos.y + glyph.info.size.y);
+            Vertex quad[4];
+            quad[0].pos = vec2(posLeft, posTop);
+            quad[0].tex = vec2(texLeft, texTop);
+            quad[1].pos = vec2(posLeft, posBot);
+            quad[1].tex = vec2(texLeft, texBot);
+            quad[2].pos = vec2(posRight, posBot);
+            quad[2].tex = vec2(texRight, texBot);
+            quad[3].pos = vec2(posRight, posTop);
+            quad[3].tex = vec2(texRight, texTop);
+            fontVertices.Append(quad[3]);
+            fontVertices.Append(quad[2]);
+            fontVertices.Append(quad[1]);
+            fontVertices.Append(quad[0]);
+        }
+        fontIndexOffsets.Append(
+            fontIndexOffsets.Back() + (*fonts)[i].fontBuilder.glyphs.size * 4
+        );
+    }
+
     vk::Buffer baseBuffer = vk::Buffer();
     baseBuffer.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
-    Range<vk::Buffer> bufferStagingBuffers = data.stagingMemory->AddBuffers(2, baseBuffer);
+    Range<vk::Buffer> bufferStagingBuffers = data.stagingMemory->AddBuffers(3, baseBuffer);
     bufferStagingBuffers[0].size = vertices.size * sizeof(Vertex);
     bufferStagingBuffers[1].size = indices.size * sizeof(u32);
+    bufferStagingBuffers[2].size = fontVertices.size * sizeof(Vertex);
 
     data.vertexBuffer = data.bufferMemory->AddBuffer();
     data.indexBuffer = data.bufferMemory->AddBuffer();
@@ -126,6 +162,10 @@ bool Manager::Init() {
     data.indexBuffer->size = bufferStagingBuffers[1].size;
     data.vertexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     data.indexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+
+    data.vertexBufferFonts = data.bufferMemory->AddBuffer();
+    data.vertexBufferFonts->size = bufferStagingBuffers[2].size;
+    data.vertexBufferFonts->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
     auto texStagingBuffers = data.stagingMemory->AddBuffers(textures->size, baseBuffer);
     auto fontStagingBuffers = data.stagingMemory->AddBuffers(fonts->size, baseBuffer);
@@ -272,6 +312,7 @@ bool Manager::Init() {
     // Everybody do the transfer!
     bufferStagingBuffers[0].CopyData(vertices.data);
     bufferStagingBuffers[1].CopyData(indices.data);
+    bufferStagingBuffers[2].CopyData(fontVertices.data);
     for (i32 i = 0; i < texStagingBuffers.size; i++) {
         texStagingBuffers[i].CopyData((*textures)[i].pixels.data);
     }
@@ -282,6 +323,7 @@ bool Manager::Init() {
     VkCommandBuffer cmdBufCopy = data.commandBufferPrimary[0]->Begin();
     data.vertexBuffer->Copy(cmdBufCopy, bufferStagingBuffers.ToPtr(0));
     data.indexBuffer->Copy(cmdBufCopy, bufferStagingBuffers.ToPtr(1));
+    data.vertexBufferFonts->Copy(cmdBufCopy, bufferStagingBuffers.ToPtr(2));
 
     for (i32 i = 0; i < texStagingBuffers.size; i++) {
         texImages[i].TransitionLayout(cmdBufCopy, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -329,14 +371,16 @@ bool Manager::Draw() {
         return false;
     }
 
+    screenSize = vec2((f32)window->width, (f32)window->height);
+    aspectRatio = screenSize.y / screenSize.x;
+
     Array<VkCommandBuffer> commandBuffersSecondary;
     commandBuffersSecondary.Reserve(data.commandBuffersSecondary.size);
 
     for (auto& commandBuffer : data.commandBuffersSecondary) {
         VkCommandBuffer cmdBuf = commandBuffer->Begin();
-        vk::CmdBindVertexBuffer(cmdBuf, 0, data.vertexBuffer);
-        vk::CmdBindIndexBuffer(cmdBuf, data.indexBuffer, VK_INDEX_TYPE_UINT32);
         vk::CmdSetViewportAndScissor(cmdBuf, window->width, window->height);
+        vk::CmdBindIndexBuffer(cmdBuf, data.indexBuffer, VK_INDEX_TYPE_UINT32);
         commandBuffersSecondary.Append(cmdBuf);
     }
 
@@ -387,14 +431,51 @@ bool Manager::Draw() {
 
 void Manager::BindPipeline2D(VkCommandBuffer commandBuffer) {
     data.pipeline2D->Bind(commandBuffer);
+    vk::CmdBindVertexBuffer(commandBuffer, 0, data.vertexBuffer);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipeline2D->data.layout,
             0, 1, &data.descriptorSet2D->data.set, 0, nullptr);
 }
 
 void Manager::BindPipelineFont(VkCommandBuffer commandBuffer) {
     data.pipelineFont->Bind(commandBuffer);
+    vk::CmdBindVertexBuffer(commandBuffer, 0, data.vertexBufferFonts);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipelineFont->data.layout,
             0, 1, &data.descriptorSetFont->data.set, 0, nullptr);
+}
+
+void Manager::DrawCharSS(VkCommandBuffer commandBuffer, char32 character,
+                         i32 fontIndex, vec2 position, vec2 scale) {
+    const Assets::Font *font = &(*fonts)[fontIndex];
+    const i32 glyphIndexOffset = font->fontBuilder.indexToId[font->font.GetGlyphIndex(character)] * 4;
+    Rendering::PushConstants pc = Rendering::PushConstants();
+    pc.frag.texIndex = fontIndex;
+    pc.font.edge = 0.5 / (font::sdfDistance * screenSize.y * scale.y);
+    pc.vert.transform = pc.vert.transform.Scale(vec2(aspectRatio * scale.x, scale.y));
+    pc.vert.position = position;
+    pc.PushFont(commandBuffer, this);
+    vkCmdDrawIndexed(commandBuffer, 6, 1, 0, fontIndexOffsets[fontIndex] + glyphIndexOffset, 0);
+}
+
+void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString text,
+                         i32 fontIndex, vec2 position, vec2 scale,
+                         FontAlign alignH, FontAlign alignV, f32 lineWidth) {
+    const Assets::Font *font = &(*fonts)[fontIndex];
+    Rendering::PushConstants pc = Rendering::PushConstants();
+    pc.frag.texIndex = fontIndex;
+    pc.font.edge = 0.5 / (font::sdfDistance * screenSize.y * scale.y);
+    pc.vert.transform = pc.vert.transform.Scale(vec2(aspectRatio * scale.x, scale.y));
+    vec2 cursor = position;
+    for (i32 i = 0; i < text.size; i++) {
+        char32 character = text[i];
+        const i32 glyphIndexOffset = font->fontBuilder.indexToId[font->font.GetGlyphIndex(character)] * 4;
+        font::GlyphInfo glyph = font->fontBuilder.glyphs[glyphIndexOffset/4].info;
+        if (character != ' ') {
+            pc.vert.position = cursor;
+            pc.PushFont(commandBuffer, this);
+            vkCmdDrawIndexed(commandBuffer, 6, 1, 0, fontIndexOffsets[fontIndex] + glyphIndexOffset, 0);
+        }
+        cursor += glyph.advance * scale * 0.5;
+    }
 }
 
 } // namespace Rendering

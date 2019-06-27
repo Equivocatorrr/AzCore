@@ -10,6 +10,10 @@
 #include "AzCore/memory.hpp"
 #include "AzCore/font.hpp"
 
+namespace Rendering {
+    struct Manager;
+}
+
 namespace Assets {
 
 extern String error;

@@ -17,4 +17,5 @@ layout(push_constant) uniform pushConstants {
 void main() {
     outColor = pc.color;
     outColor.a *= smoothstep(pc.bounds-pc.edge, pc.bounds+pc.edge, texture(texSampler[pc.texId],texCoord).r);
+    //outColor.a = max(outColor.a, 0.1);
 }

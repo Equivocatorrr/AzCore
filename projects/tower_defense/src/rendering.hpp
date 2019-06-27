@@ -23,6 +23,19 @@ namespace Rendering {
 
 struct Manager;
 
+enum FontAlign {
+    // Horizontal
+    LEFT,
+    RIGHT,
+    JUSTIFY,
+    // Either
+    MIDDLE,
+    CENTER = MIDDLE,
+    // Vertical
+    TOP,
+    BOTTOM
+};
+
 struct Vertex {
     vec2 pos;
     vec2 tex;
@@ -31,7 +44,7 @@ struct Vertex {
 struct PushConstants {
     struct vert_t {
         mat2 transform = mat2(1.0);
-        vec2 origin = vec2(0.5);
+        vec2 origin = vec2(0.0);
         vec2 position = vec2(0.0);
         void Push(VkCommandBuffer commandBuffer, Manager *rendering);
     } vert;
@@ -89,6 +102,8 @@ struct Manager {
         Ptr<vk::Buffer> vertexBuffer;
         Ptr<vk::Buffer> indexBuffer;
 
+        Ptr<vk::Buffer> vertexBufferFonts;
+
         Ptr<vk::Pipeline> pipeline2D;
         Ptr<vk::Pipeline> pipelineFont;
         Ptr<vk::Descriptors> descriptors;
@@ -102,6 +117,9 @@ struct Manager {
     io::Window *window = nullptr;
     Array<Assets::Texture> *textures = nullptr;
     Array<Assets::Font> *fonts = nullptr;
+    Array<u32> fontIndexOffsets{0};
+    vec2 screenSize;
+    f32 aspectRatio; // height/width
 
     inline void AddRenderCallback(fpRenderCallback_t callback, void* userdata) {
         data.renderCallbacks.Append({callback, userdata});
@@ -112,6 +130,20 @@ struct Manager {
 
     void BindPipeline2D(VkCommandBuffer commandBuffer);
     void BindPipelineFont(VkCommandBuffer commandBuffer);
+
+    // Units are in screen space
+    // DrawChar assumes the font pipeline is bound
+    void DrawCharSS(VkCommandBuffer commandBuffer, char32 character,
+                    i32 fontIndex, vec2 position, vec2 scale);
+    void DrawTextSS(VkCommandBuffer commandBuffer, WString text,
+                    i32 fontIndex, vec2 position, vec2 scale,
+                    FontAlign alignH = LEFT, FontAlign alignV = BOTTOM, f32 lineWidth = 0.0);
+    // Units are in pixel space
+    // void DrawChar(VkCommandBuffer commandBuffer, char32 character,
+    //               i32 fontIndex, vec2 position, vec2 scale);
+    // void DrawText(VkCommandBuffer commandBuffer, WString text,
+    //               i32 fontIndex, vec2 position, vec2 scale,
+    //               FontAlign alignH = LEFT, FontAlign alignV = BOTTOM, f32 lineWidth = 0.0);
 };
 
 }

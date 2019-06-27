@@ -81,6 +81,16 @@ namespace font {
         mat2 transform;
     };
 
+    /*  struct: GlyphInfo
+        Author: Philip Haynes
+        Defines some attributes of a glyph, like those necessary to draw text.  */
+    struct GlyphInfo {
+        vec2 pos; // Position in atlas
+        vec2 size; // Total dimensions of the contours
+        vec2 offset; // Origin point relative to contours
+        vec2 advance; // How far to advance
+    };
+
     /*  struct: Glyph
         Author: Philip Haynes
         Defines a single glyph, including all the contours.     */
@@ -90,10 +100,7 @@ namespace font {
         Array<Line> lines;
         Array<Component> components;
         // Array<Contour> contours;
-        vec2 pos; // Position in atlas
-        vec2 size; // Total dimensions of the contours
-        vec2 offset; // Origin point relative to contours
-        vec2 advance; // How far to advance
+        GlyphInfo info;
         // Returns whether a point is inside the glyph.
         bool Inside(const vec2& point) const;
         f32 MinDistance(const vec2& point, const f32& startingDist) const;
@@ -129,6 +136,8 @@ namespace font {
         u16 GetGlyphIndex(char32 unicode) const;
         Glyph GetGlyphByIndex(u16 index) const;
         Glyph GetGlyph(char32 unicode) const;
+        GlyphInfo GetGlyphInfoByIndex(u16 index) const;
+        GlyphInfo GetGlyphInfo(char32 unicode) const;
         // Rasterizes a single glyph in the console
         void PrintGlyph(char32 unicode) const;
     };

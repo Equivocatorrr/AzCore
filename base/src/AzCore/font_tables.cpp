@@ -1432,14 +1432,21 @@ Glyph glyfParsed::GetGlyph(u32 glyphIndex) const {
         line.p1 -= minBounds;
         line.p2 -= minBounds;
     }
-    out.size = maxBounds - minBounds;
-    out.offset += minBounds;
+    out.info.size = maxBounds - minBounds;
+    out.info.offset += minBounds;
     longHorMetric metric = horMetrics->Metric(glyphIndex, horHeader->numOfLongHorMetrics);
     f32 lsb = (f32)metric.leftSideBearing / (f32)header->unitsPerEm;
-    out.offset.x -= lsb;
+    out.info.offset.x -= lsb;
+    out.info.advance.x = (f32)metric.advanceWidth / (f32)header->unitsPerEm;
+    out.info.advance.y = 0.0;
+    // cout << "Advance width: " << out.info.advance.x << std::endl;
     // cout << "offset = { " << out.offset.x << ", " << out.offset.y
     //      << " }, size = {" << out.size.x << ", " << out.size.y << " }" << std::endl;
     return out;
+}
+
+GlyphInfo glyfParsed::GetGlyphInfo(u32 glyphIndex) const {
+    return GetGlyph(glyphIndex).info;
 }
 
 Glyph glyfParsed::ParseSimple(glyf_header *gheader, Array<glyfPoint> *dstArray) const {

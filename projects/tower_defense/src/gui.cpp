@@ -13,15 +13,30 @@ void Gui::EventAssetInit(Assets::Manager *assets) {
 
 void Gui::EventAssetAcquire(Assets::Manager *assets) {
     fontIndex = assets->FindMapping("OpenSans-Regular.ttf");
+    font = &assets->fonts[fontIndex];
+}
+
+void Gui::EventUpdate(bool buffer, Objects::Manager *objects) {
+    size += 0.01 * (size + 1.0) * objects->timestep * dir;
+    if (size >= 1.0) {
+        dir = -1.0;
+    } else if (size <= 0.5) {
+        dir = 1.0;
+    }
+    pos += vel * objects->timestep * 0.1;
+    if (pos.x + size * 8.0 > 1.0) {
+        vel.x = -0.5;
+    } else if (pos.x < -1.0) {
+        vel.x = 0.5;
+    }
+    if (pos.y > 1.0) {
+        vel.y = -0.25;
+    } else if (pos.y - size * 0.8 < -1.0) {
+        vel.y = 0.25;
+    }
 }
 
 void Gui::EventDraw(bool buffer, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) {
-    Rendering::PushConstants pc = Rendering::PushConstants();
-    pc.frag.texIndex = fontIndex;
-    pc.font.edge = 16.0 / font::sdfDistance / (f32)rendering->window->height / 2.0;
-    f32 aspect = (f32)rendering->window->height / (f32)rendering->window->width;
-    pc.vert.transform = pc.vert.transform.Scale(vec2(aspect, 1.0));
     rendering->BindPipelineFont(commandBuffer);
-    pc.PushFont(commandBuffer, rendering);
-    vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
+    rendering->DrawTextSS(commandBuffer, ToWString("Hi there, joy!"), fontIndex, pos, vec2(size));
 }

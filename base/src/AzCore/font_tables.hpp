@@ -13,6 +13,7 @@
 namespace font {
 
 struct Glyph;
+struct GlyphInfo;
 
 // These are the basic types used for TrueType fonts
 typedef i16 shortFrac_t;
@@ -708,6 +709,7 @@ struct glyfParsed {
     Array<u32> glyfOffsets;
 
     Glyph GetGlyph(u32 glyphIndex) const;
+    GlyphInfo GetGlyphInfo(u32 glyphIndex) const;
     Glyph ParseSimple(glyf_header *gheader, Array<glyfPoint> *dstArray=nullptr) const;
     Glyph ParseCompound(glyf_header *gheader, Array<glyfPoint> *dstArray=nullptr) const;
 };

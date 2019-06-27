@@ -5,7 +5,7 @@
 
 #include "font.hpp"
 
-// #define LOG_VERBOSE
+#define LOG_VERBOSE
 
 #include "font_tables.cpp"
 
@@ -717,6 +717,21 @@ Glyph Font::GetGlyph(char32 unicode) const {
     return GetGlyphByIndex(glyphIndex);
 }
 
+GlyphInfo Font::GetGlyphInfoByIndex(u16 index) const {
+    if (data.cffParsed.active) {
+        // TODO: Something not stupid like this
+        throw std::runtime_error("CFF parsing not yet implemented!");
+    } else if (data.glyfParsed.active) {
+        return data.glyfParsed.GetGlyphInfo(index);
+    }
+    throw std::runtime_error("No glyph data available/supported!");
+}
+
+GlyphInfo Font::GetGlyphInfo(char32 unicode) const {
+    u16 glyphIndex = GetGlyphIndex(unicode);
+    return GetGlyphInfoByIndex(glyphIndex);
+}
+
 void Font::PrintGlyph(char32 unicode) const {
     static u64 totalParseTime = 0;
     static u64 totalDrawTime = 0;
@@ -747,7 +762,7 @@ void Font::PrintGlyph(char32 unicode) const {
         for (i32 x = 0; x < stepsX; x++) {
             vec2 point((f32)x * factorX - margin, (f32)y * factorY - margin);
             // point *= max(glyph.size.x, glyph.size.y);
-            if (point.x > glyph.size.x + margin) {
+            if (point.x > glyph.info.size.x + margin) {
                 break;
             }
             start = Clock::now();
@@ -937,17 +952,19 @@ void RenderThreadProc(FontBuilder *fontBuilder, Array<Glyph> *glyphsToAdd, const
     vec2i &dimensions = fontBuilder->dimensions;
     for (i32 i = threadId; i < glyphsToAdd->size; i+=numThreads) {
         Glyph &glyph = (*glyphsToAdd)[i];
-        if (glyph.size.x == 0.0 || glyph.size.y == 0.0) {
+        if (glyph.info.size.x == 0.0 || glyph.info.size.y == 0.0) {
             continue;
         }
-        glyph.size += sdfDistance*2.0;
-        glyph.pos /= boundSquare;
-        glyph.size /= boundSquare;
-        glyph.offset /= boundSquare;
-        const i32 texX = glyph.pos.x*dimensions.x;
-        const i32 texY = glyph.pos.y*dimensions.y;
-        const i32 texW = glyph.size.x*dimensions.x;
-        const i32 texH = glyph.size.y*dimensions.y;
+        glyph.info.size += sdfDistance*2.0;
+        glyph.info.pos /= boundSquare;
+        glyph.info.size /= boundSquare;
+        glyph.info.offset /= boundSquare;
+        const i32 texX = glyph.info.pos.x*dimensions.x;
+        const i32 texY = glyph.info.pos.y*dimensions.y;
+        const f32 offsetX = glyph.info.pos.x * (f32)dimensions.x - (f32)texX;
+        const f32 offsetY = glyph.info.pos.y * (f32)dimensions.y - (f32)texY;
+        const i32 texW = glyph.info.size.x*dimensions.x;
+        const i32 texH = glyph.info.size.y*dimensions.y;
 
         const f32 factorX = boundSquare / (f32)dimensions.x;
         const f32 factorY = boundSquare / (f32)dimensions.y;
@@ -955,8 +972,8 @@ void RenderThreadProc(FontBuilder *fontBuilder, Array<Glyph> *glyphsToAdd, const
         for (i32 y = 0; y <= texH; y++) {
             f32 prevDist = sdfDistance;
             for (i32 x = 0; x <= texW; x++) {
-                vec2 point = vec2((f32)x * factorX - sdfDistance,
-                                  (f32)y * factorY - sdfDistance);
+                vec2 point = vec2(((f32)x - offsetX) * factorX - sdfDistance,
+                                  ((f32)y + offsetY) * factorY - sdfDistance);
                 i32 xx = texX + x;
                 if (xx >= dimensions.x || xx < 0) {
                     break;
@@ -1037,7 +1054,7 @@ bool FontBuilder::Build() {
                     allIndices.insert(component.glyphIndex);
                 }
             }
-            glyph.size = vec2(0.0);
+            glyph.info.size = vec2(0.0);
             glyph.curves.Clear();
             glyph.lines.Clear();
         }
@@ -1057,10 +1074,10 @@ bool FontBuilder::Build() {
     Array<SizeIndex> sortedIndices;
     sortedIndices.Reserve(glyphsToAdd.size/2);
     for (i32 i = glyphsToAdd.size-1; i >= 0; i--) {
-        if (glyphsToAdd[i].size.x == 0.0 || glyphsToAdd[i].size.y == 0.0) {
+        if (glyphsToAdd[i].info.size.x == 0.0 || glyphsToAdd[i].info.size.y == 0.0) {
             continue;
         }
-        SizeIndex sizeIndex = {i, glyphsToAdd[i].size};
+        SizeIndex sizeIndex = {i, glyphsToAdd[i].info.size};
         i32 insertPos = 0;
         for (i32 ii = 0; ii < sortedIndices.size; ii++) {
             insertPos = ii;
@@ -1087,12 +1104,12 @@ bool FontBuilder::Build() {
         Box box;
         for (i32 i = 0; i < corners.size; i++) {
             box.min = corners[i];
-            box.max = box.min + glyph.size + vec2(sdfDistance*2.0);
+            box.max = box.min + glyph.info.size + vec2(sdfDistance*2.0);
             if (boxes.Intersects(box)) {
                 // Go to the next corner
                 continue;
             }
-            glyph.pos = corners[i];
+            glyph.info.pos = corners[i];
             area += (box.max.x-box.min.x) * (box.max.y-box.min.y);
             boxes.AddBox(box);
             PurgeCorners(corners, box);
@@ -1132,7 +1149,7 @@ bool FontBuilder::Build() {
     scale = boundSquare;
     edge = sdfDistance*32.0;
 
-    vec2i dimensionsNew = vec2i(i32(boundSquare)*32);
+    vec2i dimensionsNew = vec2i(i32(boundSquare)*64);
     cout << "Texture dimensions = {" << dimensionsNew.x << ", " << dimensionsNew.y << "}" << std::endl;
     ResizeImage(dimensionsNew.x, dimensionsNew.y);
     start = Clock::now();

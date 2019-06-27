@@ -88,6 +88,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
             break;
         }
         input.Tick(1.0/60.0);
+        objects.Update(1.0/60.0);
         if (!rendering.Draw()) {
             cout << "Error in Rendering::Manager::Draw: " << Rendering::error << std::endl;
             return 1;

@@ -25,7 +25,7 @@ WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.1.82.0
 #LIBS_L_GLX= $(LIBS_L) -lX11 -lX11-xcb
 #LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib32/" -lvulkan-1 -lgdi32
 
-_DEPS = keycodes.hpp io.hpp math.hpp memory.hpp log_stream.hpp vk.hpp bigint.hpp font.hpp
+_DEPS = keycodes.hpp io.hpp math.hpp memory.hpp log_stream.hpp vk.hpp bigint.hpp font.hpp font_tables.hpp font_tables.cpp
 DEPS = $(patsubst %,$(IDIR)/AzCore/%,$(_DEPS)) makefile
 
 _OBJ = io.o memory.o keycodes.o log_stream.o vk.o math.o bigint.o font.o

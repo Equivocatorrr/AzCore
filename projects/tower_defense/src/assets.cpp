@@ -129,7 +129,9 @@ bool Manager::LoadAll() {
         case FONT:
             cout << "as font." << std::endl;
             fonts.Append(Font());
-            fonts[nextFontIndex].Load(filesToLoad[i]);
+            if (!fonts[nextFontIndex].Load(filesToLoad[i])) {
+                return false;
+            }
             mapping.type = FONT;
             mapping.index = nextFontIndex;
             mapping.SetFilename(filesToLoad[i]);
@@ -138,7 +140,9 @@ bool Manager::LoadAll() {
         case TEXTURE:
             cout << "as texture." << std::endl;
             textures.Append(Texture());
-            textures[nextTexIndex].Load(filesToLoad[i]);
+            if (!textures[nextTexIndex].Load(filesToLoad[i])) {
+                return false;
+            }
             mapping.type = TEXTURE;
             mapping.index = nextTexIndex;
             mapping.SetFilename(filesToLoad[i]);

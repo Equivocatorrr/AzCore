@@ -44,7 +44,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     Assets::Manager assets;
     objects.GetAssets(&assets);
-    assets.LoadAll();
+    if (!assets.LoadAll()) {
+        cout << "Failed to load assets: " << Assets::error << std::endl;
+        return 1;
+    }
     objects.UseAssets(&assets);
 
     Rendering::Manager rendering;

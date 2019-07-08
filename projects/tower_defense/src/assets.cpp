@@ -90,11 +90,12 @@ u32 Mapping::CheckSum(String name) {
 
 bool Texture::Load(String filename) {
     filename = "data/" + filename;
-    pixels.data = stbi_load(filename.data, &width, &height, &channels, 0);
+    pixels.data = stbi_load(filename.data, &width, &height, &channels, 4);
     if (pixels.data == nullptr) {
         error = "Failed to load Texture file: \"" + filename + "\"";
         return false;
     }
+    channels = 4;
     pixels.allocated = width * height* channels;
     pixels.size = pixels.allocated;
     return true;

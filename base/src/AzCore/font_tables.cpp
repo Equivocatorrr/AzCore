@@ -1436,7 +1436,7 @@ Glyph glyfParsed::GetGlyph(u32 glyphIndex) const {
     out.info.offset += minBounds;
     longHorMetric metric = horMetrics->Metric(glyphIndex, horHeader->numOfLongHorMetrics);
     f32 lsb = (f32)metric.leftSideBearing / (f32)header->unitsPerEm;
-    out.info.offset.x -= lsb;
+    out.info.offset.x -= lsb * 2.0;
     out.info.advance.x = (f32)metric.advanceWidth / (f32)header->unitsPerEm;
     out.info.advance.y = 0.0;
     // cout << "Advance width: " << out.info.advance.x << std::endl;

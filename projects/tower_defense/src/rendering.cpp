@@ -179,9 +179,7 @@ bool Manager::Init() {
 
     for (i32 i = 0; i < texImages.size; i++) {
         const i32 channels = (*textures)[i].channels;
-        if (channels == 3) {
-            texImages[i].format = VK_FORMAT_R8G8B8_UNORM;
-        } else if (channels != 4) {
+        if (channels != 4) {
             error = "Invalid channel count (" + ToString(channels) + ") in textures[" + ToString(i) + "]";
             return false;
         }
@@ -460,10 +458,11 @@ void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString text,
                          i32 fontIndex, vec2 position, vec2 scale,
                          FontAlign alignH, FontAlign alignV, f32 lineWidth) {
     const Assets::Font *font = &(*fonts)[fontIndex];
+    scale.x *= aspectRatio;
     Rendering::PushConstants pc = Rendering::PushConstants();
     pc.frag.texIndex = fontIndex;
     pc.font.edge = 0.5 / (font::sdfDistance * screenSize.y * scale.y);
-    pc.vert.transform = pc.vert.transform.Scale(vec2(aspectRatio * scale.x, scale.y));
+    pc.vert.transform = pc.vert.transform.Scale(scale);
     vec2 cursor = position;
     for (i32 i = 0; i < text.size; i++) {
         char32 character = text[i];
@@ -474,7 +473,7 @@ void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString text,
             pc.PushFont(commandBuffer, this);
             vkCmdDrawIndexed(commandBuffer, 6, 1, 0, fontIndexOffsets[fontIndex] + glyphIndexOffset, 0);
         }
-        cursor += glyph.advance * scale * 0.5;
+        cursor += glyph.advance * scale;
     }
 }
 

@@ -955,10 +955,6 @@ void RenderThreadProc(FontBuilder *fontBuilder, Array<Glyph> *glyphsToAdd, const
         if (glyph.info.size.x == 0.0 || glyph.info.size.y == 0.0) {
             continue;
         }
-        glyph.info.size += sdfDistance*2.0;
-        glyph.info.pos /= boundSquare;
-        glyph.info.size /= boundSquare;
-        glyph.info.offset /= boundSquare;
         const i32 texX = glyph.info.pos.x*dimensions.x;
         const i32 texY = glyph.info.pos.y*dimensions.y;
         const f32 offsetX = glyph.info.pos.x * (f32)dimensions.x - (f32)texX;
@@ -1152,6 +1148,13 @@ bool FontBuilder::Build() {
     vec2i dimensionsNew = vec2i(i32(boundSquare)*64);
     cout << "Texture dimensions = {" << dimensionsNew.x << ", " << dimensionsNew.y << "}" << std::endl;
     ResizeImage(dimensionsNew.x, dimensionsNew.y);
+    for (i32 i = 0; i < glyphsToAdd.size; i++) {
+        Glyph& glyph = glyphsToAdd[i];
+        glyph.info.size += sdfDistance*2.0;
+        glyph.info.pos /= boundSquare;
+        glyph.info.size /= boundSquare;
+        glyph.info.offset /= boundSquare;
+    }
     start = Clock::now();
     // Now do the rendering
     Array<Thread> threads(renderThreadCount);

@@ -12,10 +12,10 @@
 struct Gui : public Objects::Object {
     i32 fontIndex;
     Assets::Font *font;
-    vec2 pos{0.0, 0.0};
+    vec2 pos{-1.0, -0.5};
     vec2 vel{0.5, 0.25};
-    f32 size = 0.02;
-    f32 dir = 1.0;
+    f32 size = 0.2;
+    f32 dir = -1.0;
 
     ~Gui() = default;
 

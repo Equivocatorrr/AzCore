@@ -1136,8 +1136,9 @@ bool FontBuilder::Build() {
          << u32(area/totalArea*100.0) << "% was used." << std::endl;
     bounding.x = max(bounding.x, 1.0f);
     bounding.y = max(bounding.y, 1.0f);
+    f32 oldBoundSquare = boundSquare;
     // if (boundSquare == 0.0) {
-        boundSquare = i32(ceil(max(bounding.x, bounding.y))*128.0)/128;
+        boundSquare = i32(ceil(max(bounding.x, bounding.y))*64.0)/64;
     // } else {
     //     if (max(bounding.x, bounding.y) > boundSquare)
     //         boundSquare *= 2.0;
@@ -1148,6 +1149,12 @@ bool FontBuilder::Build() {
     vec2i dimensionsNew = vec2i(i32(boundSquare)*64);
     cout << "Texture dimensions = {" << dimensionsNew.x << ", " << dimensionsNew.y << "}" << std::endl;
     ResizeImage(dimensionsNew.x, dimensionsNew.y);
+    for (i32 i = 0; i < glyphs.size; i++) {
+        Glyph& glyph = glyphs[i];
+        glyph.info.pos /= boundSquare/oldBoundSquare;
+        glyph.info.size /= boundSquare/oldBoundSquare;
+        glyph.info.offset /= boundSquare/oldBoundSquare;
+    }
     for (i32 i = 0; i < glyphsToAdd.size; i++) {
         Glyph& glyph = glyphsToAdd[i];
         glyph.info.size += sdfDistance*2.0;

@@ -97,13 +97,18 @@ bool Manager::Init() {
 
     data.textureSampler = data.device->AddSampler();
     data.textureSampler->anisotropy = 4;
-    data.textureSampler->mipLodBias = -0.5; // Crisp!!!
+    data.textureSampler->mipLodBias = -0.25; // Crisp!!!
+    data.textureSampler->maxLod = 1000000000000.0; // Just, like, BIG
 
     data.stagingMemory = data.device->AddMemory();
     data.stagingMemory->deviceLocal = false;
     data.bufferMemory = data.device->AddMemory();
     data.textureMemory = data.device->AddMemory();
-    data.fontMemory = data.device->AddMemory();
+
+    data.fontStagingMemory = data.device->AddMemory();
+    data.fontStagingMemory->deviceLocal = false;
+    data.fontBufferMemory = data.device->AddMemory();
+    data.fontImageMemory = data.device->AddMemory();
 
     // Unit square
     Array<Vertex> vertices = {
@@ -114,47 +119,13 @@ bool Manager::Init() {
     };
     Array<u32> indices = {0, 1, 2, 2, 3, 0};
 
-    Array<Vertex> fontVertices;
-    for (i32 i = 0; i < fonts->size; i++) {
-        for (font::Glyph& glyph : (*fonts)[i].fontBuilder.glyphs) {
-            if (glyph.info.size.x == 0.0 || glyph.info.size.y == 0.0) {
-                continue;
-            }
-            const f32 boundSquare = (*fonts)[i].fontBuilder.boundSquare;
-            f32 posLeft = -glyph.info.offset.x * boundSquare;
-            f32 posBot = (-glyph.info.offset.y - glyph.info.size.y) * boundSquare;
-            f32 posRight = (glyph.info.size.x - glyph.info.offset.x) * boundSquare;
-            f32 posTop = -glyph.info.offset.y * boundSquare;
-            f32 texLeft = glyph.info.pos.x;
-            f32 texBot = glyph.info.pos.y;
-            f32 texRight = (glyph.info.pos.x + glyph.info.size.x);
-            f32 texTop = (glyph.info.pos.y + glyph.info.size.y);
-            Vertex quad[4];
-            quad[0].pos = vec2(posLeft, posTop);
-            quad[0].tex = vec2(texLeft, texTop);
-            quad[1].pos = vec2(posLeft, posBot);
-            quad[1].tex = vec2(texLeft, texBot);
-            quad[2].pos = vec2(posRight, posBot);
-            quad[2].tex = vec2(texRight, texBot);
-            quad[3].pos = vec2(posRight, posTop);
-            quad[3].tex = vec2(texRight, texTop);
-            fontVertices.Append(quad[3]);
-            fontVertices.Append(quad[2]);
-            fontVertices.Append(quad[1]);
-            fontVertices.Append(quad[0]);
-        }
-        fontIndexOffsets.Append(
-            fontIndexOffsets.Back() + (*fonts)[i].fontBuilder.glyphs.size * 4
-        );
-    }
-
     vk::Buffer baseBuffer = vk::Buffer();
+    baseBuffer.size = 1;
     baseBuffer.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
-    Range<vk::Buffer> bufferStagingBuffers = data.stagingMemory->AddBuffers(3, baseBuffer);
+    Range<vk::Buffer> bufferStagingBuffers = data.stagingMemory->AddBuffers(2, baseBuffer);
     bufferStagingBuffers[0].size = vertices.size * sizeof(Vertex);
     bufferStagingBuffers[1].size = indices.size * sizeof(u32);
-    bufferStagingBuffers[2].size = fontVertices.size * sizeof(Vertex);
 
     data.vertexBuffer = data.bufferMemory->AddBuffer();
     data.indexBuffer = data.bufferMemory->AddBuffer();
@@ -163,19 +134,23 @@ bool Manager::Init() {
     data.vertexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     data.indexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
-    data.vertexBufferFonts = data.bufferMemory->AddBuffer();
-    data.vertexBufferFonts->size = bufferStagingBuffers[2].size;
-    data.vertexBufferFonts->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-
     auto texStagingBuffers = data.stagingMemory->AddBuffers(textures->size, baseBuffer);
-    auto fontStagingBuffers = data.stagingMemory->AddBuffers(fonts->size, baseBuffer);
+
+    data.fontStagingVertexBuffer = data.fontStagingMemory->AddBuffer(baseBuffer);
+    data.fontStagingImageBuffers = data.fontStagingMemory->AddBuffers(fonts->size, baseBuffer);
+
+    data.fontVertexBuffer = data.fontBufferMemory->AddBuffer(baseBuffer);
+    data.fontVertexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
     vk::Image baseImage = vk::Image();
     baseImage.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     baseImage.format = VK_FORMAT_R8G8B8A8_UNORM;
     auto texImages = data.textureMemory->AddImages(textures->size, baseImage);
+
     baseImage.format = VK_FORMAT_R8_UNORM;
-    auto fontImages = data.fontMemory->AddImages(fonts->size, baseImage);
+    baseImage.width = 1;
+    baseImage.height = 1;
+    data.fontImages = data.fontImageMemory->AddImages(fonts->size, baseImage);
 
     for (i32 i = 0; i < texImages.size; i++) {
         const i32 channels = (*textures)[i].channels;
@@ -187,18 +162,7 @@ bool Manager::Init() {
         texImages[i].height = (*textures)[i].height;
         texImages[i].mipLevels = floor(log2((f32)max(texImages[i].width, texImages[i].height))) + 1;
 
-        data.textureSampler->maxLod = max(data.textureSampler->maxLod, (f32)texImages[i].mipLevels);
-
         texStagingBuffers[i].size = channels * texImages[i].width * texImages[i].height;
-    }
-    for (i32 i = 0; i < fontImages.size; i++) {
-        fontImages[i].width = (*fonts)[i].fontBuilder.dimensions.x;
-        fontImages[i].height = (*fonts)[i].fontBuilder.dimensions.y;
-        fontImages[i].mipLevels = floor(log2((f32)max(fontImages[i].width, fontImages[i].height))) + 1;
-
-        data.textureSampler->maxLod = max(data.textureSampler->maxLod, (f32)fontImages[i].mipLevels);
-
-        fontStagingBuffers[i].size = fontImages[i].width * fontImages[i].height;
     }
 
     data.descriptors = data.device->AddDescriptors();
@@ -221,7 +185,7 @@ bool Manager::Init() {
         return false;
     }
     data.descriptorSetFont = data.descriptors->AddSet(descriptorLayoutFont);
-    if (!data.descriptorSetFont->AddDescriptor(fontImages, data.textureSampler, 0)) {
+    if (!data.descriptorSetFont->AddDescriptor(data.fontImages, data.textureSampler, 0)) {
         error = "Failed to add Font Descriptor: " + vk::error;
         return false;
     }
@@ -310,29 +274,127 @@ bool Manager::Init() {
     // Everybody do the transfer!
     bufferStagingBuffers[0].CopyData(vertices.data);
     bufferStagingBuffers[1].CopyData(indices.data);
-    bufferStagingBuffers[2].CopyData(fontVertices.data);
     for (i32 i = 0; i < texStagingBuffers.size; i++) {
         texStagingBuffers[i].CopyData((*textures)[i].pixels.data);
-    }
-    for (i32 i = 0; i < fontStagingBuffers.size; i++) {
-        fontStagingBuffers[i].CopyData((*fonts)[i].fontBuilder.pixels.data);
     }
 
     VkCommandBuffer cmdBufCopy = data.commandBufferPrimary[0]->Begin();
     data.vertexBuffer->Copy(cmdBufCopy, bufferStagingBuffers.ToPtr(0));
     data.indexBuffer->Copy(cmdBufCopy, bufferStagingBuffers.ToPtr(1));
-    data.vertexBufferFonts->Copy(cmdBufCopy, bufferStagingBuffers.ToPtr(2));
 
     for (i32 i = 0; i < texStagingBuffers.size; i++) {
         texImages[i].TransitionLayout(cmdBufCopy, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         texImages[i].Copy(cmdBufCopy, texStagingBuffers.ToPtr(i));
         texImages[i].GenerateMipMaps(cmdBufCopy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
-    for (i32 i = 0; i < fontStagingBuffers.size; i++) {
-        fontImages[i].TransitionLayout(cmdBufCopy, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        fontImages[i].Copy(cmdBufCopy, fontStagingBuffers.ToPtr(i));
-        fontImages[i].GenerateMipMaps(cmdBufCopy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    if (!data.commandBufferPrimary[0]->End()) {
+        error = "Failed to copy from staging buffers: " + vk::error;
+        return false;
     }
+    if (!data.device->SubmitCommandBuffers(data.queueGraphics, {data.queueSubmissionTransfer})) {
+        error = "Failed to submit transfer command buffers: " + vk::error;
+        return false;
+    }
+    vk::QueueWaitIdle(data.queueGraphics);
+
+    if (!UpdateFonts()) {
+        error = "Failed to update fonts: " + error;
+        return false;
+    }
+
+    return true;
+}
+
+bool Manager::UpdateFonts() {
+    // Will be done on-the-fly
+    if (data.fontStagingMemory->data.initted) {
+        data.fontStagingMemory->Deinit();
+    }
+    if (data.fontBufferMemory->data.initted) {
+        data.fontBufferMemory->Deinit();
+    }
+    if (data.fontImageMemory->data.initted) {
+        data.fontImageMemory->Deinit();
+    }
+
+    // Vertex buffer
+    Array<Vertex> fontVertices;
+    fontIndexOffsets = {0};
+    for (i32 i = 0; i < fonts->size; i++) {
+        for (font::Glyph& glyph : (*fonts)[i].fontBuilder.glyphs) {
+            if (glyph.info.size.x == 0.0 || glyph.info.size.y == 0.0) {
+                continue;
+            }
+            const f32 boundSquare = (*fonts)[i].fontBuilder.boundSquare;
+            f32 posLeft = -glyph.info.offset.x * boundSquare;
+            f32 posBot = (-glyph.info.offset.y - glyph.info.size.y) * boundSquare;
+            f32 posRight = (glyph.info.size.x - glyph.info.offset.x) * boundSquare;
+            f32 posTop = -glyph.info.offset.y * boundSquare;
+            f32 texLeft = glyph.info.pos.x;
+            f32 texBot = glyph.info.pos.y;
+            f32 texRight = (glyph.info.pos.x + glyph.info.size.x);
+            f32 texTop = (glyph.info.pos.y + glyph.info.size.y);
+            Vertex quad[4];
+            quad[0].pos = vec2(posLeft, posTop);
+            quad[0].tex = vec2(texLeft, texTop);
+            quad[1].pos = vec2(posLeft, posBot);
+            quad[1].tex = vec2(texLeft, texBot);
+            quad[2].pos = vec2(posRight, posBot);
+            quad[2].tex = vec2(texRight, texBot);
+            quad[3].pos = vec2(posRight, posTop);
+            quad[3].tex = vec2(texRight, texTop);
+            fontVertices.Append(quad[3]);
+            fontVertices.Append(quad[2]);
+            fontVertices.Append(quad[1]);
+            fontVertices.Append(quad[0]);
+        }
+        fontIndexOffsets.Append(
+            fontIndexOffsets.Back() + (*fonts)[i].fontBuilder.glyphs.size * 4
+        );
+    }
+
+    data.fontStagingVertexBuffer->size = fontVertices.size * sizeof(Vertex);
+    data.fontVertexBuffer->size = data.fontStagingVertexBuffer->size;
+
+    for (i32 i = 0; i < data.fontImages.size; i++) {
+        data.fontImages[i].width = (*fonts)[i].fontBuilder.dimensions.x;
+        data.fontImages[i].height = (*fonts)[i].fontBuilder.dimensions.y;
+        data.fontImages[i].mipLevels = floor(log2((f32)max(data.fontImages[i].width, data.fontImages[i].height))) + 1;
+
+        data.fontStagingImageBuffers[i].size = data.fontImages[i].width * data.fontImages[i].height;
+    }
+
+    // Initialize everything
+    if (!data.fontStagingMemory->Init(&(*data.device))) {
+        return false;
+    }
+    if (!data.fontBufferMemory->Init(&(*data.device))) {
+        return false;
+    }
+    if (!data.fontImageMemory->Init(&(*data.device))) {
+        return false;
+    }
+
+    // Update the descriptors
+    if (!data.descriptors->Update()) {
+        return false;
+    }
+
+    data.fontStagingVertexBuffer->CopyData(fontVertices.data);
+    for (i32 i = 0; i < data.fontStagingImageBuffers.size; i++) {
+        data.fontStagingImageBuffers[i].CopyData((*fonts)[i].fontBuilder.pixels.data);
+    }
+
+    VkCommandBuffer cmdBufCopy = data.commandBufferPrimary[0]->Begin();
+
+    data.fontVertexBuffer->Copy(cmdBufCopy, data.fontStagingVertexBuffer);
+
+    for (i32 i = 0; i < data.fontStagingImageBuffers.size; i++) {
+        data.fontImages[i].TransitionLayout(cmdBufCopy, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        data.fontImages[i].Copy(cmdBufCopy, data.fontStagingImageBuffers.ToPtr(i));
+        data.fontImages[i].GenerateMipMaps(cmdBufCopy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
+
     if (!data.commandBufferPrimary[0]->End()) {
         error = "Failed to copy from staging buffers: " + vk::error;
         return false;
@@ -353,6 +415,20 @@ bool Manager::Draw() {
             return false;
         }
         data.resized = false;
+    }
+
+    bool updateFontMemory = false;
+    for (i32 i = 0; i < fonts->size; i++) {
+        Assets::Font& font = (*fonts)[i];
+        if (font.fontBuilder.indicesToAdd.size != 0) {
+            font.fontBuilder.Build();
+            updateFontMemory = true;
+        }
+    }
+    if (updateFontMemory) {
+        if (!UpdateFonts()) {
+            return false;
+        }
     }
 
     VkResult acquisitionResult = data.swapchain->AcquireNextImage();
@@ -436,7 +512,7 @@ void Manager::BindPipeline2D(VkCommandBuffer commandBuffer) {
 
 void Manager::BindPipelineFont(VkCommandBuffer commandBuffer) {
     data.pipelineFont->Bind(commandBuffer);
-    vk::CmdBindVertexBuffer(commandBuffer, 0, data.vertexBufferFonts);
+    vk::CmdBindVertexBuffer(commandBuffer, 0, data.fontVertexBuffer);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipelineFont->data.layout,
             0, 1, &data.descriptorSetFont->data.set, 0, nullptr);
 }
@@ -457,7 +533,8 @@ void Manager::DrawCharSS(VkCommandBuffer commandBuffer, char32 character,
 void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString text,
                          i32 fontIndex, vec2 position, vec2 scale,
                          FontAlign alignH, FontAlign alignV, f32 lineWidth) {
-    const Assets::Font *font = &(*fonts)[fontIndex];
+    Assets::Font *font = &(*fonts)[fontIndex];
+    font->fontBuilder.AddString(text);
     scale.x *= aspectRatio;
     Rendering::PushConstants pc = Rendering::PushConstants();
     pc.frag.texIndex = fontIndex;
@@ -467,13 +544,18 @@ void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString text,
     for (i32 i = 0; i < text.size; i++) {
         char32 character = text[i];
         const i32 glyphIndexOffset = font->fontBuilder.indexToId[font->font.GetGlyphIndex(character)] * 4;
-        font::GlyphInfo glyph = font->fontBuilder.glyphs[glyphIndexOffset/4].info;
+        font::Glyph& glyph = font->fontBuilder.glyphs[glyphIndexOffset/4];
+        if (glyph.components.size != 0) {
+            text[i] = '?';
+            i--;
+            continue;
+        }
         if (character != ' ') {
             pc.vert.position = cursor;
             pc.PushFont(commandBuffer, this);
             vkCmdDrawIndexed(commandBuffer, 6, 1, 0, fontIndexOffsets[fontIndex] + glyphIndexOffset, 0);
         }
-        cursor += glyph.advance * scale;
+        cursor += glyph.info.advance * scale;
     }
 }
 

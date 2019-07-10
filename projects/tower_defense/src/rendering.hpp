@@ -97,12 +97,18 @@ struct Manager {
         Ptr<vk::Memory> stagingMemory;
         Ptr<vk::Memory> bufferMemory; // Uniform buffers, vertex buffers, index buffers
         Ptr<vk::Memory> textureMemory;
-        Ptr<vk::Memory> fontMemory;
 
         Ptr<vk::Buffer> vertexBuffer;
         Ptr<vk::Buffer> indexBuffer;
 
-        Ptr<vk::Buffer> vertexBufferFonts;
+        Ptr<vk::Memory> fontStagingMemory;
+        Ptr<vk::Memory> fontBufferMemory;
+        Ptr<vk::Memory> fontImageMemory;
+
+        Ptr<vk::Buffer> fontStagingVertexBuffer;
+        Range<vk::Buffer> fontStagingImageBuffers;
+        Ptr<vk::Buffer> fontVertexBuffer;
+        Range<vk::Image> fontImages;
 
         Ptr<vk::Pipeline> pipeline2D;
         Ptr<vk::Pipeline> pipelineFont;
@@ -126,6 +132,7 @@ struct Manager {
     }
 
     bool Init();
+    bool UpdateFonts();
     bool Draw();
 
     void BindPipeline2D(VkCommandBuffer commandBuffer);

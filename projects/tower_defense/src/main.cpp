@@ -87,15 +87,15 @@ i32 main(i32 argumentCount, char** argumentValues) {
     }
 
     ClockTime frameStart;
-    const Nanoseconds frameDuration = Nanoseconds(1000000000/180);
+    const Nanoseconds frameDuration = Nanoseconds(1000000000/144);
 
     while (window.Update()) {
         if (input.Released(KC_KEY_ESC)) {
             break;
         }
-        input.Tick(1.0/180.0);
+        input.Tick(1.0/144.0);
         frameStart = Clock::now();
-        objects.Update(1.0/180.0);
+        objects.Update(1.0/144.0);
         if (!rendering.Draw()) {
             cout << "Error in Rendering::Manager::Draw: " << Rendering::error << std::endl;
             return 1;

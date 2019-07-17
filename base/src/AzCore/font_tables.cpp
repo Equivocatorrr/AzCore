@@ -1693,7 +1693,7 @@ Glyph glyfParsed::ParseCompound(glyf_header *gheader, Array<glyfPoint> *dstArray
         if (simple) {
             component.offset = offset;
             component.transform = componentParse.scale;
-            out.components = {component};
+            out.components.Append(component);
         }
         // cout << "scale = { "
         //      << component.scale.h.x1 << ", "

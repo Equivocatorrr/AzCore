@@ -43,5 +43,6 @@ void Gui::EventUpdate(bool buffer, Objects::Manager *objects) {
 void Gui::EventDraw(bool buffer, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) {
     static WString text = ToWString("Hahaha look at me!\nありがとうお願いします私はハンバーガー");
     rendering->BindPipelineFont(commandBuffer);
+    // rendering->DrawCharSS(commandBuffer, text[25], fontIndex, pos, vec2(size));
     rendering->DrawTextSS(commandBuffer, text, fontIndex, pos, vec2(size));
 }

@@ -97,7 +97,7 @@ bool Manager::Init() {
 
     data.textureSampler = data.device->AddSampler();
     data.textureSampler->anisotropy = 4;
-    data.textureSampler->mipLodBias = -0.25; // Crisp!!!
+    data.textureSampler->mipLodBias = -1.0; // Crisp!!!
     data.textureSampler->maxLod = 1000000000000.0; // Just, like, BIG
 
     data.stagingMemory = data.device->AddMemory();
@@ -519,15 +519,42 @@ void Manager::BindPipelineFont(VkCommandBuffer commandBuffer) {
 
 void Manager::DrawCharSS(VkCommandBuffer commandBuffer, char32 character,
                          i32 fontIndex, vec2 position, vec2 scale) {
-    const Assets::Font *font = &(*fonts)[fontIndex];
-    const i32 glyphIndexOffset = font->fontBuilder.indexToId[font->font.GetGlyphIndex(character)] * 4;
+    Assets::Font *fontDesired = &(*fonts)[fontIndex];
+    Assets::Font *fontFallback = &(*fonts)[0];
+    fontDesired->fontBuilder.AddRange(character, character);
+    fontFallback->fontBuilder.AddRange(character, character);
+    Assets::Font *font = fontDesired;
     Rendering::PushConstants pc = Rendering::PushConstants();
-    pc.frag.texIndex = fontIndex;
-    pc.font.edge = 0.5 / (font::sdfDistance * screenSize.y * scale.y);
-    pc.vert.transform = pc.vert.transform.Scale(vec2(aspectRatio * scale.x, scale.y));
-    pc.vert.position = position;
-    pc.PushFont(commandBuffer, this);
-    vkCmdDrawIndexed(commandBuffer, 6, 1, 0, fontIndexOffsets[fontIndex] + glyphIndexOffset, 0);
+    i32 actualFontIndex = fontIndex;
+    i32 glyphIndex = fontDesired->font.GetGlyphIndex(character);
+    if (glyphIndex == 0) {
+        const i32 glyphFallback = fontFallback->font.GetGlyphIndex(character);
+        if (glyphFallback != 0) {
+            glyphIndex = glyphFallback;
+            font = fontFallback;
+            actualFontIndex = 0;
+        }
+    }
+    vec2 fullScale = vec2(aspectRatio * scale.x, scale.y);
+    i32 glyphId = font->fontBuilder.indexToId[glyphIndex];
+    font::Glyph& glyph = font->fontBuilder.glyphs[glyphId];
+    pc.frag.texIndex = actualFontIndex;
+    if (glyph.components.size != 0) {
+        for (const font::Component& component : glyph.components) {
+            i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
+            pc.vert.transform = component.transform.Scale(fullScale);
+            pc.font.edge = 0.8 / (font::sdfDistance * screenSize.y * pc.vert.transform.h.y2);
+            pc.vert.position = position + component.offset * fullScale;
+            pc.PushFont(commandBuffer, this);
+            vkCmdDrawIndexed(commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + componentId * 4, 0);
+        }
+    } else {
+        pc.font.edge = 0.8 / (font::sdfDistance * screenSize.y * scale.y);
+        pc.vert.transform = pc.vert.transform.Scale(fullScale);
+        pc.vert.position = position;
+        pc.PushFont(commandBuffer, this);
+        vkCmdDrawIndexed(commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + glyphId * 4, 0);
+    }
 }
 
 void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString text,
@@ -539,7 +566,7 @@ void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString text,
     fontFallback->fontBuilder.AddString(text);
     scale.x *= aspectRatio;
     Rendering::PushConstants pc = Rendering::PushConstants();
-    pc.font.edge = 0.5 / (font::sdfDistance * screenSize.y * scale.y);
+    pc.font.edge = 0.8 / (font::sdfDistance * screenSize.y * scale.y);
     pc.vert.transform = pc.vert.transform.Scale(scale);
     vec2 cursor = position;
     for (i32 i = 0; i < text.size; i++) {
@@ -564,15 +591,22 @@ void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString text,
         }
         i32 glyphId = font->fontBuilder.indexToId[glyphIndex];
         font::Glyph& glyph = font->fontBuilder.glyphs[glyphId];
+        pc.frag.texIndex = actualFontIndex;
         if (glyph.components.size != 0) {
-            text[i] = '?';
-            i--;
-            continue;
-        }
-        if (character != ' ') {
-            pc.vert.position = cursor;
-            pc.PushFont(commandBuffer, this);
-            vkCmdDrawIndexed(commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + glyphId * 4, 0);
+            for (const font::Component& component : glyph.components) {
+                i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
+                pc.vert.transform = component.transform.Scale(scale);
+                pc.font.edge = 0.8 / (font::sdfDistance * screenSize.y * pc.vert.transform.h.y2);
+                pc.vert.position = cursor + component.offset * scale;
+                pc.PushFont(commandBuffer, this);
+                vkCmdDrawIndexed(commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + componentId * 4, 0);
+            }
+        } else {
+            if (character != ' ') {
+                pc.vert.position = cursor;
+                pc.PushFont(commandBuffer, this);
+                vkCmdDrawIndexed(commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + glyphId * 4, 0);
+            }
         }
         cursor += glyph.info.advance * scale;
     }

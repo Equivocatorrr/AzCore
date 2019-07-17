@@ -86,15 +86,24 @@ i32 main(i32 argumentCount, char** argumentValues) {
         return 1;
     }
 
+    ClockTime frameStart;
+    const Nanoseconds frameDuration = Nanoseconds(1000000000/180);
+
     while (window.Update()) {
         if (input.Released(KC_KEY_ESC)) {
             break;
         }
-        input.Tick(1.0/60.0);
-        objects.Update(1.0/60.0);
+        input.Tick(1.0/180.0);
+        frameStart = Clock::now();
+        objects.Update(1.0/180.0);
         if (!rendering.Draw()) {
             cout << "Error in Rendering::Manager::Draw: " << Rendering::error << std::endl;
             return 1;
+        }
+        Nanoseconds frameDelta = Nanoseconds(Clock::now() - frameStart);
+        Nanoseconds frameSleep = frameDuration - frameDelta;
+        if (frameSleep.count() >= 100) {
+            std::this_thread::sleep_for(frameSleep);
         }
     }
 

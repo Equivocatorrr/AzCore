@@ -55,7 +55,7 @@ struct Font {
 constexpr i32 textureIndexBlank = 1;
 
 struct Manager {
-    Array<String> filesToLoad{"TextureMissing.png", "blank.bmp"}; // Everything we want to actually load.
+    Array<String> filesToLoad{"TextureMissing.png", "blank.bmp", "DroidSansFallback.ttf"}; // Everything we want to actually load.
     Array<Mapping> mappings{};
     Array<Texture> textures{};
     Array<Font> fonts{};

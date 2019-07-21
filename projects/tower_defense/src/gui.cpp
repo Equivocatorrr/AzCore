@@ -137,7 +137,7 @@ void ListH::Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Renderi
     }
 }
 
-Text::Text() : string(), fontSize(18.0), fontIndex(1), rendering(nullptr) {}
+Text::Text() : string(), fontSize(64.0), fontIndex(1), rendering(nullptr) {}
 
 void Text::UpdateSize() const {
     size = rendering->StringSize(string, fontIndex) * vec2(rendering->aspectRatio, 1.0) * fontSize;
@@ -152,7 +152,7 @@ void Text::Update(vec2 pos, Gui *gui, Objects::Manager *objects, Rendering::Mana
 void Text::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const {
     const vec2 screenSizeFactor = vec2(2.0) / rendering->screenSize;
     rendering->BindPipelineFont(commandBuffer);
-    rendering->DrawTextSS(commandBuffer, string, fontIndex, (positionAbsolute - margin * 2.0) * screenSizeFactor + vec2(1.0), vec2(fontSize * screenSizeFactor.y), Rendering::FontAlign::RIGHT, Rendering::FontAlign::BOTTOM);
+    rendering->DrawTextSS(commandBuffer, string, fontIndex, positionAbsolute * screenSizeFactor + vec2(-1.0), vec2(fontSize * screenSizeFactor.y), Rendering::FontAlign::JUSTIFY, Rendering::FontAlign::TOP, 1248.0 * screenSizeFactor.x);
 }
 
 } // namespace Int

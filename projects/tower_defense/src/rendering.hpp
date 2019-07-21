@@ -138,7 +138,8 @@ struct Manager {
     void BindPipeline2D(VkCommandBuffer commandBuffer);
     void BindPipelineFont(VkCommandBuffer commandBuffer);
 
-    f32 LineWidth(char32 *string, i32 fontIndex) const;
+    f32 CharacterWidth(char32 character, const Assets::Font *fontDesired, const Assets::Font *fontFallback) const;
+    f32 LineWidth(const char32 *string, i32 fontIndex) const;
     vec2 StringSize(WString string, i32 fontIndex) const;
     f32 StringWidth(WString string, i32 fontIndex) const;
     f32 StringHeight(WString string) const;
@@ -149,13 +150,13 @@ struct Manager {
                     i32 fontIndex, vec2 position, vec2 scale);
     void DrawTextSS(VkCommandBuffer commandBuffer, WString text,
                     i32 fontIndex, vec2 position, vec2 scale,
-                    FontAlign alignH = LEFT, FontAlign alignV = TOP, f32 lineWidth = 0.0);
+                    FontAlign alignH = LEFT, FontAlign alignV = TOP, f32 maxWidth = 0.0);
     // Units are in pixel space
     // void DrawChar(VkCommandBuffer commandBuffer, char32 character,
     //               i32 fontIndex, vec2 position, vec2 scale);
     // void DrawText(VkCommandBuffer commandBuffer, WString text,
     //               i32 fontIndex, vec2 position, vec2 scale,
-    //               FontAlign alignH = LEFT, FontAlign alignV = BOTTOM, f32 lineWidth = 0.0);
+    //               FontAlign alignH = LEFT, FontAlign alignV = BOTTOM, f32 maxWidth = 0.0);
 };
 
 }

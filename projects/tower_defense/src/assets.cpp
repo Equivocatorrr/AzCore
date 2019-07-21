@@ -116,6 +116,34 @@ bool Font::Load(String filename) {
     return true;
 }
 
+vec2 Font::StringSize(WString string, Font *fallback) const {
+    vec2 size = vec2(0.0, 1.0);
+    f32 lineSize = 0.0;
+    for (i32 i = 0; i < string.size; i++) {
+        const char32 character = string[i];
+        if (character == '\n') {
+            lineSize = 0.0;
+            size.y += 1.0;
+            continue;
+        }
+        const Font *actualFont = this;
+        i32 glyphIndex = font.GetGlyphIndex(character);
+        if (glyphIndex == 0) {
+            i32 glyphIndexFallback = fallback->font.GetGlyphIndex(character);
+            if (glyphIndexFallback != 0) {
+                glyphIndex = glyphIndexFallback;
+                actualFont = fallback;
+            }
+        }
+        const i32 glyphId = actualFont->fontBuilder.indexToId[glyphIndex];
+        lineSize += actualFont->fontBuilder.glyphs[glyphId].info.advance.x;
+        if (lineSize > size.x) {
+            size.x = lineSize;
+        }
+    }
+    return size;
+}
+
 bool Manager::LoadAll() {
     for (i32 i = 0; i < filesToLoad.size; i++) {
         cout << "Loading asset \"" << filesToLoad[i] << "\": ";

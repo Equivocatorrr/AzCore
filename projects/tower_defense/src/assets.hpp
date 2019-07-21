@@ -50,6 +50,11 @@ struct Font {
     font::FontBuilder fontBuilder;
 
     bool Load(String filename);
+
+    // returns the size of the block of text for unscaled text
+    // All text scaling can be applied to the result of this.
+    // For extra line spacing, just multiply the y component.
+    vec2 StringSize(WString string, Font* fallback) const;
 };
 
 constexpr i32 textureIndexBlank = 1;

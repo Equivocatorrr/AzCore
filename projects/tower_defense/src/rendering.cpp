@@ -52,7 +52,7 @@ bool Manager::Init() {
     data.queuePresent = data.device->AddQueue();
     data.queuePresent->queueType = vk::QueueType::PRESENT;
     data.swapchain = data.device->AddSwapchain();
-    data.swapchain->vsync = false;
+    data.swapchain->vsync = true;
     data.swapchain->window = data.instance.AddWindowForSurface(window);
     data.framebuffer = data.device->AddFramebuffer();
     data.framebuffer->swapchain = data.swapchain;
@@ -326,10 +326,10 @@ bool Manager::UpdateFonts() {
                 continue;
             }
             const f32 boundSquare = (*fonts)[i].fontBuilder.boundSquare;
-            f32 posLeft = -glyph.info.offset.x * boundSquare;
-            f32 posBot = (-glyph.info.offset.y - glyph.info.size.y) * boundSquare;
-            f32 posRight = (glyph.info.size.x - glyph.info.offset.x) * boundSquare;
-            f32 posTop = -glyph.info.offset.y * boundSquare;
+            f32 posLeft = 0.0;
+            f32 posBot = -glyph.info.size.y * boundSquare;
+            f32 posRight = glyph.info.size.x * boundSquare;
+            f32 posTop = 0.0;
             f32 texLeft = glyph.info.pos.x;
             f32 texBot = glyph.info.pos.y;
             f32 texRight = (glyph.info.pos.x + glyph.info.size.x);
@@ -543,13 +543,13 @@ void Manager::DrawCharSS(VkCommandBuffer commandBuffer, char32 character,
         for (const font::Component& component : glyph.components) {
             i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
             pc.vert.transform = component.transform.Scale(fullScale);
-            pc.font.edge = 0.8 / (font::sdfDistance * screenSize.y * pc.vert.transform.h.y2);
+            pc.font.edge = 0.5 / (font::sdfDistance * screenSize.y * pc.vert.transform.h.y2);
             pc.vert.position = position + component.offset * fullScale;
             pc.PushFont(commandBuffer, this);
             vkCmdDrawIndexed(commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + componentId * 4, 0);
         }
     } else {
-        pc.font.edge = 0.8 / (font::sdfDistance * screenSize.y * scale.y);
+        pc.font.edge = 0.5 / (font::sdfDistance * screenSize.y * scale.y);
         pc.vert.transform = pc.vert.transform.Scale(fullScale);
         pc.vert.position = position;
         pc.PushFont(commandBuffer, this);
@@ -566,13 +566,11 @@ void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString text,
     fontFallback->fontBuilder.AddString(text);
     scale.x *= aspectRatio;
     Rendering::PushConstants pc = Rendering::PushConstants();
-    pc.font.edge = 0.8 / (font::sdfDistance * screenSize.y * scale.y);
-    pc.vert.transform = pc.vert.transform.Scale(scale);
     vec2 cursor = position;
     for (i32 i = 0; i < text.size; i++) {
         char32 character = text[i];
         if (character == '\n') {
-            cursor = position;
+            cursor.x = position.x;
             cursor.y += scale.y;
             continue;
         }
@@ -591,19 +589,61 @@ void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString text,
         }
         i32 glyphId = font->fontBuilder.indexToId[glyphIndex];
         font::Glyph& glyph = font->fontBuilder.glyphs[glyphId];
+
+        // static bool once1 = false, once2 = false;
+        // if (!once1 && character == ToWString("¡")[0]) {
+        //     once1 = true;
+        //     cout << "pos = { " << glyph.info.pos.x
+        //          << " , " << glyph.info.pos.y
+        //          << " }, offset = { " << glyph.info.offset.x
+        //          << " , " << glyph.info.offset.y
+        //          << " }\ncomponent.offset = { " << glyph.components[0].offset.x
+        //          << " , " << glyph.components[0].offset.y
+        //          << " }, component.transform = { " << glyph.components[0].transform.h.x1
+        //          << " , " << glyph.components[0].transform.h.x2
+        //          << " , " << glyph.components[0].transform.h.y1
+        //          << " , " << glyph.components[0].transform.h.y2
+        //          << " }" << std::endl;
+        // }
+        // if (!once2 && character == ToWString("ñ")[0]) {
+        //     once2 = true;
+        //     cout << "pos = { " << glyph.info.pos.x
+        //          << " , " << glyph.info.pos.y
+        //          << " }, offset = { " << glyph.info.offset.x
+        //          << " , " << glyph.info.offset.y
+        //          << " }\ncomponent0.offset = { " << glyph.components[0].offset.x
+        //          << " , " << glyph.components[0].offset.y
+        //          << " }, component0.transform = { " << glyph.components[0].transform.h.x1
+        //          << " , " << glyph.components[0].transform.h.x2
+        //          << " , " << glyph.components[0].transform.h.y1
+        //          << " , " << glyph.components[0].transform.h.y2
+        //          << " }\ncomponent1.offset = { " << glyph.components[1].offset.x
+        //          << " , " << glyph.components[1].offset.y
+        //          << " }, component1.transform = { " << glyph.components[1].transform.h.x1
+        //          << " , " << glyph.components[1].transform.h.x2
+        //          << " , " << glyph.components[1].transform.h.y1
+        //          << " , " << glyph.components[1].transform.h.y2
+        //          << " }" << std::endl;
+        // }
+
         pc.frag.texIndex = actualFontIndex;
+        pc.font.edge = 0.5 / (font::sdfDistance * screenSize.y * scale.y);
+        pc.vert.transform = mat2::Scaler(scale);
         if (glyph.components.size != 0) {
             for (const font::Component& component : glyph.components) {
                 i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
+                const font::Glyph& componentGlyph = font->fontBuilder.glyphs[componentId];
                 pc.vert.transform = component.transform.Scale(scale);
-                pc.font.edge = 0.8 / (font::sdfDistance * screenSize.y * pc.vert.transform.h.y2);
-                pc.vert.position = cursor + component.offset * scale;
+                pc.font.edge = 0.5 / (font::sdfDistance * screenSize.y * abs(pc.vert.transform.h.y2));
+                // pc.font.bounds = 0.2;
+                pc.vert.position = cursor - componentGlyph.info.offset * scale * font->fontBuilder.boundSquare + component.offset * scale * vec2(1.0, -1.0);
                 pc.PushFont(commandBuffer, this);
                 vkCmdDrawIndexed(commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + componentId * 4, 0);
             }
         } else {
             if (character != ' ') {
-                pc.vert.position = cursor;
+                pc.vert.position = cursor - glyph.info.offset * scale * font->fontBuilder.boundSquare;
+                // pc.font.bounds = 0.5;
                 pc.PushFont(commandBuffer, this);
                 vkCmdDrawIndexed(commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + glyphId * 4, 0);
             }

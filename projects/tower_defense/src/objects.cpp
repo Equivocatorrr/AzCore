@@ -8,7 +8,7 @@
 
 namespace Objects {
 
-void Object::EventUpdate(bool buffer, Manager *objects) {}
+void Object::EventUpdate(bool buffer, Manager *objects, Rendering::Manager *rendering) {}
 void Object::EventDraw(bool buffer, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) {}
 
 Manager::~Manager() {
@@ -37,12 +37,12 @@ void Manager::UseAssets(Assets::Manager *assets) {
     }
 }
 
-void Manager::Update(f32 timestep) {
+void Manager::Update(f32 timestep, Rendering::Manager *rendering) {
     buffer = !buffer;
     this->timestep = timestep;
 
     for (Object* object : objects) {
-        object->EventUpdate(buffer, this);
+        object->EventUpdate(buffer, this, rendering);
     }
 }
 

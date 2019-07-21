@@ -1146,7 +1146,7 @@ bool FontBuilder::Build() {
     scale = boundSquare;
     edge = sdfDistance*32.0;
 
-    vec2i dimensionsNew = vec2i(i32(boundSquare)*64);
+    vec2i dimensionsNew = vec2i(i32(boundSquare)*resolution);
     cout << "Texture dimensions = {" << dimensionsNew.x << ", " << dimensionsNew.y << "}" << std::endl;
     ResizeImage(dimensionsNew.x, dimensionsNew.y);
     for (i32 i = 0; i < glyphs.size; i++) {

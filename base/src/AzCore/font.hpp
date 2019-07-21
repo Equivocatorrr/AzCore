@@ -191,6 +191,15 @@ namespace font {
         Array<u16> indicesToAdd = {0};
         // Which glyphs are already accounted for and don't need to be added?
         Set<u16> allIndices = {0};
+        // Sets the scaling of the actual image
+        // HIGH is good for titles and gives the crispest result.
+        // MEDIUM is good for subtitles/titles and gives a fairly crisp result.
+        // LOW is good for text/subtitles and gives rounded corners only noticed at large scales.
+        enum {
+            HIGH=64,
+            MEDIUM=48,
+            LOW=32
+        } resolution = MEDIUM;
 
         // Resizes the image, keeping the pixels in the right spots.
         void ResizeImage(i32 w, i32 h);

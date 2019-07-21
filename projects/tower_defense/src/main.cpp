@@ -33,7 +33,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
          << " and core validation " << (enableCoreValidation ? "enabled" : "disabled") << std::endl;
 
     Objects::Manager objects;
-    objects.Register(new Gui());
+    objects.Register(new Int::Gui());
 
     io::Input input;
     objects.input = &input;
@@ -55,6 +55,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
     rendering.fonts = &assets.fonts;
     rendering.data.instance.AppInfo(title, 1, 0, 0);
     objects.RegisterDrawing(&rendering);
+
+    objects.CallInitialize(&rendering);
 
     if (enableLayers) {
         Array<const char*> layers = {

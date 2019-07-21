@@ -9,21 +9,102 @@
 #include "objects.hpp"
 #include "assets.hpp"
 
+namespace Int { // Short for Interface
+
+// Ways to define a GUI with a hierarchy
+
+// Base polymorphic interface
+struct Widget {
+protected:
+    mutable vec2 size; // size is pixel space and often depends on contents.
+    mutable bool sizeUpdated;
+public:
+    Array<Widget*> children;
+    vec2 margin; // Space surrounding the widget.
+    vec2 position; // Relative to the parent widget.
+    vec2 positionAbsolute; // Where we are in pixel space.
+    i32 depth; // How deeply nested we are. Used for input culling for controllers.
+    Widget();
+    virtual ~Widget() = default;
+    vec2 GetSize() const;
+    virtual void UpdateSize() const = 0;
+    virtual void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    virtual void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+};
+
+// Lowest level widget, used for input for game objects.
+struct Screen : public Widget {
+    Rendering::Manager *rendering;
+    Screen();
+    ~Screen() = default;
+    void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    void UpdateSize() const;
+};
+
+// A vertical list of items.
+struct ListV : public Widget {
+    void UpdateSize() const;
+    void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+};
+
+// A horizontal list of items.
+struct ListH : public Widget {
+    void UpdateSize() const;
+    void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+};
+
+struct Text : public Widget {
+    WString string;
+    f32 fontSize;
+    i32 fontIndex;
+    Rendering::Manager *rendering;
+    Text();
+    ~Text() = default;
+    void UpdateSize() const;
+    void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+};
+
+// struct Image;
+
+// struct Button; // May contain a single widget.
+
+// struct Checkbox; // Boolean widget.
+
+// struct Switch; // Allows the user to choose from a selection of widgets (usually Text).
+
+// struct Slider; // A scalar within a range.
+
 struct Gui : public Objects::Object {
     i32 fontIndex;
     Assets::Font *font;
-    vec2 pos{-1.0, -0.5};
-    vec2 vel{0.25, 0.2};
-    f32 size = 0.15;
-    f32 dir = -1.0;
-    const WString text = ToWString("Hahaha look at me!\n¡Hola señor Lopez!¿?èÎ\nありがとうお願いします私はハンバーガー\n세계를 향한 대화, 유니코드로 하십시오.\n経機速講著述元載説赤問台民。\nЛорем ипсум долор сит амет\nΛορεμ ιπσθμ δολορ σιτ αμετ");
+    i32 controlDepth = 0;
+    const WString text = ToWString(
+        "Hahaha look at me!\n"
+        "¡Hola señor Lopez!¿?èÎ\n"
+        "ありがとうお願いします私はハンバーガー\n"
+        "세계를 향한 대화, 유니코드로 하십시오.\n"
+        "経機速講著述元載説赤問台民。\n"
+        "Лорем ипсум долор сит амет\n"
+        "Λορεμ ιπσθμ δολορ σιτ αμετ"
+    );
 
-    ~Gui() = default;
+    Array<Widget*> allWidgets; // So we can delete them at the end of the program.
+    Screen screenWidget;
+
+    ~Gui();
 
     void EventAssetInit(Assets::Manager *assets);
     void EventAssetAcquire(Assets::Manager *assets);
+    void EventInitialize(Objects::Manager *objects, Rendering::Manager *rendering);
     void EventUpdate(bool buffer, Objects::Manager *objects, Rendering::Manager *rendering);
     void EventDraw(bool buffer, Rendering::Manager *rendering, VkCommandBuffer commandBuffer);
+
+    void AddWidget(Widget *parent, Widget *newWidget);
 };
+
+
+
+} // namespace Int
 
 #endif // GUI_HPP

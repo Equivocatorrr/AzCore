@@ -517,6 +517,74 @@ void Manager::BindPipelineFont(VkCommandBuffer commandBuffer) {
             0, 1, &data.descriptorSetFont->data.set, 0, nullptr);
 }
 
+constexpr f32 lineHeight = 1.2;
+
+f32 Manager::LineWidth(char32 *string, i32 fontIndex) const {
+    const Assets::Font *fontDesired = &(*fonts)[fontIndex];
+    const Assets::Font *fontFallback = &(*fonts)[0];
+    f32 size = 0.0;
+    for (i32 i = 0; string[i] != '\n' && string[i] != 0; i++) {
+        const char32 character = string[i];
+        const Assets::Font *actualFont = fontDesired;
+        i32 glyphIndex = fontDesired->font.GetGlyphIndex(character);
+        if (glyphIndex == 0) {
+            i32 glyphIndexFallback = fontFallback->font.GetGlyphIndex(character);
+            if (glyphIndexFallback != 0) {
+                glyphIndex = glyphIndexFallback;
+                actualFont = fontFallback;
+            }
+        }
+        const i32 glyphId = actualFont->fontBuilder.indexToId[glyphIndex];
+        size += actualFont->fontBuilder.glyphs[glyphId].info.advance.x;
+    }
+    return size;
+}
+
+vec2 Manager::StringSize(WString string, i32 fontIndex) const {
+    const Assets::Font *fontDesired = &(*fonts)[fontIndex];
+    const Assets::Font *fontFallback = &(*fonts)[0];
+    vec2 size = vec2(0.0, lineHeight);
+    f32 lineSize = 0.0;
+    for (i32 i = 0; i < string.size; i++) {
+        const char32 character = string[i];
+        if (character == '\n') {
+            lineSize = 0.0;
+            size.y += lineHeight;
+            continue;
+        }
+        const Assets::Font *actualFont = fontDesired;
+        i32 glyphIndex = fontDesired->font.GetGlyphIndex(character);
+        if (glyphIndex == 0) {
+            i32 glyphIndexFallback = fontFallback->font.GetGlyphIndex(character);
+            if (glyphIndexFallback != 0) {
+                glyphIndex = glyphIndexFallback;
+                actualFont = fontFallback;
+            }
+        }
+        const i32 glyphId = actualFont->fontBuilder.indexToId[glyphIndex];
+        lineSize += actualFont->fontBuilder.glyphs[glyphId].info.advance.x;
+        if (lineSize > size.x) {
+            size.x = lineSize;
+        }
+    }
+    return size;
+}
+
+f32 Manager::StringWidth(WString string, i32 fontIndex) const {
+    return StringSize(string, fontIndex).x;
+}
+
+f32 Manager::StringHeight(WString string) const {
+    f32 size = lineHeight;
+    for (i32 i = 0; i < string.size; i++) {
+        const char32 character = string[i];
+        if (character == '\n') {
+            size += lineHeight;
+        }
+    }
+    return size;
+}
+
 void Manager::DrawCharSS(VkCommandBuffer commandBuffer, char32 character,
                          i32 fontIndex, vec2 position, vec2 scale) {
     Assets::Font *fontDesired = &(*fonts)[fontIndex];
@@ -566,12 +634,48 @@ void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString text,
     fontFallback->fontBuilder.AddString(text);
     scale.x *= aspectRatio;
     Rendering::PushConstants pc = Rendering::PushConstants();
+    position.y += scale.y;
+    f32 width = 0.0;
+    if (alignH != LEFT) {
+        width = StringWidth(text, fontIndex) * scale.x;
+        if (alignH == MIDDLE) {
+            position.x -= width * 0.5;
+        } else if (alignH == RIGHT) {
+            position.x -= width;
+        } else {
+            // JUSTIFY
+        }
+    }
+    if (alignV != TOP) {
+        f32 height = StringHeight(text) * scale.y;
+        if (alignH == MIDDLE) {
+            position.y -= height * 0.5;
+        } else {
+            position.y -= height;
+        }
+    }
     vec2 cursor = position;
+    if (alignH != LEFT) {
+        f32 lineWidth = LineWidth(&text[0], fontIndex) * scale.x;
+        if (alignH == RIGHT) {
+            cursor.x += width - lineWidth;
+        } else if (alignH == MIDDLE) {
+            cursor.x += (width - lineWidth) * 0.5;
+        }
+    }
     for (i32 i = 0; i < text.size; i++) {
         char32 character = text[i];
         if (character == '\n') {
             cursor.x = position.x;
-            cursor.y += scale.y;
+            if (alignH != LEFT) {
+                f32 lineWidth = LineWidth(&text[i+1], fontIndex) * scale.x;
+                if (alignH == RIGHT) {
+                    cursor.x += width - lineWidth;
+                } else if (alignH == MIDDLE) {
+                    cursor.x += (width - lineWidth) * 0.5;
+                }
+            }
+            cursor.y += scale.y * lineHeight;
             continue;
         }
         pc.frag.texIndex = fontIndex;
@@ -627,7 +731,7 @@ void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString text,
         // }
 
         pc.frag.texIndex = actualFontIndex;
-        pc.font.edge = 0.5 / (font::sdfDistance * screenSize.y * scale.y);
+        pc.font.edge = 0.4 / (font::sdfDistance * screenSize.y * scale.y);
         pc.vert.transform = mat2::Scaler(scale);
         if (glyph.components.size != 0) {
             for (const font::Component& component : glyph.components) {

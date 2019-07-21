@@ -28,6 +28,7 @@ struct Object {
 
     virtual void EventAssetInit(Assets::Manager *assets) = 0;
     virtual void EventAssetAcquire(Assets::Manager *assets) = 0;
+    virtual void EventInitialize(Manager *objects, Rendering::Manager *rendering);
     virtual void EventUpdate(bool buffer, Manager *objects, Rendering::Manager *rendering);
     virtual void EventDraw(bool buffer, Rendering::Manager *rendering, VkCommandBuffer commandBuffer);
 };
@@ -53,6 +54,8 @@ struct Manager {
     void GetAssets(Assets::Manager *assets);
     // Calls EventAssetAcquire for every type of object.
     void UseAssets(Assets::Manager *assets);
+    // Calls EventInitialize
+    void CallInitialize(Rendering::Manager *rendering);
     // Calls different Update events.
     void Update(f32 timestep, Rendering::Manager *rendering);
     // Calls different Draw events.

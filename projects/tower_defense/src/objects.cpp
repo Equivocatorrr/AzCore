@@ -10,6 +10,7 @@ namespace Objects {
 
 void Object::EventUpdate(bool buffer, Manager *objects, Rendering::Manager *rendering) {}
 void Object::EventDraw(bool buffer, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) {}
+void Object::EventInitialize(Manager *objects, Rendering::Manager *rendering) {}
 
 Manager::~Manager() {
     for (Object* object : objects) {
@@ -34,6 +35,12 @@ void Manager::GetAssets(Assets::Manager *assets) {
 void Manager::UseAssets(Assets::Manager *assets) {
     for (Object* object : objects) {
         object->EventAssetAcquire(assets);
+    }
+}
+
+void Manager::CallInitialize(Rendering::Manager *rendering) {
+    for (Object* object : objects) {
+        object->EventInitialize(this, rendering);
     }
 }
 

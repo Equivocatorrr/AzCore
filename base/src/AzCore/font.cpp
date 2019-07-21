@@ -952,7 +952,7 @@ void RenderThreadProc(FontBuilder *fontBuilder, Array<Glyph> *glyphsToAdd, const
     vec2i &dimensions = fontBuilder->dimensions;
     for (i32 i = threadId; i < glyphsToAdd->size; i+=numThreads) {
         Glyph &glyph = (*glyphsToAdd)[i];
-        if (glyph.info.size.x == 0.0 || glyph.info.size.y == 0.0) {
+        if (glyph.info.size.x == 0.0 || glyph.info.size.y == 0.0 || glyph.components.size != 0) {
             continue;
         }
         const i32 texX = glyph.info.pos.x*dimensions.x;

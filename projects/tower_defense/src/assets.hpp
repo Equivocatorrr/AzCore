@@ -50,6 +50,7 @@ struct Font {
     font::FontBuilder fontBuilder;
 
     bool Load(String filename);
+    void SaveAtlas();
 };
 
 constexpr i32 textureIndexBlank = 1;

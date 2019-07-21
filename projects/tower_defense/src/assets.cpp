@@ -10,6 +10,8 @@
 #define pow(v, e) pow((double)v, (double)e)
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb/stb_image_write.h"
 #undef pow
 
 namespace Assets {
@@ -116,6 +118,11 @@ bool Font::Load(String filename) {
     return true;
 }
 
+void Font::SaveAtlas() {
+    cout << "Saving png of font " << font.filename << std::endl;
+    stbi_write_png((font.filename + ".png").data, fontBuilder.dimensions.x, fontBuilder.dimensions.y, 1, fontBuilder.pixels.data, fontBuilder.dimensions.x);
+}
+
 bool Manager::LoadAll() {
     for (i32 i = 0; i < filesToLoad.size; i++) {
         cout << "Loading asset \"" << filesToLoad[i] << "\": ";
@@ -130,6 +137,7 @@ bool Manager::LoadAll() {
         case FONT:
             cout << "as font." << std::endl;
             fonts.Append(Font());
+            fonts[nextFontIndex].fontBuilder.resolution = font::FontBuilder::HIGH;
             if (!fonts[nextFontIndex].Load(filesToLoad[i])) {
                 return false;
             }

@@ -80,15 +80,7 @@ struct Gui : public Objects::Object {
     Assets::Font *font;
     i32 controlDepth = 0;
     const WString text = ToWString(
-        "Hahaha look at me! There's so much to "
-        "say! I don't know what else to do. "
-        "¡Hola señor Lopez! ¿Cómo está usted? "
-        "Estoy muy bien. ¿Y cómo se llama? "
-        "ありがとうお願いします私はハンバーガー "
-        "세계를 향한 대화, 유니코드로 하십시오. "
-        "経機速講著述元載説赤問台民。 "
-        "Лорем ипсум долор сит амет "
-        "Λορεμ ιπσθμ δολορ σιτ αμετ "
+        "Hahaha look at me! There's so much to say! I don't know what else to do. ¡Hola señor Lopez! ¿Cómo está usted? Estoy muy bien. ¿Y cómo se llama? ありがとうお願いします私はハンバーガー 세계를 향한 대화, 유니코드로 하십시오. 経機速講著述元載説赤問台民。 Лорем ипсум долор сит амет Λορεμ ιπσθμ δολορ σιτ αμετ There once was a man named Chad. He was an incel. What a terrible sight! If only someone was there to teach him the ways of humility! Oh how he would wail and toil how all the girls would pass up a \"nice guy like me\". What a bitch."
     );
 
     Array<Widget*> allWidgets; // So we can delete them at the end of the program.

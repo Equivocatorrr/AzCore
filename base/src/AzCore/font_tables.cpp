@@ -9,9 +9,9 @@ f32 ToF32(const F2Dot14_t& in) {
     f32 out;
     if (in & 0x8000) {
         if (in & 0x4000) {
-            out = -2.0;
-        } else {
             out = -1.0;
+        } else {
+            out = -2.0;
         }
     } else {
         if (in & 0x4000) {
@@ -1690,16 +1690,22 @@ Glyph glyfParsed::ParseCompound(glyf_header *gheader, Array<glyfPoint> *dstArray
             // cout << "roundXY" << std::endl;
             offset = vec2(round(offset.x*unitsPerEm), round(offset.y*unitsPerEm)) / unitsPerEm;
         }
+        if (componentParse.useMyMetrics) {
+            // cout << "useMyMetrics" << std::endl;
+            out.info.advance = componentGlyph.info.advance;
+            out.info.offset = componentGlyph.info.offset;
+        }
         if (simple) {
+            // cout << "simple" << std::endl;
             component.offset = offset;
             component.transform = componentParse.scale;
             out.components.Append(component);
         }
         // cout << "scale = { "
-        //      << component.scale.h.x1 << ", "
-        //      << component.scale.h.x2 << ", "
-        //      << component.scale.h.y1 << ", "
-        //      << component.scale.h.y2 << " }, offset = { "
+        //      << component.transform.h.x1 << ", "
+        //      << component.transform.h.x2 << ", "
+        //      << component.transform.h.y1 << ", "
+        //      << component.transform.h.y2 << " }, offset = { "
         //      << offset.x << ", " << offset.y << " }" << std::endl;
         for (glyfPoint& point : componentPoints) {
             point.coords = componentParse.scale * point.coords;

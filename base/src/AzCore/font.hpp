@@ -85,10 +85,10 @@ namespace font {
         Author: Philip Haynes
         Defines some attributes of a glyph, like those necessary to draw text.  */
     struct GlyphInfo {
-        vec2 pos; // Position in atlas
-        vec2 size; // Total dimensions of the contours
-        vec2 offset; // Origin point relative to contours
-        vec2 advance; // How far to advance
+        vec2 pos = vec2(0.0); // Position in atlas
+        vec2 size = vec2(0.0); // Total dimensions of the contours
+        vec2 offset = vec2(0.0); // Origin point relative to contours
+        vec2 advance = vec2(0.0); // How far to advance
     };
 
     /*  struct: Glyph
@@ -96,11 +96,11 @@ namespace font {
         Defines a single glyph, including all the contours.     */
     struct Glyph {
         // All coordinates are in Em units
-        Array<Curve> curves;
-        Array<Line> lines;
-        Array<Component> components;
+        Array<Curve> curves{};
+        Array<Line> lines{};
+        Array<Component> components{};
         // Array<Contour> contours;
-        GlyphInfo info;
+        GlyphInfo info{};
         // Returns whether a point is inside the glyph.
         bool Inside(const vec2& point) const;
         f32 MinDistance(const vec2& point, const f32& startingDist) const;

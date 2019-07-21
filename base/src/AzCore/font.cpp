@@ -439,7 +439,7 @@ bool Font::Load() {
 #ifdef LOG_VERBOSE
     cout << "offsetMin = " << data.offsetMin << ", offsetMax = " << data.offsetMax << std::endl;
 #endif
-    data.tableData.Resize(align(data.offsetMax-data.offsetMin, 4));
+    data.tableData.Resize(align(data.offsetMax-data.offsetMin, 4), 0);
 
     data.file.seekg(data.offsetMin); // Should probably already be here but you never know ;)
     data.file.read(data.tableData.data, data.offsetMax-data.offsetMin);

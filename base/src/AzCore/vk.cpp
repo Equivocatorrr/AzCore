@@ -991,7 +991,7 @@ failure:
             return false;
         }
 #endif
-        cout << "Allocating Memory with size: " << FormatSize(data.offsets.Back()) << std::endl;
+        cout << "Allocating " << (deviceLocal ? "Device" : "Host") << " Memory with size: " << FormatSize(data.offsets.Back()) << std::endl;
         VkMemoryAllocateInfo allocInfo = {};
         allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         allocInfo.allocationSize = data.offsets.Back();

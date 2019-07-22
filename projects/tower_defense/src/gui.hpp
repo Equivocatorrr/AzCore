@@ -8,6 +8,7 @@
 
 #include "objects.hpp"
 #include "assets.hpp"
+#include "rendering.hpp"
 
 namespace Int { // Short for Interface
 
@@ -43,21 +44,34 @@ struct Screen : public Widget {
 
 // A vertical list of items.
 struct ListV : public Widget {
+    vec2 minSize, maxSize, padding;
+    ListV();
+    ~ListV() = default;
     void UpdateSize() const;
     void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
 };
 
 // A horizontal list of items.
 struct ListH : public Widget {
+    vec2 minSize, maxSize, padding;
+    ListH();
+    ~ListH() = default;
     void UpdateSize() const;
     void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
 };
 
 struct Text : public Widget {
+    Rendering::Manager *rendering;
+private:
+    WString stringFormatted;
+public:
     WString string;
     f32 fontSize;
     i32 fontIndex;
-    Rendering::Manager *rendering;
+    Rendering::FontAlign alignH, alignV;
+    vec2 maxSize;
+    vec4 color, colorOutline;
+    bool outline;
     Text();
     ~Text() = default;
     void UpdateSize() const;
@@ -79,12 +93,10 @@ struct Gui : public Objects::Object {
     i32 fontIndex;
     Assets::Font *font;
     i32 controlDepth = 0;
-    const WString text = ToWString(
-        "Hahaha look at me! There's so much to say! I don't know what else to do. ¡Hola señor Lopez! ¿Cómo está usted? Estoy muy bien. ¿Y cómo se llama? ありがとうお願いします私はハンバーガー 세계를 향한 대화, 유니코드로 하십시오. 経機速講著述元載説赤問台民。 Лорем ипсум долор сит амет Λορεμ ιπσθμ δολορ σιτ αμετ There once was a man named Chad. He was an incel. What a terrible sight! If only someone was there to teach him the ways of humility! Oh how he would wail and toil how all the girls would pass up a \"nice guy like me\". What a bitch."
-    );
 
-    Array<Widget*> allWidgets; // So we can delete them at the end of the program.
+    Set<Widget*> allWidgets; // So we can delete them at the end of the program.
     Screen screenWidget;
+    Text *textWidget[3];
 
     ~Gui();
 

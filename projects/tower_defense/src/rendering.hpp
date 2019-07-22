@@ -143,14 +143,15 @@ struct Manager {
     vec2 StringSize(WString string, i32 fontIndex) const;
     f32 StringWidth(WString string, i32 fontIndex) const;
     f32 StringHeight(WString string) const;
+    WString StringAddNewlines(WString string, i32 fontIndex, f32 maxWidth) const;
 
     // Units are in screen space
     // DrawChar assumes the font pipeline is bound
     void DrawCharSS(VkCommandBuffer commandBuffer, char32 character,
-                    i32 fontIndex, vec2 position, vec2 scale);
-    void DrawTextSS(VkCommandBuffer commandBuffer, WString text,
-                    i32 fontIndex, vec2 position, vec2 scale,
-                    FontAlign alignH = LEFT, FontAlign alignV = TOP, f32 maxWidth = 0.0);
+                    i32 fontIndex, vec4 color, vec2 position, vec2 scale);
+    void DrawTextSS(VkCommandBuffer commandBuffer, WString string,
+                    i32 fontIndex, vec4 color, vec2 position, vec2 scale,
+                    FontAlign alignH = LEFT, FontAlign alignV = TOP, f32 maxWidth = 0.0, f32 edge = 0.5, f32 bounds = 0.5);
     // Units are in pixel space
     // void DrawChar(VkCommandBuffer commandBuffer, char32 character,
     //               i32 fontIndex, vec2 position, vec2 scale);

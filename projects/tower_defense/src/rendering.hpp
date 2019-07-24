@@ -73,6 +73,11 @@ struct RenderCallback {
     void *userdata;
 };
 
+struct ScissorState {
+    vec2i min;
+    vec2i max;
+};
+
 struct Manager {
     struct {
         vk::Instance instance;
@@ -120,6 +125,8 @@ struct Manager {
 
         // Functions to call every time Draw is called, in the order they're added.
         Array<RenderCallback> renderCallbacks;
+
+        Array<ScissorState> scissorStack;
     } data;
 
     io::Window *window = nullptr;
@@ -140,11 +147,13 @@ struct Manager {
     void BindPipeline2D(VkCommandBuffer commandBuffer);
     void BindPipelineFont(VkCommandBuffer commandBuffer);
 
+    void PushScissor(VkCommandBuffer commandBuffer, vec2i min, vec2i max);
+    void PopScissor(VkCommandBuffer commandBuffer);
+
     f32 CharacterWidth(char32 character, const Assets::Font *fontDesired, const Assets::Font *fontFallback) const;
     f32 LineWidth(const char32 *string, i32 fontIndex) const;
     vec2 StringSize(WString string, i32 fontIndex) const;
     f32 StringWidth(WString string, i32 fontIndex) const;
-    f32 StringHeight(WString string) const;
     WString StringAddNewlines(WString string, i32 fontIndex, f32 maxWidth) const;
 
     // Units are in screen space
@@ -160,6 +169,8 @@ struct Manager {
     void DrawText(VkCommandBuffer commandBuffer, WString text, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH = LEFT, FontAlign alignV = BOTTOM, f32 maxWidth = 0.0, f32 edge = 0.5, f32 bounds = 0.5);
     void DrawQuad(VkCommandBuffer commandBuffer, i32 texIndex, vec4 color, vec2 position, vec2 scale, vec2 origin = vec2(0.0)) const;
 };
+
+f32 StringHeight(WString string);
 
 }
 

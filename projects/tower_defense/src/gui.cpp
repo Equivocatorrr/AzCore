@@ -154,7 +154,11 @@ void List::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) co
         rendering->BindPipeline2D(commandBuffer);
         rendering->DrawQuad(commandBuffer, Rendering::texBlank, color, positionAbsolute, sizeAbsolute);
     }
+    rendering->PushScissor(commandBuffer,
+        vec2i((i32)positionAbsolute.x+margin.x, (i32)positionAbsolute.y+margin.y),
+        vec2i((i32)(sizeAbsolute.x+positionAbsolute.x-margin.x), (i32)(sizeAbsolute.y+positionAbsolute.y-margin.y)));
     Widget::Draw(rendering, commandBuffer);
+    rendering->PopScissor(commandBuffer);
 }
 
 void ListV::UpdateSize(vec2 container) {
@@ -237,7 +241,7 @@ void Text::UpdateSize(vec2 container) {
     if (size.y > 0.0) {
         sizeAbsolute.y = (sizeIsFraction ? container.y * size.y : size.y) - margin.y * 2.0;
     } else {
-        sizeAbsolute.y = rendering->StringHeight(stringFormatted) * fontSize;
+        sizeAbsolute.y = Rendering::StringHeight(stringFormatted) * fontSize;
     }
     LimitSize();
 }
@@ -253,7 +257,10 @@ void Text::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) co
     const f32 edge = 0.3 + min(0.2, max(0.0, (fontSize - 12.0) / 12.0));
     const f32 bounds = 0.5 - min(0.05, max(0.0, (16.0 - fontSize) * 0.01));
     if (maxSize.x != 0.0 && maxSize.y != 0.0) {
-        vk::CmdSetScissor(commandBuffer, (u32)sizeAbsolute.x, (u32)sizeAbsolute.y, (i32)positionAbsolute.x, (i32)positionAbsolute.y);
+        rendering->PushScissor(commandBuffer,
+            vec2i((i32)positionAbsolute.x, (i32)positionAbsolute.y),
+            vec2i((i32)(sizeAbsolute.x+positionAbsolute.x), (i32)(sizeAbsolute.y+positionAbsolute.y)));
+        // vk::CmdSetScissor(commandBuffer, (u32)sizeAbsolute.x, (u32)sizeAbsolute.y, (i32)positionAbsolute.x, (i32)positionAbsolute.y);
     }
     rendering->BindPipelineFont(commandBuffer);
     vec2 drawPos = positionAbsolute;
@@ -274,7 +281,8 @@ void Text::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) co
     }
     rendering->DrawText(commandBuffer, stringFormatted, fontIndex, color, drawPos, scale, alignH, alignV, maxWidth, edge, bounds);
     if (maxSize.x != 0.0 && maxSize.y != 0.0) {
-        vk::CmdSetScissor(commandBuffer, rendering->window->width, rendering->window->height, 0, 0);
+        // vk::CmdSetScissor(commandBuffer, rendering->window->width, rendering->window->height, 0, 0);
+        rendering->PopScissor(commandBuffer);
     }
 }
 

@@ -459,6 +459,8 @@ bool Manager::Draw() {
         commandBuffersSecondary.Append(cmdBuf);
     }
 
+    data.scissorStack = {{vec2i(0), vec2i((i32)window->width, (i32)window->height)}};
+
     for (auto& renderCallback : data.renderCallbacks) {
         renderCallback.callback(renderCallback.userdata, this, commandBuffersSecondary);
     }
@@ -518,6 +520,23 @@ void Manager::BindPipelineFont(VkCommandBuffer commandBuffer) {
             0, 1, &data.descriptorSetFont->data.set, 0, nullptr);
 }
 
+void Manager::PushScissor(VkCommandBuffer commandBuffer, vec2i min, vec2i max) {
+    const ScissorState &prev = data.scissorStack.Back();
+    ScissorState state;
+    state.min.x = ::max(min.x, prev.min.x);
+    state.min.y = ::max(min.y, prev.min.y);
+    state.max.x = ::min(max.x, prev.max.x);
+    state.max.y = ::min(max.y, prev.max.y);
+    data.scissorStack.Append(state);
+    vk::CmdSetScissor(commandBuffer, (u32)(state.max.x-state.min.x), (u32)(state.max.y-state.min.y), state.min.x, state.min.y);
+}
+
+void Manager::PopScissor(VkCommandBuffer commandBuffer) {
+    data.scissorStack.Erase(data.scissorStack.size-1);
+    const ScissorState &state = data.scissorStack.Back();
+    vk::CmdSetScissor(commandBuffer, (u32)(state.max.x-state.min.x), (u32)(state.max.y-state.min.y), state.min.x, state.min.y);
+}
+
 constexpr f32 lineHeight = 1.2;
 
 f32 Manager::CharacterWidth(char32 character, const Assets::Font *fontDesired, const Assets::Font *fontFallback) const {
@@ -568,7 +587,7 @@ f32 Manager::StringWidth(WString string, i32 fontIndex) const {
     return StringSize(string, fontIndex).x;
 }
 
-f32 Manager::StringHeight(WString string) const {
+f32 StringHeight(WString string) {
     f32 size = lineHeight;
     for (i32 i = 0; i < string.size; i++) {
         const char32 character = string[i];

@@ -16,27 +16,27 @@ io::logStream cout("rendering.log");
 
 String error = "No error.";
 
-void PushConstants::vert_t::Push(VkCommandBuffer commandBuffer, Manager *rendering) {
+void PushConstants::vert_t::Push(VkCommandBuffer commandBuffer, const Manager *rendering) const {
     vkCmdPushConstants(commandBuffer, rendering->data.pipeline2D->data.layout,
             VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(vert_t), this);
 }
 
-void PushConstants::frag_t::Push(VkCommandBuffer commandBuffer, Manager *rendering) {
+void PushConstants::frag_t::Push(VkCommandBuffer commandBuffer, const Manager *rendering) const {
     vkCmdPushConstants(commandBuffer, rendering->data.pipeline2D->data.layout,
             VK_SHADER_STAGE_FRAGMENT_BIT, offsetof(PushConstants, frag), sizeof(frag_t), this);
 }
 
-void PushConstants::font_t::Push(VkCommandBuffer commandBuffer, Manager *rendering) {
+void PushConstants::font_t::Push(VkCommandBuffer commandBuffer, const Manager *rendering) const {
     vkCmdPushConstants(commandBuffer, rendering->data.pipelineFont->data.layout,
             VK_SHADER_STAGE_FRAGMENT_BIT, offsetof(PushConstants, frag), sizeof(frag_t) + sizeof(font_t), (char*)this - sizeof(frag_t));
 }
 
-void PushConstants::Push2D(VkCommandBuffer commandBuffer, Manager *rendering) {
+void PushConstants::Push2D(VkCommandBuffer commandBuffer, const Manager *rendering) const {
     vert.Push(commandBuffer, rendering);
     frag.Push(commandBuffer, rendering);
 }
 
-void PushConstants::PushFont(VkCommandBuffer commandBuffer, Manager *rendering) {
+void PushConstants::PushFont(VkCommandBuffer commandBuffer, const Manager *rendering) const {
     vert.Push(commandBuffer, rendering);
     font.Push(commandBuffer, rendering);
 }
@@ -768,6 +768,16 @@ void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString string,
             cursor += glyph.info.advance * scale;
         }
     }
+}
+
+void Manager::DrawQuadSS(VkCommandBuffer commandBuffer, i32 texIndex, vec4 color, vec2 position, vec2 scale, vec2 origin) const {
+    Rendering::PushConstants pc = Rendering::PushConstants();
+    pc.frag.color = color;
+    pc.frag.texIndex = texIndex;
+    pc.vert.position = position;
+    pc.vert.transform = mat2::Scaler(scale);
+    pc.Push2D(commandBuffer, this);
+    vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
 }
 
 } // namespace Rendering

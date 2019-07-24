@@ -46,21 +46,23 @@ struct PushConstants {
         mat2 transform = mat2(1.0);
         vec2 origin = vec2(0.0);
         vec2 position = vec2(0.0);
-        void Push(VkCommandBuffer commandBuffer, Manager *rendering);
+        void Push(VkCommandBuffer commandBuffer, const Manager *rendering) const;
     } vert;
     struct frag_t {
         vec4 color = vec4(1.0);
         int texIndex = 0;
-        void Push(VkCommandBuffer commandBuffer, Manager *rendering);
+        void Push(VkCommandBuffer commandBuffer, const Manager *rendering) const;
     } frag;
     struct font_t {
         f32 edge = 0.1;
         f32 bounds = 0.5;
-        void Push(VkCommandBuffer commandBuffer, Manager *rendering);
+        void Push(VkCommandBuffer commandBuffer, const Manager *rendering) const;
     } font;
-    void Push2D(VkCommandBuffer commandBuffer, Manager *rendering);
-    void PushFont(VkCommandBuffer commandBuffer, Manager *rendering);
+    void Push2D(VkCommandBuffer commandBuffer, const Manager *rendering) const;
+    void PushFont(VkCommandBuffer commandBuffer, const Manager *rendering) const;
 };
+
+constexpr i32 texBlank = 1;
 
 extern String error;
 
@@ -152,6 +154,7 @@ struct Manager {
     void DrawTextSS(VkCommandBuffer commandBuffer, WString string,
                     i32 fontIndex, vec4 color, vec2 position, vec2 scale,
                     FontAlign alignH = LEFT, FontAlign alignV = TOP, f32 maxWidth = 0.0, f32 edge = 0.5, f32 bounds = 0.5);
+    void DrawQuadSS(VkCommandBuffer commandBuffer, i32 texIndex, vec4 color, vec2 position, vec2 scale, vec2 origin = vec2(0.0)) const;
     // Units are in pixel space
     // void DrawChar(VkCommandBuffer commandBuffer, char32 character,
     //               i32 fontIndex, vec2 position, vec2 scale);

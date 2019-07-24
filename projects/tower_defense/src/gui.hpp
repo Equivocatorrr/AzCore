@@ -42,20 +42,23 @@ struct Screen : public Widget {
     void UpdateSize(vec2 container);
 };
 
-// A vertical list of items.
-struct ListV : public Widget {
+struct List : public Widget {
     vec2 padding;
-    ListV();
-    ~ListV() = default;
+    vec4 color;
+    List();
+    ~List() = default;
+    void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+};
+
+// A vertical list of items.
+struct ListV : public List {
     void UpdateSize(vec2 container);
     void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
 };
 
 // A horizontal list of items.
-struct ListH : public Widget {
-    vec2 padding;
+struct ListH : public List {
     ListH();
-    ~ListH() = default;
     void UpdateSize(vec2 container);
     void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
 };
@@ -95,7 +98,7 @@ struct Gui : public Objects::Object {
 
     Set<Widget*> allWidgets; // So we can delete them at the end of the program.
     Screen screenWidget;
-    Text *textWidget[3];
+    Text *textWidget;
 
     ~Gui();
 

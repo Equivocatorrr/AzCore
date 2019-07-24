@@ -156,11 +156,9 @@ struct Manager {
                     FontAlign alignH = LEFT, FontAlign alignV = TOP, f32 maxWidth = 0.0, f32 edge = 0.5, f32 bounds = 0.5);
     void DrawQuadSS(VkCommandBuffer commandBuffer, i32 texIndex, vec4 color, vec2 position, vec2 scale, vec2 origin = vec2(0.0)) const;
     // Units are in pixel space
-    // void DrawChar(VkCommandBuffer commandBuffer, char32 character,
-    //               i32 fontIndex, vec2 position, vec2 scale);
-    // void DrawText(VkCommandBuffer commandBuffer, WString text,
-    //               i32 fontIndex, vec2 position, vec2 scale,
-    //               FontAlign alignH = LEFT, FontAlign alignV = BOTTOM, f32 maxWidth = 0.0);
+    void DrawChar(VkCommandBuffer commandBuffer, char32 character, i32 fontIndex, vec4 color, vec2 position, vec2 scale);
+    void DrawText(VkCommandBuffer commandBuffer, WString text, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH = LEFT, FontAlign alignV = BOTTOM, f32 maxWidth = 0.0, f32 edge = 0.5, f32 bounds = 0.5);
+    void DrawQuad(VkCommandBuffer commandBuffer, i32 texIndex, vec4 color, vec2 position, vec2 scale, vec2 origin = vec2(0.0)) const;
 };
 
 }

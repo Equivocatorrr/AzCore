@@ -150,9 +150,9 @@ List::List() : padding(16.0), color(0.1, 0.1, 0.1, 0.9) {}
 
 void List::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const {
     if (color.a > 0.0) {
-        const vec2 screenSizeFactor = vec2(2.0) / rendering->screenSize;
+        // const vec2 screenSizeFactor = vec2(2.0) / rendering->screenSize;
         rendering->BindPipeline2D(commandBuffer);
-        rendering->DrawQuadSS(commandBuffer, Rendering::texBlank, color, positionAbsolute * screenSizeFactor + vec2(-1.0), sizeAbsolute * screenSizeFactor);
+        rendering->DrawQuad(commandBuffer, Rendering::texBlank, color, positionAbsolute, sizeAbsolute);
     }
     Widget::Draw(rendering, commandBuffer);
 }
@@ -256,9 +256,9 @@ void Text::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) co
         vk::CmdSetScissor(commandBuffer, (u32)sizeAbsolute.x, (u32)sizeAbsolute.y, (i32)positionAbsolute.x, (i32)positionAbsolute.y);
     }
     rendering->BindPipelineFont(commandBuffer);
-    vec2 drawPos = positionAbsolute * screenSizeFactor + vec2(-1.0);
-    vec2 scale = vec2(fontSize * screenSizeFactor.y);
-    f32 maxWidth = sizeAbsolute.x * screenSizeFactor.x;
+    vec2 drawPos = positionAbsolute;
+    vec2 scale = vec2(fontSize);
+    f32 maxWidth = sizeAbsolute.x;
     if (alignH == Rendering::CENTER) {
         drawPos.x += maxWidth * 0.5;
     } else if (alignH == Rendering::RIGHT) {
@@ -270,9 +270,9 @@ void Text::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) co
         drawPos.y += GetSize().y * screenSizeFactor.y;
     }
     if (outline) {
-        rendering->DrawTextSS(commandBuffer, stringFormatted, fontIndex, colorOutline, drawPos, scale, alignH, alignV, maxWidth, edge+0.1, bounds-0.3);
+        rendering->DrawText(commandBuffer, stringFormatted, fontIndex, colorOutline, drawPos, scale, alignH, alignV, maxWidth, edge+0.1, bounds-0.3);
     }
-    rendering->DrawTextSS(commandBuffer, stringFormatted, fontIndex, color, drawPos, scale, alignH, alignV, maxWidth, edge, bounds);
+    rendering->DrawText(commandBuffer, stringFormatted, fontIndex, color, drawPos, scale, alignH, alignV, maxWidth, edge, bounds);
     if (maxSize.x != 0.0 && maxSize.y != 0.0) {
         vk::CmdSetScissor(commandBuffer, rendering->window->width, rendering->window->height, 0, 0);
     }

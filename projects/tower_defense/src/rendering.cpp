@@ -780,4 +780,19 @@ void Manager::DrawQuadSS(VkCommandBuffer commandBuffer, i32 texIndex, vec4 color
     vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
 }
 
+void Manager::DrawChar(VkCommandBuffer commandBuffer, char32 character, i32 fontIndex, vec4 color, vec2 position, vec2 scale) {
+    const vec2 screenSizeFactor = vec2(2.0) / screenSize;
+    DrawCharSS(commandBuffer, character, fontIndex, color, position * screenSizeFactor + vec2(-1.0), scale * screenSizeFactor);
+}
+
+void Manager::DrawText(VkCommandBuffer commandBuffer, WString text, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH, FontAlign alignV, f32 maxWidth, f32 edge, f32 bounds) {
+    const vec2 screenSizeFactor = vec2(2.0) / screenSize;
+    DrawTextSS(commandBuffer, text, fontIndex, color, position * screenSizeFactor + vec2(-1.0), scale * screenSizeFactor.y, alignH, alignV, maxWidth * screenSizeFactor.x, edge, bounds);
+}
+
+void Manager::DrawQuad(VkCommandBuffer commandBuffer, i32 texIndex, vec4 color, vec2 position, vec2 scale, vec2 origin) const {
+    const vec2 screenSizeFactor = vec2(2.0) / screenSize;
+    DrawQuadSS(commandBuffer, texIndex, color, position * screenSizeFactor + vec2(-1.0), scale * screenSizeFactor, origin);
+}
+
 } // namespace Rendering

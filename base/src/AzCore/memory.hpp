@@ -176,6 +176,20 @@ struct Ptr {
             return &(*reinterpret_cast<Array<T>*>(ptr))[index];
         }
     }
+    const T& operator*() const {
+        if (index < 0) {
+            return *reinterpret_cast<T*>(ptr);
+        } else {
+            return (*reinterpret_cast<Array<T>*>(ptr))[index];
+        }
+    }
+    const T* operator->() const {
+        if (index < 0) {
+            return reinterpret_cast<T*>(ptr);
+        } else {
+            return &(*reinterpret_cast<Array<T>*>(ptr))[index];
+        }
+    }
 };
 
 /*  struct: Range

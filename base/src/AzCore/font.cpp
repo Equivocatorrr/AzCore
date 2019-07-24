@@ -1158,6 +1158,7 @@ bool FontBuilder::Build() {
     for (i32 i = 0; i < glyphsToAdd.size; i++) {
         Glyph& glyph = glyphsToAdd[i];
         glyph.info.size += sdfDistance*2.0;
+        glyph.info.offset += sdfDistance;
         glyph.info.pos /= boundSquare;
         glyph.info.size /= boundSquare;
         glyph.info.offset /= boundSquare;

@@ -16,47 +16,47 @@ namespace Int { // Short for Interface
 
 // Base polymorphic interface
 struct Widget {
-protected:
-    mutable vec2 size; // size is pixel space and often depends on contents.
-    mutable bool sizeUpdated;
-public:
     Array<Widget*> children;
     vec2 margin; // Space surrounding the widget.
+    vec2 size; // Either pixel size, or fraction of parent container. 0.0 means it depends on contents.
+    bool sizeIsFraction;
+    vec2 sizeAbsolute; // sizeAbsolute is pixel space and can depend on contents.
+    vec2 minSize, maxSize; // Absolute limits, negative values are ignored.
     vec2 position; // Relative to the parent widget.
     vec2 positionAbsolute; // Where we are in pixel space.
     i32 depth; // How deeply nested we are. Used for input culling for controllers.
     Widget();
     virtual ~Widget() = default;
-    vec2 GetSize() const;
-    virtual void UpdateSize() const = 0;
+    virtual void UpdateSize(vec2 container) = 0;
+    void LimitSize();
+    inline vec2 GetSize() const { return sizeAbsolute + margin * 2.0; }
     virtual void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
     virtual void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
 };
 
 // Lowest level widget, used for input for game objects.
 struct Screen : public Widget {
-    Rendering::Manager *rendering;
     Screen();
     ~Screen() = default;
     void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
-    void UpdateSize() const;
+    void UpdateSize(vec2 container);
 };
 
 // A vertical list of items.
 struct ListV : public Widget {
-    vec2 minSize, maxSize, padding;
+    vec2 padding;
     ListV();
     ~ListV() = default;
-    void UpdateSize() const;
+    void UpdateSize(vec2 container);
     void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
 };
 
 // A horizontal list of items.
 struct ListH : public Widget {
-    vec2 minSize, maxSize, padding;
+    vec2 padding;
     ListH();
     ~ListH() = default;
-    void UpdateSize() const;
+    void UpdateSize(vec2 container);
     void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
 };
 
@@ -69,12 +69,11 @@ public:
     f32 fontSize;
     i32 fontIndex;
     Rendering::FontAlign alignH, alignV;
-    vec2 maxSize;
     vec4 color, colorOutline;
     bool outline;
     Text();
     ~Text() = default;
-    void UpdateSize() const;
+    void UpdateSize(vec2 container);
     void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
     void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
 };

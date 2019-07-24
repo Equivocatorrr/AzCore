@@ -31,13 +31,13 @@ void Gui::EventAssetAcquire(Assets::Manager *assets) {
 }
 
 void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *rendering) {
-    screenWidget.rendering = rendering;
     textWidget[0] = new Text();
     textWidget[0]->string = ToWString("Hahaha look at me! There's so much to say! I don't know what else to do. ¡Hola señor Lopez! ¿Cómo está usted? Estoy muy bien. ¿Y cómo se llama? ありがとうお願いします私はハンバーガー 세계를 향한 대화, 유니코드로 하십시오. 経機速講著述元載説赤問台民。 Лорем ипсум долор сит амет Λορεμ ιπσθμ δολορ σιτ αμετ There once was a man named Chad. He was an incel. What a terrible sight! If only someone was there to teach him the ways of humility! Oh how he would wail and toil how all the girls would pass up a \"nice guy like me\". What a bitch.");
     textWidget[0]->fontIndex = fontIndex;
+    textWidget[0]->size.x = 0.5;
+    textWidget[0]->alignH = Rendering::JUSTIFY;
     ListV *listWidget = new ListV();
     ListH *listHWidget = new ListH();
-    listHWidget->padding = vec2(0.0);
     listHWidget->margin = vec2(0.0);
     AddWidget(&screenWidget, listWidget);
     textWidget[2] = new Text();
@@ -53,14 +53,12 @@ void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *renderi
     textWidget[1] = new Text();
     textWidget[1]->string = ToWString("Hey now! You're an all star! Get your shit together!");
     textWidget[1]->fontIndex = fontIndex;
+    textWidget[1]->size.x = 0.5;
+    textWidget[1]->alignH = Rendering::JUSTIFY;
     AddWidget(listHWidget, textWidget[1]);
 }
 
 void Gui::EventUpdate(bool buffer, Objects::Manager *objects, Rendering::Manager *rendering) {
-    for (i32 i = 0; i < 2; i++) {
-        textWidget[i]->maxSize.x = (screenWidget.GetSize().x - 128.0) * 0.5;
-    }
-    textWidget[2]->maxSize.x = (screenWidget.GetSize().x - 128.0);
     screenWidget.Update(vec2(0.0), this, objects, rendering);
     if (objects->input->Pressed(KC_KEY_1)) {
         font->SaveAtlas();
@@ -77,9 +75,6 @@ void Gui::EventUpdate(bool buffer, Objects::Manager *objects, Rendering::Manager
 }
 
 void Gui::EventDraw(bool buffer, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) {
-    // rendering->BindPipelineFont(commandBuffer);
-    // rendering->DrawCharSS(commandBuffer, text[25], fontIndex, pos, vec2(size));
-    // rendering->DrawTextSS(commandBuffer, text, fontIndex, pos, vec2(size));
     screenWidget.Draw(rendering, commandBuffer);
 }
 
@@ -94,17 +89,22 @@ void Gui::AddWidget(Widget *parent, Widget *newWidget) {
 //      Widget implementations beyond this point
 //
 
-Widget::Widget() : size(0.0), sizeUpdated(false), children(), margin(16.0), position(0.0), positionAbsolute(0.0), depth(0) {}
+Widget::Widget() : children(), margin(16.0), size(1.0), sizeIsFraction(true), sizeAbsolute(0.0), minSize(0.0), maxSize(-1.0), position(0.0), positionAbsolute(0.0), depth(0) {}
 
-vec2 Widget::GetSize() const {
-    if (!sizeUpdated) {
-        UpdateSize();
+void Widget::LimitSize() {
+    if (maxSize.x >= 0.0) {
+        sizeAbsolute.x = median(minSize.x, sizeAbsolute.x, maxSize.x);
+    } else {
+        sizeAbsolute.x = max(minSize.x, sizeAbsolute.x);
     }
-    return size + margin * 2.0;
+    if (maxSize.y >= 0.0) {
+        sizeAbsolute.y = median(minSize.y, sizeAbsolute.y, maxSize.y);
+    } else {
+        sizeAbsolute.y = max(minSize.y, sizeAbsolute.y);
+    }
 }
 
 void Widget::Update(vec2 pos, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
-    sizeUpdated = false;
     pos += margin;
     positionAbsolute = pos;
     for (Widget* child : children) {
@@ -118,47 +118,46 @@ void Widget::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) 
     }
 }
 
-Screen::Screen() : rendering(nullptr) {
+Screen::Screen() {
     margin = vec2(0.0);
 }
 
 void Screen::Update(vec2 pos, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
-    this->rendering = rendering;
+    UpdateSize(rendering->screenSize);
     Widget::Update(pos, gui, objects, rendering);
 }
 
-void Screen::UpdateSize() const {
-    size = rendering->screenSize;
-    sizeUpdated = true;
+void Screen::UpdateSize(vec2 container) {
+    sizeAbsolute = container - margin * 2.0;
+    for (Widget* child : children) {
+        child->UpdateSize(sizeAbsolute);
+    }
 }
 
-ListV::ListV() : minSize(0.0), maxSize(0.0), padding(16.0) {}
+ListV::ListV() : padding(16.0) {}
 
-void ListV::UpdateSize() const {
-    size = vec2(0.0);
-    for (const Widget* child : children) {
-        const vec2 childSize = child->GetSize();
-        size.y += childSize.y;
-        if (childSize.x > size.x) {
-            size.x = childSize.x;
+void ListV::UpdateSize(vec2 container) {
+    sizeAbsolute = vec2(0.0);
+    if (size.x > 0.0) {
+        sizeAbsolute.x = (sizeIsFraction ? container.x * size.x : size.x) - margin.x * 2.0;
+    }
+    if (size.y > 0.0) {
+        sizeAbsolute.y = (sizeIsFraction ? container.y * size.y : size.y) - margin.y * 2.0;
+    }
+    for (Widget* child : children) {
+        child->UpdateSize(sizeAbsolute - padding * 2.0);
+        vec2 childSize = child->GetSize();
+        if (size.x == 0.0) {
+            sizeAbsolute.x = max(sizeAbsolute.x, childSize.x);
+        }
+        if (size.y == 0.0) {
+            sizeAbsolute.y += childSize.y;
         }
     }
-    size += padding * 2.0;
-    if (maxSize.x > 0.0) {
-        size.x = median(minSize.x, size.x, maxSize.x);
-    } else {
-        size.x = max(minSize.x, size.x);
-    }
-    if (maxSize.y > 0.0) {
-        size.y = median(minSize.y, size.y, maxSize.y);
-    } else {
-        size.y = max(minSize.y, size.y);
-    }
-    sizeUpdated = true;
+    LimitSize();
 }
 
 void ListV::Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
-    sizeUpdated = false;
     pos += margin + padding;
     for (Widget *child : children) {
         child->Update(pos, gui, objects, rendering);
@@ -166,33 +165,30 @@ void ListV::Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Renderi
     }
 }
 
-ListH::ListH() : minSize(0.0), maxSize(0.0), padding(16.0) {}
+ListH::ListH() : padding(0.0) {}
 
-void ListH::UpdateSize() const {
-    size = 0.0;
-    for (const Widget* child : children) {
-        const vec2 childSize = child->GetSize();
-        size.x += childSize.x;
-        if (childSize.y > size.y) {
-            size.y = childSize.y;
+void ListH::UpdateSize(vec2 container) {
+    sizeAbsolute = vec2(0.0);
+    if (size.x > 0.0) {
+        sizeAbsolute.x = (sizeIsFraction ? container.x * size.x : size.x) - margin.x * 2.0;
+    }
+    if (size.y > 0.0) {
+        sizeAbsolute.y = (sizeIsFraction ? container.y * size.y : size.y) - margin.y * 2.0;
+    }
+    for (Widget* child : children) {
+        child->UpdateSize(sizeAbsolute - padding * 2.0);
+        vec2 childSize = child->GetSize();
+        if (size.x == 0.0) {
+            sizeAbsolute.x += childSize.x;
+        }
+        if (size.y == 0.0) {
+            sizeAbsolute.y = max(sizeAbsolute.y, childSize.y);
         }
     }
-    size += padding * 2.0;
-    if (maxSize.x > 0.0) {
-        size.x = median(minSize.x, size.x, maxSize.x);
-    } else {
-        size.x = max(minSize.x, size.x);
-    }
-    if (maxSize.y > 0.0) {
-        size.y = median(minSize.y, size.y, maxSize.y);
-    } else {
-        size.y = max(minSize.y, size.y);
-    }
-    sizeUpdated = true;
+    LimitSize();
 }
 
 void ListH::Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
-    sizeUpdated = false;
     pos += margin + padding;
     for (Widget *child : children) {
         child->Update(pos, gui, objects, rendering);
@@ -200,25 +196,27 @@ void ListH::Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Renderi
     }
 }
 
-Text::Text() : rendering(nullptr), stringFormatted(), string(), fontSize(32.0), fontIndex(1), alignH(Rendering::LEFT), alignV(Rendering::TOP), maxSize(0.0), color(1.0), colorOutline(0.0, 0.0, 0.0, 1.0), outline(false) {}
+Text::Text() : rendering(nullptr), stringFormatted(), string(), fontSize(32.0), fontIndex(1), alignH(Rendering::LEFT), alignV(Rendering::TOP), color(1.0), colorOutline(0.0, 0.0, 0.0, 1.0), outline(false) {
+    size.y = 0.0;
+}
 
-void Text::UpdateSize() const {
-    if (maxSize.x > 0.0) {
-        size.x = maxSize.x;
+void Text::UpdateSize(vec2 container) {
+    if (size.x > 0.0) {
+        sizeAbsolute.x = (sizeIsFraction ? container.x * size.x : size.x) - margin.x * 2.0;
     } else {
-        size.x = rendering->StringWidth(stringFormatted, fontIndex) * fontSize;
+        sizeAbsolute.x = rendering->StringWidth(stringFormatted, fontIndex) * fontSize;
     }
-    if (maxSize.y > 0.0) {
-        size.y = maxSize.y;
+    if (size.y > 0.0) {
+        sizeAbsolute.y = (sizeIsFraction ? container.y * size.y : size.y) - margin.y * 2.0;
     } else {
-        size.y = rendering->StringHeight(stringFormatted) * fontSize;
+        sizeAbsolute.y = rendering->StringHeight(stringFormatted) * fontSize;
     }
-    sizeUpdated = true;
+    LimitSize();
 }
 
 void Text::Update(vec2 pos, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
     this->rendering = rendering;
-    stringFormatted = rendering->StringAddNewlines(string, fontIndex, maxSize.x / fontSize);
+    stringFormatted = rendering->StringAddNewlines(string, fontIndex, sizeAbsolute.x / fontSize);
     Widget::Update(pos, gui, objects, rendering);
 }
 
@@ -227,12 +225,12 @@ void Text::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) co
     const f32 edge = 0.3 + min(0.2, max(0.0, (fontSize - 12.0) / 12.0));
     const f32 bounds = 0.5 - min(0.05, max(0.0, (16.0 - fontSize) * 0.01));
     if (maxSize.x != 0.0 && maxSize.y != 0.0) {
-        vk::CmdSetScissor(commandBuffer, (u32)maxSize.x, (u32)maxSize.y, (i32)positionAbsolute.x, (i32)positionAbsolute.y);
+        vk::CmdSetScissor(commandBuffer, (u32)sizeAbsolute.x, (u32)sizeAbsolute.y, (i32)positionAbsolute.x, (i32)positionAbsolute.y);
     }
     rendering->BindPipelineFont(commandBuffer);
     vec2 drawPos = positionAbsolute * screenSizeFactor + vec2(-1.0);
     vec2 scale = vec2(fontSize * screenSizeFactor.y);
-    f32 maxWidth = maxSize.x * screenSizeFactor.x;
+    f32 maxWidth = sizeAbsolute.x * screenSizeFactor.x;
     if (alignH == Rendering::CENTER) {
         drawPos.x += maxWidth * 0.5;
     } else if (alignH == Rendering::RIGHT) {

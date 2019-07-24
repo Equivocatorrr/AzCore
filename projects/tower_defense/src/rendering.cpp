@@ -588,7 +588,7 @@ f32 Manager::StringWidth(WString string, i32 fontIndex) const {
 }
 
 f32 StringHeight(WString string) {
-    f32 size = lineHeight;
+    f32 size = 1.0;
     for (i32 i = 0; i < string.size; i++) {
         const char32 character = string[i];
         if (character == '\n') {

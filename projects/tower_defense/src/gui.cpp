@@ -32,6 +32,9 @@ void Gui::EventAssetAcquire(Assets::Manager *assets) {
 
 void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *rendering) {
     ListV *listWidget = new ListV();
+    listWidget->size.x = 800.0;
+    listWidget->size.y = 0.0;
+    listWidget->sizeIsFraction = false;
     AddWidget(&screenWidget, listWidget);
 
     Text *titleWidget = new Text();
@@ -165,9 +168,13 @@ void ListV::UpdateSize(vec2 container) {
     sizeAbsolute = vec2(0.0);
     if (size.x > 0.0) {
         sizeAbsolute.x = (sizeIsFraction ? container.x * size.x : size.x) - margin.x * 2.0;
+    } else {
+        sizeAbsolute.x = padding.x * 2.0;
     }
     if (size.y > 0.0) {
         sizeAbsolute.y = (sizeIsFraction ? container.y * size.y : size.y) - margin.y * 2.0;
+    } else {
+        sizeAbsolute.y = padding.y * 2.0;
     }
     for (Widget* child : children) {
         child->UpdateSize(sizeAbsolute - padding * 2.0);
@@ -201,9 +208,13 @@ void ListH::UpdateSize(vec2 container) {
     sizeAbsolute = vec2(0.0);
     if (size.x > 0.0) {
         sizeAbsolute.x = (sizeIsFraction ? container.x * size.x : size.x) - margin.x * 2.0;
+    } else {
+        sizeAbsolute.x = padding.x * 2.0;
     }
     if (size.y > 0.0) {
         sizeAbsolute.y = (sizeIsFraction ? container.y * size.y : size.y) - margin.y * 2.0;
+    } else {
+        sizeAbsolute.y = padding.y * 2.0;
     }
     for (Widget* child : children) {
         child->UpdateSize(sizeAbsolute - padding * 2.0);

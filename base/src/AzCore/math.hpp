@@ -353,6 +353,8 @@ inline T normalize(const T& a) {
         inline vec2_t<T> operator/(const vec2_t<T>& a) const { return vec2_t<T>(x/a.x, y/a.y); }
         inline vec2_t<T> operator*(const T& a) const { return vec2_t<T>(x*a, y*a); }
         inline vec2_t<T> operator/(const T& a) const { return vec2_t<T>(x/a, y/a); }
+        inline bool operator==(const vec2_t<T>& a) const { return x == a.x && y == a.y; }
+        inline bool operator!=(const vec2_t<T>& a) const { return x != a.x || y != a.y; }
         inline T& operator[](const u32& i) { return data[i]; }
         vec2_t<T> operator+=(const vec2_t<T>& a);
         vec2_t<T> operator-=(const vec2_t<T>& a);
@@ -476,6 +478,8 @@ inline T normalize(const T& a) {
         inline vec3_t<T> operator/(const vec3_t<T>& a) const { return vec3_t<T>(x/a.x, y/a.y, z/a.z); }
         inline vec3_t<T> operator*(const T& a) const { return vec3_t<T>(x*a, y*a, z*a); }
         inline vec3_t<T> operator/(const T& a) const { return vec3_t<T>(x/a, y/a, z/a); }
+        inline bool operator==(const vec3_t<T>& a) const { return x == a.x && y == a.y && z == a.z; }
+        inline bool operator!=(const vec3_t<T>& a) const { return x != a.x || y != a.y || z != a.z; }
         inline T& operator[](const u32& i) { return data[i]; }
         vec3_t<T> operator+=(const vec3_t<T>& a);
         vec3_t<T> operator-=(const vec3_t<T>& a);
@@ -649,6 +653,8 @@ inline T normalize(const T& a) {
         inline vec4_t<T> operator/(const vec4_t<T>& vec) const { return vec4_t<T>(x/vec.x, y/vec.y, z/vec.z, w/vec.w); }
         inline vec4_t<T> operator*(const T& vec) const { return vec4_t<T>(x*vec, y*vec, z*vec, w*vec); }
         inline vec4_t<T> operator/(const T& vec) const { return vec4_t<T>(x/vec, y/vec, z/vec, w/vec); }
+        inline bool operator==(const vec4_t<T>& a) const { return x == a.x && y == a.y && z == a.z && w == a.w; }
+        inline bool operator!=(const vec4_t<T>& a) const { return x != a.x || y != a.y || z != a.z || w != a.w; }
         inline T& operator[](const u32& i) { return data[i]; }
         vec4_t<T> operator+=(const vec4_t<T>& vec);
         vec4_t<T> operator-=(const vec4_t<T>& vec);
@@ -816,6 +822,8 @@ inline T normalize(const T& a) {
         inline vec5_t<T> operator/(const vec5_t<T>& vec) const { return vec5_t<T>(x/vec.x, y/vec.y, z/vec.z, w/vec.w, v/vec.v); }
         inline vec5_t<T> operator*(const T& vec) const { return vec5_t<T>(x*vec, y*vec, z*vec, w*vec, v*vec); }
         inline vec5_t<T> operator/(const T& vec) const { return vec5_t<T>(x/vec, y/vec, z/vec, w/vec, v/vec); }
+        inline bool operator==(const vec4_t<T>& a) const { return x == a.x && y == a.y && z == a.z && w == a.w && v == a.v; }
+        inline bool operator!=(const vec4_t<T>& a) const { return x != a.x || y != a.y || z != a.z || w != a.w || v != a.v; }
         inline T& operator[](const u32& i) { return data[i]; }
         vec5_t<T> operator+=(const vec5_t<T>& vec);
         vec5_t<T> operator-=(const vec5_t<T>& vec);

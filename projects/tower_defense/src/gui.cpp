@@ -40,14 +40,13 @@ void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *renderi
     titleWidget->string = ToWString("Title");
     titleWidget->fontSize = 64.0;
     titleWidget->color = vec4(1.0, 0.5, 0.0, 1.0);
-    titleWidget->colorOutline = vec4(0.2, 0.1, 0.0, 1.0);
+    titleWidget->colorOutline = vec4(0.4, 0.2, 0.0, 1.0);
     titleWidget->outline = true;
     titleWidget->alignH = Rendering::CENTER;
     AddWidget(listWidget, titleWidget);
 
     ListH *listHWidget = new ListH();
-    listHWidget->margin = vec2(0.0);
-    listHWidget->size.y = 0.0;
+    listHWidget->minSize.y = 300.0;
     AddWidget(listWidget, listHWidget);
 
     textWidget = new Text();
@@ -70,6 +69,31 @@ void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *renderi
     textWidget3->size.x = 1.0 / 3.0;
     textWidget3->alignH = Rendering::JUSTIFY;
     AddWidget(listHWidget, textWidget3);
+
+    ListH *listHWidget2 = new ListH();
+    listHWidget2->size.y = 64.0;
+    listHWidget2->fractionHeight = false;
+    listHWidget2->padding = vec2(0.0);
+    AddWidget(listWidget, listHWidget2);
+
+    Button *buttonWidget1 = new Button();
+    buttonWidget1->fontIndex = fontIndex;
+    buttonWidget1->string = ToWString("Previous");
+    buttonWidget1->size.x = 128.0;
+    buttonWidget1->fractionWidth = false;
+    AddWidget(listHWidget2, buttonWidget1);
+
+    Button *buttonWidget2 = new Button();
+    buttonWidget2->fontIndex = fontIndex;
+    buttonWidget2->string = ToWString("Select");
+    AddWidget(listHWidget2, buttonWidget2);
+
+    Button *buttonWidget3 = new Button();
+    buttonWidget3->fontIndex = fontIndex;
+    buttonWidget3->string = ToWString("Next");
+    buttonWidget3->size.x = 128.0;
+    buttonWidget3->fractionWidth = false;
+    AddWidget(listHWidget2, buttonWidget3);
 }
 
 void Gui::EventUpdate(bool buffer, Objects::Manager *objects, Rendering::Manager *rendering) {
@@ -103,7 +127,7 @@ void Gui::AddWidget(Widget *parent, Widget *newWidget) {
 //      Widget implementations beyond this point
 //
 
-Widget::Widget() : children(), margin(16.0), size(1.0), fractionWidth(true), fractionHeight(true), sizeAbsolute(0.0), minSize(0.0), maxSize(-1.0), position(0.0), positionAbsolute(0.0), depth(0) {}
+Widget::Widget() : children(), margin(8.0), size(1.0), fractionWidth(true), fractionHeight(true), sizeAbsolute(0.0), minSize(0.0), maxSize(-1.0), position(0.0), positionAbsolute(0.0), depth(0) {}
 
 void Widget::LimitSize() {
     if (maxSize.x >= 0.0) {
@@ -148,7 +172,7 @@ void Screen::UpdateSize(vec2 container) {
     }
 }
 
-List::List() : padding(16.0), color(0.1, 0.1, 0.1, 0.9) {}
+List::List() : padding(8.0), color(0.1, 0.1, 0.1, 0.9) {}
 
 void List::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const {
     if (color.a > 0.0) {
@@ -157,8 +181,8 @@ void List::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) co
         rendering->DrawQuad(commandBuffer, Rendering::texBlank, color, positionAbsolute, sizeAbsolute);
     }
     rendering->PushScissor(commandBuffer,
-        vec2i((i32)positionAbsolute.x+margin.x, (i32)positionAbsolute.y+margin.y),
-        vec2i((i32)(sizeAbsolute.x+positionAbsolute.x-margin.x), (i32)(sizeAbsolute.y+positionAbsolute.y-margin.y)));
+        vec2i((i32)positionAbsolute.x+margin.x+padding.x, (i32)positionAbsolute.y+margin.y+padding.y),
+        vec2i((i32)(sizeAbsolute.x+positionAbsolute.x-margin.x-padding.x), (i32)(sizeAbsolute.y+positionAbsolute.y-margin.y-padding.y)));
     Widget::Draw(rendering, commandBuffer);
     rendering->PopScissor(commandBuffer);
 }
@@ -166,17 +190,28 @@ void List::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) co
 void ListV::UpdateSize(vec2 container) {
     sizeAbsolute = vec2(0.0);
     if (size.x > 0.0) {
-        sizeAbsolute.x = (fractionWidth ? container.x * size.x : size.x) - margin.x * 2.0;
+        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0) : size.x;
     } else {
         sizeAbsolute.x = padding.x * 2.0;
     }
     if (size.y > 0.0) {
-        sizeAbsolute.y = (fractionHeight ? container.y * size.y : size.y) - margin.y * 2.0;
+        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0) : size.y;
     } else {
         sizeAbsolute.y = padding.y * 2.0;
     }
+    vec2 sizeForInheritance = sizeAbsolute - padding * 2.0;
     for (Widget* child : children) {
-        child->UpdateSize(sizeAbsolute - padding * 2.0);
+        if (child->size.y == 0.0) {
+            child->UpdateSize(sizeForInheritance);
+            sizeForInheritance.y -= child->GetSize().y;
+        } else {
+            if (!child->fractionHeight) {
+                sizeForInheritance.y -= child->size.y + child->margin.y * 2.0;
+            }
+        }
+    }
+    for (Widget* child : children) {
+        child->UpdateSize(sizeForInheritance);
         vec2 childSize = child->GetSize();
         if (size.x == 0.0) {
             sizeAbsolute.x = max(sizeAbsolute.x, childSize.x);
@@ -199,24 +234,34 @@ void ListV::Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Renderi
 }
 
 ListH::ListH() {
-    padding = vec2(0.0);
     color = vec4(0.2, 0.2, 0.2, 0.9);
 }
 
 void ListH::UpdateSize(vec2 container) {
     sizeAbsolute = vec2(0.0);
     if (size.x > 0.0) {
-        sizeAbsolute.x = (fractionWidth ? container.x * size.x : size.x) - margin.x * 2.0;
+        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0) : size.x;
     } else {
         sizeAbsolute.x = padding.x * 2.0;
     }
     if (size.y > 0.0) {
-        sizeAbsolute.y = (fractionHeight ? container.y * size.y : size.y) - margin.y * 2.0;
+        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0) : size.y;
     } else {
         sizeAbsolute.y = padding.y * 2.0;
     }
+    vec2 sizeForInheritance = sizeAbsolute - padding * 2.0;
     for (Widget* child : children) {
-        child->UpdateSize(sizeAbsolute - padding * 2.0);
+        if (child->size.x == 0.0) {
+            child->UpdateSize(sizeForInheritance);
+            sizeForInheritance.x -= child->GetSize().x;
+        } else {
+            if (!child->fractionWidth) {
+                sizeForInheritance.x -= child->size.x + child->margin.x * 2.0;
+            }
+        }
+    }
+    for (Widget* child : children) {
+        child->UpdateSize(sizeForInheritance);
         vec2 childSize = child->GetSize();
         if (size.x == 0.0) {
             sizeAbsolute.x += childSize.x;
@@ -244,12 +289,12 @@ Text::Text() : rendering(nullptr), stringFormatted(), string(), fontSize(32.0), 
 
 void Text::UpdateSize(vec2 container) {
     if (size.x > 0.0) {
-        sizeAbsolute.x = (fractionWidth ? container.x * size.x : size.x) - margin.x * 2.0;
+        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0) : size.x;
     } else {
         sizeAbsolute.x = rendering->StringWidth(stringFormatted, fontIndex) * fontSize;
     }
     if (size.y > 0.0) {
-        sizeAbsolute.y = (fractionHeight ? container.y * size.y : size.y) - margin.y * 2.0;
+        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0) : size.y;
     } else {
         sizeAbsolute.y = Rendering::StringHeight(stringFormatted) * fontSize;
     }
@@ -263,14 +308,10 @@ void Text::Update(vec2 pos, Gui *gui, Objects::Manager *objects, Rendering::Mana
 }
 
 void Text::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const {
-    const vec2 screenSizeFactor = vec2(2.0) / rendering->screenSize;
-    const f32 edge = 0.3 + min(0.2, max(0.0, (fontSize - 12.0) / 12.0));
-    const f32 bounds = 0.5 - min(0.05, max(0.0, (16.0 - fontSize) * 0.01));
-    if (maxSize.x != 0.0 && maxSize.y != 0.0) {
+    if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
         rendering->PushScissor(commandBuffer,
             vec2i((i32)positionAbsolute.x, (i32)positionAbsolute.y),
             vec2i((i32)(sizeAbsolute.x+positionAbsolute.x), (i32)(sizeAbsolute.y+positionAbsolute.y)));
-        // vk::CmdSetScissor(commandBuffer, (u32)sizeAbsolute.x, (u32)sizeAbsolute.y, (i32)positionAbsolute.x, (i32)positionAbsolute.y);
     }
     rendering->BindPipelineFont(commandBuffer);
     vec2 drawPos = positionAbsolute;
@@ -282,16 +323,73 @@ void Text::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) co
         drawPos.x += maxWidth;
     }
     if (alignV == Rendering::CENTER) {
-        drawPos.y += GetSize().y * screenSizeFactor.y * 0.5;
+        drawPos.y += sizeAbsolute.y * 0.5;
     } else if (alignV == Rendering::BOTTOM) {
-        drawPos.y += GetSize().y * screenSizeFactor.y;
+        drawPos.y += sizeAbsolute.y;
     }
     if (outline) {
-        rendering->DrawText(commandBuffer, stringFormatted, fontIndex, colorOutline, drawPos, scale, alignH, alignV, maxWidth, edge+0.1, bounds-0.3);
+        rendering->DrawText(commandBuffer, stringFormatted, fontIndex, colorOutline, drawPos, scale, alignH, alignV, maxWidth, 0.1, 0.3);
     }
-    rendering->DrawText(commandBuffer, stringFormatted, fontIndex, color, drawPos, scale, alignH, alignV, maxWidth, edge, bounds);
-    if (maxSize.x != 0.0 && maxSize.y != 0.0) {
-        // vk::CmdSetScissor(commandBuffer, rendering->window->width, rendering->window->height, 0, 0);
+    rendering->DrawText(commandBuffer, stringFormatted, fontIndex, color, drawPos, scale, alignH, alignV, maxWidth);
+    if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
+        rendering->PopScissor(commandBuffer);
+    }
+}
+
+Button::Button() : string(), colorBG(0.15, 0.15, 0.15, 0.9), highlightBG(0.2, 0.6, 0.5, 0.9), colorText(1.0), highlightText(1.0), fontIndex(1), fontSize(24.0), mouseover(false), state() {
+    state.canRepeat = false;
+}
+
+void Button::UpdateSize(vec2 container) {
+    if (size.x > 0.0) {
+        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0) : size.x;
+    } else {
+        sizeAbsolute.x = 0.0;
+    }
+    if (size.y > 0.0) {
+        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0) : size.y;
+    } else {
+        sizeAbsolute.y = 0.0;
+    }
+    LimitSize();
+}
+
+void Button::Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
+    Widget::Update(pos, gui, objects, rendering);
+    const vec2 mouse = vec2((f32)objects->input->cursor.x, (f32)objects->input->cursor.y);
+    mouseover = mouse.x == median(positionAbsolute.x, mouse.x, positionAbsolute.x + sizeAbsolute.x)
+             && mouse.y == median(positionAbsolute.y, mouse.y, positionAbsolute.y + sizeAbsolute.y);
+    state.Tick(0.0);
+    if (mouseover) {
+        if (objects->input->Pressed(KC_MOUSE_LEFT)) {
+            state.Press();
+        }
+        if (objects->input->Released(KC_MOUSE_LEFT)) {
+            state.Release();
+        }
+    } else {
+        state.Set(false, false, false);
+    }
+}
+
+void Button::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const {
+    if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
+        rendering->PushScissor(commandBuffer,
+            vec2i((i32)positionAbsolute.x, (i32)positionAbsolute.y),
+            vec2i((i32)(sizeAbsolute.x+positionAbsolute.x), (i32)(sizeAbsolute.y+positionAbsolute.y)));
+    }
+    f32 scale;
+    if (state.Down()) {
+        scale = 0.9;
+    } else {
+        scale = 1.0;
+    }
+    vec2 drawPos = positionAbsolute + sizeAbsolute * 0.5;
+    rendering->BindPipeline2D(commandBuffer);
+    rendering->DrawQuad(commandBuffer, 1, mouseover ? highlightBG : colorBG, drawPos, sizeAbsolute * scale, vec2(0.5));
+    rendering->BindPipelineFont(commandBuffer);
+    rendering->DrawText(commandBuffer, string, fontIndex,  mouseover ? highlightText : colorText, drawPos, vec2(fontSize * scale), Rendering::CENTER, Rendering::CENTER, sizeAbsolute.x);
+    if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
         rendering->PopScissor(commandBuffer);
     }
 }

@@ -537,7 +537,7 @@ void Manager::PopScissor(VkCommandBuffer commandBuffer) {
     vk::CmdSetScissor(commandBuffer, (u32)(state.max.x-state.min.x), (u32)(state.max.y-state.min.y), state.min.x, state.min.y);
 }
 
-constexpr f32 lineHeight = 1.2;
+constexpr f32 lineHeight = 1.3;
 
 f32 Manager::CharacterWidth(char32 character, const Assets::Font *fontDesired, const Assets::Font *fontFallback) const {
     const Assets::Font *actualFont = fontDesired;
@@ -566,7 +566,7 @@ f32 Manager::LineWidth(const char32 *string, i32 fontIndex) const {
 vec2 Manager::StringSize(WString string, i32 fontIndex) const {
     const Assets::Font *fontDesired = &(*fonts)[fontIndex];
     const Assets::Font *fontFallback = &(*fonts)[0];
-    vec2 size = vec2(0.0, lineHeight);
+    vec2 size = vec2(0.0, (1.0 + lineHeight) * 0.5);
     f32 lineSize = 0.0;
     for (i32 i = 0; i < string.size; i++) {
         const char32 character = string[i];
@@ -588,7 +588,7 @@ f32 Manager::StringWidth(WString string, i32 fontIndex) const {
 }
 
 f32 StringHeight(WString string) {
-    f32 size = 1.0;
+    f32 size = (1.0 + lineHeight) * 0.5;
     for (i32 i = 0; i < string.size; i++) {
         const char32 character = string[i];
         if (character == '\n') {
@@ -688,7 +688,7 @@ void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString string,
     scale.x *= aspectRatio;
     Rendering::PushConstants pc = Rendering::PushConstants();
     pc.frag.color = color;
-    position.y += scale.y;
+    position.y += scale.y * (lineHeight + 1.0) * 0.5;
     f32 width = 0.0;
     if (alignH != LEFT) {
         width = StringWidth(string, fontIndex) * scale.x;
@@ -795,6 +795,7 @@ void Manager::DrawQuadSS(VkCommandBuffer commandBuffer, i32 texIndex, vec4 color
     pc.frag.texIndex = texIndex;
     pc.vert.position = position;
     pc.vert.transform = mat2::Scaler(scale);
+    pc.vert.origin = origin;
     pc.Push2D(commandBuffer, this);
     vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
 }
@@ -806,6 +807,8 @@ void Manager::DrawChar(VkCommandBuffer commandBuffer, char32 character, i32 font
 
 void Manager::DrawText(VkCommandBuffer commandBuffer, WString text, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH, FontAlign alignV, f32 maxWidth, f32 edge, f32 bounds) {
     const vec2 screenSizeFactor = vec2(2.0) / screenSize;
+    edge += 0.3 + min(0.2, max(0.0, (scale.y - 12.0) / 12.0));
+    bounds -= min(0.05, max(0.0, (16.0 - scale.y) * 0.01));
     DrawTextSS(commandBuffer, text, fontIndex, color, position * screenSizeFactor + vec2(-1.0), scale * screenSizeFactor.y, alignH, alignV, maxWidth * screenSizeFactor.x, edge, bounds);
 }
 

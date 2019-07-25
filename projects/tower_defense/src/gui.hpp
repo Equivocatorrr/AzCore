@@ -83,7 +83,19 @@ public:
 
 // struct Image;
 
-// struct Button; // May contain a single widget.
+struct Button : public Widget {
+    WString string;
+    vec4 colorBG, highlightBG, colorText, highlightText;
+    i32 fontIndex;
+    f32 fontSize;
+    bool mouseover;
+    io::ButtonState state;
+    Button();
+    ~Button() = default;
+    void UpdateSize(vec2 container);
+    void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+};
 
 // struct Checkbox; // Boolean widget.
 

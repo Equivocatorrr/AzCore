@@ -33,8 +33,7 @@ void Gui::EventAssetAcquire(Assets::Manager *assets) {
 void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *rendering) {
     ListV *listWidget = new ListV();
     listWidget->size.x = 800.0;
-    listWidget->size.y = 0.0;
-    listWidget->sizeIsFraction = false;
+    listWidget->fractionWidth = false;
     AddWidget(&screenWidget, listWidget);
 
     Text *titleWidget = new Text();
@@ -104,7 +103,7 @@ void Gui::AddWidget(Widget *parent, Widget *newWidget) {
 //      Widget implementations beyond this point
 //
 
-Widget::Widget() : children(), margin(16.0), size(1.0), sizeIsFraction(true), sizeAbsolute(0.0), minSize(0.0), maxSize(-1.0), position(0.0), positionAbsolute(0.0), depth(0) {}
+Widget::Widget() : children(), margin(16.0), size(1.0), fractionWidth(true), fractionHeight(true), sizeAbsolute(0.0), minSize(0.0), maxSize(-1.0), position(0.0), positionAbsolute(0.0), depth(0) {}
 
 void Widget::LimitSize() {
     if (maxSize.x >= 0.0) {
@@ -167,12 +166,12 @@ void List::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) co
 void ListV::UpdateSize(vec2 container) {
     sizeAbsolute = vec2(0.0);
     if (size.x > 0.0) {
-        sizeAbsolute.x = (sizeIsFraction ? container.x * size.x : size.x) - margin.x * 2.0;
+        sizeAbsolute.x = (fractionWidth ? container.x * size.x : size.x) - margin.x * 2.0;
     } else {
         sizeAbsolute.x = padding.x * 2.0;
     }
     if (size.y > 0.0) {
-        sizeAbsolute.y = (sizeIsFraction ? container.y * size.y : size.y) - margin.y * 2.0;
+        sizeAbsolute.y = (fractionHeight ? container.y * size.y : size.y) - margin.y * 2.0;
     } else {
         sizeAbsolute.y = padding.y * 2.0;
     }
@@ -207,12 +206,12 @@ ListH::ListH() {
 void ListH::UpdateSize(vec2 container) {
     sizeAbsolute = vec2(0.0);
     if (size.x > 0.0) {
-        sizeAbsolute.x = (sizeIsFraction ? container.x * size.x : size.x) - margin.x * 2.0;
+        sizeAbsolute.x = (fractionWidth ? container.x * size.x : size.x) - margin.x * 2.0;
     } else {
         sizeAbsolute.x = padding.x * 2.0;
     }
     if (size.y > 0.0) {
-        sizeAbsolute.y = (sizeIsFraction ? container.y * size.y : size.y) - margin.y * 2.0;
+        sizeAbsolute.y = (fractionHeight ? container.y * size.y : size.y) - margin.y * 2.0;
     } else {
         sizeAbsolute.y = padding.y * 2.0;
     }
@@ -245,12 +244,12 @@ Text::Text() : rendering(nullptr), stringFormatted(), string(), fontSize(32.0), 
 
 void Text::UpdateSize(vec2 container) {
     if (size.x > 0.0) {
-        sizeAbsolute.x = (sizeIsFraction ? container.x * size.x : size.x) - margin.x * 2.0;
+        sizeAbsolute.x = (fractionWidth ? container.x * size.x : size.x) - margin.x * 2.0;
     } else {
         sizeAbsolute.x = rendering->StringWidth(stringFormatted, fontIndex) * fontSize;
     }
     if (size.y > 0.0) {
-        sizeAbsolute.y = (sizeIsFraction ? container.y * size.y : size.y) - margin.y * 2.0;
+        sizeAbsolute.y = (fractionHeight ? container.y * size.y : size.y) - margin.y * 2.0;
     } else {
         sizeAbsolute.y = Rendering::StringHeight(stringFormatted) * fontSize;
     }

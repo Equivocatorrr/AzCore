@@ -19,7 +19,7 @@ struct Widget {
     Array<Widget*> children;
     vec2 margin; // Space surrounding the widget.
     vec2 size; // Either pixel size, or fraction of parent container. 0.0 means it depends on contents.
-    bool sizeIsFraction;
+    bool fractionWidth, fractionHeight;
     vec2 sizeAbsolute; // sizeAbsolute is pixel space and can depend on contents.
     vec2 minSize, maxSize; // Absolute limits, negative values are ignored.
     vec2 position; // Relative to the parent widget.

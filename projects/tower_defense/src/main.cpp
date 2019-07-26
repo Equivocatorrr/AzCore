@@ -37,10 +37,20 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     io::Input input;
     objects.input = &input;
+
     io::Window window;
     objects.window = &window;
     window.name = title;
     window.input = &input;
+
+    io::RawInput rawInput;
+    rawInput.window = &window;
+    if (!rawInput.Init(io::RAW_INPUT_ENABLE_GAMEPAD_BIT)) {
+        cout << "Failed to initialize RawInput: " << io::error << std::endl;
+        return 1;
+    }
+
+    objects.rawInput = &rawInput;
 
     Assets::Manager assets;
     objects.GetAssets(&assets);
@@ -90,18 +100,20 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     ClockTime frameStart;
     const Nanoseconds frameDuration = Nanoseconds(1000000000/144);
+    const f32 timestep = 1.0/144.0;
 
     while (window.Update()) {
+        rawInput.Update(timestep);
         if (input.Released(KC_KEY_ESC)) {
             break;
         }
         frameStart = Clock::now();
-        objects.Update(1.0/144.0, &rendering);
+        objects.Update(timestep, &rendering);
         if (!rendering.Draw()) {
             cout << "Error in Rendering::Manager::Draw: " << Rendering::error << std::endl;
             return 1;
         }
-        input.Tick(1.0/144.0);
+        input.Tick(timestep);
         Nanoseconds frameDelta = Nanoseconds(Clock::now() - frameStart);
         Nanoseconds frameSleep = frameDuration - frameDelta;
         if (frameSleep.count() >= 1000) {

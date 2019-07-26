@@ -74,6 +74,7 @@ void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *renderi
     listHWidget2->size.y = 64.0;
     listHWidget2->fractionHeight = false;
     listHWidget2->padding = vec2(0.0);
+    listHWidget2->selectionDefault = 1;
     AddWidget(listWidget, listHWidget2);
 
     Button *buttonWidget1 = new Button();
@@ -94,10 +95,48 @@ void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *renderi
     buttonWidget3->size.x = 128.0;
     buttonWidget3->fractionWidth = false;
     AddWidget(listHWidget2, buttonWidget3);
+
+    Button *buttonWidget4 = new Button();
+    buttonWidget4->fontIndex = fontIndex;
+    buttonWidget4->string = ToWString("ぷた");
+    buttonWidget4->margin.x = 128.0 + 32.0;
+    buttonWidget4->size.y = 32.0;
+    buttonWidget4->fractionHeight = false;
+    AddWidget(listWidget, buttonWidget4);
+
+    Button *buttonWidget5 = new Button();
+    buttonWidget5->fontIndex = fontIndex;
+    buttonWidget5->string = ToWString("フィロヴァテンコ");
+    buttonWidget5->margin.x = 128.0 + 32.0;
+    buttonWidget5->size.y = 32.0;
+    buttonWidget5->fractionHeight = false;
+    AddWidget(listWidget, buttonWidget5);
+
+    ListV *listVWidget2 = new ListV();
+    listVWidget2->selectionDefault = 0;
+    listVWidget2->size.y = 0.0;
+    listVWidget2->highlight.rgb *= 2.0;
+    AddWidget(listWidget, listVWidget2, true);
+
+    const WString strings[] = {
+        ToWString("Test1"),
+        ToWString("I'm a thing."),
+        ToWString("Hey you!")
+    };
+    for (i32 i = 0; i < 3; i++) {
+        Button *buttonWidget6 = new Button();
+        buttonWidget6->fontIndex = fontIndex;
+        buttonWidget6->string = strings[i];
+        buttonWidget6->margin.x = 128.0;
+        buttonWidget6->size.y = 32.0;
+        buttonWidget6->fractionHeight = false;
+        AddWidget(listVWidget2, buttonWidget6);
+    }
+
 }
 
 void Gui::EventUpdate(bool buffer, Objects::Manager *objects, Rendering::Manager *rendering) {
-    screenWidget.Update(vec2(0.0), this, objects, rendering);
+    screenWidget.Update(vec2(0.0), true, this, objects, rendering);
     if (objects->input->Pressed(KC_KEY_1)) {
         font->SaveAtlas();
     }
@@ -116,7 +155,11 @@ void Gui::EventDraw(bool buffer, Rendering::Manager *rendering, VkCommandBuffer 
     screenWidget.Draw(rendering, commandBuffer);
 }
 
-void Gui::AddWidget(Widget *parent, Widget *newWidget) {
+void Gui::AddWidget(Widget *parent, Widget *newWidget, bool deeper) {
+    newWidget->depth = parent->depth + (deeper ? 1 : 0);
+    if (newWidget->selectable) {
+        parent->selectable = true;
+    }
     parent->children.Append(newWidget);
     if (allWidgets.count(newWidget) == 0) {
         allWidgets.emplace(newWidget);
@@ -127,7 +170,7 @@ void Gui::AddWidget(Widget *parent, Widget *newWidget) {
 //      Widget implementations beyond this point
 //
 
-Widget::Widget() : children(), margin(8.0), size(1.0), fractionWidth(true), fractionHeight(true), sizeAbsolute(0.0), minSize(0.0), maxSize(-1.0), position(0.0), positionAbsolute(0.0), depth(0) {}
+Widget::Widget() : children(), margin(8.0), size(1.0), fractionWidth(true), fractionHeight(true), sizeAbsolute(0.0), minSize(0.0), maxSize(-1.0), position(0.0), positionAbsolute(0.0), depth(0), selectable(false) {}
 
 void Widget::LimitSize() {
     if (maxSize.x >= 0.0) {
@@ -142,11 +185,12 @@ void Widget::LimitSize() {
     }
 }
 
-void Widget::Update(vec2 pos, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
+void Widget::Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
     pos += margin;
     positionAbsolute = pos;
+    highlighted = selected;
     for (Widget* child : children) {
-        child->Update(pos, gui, objects, rendering);
+        child->Update(pos, selected, gui, objects, rendering);
     }
 }
 
@@ -156,13 +200,19 @@ void Widget::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) 
     }
 }
 
+const bool Widget::MouseOver(const Objects::Manager *objects) const {
+    const vec2 mouse = vec2((f32)objects->input->cursor.x, (f32)objects->input->cursor.y);
+    return mouse.x == median(positionAbsolute.x, mouse.x, positionAbsolute.x + sizeAbsolute.x)
+        && mouse.y == median(positionAbsolute.y, mouse.y, positionAbsolute.y + sizeAbsolute.y);
+}
+
 Screen::Screen() {
     margin = vec2(0.0);
 }
 
-void Screen::Update(vec2 pos, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
+void Screen::Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
     UpdateSize(rendering->screenSize);
-    Widget::Update(pos, gui, objects, rendering);
+    Widget::Update(pos, selected, gui, objects, rendering);
 }
 
 void Screen::UpdateSize(vec2 container) {
@@ -172,13 +222,66 @@ void Screen::UpdateSize(vec2 container) {
     }
 }
 
-List::List() : padding(8.0), color(0.1, 0.1, 0.1, 0.9) {}
+List::List() : padding(8.0), color(0.05, 0.05, 0.05, 0.9), highlight(0.05, 0.03, 0.03, 0.9), selection(-2), selectionDefault(-1) {}
+
+bool List::UpdateSelection(bool selected, Gui *gui, Objects::Manager *objects, u8 keyCodeSelect, u8 keyCodeBack, u8 keyCodeIncrement, u8 keyCodeDecrement) {
+    highlighted = selected;
+    if (selected) {
+        if (gui->controlDepth == depth) {
+            if (selection >= 0 && selection < children.size && objects->Released(keyCodeSelect)) {
+                gui->controlDepth = children[selection]->depth;
+            }
+            if (objects->Pressed(keyCodeIncrement)) {
+                for (selection = max(selection+1, 0); selection < children.size; selection++) {
+                    if (children[selection]->selectable) {
+                        break;
+                    }
+                }
+                if (selection == children.size) {
+                    selection = -1;
+                }
+            } else if (objects->Pressed(keyCodeDecrement)) {
+                if (selection < 0) {
+                    selection = children.size - 1;
+                } else {
+                    --selection;
+                }
+                for (; selection >= 0; selection--) {
+                    if (children[selection]->selectable) {
+                        break;
+                    }
+                }
+            }
+            if (selection == -2) {
+                selection = selectionDefault;
+            }
+        } else if (gui->controlDepth == depth+1 && objects->Released(keyCodeBack)) {
+            gui->controlDepth = depth;
+        }
+        if (gui->controlDepth > depth) {
+            highlighted = false;
+        }
+    } else {
+        selection = -2;
+    }
+    if (gui->controlDepth == depth && selected) {
+        bool reselect = false;
+        if (objects->input->cursor != objects->input->cursorPrevious) {
+            if (MouseOver(objects)) {
+                reselect = true;
+            }
+            selection = -1;
+        }
+        return reselect;
+    }
+    return false;
+}
 
 void List::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const {
     if (color.a > 0.0) {
         // const vec2 screenSizeFactor = vec2(2.0) / rendering->screenSize;
         rendering->BindPipeline2D(commandBuffer);
-        rendering->DrawQuad(commandBuffer, Rendering::texBlank, color, positionAbsolute, sizeAbsolute);
+        rendering->DrawQuad(commandBuffer, Rendering::texBlank, highlighted ? highlight : color, positionAbsolute, sizeAbsolute);
     }
     rendering->PushScissor(commandBuffer,
         vec2i((i32)positionAbsolute.x+margin.x+padding.x, (i32)positionAbsolute.y+margin.y+padding.y),
@@ -223,18 +326,40 @@ void ListV::UpdateSize(vec2 container) {
     LimitSize();
 }
 
-void ListV::Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
+void ListV::Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
     pos += margin;
     positionAbsolute = pos;
+    const bool mouseSelect = UpdateSelection(selected, gui, objects, KC_GP_BTN_A, KC_GP_BTN_B, KC_GP_AXIS_LS_DOWN, KC_GP_AXIS_LS_UP);
     pos += padding;
-    for (Widget *child : children) {
-        child->Update(pos, gui, objects, rendering);
+    if (mouseSelect) {
+        f32 childY = pos.y;
+        for (selection = 0; selection < children.size; selection++) {
+            Widget *child = children[selection];
+            if (!child->selectable) {
+                childY += child->GetSize().y;
+                continue;
+            }
+            child->positionAbsolute.x = pos.x + child->margin.x;
+            child->positionAbsolute.y = childY + child->margin.y;
+            if (child->MouseOver(objects)) {
+                break;
+            }
+            childY += child->GetSize().y;
+        }
+        if (selection == children.size) {
+            selection = -1;
+        }
+    }
+    for (i32 i = 0; i < children.size; i++) {
+        Widget *child = children[i];
+        child->Update(pos, selected && i == selection, gui, objects, rendering);
         pos.y += child->GetSize().y;
     }
 }
 
 ListH::ListH() {
-    color = vec4(0.2, 0.2, 0.2, 0.9);
+    color = vec4(0.1, 0.1, 0.1, 0.9);
+    highlight = vec4(0.1, 0.06, 0.06, 0.9);
 }
 
 void ListH::UpdateSize(vec2 container) {
@@ -273,12 +398,31 @@ void ListH::UpdateSize(vec2 container) {
     LimitSize();
 }
 
-void ListH::Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
+void ListH::Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
     pos += margin;
     positionAbsolute = pos;
+    const bool mouseSelect = UpdateSelection(selected, gui, objects, KC_GP_BTN_A, KC_GP_BTN_B, KC_GP_AXIS_LS_RIGHT, KC_GP_AXIS_LS_LEFT);
     pos += padding;
-    for (Widget *child : children) {
-        child->Update(pos, gui, objects, rendering);
+    if (mouseSelect) {
+        f32 childX = pos.x;
+        for (selection = 0; selection < children.size; selection++) {
+            Widget *child = children[selection];
+            if (child->selectable) {
+                child->positionAbsolute.x = childX + child->margin.x;
+                child->positionAbsolute.y = pos.y + child->margin.y;
+                if (child->MouseOver(objects)) {
+                    break;
+                }
+            }
+            childX += child->GetSize().x;
+        }
+        if (selection == children.size) {
+            selection = -1;
+        }
+    }
+    for (i32 i = 0; i < children.size; i++) {
+        Widget *child = children[i];
+        child->Update(pos, selected && i == selection, gui, objects, rendering);
         pos.x += child->GetSize().x;
     }
 }
@@ -301,10 +445,10 @@ void Text::UpdateSize(vec2 container) {
     LimitSize();
 }
 
-void Text::Update(vec2 pos, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
+void Text::Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
     this->rendering = rendering;
     stringFormatted = rendering->StringAddNewlines(string, fontIndex, sizeAbsolute.x / fontSize);
-    Widget::Update(pos, gui, objects, rendering);
+    Widget::Update(pos, selected, gui, objects, rendering);
 }
 
 void Text::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const {
@@ -338,6 +482,7 @@ void Text::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) co
 
 Button::Button() : string(), colorBG(0.15, 0.15, 0.15, 0.9), highlightBG(0.2, 0.6, 0.5, 0.9), colorText(1.0), highlightText(1.0), fontIndex(1), fontSize(24.0), mouseover(false), state() {
     state.canRepeat = false;
+    selectable = true;
 }
 
 void Button::UpdateSize(vec2 container) {
@@ -354,21 +499,33 @@ void Button::UpdateSize(vec2 container) {
     LimitSize();
 }
 
-void Button::Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
-    Widget::Update(pos, gui, objects, rendering);
-    const vec2 mouse = vec2((f32)objects->input->cursor.x, (f32)objects->input->cursor.y);
-    mouseover = mouse.x == median(positionAbsolute.x, mouse.x, positionAbsolute.x + sizeAbsolute.x)
-             && mouse.y == median(positionAbsolute.y, mouse.y, positionAbsolute.y + sizeAbsolute.y);
+void Button::Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
+    Widget::Update(pos, selected, gui, objects, rendering);
+    mouseover = MouseOver(objects);
     state.Tick(0.0);
+    if (gui->controlDepth != depth) {
+        highlighted = false;
+    }
     if (mouseover) {
-        if (objects->input->Pressed(KC_MOUSE_LEFT)) {
+        highlighted = true;
+        if (objects->Pressed(KC_MOUSE_LEFT)) {
             state.Press();
         }
-        if (objects->input->Released(KC_MOUSE_LEFT)) {
+        if (objects->Released(KC_MOUSE_LEFT)) {
             state.Release();
         }
-    } else {
-        state.Set(false, false, false);
+    }
+    if (gui->controlDepth == depth) {
+        if (selected) {
+            if (objects->Pressed(KC_GP_BTN_A)) {
+                state.Press();
+            }
+            if (objects->Released(KC_GP_BTN_A)) {
+                state.Release();
+            }
+        } else if (!mouseover) {
+            state.Set(false, false, false);
+        }
     }
 }
 
@@ -386,9 +543,9 @@ void Button::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) 
     }
     vec2 drawPos = positionAbsolute + sizeAbsolute * 0.5;
     rendering->BindPipeline2D(commandBuffer);
-    rendering->DrawQuad(commandBuffer, 1, mouseover ? highlightBG : colorBG, drawPos, sizeAbsolute * scale, vec2(0.5));
+    rendering->DrawQuad(commandBuffer, 1, highlighted ? highlightBG : colorBG, drawPos, sizeAbsolute * scale, vec2(0.5));
     rendering->BindPipelineFont(commandBuffer);
-    rendering->DrawText(commandBuffer, string, fontIndex,  mouseover ? highlightText : colorText, drawPos, vec2(fontSize * scale), Rendering::CENTER, Rendering::CENTER, sizeAbsolute.x);
+    rendering->DrawText(commandBuffer, string, fontIndex,  highlighted ? highlightText : colorText, drawPos, vec2(fontSize * scale), Rendering::CENTER, Rendering::CENTER, sizeAbsolute.x);
     if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
         rendering->PopScissor(commandBuffer);
     }

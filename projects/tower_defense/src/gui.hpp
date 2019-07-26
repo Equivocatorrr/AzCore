@@ -25,42 +25,50 @@ struct Widget {
     vec2 position; // Relative to the parent widget.
     vec2 positionAbsolute; // Where we are in pixel space.
     i32 depth; // How deeply nested we are. Used for input culling for controllers.
+    bool selectable; // Whether or not this widget can be used in a selection
+    bool highlighted; // True when selected
     Widget();
     virtual ~Widget() = default;
     virtual void UpdateSize(vec2 container) = 0;
     void LimitSize();
     inline vec2 GetSize() const { return sizeAbsolute + margin * 2.0; }
-    virtual void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    virtual void Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
     virtual void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+
+    const bool MouseOver(const Objects::Manager *objects) const;
 };
 
 // Lowest level widget, used for input for game objects.
 struct Screen : public Widget {
     Screen();
     ~Screen() = default;
-    void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    void Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
     void UpdateSize(vec2 container);
 };
 
 struct List : public Widget {
     vec2 padding;
-    vec4 color;
+    vec4 color, highlight;
+    i32 selection; // Which child we have selected, -1 for none
+    i32 selectionDefault; // If we're ever selected, what should we select by default?
     List();
     ~List() = default;
+    // returns whether or not to update the selection based on the mouse position
+    bool UpdateSelection(bool selected, struct Gui *gui, Objects::Manager *objects, u8 keyCodeSelect, u8 keyCodeBack, u8 keyCodeIncrement, u8 keyCodeDecrement);
     void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
 };
 
 // A vertical list of items.
 struct ListV : public List {
     void UpdateSize(vec2 container);
-    void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    void Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
 };
 
 // A horizontal list of items.
 struct ListH : public List {
     ListH();
     void UpdateSize(vec2 container);
-    void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    void Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
 };
 
 struct Text : public Widget {
@@ -77,7 +85,7 @@ public:
     Text();
     ~Text() = default;
     void UpdateSize(vec2 container);
-    void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    void Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
     void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
 };
 
@@ -93,7 +101,7 @@ struct Button : public Widget {
     Button();
     ~Button() = default;
     void UpdateSize(vec2 container);
-    void Update(vec2 pos, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    void Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
     void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
 };
 
@@ -120,7 +128,8 @@ struct Gui : public Objects::Object {
     void EventUpdate(bool buffer, Objects::Manager *objects, Rendering::Manager *rendering);
     void EventDraw(bool buffer, Rendering::Manager *rendering, VkCommandBuffer commandBuffer);
 
-    void AddWidget(Widget *parent, Widget *newWidget);
+    // deeper means the widget can only be interacted with by selecting it first
+    void AddWidget(Widget *parent, Widget *newWidget, bool deeper = false);
 };
 
 

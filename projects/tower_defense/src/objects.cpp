@@ -47,6 +47,9 @@ void Manager::CallInitialize(Rendering::Manager *rendering) {
 void Manager::Update(f32 timestep, Rendering::Manager *rendering) {
     buffer = !buffer;
     this->timestep = timestep;
+    if (rawInput->AnyGP.Pressed()) {
+        gamepad = &rawInput->gamepads[rawInput->AnyGPIndex];
+    }
 
     for (Object* object : objects) {
         object->EventUpdate(buffer, this, rendering);
@@ -62,6 +65,39 @@ void Manager::Draw(Rendering::Manager *rendering, Array<VkCommandBuffer>& comman
             }
             objects[i+j]->EventDraw(!buffer, rendering, commandBuffers[j]);
         }
+    }
+}
+
+bool Manager::Pressed(u8 keyCode) const {
+    if (KeyCodeIsGamepad(keyCode)) {
+        if (gamepad == nullptr) {
+            return false;
+        }
+        return gamepad->Pressed(keyCode);
+    } else {
+        return input->Pressed(keyCode);
+    }
+}
+
+bool Manager::Down(u8 keyCode) const {
+    if (KeyCodeIsGamepad(keyCode)) {
+        if (gamepad == nullptr) {
+            return false;
+        }
+        return gamepad->Down(keyCode);
+    } else {
+        return input->Down(keyCode);
+    }
+}
+
+bool Manager::Released(u8 keyCode) const {
+    if (KeyCodeIsGamepad(keyCode)) {
+        if (gamepad == nullptr) {
+            return false;
+        }
+        return gamepad->Released(keyCode);
+    } else {
+        return input->Released(keyCode);
     }
 }
 

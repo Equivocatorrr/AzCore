@@ -37,9 +37,11 @@ struct Manager {
     // buffer swaps every frame. Used for lockless multithreading.
     Array<Object*> objects;
     io::Input *input = nullptr;
+    io::RawInput *rawInput = nullptr;
     io::Window *window = nullptr;
     bool buffer = false;
     f32 timestep = 1.0/60.0;
+    io::Gamepad *gamepad = nullptr;
 
     ~Manager();
     static void RenderCallback(void *userdata, Rendering::Manager *rendering, Array<VkCommandBuffer>& commandBuffers);
@@ -60,6 +62,10 @@ struct Manager {
     void Update(f32 timestep, Rendering::Manager *rendering);
     // Calls different Draw events.
     void Draw(Rendering::Manager *rendering, Array<VkCommandBuffer>& commandBuffers);
+
+    bool Pressed(u8 keyCode) const;
+    bool Down(u8 keyCode) const;
+    bool Released(u8 keyCode) const;
 };
 
 }

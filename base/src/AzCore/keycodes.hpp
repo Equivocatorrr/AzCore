@@ -336,16 +336,16 @@ namespace io {
     class logStream;
 }
 
-inline bool KeyCodeIsKeyboard(const u8 &keycode) {
-    return (keycode >= KC_KEY_A && keycode <= KC_KEY_ZENKAKUHANKAKU) || keycode == KC_KEY_KPLEFTPAREN || keycode == KC_KEY_KPRIGHTPAREN || (keycode >= KC_KEY_LEFTCTRL && keycode <= KC_KEY_MEDIA_FILE);
+inline bool KeyCodeIsKeyboard(const u8 &keyCode) {
+    return (keyCode >= KC_KEY_A && keyCode <= KC_KEY_ZENKAKUHANKAKU) || keyCode == KC_KEY_KPLEFTPAREN || keyCode == KC_KEY_KPRIGHTPAREN || (keyCode >= KC_KEY_LEFTCTRL && keyCode <= KC_KEY_MEDIA_FILE);
 }
 
-inline bool KeyCodeIsMouse(const u8 &keycode) {
-    return keycode >= KC_MOUSE_LEFT && keycode <= KC_MOUSE_SCROLLRIGHT;
+inline bool KeyCodeIsMouse(const u8 &keyCode) {
+    return keyCode >= KC_MOUSE_LEFT && keyCode <= KC_MOUSE_SCROLLRIGHT;
 }
 
-inline bool KeyCodeIsGamepad(const u8 &keycode) {
-    return keycode >= KC_GP_AXIS_H0_UP_RIGHT && keycode <= KC_GP_AXIS_H0_Y;
+inline bool KeyCodeIsGamepad(const u8 &keyCode) {
+    return keyCode >= KC_GP_AXIS_H0_UP_RIGHT && keyCode <= KC_GP_AXIS_H0_Y;
 }
 
 // Utility functions so you don't have to write both to and from maps

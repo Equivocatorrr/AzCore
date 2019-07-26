@@ -116,15 +116,15 @@ namespace io {
     }
 
     void Input::Press(u8 keyCode) {
-        if (keyCode < 0xb8 || keyCode > 0xde) {
+        if (!KeyCodeIsGamepad(keyCode)) {
             Any.Press();
             codeAny = keyCode;
         }
-        if (keyCode < 0xa6 || (keyCode >= 0xb0 && keyCode < 0xb8) || keyCode >= 0xe0) {
+        if (KeyCodeIsKeyboard(keyCode)) {
             AnyKey.Press();
             codeAnyKey = keyCode;
         }
-        if (keyCode >= 0xa6 && keyCode <= 0xae) {
+        if (KeyCodeIsMouse(keyCode)) {
             AnyMB.Press();
             codeAnyMB = keyCode;
         }
@@ -132,15 +132,15 @@ namespace io {
     }
 
     void Input::Release(u8 keyCode) {
-        if (keyCode < 0xb8 || keyCode > 0xde) {
+        if (!KeyCodeIsGamepad(keyCode)) {
             Any.Release();
             codeAny = keyCode;
         }
-        if (keyCode < 0xa6 || (keyCode >= 0xb0 && keyCode < 0xb8) || keyCode >= 0xe0) {
+        if (KeyCodeIsKeyboard(keyCode)) {
             AnyKey.Release();
             codeAnyKey = keyCode;
         }
-        if (keyCode >= 0xa6 && keyCode <= 0xae) {
+        if (KeyCodeIsMouse(keyCode)) {
             AnyMB.Release();
             codeAnyMB = keyCode;
         }

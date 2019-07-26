@@ -189,6 +189,7 @@ namespace io {
         for (u16 i = 0; i < 128; i++) {
             inputsChar[i].Tick(timestep);
         }
+        cursorPrevious = cursor;
     }
 
     bool Input::Pressed(u8 keyCode) const {

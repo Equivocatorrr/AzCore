@@ -167,7 +167,7 @@ namespace io {
         char charAny; // This can be associated with AnyKey only
         ButtonState inputs[256];
         ButtonState inputsChar[128];
-        vec2i cursor;
+        vec2i cursor, cursorPrevious;
         vec2 scroll;
         Input();
         void Press(u8 keyCode);

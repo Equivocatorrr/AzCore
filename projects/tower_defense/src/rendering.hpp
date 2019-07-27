@@ -133,7 +133,7 @@ struct Manager {
     Array<Assets::Texture> *textures = nullptr;
     Array<Assets::Font> *fonts = nullptr;
     Array<u32> fontIndexOffsets{0};
-    vec2 screenSize;
+    vec2 screenSize = vec2(1280.0, 720.0);
     f32 aspectRatio; // height/width
 
     inline void AddRenderCallback(fpRenderCallback_t callback, void* userdata) {

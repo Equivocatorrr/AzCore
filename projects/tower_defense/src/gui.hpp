@@ -89,7 +89,13 @@ public:
     void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
 };
 
-// struct Image;
+struct Image : public Widget {
+    i32 texIndex;
+    Image();
+    ~Image() = default;
+    void UpdateSize(vec2 container);
+    void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+};
 
 struct Button : public Widget {
     WString string;
@@ -113,6 +119,7 @@ struct Button : public Widget {
 
 struct Gui : public Objects::Object {
     i32 fontIndex;
+    i32 texIndex;
     Assets::Font *font;
     i32 controlDepth = 0;
 

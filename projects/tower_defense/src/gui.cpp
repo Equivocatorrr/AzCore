@@ -20,6 +20,7 @@ void Gui::EventAssetInit(Assets::Manager *assets) {
     // assets->filesToLoad.Append("LiberationSerif-Regular.ttf");
     // assets->filesToLoad.Append("OpenSans-Regular.ttf");
     // assets->filesToLoad.Append("Literata[wght].ttf");
+    assets->filesToLoad.Append("test.tga");
 }
 
 void Gui::EventAssetAcquire(Assets::Manager *assets) {
@@ -27,12 +28,13 @@ void Gui::EventAssetAcquire(Assets::Manager *assets) {
     // fontIndex = assets->FindMapping("LiberationSerif-Regular.ttf");
     // fontIndex = assets->FindMapping("OpenSans-Regular.ttf");
     // fontIndex = assets->FindMapping("Literata[wght].ttf");
+    texIndex = assets->FindMapping("test.tga");
     font = &assets->fonts[fontIndex];
 }
 
 void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *rendering) {
     ListV *listWidget = new ListV();
-    listWidget->size.x = 800.0;
+    listWidget->size.x = 1000.0;
     listWidget->fractionWidth = false;
     AddWidget(&screenWidget, listWidget);
 
@@ -46,7 +48,7 @@ void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *renderi
     AddWidget(listWidget, titleWidget);
 
     ListH *listHWidget = new ListH();
-    listHWidget->minSize.y = 300.0;
+    listHWidget->minSize.y = 200.0;
     AddWidget(listWidget, listHWidget);
 
     textWidget = new Text();
@@ -59,16 +61,25 @@ void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *renderi
     Text *textWidget2 = new Text();
     textWidget2->string = ToWString("Hey now! You're an all star! Get your shit together!");
     textWidget2->fontIndex = fontIndex;
-    textWidget2->size.x = 1.0 / 3.0;
+    textWidget2->size.x = 2.0 / 9.0;
     textWidget2->alignH = Rendering::JUSTIFY;
     AddWidget(listHWidget, textWidget2);
     Text *textWidget3 = new Text();
     textWidget3->string = ToWString("What else is there even to talk about? The whole world is going up in flames! I feel like a floop.");
     textWidget3->fontIndex = fontIndex;
     textWidget3->fontSize = 24.0;
-    textWidget3->size.x = 1.0 / 3.0;
+    textWidget3->size.x = 2.0 / 9.0;
     textWidget3->alignH = Rendering::JUSTIFY;
     AddWidget(listHWidget, textWidget3);
+
+    Image *imageWidget = new Image();
+    imageWidget->size.x = 2.0 / 9.0;
+    // imageWidget->size.x = 128.0;
+    // imageWidget->size.y = 128.0;
+    // imageWidget->fractionWidth = false;
+    // imageWidget->fractionHeight = false;
+    imageWidget->texIndex = texIndex;
+    AddWidget(listHWidget, imageWidget);
 
     ListH *listHWidget2 = new ListH();
     listHWidget2->size.y = 64.0;
@@ -302,6 +313,7 @@ void ListV::UpdateSize(vec2 container) {
     } else {
         sizeAbsolute.y = padding.y * 2.0;
     }
+    LimitSize();
     vec2 sizeForInheritance = sizeAbsolute - padding * 2.0;
     for (Widget* child : children) {
         if (child->size.y == 0.0) {
@@ -374,6 +386,7 @@ void ListH::UpdateSize(vec2 container) {
     } else {
         sizeAbsolute.y = padding.y * 2.0;
     }
+    LimitSize();
     vec2 sizeForInheritance = sizeAbsolute - padding * 2.0;
     for (Widget* child : children) {
         if (child->size.x == 0.0) {
@@ -478,6 +491,27 @@ void Text::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) co
     if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
         rendering->PopScissor(commandBuffer);
     }
+}
+
+Image::Image() : texIndex(0) {}
+
+void Image::UpdateSize(vec2 container) {
+    sizeAbsolute = vec2(0.0);
+    if (size.x > 0.0) {
+        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0) : size.x;
+    } else {
+        sizeAbsolute.x = 0.0;
+    }
+    if (size.y > 0.0) {
+        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0) : size.y;
+    } else {
+        sizeAbsolute.y = 0.0;
+    }
+}
+
+void Image::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const {
+    rendering->BindPipeline2D(commandBuffer);
+    rendering->DrawQuad(commandBuffer, texIndex, vec4(1.0), positionAbsolute, sizeAbsolute);
 }
 
 Button::Button() : string(), colorBG(0.15, 0.15, 0.15, 0.9), highlightBG(0.2, 0.6, 0.5, 0.9), colorText(1.0), highlightText(1.0), fontIndex(1), fontSize(24.0), mouseover(false), state() {

@@ -1912,6 +1912,9 @@ failure:
             dep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
             data.subpassDependencies.Append(dep);
         }
+        if (data.subpasses.size > 2) {
+            cout << "Warning: Automatic subpass dependencies are currently not implemented." << std::endl;
+        }
         for (i32 i = 1; i < data.subpasses.size-1; i++) {
             // VkSubpassDependency dep;
             // dep.srcSubpass = i-1;

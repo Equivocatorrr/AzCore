@@ -112,6 +112,7 @@ namespace io {
 
     Input::Input() {
         cursor = vec2i(0,0);
+        cursorPrevious = vec2i(0,0);
         scroll = vec2(0.0);
     }
 

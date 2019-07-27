@@ -133,6 +133,7 @@ namespace io {
             f32 array[IO_GAMEPAD_MAX_AXES];
         } axis;
 
+        Gamepad();
         void Update(f32 timestep, i32 index);
         bool Pressed(u8 keyCode) const;
         bool Down(u8 keyCode) const;

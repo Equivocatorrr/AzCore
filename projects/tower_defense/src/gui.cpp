@@ -38,7 +38,7 @@ void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *renderi
     listWidget->fractionWidth = false;
     AddWidget(&screenWidget, listWidget);
 
-    Text *titleWidget = new Text();
+    Text *titleWidget = new Text(rendering);
     titleWidget->string = ToWString("Title");
     titleWidget->fontSize = 64.0;
     titleWidget->color = vec4(1.0, 0.5, 0.0, 1.0);
@@ -51,20 +51,20 @@ void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *renderi
     listHWidget->minSize.y = 200.0;
     AddWidget(listWidget, listHWidget);
 
-    textWidget = new Text();
+    textWidget = new Text(rendering);
     textWidget->string = ToWString("Hahaha look at me! There's so much to say! I don't know what else to do. ¡Hola señor Lopez! ¿Cómo está usted? Estoy muy bien. ¿Y cómo se llama? ありがとうお願いします私はハンバーガー 세계를 향한 대화, 유니코드로 하십시오. 経機速講著述元載説赤問台民。 Лорем ипсум долор сит амет Λορεμ ιπσθμ δολορ σιτ αμετ There once was a man named Chad. He was an incel. What a terrible sight! If only someone was there to teach him the ways of humility! Oh how he would wail and toil how all the girls would pass up a \"nice guy like me\". What a bitch.");
     textWidget->fontIndex = fontIndex;
     textWidget->size.x = 1.0 / 3.0;
     textWidget->alignH = Rendering::JUSTIFY;
     AddWidget(listHWidget, textWidget);
 
-    Text *textWidget2 = new Text();
+    Text *textWidget2 = new Text(rendering);
     textWidget2->string = ToWString("Hey now! You're an all star! Get your shit together!");
     textWidget2->fontIndex = fontIndex;
     textWidget2->size.x = 2.0 / 9.0;
     textWidget2->alignH = Rendering::JUSTIFY;
     AddWidget(listHWidget, textWidget2);
-    Text *textWidget3 = new Text();
+    Text *textWidget3 = new Text(rendering);
     textWidget3->string = ToWString("What else is there even to talk about? The whole world is going up in flames! I feel like a floop.");
     textWidget3->fontIndex = fontIndex;
     textWidget3->fontSize = 24.0;
@@ -123,11 +123,11 @@ void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *renderi
     buttonWidget5->fractionHeight = false;
     AddWidget(listWidget, buttonWidget5);
 
-    ListV *listVWidget2 = new ListV();
-    listVWidget2->selectionDefault = 0;
-    listVWidget2->size.y = 0.0;
-    listVWidget2->highlight.rgb *= 2.0;
-    AddWidget(listWidget, listVWidget2, true);
+    // ListV *listVWidget2 = new ListV();
+    // listVWidget2->selectionDefault = 0;
+    // listVWidget2->size.y = 0.0;
+    // listVWidget2->highlight.rgb *= 2.0;
+    // AddWidget(listWidget, listVWidget2, true);
 
     const WString strings[] = {
         ToWString("Test1"),
@@ -135,13 +135,32 @@ void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *renderi
         ToWString("Hey you!")
     };
     for (i32 i = 0; i < 3; i++) {
-        Button *buttonWidget6 = new Button();
-        buttonWidget6->fontIndex = fontIndex;
-        buttonWidget6->string = strings[i];
-        buttonWidget6->margin.x = 128.0;
-        buttonWidget6->size.y = 32.0;
-        buttonWidget6->fractionHeight = false;
-        AddWidget(listVWidget2, buttonWidget6);
+        ListH *option = new ListH();
+        option->selectionDefault = 1;
+        option->size.y = 0.0;
+
+        // Widget *spacer = new Widget();
+        // spacer->size.x = 128.0;
+        // spacer->fractionWidth = false;
+        // AddWidget(option, spacer);
+
+        Text *textWidget4 = new Text(rendering);
+        textWidget4->fontIndex = fontIndex;
+        textWidget4->fontSize = 20.0;
+        // textWidget4->alignH = Rendering::RIGHT;
+        textWidget4->alignV = Rendering::CENTER;
+        textWidget4->string = strings[i];
+        // textWidget4->size.x = 0.0;
+        // textWidget4->margin.x += 128.0;
+        AddWidget(option, textWidget4);
+
+        // Widget *spacer2 = new Widget();
+        // spacer2->size.x = 1.0;
+        // AddWidget(option, spacer2);
+
+        Checkbox *checkWidget = new Checkbox();
+        AddWidget(option, checkWidget);
+        AddWidget(listWidget, option);
     }
 
 }
@@ -182,6 +201,21 @@ void Gui::AddWidget(Widget *parent, Widget *newWidget, bool deeper) {
 //
 
 Widget::Widget() : children(), margin(8.0), size(1.0), fractionWidth(true), fractionHeight(true), sizeAbsolute(0.0), minSize(0.0), maxSize(-1.0), position(0.0), positionAbsolute(0.0), depth(0), selectable(false) {}
+
+void Widget::UpdateSize(vec2 container) {
+    sizeAbsolute = vec2(0.0);
+    if (size.x > 0.0) {
+        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0) : size.x;
+    } else {
+        sizeAbsolute.x = 0.0;
+    }
+    if (size.y > 0.0) {
+        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0) : size.y;
+    } else {
+        sizeAbsolute.y = 0.0;
+    }
+    LimitSize();
+}
 
 void Widget::LimitSize() {
     if (maxSize.x >= 0.0) {
@@ -233,7 +267,7 @@ void Screen::UpdateSize(vec2 container) {
     }
 }
 
-List::List() : padding(8.0), color(0.05, 0.05, 0.05, 0.9), highlight(0.05, 0.03, 0.03, 0.9), selection(-2), selectionDefault(-1) {}
+List::List() : padding(0.0), color(0.05, 0.05, 0.05, 0.9), highlight(0.05, 0.03, 0.03, 0.9), selection(-2), selectionDefault(-1) {}
 
 bool List::UpdateSelection(bool selected, Gui *gui, Objects::Manager *objects, u8 keyCodeSelect, u8 keyCodeBack, u8 keyCodeIncrement, u8 keyCodeDecrement) {
     highlighted = selected;
@@ -295,8 +329,8 @@ void List::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) co
         rendering->DrawQuad(commandBuffer, Rendering::texBlank, highlighted ? highlight : color, positionAbsolute, sizeAbsolute);
     }
     rendering->PushScissor(commandBuffer,
-        vec2i((i32)positionAbsolute.x+margin.x+padding.x, (i32)positionAbsolute.y+margin.y+padding.y),
-        vec2i((i32)(sizeAbsolute.x+positionAbsolute.x-margin.x-padding.x), (i32)(sizeAbsolute.y+positionAbsolute.y-margin.y-padding.y)));
+        vec2i((i32)positionAbsolute.x+padding.x, (i32)positionAbsolute.y+padding.y),
+        vec2i((i32)(sizeAbsolute.x+positionAbsolute.x-padding.x), (i32)(sizeAbsolute.y+positionAbsolute.y-padding.y)));
     Widget::Draw(rendering, commandBuffer);
     rendering->PopScissor(commandBuffer);
 }
@@ -405,7 +439,7 @@ void ListH::UpdateSize(vec2 container) {
             sizeAbsolute.x += childSize.x;
         }
         if (size.y == 0.0) {
-            sizeAbsolute.y = max(sizeAbsolute.y, childSize.y);
+            sizeAbsolute.y = max(sizeAbsolute.y, childSize.y + padding.y * 2.0);
         }
     }
     LimitSize();
@@ -440,7 +474,7 @@ void ListH::Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *o
     }
 }
 
-Text::Text() : rendering(nullptr), stringFormatted(), string(), fontSize(32.0), fontIndex(1), alignH(Rendering::LEFT), alignV(Rendering::TOP), color(1.0), colorOutline(0.0, 0.0, 0.0, 1.0), outline(false) {
+Text::Text(Rendering::Manager *rendering_) : rendering(rendering_), stringFormatted(), string(), fontSize(32.0), fontIndex(1), alignH(Rendering::LEFT), alignV(Rendering::TOP), color(1.0), colorOutline(0.0, 0.0, 0.0, 1.0), outline(false) {
     size.y = 0.0;
 }
 
@@ -459,8 +493,11 @@ void Text::UpdateSize(vec2 container) {
 }
 
 void Text::Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
-    this->rendering = rendering;
-    stringFormatted = rendering->StringAddNewlines(string, fontIndex, sizeAbsolute.x / fontSize);
+    if (size.x != 0.0) {
+        stringFormatted = rendering->StringAddNewlines(string, fontIndex, sizeAbsolute.x / fontSize);
+    } else {
+        stringFormatted = string;
+    }
     Widget::Update(pos, selected, gui, objects, rendering);
 }
 
@@ -495,47 +532,19 @@ void Text::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) co
 
 Image::Image() : texIndex(0) {}
 
-void Image::UpdateSize(vec2 container) {
-    sizeAbsolute = vec2(0.0);
-    if (size.x > 0.0) {
-        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0) : size.x;
-    } else {
-        sizeAbsolute.x = 0.0;
-    }
-    if (size.y > 0.0) {
-        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0) : size.y;
-    } else {
-        sizeAbsolute.y = 0.0;
-    }
-}
-
 void Image::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const {
     rendering->BindPipeline2D(commandBuffer);
     rendering->DrawQuad(commandBuffer, texIndex, vec4(1.0), positionAbsolute, sizeAbsolute);
 }
 
-Button::Button() : string(), colorBG(0.15, 0.15, 0.15, 0.9), highlightBG(0.2, 0.6, 0.5, 0.9), colorText(1.0), highlightText(1.0), fontIndex(1), fontSize(24.0), mouseover(false), state() {
+Button::Button() : string(), colorBG(0.15, 0.15, 0.15, 0.9), highlightBG(0.2, 0.6, 0.5, 0.9), colorText(1.0), highlightText(1.0), fontIndex(1), fontSize(24.0), state() {
     state.canRepeat = false;
     selectable = true;
 }
 
-void Button::UpdateSize(vec2 container) {
-    if (size.x > 0.0) {
-        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0) : size.x;
-    } else {
-        sizeAbsolute.x = 0.0;
-    }
-    if (size.y > 0.0) {
-        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0) : size.y;
-    } else {
-        sizeAbsolute.y = 0.0;
-    }
-    LimitSize();
-}
-
-void Button::Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
+void Button::Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
     Widget::Update(pos, selected, gui, objects, rendering);
-    mouseover = MouseOver(objects);
+    bool mouseover = MouseOver(objects);
     state.Tick(0.0);
     if (gui->controlDepth != depth) {
         highlighted = false;
@@ -583,6 +592,40 @@ void Button::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) 
     if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
         rendering->PopScissor(commandBuffer);
     }
+}
+
+Checkbox::Checkbox() : checked(false), colorOff(0.15, 0.15, 0.15, 0.9), highlightOff(0.2, 0.6, 0.5, 0.9), colorOn(0.2, 0.8, 0.6, 1.0), highlightOn(0.5, 1.0, 0.9, 1.0) {
+    selectable = true;
+    size = vec2(24.0);
+    fractionWidth = false;
+    fractionHeight = false;
+}
+
+void Checkbox::Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
+    Widget::Update(pos, selected, gui, objects, rendering);
+    const bool mouseover = MouseOver(objects);
+    if (gui->controlDepth != depth) {
+        highlighted = false;
+    }
+    if (mouseover) {
+        highlighted = true;
+        if (objects->Released(KC_MOUSE_LEFT)) {
+            checked = !checked;
+        }
+    }
+    if (gui->controlDepth == depth) {
+        if (selected) {
+            if (objects->Released(KC_GP_BTN_A)) {
+                checked = !checked;
+            }
+        }
+    }
+}
+
+void Checkbox::Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const {
+    const vec4 &color = checked ? (highlighted ? highlightOn : colorOn) : (highlighted ? highlightOff : colorOff);
+    rendering->BindPipeline2D(commandBuffer);
+    rendering->DrawQuad(commandBuffer, Rendering::texBlank, color, positionAbsolute, sizeAbsolute);
 }
 
 } // namespace Int

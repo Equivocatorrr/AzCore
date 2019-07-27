@@ -13,6 +13,7 @@
 namespace Int { // Short for Interface
 
 // Ways to define a GUI with a hierarchy
+struct Gui;
 
 // Base polymorphic interface
 struct Widget {
@@ -29,10 +30,10 @@ struct Widget {
     bool highlighted; // True when selected
     Widget();
     virtual ~Widget() = default;
-    virtual void UpdateSize(vec2 container) = 0;
+    virtual void UpdateSize(vec2 container);
     void LimitSize();
     inline vec2 GetSize() const { return sizeAbsolute + margin * 2.0; }
-    virtual void Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    virtual void Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
     virtual void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
 
     const bool MouseOver(const Objects::Manager *objects) const;
@@ -42,7 +43,7 @@ struct Widget {
 struct Screen : public Widget {
     Screen();
     ~Screen() = default;
-    void Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    void Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
     void UpdateSize(vec2 container);
 };
 
@@ -54,21 +55,21 @@ struct List : public Widget {
     List();
     ~List() = default;
     // returns whether or not to update the selection based on the mouse position
-    bool UpdateSelection(bool selected, struct Gui *gui, Objects::Manager *objects, u8 keyCodeSelect, u8 keyCodeBack, u8 keyCodeIncrement, u8 keyCodeDecrement);
+    bool UpdateSelection(bool selected, Gui *gui, Objects::Manager *objects, u8 keyCodeSelect, u8 keyCodeBack, u8 keyCodeIncrement, u8 keyCodeDecrement);
     void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
 };
 
 // A vertical list of items.
 struct ListV : public List {
     void UpdateSize(vec2 container);
-    void Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    void Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
 };
 
 // A horizontal list of items.
 struct ListH : public List {
     ListH();
     void UpdateSize(vec2 container);
-    void Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    void Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
 };
 
 struct Text : public Widget {
@@ -82,10 +83,10 @@ public:
     Rendering::FontAlign alignH, alignV;
     vec4 color, colorOutline;
     bool outline;
-    Text();
+    Text(Rendering::Manager *rendering_);
     ~Text() = default;
     void UpdateSize(vec2 container);
-    void Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    void Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
     void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
 };
 
@@ -93,7 +94,6 @@ struct Image : public Widget {
     i32 texIndex;
     Image();
     ~Image() = default;
-    void UpdateSize(vec2 container);
     void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
 };
 
@@ -102,16 +102,22 @@ struct Button : public Widget {
     vec4 colorBG, highlightBG, colorText, highlightText;
     i32 fontIndex;
     f32 fontSize;
-    bool mouseover;
     io::ButtonState state;
     Button();
     ~Button() = default;
-    void UpdateSize(vec2 container);
-    void Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    void Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
     void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
 };
 
-// struct Checkbox; // Boolean widget.
+// Boolean widget.
+struct Checkbox : public Widget {
+    bool checked;
+    vec4 colorOff, highlightOff, colorOn, highlightOn;
+    Checkbox();
+    ~Checkbox() = default;
+    void Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+};
 
 // struct Switch; // Allows the user to choose from a selection of widgets (usually Text).
 

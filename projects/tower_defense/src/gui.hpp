@@ -34,9 +34,9 @@ struct Widget {
     void LimitSize();
     inline vec2 GetSize() const { return sizeAbsolute + margin * 2.0; }
     virtual void Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
-    virtual void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+    virtual void Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
 
-    const bool MouseOver(const Objects::Manager *objects) const;
+    const bool MouseOver(const Gui *gui, const Objects::Manager *objects) const;
 };
 
 // Lowest level widget, used for input for game objects.
@@ -56,7 +56,7 @@ struct List : public Widget {
     ~List() = default;
     // returns whether or not to update the selection based on the mouse position
     bool UpdateSelection(bool selected, Gui *gui, Objects::Manager *objects, u8 keyCodeSelect, u8 keyCodeBack, u8 keyCodeIncrement, u8 keyCodeDecrement);
-    void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+    void Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
 };
 
 // A vertical list of items.
@@ -80,6 +80,7 @@ public:
     WString string;
     f32 fontSize;
     i32 fontIndex;
+    bool bold;
     Rendering::FontAlign alignH, alignV;
     vec4 color, colorOutline;
     bool outline;
@@ -87,14 +88,14 @@ public:
     ~Text() = default;
     void UpdateSize(vec2 container);
     void Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
-    void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+    void Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
 };
 
 struct Image : public Widget {
     i32 texIndex;
     Image();
     ~Image() = default;
-    void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+    void Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
 };
 
 struct Button : public Widget {
@@ -106,7 +107,7 @@ struct Button : public Widget {
     Button();
     ~Button() = default;
     void Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
-    void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+    void Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
 };
 
 // Boolean widget.
@@ -116,7 +117,7 @@ struct Checkbox : public Widget {
     Checkbox();
     ~Checkbox() = default;
     void Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
-    void Draw(Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+    void Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
 };
 
 // struct Switch; // Allows the user to choose from a selection of widgets (usually Text).
@@ -128,6 +129,7 @@ struct Gui : public Objects::Object {
     i32 texIndex;
     Assets::Font *font;
     i32 controlDepth = 0;
+    f32 scale = 0.9;
 
     Set<Widget*> allWidgets; // So we can delete them at the end of the program.
     Screen screenWidget;

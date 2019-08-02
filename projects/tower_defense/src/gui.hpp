@@ -33,17 +33,17 @@ struct Widget {
     virtual void UpdateSize(vec2 container);
     void LimitSize();
     inline vec2 GetSize() const { return sizeAbsolute + margin * 2.0; }
-    virtual void Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
-    virtual void Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+    virtual void Update(vec2 pos, bool selected);
+    virtual void Draw(VkCommandBuffer commandBuffer) const;
 
-    const bool MouseOver(const Gui *gui, const Objects::Manager *objects) const;
+    const bool MouseOver() const;
 };
 
 // Lowest level widget, used for input for game objects.
 struct Screen : public Widget {
     Screen();
     ~Screen() = default;
-    void Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    void Update(vec2 pos, bool selected);
     void UpdateSize(vec2 container);
 };
 
@@ -55,25 +55,24 @@ struct List : public Widget {
     List();
     ~List() = default;
     // returns whether or not to update the selection based on the mouse position
-    bool UpdateSelection(bool selected, Gui *gui, Objects::Manager *objects, u8 keyCodeSelect, u8 keyCodeBack, u8 keyCodeIncrement, u8 keyCodeDecrement);
-    void Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+    bool UpdateSelection(bool selected, u8 keyCodeSelect, u8 keyCodeBack, u8 keyCodeIncrement, u8 keyCodeDecrement);
+    void Draw(VkCommandBuffer commandBuffer) const;
 };
 
 // A vertical list of items.
 struct ListV : public List {
     void UpdateSize(vec2 container);
-    void Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    void Update(vec2 pos, bool selected);
 };
 
 // A horizontal list of items.
 struct ListH : public List {
     ListH();
     void UpdateSize(vec2 container);
-    void Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
+    void Update(vec2 pos, bool selected);
 };
 
 struct Text : public Widget {
-    Rendering::Manager *rendering;
 private:
     WString stringFormatted;
 public:
@@ -84,18 +83,18 @@ public:
     Rendering::FontAlign alignH, alignV;
     vec4 color, colorOutline;
     bool outline;
-    Text(Rendering::Manager *rendering_);
+    Text();
     ~Text() = default;
     void UpdateSize(vec2 container);
-    void Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
-    void Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+    void Update(vec2 pos, bool selected);
+    void Draw(VkCommandBuffer commandBuffer) const;
 };
 
 struct Image : public Widget {
     i32 texIndex;
     Image();
     ~Image() = default;
-    void Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+    void Draw(VkCommandBuffer commandBuffer) const;
 };
 
 struct Button : public Widget {
@@ -106,8 +105,8 @@ struct Button : public Widget {
     io::ButtonState state;
     Button();
     ~Button() = default;
-    void Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
-    void Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+    void Update(vec2 pos, bool selected);
+    void Draw(VkCommandBuffer commandBuffer) const;
 };
 
 // Boolean widget.
@@ -116,8 +115,8 @@ struct Checkbox : public Widget {
     vec4 colorOff, highlightOff, colorOn, highlightOn;
     Checkbox();
     ~Checkbox() = default;
-    void Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering);
-    void Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const;
+    void Update(vec2 pos, bool selected);
+    void Draw(VkCommandBuffer commandBuffer) const;
 };
 
 // struct Switch; // Allows the user to choose from a selection of widgets (usually Text).
@@ -137,11 +136,11 @@ struct Gui : public Objects::Object {
 
     ~Gui();
 
-    void EventAssetInit(Assets::Manager *assets);
-    void EventAssetAcquire(Assets::Manager *assets);
-    void EventInitialize(Objects::Manager *objects, Rendering::Manager *rendering);
-    void EventUpdate(bool buffer, Objects::Manager *objects, Rendering::Manager *rendering);
-    void EventDraw(bool buffer, Rendering::Manager *rendering, VkCommandBuffer commandBuffer);
+    void EventAssetInit();
+    void EventAssetAcquire();
+    void EventInitialize();
+    void EventUpdate();
+    void EventDraw(VkCommandBuffer commandBuffer);
 
     // deeper means the widget can only be interacted with by selecting it first
     void AddWidget(Widget *parent, Widget *newWidget, bool deeper = false);

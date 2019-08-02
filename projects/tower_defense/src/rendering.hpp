@@ -129,9 +129,6 @@ struct Manager {
         Array<ScissorState> scissorStack;
     } data;
 
-    io::Window *window = nullptr;
-    Array<Assets::Texture> *textures = nullptr;
-    Array<Assets::Font> *fonts = nullptr;
     Array<u32> fontIndexOffsets{0};
     vec2 screenSize = vec2(1280.0, 720.0);
     f32 aspectRatio; // height/width
@@ -141,6 +138,7 @@ struct Manager {
     }
 
     bool Init();
+    bool Deinit();
     bool UpdateFonts();
     bool Draw();
 

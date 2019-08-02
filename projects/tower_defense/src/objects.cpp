@@ -4,100 +4,93 @@
 */
 
 #include "objects.hpp"
-#include "rendering.hpp"
+#include "globals.hpp"
 
 namespace Objects {
 
-void Object::EventUpdate(bool buffer, Manager *objects, Rendering::Manager *rendering) {}
-void Object::EventDraw(bool buffer, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) {}
-void Object::EventInitialize(Manager *objects, Rendering::Manager *rendering) {}
-
-Manager::~Manager() {
-    for (Object* object : objects) {
-        delete object;
-    }
-}
+void Object::EventUpdate() {}
+void Object::EventDraw(VkCommandBuffer commandBuffer) {}
+void Object::EventInitialize() {}
 
 void Manager::RenderCallback(void *userdata, Rendering::Manager *rendering, Array<VkCommandBuffer> &commandBuffers) {
-    ((Manager*)userdata)->Draw(rendering, commandBuffers);
+    ((Manager*)userdata)->Draw(commandBuffers);
 }
 
 void Manager::RegisterDrawing(Rendering::Manager *rendering) {
     rendering->AddRenderCallback(RenderCallback, this);
 }
 
-void Manager::GetAssets(Assets::Manager *assets) {
+void Manager::GetAssets() {
     for (Object* object : objects) {
-        object->EventAssetInit(assets);
+        object->EventAssetInit();
     }
 }
 
-void Manager::UseAssets(Assets::Manager *assets) {
+void Manager::UseAssets() {
     for (Object* object : objects) {
-        object->EventAssetAcquire(assets);
+        object->EventAssetAcquire();
     }
 }
 
-void Manager::CallInitialize(Rendering::Manager *rendering) {
+void Manager::CallInitialize() {
     for (Object* object : objects) {
-        object->EventInitialize(this, rendering);
+        object->EventInitialize();
     }
 }
 
-void Manager::Update(f32 timestep, Rendering::Manager *rendering) {
+void Manager::Update() {
     buffer = !buffer;
-    this->timestep = timestep;
-    if (rawInput->AnyGP.Pressed()) {
-        gamepad = &rawInput->gamepads[rawInput->AnyGPIndex];
+    if (globals.rawInput.AnyGP.Pressed()) {
+        globals.gamepad = &globals.rawInput.gamepads[globals.rawInput.AnyGPIndex];
     }
 
     for (Object* object : objects) {
-        object->EventUpdate(buffer, this, rendering);
+        object->EventUpdate();
     }
 }
 
-void Manager::Draw(Rendering::Manager *rendering, Array<VkCommandBuffer>& commandBuffers) {
+void Manager::Draw(Array<VkCommandBuffer>& commandBuffers) {
     i32 concurrency = commandBuffers.size;
     for (i32 i = 0; i < objects.size; i+=concurrency) {
         for (i32 j = 0; j < concurrency; j++) {
             if (i+j >= objects.size) {
                 break;
             }
-            objects[i+j]->EventDraw(!buffer, rendering, commandBuffers[j]);
+            objects[i+j]->EventDraw(commandBuffers[j]);
         }
     }
 }
 
 bool Manager::Pressed(u8 keyCode) const {
     if (KeyCodeIsGamepad(keyCode)) {
-        if (gamepad == nullptr) {
+        if (globals.gamepad == nullptr) {
             return false;
         }
-        return gamepad->Pressed(keyCode);
+        return globals.gamepad->Pressed(keyCode);
     } else {
-        return input->Pressed(keyCode);
+        return globals.input.Pressed(keyCode);
     }
 }
 
 bool Manager::Down(u8 keyCode) const {
     if (KeyCodeIsGamepad(keyCode)) {
-        if (gamepad == nullptr) {
+        if (globals.gamepad == nullptr) {
             return false;
         }
-        return gamepad->Down(keyCode);
+        return globals.gamepad->Down(keyCode);
     } else {
-        return input->Down(keyCode);
+        return globals.input.Down(keyCode);
     }
 }
 
 bool Manager::Released(u8 keyCode) const {
     if (KeyCodeIsGamepad(keyCode)) {
-        if (gamepad == nullptr) {
+        if (globals.gamepad == nullptr) {
             return false;
         }
-        return gamepad->Released(keyCode);
+        return globals.gamepad->Released(keyCode);
     } else {
-        return input->Released(keyCode);
+        return globals.input.Released(keyCode);
     }
 }
 

@@ -26,24 +26,19 @@ struct Manager;
 struct Object {
     virtual ~Object() = default;
 
-    virtual void EventAssetInit(Assets::Manager *assets) = 0;
-    virtual void EventAssetAcquire(Assets::Manager *assets) = 0;
-    virtual void EventInitialize(Manager *objects, Rendering::Manager *rendering);
-    virtual void EventUpdate(bool buffer, Manager *objects, Rendering::Manager *rendering);
-    virtual void EventDraw(bool buffer, Rendering::Manager *rendering, VkCommandBuffer commandBuffer);
+    virtual void EventAssetInit() = 0;
+    virtual void EventAssetAcquire() = 0;
+    virtual void EventInitialize();
+    virtual void EventUpdate();
+    virtual void EventDraw(VkCommandBuffer commandBuffer);
 };
 
 struct Manager {
     // buffer swaps every frame. Used for lockless multithreading.
     Array<Object*> objects;
-    io::Input *input = nullptr;
-    io::RawInput *rawInput = nullptr;
-    io::Window *window = nullptr;
     bool buffer = false;
     f32 timestep = 1.0/60.0;
-    io::Gamepad *gamepad = nullptr;
 
-    ~Manager();
     static void RenderCallback(void *userdata, Rendering::Manager *rendering, Array<VkCommandBuffer>& commandBuffers);
 
     // The first thing you do with the manager
@@ -53,15 +48,15 @@ struct Manager {
     // Registers the rendering callbacks
     void RegisterDrawing(Rendering::Manager *rendering);
     // Calls EventAssetInit for every type of object.
-    void GetAssets(Assets::Manager *assets);
+    void GetAssets();
     // Calls EventAssetAcquire for every type of object.
-    void UseAssets(Assets::Manager *assets);
+    void UseAssets();
     // Calls EventInitialize
-    void CallInitialize(Rendering::Manager *rendering);
+    void CallInitialize();
     // Calls different Update events.
-    void Update(f32 timestep, Rendering::Manager *rendering);
+    void Update();
     // Calls different Draw events.
-    void Draw(Rendering::Manager *rendering, Array<VkCommandBuffer>& commandBuffers);
+    void Draw(Array<VkCommandBuffer>& commandBuffers);
 
     bool Pressed(u8 keyCode) const;
     bool Down(u8 keyCode) const;

@@ -4,11 +4,7 @@
     Description: High-level definition of the structure of our program.
 */
 
-#include "rendering.hpp"
-#include "assets.hpp"
-#include "objects.hpp"
-#include "gui.hpp"
-
+#include "globals.hpp"
 #include "AzCore/io.hpp"
 
 const char *title = "AzCore Tower Defense";
@@ -32,41 +28,27 @@ i32 main(i32 argumentCount, char** argumentValues) {
     cout << "Starting with layers " << (enableLayers ? "enabled" : "disabled")
          << " and core validation " << (enableCoreValidation ? "enabled" : "disabled") << std::endl;
 
-    Objects::Manager objects;
-    objects.Register(new Int::Gui());
+    globals.objects.Register(&globals.gui);
+    globals.window.name = title;
+    globals.window.input = &globals.input;
 
-    io::Input input;
-    objects.input = &input;
-
-    io::Window window;
-    objects.window = &window;
-    window.name = title;
-    window.input = &input;
-
-    io::RawInput rawInput;
-    rawInput.window = &window;
-    if (!rawInput.Init(io::RAW_INPUT_ENABLE_GAMEPAD_BIT)) {
+    globals.rawInput.window = &globals.window;
+    if (!globals.rawInput.Init(io::RAW_INPUT_ENABLE_GAMEPAD_BIT)) {
         cout << "Failed to initialize RawInput: " << io::error << std::endl;
         return 1;
     }
 
-    objects.rawInput = &rawInput;
-
-    Assets::Manager assets;
-    objects.GetAssets(&assets);
-    if (!assets.LoadAll()) {
+    globals.objects.GetAssets();
+    if (!globals.assets.LoadAll()) {
         cout << "Failed to load assets: " << Assets::error << std::endl;
         return 1;
     }
-    objects.UseAssets(&assets);
+    globals.objects.UseAssets();
 
-    Rendering::Manager rendering;
-    rendering.textures = &assets.textures;
-    rendering.fonts = &assets.fonts;
-    rendering.data.instance.AppInfo(title, 1, 0, 0);
-    objects.RegisterDrawing(&rendering);
+    globals.rendering.data.instance.AppInfo(title, 1, 0, 0);
+    globals.objects.RegisterDrawing(&globals.rendering);
 
-    objects.CallInitialize(&rendering);
+    globals.objects.CallInitialize();
 
     if (enableLayers) {
         Array<const char*> layers = {
@@ -78,48 +60,52 @@ i32 main(i32 argumentCount, char** argumentValues) {
         if (enableCoreValidation) {
             layers.Append("VK_LAYER_LUNARG_core_validation");
         }
-        rendering.data.instance.AddLayers(layers);
+        globals.rendering.data.instance.AddLayers(layers);
     }
 
-    rendering.window = &window;
-
-    if (!window.Open()) {
+    if (!globals.window.Open()) {
         cout << "Failed to open window: " << io::error << std::endl;
         return 1;
     }
 
-    if (!rendering.Init()) {
+    if (!globals.rendering.Init()) {
         cout << "Failed to init Rendering::Manager: " << Rendering::error << std::endl;
         return 1;
     }
 
-    if (!window.Show()) {
+    if (!globals.window.Show()) {
         cout << "Failed to show window: " << io::error << std::endl;
         return 1;
     }
 
     ClockTime frameStart;
     const Nanoseconds frameDuration = Nanoseconds(1000000000/144);
-    const f32 timestep = 1.0/144.0;
+    globals.objects.timestep = 1.0/144.0;
 
-    while (window.Update()) {
-        rawInput.Update(timestep);
-        if (input.Released(KC_KEY_ESC)) {
+    while (globals.window.Update()) {
+        globals.rawInput.Update(globals.objects.timestep);
+        if (globals.input.Released(KC_KEY_ESC)) {
             break;
         }
         frameStart = Clock::now();
-        objects.Update(timestep, &rendering);
-        if (!rendering.Draw()) {
+        globals.objects.Update();
+        if (!globals.rendering.Draw()) {
             cout << "Error in Rendering::Manager::Draw: " << Rendering::error << std::endl;
             return 1;
         }
-        input.Tick(timestep);
+        globals.input.Tick(globals.objects.timestep);
         Nanoseconds frameDelta = Nanoseconds(Clock::now() - frameStart);
         Nanoseconds frameSleep = frameDuration - frameDelta;
         if (frameSleep.count() >= 1000) {
             std::this_thread::sleep_for(frameSleep);
         }
     }
+
+    if (!globals.rendering.Deinit()) {
+        cout << "Error deinitializing Rendering::Manager: " << Rendering::error << std::endl;
+        return 1;
+    }
+    globals.window.Close();
 
     return 0;
 }

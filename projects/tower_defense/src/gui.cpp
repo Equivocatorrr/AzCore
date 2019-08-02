@@ -4,8 +4,7 @@
 */
 
 #include "gui.hpp"
-#include "assets.hpp"
-#include "rendering.hpp"
+#include "globals.hpp"
 
 namespace Int {
 
@@ -15,30 +14,30 @@ Gui::~Gui() {
     }
 }
 
-void Gui::EventAssetInit(Assets::Manager *assets) {
-    assets->filesToLoad.Append("DroidSans.ttf");
+void Gui::EventAssetInit() {
+    globals.assets.filesToLoad.Append("DroidSans.ttf");
     // assets->filesToLoad.Append("LiberationSerif-Regular.ttf");
     // assets->filesToLoad.Append("OpenSans-Regular.ttf");
     // assets->filesToLoad.Append("Literata[wght].ttf");
-    assets->filesToLoad.Append("test.tga");
+    globals.assets.filesToLoad.Append("test.tga");
 }
 
-void Gui::EventAssetAcquire(Assets::Manager *assets) {
-    fontIndex = assets->FindMapping("DroidSans.ttf");
+void Gui::EventAssetAcquire() {
+    fontIndex = globals.assets.FindMapping("DroidSans.ttf");
     // fontIndex = assets->FindMapping("LiberationSerif-Regular.ttf");
     // fontIndex = assets->FindMapping("OpenSans-Regular.ttf");
     // fontIndex = assets->FindMapping("Literata[wght].ttf");
-    texIndex = assets->FindMapping("test.tga");
-    font = &assets->fonts[fontIndex];
+    texIndex = globals.assets.FindMapping("test.tga");
+    font = &globals.assets.fonts[fontIndex];
 }
 
-void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *rendering) {
+void Gui::EventInitialize() {
     ListV *listWidget = new ListV();
     listWidget->size.x = 1000.0;
     listWidget->fractionWidth = false;
     AddWidget(&screenWidget, listWidget);
 
-    Text *titleWidget = new Text(rendering);
+    Text *titleWidget = new Text();
     titleWidget->string = ToWString("Title");
     titleWidget->fontSize = 64.0;
     titleWidget->color = vec4(1.0, 0.5, 0.0, 1.0);
@@ -52,7 +51,7 @@ void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *renderi
     listHWidget->minSize.y = 200.0;
     AddWidget(listWidget, listHWidget);
 
-    textWidget = new Text(rendering);
+    textWidget = new Text();
     textWidget->string = ToWString("Hahaha look at me! There's so much to say! I don't know what else to do. ¡Hola señor Lopez! ¿Cómo está usted? Estoy muy bien. ¿Y cómo se llama? ありがとうお願いします私はハンバーガー 세계를 향한 대화, 유니코드로 하십시오. 経機速講著述元載説赤問台民。 Лорем ипсум долор сит амет Λορεμ ιπσθμ δολορ σιτ αμετ There once was a man named Chad. He was an incel. What a terrible sight! If only someone was there to teach him the ways of humility! Oh how he would wail and toil how all the girls would pass up a \"nice guy like me\". What a bitch.");
     textWidget->fontIndex = fontIndex;
     textWidget->size.x = 1.0 / 3.0;
@@ -60,13 +59,13 @@ void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *renderi
     textWidget->bold = true;
     AddWidget(listHWidget, textWidget);
 
-    Text *textWidget2 = new Text(rendering);
+    Text *textWidget2 = new Text();
     textWidget2->string = ToWString("Hey now! You're an all star! Get your shit together!");
     textWidget2->fontIndex = fontIndex;
     textWidget2->size.x = 3.0 / 9.0;
     textWidget2->alignH = Rendering::JUSTIFY;
     AddWidget(listHWidget, textWidget2);
-    Text *textWidget3 = new Text(rendering);
+    Text *textWidget3 = new Text();
     textWidget3->string = ToWString("What else is there even to talk about? The whole world is going up in flames! I feel like a floop.");
     textWidget3->fontIndex = fontIndex;
     textWidget3->fontSize = 24.0;
@@ -146,7 +145,7 @@ void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *renderi
         // spacer->fractionWidth = false;
         // AddWidget(option, spacer);
 
-        Text *textWidget4 = new Text(rendering);
+        Text *textWidget4 = new Text();
         textWidget4->fontIndex = fontIndex;
         textWidget4->fontSize = 20.0;
         // textWidget4->alignH = Rendering::RIGHT;
@@ -167,24 +166,24 @@ void Gui::EventInitialize(Objects::Manager *objects, Rendering::Manager *renderi
 
 }
 
-void Gui::EventUpdate(bool buffer, Objects::Manager *objects, Rendering::Manager *rendering) {
-    screenWidget.Update(vec2(0.0), true, this, objects, rendering);
-    if (objects->input->Pressed(KC_KEY_1)) {
+void Gui::EventUpdate() {
+    screenWidget.Update(vec2(0.0), true);
+    if (globals.input.Pressed(KC_KEY_1)) {
         font->SaveAtlas();
     }
-    if (objects->input->Pressed(KC_KEY_2)) {
-        (*rendering->fonts)[0].SaveAtlas();
+    if (globals.input.Pressed(KC_KEY_2)) {
+        globals.assets.fonts[0].SaveAtlas();
     }
-    if (objects->input->Pressed(KC_KEY_UP)) {
+    if (globals.input.Pressed(KC_KEY_UP)) {
         textWidget->fontSize += 1.0;
     }
-    if (objects->input->Pressed(KC_KEY_DOWN)) {
+    if (globals.input.Pressed(KC_KEY_DOWN)) {
         textWidget->fontSize -= 1.0;
     }
 }
 
-void Gui::EventDraw(bool buffer, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) {
-    screenWidget.Draw(this, rendering, commandBuffer);
+void Gui::EventDraw(VkCommandBuffer commandBuffer) {
+    screenWidget.Draw(commandBuffer);
 }
 
 void Gui::AddWidget(Widget *parent, Widget *newWidget, bool deeper) {
@@ -232,23 +231,23 @@ void Widget::LimitSize() {
     }
 }
 
-void Widget::Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
+void Widget::Update(vec2 pos, bool selected) {
     pos += margin;
     positionAbsolute = pos;
     highlighted = selected;
     for (Widget* child : children) {
-        child->Update(pos, selected, gui, objects, rendering);
+        child->Update(pos, selected);
     }
 }
 
-void Widget::Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const {
+void Widget::Draw(VkCommandBuffer commandBuffer) const {
     for (const Widget* child : children) {
-        child->Draw(gui, rendering, commandBuffer);
+        child->Draw(commandBuffer);
     }
 }
 
-const bool Widget::MouseOver(const Gui *gui, const Objects::Manager *objects) const {
-    const vec2 mouse = vec2((f32)objects->input->cursor.x, (f32)objects->input->cursor.y) / gui->scale;
+const bool Widget::MouseOver() const {
+    const vec2 mouse = vec2((f32)globals.input.cursor.x, (f32)globals.input.cursor.y) / globals.gui.scale;
     return mouse.x == median(positionAbsolute.x, mouse.x, positionAbsolute.x + sizeAbsolute.x)
         && mouse.y == median(positionAbsolute.y, mouse.y, positionAbsolute.y + sizeAbsolute.y);
 }
@@ -257,9 +256,9 @@ Screen::Screen() {
     margin = vec2(0.0);
 }
 
-void Screen::Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
-    UpdateSize(rendering->screenSize / gui->scale);
-    Widget::Update(pos, selected, gui, objects, rendering);
+void Screen::Update(vec2 pos, bool selected) {
+    UpdateSize(globals.rendering.screenSize / globals.gui.scale);
+    Widget::Update(pos, selected);
 }
 
 void Screen::UpdateSize(vec2 container) {
@@ -271,14 +270,14 @@ void Screen::UpdateSize(vec2 container) {
 
 List::List() : padding(8.0), color(0.05, 0.05, 0.05, 0.9), highlight(0.05, 0.035, 0.03, 0.9), selection(-2), selectionDefault(-1) {}
 
-bool List::UpdateSelection(bool selected, Gui *gui, Objects::Manager *objects, u8 keyCodeSelect, u8 keyCodeBack, u8 keyCodeIncrement, u8 keyCodeDecrement) {
+bool List::UpdateSelection(bool selected, u8 keyCodeSelect, u8 keyCodeBack, u8 keyCodeIncrement, u8 keyCodeDecrement) {
     highlighted = selected;
     if (selected) {
-        if (gui->controlDepth == depth) {
-            if (selection >= 0 && selection < children.size && objects->Released(keyCodeSelect)) {
-                gui->controlDepth = children[selection]->depth;
+        if (globals.gui.controlDepth == depth) {
+            if (selection >= 0 && selection < children.size && globals.objects.Released(keyCodeSelect)) {
+                globals.gui.controlDepth = children[selection]->depth;
             }
-            if (objects->Pressed(keyCodeIncrement)) {
+            if (globals.objects.Pressed(keyCodeIncrement)) {
                 for (selection = max(selection+1, 0); selection < children.size; selection++) {
                     if (children[selection]->selectable) {
                         break;
@@ -287,7 +286,7 @@ bool List::UpdateSelection(bool selected, Gui *gui, Objects::Manager *objects, u
                 if (selection == children.size) {
                     selection = -1;
                 }
-            } else if (objects->Pressed(keyCodeDecrement)) {
+            } else if (globals.objects.Pressed(keyCodeDecrement)) {
                 if (selection < 0) {
                     selection = children.size - 1;
                 } else {
@@ -302,19 +301,19 @@ bool List::UpdateSelection(bool selected, Gui *gui, Objects::Manager *objects, u
             if (selection == -2) {
                 selection = selectionDefault;
             }
-        } else if (gui->controlDepth == depth+1 && objects->Released(keyCodeBack)) {
-            gui->controlDepth = depth;
+        } else if (globals.gui.controlDepth == depth+1 && globals.objects.Released(keyCodeBack)) {
+            globals.gui.controlDepth = depth;
         }
-        if (gui->controlDepth > depth) {
+        if (globals.gui.controlDepth > depth) {
             highlighted = false;
         }
     } else {
         selection = -2;
     }
-    if (gui->controlDepth == depth && selected) {
+    if (globals.gui.controlDepth == depth && selected) {
         bool reselect = false;
-        if (objects->input->cursor != objects->input->cursorPrevious) {
-            if (MouseOver(gui, objects)) {
+        if (globals.input.cursor != globals.input.cursorPrevious) {
+            if (MouseOver()) {
                 reselect = true;
             }
             selection = -1;
@@ -324,23 +323,23 @@ bool List::UpdateSelection(bool selected, Gui *gui, Objects::Manager *objects, u
     return false;
 }
 
-void List::Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const {
+void List::Draw(VkCommandBuffer commandBuffer) const {
     if (color.a > 0.0) {
-        // const vec2 screenSizeFactor = vec2(2.0) / rendering->screenSize;
-        rendering->BindPipeline2D(commandBuffer);
-        rendering->DrawQuad(commandBuffer, Rendering::texBlank, highlighted ? highlight : color, positionAbsolute * gui->scale, sizeAbsolute * gui->scale);
+        // const vec2 screenSizeFactor = vec2(2.0) / globals.rendering.screenSize;
+        globals.rendering.BindPipeline2D(commandBuffer);
+        globals.rendering.DrawQuad(commandBuffer, Rendering::texBlank, highlighted ? highlight : color, positionAbsolute * globals.gui.scale, sizeAbsolute * globals.gui.scale);
     }
     vec2i topLeft = vec2i(
-        (positionAbsolute.x + padding.x) * gui->scale,
-        (positionAbsolute.y + padding.y) * gui->scale
+        (positionAbsolute.x + padding.x) * globals.gui.scale,
+        (positionAbsolute.y + padding.y) * globals.gui.scale
     );
     vec2i botRight = vec2i(
-        (positionAbsolute.x + sizeAbsolute.x - padding.x) * gui->scale,
-        (positionAbsolute.y + sizeAbsolute.y - padding.y) * gui->scale
+        (positionAbsolute.x + sizeAbsolute.x - padding.x) * globals.gui.scale,
+        (positionAbsolute.y + sizeAbsolute.y - padding.y) * globals.gui.scale
     );
-    rendering->PushScissor(commandBuffer, topLeft, botRight);
-    Widget::Draw(gui, rendering, commandBuffer);
-    rendering->PopScissor(commandBuffer);
+    globals.rendering.PushScissor(commandBuffer, topLeft, botRight);
+    Widget::Draw(commandBuffer);
+    globals.rendering.PopScissor(commandBuffer);
 }
 
 void ListV::UpdateSize(vec2 container) {
@@ -380,10 +379,10 @@ void ListV::UpdateSize(vec2 container) {
     LimitSize();
 }
 
-void ListV::Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
+void ListV::Update(vec2 pos, bool selected) {
     pos += margin;
     positionAbsolute = pos;
-    const bool mouseSelect = UpdateSelection(selected, gui, objects, KC_GP_BTN_A, KC_GP_BTN_B, KC_GP_AXIS_LS_DOWN, KC_GP_AXIS_LS_UP);
+    const bool mouseSelect = UpdateSelection(selected, KC_GP_BTN_A, KC_GP_BTN_B, KC_GP_AXIS_LS_DOWN, KC_GP_AXIS_LS_UP);
     pos += padding;
     if (mouseSelect) {
         f32 childY = pos.y;
@@ -395,7 +394,7 @@ void ListV::Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects,
             }
             child->positionAbsolute.x = pos.x + child->margin.x;
             child->positionAbsolute.y = childY + child->margin.y;
-            if (child->MouseOver(gui, objects)) {
+            if (child->MouseOver()) {
                 break;
             }
             childY += child->GetSize().y;
@@ -406,7 +405,7 @@ void ListV::Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects,
     }
     for (i32 i = 0; i < children.size; i++) {
         Widget *child = children[i];
-        child->Update(pos, selected && i == selection, gui, objects, rendering);
+        child->Update(pos, selected && i == selection);
         pos.y += child->GetSize().y;
     }
 }
@@ -453,10 +452,10 @@ void ListH::UpdateSize(vec2 container) {
     LimitSize();
 }
 
-void ListH::Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
+void ListH::Update(vec2 pos, bool selected) {
     pos += margin;
     positionAbsolute = pos;
-    const bool mouseSelect = UpdateSelection(selected, gui, objects, KC_GP_BTN_A, KC_GP_BTN_B, KC_GP_AXIS_LS_RIGHT, KC_GP_AXIS_LS_LEFT);
+    const bool mouseSelect = UpdateSelection(selected, KC_GP_BTN_A, KC_GP_BTN_B, KC_GP_AXIS_LS_RIGHT, KC_GP_AXIS_LS_LEFT);
     pos += padding;
     if (mouseSelect) {
         f32 childX = pos.x;
@@ -465,7 +464,7 @@ void ListH::Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *o
             if (child->selectable) {
                 child->positionAbsolute.x = childX + child->margin.x;
                 child->positionAbsolute.y = pos.y + child->margin.y;
-                if (child->MouseOver(gui, objects)) {
+                if (child->MouseOver()) {
                     break;
                 }
             }
@@ -477,12 +476,12 @@ void ListH::Update(vec2 pos, bool selected, struct Gui *gui, Objects::Manager *o
     }
     for (i32 i = 0; i < children.size; i++) {
         Widget *child = children[i];
-        child->Update(pos, selected && i == selection, gui, objects, rendering);
+        child->Update(pos, selected && i == selection);
         pos.x += child->GetSize().x;
     }
 }
 
-Text::Text(Rendering::Manager *rendering_) : rendering(rendering_), stringFormatted(), string(), fontSize(32.0), fontIndex(1), bold(false), alignH(Rendering::LEFT), alignV(Rendering::TOP), color(1.0), colorOutline(0.0, 0.0, 0.0, 1.0), outline(false) {
+Text::Text() : stringFormatted(), string(), fontSize(32.0), fontIndex(1), bold(false), alignH(Rendering::LEFT), alignV(Rendering::TOP), color(1.0), colorOutline(0.0, 0.0, 0.0, 1.0), outline(false) {
     size.y = 0.0;
 }
 
@@ -490,7 +489,7 @@ void Text::UpdateSize(vec2 container) {
     if (size.x > 0.0) {
         sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0) : size.x;
     } else {
-        sizeAbsolute.x = rendering->StringWidth(stringFormatted, fontIndex) * fontSize;
+        sizeAbsolute.x = globals.rendering.StringWidth(stringFormatted, fontIndex) * fontSize;
     }
     if (size.y > 0.0) {
         sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0) : size.y;
@@ -500,56 +499,56 @@ void Text::UpdateSize(vec2 container) {
     LimitSize();
 }
 
-void Text::Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
+void Text::Update(vec2 pos, bool selected) {
     if (size.x != 0.0) {
-        stringFormatted = rendering->StringAddNewlines(string, fontIndex, sizeAbsolute.x / fontSize);
+        stringFormatted = globals.rendering.StringAddNewlines(string, fontIndex, sizeAbsolute.x / fontSize);
     } else {
         stringFormatted = string;
     }
-    Widget::Update(pos, selected, gui, objects, rendering);
+    Widget::Update(pos, selected);
 }
 
-void Text::Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const {
+void Text::Draw(VkCommandBuffer commandBuffer) const {
     if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
         vec2i topLeft = vec2i(
-            positionAbsolute.x * gui->scale,
-            positionAbsolute.y * gui->scale
+            positionAbsolute.x * globals.gui.scale,
+            positionAbsolute.y * globals.gui.scale
         );
         vec2i botRight = vec2i(
-            (positionAbsolute.x + sizeAbsolute.x) * gui->scale,
-            (positionAbsolute.y + sizeAbsolute.y) * gui->scale
+            (positionAbsolute.x + sizeAbsolute.x) * globals.gui.scale,
+            (positionAbsolute.y + sizeAbsolute.y) * globals.gui.scale
         );
-        rendering->PushScissor(commandBuffer, topLeft, botRight);
+        globals.rendering.PushScissor(commandBuffer, topLeft, botRight);
     }
-    rendering->BindPipelineFont(commandBuffer);
-    vec2 drawPos = positionAbsolute * gui->scale;
-    vec2 scale = vec2(fontSize) * gui->scale;
-    f32 maxWidth = sizeAbsolute.x * gui->scale;
+    globals.rendering.BindPipelineFont(commandBuffer);
+    vec2 drawPos = positionAbsolute * globals.gui.scale;
+    vec2 scale = vec2(fontSize) * globals.gui.scale;
+    f32 maxWidth = sizeAbsolute.x * globals.gui.scale;
     if (alignH == Rendering::CENTER) {
         drawPos.x += maxWidth * 0.5;
     } else if (alignH == Rendering::RIGHT) {
         drawPos.x += maxWidth;
     }
     if (alignV == Rendering::CENTER) {
-        drawPos.y += sizeAbsolute.y * 0.5 * gui->scale;
+        drawPos.y += sizeAbsolute.y * 0.5 * globals.gui.scale;
     } else if (alignV == Rendering::BOTTOM) {
-        drawPos.y += sizeAbsolute.y * gui->scale;
+        drawPos.y += sizeAbsolute.y * globals.gui.scale;
     }
     f32 bounds = bold ? 0.425 : 0.525;
     if (outline) {
-        rendering->DrawText(commandBuffer, stringFormatted, fontIndex, colorOutline, drawPos, scale, alignH, alignV, maxWidth, 0.1, bounds - 0.2);
+        globals.rendering.DrawText(commandBuffer, stringFormatted, fontIndex, colorOutline, drawPos, scale, alignH, alignV, maxWidth, 0.1, bounds - 0.2);
     }
-    rendering->DrawText(commandBuffer, stringFormatted, fontIndex, color, drawPos, scale, alignH, alignV, maxWidth, 0.0, bounds);
+    globals.rendering.DrawText(commandBuffer, stringFormatted, fontIndex, color, drawPos, scale, alignH, alignV, maxWidth, 0.0, bounds);
     if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
-        rendering->PopScissor(commandBuffer);
+        globals.rendering.PopScissor(commandBuffer);
     }
 }
 
 Image::Image() : texIndex(0) {}
 
-void Image::Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const {
-    rendering->BindPipeline2D(commandBuffer);
-    rendering->DrawQuad(commandBuffer, texIndex, vec4(1.0), positionAbsolute * gui->scale, sizeAbsolute * gui->scale);
+void Image::Draw(VkCommandBuffer commandBuffer) const {
+    globals.rendering.BindPipeline2D(commandBuffer);
+    globals.rendering.DrawQuad(commandBuffer, texIndex, vec4(1.0), positionAbsolute * globals.gui.scale, sizeAbsolute * globals.gui.scale);
 }
 
 Button::Button() : string(), colorBG(0.15, 0.15, 0.15, 0.9), highlightBG(0.2, 0.6, 0.5, 0.9), colorText(1.0), highlightText(1.0), fontIndex(1), fontSize(24.0), state() {
@@ -557,28 +556,28 @@ Button::Button() : string(), colorBG(0.15, 0.15, 0.15, 0.9), highlightBG(0.2, 0.
     selectable = true;
 }
 
-void Button::Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
-    Widget::Update(pos, selected, gui, objects, rendering);
-    bool mouseover = MouseOver(gui, objects);
+void Button::Update(vec2 pos, bool selected) {
+    Widget::Update(pos, selected);
+    bool mouseover = MouseOver();
     state.Tick(0.0);
-    if (gui->controlDepth != depth) {
+    if (globals.gui.controlDepth != depth) {
         highlighted = false;
     }
     if (mouseover) {
         highlighted = true;
-        if (objects->Pressed(KC_MOUSE_LEFT)) {
+        if (globals.objects.Pressed(KC_MOUSE_LEFT)) {
             state.Press();
         }
-        if (objects->Released(KC_MOUSE_LEFT)) {
+        if (globals.objects.Released(KC_MOUSE_LEFT)) {
             state.Release();
         }
     }
-    if (gui->controlDepth == depth) {
+    if (globals.gui.controlDepth == depth) {
         if (selected) {
-            if (objects->Pressed(KC_GP_BTN_A)) {
+            if (globals.objects.Pressed(KC_GP_BTN_A)) {
                 state.Press();
             }
-            if (objects->Released(KC_GP_BTN_A)) {
+            if (globals.objects.Released(KC_GP_BTN_A)) {
                 state.Release();
             }
         } else if (!mouseover) {
@@ -587,17 +586,17 @@ void Button::Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects
     }
 }
 
-void Button::Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const {
+void Button::Draw(VkCommandBuffer commandBuffer) const {
     if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
         vec2i topLeft = vec2i(
-            positionAbsolute.x * gui->scale,
-            positionAbsolute.y * gui->scale
+            positionAbsolute.x * globals.gui.scale,
+            positionAbsolute.y * globals.gui.scale
         );
         vec2i botRight = vec2i(
-            (positionAbsolute.x + sizeAbsolute.x) * gui->scale,
-            (positionAbsolute.y + sizeAbsolute.y) * gui->scale
+            (positionAbsolute.x + sizeAbsolute.x) * globals.gui.scale,
+            (positionAbsolute.y + sizeAbsolute.y) * globals.gui.scale
         );
-        rendering->PushScissor(commandBuffer, topLeft, botRight);
+        globals.rendering.PushScissor(commandBuffer, topLeft, botRight);
     }
     f32 scale;
     if (state.Down()) {
@@ -605,14 +604,14 @@ void Button::Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer comma
     } else {
         scale = 1.0;
     }
-    scale *= gui->scale;
-    vec2 drawPos = (positionAbsolute + sizeAbsolute * 0.5) * gui->scale;
-    rendering->BindPipeline2D(commandBuffer);
-    rendering->DrawQuad(commandBuffer, 1, highlighted ? highlightBG : colorBG, drawPos, sizeAbsolute * scale, vec2(0.5));
-    rendering->BindPipelineFont(commandBuffer);
-    rendering->DrawText(commandBuffer, string, fontIndex,  highlighted ? highlightText : colorText, drawPos, vec2(fontSize * scale), Rendering::CENTER, Rendering::CENTER, sizeAbsolute.x * gui->scale);
+    scale *= globals.gui.scale;
+    vec2 drawPos = (positionAbsolute + sizeAbsolute * 0.5) * globals.gui.scale;
+    globals.rendering.BindPipeline2D(commandBuffer);
+    globals.rendering.DrawQuad(commandBuffer, 1, highlighted ? highlightBG : colorBG, drawPos, sizeAbsolute * scale, vec2(0.5));
+    globals.rendering.BindPipelineFont(commandBuffer);
+    globals.rendering.DrawText(commandBuffer, string, fontIndex,  highlighted ? highlightText : colorText, drawPos, vec2(fontSize * scale), Rendering::CENTER, Rendering::CENTER, sizeAbsolute.x * globals.gui.scale);
     if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
-        rendering->PopScissor(commandBuffer);
+        globals.rendering.PopScissor(commandBuffer);
     }
 }
 
@@ -623,31 +622,31 @@ Checkbox::Checkbox() : checked(false), colorOff(0.15, 0.15, 0.15, 0.9), highligh
     fractionHeight = false;
 }
 
-void Checkbox::Update(vec2 pos, bool selected, Gui *gui, Objects::Manager *objects, Rendering::Manager *rendering) {
-    Widget::Update(pos, selected, gui, objects, rendering);
-    const bool mouseover = MouseOver(gui, objects);
-    if (gui->controlDepth != depth) {
+void Checkbox::Update(vec2 pos, bool selected) {
+    Widget::Update(pos, selected);
+    const bool mouseover = MouseOver();
+    if (globals.gui.controlDepth != depth) {
         highlighted = false;
     }
     if (mouseover) {
         highlighted = true;
-        if (objects->Released(KC_MOUSE_LEFT)) {
+        if (globals.objects.Released(KC_MOUSE_LEFT)) {
             checked = !checked;
         }
     }
-    if (gui->controlDepth == depth) {
+    if (globals.gui.controlDepth == depth) {
         if (selected) {
-            if (objects->Released(KC_GP_BTN_A)) {
+            if (globals.objects.Released(KC_GP_BTN_A)) {
                 checked = !checked;
             }
         }
     }
 }
 
-void Checkbox::Draw(Gui *gui, Rendering::Manager *rendering, VkCommandBuffer commandBuffer) const {
+void Checkbox::Draw(VkCommandBuffer commandBuffer) const {
     const vec4 &color = checked ? (highlighted ? highlightOn : colorOn) : (highlighted ? highlightOff : colorOff);
-    rendering->BindPipeline2D(commandBuffer);
-    rendering->DrawQuad(commandBuffer, Rendering::texBlank, color, positionAbsolute * gui->scale, sizeAbsolute * gui->scale);
+    globals.rendering.BindPipeline2D(commandBuffer);
+    globals.rendering.DrawQuad(commandBuffer, Rendering::texBlank, color, positionAbsolute * globals.gui.scale, sizeAbsolute * globals.gui.scale);
 }
 
 } // namespace Int

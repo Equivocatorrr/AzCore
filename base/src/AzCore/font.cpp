@@ -85,18 +85,7 @@ i32 Line::Intersection(const vec2 &point) const {
 };
 
 void Line::DistanceLess(const vec2 &point, f32& distSquared) const {
-    vec2 diff = p1-p2;
-    const f32 lengthSquared = absSqr(diff);
-    const f32 t = dot(diff, p1-point) / lengthSquared;
-    vec2 projection;
-    if (t < 0.0) {
-        projection = p1;
-    } else if (t > 1.0) {
-        projection = p2;
-    } else {
-        projection = p1 - diff * t;
-    }
-    f32 dist = absSqr(point - projection);
+    f32 dist = distSqrToLine<true>(p1, p2, point);
     if (dist < distSquared) {
         distSquared = dist;
     }

@@ -378,6 +378,26 @@ inline T normalize(const T& a) {
     inline T abs(const vec2_t<T>& a) {
         return sqrt(a.x*a.x + a.y*a.y);
     }
+
+    template<bool isSegment, typename T>
+    T distSqrToLine(const vec2_t<T> &segA, const vec2_t<T> &segB, const vec2_t<T> &point) {
+        const vec2_t<T> diff = segA - segB;
+        const T lengthSquared = absSqr(diff);
+        const T t = dot(diff, segA - point) / lengthSquared;
+        vec2_t<T> projection;
+        if constexpr (isSegment) {
+            if (t < 0.0) {
+                projection = segA;
+            } else if (t > 1.0) {
+                projection = segB;
+            } else {
+                projection = segA - diff * t;
+            }
+        } else {
+            projection = segA - diff * t;
+        }
+        return absSqr(point - projection);
+    }
 #endif // MATH_VEC2
 
 #ifdef MATH_MAT2
@@ -510,6 +530,26 @@ inline T normalize(const T& a) {
     template<typename T>
     inline T abs(const vec3_t<T>& a) {
         return sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
+    }
+
+    template<bool isSegment, typename T>
+    T distSqrToLine(const vec3_t<T> &segA, const vec3_t<T> &segB, const vec3_t<T> &point) {
+        const vec3_t<T> diff = segA - segB;
+        const T lengthSquared = absSqr(diff);
+        const T t = dot(diff, segA - point) / lengthSquared;
+        vec3_t<T> projection;
+        if constexpr (isSegment) {
+            if (t < 0.0) {
+                projection = segA;
+            } else if (t > 1.0) {
+                projection = segB;
+            } else {
+                projection = segA - diff * t;
+            }
+        } else {
+            projection = segA - diff * t;
+        }
+        return absSqr(point - projection);
     }
 
     template<typename T>
@@ -677,6 +717,26 @@ inline T normalize(const T& a) {
     inline T abs(const vec4_t<T>& a) {
         return sqrt(a.x*a.x + a.y*a.y + a.z*a.z + a.w*a.w);
     }
+
+    template<bool isSegment, typename T>
+    T distSqrToLine(const vec4_t<T> &segA, const vec4_t<T> &segB, const vec4_t<T> &point) {
+        const vec4_t<T> diff = segA - segB;
+        const T lengthSquared = absSqr(diff);
+        const T t = dot(diff, segA - point) / lengthSquared;
+        vec4_t<T> projection;
+        if constexpr (isSegment) {
+            if (t < 0.0) {
+                projection = segA;
+            } else if (t > 1.0) {
+                projection = segB;
+            } else {
+                projection = segA - diff * t;
+            }
+        } else {
+            projection = segA - diff * t;
+        }
+        return absSqr(point - projection);
+    }
 #endif // MATH_VEC4
 
 #ifdef MATH_MAT4
@@ -843,6 +903,26 @@ inline T normalize(const T& a) {
     template<typename T>
     inline T abs(const vec5_t<T>& a) {
         return sqrt(a.x*a.x + a.y*a.y + a.z*a.z + a.w*a.w + a.v*a.v);
+    }
+
+    template<bool isSegment, typename T>
+    T distSqrToLine(const vec5_t<T> &segA, const vec5_t<T> &segB, const vec5_t<T> &point) {
+        const vec5_t<T> diff = segA - segB;
+        const T lengthSquared = absSqr(diff);
+        const T t = dot(diff, segA - point) / lengthSquared;
+        vec5_t<T> projection;
+        if constexpr (isSegment) {
+            if (t < 0.0) {
+                projection = segA;
+            } else if (t > 1.0) {
+                projection = segB;
+            } else {
+                projection = segA - diff * t;
+            }
+        } else {
+            projection = segA - diff * t;
+        }
+        return absSqr(point - projection);
     }
 #endif // MATH_VEC5
 

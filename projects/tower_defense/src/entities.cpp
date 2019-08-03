@@ -146,23 +146,8 @@ bool CollisionSegmentSegment(const Physical &a, const Physical &b) {
     return (r >= 0 && r <= 1 && s >= 0 && s <= 1);
 }
 
-bool CollisionSegmentCircle(const Physical &a, const Physical &b) {
-    const vec2 A = a.actual.segment.a;
-    const vec2 B = a.actual.segment.b;
-    const vec2 C = b.actual.circle.c;
-    vec2 diff = A-B;
-    const f32 lengthSquared = absSqr(diff);
-    const f32 t = dot(diff, A-C) / lengthSquared;
-    vec2 projection;
-    if (t < 0.0) {
-        projection = A;
-    } else if (t > 1.0) {
-        projection = B;
-    } else {
-        projection = A - diff * t;
-    }
-    f32 dist = absSqr(C - projection);
-    return dist <= square(b.actual.circle.r);
+inline bool CollisionSegmentCircle(const Physical &a, const Physical &b) {
+    return distSqrToLine<true>(a.actual.segment.a, a.actual.segment.b, b.actual.circle.c) <= square(b.actual.circle.r);
 }
 
 bool SegmentInAABB(const vec2 &A, const vec2 &B, AABB aabb) {
@@ -339,18 +324,7 @@ bool Physical::MouseOver() const {
     }
     switch (type) {
     case SEGMENT: {
-        const vec2 diff = actual.segment.a-actual.segment.b;
-        const f32 lengthSquared = absSqr(diff);
-        const f32 t = dot(diff, actual.segment.a-mouse) / lengthSquared;
-        vec2 projection;
-        if (t < 0.0) {
-            projection = actual.segment.a;
-        } else if (t > 1.0) {
-            projection = actual.segment.b;
-        } else {
-            projection = actual.segment.a - diff * t;
-        }
-        return absSqr(mouse - projection) < 16.0;
+        return distSqrToLine<true>(actual.segment.a, actual.segment.b, mouse) < 16.0;
     }
     case CIRCLE: {
         return absSqr(actual.circle.c-mouse) <= square(actual.circle.r);

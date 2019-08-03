@@ -667,7 +667,7 @@ void Manager::DrawCharSS(VkCommandBuffer commandBuffer, char32 character,
     if (glyph.components.size != 0) {
         for (const font::Component& component : glyph.components) {
             i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
-            pc.vert.transform = component.transform.Scale(fullScale);
+            pc.vert.transform = mat2::Scaler(fullScale);
             pc.font.edge = 0.5 / (font::sdfDistance * screenSize.y * pc.vert.transform.h.y2);
             pc.vert.position = position + component.offset * fullScale;
             pc.PushFont(commandBuffer, this);
@@ -675,7 +675,7 @@ void Manager::DrawCharSS(VkCommandBuffer commandBuffer, char32 character,
         }
     } else {
         pc.font.edge = 0.5 / (font::sdfDistance * screenSize.y * scale.y);
-        pc.vert.transform = pc.vert.transform.Scale(fullScale);
+        pc.vert.transform = mat2::Scaler(fullScale);
         pc.vert.position = position;
         pc.PushFont(commandBuffer, this);
         vkCmdDrawIndexed(commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + glyphId * 4, 0);
@@ -772,7 +772,7 @@ void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString string,
             for (const font::Component& component : glyph.components) {
                 i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
                 // const font::Glyph& componentGlyph = font->fontBuilder.glyphs[componentId];
-                pc.vert.transform = component.transform.Scale(scale);
+                pc.vert.transform = component.transform * mat2::Scaler(scale);
                 pc.font.edge = edge / (font::sdfDistance * screenSize.y * abs(pc.vert.transform.h.y2));
                 pc.vert.position = cursor + component.offset * scale * vec2(1.0, -1.0);
                 pc.PushFont(commandBuffer, this);
@@ -793,12 +793,16 @@ void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString string,
     }
 }
 
-void Manager::DrawQuadSS(VkCommandBuffer commandBuffer, i32 texIndex, vec4 color, vec2 position, vec2 scale, vec2 origin) const {
+void Manager::DrawQuadSS(VkCommandBuffer commandBuffer, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {
     Rendering::PushConstants pc = Rendering::PushConstants();
     pc.frag.color = color;
     pc.frag.texIndex = texIndex;
     pc.vert.position = position;
-    pc.vert.transform = mat2::Scaler(scale);
+    pc.vert.transform = mat2::Scaler(scalePre);
+    if (rotation != 0.0) {
+        pc.vert.transform = pc.vert.transform * mat2::Rotation(rotation.value());
+    }
+    pc.vert.transform = pc.vert.transform * mat2::Scaler(scalePost);
     pc.vert.origin = origin;
     pc.Push2D(commandBuffer, this);
     vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
@@ -816,9 +820,9 @@ void Manager::DrawText(VkCommandBuffer commandBuffer, WString text, i32 fontInde
     DrawTextSS(commandBuffer, text, fontIndex, color, position * screenSizeFactor + vec2(-1.0), scale * screenSizeFactor.y, alignH, alignV, maxWidth * screenSizeFactor.x, edge, bounds);
 }
 
-void Manager::DrawQuad(VkCommandBuffer commandBuffer, i32 texIndex, vec4 color, vec2 position, vec2 scale, vec2 origin) const {
+void Manager::DrawQuad(VkCommandBuffer commandBuffer, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {
     const vec2 screenSizeFactor = vec2(2.0) / screenSize;
-    DrawQuadSS(commandBuffer, texIndex, color, position * screenSizeFactor + vec2(-1.0), scale * screenSizeFactor, origin);
+    DrawQuadSS(commandBuffer, texIndex, color, position * screenSizeFactor + vec2(-1.0), scalePre, scalePost * screenSizeFactor, origin, rotation);
 }
 
 } // namespace Rendering

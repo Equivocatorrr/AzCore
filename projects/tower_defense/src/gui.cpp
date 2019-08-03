@@ -247,7 +247,7 @@ void Widget::Draw(VkCommandBuffer commandBuffer) const {
 }
 
 const bool Widget::MouseOver() const {
-    const vec2 mouse = vec2((f32)globals.input.cursor.x, (f32)globals.input.cursor.y) / globals.gui.scale;
+    const vec2 mouse = vec2(globals.input.cursor) / globals.gui.scale;
     return mouse.x == median(positionAbsolute.x, mouse.x, positionAbsolute.x + sizeAbsolute.x)
         && mouse.y == median(positionAbsolute.y, mouse.y, positionAbsolute.y + sizeAbsolute.y);
 }

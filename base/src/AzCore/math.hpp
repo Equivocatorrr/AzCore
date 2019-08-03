@@ -346,6 +346,8 @@ inline T normalize(const T& a) {
         vec2_t() = default;
         vec2_t(T a);
         vec2_t(T a, T b);
+        template<typename I>
+        vec2_t(const vec2_t<I> &a) : x((T)a.x) , y((T)a.y) {}
         inline vec2_t<T> operator+(const vec2_t<T>& a) const { return vec2_t<T>(x+a.x, y+a.y); }
         inline vec2_t<T> operator-(const vec2_t<T>& a) const { return vec2_t<T>(x-a.x, y-a.y); }
         inline vec2_t<T> operator-() const { return vec2_t<T>(-x, -y); }
@@ -490,6 +492,8 @@ inline T normalize(const T& a) {
         vec3_t() = default;
         vec3_t(T a);
         vec3_t(T v1, T v2, T v3);
+        template<typename I>
+        vec3_t(const vec3_t<I> &a) : x((T)a.x) , y((T)a.y), z((T)a.z) {}
         inline vec3_t<T> operator+(const vec3_t<T>& a) const { return vec3_t<T>(x+a.x, y+a.y, z+a.z); }
         inline vec3_t<T> operator-(const vec3_t<T>& a) const { return vec3_t<T>(x-a.x, y-a.y, z-a.z); }
         inline vec3_t<T> operator-() const { return vec3_t<T>(-x, -y, -z); }
@@ -685,6 +689,8 @@ inline T normalize(const T& a) {
         vec4_t() = default;
         vec4_t(T v);
         vec4_t(T v1, T v2, T v3, T v4);
+        template<typename I>
+        vec4_t(const vec4_t<I> &a) : x((T)a.x) , y((T)a.y), z((T)a.z), w((T)a.w) {}
         inline vec4_t<T> operator+(const vec4_t<T>& vec) const { return vec4_t<T>(x+vec.x, y+vec.y, z+vec.z, w+vec.w); }
         inline vec4_t<T> operator-(const vec4_t<T>& vec) const { return vec4_t<T>(x-vec.x, y-vec.y, z-vec.z, w-vec.w); }
         inline vec4_t<T> operator-() const { return vec4_t<T>(-x, -y, -z, -w); }
@@ -872,6 +878,8 @@ inline T normalize(const T& a) {
         vec5_t() = default;
         vec5_t(T v);
         vec5_t(T v1, T v2, T v3, T v4, T v5);
+        template<typename I>
+        vec5_t(const vec5_t<I> &a) : x((T)a.x) , y((T)a.y), z((T)a.z), w((T)a.w), v((T)a.v) {}
         inline vec5_t<T> operator+(const vec5_t<T>& vec) const { return vec5_t<T>(x+vec.x, y+vec.y, z+vec.z, w+vec.w, v+vec.v); }
         inline vec5_t<T> operator-(const vec5_t<T>& vec) const { return vec5_t<T>(x-vec.x, y-vec.y, z-vec.z, w-vec.w, v-vec.v); }
         inline vec5_t<T> operator-() const { return vec5_t<T>(-x, -y, -z, -w, -v); }

@@ -61,7 +61,7 @@ void Manager::EventUpdate() {
         }
     }
     if (selectedEntity != -1) {
-        entities[selectedEntity].physical.pos = vec2(globals.input.cursor.x, globals.input.cursor.y);
+        entities[selectedEntity].physical.pos = vec2(globals.input.cursor);
         if (globals.objects.Down(KC_KEY_LEFT)) {
             entities[selectedEntity].physical.rot = pi;
         } else if (globals.objects.Down(KC_KEY_RIGHT)) {
@@ -318,7 +318,7 @@ bool Physical::Collides(const Physical &other) const {
 }
 
 bool Physical::MouseOver() const {
-    const vec2 mouse = vec2(globals.input.cursor.x, globals.input.cursor.y);
+    const vec2 mouse = vec2(globals.input.cursor);
     if (!updated) {
         UpdateActual();
     }

@@ -409,17 +409,8 @@ inline T normalize(const T& a) {
             return mat2_t(1);
         };
         static mat2_t<T> Rotation(T angle);
-        inline mat2_t<T> Rotate(const T& angle) const {
-            return mat2_t<T>::Rotation(angle) * (*this);
-        }
         static mat2_t<T> Skewer(vec2_t<T> amount);
-        inline mat2_t<T> Skew(const vec2_t<T>& amount) const {
-            return mat2_t<T>::Skewer(amount) * (*this);
-        }
         static mat2_t<T> Scaler(vec2_t<T> scale);
-        inline mat2_t<T> Scale(const vec2_t<T>& scale) const {
-            return mat2_t<T>::Scaler(scale) * (*this);
-        }
         inline mat2_t<T> Transpose() const {
             return mat2_t<T>(v.x1, v.y1, v.x2, v.y2);
         }
@@ -448,6 +439,14 @@ inline T normalize(const T& a) {
             );
         }
     };
+
+    template<typename T>
+    inline vec2_t<T> operator*(const vec2_t<T> &a, const mat2_t<T> &b) {
+        return vec2_t<T>(
+            a.x*b.v.x1 + a.y*b.v.y1,
+            a.x*b.v.x2 + a.y*b.v.y2
+        );
+    }
 #endif // MATH_MAT2
 
 #ifdef MATH_VEC3
@@ -555,18 +554,9 @@ inline T normalize(const T& a) {
         };
         // Only useful for rotations about aligned axes, such as {1, 0, 0}
         static mat3_t<T> RotationBasic(T angle, Axis axis);
-        inline mat3_t<T> RotateBasic(const T& angle, const Axis& axis) const {
-            return mat3_t<T>::RotationBasic(angle, axis) * (*this);
-        }
         // Useful for arbitrary axes
         static mat3_t<T> Rotation(T angle, vec3_t<T> axis);
-        inline mat3_t<T> Rotate(const T& angle, const vec3_t<T> axis) const {
-            return mat3_t<T>::Rotation(angle, axis) * (*this);
-        }
         static mat3_t<T> Scaler(vec3_t<T> scale);
-        inline mat3_t<T> Scale(const vec3_t<T>& scale) const {
-            return mat3_t<T>::Scaler(scale) * (*this);
-        }
         inline mat3_t<T> Transpose() const {
             return mat3_t<T>(v.x1, v.y1, v.z1, v.x2, v.y2, v.z2, v.x3, v.y3, v.z3);
         }
@@ -612,6 +602,15 @@ inline T normalize(const T& a) {
             );
         }
     };
+
+    template<typename T>
+    inline vec3_t<T> operator*(const vec3_t<T> &a, const mat3_t<T> &b) {
+        return vec3_t<T>(
+            a.x*b.v.x1 + a.y*b.v.y1 + a.z*b.v.z1,
+            a.x*b.v.x2 + a.y*b.v.y2 + a.z*b.v.z2,
+            a.x*b.v.x3 + a.y*b.v.y3 + a.z*b.v.z3
+        );
+    }
 #endif // MATH_MAT3
 
 #ifdef MATH_VEC4
@@ -724,21 +723,9 @@ inline T normalize(const T& a) {
         static mat4_t<T> RotationBasic(T angle, Plane plane);
         // For using 3D-axis rotations
         static mat4_t<T> RotationBasic(T angle, Axis axis);
-        inline mat4_t<T> RotateBasic(const T& angle, const Plane& plane) const {
-            return mat4_t<T>::RotationBasic(angle, plane) * (*this);
-        }
-        inline mat4_t<T> RotateBasic(const T& angle, const Axis& axis) const {
-            return mat4_t<T>::RotationBasic(angle, axis) * (*this);
-        }
         // Useful for arbitrary 3D-axes
         static mat4_t<T> Rotation(T angle, vec3_t<T> axis);
-        inline mat4_t<T> Rotate(const T& angle, const vec3_t<T> axis) const {
-            return mat4_t<T>::Rotation(angle, axis) * (*this);
-        }
         static mat4_t<T> Scaler(vec4_t<T> scale);
-        inline mat4_t<T> Scale(const vec4_t<T>& scale) const {
-            return mat4_t<T>::Scaler(scale) * (*this);
-        }
         inline mat4_t<T> Transpose() const {
             return mat4_t<T>(v.x1, v.y1, v.z1, v.w1,
                              v.x2, v.y2, v.z2, v.w2,
@@ -798,6 +785,16 @@ inline T normalize(const T& a) {
             );
         }
     };
+
+    template<typename T>
+    inline vec4_t<T> operator*(const vec4_t<T> &a, const mat4_t<T> &b) {
+        return vec4_t<T>(
+            a.x*b.v.x1 + a.y*b.v.y1 + a.z*b.v.z1 + a.w*b.v.w1,
+            a.x*b.v.x2 + a.y*b.v.y2 + a.z*b.v.z2 + a.w*b.v.w2,
+            a.x*b.v.x3 + a.y*b.v.y3 + a.z*b.v.z3 + a.w*b.v.w3,
+            a.x*b.v.x4 + a.y*b.v.y4 + a.z*b.v.z4 + a.w*b.v.w4
+        );
+    }
 #endif // MATH_MAT4
 
 #ifdef MATH_VEC5
@@ -899,21 +896,9 @@ inline T normalize(const T& a) {
         static mat5_t<T> RotationBasic(T angle, Plane plane);
         // For using 3D-axis rotations
         static mat5_t<T> RotationBasic(T angle, Axis axis);
-        inline mat5_t<T> RotateBasic(const T& angle, const Plane& plane) const {
-            return mat5_t<T>::RotationBasic(angle, plane) * (*this);
-        }
-        inline mat5_t<T> RotateBasic(const T& angle, const Axis& axis) const {
-            return mat5_t<T>::RotationBasic(angle, axis) * (*this);
-        }
         // Useful for arbitrary 3D-axes
         static mat5_t<T> Rotation(T angle, vec3_t<T> axis);
-        inline mat5_t<T> Rotate(const T& angle, const vec3_t<T> axis) const {
-            return mat5_t<T>::Rotation(angle, axis) * (*this);
-        }
         static mat5_t<T> Scaler(vec5_t<T> scale);
-        inline mat5_t<T> Scale(const vec5_t<T>& scale) const {
-            return mat5_t<T>::Scaler(scale) * (*this);
-        }
         inline mat5_t<T> Transpose() const {
             return mat5_t<T>(v.x1, v.y1, v.z1, v.w1, v.v1,
                              v.x2, v.y2, v.z2, v.w2, v.v2,
@@ -987,6 +972,17 @@ inline T normalize(const T& a) {
             );
         }
     };
+
+    template<typename T>
+    inline vec5_t<T> operator*(const vec5_t<T> &a, const mat5_t<T> &b) {
+        return vec5_t<T>(
+            a.x*b.v.x1 + a.y*b.v.y1 + a.z*b.v.z1 + a.w*b.v.w1 + a.v*b.v.v1,
+            a.x*b.v.x2 + a.y*b.v.y2 + a.z*b.v.z2 + a.w*b.v.w2 + a.v*b.v.v2,
+            a.x*b.v.x3 + a.y*b.v.y3 + a.z*b.v.z3 + a.w*b.v.w3 + a.v*b.v.v3,
+            a.x*b.v.x4 + a.y*b.v.y4 + a.z*b.v.z4 + a.w*b.v.w4 + a.v*b.v.v4,
+            a.x*b.v.x5 + a.y*b.v.y5 + a.z*b.v.z5 + a.w*b.v.w5 + a.v*b.v.v5
+        );
+    }
 #endif // MATH_MAT5
 
 #ifdef MATH_COMPLEX

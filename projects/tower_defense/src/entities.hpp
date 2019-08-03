@@ -16,7 +16,7 @@ struct Entity;
 
 struct Manager : public Objects::Object {
     Array<Entity> entities{};
-    i32 selectedEntity = 0;
+    i32 selectedEntity = -1;
     i32 texCircle;
     void EventAssetInit();
     void EventAssetAcquire();
@@ -90,6 +90,7 @@ struct Physical {
     Radians32 rot = 0.0;
 
     bool Collides(const Physical &other) const;
+    bool MouseOver() const;
     void Update(f32 timestep);
     void UpdateActual() const;
 };

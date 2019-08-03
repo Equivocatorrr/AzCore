@@ -60,31 +60,15 @@ void Manager::EventUpdate() {
             // entities[i].physical.rot = random(-0.2, 0.2, globals.rng);
         }
     }
-    if (globals.objects.Pressed(KC_KEY_1)) {
-        selectedEntity = 0;
-    }
-    if (globals.objects.Pressed(KC_KEY_2)) {
-        selectedEntity = 1;
-    }
-    if (globals.objects.Pressed(KC_KEY_3)) {
-        selectedEntity = 2;
-    }
-    if (globals.objects.Pressed(KC_KEY_4)) {
-        selectedEntity = 3;
-    }
-    if (globals.objects.Pressed(KC_KEY_5)) {
-        selectedEntity = 4;
-    }
-    if (globals.objects.Pressed(KC_KEY_6)) {
-        selectedEntity = 5;
-    }
-    entities[selectedEntity].physical.pos = vec2(globals.input.cursor.x, globals.input.cursor.y);
-    if (globals.objects.Down(KC_KEY_LEFT)) {
-        entities[selectedEntity].physical.rot = pi;
-    } else if (globals.objects.Down(KC_KEY_RIGHT)) {
-        entities[selectedEntity].physical.rot = -pi;
-    } else {
-        entities[selectedEntity].physical.rot = 0.0;
+    if (selectedEntity != -1) {
+        entities[selectedEntity].physical.pos = vec2(globals.input.cursor.x, globals.input.cursor.y);
+        if (globals.objects.Down(KC_KEY_LEFT)) {
+            entities[selectedEntity].physical.rot = pi;
+        } else if (globals.objects.Down(KC_KEY_RIGHT)) {
+            entities[selectedEntity].physical.rot = -pi;
+        } else {
+            entities[selectedEntity].physical.rot = 0.0;
+        }
     }
     for (i32 i = 0; i < entities.size; i++) {
         entities[i].Update(globals.objects.timestep);
@@ -348,6 +332,42 @@ bool Physical::Collides(const Physical &other) const {
     return false;
 }
 
+bool Physical::MouseOver() const {
+    const vec2 mouse = vec2(globals.input.cursor.x, globals.input.cursor.y);
+    if (!updated) {
+        UpdateActual();
+    }
+    switch (type) {
+    case SEGMENT: {
+        const vec2 diff = actual.segment.a-actual.segment.b;
+        const f32 lengthSquared = absSqr(diff);
+        const f32 t = dot(diff, actual.segment.a-mouse) / lengthSquared;
+        vec2 projection;
+        if (t < 0.0) {
+            projection = actual.segment.a;
+        } else if (t > 1.0) {
+            projection = actual.segment.b;
+        } else {
+            projection = actual.segment.a - diff * t;
+        }
+        return absSqr(mouse - projection) < 16.0;
+    }
+    case CIRCLE: {
+        return absSqr(actual.circle.c-mouse) <= square(actual.circle.r);
+    }
+    case BOX: {
+        const mat2 rotation = mat2::Rotation(-angle.value());
+        const vec2 A = (mouse - pos) * rotation;
+        if (A.x == median(A.x, basis.box.a.x, basis.box.b.x)
+         && A.y == median(A.y, basis.box.a.y, basis.box.b.y)) {
+            return true;
+        }
+        break;
+    }
+    }
+    return false;
+}
+
 void PhysicalAbsFromBasis(PhysicalAbs &actual, const PhysicalBasis &basis, const CollisionType &type, const vec2 &pos, const Angle32 &angle) {
     mat2 rotation;
     if (angle != 0.0) {
@@ -410,6 +430,13 @@ void Entity::Update(f32 timestep) {
         Entity &other = globals.entities.entities[i];
         if (physical.Collides(other.physical)) {
             colliding = true;
+        }
+    }
+    if (globals.objects.Pressed(KC_MOUSE_LEFT)) {
+        if (globals.entities.selectedEntity == index) {
+            globals.entities.selectedEntity = -1;
+        } else if (physical.MouseOver()) {
+            globals.entities.selectedEntity = index;
         }
     }
 }

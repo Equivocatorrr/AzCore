@@ -148,12 +148,12 @@ bool UnitTestMat2(io::logStream& cout) {
         EXPECTEDVALUE(columns[0].y, 3.0);
         EXPECTEDVALUE(columns[1].x, 2.0);
         EXPECTEDVALUE(columns[1].y, 4.0);
-        matrix = matrix.Rotate(halfpi);
+        matrix = mat2::Rotation(halfpi) * matrix;
         EXPECTEDVALUE(matrix.h.x1,-3.0);
         EXPECTEDVALUE(matrix.h.y1,-4.0);
         EXPECTEDVALUE(matrix.h.x2, 1.0);
         EXPECTEDVALUE(matrix.h.y2, 2.0);
-        matrix = matrix.Scale({2.0, 3.0});
+        matrix = mat2::Scaler({2.0, 3.0}) * matrix;
         EXPECTEDVALUE(matrix.h.x1,-6.0);
         EXPECTEDVALUE(matrix.h.y1,-8.0);
         EXPECTEDVALUE(matrix.h.x2, 3.0);
@@ -218,7 +218,7 @@ bool UnitTestMat3(io::logStream& cout) {
         EXPECTEDVALUE(columns[2].x, 3.0);
         EXPECTEDVALUE(columns[2].y, 6.0);
         EXPECTEDVALUE(columns[2].z, 9.0);
-        matrix = matrix.RotateBasic(halfpi, Axis::X);
+        matrix = mat3::RotationBasic(halfpi, Axis::X) * matrix;
         EXPECTEDVALUE(matrix.h.x1, 1.0);
         EXPECTEDVALUE(matrix.h.y1, 2.0);
         EXPECTEDVALUE(matrix.h.z1, 3.0);
@@ -228,7 +228,7 @@ bool UnitTestMat3(io::logStream& cout) {
         EXPECTEDVALUE(matrix.h.x3, 4.0);
         EXPECTEDVALUE(matrix.h.y3, 5.0);
         EXPECTEDVALUE(matrix.h.z3, 6.0);
-        matrix = matrix.RotateBasic(halfpi, Axis::Y);
+        matrix = mat3::RotationBasic(halfpi, Axis::Y) * matrix;
         EXPECTEDVALUE(matrix.h.x1, 4.0);
         EXPECTEDVALUE(matrix.h.y1, 5.0);
         EXPECTEDVALUE(matrix.h.z1, 6.0);
@@ -238,7 +238,7 @@ bool UnitTestMat3(io::logStream& cout) {
         EXPECTEDVALUE(matrix.h.x3, -1.0);
         EXPECTEDVALUE(matrix.h.y3, -2.0);
         EXPECTEDVALUE(matrix.h.z3, -3.0);
-        matrix = matrix.RotateBasic(halfpi, Axis::Z);
+        matrix = mat3::RotationBasic(halfpi, Axis::Z) * matrix;
         EXPECTEDVALUE(matrix.h.x1, 7.0);
         EXPECTEDVALUE(matrix.h.y1, 8.0);
         EXPECTEDVALUE(matrix.h.z1, 9.0);
@@ -248,7 +248,7 @@ bool UnitTestMat3(io::logStream& cout) {
         EXPECTEDVALUE(matrix.h.x3, -1.0);
         EXPECTEDVALUE(matrix.h.y3, -2.0);
         EXPECTEDVALUE(matrix.h.z3, -3.0);
-        matrix = matrix.Rotate(pi, {sin(halfpi), cos(halfpi), 0.0});
+        matrix = mat3::Rotation(pi, {sin(halfpi), cos(halfpi), 0.0}) * matrix;
         EXPECTEDVALUE(matrix.h.x1, 7.0);
         EXPECTEDVALUE(matrix.h.y1, 8.0);
         EXPECTEDVALUE(matrix.h.z1, 9.0);
@@ -258,7 +258,7 @@ bool UnitTestMat3(io::logStream& cout) {
         EXPECTEDVALUE(matrix.h.x3, 1.0);
         EXPECTEDVALUE(matrix.h.y3, 2.0);
         EXPECTEDVALUE(matrix.h.z3, 3.0);
-        matrix = matrix.Rotate(halfpi, {0.0, 0.0, 1.0});
+        matrix = mat3::Rotation(halfpi, {0.0, 0.0, 1.0}) * matrix;
         EXPECTEDVALUE(matrix.h.x1, 4.0);
         EXPECTEDVALUE(matrix.h.y1, 5.0);
         EXPECTEDVALUE(matrix.h.z1, 6.0);
@@ -268,7 +268,7 @@ bool UnitTestMat3(io::logStream& cout) {
         EXPECTEDVALUE(matrix.h.x3, 1.0);
         EXPECTEDVALUE(matrix.h.y3, 2.0);
         EXPECTEDVALUE(matrix.h.z3, 3.0);
-        matrix = matrix.Scale({2.0, 3.0, 3.5});
+        matrix = mat3::Scaler({2.0, 3.0, 3.5}) * matrix;
         EXPECTEDVALUE(matrix.h.x1, 8.0);
         EXPECTEDVALUE(matrix.h.y1, 10.0);
         EXPECTEDVALUE(matrix.h.z1, 12.0);
@@ -367,7 +367,7 @@ bool UnitTestMat4(io::logStream& cout) {
         EXPECTEDVALUE(columns[3].y,  8.0);
         EXPECTEDVALUE(columns[3].z, 12.0);
         EXPECTEDVALUE(columns[3].w, 16.0);
-        matrix = matrix.RotateBasic(halfpi, Plane::XW);
+        matrix = mat4::RotationBasic(halfpi, Plane::XW) * matrix;
         EXPECTEDVALUE(matrix.h.x1,  1.0);
         EXPECTEDVALUE(matrix.h.y1,  2.0);
         EXPECTEDVALUE(matrix.h.z1,  3.0);
@@ -384,7 +384,7 @@ bool UnitTestMat4(io::logStream& cout) {
         EXPECTEDVALUE(matrix.h.y4, 14.0);
         EXPECTEDVALUE(matrix.h.z4, 15.0);
         EXPECTEDVALUE(matrix.h.w4, 16.0);
-        matrix = matrix.RotateBasic(halfpi, Plane::YW);
+        matrix = mat4::RotationBasic(halfpi, Plane::YW) * matrix;
         EXPECTEDVALUE(matrix.h.x1,  5.0);
         EXPECTEDVALUE(matrix.h.y1,  6.0);
         EXPECTEDVALUE(matrix.h.z1,  7.0);
@@ -401,7 +401,7 @@ bool UnitTestMat4(io::logStream& cout) {
         EXPECTEDVALUE(matrix.h.y4, 14.0);
         EXPECTEDVALUE(matrix.h.z4, 15.0);
         EXPECTEDVALUE(matrix.h.w4, 16.0);
-        matrix = matrix.RotateBasic(halfpi, Plane::ZW);
+        matrix = mat4::RotationBasic(halfpi, Plane::ZW) * matrix;
         EXPECTEDVALUE(matrix.h.x1,  9.0);
         EXPECTEDVALUE(matrix.h.y1, 10.0);
         EXPECTEDVALUE(matrix.h.z1, 11.0);
@@ -418,7 +418,7 @@ bool UnitTestMat4(io::logStream& cout) {
         EXPECTEDVALUE(matrix.h.y4, 14.0);
         EXPECTEDVALUE(matrix.h.z4, 15.0);
         EXPECTEDVALUE(matrix.h.w4, 16.0);
-        matrix = matrix.RotateBasic(halfpi, Plane::XY);
+        matrix = mat4::RotationBasic(halfpi, Plane::XY) * matrix;
         EXPECTEDVALUE(matrix.h.x1,  9.0);
         EXPECTEDVALUE(matrix.h.y1, 10.0);
         EXPECTEDVALUE(matrix.h.z1, 11.0);
@@ -435,7 +435,7 @@ bool UnitTestMat4(io::logStream& cout) {
         EXPECTEDVALUE(matrix.h.y4, -2.0);
         EXPECTEDVALUE(matrix.h.z4, -3.0);
         EXPECTEDVALUE(matrix.h.w4, -4.0);
-        matrix = matrix.RotateBasic(halfpi, Plane::YZ);
+        matrix = mat4::RotationBasic(halfpi, Plane::YZ) * matrix;
         EXPECTEDVALUE(matrix.h.x1,  1.0);
         EXPECTEDVALUE(matrix.h.y1,  2.0);
         EXPECTEDVALUE(matrix.h.z1,  3.0);
@@ -452,7 +452,7 @@ bool UnitTestMat4(io::logStream& cout) {
         EXPECTEDVALUE(matrix.h.y4, 10.0);
         EXPECTEDVALUE(matrix.h.z4, 11.0);
         EXPECTEDVALUE(matrix.h.w4, 12.0);
-        matrix = matrix.RotateBasic(halfpi, Plane::ZX);
+        matrix = mat4::RotationBasic(halfpi, Plane::ZX) * matrix;
         EXPECTEDVALUE(matrix.h.x1,  1.0);
         EXPECTEDVALUE(matrix.h.y1,  2.0);
         EXPECTEDVALUE(matrix.h.z1,  3.0);
@@ -469,7 +469,7 @@ bool UnitTestMat4(io::logStream& cout) {
         EXPECTEDVALUE(matrix.h.y4, -6.0);
         EXPECTEDVALUE(matrix.h.z4, -7.0);
         EXPECTEDVALUE(matrix.h.w4, -8.0);
-        matrix = matrix.Rotate(pi, {sin(halfpi), cos(halfpi), 0.0});
+        matrix = mat4::Rotation(pi, {sin(halfpi), cos(halfpi), 0.0}) * matrix;
         EXPECTEDVALUE(matrix.h.x1,  1.0);
         EXPECTEDVALUE(matrix.h.y1,  2.0);
         EXPECTEDVALUE(matrix.h.z1,  3.0);
@@ -486,7 +486,7 @@ bool UnitTestMat4(io::logStream& cout) {
         EXPECTEDVALUE(matrix.h.y4, -6.0);
         EXPECTEDVALUE(matrix.h.z4, -7.0);
         EXPECTEDVALUE(matrix.h.w4, -8.0);
-        matrix = matrix.Rotate(halfpi, {0.0, 0.0, 1.0});
+        matrix = mat4::Rotation(halfpi, {0.0, 0.0, 1.0}) * matrix;
         EXPECTEDVALUE(matrix.h.x1,  9.0);
         EXPECTEDVALUE(matrix.h.y1, 10.0);
         EXPECTEDVALUE(matrix.h.z1, 11.0);
@@ -503,7 +503,7 @@ bool UnitTestMat4(io::logStream& cout) {
         EXPECTEDVALUE(matrix.h.y4, -6.0);
         EXPECTEDVALUE(matrix.h.z4, -7.0);
         EXPECTEDVALUE(matrix.h.w4, -8.0);
-        matrix = matrix.Scale({2.0, 3.0, 3.5, 4.5});
+        matrix = mat4::Scaler({2.0, 3.0, 3.5, 4.5}) * matrix;
         EXPECTEDVALUE(matrix.h.x1, 18.0);
         EXPECTEDVALUE(matrix.h.y1, 20.0);
         EXPECTEDVALUE(matrix.h.z1, 22.0);

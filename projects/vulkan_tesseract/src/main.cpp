@@ -399,15 +399,15 @@ i32 main(i32 argumentCount, char** argumentValues) {
             { 1.0,  1.0,  1.0,  1.0,  1.0}
         };
         mat5 model(1.0);
-        model = model.RotateBasic(rotateAngle, Plane::YW).RotateBasic(rotateAngle*halfpi, Plane::XZ);
+        model = mat5::RotationBasic(rotateAngle*halfpi, Plane::XZ) * mat5::RotationBasic(rotateAngle, Plane::YW);
         mat5 view(1.0);
         view.h.v1 = offset.x;
         view.h.v2 = offset.y;
         view.h.v3 = offset.z;
         view.h.v4 = offset.w;
 
-        view = view.RotateBasic(facingAngleXY.x, Plane::YW).RotateBasic(facingAngleXY.y, Plane::XW);
-        view = view.RotateBasic(facingAngleZW.x, Plane::XY).RotateBasic(facingAngleZW.y, Plane::XZ);
+        view = mat5::RotationBasic(facingAngleXY.y, Plane::XW) * mat5::RotationBasic(facingAngleXY.x, Plane::YW) * view;
+        view = mat5::RotationBasic(facingAngleZW.y, Plane::XZ) * mat5::RotationBasic(facingAngleZW.x, Plane::XY) * view;
 
         mat4 viewRotationOnly;
         for (u32 i = 0; i < 16; i++) {

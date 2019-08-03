@@ -19,16 +19,10 @@ void Manager::EventAssetAcquire() {
 }
 
 void Manager::EventInitialize() {
-    entities.Resize(3);
+    entities.Resize(6);
     entities[0].physical.type = SEGMENT;
     entities[0].physical.basis.segment.a = vec2(-64.0, -16.0);
     entities[0].physical.basis.segment.b = vec2(64.0, -14.0);
-    // entities[0].physical.type = CIRCLE;
-    // entities[0].physical.basis.circle.c = vec2(-64.0, 0.0);
-    // entities[0].physical.basis.circle.r = 64.0;
-    entities[0].physical.vel = vec2(0.0);
-    entities[0].physical.rot = 0.0;
-    entities[0].physical.angle = 0.0;
 
     entities[1].physical.type = CIRCLE;
     entities[1].physical.basis.circle.c = vec2(64.0, 0.0);
@@ -38,7 +32,19 @@ void Manager::EventInitialize() {
     entities[2].physical.basis.box.a = vec2(-64.0, -64.0);
     entities[2].physical.basis.box.b = vec2(128.0, 64.0);
 
-    for (i32 i = 0; i < 3; i++) {
+    entities[3].physical.type = SEGMENT;
+    entities[3].physical.basis.segment.a = vec2(0.0, 0.0);
+    entities[3].physical.basis.segment.b = vec2(128.0, 0.0);
+
+    entities[4].physical.type = CIRCLE;
+    entities[4].physical.basis.circle.c = vec2(0.0, 64.0);
+    entities[4].physical.basis.circle.r = 24.0;
+
+    entities[5].physical.type = BOX;
+    entities[5].physical.basis.box.a = vec2(-32.0, -128.0);
+    entities[5].physical.basis.box.b = vec2(32.0, 128.0);
+
+    for (i32 i = 0; i < 6; i++) {
         entities[i].index = i;
         entities[i].physical.pos = vec2(random(0.0, 1280.0, globals.rng), random(0.0, 720.0, globals.rng));
         entities[i].physical.vel = vec2(0.0);// vec2(random(-15.0, 15.0, globals.rng), random(-15.0, 15.0, globals.rng));
@@ -48,7 +54,7 @@ void Manager::EventInitialize() {
 
 void Manager::EventUpdate() {
     if (globals.objects.Pressed(KC_KEY_R)) {
-        for (i32 i = 0; i < 3; i++) {
+        for (i32 i = 0; i < 6; i++) {
             entities[i].physical.pos = vec2(random(0.0, 1280.0, globals.rng), random(0.0, 720.0, globals.rng));
             // entities[i].physical.vel = vec2(random(-15.0, 15.0, globals.rng), random(-15.0, 15.0, globals.rng));
             // entities[i].physical.rot = random(-0.2, 0.2, globals.rng);
@@ -62,6 +68,15 @@ void Manager::EventUpdate() {
     }
     if (globals.objects.Pressed(KC_KEY_3)) {
         selectedEntity = 2;
+    }
+    if (globals.objects.Pressed(KC_KEY_4)) {
+        selectedEntity = 3;
+    }
+    if (globals.objects.Pressed(KC_KEY_5)) {
+        selectedEntity = 4;
+    }
+    if (globals.objects.Pressed(KC_KEY_6)) {
+        selectedEntity = 5;
     }
     entities[selectedEntity].physical.pos = vec2(globals.input.cursor.x, globals.input.cursor.y);
     if (globals.objects.Down(KC_KEY_LEFT)) {
@@ -166,6 +181,42 @@ bool CollisionSegmentCircle(const Physical &a, const Physical &b) {
     return dist <= square(b.actual.circle.r);
 }
 
+bool SegmentInAABB(const vec2 &A, const vec2 &B, AABB aabb) {
+    f32 t = (aabb.minPos.y - A.y) / (B.y - A.y);
+    if (t == median(t, 0.0, 1.0)) {
+        f32 x = A.x + (B.x - A.x) * t;
+        if (x == median(x, aabb.minPos.x, aabb.maxPos.x)) {
+            // Segment intersects
+            return true;
+        }
+    }
+    t = (aabb.maxPos.y - A.y) / (B.y - A.y);
+    if (t == median(t, 0.0, 1.0)) {
+        f32 x = A.x + (B.x - A.x) * t;
+        if (x == median(x, aabb.minPos.x, aabb.maxPos.x)) {
+            // Segment intersects
+            return true;
+        }
+    }
+    t = (aabb.minPos.x - A.x) / (B.x - A.x);
+    if (t == median(t, 0.0, 1.0)) {
+        f32 y = A.y + (B.y - A.y) * t;
+        if (y == median(y, aabb.minPos.y, aabb.maxPos.y)) {
+            // Segment intersects
+            return true;
+        }
+    }
+    t = (aabb.maxPos.x - A.x) / (B.x - A.x);
+    if (t == median(t, 0.0, 1.0)) {
+        f32 y = A.y + (B.y - A.y) * t;
+        if (y == median(y, aabb.minPos.y, aabb.maxPos.y)) {
+            // Segment intersects
+            return true;
+        }
+    }
+    return false;
+}
+
 bool CollisionSegmentBox(const Physical &a, const Physical &b) {
     const mat2 aRotation = mat2::Rotation(-b.angle.value());
     // const vec2 dPos = a.pos - b.pos;
@@ -179,40 +230,7 @@ bool CollisionSegmentBox(const Physical &a, const Physical &b) {
         // Point is inside box
         return true;
     }
-    f32 t = (b.basis.box.a.y - A.y) / (B.y - A.y);
-    if (t == median(t, 0.0, 1.0)) {
-        f32 x = A.x + (B.x - A.x) * t;
-        if (x == median(x, b.basis.box.a.x, b.basis.box.b.x)) {
-            // Segment intersects
-            return true;
-        }
-    }
-    t = (b.basis.box.b.y - A.y) / (B.y - A.y);
-    if (t == median(t, 0.0, 1.0)) {
-        f32 x = A.x + (B.x - A.x) * t;
-        if (x == median(x, b.basis.box.a.x, b.basis.box.b.x)) {
-            // Segment intersects
-            return true;
-        }
-    }
-    t = (b.basis.box.a.x - A.x) / (B.x - A.x);
-    if (t == median(t, 0.0, 1.0)) {
-        f32 y = A.y + (B.y - A.y) * t;
-        if (y == median(y, b.basis.box.a.y, b.basis.box.b.y)) {
-            // Segment intersects
-            return true;
-        }
-    }
-    t = (b.basis.box.b.x - A.x) / (B.x - A.x);
-    if (t == median(t, 0.0, 1.0)) {
-        f32 y = A.y + (B.y - A.y) * t;
-        if (y == median(y, b.basis.box.a.y, b.basis.box.b.y)) {
-            // Segment intersects
-            return true;
-        }
-    }
-    // No intersection
-    return false;
+    return SegmentInAABB(A, B, {b.basis.box.a, b.basis.box.b});
 }
 
 bool CollisionCircleCircle(const Physical &a, const Physical &b) {
@@ -220,12 +238,55 @@ bool CollisionCircleCircle(const Physical &a, const Physical &b) {
 }
 
 bool CollisionCircleBox(const Physical &a, const Physical &b) {
-    // TODO: this
+    const f32 rSquared = square(a.actual.circle.r);
+    if (absSqr(a.actual.circle.c - b.actual.box.a) <= rSquared) return true;
+    if (absSqr(a.actual.circle.c - b.actual.box.b) <= rSquared) return true;
+    if (absSqr(a.actual.circle.c - b.actual.box.c) <= rSquared) return true;
+    if (absSqr(a.actual.circle.c - b.actual.box.d) <= rSquared) return true;
+
+    const mat2 rotation = mat2::Rotation(-b.angle.value());
+    const vec2 C = (a.actual.circle.c - b.pos) * rotation;
+    if (C.x == median(C.x, b.basis.box.a.x, b.basis.box.b.x)
+     && C.y + a.actual.circle.r >= b.basis.box.a.y
+     && C.y - a.actual.circle.r <= b.basis.box.b.y) {
+        return true;
+    }
+    if (C.y == median(C.y, b.basis.box.a.y, b.basis.box.b.y)
+     && C.x + a.actual.circle.r >= b.basis.box.a.x
+     && C.x - a.actual.circle.r <= b.basis.box.b.x) {
+        return true;
+    }
     return false;
 }
 
 bool CollisionBoxBox(const Physical &a, const Physical &b) {
-    // TODO: this
+    const mat2 rotation = mat2::Rotation(-b.angle.value());
+    const vec2 A = (a.actual.box.a - b.pos) * rotation;
+    if (A.x == median(A.x, b.basis.box.a.x, b.basis.box.b.x)
+     && A.y == median(A.y, b.basis.box.a.y, b.basis.box.b.y)) {
+        return true;
+    }
+    const vec2 B = (a.actual.box.b - b.pos) * rotation;
+    if (B.x == median(B.x, b.basis.box.a.x, b.basis.box.b.x)
+     && B.y == median(B.y, b.basis.box.a.y, b.basis.box.b.y)) {
+        return true;
+    }
+    const vec2 C = (a.actual.box.c - b.pos) * rotation;
+    if (C.x == median(C.x, b.basis.box.a.x, b.basis.box.b.x)
+     && C.y == median(C.y, b.basis.box.a.y, b.basis.box.b.y)) {
+        return true;
+    }
+    const vec2 D = (a.actual.box.d - b.pos) * rotation;
+    if (D.x == median(D.x, b.basis.box.a.x, b.basis.box.b.x)
+     && D.y == median(D.y, b.basis.box.a.y, b.basis.box.b.y)) {
+        return true;
+    }
+
+    const AABB aabb = {b.basis.box.a, b.basis.box.b};
+    if (SegmentInAABB(A, C, aabb)) return true;
+    if (SegmentInAABB(C, B, aabb)) return true;
+    if (SegmentInAABB(B, D, aabb)) return true;
+    if (SegmentInAABB(D, A, aabb)) return true;
     return false;
 }
 

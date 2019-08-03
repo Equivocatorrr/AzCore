@@ -40,7 +40,7 @@ AZCORE_OBJ_W = $(patsubst %,$(AZCORE_BASE)/obj/Windows/Release/%,$(_AZCORE_OBJ_W
 AZCORE_OBJ_LD = $(patsubst %,$(AZCORE_BASE)/obj/Linux/Debug/%,$(_AZCORE_OBJ_L))
 AZCORE_OBJ_WD = $(patsubst %,$(AZCORE_BASE)/obj/Windows/Debug/%,$(_AZCORE_OBJ_W))
 
-_OBJ = main.o assets.o rendering.o objects.o gui.o globals.o
+_OBJ = main.o assets.o rendering.o objects.o gui.o globals.o entities.o
 OBJ_L = $(patsubst %,$(ODIR)/Linux/Release/%,$(_OBJ))
 OBJ_W = $(patsubst %,$(ODIR)/Windows/Release/%,$(_OBJ))
 OBJ_LD = $(patsubst %,$(ODIR)/Linux/Debug/%,$(_OBJ))

@@ -29,6 +29,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
          << " and core validation " << (enableCoreValidation ? "enabled" : "disabled") << std::endl;
 
     globals.objects.Register(&globals.gui);
+    globals.objects.Register(&globals.entities);
     globals.window.name = title;
     globals.window.input = &globals.input;
 

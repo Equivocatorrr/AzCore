@@ -11,7 +11,7 @@
 #include "assets.hpp"
 #include "objects.hpp"
 #include "gui.hpp"
-// #include "entities.hpp"
+#include "entities.hpp"
 
 struct Globals {
     Objects::Manager objects;
@@ -21,8 +21,9 @@ struct Globals {
     io::Gamepad *gamepad = nullptr;
     Assets::Manager assets;
     Rendering::Manager rendering;
-    // Entities::Manager entities;
+    Entities::Manager entities;
     Int::Gui gui;
+    RandomNumberGenerator rng;
 };
 
 extern Globals globals;

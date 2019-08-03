@@ -16,17 +16,17 @@ Gui::~Gui() {
 
 void Gui::EventAssetInit() {
     globals.assets.filesToLoad.Append("DroidSans.ttf");
-    // assets->filesToLoad.Append("LiberationSerif-Regular.ttf");
-    // assets->filesToLoad.Append("OpenSans-Regular.ttf");
-    // assets->filesToLoad.Append("Literata[wght].ttf");
+    // globals.assets.filesToLoad.Append("LiberationSerif-Regular.ttf");
+    // globals.assets.filesToLoad.Append("OpenSans-Regular.ttf");
+    // globals.assets.filesToLoad.Append("Literata[wght].ttf");
     globals.assets.filesToLoad.Append("test.tga");
 }
 
 void Gui::EventAssetAcquire() {
     fontIndex = globals.assets.FindMapping("DroidSans.ttf");
-    // fontIndex = assets->FindMapping("LiberationSerif-Regular.ttf");
-    // fontIndex = assets->FindMapping("OpenSans-Regular.ttf");
-    // fontIndex = assets->FindMapping("Literata[wght].ttf");
+    // fontIndex = globals.assets.FindMapping("LiberationSerif-Regular.ttf");
+    // fontIndex = globals.assets.FindMapping("OpenSans-Regular.ttf");
+    // fontIndex = globals.assets.FindMapping("Literata[wght].ttf");
     texIndex = globals.assets.FindMapping("test.tga");
     font = &globals.assets.fonts[fontIndex];
 }
@@ -52,7 +52,7 @@ void Gui::EventInitialize() {
     AddWidget(listWidget, listHWidget);
 
     textWidget = new Text();
-    textWidget->string = ToWString("Hahaha look at me! There's so much to say! I don't know what else to do. ¡Hola señor Lopez! ¿Cómo está usted? Estoy muy bien. ¿Y cómo se llama? ありがとうお願いします私はハンバーガー 세계를 향한 대화, 유니코드로 하십시오. 経機速講著述元載説赤問台民。 Лорем ипсум долор сит амет Λορεμ ιπσθμ δολορ σιτ αμετ There once was a man named Chad. He was an incel. What a terrible sight! If only someone was there to teach him the ways of humility! Oh how he would wail and toil how all the girls would pass up a \"nice guy like me\". What a bitch.");
+    textWidget->string = ToWString("Hahaha look at me! There's so much to say! I don't know what else to do. ÑǸ∵öÖ ¡Hola señor Lopez! ¿Cómo está usted? Estoy muy bien. ¿Y cómo se llama? ありがとうお願いします私はハンバーガー 세계를 향한 대화, 유니코드로 하십시오. 経機速講著述元載説赤問台民。 Лорем ипсум долор сит амет Λορεμ ιπσθμ δολορ σιτ αμετ There once was a man named Chad. He was an incel. What a terrible sight! If only someone was there to teach him the ways of humility! Oh how he would wail and toil how all the girls would pass up a \"nice guy like me\". What a bitch.");
     textWidget->fontIndex = fontIndex;
     textWidget->size.x = 1.0 / 3.0;
     textWidget->alignH = Rendering::JUSTIFY;
@@ -327,7 +327,7 @@ void List::Draw(VkCommandBuffer commandBuffer) const {
     if (color.a > 0.0) {
         // const vec2 screenSizeFactor = vec2(2.0) / globals.rendering.screenSize;
         globals.rendering.BindPipeline2D(commandBuffer);
-        globals.rendering.DrawQuad(commandBuffer, Rendering::texBlank, highlighted ? highlight : color, positionAbsolute * globals.gui.scale, sizeAbsolute * globals.gui.scale);
+        globals.rendering.DrawQuad(commandBuffer, Rendering::texBlank, highlighted ? highlight : color, positionAbsolute * globals.gui.scale, vec2(1.0), sizeAbsolute * globals.gui.scale);
     }
     vec2i topLeft = vec2i(
         (positionAbsolute.x + padding.x) * globals.gui.scale,
@@ -548,7 +548,7 @@ Image::Image() : texIndex(0) {}
 
 void Image::Draw(VkCommandBuffer commandBuffer) const {
     globals.rendering.BindPipeline2D(commandBuffer);
-    globals.rendering.DrawQuad(commandBuffer, texIndex, vec4(1.0), positionAbsolute * globals.gui.scale, sizeAbsolute * globals.gui.scale);
+    globals.rendering.DrawQuad(commandBuffer, texIndex, vec4(1.0), positionAbsolute * globals.gui.scale, vec2(1.0), sizeAbsolute * globals.gui.scale);
 }
 
 Button::Button() : string(), colorBG(0.15, 0.15, 0.15, 0.9), highlightBG(0.2, 0.6, 0.5, 0.9), colorText(1.0), highlightText(1.0), fontIndex(1), fontSize(24.0), state() {
@@ -607,7 +607,7 @@ void Button::Draw(VkCommandBuffer commandBuffer) const {
     scale *= globals.gui.scale;
     vec2 drawPos = (positionAbsolute + sizeAbsolute * 0.5) * globals.gui.scale;
     globals.rendering.BindPipeline2D(commandBuffer);
-    globals.rendering.DrawQuad(commandBuffer, 1, highlighted ? highlightBG : colorBG, drawPos, sizeAbsolute * scale, vec2(0.5));
+    globals.rendering.DrawQuad(commandBuffer, 1, highlighted ? highlightBG : colorBG, drawPos, vec2(1.0), sizeAbsolute * scale, vec2(0.5));
     globals.rendering.BindPipelineFont(commandBuffer);
     globals.rendering.DrawText(commandBuffer, string, fontIndex,  highlighted ? highlightText : colorText, drawPos, vec2(fontSize * scale), Rendering::CENTER, Rendering::CENTER, sizeAbsolute.x * globals.gui.scale);
     if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
@@ -646,7 +646,7 @@ void Checkbox::Update(vec2 pos, bool selected) {
 void Checkbox::Draw(VkCommandBuffer commandBuffer) const {
     const vec4 &color = checked ? (highlighted ? highlightOn : colorOn) : (highlighted ? highlightOff : colorOff);
     globals.rendering.BindPipeline2D(commandBuffer);
-    globals.rendering.DrawQuad(commandBuffer, Rendering::texBlank, color, positionAbsolute * globals.gui.scale, sizeAbsolute * globals.gui.scale);
+    globals.rendering.DrawQuad(commandBuffer, Rendering::texBlank, color, positionAbsolute * globals.gui.scale, vec2(1.0), sizeAbsolute * globals.gui.scale);
 }
 
 } // namespace Int

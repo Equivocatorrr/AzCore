@@ -26,6 +26,6 @@ struct Globals {
     RandomNumberGenerator rng;
 };
 
-extern Globals globals;
+extern Globals *globals;
 
 #endif

@@ -49,11 +49,13 @@ bool Manager::Init() {
     data.queuePresent->queueType = vk::QueueType::PRESENT;
     data.swapchain = data.device->AddSwapchain();
     data.swapchain->vsync = false;
-    data.swapchain->window = data.instance.AddWindowForSurface(&globals.window);
+    data.swapchain->window = data.instance.AddWindowForSurface(&globals->window);
     data.framebuffer = data.device->AddFramebuffer();
     data.framebuffer->swapchain = data.swapchain;
     data.renderPass = data.device->AddRenderPass();
     auto attachment = data.renderPass->AddAttachment(data.swapchain);
+    attachment->sampleCount = VK_SAMPLE_COUNT_8_BIT;
+    attachment->resolveColor = true;
     auto subpass = data.renderPass->AddSubpass();
     subpass->UseAttachment(attachment, vk::AttachmentType::ATTACHMENT_ALL,
             VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
@@ -131,10 +133,10 @@ bool Manager::Init() {
     data.vertexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     data.indexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
-    auto texStagingBuffers = data.stagingMemory->AddBuffers(globals.assets.textures.size, baseBuffer);
+    auto texStagingBuffers = data.stagingMemory->AddBuffers(globals->assets.textures.size, baseBuffer);
 
     data.fontStagingVertexBuffer = data.fontStagingMemory->AddBuffer(baseBuffer);
-    data.fontStagingImageBuffers = data.fontStagingMemory->AddBuffers(globals.assets.fonts.size, baseBuffer);
+    data.fontStagingImageBuffers = data.fontStagingMemory->AddBuffers(globals->assets.fonts.size, baseBuffer);
 
     data.fontVertexBuffer = data.fontBufferMemory->AddBuffer(baseBuffer);
     data.fontVertexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
@@ -142,21 +144,21 @@ bool Manager::Init() {
     vk::Image baseImage = vk::Image();
     baseImage.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     baseImage.format = VK_FORMAT_R8G8B8A8_UNORM;
-    auto texImages = data.textureMemory->AddImages(globals.assets.textures.size, baseImage);
+    auto texImages = data.textureMemory->AddImages(globals->assets.textures.size, baseImage);
 
     baseImage.format = VK_FORMAT_R8_UNORM;
     baseImage.width = 1;
     baseImage.height = 1;
-    data.fontImages = data.fontImageMemory->AddImages(globals.assets.fonts.size, baseImage);
+    data.fontImages = data.fontImageMemory->AddImages(globals->assets.fonts.size, baseImage);
 
     for (i32 i = 0; i < texImages.size; i++) {
-        const i32 channels = globals.assets.textures[i].channels;
+        const i32 channels = globals->assets.textures[i].channels;
         if (channels != 4) {
             error = "Invalid channel count (" + ToString(channels) + ") in textures[" + ToString(i) + "]";
             return false;
         }
-        texImages[i].width = globals.assets.textures[i].width;
-        texImages[i].height = globals.assets.textures[i].height;
+        texImages[i].width = globals->assets.textures[i].width;
+        texImages[i].height = globals->assets.textures[i].height;
         texImages[i].mipLevels = floor(log2((f32)max(texImages[i].width, texImages[i].height))) + 1;
 
         texStagingBuffers[i].size = channels * texImages[i].width * texImages[i].height;
@@ -168,13 +170,13 @@ bool Manager::Init() {
     descriptorLayoutTexture->stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     descriptorLayoutTexture->bindings.Resize(1);
     descriptorLayoutTexture->bindings[0].binding = 0;
-    descriptorLayoutTexture->bindings[0].count = globals.assets.textures.size;
+    descriptorLayoutTexture->bindings[0].count = globals->assets.textures.size;
     Ptr<vk::DescriptorLayout> descriptorLayoutFont = data.descriptors->AddLayout();
     descriptorLayoutFont->type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorLayoutFont->stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     descriptorLayoutFont->bindings.Resize(1);
     descriptorLayoutFont->bindings[0].binding = 0;
-    descriptorLayoutFont->bindings[0].count = globals.assets.fonts.size;
+    descriptorLayoutFont->bindings[0].count = globals->assets.fonts.size;
 
     data.descriptorSet2D = data.descriptors->AddSet(descriptorLayoutTexture);
     if (!data.descriptorSet2D->AddDescriptor(texImages, data.textureSampler, 0)) {
@@ -272,7 +274,7 @@ bool Manager::Init() {
     bufferStagingBuffers[0].CopyData(vertices.data);
     bufferStagingBuffers[1].CopyData(indices.data);
     for (i32 i = 0; i < texStagingBuffers.size; i++) {
-        texStagingBuffers[i].CopyData(globals.assets.textures[i].pixels.data);
+        texStagingBuffers[i].CopyData(globals->assets.textures[i].pixels.data);
     }
 
     VkCommandBuffer cmdBufCopy = data.commandBufferPrimary[0]->Begin();
@@ -325,12 +327,12 @@ bool Manager::UpdateFonts() {
     // Vertex buffer
     Array<Vertex> fontVertices;
     fontIndexOffsets = {0};
-    for (i32 i = 0; i < globals.assets.fonts.size; i++) {
-        for (font::Glyph& glyph : globals.assets.fonts[i].fontBuilder.glyphs) {
+    for (i32 i = 0; i < globals->assets.fonts.size; i++) {
+        for (font::Glyph& glyph : globals->assets.fonts[i].fontBuilder.glyphs) {
             if (glyph.info.size.x == 0.0 || glyph.info.size.y == 0.0) {
                 continue;
             }
-            const f32 boundSquare = globals.assets.fonts[i].fontBuilder.boundSquare;
+            const f32 boundSquare = globals->assets.fonts[i].fontBuilder.boundSquare;
             f32 posTop = -glyph.info.offset.y * boundSquare;
             f32 posLeft = -glyph.info.offset.x * boundSquare;
             f32 posBot = -glyph.info.size.y * boundSquare + posTop;
@@ -354,7 +356,7 @@ bool Manager::UpdateFonts() {
             fontVertices.Append(quad[0]);
         }
         fontIndexOffsets.Append(
-            fontIndexOffsets.Back() + globals.assets.fonts[i].fontBuilder.glyphs.size * 4
+            fontIndexOffsets.Back() + globals->assets.fonts[i].fontBuilder.glyphs.size * 4
         );
     }
 
@@ -362,8 +364,8 @@ bool Manager::UpdateFonts() {
     data.fontVertexBuffer->size = data.fontStagingVertexBuffer->size;
 
     for (i32 i = 0; i < data.fontImages.size; i++) {
-        data.fontImages[i].width = globals.assets.fonts[i].fontBuilder.dimensions.x;
-        data.fontImages[i].height = globals.assets.fonts[i].fontBuilder.dimensions.y;
+        data.fontImages[i].width = globals->assets.fonts[i].fontBuilder.dimensions.x;
+        data.fontImages[i].height = globals->assets.fonts[i].fontBuilder.dimensions.y;
         data.fontImages[i].mipLevels = floor(log2((f32)max(data.fontImages[i].width, data.fontImages[i].height))) + 1;
 
         data.fontStagingImageBuffers[i].size = data.fontImages[i].width * data.fontImages[i].height;
@@ -387,7 +389,7 @@ bool Manager::UpdateFonts() {
 
     data.fontStagingVertexBuffer->CopyData(fontVertices.data);
     for (i32 i = 0; i < data.fontStagingImageBuffers.size; i++) {
-        data.fontStagingImageBuffers[i].CopyData(globals.assets.fonts[i].fontBuilder.pixels.data);
+        data.fontStagingImageBuffers[i].CopyData(globals->assets.fonts[i].fontBuilder.pixels.data);
     }
 
     VkCommandBuffer cmdBufCopy = data.commandBufferPrimary[0]->Begin();
@@ -414,7 +416,7 @@ bool Manager::UpdateFonts() {
 }
 
 bool Manager::Draw() {
-    if (globals.window.resized || data.resized) {
+    if (globals->window.resized || data.resized) {
         if (!data.swapchain->Resize()) {
             error = "Failed to resize swapchain: " + vk::error;
             return false;
@@ -423,8 +425,8 @@ bool Manager::Draw() {
     }
 
     bool updateFontMemory = false;
-    for (i32 i = 0; i < globals.assets.fonts.size; i++) {
-        Assets::Font& font = globals.assets.fonts[i];
+    for (i32 i = 0; i < globals->assets.fonts.size; i++) {
+        Assets::Font& font = globals->assets.fonts[i];
         if (font.fontBuilder.indicesToAdd.size != 0) {
             font.fontBuilder.Build();
             updateFontMemory = true;
@@ -450,7 +452,7 @@ bool Manager::Draw() {
         return false;
     }
 
-    screenSize = vec2((f32)globals.window.width, (f32)globals.window.height);
+    screenSize = vec2((f32)globals->window.width, (f32)globals->window.height);
     aspectRatio = screenSize.y / screenSize.x;
 
     Array<VkCommandBuffer> commandBuffersSecondary;
@@ -458,12 +460,12 @@ bool Manager::Draw() {
 
     for (auto& commandBuffer : data.commandBuffersSecondary) {
         VkCommandBuffer cmdBuf = commandBuffer->Begin();
-        vk::CmdSetViewportAndScissor(cmdBuf, globals.window.width, globals.window.height);
+        vk::CmdSetViewportAndScissor(cmdBuf, globals->window.width, globals->window.height);
         vk::CmdBindIndexBuffer(cmdBuf, data.indexBuffer, VK_INDEX_TYPE_UINT32);
         commandBuffersSecondary.Append(cmdBuf);
     }
 
-    data.scissorStack = {{vec2i(0), vec2i((i32)globals.window.width, (i32)globals.window.height)}};
+    data.scissorStack = {{vec2i(0), vec2i((i32)globals->window.width, (i32)globals->window.height)}};
 
     for (auto& renderCallback : data.renderCallbacks) {
         renderCallback.callback(renderCallback.userdata, this, commandBuffersSecondary);
@@ -558,8 +560,8 @@ f32 Manager::CharacterWidth(char32 character, const Assets::Font *fontDesired, c
 }
 
 f32 Manager::LineWidth(const char32 *string, i32 fontIndex) const {
-    const Assets::Font *fontDesired = &globals.assets.fonts[fontIndex];
-    const Assets::Font *fontFallback = &globals.assets.fonts[0];
+    const Assets::Font *fontDesired = &globals->assets.fonts[fontIndex];
+    const Assets::Font *fontFallback = &globals->assets.fonts[0];
     f32 size = 0.0;
     for (i32 i = 0; string[i] != '\n' && string[i] != 0; i++) {
         size += CharacterWidth(string[i], fontDesired, fontFallback);
@@ -568,8 +570,8 @@ f32 Manager::LineWidth(const char32 *string, i32 fontIndex) const {
 }
 
 vec2 Manager::StringSize(WString string, i32 fontIndex) const {
-    const Assets::Font *fontDesired = &globals.assets.fonts[fontIndex];
-    const Assets::Font *fontFallback = &globals.assets.fonts[0];
+    const Assets::Font *fontDesired = &globals->assets.fonts[fontIndex];
+    const Assets::Font *fontFallback = &globals->assets.fonts[0];
     vec2 size = vec2(0.0, (1.0 + lineHeight) * 0.5);
     f32 lineSize = 0.0;
     for (i32 i = 0; i < string.size; i++) {
@@ -609,8 +611,8 @@ WString Manager::StringAddNewlines(WString string, i32 fontIndex, f32 maxWidth) 
     if (maxWidth <= 0.0) {
         return string;
     }
-    const Assets::Font *fontDesired = &globals.assets.fonts[fontIndex];
-    const Assets::Font *fontFallback = &globals.assets.fonts[0];
+    const Assets::Font *fontDesired = &globals->assets.fonts[fontIndex];
+    const Assets::Font *fontFallback = &globals->assets.fonts[0];
     f32 lineSize = 0.0;
     i32 lastSpace = -1;
     i32 charsThisLine = 0;
@@ -643,8 +645,8 @@ WString Manager::StringAddNewlines(WString string, i32 fontIndex, f32 maxWidth) 
 
 void Manager::DrawCharSS(VkCommandBuffer commandBuffer, char32 character,
                          i32 fontIndex, vec4 color, vec2 position, vec2 scale) {
-    Assets::Font *fontDesired = &globals.assets.fonts[fontIndex];
-    Assets::Font *fontFallback = &globals.assets.fonts[0];
+    Assets::Font *fontDesired = &globals->assets.fonts[fontIndex];
+    Assets::Font *fontFallback = &globals->assets.fonts[0];
     fontDesired->fontBuilder.AddRange(character, character);
     fontFallback->fontBuilder.AddRange(character, character);
     Assets::Font *font = fontDesired;
@@ -685,8 +687,8 @@ void Manager::DrawCharSS(VkCommandBuffer commandBuffer, char32 character,
 void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString string,
                          i32 fontIndex, vec4 color, vec2 position, vec2 scale,
                          FontAlign alignH, FontAlign alignV, f32 maxWidth, f32 edge, f32 bounds) {
-    Assets::Font *fontDesired = &globals.assets.fonts[fontIndex];
-    Assets::Font *fontFallback = &globals.assets.fonts[0];
+    Assets::Font *fontDesired = &globals->assets.fonts[fontIndex];
+    Assets::Font *fontFallback = &globals->assets.fonts[0];
     fontDesired->fontBuilder.AddString(string);
     fontFallback->fontBuilder.AddString(string);
     scale.x *= aspectRatio;

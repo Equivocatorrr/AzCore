@@ -40,8 +40,8 @@ void Manager::CallInitialize() {
 
 void Manager::Update() {
     buffer = !buffer;
-    if (globals.rawInput.AnyGP.Pressed()) {
-        globals.gamepad = &globals.rawInput.gamepads[globals.rawInput.AnyGPIndex];
+    if (globals->rawInput.AnyGP.Pressed()) {
+        globals->gamepad = &globals->rawInput.gamepads[globals->rawInput.AnyGPIndex];
     }
 
     for (Object* object : objects) {
@@ -63,34 +63,34 @@ void Manager::Draw(Array<VkCommandBuffer>& commandBuffers) {
 
 bool Manager::Pressed(u8 keyCode) const {
     if (KeyCodeIsGamepad(keyCode)) {
-        if (globals.gamepad == nullptr) {
+        if (globals->gamepad == nullptr) {
             return false;
         }
-        return globals.gamepad->Pressed(keyCode);
+        return globals->gamepad->Pressed(keyCode);
     } else {
-        return globals.input.Pressed(keyCode);
+        return globals->input.Pressed(keyCode);
     }
 }
 
 bool Manager::Down(u8 keyCode) const {
     if (KeyCodeIsGamepad(keyCode)) {
-        if (globals.gamepad == nullptr) {
+        if (globals->gamepad == nullptr) {
             return false;
         }
-        return globals.gamepad->Down(keyCode);
+        return globals->gamepad->Down(keyCode);
     } else {
-        return globals.input.Down(keyCode);
+        return globals->input.Down(keyCode);
     }
 }
 
 bool Manager::Released(u8 keyCode) const {
     if (KeyCodeIsGamepad(keyCode)) {
-        if (globals.gamepad == nullptr) {
+        if (globals->gamepad == nullptr) {
             return false;
         }
-        return globals.gamepad->Released(keyCode);
+        return globals->gamepad->Released(keyCode);
     } else {
-        return globals.input.Released(keyCode);
+        return globals->input.Released(keyCode);
     }
 }
 

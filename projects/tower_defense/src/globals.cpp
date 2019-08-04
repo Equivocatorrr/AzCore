@@ -5,4 +5,4 @@
 
 #include "globals.hpp"
 
-Globals globals;
+Globals *globals;

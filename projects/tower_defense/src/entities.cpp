@@ -11,11 +11,11 @@ namespace Entities {
 const char *circle_tga = "circle.tga";
 
 void Manager::EventAssetInit() {
-    globals.assets.filesToLoad.Append(circle_tga);
+    globals->assets.filesToLoad.Append(circle_tga);
 }
 
 void Manager::EventAssetAcquire() {
-    texCircle = globals.assets.FindMapping(circle_tga);
+    texCircle = globals->assets.FindMapping(circle_tga);
 }
 
 void Manager::EventInitialize() {
@@ -46,37 +46,37 @@ void Manager::EventInitialize() {
 
     for (i32 i = 0; i < 6; i++) {
         entities[i].index = i;
-        entities[i].physical.pos = vec2(random(0.0, 1280.0, globals.rng), random(0.0, 720.0, globals.rng));
-        entities[i].physical.vel = vec2(0.0);// vec2(random(-15.0, 15.0, globals.rng), random(-15.0, 15.0, globals.rng));
-        entities[i].physical.rot = 0.0;// random(-0.2, 0.2, globals.rng);
+        entities[i].physical.pos = vec2(random(0.0, 1280.0, globals->rng), random(0.0, 720.0, globals->rng));
+        entities[i].physical.vel = vec2(0.0);// vec2(random(-15.0, 15.0, globals->rng), random(-15.0, 15.0, globals->rng));
+        entities[i].physical.rot = 0.0;// random(-0.2, 0.2, globals->rng);
     }
 }
 
 void Manager::EventUpdate() {
-    if (globals.objects.Pressed(KC_KEY_R)) {
+    if (globals->objects.Pressed(KC_KEY_R)) {
         for (i32 i = 0; i < 6; i++) {
-            entities[i].physical.pos = vec2(random(0.0, 1280.0, globals.rng), random(0.0, 720.0, globals.rng));
-            // entities[i].physical.vel = vec2(random(-15.0, 15.0, globals.rng), random(-15.0, 15.0, globals.rng));
-            // entities[i].physical.rot = random(-0.2, 0.2, globals.rng);
+            entities[i].physical.pos = vec2(random(0.0, 1280.0, globals->rng), random(0.0, 720.0, globals->rng));
+            // entities[i].physical.vel = vec2(random(-15.0, 15.0, globals->rng), random(-15.0, 15.0, globals->rng));
+            // entities[i].physical.rot = random(-0.2, 0.2, globals->rng);
         }
     }
     if (selectedEntity != -1) {
-        entities[selectedEntity].physical.pos = vec2(globals.input.cursor);
-        if (globals.objects.Down(KC_KEY_LEFT)) {
+        entities[selectedEntity].physical.pos = vec2(globals->input.cursor);
+        if (globals->objects.Down(KC_KEY_LEFT)) {
             entities[selectedEntity].physical.rot = pi;
-        } else if (globals.objects.Down(KC_KEY_RIGHT)) {
+        } else if (globals->objects.Down(KC_KEY_RIGHT)) {
             entities[selectedEntity].physical.rot = -pi;
         } else {
             entities[selectedEntity].physical.rot = 0.0;
         }
     }
     for (i32 i = 0; i < entities.size; i++) {
-        entities[i].Update(globals.objects.timestep);
+        entities[i].Update(globals->objects.timestep);
     }
 }
 
 void Manager::EventDraw(VkCommandBuffer commandBuffer) {
-    globals.rendering.BindPipeline2D(commandBuffer);
+    globals->rendering.BindPipeline2D(commandBuffer);
     for (i32 i = 0; i < entities.size; i++) {
         entities[i].Draw(commandBuffer);
     }
@@ -318,7 +318,7 @@ bool Physical::Collides(const Physical &other) const {
 }
 
 bool Physical::MouseOver() const {
-    const vec2 mouse = vec2(globals.input.cursor);
+    const vec2 mouse = vec2(globals->input.cursor);
     if (!updated) {
         UpdateActual();
     }
@@ -399,18 +399,18 @@ void Physical::UpdateActual() const {
 void Entity::Update(f32 timestep) {
     physical.Update(timestep);
     colliding = false;
-    for (i32 i = 0; i < globals.entities.entities.size; i++) {
+    for (i32 i = 0; i < globals->entities.entities.size; i++) {
         if (i == index) continue;
-        Entity &other = globals.entities.entities[i];
+        Entity &other = globals->entities.entities[i];
         if (physical.Collides(other.physical)) {
             colliding = true;
         }
     }
-    if (globals.objects.Pressed(KC_MOUSE_LEFT)) {
-        if (globals.entities.selectedEntity == index) {
-            globals.entities.selectedEntity = -1;
+    if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
+        if (globals->entities.selectedEntity == index) {
+            globals->entities.selectedEntity = -1;
         } else if (physical.MouseOver()) {
-            globals.entities.selectedEntity = index;
+            globals->entities.selectedEntity = index;
         }
     }
 }
@@ -424,14 +424,14 @@ void Entity::Draw(VkCommandBuffer commandBuffer) {
     }
     if (physical.type == BOX) {
         const vec2 scale = physical.basis.box.b - physical.basis.box.a;
-        globals.rendering.DrawQuad(commandBuffer, Rendering::texBlank, color, physical.pos, scale, vec2(1.0), -physical.basis.box.a / scale, physical.angle);
+        globals->rendering.DrawQuad(commandBuffer, Rendering::texBlank, color, physical.pos, scale, vec2(1.0), -physical.basis.box.a / scale, physical.angle);
     } else if (physical.type == SEGMENT) {
         vec2 scale = physical.basis.segment.b - physical.basis.segment.a;
         scale.y = max(scale.y, 2.0);
-        globals.rendering.DrawQuad(commandBuffer, Rendering::texBlank, color, physical.pos, scale, vec2(1.0), -physical.basis.segment.a / scale, physical.angle);
+        globals->rendering.DrawQuad(commandBuffer, Rendering::texBlank, color, physical.pos, scale, vec2(1.0), -physical.basis.segment.a / scale, physical.angle);
     } else {
         const vec2 scale = physical.basis.circle.r * 2.0;
-        globals.rendering.DrawQuad(commandBuffer, globals.entities.texCircle, color, physical.pos, scale, vec2(1.0), -physical.basis.circle.c / scale + vec2(0.5), physical.angle);
+        globals->rendering.DrawQuad(commandBuffer, globals->entities.texCircle, color, physical.pos, scale, vec2(1.0), -physical.basis.circle.c / scale + vec2(0.5), physical.angle);
     }
 }
 

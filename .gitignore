@@ -9,3 +9,5 @@ GitStats
 Exports
 bin
 obj
+*.data
+*.data.old

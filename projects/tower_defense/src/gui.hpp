@@ -123,6 +123,24 @@ struct Checkbox : public Widget {
 
 // struct Slider; // A scalar within a range.
 
+enum MenuEnum {
+    MENU_MAIN,
+    MENU_SETTINGS,
+    MENU_PLAY
+};
+
+// Now we can have some different screens
+struct MainMenu {
+    Screen screen;
+    Button *buttonStart;
+    Button *buttonSettings;
+    Button *buttonExit;
+
+    void Initialize();
+    void Update();
+    void Draw(VkCommandBuffer commandBuffer);
+};
+
 struct Gui : public Objects::Object {
     i32 fontIndex;
     i32 texIndex;
@@ -131,8 +149,9 @@ struct Gui : public Objects::Object {
     f32 scale = 0.9;
 
     Set<Widget*> allWidgets; // So we can delete them at the end of the program.
-    Screen screenWidget;
-    Text *textWidget;
+
+    MenuEnum currentMenu = MENU_MAIN;
+    MainMenu mainMenu;
 
     ~Gui();
 
@@ -141,9 +160,6 @@ struct Gui : public Objects::Object {
     void EventInitialize();
     void EventUpdate();
     void EventDraw(VkCommandBuffer commandBuffer);
-
-    // deeper means the widget can only be interacted with by selecting it first
-    void AddWidget(Widget *parent, Widget *newWidget, bool deeper = false);
 };
 
 

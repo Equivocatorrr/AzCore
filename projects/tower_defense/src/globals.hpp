@@ -24,6 +24,7 @@ struct Globals {
     Entities::Manager entities;
     Int::Gui gui;
     RandomNumberGenerator rng;
+    bool exit = false;
 };
 
 extern Globals *globals;

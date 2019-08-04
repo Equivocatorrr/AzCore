@@ -86,7 +86,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     const Nanoseconds frameDuration = Nanoseconds(1000000000/144);
     globals->objects.timestep = 1.0/144.0;
 
-    while (globals->window.Update()) {
+    while (globals->window.Update() && !globals->exit) {
         globals->rawInput.Update(globals->objects.timestep);
         if (globals->input.Released(KC_KEY_ESC)) {
             break;

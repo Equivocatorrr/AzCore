@@ -32,169 +32,130 @@ void Gui::EventAssetAcquire() {
 }
 
 void Gui::EventInitialize() {
-    ListV *listWidget = new ListV();
-    listWidget->size.x = 1000.0;
-    listWidget->fractionWidth = false;
-    AddWidget(&screenWidget, listWidget);
-
-    Text *titleWidget = new Text();
-    titleWidget->string = ToWString("Title");
-    titleWidget->fontSize = 64.0;
-    titleWidget->color = vec4(1.0, 0.5, 0.0, 1.0);
-    titleWidget->colorOutline = vec4(0.4, 0.2, 0.0, 1.0);
-    titleWidget->outline = true;
-    titleWidget->alignH = Rendering::CENTER;
-    titleWidget->bold = true;
-    AddWidget(listWidget, titleWidget);
-
-    ListH *listHWidget = new ListH();
-    listHWidget->minSize.y = 200.0;
-    AddWidget(listWidget, listHWidget);
-
-    textWidget = new Text();
-    textWidget->string = ToWString("Hahaha look at me! There's so much to say! I don't know what else to do. ÑǸ∵öÖ ¡Hola señor Lopez! ¿Cómo está usted? Estoy muy bien. ¿Y cómo se llama? ありがとうお願いします私はハンバーガー 세계를 향한 대화, 유니코드로 하십시오. 経機速講著述元載説赤問台民。 Лорем ипсум долор сит амет Λορεμ ιπσθμ δολορ σιτ αμετ There once was a man named Chad. He was an incel. What a terrible sight! If only someone was there to teach him the ways of humility! Oh how he would wail and toil how all the girls would pass up a \"nice guy like me\". What a bitch.");
-    textWidget->fontIndex = fontIndex;
-    textWidget->size.x = 1.0 / 3.0;
-    textWidget->alignH = Rendering::JUSTIFY;
-    textWidget->bold = true;
-    AddWidget(listHWidget, textWidget);
-
-    Text *textWidget2 = new Text();
-    textWidget2->string = ToWString("Hey now! You're an all star! Get your shit together!");
-    textWidget2->fontIndex = fontIndex;
-    textWidget2->size.x = 3.0 / 9.0;
-    textWidget2->alignH = Rendering::JUSTIFY;
-    AddWidget(listHWidget, textWidget2);
-    Text *textWidget3 = new Text();
-    textWidget3->string = ToWString("What else is there even to talk about? The whole world is going up in flames! I feel like a floop.");
-    textWidget3->fontIndex = fontIndex;
-    textWidget3->fontSize = 24.0;
-    textWidget3->size.x = 3.0 / 9.0;
-    textWidget3->alignH = Rendering::JUSTIFY;
-    AddWidget(listHWidget, textWidget3);
-
-    Image *imageWidget = new Image();
-    // imageWidget->size.x = 2.0 / 9.0;
-    imageWidget->size.x = 128.0;
-    imageWidget->size.y = 128.0;
-    imageWidget->fractionWidth = false;
-    imageWidget->fractionHeight = false;
-    imageWidget->texIndex = texIndex;
-    AddWidget(listHWidget, imageWidget);
-
-    ListH *listHWidget2 = new ListH();
-    listHWidget2->size.y = 64.0;
-    listHWidget2->fractionHeight = false;
-    // listHWidget2->padding = vec2(0.0);
-    listHWidget2->selectionDefault = 1;
-    AddWidget(listWidget, listHWidget2);
-
-    Button *buttonWidget1 = new Button();
-    buttonWidget1->fontIndex = fontIndex;
-    buttonWidget1->string = ToWString("Previous");
-    buttonWidget1->size.x = 128.0;
-    buttonWidget1->fractionWidth = false;
-    AddWidget(listHWidget2, buttonWidget1);
-
-    Button *buttonWidget2 = new Button();
-    buttonWidget2->fontIndex = fontIndex;
-    buttonWidget2->string = ToWString("Select");
-    AddWidget(listHWidget2, buttonWidget2);
-
-    Button *buttonWidget3 = new Button();
-    buttonWidget3->fontIndex = fontIndex;
-    buttonWidget3->string = ToWString("Next");
-    buttonWidget3->size.x = 128.0;
-    buttonWidget3->fractionWidth = false;
-    AddWidget(listHWidget2, buttonWidget3);
-
-    Button *buttonWidget4 = new Button();
-    buttonWidget4->fontIndex = fontIndex;
-    buttonWidget4->string = ToWString("ぷた");
-    buttonWidget4->margin.x = 128.0 + 40.0;
-    buttonWidget4->size.y = 32.0;
-    buttonWidget4->fractionHeight = false;
-    AddWidget(listWidget, buttonWidget4);
-
-    Button *buttonWidget5 = new Button();
-    buttonWidget5->fontIndex = fontIndex;
-    buttonWidget5->string = ToWString("フィロヴァテンコ");
-    buttonWidget5->margin.x = 128.0 + 40.0;
-    buttonWidget5->size.y = 32.0;
-    buttonWidget5->fractionHeight = false;
-    AddWidget(listWidget, buttonWidget5);
-
-    // ListV *listVWidget2 = new ListV();
-    // listVWidget2->selectionDefault = 0;
-    // listVWidget2->size.y = 0.0;
-    // listVWidget2->highlight.rgb *= 2.0;
-    // AddWidget(listWidget, listVWidget2, true);
-
-    const WString strings[] = {
-        ToWString("Test1"),
-        ToWString("I'm a thing."),
-        ToWString("Hey you!")
-    };
-    for (i32 i = 0; i < 3; i++) {
-        ListH *option = new ListH();
-        option->selectionDefault = 1;
-        option->size.y = 0.0;
-
-        // Widget *spacer = new Widget();
-        // spacer->size.x = 128.0;
-        // spacer->fractionWidth = false;
-        // AddWidget(option, spacer);
-
-        Text *textWidget4 = new Text();
-        textWidget4->fontIndex = fontIndex;
-        textWidget4->fontSize = 20.0;
-        // textWidget4->alignH = Rendering::RIGHT;
-        textWidget4->alignV = Rendering::CENTER;
-        textWidget4->string = strings[i];
-        // textWidget4->size.x = 0.0;
-        // textWidget4->margin.x += 128.0;
-        AddWidget(option, textWidget4);
-
-        // Widget *spacer2 = new Widget();
-        // spacer2->size.x = 1.0;
-        // AddWidget(option, spacer2);
-
-        Checkbox *checkWidget = new Checkbox();
-        AddWidget(option, checkWidget);
-        AddWidget(listWidget, option);
+    switch (currentMenu) {
+    case MENU_MAIN:
+        mainMenu.Initialize();
+        break;
+    case MENU_SETTINGS:
+        break;
+    case MENU_PLAY:
+        break;
     }
-
 }
 
 void Gui::EventUpdate() {
-    screenWidget.Update(vec2(0.0), true);
-    // if (globals->input.Pressed(KC_KEY_1)) {
-    //     font->SaveAtlas();
-    // }
-    // if (globals->input.Pressed(KC_KEY_2)) {
-    //     globals->assets.fonts[0].SaveAtlas();
-    // }
-    if (globals->input.Pressed(KC_KEY_UP)) {
-        textWidget->fontSize += 1.0;
-    }
-    if (globals->input.Pressed(KC_KEY_DOWN)) {
-        textWidget->fontSize -= 1.0;
+    switch (currentMenu) {
+    case MENU_MAIN:
+        mainMenu.Update();
+        break;
+    case MENU_SETTINGS:
+        break;
+    case MENU_PLAY:
+        break;
     }
 }
 
 void Gui::EventDraw(VkCommandBuffer commandBuffer) {
-    screenWidget.Draw(commandBuffer);
+    switch (currentMenu) {
+    case MENU_MAIN:
+        mainMenu.Draw(commandBuffer);
+        break;
+    case MENU_SETTINGS:
+        break;
+    case MENU_PLAY:
+        break;
+    }
 }
 
-void Gui::AddWidget(Widget *parent, Widget *newWidget, bool deeper) {
+void AddWidget(Widget *parent, Widget *newWidget, bool deeper = false) {
     newWidget->depth = parent->depth + (deeper ? 1 : 0);
     if (newWidget->selectable) {
         parent->selectable = true;
     }
     parent->children.Append(newWidget);
-    if (allWidgets.count(newWidget) == 0) {
-        allWidgets.emplace(newWidget);
+    if (globals->gui.allWidgets.count(newWidget) == 0) {
+        globals->gui.allWidgets.emplace(newWidget);
     }
+}
+
+//
+//      Menu implementations
+//
+
+void MainMenu::Initialize() {
+    ListV *listV = new ListV();
+    listV->color = vec4(0.0);
+    listV->highlight = vec4(0.0);
+
+    Widget *spacer = new Widget();
+    spacer->size.y = 0.3;
+    AddWidget(listV, spacer);
+
+    Text *title = new Text();
+    title->alignH = Rendering::CENTER;
+    title->bold = true;
+    title->color = vec4(0.0, 0.0, 0.0, 1.0);
+    title->colorOutline = vec4(1.0);
+    title->outline = true;
+    title->fontSize = 64.0;
+    title->fontIndex = globals->gui.fontIndex;
+    title->string = ToWString("AzCore Tower Defense");
+    AddWidget(listV, title);
+
+    spacer = new Widget();
+    spacer->size.y = 0.4;
+    AddWidget(listV, spacer);
+
+    ListV *buttonList = new ListV();
+    buttonList->fractionWidth = false;
+    buttonList->fractionHeight = false;
+    buttonList->size = vec2(500.0, 300.0);
+    buttonList->padding = vec2(16.0);
+
+    buttonStart = new Button();
+    buttonStart->string = ToWString("Start");
+    buttonStart->size.y = 1.0 / 3.0;
+    buttonStart->margin = vec2(16.0);
+    AddWidget(buttonList, buttonStart);
+
+    buttonSettings = new Button();
+    buttonSettings->string = ToWString("Settings");
+    buttonSettings->size.y = 1.0 / 3.0;
+    buttonSettings->margin = vec2(16.0);
+    AddWidget(buttonList, buttonSettings);
+
+    buttonExit = new Button();
+    buttonExit->string = ToWString("Exit");
+    buttonExit->size.y = 1.0 / 3.0;
+    buttonExit->margin = vec2(16.0);
+    AddWidget(buttonList, buttonExit);
+
+    ListH *spacingList = new ListH();
+    spacingList->color = vec4(0.0);
+    spacingList->highlight = vec4(0.0);
+    spacingList->size.y = 0.0;
+    spacingList->selectionDefault = 1;
+
+    spacer = new Widget();
+    spacer->size.x = 0.5;
+    AddWidget(spacingList, spacer);
+
+    AddWidget(spacingList, buttonList);
+
+    AddWidget(listV, spacingList);
+
+    AddWidget(&screen, listV);
+}
+
+void MainMenu::Update() {
+    screen.Update(vec2(0.0), true);
+    if (buttonExit->state.Released()) {
+        globals->exit = true;
+    }
+}
+
+void MainMenu::Draw(VkCommandBuffer commandBuffer) {
+    screen.Draw(commandBuffer);
 }
 
 //
@@ -284,6 +245,13 @@ bool List::UpdateSelection(bool selected, u8 keyCodeSelect, u8 keyCodeBack, u8 k
                     }
                 }
                 if (selection == children.size) {
+                    for (selection = 0; selection < children.size; selection++) {
+                        if (children[selection]->selectable) {
+                            break;
+                        }
+                    }
+                }
+                if (selection == children.size) {
                     selection = -1;
                 }
             } else if (globals->objects.Pressed(keyCodeDecrement)) {
@@ -295,6 +263,13 @@ bool List::UpdateSelection(bool selected, u8 keyCodeSelect, u8 keyCodeBack, u8 k
                 for (; selection >= 0; selection--) {
                     if (children[selection]->selectable) {
                         break;
+                    }
+                }
+                if (selection == -1) {
+                    for (selection = children.size-1; selection >= 0; selection--) {
+                        if (children[selection]->selectable) {
+                            break;
+                        }
                     }
                 }
             }

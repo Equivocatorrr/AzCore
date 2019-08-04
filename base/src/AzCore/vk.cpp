@@ -373,6 +373,25 @@ namespace vk {
             error = "Attempting to create image that already exists!";
             return false;
         }
+        if (samples != VK_SAMPLE_COUNT_1_BIT) {
+            if (mipLevels != 1) {
+                error = "Images with a sample count higher than 1 must have exactly 1 mipLevel";
+                return false;
+            }
+            VkImageFormatProperties imageFormatProperties;
+            VkResult result = vkGetPhysicalDeviceImageFormatProperties(
+                data.device->data.physicalDevice.physicalDevice, format, VK_IMAGE_TYPE_2D,
+                hostVisible ? VK_IMAGE_TILING_LINEAR : VK_IMAGE_TILING_OPTIMAL,
+                usage, 0, &imageFormatProperties);
+            if (result != VK_SUCCESS) {
+                error = "Failed to vkGetPhysicalDeviceImageFormatProperties!";
+                return false;
+            }
+            if (!(imageFormatProperties.sampleCounts & samples)) {
+                error = "Image format 0x" + ToString(format, 16) + " doesn't support sample count " + ToString(samples);
+                return false;
+            }
+        }
 #endif
         VkImageCreateInfo imageInfo{};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -904,7 +923,7 @@ failure:
         PrintDashed("Destroying Memory");
 #ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
-            error = "Memory isn't initialized!";
+            // error = "Memory isn't initialized!";
             return false;
         }
 #endif
@@ -1500,6 +1519,10 @@ failure:
                 error = "For the contents of this attachment to be loaded, you must specify an initialLayout for Color.";
                 return false;
             }
+            if (swapchain != nullptr && sampleCount != VK_SAMPLE_COUNT_1_BIT && !resolveColor) {
+                error = "You must resolve multisampling when connected to a swapchain.";
+                return false;
+            }
 #endif
             if (sampleCount != VK_SAMPLE_COUNT_1_BIT && resolveColor) {
                 // SSAA enabled, first attachment should be multisampled color buffer
@@ -1998,7 +2021,7 @@ failure:
         PrintDashed("Destroying RenderPass");
 #ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
-            error = "RenderPass hasn't been initialized yet!";
+            // error = "RenderPass hasn't been initialized yet!";
             return false;
         }
 #endif
@@ -2299,7 +2322,7 @@ failure:
         PrintDashed("De-Initializing Framebuffer");
 #ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
-            error = "Framebuffer has not been initialized!";
+            // error = "Framebuffer has not been initialized!";
             return false;
         }
 #endif
@@ -2629,7 +2652,7 @@ failure:
         PrintDashed("Destroying Pipeline");
 #ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
-            error = "Pipeline is not initted!";
+            // error = "Pipeline is not initted!";
             return false;
         }
 #endif
@@ -3273,7 +3296,7 @@ failure:
         PrintDashed("Destroying Swapchain");
 #ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
-            error = "Swapchain isn't initialized!";
+            // error = "Swapchain isn't initialized!";
             return false;
         }
 #endif
@@ -3918,7 +3941,7 @@ failed:
         PrintDashed("Destroying Logical Device");
 #ifndef VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
-            error = "Device isn't initialized!";
+            // error = "Device isn't initialized!";
             return false;
         }
 #endif

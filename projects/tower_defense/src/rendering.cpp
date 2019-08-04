@@ -54,8 +54,8 @@ bool Manager::Init() {
     data.framebuffer->swapchain = data.swapchain;
     data.renderPass = data.device->AddRenderPass();
     auto attachment = data.renderPass->AddAttachment(data.swapchain);
-    attachment->sampleCount = VK_SAMPLE_COUNT_8_BIT;
-    attachment->resolveColor = true;
+    // attachment->sampleCount = VK_SAMPLE_COUNT_8_BIT;
+    // attachment->resolveColor = true;
     auto subpass = data.renderPass->AddSubpass();
     subpass->UseAttachment(attachment, vk::AttachmentType::ATTACHMENT_ALL,
             VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
@@ -647,8 +647,6 @@ void Manager::DrawCharSS(VkCommandBuffer commandBuffer, char32 character,
                          i32 fontIndex, vec4 color, vec2 position, vec2 scale) {
     Assets::Font *fontDesired = &globals->assets.fonts[fontIndex];
     Assets::Font *fontFallback = &globals->assets.fonts[0];
-    fontDesired->fontBuilder.AddRange(character, character);
-    fontFallback->fontBuilder.AddRange(character, character);
     Assets::Font *font = fontDesired;
     Rendering::PushConstants pc = Rendering::PushConstants();
     pc.frag.color = color;
@@ -664,6 +662,9 @@ void Manager::DrawCharSS(VkCommandBuffer commandBuffer, char32 character,
     }
     vec2 fullScale = vec2(aspectRatio * scale.x, scale.y);
     i32 glyphId = font->fontBuilder.indexToId[glyphIndex];
+    if (glyphId == 0) {
+        font->fontBuilder.AddRange(character, character);
+    }
     font::Glyph& glyph = font->fontBuilder.glyphs[glyphId];
     pc.frag.texIndex = actualFontIndex;
     if (glyph.components.size != 0) {
@@ -689,8 +690,6 @@ void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString string,
                          FontAlign alignH, FontAlign alignV, f32 maxWidth, f32 edge, f32 bounds) {
     Assets::Font *fontDesired = &globals->assets.fonts[fontIndex];
     Assets::Font *fontFallback = &globals->assets.fonts[0];
-    fontDesired->fontBuilder.AddString(string);
-    fontFallback->fontBuilder.AddString(string);
     scale.x *= aspectRatio;
     Rendering::PushConstants pc = Rendering::PushConstants();
     pc.frag.color = color;
@@ -764,6 +763,9 @@ void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString string,
             }
         }
         i32 glyphId = font->fontBuilder.indexToId[glyphIndex];
+        if (glyphId == 0) {
+            font->fontBuilder.AddRange(character, character);
+        }
         font::Glyph& glyph = font->fontBuilder.glyphs[glyphId];
 
         pc.frag.texIndex = actualFontIndex;

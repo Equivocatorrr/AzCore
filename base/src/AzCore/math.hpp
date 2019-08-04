@@ -109,12 +109,12 @@ struct RandomNumberGenerator {
 f32 random(f32 min, f32 max, RandomNumberGenerator& rng);
 
 template<typename T>
-inline T square(const T a) {
+inline T square(const T &a) {
     return a*a;
 }
 
 template<typename T>
-inline T median(T a, T b, T c) {
+inline T median(const T &a, const T &b, const T &c) {
     if ((b >= a && a >= c)||(c >= a && a >= b))
         return a;
     if ((a >= b && b >= c)||(c >= b && b >= a))
@@ -125,43 +125,43 @@ inline T median(T a, T b, T c) {
 }
 
 template<typename T>
-inline T min(T a, T b) {
+inline T min(const T &a, const T &b) {
     return a > b ? b : a;
 }
 
 template<typename T>
-inline T max(T a, T b) {
+inline T max(const T &a, const T &b) {
     return a > b ? a : b;
 }
 
 template<typename T>
-inline T clamp(T a, T b, T c) {
+inline T clamp(const T &a, const T &b, const T &c) {
     return median(a, b, c);
 }
 
 template<typename T>
-inline T abs(T a) {
+inline T abs(const T &a) {
     return a >= 0 ? a : -a;
 }
 
 template<typename T>
-inline T sign(T a) {
+inline T sign(const T &a) {
     return a >= 0 ? 1 : -1;
 }
 
 template<typename T, typename F>
-inline T lerp(T a, T b, F factor) {
+inline T lerp(const T &a, const T &b, F factor) {
     factor = clamp(factor, F(0.0), F(1.0));
     return a + (b-a) * factor;
 }
 
 template<typename T>
-inline T map(T in, T minFrom, T maxFrom, T minTo, T maxTo) {
+inline T map(const T &in, const T &minFrom, const T &maxFrom, const T &minTo, const T &maxTo) {
     return (in - minFrom) * (maxTo - minTo) / (maxFrom - minFrom) + minTo;
 }
 
 template<typename T>
-inline T cubert(T a) {
+inline T cubert(const T &a) {
     return a >= T(0.0) ? pow(a, T(1.0/3.0)) : -pow(-a, T(1.0/3.0));
 }
 
@@ -344,8 +344,8 @@ inline T normalize(const T& a) {
         };
 
         vec2_t() = default;
-        vec2_t(T a);
-        vec2_t(T a, T b);
+        inline vec2_t(const T &a) : x(a), y(a) {};
+        inline vec2_t(const T &a, const T &b) : x(a), y(b) {};
         template<typename I>
         vec2_t(const vec2_t<I> &a) : x((T)a.x) , y((T)a.y) {}
         inline vec2_t<T> operator+(const vec2_t<T>& a) const { return vec2_t<T>(x+a.x, y+a.y); }
@@ -382,7 +382,7 @@ inline T normalize(const T& a) {
     }
 
     template<bool isSegment, typename T>
-    T distSqrToLine(const vec2_t<T> &segA, const vec2_t<T> &segB, const vec2_t<T> &point) {
+    inline T distSqrToLine(const vec2_t<T> &segA, const vec2_t<T> &segB, const vec2_t<T> &point) {
         const vec2_t<T> diff = segA - segB;
         const T lengthSquared = absSqr(diff);
         const T t = dot(diff, segA - point) / lengthSquared;
@@ -419,10 +419,17 @@ inline T normalize(const T& a) {
             };
         };
         mat2_t() = default;
-        mat2_t(T a);
-        mat2_t(T a, T b, T c, T d);
-        mat2_t(vec2_t<T> a, vec2_t<T> b, bool rowMajor=true);
-        mat2_t(T d[4]);
+        inline mat2_t(const T &a) : h{a, 0, 0, a} {};
+        inline mat2_t(const T &a, const T &b, const T &c, const T &d) : h{a, b, c, d} {};
+        template<bool rowMajor = true>
+        inline mat2_t(const vec2_t<T> &a, const vec2_t<T> &b) {
+            if constexpr (rowMajor) {
+                h = {a.x, a.y, b.x, b.y};
+            } else {
+                h = {a.x, b.x, a.y, b.y};
+            }
+        }
+        inline mat2_t(const T d[4]) : data{d[0], d[1], d[2], d[3]} {};
         inline vec2_t<T> Row1() const { return vec2_t<T>(h.x1, h.y1); }
         inline vec2_t<T> Row2() const { return vec2_t<T>(h.x2, h.y2); }
         inline vec2_t<T> Col1() const { return vec2_t<T>(v.x1, v.y1); }
@@ -490,10 +497,10 @@ inline T normalize(const T& a) {
         };
 
         vec3_t() = default;
-        vec3_t(T a);
-        vec3_t(T v1, T v2, T v3);
+        inline vec3_t(const T &a) : x(a) , y (a) , z(a) {}
+        inline vec3_t(const T &v1, const T &v2, const T &v3) : x(v1) , y(v2) , z(v3) {}
         template<typename I>
-        vec3_t(const vec3_t<I> &a) : x((T)a.x) , y((T)a.y), z((T)a.z) {}
+        inline vec3_t(const vec3_t<I> &a) : x((T)a.x) , y((T)a.y), z((T)a.z) {}
         inline vec3_t<T> operator+(const vec3_t<T>& a) const { return vec3_t<T>(x+a.x, y+a.y, z+a.z); }
         inline vec3_t<T> operator-(const vec3_t<T>& a) const { return vec3_t<T>(x-a.x, y-a.y, z-a.z); }
         inline vec3_t<T> operator-() const { return vec3_t<T>(-x, -y, -z); }
@@ -583,10 +590,20 @@ inline T normalize(const T& a) {
             };
         };
         mat3_t() = default;
-        mat3_t(T a);
-        mat3_t(T x1, T y1, T z1, T x2, T y2, T z2, T x3, T y3, T z3);
-        mat3_t(vec3_t<T> a, vec3_t<T> b, vec3_t<T> c, bool rowMajor=true);
-        mat3_t(T d[9]);
+        inline mat3_t(const T &a) : h{a, 0, 0, 0, a, 0, 0, 0, a} {}
+        inline mat3_t(const T &x1, const T &y1, const T &z1,
+                      const T &x2, const T &y2, const T &z2,
+                      const T &x3, const T &y3, const T &z3) :
+                data{x1, y1, z1, x2, y2, z2, x3, y3, z3} {}
+        template<bool rowMajor = true>
+        inline mat3_t(const vec3_t<T> &a, const vec3_t<T> &b, const vec3_t<T> &c) {
+            if constexpr (rowMajor) {
+                h = {a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z};
+            } else {
+                h = {a.x, b.x, c.x, a.y, b.y, c.y, a.z, b.z, c.z};
+            }
+        }
+        inline mat3_t(const T d[9]) : data{d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[9]} {}
         inline vec3_t<T> Row1() const { return vec3_t<T>(h.x1, h.y1, h.z1); }
         inline vec3_t<T> Row2() const { return vec3_t<T>(h.x2, h.y2, h.z2); }
         inline vec3_t<T> Row3() const { return vec3_t<T>(h.x3, h.y3, h.z3); }
@@ -687,8 +704,8 @@ inline T normalize(const T& a) {
         };
 
         vec4_t() = default;
-        vec4_t(T v);
-        vec4_t(T v1, T v2, T v3, T v4);
+        inline vec4_t(const T &vec) : x(vec) , y (vec) , z(vec) , w(vec) {}
+        inline vec4_t(const T &v1, const T &v2, const T &v3, const T &v4) : x(v1) , y(v2) , z(v3) , w(v4) {}
         template<typename I>
         vec4_t(const vec4_t<I> &a) : x((T)a.x) , y((T)a.y), z((T)a.z), w((T)a.w) {}
         inline vec4_t<T> operator+(const vec4_t<T>& vec) const { return vec4_t<T>(x+vec.x, y+vec.y, z+vec.z, w+vec.w); }
@@ -766,13 +783,21 @@ inline T normalize(const T& a) {
             };
         };
         mat4_t() = default;
-        mat4_t(T a);
-        mat4_t(T x1, T y1, T z1, T w1,
-               T x2, T y2, T z2, T w2,
-               T x3, T y3, T z3, T w3,
-               T x4, T y4, T z4, T w4);
-        mat4_t(vec4_t<T> a, vec4_t<T> b, vec4_t<T> c, vec4_t<T> d, bool rowMajor=true);
-        mat4_t(T d[16]);
+        inline mat4_t(const T &a) : h{a, 0, 0, 0, 0, a, 0, 0, 0, 0, a, 0, 0, 0, 0, a} {}
+        inline mat4_t(const T &x1, const T &y1, const T &z1, const T &w1,
+                      const T &x2, const T &y2, const T &z2, const T &w2,
+                      const T &x3, const T &y3, const T &z3, const T &w3,
+                      const T &x4, const T &y4, const T &z4, const T &w4) :
+                data{x1, y1, z1, w1, x2, y2, z2, w2, x3, y3, z3, w3, x4, y4, z4, w4} {}
+        template<bool rowMajor = true>
+        inline mat4_t(const vec4_t<T> &a, const vec4_t<T> &b, const vec4_t<T> &c, const vec4_t<T> &d) {
+            if constexpr (rowMajor) {
+                h = {a.x, a.y, a.z, a.w, b.x, b.y, b.z, b.w, c.x, c.y, c.z, c.w, d.x, d.y, d.z, d.w};
+            } else {
+                h = {a.x, b.x, c.x, d.x, a.y, b.y, c.y, d.y, a.z, b.z, c.z, d.z, a.w, b.w, c.w, d.w};
+            }
+        }
+        inline mat4_t(const T d[16]) : data{d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[9], d[10], d[11], d[12], d[13], d[14], d[15]} {}
         inline vec4_t<T> Row1() const { return vec4_t<T>(h.x1, h.y1, h.z1, h.w1); }
         inline vec4_t<T> Row2() const { return vec4_t<T>(h.x2, h.y2, h.z2, h.w2); }
         inline vec4_t<T> Row3() const { return vec4_t<T>(h.x3, h.y3, h.z3, h.w3); }
@@ -876,8 +901,9 @@ inline T normalize(const T& a) {
         };
 
         vec5_t() = default;
-        vec5_t(T v);
-        vec5_t(T v1, T v2, T v3, T v4, T v5);
+        inline vec5_t(const T &vec) : x(vec) , y (vec) , z(vec) , w(vec) , v(vec) {}
+        inline vec5_t(const T &v1, const T &v2, const T &v3, const T &v4, const T &v5) :
+                x(v1) , y(v2) , z(v3) , w(v4) , v(v5) {}
         template<typename I>
         vec5_t(const vec5_t<I> &a) : x((T)a.x) , y((T)a.y), z((T)a.z), w((T)a.w), v((T)a.v) {}
         inline vec5_t<T> operator+(const vec5_t<T>& vec) const { return vec5_t<T>(x+vec.x, y+vec.y, z+vec.z, w+vec.w, v+vec.v); }
@@ -957,14 +983,33 @@ inline T normalize(const T& a) {
             };
         };
         mat5_t() = default;
-        mat5_t(T a);
-        mat5_t(T x1, T y1, T z1, T w1, T v1,
-               T x2, T y2, T z2, T w2, T v2,
-               T x3, T y3, T z3, T w3, T v3,
-               T x4, T y4, T z4, T w4, T v4,
-               T x5, T y5, T z5, T w5, T v5);
-        mat5_t(vec5_t<T> a, vec5_t<T> b, vec5_t<T> c, vec5_t<T> d, vec5_t<T> e, bool rowMajor=true);
-        mat5_t(T d[25]);
+        inline mat5_t(const T &a) : h{a, 0, 0, 0, 0, 0, a, 0, 0, 0, 0, 0, a, 0, 0, 0, 0, 0, a, 0, 0, 0, 0, 0, a} {}
+        inline mat5_t(const T &x1, const T &y1, const T &z1, const T &w1, const T &v1,
+                      const T &x2, const T &y2, const T &z2, const T &w2, const T &v2,
+                      const T &x3, const T &y3, const T &z3, const T &w3, const T &v3,
+                      const T &x4, const T &y4, const T &z4, const T &w4, const T &v4,
+                      const T &x5, const T &y5, const T &z5, const T &w5, const T &v5) :
+                data{x1, y1, z1, w1, v1, x2, y2, z2, w2, v2, x3, y3, z3, w3, v3,
+                     x4, y4, z4, w4, v4, x5, y5, z5, w5, v5} {}
+        template<bool rowMajor = true>
+        inline mat5_t(const vec5_t<T> &a, const vec5_t<T> &b, const vec5_t<T> &c, const vec5_t<T> &d, const vec5_t<T> &e) {
+            if constexpr (rowMajor) {
+                h = {a.x, a.y, a.z, a.w, a.v,
+                     b.x, b.y, b.z, b.w, b.v,
+                     c.x, c.y, c.z, c.w, c.v,
+                     d.x, d.y, d.z, d.w, d.v,
+                     e.x, e.y, e.z, e.w, e.v};
+            } else {
+                h = {a.x, b.x, c.x, d.x, e.x,
+                     a.y, b.y, c.y, d.y, e.y,
+                     a.z, b.z, c.z, d.z, e.z,
+                     a.w, b.w, c.w, d.w, e.w,
+                     a.v, b.v, c.v, d.v, e.v};
+            }
+        }
+        inline mat5_t(const T d[25]) :
+                data{d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[9], d[10], d[11], d[12], d[13],
+                     d[14], d[15], d[16], d[17], d[18], d[19], d[20], d[21], d[22], d[23], d[24]} {}
         inline vec5_t<T> Row1() const { return vec5_t<T>(h.x1, h.y1, h.z1, h.w1, h.v1); }
         inline vec5_t<T> Row2() const { return vec5_t<T>(h.x2, h.y2, h.z2, h.w2, h.v2); }
         inline vec5_t<T> Row3() const { return vec5_t<T>(h.x3, h.y3, h.z3, h.w3, h.v3); }
@@ -1094,12 +1139,12 @@ inline T normalize(const T& a) {
         };
 
         complex_t() = default;
-        complex_t(T a);
-        complex_t(T a, T b);
+        inline complex_t(const T &a) : x(a) , y(0) {}
+        inline complex_t(const T &a, const T &b) : x(a) , y(b) {}
 #ifdef MATH_VEC2
-        complex_t(vec2_t<T> vec);
+        inline complex_t(const vec2_t<T> &vec) : vector(vec) {}
 #endif
-        complex_t(T d[2]);
+        inline complex_t(const T d[2]) : x(d[0]) , y(d[1]) {}
 
         inline complex_t<T> operator*(const complex_t<T>& a) const {
             return complex_t<T>(real*a.real - imag*a.imag, real*a.imag + imag*a.real);
@@ -1202,13 +1247,13 @@ inline T normalize(const T& a) {
         };
 
         quat_t() = default;
-        quat_t(T a);
-        quat_t(T a, vec3_t<T> v);
+        inline quat_t(const T &a) : data{a, 0, 0, 0} {}
+        inline quat_t(const T &a, const vec3_t<T> &v) : scalar(a), vector(v) {}
 #ifdef MATH_VEC4
-        quat_t(vec4_t<T> v);
+        inline quat_t(const vec4_t<T> &v) : wxyz(v) {}
 #endif
-        quat_t(T a, T b, T c, T d);
-        quat_t(T d[4]);
+        inline quat_t(const T &a, const T &b, const T &c, const T &d) : w(a), x(b), y(c), z(d) {}
+        inline quat_t(const T d[4]) : data{d[0], d[1], d[2], d[3]} {}
 
         inline quat_t<T> operator*(const quat_t<T>& a) const {
             return quat_t<T>(

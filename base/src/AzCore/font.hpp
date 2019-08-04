@@ -36,9 +36,12 @@ namespace font {
         //      1 for clockwise-winding intersection
         //      -1 for counter-clockwise-winding intersection
         //      0 for no intersection
-        i32 Intersection(const vec2& point) const;
-        vec2 Point(const f32& t) const;
-        void DistanceLess(const vec2& point, f32& distSquared) const;
+        i32 Intersection(const vec2 &point) const;
+        inline vec2 Point(const f32& t) const {
+            const f32 tInv = 1.0 - t;
+            return p1 * square(tInv) + p2 * (2.0 * t * tInv) + p3 * square(t);
+        }
+        f32 DistanceLess(const vec2 &point, f32 distSquared) const;
         void Scale(const mat2& scale);
         void Offset(const vec2& offset);
     };
@@ -49,8 +52,8 @@ namespace font {
         Defines a single line segment.          */
     struct Line {
         vec2 p1, p2;
-        i32 Intersection(const vec2& point) const;
-        void DistanceLess(const vec2& point, f32& distSquared) const;
+        i32 Intersection(const vec2 &point) const;
+        f32 DistanceLess(const vec2 &point, f32 distSquared) const;
         void Scale(const mat2& scale);
         void Offset(const vec2& offset);
     };
@@ -102,8 +105,8 @@ namespace font {
         // Array<Contour> contours;
         GlyphInfo info{};
         // Returns whether a point is inside the glyph.
-        bool Inside(const vec2& point) const;
-        f32 MinDistance(const vec2& point, const f32& startingDist) const;
+        bool Inside(const vec2 &point) const;
+        f32 MinDistance(vec2 point, const f32& startingDist) const;
         void AddFromGlyfPoints(glyfPoint *glyfPoints, i32 count);
         void Scale(const mat2& scale);
         void Offset(const vec2& offset);

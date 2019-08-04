@@ -63,12 +63,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 // Template stuff is pretty ugly, but it saves a lot of lines.
 #ifdef MATH_VEC2
     template<typename T>
-    vec2_t<T>::vec2_t(T a) : x(a) , y (a) {}
-
-    template<typename T>
-    vec2_t<T>::vec2_t(T a, T b) : x(a) , y(b) {}
-
-    template<typename T>
     vec2_t<T> vec2_t<T>::operator+=(const vec2_t<T>& a) {
         x += a.x;
         y += a.y;
@@ -113,23 +107,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 #endif // MATH_VEC2
 
 #ifdef MATH_MAT2
-    template<typename T>
-    mat2_t<T>::mat2_t(T a) : h{a, 0, 0, a} {}
-
-    template<typename T>
-    mat2_t<T>::mat2_t(T a, T b, T c, T d) : h{a, b, c, d} {}
-
-    template<typename T>
-    mat2_t<T>::mat2_t(vec2_t<T> a, vec2_t<T> b, bool rowMajor) {
-        if (rowMajor) {
-            h = {a.x, a.y, b.x, b.y};
-        } else {
-            h = {a.x, b.x, a.y, b.y};
-        }
-    }
-
-    template<typename T>
-    mat2_t<T>::mat2_t(T d[4]) : data{d[0], d[1], d[2], d[3]} {}
 
     template<typename T>
     mat2_t<T> mat2_t<T>::Rotation(T angle) {
@@ -150,11 +127,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 #endif // MATH_MAT2
 
 #ifdef MATH_VEC3
-    template<typename T>
-    vec3_t<T>::vec3_t(T a) : x(a) , y (a) , z(a) {}
-
-    template<typename T>
-    vec3_t<T>::vec3_t(T v1, T v2, T v3) : x(v1) , y(v2) , z(v3) {}
 
     template<typename T>
     vec3_t<T> vec3_t<T>::operator+=(const vec3_t<T>& a) {
@@ -290,23 +262,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 #endif // MATH_VEC3
 
 #ifdef MATH_MAT3
-    template<typename T>
-    mat3_t<T>::mat3_t(T a) : h{a, 0, 0, 0, a, 0, 0, 0, a} {}
-
-    template<typename T>
-    mat3_t<T>::mat3_t(T x1, T y1, T z1, T x2, T y2, T z2, T x3, T y3, T z3) : data{x1, y1, z1, x2, y2, z2, x3, y3, z3} {}
-
-    template<typename T>
-    mat3_t<T>::mat3_t(vec3_t<T> a, vec3_t<T> b, vec3_t<T> c, bool rowMajor) {
-        if (rowMajor) {
-            h = {a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z};
-        } else {
-            h = {a.x, b.x, c.x, a.y, b.y, c.y, a.z, b.z, c.z};
-        }
-    }
-
-    template<typename T>
-    mat3_t<T>::mat3_t(T d[9]) : data{d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[9]} {}
 
     template<typename T>
     mat3_t<T> mat3_t<T>::RotationBasic(T angle, Axis axis) {
@@ -359,11 +314,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 #endif // MATH_MAT3
 
 #ifdef MATH_VEC4
-    template<typename T>
-    vec4_t<T>::vec4_t(T vec) : x(vec) , y (vec) , z(vec) , w(vec) {}
-
-    template<typename T>
-    vec4_t<T>::vec4_t(T v1, T v2, T v3, T v4) : x(v1) , y(v2) , z(v3) , w(v4) {}
 
     template<typename T>
     vec4_t<T> vec4_t<T>::operator+=(const vec4_t<T>& vec) {
@@ -422,27 +372,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 #endif // MATH_VEC4
 
 #ifdef MATH_MAT4
-    template<typename T>
-    mat4_t<T>::mat4_t(T a) : h{a, 0, 0, 0, 0, a, 0, 0, 0, 0, a, 0, 0, 0, 0, a} {}
-
-    template<typename T>
-    mat4_t<T>::mat4_t(T x1, T y1, T z1, T w1,
-                      T x2, T y2, T z2, T w2,
-                      T x3, T y3, T z3, T w3,
-                      T x4, T y4, T z4, T w4) :
-            data{x1, y1, z1, w1, x2, y2, z2, w2, x3, y3, z3, w3, x4, y4, z4, w4} {}
-
-    template<typename T>
-    mat4_t<T>::mat4_t(vec4_t<T> a, vec4_t<T> b, vec4_t<T> c, vec4_t<T> d, bool rowMajor) {
-        if (rowMajor) {
-            h = {a.x, a.y, a.z, a.w, b.x, b.y, b.z, b.w, c.x, c.y, c.z, c.w, d.x, d.y, d.z, d.w};
-        } else {
-            h = {a.x, b.x, c.x, d.x, a.y, b.y, c.y, d.y, a.z, b.z, c.z, d.z, a.w, b.w, c.w, d.w};
-        }
-    }
-
-    template<typename T>
-    mat4_t<T>::mat4_t(T d[16]) : data{d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[9], d[10], d[11], d[12], d[13], d[14], d[15]} {}
 
     template<typename T>
     mat4_t<T> mat4_t<T>::RotationBasic(T angle, Plane plane) {
@@ -539,11 +468,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 #endif // MATH_MAT4
 
 #ifdef MATH_VEC5
-    template<typename T>
-    vec5_t<T>::vec5_t(T vec) : x(vec) , y (vec) , z(vec) , w(vec) , v(vec) {}
-
-    template<typename T>
-    vec5_t<T>::vec5_t(T v1, T v2, T v3, T v4, T v5) : x(v1) , y(v2) , z(v3) , w(v4) , v(v5) {}
 
     template<typename T>
     vec5_t<T> vec5_t<T>::operator+=(const vec5_t<T>& vec) {
@@ -608,36 +532,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 #endif // MATH_VEC5
 
 #ifdef MATH_MAT5
-    template<typename T>
-    mat5_t<T>::mat5_t(T a) : h{a, 0, 0, 0, 0, 0, a, 0, 0, 0, 0, 0, a, 0, 0, 0, 0, 0, a, 0, 0, 0, 0, 0, a} {}
-
-    template<typename T>
-    mat5_t<T>::mat5_t(T x1, T y1, T z1, T w1, T v1,
-                      T x2, T y2, T z2, T w2, T v2,
-                      T x3, T y3, T z3, T w3, T v3,
-                      T x4, T y4, T z4, T w4, T v4,
-                      T x5, T y5, T z5, T w5, T v5) :
-            data{x1, y1, z1, w1, v1, x2, y2, z2, w2, v2, x3, y3, z3, w3, v3, x4, y4, z4, w4, v4, x5, y5, z5, w5, v5} {}
-
-    template<typename T>
-    mat5_t<T>::mat5_t(vec5_t<T> a, vec5_t<T> b, vec5_t<T> c, vec5_t<T> d, vec5_t<T> e, bool rowMajor) {
-        if (rowMajor) {
-            h = {a.x, a.y, a.z, a.w, a.v,
-                 b.x, b.y, b.z, b.w, b.v,
-                 c.x, c.y, c.z, c.w, c.v,
-                 d.x, d.y, d.z, d.w, d.v,
-                 e.x, e.y, e.z, e.w, e.v};
-        } else {
-            h = {a.x, b.x, c.x, d.x, e.x,
-                 a.y, b.y, c.y, d.y, e.y,
-                 a.z, b.z, c.z, d.z, e.z,
-                 a.w, b.w, c.w, d.w, e.w,
-                 a.v, b.v, c.v, d.v, e.v};
-        }
-    }
-
-    template<typename T>
-    mat5_t<T>::mat5_t(T d[25]) : data{d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[9], d[10], d[11], d[12], d[13], d[14], d[15], d[16], d[17], d[18], d[19], d[20], d[21], d[22], d[23], d[24]} {}
 
     template<typename T>
     mat5_t<T> mat5_t<T>::RotationBasic(T angle, Plane plane) {
@@ -741,17 +635,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 #endif // MATH_MAT5
 
 #ifdef MATH_COMPLEX
-    template<typename T>
-    complex_t<T>::complex_t(T a) : x(a) , y(0) {}
-
-    template<typename T>
-    complex_t<T>::complex_t(T a, T b) : x(a) , y(b) {}
-
-    template<typename T>
-    complex_t<T>::complex_t(vec2_t<T> vec) : vector(vec) {}
-
-    template<typename T>
-    complex_t<T>::complex_t(T d[2]) : x(d[0]) , y(d[1]) {}
 
     template<typename T>
     complex_t<T>& complex_t<T>::operator+=(const complex_t<T>& a) {
@@ -836,20 +719,6 @@ f32 random(f32 min, f32 max, RandomNumberGenerator& rng) {
 #endif // MATH_COMPLEX
 
 #ifdef MATH_QUATERNION
-    template<typename T>
-    quat_t<T>::quat_t(T a) : data{a, 0, 0, 0} {}
-
-    template<typename T>
-    quat_t<T>::quat_t(T a, vec3_t<T> v) : scalar(a), vector(v) {}
-
-    template<typename T>
-    quat_t<T>::quat_t(vec4_t<T> v) : wxyz(v) {}
-
-    template<typename T>
-    quat_t<T>::quat_t(T a, T b, T c, T d) : w(a), x(b), y(c), z(d) {}
-
-    template<typename T>
-    quat_t<T>::quat_t(T d[4]) : data{d[0], d[1], d[2], d[3]} {}
 
     template<typename T>
     quat_t<T>& quat_t<T>::operator+=(const quat_t<T>& a) {

@@ -56,14 +56,13 @@ i32 Line::Intersection(const vec2 &point) const {
             }
         }
     } else {
-        f32 a, b; // coefficients of the line: y = ax + b
-        if (p2.y == p1.y) {
+        f32 a = p2.y - p1.y, b; // coefficients of the line: y = ax + b
+        if (a == 0.0) {
             // Horizontal line
             return 0;
         } else {
-            a = p2.y - p1.y;
-            b = p1.y - point.y;
-            f32 t = -b / a;
+            b = -p1.y + point.y;
+            f32 t = b / a;
             if (a > 0.0) {
                 if (t >= 0.0 && t < 1.0) {
                     f32 x = (p2.x - p1.x) * t + p1.x;
@@ -84,11 +83,12 @@ i32 Line::Intersection(const vec2 &point) const {
     return 0;
 };
 
-void Line::DistanceLess(const vec2 &point, f32& distSquared) const {
+f32 Line::DistanceLess(const vec2 &point, f32 distSquared) const {
     f32 dist = distSqrToLine<true>(p1, p2, point);
     if (dist < distSquared) {
         distSquared = dist;
     }
+    return distSquared;
 }
 
 void Line::Scale(const mat2 &scale) {
@@ -101,7 +101,7 @@ void Line::Offset(const vec2 &offset) {
     p2 = p2 + offset;
 }
 
-i32 Curve::Intersection(const vec2& point) const {
+i32 Curve::Intersection(const vec2 &point) const {
     if (point.x > max(max(p1.x, p2.x), p3.x)) {
         return 0;
     }
@@ -128,8 +128,8 @@ i32 Curve::Intersection(const vec2& point) const {
     }
     const f32 squareRoot = sqrt(bb - ac4);
     a *= 2.0;
-    f32 t1 = (b + squareRoot) / a;
-    f32 t2 = (b - squareRoot) / a;
+    const f32 t1 = (b + squareRoot) / a;
+    const f32 t2 = (b - squareRoot) / a;
     a = (p3.x - 2.0*p2.x + p1.x);
     b = 2.0*(p2.x - p1.x);
     c = p1.x;
@@ -159,19 +159,21 @@ i32 Curve::Intersection(const vec2& point) const {
     return winding;
 }
 
-vec2 Curve::Point(const f32& t) const {
-    const f32 tInv = 1.0 - t;
-    return p1 * square(tInv) + p2 * (2.0 * t * tInv) + p3 * square(t);
-}
-
-void Curve::DistanceLess(const vec2 &point, f32& distSquared) const {
+f32 Curve::DistanceLess(const vec2 &point, f32 distSquared) const {
+    // vec2 m;
+    // vec2 n;
+    // vec2 o;
+    // f32 a;
+    // f32 b;
+    // f32 c;
+    // f32 d;
     // Try to do an early out if we can
     {
         f32 maxPointDistSquared = max(max(absSqr(p1-p2), absSqr(p2-p3)), absSqr(p3-p1));
         f32 minDistSquared = min(min(absSqr(p1-point), absSqr(p2-point)), absSqr(p3-point));
         if (minDistSquared > distSquared + maxPointDistSquared * 0.25) {
             // NOTE: Should this be maxPointDist*square(sin(pi/4)) ???
-            return;
+            return distSquared;
         }
     }
     // B(t) = (1-t)^2*p1 + 2t(1-t)*p2 + t^2*p3
@@ -231,6 +233,7 @@ void Curve::DistanceLess(const vec2 &point, f32& distSquared) const {
             distSquared = dist;
         }
     }
+    return distSquared;
 }
 
 void Curve::Scale(const mat2 &scale) {
@@ -245,7 +248,7 @@ void Curve::Offset(const vec2 &offset) {
     p3 = p3 + offset;
 }
 
-bool Glyph::Inside(const vec2& point) const {
+bool Glyph::Inside(const vec2 &point) const {
     i32 winding = 0;
     for (const Curve& curve : curves) {
         winding += curve.Intersection(point);
@@ -256,13 +259,13 @@ bool Glyph::Inside(const vec2& point) const {
     return winding != 0;
 }
 
-f32 Glyph::MinDistance(const vec2 &point, const f32& startingDist) const {
+f32 Glyph::MinDistance(vec2 point, const f32& startingDist) const {
     f32 minDistSquared = startingDist*startingDist; // Glyphs should be normalized to the em square more or less.
     for (const Curve& curve : curves) {
-        curve.DistanceLess(point, minDistSquared);
+        minDistSquared = curve.DistanceLess(point, minDistSquared);
     }
     for (const Line& line : lines) {
-        line.DistanceLess(point, minDistSquared);
+        minDistSquared = line.DistanceLess(point, minDistSquared);
     }
     return sqrt(minDistSquared);
 }

@@ -534,7 +534,7 @@ void Manager::PushScissor(VkCommandBuffer commandBuffer, vec2i min, vec2i max) {
     state.max.x = ::min(max.x, prev.max.x);
     state.max.y = ::min(max.y, prev.max.y);
     data.scissorStack.Append(state);
-    vk::CmdSetScissor(commandBuffer, (u32)(state.max.x-state.min.x), (u32)(state.max.y-state.min.y), state.min.x, state.min.y);
+    vk::CmdSetScissor(commandBuffer, (u32)::max(state.max.x-state.min.x, 0), (u32)::max(state.max.y-state.min.y, 0), state.min.x, state.min.y);
 }
 
 void Manager::PopScissor(VkCommandBuffer commandBuffer) {

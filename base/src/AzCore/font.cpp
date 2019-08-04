@@ -5,7 +5,7 @@
 
 #include "font.hpp"
 
-#define LOG_VERBOSE
+// #define LOG_VERBOSE
 
 #include "font_tables.cpp"
 

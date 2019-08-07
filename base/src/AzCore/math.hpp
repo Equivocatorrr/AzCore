@@ -706,6 +706,9 @@ inline T normalize(const T& a) {
         vec4_t() = default;
         inline vec4_t(const T &vec) : x(vec) , y (vec) , z(vec) , w(vec) {}
         inline vec4_t(const T &v1, const T &v2, const T &v3, const T &v4) : x(v1) , y(v2) , z(v3) , w(v4) {}
+#ifdef MATH_VEC3
+        inline vec4_t(const vec3_t<T> &vec, const T &v1) : r(vec.r), g(vec.g), b(vec.b), a(v1) {}
+#endif
         template<typename I>
         vec4_t(const vec4_t<I> &a) : x((T)a.x) , y((T)a.y), z((T)a.z), w((T)a.w) {}
         inline vec4_t<T> operator+(const vec4_t<T>& vec) const { return vec4_t<T>(x+vec.x, y+vec.y, z+vec.z, w+vec.w); }

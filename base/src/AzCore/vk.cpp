@@ -2675,9 +2675,9 @@ failure:
 #endif
         VkCommandBufferBeginInfo beginInfo = {};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        VkCommandBufferInheritanceInfo inheritanceInfo = {};
 
         if (secondary) {
-            VkCommandBufferInheritanceInfo inheritanceInfo = {};
             inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
             if (renderPass.Valid()) {
 #ifndef VK_SANITY_CHECKS_MINIMAL

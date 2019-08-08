@@ -7,6 +7,10 @@
 #ifndef MEMORY_HPP
 #define MEMORY_HPP
 
+#ifdef NDEBUG
+#define MEMORY_NO_BOUNDS_CHECKS
+#endif
+
 #include "math.hpp"
 
 #include <initializer_list>
@@ -248,9 +252,11 @@ struct Range {
         return ptr != nullptr;
     }
     T& operator[](const i32& i) {
+#ifndef MEMORY_NO_BOUNDS_CHECKS
         if (i >= size) {
             throw std::out_of_range("Range index is out of bounds");
         }
+#endif
         if (index >= 0) {
             return (*((Array<T>*)ptr))[i+index];
         } else {
@@ -263,9 +269,11 @@ struct Range {
         }
     }
     const T& operator[](const i32& i) const {
+#ifndef MEMORY_NO_BOUNDS_CHECKS
         if (i >= size) {
             throw std::out_of_range("Range index is out of bounds");
         }
+#endif
         if (index >= 0) {
             return (*((Array<T>*)ptr))[i+index];
         } else {
@@ -472,16 +480,20 @@ struct Array {
     }
 
     const T& operator[](const i32 index) const {
+#ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index > size) {
             throw std::out_of_range("Array index is out of bounds");
         }
+#endif
         return data[index];
     }
 
     T& operator[](const i32 index) {
+#ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index > size) {
             throw std::out_of_range("Array index is out of bounds");
         }
+#endif
         return data[index];
     }
 
@@ -689,9 +701,11 @@ struct Array {
     }
 
     T& Insert(const i32 index, T&& value) {
+#ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index > size) {
             throw std::out_of_range("Array::Insert index is out of bounds");
         }
+#endif
         if (size >= allocated) {
             const bool doDelete = allocated != 0;
             allocated += (allocated >> 1) + 2;
@@ -730,9 +744,11 @@ struct Array {
     }
 
     void Erase(const i32 index) {
+#ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index >= size) {
             throw std::out_of_range("Array::Erase index is out of bounds");
         }
+#endif
         size--;
         if constexpr (std::is_trivially_copyable<T>::value) {
             if (size > index) {
@@ -781,16 +797,20 @@ struct Array {
     }
 
     Ptr<T> GetPtr(const i32& index) {
+#ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index >= size) {
             throw std::out_of_range("Array::GetPtr index is out of bounds");
         }
+#endif
         return Ptr<T>(this, index);
     }
 
     Range<T> GetRange(const i32& index, const i32& _size) {
+#ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index+_size > size) {
             throw std::out_of_range("Array::Range index + size is out of bounds");
         }
+#endif
         return Range<T>(this, index, _size);
     }
 };

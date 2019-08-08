@@ -31,8 +31,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
     cout << "Starting with layers " << (enableLayers ? "enabled" : "disabled")
          << " and core validation " << (enableCoreValidation ? "enabled" : "disabled") << std::endl;
 
-    globals->objects.Register(&globals->gui);
     globals->objects.Register(&globals->entities);
+    globals->objects.Register(&globals->gui);
     globals->window.name = title;
     globals->window.input = &globals->input;
 

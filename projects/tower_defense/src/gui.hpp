@@ -15,7 +15,7 @@ namespace Int { // Short for Interface
 // Ways to define a GUI with a hierarchy
 struct Gui;
 
-// Base polymorphic interface
+// Base polymorphic interface, also usable as a blank spacer.
 struct Widget {
     Array<Widget*> children;
     vec2 margin; // Space surrounding the widget.
@@ -36,7 +36,8 @@ struct Widget {
     virtual void Update(vec2 pos, bool selected);
     virtual void Draw(VkCommandBuffer commandBuffer) const;
 
-    const bool MouseOver() const;
+    bool MouseOver() const;
+    void FindMouseoverDepth(i32 actualDepth);
 };
 
 // Lowest level widget, used for input for game objects.
@@ -141,17 +142,43 @@ struct MainMenu {
     void Draw(VkCommandBuffer commandBuffer);
 };
 
+struct SettingsMenu {
+    Screen screen;
+    Checkbox *checkFullscreen;
+    Button *buttonApply;
+    Button *buttonBack;
+
+    void Initialize();
+    void Update();
+    void Draw(VkCommandBuffer commandBuffer);
+};
+
+struct PlayMenu {
+    Screen screen;
+    Image *image;
+
+    void Initialize();
+    void Update();
+    void Draw(VkCommandBuffer commandBuffer);
+};
+
 struct Gui : public Objects::Object {
     i32 fontIndex;
     i32 texIndex;
     Assets::Font *font;
     i32 controlDepth = 0;
-    f32 scale = 0.9;
+    f32 scale = 1.0;
+    // Used to make sure the mouse can only interact with top-most widgets.
+    // Also provides an easy test to see if the mouse can interact with items below it.
+    Widget *mouseoverWidget;
+    i32 mouseoverDepth;
 
     Set<Widget*> allWidgets; // So we can delete them at the end of the program.
 
     MenuEnum currentMenu = MENU_MAIN;
     MainMenu mainMenu;
+    SettingsMenu settingsMenu;
+    PlayMenu playMenu;
 
     ~Gui();
 

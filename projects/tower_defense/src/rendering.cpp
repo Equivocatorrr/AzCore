@@ -62,7 +62,7 @@ bool Manager::Init() {
     data.framebuffer->renderPass = data.renderPass;
     attachment->clearColor = true;
     // attachment->clearColorValue = {1.0, 1.0, 1.0, 1.0};
-    attachment->clearColorValue = {0.0, 0.05, 0.1, 1.0}; // AzCore blue
+    attachment->clearColorValue = {0.0, 0.1, 0.2, 1.0}; // AzCore blue
     if (data.concurrency < 1) {
         data.concurrency = 1;
     }
@@ -458,7 +458,7 @@ bool Manager::Draw() {
     Array<VkCommandBuffer> commandBuffersSecondary;
     commandBuffersSecondary.Reserve(data.commandBuffersSecondary.size);
 
-    for (auto& commandBuffer : data.commandBuffersSecondary) {
+    for (Ptr<vk::CommandBuffer> &commandBuffer : data.commandBuffersSecondary) {
         VkCommandBuffer cmdBuf = commandBuffer->Begin();
         vk::CmdSetViewportAndScissor(cmdBuf, globals->window.width, globals->window.height);
         vk::CmdBindIndexBuffer(cmdBuf, data.indexBuffer, VK_INDEX_TYPE_UINT32);
@@ -572,6 +572,7 @@ f32 Manager::LineWidth(const char32 *string, i32 fontIndex) const {
 vec2 Manager::StringSize(WString string, i32 fontIndex) const {
     const Assets::Font *fontDesired = &globals->assets.fonts[fontIndex];
     const Assets::Font *fontFallback = &globals->assets.fonts[0];
+    // vec2 size = vec2(0.0, lineHeight * 2.0 - 1.0);
     vec2 size = vec2(0.0, (1.0 + lineHeight) * 0.5);
     f32 lineSize = 0.0;
     for (i32 i = 0; i < string.size; i++) {
@@ -594,6 +595,7 @@ f32 Manager::StringWidth(WString string, i32 fontIndex) const {
 }
 
 f32 StringHeight(WString string) {
+    // f32 size = lineHeight * 2.0 - 1.0;
     f32 size = (1.0 + lineHeight) * 0.5;
     for (i32 i = 0; i < string.size; i++) {
         const char32 character = string[i];
@@ -693,6 +695,7 @@ void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString string,
     scale.x *= aspectRatio;
     Rendering::PushConstants pc = Rendering::PushConstants();
     pc.frag.color = color;
+    // position.y += scale.y * lineHeight;
     position.y += scale.y * (lineHeight + 1.0) * 0.5;
     f32 width = 0.0;
     if (alignH != LEFT) {
@@ -819,7 +822,7 @@ void Manager::DrawChar(VkCommandBuffer commandBuffer, char32 character, i32 font
 
 void Manager::DrawText(VkCommandBuffer commandBuffer, WString text, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH, FontAlign alignV, f32 maxWidth, f32 edge, f32 bounds) {
     const vec2 screenSizeFactor = vec2(2.0) / screenSize;
-    edge += 0.3 + min(0.2, max(0.0, (scale.y - 12.0) / 12.0));
+    edge += 0.35 + min(0.15, max(0.0, (scale.y - 12.0) / 12.0));
     bounds -= min(0.05, max(0.0, (16.0 - scale.y) * 0.01));
     DrawTextSS(commandBuffer, text, fontIndex, color, position * screenSizeFactor + vec2(-1.0), scale * screenSizeFactor.y, alignH, alignV, maxWidth * screenSizeFactor.x, edge, bounds);
 }

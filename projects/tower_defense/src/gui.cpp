@@ -8,6 +8,11 @@
 
 namespace Int {
 
+const vec3 colorBack = {1.0, 0.4, 0.1};
+const vec3 colorHighlightLow = {0.2, 0.45, 0.5};
+const vec3 colorHighlightMedium = {0.4, 0.9, 1.0};
+const vec3 colorHighlightHigh = {0.9, 0.98, 1.0};
+
 Gui::~Gui() {
     for (Widget* widget : allWidgets) {
         delete widget;
@@ -19,7 +24,7 @@ void Gui::EventAssetInit() {
     // globals->assets.filesToLoad.Append("LiberationSerif-Regular.ttf");
     // globals->assets.filesToLoad.Append("OpenSans-Regular.ttf");
     // globals->assets.filesToLoad.Append("Literata[wght].ttf");
-    globals->assets.filesToLoad.Append("test.tga");
+    globals->assets.filesToLoad.Append("gamma.tga");
 }
 
 void Gui::EventAssetAcquire() {
@@ -27,30 +32,28 @@ void Gui::EventAssetAcquire() {
     // fontIndex = globals->assets.FindMapping("LiberationSerif-Regular.ttf");
     // fontIndex = globals->assets.FindMapping("OpenSans-Regular.ttf");
     // fontIndex = globals->assets.FindMapping("Literata[wght].ttf");
-    texIndex = globals->assets.FindMapping("test.tga");
+    texIndex = globals->assets.FindMapping("gamma.tga");
     font = &globals->assets.fonts[fontIndex];
 }
 
 void Gui::EventInitialize() {
-    switch (currentMenu) {
-    case MENU_MAIN:
-        mainMenu.Initialize();
-        break;
-    case MENU_SETTINGS:
-        break;
-    case MENU_PLAY:
-        break;
-    }
+    mainMenu.Initialize();
+    settingsMenu.Initialize();
+    playMenu.Initialize();
 }
 
 void Gui::EventUpdate() {
+    mouseoverWidget = nullptr;
+    mouseoverDepth = -1;
     switch (currentMenu) {
     case MENU_MAIN:
         mainMenu.Update();
         break;
     case MENU_SETTINGS:
+        settingsMenu.Update();
         break;
     case MENU_PLAY:
+        playMenu.Update();
         break;
     }
 }
@@ -61,8 +64,10 @@ void Gui::EventDraw(VkCommandBuffer commandBuffer) {
         mainMenu.Draw(commandBuffer);
         break;
     case MENU_SETTINGS:
+        settingsMenu.Draw(commandBuffer);
         break;
     case MENU_PLAY:
+        playMenu.Draw(commandBuffer);
         break;
     }
 }
@@ -108,26 +113,29 @@ void MainMenu::Initialize() {
 
     ListV *buttonList = new ListV();
     buttonList->fractionWidth = false;
-    buttonList->fractionHeight = false;
-    buttonList->size = vec2(500.0, 300.0);
+    buttonList->size = vec2(500.0, 0.0);
     buttonList->padding = vec2(16.0);
 
     buttonStart = new Button();
     buttonStart->string = ToWString("Start");
-    buttonStart->size.y = 1.0 / 3.0;
+    buttonStart->size.y = 64.0;
+    buttonStart->fractionHeight = false;
     buttonStart->margin = vec2(16.0);
     AddWidget(buttonList, buttonStart);
 
     buttonSettings = new Button();
     buttonSettings->string = ToWString("Settings");
-    buttonSettings->size.y = 1.0 / 3.0;
+    buttonSettings->size.y = 64.0;
+    buttonSettings->fractionHeight = false;
     buttonSettings->margin = vec2(16.0);
     AddWidget(buttonList, buttonSettings);
 
     buttonExit = new Button();
     buttonExit->string = ToWString("Exit");
-    buttonExit->size.y = 1.0 / 3.0;
+    buttonExit->size.y = 64.0;
+    buttonExit->fractionHeight = false;
     buttonExit->margin = vec2(16.0);
+    buttonExit->highlightBG = vec4(colorBack, 0.9);
     AddWidget(buttonList, buttonExit);
 
     ListH *spacingList = new ListH();
@@ -149,6 +157,12 @@ void MainMenu::Initialize() {
 
 void MainMenu::Update() {
     screen.Update(vec2(0.0), true);
+    if (buttonStart->state.Released()) {
+        globals->gui.currentMenu = MENU_PLAY;
+    }
+    if (buttonSettings->state.Released()) {
+        globals->gui.currentMenu = MENU_SETTINGS;
+    }
     if (buttonExit->state.Released()) {
         globals->exit = true;
     }
@@ -158,11 +172,135 @@ void MainMenu::Draw(VkCommandBuffer commandBuffer) {
     screen.Draw(commandBuffer);
 }
 
+void SettingsMenu::Initialize() {
+    ListV *listV = new ListV();
+    listV->color = vec4(0.0);
+    listV->highlight = vec4(0.0);
+
+    Widget *spacer = new Widget();
+    spacer->size.y = 0.3;
+    AddWidget(listV, spacer);
+
+    Text *title = new Text();
+    title->alignH = Rendering::CENTER;
+    title->bold = true;
+    title->color = vec4(0.0, 0.0, 0.0, 1.0);
+    title->colorOutline = vec4(1.0);
+    title->outline = true;
+    title->fontSize = 64.0;
+    title->fontIndex = globals->gui.fontIndex;
+    title->string = ToWString("Settings");
+    AddWidget(listV, title);
+
+    spacer = new Widget();
+    spacer->size.y = 0.4;
+    AddWidget(listV, spacer);
+
+    ListV *actualList = new ListV();
+    actualList->fractionWidth = false;
+    actualList->size.x = 500.0;
+    actualList->size.y = 0.0;
+    actualList->padding = vec2(16.0);
+
+    Text *settingText = new Text();
+    settingText->fontIndex = globals->gui.fontIndex;
+    settingText->fontSize = 24.0;
+    settingText->string = ToWString("Fullscreen");
+    settingText->size.y = 0.0;
+
+    checkFullscreen = new Checkbox();
+    checkFullscreen->checked = globals->window.fullscreen;
+
+    ListH *settingList = new ListH();
+    settingList->size.y = 0.0;
+    settingList->margin = vec2(16.0);
+    settingList->selectionDefault = 1;
+
+    AddWidget(settingList, settingText);
+    AddWidget(settingList, checkFullscreen);
+
+    AddWidget(actualList, settingList);
+
+    ListH *buttonList = new ListH();
+    buttonList->size.y = 0.0;
+    buttonList->margin = vec2(0.0);
+    buttonList->padding = vec2(0.0);
+    buttonList->color = vec4(0.0);
+    buttonList->highlight = vec4(0.0);
+    buttonList->selectionDefault = 1;
+
+    buttonBack = new Button();
+    buttonBack->string = ToWString("Back");
+    buttonBack->size.x = 1.0 / 2.0;
+    buttonBack->size.y = 64.0;
+    buttonBack->fractionHeight = false;
+    buttonBack->margin = vec2(16.0);
+    buttonBack->highlightBG = vec4(colorBack, 0.9);
+    AddWidget(buttonList, buttonBack);
+
+    buttonApply = new Button();
+    buttonApply->string = ToWString("Apply");
+    buttonApply->size.x = 1.0 / 2.0;
+    buttonApply->size.y = 64.0;
+    buttonApply->fractionHeight = false;
+    buttonApply->margin = vec2(16.0);
+    AddWidget(buttonList, buttonApply);
+
+    AddWidget(actualList, buttonList);
+
+    ListH *spacingList = new ListH();
+    spacingList->color = vec4(0.0);
+    spacingList->highlight = vec4(0.0);
+    spacingList->size.y = 0.0;
+    spacingList->selectionDefault = 1;
+
+    spacer = new Widget();
+    spacer->size.x = 0.5;
+    AddWidget(spacingList, spacer);
+
+    AddWidget(spacingList, actualList);
+
+    AddWidget(listV, spacingList);
+
+    AddWidget(&screen, listV);
+}
+
+void SettingsMenu::Update() {
+    screen.Update(vec2(0.0), true);
+    if (buttonApply->state.Released()) {
+        globals->window.Fullscreen(checkFullscreen->checked);
+    }
+    if (buttonBack->state.Released()) {
+        globals->gui.currentMenu = MENU_MAIN;
+    }
+}
+
+void SettingsMenu::Draw(VkCommandBuffer commandBuffer) {
+    screen.Draw(commandBuffer);
+}
+
+void PlayMenu::Initialize() {
+    image = new Image();
+    image->fractionHeight = false;
+    image->fractionWidth = false;
+    image->size = vec2(256.0, 256.0);
+    image->texIndex = globals->gui.texIndex;
+    AddWidget(&screen, image);
+}
+
+void PlayMenu::Update() {
+    screen.Update(vec2(0.0), true);
+}
+
+void PlayMenu::Draw(VkCommandBuffer commandBuffer) {
+    screen.Draw(commandBuffer);
+}
+
 //
 //      Widget implementations beyond this point
 //
 
-Widget::Widget() : children(), margin(8.0), size(1.0), fractionWidth(true), fractionHeight(true), sizeAbsolute(0.0), minSize(0.0), maxSize(-1.0), position(0.0), positionAbsolute(0.0), depth(0), selectable(false) {}
+Widget::Widget() : children(), margin(8.0), size(1.0), fractionWidth(true), fractionHeight(true), sizeAbsolute(0.0), minSize(0.0), maxSize(-1.0), position(0.0), positionAbsolute(0.0), depth(0), selectable(false), highlighted(false) {}
 
 void Widget::UpdateSize(vec2 container) {
     sizeAbsolute = vec2(0.0);
@@ -207,10 +345,22 @@ void Widget::Draw(VkCommandBuffer commandBuffer) const {
     }
 }
 
-const bool Widget::MouseOver() const {
+bool Widget::MouseOver() const {
     const vec2 mouse = vec2(globals->input.cursor) / globals->gui.scale;
     return mouse.x == median(positionAbsolute.x, mouse.x, positionAbsolute.x + sizeAbsolute.x)
         && mouse.y == median(positionAbsolute.y, mouse.y, positionAbsolute.y + sizeAbsolute.y);
+}
+
+void Widget::FindMouseoverDepth(i32 actualDepth) {
+    if (actualDepth <= globals->gui.mouseoverDepth) return;
+    if (MouseOver()) {
+        globals->gui.mouseoverDepth = actualDepth;
+        globals->gui.mouseoverWidget = this;
+        actualDepth++;
+        for (Widget *child : children) {
+            child->FindMouseoverDepth(actualDepth);
+        }
+    }
 }
 
 Screen::Screen() {
@@ -220,6 +370,7 @@ Screen::Screen() {
 void Screen::Update(vec2 pos, bool selected) {
     UpdateSize(globals->rendering.screenSize / globals->gui.scale);
     Widget::Update(pos, selected);
+    FindMouseoverDepth(0);
 }
 
 void Screen::UpdateSize(vec2 container) {
@@ -229,7 +380,7 @@ void Screen::UpdateSize(vec2 container) {
     }
 }
 
-List::List() : padding(8.0), color(0.05, 0.05, 0.05, 0.9), highlight(0.05, 0.035, 0.03, 0.9), selection(-2), selectionDefault(-1) {}
+List::List() : padding(8.0), color(0.05, 0.05, 0.05, 0.9), highlight(0.05, 0.05, 0.05, 0.9), selection(-2), selectionDefault(-1) {}
 
 bool List::UpdateSelection(bool selected, u8 keyCodeSelect, u8 keyCodeBack, u8 keyCodeIncrement, u8 keyCodeDecrement) {
     highlighted = selected;
@@ -386,8 +537,8 @@ void ListV::Update(vec2 pos, bool selected) {
 }
 
 ListH::ListH() {
-    color = vec4(0.1, 0.1, 0.1, 0.9);
-    highlight = vec4(0.1, 0.07, 0.06, 0.9);
+    color = vec4(0.0, 0.0, 0.0, 0.9);
+    highlight = vec4(0.1, 0.1, 0.1, 0.9);
 }
 
 void ListH::UpdateSize(vec2 container) {
@@ -491,7 +642,7 @@ void Text::Draw(VkCommandBuffer commandBuffer) const {
         );
         vec2i botRight = vec2i(
             (positionAbsolute.x + sizeAbsolute.x) * globals->gui.scale,
-            (positionAbsolute.y + sizeAbsolute.y) * globals->gui.scale
+            (positionAbsolute.y + sizeAbsolute.y + fontSize * 0.3) * globals->gui.scale
         );
         globals->rendering.PushScissor(commandBuffer, topLeft, botRight);
     }
@@ -526,7 +677,7 @@ void Image::Draw(VkCommandBuffer commandBuffer) const {
     globals->rendering.DrawQuad(commandBuffer, texIndex, vec4(1.0), positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
 }
 
-Button::Button() : string(), colorBG(0.15, 0.15, 0.15, 0.9), highlightBG(0.2, 0.6, 0.5, 0.9), colorText(1.0), highlightText(1.0), fontIndex(1), fontSize(24.0), state() {
+Button::Button() : string(), colorBG(0.15, 0.15, 0.15, 0.9), highlightBG(colorHighlightMedium, 0.9), colorText(1.0), highlightText(0.0, 0.0, 0.0, 1.0), fontIndex(1), fontSize(28.0), state() {
     state.canRepeat = false;
     selectable = true;
 }
@@ -590,7 +741,7 @@ void Button::Draw(VkCommandBuffer commandBuffer) const {
     }
 }
 
-Checkbox::Checkbox() : checked(false), colorOff(0.15, 0.15, 0.15, 0.9), highlightOff(0.15, 0.4, 0.3, 0.9), colorOn(0.2, 0.8, 0.6, 1.0), highlightOn(0.75, 1.0, 0.95, 1.0) {
+Checkbox::Checkbox() : checked(false), colorOff(0.15, 0.15, 0.15, 0.9), highlightOff(colorHighlightLow, 0.9), colorOn(colorHighlightMedium, 1.0), highlightOn(colorHighlightHigh, 1.0) {
     selectable = true;
     size = vec2(24.0);
     fractionWidth = false;

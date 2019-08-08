@@ -53,6 +53,7 @@ void Manager::EventInitialize() {
 }
 
 void Manager::EventUpdate() {
+    if (globals->gui.currentMenu != Int::MENU_PLAY) return;
     if (globals->objects.Pressed(KC_KEY_R)) {
         for (i32 i = 0; i < 6; i++) {
             entities[i].physical.pos = vec2(random(0.0, 1280.0, globals->rng), random(0.0, 720.0, globals->rng));
@@ -73,9 +74,23 @@ void Manager::EventUpdate() {
     for (i32 i = 0; i < entities.size; i++) {
         entities[i].Update(globals->objects.timestep);
     }
+    if (globals->gui.mouseoverDepth > 0) return; // Don't accept mouse input
+    if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
+        if (selectedEntity != -1) {
+            selectedEntity = -1;
+        } else {
+            for (i32 i = 0; i < entities.size; i++) {
+                if (entities[i].physical.MouseOver()) {
+                    selectedEntity = i;
+                    break;
+                }
+            }
+        }
+    }
 }
 
 void Manager::EventDraw(VkCommandBuffer commandBuffer) {
+    if (globals->gui.currentMenu != Int::MENU_PLAY) return;
     globals->rendering.BindPipeline2D(commandBuffer);
     for (i32 i = 0; i < entities.size; i++) {
         entities[i].Draw(commandBuffer);
@@ -404,13 +419,6 @@ void Entity::Update(f32 timestep) {
         Entity &other = globals->entities.entities[i];
         if (physical.Collides(other.physical)) {
             colliding = true;
-        }
-    }
-    if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
-        if (globals->entities.selectedEntity == index) {
-            globals->entities.selectedEntity = -1;
-        } else if (physical.MouseOver()) {
-            globals->entities.selectedEntity = index;
         }
     }
 }

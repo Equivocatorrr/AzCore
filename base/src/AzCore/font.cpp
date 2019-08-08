@@ -160,13 +160,6 @@ i32 Curve::Intersection(const vec2 &point) const {
 }
 
 f32 Curve::DistanceLess(const vec2 &point, f32 distSquared) const {
-    // vec2 m;
-    // vec2 n;
-    // vec2 o;
-    // f32 a;
-    // f32 b;
-    // f32 c;
-    // f32 d;
     // Try to do an early out if we can
     {
         f32 maxPointDistSquared = max(max(absSqr(p1-p2), absSqr(p2-p3)), absSqr(p3-p1));
@@ -271,8 +264,6 @@ f32 Glyph::MinDistance(vec2 point, const f32& startingDist) const {
 }
 
 void Glyph::AddFromGlyfPoints(glyfPoint *glyfPoints, i32 count) {
-    // curves.Reserve(count/3);
-    // lines.Reserve(count/3);
     Curve curve;
     Line line;
     for (i32 i = 0; i < count; i++) {
@@ -297,7 +288,6 @@ void Glyph::AddFromGlyfPoints(glyfPoint *glyfPoints, i32 count) {
         } else {
             if (glyfPoints[(i+1)%count].onCurve) {
                 // I don't think this should happen???
-                cout << "WHAT" << std::endl;
                 continue;
             } else {
                 // Implied on-curve points on either side
@@ -313,10 +303,6 @@ void Glyph::AddFromGlyfPoints(glyfPoint *glyfPoints, i32 count) {
             }
         }
     }
-    // for (i32 i = 0; i < points.size; i++) {
-    //     cout << "point[" << i << "] = (" << points[i].x << "," << points[i].y << ")\n";
-    // }
-    // cout << std::endl;
 }
 
 void Glyph::Scale(const mat2 &scale) {
@@ -336,36 +322,6 @@ void Glyph::Offset(const vec2 &offset) {
         line.Offset(offset);
     }
 }
-
-// bool Glyph::Inside(vec2 point) {
-//     i32 winding = 0;
-//     for (Contour& contour : contours) {
-//         winding += contour.Intersection(point);
-//     }
-//     return winding != 0;
-// }
-
-// f32 Glyph::MinDistance(const vec2 &point) const {
-//     f32 minDistSquared = 1000.0; // Glyphs should be normalized to the em square more or less.
-//     for (const Contour& contour : contours) {
-//         contour.DistanceLess(point, minDistSquared);
-//     }
-//     return sqrt(minDistSquared);
-// }
-
-// void Glyph::Scale(const mat2 &scale) {
-//     for (Contour& contour : contours) {
-//         contour.Scale(scale);
-//     }
-// }
-
-// void Glyph::Offset(const vec2 &offset) {
-//     for (Contour& contour : contours) {
-//         contour.Offset(offset);
-//     }
-// }
-
-
 
 bool Font::Load() {
     if (filename.size == 0) {

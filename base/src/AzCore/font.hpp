@@ -59,21 +59,6 @@ namespace font {
     };
     static_assert(sizeof(Line) == 16);
 
-    /*  struct: Contour
-        Author: Philip Haynes
-        Defines a single glyph contour.      */
-    // struct Contour {
-    //     Array<Curve> curves;
-    //     Array<Line> lines;
-    //     // Finds all intersections and returns the total winding number
-    //     i32 Intersection(const vec2& point) const;
-    //     // Finds the minimum distance between the contour and the point, and replaces distSquared if it's less.
-    //     void DistanceLess(const vec2& point, f32& distSquared) const;
-    //     // Expands an array of glyfPoints into always having the control point available
-    //     void FromGlyfPoints(glyfPoint *glyfPoints, i32 count);
-    //     void Scale(const mat2& scale);
-    //     void Offset(const vec2& offset);
-    // };
 
     /*  struct: Component
         Author: Philip Haynes
@@ -102,7 +87,6 @@ namespace font {
         Array<Curve> curves{};
         Array<Line> lines{};
         Array<Component> components{};
-        // Array<Contour> contours;
         GlyphInfo info{};
         // Returns whether a point is inside the glyph.
         bool Inside(const vec2 &point) const;

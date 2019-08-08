@@ -19,61 +19,42 @@ void Manager::EventAssetAcquire() {
 }
 
 void Manager::EventInitialize() {
-    entities.Resize(6);
-    entities[0].physical.type = SEGMENT;
-    entities[0].physical.basis.segment.a = vec2(-64.0, -16.0);
-    entities[0].physical.basis.segment.b = vec2(64.0, -14.0);
+    Entity entity;
+    entity.physical.type = SEGMENT;
+    entity.physical.basis.segment.a = vec2(-64.0, -16.0);
+    entity.physical.basis.segment.b = vec2(64.0, -14.0);
+    entities.Create(entity);
 
-    entities[1].physical.type = CIRCLE;
-    entities[1].physical.basis.circle.c = vec2(64.0, 0.0);
-    entities[1].physical.basis.circle.r = 64.0;
+    entity.physical.type = CIRCLE;
+    entity.physical.basis.circle.c = vec2(64.0, 0.0);
+    entity.physical.basis.circle.r = 64.0;
+    entities.Create(entity);
 
-    entities[2].physical.type = BOX;
-    entities[2].physical.basis.box.a = vec2(-64.0, -64.0);
-    entities[2].physical.basis.box.b = vec2(128.0, 64.0);
+    entity.physical.type = BOX;
+    entity.physical.basis.box.a = vec2(-64.0, -64.0);
+    entity.physical.basis.box.b = vec2(128.0, 64.0);
+    entities.Create(entity);
 
-    entities[3].physical.type = SEGMENT;
-    entities[3].physical.basis.segment.a = vec2(0.0, 0.0);
-    entities[3].physical.basis.segment.b = vec2(128.0, 0.0);
+    entity.physical.type = SEGMENT;
+    entity.physical.basis.segment.a = vec2(0.0, 0.0);
+    entity.physical.basis.segment.b = vec2(128.0, 0.0);
+    entities.Create(entity);
 
-    entities[4].physical.type = CIRCLE;
-    entities[4].physical.basis.circle.c = vec2(0.0, 64.0);
-    entities[4].physical.basis.circle.r = 24.0;
+    entity.physical.type = CIRCLE;
+    entity.physical.basis.circle.c = vec2(0.0, 64.0);
+    entity.physical.basis.circle.r = 24.0;
+    entities.Create(entity);
 
-    entities[5].physical.type = BOX;
-    entities[5].physical.basis.box.a = vec2(-32.0, -128.0);
-    entities[5].physical.basis.box.b = vec2(32.0, 128.0);
-
-    for (i32 i = 0; i < 6; i++) {
-        entities[i].index = i;
-        entities[i].physical.pos = vec2(random(0.0, 1280.0, globals->rng), random(0.0, 720.0, globals->rng));
-        entities[i].physical.vel = vec2(0.0);// vec2(random(-15.0, 15.0, globals->rng), random(-15.0, 15.0, globals->rng));
-        entities[i].physical.rot = 0.0;// random(-0.2, 0.2, globals->rng);
-    }
+    entity.physical.type = BOX;
+    entity.physical.basis.box.a = vec2(-32.0, -128.0);
+    entity.physical.basis.box.b = vec2(32.0, 128.0);
+    entities.Create(entity);
 }
 
 void Manager::EventUpdate() {
     if (globals->gui.currentMenu != Int::MENU_PLAY) return;
-    if (globals->objects.Pressed(KC_KEY_R)) {
-        for (i32 i = 0; i < 6; i++) {
-            entities[i].physical.pos = vec2(random(0.0, 1280.0, globals->rng), random(0.0, 720.0, globals->rng));
-            // entities[i].physical.vel = vec2(random(-15.0, 15.0, globals->rng), random(-15.0, 15.0, globals->rng));
-            // entities[i].physical.rot = random(-0.2, 0.2, globals->rng);
-        }
-    }
-    if (selectedEntity != -1) {
-        entities[selectedEntity].physical.pos = vec2(globals->input.cursor);
-        if (globals->objects.Down(KC_KEY_LEFT)) {
-            entities[selectedEntity].physical.rot = pi;
-        } else if (globals->objects.Down(KC_KEY_RIGHT)) {
-            entities[selectedEntity].physical.rot = -pi;
-        } else {
-            entities[selectedEntity].physical.rot = 0.0;
-        }
-    }
-    for (i32 i = 0; i < entities.size; i++) {
-        entities[i].Update(globals->objects.timestep);
-    }
+    entities.Synchronize();
+    entities.Update(globals->objects.timestep);
     if (globals->gui.mouseoverDepth > 0) return; // Don't accept mouse input
     if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
         if (selectedEntity != -1) {
@@ -81,7 +62,7 @@ void Manager::EventUpdate() {
         } else {
             for (i32 i = 0; i < entities.size; i++) {
                 if (entities[i].physical.MouseOver()) {
-                    selectedEntity = i;
+                    selectedEntity = entities[i].id;
                     break;
                 }
             }
@@ -92,9 +73,7 @@ void Manager::EventUpdate() {
 void Manager::EventDraw(VkCommandBuffer commandBuffer) {
     if (globals->gui.currentMenu != Int::MENU_PLAY) return;
     globals->rendering.BindPipeline2D(commandBuffer);
-    for (i32 i = 0; i < entities.size; i++) {
-        entities[i].Draw(commandBuffer);
-    }
+    entities.Draw(commandBuffer);
 }
 
 bool AABB::Collides(const AABB &other) const {
@@ -411,14 +390,33 @@ void Physical::UpdateActual() const {
     updated = true;
 }
 
+void Entity::EventCreate() {
+    physical.pos = vec2(random(0.0, 1280.0, globals->rng), random(0.0, 720.0, globals->rng));
+    physical.angle = random(0.0, tau, globals->rng);
+}
+
 void Entity::Update(f32 timestep) {
     physical.Update(timestep);
     colliding = false;
     for (i32 i = 0; i < globals->entities.entities.size; i++) {
-        if (i == index) continue;
-        Entity &other = globals->entities.entities[i];
+        const Entity &other = globals->entities.entities[i];
+        if (other.id == id) continue;
         if (physical.Collides(other.physical)) {
             colliding = true;
+        }
+    }
+    if (globals->objects.Pressed(KC_KEY_R)) {
+        physical.pos = vec2(random(0.0, 1280.0, globals->rng), random(0.0, 720.0, globals->rng));
+        physical.angle = random(0.0, tau, globals->rng);
+    }
+    if (globals->entities.selectedEntity == id) {
+        physical.pos = vec2(globals->input.cursor);
+        if (globals->objects.Down(KC_KEY_LEFT)) {
+            physical.rot = pi;
+        } else if (globals->objects.Down(KC_KEY_RIGHT)) {
+            physical.rot = -pi;
+        } else {
+            physical.rot = 0.0;
         }
     }
 }
@@ -442,5 +440,64 @@ void Entity::Draw(VkCommandBuffer commandBuffer) {
         globals->rendering.DrawQuad(commandBuffer, globals->entities.texCircle, color, physical.pos, scale, vec2(1.0), -physical.basis.circle.c / scale + vec2(0.5), physical.angle);
     }
 }
+
+template<typename T>
+void DoubleBufferArray<T>::Update(f32 timestep) {
+    for (T &obj : array[buffer]) {
+        if (obj.id.generation >= 0)
+            obj.Update(timestep);
+    }
+}
+
+template<typename T>
+void DoubleBufferArray<T>::Draw(VkCommandBuffer commandBuffer) {
+    for (T& obj : array[!buffer]) {
+        if (obj.id.generation >= 0)
+            obj.Draw(commandBuffer);
+    }
+}
+
+template<typename T>
+void DoubleBufferArray<T>::Synchronize() {
+    buffer = globals->objects.buffer;
+
+    for (u16 &index : destroyed) {
+        // Make it negative and increment the generation
+        array[!buffer][index].id.generation = -(array[!buffer][index].id.generation+1);
+        empty.Append(index);
+    }
+    destroyed.Clear();
+    for (T &obj : created) {
+        if (empty.size > 0) {
+            obj.id.index = empty.Back();
+            obj.id.generation = -array[!buffer][obj.id.index].id.generation;
+            array[!buffer][obj.id.index] = std::move(obj);
+            empty.Erase(empty.size-1);
+        } else {
+            obj.id.index = array[!buffer].size;
+            array[!buffer].Append(std::move(obj));
+        }
+    }
+    created.Clear();
+    array[buffer] = array[!buffer];
+    size = array[0].size;
+}
+
+template<typename T>
+void DoubleBufferArray<T>::Create(T &obj) {
+    mutex.lock();
+    obj.EventCreate();
+    created.Append(obj);
+    mutex.unlock();
+}
+
+template<typename T>
+void DoubleBufferArray<T>::Destroy(Id id) {
+    mutex.lock();
+    destroyed.Append(id.index);
+    mutex.unlock();
+}
+
+template struct DoubleBufferArray<Entity>;
 
 } // namespace Objects

@@ -12,19 +12,6 @@
 
 namespace Entities {
 
-struct Entity;
-
-struct Manager : public Objects::Object {
-    Array<Entity> entities{};
-    i32 selectedEntity = -1;
-    i32 texCircle;
-    void EventAssetInit();
-    void EventAssetAcquire();
-    void EventInitialize();
-    void EventUpdate();
-    void EventDraw(VkCommandBuffer commandBuffer);
-};
-
 struct AABB {
     vec2 minPos, maxPos;
 
@@ -95,13 +82,94 @@ struct Physical {
     void UpdateActual() const;
 };
 
+/*  struct: Id
+    Author: Philip Haynes
+    Used to identify unique objects.    */
+struct Id {
+    // NOTE: We're limited to 65536 objects at once, which should be more than we'll ever need.
+    union {
+        i32 data;
+        struct {
+            u16 index;
+            i16 generation = 0; // If generation is negative, then the object doesn't exist.
+        };
+    };
+
+    Id() : data(0) {}
+    Id(const i32 &a) : data(a) {}
+    inline bool operator==(const Id &other) const {
+        return data == other.data;
+    }
+    inline bool operator!=(const Id &other) const {
+        return data != other.data;
+    }
+    inline Id& operator=(const i32 &a) {
+        data = a;
+        return *this;
+    }
+    inline Id& operator=(const Id &other) {
+        data = other.data;
+        return *this;
+    }
+};
+
+/*  struct: Entity
+    Author: Philip Haynes
+    Baseline entity. Anything in a DoubleBufferArray must be inherited from this.    */
 struct Entity {
-    i32 index;
+    Id id;
     Physical physical;
     bool colliding;
+    void EventCreate();
     void Update(f32 timestep);
     void Draw(VkCommandBuffer commandBuffer);
 };
+
+/*  struct: DoubleBufferArray
+    Author: Philip Haynes
+    Stores a copy of objects that are read-only and a copy that get updated.    */
+template<typename T>
+struct DoubleBufferArray {
+    // Data is stored in the balls.
+    Array<T> array[2];
+    // New objects created every frame, added during Synchronize.
+    Array<T> created;
+    // Indices of array that can be refilled
+    Array<u16> empty;
+    // Indices of array that must be destroyed during Synchronize.
+    Array<u16> destroyed;
+    // Used to synchronize access to created and destroyed
+    Mutex mutex;
+    i32 size = 0;
+    bool buffer = false;
+
+    void Update(f32 timestep);
+    void Draw(VkCommandBuffer commandBuffer);
+    // Done between frames. Must be done synchronously.
+    void Synchronize();
+    void Create(T &obj);
+    void Destroy(Id id);
+    // Provides read-only access for interactions
+    inline const T& operator[](const i32 &index) {
+        return array[!buffer][index];
+    }
+    inline const T& operator[](const Id &id) {
+        return array[!buffer][id.index];
+    }
+};
+
+struct Manager : public Objects::Object {
+    DoubleBufferArray<Entity> entities{};
+    Id selectedEntity = -1;
+    i32 texCircle;
+    void EventAssetInit();
+    void EventAssetAcquire();
+    void EventInitialize();
+    void EventUpdate();
+    void EventDraw(VkCommandBuffer commandBuffer);
+};
+
+extern template struct DoubleBufferArray<Entity>;
 
 } // namespace Entities
 

@@ -110,7 +110,7 @@ bool Font::Load(String filename) {
         return false;
     }
     fontBuilder.font = &font;
-    fontBuilder.AddRange(0, 255);
+    fontBuilder.AddRange(0, 128);
     if (!fontBuilder.Build()) {
         error = "Failed to load font: " + font::error;
         return false;

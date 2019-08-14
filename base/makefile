@@ -56,7 +56,7 @@ $(ODIR)/Windows/resources.o: $(IDIR)/resources.h $(SDIR)/resources.rc manifest.x
 	@mkdir -p $(@D)
 	$(WRC) -o $@ $(RCFLAGS)
 
-.PHONY: debugl debugw debug releasel releasew release all clean
+.PHONY: debugl debugw debug releasel releasew release all clean staticlibl staticlibdl staticlibw staticlibdw staticlibs
 
 debugl: $(OBJ_LD)
 
@@ -69,6 +69,20 @@ releasel: $(OBJ_L)
 releasew: $(OBJ_W) $(ODIR)/Windows/resources.o
 
 release: releasel releasew
+
+staticlibl: $(OBJ_L)
+	ar rcs lib/libAzCoreLinux.a $(OBJ_L)
+
+staticlibdl: $(OBJ_LD)
+	ar rcs lib/libAzCoreLinuxDebug.a $(OBJ_LD)
+
+staticlibw: $(OBJ_W)
+	ar rcs lib/libAzCoreWin32.a $(OBJ_W)
+
+staticlibdw: $(OBJ_WD)
+	ar rcs lib/libAzCoreWin32Debug.a $(OBJ_WD)
+
+staticlibs: staticlibl staticlibdl staticlibw staticlibdw
 
 all: debug release
 

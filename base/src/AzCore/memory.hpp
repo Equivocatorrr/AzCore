@@ -845,10 +845,7 @@ bool equals(const char *a, const char *b);
 WString ToWString(const char *string);
 WString ToWString(String string);
 
-// #include <vector>
-//
-// template<typename T>
-// using Array = std::vector<T>;
+String FormatTime(Nanoseconds time);
 
 #include <map>
 

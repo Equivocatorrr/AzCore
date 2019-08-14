@@ -948,24 +948,6 @@ void RenderThreadProc(FontBuilder *fontBuilder, Array<Glyph> *glyphsToAdd, const
     }
 }
 
-String FormatTime(Nanoseconds time) {
-    String out;
-    u64 count = time.count();
-    const u64 unitTimes[] = {UINT64_MAX, 60000000000, 1000000000, 1000000, 1000, 1};
-    const char *unitStrings[] = {"m", "s", "ms", "μs", "ns"};
-    bool addSpace = false;
-    for (u32 i = 0; i < 5; i++) {
-        if (count > unitTimes[i+1]) {
-            if (addSpace) {
-                out += ' ';
-            }
-            out += ToString((count%unitTimes[i])/unitTimes[i+1]) + unitStrings[i];
-            addSpace = true;
-        }
-    }
-    return out;
-}
-
 bool FontBuilder::Build() {
     if (font == nullptr) {
         error = "You didn't give FontBuilder a Font*!";

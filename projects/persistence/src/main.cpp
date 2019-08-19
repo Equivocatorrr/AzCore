@@ -38,11 +38,11 @@ Milliseconds totalTimeTaken(0);
 
 Array<String> successfulFactorizations{};
 
-const i32 minimumDigits = 128;
-// const i32 minimumDigits = 237;
+// const i32 minimumDigits = 200;
+const i32 minimumDigits = 237;
 const i32 minimumPermutationDigits = 17;
-const i32 maximumDigits = 128;
-// const i32 maximumDigits = 241;
+// const i32 maximumDigits = 200;
+const i32 maximumDigits = 237;
 const i32 numThreads = 1;
 
 Mutex threadControlMutex;
@@ -244,7 +244,7 @@ bool GetSingleDigitFactors(BigInt number, String *dstFactors) {
         bool keepGoing = true;
         while (keepGoing) {
             BigInt quotient;
-            u32 remainder;
+            u64 remainder;
             BigInt::QuotientAndRemainder(number, i, &quotient, &remainder);
             if (quotient < i) {
                 keepGoing = false;
@@ -357,7 +357,7 @@ u64 pow(const u64& base, const u64& exponent) {
 }
 
 void BigIntTest() {
-    BigInt test(BucketArray<u32, BIGINT_BUCKET_SIZE>({0, 1}));
+    BigInt test(BucketArray<u64, BIGINT_BUCKET_SIZE>({0, 1}));
     BigInt test2(2);
     cout << "test = " << test.HexString() << " and test2 = " << test2.HexString() << std::endl;
     cout << "test * test2 = " << (test * test2).HexString() << std::endl;
@@ -365,10 +365,10 @@ void BigIntTest() {
     cout << "test % test2 = " << (test % test2).HexString() << std::endl;
     cout << "test + test2 = " << (test + test2).HexString() << std::endl;
     cout << "test - test2 = " << (test - test2).HexString() << std::endl;
-    cout << "test2 << 16 = " << (test2 << 16).HexString() << std::endl;
-    cout << "test >> 16 = " << (test >> 16).HexString() << std::endl;
     cout << "test2 << 32 = " << (test2 << 32).HexString() << std::endl;
     cout << "test >> 32 = " << (test >> 32).HexString() << std::endl;
+    cout << "test2 << 64 = " << (test2 << 64).HexString() << std::endl;
+    cout << "test >> 64 = " << (test >> 64).HexString() << std::endl;
 }
 
 void CheckNumbersForHighPersistence() {

@@ -845,6 +845,8 @@ bool equals(const char *a, const char *b);
 WString ToWString(const char *string);
 WString ToWString(String string);
 
+#pragma pack(1)
+
 template<typename T, i32 count>
 struct BucketArray {
     T data[count];
@@ -1111,6 +1113,8 @@ struct BucketArray {
         return data[size-1];
     }
 };
+
+#pragma pack()
 
 #include <map>
 

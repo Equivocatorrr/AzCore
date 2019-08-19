@@ -7,48 +7,63 @@
 #ifndef BIGINT_HPP
 #define BIGINT_HPP
 
-#define BIGINT_BUCKET_SIZE 30
+#define BIGINT_BUCKET_SIZE 15
 
 #include "common.hpp"
 
+#pragma pack(1)
+
 class BigInt {
 public:
-    bool negative;
-    BucketArray<u32, BIGINT_BUCKET_SIZE> words;
-    inline BigInt() : negative(false), words(1, 0) {}
-    inline BigInt(const BigInt& a) : negative(a.negative), words(a.words) {}
+    BucketArray<u64, BIGINT_BUCKET_SIZE> words;
+    static_assert(sizeof(words) == 124);
+    u32 negative;
+    inline BigInt() : words(1, 0), negative(false) {}
+    inline BigInt(const BigInt& a) : words(a.words), negative(a.negative) {}
+    explicit inline BigInt(const u128& a, bool neg=false) { *this = a; negative = neg; }
     explicit inline BigInt(const u64& a, bool neg=false) { *this = a; negative = neg; }
     explicit inline BigInt(const u32& a, bool neg=false) { *this = a; negative = neg; }
     explicit inline BigInt(const i64& a) { *this = a; }
     explicit inline BigInt(const i32& a) { *this = a; }
-    explicit inline BigInt(const BucketArray<u32, BIGINT_BUCKET_SIZE>& init, bool neg=false) : negative(neg), words(init) {}
+    explicit inline BigInt(const BucketArray<u64, BIGINT_BUCKET_SIZE>& init, bool neg=false) : words(init), negative(neg) {}
     explicit BigInt(const String& string, bool neg=false, const u32 base=10);
     inline BigInt& operator=(const BigInt& a) {
         words = a.words;
         negative = a.negative;
         return *this;
     }
-    inline BigInt& operator=(const u64& a) {
-        u32 a2 = a >> 32;
-        if (a2 != 0) {
-            words = {(u32)a, a2};
+    inline BigInt& operator=(const u128& a) {
+        u64 a1 = a;
+        u64 a2 = a >> 64;
+        if (a2) {
+            words = {a1, a2};
         } else {
-            words = {(u32)a};
+            words = {a1};
         }
+        return *this;
+    }
+    inline BigInt& operator=(const u64& a) {
+        words = {a};
         return *this;
     }
     inline BigInt& operator=(const u32& a) {
         words = {a};
         return *this;
     }
+    inline BigInt& operator=(const i128& a) {
+        u64 a1 = a;
+        u64 a2 = (*((u64*)(&a)-1)) & 0x7fffffffffffffff;
+        if (a2) {
+            words = {a1, a2};
+        } else {
+            words = {a1};
+        }
+        negative = a < 0;
+        return *this;
+    }
     inline BigInt& operator=(const i64& a) {
         u64 aa = (*((u64*)(&a))) & 0x7fffffffffffffff;
-        u32 a2 = aa >> 32;
-        if (a2 != 0) {
-            words = {(u32)a, a2};
-        } else {
-            words = {(u32)a};
-        }
+        words = {aa};
         negative = a < 0;
         return *this;
     }
@@ -67,11 +82,11 @@ public:
         return negative == a.negative && words == a.words;
     }
 
-    bool operator>(const u32& a) const;
-    bool operator>=(const u32& a) const;
-    bool operator<(const u32& a) const;
-    bool operator<=(const u32& a) const;
-    inline bool operator==(const u32& a) const {
+    bool operator>(const u64& a) const;
+    bool operator>=(const u64& a) const;
+    bool operator<(const u64& a) const;
+    bool operator<=(const u64& a) const;
+    inline bool operator==(const u64& a) const {
         return words.size == 1 && negative == false && words[0] == a;
     }
 
@@ -79,7 +94,7 @@ public:
         return !(*this == a);
     }
 
-    inline bool operator!=(const u32& a) const {
+    inline bool operator!=(const u64& a) const {
         return !(*this == a);
     }
 
@@ -91,11 +106,11 @@ public:
     BigInt& operator/=(const BigInt& a);
     BigInt& operator%=(const BigInt& a);
 
-    BigInt& operator+=(const u32& a);
-    BigInt& operator-=(const u32& a);
-    BigInt& operator*=(const u32& a);
-    BigInt& operator/=(const u32& a);
-    BigInt& operator%=(const u32& a);
+    BigInt& operator+=(const u64& a);
+    BigInt& operator-=(const u64& a);
+    BigInt& operator*=(const u64& a);
+    BigInt& operator/=(const u64& a);
+    BigInt& operator%=(const u64& a);
 
     inline BigInt operator+(const BigInt& a) const {
         BigInt temp(*this);
@@ -123,34 +138,34 @@ public:
         return temp;
     }
 
-    inline BigInt operator+(const u32& a) const {
+    inline BigInt operator+(const u64& a) const {
         BigInt temp(*this);
         temp += a;
         return temp;
     }
-    inline BigInt operator-(const u32& a) const {
+    inline BigInt operator-(const u64& a) const {
         BigInt temp(*this);
         temp -= a;
         return temp;
     }
-    inline BigInt operator*(const u32& a) const {
+    inline BigInt operator*(const u64& a) const {
         BigInt temp(*this);
         temp *= a;
         return temp;
     }
-    inline BigInt operator/(const u32& a) const {
+    inline BigInt operator/(const u64& a) const {
         BigInt temp(*this);
         temp /= a;
         return temp;
     }
-    inline BigInt operator%(const u32& a) const {
+    inline BigInt operator%(const u64& a) const {
         BigInt temp(*this);
         temp %= a;
         return temp;
     }
 
     static void QuotientAndRemainder(const BigInt& a, const BigInt& b, BigInt *dstQuotient, BigInt *dstRemainder);
-    static void QuotientAndRemainder(const BigInt& a, const u32& b, BigInt *dstQuotient, u32 *dstRemainder);
+    static void QuotientAndRemainder(const BigInt& a, const u64& b, BigInt *dstQuotient, u64 *dstRemainder);
 
     BigInt& operator<<=(i32 i);
     BigInt& operator>>=(i32 i);

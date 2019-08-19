@@ -1,37 +1,7 @@
 #include "bigint.hpp"
 
-BigInt::BigInt() : negative(false) , words()  {}
-
-BigInt::BigInt(const BigInt& a) : negative(false) , words()  {
-    *this = a;
-}
-
-BigInt::BigInt(const BigInt&& a) : negative(false) , words()  {
-    *this = a;
-}
-
-BigInt::BigInt(const u64& a, bool neg) : negative(false) , words()  {
-    *this = a;
-    negative = neg;
-}
-
-BigInt::BigInt(const u32& a, bool neg) : negative(false) , words()  {
-    *this = a;
-    negative = neg;
-}
-
-BigInt::BigInt(const i64& a) : negative(false) , words()  {
-    *this = a;
-}
-
-BigInt::BigInt(const i32& a) : negative(false) , words()  {
-    *this = a;
-}
-
-BigInt::BigInt(const Array<u32>& init, bool neg) : negative(neg) , words(init) {}
-
 BigInt::BigInt(const String& string, bool neg, const u32 base) : negative(false) , words() {
-    BigInt mul = 1u;
+    BigInt mul(1u);
     u32 mulCache = 1;
     u32 cache = 0;
     for (i32 i = string.size-1; i >= 0; i--) {
@@ -53,54 +23,6 @@ BigInt::BigInt(const String& string, bool neg, const u32 base) : negative(false)
         *this += mul * cache;
     }
     negative = neg;
-}
-
-BigInt& BigInt::operator=(const BigInt& a) {
-    words = a.words;
-    negative = a.negative;
-    return *this;
-}
-
-BigInt& BigInt::operator=(const u64& a) {
-    i32 s;
-    for (s = 1; s >= 0; s--) {
-        if ((a & (0xFFFFFFFFull << (s*32))) != 0) {
-            break;
-        }
-    }
-    words.Resize(s+1);
-    for (; s >= 0; s--) {
-        words[s] = (u32)(a >> (s*32));
-    }
-    return *this;
-}
-
-BigInt& BigInt::operator=(const u32& a) {
-    words = {a};
-    return *this;
-}
-
-BigInt& BigInt::operator=(const i64& a) {
-    u64 aa = (*((u64*)(&a))) & 0x7fffffffffffffff;
-    i32 s;
-    for (s = 1; s >= 0; s--) {
-        if ((aa & (0xFFFFFFFFull << (s*32))) != 0) {
-            break;
-        }
-    }
-    words.Resize(s+1);
-    for (; s >= 0; s--) {
-        words[s] = (u32)(aa >> (s*32));
-    }
-    negative = a < 0;
-    return *this;
-}
-
-BigInt& BigInt::operator=(const i32& a) {
-    u32 aa = (*((u32*)(&a))) & 0x7fffffff; // reinterpret_cast doesn't let me do this >:(
-    words = {aa};
-    negative = a < 0;
-    return *this;
 }
 
 bool BigInt::operator>(const BigInt& a) const {
@@ -193,23 +115,6 @@ bool BigInt::operator<=(const BigInt& a) const {
     return true;
 }
 
-bool BigInt::operator==(const BigInt& a) const {
-    if (words.size == a.words.size) {
-        if (words.size == 1 && words[0] == 0 && a.words[0] == 0) {
-            return true;
-        } else if (negative != a.negative) {
-            return false;
-        }
-        for (i32 i = words.size-1; i >= 0; i--) {
-            if (words[i] != a.words[i]) {
-                return false;
-            }
-        }
-        return true;
-    }
-    return false;
-}
-
 bool BigInt::operator>(const u32& a) const {
     if (*this == a) {
         return false;
@@ -292,20 +197,6 @@ bool BigInt::operator<=(const u32& a) const {
     return true;
 }
 
-bool BigInt::operator==(const u32& a) const {
-    if (words.size == 1) {
-        if (words[0] == 0 && a == 0) {
-            return true;
-        } else if (negative) {
-            return false;
-        } else if (words[0] != a) {
-            return false;
-        }
-        return true;
-    }
-    return false;
-}
-
 BigInt BigInt::operator-() const {
     BigInt temp(*this);
     temp.negative = !negative;
@@ -320,8 +211,9 @@ BigInt& BigInt::operator+=(const BigInt& a) {
             return *this -= -a;
         }
     }
-    u32 newSize = max(words.size, a.words.size);
-    words.Resize(newSize);
+    if (a.words.size > words.size) {
+        words.Resize(a.words.size, 0);
+    }
     u64 dword = 0; // Used to carry between words.
     i32 i;
     for (i = 0; i < words.size; i++) {
@@ -402,7 +294,7 @@ BigInt& BigInt::operator*=(const BigInt& a) {
     }
     bool neg = negative != a.negative;
     negative = false;
-    Array<u32> wordsTemp(words);
+    BucketArray<u32, BIGINT_BUCKET_SIZE> wordsTemp(words);
     words = {0};
     for (i32 i = 0; i < wordsTemp.size; i++) {
         const u64 x = wordsTemp[i];
@@ -429,9 +321,9 @@ BigInt& BigInt::operator/=(const BigInt& a) {
     if (divisor == *this) {
         return *this = 1u;
     }
-    BigInt taken(0u);
+    BigInt taken(0);
     i32 startingI = words.size*32-1;
-    for (; (words[startingI/32] & (1 << startingI%32)) == 0;) { startingI--; }
+    for (; (words[startingI/32] & (1u << startingI%32)) == 0;) { startingI--; }
     for (i32 i = 0; i < words.size; i++) {
         words[i] = 0;
     }
@@ -441,7 +333,7 @@ BigInt& BigInt::operator/=(const BigInt& a) {
         shifted >>= 1;
         if (added <= dividend) {
             taken = added;
-            words[i/32] |= 1 << (i%32);
+            words[i/32] |= 1u << (i%32);
         }
     }
     negative = neg;
@@ -494,7 +386,7 @@ void BigInt::QuotientAndRemainder(const BigInt &a, const BigInt &b, BigInt *dstQ
         return;
     }
     BigInt taken(0u);
-    dstQuotient->words = Array<u32>(a.words.size, 0);
+    dstQuotient->words = BucketArray<u32, BIGINT_BUCKET_SIZE>(a.words.size, 0);
     i32 startingI = a.words.size*32-1;
     for (; (a.words[startingI/32] & (1 << startingI%32)) == 0;) { startingI--; }
     BigInt shifted = divisor << startingI;
@@ -515,11 +407,11 @@ BigInt& BigInt::operator+=(const u32& a) {
     if (negative) {
         return *this = (BigInt(a) - -*this);
     }
-    u32 newSize = max((u32)words.size, a == 0u ? 0u : 1u);
+    i32 newSize = max((u32)words.size, a == 0u ? 0u : 1u);
     if (newSize == 0) {
         return *this;
     }
-    words.Resize(newSize);
+    words.Resize(newSize, 0);
     u64 dword = a; // Used to carry between words.
     i32 i;
     for (i = 0; i < words.size; i++) {
@@ -600,7 +492,7 @@ BigInt& BigInt::operator*=(const u32& a) {
     } else if (*this == 0) {
         return *this;
     }
-    Array<u32> wordsTemp = words;
+    BucketArray<u32, BIGINT_BUCKET_SIZE> wordsTemp = words;
     words = {0};
     for (i32 i = 0; i < wordsTemp.size; i++) {
         const u64 mul = u64(wordsTemp[i]) * (u64)a;
@@ -692,7 +584,7 @@ void BigInt::QuotientAndRemainder(const BigInt &a, const u32 &b, BigInt *dstQuot
     }
     const BigInt divisor(b);
     BigInt taken(0u);
-    dstQuotient->words = Array<u32>(a.words.size, 0);
+    dstQuotient->words = BucketArray<u32, BIGINT_BUCKET_SIZE>(a.words.size, 0);
     i32 startingI = dividend.words.size*32-1;
     for (; (dividend.words[startingI/32] & (1 << startingI%32)) == 0;) { startingI--; }
     BigInt shifted = divisor << startingI;
@@ -721,9 +613,9 @@ BigInt& BigInt::operator<<=(i32 i) {
     // Now it's time for some hacky bullshittery
     u32 carry = 0;
     for (i32 x = 0; x < words.size; x++) {
-        u64 buf = u64(words[x]) << i;
-        words[x] = (u32)buf | carry;
-        carry = buf >> 32;
+        u32 buf = (words[x] << i) | carry;
+        carry = words[x] >> (32-i);
+        words[x] = buf;
     }
     if (carry != 0) {
         words.Append(carry);
@@ -747,9 +639,9 @@ BigInt& BigInt::operator>>=(i32 i) {
         return *this;
     u32 carry = 0;
     for (i32 x = words.size-1; x >= 0; x--) {
-        u64 buf = u64(words[x]) << (32-i);
-        words[x] = (u32)(buf>>32) | carry;
-        carry = buf;
+        u32 buf = (words[x] >> i) | carry;
+        carry = words[x] << (32-i);
+        words[x] = buf;
     }
     if (words.size > 1 && words[words.size-1] == 0) {
         words.Erase(words.size-1);

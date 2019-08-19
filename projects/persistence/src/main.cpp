@@ -38,10 +38,12 @@ Milliseconds totalTimeTaken(0);
 
 Array<String> successfulFactorizations{};
 
-const i32 minimumDigits = 237;
+const i32 minimumDigits = 128;
+// const i32 minimumDigits = 237;
 const i32 minimumPermutationDigits = 17;
-const i32 maximumDigits = 237;
-const i32 numThreads = 4;
+const i32 maximumDigits = 128;
+// const i32 maximumDigits = 241;
+const i32 numThreads = 1;
 
 Mutex threadControlMutex;
 u32 activeThreads = 0;
@@ -85,7 +87,7 @@ u32 persistence(BigInt number, u32 iteration=0) {
     if (iteration == 1 && (u32)numString.size > biggestSecondIterationNumberDigits) {
         biggestSecondIterationNumberDigits = numString.size;
     }
-    BigInt newNumber = 1;
+    BigInt newNumber(1);
     u32 cache = 1;
     for (char& c : numString) {
         if (c == '0') {
@@ -112,7 +114,7 @@ u32 persistence(String number, u32 iteration=0) {
     if (number.size <= 1) {
         return iteration;
     }
-    BigInt newNumber = 1;
+    BigInt newNumber(1);
     u32 cache = 1;
     for (char& c : number) {
         if (c == '0') {
@@ -206,15 +208,15 @@ void GetRequiredPersistenceChecks(u32 minDigits, u32 maxDigits, u32 currentDigit
     }
 }
 
-Array<u64> GetPrimeFactors(BigInt number) {
+Array<u128> GetPrimeFactors(BigInt number) {
     #include "tenThousandPrimes.cpp"
-    Array<u64> factors{};
+    Array<u128> factors{};
     bool fullStop = false;
     for (i32 i = 0; i < primes.size && !fullStop; i++) {
         bool keepGoing = true;
         while (keepGoing) {
             BigInt quotient, remainder;
-            BigInt::QuotientAndRemainder(number, primes[i], &quotient, &remainder);
+            BigInt::QuotientAndRemainder(number, BigInt(primes[i]), &quotient, &remainder);
             if (quotient < primes[i]) {
                 fullStop = true;
                 keepGoing = false;
@@ -230,7 +232,7 @@ Array<u64> GetPrimeFactors(BigInt number) {
     if (number > 1) {
         u64 leftOver = number.words[0];
         if (number.words.size > 1) {
-            leftOver += u64(number.words[1]) << 32;
+            leftOver += (u64)number.words[1] << 32;
         }
         factors.Append(leftOver);
     }
@@ -273,7 +275,7 @@ bool CheckAllRearrangements(const DigitCounts& digits, String number=String()) {
     }
     if (constructed) {
         String factors;
-        if (GetSingleDigitFactors(number, &factors)) {
+        if (GetSingleDigitFactors(BigInt(number), &factors)) {
             cout.MutexLock();
             successfulFactorizations.Append(factors);
             cout << "\n\n\n\nWe found one!!! It's " << number << " and it has the factors: ";
@@ -339,7 +341,7 @@ void ThreadProc2(const String& number) {
 }
 
 BigInt factorial(u32 a) {
-    BigInt answer = a;
+    BigInt answer(a);
     while (a-- > 2) {
         answer *= a;
     }
@@ -355,14 +357,16 @@ u64 pow(const u64& base, const u64& exponent) {
 }
 
 void BigIntTest() {
-    BigInt test(Array<u32>({0, 1}));
-    BigInt test2 = 2;
+    BigInt test(BucketArray<u32, BIGINT_BUCKET_SIZE>({0, 1}));
+    BigInt test2(2);
     cout << "test = " << test.HexString() << " and test2 = " << test2.HexString() << std::endl;
     cout << "test * test2 = " << (test * test2).HexString() << std::endl;
     cout << "test / test2 = " << (test / test2).HexString() << std::endl;
     cout << "test % test2 = " << (test % test2).HexString() << std::endl;
     cout << "test + test2 = " << (test + test2).HexString() << std::endl;
     cout << "test - test2 = " << (test - test2).HexString() << std::endl;
+    cout << "test2 << 16 = " << (test2 << 16).HexString() << std::endl;
+    cout << "test >> 16 = " << (test >> 16).HexString() << std::endl;
     cout << "test2 << 32 = " << (test2 << 32).HexString() << std::endl;
     cout << "test >> 32 = " << (test >> 32).HexString() << std::endl;
 }
@@ -469,9 +473,9 @@ void CheckHighPersistenceNumbersForSingleDigitFactorability() {
             return;
         }
         cout << "Number " << allPersistenceElevenNumbers[i] << " has " << ToString(permutationCount) << " permutations." << std::endl;
-        remainingRearrangementChecks += (u64)permutationCount.words[0];
+        remainingRearrangementChecks += permutationCount.words[0];
         if (permutationCount.words.size == 2) {
-            remainingRearrangementChecks += ((u64)permutationCount.words[1]) << 32;
+            remainingRearrangementChecks += (u64)permutationCount.words[1] << 32;
         }
     }
 
@@ -516,5 +520,6 @@ void CheckHighPersistenceNumbersForSingleDigitFactorability() {
 }
 
 i32 main(i32 argumentCount, char** argumentValues) {
+    BigIntTest();
     CheckNumbersForHighPersistence();
 }

@@ -815,11 +815,6 @@ struct Array {
     }
 };
 
-// #include <string>
-//
-// using String = std::string;
-// using WString = std::wstring;
-
 using String = Array<char, 1>;
 using WString = Array<char32, 1>;
 
@@ -830,10 +825,13 @@ WString operator+(const char32* cString, const WString& string);
 
 String ToString(const u32& value, i32 base=10);
 String ToString(const u64& value, i32 base=10);
+String ToString(const u128& value, i32 base=10);
 String ToString(const i32& value, i32 base=10);
 String ToString(const i64& value, i32 base=10);
+String ToString(const i128& value, i32 base=10);
 String ToString(const f32& value, i32 base=10);
 String ToString(const f64& value, i32 base=10);
+String ToString(const f128& value, i32 base=10);
 
 inline bool operator==(const char *b, const String& a) {
     return a == b;

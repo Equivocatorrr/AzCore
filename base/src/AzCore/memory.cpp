@@ -246,6 +246,26 @@ String ToString(const u64& value, i32 base) {
     return out.Reverse();
 }
 
+String ToString(const u128& value, i32 base) {
+    if (value == 0) {
+        return "0";
+    }
+    String out;
+    out.Reserve(i32((f32)log((f64)value) / log((f32)base))+1);
+    u128 remaining = value;
+    while (remaining != 0) {
+        u128 quot = remaining/base;
+        u128 rem  = remaining%base;
+        if (base > 10) {
+            out.Append(rem > 9 ? char(rem+'a'-10) : char(rem+'0'));
+        } else {
+            out.Append(char(rem+'0'));
+        }
+        remaining = quot;
+    }
+    return out.Reverse();
+}
+
 String ToString(const i32& value, i32 base) {
     if (value == 0) {
         return "0";
@@ -294,10 +314,31 @@ String ToString(const i64& value, i32 base) {
     return out.Reverse();
 }
 
-#include <cstdio> // For sprintf, as long as my own float to string implementation doesn't quite work.
+String ToString(const i128& value, i32 base) {
+    if (value == 0) {
+        return "0";
+    }
+    String out;
+    out.Reserve(i32((f32)log((f64)value) / log((f32)base))+1);
+    bool negative = value < 0;
+    i128 remaining = abs(value);
+    while (remaining != 0) {
+        i128 quot = remaining/base;
+        i128 rem  = remaining%base;
+        if (base > 10) {
+            out.Append(rem > 9 ? char(rem+'a'-10) : char(rem+'0'));
+        } else {
+            out.Append(char(rem+'0'));
+        }
+        remaining = quot;
+    }
+    if (negative) {
+        out += '-';
+    }
+    return out.Reverse();
+}
 
 String ToString(const f32& value, i32 base) {
-    // TODO: Finish this implementation since sprintf can't do bases other than 10 and 16
     u32 byteCode;
     memcpy((void*)&byteCode, (void*)&value, sizeof(byteCode));
     const bool negative = (byteCode & 0x80000000) != 0;
@@ -320,51 +361,74 @@ String ToString(const f32& value, i32 base) {
     if (exponent == 150) {
         return ToString(negative ? -(i32)significand : (i32)significand, base) + ".0";
     }
-    // String iString(false), fString(false);
-    // if (exponent >= 127) {
-    //     BigInt iPart(significand);
-    //     iPart <<= (i32)exponent-150;
-    //     iString = ToString(iPart, base);
-    // } else {
-    //     iString = "0";
-    // }
-    // if (exponent < 150) {
-    //     u32 significandReversed = 0;
-    //     for (u32 i = 0; i < 24; i++) {
-    //         if (significand & (1 << i)) {
-    //             significandReversed |= 1 << (23-i);
-    //         }
-    //     }
-    //     // significandReversed = (1 << 24) - significandReversed;
-    //     BigInt fPart(significandReversed);
-    //     fPart >>= (i32)exponent - 126;
-    //     if (fPart == 0) {
-    //         fString = "0";
-    //     } else {
-    //         fString = ToString(fPart, base).Reverse() + " " + ToString(significandReversed, 16);
-    //     }
-    // } else {
-    //     fString = "0";
-    // }
-    // if (negative) {
-    //     return "-" + std::move(iString) + "." + std::move(fString) + " " + ToString(significand, 16);
-    // } else {
-    //     return std::move(iString) + "." + std::move(fString) + " " + ToString(significand, 16);
-    // }
     String out;
-    char buffer[64];
-    i32 i = sprintf(buffer, "%.8f", value) - 1;
-    for (; buffer[i] == '0'; i--) {}
-    if (buffer[i] == '.') {
+    out.Reserve(12);
+    f32 basis = 1.0;
+    f32 remaining = value;
+    if (remaining < 0.0) {
+        remaining = -remaining;
+        out += '-';
+    }
+    i32 newExponent = 0;
+    bool point = false;
+    if (remaining >= 1.0) {
+        while(true) {
+            f32 newBasis = basis * base;
+            if (newBasis > remaining) {
+                break;
+            } else {
+                newExponent++;
+                basis = newBasis;
+            }
+        }
+    } else {
+        while(true) {
+            basis /= base;
+            newExponent--;
+            if (basis <= remaining) {
+                break;
+            }
+        }
+    }
+    f32 crossover;
+    if (newExponent > 7 || newExponent < -1) {
+        crossover = basis/base;
+    } else {
+        if (remaining < 1.0) {
+            out += "0.";
+            point = true;
+            for (i32 i = 2; i < newExponent; i++) {
+                out += '0';
+            }
+        }
+        crossover = 1.0/base;
+    }
+    for (i32 count = 8; count > 0; count--) {
+        i32 digit = remaining / basis;
+        out += digit >= 10 ? (digit+'A'-10) : (digit+'0');
+        remaining -= basis * (f32)digit;
+        basis /= base;
+        if (!point && basis <= crossover) {
+            out += '.';
+            point = true;
+        }
+    }
+    i32 i = out.size-1;
+    for (; out[i] == '0'; i--) {}
+    if (out[i] == '.') {
         i++; // Leave 1 trailing zero
     }
-    buffer[i+1] = 0;
-    out += buffer;
+    out.Resize(i+1);
+    if (newExponent > 7) {
+        out += "e+" + ToString(newExponent);
+    } else if (newExponent < -1) {
+        out += "e-" + ToString(-newExponent);
+    }
+
     return out;
 }
 
 String ToString(const f64& value, i32 base) {
-    // TODO: Finish this implementation since sprintf can't do bases other than 10 and 16
     u64 byteCode;
     memcpy((void*)&byteCode, (void*)&value, sizeof(byteCode));
     const bool negative = (byteCode & 0x8000000000000000) != 0;
@@ -388,14 +452,161 @@ String ToString(const f64& value, i32 base) {
         return ToString(negative ? -(i64)significand : (i64)significand, base) + ".0";
     }
     String out;
-    char buffer[128];
-    i32 i = sprintf(buffer, "%.16f", value) - 1;
-    for (; buffer[i] == '0'; i--) {}
-    if (buffer[i] == '.') {
+    out.Reserve(24);
+    f64 basis = 1.0;
+    f64 remaining = value;
+    if (remaining < 0.0) {
+        remaining = -remaining;
+        out += '-';
+    }
+    i32 newExponent = 0;
+    bool point = false;
+    if (remaining >= 1.0) {
+        while(true) {
+            f64 newBasis = basis * base;
+            if (newBasis > remaining) {
+                break;
+            } else {
+                newExponent++;
+                basis = newBasis;
+            }
+        }
+    } else {
+        while(true) {
+            basis /= base;
+            newExponent--;
+            if (basis <= remaining) {
+                break;
+            }
+        }
+    }
+    f64 crossover;
+    if (newExponent > 15 || newExponent < -1) {
+        crossover = basis/base;
+    } else {
+        if (remaining < 1.0) {
+            out += "0.";
+            point = true;
+            for (i32 i = 2; i < newExponent; i++) {
+                out += '0';
+            }
+        }
+        crossover = 1.0/base;
+    }
+    for (i32 count = 16; count > 0; count--) {
+        i32 digit = remaining / basis;
+        out += digit >= 10 ? (digit+'A'-10) : (digit+'0');
+        remaining -= basis * (f64)digit;
+        basis /= base;
+        if (!point && basis <= crossover) {
+            out += '.';
+            point = true;
+        }
+    }
+    i32 i = out.size-1;
+    for (; out[i] == '0'; i--) {}
+    if (out[i] == '.') {
         i++; // Leave 1 trailing zero
     }
-    buffer[i+1] = 0;
-    out += buffer;
+    out.Resize(i+1);
+    if (newExponent > 15) {
+        out += "e+" + ToString(newExponent);
+    } else if (newExponent < -1) {
+        out += "e-" + ToString(-newExponent);
+    }
+
+    return out;
+}
+
+String ToString(const f128& value, i32 base) {
+    u128 byteCode;
+    memcpy((void*)&byteCode, (void*)&value, sizeof(byteCode));
+    const bool negative = (byteCode >> 127) != 0;
+    i16 exponent = (byteCode >> 112) & 0x7fff;
+    u128 significand = (byteCode << 16) >> 16 | ((u128)1 << 112); // Get our implicit bit in there.
+    if (exponent == 0x0) {
+        if (significand == (u128)1 << 112) {
+            return negative ? "-0.0" : "0.0";
+        } else {
+            significand = (byteCode << 16) >> 16; // Get that implicit bit out of here!
+        }
+    }
+    if (exponent == 0x7fff) {
+        if (significand == (u128)1 << 112) {
+            return negative ? "-Infinity" : "Infinity";
+        } else {
+            return negative ? "-NaN" : "NaN";
+        }
+    }
+    exponent -= 16383;
+    if (exponent == 112) {
+        return ToString((negative ? -(i128)significand : (i128)significand) >> (112-exponent), base) + ".0";
+    }
+    String out;
+    out.Reserve(40);
+
+    f128 basis = 1.0;
+    f128 remaining = value;
+    if (remaining < 0.0) {
+        remaining = -remaining;
+        out += '-';
+    }
+    i32 newExponent = 0;
+    bool point = false;
+    if (remaining >= 1.0) {
+        while(true) {
+            f128 newBasis = basis * base;
+            if (newBasis > remaining) {
+                break;
+            } else {
+                newExponent++;
+                basis = newBasis;
+            }
+        }
+    } else {
+        while(true) {
+            basis /= base;
+            newExponent--;
+            if (basis <= remaining) {
+                break;
+            }
+        }
+    }
+    f128 crossover;
+    if (newExponent > 33 || newExponent < -1) {
+        crossover = basis/base;
+    } else {
+        if (remaining < 1.0) {
+            out += "0.";
+            point = true;
+            for (i32 i = 2; i < newExponent; i++) {
+                out += '0';
+            }
+        }
+        crossover = 1.0/base;
+    }
+    for (i32 count = 34; count > 0; count--) {
+        i32 digit = remaining / basis;
+        out += digit >= 10 ? (digit+'A'-10) : (digit+'0');
+        remaining -= basis * (f128)digit;
+        basis /= base;
+        if (!point && basis <= crossover) {
+            out += '.';
+            point = true;
+        }
+    }
+    i32 i = out.size-1;
+    for (; out[i] == '0'; i--) {}
+    if (out[i] == '.') {
+        i++; // Leave 1 trailing zero
+    }
+    out.Resize(i+1);
+    if (newExponent > 33) {
+        out += "e+" + ToString(newExponent);
+    } else if (newExponent < -1) {
+        out += "e-" + ToString(-newExponent);
+    }
+
     return out;
 }
 

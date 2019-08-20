@@ -3,8 +3,8 @@ SDIR=src
 ODIR=obj
 
 CC=g++
-WCC=i686-w64-mingw32-g++
-WRC=i686-w64-mingw32-windres $(SDIR)/resources.rc -O coff
+WCC=x86_64-w64-mingw32-g++
+WRC=x86_64-w64-mingw32-windres $(SDIR)/resources.rc -O coff
 RCFLAGS=-I $(IDIR)
 CFLAGS=-I$(IDIR) -Wall -std=c++17 -fsingle-precision-constant -DIO_FOR_VULKAN
 LCFLAGS=-Wl,-z,origin -Wl,-rpath,'$$ORIGIN/lib'
@@ -52,7 +52,7 @@ $(ODIR)/Windows/Release/%.o: $(SDIR)/AzCore/%.cpp $(DEPS)
 	@mkdir -p $(@D)
 	$(WCC) -c -o $@ $< -O2 $(CFLAGS) -DNDEBUG
 
-$(ODIR)/Windows/resources.o: $(IDIR)/resources.h $(SDIR)/resources.rc manifest.xml icon.ico
+$(ODIR)/Windows/resources.o: $(IDIR)/resources.h $(SDIR)/resources.rc manifest.xml icon.ico $(DEPS)
 	@mkdir -p $(@D)
 	$(WRC) -o $@ $(RCFLAGS)
 

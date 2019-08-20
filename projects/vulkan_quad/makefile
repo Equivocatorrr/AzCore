@@ -8,8 +8,8 @@ SDIR=src
 ODIR=obj
 
 CC=g++
-WCC=i686-w64-mingw32-g++
-WRC=i686-w64-mingw32-windres $(SDIR)/resources.rc -O coff
+WCC=x86_64-w64-mingw32-g++
+WRC=x86_64-w64-mingw32-windres $(SDIR)/resources.rc -O coff
 RCFLAGS=-I $(IDIR)
 CFLAGS=-I$(IDIR) -I$(AZCORE_BASE)/src -Wall -std=c++17 -fsingle-precision-constant -DIO_FOR_VULKAN
 LCFLAGS=-Wl,-z,origin -Wl,-rpath,'$$ORIGIN/lib'
@@ -19,7 +19,7 @@ WCFLAGS=-D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -static -lpthr
 WINDOWS_RESOURCES = $(ODIR)/Windows/resources.o
 WINDOWS_MANIFEST = $(AZCORE_BASE)/manifest.xml
 WINDOWS_ICON = $(AZCORE_BASE)/icon.ico
-$(ODIR)/Windows/resources.o: $(IDIR)/resources.h $(SDIR)/resources.rc $(WINDOWS_MANIFEST) $(WINDOWS_ICON)
+$(ODIR)/Windows/resources.o: $(IDIR)/resources.h $(SDIR)/resources.rc $(WINDOWS_MANIFEST) makefile $(WINDOWS_ICON)
 	$(WRC) -o $@ $(RCFLAGS)
 # You can use the base one from AzCore by uncommenting this
 #WINDOWS_RESOURCES = $(AZCORE_BASE)/obj/Windows/resources.o
@@ -28,7 +28,7 @@ WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.1.82.0
 
 LIBS_L=-lvulkan -lxcb -levdev -lpthread -lxkbcommon -lxkbcommon-x11 -lxcb-xkb
 LIBS_L_GLX= $(LIBS_L) -lX11 -lX11-xcb
-LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib32/" -lvulkan-1 -lgdi32 -ldinput8 -ldxguid
+LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib/" -lvulkan-1 -lgdi32 -ldinput8 -ldxguid
 
 _DEPS =
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS)) makefile
@@ -82,11 +82,11 @@ azcoredw:
 
 _debugl: $(OBJ_LD) azcoredl
 	@mkdir -p  $(BDIR)/Linux/Debug
-	g++ -o $(BDIR)/Linux/Debug/$(APPNAME) $(OBJ_LD) $(AZCORE_OBJ_LD) -g -rdynamic $(CFLAGS) $(LCFLAGS) $(LIBS_L)
+	$(CC) -o $(BDIR)/Linux/Debug/$(APPNAME) $(OBJ_LD) $(AZCORE_OBJ_LD) -g -rdynamic $(CFLAGS) $(LCFLAGS) $(LIBS_L)
 
 _debugw: $(OBJ_WD) $(WINDOWS_RESOURCES) azcoredw
 	@mkdir -p $(BDIR)/Windows/Debug
-	i686-w64-mingw32-g++ -o $(BDIR)/Windows/Debug/$(APPNAME).exe $(OBJ_WD) $(WINDOWS_RESOURCES) $(AZCORE_OBJ_WD) -g $(CFLAGS) $(WCFLAGS) $(LIBS_W)
+	$(WCC) -o $(BDIR)/Windows/Debug/$(APPNAME).exe $(OBJ_WD) $(WINDOWS_RESOURCES) $(AZCORE_OBJ_WD) -g $(CFLAGS) $(WCFLAGS) $(LIBS_W)
 
 debugl: _debugl shaders
 
@@ -96,11 +96,11 @@ debug: _debugl _debugw shaders
 
 _releasel: $(OBJ_L) azcorel
 	@mkdir -p $(BDIR)/Linux/Release
-	g++ -o $(BDIR)/Linux/Release/$(APPNAME) $(OBJ_L) $(AZCORE_OBJ_L) $(CFLAGS) $(LCFLAGS) $(LIBS_L)
+	$(CC) -o $(BDIR)/Linux/Release/$(APPNAME) $(OBJ_L) $(AZCORE_OBJ_L) $(CFLAGS) $(LCFLAGS) $(LIBS_L)
 
 _releasew: $(OBJ_W) $(WINDOWS_RESOURCES) azcorew
 	@mkdir -p $(BDIR)/Windows/Release
-	i686-w64-mingw32-g++ -o $(BDIR)/Windows/Release/$(APPNAME).exe $(OBJ_W) $(WINDOWS_RESOURCES) $(AZCORE_OBJ_W) $(CFLAGS) $(WCFLAGS) -mwindows $(LIBS_W)
+	$(WCC) -o $(BDIR)/Windows/Release/$(APPNAME).exe $(OBJ_W) $(WINDOWS_RESOURCES) $(AZCORE_OBJ_W) $(CFLAGS) $(WCFLAGS) -mwindows $(LIBS_W)
 
 releasel: azcorel _releasel shaders
 

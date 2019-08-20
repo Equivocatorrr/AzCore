@@ -2,17 +2,17 @@
 
 BigInt::BigInt(const String& string, bool neg, const u32 base) : words(), negative(false) {
     BigInt mul(1u);
-    u32 mulCache = 1;
-    u32 cache = 0;
+    u64 mulCache = 1;
+    u64 cache = 0;
     for (i32 i = string.size-1; i >= 0; i--) {
         const char& c = string[i];
         if (base <= 10) { // This should get optimized out
-            cache += u32(c-'0') * mulCache;
+            cache += u64(c-'0') * mulCache;
         } else {
-            cache += u32(c < 'a' ? (c-'0') : (c-'a'+10)) * mulCache;
+            cache += u64(c < 'a' ? (c-'0') : (c-'a'+10)) * mulCache;
         }
         mulCache *= base;
-        if (mulCache > UINT32_MAX/base) {
+        if (mulCache > UINT64_MAX/base) {
             *this += mul * cache;
             mul *= mulCache;
             mulCache = 1;
@@ -415,14 +415,14 @@ BigInt& BigInt::operator+=(const u64& a) {
     i32 i;
     for (i = 0; i < words.size; i++) {
         dword += words[i];
-        words[i] = dword;
+        words[i] = (u64)dword;
         dword >>= 64;
         if (dword == 0) {
             break;
         }
     }
     if (dword != 0) {
-        words.Append(dword);
+        words.Append((u64)dword);
     }
     return *this;
 }

@@ -38,12 +38,12 @@ Milliseconds totalTimeTaken(0);
 
 Array<String> successfulFactorizations{};
 
-// const i32 minimumDigits = 200;
-const i32 minimumDigits = 237;
+const i32 minimumDigits = 2;
+// const i32 minimumDigits = 237;
 const i32 minimumPermutationDigits = 17;
-// const i32 maximumDigits = 200;
-const i32 maximumDigits = 237;
-const i32 numThreads = 1;
+const i32 maximumDigits = 128;
+// const i32 maximumDigits = 237;
+const i32 numThreads = 4;
 
 Mutex threadControlMutex;
 u32 activeThreads = 0;

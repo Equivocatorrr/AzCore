@@ -52,7 +52,7 @@ public:
     }
     inline BigInt& operator=(const i128& a) {
         u64 a1 = a;
-        u64 a2 = (*((u64*)(&a)-1)) & 0x7fffffffffffffff;
+        u64 a2 = (*((u64*)(&a)+1)) & 0x7fffffffffffffff;
         if (a2) {
             words = {a1, a2};
         } else {

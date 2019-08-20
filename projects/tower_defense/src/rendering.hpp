@@ -78,6 +78,12 @@ struct ScissorState {
     vec2i max;
 };
 
+// I fucking hate Microsoft and every decision they've ever made
+// This should never be fucking necessary
+#ifdef DrawText
+#undef DrawText
+#endif
+
 struct Manager {
     struct {
         vk::Instance instance;

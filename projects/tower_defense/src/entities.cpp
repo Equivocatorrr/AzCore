@@ -8,14 +8,11 @@
 
 namespace Entities {
 
-// const char *circle_tga = "circle.tga";
 
 void Manager::EventAssetInit() {
-    // globals->assets.filesToLoad.Append(circle_tga);
 }
 
 void Manager::EventAssetAcquire() {
-    // texCircle = globals->assets.FindMapping(circle_tga);
 }
 
 void Manager::EventInitialize() {

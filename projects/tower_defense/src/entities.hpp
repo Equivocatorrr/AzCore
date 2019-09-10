@@ -162,7 +162,6 @@ struct DoubleBufferArray {
 struct Manager : public Objects::Object {
     DoubleBufferArray<Entity> entities{};
     Id selectedEntity = -1;
-    // i32 texCircle;
     void EventAssetInit();
     void EventAssetAcquire();
     void EventInitialize();

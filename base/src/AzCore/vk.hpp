@@ -587,7 +587,7 @@ namespace vk {
         Array<Ptr<DescriptorLayout>> descriptorLayouts{};
         Array<VkPushConstantRange> pushConstantRanges{};
 
-        void Bind(VkCommandBuffer commandBuffer);
+        void Bind(VkCommandBuffer commandBuffer) const;
 
         Pipeline(); // We configure some defaults
         ~Pipeline();

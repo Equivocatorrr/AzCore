@@ -2414,7 +2414,7 @@ failure:
 
     ShaderRef::ShaderRef(Ptr<Shader> ptr, VkShaderStageFlagBits s, String fn) : shader(ptr) , stage(s) , functionName(fn) {}
 
-    void Pipeline::Bind(VkCommandBuffer commandBuffer) {
+    void Pipeline::Bind(VkCommandBuffer commandBuffer) const {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipeline);
     }
 

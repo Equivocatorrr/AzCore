@@ -9,11 +9,11 @@
 namespace Objects {
 
 void Object::EventUpdate() {}
-void Object::EventDraw(VkCommandBuffer commandBuffer) {}
+void Object::EventDraw(Rendering::DrawingContext &context) {}
 void Object::EventInitialize() {}
 
-void Manager::RenderCallback(void *userdata, Rendering::Manager *rendering, Array<VkCommandBuffer> &commandBuffers) {
-    ((Manager*)userdata)->Draw(commandBuffers);
+void Manager::RenderCallback(void *userdata, Rendering::Manager *rendering, Array<Rendering::DrawingContext> &contexts) {
+    ((Manager*)userdata)->Draw(contexts);
 }
 
 void Manager::RegisterDrawing(Rendering::Manager *rendering) {
@@ -49,14 +49,14 @@ void Manager::Update() {
     }
 }
 
-void Manager::Draw(Array<VkCommandBuffer>& commandBuffers) {
-    i32 concurrency = commandBuffers.size;
+void Manager::Draw(Array<Rendering::DrawingContext>& contexts) {
+    i32 concurrency = contexts.size;
     for (i32 i = 0; i < objects.size; i+=concurrency) {
         for (i32 j = 0; j < concurrency; j++) {
             if (i+j >= objects.size) {
                 break;
             }
-            objects[i+j]->EventDraw(commandBuffers[j]);
+            objects[i+j]->EventDraw(contexts[j]);
         }
     }
 }

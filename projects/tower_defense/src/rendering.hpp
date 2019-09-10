@@ -53,29 +53,49 @@ struct PushConstants {
         int texIndex = 0;
         void Push(VkCommandBuffer commandBuffer, const Manager *rendering) const;
     } frag;
-    struct font_t {
-        f32 edge = 0.1;
-        f32 bounds = 0.5;
-        void Push(VkCommandBuffer commandBuffer, const Manager *rendering) const;
-    } font;
+    union font_circle_t {
+        struct font_t {
+            f32 edge;
+            f32 bounds;
+            void Push(VkCommandBuffer commandBuffer, const Manager *rendering) const;
+        } font = {0.1, 0.5};
+        struct circle_t {
+            f32 edge;
+            void Push(VkCommandBuffer commandBuffer, const Manager *rendering) const;
+        } circle;
+    } font_circle;
     void Push2D(VkCommandBuffer commandBuffer, const Manager *rendering) const;
     void PushFont(VkCommandBuffer commandBuffer, const Manager *rendering) const;
+    void PushCircle(VkCommandBuffer commandBuffer, const Manager *rendering) const;
 };
 
 constexpr i32 texBlank = 1;
 
 extern String error;
 
-typedef void (*fpRenderCallback_t)(void*, struct Manager*, Array<VkCommandBuffer>&);
-
-struct RenderCallback {
-    fpRenderCallback_t callback;
-    void *userdata;
+enum PipelineEnum {
+    PIPELINE_NONE=0,
+    PIPELINE_2D,
+    PIPELINE_FONT,
+    PIPELINE_CIRCLE
 };
 
 struct ScissorState {
     vec2i min;
     vec2i max;
+};
+
+struct DrawingContext {
+    VkCommandBuffer commandBuffer;
+    PipelineEnum currentPipeline;
+    Array<ScissorState> scissorStack;
+};
+
+typedef void (*fpRenderCallback_t)(void*, struct Manager*, Array<DrawingContext>&);
+
+struct RenderCallback {
+    fpRenderCallback_t callback;
+    void *userdata;
 };
 
 // I fucking hate Microsoft and every decision they've ever made
@@ -125,14 +145,13 @@ struct Manager {
 
         Ptr<vk::Pipeline> pipeline2D;
         Ptr<vk::Pipeline> pipelineFont;
+        Ptr<vk::Pipeline> pipelineCircle;
         Ptr<vk::Descriptors> descriptors;
         Ptr<vk::DescriptorSet> descriptorSet2D;
         Ptr<vk::DescriptorSet> descriptorSetFont;
 
         // Functions to call every time Draw is called, in the order they're added.
         Array<RenderCallback> renderCallbacks;
-
-        Array<ScissorState> scissorStack;
     } data;
 
     Array<u32> fontIndexOffsets{0};
@@ -148,11 +167,12 @@ struct Manager {
     bool UpdateFonts();
     bool Draw();
 
-    void BindPipeline2D(VkCommandBuffer commandBuffer);
-    void BindPipelineFont(VkCommandBuffer commandBuffer);
+    void BindPipeline2D(DrawingContext &context) const;
+    void BindPipelineFont(DrawingContext &context) const;
+    void BindPipelineCircle(DrawingContext &context) const;
 
-    void PushScissor(VkCommandBuffer commandBuffer, vec2i min, vec2i max);
-    void PopScissor(VkCommandBuffer commandBuffer);
+    void PushScissor(DrawingContext &context, vec2i min, vec2i max);
+    void PopScissor(DrawingContext &context);
 
     f32 CharacterWidth(char32 character, const Assets::Font *fontDesired, const Assets::Font *fontFallback) const;
     f32 LineWidth(const char32 *string, i32 fontIndex) const;
@@ -162,16 +182,18 @@ struct Manager {
 
     // Units are in screen space
     // DrawChar assumes the font pipeline is bound
-    void DrawCharSS(VkCommandBuffer commandBuffer, char32 character,
+    void DrawCharSS(DrawingContext &context, char32 character,
                     i32 fontIndex, vec4 color, vec2 position, vec2 scale);
-    void DrawTextSS(VkCommandBuffer commandBuffer, WString string,
+    void DrawTextSS(DrawingContext &context, WString string,
                     i32 fontIndex, vec4 color, vec2 position, vec2 scale,
                     FontAlign alignH = LEFT, FontAlign alignV = TOP, f32 maxWidth = 0.0, f32 edge = 0.5, f32 bounds = 0.5);
-    void DrawQuadSS(VkCommandBuffer commandBuffer, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0), Radians32 rotation = 0.0) const;
+    void DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0), Radians32 rotation = 0.0) const;
+    void DrawCircleSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, f32 edge, vec2 origin = vec2(0.0), Radians32 rotation = 0.0) const;
     // Units are in pixel space
-    void DrawChar(VkCommandBuffer commandBuffer, char32 character, i32 fontIndex, vec4 color, vec2 position, vec2 scale);
-    void DrawText(VkCommandBuffer commandBuffer, WString text, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH = LEFT, FontAlign alignV = BOTTOM, f32 maxWidth = 0.0, f32 edge = 0.0, f32 bounds = 0.5);
-    void DrawQuad(VkCommandBuffer commandBuffer, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0), Radians32 rotation = 0.0) const;
+    void DrawChar(DrawingContext &context, char32 character, i32 fontIndex, vec4 color, vec2 position, vec2 scale);
+    void DrawText(DrawingContext &context, WString text, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH = LEFT, FontAlign alignV = BOTTOM, f32 maxWidth = 0.0, f32 edge = 0.0, f32 bounds = 0.5);
+    void DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0), Radians32 rotation = 0.0) const;
+    void DrawCircle(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0), Radians32 rotation = 0.0) const;
 };
 
 f32 StringHeight(WString string);

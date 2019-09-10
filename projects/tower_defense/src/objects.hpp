@@ -10,6 +10,7 @@
 #include "AzCore/memory.hpp"
 #include "AzCore/io.hpp"
 #include "AzCore/vk.hpp"
+#include "rendering.hpp"
 
 namespace Assets {
 struct Manager;
@@ -30,7 +31,7 @@ struct Object {
     virtual void EventAssetAcquire() = 0;
     virtual void EventInitialize();
     virtual void EventUpdate();
-    virtual void EventDraw(VkCommandBuffer commandBuffer);
+    virtual void EventDraw(Rendering::DrawingContext &context);
 };
 
 struct Manager {
@@ -39,7 +40,7 @@ struct Manager {
     bool buffer = false;
     f32 timestep = 1.0/60.0;
 
-    static void RenderCallback(void *userdata, Rendering::Manager *rendering, Array<VkCommandBuffer>& commandBuffers);
+    static void RenderCallback(void *userdata, Rendering::Manager *rendering, Array<Rendering::DrawingContext>& drawingContexts);
 
     // The first thing you do with the manager
     inline void Register(Object *object) {
@@ -56,7 +57,7 @@ struct Manager {
     // Calls different Update events.
     void Update();
     // Calls different Draw events.
-    void Draw(Array<VkCommandBuffer>& commandBuffers);
+    void Draw(Array<Rendering::DrawingContext>& drawingContexts);
 
     bool Pressed(u8 keyCode) const;
     bool Down(u8 keyCode) const;

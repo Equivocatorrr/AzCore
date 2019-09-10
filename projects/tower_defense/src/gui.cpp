@@ -58,16 +58,16 @@ void Gui::EventUpdate() {
     }
 }
 
-void Gui::EventDraw(VkCommandBuffer commandBuffer) {
+void Gui::EventDraw(Rendering::DrawingContext &context) {
     switch (currentMenu) {
     case MENU_MAIN:
-        mainMenu.Draw(commandBuffer);
+        mainMenu.Draw(context);
         break;
     case MENU_SETTINGS:
-        settingsMenu.Draw(commandBuffer);
+        settingsMenu.Draw(context);
         break;
     case MENU_PLAY:
-        playMenu.Draw(commandBuffer);
+        playMenu.Draw(context);
         break;
     }
 }
@@ -168,8 +168,8 @@ void MainMenu::Update() {
     }
 }
 
-void MainMenu::Draw(VkCommandBuffer commandBuffer) {
-    screen.Draw(commandBuffer);
+void MainMenu::Draw(Rendering::DrawingContext &context) {
+    screen.Draw(context);
 }
 
 void SettingsMenu::Initialize() {
@@ -275,8 +275,8 @@ void SettingsMenu::Update() {
     }
 }
 
-void SettingsMenu::Draw(VkCommandBuffer commandBuffer) {
-    screen.Draw(commandBuffer);
+void SettingsMenu::Draw(Rendering::DrawingContext &context) {
+    screen.Draw(context);
 }
 
 void PlayMenu::Initialize() {
@@ -292,8 +292,8 @@ void PlayMenu::Update() {
     screen.Update(vec2(0.0), true);
 }
 
-void PlayMenu::Draw(VkCommandBuffer commandBuffer) {
-    screen.Draw(commandBuffer);
+void PlayMenu::Draw(Rendering::DrawingContext &context) {
+    screen.Draw(context);
 }
 
 //
@@ -339,9 +339,9 @@ void Widget::Update(vec2 pos, bool selected) {
     }
 }
 
-void Widget::Draw(VkCommandBuffer commandBuffer) const {
+void Widget::Draw(Rendering::DrawingContext &context) const {
     for (const Widget* child : children) {
-        child->Draw(commandBuffer);
+        child->Draw(context);
     }
 }
 
@@ -449,11 +449,10 @@ bool List::UpdateSelection(bool selected, u8 keyCodeSelect, u8 keyCodeBack, u8 k
     return false;
 }
 
-void List::Draw(VkCommandBuffer commandBuffer) const {
+void List::Draw(Rendering::DrawingContext &context) const {
     if (color.a > 0.0) {
         // const vec2 screenSizeFactor = vec2(2.0) / globals->rendering.screenSize;
-        globals->rendering.BindPipeline2D(commandBuffer);
-        globals->rendering.DrawQuad(commandBuffer, Rendering::texBlank, highlighted ? highlight : color, positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
+        globals->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlight : color, positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
     }
     vec2i topLeft = vec2i(
         (positionAbsolute.x + padding.x) * globals->gui.scale,
@@ -463,9 +462,9 @@ void List::Draw(VkCommandBuffer commandBuffer) const {
         (positionAbsolute.x + sizeAbsolute.x - padding.x) * globals->gui.scale,
         (positionAbsolute.y + sizeAbsolute.y - padding.y) * globals->gui.scale
     );
-    globals->rendering.PushScissor(commandBuffer, topLeft, botRight);
-    Widget::Draw(commandBuffer);
-    globals->rendering.PopScissor(commandBuffer);
+    globals->rendering.PushScissor(context, topLeft, botRight);
+    Widget::Draw(context);
+    globals->rendering.PopScissor(context);
 }
 
 void ListV::UpdateSize(vec2 container) {
@@ -634,7 +633,7 @@ void Text::Update(vec2 pos, bool selected) {
     Widget::Update(pos, selected);
 }
 
-void Text::Draw(VkCommandBuffer commandBuffer) const {
+void Text::Draw(Rendering::DrawingContext &context) const {
     if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
         vec2i topLeft = vec2i(
             positionAbsolute.x * globals->gui.scale,
@@ -644,9 +643,8 @@ void Text::Draw(VkCommandBuffer commandBuffer) const {
             (positionAbsolute.x + sizeAbsolute.x) * globals->gui.scale,
             (positionAbsolute.y + sizeAbsolute.y + fontSize * 0.3) * globals->gui.scale
         );
-        globals->rendering.PushScissor(commandBuffer, topLeft, botRight);
+        globals->rendering.PushScissor(context, topLeft, botRight);
     }
-    globals->rendering.BindPipelineFont(commandBuffer);
     vec2 drawPos = positionAbsolute * globals->gui.scale;
     vec2 scale = vec2(fontSize) * globals->gui.scale;
     f32 maxWidth = sizeAbsolute.x * globals->gui.scale;
@@ -662,19 +660,18 @@ void Text::Draw(VkCommandBuffer commandBuffer) const {
     }
     f32 bounds = bold ? 0.425 : 0.525;
     if (outline) {
-        globals->rendering.DrawText(commandBuffer, stringFormatted, fontIndex, colorOutline, drawPos, scale, alignH, alignV, maxWidth, 0.1, bounds - 0.2);
+        globals->rendering.DrawText(context, stringFormatted, fontIndex, colorOutline, drawPos, scale, alignH, alignV, maxWidth, 0.1, bounds - 0.2);
     }
-    globals->rendering.DrawText(commandBuffer, stringFormatted, fontIndex, color, drawPos, scale, alignH, alignV, maxWidth, 0.0, bounds);
+    globals->rendering.DrawText(context, stringFormatted, fontIndex, color, drawPos, scale, alignH, alignV, maxWidth, 0.0, bounds);
     if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
-        globals->rendering.PopScissor(commandBuffer);
+        globals->rendering.PopScissor(context);
     }
 }
 
 Image::Image() : texIndex(0) {}
 
-void Image::Draw(VkCommandBuffer commandBuffer) const {
-    globals->rendering.BindPipeline2D(commandBuffer);
-    globals->rendering.DrawQuad(commandBuffer, texIndex, vec4(1.0), positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
+void Image::Draw(Rendering::DrawingContext &context) const {
+    globals->rendering.DrawQuad(context, texIndex, vec4(1.0), positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
 }
 
 Button::Button() : string(), colorBG(0.15, 0.15, 0.15, 0.9), highlightBG(colorHighlightMedium, 0.9), colorText(1.0), highlightText(0.0, 0.0, 0.0, 1.0), fontIndex(1), fontSize(28.0), state() {
@@ -712,7 +709,7 @@ void Button::Update(vec2 pos, bool selected) {
     }
 }
 
-void Button::Draw(VkCommandBuffer commandBuffer) const {
+void Button::Draw(Rendering::DrawingContext &context) const {
     if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
         vec2i topLeft = vec2i(
             positionAbsolute.x * globals->gui.scale,
@@ -722,7 +719,7 @@ void Button::Draw(VkCommandBuffer commandBuffer) const {
             (positionAbsolute.x + sizeAbsolute.x) * globals->gui.scale,
             (positionAbsolute.y + sizeAbsolute.y) * globals->gui.scale
         );
-        globals->rendering.PushScissor(commandBuffer, topLeft, botRight);
+        globals->rendering.PushScissor(context, topLeft, botRight);
     }
     f32 scale;
     if (state.Down()) {
@@ -732,12 +729,10 @@ void Button::Draw(VkCommandBuffer commandBuffer) const {
     }
     scale *= globals->gui.scale;
     vec2 drawPos = (positionAbsolute + sizeAbsolute * 0.5) * globals->gui.scale;
-    globals->rendering.BindPipeline2D(commandBuffer);
-    globals->rendering.DrawQuad(commandBuffer, 1, highlighted ? highlightBG : colorBG, drawPos, vec2(1.0), sizeAbsolute * scale, vec2(0.5));
-    globals->rendering.BindPipelineFont(commandBuffer);
-    globals->rendering.DrawText(commandBuffer, string, fontIndex,  highlighted ? highlightText : colorText, drawPos, vec2(fontSize * scale), Rendering::CENTER, Rendering::CENTER, sizeAbsolute.x * globals->gui.scale);
+    globals->rendering.DrawQuad(context, 1, highlighted ? highlightBG : colorBG, drawPos, vec2(1.0), sizeAbsolute * scale, vec2(0.5));
+    globals->rendering.DrawText(context, string, fontIndex,  highlighted ? highlightText : colorText, drawPos, vec2(fontSize * scale), Rendering::CENTER, Rendering::CENTER, sizeAbsolute.x * globals->gui.scale);
     if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
-        globals->rendering.PopScissor(commandBuffer);
+        globals->rendering.PopScissor(context);
     }
 }
 
@@ -769,10 +764,9 @@ void Checkbox::Update(vec2 pos, bool selected) {
     }
 }
 
-void Checkbox::Draw(VkCommandBuffer commandBuffer) const {
+void Checkbox::Draw(Rendering::DrawingContext &context) const {
     const vec4 &color = checked ? (highlighted ? highlightOn : colorOn) : (highlighted ? highlightOff : colorOff);
-    globals->rendering.BindPipeline2D(commandBuffer);
-    globals->rendering.DrawQuad(commandBuffer, Rendering::texBlank, color, positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
+    globals->rendering.DrawQuad(context, Rendering::texBlank, color, positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
 }
 
 } // namespace Int

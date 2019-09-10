@@ -9,6 +9,7 @@
 
 #include "objects.hpp"
 #include "AzCore/math.hpp"
+#include "rendering.hpp"
 
 namespace Entities {
 
@@ -122,7 +123,7 @@ struct Entity {
     bool colliding;
     void EventCreate();
     void Update(f32 timestep);
-    void Draw(VkCommandBuffer commandBuffer);
+    void Draw(Rendering::DrawingContext &context);
 };
 
 /*  struct: DoubleBufferArray
@@ -144,7 +145,7 @@ struct DoubleBufferArray {
     bool buffer = false;
 
     void Update(f32 timestep);
-    void Draw(VkCommandBuffer commandBuffer);
+    void Draw(Rendering::DrawingContext &context);
     // Done between frames. Must be done synchronously.
     void Synchronize();
     void Create(T &obj);
@@ -161,13 +162,15 @@ struct DoubleBufferArray {
 struct Manager : public Objects::Object {
     DoubleBufferArray<Entity> entities{};
     Id selectedEntity = -1;
-    i32 texCircle;
+    // i32 texCircle;
     void EventAssetInit();
     void EventAssetAcquire();
     void EventInitialize();
     void EventUpdate();
-    void EventDraw(VkCommandBuffer commandBuffer);
+    void EventDraw(Rendering::DrawingContext &context);
 };
+
+
 
 extern template struct DoubleBufferArray<Entity>;
 

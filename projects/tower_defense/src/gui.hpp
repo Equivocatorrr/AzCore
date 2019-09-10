@@ -34,7 +34,7 @@ struct Widget {
     void LimitSize();
     inline vec2 GetSize() const { return sizeAbsolute + margin * 2.0; }
     virtual void Update(vec2 pos, bool selected);
-    virtual void Draw(VkCommandBuffer commandBuffer) const;
+    virtual void Draw(Rendering::DrawingContext &context) const;
 
     bool MouseOver() const;
     void FindMouseoverDepth(i32 actualDepth);
@@ -57,7 +57,7 @@ struct List : public Widget {
     ~List() = default;
     // returns whether or not to update the selection based on the mouse position
     bool UpdateSelection(bool selected, u8 keyCodeSelect, u8 keyCodeBack, u8 keyCodeIncrement, u8 keyCodeDecrement);
-    void Draw(VkCommandBuffer commandBuffer) const;
+    void Draw(Rendering::DrawingContext &context) const;
 };
 
 // A vertical list of items.
@@ -88,14 +88,14 @@ public:
     ~Text() = default;
     void UpdateSize(vec2 container);
     void Update(vec2 pos, bool selected);
-    void Draw(VkCommandBuffer commandBuffer) const;
+    void Draw(Rendering::DrawingContext &context) const;
 };
 
 struct Image : public Widget {
     i32 texIndex;
     Image();
     ~Image() = default;
-    void Draw(VkCommandBuffer commandBuffer) const;
+    void Draw(Rendering::DrawingContext &context) const;
 };
 
 struct Button : public Widget {
@@ -107,7 +107,7 @@ struct Button : public Widget {
     Button();
     ~Button() = default;
     void Update(vec2 pos, bool selected);
-    void Draw(VkCommandBuffer commandBuffer) const;
+    void Draw(Rendering::DrawingContext &context) const;
 };
 
 // Boolean widget.
@@ -117,7 +117,7 @@ struct Checkbox : public Widget {
     Checkbox();
     ~Checkbox() = default;
     void Update(vec2 pos, bool selected);
-    void Draw(VkCommandBuffer commandBuffer) const;
+    void Draw(Rendering::DrawingContext &context) const;
 };
 
 // struct Switch; // Allows the user to choose from a selection of widgets (usually Text).
@@ -139,7 +139,7 @@ struct MainMenu {
 
     void Initialize();
     void Update();
-    void Draw(VkCommandBuffer commandBuffer);
+    void Draw(Rendering::DrawingContext &context);
 };
 
 struct SettingsMenu {
@@ -150,7 +150,7 @@ struct SettingsMenu {
 
     void Initialize();
     void Update();
-    void Draw(VkCommandBuffer commandBuffer);
+    void Draw(Rendering::DrawingContext &context);
 };
 
 struct PlayMenu {
@@ -159,7 +159,7 @@ struct PlayMenu {
 
     void Initialize();
     void Update();
-    void Draw(VkCommandBuffer commandBuffer);
+    void Draw(Rendering::DrawingContext &context);
 };
 
 struct Gui : public Objects::Object {
@@ -186,7 +186,7 @@ struct Gui : public Objects::Object {
     void EventAssetAcquire();
     void EventInitialize();
     void EventUpdate();
-    void EventDraw(VkCommandBuffer commandBuffer);
+    void EventDraw(Rendering::DrawingContext &context);
 };
 
 

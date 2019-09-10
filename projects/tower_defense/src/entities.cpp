@@ -8,14 +8,14 @@
 
 namespace Entities {
 
-const char *circle_tga = "circle.tga";
+// const char *circle_tga = "circle.tga";
 
 void Manager::EventAssetInit() {
-    globals->assets.filesToLoad.Append(circle_tga);
+    // globals->assets.filesToLoad.Append(circle_tga);
 }
 
 void Manager::EventAssetAcquire() {
-    texCircle = globals->assets.FindMapping(circle_tga);
+    // texCircle = globals->assets.FindMapping(circle_tga);
 }
 
 void Manager::EventInitialize() {
@@ -27,7 +27,7 @@ void Manager::EventInitialize() {
 
     entity.physical.type = CIRCLE;
     entity.physical.basis.circle.c = vec2(64.0, 0.0);
-    entity.physical.basis.circle.r = 64.0;
+    entity.physical.basis.circle.r = 512.0;
     entities.Create(entity);
 
     entity.physical.type = BOX;
@@ -70,10 +70,9 @@ void Manager::EventUpdate() {
     }
 }
 
-void Manager::EventDraw(VkCommandBuffer commandBuffer) {
+void Manager::EventDraw(Rendering::DrawingContext &context) {
     if (globals->gui.currentMenu != Int::MENU_PLAY) return;
-    globals->rendering.BindPipeline2D(commandBuffer);
-    entities.Draw(commandBuffer);
+    entities.Draw(context);
 }
 
 bool AABB::Collides(const AABB &other) const {
@@ -391,7 +390,7 @@ void Physical::UpdateActual() const {
 }
 
 void Entity::EventCreate() {
-    physical.pos = vec2(random(0.0, 1280.0, globals->rng), random(0.0, 720.0, globals->rng));
+    physical.pos = vec2(random(0.0, (f32)globals->window.width, globals->rng), random(0.0, (f32)globals->window.height, globals->rng));
     physical.angle = random(0.0, tau, globals->rng);
 }
 
@@ -406,7 +405,7 @@ void Entity::Update(f32 timestep) {
         }
     }
     if (globals->objects.Pressed(KC_KEY_R)) {
-        physical.pos = vec2(random(0.0, 1280.0, globals->rng), random(0.0, 720.0, globals->rng));
+        physical.pos = vec2(random(0.0, (f32)globals->window.width, globals->rng), random(0.0, (f32)globals->window.height, globals->rng));
         physical.angle = random(0.0, tau, globals->rng);
     }
     if (globals->entities.selectedEntity == id) {
@@ -421,7 +420,7 @@ void Entity::Update(f32 timestep) {
     }
 }
 
-void Entity::Draw(VkCommandBuffer commandBuffer) {
+void Entity::Draw(Rendering::DrawingContext &context) {
     vec4 color;
     if (colliding) {
         color = vec4(1.0, 0.0, 0.0, 0.8);
@@ -430,14 +429,14 @@ void Entity::Draw(VkCommandBuffer commandBuffer) {
     }
     if (physical.type == BOX) {
         const vec2 scale = physical.basis.box.b - physical.basis.box.a;
-        globals->rendering.DrawQuad(commandBuffer, Rendering::texBlank, color, physical.pos, scale, vec2(1.0), -physical.basis.box.a / scale, physical.angle);
+        globals->rendering.DrawQuad(context, Rendering::texBlank, color, physical.pos, scale, vec2(1.0), -physical.basis.box.a / scale, physical.angle);
     } else if (physical.type == SEGMENT) {
         vec2 scale = physical.basis.segment.b - physical.basis.segment.a;
         scale.y = max(scale.y, 2.0);
-        globals->rendering.DrawQuad(commandBuffer, Rendering::texBlank, color, physical.pos, scale, vec2(1.0), -physical.basis.segment.a / scale, physical.angle);
+        globals->rendering.DrawQuad(context, Rendering::texBlank, color, physical.pos, scale, vec2(1.0), -physical.basis.segment.a / scale, physical.angle);
     } else {
         const vec2 scale = physical.basis.circle.r * 2.0;
-        globals->rendering.DrawQuad(commandBuffer, globals->entities.texCircle, color, physical.pos, scale, vec2(1.0), -physical.basis.circle.c / scale + vec2(0.5), physical.angle);
+        globals->rendering.DrawCircle(context, Rendering::texBlank, color, physical.pos, scale, vec2(1.0), -physical.basis.circle.c / scale + vec2(0.5), physical.angle);
     }
 }
 
@@ -450,10 +449,10 @@ void DoubleBufferArray<T>::Update(f32 timestep) {
 }
 
 template<typename T>
-void DoubleBufferArray<T>::Draw(VkCommandBuffer commandBuffer) {
+void DoubleBufferArray<T>::Draw(Rendering::DrawingContext &context) {
     for (T& obj : array[!buffer]) {
         if (obj.id.generation >= 0)
-            obj.Draw(commandBuffer);
+            obj.Draw(context);
     }
 }
 

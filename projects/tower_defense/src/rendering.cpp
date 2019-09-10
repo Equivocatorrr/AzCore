@@ -26,9 +26,14 @@ void PushConstants::frag_t::Push(VkCommandBuffer commandBuffer, const Manager *r
             VK_SHADER_STAGE_FRAGMENT_BIT, offsetof(PushConstants, frag), sizeof(frag_t), this);
 }
 
-void PushConstants::font_t::Push(VkCommandBuffer commandBuffer, const Manager *rendering) const {
+void PushConstants::font_circle_t::font_t::Push(VkCommandBuffer commandBuffer, const Manager *rendering) const {
     vkCmdPushConstants(commandBuffer, rendering->data.pipelineFont->data.layout,
             VK_SHADER_STAGE_FRAGMENT_BIT, offsetof(PushConstants, frag), sizeof(frag_t) + sizeof(font_t), (char*)this - sizeof(frag_t));
+}
+
+void PushConstants::font_circle_t::circle_t::Push(VkCommandBuffer commandBuffer, const Manager *rendering) const {
+    vkCmdPushConstants(commandBuffer, rendering->data.pipelineFont->data.layout,
+            VK_SHADER_STAGE_FRAGMENT_BIT, offsetof(PushConstants, frag), sizeof(frag_t) + sizeof(circle_t), (char*)this - sizeof(frag_t));
 }
 
 void PushConstants::Push2D(VkCommandBuffer commandBuffer, const Manager *rendering) const {
@@ -38,7 +43,12 @@ void PushConstants::Push2D(VkCommandBuffer commandBuffer, const Manager *renderi
 
 void PushConstants::PushFont(VkCommandBuffer commandBuffer, const Manager *rendering) const {
     vert.Push(commandBuffer, rendering);
-    font.Push(commandBuffer, rendering);
+    font_circle.font.Push(commandBuffer, rendering);
+}
+
+void PushConstants::PushCircle(VkCommandBuffer commandBuffer, const Manager *rendering) const {
+    vert.Push(commandBuffer, rendering);
+    font_circle.circle.Push(commandBuffer, rendering);
 }
 
 bool Manager::Init() {
@@ -189,15 +199,17 @@ bool Manager::Init() {
         return false;
     }
 
-    Range<vk::Shader> shaders = data.device->AddShaders(3);
+    Range<vk::Shader> shaders = data.device->AddShaders(4);
     shaders[0].filename = "data/shaders/2D.vert.spv";
     shaders[1].filename = "data/shaders/2D.frag.spv";
     shaders[2].filename = "data/shaders/Font.frag.spv";
+    shaders[3].filename = "data/shaders/Circle.frag.spv";
 
-    vk::ShaderRef shaderRefs[3] = {
+    vk::ShaderRef shaderRefs[4] = {
         vk::ShaderRef(shaders.ToPtr(0), VK_SHADER_STAGE_VERTEX_BIT),
         vk::ShaderRef(shaders.ToPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT),
-        vk::ShaderRef(shaders.ToPtr(2), VK_SHADER_STAGE_FRAGMENT_BIT)
+        vk::ShaderRef(shaders.ToPtr(2), VK_SHADER_STAGE_FRAGMENT_BIT),
+        vk::ShaderRef(shaders.ToPtr(3), VK_SHADER_STAGE_FRAGMENT_BIT)
     };
 
     data.pipeline2D = data.device->AddPipeline();
@@ -223,6 +235,16 @@ bool Manager::Init() {
 
     data.pipelineFont->dynamicStates = data.pipeline2D->dynamicStates;
 
+    data.pipelineCircle = data.device->AddPipeline();
+    data.pipelineCircle->renderPass = data.renderPass;
+    data.pipelineCircle->subpass = 0;
+    data.pipelineCircle->shaders.Append(shaderRefs[0]);
+    data.pipelineCircle->shaders.Append(shaderRefs[3]);
+
+    data.pipelineCircle->descriptorLayouts.Append(descriptorLayoutTexture);
+
+    data.pipelineCircle->dynamicStates = data.pipeline2D->dynamicStates;
+
     VkVertexInputAttributeDescription vertexInputAttributeDescription = {};
     vertexInputAttributeDescription.binding = 0;
     vertexInputAttributeDescription.location = 0;
@@ -230,17 +252,20 @@ bool Manager::Init() {
     vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
     data.pipeline2D->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
     data.pipelineFont->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+    data.pipelineCircle->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
     vertexInputAttributeDescription.location = 1;
     vertexInputAttributeDescription.offset = offsetof(Vertex, tex);
     vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
     data.pipeline2D->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
     data.pipelineFont->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+    data.pipelineCircle->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
     VkVertexInputBindingDescription vertexInputBindingDescription = {};
     vertexInputBindingDescription.binding = 0;
     vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
     vertexInputBindingDescription.stride = sizeof(Vertex);
     data.pipeline2D->inputBindingDescriptions.Append(vertexInputBindingDescription);
     data.pipelineFont->inputBindingDescriptions.Append(vertexInputBindingDescription);
+    data.pipelineCircle->inputBindingDescriptions.Append(vertexInputBindingDescription);
 
     VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
@@ -255,6 +280,7 @@ bool Manager::Init() {
 
     data.pipeline2D->colorBlendAttachments.Append(colorBlendAttachment);
     data.pipelineFont->colorBlendAttachments.Append(colorBlendAttachment);
+    data.pipelineCircle->colorBlendAttachments.Append(colorBlendAttachment);
 
     data.pipeline2D->pushConstantRanges = {
         {/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
@@ -263,6 +289,10 @@ bool Manager::Init() {
     data.pipelineFont->pushConstantRanges = {
         {/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
         {/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 28}
+    };
+    data.pipelineCircle->pushConstantRanges = {
+        {/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
+        {/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 24}
     };
 
     if (!data.instance.Init()) {
@@ -455,17 +485,16 @@ bool Manager::Draw() {
     screenSize = vec2((f32)globals->window.width, (f32)globals->window.height);
     aspectRatio = screenSize.y / screenSize.x;
 
-    Array<VkCommandBuffer> commandBuffersSecondary;
+    Array<DrawingContext> commandBuffersSecondary;
     commandBuffersSecondary.Reserve(data.commandBuffersSecondary.size);
 
+    // TODO: Do these asynchronously
     for (Ptr<vk::CommandBuffer> &commandBuffer : data.commandBuffersSecondary) {
         VkCommandBuffer cmdBuf = commandBuffer->Begin();
         vk::CmdSetViewportAndScissor(cmdBuf, globals->window.width, globals->window.height);
         vk::CmdBindIndexBuffer(cmdBuf, data.indexBuffer, VK_INDEX_TYPE_UINT32);
-        commandBuffersSecondary.Append(cmdBuf);
+        commandBuffersSecondary.Append({cmdBuf, PIPELINE_NONE, {{vec2i(0), vec2i((i32)globals->window.width, (i32)globals->window.height)}}});
     }
-
-    data.scissorStack = {{vec2i(0), vec2i((i32)globals->window.width, (i32)globals->window.height)}};
 
     for (auto& renderCallback : data.renderCallbacks) {
         renderCallback.callback(renderCallback.userdata, this, commandBuffersSecondary);
@@ -512,35 +541,45 @@ bool Manager::Draw() {
     return true;
 }
 
-void Manager::BindPipeline2D(VkCommandBuffer commandBuffer) {
-    data.pipeline2D->Bind(commandBuffer);
-    vk::CmdBindVertexBuffer(commandBuffer, 0, data.vertexBuffer);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipeline2D->data.layout,
+void Manager::BindPipeline2D(DrawingContext &context) const {
+    context.currentPipeline = PIPELINE_2D;
+    data.pipeline2D->Bind(context.commandBuffer);
+    vk::CmdBindVertexBuffer(context.commandBuffer, 0, data.vertexBuffer);
+    vkCmdBindDescriptorSets(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipeline2D->data.layout,
             0, 1, &data.descriptorSet2D->data.set, 0, nullptr);
 }
 
-void Manager::BindPipelineFont(VkCommandBuffer commandBuffer) {
-    data.pipelineFont->Bind(commandBuffer);
-    vk::CmdBindVertexBuffer(commandBuffer, 0, data.fontVertexBuffer);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipelineFont->data.layout,
+void Manager::BindPipelineFont(DrawingContext &context) const {
+    context.currentPipeline = PIPELINE_FONT;
+    data.pipelineFont->Bind(context.commandBuffer);
+    vk::CmdBindVertexBuffer(context.commandBuffer, 0, data.fontVertexBuffer);
+    vkCmdBindDescriptorSets(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipelineFont->data.layout,
             0, 1, &data.descriptorSetFont->data.set, 0, nullptr);
 }
 
-void Manager::PushScissor(VkCommandBuffer commandBuffer, vec2i min, vec2i max) {
-    const ScissorState &prev = data.scissorStack.Back();
+void Manager::BindPipelineCircle(DrawingContext &context) const {
+    context.currentPipeline = PIPELINE_CIRCLE;
+    data.pipelineCircle->Bind(context.commandBuffer);
+    vk::CmdBindVertexBuffer(context.commandBuffer, 0, data.vertexBuffer);
+    vkCmdBindDescriptorSets(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipelineCircle->data.layout,
+            0, 1, &data.descriptorSet2D->data.set, 0, nullptr);
+}
+
+void Manager::PushScissor(DrawingContext &context, vec2i min, vec2i max) {
+    const ScissorState &prev = context.scissorStack.Back();
     ScissorState state;
     state.min.x = ::max(min.x, prev.min.x);
     state.min.y = ::max(min.y, prev.min.y);
     state.max.x = ::min(max.x, prev.max.x);
     state.max.y = ::min(max.y, prev.max.y);
-    data.scissorStack.Append(state);
-    vk::CmdSetScissor(commandBuffer, (u32)::max(state.max.x-state.min.x, 0), (u32)::max(state.max.y-state.min.y, 0), state.min.x, state.min.y);
+    context.scissorStack.Append(state);
+    vk::CmdSetScissor(context.commandBuffer, (u32)::max(state.max.x-state.min.x, 0), (u32)::max(state.max.y-state.min.y, 0), state.min.x, state.min.y);
 }
 
-void Manager::PopScissor(VkCommandBuffer commandBuffer) {
-    data.scissorStack.Erase(data.scissorStack.size-1);
-    const ScissorState &state = data.scissorStack.Back();
-    vk::CmdSetScissor(commandBuffer, (u32)(state.max.x-state.min.x), (u32)(state.max.y-state.min.y), state.min.x, state.min.y);
+void Manager::PopScissor(DrawingContext &context) {
+    context.scissorStack.Erase(context.scissorStack.size-1);
+    const ScissorState &state = context.scissorStack.Back();
+    vk::CmdSetScissor(context.commandBuffer, (u32)(state.max.x-state.min.x), (u32)(state.max.y-state.min.y), state.min.x, state.min.y);
 }
 
 constexpr f32 lineHeight = 1.3;
@@ -645,12 +684,13 @@ WString Manager::StringAddNewlines(WString string, i32 fontIndex, f32 maxWidth) 
     return string;
 }
 
-void Manager::DrawCharSS(VkCommandBuffer commandBuffer, char32 character,
+void Manager::DrawCharSS(DrawingContext &context, char32 character,
                          i32 fontIndex, vec4 color, vec2 position, vec2 scale) {
     Assets::Font *fontDesired = &globals->assets.fonts[fontIndex];
     Assets::Font *fontFallback = &globals->assets.fonts[0];
     Assets::Font *font = fontDesired;
     Rendering::PushConstants pc = Rendering::PushConstants();
+    if (context.currentPipeline != PIPELINE_FONT) BindPipelineFont(context);
     pc.frag.color = color;
     i32 actualFontIndex = fontIndex;
     i32 glyphIndex = fontDesired->font.GetGlyphIndex(character);
@@ -673,27 +713,28 @@ void Manager::DrawCharSS(VkCommandBuffer commandBuffer, char32 character,
         for (const font::Component& component : glyph.components) {
             i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
             pc.vert.transform = mat2::Scaler(fullScale);
-            pc.font.edge = 0.5 / (font::sdfDistance * screenSize.y * pc.vert.transform.h.y2);
+            pc.font_circle.font.edge = 0.5 / (font::sdfDistance * screenSize.y * pc.vert.transform.h.y2);
             pc.vert.position = position + component.offset * fullScale;
-            pc.PushFont(commandBuffer, this);
-            vkCmdDrawIndexed(commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + componentId * 4, 0);
+            pc.PushFont(context.commandBuffer, this);
+            vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + componentId * 4, 0);
         }
     } else {
-        pc.font.edge = 0.5 / (font::sdfDistance * screenSize.y * scale.y);
+        pc.font_circle.font.edge = 0.5 / (font::sdfDistance * screenSize.y * scale.y);
         pc.vert.transform = mat2::Scaler(fullScale);
         pc.vert.position = position;
-        pc.PushFont(commandBuffer, this);
-        vkCmdDrawIndexed(commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + glyphId * 4, 0);
+        pc.PushFont(context.commandBuffer, this);
+        vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + glyphId * 4, 0);
     }
 }
 
-void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString string,
+void Manager::DrawTextSS(DrawingContext &context, WString string,
                          i32 fontIndex, vec4 color, vec2 position, vec2 scale,
                          FontAlign alignH, FontAlign alignV, f32 maxWidth, f32 edge, f32 bounds) {
     Assets::Font *fontDesired = &globals->assets.fonts[fontIndex];
     Assets::Font *fontFallback = &globals->assets.fonts[0];
     scale.x *= aspectRatio;
     Rendering::PushConstants pc = Rendering::PushConstants();
+    if (context.currentPipeline != PIPELINE_FONT) BindPipelineFont(context);
     pc.frag.color = color;
     // position.y += scale.y * lineHeight;
     position.y += scale.y * (lineHeight + 1.0) * 0.5;
@@ -772,24 +813,24 @@ void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString string,
         font::Glyph& glyph = font->fontBuilder.glyphs[glyphId];
 
         pc.frag.texIndex = actualFontIndex;
-        pc.font.edge = edge / (font::sdfDistance * screenSize.y * scale.y);
-        pc.font.bounds = bounds;
+        pc.font_circle.font.edge = edge / (font::sdfDistance * screenSize.y * scale.y);
+        pc.font_circle.font.bounds = bounds;
         pc.vert.transform = mat2::Scaler(scale);
         if (glyph.components.size != 0) {
             for (const font::Component& component : glyph.components) {
                 i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
                 // const font::Glyph& componentGlyph = font->fontBuilder.glyphs[componentId];
                 pc.vert.transform = component.transform * mat2::Scaler(scale);
-                pc.font.edge = edge / (font::sdfDistance * screenSize.y * abs(pc.vert.transform.h.y2));
+                pc.font_circle.font.edge = edge / (font::sdfDistance * screenSize.y * abs(pc.vert.transform.h.y2));
                 pc.vert.position = cursor + component.offset * scale * vec2(1.0, -1.0);
-                pc.PushFont(commandBuffer, this);
-                vkCmdDrawIndexed(commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + componentId * 4, 0);
+                pc.PushFont(context.commandBuffer, this);
+                vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + componentId * 4, 0);
             }
         } else {
             if (character != ' ') {
                 pc.vert.position = cursor;
-                pc.PushFont(commandBuffer, this);
-                vkCmdDrawIndexed(commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + glyphId * 4, 0);
+                pc.PushFont(context.commandBuffer, this);
+                vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + glyphId * 4, 0);
             }
         }
         if (character == ' ') {
@@ -800,8 +841,9 @@ void Manager::DrawTextSS(VkCommandBuffer commandBuffer, WString string,
     }
 }
 
-void Manager::DrawQuadSS(VkCommandBuffer commandBuffer, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {
+void Manager::DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {
     Rendering::PushConstants pc = Rendering::PushConstants();
+    if (context.currentPipeline != PIPELINE_2D) BindPipeline2D(context);
     pc.frag.color = color;
     pc.frag.texIndex = texIndex;
     pc.vert.position = position;
@@ -811,25 +853,47 @@ void Manager::DrawQuadSS(VkCommandBuffer commandBuffer, i32 texIndex, vec4 color
     }
     pc.vert.transform = pc.vert.transform * mat2::Scaler(scalePost);
     pc.vert.origin = origin;
-    pc.Push2D(commandBuffer, this);
-    vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
+    pc.Push2D(context.commandBuffer, this);
+    vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, 0, 0);
 }
 
-void Manager::DrawChar(VkCommandBuffer commandBuffer, char32 character, i32 fontIndex, vec4 color, vec2 position, vec2 scale) {
+void Manager::DrawCircleSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, f32 edge, vec2 origin, Radians32 rotation) const {
+    Rendering::PushConstants pc = Rendering::PushConstants();
+    if (context.currentPipeline != PIPELINE_CIRCLE) BindPipelineCircle(context);
+    pc.frag.color = color;
+    pc.frag.texIndex = texIndex;
+    pc.vert.position = position;
+    pc.vert.transform = mat2::Scaler(scalePre);
+    if (rotation != 0.0) {
+        pc.vert.transform = pc.vert.transform * mat2::Rotation(rotation.value());
+    }
+    pc.vert.transform = pc.vert.transform * mat2::Scaler(scalePost);
+    pc.vert.origin = origin;
+    pc.font_circle.circle.edge = edge;
+    pc.PushCircle(context.commandBuffer, this);
+    vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, 0, 0);
+}
+
+void Manager::DrawChar(DrawingContext &context, char32 character, i32 fontIndex, vec4 color, vec2 position, vec2 scale) {
     const vec2 screenSizeFactor = vec2(2.0) / screenSize;
-    DrawCharSS(commandBuffer, character, fontIndex, color, position * screenSizeFactor + vec2(-1.0), scale * screenSizeFactor);
+    DrawCharSS(context, character, fontIndex, color, position * screenSizeFactor + vec2(-1.0), scale * screenSizeFactor);
 }
 
-void Manager::DrawText(VkCommandBuffer commandBuffer, WString text, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH, FontAlign alignV, f32 maxWidth, f32 edge, f32 bounds) {
+void Manager::DrawText(DrawingContext &context, WString text, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH, FontAlign alignV, f32 maxWidth, f32 edge, f32 bounds) {
     const vec2 screenSizeFactor = vec2(2.0) / screenSize;
     edge += 0.35 + min(0.15, max(0.0, (scale.y - 12.0) / 12.0));
     bounds -= min(0.05, max(0.0, (16.0 - scale.y) * 0.01));
-    DrawTextSS(commandBuffer, text, fontIndex, color, position * screenSizeFactor + vec2(-1.0), scale * screenSizeFactor.y, alignH, alignV, maxWidth * screenSizeFactor.x, edge, bounds);
+    DrawTextSS(context, text, fontIndex, color, position * screenSizeFactor + vec2(-1.0), scale * screenSizeFactor.y, alignH, alignV, maxWidth * screenSizeFactor.x, edge, bounds);
 }
 
-void Manager::DrawQuad(VkCommandBuffer commandBuffer, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {
+void Manager::DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {
     const vec2 screenSizeFactor = vec2(2.0) / screenSize;
-    DrawQuadSS(commandBuffer, texIndex, color, position * screenSizeFactor + vec2(-1.0), scalePre, scalePost * screenSizeFactor, origin, rotation);
+    DrawQuadSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0), scalePre, scalePost * screenSizeFactor, origin, rotation);
+}
+
+void Manager::DrawCircle(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {
+    const vec2 screenSizeFactor = vec2(2.0) / screenSize;
+    DrawCircleSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0), scalePre, scalePost * screenSizeFactor, 2.0 / scalePre.y, origin, rotation);
 }
 
 } // namespace Rendering

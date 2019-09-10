@@ -46,7 +46,7 @@ OBJ_W = $(patsubst %,$(ODIR)/Windows/Release/%,$(_OBJ))
 OBJ_LD = $(patsubst %,$(ODIR)/Linux/Debug/%,$(_OBJ))
 OBJ_WD = $(patsubst %,$(ODIR)/Windows/Debug/%,$(_OBJ))
 
-_SHADERS = 2D.vert.spv 2D.frag.spv Font.frag.spv
+_SHADERS = 2D.vert.spv 2D.frag.spv Font.frag.spv Circle.frag.spv
 SHADERS = $(patsubst %,data/shaders/%,$(_SHADERS))
 
 $(ODIR)/Linux/Debug/%.o: $(SDIR)/%.cpp $(DEPS) azcoredl

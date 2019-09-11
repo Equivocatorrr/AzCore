@@ -33,11 +33,18 @@ void Manager::EventUpdate() {
         if (enemyTimer <= 0.0) {
             Enemy enemy;
             enemies.Create(enemy);
-            enemyTimer += 0.1;
+            enemyTimer += 0.2;
         }
     }
 
     if (globals->gui.mouseoverDepth > 0) return; // Don't accept mouse input
+    if (globals->objects.Pressed(KC_KEY_R)) {
+        for (i32 i = 0; i < towers.size; i++) {
+            if (towers[i].id.generation >= 0) {
+                towers.Destroy(towers[i].id);
+            }
+        }
+    }
     if (globals->objects.Pressed(KC_KEY_T)) {
         placeMode = !placeMode;
     }
@@ -50,6 +57,7 @@ void Manager::EventUpdate() {
                 selectedTower = -1;
             }
             for (i32 i = 0; i < towers.size; i++) {
+                if (towers[i].id.generation < 0) continue;
                 if (towers[i].physical.MouseOver()) {
                     selectedTower = towers[i].id;
                     break;
@@ -57,13 +65,22 @@ void Manager::EventUpdate() {
             }
         }
     } else {
-        Tower tower;
-        tower.physical.type = BOX;
-        tower.physical.basis.box = {vec2(-16.0), vec2(16.0)};
+        if (globals->objects.Pressed(KC_MOUSE_SCROLLUP)) {
+            towerType = TowerType(i32(towerType+1) % i32(TOWER_MAX_RANGE+1));
+        } else if (globals->objects.Pressed(KC_MOUSE_SCROLLDOWN)) {
+            i32 tt = i32(towerType) - 1;
+            if (tt >= 0) {
+                towerType = TowerType(tt);
+            } else {
+                towerType = TOWER_MAX_RANGE;
+            }
+        }
+        Tower tower(towerType);
         tower.physical.pos = globals->input.cursor;
         canPlace = true;
         for (i32 i = 0; i < towers.size; i++) {
             const Tower &other = towers[i];
+            if (other.id.generation < 0) continue;
             if (other.physical.Collides(tower.physical)) {
                 canPlace = false;
                 break;
@@ -72,7 +89,7 @@ void Manager::EventUpdate() {
         if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
             if (canPlace) {
                 towers.Create(tower);
-                placeMode = false;
+                // placeMode = false;
             }
         }
     }
@@ -84,7 +101,9 @@ void Manager::EventDraw(Rendering::DrawingContext &context) {
     enemies.Draw(context);
     bullets.Draw(context);
     if (placeMode) {
-        globals->rendering.DrawQuad(context, Rendering::texBlank, canPlace ? vec4(0.1, 1.0, 0.1, 0.9) : vec4(1.0, 0.1, 0.1, 0.9), globals->input.cursor, vec2(32.0), vec2(1.0), vec2(0.5));
+        Tower tower(towerType);
+        tower.physical.pos = globals->input.cursor;
+        tower.physical.Draw(context, canPlace ? vec4(0.1, 1.0, 0.1, 0.9) : vec4(1.0, 0.1, 0.1, 0.9));
     }
     if (selectedTower != -1) {
         const Tower& selected = towers[selectedTower];
@@ -415,7 +434,7 @@ void Physical::Draw(Rendering::DrawingContext &context, vec4 color) {
         scale.y = max(scale.y, 2.0);
         globals->rendering.DrawQuad(context, Rendering::texBlank, color, pos, scale, vec2(1.0), -basis.segment.a / scale, angle);
     } else {
-        const vec2 scale = basis.circle.r * 2.0;
+        const vec2 scale = basis.circle.r * 2.0 + 2.0;
         globals->rendering.DrawCircle(context, Rendering::texBlank, color, pos, scale, vec2(1.0), -basis.circle.c / scale + vec2(0.5), angle);
     }
 }
@@ -487,7 +506,46 @@ void DoubleBufferArray<T>::Destroy(Id id) {
     mutex.unlock();
 }
 
+Tower::Tower(TowerType _type) {
+    type = _type;
+    switch(type) {
+        case TOWER_GUN:
+            physical.type = BOX;
+            physical.basis.box = {vec2(-16.0), vec2(16.0)};
+            color = vec4(0.1, 0.1, 1.0, 1.0);
+            shootInterval = 0.1;
+            bulletSpread = 2.0;
+            bulletCount = 1;
+            bulletSpeed = 500.0;
+            range = 512.0;
+            bulletSpeedVariability = 50.0;
+            break;
+        case TOWER_SHOTGUN:
+            physical.type = BOX;
+            physical.basis.box = {vec2(-20.0), vec2(20.0)};
+            color = vec4(0.1, 1.0, 0.5, 1.0);
+            shootInterval = 0.8;
+            bulletSpread = 15.0;
+            bulletCount = 15;
+            bulletSpeed = 800.0;
+            range = 256.0;
+            bulletSpeedVariability = 200.0;
+            break;
+        default:
+            physical.type = CIRCLE;
+            physical.basis.circle.c = vec2(0.0);
+            physical.basis.circle.r = 16.0;
+            color = vec4(0.0, 0.0, 0.0, 1.0);
+            shootInterval = 0.8;
+            bulletSpread = 15.0;
+            bulletCount = 10;
+            bulletSpeed = 800.0;
+            break;
+    }
+}
+
 void Tower::EventCreate() {
+    selected = false;
     shootTimer = 0.0;
 }
 
@@ -495,27 +553,44 @@ void Tower::Update(f32 timestep) {
     physical.Update(timestep);
     selected = globals->entities.selectedTower == id;
     if (shootTimer <= 0.0) {
+        bool canShoot = true;
         f32 maxDistSquared = range*range;
         f32 nearestDistSquared = maxDistSquared;
         Id nearestEnemy = -1;
         for (i32 i = 0; i < globals->entities.enemies.size; i++) {
             const Enemy& other = globals->entities.enemies[i];
-            if (other.id.generation < 0) continue;
-            f32 distSquared = absSqr(other.physical.pos - physical.pos);
+            if (other.id.generation < 0 || other.hitpoints == 0) continue;
+            if (physical.Collides(other.physical)) {
+                canShoot = false;
+                break;
+            }
+            f32 distSquared = absSqr(other.physical.pos - physical.pos) - square(other.physical.basis.circle.r);
             if (distSquared < nearestDistSquared) {
                 nearestDistSquared = distSquared;
                 nearestEnemy = other.id;
             }
         }
-        if (nearestEnemy != -1) {
+        if (nearestEnemy != -1 && canShoot) {
             const Enemy& other = globals->entities.enemies[nearestEnemy];
-            vec2 deltaP = other.physical.pos - physical.pos;
-            f32 dist = sqrt(nearestDistSquared);
             Bullet bullet;
             bullet.physical.pos = physical.pos;
-            bullet.physical.vel = normalize(deltaP + other.physical.vel * dist / 300.0) * 300.0;
-            globals->entities.bullets.Create(bullet);
-            shootTimer = 0.3;
+            bullet.lifetime = range / (bulletSpeed * 0.8);
+            f32 dist = sqrt(nearestDistSquared);
+            vec2 deltaP;
+            for (i32 i = 0; i < 2; i++) {
+                deltaP = other.physical.pos - physical.pos + other.physical.vel * dist / bulletSpeed;
+                dist = abs(deltaP);
+            }
+            deltaP = other.physical.pos - physical.pos + other.physical.vel * dist / bulletSpeed;
+            Angle32 idealAngle = atan2(-deltaP.y, deltaP.x);
+            for (i32 i = 0; i < bulletCount; i++) {
+                Angle32 angle = idealAngle + Degrees32(random(-bulletSpread.value(), bulletSpread.value(), globals->rng));
+                bullet.physical.vel.x = cos(angle);
+                bullet.physical.vel.y = -sin(angle);
+                bullet.physical.vel *= bulletSpeed + random(-bulletSpeedVariability, bulletSpeedVariability, globals->rng);
+                globals->entities.bullets.Create(bullet);
+            }
+            shootTimer = shootInterval;
         }
     } else {
         shootTimer -= timestep;
@@ -523,13 +598,13 @@ void Tower::Update(f32 timestep) {
 }
 
 void Tower::Draw(Rendering::DrawingContext &context) {
-    vec4 color;
+    vec4 colorTemp;
     if (selected) {
-        color = vec4(0.5, 0.5, 1.0, 1.0);
+        colorTemp = vec4(0.5) + color * 0.5;
     } else {
-        color = vec4(0.1, 0.1, 1.0, 1.0);
+        colorTemp = color;
     }
-    physical.Draw(context, color);
+    physical.Draw(context, colorTemp);
 }
 
 template struct DoubleBufferArray<Tower>;
@@ -538,33 +613,51 @@ void Enemy::EventCreate() {
     physical.type = CIRCLE;
     physical.basis.circle.c = vec2(0.0);
     physical.basis.circle.r = 16.0;
-    physical.pos = vec2(-16.0, random(0.0, 512.0, globals->rng));
-    physical.vel = vec2(200.0, 80.0);
+    physical.pos = vec2(0.0, globals->rendering.screenSize.y * 0.5 + random(-256.0, 256.0, globals->rng));
+    physical.vel = vec2(200.0, random(-50.0, 50.0, globals->rng));
+    f32 honker = random(0.0, 200.0, globals->rng);
+    if (honker < 1.0) {
+        hitpoints = random(1000, 8000, globals->rng);
+    } else if (honker <= 5.0) {
+        hitpoints = random(200, 500, globals->rng);
+    } else {
+        hitpoints = random(25, 100, globals->rng);
+    }
+    physical.vel *= 10.0;
+    physical.vel /= sqrt((f32)hitpoints);
+    targetSpeed = 2000.0 / sqrt((f32)hitpoints);
+    size = 0.0;
 }
 
 void Enemy::Update(f32 timestep) {
+    size = decay(size, (f32)hitpoints, 0.2, timestep);
+    physical.basis.circle.r = 4.0 * sqrt(size);
     physical.Update(timestep);
     physical.UpdateActual();
-    if (physical.aabb.minPos.x > globals->rendering.screenSize.x || physical.aabb.minPos.y > globals->rendering.screenSize.y) {
+    if (physical.pos.y < physical.basis.circle.r) {
+        physical.vel.y += 1.0;
+    } else if (physical.pos.y > globals->rendering.screenSize.y - physical.basis.circle.r) {
+        physical.vel.y -= 1.0;
+    }
+    if (physical.aabb.minPos.x > globals->rendering.screenSize.x || physical.aabb.minPos.y > globals->rendering.screenSize.y || (hitpoints <= 0 && size < 0.01)) {
         globals->entities.enemies.Destroy(id);
     }
-    Id hitBullet = -1;
+    if (hitpoints == 0) return;
     for (i32 i = 0; i < globals->entities.bullets.size; i++) {
         const Bullet &other = globals->entities.bullets[i];
         if (other.id.generation < 0) continue;
         if (physical.Collides(other.physical)) {
-            hitBullet = other.id;
-            break;
+            globals->entities.bullets.Destroy(other.id);
+            hitpoints--;
+            physical.vel += normalize(other.physical.vel) * 200.0 / size;
         }
     }
-    if (hitBullet != -1) {
-        globals->entities.bullets.Destroy(hitBullet);
-        globals->entities.enemies.Destroy(id);
-    }
+    physical.vel.x = max(decay(physical.vel.x, targetSpeed + abs(physical.vel.y), 1.0, timestep), targetSpeed * 0.2);
+    physical.vel = normalize(physical.vel) * targetSpeed;
 }
 
 void Enemy::Draw(Rendering::DrawingContext &context) {
-    vec4 color = vec4(1.0, 0.5, 0.1, 1.0);
+    vec4 color = vec4(hsvToRgb(vec3(sqrt(size)/(tau*4.0), min(size / 200.0, 1.0), 1.0)), min(size / 5.0, 0.8));
     physical.Draw(context, color);
 }
 
@@ -572,21 +665,22 @@ template struct DoubleBufferArray<Enemy>;
 
 void Bullet::EventCreate() {
     physical.type = SEGMENT;
-    physical.basis.segment.a = vec2(-8.0, -1.0);
-    physical.basis.segment.b = vec2(8.0, 1.0);
+    physical.basis.segment.a = vec2(-4.0, -1.0);
+    physical.basis.segment.b = vec2(4.0, 1.0);
     physical.angle = atan2(-physical.vel.y, physical.vel.x);
 }
 
 void Bullet::Update(f32 timestep) {
     physical.Update(timestep);
     physical.UpdateActual();
-    if (physical.aabb.minPos.x > globals->rendering.screenSize.x || physical.aabb.minPos.y > globals->rendering.screenSize.y) {
+    lifetime -= timestep;
+    if (physical.aabb.minPos.x > globals->rendering.screenSize.x || physical.aabb.minPos.y > globals->rendering.screenSize.y || lifetime <= 0.0) {
         globals->entities.bullets.Destroy(id);
     }
 }
 
 void Bullet::Draw(Rendering::DrawingContext &context) {
-    vec4 color = vec4(1.0, 1.0, 0.5, 1.0);
+    vec4 color = vec4(1.0, 1.0, 0.5, clamp(0.0, 1.0, lifetime * 8.0));
     physical.Draw(context, color);
 }
 

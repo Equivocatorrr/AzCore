@@ -160,6 +160,12 @@ struct Entity {
     // void Draw(Rendering::DrawingContext &context);
 };
 
+enum TowerType {
+    TOWER_GUN=0,
+    TOWER_SHOTGUN=1,
+    TOWER_MAX_RANGE=1
+};
+
 struct Tower;
 struct Enemy;
 struct Bullet;
@@ -170,6 +176,7 @@ struct Manager : public Objects::Object {
     DoubleBufferArray<Bullet> bullets{};
     Id selectedTower = -1;
     bool placeMode = false;
+    TowerType towerType = TOWER_GUN;
     bool canPlace = false;
     bool generateEnemies = false;
     f32 enemyTimer = 0.0;
@@ -181,9 +188,18 @@ struct Manager : public Objects::Object {
 };
 
 struct Tower : public Entity {
-    bool selected = false;
-    f32 range = 128.0;
-    f32 shootTimer = 0.0;
+    TowerType type;
+    bool selected;
+    f32 range;
+    f32 shootTimer;
+    f32 shootInterval;
+    Degrees32 bulletSpread;
+    i32 bulletCount;
+    f32 bulletSpeed;
+    f32 bulletSpeedVariability;
+    vec4 color;
+    Tower() = default;
+    Tower(TowerType _type);
     void EventCreate();
     void Update(f32 timestep);
     void Draw(Rendering::DrawingContext &context);
@@ -191,6 +207,9 @@ struct Tower : public Entity {
 extern template struct DoubleBufferArray<Tower>;
 
 struct Enemy : public Entity {
+    i32 hitpoints;
+    f32 size;
+    f32 targetSpeed;
     void EventCreate();
     void Update(f32 timestep);
     void Draw(Rendering::DrawingContext &context);
@@ -198,6 +217,7 @@ struct Enemy : public Entity {
 extern template struct DoubleBufferArray<Enemy>;
 
 struct Bullet : public Entity {
+    f32 lifetime;
     void EventCreate();
     void Update(f32 timestep);
     void Draw(Rendering::DrawingContext &context);

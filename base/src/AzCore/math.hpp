@@ -155,6 +155,16 @@ inline T lerp(const T &a, const T &b, F factor) {
     return a + (b-a) * factor;
 }
 
+template<typename T, typename F>
+T decay(T a, T b, F halfLife, F timestep) {
+    F fac = exp(-timestep/halfLife);
+    if (fac > F(1.0))
+        fac = F(1.0);
+    else if (fac < F(0.0))
+        fac = F(0.0);
+    return b * (F(1.0) - fac) + a * fac;
+}
+
 template<typename T>
 inline T map(const T &in, const T &minFrom, const T &maxFrom, const T &minTo, const T &maxTo) {
     return (in - minFrom) * (maxTo - minTo) / (maxFrom - minFrom) + minTo;

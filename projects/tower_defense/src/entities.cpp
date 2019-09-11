@@ -24,9 +24,11 @@ void Manager::EventUpdate() {
     towers.Synchronize();
     enemies.Synchronize();
     bullets.Synchronize();
+    winds.Synchronize();
     towers.Update(globals->objects.timestep);
     enemies.Update(globals->objects.timestep);
     bullets.Update(globals->objects.timestep);
+    winds.Update(globals->objects.timestep);
 
     if (generateEnemies) {
         enemyTimer -= globals->objects.timestep;
@@ -75,8 +77,14 @@ void Manager::EventUpdate() {
                 towerType = TOWER_MAX_RANGE;
             }
         }
+        if (globals->objects.Down(KC_KEY_LEFT)) {
+            placingAngle += globals->objects.timestep * pi;
+        } else if (globals->objects.Down(KC_KEY_RIGHT)) {
+            placingAngle += -globals->objects.timestep * pi;
+        }
         Tower tower(towerType);
         tower.physical.pos = globals->input.cursor;
+        tower.physical.angle = placingAngle;
         canPlace = true;
         for (i32 i = 0; i < towers.size; i++) {
             const Tower &other = towers[i];
@@ -100,9 +108,11 @@ void Manager::EventDraw(Rendering::DrawingContext &context) {
     towers.Draw(context);
     enemies.Draw(context);
     bullets.Draw(context);
+    winds.Draw(context);
     if (placeMode) {
         Tower tower(towerType);
         tower.physical.pos = globals->input.cursor;
+        tower.physical.angle = placingAngle;
         tower.physical.Draw(context, canPlace ? vec4(0.1, 1.0, 0.1, 0.9) : vec4(1.0, 0.1, 0.1, 0.9));
     }
     if (selectedTower != -1) {
@@ -527,9 +537,20 @@ Tower::Tower(TowerType _type) {
             shootInterval = 0.8;
             bulletSpread = 15.0;
             bulletCount = 15;
-            bulletSpeed = 800.0;
+            bulletSpeed = 600.0;
             range = 256.0;
             bulletSpeedVariability = 200.0;
+            break;
+        case TOWER_FAN:
+            physical.type = BOX;
+            physical.basis.box = {vec2(-10.0, -32.0), vec2(10.0, 32.0)};
+            color = vec4(0.5, 1.0, 0.1, 1.0);
+            shootInterval = 0.1;
+            bulletSpread = 10.0;
+            bulletCount = 2;
+            bulletSpeed = 600.0;
+            range = 300.0;
+            bulletSpeedVariability = 100.0;
             break;
         default:
             physical.type = CIRCLE;
@@ -564,10 +585,12 @@ void Tower::Update(f32 timestep) {
                 canShoot = false;
                 break;
             }
-            f32 distSquared = absSqr(other.physical.pos - physical.pos) - square(other.physical.basis.circle.r);
-            if (distSquared < nearestDistSquared) {
-                nearestDistSquared = distSquared;
-                nearestEnemy = other.id;
+            if (type != TOWER_FAN) {
+                f32 distSquared = absSqr(other.physical.pos - physical.pos) - square(other.physical.basis.circle.r);
+                if (distSquared < nearestDistSquared) {
+                    nearestDistSquared = distSquared;
+                    nearestEnemy = other.id;
+                }
             }
         }
         if (nearestEnemy != -1 && canShoot) {
@@ -591,6 +614,22 @@ void Tower::Update(f32 timestep) {
                 globals->entities.bullets.Create(bullet);
             }
             shootTimer = shootInterval;
+        }
+        if (type == TOWER_FAN && canShoot) {
+            Wind wind;
+            wind.physical.pos = physical.pos;
+            wind.lifetime = range / bulletSpeed;
+            f32 randomPos = random(-20.0, 20.0, globals->rng);
+            wind.physical.pos.x += cos(physical.angle.value() + pi * 0.5) * randomPos;
+            wind.physical.pos.y -= sin(physical.angle.value() + pi * 0.5) * randomPos;
+            for (i32 i = 0; i < bulletCount; i++) {
+                Angle32 angle = physical.angle + Degrees32(random(-bulletSpread.value(), bulletSpread.value(), globals->rng));
+                wind.physical.vel.x = cos(angle);
+                wind.physical.vel.y = -sin(angle);
+                wind.physical.vel *= bulletSpeed + random(-bulletSpeedVariability, bulletSpeedVariability, globals->rng);
+                wind.physical.pos += wind.physical.vel * 0.03;
+                globals->entities.winds.Create(wind);
+            }
         }
     } else {
         shootTimer -= timestep;
@@ -642,6 +681,13 @@ void Enemy::Update(f32 timestep) {
     if (physical.aabb.minPos.x > globals->rendering.screenSize.x || physical.aabb.minPos.y > globals->rendering.screenSize.y || (hitpoints <= 0 && size < 0.01)) {
         globals->entities.enemies.Destroy(id);
     }
+    for (i32 i = 0; i < globals->entities.winds.size; i++) {
+        const Wind &other = globals->entities.winds[i];
+        if (other.id.generation < 0) continue;
+        if (physical.Collides(other.physical)) {
+            physical.vel += normalize(other.physical.vel) * other.lifetime * 1000.0 / square(size);
+        }
+    }
     if (hitpoints == 0) return;
     for (i32 i = 0; i < globals->entities.bullets.size; i++) {
         const Bullet &other = globals->entities.bullets[i];
@@ -685,5 +731,30 @@ void Bullet::Draw(Rendering::DrawingContext &context) {
 }
 
 template struct DoubleBufferArray<Bullet>;
+
+void Wind::EventCreate() {
+    physical.type = CIRCLE;
+    physical.basis.circle.c = vec2(random(-8.0, 8.0, globals->rng), random(-8.0, 8.0, globals->rng));
+    physical.basis.circle.r = random(16.0, 32.0, globals->rng);
+    physical.angle = random(0.0, tau, globals->rng);
+    physical.rot = random(-tau, tau, globals->rng);
+}
+
+void Wind::Update(f32 timestep) {
+    physical.Update(timestep);
+    physical.UpdateActual();
+    lifetime -= timestep;
+    if (physical.aabb.minPos.x > globals->rendering.screenSize.x || physical.aabb.minPos.y > globals->rendering.screenSize.y || lifetime <= 0.0) {
+        globals->entities.winds.Destroy(id);
+    }
+}
+
+void Wind::Draw(Rendering::DrawingContext &context) {
+    vec4 color = vec4(1.0, 1.0, 1.0, clamp(0.0, 0.1, lifetime * 0.1));
+    const vec2 scale = physical.basis.circle.r * 2.0;
+    globals->rendering.DrawCircle(context, Rendering::texBlank, color, physical.pos, scale * 0.1, vec2(10.0), -physical.basis.circle.c / scale + vec2(0.5), physical.angle);
+}
+
+template struct DoubleBufferArray<Wind>;
 
 } // namespace Objects

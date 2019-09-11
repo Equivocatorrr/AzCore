@@ -163,20 +163,24 @@ struct Entity {
 enum TowerType {
     TOWER_GUN=0,
     TOWER_SHOTGUN=1,
-    TOWER_MAX_RANGE=1
+    TOWER_FAN=2,
+    TOWER_MAX_RANGE=2
 };
 
 struct Tower;
 struct Enemy;
 struct Bullet;
+struct Wind;
 
 struct Manager : public Objects::Object {
     DoubleBufferArray<Tower> towers{};
     DoubleBufferArray<Enemy> enemies{};
     DoubleBufferArray<Bullet> bullets{};
+    DoubleBufferArray<Wind> winds{};
     Id selectedTower = -1;
     bool placeMode = false;
     TowerType towerType = TOWER_GUN;
+    Angle32 placingAngle = 0.0;
     bool canPlace = false;
     bool generateEnemies = false;
     f32 enemyTimer = 0.0;
@@ -223,6 +227,14 @@ struct Bullet : public Entity {
     void Draw(Rendering::DrawingContext &context);
 };
 extern template struct DoubleBufferArray<Bullet>;
+
+struct Wind : public Entity {
+    f32 lifetime;
+    void EventCreate();
+    void Update(f32 timestep);
+    void Draw(Rendering::DrawingContext &context);
+};
+extern template struct DoubleBufferArray<Wind>;
 
 } // namespace Entities
 

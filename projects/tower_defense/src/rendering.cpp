@@ -893,7 +893,7 @@ void Manager::DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 p
 
 void Manager::DrawCircle(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {
     const vec2 screenSizeFactor = vec2(2.0) / screenSize;
-    DrawCircleSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0), scalePre, scalePost * screenSizeFactor, 2.0 / scalePre.y, origin, rotation);
+    DrawCircleSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0), scalePre, scalePost * screenSizeFactor, 1.5 / scalePre.y, origin, rotation);
 }
 
 } // namespace Rendering

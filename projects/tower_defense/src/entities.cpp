@@ -16,52 +16,63 @@ void Manager::EventAssetAcquire() {
 }
 
 void Manager::EventInitialize() {
-    Entity entity;
-    entity.physical.type = SEGMENT;
-    entity.physical.basis.segment.a = vec2(-64.0, -16.0);
-    entity.physical.basis.segment.b = vec2(64.0, -14.0);
-    entities.Create(entity);
 
-    entity.physical.type = CIRCLE;
-    entity.physical.basis.circle.c = vec2(64.0, 0.0);
-    entity.physical.basis.circle.r = 512.0;
-    entities.Create(entity);
-
-    entity.physical.type = BOX;
-    entity.physical.basis.box.a = vec2(-64.0, -64.0);
-    entity.physical.basis.box.b = vec2(128.0, 64.0);
-    entities.Create(entity);
-
-    entity.physical.type = SEGMENT;
-    entity.physical.basis.segment.a = vec2(0.0, 0.0);
-    entity.physical.basis.segment.b = vec2(128.0, 0.0);
-    entities.Create(entity);
-
-    entity.physical.type = CIRCLE;
-    entity.physical.basis.circle.c = vec2(0.0, 64.0);
-    entity.physical.basis.circle.r = 24.0;
-    entities.Create(entity);
-
-    entity.physical.type = BOX;
-    entity.physical.basis.box.a = vec2(-32.0, -128.0);
-    entity.physical.basis.box.b = vec2(32.0, 128.0);
-    entities.Create(entity);
 }
 
 void Manager::EventUpdate() {
     if (globals->gui.currentMenu != Int::MENU_PLAY) return;
-    entities.Synchronize();
-    entities.Update(globals->objects.timestep);
+    towers.Synchronize();
+    enemies.Synchronize();
+    bullets.Synchronize();
+    towers.Update(globals->objects.timestep);
+    enemies.Update(globals->objects.timestep);
+    bullets.Update(globals->objects.timestep);
+
+    if (generateEnemies) {
+        enemyTimer -= globals->objects.timestep;
+        if (enemyTimer <= 0.0) {
+            Enemy enemy;
+            enemies.Create(enemy);
+            enemyTimer += 0.1;
+        }
+    }
+
     if (globals->gui.mouseoverDepth > 0) return; // Don't accept mouse input
-    if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
-        if (selectedEntity != -1) {
-            selectedEntity = -1;
-        } else {
-            for (i32 i = 0; i < entities.size; i++) {
-                if (entities[i].physical.MouseOver()) {
-                    selectedEntity = entities[i].id;
+    if (globals->objects.Pressed(KC_KEY_T)) {
+        placeMode = !placeMode;
+    }
+    if (globals->objects.Pressed(KC_KEY_E)) {
+        generateEnemies = !generateEnemies;
+    }
+    if (!placeMode) {
+        if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
+            if (selectedTower != -1) {
+                selectedTower = -1;
+            }
+            for (i32 i = 0; i < towers.size; i++) {
+                if (towers[i].physical.MouseOver()) {
+                    selectedTower = towers[i].id;
                     break;
                 }
+            }
+        }
+    } else {
+        Tower tower;
+        tower.physical.type = BOX;
+        tower.physical.basis.box = {vec2(-16.0), vec2(16.0)};
+        tower.physical.pos = globals->input.cursor;
+        canPlace = true;
+        for (i32 i = 0; i < towers.size; i++) {
+            const Tower &other = towers[i];
+            if (other.physical.Collides(tower.physical)) {
+                canPlace = false;
+                break;
+            }
+        }
+        if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
+            if (canPlace) {
+                towers.Create(tower);
+                placeMode = false;
             }
         }
     }
@@ -69,7 +80,16 @@ void Manager::EventUpdate() {
 
 void Manager::EventDraw(Rendering::DrawingContext &context) {
     if (globals->gui.currentMenu != Int::MENU_PLAY) return;
-    entities.Draw(context);
+    towers.Draw(context);
+    enemies.Draw(context);
+    bullets.Draw(context);
+    if (placeMode) {
+        globals->rendering.DrawQuad(context, Rendering::texBlank, canPlace ? vec4(0.1, 1.0, 0.1, 0.9) : vec4(1.0, 0.1, 0.1, 0.9), globals->input.cursor, vec2(32.0), vec2(1.0), vec2(0.5));
+    }
+    if (selectedTower != -1) {
+        const Tower& selected = towers[selectedTower];
+        globals->rendering.DrawCircle(context, Rendering::texBlank, vec4(0.8, 0.8, 1.0, 0.2), selected.physical.pos, vec2(selected.range*2.0), vec2(1.0), vec2(0.5));
+    }
 }
 
 bool AABB::Collides(const AABB &other) const {
@@ -386,54 +406,17 @@ void Physical::UpdateActual() const {
     updated = true;
 }
 
-void Entity::EventCreate() {
-    physical.pos = vec2(random(0.0, (f32)globals->window.width, globals->rng), random(0.0, (f32)globals->window.height, globals->rng));
-    physical.angle = random(0.0, tau, globals->rng);
-}
-
-void Entity::Update(f32 timestep) {
-    physical.Update(timestep);
-    colliding = false;
-    for (i32 i = 0; i < globals->entities.entities.size; i++) {
-        const Entity &other = globals->entities.entities[i];
-        if (other.id == id) continue;
-        if (physical.Collides(other.physical)) {
-            colliding = true;
-        }
-    }
-    if (globals->objects.Pressed(KC_KEY_R)) {
-        physical.pos = vec2(random(0.0, (f32)globals->window.width, globals->rng), random(0.0, (f32)globals->window.height, globals->rng));
-        physical.angle = random(0.0, tau, globals->rng);
-    }
-    if (globals->entities.selectedEntity == id) {
-        physical.pos = vec2(globals->input.cursor);
-        if (globals->objects.Down(KC_KEY_LEFT)) {
-            physical.rot = pi;
-        } else if (globals->objects.Down(KC_KEY_RIGHT)) {
-            physical.rot = -pi;
-        } else {
-            physical.rot = 0.0;
-        }
-    }
-}
-
-void Entity::Draw(Rendering::DrawingContext &context) {
-    vec4 color;
-    if (colliding) {
-        color = vec4(1.0, 0.0, 0.0, 0.8);
-    } else {
-        color = vec4(1.0, 1.0, 1.0, 0.8);
-    }
-    if (physical.type == BOX) {
-        const vec2 scale = physical.basis.box.b - physical.basis.box.a;
-        globals->rendering.DrawQuad(context, Rendering::texBlank, color, physical.pos, scale, vec2(1.0), -physical.basis.box.a / scale, physical.angle);
-    } else if (physical.type == SEGMENT) {
-        vec2 scale = physical.basis.segment.b - physical.basis.segment.a;
+void Physical::Draw(Rendering::DrawingContext &context, vec4 color) {
+    if (type == BOX) {
+        const vec2 scale = basis.box.b - basis.box.a;
+        globals->rendering.DrawQuad(context, Rendering::texBlank, color, pos, scale, vec2(1.0), -basis.box.a / scale, angle);
+    } else if (type == SEGMENT) {
+        vec2 scale = basis.segment.b - basis.segment.a;
         scale.y = max(scale.y, 2.0);
-        globals->rendering.DrawQuad(context, Rendering::texBlank, color, physical.pos, scale, vec2(1.0), -physical.basis.segment.a / scale, physical.angle);
+        globals->rendering.DrawQuad(context, Rendering::texBlank, color, pos, scale, vec2(1.0), -basis.segment.a / scale, angle);
     } else {
-        const vec2 scale = physical.basis.circle.r * 2.0;
-        globals->rendering.DrawCircle(context, Rendering::texBlank, color, physical.pos, scale, vec2(1.0), -physical.basis.circle.c / scale + vec2(0.5), physical.angle);
+        const vec2 scale = basis.circle.r * 2.0;
+        globals->rendering.DrawCircle(context, Rendering::texBlank, color, pos, scale, vec2(1.0), -basis.circle.c / scale + vec2(0.5), angle);
     }
 }
 
@@ -458,10 +441,11 @@ void DoubleBufferArray<T>::Synchronize() {
     buffer = globals->objects.buffer;
 
     for (u16 &index : destroyed) {
-        // Make it negative and increment the generation
+        // It should already be negative, so decrement is an increment of the generation.
         array[!buffer][index].id.generation = -(array[!buffer][index].id.generation+1);
         empty.Append(index);
     }
+    count -= destroyed.size;
     destroyed.Clear();
     for (T &obj : created) {
         if (empty.size > 0) {
@@ -471,9 +455,11 @@ void DoubleBufferArray<T>::Synchronize() {
             empty.Erase(empty.size-1);
         } else {
             obj.id.index = array[!buffer].size;
+            obj.id.generation = 0;
             array[!buffer].Append(std::move(obj));
         }
     }
+    count += created.size;
     created.Clear();
     array[buffer] = array[!buffer];
     size = array[0].size;
@@ -490,10 +476,120 @@ void DoubleBufferArray<T>::Create(T &obj) {
 template<typename T>
 void DoubleBufferArray<T>::Destroy(Id id) {
     mutex.lock();
+    for (i32 i = 0; i < destroyed.size; i++) {
+        if (destroyed[i] == id.index) {
+            mutex.unlock();
+            return;
+        }
+    }
     destroyed.Append(id.index);
+    array[!buffer][id.index].id.generation *= -1;
     mutex.unlock();
 }
 
-template struct DoubleBufferArray<Entity>;
+void Tower::EventCreate() {
+    shootTimer = 0.0;
+}
+
+void Tower::Update(f32 timestep) {
+    physical.Update(timestep);
+    selected = globals->entities.selectedTower == id;
+    if (shootTimer <= 0.0) {
+        f32 maxDistSquared = range*range;
+        f32 nearestDistSquared = maxDistSquared;
+        Id nearestEnemy = -1;
+        for (i32 i = 0; i < globals->entities.enemies.size; i++) {
+            const Enemy& other = globals->entities.enemies[i];
+            if (other.id.generation < 0) continue;
+            f32 distSquared = absSqr(other.physical.pos - physical.pos);
+            if (distSquared < nearestDistSquared) {
+                nearestDistSquared = distSquared;
+                nearestEnemy = other.id;
+            }
+        }
+        if (nearestEnemy != -1) {
+            const Enemy& other = globals->entities.enemies[nearestEnemy];
+            vec2 deltaP = other.physical.pos - physical.pos;
+            f32 dist = sqrt(nearestDistSquared);
+            Bullet bullet;
+            bullet.physical.pos = physical.pos;
+            bullet.physical.vel = normalize(deltaP + other.physical.vel * dist / 300.0) * 300.0;
+            globals->entities.bullets.Create(bullet);
+            shootTimer = 0.3;
+        }
+    } else {
+        shootTimer -= timestep;
+    }
+}
+
+void Tower::Draw(Rendering::DrawingContext &context) {
+    vec4 color;
+    if (selected) {
+        color = vec4(0.5, 0.5, 1.0, 1.0);
+    } else {
+        color = vec4(0.1, 0.1, 1.0, 1.0);
+    }
+    physical.Draw(context, color);
+}
+
+template struct DoubleBufferArray<Tower>;
+
+void Enemy::EventCreate() {
+    physical.type = CIRCLE;
+    physical.basis.circle.c = vec2(0.0);
+    physical.basis.circle.r = 16.0;
+    physical.pos = vec2(-16.0, random(0.0, 512.0, globals->rng));
+    physical.vel = vec2(200.0, 80.0);
+}
+
+void Enemy::Update(f32 timestep) {
+    physical.Update(timestep);
+    physical.UpdateActual();
+    if (physical.aabb.minPos.x > globals->rendering.screenSize.x || physical.aabb.minPos.y > globals->rendering.screenSize.y) {
+        globals->entities.enemies.Destroy(id);
+    }
+    Id hitBullet = -1;
+    for (i32 i = 0; i < globals->entities.bullets.size; i++) {
+        const Bullet &other = globals->entities.bullets[i];
+        if (other.id.generation < 0) continue;
+        if (physical.Collides(other.physical)) {
+            hitBullet = other.id;
+            break;
+        }
+    }
+    if (hitBullet != -1) {
+        globals->entities.bullets.Destroy(hitBullet);
+        globals->entities.enemies.Destroy(id);
+    }
+}
+
+void Enemy::Draw(Rendering::DrawingContext &context) {
+    vec4 color = vec4(1.0, 0.5, 0.1, 1.0);
+    physical.Draw(context, color);
+}
+
+template struct DoubleBufferArray<Enemy>;
+
+void Bullet::EventCreate() {
+    physical.type = SEGMENT;
+    physical.basis.segment.a = vec2(-8.0, -1.0);
+    physical.basis.segment.b = vec2(8.0, 1.0);
+    physical.angle = atan2(-physical.vel.y, physical.vel.x);
+}
+
+void Bullet::Update(f32 timestep) {
+    physical.Update(timestep);
+    physical.UpdateActual();
+    if (physical.aabb.minPos.x > globals->rendering.screenSize.x || physical.aabb.minPos.y > globals->rendering.screenSize.y) {
+        globals->entities.bullets.Destroy(id);
+    }
+}
+
+void Bullet::Draw(Rendering::DrawingContext &context) {
+    vec4 color = vec4(1.0, 1.0, 0.5, 1.0);
+    physical.Draw(context, color);
+}
+
+template struct DoubleBufferArray<Bullet>;
 
 } // namespace Objects

@@ -155,7 +155,8 @@ struct SettingsMenu {
 
 struct PlayMenu {
     Screen screen;
-    Image *image;
+    // Image *image;
+    Text *enemyCount;
 
     void Initialize();
     void Update();

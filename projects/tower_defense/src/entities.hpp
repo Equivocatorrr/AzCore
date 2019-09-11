@@ -81,6 +81,7 @@ struct Physical {
     bool MouseOver() const;
     void Update(f32 timestep);
     void UpdateActual() const;
+    void Draw(Rendering::DrawingContext &context, vec4 color);
 };
 
 /*  struct: Id
@@ -114,18 +115,6 @@ struct Id {
     }
 };
 
-/*  struct: Entity
-    Author: Philip Haynes
-    Baseline entity. Anything in a DoubleBufferArray must be inherited from this.    */
-struct Entity {
-    Id id;
-    Physical physical;
-    bool colliding;
-    void EventCreate();
-    void Update(f32 timestep);
-    void Draw(Rendering::DrawingContext &context);
-};
-
 /*  struct: DoubleBufferArray
     Author: Philip Haynes
     Stores a copy of objects that are read-only and a copy that get updated.    */
@@ -142,6 +131,7 @@ struct DoubleBufferArray {
     // Used to synchronize access to created and destroyed
     Mutex mutex;
     i32 size = 0;
+    i32 count = 0;
     bool buffer = false;
 
     void Update(f32 timestep);
@@ -159,9 +149,30 @@ struct DoubleBufferArray {
     }
 };
 
+/*  struct: Entity
+    Author: Philip Haynes
+    Baseline entity. Anything in a DoubleBufferArray must be inherited from this.    */
+struct Entity {
+    Id id;
+    Physical physical;
+    // void EventCreate();
+    // void Update(f32 timestep);
+    // void Draw(Rendering::DrawingContext &context);
+};
+
+struct Tower;
+struct Enemy;
+struct Bullet;
+
 struct Manager : public Objects::Object {
-    DoubleBufferArray<Entity> entities{};
-    Id selectedEntity = -1;
+    DoubleBufferArray<Tower> towers{};
+    DoubleBufferArray<Enemy> enemies{};
+    DoubleBufferArray<Bullet> bullets{};
+    Id selectedTower = -1;
+    bool placeMode = false;
+    bool canPlace = false;
+    bool generateEnemies = false;
+    f32 enemyTimer = 0.0;
     void EventAssetInit();
     void EventAssetAcquire();
     void EventInitialize();
@@ -169,9 +180,29 @@ struct Manager : public Objects::Object {
     void EventDraw(Rendering::DrawingContext &context);
 };
 
+struct Tower : public Entity {
+    bool selected = false;
+    f32 range = 128.0;
+    f32 shootTimer = 0.0;
+    void EventCreate();
+    void Update(f32 timestep);
+    void Draw(Rendering::DrawingContext &context);
+};
+extern template struct DoubleBufferArray<Tower>;
 
+struct Enemy : public Entity {
+    void EventCreate();
+    void Update(f32 timestep);
+    void Draw(Rendering::DrawingContext &context);
+};
+extern template struct DoubleBufferArray<Enemy>;
 
-extern template struct DoubleBufferArray<Entity>;
+struct Bullet : public Entity {
+    void EventCreate();
+    void Update(f32 timestep);
+    void Draw(Rendering::DrawingContext &context);
+};
+extern template struct DoubleBufferArray<Bullet>;
 
 } // namespace Entities
 

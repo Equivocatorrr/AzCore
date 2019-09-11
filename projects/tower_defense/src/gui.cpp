@@ -280,15 +280,28 @@ void SettingsMenu::Draw(Rendering::DrawingContext &context) {
 }
 
 void PlayMenu::Initialize() {
-    image = new Image();
-    image->fractionHeight = false;
-    image->fractionWidth = false;
-    image->size = vec2(256.0, 256.0);
-    image->texIndex = globals->gui.texIndex;
-    AddWidget(&screen, image);
+    // image = new Image();
+    // image->fractionHeight = false;
+    // image->fractionWidth = false;
+    // image->size = vec2(256.0, 256.0);
+    // image->texIndex = globals->gui.texIndex;
+    // AddWidget(&screen, image);
+    enemyCount = new Text();
+    enemyCount->fractionWidth = false;
+    enemyCount->size.x = 0.0;
+    enemyCount->color = vec4(1.0);
+    enemyCount->colorOutline = vec4(0.0, 0.0, 0.0, 1.0);
+    enemyCount->outline = true;
+    enemyCount->fontIndex = globals->gui.fontIndex;
+    enemyCount->fontSize = 24.0;
+    enemyCount->bold = true;
+    enemyCount->position = vec2(32.0);
+    enemyCount->string = ToWString("Nothing");
+    AddWidget(&screen, enemyCount);
 }
 
 void PlayMenu::Update() {
+    enemyCount->string = ToWString("Enemy Count: " + ToString(globals->entities.enemies.count));
     screen.Update(vec2(0.0), true);
 }
 

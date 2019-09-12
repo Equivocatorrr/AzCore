@@ -182,8 +182,11 @@ struct Manager : public Objects::Object {
     TowerType towerType = TOWER_GUN;
     Angle32 placingAngle = 0.0;
     bool canPlace = false;
-    bool generateEnemies = false;
     f32 enemyTimer = 0.0;
+    i32 wave = 0;
+    i64 hitpointsLeft = 0;
+    f32 enemyInterval = 1.0;
+    i32 lives = 1000;
     void EventAssetInit();
     void EventAssetAcquire();
     void EventInitialize();
@@ -199,10 +202,20 @@ struct Tower : public Entity {
     f32 shootInterval;
     Degrees32 bulletSpread;
     i32 bulletCount;
+    i32 damage;
     f32 bulletSpeed;
     f32 bulletSpeedVariability;
     vec4 color;
     Tower() = default;
+    inline Tower(CollisionType collisionType, PhysicalBasis physicalBasis, TowerType _type,
+            f32 _range, f32 _shootInterval, Degrees32 _bulletSpread, i32 _bulletCount,
+            i32 _damage, f32 _bulletSpeed, f32 _bulletSpeedVariability, vec4 _color) :
+            type(_type), range(_range), shootInterval(_shootInterval), bulletSpread(_bulletSpread),
+            bulletCount(_bulletCount), damage(_damage), bulletSpeed(_bulletSpeed),
+            bulletSpeedVariability(_bulletSpeedVariability), color(_color) {
+        physical.type = collisionType;
+        physical.basis = physicalBasis;
+    }
     Tower(TowerType _type);
     void EventCreate();
     void Update(f32 timestep);
@@ -214,6 +227,9 @@ struct Enemy : public Entity {
     i32 hitpoints;
     f32 size;
     f32 targetSpeed;
+    f32 spawnTimer;
+    vec4 color;
+    bool child = false;
     void EventCreate();
     void Update(f32 timestep);
     void Draw(Rendering::DrawingContext &context);
@@ -222,6 +238,7 @@ extern template struct DoubleBufferArray<Enemy>;
 
 struct Bullet : public Entity {
     f32 lifetime;
+    i32 damage;
     void EventCreate();
     void Update(f32 timestep);
     void Draw(Rendering::DrawingContext &context);
@@ -230,6 +247,7 @@ extern template struct DoubleBufferArray<Bullet>;
 
 struct Wind : public Entity {
     f32 lifetime;
+    i32 damage;
     void EventCreate();
     void Update(f32 timestep);
     void Draw(Rendering::DrawingContext &context);

@@ -301,7 +301,7 @@ void PlayMenu::Initialize() {
 }
 
 void PlayMenu::Update() {
-    enemyCount->string = ToWString("Enemy Count: " + ToString(globals->entities.enemies.count));
+    enemyCount->string = ToWString("Wave: " + ToString(globals->entities.wave) + "\nWave Hitpoints Left: " + ToString(globals->entities.hitpointsLeft) + "\nLives: " + ToString(globals->entities.lives));
     screen.Update(vec2(0.0), true);
 }
 

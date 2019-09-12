@@ -38,12 +38,12 @@ Milliseconds totalTimeTaken(0);
 
 Array<String> successfulFactorizations{};
 
-const i32 minimumDigits = 2;
+const i32 minimumDigits = 194;
 // const i32 minimumDigits = 237;
 const i32 minimumPermutationDigits = 17;
-const i32 maximumDigits = 128;
+const i32 maximumDigits = 201;
 // const i32 maximumDigits = 237;
-const i32 numThreads = 4;
+const i32 numThreads = 8;
 
 Mutex threadControlMutex;
 u32 activeThreads = 0;
@@ -162,7 +162,7 @@ void CheckPersistence(u32 minDigits, u32 maxDigits, u32 currentDigit=0, u32 tota
         persistenceMutex.lock();
         totalPersistenceChecks++;
         remainingPersistenceChecks--;
-        if (checksCount++ >= 2000000 / (minimumDigits+maximumDigits) || per > 10) {
+        if (checksCount++ >= 10000000 / (minimumDigits+maximumDigits) || per > 10) {
             const Milliseconds delta = std::chrono::duration_cast<Milliseconds>(Clock::now() - startTime);
             cout.MutexLock();
             cout << "Per: " << per << " for num: " << numStr << "\nTotal Persistence Checks So Far: " << totalPersistenceChecks << "\n" << DurationString(delta.count()) << "elapsed. Estimated " << DurationString(delta.count() * remainingPersistenceChecks / totalPersistenceChecks) << "remaining.\n" << std::endl;

@@ -81,7 +81,22 @@ struct Physical {
     bool MouseOver() const;
     void Update(f32 timestep);
     void UpdateActual() const;
-    void Draw(Rendering::DrawingContext &context, vec4 color);
+    inline void Impulse(vec2 amount, f32 timestep) {
+        amount *= timestep;
+        vel += amount;
+        pos += 0.5 * amount * timestep;
+    }
+    inline void ImpulseX(f32 amount, f32 timestep) {
+        amount *= timestep;
+        vel.x += amount;
+        pos.x += 0.5 * amount * timestep;
+    }
+    inline void ImpulseY(f32 amount, f32 timestep) {
+        amount *= timestep;
+        vel.y += amount;
+        pos.y += 0.5 * amount * timestep;
+    }
+    void Draw(Rendering::DrawingContext &context, vec4 color) const;
 };
 
 /*  struct: Id
@@ -147,6 +162,12 @@ struct DoubleBufferArray {
     inline const T& operator[](const Id &id) {
         return array[!buffer][id.index];
     }
+    inline T& GetMutable(const i32 &index) {
+        return array[buffer][index];
+    }
+    inline T& GetMutable(const Id &id) {
+        return array[buffer][id.index];
+    }
 };
 
 /*  struct: Entity
@@ -158,25 +179,31 @@ struct Entity {
     // void EventCreate();
     // void Update(f32 timestep);
     // void Draw(Rendering::DrawingContext &context);
+    void EventDestroy() {};
 };
 
 enum TowerType {
     TOWER_GUN=0,
     TOWER_SHOTGUN=1,
     TOWER_FAN=2,
-    TOWER_MAX_RANGE=2
+    TOWER_GAUSS=3,
+    TOWER_SHOCKWAVE=4,
+    TOWER_FLAK=5,
+    TOWER_MAX_RANGE=5
 };
 
 struct Tower;
 struct Enemy;
 struct Bullet;
 struct Wind;
+struct Explosion;
 
 struct Manager : public Objects::Object {
     DoubleBufferArray<Tower> towers{};
     DoubleBufferArray<Enemy> enemies{};
     DoubleBufferArray<Bullet> bullets{};
     DoubleBufferArray<Wind> winds{};
+    DoubleBufferArray<Explosion> explosions{};
     Id selectedTower = -1;
     bool placeMode = false;
     TowerType towerType = TOWER_GUN;
@@ -196,7 +223,11 @@ struct Manager : public Objects::Object {
 
 struct Tower : public Entity {
     TowerType type;
+    // field is for AOE effects, and is only used by certain types of towers
+    // For those that don't have AOE, it's used to illustrate range.
+    Physical field;
     bool selected;
+    bool disabled;
     f32 range;
     f32 shootTimer;
     f32 shootInterval;
@@ -205,16 +236,22 @@ struct Tower : public Entity {
     i32 damage;
     f32 bulletSpeed;
     f32 bulletSpeedVariability;
+    i32 bulletExplosionDamage;
+    f32 bulletExplosionRange;
     vec4 color;
     Tower() = default;
-    inline Tower(CollisionType collisionType, PhysicalBasis physicalBasis, TowerType _type,
+    inline Tower(CollisionType collisionType, PhysicalBasis physicalBasis,
+            CollisionType fieldCollisionType, PhysicalBasis fieldPhysicalBasis, TowerType _type,
             f32 _range, f32 _shootInterval, Degrees32 _bulletSpread, i32 _bulletCount,
-            i32 _damage, f32 _bulletSpeed, f32 _bulletSpeedVariability, vec4 _color) :
+            i32 _damage, f32 _bulletSpeed, f32 _bulletSpeedVariability, i32 _bulletExplosionDamage, f32 _bulletExplosionRange, vec4 _color) :
             type(_type), range(_range), shootInterval(_shootInterval), bulletSpread(_bulletSpread),
             bulletCount(_bulletCount), damage(_damage), bulletSpeed(_bulletSpeed),
-            bulletSpeedVariability(_bulletSpeedVariability), color(_color) {
+            bulletSpeedVariability(_bulletSpeedVariability), bulletExplosionDamage(_bulletExplosionDamage),
+            bulletExplosionRange(_bulletExplosionRange), color(_color) {
         physical.type = collisionType;
         physical.basis = physicalBasis;
+        field.type = fieldCollisionType;
+        field.basis = fieldPhysicalBasis;
     }
     Tower(TowerType _type);
     void EventCreate();
@@ -239,7 +276,10 @@ extern template struct DoubleBufferArray<Enemy>;
 struct Bullet : public Entity {
     f32 lifetime;
     i32 damage;
+    i32 explosionDamage;
+    f32 explosionRange;
     void EventCreate();
+    void EventDestroy();
     void Update(f32 timestep);
     void Draw(Rendering::DrawingContext &context);
 };
@@ -247,12 +287,20 @@ extern template struct DoubleBufferArray<Bullet>;
 
 struct Wind : public Entity {
     f32 lifetime;
-    i32 damage;
     void EventCreate();
     void Update(f32 timestep);
     void Draw(Rendering::DrawingContext &context);
 };
 extern template struct DoubleBufferArray<Wind>;
+
+struct Explosion : public Entity {
+    f32 size, growth;
+    i32 damage; // per second
+    void EventCreate();
+    void Update(f32 timestep);
+    void Draw(Rendering::DrawingContext &context);
+};
+extern template struct DoubleBufferArray<Explosion>;
 
 } // namespace Entities
 

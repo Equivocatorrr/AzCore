@@ -11,43 +11,109 @@ namespace Entities {
 const Tower towerGunTemplate = Tower(
     BOX,                                        // CollisionType
     {vec2(-20.0), vec2(20.0)},                  // PhysicalBasis
+    CIRCLE,                                     // fieldCollisionType
+    {vec2(0.0), 400.0},                         // fieldPhysicalBasis
     TOWER_GUN,                                  // TowerType
     400.0,                                      // range
     0.1,                                        // shootInterval
-    3.0,                                        // bulletSpread (degrees)
+    1.0,                                        // bulletSpread (degrees)
     1,                                          // bulletCount
-    5,                                          // damage
+    10,                                         // damage
     500.0,                                      // bulletSpeed
     50.0,                                       // bulletSpeedVariability
+    0,                                          // bulletExplosionDamage
+    0.0,                                        // bulletExplosionRange
     vec4(0.1, 0.1, 1.0, 1.0)                    // color
 );
 
 const Tower towerShotgunTemplate = Tower(
     BOX,                                        // CollisionType
     {vec2(-16.0), vec2(16.0)},                  // PhysicalBasis
+    CIRCLE,                                     // fieldCollisionType
+    {vec2(0.0), 250.0},                         // fieldPhysicalBasis
     TOWER_SHOTGUN,                              // TowerType
     250.0,                                      // range
     1.0,                                        // shootInterval
-    15.0,                                       // bulletSpread (degrees)
+    12.0,                                       // bulletSpread (degrees)
     20,                                         // bulletCount
-    3,                                          // damage
+    10,                                         // damage
     600.0,                                      // bulletSpeed
     200.0,                                      // bulletSpeedVariability
+    0,                                          // bulletExplosionDamage
+    0.0,                                        // bulletExplosionRange
     vec4(0.1, 1.0, 0.5, 1.0)                    // color
 );
 
 const Tower towerFanTemplate = Tower(
     BOX,                                        // CollisionType
     {vec2(-10.0, -32.0), vec2(10.0, 32.0)},     // PhysicalBasis
+    BOX,                                        // fieldCollisionType
+    {vec2(-50.0, -40.0), vec2(300.0, 40.0)},    // fieldPhysicalBasis
     TOWER_FAN,                                  // TowerType
     300.0,                                      // range
     0.1,                                        // shootInterval
     10.0,                                       // bulletSpread (degrees)
     2,                                          // bulletCount
     1,                                          // damage
-    600.0,                                      // bulletSpeed
-    100.0,                                      // bulletSpeedVariability
+    800.0,                                      // bulletSpeed
+    200.0,                                      // bulletSpeedVariability
+    0,                                          // bulletExplosionDamage
+    0.0,                                        // bulletExplosionRange
     vec4(0.5, 1.0, 0.1, 1.0)                    // color
+);
+
+const Tower towerGaussTemplate = Tower(
+    BOX,                                        // CollisionType
+    {vec2(-32.0), vec2(32.0)},                  // PhysicalBasis
+    CIRCLE,                                     // fieldCollisionType
+    {vec2(0.0, 0.0), 800.0},                    // fieldPhysicalBasis
+    TOWER_GAUSS,                                // TowerType
+    800.0,                                      // range
+    2.0,                                        // shootInterval
+    3.0,                                        // bulletSpread (degrees)
+    1,                                          // bulletCount
+    2000,                                       // damage
+    2400.0,                                     // bulletSpeed
+    0.0,                                        // bulletSpeedVariability
+    0,                                          // bulletExplosionDamage
+    0.0,                                        // bulletExplosionRange
+    vec4(0.1, 1.0, 0.8, 1.0)                    // color
+);
+
+const Tower towerShockerTemplate = Tower(
+    CIRCLE,                                     // CollisionType
+    {vec2(0.0), 16.0},                          // PhysicalBasis
+    CIRCLE,                                     // fieldCollisionType
+    {vec2(0.0, 0.0), 100.0},                    // fieldPhysicalBasis
+    TOWER_SHOCKWAVE,                            // TowerType
+    100.0,                                      // range
+    1.0,                                        // shootInterval
+    0.0,                                        // bulletSpread (degrees)
+    1,                                          // bulletCount
+    200,                                        // damage
+    1.0,                                        // bulletSpeed
+    0.0,                                        // bulletSpeedVariability
+    0,                                          // bulletExplosionDamage
+    0.0,                                        // bulletExplosionRange
+    vec4(1.0, 0.3, 0.1, 1.0)                    // color
+);
+
+const Tower towerFlakTemplate = Tower(
+    CIRCLE,                                     // CollisionType
+    {vec2(0.0), 32.0},                          // PhysicalBasis
+    CIRCLE,                                     // fieldCollisionType
+    {vec2(0.0), 500.0},                         // fieldPhysicalBasis
+    TOWER_FLAK,                                 // TowerType
+    500.0,                                      // range
+    1.5,                                        // shootInterval
+    6.0,                                        // bulletSpread (degrees)
+    8,                                          // bulletCount
+    50,                                         // damage
+    400.0,                                      // bulletSpeed
+    100.0,                                      // bulletSpeedVariability
+    100,                                        // bulletExplosionDamage
+    50.0,                                       // bulletExplosionRange
+    vec4(1.0, 0.0, 0.8, 1.0)                    // color
 );
 
 void Manager::EventAssetInit() {
@@ -66,10 +132,12 @@ void Manager::EventUpdate() {
     enemies.Synchronize();
     bullets.Synchronize();
     winds.Synchronize();
+    explosions.Synchronize();
     towers.Update(globals->objects.timestep);
     enemies.Update(globals->objects.timestep);
     bullets.Update(globals->objects.timestep);
     winds.Update(globals->objects.timestep);
+    explosions.Update(globals->objects.timestep);
 
     if (hitpointsLeft > 0) {
         enemyTimer -= globals->objects.timestep;
@@ -152,16 +220,20 @@ void Manager::EventDraw(Rendering::DrawingContext &context) {
     enemies.Draw(context);
     bullets.Draw(context);
     winds.Draw(context);
+    explosions.Draw(context);
     if (placeMode) {
         Tower tower(towerType);
         tower.physical.pos = globals->input.cursor;
         tower.physical.angle = placingAngle;
         tower.physical.Draw(context, canPlace ? vec4(0.1, 1.0, 0.1, 0.9) : vec4(1.0, 0.1, 0.1, 0.9));
-        globals->rendering.DrawCircle(context, Rendering::texBlank, canPlace ? vec4(1.0, 1.0, 1.0, 0.1) : vec4(1.0, 0.5, 0.5, 0.2), tower.physical.pos, vec2(tower.range*2.0), vec2(1.0), vec2(0.5));
+        tower.field.pos = tower.physical.pos;
+        tower.field.angle = tower.physical.angle;
+        tower.field.Draw(context, canPlace ? vec4(1.0, 1.0, 1.0, 0.1) : vec4(1.0, 0.5, 0.5, 0.2));
     }
     if (selectedTower != -1) {
         const Tower& selected = towers[selectedTower];
-        globals->rendering.DrawCircle(context, Rendering::texBlank, vec4(1.0, 1.0, 1.0, 0.1), selected.physical.pos, vec2(selected.range*2.0), vec2(1.0), vec2(0.5));
+        selected.field.Draw(context, vec4(1.0, 1.0, 1.0, 0.1));
+        // globals->rendering.DrawCircle(context, Rendering::texBlank, vec4(1.0, 1.0, 1.0, 0.1), selected.physical.pos, vec2(selected.range*2.0), vec2(1.0), vec2(0.5));
     }
 }
 
@@ -479,7 +551,7 @@ void Physical::UpdateActual() const {
     updated = true;
 }
 
-void Physical::Draw(Rendering::DrawingContext &context, vec4 color) {
+void Physical::Draw(Rendering::DrawingContext &context, vec4 color) const {
     if (type == BOX) {
         const vec2 scale = basis.box.b - basis.box.a;
         globals->rendering.DrawQuad(context, Rendering::texBlank, color, pos, scale, vec2(1.0), -basis.box.a / scale, angle);
@@ -549,6 +621,7 @@ void DoubleBufferArray<T>::Create(T &obj) {
 template<typename T>
 void DoubleBufferArray<T>::Destroy(Id id) {
     mutex.lock();
+    array[!buffer][id.index].EventDestroy();
     for (i32 i = 0; i < destroyed.size; i++) {
         if (destroyed[i] == id.index) {
             mutex.unlock();
@@ -572,6 +645,15 @@ Tower::Tower(TowerType _type) {
         case TOWER_FAN:
             *this = towerFanTemplate;
             break;
+        case TOWER_GAUSS:
+            *this = towerGaussTemplate;
+            break;
+        case TOWER_SHOCKWAVE:
+            *this = towerShockerTemplate;
+            break;
+        case TOWER_FLAK:
+            *this = towerFlakTemplate;
+            break;
         default:
             physical.type = CIRCLE;
             physical.basis.circle.c = vec2(0.0);
@@ -588,55 +670,84 @@ Tower::Tower(TowerType _type) {
 void Tower::EventCreate() {
     selected = false;
     shootTimer = 0.0;
+    field.pos = physical.pos;
+    field.angle = physical.angle;
 }
 
 void Tower::Update(f32 timestep) {
     physical.Update(timestep);
     selected = globals->entities.selectedTower == id;
+    if (shootTimer <= 0.0) disabled = false;
+    for (i32 i = 0; i < globals->entities.enemies.size; i++) {
+        const Enemy& other = globals->entities.enemies[i];
+        if (other.id.generation < 0 || other.hitpoints <= 2000) continue;
+        if (physical.Collides(other.physical)) {
+            disabled = true;
+            shootTimer = 0.5;
+            break;
+        }
+    }
+    shootTimer -= timestep;
+    if (disabled) return;
     if (shootTimer <= 0.0) {
-        bool canShoot = true;
-        f32 maxDist = sqrt(range*range);
-        f32 nearestDist = maxDist;
-        Id nearestEnemy = -1;
-        for (i32 i = 0; i < globals->entities.enemies.size; i++) {
-            const Enemy& other = globals->entities.enemies[i];
-            if (other.id.generation < 0 || other.hitpoints == 0) continue;
-            if (other.hitpoints > 50 && physical.Collides(other.physical)) {
-                canShoot = false;
-                break;
-            }
-            if (type != TOWER_FAN) {
+        if (type != TOWER_SHOCKWAVE && type != TOWER_FAN) {
+            f32 maxDist = sqrt(range*range);
+            f32 nearestDist = maxDist;
+            Id nearestEnemy = -1;
+            for (i32 i = 0; i < globals->entities.enemies.size; i++) {
+                const Enemy& other = globals->entities.enemies[i];
+                if (other.id.generation < 0 || other.hitpoints == 0) continue;
                 f32 dist = abs(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
                 if (dist < nearestDist) {
                     nearestDist = dist;
                     nearestEnemy = other.id;
                 }
             }
-        }
-        if (nearestEnemy != -1 && canShoot) {
-            const Enemy& other = globals->entities.enemies[nearestEnemy];
-            Bullet bullet;
-            bullet.physical.pos = physical.pos;
-            bullet.lifetime = range / (bulletSpeed * 0.9);
-            f32 dist = nearestDist;
-            vec2 deltaP;
-            for (i32 i = 0; i < 2; i++) {
+            if (nearestEnemy != -1) {
+                const Enemy& other = globals->entities.enemies[nearestEnemy];
+                Bullet bullet;
+                bullet.physical.pos = physical.pos;
+                bullet.lifetime = range / (bulletSpeed * 0.9);
+                bullet.explosionDamage = bulletExplosionDamage;
+                bullet.explosionRange = bulletExplosionRange;
+                f32 dist = nearestDist;
+                vec2 deltaP;
+                for (i32 i = 0; i < 2; i++) {
+                    deltaP = other.physical.pos - physical.pos + other.physical.vel * dist / bulletSpeed;
+                    dist = abs(deltaP);
+                }
                 deltaP = other.physical.pos - physical.pos + other.physical.vel * dist / bulletSpeed;
-                dist = abs(deltaP);
+                Angle32 idealAngle = atan2(-deltaP.y, deltaP.x);
+                for (i32 i = 0; i < bulletCount; i++) {
+                    Angle32 angle = idealAngle + Degrees32(random(-bulletSpread.value(), bulletSpread.value(), globals->rng));
+                    bullet.physical.vel.x = cos(angle);
+                    bullet.physical.vel.y = -sin(angle);
+                    bullet.physical.vel *= bulletSpeed + random(-bulletSpeedVariability, bulletSpeedVariability, globals->rng);
+                    bullet.damage = damage;
+                    globals->entities.bullets.Create(bullet);
+                }
+                shootTimer = shootInterval;
             }
-            deltaP = other.physical.pos - physical.pos + other.physical.vel * dist / bulletSpeed;
-            Angle32 idealAngle = atan2(-deltaP.y, deltaP.x);
-            for (i32 i = 0; i < bulletCount; i++) {
-                Angle32 angle = idealAngle + Degrees32(random(-bulletSpread.value(), bulletSpread.value(), globals->rng));
-                bullet.physical.vel.x = cos(angle);
-                bullet.physical.vel.y = -sin(angle);
-                bullet.physical.vel *= bulletSpeed + random(-bulletSpeedVariability, bulletSpeedVariability, globals->rng);
-                bullet.damage = damage;
-                globals->entities.bullets.Create(bullet);
+        } else if (type == TOWER_SHOCKWAVE) {
+            bool shoot = false;
+            for (i32 i = 0; i < globals->entities.enemies.size; i++) {
+                const Enemy& other = globals->entities.enemies[i];
+                if (other.id.generation < 0 || other.hitpoints == 0) continue;
+                if (field.Collides(other.physical)) {
+                    shoot = true;
+                    break;
+                }
             }
-            shootTimer = shootInterval;
-        }
-        if (type == TOWER_FAN && canShoot) {
+            if (shoot) {
+                Explosion explosion;
+                explosion.size = range;
+                explosion.growth = 5.0;
+                explosion.damage = damage;
+                explosion.physical.pos = physical.pos;
+                globals->entities.explosions.Create(explosion);
+                shootTimer = shootInterval;
+            }
+        } else if (type == TOWER_FAN) {
             Wind wind;
             wind.physical.pos = physical.pos;
             wind.lifetime = range / bulletSpeed;
@@ -649,12 +760,9 @@ void Tower::Update(f32 timestep) {
                 wind.physical.vel.y = -sin(angle);
                 wind.physical.vel *= bulletSpeed + random(-bulletSpeedVariability, bulletSpeedVariability, globals->rng);
                 wind.physical.pos += wind.physical.vel * 0.03;
-                wind.damage = damage;
                 globals->entities.winds.Create(wind);
             }
         }
-    } else {
-        shootTimer -= timestep;
     }
 }
 
@@ -665,10 +773,15 @@ void Tower::Draw(Rendering::DrawingContext &context) {
     } else {
         colorTemp = color;
     }
+    if (disabled) {
+        colorTemp.rgb = (colorTemp.rgb + vec3(0.8 * 3.0)) / 4.0;
+    }
     physical.Draw(context, colorTemp);
 }
 
 template struct DoubleBufferArray<Tower>;
+
+const f32 honkerSpawnInterval = 5.0;
 
 void Enemy::EventCreate() {
     physical.type = CIRCLE;
@@ -678,7 +791,11 @@ void Enemy::EventCreate() {
         physical.pos = vec2(0.0, globals->rendering.screenSize.y * (0.5 + random(-0.2, 0.2, globals->rng)));
         physical.vel = vec2(200.0, random(-50.0, 50.0, globals->rng));
         f32 honker = random(0.0, 100000.0 / pow((f32)globals->entities.hitpointsLeft, 0.75), globals->rng);
-        if (honker < 1.0) {
+        if (honker < 0.001) {
+            hitpoints = 250000;
+        } else if (honker < 0.1) {
+            hitpoints = random(20000, 50000, globals->rng);
+        } else if (honker < 1.0) {
             hitpoints = random(5000, 10000, globals->rng);
         } else if (honker < 5.0) {
             hitpoints = random(1000, 2500, globals->rng);
@@ -688,7 +805,7 @@ void Enemy::EventCreate() {
             hitpoints = random(25, 100, globals->rng);
         }
     }
-    spawnTimer = 1.0;
+    spawnTimer = honkerSpawnInterval;
     if (!child) {
         if (hitpoints > globals->entities.hitpointsLeft) {
             hitpoints = globals->entities.hitpointsLeft;
@@ -705,13 +822,18 @@ void Enemy::EventCreate() {
 
 void Enemy::Update(f32 timestep) {
     size = decay(size, (f32)hitpoints, 0.2, timestep);
-    physical.basis.circle.r = 4.0 * sqrt(size);
+    physical.basis.circle.r = sqrt(size);
     physical.Update(timestep);
     physical.UpdateActual();
-    if (physical.pos.y < physical.basis.circle.r + 64.0) {
-        physical.vel.y += 1.0;
-    } else if (physical.pos.y > globals->rendering.screenSize.y - physical.basis.circle.r - 64.0) {
-        physical.vel.y -= 1.0;
+    {
+        f32 distToTopBarrier = physical.pos.y - physical.basis.circle.r;
+        f32 distToBotBarrier = globals->rendering.screenSize.y - physical.pos.y - physical.basis.circle.r;
+        if (distToTopBarrier < 128.0) {
+            physical.ImpulseY(1000000.0 / max(distToTopBarrier, 5.0) / size, timestep);
+        }
+        if (distToBotBarrier < 128.0) {
+            physical.ImpulseY(-1000000.0 / max(distToBotBarrier, 5.0) / size, timestep);
+        }
     }
     if (physical.aabb.minPos.x > globals->rendering.screenSize.x || physical.aabb.minPos.y > globals->rendering.screenSize.y || (hitpoints <= 0 && size < 0.01)) {
         if (hitpoints > 5) {
@@ -719,7 +841,8 @@ void Enemy::Update(f32 timestep) {
         }
         globals->entities.enemies.Destroy(id);
     }
-    if (hitpoints > 500) {
+    if (hitpoints == 0) return;
+    if (hitpoints > 5000) {
         if (spawnTimer <= 0.0) {
             Enemy newEnemy;
             newEnemy.child = true;
@@ -731,31 +854,53 @@ void Enemy::Update(f32 timestep) {
             newEnemy.hitpoints = hitpoints/20;
             hitpoints -= newEnemy.hitpoints;
             globals->entities.enemies.Create(newEnemy);
-            spawnTimer += 1.0;
+            spawnTimer += honkerSpawnInterval;
         } else {
             spawnTimer -= timestep;
         }
     }
-    for (i32 i = 0; i < globals->entities.winds.size; i++) {
-        const Wind &other = globals->entities.winds[i];
-        if (other.id.generation < 0) continue;
-        if (physical.Collides(other.physical)) {
-            physical.vel += normalize(other.physical.vel) * other.lifetime * 1000.0 / square(size);
+    for (i32 i = 0; i < globals->entities.towers.size; i++) {
+        const Tower &other = globals->entities.towers[i];
+        if (other.id.generation < 0 || other.type != TOWER_FAN || other.disabled) continue;
+        if (physical.Collides(other.field)) {
+            vec2 deltaP = physical.pos - other.physical.pos;
+            physical.Impulse(normalize(deltaP) * max((other.range + physical.basis.circle.r - abs(deltaP)), 0.0) * 5000.0 / pow(size, 1.5), timestep);
             if (other.damage != 0) {
-                if (random(0.0, 10.0 / timestep, globals->rng) < (f32)other.damage) {
+                if (random(0.0, 1.0, globals->rng) <= (f32)other.damage*timestep) {
                     hitpoints--;
                 }
             }
         }
     }
-    if (hitpoints == 0) return;
-    for (i32 i = 0; i < globals->entities.bullets.size; i++) {
-        const Bullet &other = globals->entities.bullets[i];
+    for (i32 i = 0; i < globals->entities.explosions.size; i++) {
+        const Explosion &other = globals->entities.explosions[i];
         if (other.id.generation < 0) continue;
         if (physical.Collides(other.physical)) {
-            globals->entities.bullets.Destroy(other.id);
-            hitpoints -= other.damage;
-            physical.vel += normalize(other.physical.vel) * 200.0 / size;
+            vec2 deltaP = physical.pos - other.physical.pos;
+            physical.Impulse(normalize(deltaP) * max((other.size + physical.basis.circle.r - abs(deltaP)), 0.0) * 500.0 / pow(size, 1.5), timestep);
+            if (other.damage != 0) {
+                f32 prob = (f32)other.damage*timestep;
+                i32 hits = prob;
+                prob -= (f32)hits;
+                hitpoints -= hits;
+                if (random(0.0, 1.0, globals->rng) <= prob) {
+                    hitpoints--;
+                }
+            }
+        }
+    }
+    for (i32 i = 0; i < globals->entities.bullets.size; i++) {
+        Bullet &other = globals->entities.bullets.GetMutable(i);
+        if (other.id.generation < 0) continue;
+        if (physical.Collides(other.physical)) {
+            if (other.damage > hitpoints) {
+                other.damage -= hitpoints;
+                hitpoints = 0;
+            } else {
+                globals->entities.bullets.Destroy(other.id);
+                hitpoints -= other.damage;
+                physical.vel += normalize(other.physical.vel) * 100.0 / size;
+            }
         }
     }
     physical.vel.x = max(decay(physical.vel.x, targetSpeed + abs(physical.vel.y), 1.0, timestep), targetSpeed * 0.1);
@@ -769,10 +914,23 @@ void Enemy::Draw(Rendering::DrawingContext &context) {
 template struct DoubleBufferArray<Enemy>;
 
 void Bullet::EventCreate() {
+    f32 length = abs(physical.vel) * 0.5 / 60.0;
     physical.type = SEGMENT;
-    physical.basis.segment.a = vec2(-4.0, -1.0);
-    physical.basis.segment.b = vec2(4.0, 1.0);
+    physical.basis.segment.a = vec2(-length, -1.0);
+    physical.basis.segment.b = vec2(length, 1.0);
     physical.angle = atan2(-physical.vel.y, physical.vel.x);
+}
+
+void Bullet::EventDestroy() {
+    if (explosionRange != 0.0) {
+        Explosion explosion;
+        explosion.damage = explosionDamage;
+        explosion.size = explosionRange;
+        explosion.growth = 8.0;
+        explosion.physical.pos = physical.pos;
+        explosion.physical.vel = physical.vel;
+        globals->entities.explosions.Create(explosion);
+    }
 }
 
 void Bullet::Update(f32 timestep) {
@@ -786,6 +944,9 @@ void Bullet::Update(f32 timestep) {
 
 void Bullet::Draw(Rendering::DrawingContext &context) {
     vec4 color = vec4(1.0, 1.0, 0.5, clamp(0.0, 1.0, lifetime * 8.0));
+    if (explosionDamage != 0) {
+        color.rgb = vec3(1.0, 0.25, 0.0);
+    }
     physical.Draw(context, color);
 }
 
@@ -815,5 +976,36 @@ void Wind::Draw(Rendering::DrawingContext &context) {
 }
 
 template struct DoubleBufferArray<Wind>;
+
+void Explosion::EventCreate() {
+    physical.type = CIRCLE;
+    physical.basis.circle.c = vec2(0.0);
+    physical.basis.circle.r = 0.0;
+}
+
+void Explosion::Update(f32 timestep) {
+    physical.basis.circle.r = decay(physical.basis.circle.r, size, 1.0 / growth, timestep);
+    physical.Update(timestep);
+    physical.UpdateActual();
+    if (physical.basis.circle.r >= size * 0.9375) {
+        globals->entities.explosions.Destroy(id);
+    }
+}
+
+void Explosion::Draw(Rendering::DrawingContext &context) {
+    f32 prog = physical.basis.circle.r / size / 0.9375;
+    vec4 color = vec4(
+        hsvToRgb(vec3(
+            0.5 - prog * 0.5,
+            prog,
+            1.0
+        )),
+        clamp((1.0 - prog) * 5.0, 0.0, 0.8)
+    );
+    const vec2 scale = physical.basis.circle.r * 2.0;
+    globals->rendering.DrawCircle(context, Rendering::texBlank, color, physical.pos, scale * 0.05, vec2(20.0), -physical.basis.circle.c / scale + vec2(0.5), physical.angle);
+}
+
+template struct DoubleBufferArray<Explosion>;
 
 } // namespace Objects

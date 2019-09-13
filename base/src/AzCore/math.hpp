@@ -377,6 +377,11 @@ inline T normalize(const T& a) {
     };
 
     template<typename T>
+    inline vec2_t<T> operator*(const T& a, const vec2_t<T>& b) {
+        return b * a;
+    }
+
+    template<typename T>
     inline T dot(const vec2_t<T>& a, const vec2_t<T>& b) {
         return a.x*b.x + a.y*b.y;
     }
@@ -528,6 +533,11 @@ inline T normalize(const T& a) {
         vec3_t<T> operator*=(const vec3_t<T>& a);
         vec3_t<T> operator*=(const T& a);
     };
+
+    template<typename T>
+    inline vec3_t<T> operator*(const T& a, const vec3_t<T>& b) {
+        return b * a;
+    }
 
     template<typename T>
     inline vec3_t<T> cross(const vec3_t<T>& a, const vec3_t<T>& b) {
@@ -740,6 +750,11 @@ inline T normalize(const T& a) {
     };
 
     template<typename T>
+    inline vec4_t<T> operator*(const T& a, const vec4_t<T>& b) {
+        return b * a;
+    }
+
+    template<typename T>
     inline T dot(const vec4_t<T>& a, const vec4_t<T>& b) {
         return a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w;
     }
@@ -936,6 +951,10 @@ inline T normalize(const T& a) {
         vec5_t<T> operator*=(const vec5_t<T>& vec);
         vec5_t<T> operator*=(const T& vec);
     };
+    template<typename T>
+    inline vec5_t<T> operator*(const T& a, const vec5_t<T>& b) {
+        return b * a;
+    }
 
     template<typename T>
     inline T dot(const vec5_t<T>& a, const vec5_t<T>& b) {
@@ -1183,6 +1202,9 @@ inline T normalize(const T& a) {
         inline complex_t<T> operator-(const T& a) const {
             return complex_t<T>(real - a, imag);
         }
+        inline complex_t<T> operator-() const {
+            return complex_t<T>(-real, -imag);
+        }
         complex_t<T>& operator+=(const complex_t<T>& a);
         complex_t<T>& operator-=(const complex_t<T>& a);
         complex_t<T>& operator*=(const complex_t<T>& a);
@@ -1216,7 +1238,7 @@ inline T normalize(const T& a) {
 
     template<typename T>
     inline complex_t<T> operator-(const T& a, const complex_t<T>& b) {
-        return b-a;
+        return -b+a;
     }
 
     template<typename T>

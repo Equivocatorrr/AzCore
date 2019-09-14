@@ -56,18 +56,19 @@ void Gui::EventUpdate() {
         playMenu.Update();
         break;
     }
+    readyForDraw = true;
 }
 
-void Gui::EventDraw(Rendering::DrawingContext &context) {
+void Gui::EventDraw(Array<Rendering::DrawingContext> &contexts) {
     switch (currentMenu) {
     case MENU_MAIN:
-        mainMenu.Draw(context);
+        mainMenu.Draw(contexts.Back());
         break;
     case MENU_SETTINGS:
-        settingsMenu.Draw(context);
+        settingsMenu.Draw(contexts.Back());
         break;
     case MENU_PLAY:
-        playMenu.Draw(context);
+        playMenu.Draw(contexts.Back());
         break;
     }
 }

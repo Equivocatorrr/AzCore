@@ -187,7 +187,7 @@ struct Gui : public Objects::Object {
     void EventAssetAcquire();
     void EventInitialize();
     void EventUpdate();
-    void EventDraw(Rendering::DrawingContext &context);
+    void EventDraw(Array<Rendering::DrawingContext> &contexts);
 };
 
 

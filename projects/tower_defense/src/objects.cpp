@@ -8,8 +8,9 @@
 
 namespace Objects {
 
-void Object::EventUpdate() {}
-void Object::EventDraw(Rendering::DrawingContext &context) {}
+void Object::EventSync() { readyForDraw = false; }
+void Object::EventUpdate() { readyForDraw = true; }
+void Object::EventDraw(Array<Rendering::DrawingContext> &contexts) {}
 void Object::EventInitialize() {}
 
 void Manager::RenderCallback(void *userdata, Rendering::Manager *rendering, Array<Rendering::DrawingContext> &contexts) {
@@ -38,26 +39,30 @@ void Manager::CallInitialize() {
     }
 }
 
-void Manager::Update() {
+void Manager::Sync() {
     buffer = !buffer;
     if (globals->rawInput.AnyGP.Pressed()) {
         globals->gamepad = &globals->rawInput.gamepads[globals->rawInput.AnyGPIndex];
     }
+    for (Object* object : objects) {
+        object->EventSync();
+    }
+}
 
+void Manager::Update() {
     for (Object* object : objects) {
         object->EventUpdate();
     }
 }
 
+// void DrawThreadProc(Object *object, Array<Rendering::DrawingContext> *contexts) {
+//     object->EventDraw(*contexts);
+// }
+
 void Manager::Draw(Array<Rendering::DrawingContext>& contexts) {
-    i32 concurrency = contexts.size;
-    for (i32 i = 0; i < objects.size; i+=concurrency) {
-        for (i32 j = 0; j < concurrency; j++) {
-            if (i+j >= objects.size) {
-                break;
-            }
-            objects[i+j]->EventDraw(contexts[j]);
-        }
+    for (Object *object : objects) {
+        while (!object->readyForDraw) { std::this_thread::sleep_for(Nanoseconds(1000)); }
+        object->EventDraw(contexts);
     }
 }
 

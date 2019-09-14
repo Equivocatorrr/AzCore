@@ -77,16 +77,20 @@ bool Manager::Init() {
         data.concurrency = 1;
     }
     data.commandPools.Resize(data.concurrency);
-    data.commandBuffersSecondary.Resize(data.concurrency);
+    data.commandBuffersSecondary[0].Resize(data.concurrency);
+    data.commandBuffersSecondary[1].Resize(data.concurrency);
     for (i32 i = 0; i < data.concurrency; i++) {
         data.commandPools[i] = data.device->AddCommandPool(data.queueGraphics);
         data.commandPools[i]->resettable = true;
-        data.commandBuffersSecondary[i] = data.commandPools[i]->AddCommandBuffer();
-        data.commandBuffersSecondary[i]->oneTimeSubmit = true;
-        data.commandBuffersSecondary[i]->secondary = true;
-        data.commandBuffersSecondary[i]->renderPass = data.renderPass;
-        data.commandBuffersSecondary[i]->renderPassContinue = true;
-        data.commandBuffersSecondary[i]->framebuffer = data.framebuffer;
+        for (i32 j = 0; j < 2; j++) {
+            data.commandBuffersSecondary[j][i] = data.commandPools[i]->AddCommandBuffer();
+            data.commandBuffersSecondary[j][i]->oneTimeSubmit = true;
+            data.commandBuffersSecondary[j][i]->secondary = true;
+            data.commandBuffersSecondary[j][i]->renderPass = data.renderPass;
+            data.commandBuffersSecondary[j][i]->renderPassContinue = true;
+            data.commandBuffersSecondary[j][i]->simultaneousUse = true;
+            data.commandBuffersSecondary[j][i]->framebuffer = data.framebuffer;
+        }
     }
 
     data.semaphoreImageAvailable = data.device->AddSemaphore();
@@ -447,6 +451,7 @@ bool Manager::UpdateFonts() {
 
 bool Manager::Draw() {
     if (globals->window.resized || data.resized) {
+        vk::DeviceWaitIdle(data.device);
         if (!data.swapchain->Resize()) {
             error = "Failed to resize swapchain: " + vk::error;
             return false;
@@ -463,6 +468,7 @@ bool Manager::Draw() {
         }
     }
     if (updateFontMemory) {
+        vk::DeviceWaitIdle(data.device);
         if (!UpdateFonts()) {
             return false;
         }
@@ -482,14 +488,16 @@ bool Manager::Draw() {
         return false;
     }
 
+    data.buffer = !data.buffer;
+
     screenSize = vec2((f32)globals->window.width, (f32)globals->window.height);
     aspectRatio = screenSize.y / screenSize.x;
 
     Array<DrawingContext> commandBuffersSecondary;
-    commandBuffersSecondary.Reserve(data.commandBuffersSecondary.size);
+    commandBuffersSecondary.Reserve(data.commandBuffersSecondary[data.buffer].size);
 
     // TODO: Do these asynchronously
-    for (Ptr<vk::CommandBuffer> &commandBuffer : data.commandBuffersSecondary) {
+    for (Ptr<vk::CommandBuffer> &commandBuffer : data.commandBuffersSecondary[data.buffer]) {
         VkCommandBuffer cmdBuf = commandBuffer->Begin();
         vk::CmdSetViewportAndScissor(cmdBuf, globals->window.width, globals->window.height);
         vk::CmdBindIndexBuffer(cmdBuf, data.indexBuffer, VK_INDEX_TYPE_UINT32);
@@ -500,11 +508,9 @@ bool Manager::Draw() {
         renderCallback.callback(renderCallback.userdata, this, commandBuffersSecondary);
     }
 
-    for (auto& commandBuffer : data.commandBuffersSecondary) {
+    for (auto& commandBuffer : data.commandBuffersSecondary[data.buffer]) {
         commandBuffer->End();
     }
-
-    data.buffer = !data.buffer;
 
     VkCommandBuffer cmdBuf = data.commandBufferPrimary[data.buffer]->Begin();
     if (cmdBuf == VK_NULL_HANDLE) {
@@ -514,7 +520,7 @@ bool Manager::Draw() {
 
     data.renderPass->Begin(cmdBuf, data.framebuffer, false);
 
-    vk::CmdExecuteCommands(cmdBuf, data.commandBuffersSecondary);
+    vk::CmdExecuteCommands(cmdBuf, data.commandBuffersSecondary[data.buffer]);
 
     vkCmdEndRenderPass(cmdBuf);
 
@@ -524,6 +530,8 @@ bool Manager::Draw() {
         error = "Failed to configure queue submisson: " + vk::error;
         return false;
     }
+
+    vk::DeviceWaitIdle(data.device);
 
     // Submit to queue
     if (!data.device->SubmitCommandBuffers(data.queueGraphics, {data.queueSubmission[data.buffer]})) {
@@ -535,8 +543,6 @@ bool Manager::Draw() {
         error = "Failed to present: " + vk::error;
         return false;
     }
-
-    vk::DeviceWaitIdle(data.device);
 
     return true;
 }

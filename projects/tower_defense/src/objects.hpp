@@ -25,13 +25,15 @@ struct Manager;
 
 // The basis for any object registered with Manager
 struct Object {
+    bool readyForDraw = false;
     virtual ~Object() = default;
 
     virtual void EventAssetInit() = 0;
     virtual void EventAssetAcquire() = 0;
     virtual void EventInitialize();
+    virtual void EventSync();
     virtual void EventUpdate();
-    virtual void EventDraw(Rendering::DrawingContext &context);
+    virtual void EventDraw(Array<Rendering::DrawingContext> &contexts);
 };
 
 struct Manager {
@@ -54,6 +56,8 @@ struct Manager {
     void UseAssets();
     // Calls EventInitialize
     void CallInitialize();
+    // Calls different Sync events.
+    void Sync();
     // Calls different Update events.
     void Update();
     // Calls different Draw events.

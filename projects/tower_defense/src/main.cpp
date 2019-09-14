@@ -11,6 +11,19 @@ const char *title = "AzCore Tower Defense";
 
 io::logStream cout("main.log");
 
+void UpdateProc() {
+    globals->objects.Update();
+}
+
+void DrawProc() {
+    if (!globals->rendering.Draw()) {
+        cout.MutexLock();
+        cout << "Error in Rendering::Manager::Draw: " << Rendering::error << std::endl;
+        globals->exit = true;
+        cout.MutexUnlock();
+    };
+}
+
 i32 main(i32 argumentCount, char** argumentValues) {
 
     Globals _globals;
@@ -33,6 +46,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     globals->objects.Register(&globals->entities);
     globals->objects.Register(&globals->gui);
+
+    globals->rendering.data.concurrency = 4;
+
     globals->window.name = title;
     globals->window.input = &globals->input;
 
@@ -87,15 +103,17 @@ i32 main(i32 argumentCount, char** argumentValues) {
     globals->objects.timestep = 1.0/144.0;
 
     while (globals->window.Update() && !globals->exit) {
+        frameStart = Clock::now();
         globals->rawInput.Update(globals->objects.timestep);
         if (globals->input.Released(KC_KEY_ESC)) {
             break;
         }
-        frameStart = Clock::now();
-        globals->objects.Update();
-        if (!globals->rendering.Draw()) {
-            cout << "Error in Rendering::Manager::Draw: " << Rendering::error << std::endl;
-            return 1;
+        globals->objects.Sync();
+        Thread threads[2];
+        threads[0] = Thread(UpdateProc);
+        threads[1] = Thread(DrawProc);
+        for (i32 i = 0; i < 2; i++) {
+            if (threads[i].joinable()) threads[i].join();
         }
         globals->input.Tick(globals->objects.timestep);
         Nanoseconds frameDelta = Nanoseconds(Clock::now() - frameStart);

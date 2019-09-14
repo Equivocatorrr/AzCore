@@ -130,6 +130,16 @@ struct Id {
     }
 };
 
+
+typedef void (*fpUpdateCallback)(void*,i32,i32);
+typedef void (*fpDrawCallback)(void*,Rendering::DrawingContext*,i32,i32);
+
+struct UpdateChunk {
+    fpUpdateCallback updateCallback;
+    fpDrawCallback drawCallback;
+    void *theThisPointer;
+};
+
 /*  struct: DoubleBufferArray
     Author: Philip Haynes
     Stores a copy of objects that are read-only and a copy that get updated.    */
@@ -148,11 +158,13 @@ struct DoubleBufferArray {
     i32 size = 0;
     i32 count = 0;
     bool buffer = false;
+    i32 granularity = 10;
 
-    void Update(f32 timestep);
-    void Draw(Rendering::DrawingContext &context);
+    static void Update(void *theThisPointer, i32 threadIndex, i32 concurrency);
+    static void Draw(void *theThisPointer, Rendering::DrawingContext *context, i32 threadIndex, i32 concurrency);
     // Done between frames. Must be done synchronously.
     void Synchronize();
+    void GetUpdateChunks(Array<UpdateChunk> &dstUpdateChunks);
     void Create(T &obj);
     void Destroy(Id id);
     // Provides read-only access for interactions
@@ -204,6 +216,7 @@ struct Manager : public Objects::Object {
     DoubleBufferArray<Bullet> bullets{};
     DoubleBufferArray<Wind> winds{};
     DoubleBufferArray<Explosion> explosions{};
+    Array<UpdateChunk> updateChunks{};
     Id selectedTower = -1;
     bool placeMode = false;
     TowerType towerType = TOWER_GUN;
@@ -217,8 +230,9 @@ struct Manager : public Objects::Object {
     void EventAssetInit();
     void EventAssetAcquire();
     void EventInitialize();
+    void EventSync();
     void EventUpdate();
-    void EventDraw(Rendering::DrawingContext &context);
+    void EventDraw(Array<Rendering::DrawingContext> &contexts);
 };
 
 struct Tower : public Entity {

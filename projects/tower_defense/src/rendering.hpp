@@ -114,11 +114,11 @@ struct Manager {
         Ptr<vk::RenderPass> renderPass;
         Ptr<vk::Queue> queueGraphics;
         Ptr<vk::Queue> queuePresent;
-        i32 concurrency = 2;
+        i32 concurrency = 1;
         Array<Ptr<vk::CommandPool>> commandPools;
         bool buffer = false; // Which primary command buffer we're on. Switches every frame.
         Ptr<vk::CommandBuffer> commandBufferPrimary[2]; // One for each buffer
-        Array<Ptr<vk::CommandBuffer>> commandBuffersSecondary;
+        Array<Ptr<vk::CommandBuffer>> commandBuffersSecondary[2];
 
         Ptr<vk::Semaphore> semaphoreImageAvailable;
         Ptr<vk::Semaphore> semaphoreRenderComplete;

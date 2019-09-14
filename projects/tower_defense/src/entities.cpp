@@ -123,21 +123,46 @@ void Manager::EventAssetAcquire() {
 }
 
 void Manager::EventInitialize() {
-
+    towers.granularity = 5;
+    enemies.granularity = 25;
+    bullets.granularity = 50;
+    winds.granularity = 50;
+    explosions.granularity = 10;
 }
 
-void Manager::EventUpdate() {
-    if (globals->gui.currentMenu != Int::MENU_PLAY) return;
+void Manager::EventSync() {
     towers.Synchronize();
     enemies.Synchronize();
     bullets.Synchronize();
     winds.Synchronize();
     explosions.Synchronize();
-    towers.Update(globals->objects.timestep);
-    enemies.Update(globals->objects.timestep);
-    bullets.Update(globals->objects.timestep);
-    winds.Update(globals->objects.timestep);
-    explosions.Update(globals->objects.timestep);
+
+    updateChunks.size = 0;
+
+    towers.GetUpdateChunks(updateChunks);
+    enemies.GetUpdateChunks(updateChunks);
+    bullets.GetUpdateChunks(updateChunks);
+    winds.GetUpdateChunks(updateChunks);
+    explosions.GetUpdateChunks(updateChunks);
+    readyForDraw = true;
+}
+
+void Manager::EventUpdate() {
+    if (globals->gui.currentMenu != Int::MENU_PLAY) return;
+
+    const i32 concurrency = 4;
+    Array<Thread> threads(concurrency);
+    for (i32 i = 0; i < updateChunks.size; i++) {
+        for (i32 j = 0; j < concurrency; j++) {
+            UpdateChunk &chunk = updateChunks[i];
+            threads[j] = Thread(chunk.updateCallback, chunk.theThisPointer, j, concurrency);
+        }
+        for (i32 j = 0; j < concurrency; j++) {
+            if (threads[j].joinable()) {
+                threads[j].join();
+            }
+        }
+    }
 
     if (hitpointsLeft > 0) {
         enemyTimer -= globals->objects.timestep;
@@ -147,8 +172,6 @@ void Manager::EventUpdate() {
             enemyTimer += enemyInterval;
         }
     }
-
-    if (globals->gui.mouseoverDepth > 0) return; // Don't accept mouse input
     if (globals->objects.Pressed(KC_KEY_R)) {
         for (i32 i = 0; i < towers.size; i++) {
             if (towers[i].id.generation >= 0) {
@@ -164,6 +187,7 @@ void Manager::EventUpdate() {
         enemyInterval = max(10.0 / (f32)(wave+19), 0.0001);
         hitpointsLeft += (i64)(pow((f64)wave, (f64)1.5) * 500.0d);
     }
+    if (globals->gui.mouseoverDepth > 0) return; // Don't accept mouse input
     if (!placeMode) {
         if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
             if (selectedTower != -1) {
@@ -214,26 +238,35 @@ void Manager::EventUpdate() {
     }
 }
 
-void Manager::EventDraw(Rendering::DrawingContext &context) {
+void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
     if (globals->gui.currentMenu != Int::MENU_PLAY) return;
-    towers.Draw(context);
-    enemies.Draw(context);
-    bullets.Draw(context);
-    winds.Draw(context);
-    explosions.Draw(context);
+
+    const i32 concurrency = contexts.size;
+    Array<Thread> threads(concurrency);
+    for (i32 i = 0; i < updateChunks.size; i++) {
+        for (i32 j = 0; j < concurrency; j++) {
+            UpdateChunk &chunk = updateChunks[i];
+            threads[j] = Thread(chunk.drawCallback, chunk.theThisPointer, &contexts[j], j, concurrency);
+        }
+        for (i32 j = 0; j < concurrency; j++) {
+            if (threads[j].joinable()) {
+                threads[j].join();
+            }
+        }
+    }
+
     if (placeMode) {
         Tower tower(towerType);
         tower.physical.pos = globals->input.cursor;
         tower.physical.angle = placingAngle;
-        tower.physical.Draw(context, canPlace ? vec4(0.1, 1.0, 0.1, 0.9) : vec4(1.0, 0.1, 0.1, 0.9));
+        tower.physical.Draw(contexts.Back(), canPlace ? vec4(0.1, 1.0, 0.1, 0.9) : vec4(1.0, 0.1, 0.1, 0.9));
         tower.field.pos = tower.physical.pos;
         tower.field.angle = tower.physical.angle;
-        tower.field.Draw(context, canPlace ? vec4(1.0, 1.0, 1.0, 0.1) : vec4(1.0, 0.5, 0.5, 0.2));
+        tower.field.Draw(contexts.Back(), canPlace ? vec4(1.0, 1.0, 1.0, 0.1) : vec4(1.0, 0.5, 0.5, 0.2));
     }
     if (selectedTower != -1) {
         const Tower& selected = towers[selectedTower];
-        selected.field.Draw(context, vec4(1.0, 1.0, 1.0, 0.1));
-        // globals->rendering.DrawCircle(context, Rendering::texBlank, vec4(1.0, 1.0, 1.0, 0.1), selected.physical.pos, vec2(selected.range*2.0), vec2(1.0), vec2(0.5));
+        selected.field.Draw(contexts.Back(), vec4(1.0, 1.0, 1.0, 0.1));
     }
 }
 
@@ -566,18 +599,30 @@ void Physical::Draw(Rendering::DrawingContext &context, vec4 color) const {
 }
 
 template<typename T>
-void DoubleBufferArray<T>::Update(f32 timestep) {
-    for (T &obj : array[buffer]) {
-        if (obj.id.generation >= 0)
-            obj.Update(timestep);
+void DoubleBufferArray<T>::Update(void *theThisPointer, i32 threadIndex, i32 concurrency) {
+    DoubleBufferArray<T> *theActualThisPointer = (DoubleBufferArray<T>*)theThisPointer;
+    i32 g = theActualThisPointer->granularity;
+    for (i32 i = threadIndex*g; i < theActualThisPointer->array[theActualThisPointer->buffer].size; i += g*concurrency) {
+        for (i32 j = 0; j < g; j++) {
+            if (i+j >= theActualThisPointer->array[theActualThisPointer->buffer].size) break;
+            T &obj = theActualThisPointer->array[theActualThisPointer->buffer][i+j];
+            if (obj.id.generation >= 0)
+                obj.Update(globals->objects.timestep);
+        }
     }
 }
 
 template<typename T>
-void DoubleBufferArray<T>::Draw(Rendering::DrawingContext &context) {
-    for (T& obj : array[!buffer]) {
-        if (obj.id.generation >= 0)
-            obj.Draw(context);
+void DoubleBufferArray<T>::Draw(void *theThisPointer, Rendering::DrawingContext *context, i32 threadIndex, i32 concurrency) {
+    DoubleBufferArray<T> *theActualThisPointer = (DoubleBufferArray<T>*)theThisPointer;
+    i32 g = theActualThisPointer->granularity;
+    for (i32 i = threadIndex*g; i < theActualThisPointer->array[!theActualThisPointer->buffer].size; i += g*concurrency) {
+        for (i32 j = 0; j < g; j++) {
+            if (i+j >= theActualThisPointer->array[!theActualThisPointer->buffer].size) break;
+            T &obj = theActualThisPointer->array[!theActualThisPointer->buffer][i+j];
+            if (obj.id.generation >= 0)
+                obj.Draw(*context);
+        }
     }
 }
 
@@ -608,6 +653,16 @@ void DoubleBufferArray<T>::Synchronize() {
     created.Clear();
     array[buffer] = array[!buffer];
     size = array[0].size;
+}
+
+template<typename T>
+void DoubleBufferArray<T>::GetUpdateChunks(Array<UpdateChunk> &dstUpdateChunks) {
+    if (count == 0) return;
+    UpdateChunk chunk;
+    chunk.updateCallback = DoubleBufferArray<T>::Update;
+    chunk.drawCallback = DoubleBufferArray<T>::Draw;
+    chunk.theThisPointer = this;
+    dstUpdateChunks.Append(chunk);
 }
 
 template<typename T>
@@ -786,7 +841,7 @@ const f32 honkerSpawnInterval = 5.0;
 void Enemy::EventCreate() {
     physical.type = CIRCLE;
     physical.basis.circle.c = vec2(0.0);
-    physical.basis.circle.r = 16.0;
+    physical.basis.circle.r = 0.0;
     if (!child) {
         physical.pos = vec2(0.0, globals->rendering.screenSize.y * (0.5 + random(-0.2, 0.2, globals->rng)));
         physical.vel = vec2(200.0, random(-50.0, 50.0, globals->rng));

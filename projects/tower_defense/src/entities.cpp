@@ -8,6 +8,15 @@
 
 namespace Entities {
 
+const char* towerStrings[TOWER_MAX_RANGE+1] = {
+    "Gun",
+    "Shotgun",
+    "Fan",
+    "Gauss",
+    "Shocker",
+    "Flak"
+};
+
 const Tower towerGunTemplate = Tower(
     BOX,                                        // CollisionType
     {vec2(-20.0), vec2(20.0)},                  // PhysicalBasis
@@ -131,6 +140,7 @@ void Manager::EventInitialize() {
 }
 
 void Manager::EventSync() {
+    timestep = globals->objects.timestep * globals->objects.simulationRate;
     towers.Synchronize();
     enemies.Synchronize();
     bullets.Synchronize();
@@ -148,7 +158,7 @@ void Manager::EventSync() {
 }
 
 void Manager::EventUpdate() {
-    if (globals->gui.currentMenu != Int::MENU_PLAY) return;
+    if (timestep == 0.0) return;
 
     const i32 concurrency = 4;
     Array<Thread> threads(concurrency);
@@ -165,7 +175,7 @@ void Manager::EventUpdate() {
     }
 
     if (hitpointsLeft > 0) {
-        enemyTimer -= globals->objects.timestep;
+        enemyTimer -= timestep;
         while (enemyTimer <= 0.0) {
             Enemy enemy;
             enemies.Create(enemy);
@@ -182,7 +192,18 @@ void Manager::EventUpdate() {
     if (globals->objects.Pressed(KC_KEY_T)) {
         placeMode = !placeMode;
     }
-    if (globals->objects.Pressed(KC_KEY_SPACE)) {
+    if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
+        if (globals->gui.playMenu.list->MouseOver()) {
+            placeMode = false;
+        }
+    }
+    for (i32 i = 0; i <= TOWER_MAX_RANGE; i++) {
+        if (globals->gui.playMenu.towerButtons[i]->state.Released()) {
+            placeMode = true;
+            towerType = TowerType(i);
+        }
+    }
+    if (globals->objects.Pressed(KC_KEY_SPACE) || globals->gui.playMenu.buttonStartWave->state.Released()) {
         wave++;
         enemyInterval = max(10.0 / (f32)(wave+19), 0.0001);
         hitpointsLeft += (i64)(pow((f64)wave, (f64)1.5) * 500.0d);
@@ -213,9 +234,9 @@ void Manager::EventUpdate() {
             }
         }
         if (globals->objects.Down(KC_KEY_LEFT)) {
-            placingAngle += globals->objects.timestep * pi;
+            placingAngle += timestep * pi;
         } else if (globals->objects.Down(KC_KEY_RIGHT)) {
-            placingAngle += -globals->objects.timestep * pi;
+            placingAngle += -timestep * pi;
         }
         Tower tower(towerType);
         tower.physical.pos = globals->input.cursor;
@@ -239,7 +260,7 @@ void Manager::EventUpdate() {
 }
 
 void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
-    if (globals->gui.currentMenu != Int::MENU_PLAY) return;
+    // if (globals->gui.currentMenu != Int::MENU_PLAY) return;
 
     const i32 concurrency = contexts.size;
     Array<Thread> threads(concurrency);
@@ -607,7 +628,7 @@ void DoubleBufferArray<T>::Update(void *theThisPointer, i32 threadIndex, i32 con
             if (i+j >= theActualThisPointer->array[theActualThisPointer->buffer].size) break;
             T &obj = theActualThisPointer->array[theActualThisPointer->buffer][i+j];
             if (obj.id.generation >= 0)
-                obj.Update(globals->objects.timestep);
+                obj.Update(globals->entities.timestep);
         }
     }
 }

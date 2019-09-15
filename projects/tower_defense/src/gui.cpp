@@ -42,7 +42,7 @@ void Gui::EventInitialize() {
     playMenu.Initialize();
 }
 
-void Gui::EventUpdate() {
+void Gui::EventSync() {
     mouseoverWidget = nullptr;
     mouseoverDepth = -1;
     switch (currentMenu) {
@@ -55,6 +55,11 @@ void Gui::EventUpdate() {
     case MENU_PLAY:
         playMenu.Update();
         break;
+    }
+    if (currentMenu == MENU_PLAY) {
+        globals->objects.simulationRate = min(1.0, globals->objects.simulationRate + globals->objects.timestep);
+    } else {
+        globals->objects.simulationRate = max(0.0, globals->objects.simulationRate - globals->objects.timestep);
     }
     readyForDraw = true;
 }
@@ -160,6 +165,7 @@ void MainMenu::Update() {
     screen.Update(vec2(0.0), true);
     if (buttonStart->state.Released()) {
         globals->gui.currentMenu = MENU_PLAY;
+        buttonStart->string = ToWString("Continue");
     }
     if (buttonSettings->state.Released()) {
         globals->gui.currentMenu = MENU_SETTINGS;
@@ -281,29 +287,101 @@ void SettingsMenu::Draw(Rendering::DrawingContext &context) {
 }
 
 void PlayMenu::Initialize() {
-    // image = new Image();
-    // image->fractionHeight = false;
-    // image->fractionWidth = false;
-    // image->size = vec2(256.0, 256.0);
-    // image->texIndex = globals->gui.texIndex;
-    // AddWidget(&screen, image);
-    enemyCount = new Text();
-    enemyCount->fractionWidth = false;
-    enemyCount->size.x = 0.0;
-    enemyCount->color = vec4(1.0);
-    enemyCount->colorOutline = vec4(0.0, 0.0, 0.0, 1.0);
-    enemyCount->outline = true;
-    enemyCount->fontIndex = globals->gui.fontIndex;
-    enemyCount->fontSize = 24.0;
-    enemyCount->bold = true;
-    enemyCount->position = vec2(32.0);
-    enemyCount->string = ToWString("Nothing");
-    AddWidget(&screen, enemyCount);
+    ListH *screenListH = new ListH();
+    screenListH->fractionWidth = true;
+    screenListH->size.x = 1.0;
+    screenListH->padding = vec2(0.0);
+    screenListH->margin = vec2(0.0);
+    screenListH->color = 0.0;
+    screenListH->highlight = 0.0;
+    screenListH->occludes = false;
+    AddWidget(&screen, screenListH);
+    Widget *spacer = new Widget();
+    spacer->fractionWidth = true;
+    spacer->size.x = 1.0;
+    AddWidget(screenListH, spacer);
+    list = new ListV();
+    list->fractionHeight = true;
+    list->fractionWidth = false;
+    list->margin = 0.0;
+    list->size = vec2(300.0, 1.0);
+    AddWidget(screenListH, list);
+
+    Text *towerHeader = new Text();
+    towerHeader->fontIndex = globals->gui.fontIndex;
+    towerHeader->alignH = Rendering::CENTER;
+    towerHeader->string = ToWString("Towers");
+    AddWidget(list, towerHeader);
+
+    ListH *gridBase = new ListH();
+    gridBase->fractionWidth = true;
+    gridBase->size.x = 1.0;
+    gridBase->fractionHeight = false;
+    gridBase->size.y = 0.0;
+    gridBase->padding = vec2(0.0);
+    gridBase->margin = vec2(0.0);
+    gridBase->color = 0.0;
+    gridBase->highlight = 0.0;
+
+    Button *halfWidth = new Button();
+    halfWidth->fractionWidth = true;
+    halfWidth->size.x = 0.5;
+    halfWidth->fractionHeight = false;
+    halfWidth->size.y = 48.0;
+    halfWidth->fontIndex = globals->gui.fontIndex;
+
+    towerButtons.Resize(Entities::TOWER_MAX_RANGE + 1);
+    for (i32 i = 0; i < towerButtons.size; i+=2) {
+        ListH *grid = new ListH(*gridBase);
+        for (i32 j = 0; j < 2; j++) {
+            i32 index = i+j;
+            if (index > towerButtons.size) break;
+            towerButtons[index] = new Button(*halfWidth);
+            towerButtons[index]->string = ToWString(Entities::towerStrings[index]);
+            AddWidget(grid, towerButtons[index]);
+        }
+        AddWidget(list, grid);
+    }
+
+    spacer = new Widget();
+    spacer->fractionHeight = true;
+    spacer->size.y = 1.0;
+    AddWidget(list, spacer);
+
+    Button *fullWidth = new Button();
+    fullWidth->fractionWidth = true;
+    fullWidth->size.x = 1.0;
+    fullWidth->fractionHeight = false;
+    fullWidth->size.y = 48.0;
+    fullWidth->fontIndex = globals->gui.fontIndex;
+
+    buttonStartWave = new Button(*fullWidth);
+    buttonStartWave->string = ToWString("Start Wave");
+    AddWidget(list, buttonStartWave);
+
+    info = new Text();
+    info->size.x = 1.0;
+    info->color = vec4(1.0);
+    info->fontIndex = globals->gui.fontIndex;
+    info->fontSize = 20.0;
+    info->string = ToWString("Nothing");
+    AddWidget(list, info);
+
+    buttonMenu = new Button(*fullWidth);
+    buttonMenu->string = ToWString("Menu");
+    AddWidget(list, buttonMenu);
+
+    delete gridBase;
+    delete halfWidth;
+    delete fullWidth;
 }
 
 void PlayMenu::Update() {
-    enemyCount->string = ToWString("Wave: " + ToString(globals->entities.wave) + "\nWave Hitpoints Left: " + ToString(globals->entities.hitpointsLeft) + "\nLives: " + ToString(globals->entities.lives));
+    info->string = ToWString("Wave: " + ToString(globals->entities.wave) + "\nWave Hitpoints Left: " + ToString(globals->entities.hitpointsLeft) + "\nLives: " + ToString(globals->entities.lives));
     screen.Update(vec2(0.0), true);
+    if (buttonMenu->state.Released()) {
+        globals->gui.currentMenu = MenuEnum::MENU_MAIN;
+    }
 }
 
 void PlayMenu::Draw(Rendering::DrawingContext &context) {
@@ -314,7 +392,7 @@ void PlayMenu::Draw(Rendering::DrawingContext &context) {
 //      Widget implementations beyond this point
 //
 
-Widget::Widget() : children(), margin(8.0), size(1.0), fractionWidth(true), fractionHeight(true), sizeAbsolute(0.0), minSize(0.0), maxSize(-1.0), position(0.0), positionAbsolute(0.0), depth(0), selectable(false), highlighted(false) {}
+Widget::Widget() : children(), margin(8.0), size(1.0), fractionWidth(true), fractionHeight(true), sizeAbsolute(0.0), minSize(0.0), maxSize(-1.0), position(0.0), positionAbsolute(0.0), depth(0), selectable(false), highlighted(false), occludes(false) {}
 
 void Widget::UpdateSize(vec2 container) {
     sizeAbsolute = vec2(0.0);
@@ -368,8 +446,10 @@ bool Widget::MouseOver() const {
 void Widget::FindMouseoverDepth(i32 actualDepth) {
     if (actualDepth <= globals->gui.mouseoverDepth) return;
     if (MouseOver()) {
-        globals->gui.mouseoverDepth = actualDepth;
-        globals->gui.mouseoverWidget = this;
+        if (occludes) {
+            globals->gui.mouseoverDepth = actualDepth;
+            globals->gui.mouseoverWidget = this;
+        }
         actualDepth++;
         for (Widget *child : children) {
             child->FindMouseoverDepth(actualDepth);
@@ -394,7 +474,7 @@ void Screen::UpdateSize(vec2 container) {
     }
 }
 
-List::List() : padding(8.0), color(0.05, 0.05, 0.05, 0.9), highlight(0.05, 0.05, 0.05, 0.9), selection(-2), selectionDefault(-1) {}
+List::List() : padding(8.0), color(0.05, 0.05, 0.05, 0.9), highlight(0.05, 0.05, 0.05, 0.9), selection(-2), selectionDefault(-1) { occludes = true; }
 
 bool List::UpdateSelection(bool selected, u8 keyCodeSelect, u8 keyCodeBack, u8 keyCodeIncrement, u8 keyCodeDecrement) {
     highlighted = selected;
@@ -552,6 +632,7 @@ void ListV::Update(vec2 pos, bool selected) {
 ListH::ListH() {
     color = vec4(0.0, 0.0, 0.0, 0.9);
     highlight = vec4(0.1, 0.1, 0.1, 0.9);
+    occludes = true;
 }
 
 void ListH::UpdateSize(vec2 container) {
@@ -682,7 +763,7 @@ void Text::Draw(Rendering::DrawingContext &context) const {
     }
 }
 
-Image::Image() : texIndex(0) {}
+Image::Image() : texIndex(0) { occludes = true; }
 
 void Image::Draw(Rendering::DrawingContext &context) const {
     globals->rendering.DrawQuad(context, texIndex, vec4(1.0), positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
@@ -691,6 +772,7 @@ void Image::Draw(Rendering::DrawingContext &context) const {
 Button::Button() : string(), colorBG(0.15, 0.15, 0.15, 0.9), highlightBG(colorHighlightMedium, 0.9), colorText(1.0), highlightText(0.0, 0.0, 0.0, 1.0), fontIndex(1), fontSize(28.0), state() {
     state.canRepeat = false;
     selectable = true;
+    occludes = true;
 }
 
 void Button::Update(vec2 pos, bool selected) {
@@ -755,6 +837,7 @@ Checkbox::Checkbox() : checked(false), colorOff(0.15, 0.15, 0.15, 0.9), highligh
     size = vec2(24.0);
     fractionWidth = false;
     fractionHeight = false;
+    occludes = true;
 }
 
 void Checkbox::Update(vec2 pos, bool selected) {

@@ -28,6 +28,7 @@ struct Widget {
     i32 depth; // How deeply nested we are. Used for input culling for controllers.
     bool selectable; // Whether or not this widget can be used in a selection
     bool highlighted; // True when selected
+    bool occludes; // Whether the widget counts for mouse occlusion
     Widget();
     virtual ~Widget() = default;
     virtual void UpdateSize(vec2 container);
@@ -155,8 +156,11 @@ struct SettingsMenu {
 
 struct PlayMenu {
     Screen screen;
-    // Image *image;
-    Text *enemyCount;
+    ListV *list;
+    Text *info;
+    Array<Button*> towerButtons;
+    Button *buttonMenu;
+    Button *buttonStartWave;
 
     void Initialize();
     void Update();
@@ -186,7 +190,7 @@ struct Gui : public Objects::Object {
     void EventAssetInit();
     void EventAssetAcquire();
     void EventInitialize();
-    void EventUpdate();
+    void EventSync();
     void EventDraw(Array<Rendering::DrawingContext> &contexts);
 };
 

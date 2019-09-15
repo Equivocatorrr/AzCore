@@ -204,6 +204,8 @@ enum TowerType {
     TOWER_MAX_RANGE=5
 };
 
+extern const char* towerStrings[TOWER_MAX_RANGE+1];
+
 struct Tower;
 struct Enemy;
 struct Bullet;
@@ -227,6 +229,7 @@ struct Manager : public Objects::Object {
     i64 hitpointsLeft = 0;
     f32 enemyInterval = 1.0;
     i32 lives = 1000;
+    f32 timestep;
     void EventAssetInit();
     void EventAssetAcquire();
     void EventInitialize();

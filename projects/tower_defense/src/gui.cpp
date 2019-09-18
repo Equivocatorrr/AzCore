@@ -917,25 +917,43 @@ inline bool IsText(const char32 &c) {
 }
 
 void TextBox::CursorFromPosition(vec2 position) {
-    vec2 cursorPos = positionAbsolute + padding;
-    cursorPos.y += fontSize * Rendering::lineHeight;
-    for (cursor = 0; cursor <= stringFormatted.size; cursor++) {
+    vec2 cursorPos = (positionAbsolute + padding) * globals->gui.scale;
+    f32 advanceCarry;
+    cursorPos.y += fontSize * Rendering::lineHeight * globals->gui.scale;
+    for (cursor = 0; cursor < stringFormatted.size; cursor++) {
+        const char32 &c = stringFormatted[cursor];
+        advanceCarry = globals->assets.fonts[fontIndex].font.GetGlyphInfo(c).advance.x * fontSize * globals->gui.scale * 0.5;
+        cursorPos.x += advanceCarry;
         if (cursorPos.x > position.x && cursorPos.y > position.y) {
             break;
         }
-        const char32 &c = stringFormatted[cursor];
+        cursorPos.x += advanceCarry;
         if (c == '\n') {
             if (cursorPos.y > position.y) {
-                cursor++;
                 break;
             }
             cursorPos.x = positionAbsolute.x + padding.x;
             cursorPos.y += fontSize * Rendering::lineHeight;
             continue;
         }
+    }
+    // cursor = max(0, cursor-1);
+}
+
+vec2 TextBox::PositionFromCursor() const {
+    vec2 cursorPos = 0.0;
+    for (i32 i = 0; i < cursor; i++) {
+        const char32 &c = stringFormatted[i];
+        if (c == '\n') {
+            cursorPos.x = 0.0;
+            cursorPos.y += fontSize * Rendering::lineHeight;
+            continue;
+        }
         cursorPos.x += globals->assets.fonts[fontIndex].font.GetGlyphInfo(c).advance.x * fontSize;
     }
-    cursor = max(0, cursor-1);
+    cursorPos += positionAbsolute + padding;
+    cursorPos *= globals->gui.scale;
+    return cursorPos;
 }
 
 void TextBox::UpdateSize(vec2 container) {
@@ -984,11 +1002,24 @@ void TextBox::Update(vec2 pos, bool selected) {
             }
         }
         if (globals->input.Pressed(KC_KEY_HOME)) {
-            cursor = 0;
+            if (globals->input.Down(KC_KEY_LEFTCTRL) || globals->input.Down(KC_KEY_RIGHTCTRL)) {
+                cursor = 0;
+            } else {
+                for (cursor--; cursor >= 0; cursor--) {
+                    if (stringFormatted[cursor] == '\n') break;
+                }
+                cursor++;
+            }
             cursorBlinkTimer = 0.0;
         }
         if (globals->input.Pressed(KC_KEY_END)) {
-            cursor = string.size;
+            if (globals->input.Down(KC_KEY_LEFTCTRL) || globals->input.Down(KC_KEY_RIGHTCTRL)) {
+                cursor = stringFormatted.size;
+            } else {
+                for (; cursor < string.size; cursor++) {
+                    if (stringFormatted[cursor] == '\n') break;
+                }
+            }
             cursorBlinkTimer = 0.0;
         }
         if (globals->input.Pressed(KC_KEY_ENTER)) {
@@ -996,21 +1027,33 @@ void TextBox::Update(vec2 pos, bool selected) {
             cursor++;
             cursorBlinkTimer = 0.0;
         }
+        if (globals->input.Pressed(KC_KEY_UP)) {
+            vec2 cursorPos = PositionFromCursor();
+            cursorPos.y -= fontSize * globals->gui.scale * Rendering::lineHeight * 0.5;
+            CursorFromPosition(cursorPos);
+            cursorBlinkTimer = 0.0;
+        }
+        if (globals->input.Pressed(KC_KEY_DOWN)) {
+            vec2 cursorPos = PositionFromCursor();
+            cursorPos.y += fontSize * globals->gui.scale * Rendering::lineHeight * 1.5;
+            CursorFromPosition(cursorPos);
+            cursorBlinkTimer = 0.0;
+        }
         if (globals->input.Pressed(KC_KEY_LEFT)) {
             cursorBlinkTimer = 0.0;
             if (globals->input.Down(KC_KEY_LEFTCTRL) || globals->input.Down(KC_KEY_RIGHTCTRL)) {
-                if (IsWhitespace(string[cursor])) {
-                    for (cursor--; cursor > 0; cursor--) {
+                if (IsWhitespace(string[--cursor])) {
+                    for (; cursor > 0; cursor--) {
                         const char32 c = string[cursor];
-                        if (IsWhitespace(c)) {
+                        if (!IsWhitespace(c)) {
                             cursor++;
                             break;
                         }
                     }
                 } else {
-                    for (cursor--; cursor > 0; cursor--) {
+                    for (; cursor > 0; cursor--) {
                         const char32 c = string[cursor];
-                        if (!IsWhitespace(c)) {
+                        if (IsWhitespace(c)) {
                             cursor++;
                             break;
                         }
@@ -1097,19 +1140,9 @@ void TextBox::Draw(Rendering::DrawingContext &context) const {
     globals->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlightBG : colorBG, drawPos, vec2(1.0), sizeAbsolute * globals->gui.scale);
     globals->rendering.DrawText(context, stringFormatted, fontIndex, highlighted ? highlightText : colorText, drawPos + padding * globals->gui.scale, vec2(fontSize * globals->gui.scale), Rendering::LEFT, Rendering::TOP, sizeAbsolute.x * globals->gui.scale);
     if (cursorBlinkTimer < 0.5 && entry) {
-        vec2 cursorPos = 0.0;
-        for (i32 i = 0; i < cursor; i++) {
-            const char32 &c = stringFormatted[i];
-            if (c == '\n') {
-                cursorPos.x = 0.0;
-                cursorPos.y += fontSize * Rendering::lineHeight;
-                continue;
-            }
-            cursorPos.x += globals->assets.fonts[fontIndex].font.GetGlyphInfo(c).advance.x * fontSize;
-        }
-        cursorPos += positionAbsolute + padding;
-        cursorPos *= globals->gui.scale;
-        globals->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlightText : colorText, cursorPos, vec2(1.0), vec2(1.0, fontSize * globals->gui.scale));
+        vec2 cursorPos = PositionFromCursor();
+        cursorPos.y -= fontSize * globals->gui.scale * 0.1;
+        globals->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlightText : colorText, cursorPos, vec2(1.0), vec2(1.0, fontSize * globals->gui.scale * Rendering::lineHeight));
     }
     PopScissor(context);
 }

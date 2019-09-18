@@ -138,6 +138,7 @@ struct TextBox : public Widget {
     TextBox();
     ~TextBox() = default;
     void CursorFromPosition(vec2 position);
+    vec2 PositionFromCursor() const;
     void UpdateSize(vec2 container);
     void Update(vec2 pos, bool selected);
     void Draw(Rendering::DrawingContext &context) const;

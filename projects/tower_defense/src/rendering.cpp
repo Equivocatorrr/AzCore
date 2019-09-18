@@ -767,7 +767,7 @@ void Manager::DrawTextSS(DrawingContext &context, WString string,
     for (i32 i = 0; i < string.size; i++) {
         char32 character = string[i];
         if (character == '\n' || i == 0) {
-            if (i == 0) {
+            if (character != '\n') {
                 i--;
             }
             cursor.x = position.x;

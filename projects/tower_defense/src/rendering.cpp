@@ -588,8 +588,6 @@ void Manager::PopScissor(DrawingContext &context) {
     vk::CmdSetScissor(context.commandBuffer, (u32)(state.max.x-state.min.x), (u32)(state.max.y-state.min.y), state.min.x, state.min.y);
 }
 
-constexpr f32 lineHeight = 1.3;
-
 f32 Manager::CharacterWidth(char32 character, const Assets::Font *fontDesired, const Assets::Font *fontFallback) const {
     const Assets::Font *actualFont = fontDesired;
     i32 glyphIndex = fontDesired->font.GetGlyphIndex(character);

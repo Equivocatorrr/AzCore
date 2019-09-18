@@ -21,6 +21,8 @@ namespace Assets {
 
 namespace Rendering {
 
+constexpr f32 lineHeight = 1.3;
+
 struct Manager;
 
 enum FontAlign {

@@ -33,6 +33,8 @@ struct Widget {
     virtual ~Widget() = default;
     virtual void UpdateSize(vec2 container);
     void LimitSize();
+    void PushScissor(Rendering::DrawingContext &context) const;
+    void PopScissor(Rendering::DrawingContext &context) const;
     inline vec2 GetSize() const { return sizeAbsolute + margin * 2.0; }
     virtual void Update(vec2 pos, bool selected);
     virtual void Draw(Rendering::DrawingContext &context) const;
@@ -79,9 +81,10 @@ private:
     WString stringFormatted;
 public:
     WString string;
+    vec2 padding;
     f32 fontSize;
     i32 fontIndex;
-    bool bold;
+    bool bold, paddingEM;
     Rendering::FontAlign alignH, alignV;
     vec4 color, colorOutline;
     bool outline;
@@ -121,6 +124,25 @@ struct Checkbox : public Widget {
     void Draw(Rendering::DrawingContext &context) const;
 };
 
+// Text entry with filters
+struct TextBox : public Widget {
+    WString string, stringFormatted;
+    vec4 colorBG, highlightBG, colorText, highlightText;
+    vec2 padding;
+    i32 cursor;
+    i32 fontIndex;
+    f32 fontSize;
+    f32 cursorBlinkTimer;
+    bool entry;
+    bool multiline;
+    TextBox();
+    ~TextBox() = default;
+    void CursorFromPosition(vec2 position);
+    void UpdateSize(vec2 container);
+    void Update(vec2 pos, bool selected);
+    void Draw(Rendering::DrawingContext &context) const;
+};
+
 // struct Switch; // Allows the user to choose from a selection of widgets (usually Text).
 
 // struct Slider; // A scalar within a range.
@@ -146,6 +168,7 @@ struct MainMenu {
 struct SettingsMenu {
     Screen screen;
     Checkbox *checkFullscreen;
+    TextBox *textboxFramerate;
     Button *buttonApply;
     Button *buttonBack;
 

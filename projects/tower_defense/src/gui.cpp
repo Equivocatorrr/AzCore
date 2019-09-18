@@ -207,26 +207,46 @@ void SettingsMenu::Initialize() {
     actualList->fractionWidth = false;
     actualList->size.x = 500.0;
     actualList->size.y = 0.0;
-    actualList->padding = vec2(16.0);
+    actualList->padding = vec2(24.0);
 
-    Text *settingText = new Text();
-    settingText->fontIndex = globals->gui.fontIndex;
-    settingText->fontSize = 24.0;
-    settingText->string = ToWString("Fullscreen");
-    settingText->size.y = 0.0;
+    Text *settingTextTemplate = new Text();
+    settingTextTemplate->fontIndex = globals->gui.fontIndex;
+    settingTextTemplate->fontSize = 20.0;
+    settingTextTemplate->fractionHeight = true;
+    settingTextTemplate->size.y = 1.0;
+    settingTextTemplate->alignV = Rendering::CENTER;
 
     checkFullscreen = new Checkbox();
     checkFullscreen->checked = globals->window.fullscreen;
 
-    ListH *settingList = new ListH();
-    settingList->size.y = 0.0;
-    settingList->margin = vec2(16.0);
-    settingList->selectionDefault = 1;
+    textboxFramerate = new TextBox();
+    textboxFramerate->fontIndex = globals->gui.fontIndex;
+    textboxFramerate->string = ToWString("144 frames per second");
 
-    AddWidget(settingList, settingText);
-    AddWidget(settingList, checkFullscreen);
+    ListH *settingListTemplate = new ListH();
+    settingListTemplate->size.y = 0.0;
+    settingListTemplate->margin = vec2(8.0);
+    settingListTemplate->padding = vec2(0.0);
+    settingListTemplate->selectionDefault = 1;
 
-    AddWidget(actualList, settingList);
+    Array<Widget*> settingListItems = {
+        checkFullscreen,
+        textboxFramerate
+    };
+    const char *settingListNames[] = {
+        "Fullscreen",
+        "Framerate"
+    };
+
+    for (i32 i = 0; i < settingListItems.size; i++) {
+        ListH *settingList = new ListH(*settingListTemplate);
+        Text *settingText = new Text(*settingTextTemplate);
+        settingText->string = ToWString(settingListNames[i]);
+        AddWidget(settingList, settingText);
+        AddWidget(settingList, settingListItems[i]);
+
+        AddWidget(actualList, settingList);
+    }
 
     ListH *buttonList = new ListH();
     buttonList->size.y = 0.0;
@@ -241,7 +261,7 @@ void SettingsMenu::Initialize() {
     buttonBack->size.x = 1.0 / 2.0;
     buttonBack->size.y = 64.0;
     buttonBack->fractionHeight = false;
-    buttonBack->margin = vec2(16.0);
+    buttonBack->margin = vec2(8.0);
     buttonBack->highlightBG = vec4(colorBack, 0.9);
     AddWidget(buttonList, buttonBack);
 
@@ -250,7 +270,7 @@ void SettingsMenu::Initialize() {
     buttonApply->size.x = 1.0 / 2.0;
     buttonApply->size.y = 64.0;
     buttonApply->fractionHeight = false;
-    buttonApply->margin = vec2(16.0);
+    buttonApply->margin = vec2(8.0);
     AddWidget(buttonList, buttonApply);
 
     AddWidget(actualList, buttonList);
@@ -270,6 +290,9 @@ void SettingsMenu::Initialize() {
     AddWidget(listV, spacingList);
 
     AddWidget(&screen, listV);
+
+    delete settingListTemplate;
+    delete settingTextTemplate;
 }
 
 void SettingsMenu::Update() {
@@ -422,6 +445,26 @@ void Widget::LimitSize() {
     }
 }
 
+void Widget::PushScissor(Rendering::DrawingContext &context) const {
+    if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
+        vec2i topLeft = vec2i(
+            positionAbsolute.x * globals->gui.scale,
+            positionAbsolute.y * globals->gui.scale
+        );
+        vec2i botRight = vec2i(
+            ceil((positionAbsolute.x + sizeAbsolute.x) * globals->gui.scale),
+            ceil((positionAbsolute.y + sizeAbsolute.y) * globals->gui.scale)
+        );
+        globals->rendering.PushScissor(context, topLeft, botRight);
+    }
+}
+
+void Widget::PopScissor(Rendering::DrawingContext &context) const {
+    if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
+        globals->rendering.PopScissor(context);
+    }
+}
+
 void Widget::Update(vec2 pos, bool selected) {
     pos += margin;
     positionAbsolute = pos;
@@ -548,17 +591,9 @@ void List::Draw(Rendering::DrawingContext &context) const {
         // const vec2 screenSizeFactor = vec2(2.0) / globals->rendering.screenSize;
         globals->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlight : color, positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
     }
-    vec2i topLeft = vec2i(
-        (positionAbsolute.x + padding.x) * globals->gui.scale,
-        (positionAbsolute.y + padding.y) * globals->gui.scale
-    );
-    vec2i botRight = vec2i(
-        (positionAbsolute.x + sizeAbsolute.x - padding.x) * globals->gui.scale,
-        (positionAbsolute.y + sizeAbsolute.y - padding.y) * globals->gui.scale
-    );
-    globals->rendering.PushScissor(context, topLeft, botRight);
+    PushScissor(context);
     Widget::Draw(context);
-    globals->rendering.PopScissor(context);
+    PopScissor(context);
 }
 
 void ListV::UpdateSize(vec2 container) {
@@ -575,6 +610,14 @@ void ListV::UpdateSize(vec2 container) {
     }
     LimitSize();
     vec2 sizeForInheritance = sizeAbsolute - padding * 2.0;
+    if (size.x == 0.0) {
+        for (Widget* child : children) {
+            child->UpdateSize(sizeForInheritance);
+            vec2 childSize = child->GetSize();
+            sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + padding.x * 2.0);
+        }
+    }
+    sizeForInheritance = sizeAbsolute - padding * 2.0;
     for (Widget* child : children) {
         if (child->size.y == 0.0) {
             child->UpdateSize(sizeForInheritance);
@@ -589,7 +632,7 @@ void ListV::UpdateSize(vec2 container) {
         child->UpdateSize(sizeForInheritance);
         vec2 childSize = child->GetSize();
         if (size.x == 0.0) {
-            sizeAbsolute.x = max(sizeAbsolute.x, childSize.x);
+            sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + padding.x * 2.0);
         }
         if (size.y == 0.0) {
             sizeAbsolute.y += childSize.y;
@@ -649,6 +692,14 @@ void ListH::UpdateSize(vec2 container) {
     }
     LimitSize();
     vec2 sizeForInheritance = sizeAbsolute - padding * 2.0;
+    if (size.y == 0.0) {
+        for (Widget* child : children) {
+            child->UpdateSize(sizeForInheritance);
+            vec2 childSize = child->GetSize();
+            sizeAbsolute.y = max(sizeAbsolute.y, childSize.y + padding.y * 2.0);
+        }
+        sizeForInheritance = sizeAbsolute - padding * 2.0;
+    }
     for (Widget* child : children) {
         if (child->size.x == 0.0) {
             child->UpdateSize(sizeForInheritance);
@@ -701,7 +752,7 @@ void ListH::Update(vec2 pos, bool selected) {
     }
 }
 
-Text::Text() : stringFormatted(), string(), fontSize(32.0), fontIndex(1), bold(false), alignH(Rendering::LEFT), alignV(Rendering::TOP), color(1.0), colorOutline(0.0, 0.0, 0.0, 1.0), outline(false) {
+Text::Text() : stringFormatted(), string(), padding(0.1), fontSize(32.0), fontIndex(1), bold(false), paddingEM(true), alignH(Rendering::LEFT), alignV(Rendering::TOP), color(1.0), colorOutline(0.0, 0.0, 0.0, 1.0), outline(false) {
     size.y = 0.0;
 }
 
@@ -709,12 +760,12 @@ void Text::UpdateSize(vec2 container) {
     if (size.x > 0.0) {
         sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0) : size.x;
     } else {
-        sizeAbsolute.x = globals->rendering.StringWidth(stringFormatted, fontIndex) * fontSize;
+        sizeAbsolute.x = globals->rendering.StringWidth(stringFormatted, fontIndex) * fontSize + padding.x * (paddingEM ? fontSize * 2.0 : 2.0);
     }
     if (size.y > 0.0) {
         sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0) : size.y;
     } else {
-        sizeAbsolute.y = Rendering::StringHeight(stringFormatted) * fontSize;
+        sizeAbsolute.y = Rendering::StringHeight(stringFormatted) * fontSize + padding.y * (paddingEM ? fontSize * 2.0 : 2.0);
     }
     LimitSize();
 }
@@ -729,17 +780,7 @@ void Text::Update(vec2 pos, bool selected) {
 }
 
 void Text::Draw(Rendering::DrawingContext &context) const {
-    if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
-        vec2i topLeft = vec2i(
-            positionAbsolute.x * globals->gui.scale,
-            positionAbsolute.y * globals->gui.scale
-        );
-        vec2i botRight = vec2i(
-            (positionAbsolute.x + sizeAbsolute.x) * globals->gui.scale,
-            (positionAbsolute.y + sizeAbsolute.y + fontSize * 0.3) * globals->gui.scale
-        );
-        globals->rendering.PushScissor(context, topLeft, botRight);
-    }
+    PushScissor(context);
     vec2 drawPos = positionAbsolute * globals->gui.scale;
     vec2 scale = vec2(fontSize) * globals->gui.scale;
     f32 maxWidth = sizeAbsolute.x * globals->gui.scale;
@@ -747,20 +788,22 @@ void Text::Draw(Rendering::DrawingContext &context) const {
         drawPos.x += maxWidth * 0.5;
     } else if (alignH == Rendering::RIGHT) {
         drawPos.x += maxWidth;
+    } else {
+        drawPos.x += padding.x * globals->gui.scale * (paddingEM ? fontSize : 1.0);
     }
     if (alignV == Rendering::CENTER) {
         drawPos.y += sizeAbsolute.y * 0.5 * globals->gui.scale;
     } else if (alignV == Rendering::BOTTOM) {
         drawPos.y += sizeAbsolute.y * globals->gui.scale;
+    } else {
+        drawPos.y += padding.y * globals->gui.scale * (paddingEM ? fontSize : 1.0);
     }
     f32 bounds = bold ? 0.425 : 0.525;
     if (outline) {
         globals->rendering.DrawText(context, stringFormatted, fontIndex, colorOutline, drawPos, scale, alignH, alignV, maxWidth, 0.1, bounds - 0.2);
     }
     globals->rendering.DrawText(context, stringFormatted, fontIndex, color, drawPos, scale, alignH, alignV, maxWidth, 0.0, bounds);
-    if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
-        globals->rendering.PopScissor(context);
-    }
+    PopScissor(context);
 }
 
 Image::Image() : texIndex(0) { occludes = true; }
@@ -806,17 +849,7 @@ void Button::Update(vec2 pos, bool selected) {
 }
 
 void Button::Draw(Rendering::DrawingContext &context) const {
-    if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
-        vec2i topLeft = vec2i(
-            positionAbsolute.x * globals->gui.scale,
-            positionAbsolute.y * globals->gui.scale
-        );
-        vec2i botRight = vec2i(
-            (positionAbsolute.x + sizeAbsolute.x) * globals->gui.scale,
-            (positionAbsolute.y + sizeAbsolute.y) * globals->gui.scale
-        );
-        globals->rendering.PushScissor(context, topLeft, botRight);
-    }
+    PushScissor(context);
     f32 scale;
     if (state.Down()) {
         scale = 0.9;
@@ -825,11 +858,9 @@ void Button::Draw(Rendering::DrawingContext &context) const {
     }
     scale *= globals->gui.scale;
     vec2 drawPos = (positionAbsolute + sizeAbsolute * 0.5) * globals->gui.scale;
-    globals->rendering.DrawQuad(context, 1, highlighted ? highlightBG : colorBG, drawPos, vec2(1.0), sizeAbsolute * scale, vec2(0.5));
+    globals->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlightBG : colorBG, drawPos, vec2(1.0), sizeAbsolute * scale, vec2(0.5));
     globals->rendering.DrawText(context, string, fontIndex,  highlighted ? highlightText : colorText, drawPos, vec2(fontSize * scale), Rendering::CENTER, Rendering::CENTER, sizeAbsolute.x * globals->gui.scale);
-    if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
-        globals->rendering.PopScissor(context);
-    }
+    PopScissor(context);
 }
 
 Checkbox::Checkbox() : checked(false), colorOff(0.15, 0.15, 0.15, 0.9), highlightOff(colorHighlightLow, 0.9), colorOn(colorHighlightMedium, 1.0), highlightOn(colorHighlightHigh, 1.0) {
@@ -864,6 +895,223 @@ void Checkbox::Update(vec2 pos, bool selected) {
 void Checkbox::Draw(Rendering::DrawingContext &context) const {
     const vec4 &color = checked ? (highlighted ? highlightOn : colorOn) : (highlighted ? highlightOff : colorOff);
     globals->rendering.DrawQuad(context, Rendering::texBlank, color, positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
+}
+
+TextBox::TextBox() : string(), colorBG(vec3(0.1), 0.9), highlightBG(vec3(0.05), 0.9), colorText(1.0), highlightText(1.0), padding(4.0), cursor(0), fontIndex(1), fontSize(16.0), cursorBlinkTimer(0.0), entry(false), multiline(true) {
+    selectable = true;
+    occludes = true;
+    fractionWidth = false;
+    fractionHeight = false;
+    size.x = 250.0;
+    size.y = 0.0;
+    minSize.y = 24.0;
+}
+
+inline bool IsWhitespace(const char32 &c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == 0;
+}
+
+inline bool IsText(const char32 &c) {
+    // TODO: Include tabs?
+    return c >= 32 && c < 127;
+}
+
+void TextBox::CursorFromPosition(vec2 position) {
+    vec2 cursorPos = positionAbsolute + padding;
+    cursorPos.y += fontSize * Rendering::lineHeight;
+    for (cursor = 0; cursor <= stringFormatted.size; cursor++) {
+        if (cursorPos.x > position.x && cursorPos.y > position.y) {
+            break;
+        }
+        const char32 &c = stringFormatted[cursor];
+        if (c == '\n') {
+            if (cursorPos.y > position.y) {
+                cursor++;
+                break;
+            }
+            cursorPos.x = positionAbsolute.x + padding.x;
+            cursorPos.y += fontSize * Rendering::lineHeight;
+            continue;
+        }
+        cursorPos.x += globals->assets.fonts[fontIndex].font.GetGlyphInfo(c).advance.x * fontSize;
+    }
+    cursor = max(0, cursor-1);
+}
+
+void TextBox::UpdateSize(vec2 container) {
+    if (size.x > 0.0) {
+        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0) : size.x;
+    } else {
+        sizeAbsolute.x = globals->rendering.StringWidth(stringFormatted, fontIndex) * fontSize + padding.x * 2.0;
+    }
+    if (size.y > 0.0) {
+        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0) : size.y;
+    } else {
+        sizeAbsolute.y = Rendering::StringHeight(stringFormatted) * fontSize + padding.y * 2.0;
+    }
+    LimitSize();
+}
+
+void TextBox::Update(vec2 pos, bool selected) {
+    if (entry) {
+        cursorBlinkTimer += globals->objects.timestep;
+        if (cursorBlinkTimer > 1.0) {
+            cursorBlinkTimer -= 1.0;
+        }
+        highlighted = true;
+        if (globals->input.AnyKey.Pressed()) {
+            for (i32 i = 0; i < globals->input.typingString.size; i++) {
+                const char32 c = globals->input.typingString[i];
+                if (IsText(c)) {
+                    string.Insert(cursor, c);
+                    cursorBlinkTimer = 0.0;
+                    cursor++;
+                }
+            }
+        }
+        globals->input.typingString.Clear();
+        if (globals->input.Pressed(KC_KEY_BACKSPACE)) {
+            if (cursor <= string.size && cursor > 0) {
+                string.Erase(cursor-1);
+                cursorBlinkTimer = 0.0;
+                cursor--;
+            }
+        }
+        if (globals->input.Pressed(KC_KEY_DELETE)) {
+            if (cursor < string.size) {
+                string.Erase(cursor);
+                cursorBlinkTimer = 0.0;
+            }
+        }
+        if (globals->input.Pressed(KC_KEY_HOME)) {
+            cursor = 0;
+            cursorBlinkTimer = 0.0;
+        }
+        if (globals->input.Pressed(KC_KEY_END)) {
+            cursor = string.size;
+            cursorBlinkTimer = 0.0;
+        }
+        if (globals->input.Pressed(KC_KEY_ENTER)) {
+            string.Insert(cursor, '\n');
+            cursor++;
+            cursorBlinkTimer = 0.0;
+        }
+        if (globals->input.Pressed(KC_KEY_LEFT)) {
+            cursorBlinkTimer = 0.0;
+            if (globals->input.Down(KC_KEY_LEFTCTRL) || globals->input.Down(KC_KEY_RIGHTCTRL)) {
+                if (IsWhitespace(string[cursor])) {
+                    for (cursor--; cursor > 0; cursor--) {
+                        const char32 c = string[cursor];
+                        if (IsWhitespace(c)) {
+                            cursor++;
+                            break;
+                        }
+                    }
+                } else {
+                    for (cursor--; cursor > 0; cursor--) {
+                        const char32 c = string[cursor];
+                        if (!IsWhitespace(c)) {
+                            cursor++;
+                            break;
+                        }
+                    }
+                }
+                cursor = max(0, cursor);
+            } else {
+                cursor = max(0, cursor-1);
+            }
+        }
+        if (globals->input.Pressed(KC_KEY_RIGHT)) {
+            cursorBlinkTimer = 0.0;
+            if (globals->input.Down(KC_KEY_LEFTCTRL) || globals->input.Down(KC_KEY_RIGHTCTRL)) {
+                if (IsWhitespace(string[cursor])) {
+                    for (cursor++; cursor < string.size; cursor++) {
+                        const char32 c = string[cursor];
+                        if (!IsWhitespace(c)) {
+                            break;
+                        }
+                    }
+                } else {
+                    for (cursor++; cursor < string.size; cursor++) {
+                        const char32 c = string[cursor];
+                        if (IsWhitespace(c)) {
+                            break;
+                        }
+                    }
+                }
+                cursor = min(string.size, cursor);
+            } else {
+                cursor = min(string.size, cursor+1);
+            }
+        }
+    }
+    if (size.x != 0.0 && multiline) {
+        stringFormatted = globals->rendering.StringAddNewlines(string, fontIndex, sizeAbsolute.x / fontSize);
+    } else {
+        stringFormatted = string;
+    }
+    Widget::Update(pos, selected);
+    bool mouseover = MouseOver();
+    if (globals->gui.controlDepth != depth) {
+        highlighted = false;
+    }
+    if (mouseover) {
+        highlighted = true;
+    }
+    if (globals->objects.Released(KC_MOUSE_LEFT)) {
+        if (mouseover) {
+            if (globals->gui.controlDepth == depth) {
+                globals->gui.controlDepth = depth+1;
+            }
+            const vec2 mouse = vec2(globals->input.cursor) / globals->gui.scale;
+            CursorFromPosition(mouse);
+            cursorBlinkTimer = 0.0;
+        }
+        if (!mouseover && entry && globals->gui.controlDepth == depth+1) {
+            globals->gui.controlDepth = depth;
+            entry = false;
+        } else {
+            entry = mouseover;
+        }
+    }
+    if (globals->gui.controlDepth == depth) {
+        if (selected) {
+            if (globals->objects.Released(KC_GP_BTN_A)) {
+                entry = true;
+                globals->gui.controlDepth++;
+            }
+        }
+    } else if (globals->gui.controlDepth == depth+1) {
+        if (selected) {
+            if (globals->objects.Released(KC_GP_BTN_B)) {
+                entry = false;
+                globals->gui.controlDepth--;
+            }
+        }
+    }
+}
+
+void TextBox::Draw(Rendering::DrawingContext &context) const {
+    PushScissor(context);
+    vec2 drawPos = positionAbsolute * globals->gui.scale;
+    globals->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlightBG : colorBG, drawPos, vec2(1.0), sizeAbsolute * globals->gui.scale);
+    globals->rendering.DrawText(context, stringFormatted, fontIndex, highlighted ? highlightText : colorText, drawPos + padding * globals->gui.scale, vec2(fontSize * globals->gui.scale), Rendering::LEFT, Rendering::TOP, sizeAbsolute.x * globals->gui.scale);
+    if (cursorBlinkTimer < 0.5 && entry) {
+        vec2 cursorPos = 0.0;
+        for (i32 i = 0; i < cursor; i++) {
+            const char32 &c = stringFormatted[i];
+            if (c == '\n') {
+                cursorPos.x = 0.0;
+                cursorPos.y += fontSize * Rendering::lineHeight;
+                continue;
+            }
+            cursorPos.x += globals->assets.fonts[fontIndex].font.GetGlyphInfo(c).advance.x * fontSize;
+        }
+        cursorPos += positionAbsolute + padding;
+        cursorPos *= globals->gui.scale;
+        globals->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlightText : colorText, cursorPos, vec2(1.0), vec2(1.0, fontSize * globals->gui.scale));
+    }
+    PopScissor(context);
 }
 
 } // namespace Int

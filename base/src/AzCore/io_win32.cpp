@@ -722,21 +722,25 @@ namespace io {
             break;
         }
         case WM_MOUSEWHEEL: {
-            thisWindow->input->scroll.y = f32(HIWORD(wParam))/120.0;
-            if (thisWindow->input->scroll.y > 0)
-                keyCode = KC_MOUSE_SCROLLUP;
-            else
-                keyCode = KC_MOUSE_SCROLLDOWN;
-            press = true;
+            if (thisWindow->input != nullptr) {
+                thisWindow->input->scroll.y = f32(HIWORD(wParam))/120.0;
+                if (thisWindow->input->scroll.y > 0)
+                    keyCode = KC_MOUSE_SCROLLUP;
+                else
+                    keyCode = KC_MOUSE_SCROLLDOWN;
+                press = true;
+            }
             break;
         }
         case WM_MOUSEHWHEEL: {
-            thisWindow->input->scroll.x = f32(HIWORD(wParam))/120.0;
-            if (thisWindow->input->scroll.x > 0)
-                keyCode = KC_MOUSE_SCROLLRIGHT;
-            else
-                keyCode = KC_MOUSE_SCROLLLEFT;
-            press = true;
+            if (thisWindow->input != nullptr) {
+                thisWindow->input->scroll.x = f32(HIWORD(wParam))/120.0;
+                if (thisWindow->input->scroll.x > 0)
+                    keyCode = KC_MOUSE_SCROLLRIGHT;
+                else
+                    keyCode = KC_MOUSE_SCROLLLEFT;
+                press = true;
+            }
             break;
         }
         case WM_LBUTTONDOWN: {
@@ -788,6 +792,9 @@ namespace io {
             break;
         }
         case WM_CHAR: {
+            if (thisWindow->input != nullptr) {
+                thisWindow->input->typingString += (char)wParam;
+            }
             // handleCharInput((char)wParam);
             break;
         }
@@ -831,6 +838,7 @@ namespace io {
 
         if (thisWindow->input != nullptr && thisWindow->focused) {
             if (press) {
+
                 if (keyCode != 0) {
                     thisWindow->input->Press(keyCode);
                 }

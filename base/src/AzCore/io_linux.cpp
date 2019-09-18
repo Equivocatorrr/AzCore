@@ -1081,11 +1081,12 @@ namespace io {
             }
             free(data->event);
 
-            if (character >= 'a' && character <= 'z') {
-                character += 'A'-'a';
-            }
 
             if (input != nullptr && focused) {
+                if (press) input->typingString += character;
+                if (character >= 'a' && character <= 'z') {
+                    character += 'A'-'a';
+                }
                 if (press) {
                     if (keyCode != 0) {
                         input->Press(keyCode);

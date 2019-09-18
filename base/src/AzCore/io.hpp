@@ -166,6 +166,7 @@ namespace io {
         ButtonState Any, AnyKey, AnyMB;
         u8 codeAny, codeAnyKey, codeAnyMB;
         char charAny; // This can be associated with AnyKey only
+        String typingString;
         ButtonState inputs[256];
         ButtonState inputsChar[128];
         vec2i cursor, cursorPrevious;

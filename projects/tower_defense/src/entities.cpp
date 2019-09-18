@@ -552,7 +552,7 @@ bool Physical::MouseOver() const {
 }
 
 void PhysicalAbsFromBasis(PhysicalAbs &actual, const PhysicalBasis &basis, const CollisionType &type, const vec2 &pos, const Angle32 &angle) {
-    mat2 rotation;
+    mat2 rotation(1.0);
     if (angle != 0.0) {
         rotation = mat2::Rotation(angle.value());
     }

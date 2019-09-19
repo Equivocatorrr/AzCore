@@ -42,6 +42,7 @@ struct Manager {
     bool buffer = false;
     f32 timestep = 1.0/60.0;
     f32 simulationRate = 1.0;
+    bool paused = false;
 
     static void RenderCallback(void *userdata, Rendering::Manager *rendering, Array<Rendering::DrawingContext>& drawingContexts);
 

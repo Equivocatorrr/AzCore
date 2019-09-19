@@ -41,6 +41,11 @@ void Manager::CallInitialize() {
 
 void Manager::Sync() {
     buffer = !buffer;
+    if (!paused) {
+        globals->objects.simulationRate = min(1.0, globals->objects.simulationRate + globals->objects.timestep);
+    } else {
+        globals->objects.simulationRate = max(0.0, globals->objects.simulationRate - globals->objects.timestep);
+    }
     if (globals->rawInput.AnyGP.Pressed()) {
         globals->gamepad = &globals->rawInput.gamepads[globals->rawInput.AnyGPIndex];
     }

@@ -230,6 +230,7 @@ struct Manager : public Objects::Object {
     f32 enemyInterval = 1.0;
     i32 lives = 1000;
     f32 timestep;
+    bool waveActive = false;
     void EventAssetInit();
     void EventAssetAcquire();
     void EventInitialize();

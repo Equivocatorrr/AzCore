@@ -32,7 +32,7 @@ const Tower towerGunTemplate = Tower(
     50.0,                                       // bulletSpeedVariability
     0,                                          // bulletExplosionDamage
     0.0,                                        // bulletExplosionRange
-    vec4(0.1, 0.1, 1.0, 1.0)                    // color
+    vec4(0.1, 0.5, 1.0, 1.0)                    // color
 );
 
 const Tower towerShotgunTemplate = Tower(
@@ -158,28 +158,28 @@ void Manager::EventSync() {
 }
 
 void Manager::EventUpdate() {
-    if (timestep == 0.0) return;
-
-    const i32 concurrency = 4;
-    Array<Thread> threads(concurrency);
-    for (i32 i = 0; i < updateChunks.size; i++) {
-        for (i32 j = 0; j < concurrency; j++) {
-            UpdateChunk &chunk = updateChunks[i];
-            threads[j] = Thread(chunk.updateCallback, chunk.theThisPointer, j, concurrency);
-        }
-        for (i32 j = 0; j < concurrency; j++) {
-            if (threads[j].joinable()) {
-                threads[j].join();
+    if (timestep != 0.0) {
+        const i32 concurrency = 4;
+        Array<Thread> threads(concurrency);
+        for (i32 i = 0; i < updateChunks.size; i++) {
+            for (i32 j = 0; j < concurrency; j++) {
+                UpdateChunk &chunk = updateChunks[i];
+                threads[j] = Thread(chunk.updateCallback, chunk.theThisPointer, j, concurrency);
+            }
+            for (i32 j = 0; j < concurrency; j++) {
+                if (threads[j].joinable()) {
+                    threads[j].join();
+                }
             }
         }
-    }
 
-    if (hitpointsLeft > 0) {
-        enemyTimer -= timestep;
-        while (enemyTimer <= 0.0) {
-            Enemy enemy;
-            enemies.Create(enemy);
-            enemyTimer += enemyInterval;
+        if (hitpointsLeft > 0) {
+            enemyTimer -= timestep;
+            while (enemyTimer <= 0.0) {
+                Enemy enemy;
+                enemies.Create(enemy);
+                enemyTimer += enemyInterval;
+            }
         }
     }
     if (globals->objects.Pressed(KC_KEY_R)) {
@@ -204,9 +204,25 @@ void Manager::EventUpdate() {
         }
     }
     if (globals->objects.Pressed(KC_KEY_SPACE) || globals->gui.playMenu.buttonStartWave->state.Released()) {
-        wave++;
-        enemyInterval = max(10.0 / (f32)(wave+19), 0.0001);
-        hitpointsLeft += (i64)(pow((f64)wave, (f64)1.5) * 1000.0d);
+        if (!waveActive) {
+            wave++;
+            enemyInterval = max(10.0 / (f32)(wave+19), 0.0001);
+            hitpointsLeft += (i64)(pow((f64)wave, (f64)1.5) * 1000.0d);
+            globals->objects.paused = false;
+            waveActive = true;
+            globals->gui.playMenu.buttonStartWave->string = ToWString("Pause");
+        } else {
+            if (globals->objects.paused) {
+                globals->gui.playMenu.buttonStartWave->string = ToWString("Pause");
+            } else {
+                globals->gui.playMenu.buttonStartWave->string = ToWString("Resume");
+            }
+            globals->objects.paused = !globals->objects.paused;
+        }
+    }
+    if (hitpointsLeft == 0 && waveActive) {
+        waveActive = false;
+        globals->gui.playMenu.buttonStartWave->string = ToWString("Start Wave");
     }
     if (globals->gui.mouseoverDepth > 0) return; // Don't accept mouse input
     if (!placeMode) {
@@ -234,9 +250,9 @@ void Manager::EventUpdate() {
             }
         }
         if (globals->objects.Down(KC_KEY_LEFT)) {
-            placingAngle += timestep * pi;
+            placingAngle += globals->objects.timestep * pi;
         } else if (globals->objects.Down(KC_KEY_RIGHT)) {
-            placingAngle += -timestep * pi;
+            placingAngle += -globals->objects.timestep * pi;
         }
         Tower tower(towerType);
         tower.physical.pos = globals->input.cursor;

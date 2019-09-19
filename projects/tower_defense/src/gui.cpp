@@ -56,11 +56,6 @@ void Gui::EventSync() {
         playMenu.Update();
         break;
     }
-    if (currentMenu == MENU_PLAY) {
-        globals->objects.simulationRate = min(1.0, globals->objects.simulationRate + globals->objects.timestep);
-    } else {
-        globals->objects.simulationRate = max(0.0, globals->objects.simulationRate - globals->objects.timestep);
-    }
     readyForDraw = true;
 }
 
@@ -425,6 +420,10 @@ void PlayMenu::Update() {
     screen.Update(vec2(0.0), true);
     if (buttonMenu->state.Released()) {
         globals->gui.currentMenu = MenuEnum::MENU_MAIN;
+        globals->objects.paused = true;
+        if (globals->entities.waveActive) {
+            buttonStartWave->string = ToWString("Resume");
+        }
     }
 }
 

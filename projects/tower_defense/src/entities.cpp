@@ -206,7 +206,7 @@ void Manager::EventUpdate() {
     if (globals->objects.Pressed(KC_KEY_SPACE) || globals->gui.playMenu.buttonStartWave->state.Released()) {
         wave++;
         enemyInterval = max(10.0 / (f32)(wave+19), 0.0001);
-        hitpointsLeft += (i64)(pow((f64)wave, (f64)1.5) * 500.0d);
+        hitpointsLeft += (i64)(pow((f64)wave, (f64)1.5) * 1000.0d);
     }
     if (globals->gui.mouseoverDepth > 0) return; // Don't accept mouse input
     if (!placeMode) {
@@ -883,8 +883,9 @@ void Enemy::EventCreate() {
     }
     spawnTimer = honkerSpawnInterval;
     if (!child) {
-        if (hitpoints > globals->entities.hitpointsLeft) {
-            hitpoints = globals->entities.hitpointsLeft;
+        i64 limit = median(globals->entities.hitpointsLeft / 2, (i64)500, globals->entities.hitpointsLeft);
+        if (hitpoints > limit) {
+            hitpoints = limit;
         }
         globals->entities.hitpointsLeft -= hitpoints;
         size = hitpoints;
@@ -892,7 +893,7 @@ void Enemy::EventCreate() {
     }
     physical.vel *= 10.0;
     physical.vel /= sqrt((f32)hitpoints);
-    targetSpeed = 2000.0 / sqrt((f32)hitpoints);
+    targetSpeed = 1000.0 / pow((f32)hitpoints, 1.0 / 3.0);
     size = 0.0;
 }
 
@@ -990,7 +991,7 @@ void Enemy::Draw(Rendering::DrawingContext &context) {
 template struct DoubleBufferArray<Enemy>;
 
 void Bullet::EventCreate() {
-    f32 length = abs(physical.vel) * 0.5 / 60.0;
+    f32 length = abs(physical.vel) * 0.5 / 30.0;
     physical.type = SEGMENT;
     physical.basis.segment.a = vec2(-length, -1.0);
     physical.basis.segment.b = vec2(length, 1.0);

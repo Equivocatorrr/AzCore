@@ -99,8 +99,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     }
 
     ClockTime frameStart;
-    const Nanoseconds frameDuration = Nanoseconds(1000000000/144);
-    globals->objects.timestep = 1.0/144.0;
+    globals->frameDuration = Nanoseconds(1000000000/60);
 
     while (globals->window.Update() && !globals->exit) {
         frameStart = Clock::now();
@@ -117,7 +116,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
         }
         globals->input.Tick(globals->objects.timestep);
         Nanoseconds frameDelta = Nanoseconds(Clock::now() - frameStart);
-        Nanoseconds frameSleep = frameDuration - frameDelta;
+        Nanoseconds frameSleep = globals->frameDuration - frameDelta;
         if (frameSleep.count() >= 1000) {
             std::this_thread::sleep_for(frameSleep);
         }

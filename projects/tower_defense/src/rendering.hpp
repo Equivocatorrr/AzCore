@@ -181,6 +181,7 @@ struct Manager {
     vec2 StringSize(WString string, i32 fontIndex) const;
     f32 StringWidth(WString string, i32 fontIndex) const;
     WString StringAddNewlines(WString string, i32 fontIndex, f32 maxWidth) const;
+    void LineCursorStartAndSpaceScale(f32 &dstCursor, f32 &dstSpaceScale, f32 scale, f32 spaceWidth, i32 fontIndex, const char32 *string, f32 maxWidth, FontAlign alignH) const;
 
     // Units are in screen space
     // DrawChar assumes the font pipeline is bound

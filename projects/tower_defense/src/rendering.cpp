@@ -688,6 +688,32 @@ WString Manager::StringAddNewlines(WString string, i32 fontIndex, f32 maxWidth) 
     return string;
 }
 
+void Manager::LineCursorStartAndSpaceScale(f32 &dstCursor, f32 &dstSpaceScale, f32 scale, f32 spaceWidth, i32 fontIndex, const char32 *string, f32 maxWidth, FontAlign alignH) const {
+    dstSpaceScale = 1.0;
+    if (alignH != LEFT) {
+        f32 lineWidth = LineWidth(string, fontIndex) * scale;
+        if (alignH == RIGHT) {
+            dstCursor = -lineWidth;
+        } else if (alignH == MIDDLE) {
+            dstCursor = -lineWidth * 0.5;
+        } else if (alignH == JUSTIFY) {
+            dstCursor = 0.0;
+            i32 numSpaces = 0;
+            for (i32 ii = 0; string[ii] != 0 && string[ii] != '\n'; ii++) {
+                if (string[ii] == ' ') {
+                    numSpaces++;
+                }
+            }
+            dstSpaceScale = 1.0 + max((maxWidth - lineWidth) / numSpaces / spaceWidth, 0.0);
+            if (dstSpaceScale > 4.0) {
+                dstSpaceScale = 1.5;
+            }
+        }
+    } else {
+        dstCursor = 0.0;
+    }
+}
+
 void Manager::DrawCharSS(DrawingContext &context, char32 character,
                          i32 fontIndex, vec4 color, vec2 position, vec2 scale) {
     Assets::Font *fontDesired = &globals->assets.fonts[fontIndex];
@@ -742,17 +768,6 @@ void Manager::DrawTextSS(DrawingContext &context, WString string,
     pc.frag.color = color;
     // position.y += scale.y * lineHeight;
     position.y += scale.y * (lineHeight + 1.0) * 0.5;
-    f32 width = 0.0;
-    if (alignH != LEFT) {
-        width = StringWidth(string, fontIndex) * scale.x;
-        if (alignH == MIDDLE) {
-            position.x -= width * 0.5;
-        } else if (alignH == RIGHT) {
-            position.x -= width;
-        } else {
-            // JUSTIFY
-        }
-    }
     if (alignV != TOP) {
         f32 height = StringHeight(string) * scale.y;
         if (alignV == MIDDLE) {
@@ -770,26 +785,8 @@ void Manager::DrawTextSS(DrawingContext &context, WString string,
             if (character != '\n') {
                 i--;
             }
-            cursor.x = position.x;
-            if (alignH != LEFT) {
-                f32 lineWidth = LineWidth(&string[i+1], fontIndex) * scale.x;
-                if (alignH == RIGHT) {
-                    cursor.x += width - lineWidth;
-                } else if (alignH == MIDDLE) {
-                    cursor.x += (width - lineWidth) * 0.5;
-                } else if (alignH == JUSTIFY) {
-                    i32 numSpaces = 0;
-                    for (i32 ii = i+1; string[ii] != 0 && string[ii] != '\n'; ii++) {
-                        if (string[ii] == ' ') {
-                            numSpaces++;
-                        }
-                    }
-                    spaceScale = 1.0 + max((maxWidth - lineWidth) / numSpaces / spaceWidth, 0.0);
-                    if (spaceScale > 4.0) {
-                        spaceScale = 1.5;
-                    }
-                }
-            }
+            LineCursorStartAndSpaceScale(cursor.x, spaceScale, scale.x, spaceWidth, fontIndex, &string[i+1], maxWidth, alignH);
+            cursor.x += position.x;
             if (i == -1) {
                 i++;
             } else {

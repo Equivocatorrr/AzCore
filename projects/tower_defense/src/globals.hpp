@@ -25,6 +25,7 @@ struct Globals {
     Int::Gui gui;
     RandomNumberGenerator rng;
     bool exit = false;
+    Nanoseconds frameDuration;
 };
 
 extern Globals *globals;

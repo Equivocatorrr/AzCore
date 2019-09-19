@@ -221,7 +221,10 @@ void SettingsMenu::Initialize() {
 
     textboxFramerate = new TextBox();
     textboxFramerate->fontIndex = globals->gui.fontIndex;
-    textboxFramerate->string = ToWString("144 frames per second");
+    textboxFramerate->string = ToWString("60");
+    textboxFramerate->alignH = Rendering::RIGHT;
+    textboxFramerate->textFilter = TextFilterDigits;
+    textboxFramerate->textValidate = TextValidateNonempty;
 
     ListH *settingListTemplate = new ListH();
     settingListTemplate->size.y = 0.0;
@@ -295,10 +298,27 @@ void SettingsMenu::Initialize() {
     delete settingTextTemplate;
 }
 
+u64 WStringToU64(WString str) {
+    u64 number = 0;
+    u64 exponent = 1;
+    for (i32 i = str.size-1; i >= 0; i--) {
+        number += u64(str[i]-'0') * exponent;
+        exponent *= 10;
+    }
+    return number;
+}
+
 void SettingsMenu::Update() {
     screen.Update(vec2(0.0), true);
     if (buttonApply->state.Released()) {
         globals->window.Fullscreen(checkFullscreen->checked);
+        u64 framerate = 60;
+        if (textboxFramerate->textValidate(textboxFramerate->string)) {
+            framerate = clamp(WStringToU64(textboxFramerate->string), (u64)30, (u64)300);
+            globals->frameDuration = Nanoseconds(1000000000/framerate);
+            globals->objects.timestep = 1.0 / (f32)framerate;
+        }
+        textboxFramerate->string = ToWString(ToString(framerate));
     }
     if (buttonBack->state.Released()) {
         globals->gui.currentMenu = MENU_MAIN;
@@ -361,6 +381,7 @@ void PlayMenu::Initialize() {
             if (index > towerButtons.size) break;
             towerButtons[index] = new Button(*halfWidth);
             towerButtons[index]->string = ToWString(Entities::towerStrings[index]);
+            towerButtons[index]->highlightBG = Entities::Tower(Entities::TowerType(index)).color;
             AddWidget(grid, towerButtons[index]);
         }
         AddWidget(list, grid);
@@ -781,28 +802,26 @@ void Text::Update(vec2 pos, bool selected) {
 
 void Text::Draw(Rendering::DrawingContext &context) const {
     PushScissor(context);
-    vec2 drawPos = positionAbsolute * globals->gui.scale;
+    vec2 paddingAbsolute = padding;
+    if (paddingEM) paddingAbsolute *= fontSize;
+    vec2 drawPos = (positionAbsolute + paddingAbsolute) * globals->gui.scale;
     vec2 scale = vec2(fontSize) * globals->gui.scale;
-    f32 maxWidth = sizeAbsolute.x * globals->gui.scale;
+    vec2 textArea = (sizeAbsolute - paddingAbsolute * 2.0) * globals->gui.scale;
     if (alignH == Rendering::CENTER) {
-        drawPos.x += maxWidth * 0.5;
+        drawPos.x += textArea.x * 0.5;
     } else if (alignH == Rendering::RIGHT) {
-        drawPos.x += maxWidth;
-    } else {
-        drawPos.x += padding.x * globals->gui.scale * (paddingEM ? fontSize : 1.0);
+        drawPos.x += textArea.x;
     }
     if (alignV == Rendering::CENTER) {
-        drawPos.y += sizeAbsolute.y * 0.5 * globals->gui.scale;
+        drawPos.y += textArea.y * 0.5 * globals->gui.scale;
     } else if (alignV == Rendering::BOTTOM) {
-        drawPos.y += sizeAbsolute.y * globals->gui.scale;
-    } else {
-        drawPos.y += padding.y * globals->gui.scale * (paddingEM ? fontSize : 1.0);
+        drawPos.y += textArea.y * globals->gui.scale;
     }
     f32 bounds = bold ? 0.425 : 0.525;
     if (outline) {
-        globals->rendering.DrawText(context, stringFormatted, fontIndex, colorOutline, drawPos, scale, alignH, alignV, maxWidth, 0.1, bounds - 0.2);
+        globals->rendering.DrawText(context, stringFormatted, fontIndex, colorOutline, drawPos, scale, alignH, alignV, textArea.x, 0.1, bounds - 0.2);
     }
-    globals->rendering.DrawText(context, stringFormatted, fontIndex, color, drawPos, scale, alignH, alignV, maxWidth, 0.0, bounds);
+    globals->rendering.DrawText(context, stringFormatted, fontIndex, color, drawPos, scale, alignH, alignV, textArea.x, 0.0, bounds);
     PopScissor(context);
 }
 
@@ -897,12 +916,12 @@ void Checkbox::Draw(Rendering::DrawingContext &context) const {
     globals->rendering.DrawQuad(context, Rendering::texBlank, color, positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
 }
 
-TextBox::TextBox() : string(), colorBG(vec3(0.1), 0.9), highlightBG(vec3(0.05), 0.9), colorText(1.0), highlightText(1.0), padding(4.0), cursor(0), fontIndex(1), fontSize(16.0), cursorBlinkTimer(0.0), entry(false), multiline(true) {
+TextBox::TextBox() : string(), colorBG(vec3(0.1), 0.9), highlightBG(vec3(0.05), 0.9), errorBG(0.1, 0.0, 0.0, 0.9), colorText(1.0), highlightText(1.0), errorText(1.0, 0.5, 0.5, 1.0), padding(4.0), cursor(0), fontIndex(1), fontSize(16.0), cursorBlinkTimer(0.0), alignH(Rendering::LEFT), textFilter(TextFilterBasic), textValidate(TextValidateAll), entry(false), multiline(false) {
     selectable = true;
     occludes = true;
     fractionWidth = false;
     fractionHeight = false;
-    size.x = 250.0;
+    size.x = 200.0;
     size.y = 0.0;
     minSize.y = 24.0;
 }
@@ -911,45 +930,176 @@ inline bool IsWhitespace(const char32 &c) {
     return c == ' ' || c == '\t' || c == '\n' || c == 0;
 }
 
-inline bool IsText(const char32 &c) {
-    // TODO: Include tabs?
-    return c >= 32 && c < 127;
+bool TextFilterBasic(char32 c) {
+    return c >= ' ' && c <= '~';
+}
+
+bool TextFilterWordSingle(char32 c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+
+bool TextFilterWordMultiple(char32 c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == ' ';
+}
+
+bool TextFilterDecimals(char32 c) {
+    return c == '-' || c == '.' || (c >= '0' && c <= '9');
+}
+
+bool TextFilterDecimalsPositive(char32 c) {
+    return c == '.' || (c >= '0' && c <= '9');
+}
+
+bool TextFilterIntegers(char32 c) {
+    return c == '-' || (c >= '0' && c <= '9');
+}
+
+bool TextFilterDigits(char32 c) {
+    return c >= '0' && c <= '9';
+}
+
+bool TextValidateAll(const WString &string) {
+    return true;
+}
+
+bool TextValidateNonempty(const WString &string) {
+    return string.size != 0;
+}
+
+bool TextValidateDecimals(const WString &string) {
+    if (string.size == 0) return false;
+    if (string.size == 1 && (string[0] == '.' || string[0] == '-')) return false;
+    if (string.size == 2 && (string[0] == '-' && string[1] == '.')) return false;
+    i32 cur;
+    if (string[0] == '-') cur = 1; else cur = 0;
+    bool point = false;
+    for (; cur < string.size; cur++) {
+        const char32 &c = string[cur];
+        if (c == '.') {
+            if (point) return false;
+            point = true;
+            continue;
+        }
+        if (!TextFilterDigits(c)) return false;
+    }
+    return true;
+}
+
+bool TextValidateDecimalsPositive(const WString &string) {
+    if (string.size == 0) return false;
+    if (string.size == 1 && string[0] == '.') return false;
+    bool point = false;
+    for (i32 cur = 0; cur < string.size; cur++) {
+        const char32 &c = string[cur];
+        if (c == '.') {
+            if (point) return false;
+            point = true;
+            continue;
+        }
+        if (!TextFilterDigits(c)) return false;
+    }
+    return true;
+}
+
+bool TextValidateIntegers(const WString &string) {
+    if (string.size == 0) return false;
+    i32 cur;
+    if (string[0] == '-') cur = 1; else cur = 0;
+    for (; cur < string.size; cur++) {
+        const char32 &c = string[cur];
+        if (!TextFilterDigits(c)) return false;
+    }
+    return true;
 }
 
 void TextBox::CursorFromPosition(vec2 position) {
-    vec2 cursorPos = (positionAbsolute + padding) * globals->gui.scale;
+    vec2 cursorPos = 0.0;
+    f32 spaceScale, spaceWidth;
+    spaceWidth = globals->assets.CharacterWidth(' ', fontIndex) * fontSize;
+    const char32 *lineString = &stringFormatted[0];
+    i32 formatNewlines = 0;
+    cursor = 0;
+    cursorPos.y += fontSize * Rendering::lineHeight + positionAbsolute.y + padding.y;
+    if (cursorPos.y <= position.y / globals->gui.scale) {
+        for (; cursor < stringFormatted.size; cursor++) {
+            const char32 &c = stringFormatted[cursor];
+            if (c == '\n') {
+                if (string[cursor-formatNewlines] != '\n' && string[cursor-formatNewlines] != ' ') {
+                    formatNewlines++;
+                }
+                lineString = &c+1;
+                cursorPos.y += fontSize * Rendering::lineHeight;
+                if (cursorPos.y > position.y / globals->gui.scale) {
+                    cursor++;
+                    break;
+                }
+            }
+        }
+    }
+    globals->rendering.LineCursorStartAndSpaceScale(cursorPos.x, spaceScale, fontSize, spaceWidth, fontIndex, lineString, sizeAbsolute.x - padding.x * 2.0, alignH);
+    cursorPos.x += positionAbsolute.x + padding.x;
+    if (alignH == Rendering::CENTER) {
+        cursorPos.x += sizeAbsolute.x * 0.5 - padding.x;
+    } else if (alignH == Rendering::RIGHT) {
+        cursorPos.x += sizeAbsolute.x - padding.x * 2.0;
+    }
+    cursorPos *= globals->gui.scale;
+    spaceWidth *= spaceScale * globals->gui.scale;
     f32 advanceCarry;
-    cursorPos.y += fontSize * Rendering::lineHeight * globals->gui.scale;
-    for (cursor = 0; cursor < stringFormatted.size; cursor++) {
+    for (; cursor < stringFormatted.size; cursor++) {
         const char32 &c = stringFormatted[cursor];
-        advanceCarry = globals->assets.fonts[fontIndex].font.GetGlyphInfo(c).advance.x * fontSize * globals->gui.scale * 0.5;
+        if (c == '\n') {
+            break;
+        }
+        if (c == ' ') {
+            advanceCarry = spaceWidth * 0.5;
+        } else {
+            advanceCarry = globals->assets.CharacterWidth(c, fontIndex) * fontSize * globals->gui.scale * 0.5;
+        }
         cursorPos.x += advanceCarry;
-        if (cursorPos.x > position.x && cursorPos.y > position.y) {
+        if (cursorPos.x > position.x) {
             break;
         }
         cursorPos.x += advanceCarry;
-        if (c == '\n') {
-            if (cursorPos.y > position.y) {
-                break;
-            }
-            cursorPos.x = positionAbsolute.x + padding.x;
-            cursorPos.y += fontSize * Rendering::lineHeight;
-            continue;
-        }
     }
-    // cursor = max(0, cursor-1);
+    cursor -= formatNewlines;
 }
 
 vec2 TextBox::PositionFromCursor() const {
     vec2 cursorPos = 0.0;
-    for (i32 i = 0; i < cursor; i++) {
+    f32 spaceScale, spaceWidth;
+    spaceWidth = globals->assets.CharacterWidth(' ', fontIndex) * fontSize;
+    const char32 *lineString = &stringFormatted[0];
+    i32 lineStart = 0;
+    i32 formatNewlines = 0;
+    for (i32 i = 0; i < cursor+formatNewlines; i++) {
         const char32 &c = stringFormatted[i];
         if (c == '\n') {
-            cursorPos.x = 0.0;
+            if (string[i-formatNewlines] != '\n' && string[i-formatNewlines] != ' ') {
+                formatNewlines++;
+            }
             cursorPos.y += fontSize * Rendering::lineHeight;
-            continue;
+            lineString = &c+1;
+            lineStart = i+1;
         }
-        cursorPos.x += globals->assets.fonts[fontIndex].font.GetGlyphInfo(c).advance.x * fontSize;
+    }
+    globals->rendering.LineCursorStartAndSpaceScale(cursorPos.x, spaceScale, fontSize, spaceWidth, fontIndex, lineString, sizeAbsolute.x - padding.x * 2.0, alignH);
+    spaceWidth *= spaceScale;
+    for (i32 i = lineStart; i < cursor+formatNewlines; i++) {
+        const char32 &c = stringFormatted[i];
+        if (c == '\n') {
+            break;
+        }
+        if (c == ' ') {
+            cursorPos.x += spaceWidth;
+        } else {
+            cursorPos.x += globals->assets.CharacterWidth(c, fontIndex) * fontSize;
+        }
+    }
+    if (alignH == Rendering::CENTER) {
+        cursorPos.x += sizeAbsolute.x * 0.5 - padding.x;
+    } else if (alignH == Rendering::RIGHT) {
+        cursorPos.x += sizeAbsolute.x - padding.x * 2.0;
     }
     cursorPos += positionAbsolute + padding;
     cursorPos *= globals->gui.scale;
@@ -980,7 +1130,7 @@ void TextBox::Update(vec2 pos, bool selected) {
         if (globals->input.AnyKey.Pressed()) {
             for (i32 i = 0; i < globals->input.typingString.size; i++) {
                 const char32 c = globals->input.typingString[i];
-                if (IsText(c)) {
+                if (textFilter(c)) {
                     string.Insert(cursor, c);
                     cursorBlinkTimer = 0.0;
                     cursor++;
@@ -1002,38 +1152,38 @@ void TextBox::Update(vec2 pos, bool selected) {
             }
         }
         if (globals->input.Pressed(KC_KEY_HOME)) {
-            if (globals->input.Down(KC_KEY_LEFTCTRL) || globals->input.Down(KC_KEY_RIGHTCTRL)) {
+            if (globals->input.Down(KC_KEY_LEFTCTRL) || globals->input.Down(KC_KEY_RIGHTCTRL) || !multiline) {
                 cursor = 0;
             } else {
                 for (cursor--; cursor >= 0; cursor--) {
-                    if (stringFormatted[cursor] == '\n') break;
+                    if (string[cursor] == '\n') break;
                 }
                 cursor++;
             }
             cursorBlinkTimer = 0.0;
         }
         if (globals->input.Pressed(KC_KEY_END)) {
-            if (globals->input.Down(KC_KEY_LEFTCTRL) || globals->input.Down(KC_KEY_RIGHTCTRL)) {
-                cursor = stringFormatted.size;
+            if (globals->input.Down(KC_KEY_LEFTCTRL) || globals->input.Down(KC_KEY_RIGHTCTRL) || !multiline) {
+                cursor = string.size;
             } else {
                 for (; cursor < string.size; cursor++) {
-                    if (stringFormatted[cursor] == '\n') break;
+                    if (string[cursor] == '\n') break;
                 }
             }
             cursorBlinkTimer = 0.0;
         }
-        if (globals->input.Pressed(KC_KEY_ENTER)) {
+        if (globals->input.Pressed(KC_KEY_ENTER) && multiline) {
             string.Insert(cursor, '\n');
             cursor++;
             cursorBlinkTimer = 0.0;
         }
-        if (globals->input.Pressed(KC_KEY_UP)) {
+        if (globals->input.Pressed(KC_KEY_UP) && multiline) {
             vec2 cursorPos = PositionFromCursor();
             cursorPos.y -= fontSize * globals->gui.scale * Rendering::lineHeight * 0.5;
             CursorFromPosition(cursorPos);
             cursorBlinkTimer = 0.0;
         }
-        if (globals->input.Pressed(KC_KEY_DOWN)) {
+        if (globals->input.Pressed(KC_KEY_DOWN) && multiline) {
             vec2 cursorPos = PositionFromCursor();
             cursorPos.y += fontSize * globals->gui.scale * Rendering::lineHeight * 1.5;
             CursorFromPosition(cursorPos);
@@ -1089,7 +1239,7 @@ void TextBox::Update(vec2 pos, bool selected) {
         }
     }
     if (size.x != 0.0 && multiline) {
-        stringFormatted = globals->rendering.StringAddNewlines(string, fontIndex, sizeAbsolute.x / fontSize);
+        stringFormatted = globals->rendering.StringAddNewlines(string, fontIndex, (sizeAbsolute.x - padding.x * 2.0) / fontSize);
     } else {
         stringFormatted = string;
     }
@@ -1101,7 +1251,7 @@ void TextBox::Update(vec2 pos, bool selected) {
     if (mouseover) {
         highlighted = true;
     }
-    if (globals->objects.Released(KC_MOUSE_LEFT)) {
+    if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
         if (mouseover) {
             if (globals->gui.controlDepth == depth) {
                 globals->gui.controlDepth = depth+1;
@@ -1135,14 +1285,31 @@ void TextBox::Update(vec2 pos, bool selected) {
 }
 
 void TextBox::Draw(Rendering::DrawingContext &context) const {
+    vec4 bg, text;
+    if (!textValidate(string)) {
+        // These names are confusing...
+        bg = errorBG;
+        text = errorText;
+    } else {
+        bg = highlighted ? highlightBG : colorBG;
+        text = highlighted ? highlightText : colorText;
+    }
     PushScissor(context);
+    vec2 drawPosText = (positionAbsolute + padding) * globals->gui.scale;
+    vec2 scale = vec2(fontSize * globals->gui.scale);
+    vec2 textArea = (sizeAbsolute - padding * 2.0) * globals->gui.scale;
+    if (alignH == Rendering::CENTER) {
+        drawPosText.x += textArea.x * 0.5;
+    } else if (alignH == Rendering::RIGHT) {
+        drawPosText.x += textArea.x;
+    }
     vec2 drawPos = positionAbsolute * globals->gui.scale;
-    globals->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlightBG : colorBG, drawPos, vec2(1.0), sizeAbsolute * globals->gui.scale);
-    globals->rendering.DrawText(context, stringFormatted, fontIndex, highlighted ? highlightText : colorText, drawPos + padding * globals->gui.scale, vec2(fontSize * globals->gui.scale), Rendering::LEFT, Rendering::TOP, sizeAbsolute.x * globals->gui.scale);
+    globals->rendering.DrawQuad(context, Rendering::texBlank, bg, drawPos, vec2(1.0), sizeAbsolute * globals->gui.scale);
+    globals->rendering.DrawText(context, stringFormatted, fontIndex, text, drawPosText, scale, alignH, Rendering::TOP, textArea.x);
     if (cursorBlinkTimer < 0.5 && entry) {
         vec2 cursorPos = PositionFromCursor();
         cursorPos.y -= fontSize * globals->gui.scale * 0.1;
-        globals->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlightText : colorText, cursorPos, vec2(1.0), vec2(1.0, fontSize * globals->gui.scale * Rendering::lineHeight));
+        globals->rendering.DrawQuad(context, Rendering::texBlank, text, cursorPos, vec2(1.0), vec2(1.0, fontSize * globals->gui.scale * Rendering::lineHeight));
     }
     PopScissor(context);
 }

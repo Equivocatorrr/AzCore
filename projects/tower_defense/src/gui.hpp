@@ -124,15 +124,39 @@ struct Checkbox : public Widget {
     void Draw(Rendering::DrawingContext &context) const;
 };
 
+// Returns whether a character is acceptable in a TextBox
+typedef bool (*fpTextFilter)(char32);
+// Returns whether a string is valid in a TextBox
+typedef bool (*fpTextValidate)(const WString&);
+
+// Some premade filters
+bool TextFilterBasic(char32 c);
+bool TextFilterWordSingle(char32 c);
+bool TextFilterWordMultiple(char32 c);
+bool TextFilterDecimals(char32 c);
+bool TextFilterDecimalsPositive(char32 c);
+bool TextFilterIntegers(char32 c);
+bool TextFilterDigits(char32 c);
+
+bool TextValidateAll(const WString &string); // Only returns true
+bool TextValidateNonempty(const WString &string); // String size must not be zero
+bool TextValidateDecimals(const WString &string); // Confirms the format of -123.456
+bool TextValidateDecimalsPositive(const WString &string); // Confirms the format of 123.456
+bool TextValidateIntegers(const WString &string); // Confirms the format of -123456
+// Digits validation would be the same as TextFilterDigits + TextValidateAll
+
 // Text entry with filters
 struct TextBox : public Widget {
     WString string, stringFormatted;
-    vec4 colorBG, highlightBG, colorText, highlightText;
+    vec4 colorBG, highlightBG, errorBG, colorText, highlightText, errorText;
     vec2 padding;
     i32 cursor;
     i32 fontIndex;
     f32 fontSize;
     f32 cursorBlinkTimer;
+    Rendering::FontAlign alignH;
+    fpTextFilter textFilter;
+    fpTextValidate textValidate;
     bool entry;
     bool multiline;
     TextBox();

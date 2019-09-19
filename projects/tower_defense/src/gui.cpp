@@ -217,6 +217,7 @@ void SettingsMenu::Initialize() {
     textboxFramerate = new TextBox();
     textboxFramerate->fontIndex = globals->gui.fontIndex;
     textboxFramerate->string = ToWString("60");
+    textboxFramerate->size.x = 48.0;
     textboxFramerate->alignH = Rendering::RIGHT;
     textboxFramerate->textFilter = TextFilterDigits;
     textboxFramerate->textValidate = TextValidateNonempty;
@@ -883,7 +884,7 @@ void Button::Draw(Rendering::DrawingContext &context) const {
 
 Checkbox::Checkbox() : checked(false), colorOff(0.15, 0.15, 0.15, 0.9), highlightOff(colorHighlightLow, 0.9), colorOn(colorHighlightMedium, 1.0), highlightOn(colorHighlightHigh, 1.0) {
     selectable = true;
-    size = vec2(24.0);
+    size = vec2(48.0, 24.0);
     fractionWidth = false;
     fractionHeight = false;
     occludes = true;
@@ -913,9 +914,10 @@ void Checkbox::Update(vec2 pos, bool selected) {
 void Checkbox::Draw(Rendering::DrawingContext &context) const {
     const vec4 &color = checked ? (highlighted ? highlightOn : colorOn) : (highlighted ? highlightOff : colorOff);
     globals->rendering.DrawQuad(context, Rendering::texBlank, color, positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
+    globals->rendering.DrawQuad(context, Rendering::texBlank, vec4(vec3(0.0), 0.8), (positionAbsolute + sizeAbsolute * vec2(checked ? 0.5625 : 0.0625, 0.125)) * globals->gui.scale, vec2(1.0), (sizeAbsolute * vec2(0.375, 0.75)) * globals->gui.scale);
 }
 
-TextBox::TextBox() : string(), colorBG(vec3(0.1), 0.9), highlightBG(vec3(0.05), 0.9), errorBG(0.1, 0.0, 0.0, 0.9), colorText(1.0), highlightText(1.0), errorText(1.0, 0.5, 0.5, 1.0), padding(4.0), cursor(0), fontIndex(1), fontSize(16.0), cursorBlinkTimer(0.0), alignH(Rendering::LEFT), textFilter(TextFilterBasic), textValidate(TextValidateAll), entry(false), multiline(false) {
+TextBox::TextBox() : string(), colorBG(vec3(0.1), 0.9), highlightBG(vec3(0.05), 0.9), errorBG(0.1, 0.0, 0.0, 0.9), colorText(1.0), highlightText(1.0), errorText(1.0, 0.5, 0.5, 1.0), padding(3.0), cursor(0), fontIndex(1), fontSize(18.0), cursorBlinkTimer(0.0), alignH(Rendering::LEFT), textFilter(TextFilterBasic), textValidate(TextValidateAll), entry(false), multiline(false) {
     selectable = true;
     occludes = true;
     fractionWidth = false;

@@ -4,6 +4,7 @@
 */
 
 #include "assets.hpp"
+#include "globals.hpp"
 
 #include "AzCore/log_stream.hpp"
 
@@ -171,6 +172,10 @@ i32 Manager::FindMapping(String filename) {
     }
     cout << "No mapping found for \"" << filename << "\"" << std::endl;
     return 0;
+}
+
+f32 Manager::CharacterWidth(char32 c, i32 fontIndex) const {
+    return globals->rendering.CharacterWidth(c, &fonts[fontIndex], &fonts[0]);
 }
 
 }

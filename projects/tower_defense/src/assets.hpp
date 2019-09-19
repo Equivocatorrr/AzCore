@@ -63,6 +63,7 @@ struct Manager {
 
     bool LoadAll();
     i32 FindMapping(String filename);
+    f32 CharacterWidth(char32 c, i32 fontIndex) const;
 };
 
 } // namespace Assets

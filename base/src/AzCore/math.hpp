@@ -56,7 +56,7 @@ using Milliseconds = std::chrono::milliseconds;
 using Clock = std::chrono::steady_clock;
 using ClockTime = std::chrono::steady_clock::time_point;
 
-#include <cmath>
+#include <math.h>
 
 const f64 halfpi64  = 1.5707963267948966;
 const f64 pi64      = 3.1415926535897932;
@@ -76,24 +76,24 @@ enum Plane {
     ZX=XZ,  ZY=YZ,  ZW=5
 };
 
-#ifdef MATH_F32
-    inline f32 sin(const f32& a) { return sinf(a); }
-    inline f32 cos(const f32& a) { return cosf(a); }
-    inline f32 tan(const f32& a) { return tanf(a); }
-    inline f32 asin(const f32& a) { return asinf(a); }
-    inline f32 acos(const f32& a) { return acosf(a); }
-    inline f32 atan(const f32& a) { return atanf(a); }
-    inline f32 atan2(const f32& y, const f32& x) { return atan2f(y, x); }
-    inline f32 sqrt(const f32& a) { return sqrtf(a); }
-    inline f32 exp(const f32& a) { return expf(a); }
-    inline f32 log(const f32& a) { return logf(a); }
-    inline f32 log2(const f32& a) { return log2f(a); }
-    inline f32 log10(const f32& a) { return log10f(a); }
-    inline f32 pow(const f32& a, const f32& b) { return powf(a, b); }
-    inline f32 floor(const f32& a) { return floorf(a); }
-    inline f32 round(const f32& a) { return roundf(a); }
-    inline f32 ceil(const f32& a) { return ceilf(a); }
-#endif
+// #ifdef MATH_F32
+//     inline f32 sin(f32 a) { return sinf(a); }
+//     inline f32 cos(f32 a) { return cosf(a); }
+//     inline f32 tan(f32 a) { return tanf(a); }
+//     inline f32 asin(f32 a) { return asinf(a); }
+//     inline f32 acos(f32 a) { return acosf(a); }
+//     inline f32 atan(f32 a) { return atanf(a); }
+//     inline f32 atan2(f32 y, f32 x) { return atan2f(y, x); }
+//     inline f32 sqrt(f32 a) { return sqrtf(a); }
+//     inline f32 exp(f32 a) { return expf(a); }
+//     inline f32 log(f32 a) { return logf(a); }
+//     inline f32 log2(f32 a) { return log2f(a); }
+//     inline f32 log10(f32 a) { return log10f(a); }
+//     inline f32 pow(f32 a, f32 b) { return powf(a, b); }
+//     inline f32 floor(f32 a) { return floorf(a); }
+//     inline f32 round(f32 a) { return roundf(a); }
+//     inline f32 ceil(f32 a) { return ceilf(a); }
+// #endif
 
 /*  struct: RandomNumberGenerator
     Author: Philip Haynes

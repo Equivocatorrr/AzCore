@@ -59,14 +59,18 @@ $(ODIR)/Windows/resources.o: $(IDIR)/resources.h $(SDIR)/resources.rc manifest.x
 .PHONY: debugl debugw debug releasel releasew release all clean staticlibl staticlibdl staticlibw staticlibdw staticlibs
 
 debugl: $(OBJ_LD)
+	touch .touchdl
 
 debugw: $(OBJ_WD) $(ODIR)/Windows/resources.o
+	touch .touchdw
 
 debug: debugl debugw
 
 releasel: $(OBJ_L)
+	touch .touchl
 
 releasew: $(OBJ_W) $(ODIR)/Windows/resources.o
+	touch .touchw
 
 release: releasel releasew
 

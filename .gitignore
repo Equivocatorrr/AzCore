@@ -12,3 +12,4 @@ obj
 *.data
 *.data.old
 *.a
+.touch*

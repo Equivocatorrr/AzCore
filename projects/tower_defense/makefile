@@ -26,7 +26,7 @@ $(ODIR)/Windows/resources.o: $(IDIR)/resources.h $(SDIR)/resources.rc $(WINDOWS_
 
 WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.1.82.0
 
-LIBS_L=-lvulkan -lxcb -levdev -lpthread -lxkbcommon -lxkbcommon-x11 -lxcb-xkb
+LIBS_L=-lvulkan -lxcb -levdev -lpthread -lxkbcommon -lxkbcommon-x11 -lxcb-xkb -lopenal
 LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib/" -lvulkan-1 -lgdi32 -ldinput8 -ldxguid
 
 _DEPS =
@@ -40,7 +40,7 @@ AZCORE_OBJ_W = $(patsubst %,$(AZCORE_BASE)/obj/Windows/Release/%,$(_AZCORE_OBJ_W
 AZCORE_OBJ_LD = $(patsubst %,$(AZCORE_BASE)/obj/Linux/Debug/%,$(_AZCORE_OBJ_L))
 AZCORE_OBJ_WD = $(patsubst %,$(AZCORE_BASE)/obj/Windows/Debug/%,$(_AZCORE_OBJ_W))
 
-_OBJ = main.o assets.o rendering.o objects.o gui.o globals.o entities.o
+_OBJ = main.o assets.o rendering.o objects.o gui.o globals.o entities.o sound.o
 OBJ_L = $(patsubst %,$(ODIR)/Linux/Release/%,$(_OBJ))
 OBJ_W = $(patsubst %,$(ODIR)/Windows/Release/%,$(_OBJ))
 OBJ_LD = $(patsubst %,$(ODIR)/Linux/Debug/%,$(_OBJ))
@@ -49,41 +49,41 @@ OBJ_WD = $(patsubst %,$(ODIR)/Windows/Debug/%,$(_OBJ))
 _SHADERS = 2D.vert.spv 2D.frag.spv Font.frag.spv Circle.frag.spv
 SHADERS = $(patsubst %,data/shaders/%,$(_SHADERS))
 
-$(ODIR)/Linux/Debug/%.o: $(SDIR)/%.cpp $(DEPS) azcoredl
+$(ODIR)/Linux/Debug/%.o: $(SDIR)/%.cpp $(DEPS) $(AZCORE_BASE)/.touchdl
 	@mkdir -p $(@D)
 	$(CC) -c -o $@ $< -g -rdynamic $(CFLAGS)
 
-$(ODIR)/Windows/Debug/%.o: $(SDIR)/%.cpp $(DEPS) azcoredw
+$(ODIR)/Windows/Debug/%.o: $(SDIR)/%.cpp $(DEPS) $(AZCORE_BASE)/.touchdw
 	@mkdir -p $(@D)
 	$(WCC) -c -o $@ $< -g $(CFLAGS)
 
-$(ODIR)/Linux/Release/%.o: $(SDIR)/%.cpp $(DEPS) azcorel
+$(ODIR)/Linux/Release/%.o: $(SDIR)/%.cpp $(DEPS) $(AZCORE_BASE)/.touchl
 	@mkdir -p $(@D)
 	$(CC) -c -o $@ $< -g -O2 $(CFLAGS) -DNDEBUG
 
-$(ODIR)/Windows/Release/%.o: $(SDIR)/%.cpp $(DEPS) azcorew
+$(ODIR)/Windows/Release/%.o: $(SDIR)/%.cpp $(DEPS) $(AZCORE_BASE)/.touchw
 	@mkdir -p $(@D)
 	$(WCC) -c -o $@ $< -O2 $(CFLAGS) -DNDEBUG
 
-.PHONY: azcorel azcorew azcoredl azcoredw clean _debugl _debugw debugl debugw debug _releasel _releasew releasel releasew release all shaders runl runw rundl rundlv rundw testl testdl testdlv
+.PHONY: clean _debugl _debugw debugl debugw debug _releasel _releasew releasel releasew release all shaders runl runw rundl rundlv rundw testl testdl testdlv
 
-azcorel:
+$(AZCORE_BASE)/.touchl: $(AZCORE_BASE)/src $(AZCORE_BASE)/makefile
 	$(MAKE) -C $(AZCORE_BASE) releasel
 
-azcorew:
+$(AZCORE_BASE)/.touchw: $(AZCORE_BASE)/src $(AZCORE_BASE)/makefile
 	$(MAKE) -C $(AZCORE_BASE) releasew
 
-azcoredl:
+$(AZCORE_BASE)/.touchdl: $(AZCORE_BASE)/src $(AZCORE_BASE)/makefile
 	$(MAKE) -C $(AZCORE_BASE) debugl
 
-azcoredw:
+$(AZCORE_BASE)/.touchdw: $(AZCORE_BASE)/src $(AZCORE_BASE)/makefile
 	$(MAKE) -C $(AZCORE_BASE) debugw
 
-_debugl: $(OBJ_LD) azcoredl
+_debugl: $(OBJ_LD) $(AZCORE_BASE)/.touchdl
 	@mkdir -p  $(BDIR)/Linux/Debug
 	$(CC) -o $(BDIR)/Linux/Debug/$(APPNAME) $(OBJ_LD) $(AZCORE_OBJ_LD) -g -rdynamic $(CFLAGS) $(LCFLAGS) $(LIBS_L)
 
-_debugw: $(OBJ_WD) $(WINDOWS_RESOURCES) azcoredw
+_debugw: $(OBJ_WD) $(WINDOWS_RESOURCES) $(AZCORE_BASE)/.touchdw
 	@mkdir -p $(BDIR)/Windows/Debug
 	$(WCC) -o $(BDIR)/Windows/Debug/$(APPNAME).exe $(OBJ_WD) $(WINDOWS_RESOURCES) $(AZCORE_OBJ_WD) -g $(CFLAGS) $(WCFLAGS) $(LIBS_W)
 
@@ -93,11 +93,11 @@ debugw: _debugw shaders
 
 debug: _debugl _debugw shaders
 
-_releasel: $(OBJ_L) azcorel
+_releasel: $(OBJ_L) $(AZCORE_BASE)/.touchl
 	@mkdir -p $(BDIR)/Linux/Release
 	$(CC) -o $(BDIR)/Linux/Release/$(APPNAME) $(OBJ_L) $(AZCORE_OBJ_L) $(CFLAGS) $(LCFLAGS) $(LIBS_L)
 
-_releasew: $(OBJ_W) $(WINDOWS_RESOURCES) azcorew
+_releasew: $(OBJ_W) $(WINDOWS_RESOURCES) $(AZCORE_BASE)/.touchw
 	@mkdir -p $(BDIR)/Windows/Release
 	$(WCC) -o $(BDIR)/Windows/Release/$(APPNAME).exe $(OBJ_W) $(WINDOWS_RESOURCES) $(AZCORE_OBJ_W) $(CFLAGS) $(WCFLAGS) -mwindows $(LIBS_W)
 
@@ -149,3 +149,5 @@ testdl: debugl
 
 testdlv: debugl
 	./bin/Linux/Debug/$(APPNAME) --enable-layers --core-validation
+
+all: debug release

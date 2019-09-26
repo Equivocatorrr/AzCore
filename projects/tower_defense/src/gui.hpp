@@ -219,8 +219,10 @@ struct PlayMenu {
 struct Gui : public Objects::Object {
     i32 fontIndex;
     i32 texIndex;
-    Sound::Source sndClickSources[4];
-    Sound::MultiSource sndClick;
+    Sound::Source sndClickInSources[4];
+    Sound::Source sndClickOutSources[4];
+    Sound::MultiSource sndClickIn;
+    Sound::MultiSource sndClickOut;
     Assets::Font *font;
     i32 controlDepth = 0;
     f32 scale = 1.0;

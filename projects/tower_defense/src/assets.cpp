@@ -148,6 +148,7 @@ bool Sound::Load(String filename) {
         error = "Sound::Load: Failed to create buffer: " + ::Sound::error;
         return false;
     }
+    valid = true;
     i16 *decoded;
     i32 channels, samplerate, length;
     length = stb_vorbis_decode_filename(filename.data, &channels, &samplerate, &decoded);
@@ -164,14 +165,19 @@ bool Sound::Load(String filename) {
         free(decoded);
         return false;
     }
-    if (!buffer.Load(decoded, channels == 1 ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16, length, samplerate)) {
-        error = "Sound::Load: Failed to load buffer: " + ::Sound::error;
+    // TODO: Is length the number frames or samples (does this change for stereo?)
+    if (!buffer.Load(decoded, channels == 1 ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16, length * 2, samplerate)) {
+        error = "Sound::Load: Failed to load buffer: " + ::Sound::error
+            + " channels=" + ToString(channels) + " length=" + ToString(length)
+            + " samplerate=" + ToString(samplerate) + " bufferid=" + ToString(buffer.buffer) + " &decoded=0x" + ToString((i64)decoded, 16);
         free(decoded);
         return false;
     }
-    free(decoded); // NOTE: Should we keep this?
+    free(decoded);
     return true;
 }
+
+Sound::Sound() : valid(false), buffer({UINT32_MAX, false}) {}
 
 Sound::~Sound() {
     if (valid) {

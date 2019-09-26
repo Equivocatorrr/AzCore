@@ -25,10 +25,14 @@ void Gui::EventAssetInit() {
     // globals->assets.filesToLoad.Append("OpenSans-Regular.ttf");
     // globals->assets.filesToLoad.Append("Literata[wght].ttf");
     globals->assets.filesToLoad.Append("gamma.tga");
-    globals->assets.filesToLoad.Append("sound/click1.ogg");
-    globals->assets.filesToLoad.Append("sound/click2.ogg");
-    globals->assets.filesToLoad.Append("sound/click3.ogg");
-    globals->assets.filesToLoad.Append("sound/click4.ogg");
+    globals->assets.filesToLoad.Append("sound/click in 1.ogg");
+    globals->assets.filesToLoad.Append("sound/click in 2.ogg");
+    globals->assets.filesToLoad.Append("sound/click in 3.ogg");
+    globals->assets.filesToLoad.Append("sound/click in 4.ogg");
+    globals->assets.filesToLoad.Append("sound/click out 1.ogg");
+    globals->assets.filesToLoad.Append("sound/click out 2.ogg");
+    globals->assets.filesToLoad.Append("sound/click out 3.ogg");
+    globals->assets.filesToLoad.Append("sound/click out 4.ogg");
 }
 
 void Gui::EventAssetAcquire() {
@@ -37,24 +41,32 @@ void Gui::EventAssetAcquire() {
     // fontIndex = globals->assets.FindMapping("OpenSans-Regular.ttf");
     // fontIndex = globals->assets.FindMapping("Literata[wght].ttf");
     texIndex = globals->assets.FindMapping("gamma.tga");
-    sndClickSources[0].Create("sound/click1.ogg");
-    sndClickSources[1].Create("sound/click2.ogg");
-    sndClickSources[2].Create("sound/click3.ogg");
-    sndClickSources[3].Create("sound/click4.ogg");
-    sndClickSources[0].SetGain(0.15);
-    sndClickSources[1].SetGain(0.15);
-    sndClickSources[2].SetGain(0.15);
-    sndClickSources[3].SetGain(0.15);
-    sndClickSources[0].SetPitch(1.2);
-    sndClickSources[1].SetPitch(1.2);
-    sndClickSources[2].SetPitch(1.2);
-    sndClickSources[3].SetPitch(1.2);
-    sndClick.sources = {
-        &sndClickSources[0],
-        &sndClickSources[1],
-        &sndClickSources[2],
-        &sndClickSources[3]
+    sndClickInSources[0].Create("sound/click in 1.ogg");
+    sndClickInSources[1].Create("sound/click in 2.ogg");
+    sndClickInSources[2].Create("sound/click in 3.ogg");
+    sndClickInSources[3].Create("sound/click in 4.ogg");
+    sndClickIn.sources = {
+        &sndClickInSources[0],
+        &sndClickInSources[1],
+        &sndClickInSources[2],
+        &sndClickInSources[3]
     };
+    sndClickOutSources[0].Create("sound/click out 1.ogg");
+    sndClickOutSources[1].Create("sound/click out 2.ogg");
+    sndClickOutSources[2].Create("sound/click out 3.ogg");
+    sndClickOutSources[3].Create("sound/click out 4.ogg");
+    sndClickOut.sources = {
+        &sndClickOutSources[0],
+        &sndClickOutSources[1],
+        &sndClickOutSources[2],
+        &sndClickOutSources[3]
+    };
+    for (i32 i = 0; i < 4; i++) {
+        sndClickInSources[i].SetGain(0.15);
+        sndClickInSources[i].SetPitch(1.2);
+        sndClickOutSources[i].SetGain(0.15);
+        sndClickOutSources[i].SetPitch(1.2);
+    }
     font = &globals->assets.fonts[fontIndex];
 }
 
@@ -871,18 +883,22 @@ void Button::Update(vec2 pos, bool selected) {
         highlighted = true;
         if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
             state.Press();
+            globals->gui.sndClickIn.Play();
         }
         if (globals->objects.Released(KC_MOUSE_LEFT)) {
             state.Release();
+            globals->gui.sndClickOut.Play();
         }
     }
     if (globals->gui.controlDepth == depth) {
         if (selected) {
             if (globals->objects.Pressed(KC_GP_BTN_A)) {
                 state.Press();
+                globals->gui.sndClickIn.Play();
             }
             if (globals->objects.Released(KC_GP_BTN_A)) {
                 state.Release();
+                globals->gui.sndClickOut.Play();
             }
         } else if (!mouseover) {
             state.Set(false, false, false);
@@ -923,14 +939,12 @@ void Checkbox::Update(vec2 pos, bool selected) {
         highlighted = true;
         if (globals->objects.Released(KC_MOUSE_LEFT)) {
             checked = !checked;
-            globals->gui.sndClick.Play();
         }
     }
     if (globals->gui.controlDepth == depth) {
         if (selected) {
             if (globals->objects.Released(KC_GP_BTN_A)) {
                 checked = !checked;
-                globals->gui.sndClick.Play();
             }
         }
     }

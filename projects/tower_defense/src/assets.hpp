@@ -56,14 +56,20 @@ struct Font {
 };
 
 struct Sound {
-    bool valid = false;
+    bool valid;
     ::Sound::Buffer buffer;
-    Sound() = default;
-    inline Sound(Sound &&a) : valid(false), buffer(std::move(a.buffer)) {}
+    Sound();
+    inline Sound(const Sound &a) : valid(false), buffer(a.buffer) {}
+    inline Sound(Sound &&a) : valid(a.valid), buffer(a.buffer) { a.valid = false; }
     ~Sound();
+    inline Sound& operator=(const Sound &a) {
+        valid = false;
+        buffer = a.buffer;
+        return *this;
+    }
     inline Sound& operator=(Sound &&a) {
         valid = a.valid;
-        buffer = std::move(a.buffer);
+        buffer = a.buffer;
         a.valid = false;
         return *this;
     }

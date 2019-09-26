@@ -9,6 +9,7 @@
 
 #include "AzCore/memory.hpp"
 #include "AzCore/font.hpp"
+#include "sound.hpp"
 
 namespace Rendering {
     struct Manager;
@@ -21,7 +22,8 @@ extern String error;
 enum Type {
     NONE,
     TEXTURE,
-    FONT
+    FONT,
+    SOUND
 };
 
 // Used to retrieve indices to actual assets
@@ -53,6 +55,22 @@ struct Font {
     void SaveAtlas();
 };
 
+struct Sound {
+    bool valid = false;
+    ::Sound::Buffer buffer;
+    Sound() = default;
+    inline Sound(Sound &&a) : valid(false), buffer(std::move(a.buffer)) {}
+    ~Sound();
+    inline Sound& operator=(Sound &&a) {
+        valid = a.valid;
+        buffer = std::move(a.buffer);
+        a.valid = false;
+        return *this;
+    }
+
+    bool Load(String filename);
+};
+
 constexpr i32 textureIndexBlank = 1;
 
 struct Manager {
@@ -60,6 +78,7 @@ struct Manager {
     Array<Mapping> mappings{};
     Array<Texture> textures{};
     Array<Font> fonts{};
+    Array<Sound> sounds{};
 
     bool LoadAll();
     i32 FindMapping(String filename);

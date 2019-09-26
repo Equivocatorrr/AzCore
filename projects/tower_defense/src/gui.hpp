@@ -116,8 +116,9 @@ struct Button : public Widget {
 
 // Boolean widget.
 struct Checkbox : public Widget {
-    bool checked;
     vec4 colorOff, highlightOff, colorOn, highlightOn;
+    f32 transition;
+    bool checked;
     Checkbox();
     ~Checkbox() = default;
     void Update(vec2 pos, bool selected);
@@ -218,6 +219,8 @@ struct PlayMenu {
 struct Gui : public Objects::Object {
     i32 fontIndex;
     i32 texIndex;
+    Sound::Source sndClickSources[4];
+    Sound::MultiSource sndClick;
     Assets::Font *font;
     i32 controlDepth = 0;
     f32 scale = 1.0;
@@ -229,6 +232,7 @@ struct Gui : public Objects::Object {
     Set<Widget*> allWidgets; // So we can delete them at the end of the program.
 
     MenuEnum currentMenu = MENU_MAIN;
+    MenuEnum nextMenu = MENU_MAIN;
     MainMenu mainMenu;
     SettingsMenu settingsMenu;
     PlayMenu playMenu;

@@ -57,6 +57,12 @@ i32 main(i32 argumentCount, char** argumentValues) {
         cout << "Failed to initialize RawInput: " << io::error << std::endl;
         return 1;
     }
+    
+    globals->sound.name = "AzCore Tower Defense";
+    if (!globals->sound.Initialize()) {
+        cout << "Failed to initialize sound: " << Sound::error << std::endl;
+        return 1;
+    }
 
     globals->objects.GetAssets();
     if (!globals->assets.LoadAll()) {
@@ -114,6 +120,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
         for (i32 i = 0; i < 2; i++) {
             if (threads[i].joinable()) threads[i].join();
         }
+        globals->sound.Update();
         globals->input.Tick(globals->objects.timestep);
         Nanoseconds frameDelta = Nanoseconds(Clock::now() - frameStart);
         Nanoseconds frameSleep = globals->frameDuration - frameDelta;
@@ -127,6 +134,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
         return 1;
     }
     globals->window.Close();
+    if (!globals->sound.Deinitialize()) {
+        cout << "Failed to deinitialize sound: " << Sound::error << std::endl;
+        return 1;
+    }
 
     return 0;
 }

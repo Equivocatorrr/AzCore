@@ -25,6 +25,10 @@ void Gui::EventAssetInit() {
     // globals->assets.filesToLoad.Append("OpenSans-Regular.ttf");
     // globals->assets.filesToLoad.Append("Literata[wght].ttf");
     globals->assets.filesToLoad.Append("gamma.tga");
+    globals->assets.filesToLoad.Append("sound/click1.ogg");
+    globals->assets.filesToLoad.Append("sound/click2.ogg");
+    globals->assets.filesToLoad.Append("sound/click3.ogg");
+    globals->assets.filesToLoad.Append("sound/click4.ogg");
 }
 
 void Gui::EventAssetAcquire() {
@@ -33,6 +37,24 @@ void Gui::EventAssetAcquire() {
     // fontIndex = globals->assets.FindMapping("OpenSans-Regular.ttf");
     // fontIndex = globals->assets.FindMapping("Literata[wght].ttf");
     texIndex = globals->assets.FindMapping("gamma.tga");
+    sndClickSources[0].Create("sound/click1.ogg");
+    sndClickSources[1].Create("sound/click2.ogg");
+    sndClickSources[2].Create("sound/click3.ogg");
+    sndClickSources[3].Create("sound/click4.ogg");
+    sndClickSources[0].SetGain(0.15);
+    sndClickSources[1].SetGain(0.15);
+    sndClickSources[2].SetGain(0.15);
+    sndClickSources[3].SetGain(0.15);
+    sndClickSources[0].SetPitch(1.2);
+    sndClickSources[1].SetPitch(1.2);
+    sndClickSources[2].SetPitch(1.2);
+    sndClickSources[3].SetPitch(1.2);
+    sndClick.sources = {
+        &sndClickSources[0],
+        &sndClickSources[1],
+        &sndClickSources[2],
+        &sndClickSources[3]
+    };
     font = &globals->assets.fonts[fontIndex];
 }
 
@@ -45,6 +67,7 @@ void Gui::EventInitialize() {
 void Gui::EventSync() {
     mouseoverWidget = nullptr;
     mouseoverDepth = -1;
+    currentMenu = nextMenu;
     switch (currentMenu) {
     case MENU_MAIN:
         mainMenu.Update();
@@ -159,11 +182,11 @@ void MainMenu::Initialize() {
 void MainMenu::Update() {
     screen.Update(vec2(0.0), true);
     if (buttonStart->state.Released()) {
-        globals->gui.currentMenu = MENU_PLAY;
+        globals->gui.nextMenu = MENU_PLAY;
         buttonStart->string = ToWString("Continue");
     }
     if (buttonSettings->state.Released()) {
-        globals->gui.currentMenu = MENU_SETTINGS;
+        globals->gui.nextMenu = MENU_SETTINGS;
     }
     if (buttonExit->state.Released()) {
         globals->exit = true;
@@ -317,7 +340,7 @@ void SettingsMenu::Update() {
         textboxFramerate->string = ToWString(ToString(framerate));
     }
     if (buttonBack->state.Released()) {
-        globals->gui.currentMenu = MENU_MAIN;
+        globals->gui.nextMenu = MENU_MAIN;
     }
 }
 
@@ -420,7 +443,7 @@ void PlayMenu::Update() {
     info->string = ToWString("Wave: " + ToString(globals->entities.wave) + "\nWave Hitpoints Left: " + ToString(globals->entities.hitpointsLeft) + "\nLives: " + ToString(globals->entities.lives));
     screen.Update(vec2(0.0), true);
     if (buttonMenu->state.Released()) {
-        globals->gui.currentMenu = MenuEnum::MENU_MAIN;
+        globals->gui.nextMenu = MenuEnum::MENU_MAIN;
         globals->objects.paused = true;
         if (globals->entities.waveActive) {
             buttonStartWave->string = ToWString("Resume");
@@ -882,7 +905,7 @@ void Button::Draw(Rendering::DrawingContext &context) const {
     PopScissor(context);
 }
 
-Checkbox::Checkbox() : checked(false), colorOff(0.15, 0.15, 0.15, 0.9), highlightOff(colorHighlightLow, 0.9), colorOn(colorHighlightMedium, 1.0), highlightOn(colorHighlightHigh, 1.0) {
+Checkbox::Checkbox() : colorOff(0.15, 0.15, 0.15, 0.9), highlightOff(colorHighlightLow, 0.9), colorOn(colorHighlightMedium, 1.0), highlightOn(colorHighlightHigh, 1.0), transition(0.0), checked(false) {
     selectable = true;
     size = vec2(48.0, 24.0);
     fractionWidth = false;
@@ -900,24 +923,34 @@ void Checkbox::Update(vec2 pos, bool selected) {
         highlighted = true;
         if (globals->objects.Released(KC_MOUSE_LEFT)) {
             checked = !checked;
+            globals->gui.sndClick.Play();
         }
     }
     if (globals->gui.controlDepth == depth) {
         if (selected) {
             if (globals->objects.Released(KC_GP_BTN_A)) {
                 checked = !checked;
+                globals->gui.sndClick.Play();
             }
         }
+    }
+    if (checked) {
+        transition = decay(transition, 1.0, 0.05, globals->objects.timestep);
+    } else {
+        transition = decay(transition, 0.0, 0.05, globals->objects.timestep);
     }
 }
 
 void Checkbox::Draw(Rendering::DrawingContext &context) const {
-    const vec4 &color = checked ? (highlighted ? highlightOn : colorOn) : (highlighted ? highlightOff : colorOff);
-    globals->rendering.DrawQuad(context, Rendering::texBlank, color, positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
-    globals->rendering.DrawQuad(context, Rendering::texBlank, vec4(vec3(0.0), 0.8), (positionAbsolute + sizeAbsolute * vec2(checked ? 0.5625 : 0.0625, 0.125)) * globals->gui.scale, vec2(1.0), (sizeAbsolute * vec2(0.375, 0.75)) * globals->gui.scale);
+    const vec4 &colorOnActual = highlighted ? highlightOn : colorOn;
+    const vec4 &colorOffActual = highlighted ? highlightOff : colorOff;
+    vec4 colorActual = lerp(colorOffActual, colorOnActual, transition);
+    vec2 switchPos = (positionAbsolute + sizeAbsolute * vec2(lerp(0.0625, 0.5625, transition), 0.125)) * globals->gui.scale;
+    globals->rendering.DrawQuad(context, Rendering::texBlank, colorActual, positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
+    globals->rendering.DrawQuad(context, Rendering::texBlank, vec4(vec3(0.0), 0.8), switchPos, vec2(1.0), (sizeAbsolute * vec2(0.375, 0.75)) * globals->gui.scale);
 }
 
-TextBox::TextBox() : string(), colorBG(vec3(0.1), 0.9), highlightBG(vec3(0.05), 0.9), errorBG(0.1, 0.0, 0.0, 0.9), colorText(1.0), highlightText(1.0), errorText(1.0, 0.5, 0.5, 1.0), padding(3.0), cursor(0), fontIndex(1), fontSize(18.0), cursorBlinkTimer(0.0), alignH(Rendering::LEFT), textFilter(TextFilterBasic), textValidate(TextValidateAll), entry(false), multiline(false) {
+TextBox::TextBox() : string(), colorBG(vec3(0.1), 0.9), highlightBG(vec3(0.05), 0.9), errorBG(0.1, 0.0, 0.0, 0.9), colorText(1.0), highlightText(1.0), errorText(1.0, 0.5, 0.5, 1.0), padding(2.0), cursor(0), fontIndex(1), fontSize(17.39), cursorBlinkTimer(0.0), alignH(Rendering::LEFT), textFilter(TextFilterBasic), textValidate(TextValidateAll), entry(false), multiline(false) {
     selectable = true;
     occludes = true;
     fractionWidth = false;

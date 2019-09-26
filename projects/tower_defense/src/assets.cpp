@@ -8,12 +8,13 @@
 
 #include "AzCore/log_stream.hpp"
 
-#define pow(v, e) pow((double)v, (double)e)
+// #define pow(v, e) pow((double)(v), (double)(e))
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb/stb_image_write.h"
-#undef pow
+#include "stb/stb_vorbis.c"
+// #undef pow
 
 namespace Assets {
 
@@ -35,11 +36,44 @@ Type FilenameToType(String filename) {
         ".otf",
         ".ttc"
     };
+    const char *soundExtensions[] = {
+        ".ogg"
+    };
 
+    if (4 >= filename.size) {
+        return Type::NONE;
+    }
+
+    for (const char *ext : soundExtensions) {
+        const i32 len = 4;
+        bool fnd = true;
+        for (i32 i = 0; i < len; i++) {
+            if (ext[i] != filename[filename.size-len+i]) {
+                fnd = false;
+                break;
+            }
+        }
+        if (fnd) {
+            return Type::SOUND;
+        }
+    }
+    for (const char *ext : fontExtensions) {
+        const i32 len = 4;
+        bool fnd = true;
+        for (i32 i = 0; i < len; i++) {
+            if (ext[i] != filename[filename.size-len+i]) {
+                fnd = false;
+                break;
+            }
+        }
+        if (fnd) {
+            return Type::FONT;
+        }
+    }
     for (const char *ext : texExtensions) {
         const i32 len = StringLength(ext);
         if (len >= filename.size) {
-            continue;
+            return Type::NONE;
         }
         bool fnd = true;
         for (i32 i = 0; i < len; i++) {
@@ -50,22 +84,6 @@ Type FilenameToType(String filename) {
         }
         if (fnd) {
             return Type::TEXTURE;
-        }
-    }
-    for (const char *ext : fontExtensions) {
-        const i32 len = 4;
-        if (len >= filename.size) {
-            continue;
-        }
-        bool fnd = true;
-        for (i32 i = 0; i < len; i++) {
-            if (ext[i] != filename[filename.size-len+i]) {
-                fnd = false;
-                break;
-            }
-        }
-        if (fnd) {
-            return Type::FONT;
         }
     }
     return Type::NONE;
@@ -124,12 +142,52 @@ void Font::SaveAtlas() {
     stbi_write_png((font.filename + ".png").data, fontBuilder.dimensions.x, fontBuilder.dimensions.y, 1, fontBuilder.pixels.data, fontBuilder.dimensions.x);
 }
 
+bool Sound::Load(String filename) {
+    filename = "data/" + filename;
+    if (!buffer.Create()) {
+        error = "Sound::Load: Failed to create buffer: " + ::Sound::error;
+        return false;
+    }
+    i16 *decoded;
+    i32 channels, samplerate, length;
+    length = stb_vorbis_decode_filename(filename.data, &channels, &samplerate, &decoded);
+    if (length <= 0) {
+        error = "Failed to decode sound file (" + filename + ")";
+        return false;
+    }
+    if (!decoded) {
+        error = "Decoded is nullptr!";
+        return false;
+    }
+    if (channels > 2 || channels < 1) {
+        error = "Unsupported number of channels in sound file (" + filename + "): " + ToString(channels);
+        free(decoded);
+        return false;
+    }
+    if (!buffer.Load(decoded, channels == 1 ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16, length, samplerate)) {
+        error = "Sound::Load: Failed to load buffer: " + ::Sound::error;
+        free(decoded);
+        return false;
+    }
+    free(decoded); // NOTE: Should we keep this?
+    return true;
+}
+
+Sound::~Sound() {
+    if (valid) {
+        if (!buffer.Clean()) {
+            cout << "Failed to clean Sound buffer: " << ::Sound::error << std::endl;
+        }
+    }
+}
+
 bool Manager::LoadAll() {
     for (i32 i = 0; i < filesToLoad.size; i++) {
         cout << "Loading asset \"" << filesToLoad[i] << "\": ";
         Type type = FilenameToType(filesToLoad[i]);
         i32 nextTexIndex = textures.size;
         i32 nextFontIndex = fonts.size;
+        i32 nextSoundIndex = sounds.size;
         Mapping mapping;
         switch (type) {
         case NONE:
@@ -155,6 +213,17 @@ bool Manager::LoadAll() {
             }
             mapping.type = TEXTURE;
             mapping.index = nextTexIndex;
+            mapping.SetFilename(filesToLoad[i]);
+            mappings.Append(std::move(mapping));
+            break;
+        case SOUND:
+            cout << "as sound." << std::endl;
+            sounds.Append(Sound());
+            if (!sounds[nextSoundIndex].Load(filesToLoad[i])) {
+                return false;
+            }
+            mapping.type = SOUND;
+            mapping.index = nextSoundIndex;
             mapping.SetFilename(filesToLoad[i]);
             mappings.Append(std::move(mapping));
             break;

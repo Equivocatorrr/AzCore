@@ -23,9 +23,13 @@ struct Globals {
     Rendering::Manager rendering;
     Entities::Manager entities;
     Int::Gui gui;
+    Sound::Manager sound;
     RandomNumberGenerator rng;
     bool exit = false;
     Nanoseconds frameDuration;
+    f32 volumeMain = 1.0;
+    f32 volumeMusic = 1.0;
+    f32 volumeEffects = 1.0;
 };
 
 extern Globals *globals;

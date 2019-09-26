@@ -914,8 +914,8 @@ void Enemy::EventCreate() {
 }
 
 void Enemy::Update(f32 timestep) {
-    size = decay(size, (f32)hitpoints, 0.2, timestep);
-    physical.basis.circle.r = sqrt(size);
+    size = decay(size, (f32)hitpoints, 0.1, timestep);
+    physical.basis.circle.r = sqrt(size) + 2.0;
     physical.Update(timestep);
     physical.UpdateActual();
     {
@@ -1001,7 +1001,7 @@ void Enemy::Update(f32 timestep) {
 }
 
 void Enemy::Draw(Rendering::DrawingContext &context) {
-    physical.Draw(context, color);
+    physical.Draw(context, color * vec4(vec3(1.0), clamp(size, 0.0, 1.0)));
 }
 
 template struct DoubleBufferArray<Enemy>;

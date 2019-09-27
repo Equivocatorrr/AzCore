@@ -72,6 +72,11 @@ bool Manager::Initialize() {
     return true;
 }
 
+bool Manager::DeleteSources() {
+    alDeleteSources((ALuint)maxSources, sources);
+    return ErrorCheck("alDeleteSources");
+}
+
 bool Manager::Deinitialize() {
     if (!ErrorCheck("Unknown")) return false;
     alcMakeContextCurrent(nullptr);

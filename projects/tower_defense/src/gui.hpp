@@ -29,6 +29,7 @@ struct Widget {
     bool selectable; // Whether or not this widget can be used in a selection
     bool highlighted; // True when selected
     bool occludes; // Whether the widget counts for mouse occlusion
+    bool mouseover;
     Widget();
     virtual ~Widget() = default;
     virtual void UpdateSize(vec2 container);
@@ -221,8 +222,10 @@ struct Gui : public Objects::Object {
     i32 texIndex;
     Sound::Source sndClickInSources[4];
     Sound::Source sndClickOutSources[4];
+    Sound::Source sndClickSoftSources[2];
     Sound::MultiSource sndClickIn;
     Sound::MultiSource sndClickOut;
+    Sound::MultiSource sndClickSoft;
     Assets::Font *font;
     i32 controlDepth = 0;
     f32 scale = 1.0;

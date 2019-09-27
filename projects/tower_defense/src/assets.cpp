@@ -165,8 +165,7 @@ bool Sound::Load(String filename) {
         free(decoded);
         return false;
     }
-    // TODO: Is length the number frames or samples (does this change for stereo?)
-    if (!buffer.Load(decoded, channels == 1 ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16, length * 2, samplerate)) {
+    if (!buffer.Load(decoded, channels == 1 ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16, length * 2 * channels, samplerate)) {
         error = "Sound::Load: Failed to load buffer: " + ::Sound::error
             + " channels=" + ToString(channels) + " length=" + ToString(length)
             + " samplerate=" + ToString(samplerate) + " bufferid=" + ToString(buffer.buffer) + " &decoded=0x" + ToString((i64)decoded, 16);

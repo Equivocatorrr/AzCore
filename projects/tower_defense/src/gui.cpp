@@ -33,6 +33,8 @@ void Gui::EventAssetInit() {
     globals->assets.filesToLoad.Append("sound/click out 2.ogg");
     globals->assets.filesToLoad.Append("sound/click out 3.ogg");
     globals->assets.filesToLoad.Append("sound/click out 4.ogg");
+    globals->assets.filesToLoad.Append("sound/click soft 1.ogg");
+    globals->assets.filesToLoad.Append("sound/click soft 2.ogg");
 }
 
 void Gui::EventAssetAcquire() {
@@ -67,6 +69,16 @@ void Gui::EventAssetAcquire() {
         sndClickOutSources[i].SetGain(0.15);
         sndClickOutSources[i].SetPitch(1.2);
     }
+    sndClickSoftSources[0].Create("sound/click soft 1.ogg");
+    sndClickSoftSources[1].Create("sound/click soft 2.ogg");
+    sndClickSoftSources[0].SetGain(0.01);
+    sndClickSoftSources[1].SetGain(0.01);
+    sndClickSoftSources[0].SetPitch(1.2);
+    sndClickSoftSources[1].SetPitch(1.2);
+    sndClickSoft.sources = {
+        &sndClickSoftSources[0],
+        &sndClickSoftSources[1]
+    };
     font = &globals->assets.fonts[fontIndex];
 }
 
@@ -874,7 +886,13 @@ Button::Button() : string(), colorBG(0.15, 0.15, 0.15, 0.9), highlightBG(colorHi
 
 void Button::Update(vec2 pos, bool selected) {
     Widget::Update(pos, selected);
-    bool mouseover = MouseOver();
+    {
+        bool mouseoverNew = MouseOver();
+        if (mouseoverNew && !mouseover) {
+            globals->gui.sndClickSoft.Play();
+        }
+        mouseover = mouseoverNew;
+    }
     state.Tick(0.0);
     if (globals->gui.controlDepth != depth) {
         highlighted = false;

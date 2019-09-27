@@ -115,6 +115,7 @@ struct Manager {
     Array<SourceBase*> sounds;
 
     bool Initialize();
+    bool DeleteSources();
     bool Deinitialize();
 
     bool Update();

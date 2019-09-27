@@ -57,7 +57,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
         cout << "Failed to initialize RawInput: " << io::error << std::endl;
         return 1;
     }
-    
+
     globals->sound.name = "AzCore Tower Defense";
     if (!globals->sound.Initialize()) {
         cout << "Failed to initialize sound: " << Sound::error << std::endl;
@@ -128,11 +128,15 @@ i32 main(i32 argumentCount, char** argumentValues) {
             std::this_thread::sleep_for(frameSleep);
         }
     }
-
     if (!globals->rendering.Deinit()) {
         cout << "Error deinitializing Rendering::Manager: " << Rendering::error << std::endl;
         return 1;
     }
+    if (!globals->sound.DeleteSources()) {
+        cout << "Failed to delete sound sources: " << Sound::error << std::endl;
+        return 1;
+    }
+    globals->assets.sounds.Clear(); // Deletes the OpenAL buffers
     globals->window.Close();
     if (!globals->sound.Deinitialize()) {
         cout << "Failed to deinitialize sound: " << Sound::error << std::endl;

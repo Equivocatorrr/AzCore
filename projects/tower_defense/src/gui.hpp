@@ -223,6 +223,7 @@ struct Gui : public Objects::Object {
     Sound::Source sndClickInSources[4];
     Sound::Source sndClickOutSources[4];
     Sound::Source sndClickSoftSources[2];
+    Sound::Source sndPopHigh, sndPopLow;
     Sound::MultiSource sndClickIn;
     Sound::MultiSource sndClickOut;
     Sound::MultiSource sndClickSoft;

@@ -64,8 +64,8 @@ bool Manager::Init() {
     data.framebuffer->swapchain = data.swapchain;
     data.renderPass = data.device->AddRenderPass();
     auto attachment = data.renderPass->AddAttachment(data.swapchain);
-    // attachment->sampleCount = VK_SAMPLE_COUNT_8_BIT;
-    // attachment->resolveColor = true;
+    attachment->sampleCount = VK_SAMPLE_COUNT_4_BIT;
+    attachment->resolveColor = true;
     auto subpass = data.renderPass->AddSubpass();
     subpass->UseAttachment(attachment, vk::AttachmentType::ATTACHMENT_ALL,
             VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);

@@ -25,16 +25,18 @@ void Gui::EventAssetInit() {
     // globals->assets.filesToLoad.Append("OpenSans-Regular.ttf");
     // globals->assets.filesToLoad.Append("Literata[wght].ttf");
     globals->assets.filesToLoad.Append("gamma.tga");
-    globals->assets.filesToLoad.Append("sound/click in 1.ogg");
-    globals->assets.filesToLoad.Append("sound/click in 2.ogg");
-    globals->assets.filesToLoad.Append("sound/click in 3.ogg");
-    globals->assets.filesToLoad.Append("sound/click in 4.ogg");
-    globals->assets.filesToLoad.Append("sound/click out 1.ogg");
-    globals->assets.filesToLoad.Append("sound/click out 2.ogg");
-    globals->assets.filesToLoad.Append("sound/click out 3.ogg");
-    globals->assets.filesToLoad.Append("sound/click out 4.ogg");
-    globals->assets.filesToLoad.Append("sound/click soft 1.ogg");
-    globals->assets.filesToLoad.Append("sound/click soft 2.ogg");
+    globals->assets.filesToLoad.Append("click in 1.ogg");
+    globals->assets.filesToLoad.Append("click in 2.ogg");
+    globals->assets.filesToLoad.Append("click in 3.ogg");
+    globals->assets.filesToLoad.Append("click in 4.ogg");
+    globals->assets.filesToLoad.Append("click out 1.ogg");
+    globals->assets.filesToLoad.Append("click out 2.ogg");
+    globals->assets.filesToLoad.Append("click out 3.ogg");
+    globals->assets.filesToLoad.Append("click out 4.ogg");
+    globals->assets.filesToLoad.Append("click soft 1.ogg");
+    globals->assets.filesToLoad.Append("click soft 2.ogg");
+    globals->assets.filesToLoad.Append("Pop High.ogg");
+    globals->assets.filesToLoad.Append("Pop Low.ogg");
 }
 
 void Gui::EventAssetAcquire() {
@@ -43,20 +45,20 @@ void Gui::EventAssetAcquire() {
     // fontIndex = globals->assets.FindMapping("OpenSans-Regular.ttf");
     // fontIndex = globals->assets.FindMapping("Literata[wght].ttf");
     texIndex = globals->assets.FindMapping("gamma.tga");
-    sndClickInSources[0].Create("sound/click in 1.ogg");
-    sndClickInSources[1].Create("sound/click in 2.ogg");
-    sndClickInSources[2].Create("sound/click in 3.ogg");
-    sndClickInSources[3].Create("sound/click in 4.ogg");
+    sndClickInSources[0].Create("click in 1.ogg");
+    sndClickInSources[1].Create("click in 2.ogg");
+    sndClickInSources[2].Create("click in 3.ogg");
+    sndClickInSources[3].Create("click in 4.ogg");
     sndClickIn.sources = {
         &sndClickInSources[0],
         &sndClickInSources[1],
         &sndClickInSources[2],
         &sndClickInSources[3]
     };
-    sndClickOutSources[0].Create("sound/click out 1.ogg");
-    sndClickOutSources[1].Create("sound/click out 2.ogg");
-    sndClickOutSources[2].Create("sound/click out 3.ogg");
-    sndClickOutSources[3].Create("sound/click out 4.ogg");
+    sndClickOutSources[0].Create("click out 1.ogg");
+    sndClickOutSources[1].Create("click out 2.ogg");
+    sndClickOutSources[2].Create("click out 3.ogg");
+    sndClickOutSources[3].Create("click out 4.ogg");
     sndClickOut.sources = {
         &sndClickOutSources[0],
         &sndClickOutSources[1],
@@ -69,8 +71,8 @@ void Gui::EventAssetAcquire() {
         sndClickOutSources[i].SetGain(0.15);
         sndClickOutSources[i].SetPitch(1.2);
     }
-    sndClickSoftSources[0].Create("sound/click soft 1.ogg");
-    sndClickSoftSources[1].Create("sound/click soft 2.ogg");
+    sndClickSoftSources[0].Create("click soft 1.ogg");
+    sndClickSoftSources[1].Create("click soft 2.ogg");
     sndClickSoftSources[0].SetGain(0.01);
     sndClickSoftSources[1].SetGain(0.01);
     sndClickSoftSources[0].SetPitch(1.2);
@@ -79,6 +81,10 @@ void Gui::EventAssetAcquire() {
         &sndClickSoftSources[0],
         &sndClickSoftSources[1]
     };
+    sndPopHigh.Create("Pop High.ogg");
+    sndPopLow.Create("Pop Low.ogg");
+    sndPopHigh.SetGain(0.1);
+    sndPopLow.SetGain(0.1);
     font = &globals->assets.fonts[fontIndex];
 }
 
@@ -957,12 +963,22 @@ void Checkbox::Update(vec2 pos, bool selected) {
         highlighted = true;
         if (globals->objects.Released(KC_MOUSE_LEFT)) {
             checked = !checked;
+            if (checked) {
+                globals->gui.sndPopHigh.Play();
+            } else {
+                globals->gui.sndPopLow.Play();
+            }
         }
     }
     if (globals->gui.controlDepth == depth) {
         if (selected) {
             if (globals->objects.Released(KC_GP_BTN_A)) {
                 checked = !checked;
+                if (checked) {
+                    globals->gui.sndPopHigh.Play();
+                } else {
+                    globals->gui.sndPopLow.Play();
+                }
             }
         }
     }

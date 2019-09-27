@@ -110,7 +110,7 @@ u32 Mapping::CheckSum(String name) {
 }
 
 bool Texture::Load(String filename) {
-    filename = "data/" + filename;
+    filename = "data/textures/" + filename;
     pixels.data = stbi_load(filename.data, &width, &height, &channels, 4);
     if (pixels.data == nullptr) {
         error = "Failed to load Texture file: \"" + filename + "\"";
@@ -123,7 +123,7 @@ bool Texture::Load(String filename) {
 }
 
 bool Font::Load(String filename) {
-    font.filename = "data/" + filename;
+    font.filename = "data/fonts/" + filename;
     if (!font.Load()) {
         error = "Failed to load font: " + font::error;
         return false;
@@ -143,7 +143,7 @@ void Font::SaveAtlas() {
 }
 
 bool Sound::Load(String filename) {
-    filename = "data/" + filename;
+    filename = "data/sound/" + filename;
     if (!buffer.Create()) {
         error = "Sound::Load: Failed to create buffer: " + ::Sound::error;
         return false;

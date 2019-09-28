@@ -263,13 +263,13 @@ i32 main(i32 argumentCount, char** argumentValues) {
     RandomNumberGenerator rng;
     bool resize = false;
     do {
-        if (input.Any.Pressed()) {
-            cout << "Pressed HID " << std::hex << (u32)input.codeAny << std::endl;
-            cout << "\t" << window.InputName(input.codeAny) << std::endl;
-        }
-        if (input.Any.Released()) {
-            cout << "Released  HID " << std::hex << (u32)input.codeAny << std::endl;
-            cout << "\t" << window.InputName(input.codeAny) << std::endl;
+        for (i32 i = 0; i < 256; i++) {
+            if (input.inputs[i].Pressed()) {
+                cout << "Pressed   HID " << std::hex << i << "\t" << window.InputName(i) << std::endl;
+            }
+            if (input.inputs[i].Released()) {
+                cout << "Released  HID " << std::hex << i << "\t" << window.InputName(i) << std::endl;
+            }
         }
         input.Tick(1.0/60.0);
 

@@ -610,6 +610,52 @@ String ToString(const f128& value, i32 base) {
     return out;
 }
 
+inline bool isNumber(char c) {
+    return c >= '0' && c <= '9';
+}
+
+f32 StringToF32(String string, i32 base) {
+    f64 out = 0.0;
+    f64 multiplier = 1.0;
+    f64 baseF = base;
+    i32 dot = -1;
+    i32 start;
+    if (string[0] == '-') {
+        multiplier = -1.0;
+        string.Erase(0);
+    }
+    for (i32 i = 0; i < string.size; i++) {
+        if (string[i] == '.') {
+            dot = i;
+            string.Erase(i);
+        }
+    }
+    start = string.size-1;
+    if (dot == -1) dot = string.size;
+    for (; dot < start; dot++) {
+        multiplier /= baseF;
+    }
+    for (i32 i = start; i >= 0; i--) {
+        f64 value = baseF;
+        char c = string[i];
+        if (isNumber(c)) {
+            value = c - '0';
+        } else if (base > 10) {
+            if (c >= 'a' && c < 'a'+base) {
+                value = c - 'a' + 10;
+            } else if (c >= 'A' && c < 'A'+base) {
+                value = c - 'A' + 10;
+            }
+        }
+        if (value >= baseF) {
+            return 0.0;
+        }
+        out += value * multiplier;
+        multiplier *= baseF;
+    }
+    return out;
+}
+
 bool equals(const char *a, const char *b) {
    for (u32 i = 0; a[i] != 0; i++) {
        if (a[i] != b[i])

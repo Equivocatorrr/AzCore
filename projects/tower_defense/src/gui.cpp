@@ -265,11 +265,11 @@ void SettingsMenu::Initialize() {
     settingTextTemplate->alignV = Rendering::CENTER;
 
     checkFullscreen = new Checkbox();
-    checkFullscreen->checked = globals->window.fullscreen;
+    checkFullscreen->checked = globals->fullscreen;
 
     textboxFramerate = new TextBox();
     textboxFramerate->fontIndex = globals->gui.fontIndex;
-    textboxFramerate->string = ToWString("60");
+    textboxFramerate->string = ToWString(ToString((i32)globals->framerate));
     textboxFramerate->size.x = 48.0;
     textboxFramerate->alignH = Rendering::RIGHT;
     textboxFramerate->textFilter = TextFilterDigits;
@@ -361,11 +361,13 @@ void SettingsMenu::Update() {
     screen.Update(vec2(0.0), true);
     if (buttonApply->state.Released()) {
         globals->window.Fullscreen(checkFullscreen->checked);
+        globals->fullscreen = checkFullscreen->checked;
         u64 framerate = 60;
         if (textboxFramerate->textValidate(textboxFramerate->string)) {
             framerate = clamp(WStringToU64(textboxFramerate->string), (u64)30, (u64)300);
             globals->frameDuration = Nanoseconds(1000000000/framerate);
             globals->objects.timestep = 1.0 / (f32)framerate;
+            globals->framerate = (f32)framerate;
         }
         textboxFramerate->string = ToWString(ToString(framerate));
     }

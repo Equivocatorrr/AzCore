@@ -14,6 +14,7 @@
 #include "entities.hpp"
 
 struct Globals {
+    String error = "No error";
     Objects::Manager objects;
     io::Input input;
     io::Window window;
@@ -27,9 +28,19 @@ struct Globals {
     RandomNumberGenerator rng;
     bool exit = false;
     Nanoseconds frameDuration;
+    // Settings
+    bool fullscreen = false;
+    f32 framerate = 60;
     f32 volumeMain = 1.0;
     f32 volumeMusic = 1.0;
     f32 volumeEffects = 1.0;
+
+    bool LoadSettings();
+    bool SaveSettings();
+    inline void Framerate(const f32 &fr) {
+        framerate = fr;
+        frameDuration = Nanoseconds(1000000000/(i32)fr);
+    }
 };
 
 extern Globals *globals;

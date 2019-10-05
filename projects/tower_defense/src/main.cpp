@@ -44,6 +44,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
     cout << "Starting with layers " << (enableLayers ? "enabled" : "disabled")
          << " and core validation " << (enableCoreValidation ? "enabled" : "disabled") << std::endl;
 
+    if (!globals->LoadSettings()) {
+        cout << "No settings to load. Using defaults." << std::endl;
+    }
+
     globals->objects.Register(&globals->entities);
     globals->objects.Register(&globals->gui);
 
@@ -89,6 +93,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
         globals->rendering.data.instance.AddLayers(layers);
     }
 
+
     if (!globals->window.Open()) {
         cout << "Failed to open window: " << io::error << std::endl;
         return 1;
@@ -104,8 +109,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
         return 1;
     }
 
+    globals->window.Fullscreen(globals->fullscreen);
+
     ClockTime frameStart;
-    globals->frameDuration = Nanoseconds(1000000000/60);
 
     while (globals->window.Update() && !globals->exit) {
         frameStart = Clock::now();
@@ -127,6 +133,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
         if (frameSleep.count() >= 1000) {
             std::this_thread::sleep_for(frameSleep);
         }
+    }
+    if (!globals->SaveSettings()) {
+        cout << "Failed to save settings: " << globals->error << std::endl;
     }
     if (!globals->rendering.Deinit()) {
         cout << "Error deinitializing Rendering::Manager: " << Rendering::error << std::endl;

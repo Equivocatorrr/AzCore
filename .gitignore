@@ -13,3 +13,4 @@ obj
 *.data.old
 *.a
 .touch*
+*.conf

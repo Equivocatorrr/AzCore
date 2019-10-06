@@ -18,7 +18,10 @@ bool Globals::LoadSettings() {
     fseek(file, 0, SEEK_END);
     buffer.Resize(ftell(file));
     fseek(file, 0, SEEK_SET);
-    fread(buffer.data, 1, buffer.size, file);
+    if (0 == fread(buffer.data, 1, buffer.size, file)) {
+        error = "Nothing read from settings.conf";
+        return false;
+    }
     fclose(file);
     // Now parse the buffer
     for (i32 i = 0; i < buffer.size;) {

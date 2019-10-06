@@ -172,7 +172,18 @@ struct TextBox : public Widget {
 
 // struct Switch; // Allows the user to choose from a selection of widgets (usually Text).
 
-// struct Slider; // A scalar within a range.
+// A scalar within a range.
+struct Slider : public Widget {
+    f32 value, valueMin, valueMax;
+    TextBox *mirror;
+    vec4 colorBG, colorSlider, highlightBG, highlightSlider;
+    bool highlighted, grabbed;
+    io::ButtonState left, right;
+    Slider();
+    ~Slider() = default;
+    void Update(vec2 pos, bool selected);
+    void Draw(Rendering::DrawingContext &context) const;
+};
 
 enum MenuEnum {
     MENU_MAIN,
@@ -196,6 +207,8 @@ struct SettingsMenu {
     Screen screen;
     Checkbox *checkFullscreen;
     TextBox *textboxFramerate;
+    Slider *sliderVolumes[3];
+    TextBox *textboxVolumes[3];
     Button *buttonApply;
     Button *buttonBack;
 

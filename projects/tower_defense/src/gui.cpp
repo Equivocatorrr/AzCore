@@ -267,13 +267,36 @@ void SettingsMenu::Initialize() {
     checkFullscreen = new Checkbox();
     checkFullscreen->checked = globals->fullscreen;
 
-    textboxFramerate = new TextBox();
-    textboxFramerate->fontIndex = globals->gui.fontIndex;
+    TextBox *textboxTemplate = new TextBox();
+    textboxTemplate->fontIndex = globals->gui.fontIndex;
+    textboxTemplate->size.x = 64.0;
+    textboxTemplate->alignH = Rendering::RIGHT;
+    textboxTemplate->textFilter = TextFilterDigits;
+    textboxTemplate->textValidate = TextValidateNonempty;
+
+    Slider *sliderTemplate = new Slider();
+    sliderTemplate->fractionHeight = true;
+    sliderTemplate->fractionWidth = false;
+    sliderTemplate->size = vec2(116.0, 1.0);
+    sliderTemplate->valueMax = 100.0;
+
+    textboxFramerate = new TextBox(*textboxTemplate);
     textboxFramerate->string = ToWString(ToString((i32)globals->framerate));
-    textboxFramerate->size.x = 48.0;
-    textboxFramerate->alignH = Rendering::RIGHT;
-    textboxFramerate->textFilter = TextFilterDigits;
-    textboxFramerate->textValidate = TextValidateNonempty;
+
+
+    for (i32 i = 0; i < 3; i++) {
+        textboxVolumes[i] = new TextBox(*textboxTemplate);
+        sliderVolumes[i] = new Slider(*sliderTemplate);
+        textboxVolumes[i]->textFilter = TextFilterDecimalsPositive;
+        textboxVolumes[i]->textValidate = TextValidateDecimalsPositive;
+        sliderVolumes[i]->mirror = textboxVolumes[i];
+    }
+    textboxVolumes[0]->string = ToWString(ToString(globals->volumeMain*100.0, 10, 1));
+    textboxVolumes[1]->string = ToWString(ToString(globals->volumeMusic*100.0, 10, 1));
+    textboxVolumes[2]->string = ToWString(ToString(globals->volumeEffects*100.0, 10, 1));
+    sliderVolumes[0]->value = globals->volumeMain*100.0;
+    sliderVolumes[1]->value = globals->volumeMusic*100.0;
+    sliderVolumes[2]->value = globals->volumeEffects*100.0;
 
     ListH *settingListTemplate = new ListH();
     settingListTemplate->size.y = 0.0;
@@ -282,22 +305,41 @@ void SettingsMenu::Initialize() {
     settingListTemplate->selectionDefault = 1;
 
     Array<Widget*> settingListItems = {
-        checkFullscreen,
-        textboxFramerate
+        checkFullscreen, nullptr,
+        textboxFramerate, nullptr,
+        nullptr, nullptr,
+        sliderVolumes[0], textboxVolumes[0],
+        sliderVolumes[1], textboxVolumes[1],
+        sliderVolumes[2], textboxVolumes[2]
     };
     const char *settingListNames[] = {
         "Fullscreen",
-        "Framerate"
+        "Framerate",
+        "Volume",
+        "Main",
+        "Music",
+        "Effects"
     };
 
-    for (i32 i = 0; i < settingListItems.size; i++) {
-        ListH *settingList = new ListH(*settingListTemplate);
-        Text *settingText = new Text(*settingTextTemplate);
-        settingText->string = ToWString(settingListNames[i]);
-        AddWidget(settingList, settingText);
-        AddWidget(settingList, settingListItems[i]);
+    for (i32 i = 0; i < settingListItems.size; i+=2) {
+        if (settingListItems[i] == nullptr) {
+            Text *settingText = new Text(*settingTextTemplate);
+            settingText->string = ToWString(settingListNames[i/2]);
+            settingText->alignH = Rendering::CENTER;
+            settingText->fontSize = 24.0;
+            AddWidget(actualList, settingText);
+        } else {
+            ListH *settingList = new ListH(*settingListTemplate);
+            Text *settingText = new Text(*settingTextTemplate);
+            settingText->string = ToWString(settingListNames[i/2]);
+            AddWidget(settingList, settingText);
+            AddWidget(settingList, settingListItems[i]);
+            if (settingListItems[i+1] != nullptr) {
+                AddWidget(settingList, settingListItems[i+1]);
+            }
 
-        AddWidget(actualList, settingList);
+            AddWidget(actualList, settingList);
+        }
     }
 
     ListH *buttonList = new ListH();
@@ -345,6 +387,8 @@ void SettingsMenu::Initialize() {
 
     delete settingListTemplate;
     delete settingTextTemplate;
+    delete sliderTemplate;
+    delete textboxTemplate;
 }
 
 u64 WStringToU64(WString str) {
@@ -370,6 +414,12 @@ void SettingsMenu::Update() {
             globals->framerate = (f32)framerate;
         }
         textboxFramerate->string = ToWString(ToString(framerate));
+        globals->volumeMain = sliderVolumes[0]->value / 100.0;
+        globals->volumeMusic = sliderVolumes[1]->value / 100.0;
+        globals->volumeEffects = sliderVolumes[2]->value / 100.0;
+        for (i32 i = 0; i < 3; i++) {
+            textboxVolumes[i]->string = ToWString(ToString(sliderVolumes[i]->value, 10, 1));
+        }
     }
     if (buttonBack->state.Released()) {
         globals->gui.nextMenu = MENU_MAIN;
@@ -1000,7 +1050,7 @@ void Checkbox::Draw(Rendering::DrawingContext &context) const {
     globals->rendering.DrawQuad(context, Rendering::texBlank, vec4(vec3(0.0), 0.8), switchPos, vec2(1.0), (sizeAbsolute * vec2(0.375, 0.75)) * globals->gui.scale);
 }
 
-TextBox::TextBox() : string(), colorBG(vec3(0.1), 0.9), highlightBG(vec3(0.05), 0.9), errorBG(0.1, 0.0, 0.0, 0.9), colorText(1.0), highlightText(1.0), errorText(1.0, 0.5, 0.5, 1.0), padding(2.0), cursor(0), fontIndex(1), fontSize(17.39), cursorBlinkTimer(0.0), alignH(Rendering::LEFT), textFilter(TextFilterBasic), textValidate(TextValidateAll), entry(false), multiline(false) {
+TextBox::TextBox() : string(), colorBG(vec3(0.15), 0.9), highlightBG(vec3(0.2), 0.9), errorBG(0.1, 0.0, 0.0, 0.9), colorText(1.0), highlightText(1.0), errorText(1.0, 0.5, 0.5, 1.0), padding(2.0), cursor(0), fontIndex(1), fontSize(17.39), cursorBlinkTimer(0.0), alignH(Rendering::LEFT), textFilter(TextFilterBasic), textValidate(TextValidateAll), entry(false), multiline(false) {
     selectable = true;
     occludes = true;
     fractionWidth = false;
@@ -1396,6 +1446,104 @@ void TextBox::Draw(Rendering::DrawingContext &context) const {
         globals->rendering.DrawQuad(context, Rendering::texBlank, text, cursorPos, vec2(1.0), vec2(1.0, fontSize * globals->gui.scale * Rendering::lineHeight));
     }
     PopScissor(context);
+}
+
+Slider::Slider() :
+value(1.0),                     valueMin(0.0),
+valueMax(1.0),                  mirror(nullptr),
+colorBG(vec3(0.15), 0.9),       colorSlider(colorHighlightMedium, 1.0),
+highlightBG(vec3(0.2), 0.9),    highlightSlider(colorHighlightHigh, 1.0),
+highlighted(false),             grabbed(false), left(), right()
+{
+    occludes = true;
+    left.canRepeat = true;
+    right.canRepeat = true;
+}
+
+void Slider::Update(vec2 pos, bool selected) {
+    Widget::Update(pos, selected);
+    highlighted = MouseOver();
+    left.Tick(globals->objects.timestep);
+    right.Tick(globals->objects.timestep);
+    if (highlighted && !grabbed) {
+        i32 mousePos = 0;
+        f32 mouseX = (f32)globals->input.cursor.x / globals->gui.scale - positionAbsolute.x;
+        f32 sliderX = map(value, valueMin, valueMax, 0.0, sizeAbsolute.x - 16.0);
+        if (mouseX < sliderX) {
+            mousePos = -1;
+        } else if (mouseX > sliderX+16.0) {
+            mousePos = 1;
+        }
+        if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
+            if (mousePos == 0) {
+                grabbed = true;
+            } else if (mousePos == 1) {
+                right.Press();
+            } else {
+                left.Press();
+            }
+        }
+    }
+    bool updated = false;
+    f32 scale = (valueMax - valueMin) / (sizeAbsolute.x - 16.0);
+    if (grabbed) {
+        f32 moved = f32(globals->input.cursor.x - globals->input.cursorPrevious.x) / globals->gui.scale * scale;
+        if (globals->objects.Down(KC_KEY_LEFTSHIFT)) {
+            moved /= 10.0;
+        }
+        if (moved != 0.0) updated = true;
+        value = clamp(value + moved, valueMin, valueMax);
+    }
+    if (!globals->objects.Down(KC_KEY_LEFTSHIFT)) {
+        scale *= 10.0;
+    }
+    if (right.Pressed()) {
+        value = clamp(value + scale, valueMin, valueMax);
+        updated = true;
+    }
+    if (left.Pressed()) {
+        value = clamp(value - scale, valueMin, valueMax);
+        updated = true;
+    }
+    if (globals->objects.Released(KC_MOUSE_LEFT)) {
+        grabbed = false;
+        if (right.Down()) {
+            right.Release();
+        }
+        if (left.Down()) {
+            left.Release();
+        }
+    }
+    if (mirror != nullptr) {
+        if (updated) {
+            mirror->string = ToWString(ToString(value, 10, 1));
+            i32 dot = -1;
+            for (i32 i = 0; i < mirror->string.size; i++) {
+                char32 &c = mirror->string[i];
+                if (c == '.') {
+                    dot = i;
+                    break;
+                }
+            }
+            if (dot != -1) {
+                mirror->string.Resize(dot+2);
+            }
+        } else if (mirror->entry) {
+            if (mirror->textValidate(mirror->string)) {
+                value = clamp(WStringToF32(mirror->string), valueMin, valueMax);
+            }
+        }
+    }
+}
+
+void Slider::Draw(Rendering::DrawingContext &context) const {
+    vec4 bg = highlighted ? highlightBG : colorBG;
+    vec4 slider = highlighted ? highlightSlider : colorSlider;
+    vec2 drawPos = positionAbsolute * globals->gui.scale;
+    globals->rendering.DrawQuad(context, Rendering::texBlank, bg, drawPos, vec2(1.0), sizeAbsolute * globals->gui.scale);
+    drawPos.x += map(value, valueMin, valueMax, 2.0, sizeAbsolute.x - 16.0) * globals->gui.scale;
+    drawPos.y += 2.0 * globals->gui.scale;
+    globals->rendering.DrawQuad(context, Rendering::texBlank, slider, drawPos, vec2(1.0), vec2(12.0, sizeAbsolute.y - 4.0) * globals->gui.scale);
 }
 
 } // namespace Int

@@ -45,19 +45,27 @@ struct SourceBase {
     bool active; // Whether or not our sound made it into the priority limit
     bool stereo; // Whether or not our sound is stereo, and therefore whether its priority should be spacial
     bool stream; // Whether we're a stream or a source
+    bool simulationPitch;
     VolumeChannel channel;
 
     SourceBase();
 
-    // void SetPosition(vec3f pos);
-    // void SetVelocity(vec3f vel);
-    // void SetDirection(vec3f dir);
-    void SetPitch(f32 p);
-    void SetGain(f32 g);
+    inline void SetPitch(f32 p) {
+        pitch = p;
+    }
+    inline void SetGain(f32 g) {
+        gain = g;
+    }
 
-    void Play();
-    void Pause();
-    void SetLoop(bool on);
+    inline void Play() {
+        play = true;
+    }
+    inline void Pause() {
+        pause = true;
+    }
+    inline void SetLoop(bool on) {
+        loop = on;
+    }
 };
 
 /*  struct: Source
@@ -68,7 +76,9 @@ struct Source : public SourceBase {
     void Create(Buffer *buf);
     void Create(String filename);
 
-    void Stop();
+    inline void Stop() {
+        stop = true;
+    }
 };
 
 /*  struct: MultiSource

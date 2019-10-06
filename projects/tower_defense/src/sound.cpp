@@ -160,9 +160,18 @@ bool Manager::Update() {
             // ErrorCheck("alSource3f(AL_VELOCITY)");
             // alSource3f(sound->source, AL_DIRECTION, sound->direction.x, sound->direction.y, sound->direction.z);
             // ErrorCheck("alSource3f(AL_DIRECTION)");
-            alSourcef(sound->source, AL_PITCH, sound->pitch);
+            alSourcef(sound->source, AL_PITCH, sound->pitch * (sound->simulationPitch ? globals->objects.simulationRate : 1.0));
             if (!ErrorCheck("alSourcef(AL_PITCH)")) return false;
-            alSourcef(sound->source, AL_GAIN, sound->gain);
+            f32 gain = sound->gain * globals->volumeMain;
+            switch(sound->channel) {
+                case MUSIC:
+                    gain *= globals->volumeMusic;
+                    break;
+                case FX:
+                    gain *= globals->volumeEffects;
+                    break;
+            }
+            alSourcef(sound->source, AL_GAIN, gain);
             if (!ErrorCheck("alSourcef(AL_GAIN)")) return false;
             alSourcei(sound->source, AL_LOOPING, sound->loop);
             if (!ErrorCheck("alSourcei(AL_LOOPING)")) return false;
@@ -239,47 +248,11 @@ bool Buffer::Clean() {
     return ErrorCheck("alDeleteBuffers");
 }
 
-SourceBase::SourceBase() : source(0), /* position(0.0), velocity(0.0), direction(0.0), */ pitch(1.0), gain(1.0), loop(false), playing(false), play(false), pause(false), stop(false), active(false), stereo(false), stream(false), channel(FX) {}
-
-// void SourceBase::SetPosition(vec3f pos) {
-//     position = pos;
-// }
-//
-// void SourceBase::SetVelocity(vec3f vel) {
-//     velocity = vel;
-// }
-//
-// void SourceBase::SetDirection(vec3f dir) {
-//     direction = dir;
-// }
-
-void SourceBase::SetPitch(f32 p) {
-    pitch = p * globals->objects.simulationRate;
-}
-
-void SourceBase::SetGain(f32 g) {
-    gain = g * globals->volumeMain;
-    switch (channel) {
-        case MUSIC:
-            g *= globals->volumeMusic;
-            break;
-        case FX:
-            g *= globals->volumeEffects;
-            break;
-    }
-}
-
-void SourceBase::Play() {
-    play = true;
-}
-
-void SourceBase::Pause() {
-    pause = true;
-}
-
-void SourceBase::SetLoop(bool on) {
-    loop = on;
-}
+SourceBase::SourceBase() :
+source(0), /* position(0.0), velocity(0.0), direction(0.0), */
+pitch(1.0), gain(1.0), loop(false), playing(false),
+play(false), pause(false), stop(false), active(false),
+stereo(false), stream(false), simulationPitch(false), channel(FX) {}
 
 void Source::Create(Buffer *buf) {
     stereo = buf->stereo;
@@ -292,10 +265,6 @@ void Source::Create(String filename) {
     i32 soundIndex = globals->assets.FindMapping(filename);
     Create(&globals->assets.sounds[soundIndex].buffer);
     globals->sound.Register(this);
-}
-
-void Source::Stop() {
-    stop = true;
 }
 
 void MultiSource::Play(f32 gain, f32 pitch) {

@@ -338,7 +338,7 @@ String ToString(const i128& value, i32 base) {
     return out.Reverse();
 }
 
-String ToString(const f32& value, i32 base) {
+String ToString(const f32& value, i32 base, i32 precision) {
     u32 byteCode;
     memcpy((void*)&byteCode, (void*)&value, sizeof(byteCode));
     const bool negative = (byteCode & 0x80000000) != 0;
@@ -391,26 +391,32 @@ String ToString(const f32& value, i32 base) {
         }
     }
     f32 crossover;
+    i32 count = 8;
     if (newExponent > 7 || newExponent < -1) {
         crossover = basis/base;
     } else {
         if (remaining < 1.0) {
             out += "0.";
             point = true;
+            if (precision != -1)
+                count = precision + 1;
             for (i32 i = 2; i < newExponent; i++) {
                 out += '0';
             }
         }
         crossover = 1.0/base;
     }
-    for (i32 count = 8; count > 0; count--) {
+    for (; count > 0; count--) {
         i32 digit = remaining / basis;
         out += digit >= 10 ? (digit+'A'-10) : (digit+'0');
         remaining -= basis * (f32)digit;
+        if (remaining < 0.0) remaining = 0.0;
         basis /= base;
         if (!point && basis <= crossover) {
             out += '.';
             point = true;
+            if (precision != -1)
+                count = precision + 1;
         }
     }
     i32 i = out.size-1;
@@ -428,7 +434,7 @@ String ToString(const f32& value, i32 base) {
     return out;
 }
 
-String ToString(const f64& value, i32 base) {
+String ToString(const f64& value, i32 base, i32 precision) {
     u64 byteCode;
     memcpy((void*)&byteCode, (void*)&value, sizeof(byteCode));
     const bool negative = (byteCode & 0x8000000000000000) != 0;
@@ -481,26 +487,32 @@ String ToString(const f64& value, i32 base) {
         }
     }
     f64 crossover;
+    i32 count = 16;
     if (newExponent > 15 || newExponent < -1) {
         crossover = basis/base;
     } else {
         if (remaining < 1.0) {
             out += "0.";
             point = true;
+            if (precision != -1)
+                count = precision + 1;
             for (i32 i = 2; i < newExponent; i++) {
                 out += '0';
             }
         }
         crossover = 1.0/base;
     }
-    for (i32 count = 16; count > 0; count--) {
+    for (; count > 0; count--) {
         i32 digit = remaining / basis;
         out += digit >= 10 ? (digit+'A'-10) : (digit+'0');
         remaining -= basis * (f64)digit;
+        if (remaining < 0.0) remaining = 0.0;
         basis /= base;
         if (!point && basis <= crossover) {
             out += '.';
             point = true;
+            if (precision != -1)
+                count = precision + 1;
         }
     }
     i32 i = out.size-1;
@@ -518,7 +530,7 @@ String ToString(const f64& value, i32 base) {
     return out;
 }
 
-String ToString(const f128& value, i32 base) {
+String ToString(const f128& value, i32 base, i32 precision) {
     u128 byteCode;
     memcpy((void*)&byteCode, (void*)&value, sizeof(byteCode));
     const bool negative = (byteCode >> 127) != 0;
@@ -573,26 +585,32 @@ String ToString(const f128& value, i32 base) {
         }
     }
     f128 crossover;
+    i32 count = 34;
     if (newExponent > 33 || newExponent < -1) {
         crossover = basis/base;
     } else {
         if (remaining < 1.0) {
             out += "0.";
             point = true;
+            if (precision != -1)
+                count = precision + 1;
             for (i32 i = 2; i < newExponent; i++) {
                 out += '0';
             }
         }
         crossover = 1.0/base;
     }
-    for (i32 count = 34; count > 0; count--) {
+    for (; count > 0; count--) {
         i32 digit = remaining / basis;
         out += digit >= 10 ? (digit+'A'-10) : (digit+'0');
         remaining -= basis * (f128)digit;
+        if (remaining < 0.0) remaining = 0.0;
         basis /= base;
         if (!point && basis <= crossover) {
             out += '.';
             point = true;
+            if (precision != -1)
+                count = precision + 1;
         }
     }
     i32 i = out.size-1;
@@ -614,6 +632,7 @@ inline bool isNumber(char c) {
     return c >= '0' && c <= '9';
 }
 
+// TODO: Write some unit tests to confirm the reliability of this.
 f32 StringToF32(String string, i32 base) {
     f64 out = 0.0;
     f64 multiplier = 1.0;
@@ -632,7 +651,50 @@ f32 StringToF32(String string, i32 base) {
     }
     start = string.size-1;
     if (dot == -1) dot = string.size;
-    for (; dot < start; dot++) {
+    for (; dot <= start; dot++) {
+        multiplier /= baseF;
+    }
+    for (i32 i = start; i >= 0; i--) {
+        f64 value = baseF;
+        char c = string[i];
+        if (isNumber(c)) {
+            value = c - '0';
+        } else if (base > 10) {
+            if (c >= 'a' && c < 'a'+base) {
+                value = c - 'a' + 10;
+            } else if (c >= 'A' && c < 'A'+base) {
+                value = c - 'A' + 10;
+            }
+        }
+        if (value >= baseF) {
+            return 0.0;
+        }
+        out += value * multiplier;
+        multiplier *= baseF;
+    }
+    return out;
+}
+
+// This is literally the exact same code as above...
+f32 WStringToF32(WString string, i32 base) {
+    f64 out = 0.0;
+    f64 multiplier = 1.0;
+    f64 baseF = base;
+    i32 dot = -1;
+    i32 start;
+    if (string[0] == '-') {
+        multiplier = -1.0;
+        string.Erase(0);
+    }
+    for (i32 i = 0; i < string.size; i++) {
+        if (string[i] == '.') {
+            dot = i;
+            string.Erase(i);
+        }
+    }
+    start = string.size-1;
+    if (dot == -1) dot = string.size;
+    for (; dot <= start; dot++) {
         multiplier /= baseF;
     }
     for (i32 i = start; i >= 0; i--) {

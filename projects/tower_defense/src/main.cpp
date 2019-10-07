@@ -141,6 +141,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
         cout << "Error deinitializing Rendering::Manager: " << Rendering::error << std::endl;
         return 1;
     }
+    std::this_thread::sleep_for(Milliseconds(80)); // Don't cut off the exit click sound
     if (!globals->sound.DeleteSources()) {
         cout << "Failed to delete sound sources: " << Sound::error << std::endl;
         return 1;

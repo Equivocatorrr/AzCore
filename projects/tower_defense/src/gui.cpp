@@ -918,9 +918,9 @@ void Text::Draw(Rendering::DrawingContext &context) const {
         drawPos.x += textArea.x;
     }
     if (alignV == Rendering::CENTER) {
-        drawPos.y += textArea.y * 0.5 * globals->gui.scale;
+        drawPos.y += textArea.y * 0.5;
     } else if (alignV == Rendering::BOTTOM) {
-        drawPos.y += textArea.y * globals->gui.scale;
+        drawPos.y += textArea.y;
     }
     f32 bounds = bold ? 0.425 : 0.525;
     if (outline) {
@@ -1306,22 +1306,24 @@ void TextBox::Update(vec2 pos, bool selected) {
             }
             cursorBlinkTimer = 0.0;
         }
-        if (globals->input.Pressed(KC_KEY_ENTER) && multiline) {
-            string.Insert(cursor, '\n');
-            cursor++;
-            cursorBlinkTimer = 0.0;
-        }
-        if (globals->input.Pressed(KC_KEY_UP) && multiline) {
-            vec2 cursorPos = PositionFromCursor();
-            cursorPos.y -= fontSize * globals->gui.scale * Rendering::lineHeight * 0.5;
-            CursorFromPosition(cursorPos);
-            cursorBlinkTimer = 0.0;
-        }
-        if (globals->input.Pressed(KC_KEY_DOWN) && multiline) {
-            vec2 cursorPos = PositionFromCursor();
-            cursorPos.y += fontSize * globals->gui.scale * Rendering::lineHeight * 1.5;
-            CursorFromPosition(cursorPos);
-            cursorBlinkTimer = 0.0;
+        if (multiline) {
+            if (globals->input.Pressed(KC_KEY_ENTER)) {
+                string.Insert(cursor, '\n');
+                cursor++;
+                cursorBlinkTimer = 0.0;
+            }
+            if (globals->input.Pressed(KC_KEY_UP)) {
+                vec2 cursorPos = PositionFromCursor();
+                cursorPos.y -= fontSize * globals->gui.scale * Rendering::lineHeight * 0.5;
+                CursorFromPosition(cursorPos);
+                cursorBlinkTimer = 0.0;
+            }
+            if (globals->input.Pressed(KC_KEY_DOWN)) {
+                vec2 cursorPos = PositionFromCursor();
+                cursorPos.y += fontSize * globals->gui.scale * Rendering::lineHeight * 1.5;
+                CursorFromPosition(cursorPos);
+                cursorBlinkTimer = 0.0;
+            }
         }
         if (globals->input.Pressed(KC_KEY_LEFT)) {
             cursorBlinkTimer = 0.0;
@@ -1371,6 +1373,9 @@ void TextBox::Update(vec2 pos, bool selected) {
                 cursor = min(string.size, cursor+1);
             }
         }
+        if (!multiline && globals->input.Pressed(KC_KEY_ENTER)) {
+            entry = false;
+        }
     }
     if (size.x != 0.0 && multiline) {
         stringFormatted = globals->rendering.StringAddNewlines(string, fontIndex, (sizeAbsolute.x - padding.x * 2.0) / fontSize);
@@ -1390,7 +1395,7 @@ void TextBox::Update(vec2 pos, bool selected) {
             if (globals->gui.controlDepth == depth) {
                 globals->gui.controlDepth = depth+1;
             }
-            const vec2 mouse = vec2(globals->input.cursor) / globals->gui.scale;
+            const vec2 mouse = vec2(globals->input.cursor);
             CursorFromPosition(mouse);
             cursorBlinkTimer = 0.0;
         }

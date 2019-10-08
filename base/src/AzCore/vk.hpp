@@ -33,6 +33,8 @@
     // especially those related to Vulkan Tree Structure.
     // It's advised to keep the sanity checks when designing your program.
     #define VK_SANITY_CHECKS_MINIMAL
+    // This disables console logging
+    #define VK_LOGGING_NO_CONSOLE
 #endif
 
 // Having this defined makes keeping track of host memory precisely impossible

@@ -15,7 +15,11 @@ namespace vk {
 
     String error = "No Error";
 
+#ifndef VK_LOGGING_NO_CONSOLE
     io::logStream cout("vk.log");
+#else
+    io::logStream cout("vk.log", false);
+#endif
 
     const char *QueueTypeString[5] = {
         "UNDEFINED",

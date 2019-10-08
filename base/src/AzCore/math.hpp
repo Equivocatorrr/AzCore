@@ -202,7 +202,13 @@ public:
     Degrees() = default;
     Degrees(T a) : _value(a) {}
     Degrees(const Degrees<T>& a) : _value(a._value) {}
-    Degrees(const Radians<T>& a) : _value(a._value*tau64/360.0d) {}
+    Degrees(const Radians<T>& a) {
+        if constexpr (std::is_same<T, f32>()) {
+            _value = a.value()/tau*360.0;
+        } else {
+            _value = a.value()/tau64*360.0d;
+        }
+    }
     Degrees<T>& operator+=(const Degrees<T>& other) { _value += other._value; return *this; }
     Degrees<T>& operator-=(const Degrees<T>& other) { _value -= other._value; return *this; }
     Degrees<T>& operator*=(const Degrees<T>& other) { _value *= other._value; return *this; }
@@ -217,6 +223,7 @@ public:
     bool operator>=(const Degrees<T>& other) const { return _value >= other._value; }
     bool operator<(const Degrees<T>& other) const { return _value < other._value; }
     bool operator>(const Degrees<T>& other) const { return _value > other._value; }
+    Degrees<T> operator-() const { return Degrees<T>(-_value); }
     const T value() const { return _value; }
 };
 
@@ -256,6 +263,7 @@ public:
     bool operator>=(const Radians<T>& other) const { return _value >= other._value; }
     bool operator<(const Radians<T>& other) const { return _value < other._value; }
     bool operator>(const Radians<T>& other) const { return _value > other._value; }
+    Radians<T> operator-() const { return Radians<T>(-_value); }
     const T value() const { return _value; }
 };
 

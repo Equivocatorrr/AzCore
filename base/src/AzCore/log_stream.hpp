@@ -14,38 +14,41 @@
 
 namespace io {
 
-    /*  class: logStream
-    Author: Philip Haynes
-    Use this class to write any and all debugging/status text.
-    Use it the same way you would std::cout.
-    Ex: io::cout << "Say it ain't so!!" << std::endl;
-    Entries in this class will be printed to terminal and a log file.   */
-    class logStream {
-        std::ofstream fstream;
-        bool log; // Whether we're using a log file
-        bool flushed;
-        Mutex mutex;
-        String prepend;
-    public:
-        logStream();
-        logStream(String logFilename);
-        template<typename T> logStream& operator<<(const T& something) {
+/*  class: logStream
+Author: Philip Haynes
+Use this class to write any and all debugging/status text.
+Use it the same way you would std::cout.
+Ex: io::cout << "Say it ain't so!!" << std::endl;
+Entries in this class will be printed to terminal and a log file.   */
+class logStream {
+    std::ofstream fstream;
+    bool logFile;
+    bool logConsole;
+    bool flushed;
+    Mutex mutex;
+    String prepend;
+public:
+    logStream();
+    logStream(String logFilename, bool console=true);
+    template<typename T> logStream& operator<<(const T& something) {
+        if (logConsole) {
             if (flushed && prepend.size != 0) {
                 std::cout.write(prepend.data, prepend.size);
                 flushed = false;
             }
             std::cout << something;
-            if (log)
-                fstream << something;
-            return *this;
         }
-        logStream& operator<<(const char*);
-        logStream& operator<<(const String&);
-        typedef std::ostream& (*stream_function)(std::ostream&);
-        logStream& operator<<(stream_function func);
-        void MutexLock();
-        void MutexUnlock();
-    };
+        if (logFile)
+            fstream << something;
+        return *this;
+    }
+    logStream& operator<<(const char*);
+    logStream& operator<<(const String&);
+    typedef std::ostream& (*stream_function)(std::ostream&);
+    logStream& operator<<(stream_function func);
+    void MutexLock();
+    void MutexUnlock();
+};
 
 }
 

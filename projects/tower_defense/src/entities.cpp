@@ -137,6 +137,11 @@ void Manager::EventInitialize() {
     bullets.granularity = 50;
     winds.granularity = 50;
     explosions.granularity = 10;
+    basePhysical.type = CIRCLE;
+    basePhysical.basis.circle.c = 0.0;
+    basePhysical.basis.circle.r = 128.0;
+    basePhysical.pos = 0.0;
+    CreateSpawn();
 }
 
 void Manager::EventSync() {
@@ -158,6 +163,8 @@ void Manager::EventSync() {
 }
 
 void Manager::EventUpdate() {
+    mouse = vec2(globals->input.cursor
+          - vec2i(globals->window.width, globals->window.height) / 2) / camZoom + camPos;
     if (timestep != 0.0) {
         const i32 concurrency = 4;
         Array<Thread> threads(concurrency);
@@ -225,6 +232,11 @@ void Manager::EventUpdate() {
         globals->gui.playMenu.buttonStartWave->string = ToWString("Start Wave");
     }
     if (globals->gui.mouseoverDepth > 0) return; // Don't accept mouse input
+    if (globals->objects.Pressed(KC_MOUSE_SCROLLUP)) {
+        camZoom *= 1.1;
+    } else if (globals->objects.Pressed(KC_MOUSE_SCROLLDOWN)) {
+        camZoom /= 1.1;
+    }
     if (!placeMode) {
         if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
             if (selectedTower != -1) {
@@ -238,24 +250,22 @@ void Manager::EventUpdate() {
                 }
             }
         }
-    } else {
-        if (globals->objects.Pressed(KC_MOUSE_SCROLLUP)) {
-            towerType = TowerType(i32(towerType+1) % i32(TOWER_MAX_RANGE+1));
-        } else if (globals->objects.Pressed(KC_MOUSE_SCROLLDOWN)) {
-            i32 tt = i32(towerType) - 1;
-            if (tt >= 0) {
-                towerType = TowerType(tt);
-            } else {
-                towerType = TOWER_MAX_RANGE;
-            }
+        if (globals->objects.Down(KC_MOUSE_LEFT)) {
+            vec2 move = vec2(globals->input.cursor - globals->input.cursorPrevious) / camZoom;
+            camPos -= move;
         }
-        if (globals->objects.Down(KC_KEY_LEFT)) {
-            placingAngle += globals->objects.timestep * pi;
-        } else if (globals->objects.Down(KC_KEY_RIGHT)) {
-            placingAngle += -globals->objects.timestep * pi;
+    } else {
+        Degrees32 increment(30.0);
+        if (globals->objects.Down(KC_KEY_LEFTSHIFT)) {
+            increment = Degrees32(5.0);
+        }
+        if (globals->objects.Pressed(KC_KEY_LEFT)) {
+            placingAngle += increment;
+        } else if (globals->objects.Pressed(KC_KEY_RIGHT)) {
+            placingAngle += -increment;
         }
         Tower tower(towerType);
-        tower.physical.pos = globals->input.cursor;
+        tower.physical.pos = mouse;
         tower.physical.angle = placingAngle;
         canPlace = true;
         for (i32 i = 0; i < towers.size; i++) {
@@ -294,7 +304,7 @@ void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 
     if (placeMode) {
         Tower tower(towerType);
-        tower.physical.pos = globals->input.cursor;
+        tower.physical.pos = mouse;
         tower.physical.angle = placingAngle;
         tower.physical.Draw(contexts.Back(), canPlace ? vec4(0.1, 1.0, 0.1, 0.9) : vec4(1.0, 0.1, 0.1, 0.9));
         tower.field.pos = tower.physical.pos;
@@ -305,6 +315,23 @@ void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
         const Tower& selected = towers[selectedTower];
         selected.field.Draw(contexts.Back(), vec4(1.0, 1.0, 1.0, 0.1));
     }
+    basePhysical.Draw(contexts.Back(), vec4(hsvToRgb(vec3((f32)lives / 3000.0, 1.0, 0.8)), 1.0));
+    for (i32 i = 0; i < enemySpawns.size; i++) {
+        enemySpawns[i].Draw(contexts.Back(), vec4(vec3(0.0), 1.0));
+    }
+}
+
+void Manager::CreateSpawn() {
+    f32 angle = random(0.0, tau, globals->rng);
+    vec2 place(sin(angle), cos(angle));
+    place *= 1500.0;
+    Physical newSpawn;
+    newSpawn.type = BOX;
+    newSpawn.basis.box.a = vec2(-128.0, -32.0);
+    newSpawn.basis.box.b = vec2(128.0, 32.0);
+    newSpawn.pos = place;
+    newSpawn.angle = angle + pi;
+    enemySpawns.Append(newSpawn);
 }
 
 bool AABB::Collides(const AABB &other) const {
@@ -543,7 +570,7 @@ bool Physical::Collides(const Physical &other) const {
 }
 
 bool Physical::MouseOver() const {
-    const vec2 mouse = vec2(globals->input.cursor);
+    const vec2 mouse = globals->entities.mouse;
     if (!updated) {
         UpdateActual();
     }
@@ -622,16 +649,18 @@ void Physical::UpdateActual() const {
 }
 
 void Physical::Draw(Rendering::DrawingContext &context, vec4 color) const {
+    const vec2 p = (pos - globals->entities.camPos) * globals->entities.camZoom
+                 + vec2(globals->window.width / 2, globals->window.height / 2);
     if (type == BOX) {
         const vec2 scale = basis.box.b - basis.box.a;
-        globals->rendering.DrawQuad(context, Rendering::texBlank, color, pos, scale, vec2(1.0), -basis.box.a / scale, angle);
+        globals->rendering.DrawQuad(context, Rendering::texBlank, color, p, scale * globals->entities.camZoom, vec2(1.0), -basis.box.a / scale, angle);
     } else if (type == SEGMENT) {
         vec2 scale = basis.segment.b - basis.segment.a;
         scale.y = max(scale.y, 2.0);
-        globals->rendering.DrawQuad(context, Rendering::texBlank, color, pos, scale, vec2(1.0), -basis.segment.a / scale, angle);
+        globals->rendering.DrawQuad(context, Rendering::texBlank, color, p, scale * globals->entities.camZoom, vec2(1.0), -basis.segment.a / scale, angle);
     } else {
-        const vec2 scale = basis.circle.r * 2.0 + 2.0;
-        globals->rendering.DrawCircle(context, Rendering::texBlank, color, pos, scale, vec2(1.0), -basis.circle.c / scale + vec2(0.5), angle);
+        const vec2 scale = basis.circle.r * 2.0;
+        globals->rendering.DrawCircle(context, Rendering::texBlank, color, p, scale * globals->entities.camZoom + 2.0, vec2(1.0), -basis.circle.c / (scale + 2.0) + vec2(0.5), angle);
     }
 }
 
@@ -880,8 +909,17 @@ void Enemy::EventCreate() {
     physical.basis.circle.c = vec2(0.0);
     physical.basis.circle.r = 0.0;
     if (!child) {
-        physical.pos = vec2(0.0, globals->rendering.screenSize.y * (0.5 + random(-0.2, 0.2, globals->rng)));
-        physical.vel = vec2(200.0, random(-50.0, 50.0, globals->rng));
+        i32 spawnPoint = random(0, globals->entities.enemySpawns.size, globals->rng);
+        f32 s, c;
+        s = sin(globals->entities.enemySpawns[spawnPoint].angle);
+        c = cos(globals->entities.enemySpawns[spawnPoint].angle);
+        vec2 x, y;
+        x = vec2(c, -s) * globals->entities.enemySpawns[spawnPoint].basis.box.b.x
+          * random(-1.0, 1.0, globals->rng);
+        y = vec2(s, c) * globals->entities.enemySpawns[spawnPoint].basis.box.b.y
+          * random(-1.0, 1.0, globals->rng);
+        physical.pos = globals->entities.enemySpawns[spawnPoint].pos + x + y;
+        physical.vel = 0.0;
         f32 honker = random(0.0, 100000.0 / pow((f32)globals->entities.hitpointsLeft, 0.75), globals->rng);
         if (honker < 0.001) {
             hitpoints = 250000;
@@ -907,8 +945,6 @@ void Enemy::EventCreate() {
         size = hitpoints;
         color = vec4(hsvToRgb(vec3(sqrt(size)/(tau*16.0) + (f32)globals->entities.wave / 9.0, min(size / 100.0, 1.0), 1.0)), 0.7);
     }
-    physical.vel *= 10.0;
-    physical.vel /= sqrt((f32)hitpoints);
     targetSpeed = 1000.0 / pow((f32)hitpoints, 1.0 / 3.0);
     size = 0.0;
 }
@@ -918,17 +954,7 @@ void Enemy::Update(f32 timestep) {
     physical.basis.circle.r = sqrt(size) + 2.0;
     physical.Update(timestep);
     physical.UpdateActual();
-    {
-        f32 distToTopBarrier = physical.pos.y - physical.basis.circle.r;
-        f32 distToBotBarrier = globals->rendering.screenSize.y - physical.pos.y - physical.basis.circle.r;
-        if (distToTopBarrier < 128.0) {
-            physical.ImpulseY(1000000.0 / max(distToTopBarrier, 5.0) / size, timestep);
-        }
-        if (distToBotBarrier < 128.0) {
-            physical.ImpulseY(-1000000.0 / max(distToBotBarrier, 5.0) / size, timestep);
-        }
-    }
-    if (physical.aabb.minPos.x > globals->rendering.screenSize.x || physical.aabb.minPos.y > globals->rendering.screenSize.y || (hitpoints <= 0 && size < 0.01)) {
+    if (physical.Collides(globals->entities.basePhysical) || (hitpoints <= 0 && size < 0.01)) {
         if (hitpoints > 5) {
             globals->entities.lives -= hitpoints;
         }
@@ -996,7 +1022,13 @@ void Enemy::Update(f32 timestep) {
             }
         }
     }
-    physical.vel.x = max(decay(physical.vel.x, targetSpeed + abs(physical.vel.y), 1.0, timestep), targetSpeed * 0.1);
+    vec2 norm = normalize(-physical.pos);
+    f32 velocity = abs(physical.vel);
+    f32 forward = dot(norm, physical.vel/velocity);
+    if (forward < 0.2) {
+        physical.vel += norm * (0.2 - forward) * velocity;
+    }
+    physical.Impulse(norm * targetSpeed, timestep);
     physical.vel = normalize(physical.vel) * targetSpeed;
 }
 
@@ -1064,8 +1096,11 @@ void Wind::Update(f32 timestep) {
 
 void Wind::Draw(Rendering::DrawingContext &context) {
     vec4 color = vec4(1.0, 1.0, 1.0, clamp(0.0, 0.1, lifetime * 0.1));
+    const f32 z = globals->entities.camZoom;
+    const vec2 p = (physical.pos - globals->entities.camPos) * z
+                 + vec2(globals->window.width / 2, globals->window.height / 2);
     const vec2 scale = physical.basis.circle.r * 2.0;
-    globals->rendering.DrawCircle(context, Rendering::texBlank, color, physical.pos, scale * 0.1, vec2(10.0), -physical.basis.circle.c / scale + vec2(0.5), physical.angle);
+    globals->rendering.DrawCircle(context, Rendering::texBlank, color, p, scale * 0.1, vec2(10.0 * z), -physical.basis.circle.c / scale + vec2(0.5), physical.angle);
 }
 
 template struct DoubleBufferArray<Wind>;
@@ -1095,8 +1130,11 @@ void Explosion::Draw(Rendering::DrawingContext &context) {
         )),
         clamp((1.0 - prog) * 5.0, 0.0, 0.8)
     );
+    const f32 z = globals->entities.camZoom;
+    const vec2 p = (physical.pos - globals->entities.camPos) * z
+                 + vec2(globals->window.width / 2, globals->window.height / 2);
     const vec2 scale = physical.basis.circle.r * 2.0;
-    globals->rendering.DrawCircle(context, Rendering::texBlank, color, physical.pos, scale * 0.05, vec2(20.0), -physical.basis.circle.c / scale + vec2(0.5), physical.angle);
+    globals->rendering.DrawCircle(context, Rendering::texBlank, color, p, scale * 0.05, vec2(20.0 * z), -physical.basis.circle.c / scale + vec2(0.5), physical.angle);
 }
 
 template struct DoubleBufferArray<Explosion>;

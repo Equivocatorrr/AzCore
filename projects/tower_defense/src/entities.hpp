@@ -231,12 +231,18 @@ struct Manager : public Objects::Object {
     i32 lives = 1000;
     f32 timestep;
     bool waveActive = false;
+    f32 camZoom = 1.0;
+    vec2 camPos = 0.0;
+    vec2 mouse = 0.0;
+    Physical basePhysical{};
+    Array<Physical> enemySpawns{};
     void EventAssetInit();
     void EventAssetAcquire();
     void EventInitialize();
     void EventSync();
     void EventUpdate();
     void EventDraw(Array<Rendering::DrawingContext> &contexts);
+    void CreateSpawn();
 };
 
 struct Tower : public Entity {

@@ -26,24 +26,169 @@
 #define explicit extern_explicit // Preventing C++ keyword bug
 #include <xcb/xkb.h>
 #undef explicit
-#include <fcntl.h> // For evdev
-#include <libevdev-1.0/libevdev/libevdev.h>
+#include <fcntl.h>
+#include <linux/joystick.h>
 #include <unistd.h>
 
 namespace io {
 
+    struct GamepadMapping {
+        // Just some overkill numbers to prevent segfaults in the case of a really wacky controller
+        u8 axes[12];
+        u8 buttons[20];
+        void FromName(String name);
+    };
+
+    enum KnownGamepadMappings {
+        GAMEPAD_MAPPING_XBOX=0,
+        GAMEPAD_MAPPING_PLAYSTATION=1,
+        GAMEPAD_MAPPING_UNDEFINED
+    };
+
+    const char *gamepadMappingSearchTokens[] = {
+        "xbox",
+        "playstation"
+    };
+
+    const GamepadMapping gamepadMappingUndefined = {
+        { // axes
+            GP_AXIS_LS_X,
+            GP_AXIS_LS_Y,
+            GP_AXIS_RS_X,
+            GP_AXIS_RS_Y,
+            GP_AXIS_H0_X,
+            GP_AXIS_H0_Y,
+            255, 255, 255, 255, 255, 255
+        },
+        { // buttons
+            KC_GP_BTN_NORTH,
+            KC_GP_BTN_EAST,
+            KC_GP_BTN_SOUTH,
+            KC_GP_BTN_WEST,
+            KC_GP_BTN_TL,
+            KC_GP_BTN_TR,
+            KC_GP_AXIS_LT_IN,
+            KC_GP_AXIS_RT_IN,
+            KC_GP_BTN_SELECT,
+            KC_GP_BTN_START,
+            KC_GP_BTN_THUMBL,
+            KC_GP_BTN_THUMBR,
+            0, 0, 0, 0, 0, 0, 0, 0
+        }
+    };
+
+    const GamepadMapping gamepadMappingXbox = {
+        { // axes
+            GP_AXIS_LS_X,
+            GP_AXIS_LS_Y,
+            GP_AXIS_RS_X,
+            GP_AXIS_RS_Y,
+            GP_AXIS_RT,
+            GP_AXIS_LT,
+            GP_AXIS_H0_X,
+            GP_AXIS_H0_Y,
+            255, 255, 255, 255
+        },
+        { // buttons
+            KC_GP_BTN_A,
+            KC_GP_BTN_B,
+            KC_GP_BTN_X,
+            KC_GP_BTN_Y,
+            KC_GP_BTN_TL,
+            KC_GP_BTN_TR,
+            KC_GP_BTN_SELECT,
+            KC_GP_BTN_START,
+            KC_GP_BTN_MODE,
+            KC_GP_BTN_THUMBL,
+            KC_GP_BTN_THUMBR,
+            0, 0, 0, 0, 0, 0, 0, 0, 0
+        }
+    };
+
+    const GamepadMapping gamepadMappingPlaystation = {
+        { // axes
+            GP_AXIS_LS_X,
+            GP_AXIS_LS_Y,
+            GP_AXIS_LT,
+            GP_AXIS_RS_X,
+            GP_AXIS_RS_Y,
+            GP_AXIS_RT,
+            255, 255, 255, 255, 255, 255
+        },
+        { // buttons
+            KC_GP_BTN_SOUTH,
+            KC_GP_BTN_EAST,
+            KC_GP_BTN_NORTH,
+            KC_GP_BTN_WEST,
+            KC_GP_BTN_TL,
+            KC_GP_BTN_TR,
+            0, // KC_GP_AXIS_LT_IN
+            0, // KC_GP_AXIS_RT_IN
+            KC_GP_BTN_SELECT,
+            KC_GP_BTN_START,
+            KC_GP_BTN_MODE,
+            KC_GP_BTN_THUMBL,
+            KC_GP_BTN_THUMBR,
+            KC_GP_AXIS_H0_UP,
+            KC_GP_AXIS_H0_DOWN,
+            KC_GP_AXIS_H0_LEFT,
+            KC_GP_AXIS_H0_RIGHT,
+            0, 0, 0
+        }
+    };
+
+    void GamepadMapping::FromName(String name) {
+        // convert to lowercase
+        for (i32 i = 0; name[i] != 0; i++) {
+            if (name[i] >= 'A' && name[i] <= 'Z') {
+                name[i] += 'a' - 'A';
+            }
+        }
+        KnownGamepadMappings mapping = GAMEPAD_MAPPING_UNDEFINED;
+        bool found = false;
+        // We'll just do a dumb search
+        for (i32 i = 0; name[i] != 0 && !found; i++) {
+            for (i32 j = 0; j < GAMEPAD_MAPPING_UNDEFINED && !found; j++) {
+                if (name[i] == gamepadMappingSearchTokens[j][0]) {
+                    for (i32 x = 1; ; x++) {
+                        if (gamepadMappingSearchTokens[j][x] == 0) {
+                            mapping = (KnownGamepadMappings)j;
+                            found = true;
+                            break;
+                        }
+                        if (name[i+x] != gamepadMappingSearchTokens[j][x]) {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        switch (mapping) {
+            case GAMEPAD_MAPPING_XBOX:
+                *this = gamepadMappingXbox;
+                cout << "Using mapping for Xbox." << std::endl;
+                break;
+            case GAMEPAD_MAPPING_PLAYSTATION:
+                *this = gamepadMappingPlaystation;
+                cout << "Using mapping for Playstation." << std::endl;
+                break;
+            case GAMEPAD_MAPPING_UNDEFINED:
+                *this = gamepadMappingXbox;
+                cout << "Unknown gamepad. Using Some wacky one by default." << std::endl;
+                break;
+        }
+    }
+
     struct RawInputDeviceData {
-        libevdev *dev;
-        i32 fd;
+        GamepadMapping mapping;
+        String name;
         String path;
-        Array<input_event> syncBuffer;
+        i32 fd;
+        u32 version;
     };
 
     RawInputDevice::~RawInputDevice() {
         if (data != nullptr) {
-            if (data->dev != nullptr) {
-                libevdev_free(data->dev);
-            }
             if (data->fd > -1) {
                 close(data->fd);
             }
@@ -63,109 +208,41 @@ namespace io {
     }
 
     bool RawInputDeviceInit(RawInputDevice *rid, i32 fd, String&& path, RawInputFeatureBits enableMask) {
-        libevdev *dev = libevdev_new();
-        if (dev == nullptr) {
-            return false;
+        if (rid->data == nullptr) {
+            rid->data = new RawInputDeviceData;
         }
-        i32 rc = libevdev_set_fd(dev, fd);
-        if (rc < 0) {
-            libevdev_free(dev);
-            return false;
-        }
-        if (libevdev_has_event_type(dev, EV_REL) &&
-            libevdev_has_event_code(dev, EV_REL, REL_X) &&
-            libevdev_has_event_code(dev, EV_REL, REL_Y) &&
-            libevdev_has_event_code(dev, EV_KEY, BTN_MOUSE) &&
-            libevdev_has_event_code(dev, EV_KEY, BTN_LEFT)) {
-            if (!(enableMask & RAW_INPUT_ENABLE_MOUSE_BIT)) {
-                libevdev_free(dev);
-                return false;
-            }
-            rid->type = MOUSE;
-        } else if (libevdev_has_event_code(dev, EV_KEY, BTN_JOYSTICK)) {
-            if (!(enableMask & RAW_INPUT_ENABLE_JOYSTICK_BIT)) {
-                libevdev_free(dev);
-                return false;
-            }
-            rid->type = JOYSTICK;
-        } else if (libevdev_has_event_code(dev, EV_KEY, BTN_GAMEPAD)) {
-            if (!(enableMask & RAW_INPUT_ENABLE_GAMEPAD_BIT)) {
-                libevdev_free(dev);
-                return false;
-            }
-            rid->type = GAMEPAD;
-        } else if (libevdev_has_event_code(dev, EV_KEY, KEY_KEYBOARD)) {
-            if (!(enableMask & RAW_INPUT_ENABLE_KEYBOARD_BIT)) {
-                libevdev_free(dev);
-                return false;
-            }
-            rid->type = KEYBOARD;
-        } else {
-            rid->type = UNSUPPORTED;
-            libevdev_free(dev);
-            return false;
-        }
-        if (rid->data != nullptr) {
-            delete rid->data;
-        }
-        rid->data = new RawInputDeviceData;
         rid->data->fd = fd;
         rid->data->path = std::move(path);
-        rid->data->dev = dev;
+        rid->data->name.Resize(128);
+        if (-1 == ioctl(fd, JSIOCGNAME(rid->data->name.size), rid->data->name.data)) {
+            rid->data->name = "Error Retrieving Name";
+        }
+        if (-1 == ioctl(fd, JSIOCGVERSION, &rid->data->version)) {
+            rid->data->version = UINT32_MAX;
+        }
+        rid->type = GAMEPAD;
         cout << "RawInputDevice from path \"" << rid->data->path << "\":\n"
-        "\tType: " << RawInputDeviceTypeString[rid->type] << "\n"
-        "\tName: " << libevdev_get_name(dev) << "\n"
-        "\tID: bus " << libevdev_get_id_bustype(dev)
-        << " vendor " << libevdev_get_id_vendor(dev)
-        << " product " << libevdev_get_id_product(dev) << std::endl;
+        "\t   Type: " << RawInputDeviceTypeString[rid->type] << "\n"
+        "\t   Name: " << rid->data->name << "\n"
+        "\tVersion: " << rid->data->version << std::endl;
+        u8 axes, buttons;
+        if (-1 == ioctl(fd, JSIOCGAXES, &axes)) {
+            cout << "\tFailed to get axes..." << std::endl;
+        } else {
+            cout << "\tJoystick has " << (u32)axes << " axes." << std::endl;
+        }
+        if (-1 == ioctl(fd, JSIOCGBUTTONS, &buttons)) {
+            cout << "\tFailed to get buttons..." << std::endl;
+        } else {
+            cout << "\tJoystick has " << (u32)buttons << " buttons." << std::endl;
+        }
+        rid->data->mapping.FromName(rid->data->name.data);
         return true;
     }
 
-    bool GetRawInputDeviceEvent(Ptr<RawInputDevice> rid, input_event *dst) {
-        input_event ev;
-        i32 rc;
-        if (rid->data->syncBuffer.size > 0) {
-            ev = rid->data->syncBuffer[0];
-            rid->data->syncBuffer.Erase(0);
-            *dst = ev;
-            return true;
-        }
-        rc = libevdev_next_event(rid->data->dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
-        if (rc < 0) {
-            if (rc == -EAGAIN) {
-                return false;
-            } else {
-                error = "GetRawInputDeviceEvent error: libevdev_next_event returned errno "
-                      + ToString(-rc) + " (" + strerror(-rc) + ")";
-                return false;
-            }
-        } else if (rc == LIBEVDEV_READ_STATUS_SYNC) {
-            while (rc == LIBEVDEV_READ_STATUS_SYNC) {
-                rc = libevdev_next_event(rid->data->dev, LIBEVDEV_READ_FLAG_SYNC, &ev);
-                if (rc < 0) {
-                    if (rc != -EAGAIN) {
-                        error = "GetRawInputDeviceEvent error: Sync error: "
-                                "libevdev_next_event return errno " + ToString(-rc)
-                              + " (" + strerror(-rc) + ")";
-                        return false;
-                    }
-                    break;
-                }
-                if (!(ev.type == EV_SYN && ev.type == SYN_REPORT)) {
-                    rid->data->syncBuffer.Append(ev);
-                }
-            }
-            if (rid->data->syncBuffer.size > 0) {
-                ev = rid->data->syncBuffer[0];
-                rid->data->syncBuffer.Erase(0);
-                *dst = ev;
-                return true;
-            } else {
-                cout << "GetRawInputDeviceEvent warning: Sync was empty!" << std::endl;
-                return false;
-            }
-        } else if (rc == LIBEVDEV_READ_STATUS_SUCCESS) {
-            *dst = ev;
+    bool GetRawInputDeviceEvent(Ptr<RawInputDevice> rid, js_event *dst) {
+        ssize_t rc = read(rid->data->fd, dst, sizeof(js_event));
+        if (rc == sizeof(js_event)) {
             return true;
         }
         return false;
@@ -186,21 +263,22 @@ namespace io {
         data = new RawInputData;
         data->frame = 0;
         ClockTime start = Clock::now();
-        char path[] = "/dev/input/eventXX";
-        for (u32 i = 0; i < 64; i++) {
+        char path[] = "/dev/input/jsXX";
+        for (u32 i = 0; i < 32; i++) {
             if (i < 10) {
-                path[16] = i+'0';
-                path[17] = 0;
+                path[13] = i+'0';
+                path[14] = 0;
             } else {
-                path[16] = i/10+'0';
-                path[17] = i%10+'0';
+                path[13] = i/10+'0';
+                path[14] = i%10+'0';
             }
             // cout << path << std::endl;
             i32 fd = open(path, O_RDONLY | O_NONBLOCK);
             if (fd < 0) {
                 if (errno == EACCES) {
-                    cout << "Permission denied opening device with path \"" << path << "\". Giving up." << std::endl;
-                    return true;
+                    cout << "Permission denied opening device with path \""
+                         << path << "\"." << std::endl;// Giving up." << std::endl;
+                    // return true;
                 }
                 continue;
             }
@@ -230,7 +308,7 @@ namespace io {
                 }
             }
         }
-        cout << "Total time to check 64 raw input devices: "
+        cout << "Total time to check 32 raw input devices: "
         << (f64)std::chrono::duration_cast<Nanoseconds>(Clock::now()-start).count() / 1000000000.0d
         << " seconds" << std::endl;
         return true;
@@ -239,10 +317,10 @@ namespace io {
     void RawInput::Update(f32 timestep) {
         // TODO: The rest of the raw input device types.
         AnyGP.Tick(timestep);
-        if (window != nullptr) {
-            if (!window->focused)
-                return;
-        }
+        // if (window != nullptr) {
+        //     if (!window->focused)
+        //         return;
+        // }
         for (i32 i = 0; i < gamepads.size; i++) {
             gamepads[i].Update(timestep, i);
         }
@@ -276,72 +354,81 @@ namespace io {
         for (u32 i = 0; i < 4; i++) {
             hat[i].Tick(timestep);
         }
-        input_event ev;
+        js_event ev;
+        const GamepadMapping &mapping = rawInputDevice->data->mapping;
         while (GetRawInputDeviceEvent(rawInputDevice, &ev)) {
-            if (ev.type == EV_SYN && ev.code == SYN_REPORT) {
-                continue;
-            }
-            if (ev.type == EV_KEY) {
-                // Button presses
-                i32 bIndex = ev.code - 0x130;
-                if (bIndex >= IO_GAMEPAD_MAX_BUTTONS || bIndex < 0) {
-                    continue; // Unsupported
-                }
-                rawInputDevice->rawInput->AnyGPCode = bIndex + KC_GP_BTN_A;
-                if (ev.value) {
-                    rawInputDevice->rawInput->AnyGP.state = BUTTON_PRESSED_BIT;
-                    button[bIndex].Press();
-                } else {
-                    rawInputDevice->rawInput->AnyGP.state = BUTTON_RELEASED_BIT;
-                    button[bIndex].Release();
-                }
-                rawInputDevice->rawInput->AnyGPIndex = index;
-            } else if(ev.type == EV_ABS) {
-                // Axis movements
-                f32 maxRange = 32767.0;
-                f32 minRange = -32768.0;
-                f32 deadZoneTemp = maxRange * deadZone;
-                i32 aIndex = ev.code;
-                if (aIndex > 5) {
-                    // A hat perhaps?
-                    aIndex -= 10;
-                    maxRange = 1.0;
-                    minRange = -1.0;
-                    deadZoneTemp = 0.0;
-                }
-                if (aIndex == GP_AXIS_LT || aIndex == GP_AXIS_RT) {
-                    maxRange = 255.0;
-                    minRange = -255.0;
-                    deadZoneTemp = 0.0;
-                }
-                if (aIndex >= IO_GAMEPAD_MAX_AXES || aIndex < 0)
-                    continue; // Unsupported
-                f32 val = (f32)ev.value;
-                if (abs(val) < deadZoneTemp) {
-                    axis.array[aIndex] = 0.0;
-                } else {
-                    if (val >= 0.0) {
-                        axis.array[aIndex] = (val-deadZoneTemp) / (maxRange-deadZoneTemp);
+            switch (ev.type) {
+                case JS_EVENT_INIT: {
+                    cout << "JS_EVENT_INIT has number " << (u32)ev.number << " and value " << ev.value << std::endl;
+                } break;
+                case JS_EVENT_AXIS: {
+                    // Axis movements
+                    f32 maxRange = 1.0;
+                    f32 minRange = -1.0;
+                    f32 deadZoneTemp = deadZone;
+                    i32 aIndex = mapping.axes[ev.number];
+                    if (aIndex == GP_AXIS_LT || aIndex == GP_AXIS_RT) {
+                        minRange = 0.0;
+                        deadZoneTemp = 0.0;
+                    }
+                    if (aIndex >= IO_GAMEPAD_MAX_AXES) {
+                        continue; // Unsupported
+                    }
+                    f32 val = map((f32)ev.value, -32767.0, 32767.0, minRange, maxRange);
+                    // cout << "axis = " << aIndex << ", val = " << val << std::endl;
+                    if (abs(val) < deadZoneTemp) {
+                        axis.array[aIndex] = 0.0;
                     } else {
-                        axis.array[aIndex] = (val+deadZoneTemp) / (-minRange-deadZoneTemp);
+                        if (val >= 0.0) {
+                            axis.array[aIndex] = (val-deadZoneTemp) / (1.0-deadZoneTemp);
+                        } else {
+                            axis.array[aIndex] = (val+deadZoneTemp) / (1.0-deadZoneTemp);
+                        }
+                        if (abs(axis.array[aIndex]) > 0.1) {
+                            rawInputDevice->rawInput->AnyGPCode = aIndex + KC_GP_AXIS_LS_X;
+                            rawInputDevice->rawInput->AnyGP.state = BUTTON_PRESSED_BIT;
+                            rawInputDevice->rawInput->AnyGPIndex = index;
+                        }
                     }
-                    if (abs(axis.array[aIndex]) > 0.1) {
-                        rawInputDevice->rawInput->AnyGPCode = aIndex + KC_GP_AXIS_LS_X;
+                    if (axisCurve != 1.0) {
+                        bool negative = axis.array[aIndex] < 0.0;
+                        axis.array[aIndex] = pow(abs(axis.array[aIndex]), axisCurve);
+                        if (negative) {
+                            axis.array[aIndex] *= -1.0;
+                        }
+                    }
+                    handleButton(axisPush[aIndex*2], axis.array[aIndex] > 0.5,    aIndex*2 + KC_GP_AXIS_LS_RIGHT,
+                        rawInputDevice->rawInput, index);
+                    handleButton(axisPush[aIndex*2+1], axis.array[aIndex] < -0.5, aIndex*2 + KC_GP_AXIS_LS_LEFT,
+                        rawInputDevice->rawInput, index);
+                } break;
+                case JS_EVENT_BUTTON: {
+                    // Button presses
+                    i32 bIndex = mapping.buttons[ev.number];
+                    if (bIndex >= KC_GP_AXIS_LS_RIGHT && bIndex <= KC_GP_AXIS_H0_UP) {
+                        i32 aIndex = (bIndex-KC_GP_AXIS_LS_RIGHT);
+                        bool left = aIndex % 2 == 1;
+                        aIndex /= 2;
+                        handleButton(axisPush[bIndex-KC_GP_AXIS_LS_RIGHT], ev.value != 0, bIndex,
+                            rawInputDevice->rawInput, index);
+                        if (ev.value) {
+                            axis.array[aIndex] = left ? -1.0 : 1.0;
+                        } else {
+                            axis.array[aIndex] = 0.0;
+                        }
+                    } else if (bIndex < KC_GP_BTN_A || bIndex > KC_GP_AXIS_H0_UP) {
+                        continue; // Unsupported
+                    }
+                    rawInputDevice->rawInput->AnyGPCode = bIndex;
+                    if (ev.value) {
                         rawInputDevice->rawInput->AnyGP.state = BUTTON_PRESSED_BIT;
-                        rawInputDevice->rawInput->AnyGPIndex = index;
+                        button[bIndex-KC_GP_BTN_A].Press();
+                    } else {
+                        rawInputDevice->rawInput->AnyGP.state = BUTTON_RELEASED_BIT;
+                        button[bIndex-KC_GP_BTN_A].Release();
                     }
-                }
-                if (axisCurve != 1.0) {
-                    bool negative = axis.array[aIndex] < 0.0;
-                    axis.array[aIndex] = pow(abs(axis.array[aIndex]), axisCurve);
-                    if (negative) {
-                        axis.array[aIndex] *= -1.0;
-                    }
-                }
-                handleButton(axisPush[aIndex*2], axis.array[aIndex] > 0.5,    aIndex*2 + KC_GP_AXIS_LS_RIGHT,
-                             rawInputDevice->rawInput, index);
-                handleButton(axisPush[aIndex*2+1], axis.array[aIndex] < -0.5, aIndex*2 + KC_GP_AXIS_LS_LEFT,
-                             rawInputDevice->rawInput, index);
+                    rawInputDevice->rawInput->AnyGPIndex = index;
+                } break;
             }
         }
         if (axis.vec.H0.x != 0.0 && axis.vec.H0.y != 0.0) {
@@ -356,28 +443,36 @@ namespace io {
                      rawInputDevice->rawInput, index);
         handleButton(hat[3], axis.vec.H0.x < 0.0 && axis.vec.H0.y < 0.0, KC_GP_AXIS_H0_UP_LEFT,
                      rawInputDevice->rawInput, index);
-        // for (u32 i = 0; i < IO_GAMEPAD_MAX_AXES; i++) {
-        //     if (axisPush[i*2].Pressed()) {
-        //         cout << "Pressed " << KeyCodeName(i*2 + KC_GP_AXIS_LS_RIGHT) << std::endl;
-        //     }
-        //     if (axisPush[i*2+1].Pressed()) {
-        //         cout << "Pressed " << KeyCodeName(i*2+1 + KC_GP_AXIS_LS_RIGHT) << std::endl;
-        //     }
-        //     if (axisPush[i*2].Released()) {
-        //         cout << "Released " << KeyCodeName(i*2 + KC_GP_AXIS_LS_RIGHT) << std::endl;
-        //     }
-        //     if (axisPush[i*2+1].Released()) {
-        //         cout << "Released " << KeyCodeName(i*2+1 + KC_GP_AXIS_LS_RIGHT) << std::endl;
-        //     }
-        // }
-        // for (u32 i = 0; i < 4; i++) {
-        //     if (hat[i].Pressed()) {
-        //         cout << "Pressed " << KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT) << std::endl;
-        //     }
-        //     if (hat[i].Released()) {
-        //         cout << "Released " << KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT) << std::endl;
-        //     }
-        // }
+        for (u32 i = 0; i < IO_GAMEPAD_MAX_AXES; i++) {
+            if (axisPush[i*2].Pressed()) {
+                cout << "Pressed " << KeyCodeName(i*2 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+            }
+            if (axisPush[i*2+1].Pressed()) {
+                cout << "Pressed " << KeyCodeName(i*2+1 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+            }
+            if (axisPush[i*2].Released()) {
+                cout << "Released " << KeyCodeName(i*2 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+            }
+            if (axisPush[i*2+1].Released()) {
+                cout << "Released " << KeyCodeName(i*2+1 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+            }
+        }
+        for (u32 i = 0; i < 4; i++) {
+            if (hat[i].Pressed()) {
+                cout << "Pressed " << KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT) << std::endl;
+            }
+            if (hat[i].Released()) {
+                cout << "Released " << KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT) << std::endl;
+            }
+        }
+        for (u32 i = 0; i < IO_GAMEPAD_MAX_BUTTONS; i++) {
+            if (button[i].Pressed()) {
+                cout << "Pressed " << KeyCodeName(i+KC_GP_BTN_A) << std::endl;
+            }
+            if (button[i].Released()) {
+                cout << "Released " << KeyCodeName(i+KC_GP_BTN_A) << std::endl;
+            }
+        }
     }
 
     xcb_atom_t xcbGetAtom(xcb_connection_t* connection, bool onlyIfExists, const String& name) {

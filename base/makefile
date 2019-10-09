@@ -15,7 +15,7 @@ WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.1.82.0
 # These are all the library dependencies you need to link to in order to use the entire library
 #		Linux:
 #	memory.o: pthread
-#	io_linux.o: xcb, evdev, xkbcommon, xkbcommon-x11, xcb-xkb
+#	io_linux.o: xcb, xkbcommon, xkbcommon-x11, xcb-xkb
 #		- GLX: X11, X11-xcb
 #	vk.o: vulkan
 #		Windows:

@@ -30,12 +30,18 @@
 #include <linux/joystick.h>
 #include <unistd.h>
 
+// If you want to provide another default mapping, this could help debug it.
+// #define IO_GAMEPAD_LOGGING_VERBOSE
+
 namespace io {
+
+    const i32 GAMEPAD_MAPPING_MAX_AXES = 12;
+    const i32 GAMEPAD_MAPPING_MAX_BUTTONS = 20;
 
     struct GamepadMapping {
         // Just some overkill numbers to prevent segfaults in the case of a really wacky controller
-        u8 axes[12];
-        u8 buttons[20];
+        u8 axes[GAMEPAD_MAPPING_MAX_AXES];
+        u8 buttons[GAMEPAD_MAPPING_MAX_BUTTONS];
         void FromName(String name);
     };
 
@@ -174,7 +180,7 @@ namespace io {
                 break;
             case GAMEPAD_MAPPING_UNDEFINED:
                 *this = gamepadMappingXbox;
-                cout << "Unknown gamepad. Using Some wacky one by default." << std::endl;
+                cout << "Unknown gamepad. Using Xbox one by default." << std::endl;
                 break;
         }
     }
@@ -185,6 +191,7 @@ namespace io {
         String path;
         i32 fd;
         u32 version;
+        f32 retryTimer;
     };
 
     RawInputDevice::~RawInputDevice() {
@@ -207,11 +214,12 @@ namespace io {
         return *this;
     }
 
-    bool RawInputDeviceInit(RawInputDevice *rid, i32 fd, String&& path, RawInputFeatureBits enableMask) {
+    void RawInputDeviceInit(RawInputDevice *rid, i32 fd, String&& path, RawInputFeatureBits enableMask) {
         if (rid->data == nullptr) {
             rid->data = new RawInputDeviceData;
         }
         rid->data->fd = fd;
+        rid->data->retryTimer = -1.0;
         rid->data->path = std::move(path);
         rid->data->name.Resize(128);
         if (-1 == ioctl(fd, JSIOCGNAME(rid->data->name.size), rid->data->name.data)) {
@@ -220,6 +228,7 @@ namespace io {
         if (-1 == ioctl(fd, JSIOCGVERSION, &rid->data->version)) {
             rid->data->version = UINT32_MAX;
         }
+        // TODO: Recognize Joysticks separately
         rid->type = GAMEPAD;
         cout << "RawInputDevice from path \"" << rid->data->path << "\":\n"
         "\t   Type: " << RawInputDeviceTypeString[rid->type] << "\n"
@@ -237,15 +246,17 @@ namespace io {
             cout << "\tJoystick has " << (u32)buttons << " buttons." << std::endl;
         }
         rid->data->mapping.FromName(rid->data->name.data);
-        return true;
     }
 
     bool GetRawInputDeviceEvent(Ptr<RawInputDevice> rid, js_event *dst) {
         ssize_t rc = read(rid->data->fd, dst, sizeof(js_event));
-        if (rc == sizeof(js_event)) {
-            return true;
+        if (rc == -1 && errno != EAGAIN) {
+            cout << "Lost raw input device " << rid->data->path << std::endl;
+            close(rid->data->fd);
+            rid->data->retryTimer = 1.0;
+            return false;
         }
-        return false;
+        return rc == sizeof(js_event);
     }
 
     struct RawInputData {
@@ -277,17 +288,16 @@ namespace io {
             if (fd < 0) {
                 if (errno == EACCES) {
                     cout << "Permission denied opening device with path \""
-                         << path << "\"." << std::endl;// Giving up." << std::endl;
-                    // return true;
+                         << path << "\"." << std::endl;
                 }
                 continue;
             }
             // We got a live one boys!
             RawInputDevice device;
-            if (RawInputDeviceInit(&device, fd, std::move(path), enableMask)) {
-                device.rawInput = this;
-                devices.Append(std::move(device));
-                switch (device.type) {
+            RawInputDeviceInit(&device, fd, std::move(path), enableMask);
+            device.rawInput = this;
+            devices.Append(std::move(device));
+            switch (device.type) {
                 case KEYBOARD:
                     // TODO: Implement raw keyboards
                     break;
@@ -305,7 +315,6 @@ namespace io {
                     break;
                 case UNSUPPORTED:
                     break;
-                }
             }
         }
         cout << "Total time to check 32 raw input devices: "
@@ -317,10 +326,10 @@ namespace io {
     void RawInput::Update(f32 timestep) {
         // TODO: The rest of the raw input device types.
         AnyGP.Tick(timestep);
-        // if (window != nullptr) {
-        //     if (!window->focused)
-        //         return;
-        // }
+        if (window != nullptr) {
+            if (!window->focused)
+                return;
+        }
         for (i32 i = 0; i < gamepads.size; i++) {
             gamepads[i].Update(timestep, i);
         }
@@ -345,6 +354,19 @@ namespace io {
         if (!rawInputDevice.Valid()) {
             return;
         }
+        if (rawInputDevice->data->retryTimer != -1.0) {
+            rawInputDevice->data->retryTimer -= timestep;
+            if (rawInputDevice->data->retryTimer < 0.0) {
+                i32 fd = open(rawInputDevice->data->path.data, O_RDONLY | O_NONBLOCK);
+                if (fd >= 0) {
+                    String path(std::move(rawInputDevice->data->path)); // Kinda weird but if it moved in place it would self destruct lol
+                    RawInputDeviceInit(&(*rawInputDevice), fd, std::move(path), RAW_INPUT_ENABLE_GAMEPAD_BIT);
+                } else {
+                    rawInputDevice->data->retryTimer = 1.0;
+                }
+            }
+            return;
+        }
         for (u32 i = 0; i < IO_GAMEPAD_MAX_BUTTONS; i++) {
             button[i].Tick(timestep);
         }
@@ -359,15 +381,17 @@ namespace io {
         while (GetRawInputDeviceEvent(rawInputDevice, &ev)) {
             switch (ev.type) {
                 case JS_EVENT_INIT: {
+                    // Not sure what this is for... seems to not be triggered ever???
                     cout << "JS_EVENT_INIT has number " << (u32)ev.number << " and value " << ev.value << std::endl;
                 } break;
                 case JS_EVENT_AXIS: {
-                    // Axis movements
                     f32 maxRange = 1.0;
                     f32 minRange = -1.0;
                     f32 deadZoneTemp = deadZone;
+                    if (ev.number >= GAMEPAD_MAPPING_MAX_AXES) continue; // Let's not make crazy things happen
                     i32 aIndex = mapping.axes[ev.number];
                     if (aIndex == GP_AXIS_LT || aIndex == GP_AXIS_RT) {
+                        // No such thing as an outward trigger pull AFAIK
                         minRange = 0.0;
                         deadZoneTemp = 0.0;
                     }
@@ -403,9 +427,11 @@ namespace io {
                         rawInputDevice->rawInput, index);
                 } break;
                 case JS_EVENT_BUTTON: {
-                    // Button presses
+                    if (ev.number >= GAMEPAD_MAPPING_MAX_BUTTONS) continue; // No tomfuckery here, oh no
                     i32 bIndex = mapping.buttons[ev.number];
                     if (bIndex >= KC_GP_AXIS_LS_RIGHT && bIndex <= KC_GP_AXIS_H0_UP) {
+                        // In the case where buttons have to be mapped to axes
+                        // Like how Sony's Playstation 3 controller uses buttons for the D-pad
                         i32 aIndex = (bIndex-KC_GP_AXIS_LS_RIGHT);
                         bool left = aIndex % 2 == 1;
                         aIndex /= 2;
@@ -443,6 +469,7 @@ namespace io {
                      rawInputDevice->rawInput, index);
         handleButton(hat[3], axis.vec.H0.x < 0.0 && axis.vec.H0.y < 0.0, KC_GP_AXIS_H0_UP_LEFT,
                      rawInputDevice->rawInput, index);
+#ifdef IO_GAMEPAD_LOGGING_VERBOSE
         for (u32 i = 0; i < IO_GAMEPAD_MAX_AXES; i++) {
             if (axisPush[i*2].Pressed()) {
                 cout << "Pressed " << KeyCodeName(i*2 + KC_GP_AXIS_LS_RIGHT) << std::endl;
@@ -473,6 +500,7 @@ namespace io {
                 cout << "Released " << KeyCodeName(i+KC_GP_BTN_A) << std::endl;
             }
         }
+#endif
     }
 
     xcb_atom_t xcbGetAtom(xcb_connection_t* connection, bool onlyIfExists, const String& name) {

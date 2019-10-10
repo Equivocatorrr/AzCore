@@ -144,7 +144,8 @@ void AddWidget(Widget *parent, Widget *newWidget, bool deeper = false) {
 void MainMenu::Initialize() {
     ListV *listV = new ListV();
     listV->color = vec4(0.0);
-    listV->highlight = vec4(0.0);
+    listV->highlight = vec4(vec3(0.0), 0.1);
+    listV->selectionDefault = 3;
 
     Widget *spacer = new Widget();
     spacer->size.y = 0.3;
@@ -194,7 +195,7 @@ void MainMenu::Initialize() {
 
     ListH *spacingList = new ListH();
     spacingList->color = vec4(0.0);
-    spacingList->highlight = vec4(0.0);
+    spacingList->highlight = vec4(vec3(0.0), 0.2);
     spacingList->size.y = 0.0;
     spacingList->selectionDefault = 1;
 
@@ -439,6 +440,7 @@ void PlayMenu::Initialize() {
     screenListH->color = 0.0;
     screenListH->highlight = 0.0;
     screenListH->occludes = false;
+    screenListH->selectionDefault = 1;
     AddWidget(&screen, screenListH);
     Widget *spacer = new Widget();
     spacer->fractionWidth = true;
@@ -466,6 +468,7 @@ void PlayMenu::Initialize() {
     gridBase->margin = vec2(0.0);
     gridBase->color = 0.0;
     gridBase->highlight = 0.0;
+    gridBase->selectionDefault = 0;
 
     Button *halfWidth = new Button();
     halfWidth->fractionWidth = true;

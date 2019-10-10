@@ -142,6 +142,8 @@ void Manager::EventInitialize() {
     basePhysical.basis.circle.r = 128.0;
     basePhysical.pos = 0.0;
     CreateSpawn();
+    camPos = enemySpawns[0].pos * 0.5;
+    camZoom = min(globals->rendering.screenSize.x, globals->rendering.screenSize.y) / 1500.0;
 }
 
 void Manager::EventSync() {
@@ -697,8 +699,7 @@ void DoubleBufferArray<T>::Synchronize() {
     buffer = globals->objects.buffer;
 
     for (u16 &index : destroyed) {
-        // It should already be negative, so decrement is an increment of the generation.
-        array[!buffer][index].id.generation = -(array[!buffer][index].id.generation+1);
+        array[!buffer][index].id.generation = -array[!buffer][index].id.generation-1;
         empty.Append(index);
     }
     count -= destroyed.size;
@@ -742,6 +743,12 @@ void DoubleBufferArray<T>::Create(T &obj) {
 template<typename T>
 void DoubleBufferArray<T>::Destroy(Id id) {
     mutex.lock();
+    if (array[!buffer][id.index].id != id) {
+        // std::cout << "Attempt to destroy an object of the wrong generation! Expected gen = "
+        //           << id.generation << ", actual gen = " << array[!buffer][id.index].id.generation << std::endl;
+        mutex.unlock();
+        return;
+    }
     array[!buffer][id.index].EventDestroy();
     for (i32 i = 0; i < destroyed.size; i++) {
         if (destroyed[i] == id.index) {
@@ -790,6 +797,7 @@ Tower::Tower(TowerType _type) {
 
 void Tower::EventCreate() {
     selected = false;
+    disabled = false;
     shootTimer = 0.0;
     field.pos = physical.pos;
     field.angle = physical.angle;
@@ -983,7 +991,7 @@ void Enemy::Update(f32 timestep) {
         if (other.id.generation < 0 || other.type != TOWER_FAN || other.disabled) continue;
         if (physical.Collides(other.field)) {
             vec2 deltaP = physical.pos - other.physical.pos;
-            physical.Impulse(normalize(deltaP) * max((other.range + physical.basis.circle.r - abs(deltaP)), 0.0) * 5000.0 / pow(size, 1.5), timestep);
+            physical.Impulse(normalize(deltaP) * max((other.range + physical.basis.circle.r - abs(deltaP)), 0.0) * 2500.0 / pow(size, 1.5), timestep);
             if (other.damage != 0) {
                 if (random(0.0, 1.0, globals->rng) <= (f32)other.damage*timestep) {
                     hitpoints--;
@@ -1062,7 +1070,7 @@ void Bullet::Update(f32 timestep) {
     physical.Update(timestep);
     physical.UpdateActual();
     lifetime -= timestep;
-    if (physical.aabb.minPos.x > globals->rendering.screenSize.x || physical.aabb.minPos.y > globals->rendering.screenSize.y || lifetime <= 0.0) {
+    if (lifetime <= 0.0) {
         globals->entities.bullets.Destroy(id);
     }
 }

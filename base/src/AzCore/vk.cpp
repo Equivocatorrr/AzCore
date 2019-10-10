@@ -208,8 +208,10 @@ namespace vk {
 #elif defined(_WIN32)
         void *ptr = malloc(aligned);
 #endif
+        instance->data.allocationMutex.lock();
         instance->data.allocations.Append({ptr, aligned});
         instance->data.totalHeapMemory += aligned;
+        instance->data.allocationMutex.unlock();
         return ptr;
     }
 
@@ -222,6 +224,7 @@ namespace vk {
         size_t aligned = align(size, alignment);
         size_t originalSize = 0;
         Instance::data_t::Allocation *allocation = nullptr;
+        instance->data.allocationMutex.lock();
         for (auto& i : instance->data.allocations) {
             if (i.ptr == pOriginal) {
                 originalSize = i.size;
@@ -242,6 +245,7 @@ namespace vk {
         allocation->size = aligned;
         instance->data.totalHeapMemory += aligned;
         instance->data.totalHeapMemory -= originalSize;
+        instance->data.allocationMutex.unlock();
         memcpy(ptr, pOriginal, min(originalSize, size));
         free(pOriginal);
         return ptr;
@@ -255,6 +259,7 @@ namespace vk {
         Instance *instance = (Instance*)pUserData;
         i32 index = 0;
         size_t originalSize = 0;
+        instance->data.allocationMutex.lock();
         for (auto& i : instance->data.allocations) {
             if (i.ptr == pMemory) {
                 originalSize = i.size;
@@ -268,6 +273,7 @@ namespace vk {
         }
         instance->data.allocations.Erase(index);
         instance->data.totalHeapMemory -= originalSize;
+        instance->data.allocationMutex.unlock();
         free(pMemory);
     }
 

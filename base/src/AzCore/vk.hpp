@@ -876,6 +876,7 @@ namespace vk {
                 size_t size;
             };
             List<Allocation> allocations{};
+            Mutex allocationMutex;
             size_t totalHeapMemory=0;
             VkAllocationCallbacks allocationCallbacks;
         } data;

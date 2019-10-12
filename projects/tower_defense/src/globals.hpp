@@ -39,6 +39,7 @@ struct Globals {
     bool SaveSettings();
     inline void Framerate(const f32 &fr) {
         framerate = fr;
+        objects.timestep = 1.0 / framerate;
         frameDuration = Nanoseconds(1000000000/(i32)fr);
     }
 };

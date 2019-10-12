@@ -12,9 +12,25 @@ const char* towerStrings[TOWER_MAX_RANGE+1] = {
     "Gun",
     "Shotgun",
     "Fan",
-    "Gauss",
     "Shocker",
+    "Gauss",
     "Flak"
+};
+const i32 towerCosts[TOWER_MAX_RANGE+1] = {
+    2500,
+    5000,
+    15000,
+    30000,
+    50000,
+    200000
+};
+const char* towerDescriptions[TOWER_MAX_RANGE+1] = {
+    "A TOMMY GUN",
+    "Have a look at my BOOMSTICK",
+    "Blow away, windbag",
+    "An AOE burst tower",
+    "Massive damage single-shot",
+    "Multiple explosive flak shots that deal AOE damage"
 };
 
 const Tower towerGunTemplate = Tower(
@@ -24,11 +40,11 @@ const Tower towerGunTemplate = Tower(
     {vec2(0.0), 400.0},                         // fieldPhysicalBasis
     TOWER_GUN,                                  // TowerType
     400.0,                                      // range
-    0.1,                                        // shootInterval
+    0.125,                                      // shootInterval
     1.0,                                        // bulletSpread (degrees)
     1,                                          // bulletCount
-    10,                                         // damage
-    500.0,                                      // bulletSpeed
+    12,                                         // damage
+    800.0,                                      // bulletSpeed
     50.0,                                       // bulletSpeedVariability
     0,                                          // bulletExplosionDamage
     0.0,                                        // bulletExplosionRange
@@ -39,14 +55,14 @@ const Tower towerShotgunTemplate = Tower(
     BOX,                                        // CollisionType
     {vec2(-16.0), vec2(16.0)},                  // PhysicalBasis
     CIRCLE,                                     // fieldCollisionType
-    {vec2(0.0), 250.0},                         // fieldPhysicalBasis
+    {vec2(0.0), 300.0},                         // fieldPhysicalBasis
     TOWER_SHOTGUN,                              // TowerType
-    250.0,                                      // range
+    300.0,                                      // range
     1.0,                                        // shootInterval
-    12.0,                                       // bulletSpread (degrees)
-    20,                                         // bulletCount
-    10,                                         // damage
-    600.0,                                      // bulletSpeed
+    9.0,                                        // bulletSpread (degrees)
+    15,                                         // bulletCount
+    15,                                         // damage
+    900.0,                                      // bulletSpeed
     200.0,                                      // bulletSpeedVariability
     0,                                          // bulletExplosionDamage
     0.0,                                        // bulletExplosionRange
@@ -75,14 +91,14 @@ const Tower towerGaussTemplate = Tower(
     BOX,                                        // CollisionType
     {vec2(-32.0), vec2(32.0)},                  // PhysicalBasis
     CIRCLE,                                     // fieldCollisionType
-    {vec2(0.0, 0.0), 800.0},                    // fieldPhysicalBasis
+    {vec2(0.0, 0.0), 600.0},                    // fieldPhysicalBasis
     TOWER_GAUSS,                                // TowerType
-    800.0,                                      // range
-    2.0,                                        // shootInterval
+    600.0,                                      // range
+    3.0,                                        // shootInterval
     3.0,                                        // bulletSpread (degrees)
     1,                                          // bulletCount
     2000,                                       // damage
-    2400.0,                                     // bulletSpeed
+    2000.0,                                     // bulletSpeed
     0.0,                                        // bulletSpeedVariability
     0,                                          // bulletExplosionDamage
     0.0,                                        // bulletExplosionRange
@@ -93,13 +109,13 @@ const Tower towerShockerTemplate = Tower(
     CIRCLE,                                     // CollisionType
     {vec2(0.0), 16.0},                          // PhysicalBasis
     CIRCLE,                                     // fieldCollisionType
-    {vec2(0.0, 0.0), 100.0},                    // fieldPhysicalBasis
+    {vec2(0.0, 0.0), 120.0},                    // fieldPhysicalBasis
     TOWER_SHOCKWAVE,                            // TowerType
-    100.0,                                      // range
+    120.0,                                      // range
     1.0,                                        // shootInterval
     0.0,                                        // bulletSpread (degrees)
     1,                                          // bulletCount
-    200,                                        // damage
+    120,                                        // damage
     1.0,                                        // bulletSpeed
     0.0,                                        // bulletSpeedVariability
     0,                                          // bulletExplosionDamage
@@ -116,12 +132,12 @@ const Tower towerFlakTemplate = Tower(
     500.0,                                      // range
     1.5,                                        // shootInterval
     6.0,                                        // bulletSpread (degrees)
-    8,                                          // bulletCount
-    50,                                         // damage
-    400.0,                                      // bulletSpeed
+    5,                                          // bulletCount
+    100,                                        // damage
+    500.0,                                      // bulletSpeed
     100.0,                                      // bulletSpeedVariability
     100,                                        // bulletExplosionDamage
-    50.0,                                       // bulletExplosionRange
+    80.0,                                       // bulletExplosionRange
     vec4(1.0, 0.0, 0.8, 1.0)                    // color
 );
 
@@ -161,45 +177,16 @@ void Manager::EventSync() {
     bullets.GetUpdateChunks(updateChunks);
     winds.GetUpdateChunks(updateChunks);
     explosions.GetUpdateChunks(updateChunks);
-    readyForDraw = true;
-}
 
-void Manager::EventUpdate() {
-    mouse = vec2(globals->input.cursor
-          - vec2i(globals->window.width, globals->window.height) / 2) / camZoom + camPos;
-    if (timestep != 0.0) {
-        const i32 concurrency = 4;
-        Array<Thread> threads(concurrency);
-        for (i32 i = 0; i < updateChunks.size; i++) {
-            for (i32 j = 0; j < concurrency; j++) {
-                UpdateChunk &chunk = updateChunks[i];
-                threads[j] = Thread(chunk.updateCallback, chunk.theThisPointer, j, concurrency);
-            }
-            for (i32 j = 0; j < concurrency; j++) {
-                if (threads[j].joinable()) {
-                    threads[j].join();
-                }
-            }
+    if (timestep != 0.0 && hitpointsLeft > 0) {
+        enemyTimer -= timestep;
+        if (enemies.count == 0) {
+            enemyTimer = 0.0;
         }
-
-        if (hitpointsLeft > 0) {
-            enemyTimer -= timestep;
-            while (enemyTimer <= 0.0) {
-                Enemy enemy;
-                enemies.Create(enemy);
-                enemyTimer += enemyInterval;
-            }
+        while (enemyTimer <= 0.0 && hitpointsLeft > 0) {
+            Enemy enemy;
+            enemies.Create(enemy); // Enemy::EventCreate() increases enemyTimer based on HP
         }
-    }
-    if (globals->objects.Pressed(KC_KEY_R)) {
-        for (i32 i = 0; i < towers.size; i++) {
-            if (towers[i].id.generation >= 0) {
-                towers.Destroy(towers[i].id);
-            }
-        }
-    }
-    if (globals->objects.Pressed(KC_KEY_T)) {
-        placeMode = !placeMode;
     }
     if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
         if (globals->gui.playMenu.list->MouseOver()) {
@@ -215,8 +202,11 @@ void Manager::EventUpdate() {
     if (globals->objects.Pressed(KC_KEY_SPACE) || globals->gui.playMenu.buttonStartWave->state.Released()) {
         if (!waveActive) {
             wave++;
-            enemyInterval = max(10.0 / (f32)(wave+19), 0.0001);
-            hitpointsLeft += (i64)(pow((f64)wave, (f64)1.5) * 1000.0d);
+            f64 factor = pow((f64)1.2, (f64)(wave+3));
+            hitpointsPerSecond = (f32)((i32)(factor * 5.0d) * 100);
+            hitpointsLeft += hitpointsPerSecond;
+            // Average wave length is wave+7 seconds
+            hitpointsPerSecond /= wave+7;
             globals->objects.paused = false;
             waveActive = true;
             globals->gui.playMenu.buttonStartWave->string = ToWString("Pause");
@@ -229,11 +219,15 @@ void Manager::EventUpdate() {
             globals->objects.paused = !globals->objects.paused;
         }
     }
-    if (hitpointsLeft == 0 && waveActive) {
+    if (hitpointsLeft == 0 && waveActive && enemies.count == 0) {
         waveActive = false;
         globals->gui.playMenu.buttonStartWave->string = ToWString("Start Wave");
     }
-    if (globals->gui.mouseoverDepth > 0) return; // Don't accept mouse input
+
+    if (globals->gui.mouseoverDepth > 0) {
+        readyForDraw = true;
+        return; // Don't accept mouse input
+    }
     if (globals->objects.Pressed(KC_MOUSE_SCROLLUP)) {
         camZoom *= 1.1;
     } else if (globals->objects.Pressed(KC_MOUSE_SCROLLDOWN)) {
@@ -270,18 +264,43 @@ void Manager::EventUpdate() {
         tower.physical.pos = mouse;
         tower.physical.angle = placingAngle;
         canPlace = true;
-        for (i32 i = 0; i < towers.size; i++) {
-            const Tower &other = towers[i];
-            if (other.id.generation < 0) continue;
-            if (other.physical.Collides(tower.physical)) {
-                canPlace = false;
-                break;
+        if (money < towerCosts[towerType]) {
+            canPlace = false;
+        } else {
+            for (i32 i = 0; i < towers.size; i++) {
+                const Tower &other = towers[i];
+                if (other.id.generation < 0) continue;
+                if (other.physical.Collides(tower.physical)) {
+                    canPlace = false;
+                    break;
+                }
             }
         }
         if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
             if (canPlace) {
                 towers.Create(tower);
-                // placeMode = false;
+                money -= towerCosts[towerType];
+            }
+        }
+    }
+    readyForDraw = true;
+}
+
+void Manager::EventUpdate() {
+    mouse = vec2(globals->input.cursor
+          - vec2i(globals->window.width, globals->window.height) / 2) / camZoom + camPos;
+    if (timestep != 0.0) {
+        const i32 concurrency = 4;
+        Array<Thread> threads(concurrency);
+        for (i32 i = 0; i < updateChunks.size; i++) {
+            for (i32 j = 0; j < concurrency; j++) {
+                UpdateChunk &chunk = updateChunks[i];
+                threads[j] = Thread(chunk.updateCallback, chunk.theThisPointer, j, concurrency);
+            }
+            for (i32 j = 0; j < concurrency; j++) {
+                if (threads[j].joinable()) {
+                    threads[j].join();
+                }
             }
         }
     }
@@ -699,6 +718,7 @@ void DoubleBufferArray<T>::Synchronize() {
     buffer = globals->objects.buffer;
 
     for (u16 &index : destroyed) {
+        // array[!buffer][index].EventDestroy();
         array[!buffer][index].id.generation = -array[!buffer][index].id.generation-1;
         empty.Append(index);
     }
@@ -708,11 +728,13 @@ void DoubleBufferArray<T>::Synchronize() {
         if (empty.size > 0) {
             obj.id.index = empty.Back();
             obj.id.generation = -array[!buffer][obj.id.index].id.generation;
+            // obj.EventCreate();
             array[!buffer][obj.id.index] = std::move(obj);
             empty.Erase(empty.size-1);
         } else {
             obj.id.index = array[!buffer].size;
             obj.id.generation = 0;
+            // obj.EventCreate();
             array[!buffer].Append(std::move(obj));
         }
     }
@@ -749,13 +771,13 @@ void DoubleBufferArray<T>::Destroy(Id id) {
         mutex.unlock();
         return;
     }
-    array[!buffer][id.index].EventDestroy();
     for (i32 i = 0; i < destroyed.size; i++) {
         if (destroyed[i] == id.index) {
             mutex.unlock();
             return;
         }
     }
+    array[!buffer][id.index].EventDestroy();
     destroyed.Append(id.index);
     array[!buffer][id.index].id.generation *= -1;
     mutex.unlock();
@@ -835,7 +857,6 @@ void Tower::Update(f32 timestep) {
             if (nearestEnemy != -1) {
                 const Enemy& other = globals->entities.enemies[nearestEnemy];
                 Bullet bullet;
-                bullet.physical.pos = physical.pos;
                 bullet.lifetime = range / (bulletSpeed * 0.9);
                 bullet.explosionDamage = bulletExplosionDamage;
                 bullet.explosionRange = bulletExplosionRange;
@@ -852,6 +873,7 @@ void Tower::Update(f32 timestep) {
                     bullet.physical.vel.x = cos(angle);
                     bullet.physical.vel.y = -sin(angle);
                     bullet.physical.vel *= bulletSpeed + random(-bulletSpeedVariability, bulletSpeedVariability, globals->rng);
+                    bullet.physical.pos = physical.pos + bullet.physical.vel * timestep;
                     bullet.damage = damage;
                     globals->entities.bullets.Create(bullet);
                 }
@@ -928,16 +950,16 @@ void Enemy::EventCreate() {
           * random(-1.0, 1.0, globals->rng);
         physical.pos = globals->entities.enemySpawns[spawnPoint].pos + x + y;
         physical.vel = 0.0;
-        f32 honker = random(0.0, 100000.0 / pow((f32)globals->entities.hitpointsLeft, 0.75), globals->rng);
-        if (honker < 0.001) {
+        f32 honker = random(0.0, 50000.0 / pow((f32)globals->entities.hitpointsLeft, 0.5), globals->rng);
+        if (honker < 0.04) {
             hitpoints = 250000;
-        } else if (honker < 0.1) {
+        } else if (honker < 0.5) {
             hitpoints = random(20000, 50000, globals->rng);
-        } else if (honker < 1.0) {
+        } else if (honker < 2.5) {
             hitpoints = random(5000, 10000, globals->rng);
-        } else if (honker < 5.0) {
+        } else if (honker < 10.0) {
             hitpoints = random(1000, 2500, globals->rng);
-        } else if (honker <= 25.0) {
+        } else if (honker <= 40.0) {
             hitpoints = random(200, 500, globals->rng);
         } else {
             hitpoints = random(25, 100, globals->rng);
@@ -953,8 +975,18 @@ void Enemy::EventCreate() {
         size = hitpoints;
         color = vec4(hsvToRgb(vec3(sqrt(size)/(tau*16.0) + (f32)globals->entities.wave / 9.0, min(size / 100.0, 1.0), 1.0)), 0.7);
     }
-    targetSpeed = 1000.0 / pow((f32)hitpoints, 1.0 / 3.0);
+    value = hitpoints;
+    targetSpeed = 800.0 / log((f32)hitpoints);
     size = 0.0;
+    if (!child) {
+        globals->entities.enemyTimer += 10.0 * sqrt((f32)hitpoints) / globals->entities.hitpointsPerSecond;
+    }
+}
+
+void Enemy::EventDestroy() {
+    if (hitpoints <= 0) {
+        globals->entities.money += value;
+    }
 }
 
 void Enemy::Update(f32 timestep) {
@@ -991,7 +1023,9 @@ void Enemy::Update(f32 timestep) {
         if (other.id.generation < 0 || other.type != TOWER_FAN || other.disabled) continue;
         if (physical.Collides(other.field)) {
             vec2 deltaP = physical.pos - other.physical.pos;
-            physical.Impulse(normalize(deltaP) * max((other.range + physical.basis.circle.r - abs(deltaP)), 0.0) * 2500.0 / pow(size, 1.5), timestep);
+            physical.Impulse(normalize(deltaP)
+                * max((other.range + physical.basis.circle.r - abs(deltaP)), 0.0)
+                * 5000.0 / pow(size, 1.5), timestep);
             if (other.damage != 0) {
                 if (random(0.0, 1.0, globals->rng) <= (f32)other.damage*timestep) {
                     hitpoints--;
@@ -1120,9 +1154,14 @@ void Explosion::EventCreate() {
 }
 
 void Explosion::Update(f32 timestep) {
+    // shockwaves have a growth of 5.0
+    // bullet explosions have a growth of 8.0
     physical.basis.circle.r = decay(physical.basis.circle.r, size, 1.0 / growth, timestep);
     physical.Update(timestep);
     physical.UpdateActual();
+    // Cutoff is after 5 half-lives
+    // shockwaves last 1 second
+    // bullet explosions last 5/8th seconds
     if (physical.basis.circle.r >= size * 0.9375) {
         globals->entities.explosions.Destroy(id);
     }

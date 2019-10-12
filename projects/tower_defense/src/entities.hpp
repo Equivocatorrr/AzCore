@@ -198,13 +198,15 @@ enum TowerType {
     TOWER_GUN=0,
     TOWER_SHOTGUN=1,
     TOWER_FAN=2,
-    TOWER_GAUSS=3,
-    TOWER_SHOCKWAVE=4,
+    TOWER_SHOCKWAVE=3,
+    TOWER_GAUSS=4,
     TOWER_FLAK=5,
     TOWER_MAX_RANGE=5
 };
 
 extern const char* towerStrings[TOWER_MAX_RANGE+1];
+extern const i32 towerCosts[TOWER_MAX_RANGE+1];
+extern const char* towerDescriptions[TOWER_MAX_RANGE+1];
 
 struct Tower;
 struct Enemy;
@@ -227,8 +229,9 @@ struct Manager : public Objects::Object {
     f32 enemyTimer = 0.0;
     i32 wave = 0;
     i64 hitpointsLeft = 0;
-    f32 enemyInterval = 1.0;
+    f32 hitpointsPerSecond = 200.0;
     i32 lives = 1000;
+    i32 money = 5000;
     f32 timestep;
     bool waveActive = false;
     f32 camZoom = 1.0;
@@ -290,8 +293,10 @@ struct Enemy : public Entity {
     f32 targetSpeed;
     f32 spawnTimer;
     vec4 color;
+    i32 value;
     bool child = false;
     void EventCreate();
+    void EventDestroy();
     void Update(f32 timestep);
     void Draw(Rendering::DrawingContext &context);
 };

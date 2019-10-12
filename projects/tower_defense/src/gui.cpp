@@ -410,9 +410,7 @@ void SettingsMenu::Update() {
         u64 framerate = 60;
         if (textboxFramerate->textValidate(textboxFramerate->string)) {
             framerate = clamp(WStringToU64(textboxFramerate->string), (u64)30, (u64)300);
-            globals->frameDuration = Nanoseconds(1000000000/framerate);
-            globals->objects.timestep = 1.0 / (f32)framerate;
-            globals->framerate = (f32)framerate;
+            globals->Framerate((f32)framerate);
         }
         textboxFramerate->string = ToWString(ToString(framerate));
         globals->volumeMain = sliderVolumes[0]->value / 100.0;
@@ -491,6 +489,15 @@ void PlayMenu::Initialize() {
         AddWidget(list, grid);
     }
 
+    towerInfo = new Text();
+    towerInfo->size.x = 1.0;
+    towerInfo->color = vec4(1.0);
+    towerInfo->fontIndex = globals->gui.fontIndex;
+    towerInfo->fontSize = 20.0;
+    towerInfo->string = ToWString("$MONEY");
+    AddWidget(list, towerInfo);
+
+
     spacer = new Widget();
     spacer->fractionHeight = true;
     spacer->size.y = 1.0;
@@ -507,13 +514,13 @@ void PlayMenu::Initialize() {
     buttonStartWave->string = ToWString("Start Wave");
     AddWidget(list, buttonStartWave);
 
-    info = new Text();
-    info->size.x = 1.0;
-    info->color = vec4(1.0);
-    info->fontIndex = globals->gui.fontIndex;
-    info->fontSize = 20.0;
-    info->string = ToWString("Nothing");
-    AddWidget(list, info);
+    waveInfo = new Text();
+    waveInfo->size.x = 1.0;
+    waveInfo->color = vec4(1.0);
+    waveInfo->fontIndex = globals->gui.fontIndex;
+    waveInfo->fontSize = 20.0;
+    waveInfo->string = ToWString("Nothing");
+    AddWidget(list, waveInfo);
 
     buttonMenu = new Button(*fullWidth);
     buttonMenu->string = ToWString("Menu");
@@ -525,7 +532,23 @@ void PlayMenu::Initialize() {
 }
 
 void PlayMenu::Update() {
-    info->string = ToWString("Wave: " + ToString(globals->entities.wave) + "\nWave Hitpoints Left: " + ToString(globals->entities.hitpointsLeft) + "\nLives: " + ToString(globals->entities.lives));
+    String towerInfoString = "Money: $" + ToString(globals->entities.money);
+    i32 textTower = -1;
+    if (globals->entities.placeMode) {
+        textTower = globals->entities.towerType;
+    } else {
+        for (i32 i = 0; i < towerButtons.size; i++) {
+            if (towerButtons[i]->highlighted) {
+                textTower = i;
+            }
+        }
+    }
+    if (textTower != -1) {
+        towerInfoString += "\nCost: $" + ToString(Entities::towerCosts[textTower])
+                         + "\n" + Entities::towerDescriptions[textTower];
+    }
+    towerInfo->string = ToWString(towerInfoString);
+    waveInfo->string = ToWString("Wave: " + ToString(globals->entities.wave) + "\nWave Hitpoints Left: " + ToString(globals->entities.hitpointsLeft) + "\nLives: " + ToString(globals->entities.lives));
     screen.Update(vec2(0.0), true);
     if (buttonMenu->state.Released()) {
         globals->gui.nextMenu = MenuEnum::MENU_MAIN;

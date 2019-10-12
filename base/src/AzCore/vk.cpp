@@ -203,12 +203,12 @@ namespace vk {
         Instance *instance = (Instance*)pUserData;
         size_t aligned = align(size, alignment);
         // cout << "Allocate size " << size << " with alignment " << alignment << " should be " << aligned << std::endl;
+        instance->data.allocationMutex.lock();
 #ifdef __unix
         void *ptr = aligned_alloc(alignment, aligned);
 #elif defined(_WIN32)
         void *ptr = malloc(aligned);
 #endif
-        instance->data.allocationMutex.lock();
         instance->data.allocations.Append({ptr, aligned});
         instance->data.totalHeapMemory += aligned;
         instance->data.allocationMutex.unlock();
@@ -4266,7 +4266,9 @@ failed:
         data.initted = true;
         cout << "\n\n";
         PrintDashed("Vulkan Tree Initialized");
+#ifndef VK_NO_ALLOCATION_CALLBACKS
         cout << "Total Heap Memory Used: " << FormatSize(data.totalHeapMemory) << "\nAcross " << data.allocations.size << " allocations." << std::endl;
+#endif
         cout << "\n\n";
         return true;
 failed:

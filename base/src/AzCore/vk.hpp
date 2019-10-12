@@ -38,7 +38,7 @@
 #endif
 
 // Having this defined makes keeping track of host memory precisely impossible
-// #define VK_NO_ALLOCATION_CALLBACKS
+#define VK_NO_ALLOCATION_CALLBACKS
 
 #include "common.hpp"
 #include <vulkan/vulkan.h>
@@ -869,7 +869,7 @@ namespace vk {
             Array<PhysicalDevice> physicalDevices{};
             // We hold and Init() the devices according to their parameters.
             List<Device> devices{};
-
+#ifndef VK_NO_ALLOCATION_CALLBACKS
             // Information about allocated data
             struct Allocation {
                 void *ptr;
@@ -879,6 +879,7 @@ namespace vk {
             Mutex allocationMutex;
             size_t totalHeapMemory=0;
             VkAllocationCallbacks allocationCallbacks;
+#endif
         } data;
 
         Instance();

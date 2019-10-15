@@ -1578,8 +1578,10 @@ Glyph glyfParsed::ParseSimple(glyf_header *gheader, Array<glyfPoint> *dstArray) 
 
     // Now we expand our points to always include control points and convert to normalized coordinates.
     glyfPoint *pt = points.data;
-    out.AddFromGlyfPoints(pt, endPtsOfContours[0] + 1);
-    pt += endPtsOfContours[0] + 1;
+    if (gheader->numberOfContours > 0) {
+        out.AddFromGlyfPoints(pt, endPtsOfContours[0] + 1);
+        pt += endPtsOfContours[0] + 1;
+    }
     for (i32 i = 1; i < gheader->numberOfContours; i++) {
         out.AddFromGlyfPoints(pt, endPtsOfContours[i] - endPtsOfContours[i-1]);
         pt += endPtsOfContours[i] - endPtsOfContours[i-1];

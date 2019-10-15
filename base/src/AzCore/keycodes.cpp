@@ -53,8 +53,8 @@ const char *keyCodeNames[256] = {
     "Scroll_Down",      "Scroll_Left",      "Scroll_Right",     "NULL",             // 0xac
     "NULL",             "NULL",             "H0_Up_Right",      "H0_Down_Right",    // 0xb0
     "H0_Down_Left",     "H0_Up_Left",       "KP_LeftParen",     "KP_RightParen",    // 0xb4
-    "A_Button",         "B_Button",         "C_Button",         "X_Button",         // 0xb8
-    "Y_Button",         "Z_Button",         "LB",               "RB",               // 0xbc
+    "A_Button",         "B_Button",         "C_Button",         "Y_Button",         // 0xb8
+    "X_Button",         "Z_Button",         "LB",               "RB",               // 0xbc
     "LB_2",             "RB_2",             "Select",           "Start",            // 0xc0
     "Mode",             "LS_Press",         "RS_Press",         "LS_Right",         // 0xc4
     "LS_Left",          "LS_Down",          "LS_Up",            "LT_In",            // 0xc8

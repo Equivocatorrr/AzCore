@@ -31,7 +31,7 @@
 #include <unistd.h>
 
 // If you want to provide another default mapping, this could help debug it.
-// #define IO_GAMEPAD_LOGGING_VERBOSE
+#define IO_GAMEPAD_LOGGING_VERBOSE
 
 namespace io {
 
@@ -42,146 +42,50 @@ namespace io {
         // Just some overkill numbers to prevent segfaults in the case of a really wacky controller
         u8 axes[GAMEPAD_MAPPING_MAX_AXES];
         u8 buttons[GAMEPAD_MAPPING_MAX_BUTTONS];
-        void FromName(String name);
+        void FromDevice(int fd);
     };
 
-    enum KnownGamepadMappings {
-        GAMEPAD_MAPPING_XBOX=0,
-        GAMEPAD_MAPPING_PLAYSTATION=1,
-        GAMEPAD_MAPPING_UNDEFINED
+    struct jsMapping {
+        __u8 axes[ABS_CNT];
+        __u16 buttons[(KEY_MAX - BTN_MISC + 1)];
     };
 
-    const char *gamepadMappingSearchTokens[] = {
-        "xbox",
-        "playstation"
-    };
-
-    const GamepadMapping gamepadMappingUndefined = {
-        { // axes
-            GP_AXIS_LS_X,
-            GP_AXIS_LS_Y,
-            GP_AXIS_RS_X,
-            GP_AXIS_RS_Y,
-            GP_AXIS_H0_X,
-            GP_AXIS_H0_Y,
-            255, 255, 255, 255, 255, 255
-        },
-        { // buttons
-            KC_GP_BTN_NORTH,
-            KC_GP_BTN_EAST,
-            KC_GP_BTN_SOUTH,
-            KC_GP_BTN_WEST,
-            KC_GP_BTN_TL,
-            KC_GP_BTN_TR,
-            KC_GP_AXIS_LT_IN,
-            KC_GP_AXIS_RT_IN,
-            KC_GP_BTN_SELECT,
-            KC_GP_BTN_START,
-            KC_GP_BTN_THUMBL,
-            KC_GP_BTN_THUMBR,
-            0, 0, 0, 0, 0, 0, 0, 0
-        }
-    };
-
-    const GamepadMapping gamepadMappingXbox = {
-        { // axes
-            GP_AXIS_LS_X,
-            GP_AXIS_LS_Y,
-            GP_AXIS_RS_X,
-            GP_AXIS_RS_Y,
-            GP_AXIS_RT,
-            GP_AXIS_LT,
-            GP_AXIS_H0_X,
-            GP_AXIS_H0_Y,
-            255, 255, 255, 255
-        },
-        { // buttons
-            KC_GP_BTN_A,
-            KC_GP_BTN_B,
-            KC_GP_BTN_X,
-            KC_GP_BTN_Y,
-            KC_GP_BTN_TL,
-            KC_GP_BTN_TR,
-            KC_GP_BTN_SELECT,
-            KC_GP_BTN_START,
-            KC_GP_BTN_MODE,
-            KC_GP_BTN_THUMBL,
-            KC_GP_BTN_THUMBR,
-            0, 0, 0, 0, 0, 0, 0, 0, 0
-        }
-    };
-
-    const GamepadMapping gamepadMappingPlaystation = {
-        { // axes
-            GP_AXIS_LS_X,
-            GP_AXIS_LS_Y,
-            GP_AXIS_LT,
-            GP_AXIS_RS_X,
-            GP_AXIS_RS_Y,
-            GP_AXIS_RT,
-            255, 255, 255, 255, 255, 255
-        },
-        { // buttons
-            KC_GP_BTN_SOUTH,
-            KC_GP_BTN_EAST,
-            KC_GP_BTN_NORTH,
-            KC_GP_BTN_WEST,
-            KC_GP_BTN_TL,
-            KC_GP_BTN_TR,
-            0, // KC_GP_AXIS_LT_IN
-            0, // KC_GP_AXIS_RT_IN
-            KC_GP_BTN_SELECT,
-            KC_GP_BTN_START,
-            KC_GP_BTN_MODE,
-            KC_GP_BTN_THUMBL,
-            KC_GP_BTN_THUMBR,
-            KC_GP_AXIS_H0_UP,
-            KC_GP_AXIS_H0_DOWN,
-            KC_GP_AXIS_H0_LEFT,
-            KC_GP_AXIS_H0_RIGHT,
-            0, 0, 0
-        }
-    };
-
-    void GamepadMapping::FromName(String name) {
-        // convert to lowercase
-        for (i32 i = 0; name[i] != 0; i++) {
-            if (name[i] >= 'A' && name[i] <= 'Z') {
-                name[i] += 'a' - 'A';
-            }
-        }
-        KnownGamepadMappings mapping = GAMEPAD_MAPPING_UNDEFINED;
-        bool found = false;
-        // We'll just do a dumb search
-        for (i32 i = 0; name[i] != 0 && !found; i++) {
-            for (i32 j = 0; j < GAMEPAD_MAPPING_UNDEFINED && !found; j++) {
-                if (name[i] == gamepadMappingSearchTokens[j][0]) {
-                    for (i32 x = 1; ; x++) {
-                        if (gamepadMappingSearchTokens[j][x] == 0) {
-                            mapping = (KnownGamepadMappings)j;
-                            found = true;
-                            break;
-                        }
-                        if (name[i+x] != gamepadMappingSearchTokens[j][x]) {
-                            break;
-                        }
-                    }
+    void GamepadMapping::FromDevice(int fd) {
+        jsMapping driverMap;
+        char numAxes, numButtons;
+        ioctl(fd, JSIOCGAXES, &numAxes);
+        ioctl(fd, JSIOCGBUTTONS, &numButtons);
+        ioctl(fd, JSIOCGAXMAP, driverMap.axes);
+        ioctl(fd, JSIOCGBTNMAP, driverMap.buttons);
+        bool hasLTAxis = false, hasRTAxis = false;
+        for (i32 i = 0; i < numAxes; i++) {
+            if (driverMap.axes[i] > ABS_HAT0Y) {
+                if (driverMap.axes[i] >= BTN_GAMEPAD && driverMap.axes[i] <= BTN_DPAD_RIGHT) {
+                    // Axis-to-button mapping
+                    axes[i] = 255; // Disabled for now
+                } else {
+                    axes[i] = 255;
                 }
+            } else {
+                axes[i] = driverMap.axes[i];
             }
+            if (axes[i] == GP_AXIS_LT) hasLTAxis = true;
+            if (axes[i] == GP_AXIS_RT) hasRTAxis = true;
         }
-        switch (mapping) {
-            case GAMEPAD_MAPPING_XBOX:
-                *this = gamepadMappingXbox;
-                cout << "Using mapping for Xbox." << std::endl;
-                break;
-            case GAMEPAD_MAPPING_PLAYSTATION:
-                *this = gamepadMappingPlaystation;
-                cout << "Using mapping for Playstation." << std::endl;
-                break;
-            case GAMEPAD_MAPPING_UNDEFINED:
-                *this = gamepadMappingXbox;
-                cout << "Unknown gamepad. Using Xbox one by default." << std::endl;
-                break;
+        for (i32 i = 0; i < numButtons; i++) {
+            if (driverMap.buttons[i] < BTN_GAMEPAD) {
+                buttons[i] = 0;
+            } else if (driverMap.buttons[i] <= BTN_THUMBR) {
+                buttons[i] = driverMap.buttons[i] - BTN_A + KC_GP_BTN_A;
+            } else if (driverMap.buttons[i] < BTN_DPAD_UP) {
+                buttons[i] = 0;
+            } else if (driverMap.buttons[i] <= BTN_DPAD_RIGHT) {
+                buttons[i] = KC_GP_AXIS_H0_UP - (driverMap.buttons[i] - BTN_DPAD_UP);
+            } else {
+                buttons[i] = 0;
+            }
+            if (buttons[i] == KC_GP_BTN_TL2 && hasLTAxis) buttons[i] = 0;
+            if (buttons[i] == KC_GP_BTN_TR2 && hasRTAxis) buttons[i] = 0;
         }
     }
 
@@ -245,7 +149,7 @@ namespace io {
         } else {
             cout << "\tJoystick has " << (u32)buttons << " buttons." << std::endl;
         }
-        rid->data->mapping.FromName(rid->data->name.data);
+        rid->data->mapping.FromDevice(rid->data->fd);
     }
 
     bool GetRawInputDeviceEvent(Ptr<RawInputDevice> rid, js_event *dst) {

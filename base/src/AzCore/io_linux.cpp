@@ -66,8 +66,12 @@ namespace io {
                 } else {
                     axes[i] = 255;
                 }
-            } else {
+            } else if (driverMap.axes[i] < ABS_THROTTLE) {
                 axes[i] = driverMap.axes[i];
+            } else if (driverMap.axes[i] < ABS_HAT0X) {
+                axes[i] = 255;
+            } else {
+                axes[i] = driverMap.axes[i] - 10;
             }
             if (axes[i] == GP_AXIS_LT) hasLTAxis = true;
             if (axes[i] == GP_AXIS_RT) hasRTAxis = true;

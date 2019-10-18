@@ -8,8 +8,8 @@
 #define SOUND_HPP
 
 #include "AzCore/common.hpp"
-#include "AL/al.h"
-#include "AL/alc.h"
+#include <AL/al.h>
+#include <AL/alc.h>
 
 namespace Sound {
 

@@ -1128,14 +1128,16 @@ using Map = std::map<T, B>;
 template<typename T>
 using Set = std::set<T>;
 
+#ifdef __MINGW32__
+#include "../mingw/mingw.thread.h"
+#include "../mingw/mingw.mutex.h"
+#else
 #include <mutex>
-// #ifdef __MINGW32__
-// #include <mingw/mutex.h>
-// #endif
+#include <thread>
+#endif
 
 using Mutex = std::mutex;
 
-#include <thread>
 
 using Thread = std::thread;
 

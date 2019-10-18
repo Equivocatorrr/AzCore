@@ -2,15 +2,15 @@ IDIR=src
 SDIR=src
 ODIR=obj
 
+WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.1.121.2
+
 CC=g++
 WCC=x86_64-w64-mingw32-g++
 WRC=x86_64-w64-mingw32-windres $(SDIR)/resources.rc -O coff
 RCFLAGS=-I $(IDIR)
 CFLAGS=-I$(IDIR) -Wall -std=c++17 -fsingle-precision-constant -DIO_FOR_VULKAN
-LCFLAGS=-Wl,-z,origin -Wl,-rpath,'$$ORIGIN/lib'
-WCFLAGS=-D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -static -lpthread
-
-WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.1.82.0
+LCFLAGS=$(CFLAGS) #-Wl,-z,origin -Wl,-rpath,'$$ORIGIN/lib'
+WCFLAGS=$(CFLAGS) -D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -I$(WIN_VULKAN_SDK)/Include/
 
 # These are all the library dependencies you need to link to in order to use the entire library
 #		Linux:
@@ -21,7 +21,7 @@ WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.1.82.0
 #		Windows:
 #	io_win32.o: gdi32 dinput8 dxguid
 #	vk.o: vulkan-1
-#LIBS_L=-lvulkan -lxcb -levdev -lpthread -lxkbcommon -lxkbcommon-x11 -lxcb-xkb
+#LIBS_L=-lvulkan -lxcb -lpthread -lxkbcommon -lxkbcommon-x11 -lxcb-xkb
 #LIBS_L_GLX= $(LIBS_L) -lX11 -lX11-xcb
 #LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib32/" -lvulkan-1 -lgdi32
 
@@ -38,19 +38,19 @@ OBJ_WD = $(patsubst %,$(ODIR)/Windows/Debug/%,$(_OBJ_W))
 
 $(ODIR)/Linux/Debug/%.o: $(SDIR)/AzCore/%.cpp $(DEPS)
 	@mkdir -p $(@D)
-	$(CC) -c -o $@ $< -g -rdynamic $(CFLAGS)
+	$(CC) -c -o $@ $< -g -rdynamic $(LCFLAGS)
 
 $(ODIR)/Windows/Debug/%.o: $(SDIR)/AzCore/%.cpp $(DEPS)
 	@mkdir -p $(@D)
-	$(WCC) -c -o $@ $< -g $(CFLAGS)
+	$(WCC) -c -o $@ $< -g $(WCFLAGS)
 
 $(ODIR)/Linux/Release/%.o: $(SDIR)/AzCore/%.cpp $(DEPS)
 	@mkdir -p $(@D)
-	$(CC) -c -o $@ $< -g -O2 $(CFLAGS) -DNDEBUG
+	$(CC) -c -o $@ $< -g -O2 $(LCFLAGS) -DNDEBUG
 
 $(ODIR)/Windows/Release/%.o: $(SDIR)/AzCore/%.cpp $(DEPS)
 	@mkdir -p $(@D)
-	$(WCC) -c -o $@ $< -O2 $(CFLAGS) -DNDEBUG
+	$(WCC) -c -o $@ $< -O2 $(WCFLAGS) -DNDEBUG
 
 $(ODIR)/Windows/resources.o: $(IDIR)/resources.h $(SDIR)/resources.rc manifest.xml icon.ico $(DEPS)
 	@mkdir -p $(@D)

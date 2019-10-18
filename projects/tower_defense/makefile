@@ -7,13 +7,16 @@ IDIR=src
 SDIR=src
 ODIR=obj
 
+
+WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.1.121.2
+
 CC=g++
 WCC=x86_64-w64-mingw32-g++
 WRC=x86_64-w64-mingw32-windres $(SDIR)/resources.rc -O coff
 RCFLAGS=-I $(IDIR)
 CFLAGS=-I$(IDIR) -I$(AZCORE_BASE)/src -Wall -std=c++17 -fsingle-precision-constant -DIO_FOR_VULKAN
-LCFLAGS=-Wl,-z,origin -Wl,-rpath,'$$ORIGIN/lib'
-WCFLAGS=-D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -static -lpthread
+LCFLAGS=$(CFLAGS) #-Wl,-z,origin -Wl,-rpath,'$$ORIGIN/lib'
+WCFLAGS=$(CFLAGS) -D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -I$(WIN_VULKAN_SDK)/Include/
 
 # This is optional, but recommended.
 WINDOWS_RESOURCES = $(ODIR)/Windows/resources.o
@@ -23,8 +26,6 @@ $(ODIR)/Windows/resources.o: $(IDIR)/resources.h $(SDIR)/resources.rc $(WINDOWS_
 	$(WRC) -o $@ $(RCFLAGS)
 # You can use the base one from AzCore by uncommenting this
 #WINDOWS_RESOURCES = $(AZCORE_BASE)/obj/Windows/resources.o
-
-WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.1.82.0
 
 LIBS_L=-lvulkan -lxcb -lpthread -lxkbcommon -lxkbcommon-x11 -lxcb-xkb -lopenal
 LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib/" -lvulkan-1 -lgdi32 -ldinput8 -ldxguid -l"OpenAL32.dll"

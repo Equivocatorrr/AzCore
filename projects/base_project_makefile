@@ -1,18 +1,18 @@
 $(ODIR)/Linux/Debug/%.o: $(SDIR)/%.cpp $(DEPS) $(AZCORE_BASE)/.touchdl
 	@mkdir -p $(@D)
-	$(CC) -c -o $@ $< -g -rdynamic $(CFLAGS)
+	$(CC) -c -o $@ $< -g -rdynamic $(LCFLAGS)
 
 $(ODIR)/Windows/Debug/%.o: $(SDIR)/%.cpp $(DEPS) $(AZCORE_BASE)/.touchdw
 	@mkdir -p $(@D)
-	$(WCC) -c -o $@ $< -g $(CFLAGS)
+	$(WCC) -c -o $@ $< -g $(WCFLAGS)
 
 $(ODIR)/Linux/Release/%.o: $(SDIR)/%.cpp $(DEPS) $(AZCORE_BASE)/.touchl
 	@mkdir -p $(@D)
-	$(CC) -c -o $@ $< -g -O2 $(CFLAGS) -DNDEBUG
+	$(CC) -c -o $@ $< -g -O2 $(LCFLAGS) -DNDEBUG
 
 $(ODIR)/Windows/Release/%.o: $(SDIR)/%.cpp $(DEPS) $(AZCORE_BASE)/.touchw
 	@mkdir -p $(@D)
-	$(WCC) -c -o $@ $< -O2 $(CFLAGS) -DNDEBUG
+	$(WCC) -c -o $@ $< -O2 $(WCFLAGS) -DNDEBUG
 
 .PHONY: clean debugl debugw releasel releasew debug release linux windows all shaders runl runw rundl rundlv rundw rundwv testl testdl testdlv
 

@@ -88,8 +88,18 @@ namespace io {
             } else {
                 buttons[i] = 0;
             }
-            if (buttons[i] == KC_GP_BTN_TL2 && hasLTAxis) buttons[i] = 0;
-            if (buttons[i] == KC_GP_BTN_TR2 && hasRTAxis) buttons[i] = 0;
+            if (buttons[i] == KC_GP_BTN_TL2) {
+                if (hasLTAxis)
+                    buttons[i] = 0;
+                else
+                    buttons[i] = KC_GP_AXIS_LT_IN;
+            }
+            if (buttons[i] == KC_GP_BTN_TR2) {
+                if (hasRTAxis)
+                    buttons[i] = 0;
+                else
+                    buttons[i] = KC_GP_AXIS_RT_IN;
+            }
         }
     }
 

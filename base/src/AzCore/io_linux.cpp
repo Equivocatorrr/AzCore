@@ -31,7 +31,7 @@
 #include <unistd.h>
 
 // If you want to provide another default mapping, this could help debug it.
-#define IO_GAMEPAD_LOGGING_VERBOSE
+// #define IO_GAMEPAD_LOGGING_VERBOSE
 
 namespace io {
 

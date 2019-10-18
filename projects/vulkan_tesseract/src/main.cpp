@@ -280,6 +280,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
             pause = !pause;
         }
 
+        bool toggleStereographic = false;
+        bool eyeWidthShrink = false;
+        bool eyeWidthGrow = false;
+
         if (gamepadIndex >= 0) {
             if (rawInput.gamepads[gamepadIndex].Pressed(KC_GP_BTN_START)) {
                 pause = !pause;
@@ -287,7 +291,30 @@ i32 main(i32 argumentCount, char** argumentValues) {
             if (rawInput.gamepads[gamepadIndex].Pressed(KC_GP_BTN_SELECT)) {
                 break;
             }
+            if (rawInput.gamepads[gamepadIndex].Pressed(KC_GP_BTN_X)) {
+                faceMode = !faceMode;
+            }
+            if (rawInput.gamepads[gamepadIndex].Pressed(KC_GP_BTN_Y)) {
+                toggleStereographic = true;
+            }
+            if (rawInput.gamepads[gamepadIndex].Down(KC_GP_BTN_TL)) {
+                eyeWidthShrink = true;
+            }
+            if (rawInput.gamepads[gamepadIndex].Down(KC_GP_BTN_TR)) {
+                eyeWidthGrow = true;
+            }
             facingAngleXY += rawInput.gamepads[gamepadIndex].axis.vec.RS * vec2(-pi, pi) / (f32)framerate;
+        }
+
+        if (input.Pressed(KC_KEY_1)) {
+            toggleStereographic = true;
+        }
+
+        if (input.Down(KC_KEY_Q)) {
+            eyeWidthShrink = true;
+        }
+        if (input.Down(KC_KEY_E)) {
+            eyeWidthGrow = true;
         }
 
         if (input.Pressed(KC_MOUSE_LEFT)) {
@@ -310,7 +337,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
         f32 aspectRatio = (f32)window.height / (f32)window.width;
 
-        if (input.Pressed(KC_KEY_1)) {
+        if (toggleStereographic) {
             enableStereoGraphic = !enableStereoGraphic;
             if (enableStereoGraphic) {
                 if (aspectRatio > 0.9) {
@@ -326,10 +353,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
             }
         }
         if (enableStereoGraphic) {
-            if (input.Down(KC_KEY_Q)) {
+            if (eyeWidthShrink) {
                 eyeWidth -= 0.001;
             }
-            if (input.Down(KC_KEY_E)) {
+            if (eyeWidthGrow) {
                 eyeWidth += 0.001;
             }
         }
@@ -449,6 +476,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
             offset += moveZ * 100.0 * rawInput.gamepads[gamepadIndex].axis.vec.LS.y / (f32)framerate;
             offset += moveY * 100.0 * rawInput.gamepads[gamepadIndex].axis.vec.RT / (f32)framerate;
             offset -= moveY * 100.0 * rawInput.gamepads[gamepadIndex].axis.vec.LT / (f32)framerate;
+            offset += moveW * 100.0 * rawInput.gamepads[gamepadIndex].axis.vec.H0.x / (f32)framerate;
         }
 
         if (!pause) {

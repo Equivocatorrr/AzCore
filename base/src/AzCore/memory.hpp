@@ -1388,6 +1388,13 @@ struct List {
         it->next = it->next->next;
         delete n;
     }
+    void Clear() {
+        while (first != nullptr) {
+            ListIndex<T> *tmp = first->next;
+            delete first;
+            first = tmp;
+        }
+    }
 };
 
 /*  class: ArrayList

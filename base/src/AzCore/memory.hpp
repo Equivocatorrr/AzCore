@@ -1248,6 +1248,7 @@ struct List {
         other.first = nullptr;
         size = other.size;
         other.size = 0;
+        return *this;
     }
     List<T>& operator=(const std::initializer_list<T> init) {
         Resize(init.size());
@@ -1316,31 +1317,33 @@ struct List {
         }
         size = s;
     }
-    void Append(const T& a) {
+    T& Append(const T& a) {
         size++;
         if (size == 1) {
             first = new ListIndex<T>(a);
-            return;
+            return first->value;
         }
         ListIndex<T> *it = first;
         for (i32 i = 2; i < size; i++) {
             it = it->next;
         }
         it->next = new ListIndex<T>(a);
+        return it->next->value;
     }
-    void Append(T&& a) {
+    T& Append(T&& a) {
         size++;
         if (size == 1) {
             first = new ListIndex<T>(std::move(a));
-            return;
+            return first->value;
         }
         ListIndex<T> *it = first;
         for (i32 i = 2; i < size; i++) {
             it = it->next;
         }
         it->next = new ListIndex<T>(std::move(a));
+        return it->next->value;
     }
-    void Insert(const i32 index, const T& a) {
+    T& Insert(const i32 index, const T& a) {
         size++;
         if (index == 0) {
             ListIndex<T> *f = first;
@@ -1355,8 +1358,9 @@ struct List {
         ListIndex<T> *n = it->next;
         it->next = new ListIndex<T>(a);
         it->next->next = n;
+        return it->next->value;
     }
-    void Insert(const i32 index, T&& a) {
+    T& Insert(const i32 index, T&& a) {
         size++;
         if (index == 0) {
             ListIndex<T> *f = first;
@@ -1370,6 +1374,7 @@ struct List {
         }
         ListIndex<T> *n = it->next;
         it->next = new ListIndex<T>(std::move(a));
+        return it->next->value;
         it->next->next = n;
     }
     void Erase(const i32 index) {

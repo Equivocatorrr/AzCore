@@ -3,8 +3,8 @@
     Author: Philip Haynes
     Aliasing of basic numeric types to a shorter representation
 */
-#ifndef BASICTYPES_HPP
-#define BASICTYPES_HPP
+#ifndef AZCORE_BASICTYPES_HPP
+#define AZCORE_BASICTYPES_HPP
 
 typedef unsigned char u8;
 typedef unsigned short u16;

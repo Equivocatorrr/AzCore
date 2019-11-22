@@ -1,26 +1,28 @@
 /*
-    File: logStream.hpp
+    File: LogStream.hpp
     Author: Philip Haynes
     Logging utilities.
 */
-#ifndef LOG_STREAM_HPP
-#define LOG_STREAM_HPP
+#ifndef AZCORE_LOGSTREAM_HPP
+#define AZCORE_LOGSTREAM_HPP
 
-#include "common.hpp"
+#include "../memory.hpp"
 
 #include <iostream>
 #include <iomanip>
 #include <fstream>
 
+namespace AzCore {
+
 namespace io {
 
-/*  class: logStream
+/*  class: LogStream
 Author: Philip Haynes
 Use this class to write any and all debugging/status text.
 Use it the same way you would std::cout.
 Ex: io::cout << "Say it ain't so!!" << std::endl;
 Entries in this class will be printed to terminal and a log file.   */
-class logStream {
+class LogStream {
     std::ofstream fstream;
     bool logFile;
     bool logConsole;
@@ -28,9 +30,9 @@ class logStream {
     Mutex mutex;
     String prepend;
 public:
-    logStream();
-    logStream(String logFilename, bool console=true);
-    template<typename T> logStream& operator<<(const T& something) {
+    LogStream();
+    LogStream(String logFilename, bool console=true);
+    template<typename T> LogStream& operator<<(const T& something) {
         if (logConsole) {
             if (flushed && prepend.size != 0) {
                 std::cout.write(prepend.data, prepend.size);
@@ -42,14 +44,16 @@ public:
             fstream << something;
         return *this;
     }
-    logStream& operator<<(const char*);
-    logStream& operator<<(const String&);
+    LogStream& operator<<(const char*);
+    LogStream& operator<<(const String&);
     typedef std::ostream& (*stream_function)(std::ostream&);
-    logStream& operator<<(stream_function func);
+    LogStream& operator<<(stream_function func);
     void MutexLock();
     void MutexUnlock();
 };
 
-}
+} // namespace io
 
-#endif
+} // namespace AzCore
+
+#endif // AZCORE_LOGSTREAM_HPP

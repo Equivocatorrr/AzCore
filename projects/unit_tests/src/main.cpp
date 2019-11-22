@@ -4,8 +4,11 @@
     Does exactly as advertized.
 */
 
-#include "AzCore/log_stream.hpp"
+#include "AzCore/IO/LogStream.hpp"
 #include "AzCore/memory.hpp"
+#include "AzCore/math.hpp"
+
+using namespace AzCore;
 
 void Assert(bool condition, const char *messageOnFailure) {
     if (!condition) {
@@ -65,7 +68,7 @@ void ExpectedValue(T a, T b, const char *messageOnFailure) {
 #define EXPECTEDVALUE(a, b) \
     ExpectedValue(a, b, "Expected value " #a " to be equal to " #b " in file: " __FILE__ " on line: " STR(__LINE__) )
 
-void Print(vec3 v, io::logStream& cout) {
+void Print(vec3 v, io::LogStream& cout) {
     cout << "{";
     for (u32 i = 0; i < 3; i++) {
         if (v[i] >= 0.0)
@@ -81,7 +84,7 @@ void Print(vec3 v, io::logStream& cout) {
     cout << "}";
 }
 
-void Print(mat3 m, io::logStream& cout) {
+void Print(mat3 m, io::LogStream& cout) {
     cout << "[" << std::fixed << std::setprecision(3);
     Print(m.Row1(), cout);
     cout << "\n ";
@@ -91,7 +94,7 @@ void Print(mat3 m, io::logStream& cout) {
     cout << "]" << std::endl;
 }
 
-void Print(vec4 v, io::logStream& cout) {
+void Print(vec4 v, io::LogStream& cout) {
     cout << "{";
     for (u32 i = 0; i < 4; i++) {
         if (v[i] >= 0.0)
@@ -107,7 +110,7 @@ void Print(vec4 v, io::logStream& cout) {
     cout << "}";
 }
 
-void Print(mat4 m, io::logStream& cout) {
+void Print(mat4 m, io::LogStream& cout) {
     cout << "[" << std::fixed << std::setprecision(3);
     Print(m.Row1(), cout);
     cout << "\n ";
@@ -119,7 +122,7 @@ void Print(mat4 m, io::logStream& cout) {
     cout << "]" << std::endl;
 }
 
-bool UnitTestMat2(io::logStream& cout) {
+bool UnitTestMat2(io::LogStream& cout) {
     cout << "Unit testing mat2...\n";
     mat2 matrix;
     matrix = mat2::Identity();
@@ -171,7 +174,7 @@ bool UnitTestMat2(io::logStream& cout) {
     return true;
 }
 
-bool UnitTestMat3(io::logStream& cout) {
+bool UnitTestMat3(io::LogStream& cout) {
     cout << "Unit testing mat3...\n";
     mat3 matrix;
     matrix = mat3::Identity();
@@ -296,7 +299,7 @@ bool UnitTestMat3(io::logStream& cout) {
     return true;
 }
 
-bool UnitTestMat4(io::logStream& cout) {
+bool UnitTestMat4(io::LogStream& cout) {
     cout << "Unit testing mat4\n";
     mat4 matrix;
     matrix = mat4::Identity();
@@ -545,7 +548,7 @@ bool UnitTestMat4(io::logStream& cout) {
     return true;
 }
 
-bool UnitTestComplex(io::logStream& cout) {
+bool UnitTestComplex(io::LogStream& cout) {
     cout << "Unit testing complex numbers\n";
     // complex c, z;
     // for (i32 y = -40; y <= 40; y++) {
@@ -621,7 +624,7 @@ void QuatVsMatrix(const quat& quaternion, const mat3& matrix) {
     EXPECTEDVALUE(quatMatrix.h.z3, matrix.h.z3);
 }
 
-bool UnitTestQuat(io::logStream& cout) {
+bool UnitTestQuat(io::LogStream& cout) {
     cout << "Unit testing quaternions\n";
     try {
         quat quaternion;
@@ -698,7 +701,7 @@ bool UnitTestQuat(io::logStream& cout) {
     return true;
 }
 
-bool UnitTestSlerp(io::logStream& cout) {
+bool UnitTestSlerp(io::LogStream& cout) {
     cout << "Unit testing slerp...\n";
     try {
         quat a(0.0, 1.0, 0.0, 0.0);
@@ -737,7 +740,7 @@ bool UnitTestSlerp(io::logStream& cout) {
     return true;
 }
 
-bool UnitTestRNG(io::logStream& cout) {
+bool UnitTestRNG(io::LogStream& cout) {
     RandomNumberGenerator rng;
     cout << "Unit testing RandomNumberGenerator...\n";
     {
@@ -817,7 +820,7 @@ bool UnitTestRNG(io::logStream& cout) {
     return true;
 }
 
-bool UnitTestList(io::logStream& cout) {
+bool UnitTestList(io::LogStream& cout) {
     cout << "Unit testing List<i32>...\n";
     try {
         List<i32> list = {1, 2, 3, 4};
@@ -925,7 +928,7 @@ bool UnitTestList(io::logStream& cout) {
 }
 
 template<typename T>
-void PrintArray(const Array<T>& array, const char* name, io::logStream& cout) {
+void PrintArray(const Array<T>& array, const char* name, io::LogStream& cout) {
     cout << name << " = {";
     for (i32 i = 0; i < array.size; i++) {
         cout << array[i];
@@ -936,7 +939,7 @@ void PrintArray(const Array<T>& array, const char* name, io::logStream& cout) {
     cout << "}" << std::endl;
 }
 
-bool UnitTestArrayAndString(io::logStream& cout) {
+bool UnitTestArrayAndString(io::LogStream& cout) {
     cout << "Unit testing Array and String...\n";
     try {
         Array<i32> test1 = {
@@ -1323,7 +1326,7 @@ bool UnitTestArrayAndString(io::logStream& cout) {
 }
 
 i32 main(i32 argumentCount, char** argumentValues) {
-    io::logStream cout("test.log");
+    io::LogStream cout("test.log");
 
     cout << "Doing unit tests..." << std::endl;
 

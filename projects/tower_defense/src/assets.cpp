@@ -6,7 +6,7 @@
 #include "assets.hpp"
 #include "globals.hpp"
 
-#include "AzCore/log_stream.hpp"
+#include "AzCore/IO/LogStream.hpp"
 
 // #define pow(v, e) pow((double)(v), (double)(e))
 #define STB_IMAGE_IMPLEMENTATION
@@ -18,7 +18,7 @@
 
 namespace Assets {
 
-io::logStream cout("assets.log");
+io::LogStream cout("assets.log");
 
 String error = "No error.";
 

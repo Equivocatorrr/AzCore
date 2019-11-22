@@ -1,15 +1,20 @@
 /*
-    File: bigint.hpp
+    File: BigInt.hpp
     Author: Philip Haynes
     An arbitrary-precision integer class that uses a string of
-    32-bit integers to represent an integer with any number of digits.
+    64-bit integers to represent an integer with any number of digits.
 */
-#ifndef BIGINT_HPP
-#define BIGINT_HPP
+#ifndef AZCORE_BIGINT_HPP
+#define AZCORE_BIGINT_HPP
 
+#ifndef BIGINT_BUCKET_SIZE
 #define BIGINT_BUCKET_SIZE 15
+#endif
 
-#include "common.hpp"
+#include "BucketArray.hpp"
+#include "String.hpp"
+
+namespace AzCore {
 
 #pragma pack(1)
 
@@ -234,5 +239,7 @@ inline BigInt abs(const BigInt& a) {
     BigInt newValue(a.words);
     return newValue;
 }
+
+} // namespace AzCore
 
 #endif

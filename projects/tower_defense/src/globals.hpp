@@ -13,6 +13,8 @@
 #include "gui.hpp"
 #include "entities.hpp"
 
+#include "AzCore/io.hpp"
+
 struct Globals {
     String error = "No error";
     Objects::Manager objects;

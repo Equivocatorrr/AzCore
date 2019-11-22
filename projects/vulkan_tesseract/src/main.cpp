@@ -7,7 +7,9 @@
 #include "AzCore/io.hpp"
 #include "AzCore/vk.hpp"
 
-io::logStream cout("main.log");
+using namespace AzCore;
+
+io::LogStream cout("main.log");
 
 // NOTE: Using an immediate-mode renderer like this isn't necessarily a good idea.
 //       It's just an easy way to do things that would otherwise require special shaders.
@@ -137,8 +139,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkShaders[1].filename = "data/shaders/2D.vert.spv";
 
     Array<vk::ShaderRef> vkShaderRefs = {
-        vk::ShaderRef(vkShaders.ToPtr(0), VK_SHADER_STAGE_FRAGMENT_BIT),
-        vk::ShaderRef(vkShaders.ToPtr(1), VK_SHADER_STAGE_VERTEX_BIT)
+        vk::ShaderRef(vkShaders.GetPtr(0), VK_SHADER_STAGE_FRAGMENT_BIT),
+        vk::ShaderRef(vkShaders.GetPtr(1), VK_SHADER_STAGE_VERTEX_BIT)
     };
 
     VkPipelineColorBlendAttachmentState colorBlendAttachment = {};

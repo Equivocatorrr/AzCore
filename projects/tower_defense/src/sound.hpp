@@ -11,6 +11,8 @@
 #include <AL/al.h>
 #include <AL/alc.h>
 
+using namespace AzCore;
+
 namespace Sound {
 
 extern String error;

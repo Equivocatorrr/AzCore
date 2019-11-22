@@ -6,13 +6,13 @@
 #include "rendering.hpp"
 #include "globals.hpp"
 
-#include "AzCore/log_stream.hpp"
+#include "AzCore/IO/LogStream.hpp"
 #include "AzCore/io.hpp"
 #include "AzCore/font.hpp"
 
 namespace Rendering {
 
-io::logStream cout("rendering.log");
+io::LogStream cout("rendering.log");
 
 String error = "No error.";
 
@@ -210,10 +210,10 @@ bool Manager::Init() {
     shaders[3].filename = "data/shaders/Circle.frag.spv";
 
     vk::ShaderRef shaderRefs[4] = {
-        vk::ShaderRef(shaders.ToPtr(0), VK_SHADER_STAGE_VERTEX_BIT),
-        vk::ShaderRef(shaders.ToPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT),
-        vk::ShaderRef(shaders.ToPtr(2), VK_SHADER_STAGE_FRAGMENT_BIT),
-        vk::ShaderRef(shaders.ToPtr(3), VK_SHADER_STAGE_FRAGMENT_BIT)
+        vk::ShaderRef(shaders.GetPtr(0), VK_SHADER_STAGE_VERTEX_BIT),
+        vk::ShaderRef(shaders.GetPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT),
+        vk::ShaderRef(shaders.GetPtr(2), VK_SHADER_STAGE_FRAGMENT_BIT),
+        vk::ShaderRef(shaders.GetPtr(3), VK_SHADER_STAGE_FRAGMENT_BIT)
     };
 
     data.pipeline2D = data.device->AddPipeline();
@@ -312,12 +312,12 @@ bool Manager::Init() {
     }
 
     VkCommandBuffer cmdBufCopy = data.commandBufferPrimary[0]->Begin();
-    data.vertexBuffer->Copy(cmdBufCopy, bufferStagingBuffers.ToPtr(0));
-    data.indexBuffer->Copy(cmdBufCopy, bufferStagingBuffers.ToPtr(1));
+    data.vertexBuffer->Copy(cmdBufCopy, bufferStagingBuffers.GetPtr(0));
+    data.indexBuffer->Copy(cmdBufCopy, bufferStagingBuffers.GetPtr(1));
 
     for (i32 i = 0; i < texStagingBuffers.size; i++) {
         texImages[i].TransitionLayout(cmdBufCopy, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        texImages[i].Copy(cmdBufCopy, texStagingBuffers.ToPtr(i));
+        texImages[i].Copy(cmdBufCopy, texStagingBuffers.GetPtr(i));
         texImages[i].GenerateMipMaps(cmdBufCopy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
     if (!data.commandBufferPrimary[0]->End()) {
@@ -432,7 +432,7 @@ bool Manager::UpdateFonts() {
 
     for (i32 i = 0; i < data.fontStagingImageBuffers.size; i++) {
         data.fontImages[i].TransitionLayout(cmdBufCopy, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        data.fontImages[i].Copy(cmdBufCopy, data.fontStagingImageBuffers.ToPtr(i));
+        data.fontImages[i].Copy(cmdBufCopy, data.fontStagingImageBuffers.GetPtr(i));
         data.fontImages[i].GenerateMipMaps(cmdBufCopy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 

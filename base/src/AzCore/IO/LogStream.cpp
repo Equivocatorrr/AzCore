@@ -1,12 +1,14 @@
 /*
-    File: log_stream.cpp
+    File: LogStream.cpp
     Author: Philip Haynes
 */
-#include "log_stream.hpp"
+#include "LogStream.hpp"
+
+namespace AzCore {
 
 namespace io {
 
-logStream::logStream() :
+LogStream::LogStream() :
 fstream("log.log"), logFile(true), logConsole(true),
 flushed(true), prepend("") {
     if (!fstream.is_open()) {
@@ -15,7 +17,7 @@ flushed(true), prepend("") {
     }
 }
 
-logStream::logStream(String logFilename, bool console) :
+LogStream::LogStream(String logFilename, bool console) :
 fstream(logFilename.data), logFile(true),
 logConsole(console), flushed(true) {
     String logFilenameNoDirectories;
@@ -39,7 +41,7 @@ logConsole(console), flushed(true) {
     }
 }
 
-logStream& logStream::operator<<(const char* string) {
+LogStream& LogStream::operator<<(const char* string) {
     if (logConsole) {
         String actualOutput;
         if (prepend.size != 0) {
@@ -69,11 +71,11 @@ logStream& logStream::operator<<(const char* string) {
     return *this;
 }
 
-logStream& logStream::operator<<(const String& string) {
+LogStream& LogStream::operator<<(const String& string) {
     return *this << (const char*)string.data;
 }
 
-logStream& logStream::operator<<(stream_function func) {
+LogStream& LogStream::operator<<(stream_function func) {
     if (logConsole) {
         if (func == &std::endl<char, std::char_traits<char>>) {
             flushed = true;
@@ -86,12 +88,14 @@ logStream& logStream::operator<<(stream_function func) {
     return *this;
 }
 
-void logStream::MutexLock() {
+void LogStream::MutexLock() {
     mutex.lock();
 }
 
-void logStream::MutexUnlock() {
+void LogStream::MutexUnlock() {
     mutex.unlock();
 }
 
-}
+} // namespace io
+
+} // namespace AzCore

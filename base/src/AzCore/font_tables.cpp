@@ -4,6 +4,8 @@
 */
 #include "font.hpp"
 
+namespace AzCore {
+
 namespace font {
 f32 ToF32(const F2Dot14_t& in) {
     f32 out;
@@ -56,7 +58,7 @@ Fixed_t bytesToFixed(char *buffer, const bool swapEndian) {
 }
 
 String error = "No Error";
-io::logStream cout("font.log");
+io::LogStream cout("font.log");
 
 inline bool operator==(const Tag_t &a, const Tag_t &b) {
     return a.data == b.data;
@@ -1739,3 +1741,4 @@ longHorMetric hmtx::Metric(u32 glyphIndex, u16 numOfLongHorMetrics) const {
 
 } // namespace tables
 } // namespace font
+} // namespace AzCore

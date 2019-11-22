@@ -20,13 +20,11 @@ WINDOWS_RESOURCES = $(AZCORE_BASE)/obj/Windows/resources.o
 LIBS_L=-lpthread
 LIBS_W=
 
-_AZCORE_OBJ = memory.o log_stream.o math.o font.o
-_AZCORE_OBJ_L = $(_AZCORE_OBJ)
-_AZCORE_OBJ_W = $(_AZCORE_OBJ)
-AZCORE_OBJ_L = $(patsubst %,$(AZCORE_BASE)/obj/Linux/Release/%,$(_AZCORE_OBJ_L))
-AZCORE_OBJ_W = $(patsubst %,$(AZCORE_BASE)/obj/Windows/Release/%,$(_AZCORE_OBJ_W))
-AZCORE_OBJ_LD = $(patsubst %,$(AZCORE_BASE)/obj/Linux/Debug/%,$(_AZCORE_OBJ_L))
-AZCORE_OBJ_WD = $(patsubst %,$(AZCORE_BASE)/obj/Windows/Debug/%,$(_AZCORE_OBJ_W))
+_AZCORE_OBJ = memory.o IO/LogStream.o math.o font.o
+AZCORE_OBJ_L = $(patsubst %,$(AZCORE_BASE)/obj/Linux/Release/%,$(_AZCORE_OBJ))
+AZCORE_OBJ_W = $(patsubst %,$(AZCORE_BASE)/obj/Windows/Release/%,$(_AZCORE_OBJ))
+AZCORE_OBJ_LD = $(patsubst %,$(AZCORE_BASE)/obj/Linux/Debug/%,$(_AZCORE_OBJ))
+AZCORE_OBJ_WD = $(patsubst %,$(AZCORE_BASE)/obj/Windows/Debug/%,$(_AZCORE_OBJ))
 
 _OBJ = main.o
 OBJ_L = $(patsubst %,$(ODIR)/Linux/Release/%,$(_OBJ))

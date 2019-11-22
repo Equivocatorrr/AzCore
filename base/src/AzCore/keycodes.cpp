@@ -6,6 +6,8 @@
 #include "keycodes.hpp"
 #include "io.hpp"
 
+namespace AzCore {
+
 const char *keyCodeNames[256] = {
     "None",             "Error_Roll_Over",  "NULL",             "NULL",             // 0x00
     "A",                "B",                "C",                "D",                // 0x04
@@ -320,7 +322,7 @@ u8 KeyCodeFromWinScan(u8 keyCode) {
     return mapKeyCodeFromWinScan[keyCode];
 }
 
-void PrintKeyCodeMaps(const u8* map, const char* name, const char* inverseName, io::logStream& cout) {
+void PrintKeyCodeMaps(const u8* map, const char* name, const char* inverseName, io::LogStream& cout) {
     cout << "\nconst u8 " << name << "[256] = {\n";
     for (u16 i = 0; i < 256; i++) {
         u32 toPrint = map[i];
@@ -367,14 +369,16 @@ void PrintKeyCodeMaps(const u8* map, const char* name, const char* inverseName, 
     cout << "};\n" << std::endl;
 }
 
-void PrintKeyCodeMapsEvdev(io::logStream& cout) {
+void PrintKeyCodeMapsEvdev(io::LogStream& cout) {
     PrintKeyCodeMaps(mapKeyCodeToEvdev, "mapKeyCodeToEvdev", "mapKeyCodeFromEvdev", cout);
 }
 
-void PrintKeyCodeMapsWinVK(io::logStream& cout) {
+void PrintKeyCodeMapsWinVK(io::LogStream& cout) {
     PrintKeyCodeMaps(mapKeyCodeToWinVK, "mapKeyCodeToWinVK", "mapKeyCodeFromWinVK", cout);
 }
 
-void PrintKeyCodeMapsWinScan(io::logStream& cout) {
+void PrintKeyCodeMapsWinScan(io::LogStream& cout) {
     PrintKeyCodeMaps(mapKeyCodeToWinScan, "mapKeyCodeToWinScan", "mapKeyCodeFromWinScan", cout);
 }
+
+} // namespace AzCore

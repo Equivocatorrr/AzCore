@@ -1,0 +1,51 @@
+/*
+    File: Input.hpp
+    Author: Philip Haynes
+*/
+
+#ifndef AZCORE_INPUT_HPP
+#define AZCORE_INPUT_HPP
+
+#include "ButtonState.hpp"
+#include "../Memory/String.hpp"
+#include "../math.hpp"
+
+namespace AzCore {
+
+namespace io {
+
+/*  struct: Input
+    Author: Philip Haynes
+    Holds the state for the entire Keyboard and Mouse. Gamepads sold separately.   */
+struct Input
+{
+    ButtonState Any, AnyKey, AnyMB;
+    u8 codeAny, codeAnyKey, codeAnyMB;
+    char charAny; // This can be associated with AnyKey only
+    String typingString;
+    ButtonState inputs[256];
+    ButtonState inputsChar[128];
+    vec2i cursor, cursorPrevious;
+    vec2 scroll;
+    Input();
+    void Press(u8 keyCode);
+    void Release(u8 keyCode);
+    void PressChar(char character);
+    void ReleaseChar(char character);
+    void ReleaseAll();
+    void Tick(f32 timestep);
+    // These are keyboard-layout agnostic.
+    bool Pressed(u8 keyCode) const;
+    bool Down(u8 keyCode) const;
+    bool Released(u8 keyCode) const;
+    // These are keyboard-layout dependent.
+    bool PressedChar(char character) const;
+    bool DownChar(char character) const;
+    bool ReleasedChar(char character) const;
+};
+
+} // namespace io
+
+} // namespace AzCore
+
+#endif // AZCORE_INPUT_HPP

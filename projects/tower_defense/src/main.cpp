@@ -7,9 +7,11 @@
 #include "globals.hpp"
 #include "AzCore/io.hpp"
 
+using namespace AzCore;
+
 const char *title = "AzCore Tower Defense";
 
-io::logStream cout("main.log");
+io::LogStream cout("main.log");
 
 void UpdateProc() {
     globals->objects.Update();

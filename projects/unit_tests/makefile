@@ -20,7 +20,7 @@ WINDOWS_RESOURCES = $(AZCORE_BASE)/obj/Windows/resources.o
 LIBS_L=
 LIBS_W=
 
-_AZCORE_OBJ = memory.o log_stream.o math.o
+_AZCORE_OBJ = memory.o IO/LogStream.o math.o
 _AZCORE_OBJ_L = $(_AZCORE_OBJ)
 _AZCORE_OBJ_W = $(_AZCORE_OBJ)
 AZCORE_OBJ_L = $(patsubst %,$(AZCORE_BASE)/obj/Linux/Release/%,$(_AZCORE_OBJ_L))

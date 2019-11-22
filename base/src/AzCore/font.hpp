@@ -13,16 +13,18 @@
 #define FONT_HPP
 
 #include "common.hpp"
-#include "log_stream.hpp"
+#include "IO/LogStream.hpp"
 
 #include "font_tables.hpp"
 
 #include <fstream>
 
+namespace AzCore {
+
 namespace font {
 
     extern String error;
-    extern io::logStream cout;
+    extern io::LogStream cout;
 
     extern const f32 sdfDistance;
 
@@ -200,5 +202,7 @@ namespace font {
     };
 
 } // namespace font
+
+} // namespace AzCore
 
 #endif // FONT_HPP

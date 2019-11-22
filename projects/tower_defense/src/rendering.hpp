@@ -10,8 +10,12 @@
 #include "AzCore/memory.hpp"
 #include "AzCore/vk.hpp"
 
+using namespace AzCore;
+
+namespace AzCore {
 namespace io {
     struct Window;
+}
 }
 
 namespace Assets {

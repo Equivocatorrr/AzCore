@@ -3,22 +3,24 @@
     Author: Philip Haynes
 */
 #include "vk.hpp"
-// #ifdef IO_FOR_VULKAN
+// #ifdef AZCORE_IO_FOR_VULKAN
     #include "io.hpp"
 // #endif
-#include "log_stream.hpp"
+#include "IO/LogStream.hpp"
 #include <cstring>
 #include <cstdlib>
 #include <fstream>
+
+namespace AzCore {
 
 namespace vk {
 
     String error = "No Error";
 
-#ifndef VK_LOGGING_NO_CONSOLE
-    io::logStream cout("vk.log");
+#ifndef AZCORE_VK_LOGGING_NO_CONSOLE
+    io::LogStream cout("vk.log");
 #else
-    io::logStream cout("vk.log", false);
+    io::LogStream cout("vk.log", false);
 #endif
 
     const char *QueueTypeString[5] = {
@@ -378,7 +380,7 @@ namespace vk {
     }
 
     bool Image::CreateImage(bool hostVisible) {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.imageExists) {
             error = "Attempting to create image that already exists!";
             return false;
@@ -439,7 +441,7 @@ namespace vk {
     }
 
     bool Image::CreateImageView() {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.imageViewExists) {
             error = "Attempting to create an image view that already exists!";
             return false;
@@ -480,7 +482,7 @@ namespace vk {
     }
 
     void Image::CopyData(void *src, u32 bytesPerPixel) {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (src == nullptr) {
             cout << "Warning: Image::CopyData src is nullptr! Skipping copy." << std::endl;
             return;
@@ -602,7 +604,7 @@ namespace vk {
     }
 
     void Image::Copy(VkCommandBuffer commandBuffer, Ptr<Buffer> src) {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (!src.Valid()) {
             cout << "Warning: Image::Copy src is not a valid Ptr! Skipping copy." << std::endl;
             return;
@@ -677,7 +679,7 @@ namespace vk {
     }
 
     bool Buffer::Create() {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.exists) {
             error = "Buffer already exists!";
             return false;
@@ -710,7 +712,7 @@ namespace vk {
     }
 
     void Buffer::CopyData(void *src, VkDeviceSize copySize, VkDeviceSize dstOffset) {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (src == nullptr) {
             cout << "Warning: Buffer::CopyData src is nullptr! Skipping copy." << std::endl;
             return;
@@ -733,7 +735,7 @@ namespace vk {
     void Buffer::Copy(VkCommandBuffer commandBuffer, Ptr<Buffer> src,
             VkDeviceSize copySize, VkDeviceSize dstOffset, VkDeviceSize srcOffset)
     {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (!src.Valid()) {
             cout << "Warning: Buffer::Copy src is not a valid Ptr! Skipping copy." << std::endl;
             return;
@@ -826,7 +828,7 @@ namespace vk {
 
     bool Memory::Init(Device *device, String debugMarker) {
         PrintDashed("Initializing Memory");
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             error = "Memory has already been initialized!";
             return false;
@@ -931,7 +933,7 @@ failure:
 
     bool Memory::Deinit() {
         PrintDashed("Destroying Memory");
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             // error = "Memory isn't initialized!";
             return false;
@@ -1014,7 +1016,7 @@ failure:
     }
 
     bool Memory::Allocate() {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.allocated) {
             error = "Memory already allocated!";
             return false;
@@ -1040,7 +1042,7 @@ failure:
     }
 
     void Memory::CopyData(void *src, VkDeviceSize size, i32 index) {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (src == nullptr) {
             cout << "Warning: Memory::CopyData has nullptr src! Skipping copy." << std::endl;
             return;
@@ -1068,7 +1070,7 @@ failure:
     }
 
     void Memory::CopyData2D(void *src, Ptr<Image> image, i32 index, u32 bytesPerPixel) {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (src == nullptr) {
             cout << "Warning: Memory::CopyData2D has nullptr src! Skipping copy." << std::endl;
             return;
@@ -1147,7 +1149,7 @@ failure:
     }
 
     bool Sampler::Create() {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.exists) {
             error = "Sampler already exists!";
             return false;
@@ -1216,7 +1218,7 @@ failure:
     }
 
     bool DescriptorLayout::Create() {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.exists) {
             error = "DescriptorLayout already created!";
             return false;
@@ -1287,7 +1289,7 @@ failure:
 
     bool DescriptorSet::AddDescriptor(Range<Image> images, Ptr<Sampler> sampler, i32 binding) {
         // TODO: Support other types of descriptors
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.layout->type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
             error = "AddDescriptor failed because layout type is not for combined image samplers!";
             return false;
@@ -1341,7 +1343,7 @@ failure:
 
     bool Descriptors::Create() {
         PrintDashed("Creating Descriptors");
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.exists) {
             error = "Descriptors already exist!";
             return false;
@@ -1524,7 +1526,7 @@ failure:
         }
         data.descriptions.Resize(0);
         if (bufferColor) {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
             if (initialLayoutColor == VK_IMAGE_LAYOUT_UNDEFINED && loadColor) {
                 error = "For the contents of this attachment to be loaded, you must specify an initialLayout for Color.";
                 return false;
@@ -1647,7 +1649,7 @@ failure:
             } else {
                 description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
             }
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
             if (initialLayoutDepthStencil == VK_IMAGE_LAYOUT_UNDEFINED
             && (loadDepth || loadStencil)) {
                 error = "For the contents of this attachment to be loaded, you must specify an initialLayout for DepthStencil.";
@@ -1726,7 +1728,7 @@ failure:
 
     bool RenderPass::Init(Device *device, String debugMarker) {
         PrintDashed("Initializing RenderPass");
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             error = "Renderpass is already initialized!";
             return false;
@@ -2029,7 +2031,7 @@ failure:
 
     bool RenderPass::Deinit() {
         PrintDashed("Destroying RenderPass");
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             // error = "RenderPass hasn't been initialized yet!";
             return false;
@@ -2057,7 +2059,7 @@ failure:
 
     bool Framebuffer::Init(Device *device, String debugMarker) {
         PrintDashed("Initializing Framebuffer");
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             error = "Framebuffer is already initialized!";
             return false;
@@ -2079,7 +2081,7 @@ failure:
         data.debugMarker = std::move(debugMarker);
         bool depth = false, color = false;
         for (auto& attachment : renderPass->data.attachments) {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
             if (attachment.swapchain.Valid() && swapchain.Valid()) {
                 if (attachment.swapchain != swapchain) {
                     if (attachment.swapchain->data.surfaceFormat.format != swapchain->data.surfaceFormat.format) {
@@ -2129,7 +2131,7 @@ failure:
             }
         } else {
             // Verify that we have the memory we need
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
             bool failed = false;
             if (depth && depthMemory == nullptr) {
                 error = "Framebuffer set to use outside memory, but none is given for depth ";
@@ -2202,7 +2204,7 @@ failure:
             }
         } else {
             // Verify the images are set up correctly
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
             if (attachmentImages.size != numFramebuffers) {
                 error = "attachmentImages must have the size numFramebuffers.";
                 return false;
@@ -2242,7 +2244,7 @@ failure:
 
     bool Framebuffer::Create() {
         PrintDashed("Creating Framebuffer");
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.created) {
             error = "Framebuffer already exists!";
             return false;
@@ -2330,7 +2332,7 @@ failure:
 
     bool Framebuffer::Deinit() {
         PrintDashed("De-Initializing Framebuffer");
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             // error = "Framebuffer has not been initialized!";
             return false;
@@ -2356,7 +2358,7 @@ failure:
     }
 
     bool Shader::Init(Device *device, String debugMarker) {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             error = "Shader is already initialized!";
             return false;
@@ -2485,7 +2487,7 @@ failure:
 
     bool Pipeline::Init(Device *device, String debugMarker) {
         PrintDashed("Initializing Pipeline");
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             error = "Pipeline is already initialized!";
             return false;
@@ -2585,7 +2587,7 @@ failure:
         // Pipeline layout
         Array<VkDescriptorSetLayout> descriptorSetLayouts(descriptorLayouts.size);
         for (i32 i = 0; i < descriptorLayouts.size; i++) {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
             if (!descriptorLayouts[i]->data.exists) {
                 error = "descriptorLayouts[" + ToString(i) + "] doesn't exist!";
                 return false;
@@ -2660,7 +2662,7 @@ failure:
 
     bool Pipeline::Deinit() {
         PrintDashed("Destroying Pipeline");
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             // error = "Pipeline is not initted!";
             return false;
@@ -2673,7 +2675,7 @@ failure:
     }
 
     VkCommandBuffer CommandBuffer::Begin() {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.commandBuffer == VK_NULL_HANDLE) {
             error = "CommandBuffer doesn't exist!";
             return VK_NULL_HANDLE;
@@ -2690,7 +2692,7 @@ failure:
         if (secondary) {
             inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
             if (renderPass.Valid()) {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
                 if (!renderPass->data.initted) {
                     error = "Associated RenderPass is not initialized!";
                     return VK_NULL_HANDLE;
@@ -2700,7 +2702,7 @@ failure:
                 inheritanceInfo.subpass = subpass;
             }
             if (framebuffer.Valid()) {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
                 if (!framebuffer->data.initted) {
                     error = "Associated Framebuffer is not initialized!";
                     return VK_NULL_HANDLE;
@@ -2740,7 +2742,7 @@ failure:
     }
 
     bool CommandBuffer::End() {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (!data.recording) {
             error = "Can't end a CommandBuffer that's not recording!";
             return false;
@@ -2758,7 +2760,7 @@ failure:
     }
 
     bool CommandBuffer::Reset() {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (!data.pool->resettable) {
             error = "This CommandBuffer was not allocated from a CommandPool that's resettable!";
             return false;
@@ -2793,7 +2795,7 @@ failure:
     }
 
     Ptr<CommandBuffer> CommandPool::CreateDynamicBuffer(bool secondary) {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             error = "Command Pool is not initialized!";
             return nullptr;
@@ -2820,7 +2822,7 @@ failure:
     }
 
     void CommandPool::DestroyDynamicBuffer(CommandBuffer *buffer) {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             return;
         }
@@ -2841,7 +2843,7 @@ failure:
 
     bool CommandPool::Init(Device *device, String debugMarker) {
         PrintDashed("Initializing Command Pool");
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             error = "CommandPool is already initialized!";
             return false;
@@ -2958,7 +2960,7 @@ failure:
     }
 
     VkResult Swapchain::AcquireNextImage() {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             error = "Swapchain is not initialized!";
             return VK_ERROR_INITIALIZATION_FAILED;
@@ -3046,7 +3048,7 @@ failure:
 
     bool Swapchain::Init(Device *device, String debugMarker) {
         PrintDashed("Initializing Swapchain");
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             error = "Swapchain is already initialized!";
             return false;
@@ -3304,7 +3306,7 @@ failure:
 
     bool Swapchain::Deinit() {
         PrintDashed("Destroying Swapchain");
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             // error = "Swapchain isn't initialized!";
             return false;
@@ -3326,7 +3328,7 @@ failure:
         semaphore() , swapchain(inSwapchain) , dstStageMask(inDstStageMask) {}
 
     bool QueueSubmission::Config() {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (commandBuffers.size == 0) {
             error = "You can't submit 0 command buffers!";
             return false;
@@ -3345,7 +3347,7 @@ failure:
             if (waitSemaphores[i].semaphore.Valid()) {
                 data.waitSemaphores[i] = waitSemaphores[i].semaphore->semaphore;
             } else {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
                 if (!waitSemaphores[i].swapchain.Valid()) {
                     error = "Neither the semaphore Ptr nor the swapchain Ptr are valid!";
                     return false;
@@ -3448,7 +3450,7 @@ failure:
     }
 
     bool Device::SubmitCommandBuffers(Ptr<Queue> queue, Array<Ptr<QueueSubmission>> submissions) {
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             error = "Device not initialized!";
             return false;
@@ -3477,7 +3479,7 @@ failure:
 
     bool Device::Init(Instance *instance, String debugMarker) {
         PrintDashed("Initializing Logical Device");
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             error = "Device is already initialized!";
             return false;
@@ -3949,7 +3951,7 @@ failed:
 
     bool Device::Deinit() {
         PrintDashed("Destroying Logical Device");
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             // error = "Device isn't initialized!";
             return false;
@@ -4026,7 +4028,7 @@ failed:
     void Instance::AppInfo(const char *name, u32 versionMajor, u32 versionMinor, u32 versionPatch) {
         data.appInfo.pApplicationName = name;
         data.appInfo.applicationVersion = VK_MAKE_VERSION(versionMajor, versionMinor, versionPatch);
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             // Should we bother? It only really makes sense to call this at the beginning
             // and it won't change anything about the renderer itself...
@@ -4078,7 +4080,7 @@ failed:
 
     bool Instance::Init() {
         PrintDashed("Initializing Vulkan Tree");
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (data.initted) {
             error = "Tree is already initialized!";
             return false;
@@ -4209,7 +4211,7 @@ failed:
 
         }
         // Create a surface if we want one
-#ifdef IO_FOR_VULKAN
+#ifdef AZCORE_IO_FOR_VULKAN
         for (Window& w : data.windows) {
             if (!w.surfaceWindow->CreateVkSurface(this, &w.surface)) {
                 error = "Failed to CreateVkSurface: " + error;
@@ -4290,7 +4292,7 @@ failed:
 
     bool Instance::Deinit() {
         PrintDashed("Destroying Vulkan Tree");
-#ifndef VK_SANITY_CHECKS_MINIMAL
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (!data.initted) {
             error = "Tree isn't initialized!";
             return false;
@@ -4300,7 +4302,7 @@ failed:
             data.devices[i].Deinit();
         }
         // Clean up everything else here
-#ifdef IO_FOR_VULKAN
+#ifdef AZCORE_IO_FOR_VULKAN
         for (const Window& w : data.windows) {
             vkDestroySurfaceKHR(data.instance, w.surface, nullptr);
         }
@@ -4334,4 +4336,6 @@ failed:
         vkCmdExecuteCommands(commandBuffer, cmdBufs.size, cmdBufs.data);
     }
 
-}
+} // namespace vk
+
+} // namespace AzCore

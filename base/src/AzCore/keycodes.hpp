@@ -5,10 +5,12 @@
     cross-platform referencing of keyboard, mouse, and gamepad inputs.
     Based on USB HID scancodes, and modified to represent the mouse and gamepad at the same time.
 */
-#ifndef KEYCODES_HPP
-#define KEYCODES_HPP
+#ifndef AZCORE_KEYCODES_HPP
+#define AZCORE_KEYCODES_HPP
 
 #include "basictypes.hpp"
+
+namespace AzCore {
 
 const u8 KC_KEY_NONE                = 0x00; // No key pressed
 const u8 KC_KEY_ERR                 = 0x01; // Keyboard Error Roll Over - used for all slots if too many keys are pressed ("Phantom key")
@@ -358,4 +360,6 @@ void PrintKeyCodeMapsEvdev(io::logStream& cout);
 void PrintKeyCodeMapsWinVK(io::logStream& cout);
 void PrintKeyCodeMapsWinScan(io::logStream& cout);
 
-#endif
+} // namespace AzCore
+
+#endif // AZCORE_KEYCODES_HPP

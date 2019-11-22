@@ -8,7 +8,7 @@ CC=g++
 WCC=x86_64-w64-mingw32-g++
 WRC=x86_64-w64-mingw32-windres $(SDIR)/resources.rc -O coff
 RCFLAGS=-I $(IDIR)
-CFLAGS=-I$(IDIR) -Wall -std=c++17 -fsingle-precision-constant -DIO_FOR_VULKAN
+CFLAGS=-I$(IDIR) -Wall -std=c++17 -fsingle-precision-constant -DAZCORE_IO_FOR_VULKAN
 LCFLAGS=$(CFLAGS) #-Wl,-z,origin -Wl,-rpath,'$$ORIGIN/lib'
 WCFLAGS=$(CFLAGS) -D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -I$(WIN_VULKAN_SDK)/Include/
 
@@ -25,34 +25,45 @@ WCFLAGS=$(CFLAGS) -D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -I$(
 #LIBS_L_GLX= $(LIBS_L) -lX11 -lX11-xcb
 #LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib32/" -lvulkan-1 -lgdi32
 
-_DEPS = keycodes.hpp io.hpp math.hpp memory.hpp log_stream.hpp vk.hpp bigint.hpp font.hpp font_tables.hpp font_tables.cpp
-DEPS = $(patsubst %,$(IDIR)/AzCore/%,$(_DEPS)) makefile
+_DEPS_BASE = keycodes.hpp io.hpp math.hpp memory.hpp vk.hpp font.hpp font_tables.hpp font_tables.cpp font_cff_std_data.c Time.hpp
+DEPS_BASE = $(patsubst %,$(IDIR)/AzCore/%,$(_DEPS)) makefile
+_DEPS_IO = ButtonState.hpp ButtonState.cpp Gamepad.hpp Gamepad.cpp Input.hpp Input.cpp LogStream.hpp LogStream.cpp RawInput.hpp RawInput.cpp Window.hpp
+_DEPS_IO_PLATFORM = RawInput.cpp Window.cpp
+DEPS_IO_L = $(patsubst %,$(IDIR)/AzCore/IO/%,$(_DEPS_IO)) $(patsubst %,$(IDIR)/AzCore/IO/Linux/%,$(_DEPS_IO_PLATFORM))
+DEPS_IO_W = $(patsubst %,$(IDIR)/AzCore/IO/%,$(_DEPS_IO)) $(patsubst %,$(IDIR)/AzCore/IO/Win32/%,$(_DEPS_IO_PLATFORM))
 
-_OBJ = io.o memory.o keycodes.o log_stream.o vk.o math.o bigint.o font.o
-_OBJ_L = $(_OBJ) io_linux.o
-_OBJ_W = $(_OBJ) io_win32.o
-OBJ_L = $(patsubst %,$(ODIR)/Linux/Release/%,$(_OBJ_L))
-OBJ_W = $(patsubst %,$(ODIR)/Windows/Release/%,$(_OBJ_W))
-OBJ_LD = $(patsubst %,$(ODIR)/Linux/Debug/%,$(_OBJ_L))
-OBJ_WD = $(patsubst %,$(ODIR)/Windows/Debug/%,$(_OBJ_W))
+_DEPS_MATH = Angle.hpp Angle.cpp basic.hpp complex_t.hpp Equations.hpp mat2_t.hpp mat3_t.hpp mat4_t.hpp mat5_t.hpp quat_t.hpp RandomNumberGenerator.hpp RandomNumberGenerator.cpp vec2_t.hpp vec3_t.hpp vec4_t.hpp vec5_t.hpp
+DEPS_MATH = $(patsubst %,$(IDIR)/AzCore/Math/%,$(_DEPS_MATH))
 
-$(ODIR)/Linux/Debug/%.o: $(SDIR)/AzCore/%.cpp $(DEPS)
+_DEPS_MEMORY = Array.hpp ArrayList.hpp BigInt.hpp BucketArray.hpp Endian.hpp Endian.cpp List.hpp Ptr.hpp Range.hpp String.hpp String.cpp
+DEPS_MEMORY = $(patsubst %,$(IDIR)/AzCore/Memory/%,$(_DEPS_MEMORY))
+
+DEPS_L = $(DEPS_BASE) $(DEPS_IO_L) $(DEPS_MATH) $(DEPS_MEMORY)
+DEPS_W = $(DEPS_BASE) $(DEPS_IO_W) $(DEPS_MATH) $(DEPS_MEMORY)
+
+_OBJ = io.o memory.o keycodes.o IO/LogStream.o vk.o math.o Memory/BigInt.o font.o
+OBJ_L = $(patsubst %,$(ODIR)/Linux/Release/%,$(_OBJ))
+OBJ_W = $(patsubst %,$(ODIR)/Windows/Release/%,$(_OBJ))
+OBJ_LD = $(patsubst %,$(ODIR)/Linux/Debug/%,$(_OBJ))
+OBJ_WD = $(patsubst %,$(ODIR)/Windows/Debug/%,$(_OBJ))
+
+$(ODIR)/Linux/Debug/%.o: $(SDIR)/AzCore/%.cpp $(DEPS_L)
 	@mkdir -p $(@D)
 	$(CC) -c -o $@ $< -g -rdynamic $(LCFLAGS)
 
-$(ODIR)/Windows/Debug/%.o: $(SDIR)/AzCore/%.cpp $(DEPS)
+$(ODIR)/Windows/Debug/%.o: $(SDIR)/AzCore/%.cpp $(DEPS_W)
 	@mkdir -p $(@D)
 	$(WCC) -c -o $@ $< -g $(WCFLAGS)
 
-$(ODIR)/Linux/Release/%.o: $(SDIR)/AzCore/%.cpp $(DEPS)
+$(ODIR)/Linux/Release/%.o: $(SDIR)/AzCore/%.cpp $(DEPS_L)
 	@mkdir -p $(@D)
 	$(CC) -c -o $@ $< -g -O2 $(LCFLAGS) -DNDEBUG
 
-$(ODIR)/Windows/Release/%.o: $(SDIR)/AzCore/%.cpp $(DEPS)
+$(ODIR)/Windows/Release/%.o: $(SDIR)/AzCore/%.cpp $(DEPS_W)
 	@mkdir -p $(@D)
 	$(WCC) -c -o $@ $< -O2 $(WCFLAGS) -DNDEBUG
 
-$(ODIR)/Windows/resources.o: $(IDIR)/resources.h $(SDIR)/resources.rc manifest.xml icon.ico $(DEPS)
+$(ODIR)/Windows/resources.o: $(IDIR)/resources.h $(SDIR)/resources.rc manifest.xml icon.ico $(DEPS_W)
 	@mkdir -p $(@D)
 	$(WRC) -o $@ $(RCFLAGS)
 

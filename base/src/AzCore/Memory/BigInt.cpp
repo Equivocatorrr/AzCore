@@ -1,4 +1,12 @@
-#include "bigint.hpp"
+/*
+    File: BigInt.cpp
+    Author: Philip Haynes
+*/
+
+#include "BigInt.hpp"
+#include "../math.hpp"
+
+namespace AzCore {
 
 BigInt::BigInt(const String& string, bool neg, const u32 base) : words(), negative(false) {
     BigInt mul(1u);
@@ -733,3 +741,5 @@ String BigInt::HexString() const {
     }
     return string;
 }
+
+} // namespace AzCore

@@ -1,8 +1,11 @@
-#include "AzCore/log_stream.hpp"
+#include "AzCore/IO/LogStream.hpp"
 #include "AzCore/memory.hpp"
-#include "AzCore/bigint.hpp"
+#include "AzCore/Memory/BigInt.hpp"
+#include "AzCore/Math/RandomNumberGenerator.hpp"
 
-io::logStream cout("checks.log");
+using namespace AzCore;
+
+io::LogStream cout("checks.log");
 
 u64 StringToU64(String str) {
     u64 number = 0;
@@ -38,10 +41,10 @@ Milliseconds totalTimeTaken(0);
 
 Array<String> successfulFactorizations{};
 
-const i32 minimumDigits = 194;
+const i32 minimumDigits = 4;
 // const i32 minimumDigits = 237;
 const i32 minimumPermutationDigits = 17;
-const i32 maximumDigits = 201;
+const i32 maximumDigits = 32;
 // const i32 maximumDigits = 237;
 const i32 numThreads = 8;
 

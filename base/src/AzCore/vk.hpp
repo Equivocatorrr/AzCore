@@ -25,16 +25,16 @@
               (including tesselation, geometry shaders, etc.)
         - Add support for screenshots.
 */
-#ifndef VK_HPP
-#define VK_HPP
+#ifndef AZCORE_VK_HPP
+#define AZCORE_VK_HPP
 
 #ifdef NDEBUG
     // This define will get rid of most sanity checks,
     // especially those related to Vulkan Tree Structure.
     // It's advised to keep the sanity checks when designing your program.
-    #define VK_SANITY_CHECKS_MINIMAL
+    #define AZCORE_VK_SANITY_CHECKS_MINIMAL
     // This disables console logging
-    #define VK_LOGGING_NO_CONSOLE
+    #define AZCORE_VK_LOGGING_NO_CONSOLE
 #endif
 
 // Having this defined makes keeping track of host memory precisely impossible
@@ -42,6 +42,8 @@
 
 #include "common.hpp"
 #include <vulkan/vulkan.h>
+
+namespace AzCore {
 
 namespace io {
     class Window;
@@ -955,6 +957,8 @@ namespace vk {
 
     void CmdExecuteCommands(VkCommandBuffer commandBuffer, Array<Ptr<CommandBuffer>> commandBuffers);
 
-}
+} // namespace vk
 
-#endif
+} // namespace AzCore
+
+#endif // AZCORE_VK_HPP

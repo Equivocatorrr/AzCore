@@ -7,12 +7,14 @@
 #include "AzCore/io.hpp"
 #include "AzCore/vk.hpp"
 
+using namespace AzCore;
+
 #define pow(v, e) pow((double)v, (double)e)
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 #undef pow
 
-io::logStream cout("test.log");
+io::LogStream cout("test.log");
 
 i32 main(i32 argumentCount, char** argumentValues) {
 
@@ -159,8 +161,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkShaders[1].filename = "data/shaders/test.frag.spv";
 
     vk::ShaderRef vkShaderRefs[2] = {
-        vk::ShaderRef(vkShaders.ToPtr(0), VK_SHADER_STAGE_VERTEX_BIT),
-        vk::ShaderRef(vkShaders.ToPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT)
+        vk::ShaderRef(vkShaders.GetPtr(0), VK_SHADER_STAGE_VERTEX_BIT),
+        vk::ShaderRef(vkShaders.GetPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT)
     };
 
     Ptr<vk::Pipeline> vkPipeline = vkDevice->AddPipeline();
@@ -238,11 +240,11 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkStagingBuffers[2].CopyData(image.pixels.get());
 
     VkCommandBuffer cmdBufCopy = vkCommandBuffer->Begin();
-    vkVertexBuffer->Copy(cmdBufCopy, vkStagingBuffers.ToPtr(0));
-    vkIndexBuffer->Copy(cmdBufCopy, vkStagingBuffers.ToPtr(1));
+    vkVertexBuffer->Copy(cmdBufCopy, vkStagingBuffers.GetPtr(0));
+    vkIndexBuffer->Copy(cmdBufCopy, vkStagingBuffers.GetPtr(1));
 
     vkTextureImage->TransitionLayout(cmdBufCopy, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    vkTextureImage->Copy(cmdBufCopy, vkStagingBuffers.ToPtr(2));
+    vkTextureImage->Copy(cmdBufCopy, vkStagingBuffers.GetPtr(2));
     vkTextureImage->GenerateMipMaps(cmdBufCopy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     if (!vkCommandBuffer->End()) {
         cout << "Failed to copy from staging buffers: " << vk::error << std::endl;

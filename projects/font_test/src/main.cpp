@@ -1,13 +1,15 @@
-#include "AzCore/log_stream.hpp"
+#include "AzCore/IO/LogStream.hpp"
 #include "AzCore/memory.hpp"
 #include "AzCore/font.hpp"
+
+using namespace AzCore;
 
 #define pow(v, e) pow((double)v, (double)e)
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb/stb_image_write.h"
 #undef pow
 
-io::logStream cout("main.log");
+io::LogStream cout("main.log");
 
 i32 main(i32 argumentCount, char **argumentValues) {
 

@@ -16,11 +16,21 @@ $(ODIR)/Windows/Release/%.o: $(SDIR)/%.cpp $(DEPS) $(AZCORE_BASE)/.touchw
 
 .PHONY: clean debugl debugw releasel releasew debug release linux windows all shaders runl runw rundl rundlv rundw rundwv testl testdl testdlv
 
-_AZCORE_DEPS = basictypes.hpp bigint.cpp bigint.hpp common.hpp font_cff_std_data.c font_tables.cpp font_tables.hpp font.cpp font.hpp io.cpp io.hpp keycodes.cpp keycodes.hpp log_stream.cpp log_stream.hpp math.cpp math.hpp memory.cpp memory.hpp vk.cpp vk.hpp
-_AZCORE_DEPS_L = $(_AZCORE_DEPS) io_linux.cpp
-_AZCORE_DEPS_W = $(_AZCORE_DEPS) io_win32.cpp
-AZCORE_DEPS_L = $(patsubst %,$(AZCORE_BASE)/src/AzCore/%,$(_AZCORE_DEPS_L))
-AZCORE_DEPS_W = $(patsubst %,$(AZCORE_BASE)/src/AzCore/%,$(_AZCORE_DEPS_W))
+_AZCORE_DEPS_BASE = basictypes.hpp common.hpp keycodes.hpp keycodes.cpp io.hpp io.cpp math.hpp math.cpp memory.hpp memory.cpp vk.hpp vk.cpp font.hpp font.cpp font_tables.hpp font_tables.cpp font_cff_std_data.c Time.hpp
+AZCORE_DEPS_BASE = $(patsubst %,$(AZCORE_BASE)/src/AzCore/%,$(_AZCORE_DEPS_BASE)) makefile
+_AZCORE_DEPS_IO = ButtonState.hpp ButtonState.cpp Gamepad.hpp Gamepad.cpp Input.hpp Input.cpp LogStream.hpp LogStream.cpp RawInput.hpp RawInput.cpp Window.hpp
+_AZCORE_DEPS_IO_PLATFORM = RawInput.cpp Window.cpp
+AZCORE_DEPS_IO_L = $(patsubst %,$(AZCORE_BASE)/src/AzCore/IO/%,$(_AZCORE_DEPS_IO)) $(patsubst %,$(AZCORE_BASE)/src/AzCore/IO/Linux/%,$(_AZCORE_DEPS_IO_PLATFORM))
+AZCORE_DEPS_IO_W = $(patsubst %,$(AZCORE_BASE)/src/AzCore/IO/%,$(_AZCORE_DEPS_IO)) $(patsubst %,$(AZCORE_BASE)/src/AzCore/IO/Win32/%,$(_AZCORE_DEPS_IO_PLATFORM))
+
+_AZCORE_DEPS_MATH = Angle.hpp Angle.cpp basic.hpp complex_t.hpp Equations.hpp mat2_t.hpp mat3_t.hpp mat4_t.hpp mat5_t.hpp quat_t.hpp RandomNumberGenerator.hpp RandomNumberGenerator.cpp vec2_t.hpp vec3_t.hpp vec4_t.hpp vec5_t.hpp
+AZCORE_DEPS_MATH = $(patsubst %,$(AZCORE_BASE)/src/AzCore/Math/%,$(_AZCORE_DEPS_MATH))
+
+_AZCORE_DEPS_MEMORY = Array.hpp ArrayList.hpp BigInt.hpp BucketArray.hpp Endian.hpp Endian.cpp List.hpp Ptr.hpp Range.hpp String.hpp String.cpp
+AZCORE_DEPS_MEMORY = $(patsubst %,$(AZCORE_BASE)/src/AzCore/Memory/%,$(_AZCORE_DEPS_MEMORY))
+
+AZCORE_DEPS_L = $(AZCORE_DEPS_BASE) $(AZCORE_DEPS_IO_L) $(AZCORE_DEPS_MATH) $(AZCORE_DEPS_MEMORY)
+AZCORE_DEPS_W = $(AZCORE_DEPS_BASE) $(AZCORE_DEPS_IO_W) $(AZCORE_DEPS_MATH) $(AZCORE_DEPS_MEMORY)
 
 $(AZCORE_BASE)/.touchl: $(AZCORE_DEPS_L) $(AZCORE_BASE)/makefile
 	$(MAKE) -C $(AZCORE_BASE) releasel

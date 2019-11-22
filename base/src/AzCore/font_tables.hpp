@@ -10,6 +10,7 @@
 
 #include "common.hpp"
 
+namespace AzCore {
 namespace font {
 
 struct Glyph;
@@ -716,5 +717,6 @@ struct glyfParsed {
 
 } // namespace tables
 } // namespace font
+} // namespace AzCore
 
 #endif // FONT_TABLES_HPP

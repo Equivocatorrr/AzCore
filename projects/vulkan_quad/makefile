@@ -13,7 +13,7 @@ CC=g++
 WCC=x86_64-w64-mingw32-g++
 WRC=x86_64-w64-mingw32-windres $(SDIR)/resources.rc -O coff
 RCFLAGS=-I $(IDIR)
-CFLAGS=-I$(IDIR) -I$(AZCORE_BASE)/src -Wall -std=c++17 -fsingle-precision-constant -DIO_FOR_VULKAN
+CFLAGS=-I$(IDIR) -I$(AZCORE_BASE)/src -Wall -std=c++17 -fsingle-precision-constant -DAZCORE_IO_FOR_VULKAN
 LCFLAGS=$(CFLAGS) #-Wl,-z,origin -Wl,-rpath,'$$ORIGIN/lib'
 WCFLAGS=$(CFLAGS) -D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -I$(WIN_VULKAN_SDK)/Include/
 
@@ -33,13 +33,11 @@ LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib/" -lvulkan-1 -lgdi32 -ldinput8 -ldxguid
 _DEPS =
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS)) makefile
 
-_AZCORE_OBJ = io.o memory.o keycodes.o log_stream.o vk.o math.o
-_AZCORE_OBJ_L = $(_AZCORE_OBJ) io_linux.o
-_AZCORE_OBJ_W = $(_AZCORE_OBJ) io_win32.o
-AZCORE_OBJ_L = $(patsubst %,$(AZCORE_BASE)/obj/Linux/Release/%,$(_AZCORE_OBJ_L))
-AZCORE_OBJ_W = $(patsubst %,$(AZCORE_BASE)/obj/Windows/Release/%,$(_AZCORE_OBJ_W))
-AZCORE_OBJ_LD = $(patsubst %,$(AZCORE_BASE)/obj/Linux/Debug/%,$(_AZCORE_OBJ_L))
-AZCORE_OBJ_WD = $(patsubst %,$(AZCORE_BASE)/obj/Windows/Debug/%,$(_AZCORE_OBJ_W))
+_AZCORE_OBJ = io.o memory.o keycodes.o IO/LogStream.o vk.o math.o
+AZCORE_OBJ_L = $(patsubst %,$(AZCORE_BASE)/obj/Linux/Release/%,$(_AZCORE_OBJ))
+AZCORE_OBJ_W = $(patsubst %,$(AZCORE_BASE)/obj/Windows/Release/%,$(_AZCORE_OBJ))
+AZCORE_OBJ_LD = $(patsubst %,$(AZCORE_BASE)/obj/Linux/Debug/%,$(_AZCORE_OBJ))
+AZCORE_OBJ_WD = $(patsubst %,$(AZCORE_BASE)/obj/Windows/Debug/%,$(_AZCORE_OBJ))
 
 _OBJ = main.o
 OBJ_L = $(patsubst %,$(ODIR)/Linux/Release/%,$(_OBJ))

@@ -9,6 +9,8 @@
 
 #include "font_tables.cpp"
 
+namespace AzCore {
+
 String ToString(font::Tag_t tag) {
     String string(4);
     for (u32 x = 0; x < 4; x++) {
@@ -1111,3 +1113,5 @@ bool FontBuilder::Build() {
 }
 
 } // namespace font
+
+} // namespace AzCore

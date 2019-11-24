@@ -1,8 +1,8 @@
 /*
-    File: font_tables.cpp
+    File: FontTables.cpp
     Author: Philip Haynes
 */
-#include "font.hpp"
+#include "../font.hpp"
 
 namespace AzCore {
 

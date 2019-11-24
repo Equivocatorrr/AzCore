@@ -1,5 +1,5 @@
 /*
-    File: font_tables.hpp
+    File: FontTables.hpp
     Author: Philip Haynes
     Separating out low-level table definitions so font.hpp
     can have more high-level structures.
@@ -8,7 +8,7 @@
 #ifndef FONT_TABLES_HPP
 #define FONT_TABLES_HPP
 
-#include "common.hpp"
+#include "../common.hpp"
 
 namespace AzCore {
 namespace font {

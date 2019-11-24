@@ -7,7 +7,7 @@
 
 // #define LOG_VERBOSE
 
-#include "font_tables.cpp"
+#include "Font/FontTables.cpp"
 
 namespace AzCore {
 

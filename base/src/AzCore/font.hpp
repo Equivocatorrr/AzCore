@@ -15,7 +15,7 @@
 #include "common.hpp"
 #include "IO/LogStream.hpp"
 
-#include "font_tables.hpp"
+#include "Font/FontTables.hpp"
 
 #include <fstream>
 

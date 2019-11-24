@@ -42,6 +42,25 @@ bool equals(const char *a, const char *b);
 WString ToWString(const char *string);
 // Converts a UTF-8 string to Unicode string
 WString ToWString(String string);
+// Returns how many bytes long a single UTF-8 character is based on the first.
+i32 CharLen(const char chr);
+
+inline WString operator+(const WString &wString, const char *cString)
+{
+    return wString + ToWString(cString);
+}
+inline WString operator+(const WString &wString, const String &string)
+{
+    return wString + ToWString(string);
+}
+inline WString operator+(const char *cString, const WString &wString)
+{
+    return ToWString(cString) + wString;
+}
+inline WString operator+(const String string, const WString &wString)
+{
+    return ToWString(string) + wString;
+}
 
 } // namespace AzCore
 

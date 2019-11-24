@@ -774,4 +774,24 @@ WString ToWString(const char *string)
     return out;
 }
 
+i32 CharLen(const char chr) {
+    if (!(chr & 0x80))
+    {
+        return 1;
+    }
+    else if ((chr & 0xE0) == 0xC0)
+    {
+        return 2;
+    }
+    else if ((chr & 0xF0) == 0xE0)
+    {
+        return 3;
+    }
+    else if ((chr & 0xF8) == 0xF0)
+    {
+        return 4;
+    }
+    return 1;
+}
+
 } // namespace AzCore

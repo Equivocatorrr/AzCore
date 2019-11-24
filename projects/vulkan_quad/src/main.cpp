@@ -76,6 +76,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
     io::Window window;
     io::Input input;
     window.input = &input;
+    window.width = 480;
+    window.height = 480;
     if (!window.Open()) {
         cout << "Failed to open Window: " << io::error << std::endl;
         return 1;
@@ -201,7 +203,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
     colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
 
     vkPipeline->colorBlendAttachments.Append(colorBlendAttachment);

@@ -30,6 +30,7 @@ struct Globals {
     RandomNumberGenerator rng;
     bool exit = false;
     Nanoseconds frameDuration;
+    Map<String, WString> locale;
     // Settings
     bool fullscreen = false;
     f32 framerate = 60;
@@ -37,6 +38,13 @@ struct Globals {
     f32 volumeMusic = 1.0;
     f32 volumeEffects = 1.0;
 
+    void LoadLocale();
+    inline WString ReadLocale(String name) {
+        if (locale.count(name) == 0)
+            return ToWString(name);
+        else
+            return locale[name];
+    }
     bool LoadSettings();
     bool SaveSettings();
     inline void Framerate(const f32 &fr) {

@@ -159,7 +159,7 @@ void MainMenu::Initialize() {
     title->outline = true;
     title->fontSize = 64.0;
     title->fontIndex = globals->gui.fontIndex;
-    title->string = ToWString("AzCore Tower Defense");
+    title->string = globals->ReadLocale("AzCore Tower Defense");
     AddWidget(listV, title);
 
     spacer = new Widget();
@@ -172,21 +172,21 @@ void MainMenu::Initialize() {
     buttonList->padding = vec2(16.0);
 
     buttonStart = new Button();
-    buttonStart->string = ToWString("Start");
+    buttonStart->string = globals->ReadLocale("Start");
     buttonStart->size.y = 64.0;
     buttonStart->fractionHeight = false;
     buttonStart->margin = vec2(16.0);
     AddWidget(buttonList, buttonStart);
 
     buttonSettings = new Button();
-    buttonSettings->string = ToWString("Settings");
+    buttonSettings->string = globals->ReadLocale("Settings");
     buttonSettings->size.y = 64.0;
     buttonSettings->fractionHeight = false;
     buttonSettings->margin = vec2(16.0);
     AddWidget(buttonList, buttonSettings);
 
     buttonExit = new Button();
-    buttonExit->string = ToWString("Exit");
+    buttonExit->string = globals->ReadLocale("Exit");
     buttonExit->size.y = 64.0;
     buttonExit->fractionHeight = false;
     buttonExit->margin = vec2(16.0);
@@ -214,7 +214,7 @@ void MainMenu::Update() {
     screen.Update(vec2(0.0), true);
     if (buttonStart->state.Released()) {
         globals->gui.nextMenu = MENU_PLAY;
-        buttonStart->string = ToWString("Continue");
+        buttonStart->string = globals->ReadLocale("Continue");
     }
     if (buttonSettings->state.Released()) {
         globals->gui.nextMenu = MENU_SETTINGS;
@@ -245,7 +245,7 @@ void SettingsMenu::Initialize() {
     title->outline = true;
     title->fontSize = 64.0;
     title->fontIndex = globals->gui.fontIndex;
-    title->string = ToWString("Settings");
+    title->string = globals->ReadLocale("Settings");
     AddWidget(listV, title);
 
     spacer = new Widget();
@@ -325,14 +325,14 @@ void SettingsMenu::Initialize() {
     for (i32 i = 0; i < settingListItems.size; i+=2) {
         if (settingListItems[i] == nullptr) {
             Text *settingText = new Text(*settingTextTemplate);
-            settingText->string = ToWString(settingListNames[i/2]);
+            settingText->string = globals->ReadLocale(settingListNames[i / 2]);
             settingText->alignH = Rendering::CENTER;
             settingText->fontSize = 24.0;
             AddWidget(actualList, settingText);
         } else {
             ListH *settingList = new ListH(*settingListTemplate);
             Text *settingText = new Text(*settingTextTemplate);
-            settingText->string = ToWString(settingListNames[i/2]);
+            settingText->string = globals->ReadLocale(settingListNames[i / 2]);
             AddWidget(settingList, settingText);
             AddWidget(settingList, settingListItems[i]);
             if (settingListItems[i+1] != nullptr) {
@@ -352,7 +352,7 @@ void SettingsMenu::Initialize() {
     buttonList->selectionDefault = 1;
 
     buttonBack = new Button();
-    buttonBack->string = ToWString("Back");
+    buttonBack->string = globals->ReadLocale("Back");
     buttonBack->size.x = 1.0 / 2.0;
     buttonBack->size.y = 64.0;
     buttonBack->fractionHeight = false;
@@ -361,7 +361,7 @@ void SettingsMenu::Initialize() {
     AddWidget(buttonList, buttonBack);
 
     buttonApply = new Button();
-    buttonApply->string = ToWString("Apply");
+    buttonApply->string = globals->ReadLocale("Apply");
     buttonApply->size.x = 1.0 / 2.0;
     buttonApply->size.y = 64.0;
     buttonApply->fractionHeight = false;
@@ -448,13 +448,13 @@ void PlayMenu::Initialize() {
     list->fractionHeight = true;
     list->fractionWidth = false;
     list->margin = 0.0;
-    list->size = vec2(300.0, 1.0);
+    list->size = vec2(400.0, 1.0);
     AddWidget(screenListH, list);
 
     Text *towerHeader = new Text();
     towerHeader->fontIndex = globals->gui.fontIndex;
     towerHeader->alignH = Rendering::CENTER;
-    towerHeader->string = ToWString("Towers");
+    towerHeader->string = globals->ReadLocale("Towers");
     AddWidget(list, towerHeader);
 
     ListH *gridBase = new ListH();
@@ -474,6 +474,7 @@ void PlayMenu::Initialize() {
     halfWidth->fractionHeight = false;
     halfWidth->size.y = 48.0;
     halfWidth->fontIndex = globals->gui.fontIndex;
+    halfWidth->fontSize = 24.0;
 
     towerButtons.Resize(Entities::TOWER_MAX_RANGE + 1);
     for (i32 i = 0; i < towerButtons.size; i+=2) {
@@ -482,7 +483,7 @@ void PlayMenu::Initialize() {
             i32 index = i+j;
             if (index > towerButtons.size) break;
             towerButtons[index] = new Button(*halfWidth);
-            towerButtons[index]->string = ToWString(Entities::towerStrings[index]);
+            towerButtons[index]->string = globals->ReadLocale(Entities::towerStrings[index]);
             towerButtons[index]->highlightBG = Entities::Tower(Entities::TowerType(index)).color;
             AddWidget(grid, towerButtons[index]);
         }
@@ -511,7 +512,7 @@ void PlayMenu::Initialize() {
     fullWidth->fontIndex = globals->gui.fontIndex;
 
     buttonStartWave = new Button(*fullWidth);
-    buttonStartWave->string = ToWString("Start Wave");
+    buttonStartWave->string = globals->ReadLocale("Start Wave");
     AddWidget(list, buttonStartWave);
 
     waveInfo = new Text();
@@ -523,7 +524,7 @@ void PlayMenu::Initialize() {
     AddWidget(list, waveInfo);
 
     buttonMenu = new Button(*fullWidth);
-    buttonMenu->string = ToWString("Menu");
+    buttonMenu->string = globals->ReadLocale("Menu");
     AddWidget(list, buttonMenu);
 
     delete gridBase;
@@ -532,7 +533,7 @@ void PlayMenu::Initialize() {
 }
 
 void PlayMenu::Update() {
-    String towerInfoString = "Money: $" + ToString(globals->entities.money);
+    WString towerInfoString = globals->ReadLocale("Money") + ": $" + ToString(globals->entities.money);
     i32 textTower = -1;
     if (globals->entities.placeMode) {
         textTower = globals->entities.towerType;
@@ -544,17 +545,19 @@ void PlayMenu::Update() {
         }
     }
     if (textTower != -1) {
-        towerInfoString += "\nCost: $" + ToString(Entities::towerCosts[textTower])
-                         + "\n" + Entities::towerDescriptions[textTower];
+        towerInfoString += "\n" + globals->ReadLocale("Cost") + ": $" + ToString(Entities::towerCosts[textTower]) + "\n" + globals->ReadLocale(Entities::towerDescriptions[textTower]);
     }
-    towerInfo->string = ToWString(towerInfoString);
-    waveInfo->string = ToWString("Wave: " + ToString(globals->entities.wave) + "\nWave Hitpoints Left: " + ToString(globals->entities.hitpointsLeft) + "\nLives: " + ToString(globals->entities.lives));
-    screen.Update(vec2(0.0), true);
+    towerInfo->string = towerInfoString;
+    waveInfo->string =
+        globals->ReadLocale("Wave") + ": " + ToString(globals->entities.wave) + "\n"
+        + globals->ReadLocale("Wave Hitpoints Left") + ": " + ToString(globals->entities.hitpointsLeft) + "\n"
+        + globals->ReadLocale("Lives") + ": " + ToString(globals->entities.lives);
+                                                                                                                                                                                                          screen.Update(vec2(0.0), true);
     if (buttonMenu->state.Released()) {
         globals->gui.nextMenu = MenuEnum::MENU_MAIN;
         globals->objects.paused = true;
         if (globals->entities.waveActive) {
-            buttonStartWave->string = ToWString("Resume");
+            buttonStartWave->string = globals->ReadLocale("Resume");
         }
     }
 }

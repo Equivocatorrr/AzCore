@@ -24,13 +24,13 @@ const i32 towerCosts[TOWER_MAX_RANGE+1] = {
     50000,
     200000
 };
-const char* towerDescriptions[TOWER_MAX_RANGE+1] = {
-    "A TOMMY GUN",
-    "Have a look at my BOOMSTICK",
-    "Blow away, windbag",
-    "An AOE burst tower",
-    "Massive damage single-shot",
-    "Multiple explosive flak shots that deal AOE damage"
+const char *towerDescriptions[TOWER_MAX_RANGE + 1] = {
+    "GunDescription",
+    "ShotgunDescription",
+    "FanDescription",
+    "ShockerDescription",
+    "GaussDescription",
+    "FlakDescription"
 };
 
 const Tower towerGunTemplate = Tower(
@@ -209,19 +209,19 @@ void Manager::EventSync() {
             hitpointsPerSecond /= wave+7;
             globals->objects.paused = false;
             waveActive = true;
-            globals->gui.playMenu.buttonStartWave->string = ToWString("Pause");
+            globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Pause");
         } else {
             if (globals->objects.paused) {
-                globals->gui.playMenu.buttonStartWave->string = ToWString("Pause");
+                globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Pause");
             } else {
-                globals->gui.playMenu.buttonStartWave->string = ToWString("Resume");
+                globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Resume");
             }
             globals->objects.paused = !globals->objects.paused;
         }
     }
     if (hitpointsLeft == 0 && waveActive && enemies.count == 0) {
         waveActive = false;
-        globals->gui.playMenu.buttonStartWave->string = ToWString("Start Wave");
+        globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Start Wave");
     }
 
     if (globals->gui.mouseoverDepth > 0) {

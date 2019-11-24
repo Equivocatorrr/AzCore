@@ -46,6 +46,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
     cout << "Starting with layers " << (enableLayers ? "enabled" : "disabled")
          << " and core validation " << (enableCoreValidation ? "enabled" : "disabled") << std::endl;
 
+    globals->LoadLocale();
+
     if (!globals->LoadSettings()) {
         cout << "No settings to load. Using defaults." << std::endl;
     }

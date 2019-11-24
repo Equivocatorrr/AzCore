@@ -1,0 +1,6 @@
+GunDescription=         "Shoots bullets at a steady rate"
+ShotgunDescription=     "An inaccurate short-range weapon"
+FanDescription=         "Pushes enemies in the direction that it points"
+ShockerDescription=     "An AOE burst tower"
+GaussDescription=       "Massive damage single-shot"
+FlakDescription=        "Multiple explosive flak shots that deal AOE damage"

@@ -5,8 +5,80 @@
 
 #include "globals.hpp"
 #include <cstdio>
+#include <locale>
 
 Globals *globals;
+
+void Globals::LoadLocale() {
+    String localeName;
+    localeName.Reserve(21);
+    localeName = "data/locale/";
+
+    char *localeString = std::setlocale(LC_ALL, "");
+
+    std::cout << "localeString = " << localeString << std::endl;
+
+    localeName += localeString[0];
+    localeName += localeString[1];
+    localeName += ".locale";
+
+    FILE *file = fopen(localeName.data, "rb");
+    if (!file) {
+        file = fopen("data/locale/en.locale", "rb");
+        if (!file)
+            return;
+    }
+    String buffer;
+    fseek(file, 0, SEEK_END);
+    buffer.Resize(ftell(file));
+    fseek(file, 0, SEEK_SET);
+    if (0 == fread(buffer.data, 1, buffer.size, file))
+    {
+        return;
+    }
+    fclose(file);
+
+    bool skipToNewline = buffer[0] == '#';
+
+    for (i32 i = 0; i < buffer.size;)
+    {
+        if (buffer[i] == '\n') {
+            i++;
+            skipToNewline = buffer[i] == '#';
+            continue;
+        }
+        if (skipToNewline) {
+            i += CharLen(buffer[i]);
+            continue;
+        }
+        String name;
+        String text;
+        for (i32 j = i; j < buffer.size; j += CharLen(buffer[j])) {
+            if (buffer[j] == '=')
+            {
+                name.Resize(j - i);
+                memcpy(name.data, &buffer[i], name.size);
+                i += name.size + 1;
+                break;
+            }
+        }
+        for (; i < buffer.size; i += CharLen(buffer[i])) {
+            if (buffer[i] == '"') {
+                i++;
+                break;
+            }
+        }
+        i32 start = i;
+        for (; i < buffer.size; i += CharLen(buffer[i])) {
+            if (buffer[i] == '"')
+                break;
+        }
+        text.Resize(i - start);
+        memcpy(text.data, &buffer[start], text.size);
+        locale[name] = ToWString(text);
+        i++;
+    }
+}
 
 bool Globals::LoadSettings() {
     FILE *file = fopen("settings.conf", "rb");

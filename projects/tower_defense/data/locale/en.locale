@@ -1,3 +1,5 @@
+# We don't need no write most of these because it uses the key when it's not in the file.
+# The keys are all English, so no need to map them to themselves.
 GunDescription=         "Shoots bullets at a steady rate"
 ShotgunDescription=     "An inaccurate short-range weapon"
 FanDescription=         "Pushes enemies in the direction that it points"

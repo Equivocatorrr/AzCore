@@ -37,6 +37,7 @@ struct Globals {
     f32 volumeMain = 1.0;
     f32 volumeMusic = 1.0;
     f32 volumeEffects = 1.0;
+    char localeOverride[2] = {0};
 
     void LoadLocale();
     inline WString ReadLocale(String name) {

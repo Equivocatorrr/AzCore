@@ -14,12 +14,19 @@ void Globals::LoadLocale() {
     localeName.Reserve(21);
     localeName = "data/locale/";
 
-    char *localeString = std::setlocale(LC_ALL, "");
+    if (localeOverride[0] != 0) {
+        localeName += localeOverride[0];
+        localeName += localeOverride[1];
+    } else {
+        std::setlocale(LC_ALL, "");
+        char *localeString = std::setlocale(LC_CTYPE, NULL);
 
-    std::cout << "localeString = " << localeString << std::endl;
+        std::cout << "localeString = " << localeString << std::endl;
 
-    localeName += localeString[0];
-    localeName += localeString[1];
+        localeName += localeString[0];
+        localeName += localeString[1];
+    }
+
     localeName += ".locale";
 
     FILE *file = fopen(localeName.data, "rb");
@@ -103,8 +110,8 @@ bool Globals::LoadSettings() {
         }
         String token[2];
         for (i32 t = 0; t < 2; t++) {
-            for (i32 j = i; j < buffer.size; j++) {
-                if (buffer[j] == ' ' || buffer[j] == '\n') {
+            for (i32 j = i; j <= buffer.size; j++) {
+                if (j == buffer.size || buffer[j] == ' ' || buffer[j] == '\n') {
                     token[t].Resize(j-i);
                     memcpy(token[t].data, &buffer[i], token[t].size);
                     i += token[t].size+1;
@@ -126,6 +133,9 @@ bool Globals::LoadSettings() {
             volumeMusic = clamp(StringToF32(token[1]), 0.0, 1.0);
         } else if (token[0] == "volumeEffects") {
             volumeEffects = clamp(StringToF32(token[1]), 0.0, 1.0);
+        } else if (token[0] == "localeOverride") {
+            localeOverride[0] = token[1][0];
+            localeOverride[1] = token[1][1];
         }
     }
     return true;
@@ -139,7 +149,7 @@ bool Globals::SaveSettings() {
     }
     String output;
     output = "fullscreen ";
-    if (fullscreen) output += "true\n"; else output += "false\n";
+    output += fullscreen ? "true\n" : "false\n";
     fwrite(output.data, 1, output.size, file);
     output = "framerate " + ToString((i32)framerate) + '\n';
     fwrite(output.data, 1, output.size, file);
@@ -149,6 +159,13 @@ bool Globals::SaveSettings() {
     fwrite(output.data, 1, output.size, file);
     output = "volumeEffects " + ToString(volumeEffects) + '\n';
     fwrite(output.data, 1, output.size, file);
+    if (localeOverride[0] != 0) {
+        output = "localeOverride ";
+        output += localeOverride[0];
+        output += localeOverride[1];
+        output += '\n';
+        fwrite(output.data, 1, output.size, file);
+    }
     fclose(file);
     return true;
 }

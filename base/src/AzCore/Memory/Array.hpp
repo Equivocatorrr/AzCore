@@ -316,6 +316,16 @@ struct Array
         return true;
     }
 
+    bool operator<(const Array<T, allocTail> &other) const {
+        for (i32 i = 0; i < size && i < other.size; i++) {
+            if (data[i] < other.data[i]) return true;
+            if (data[i] > other.data[i]) return false;
+        }
+        if (size < other.size) return true;
+        if (size > other.size) return false;
+        return false;
+    }
+
     bool Contains(const T &val) const
     {
         for (i32 i = 0; i < size; i++)

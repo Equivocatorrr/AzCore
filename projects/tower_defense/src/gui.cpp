@@ -515,6 +515,19 @@ void PlayMenu::Initialize() {
     buttonStartWave->string = globals->ReadLocale("Start Wave");
     AddWidget(list, buttonStartWave);
 
+    waveTitle = new Text();
+    waveTitle->size.x = 1.0;
+    waveTitle->colorOutline = vec4(1.0, 0.0, 0.5, 1.0);
+    waveTitle->color = vec4(1.0);
+    waveTitle->outline = true;
+    waveTitle->fontIndex = globals->gui.fontIndex;
+    waveTitle->fontSize = 48.0;
+    // waveTitle->bold = true;
+    waveTitle->margin.y = 0.0;
+    waveTitle->string = ToWString("Nothing");
+    waveTitle->alignH = Rendering::CENTER;
+    AddWidget(list, waveTitle);
+
     waveInfo = new Text();
     waveInfo->size.x = 1.0;
     waveInfo->color = vec4(1.0);
@@ -548,9 +561,9 @@ void PlayMenu::Update() {
         towerInfoString += "\n" + globals->ReadLocale("Cost") + ": $" + ToString(Entities::towerCosts[textTower]) + "\n" + globals->ReadLocale(Entities::towerDescriptions[textTower]);
     }
     towerInfo->string = towerInfoString;
+    waveTitle->string = globals->ReadLocale("Wave") + ": " + ToString(globals->entities.wave);
     waveInfo->string =
-        globals->ReadLocale("Wave") + ": " + ToString(globals->entities.wave) + "\n"
-        + globals->ReadLocale("Wave Hitpoints Left") + ": " + ToString(globals->entities.hitpointsLeft) + "\n"
+        globals->ReadLocale("Wave Hitpoints Left") + ": " + ToString(globals->entities.hitpointsLeft) + "\n"
         + globals->ReadLocale("Lives") + ": " + ToString(globals->entities.lives);
                                                                                                                                                                                                           screen.Update(vec2(0.0), true);
     if (buttonMenu->state.Released()) {

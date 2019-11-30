@@ -220,7 +220,7 @@ struct SettingsMenu {
 struct PlayMenu {
     Screen screen;
     ListV *list;
-    Text *waveInfo, *towerInfo;
+    Text *waveTitle, *waveInfo, *towerInfo;
     Array<Button*> towerButtons;
     Button *buttonMenu;
     Button *buttonStartWave;

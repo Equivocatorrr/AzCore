@@ -854,26 +854,94 @@ void Tower::Update(f32 timestep) {
     if (disabled) return;
     if (shootTimer <= 0.0) {
         if (type != TOWER_SHOCKWAVE && type != TOWER_FAN) {
-            f32 maxDist = sqrt(range*range);
-            f32 nearestDist = maxDist;
-            Id nearestEnemy = -1;
-            for (i32 i = 0; i < globals->entities.enemies.size; i++) {
-                const Enemy& other = globals->entities.enemies[i];
-                if (other.id.generation < 0 || other.hitpoints == 0) continue;
-                f32 dist = abs(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
-                if (dist < nearestDist) {
-                    nearestDist = dist;
-                    nearestEnemy = other.id;
-                }
+            Id target = -1;
+            f32 targetDist = range;
+            switch (priority) {
+                case PRIORITY_NEAREST: {
+                    for (i32 i = 0; i < globals->entities.enemies.size; i++) {
+                        const Enemy& other = globals->entities.enemies[i];
+                        if (other.id.generation < 0 || other.hitpoints == 0) continue;
+                        f32 dist = abs(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
+                        if (dist < targetDist) {
+                            targetDist = dist;
+                            target = other.id;
+                        }
+                    }
+                } break;
+                case PRIORITY_FURTHEST: {
+                    targetDist = 0.0;
+                    for (i32 i = 0; i < globals->entities.enemies.size; i++) {
+                        const Enemy& other = globals->entities.enemies[i];
+                        if (other.id.generation < 0 || other.hitpoints == 0) continue;
+                        f32 dist = abs(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
+                        if (dist < range && dist > targetDist) {
+                            targetDist = dist;
+                            target = other.id;
+                        }
+                    }
+                } break;
+                case PRIORITY_WEAKEST: {
+                    i32 lowestHP = INT32_MAX;
+                    for (i32 i = 0; i < globals->entities.enemies.size; i++) {
+                        const Enemy& other = globals->entities.enemies[i];
+                        if (other.id.generation < 0 || other.hitpoints == 0) continue;
+                        f32 dist = abs(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
+                        if (dist < range && other.hitpoints < lowestHP) {
+                            lowestHP = other.hitpoints;
+                            targetDist = dist;
+                            target = other.id;
+                        }
+                    }
+                } break;
+                case PRIORITY_STRONGEST: {
+                    i32 highestHP = 0;
+                    for (i32 i = 0; i < globals->entities.enemies.size; i++) {
+                        const Enemy& other = globals->entities.enemies[i];
+                        if (other.id.generation < 0 || other.hitpoints == 0) continue;
+                        f32 dist = abs(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
+                        if (dist < range && other.hitpoints > highestHP) {
+                            highestHP = other.hitpoints;
+                            targetDist = dist;
+                            target = other.id;
+                        }
+                    }
+                } break;
+                case PRIORITY_NEWEST: {
+                    f32 youngest = 1000000.0;
+                    for (i32 i = 0; i < globals->entities.enemies.size; i++) {
+                        const Enemy& other = globals->entities.enemies[i];
+                        if (other.id.generation < 0 || other.hitpoints == 0) continue;
+                        f32 dist = abs(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
+                        if (dist < range && other.age < youngest) {
+                            youngest = other.age;
+                            targetDist = dist;
+                            target = other.id;
+                        }
+                    }
+                } break;
+                case PRIORITY_OLDEST: {
+                    f32 oldest = 0.0;
+                    for (i32 i = 0; i < globals->entities.enemies.size; i++) {
+                        const Enemy& other = globals->entities.enemies[i];
+                        if (other.id.generation < 0 || other.hitpoints == 0) continue;
+                        f32 dist = abs(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
+                        if (dist < range && other.age > oldest) {
+                            oldest = other.age;
+                            targetDist = dist;
+                            target = other.id;
+                        }
+                    }
+                } break;
             }
-            if (nearestEnemy != -1) {
-                const Enemy& other = globals->entities.enemies[nearestEnemy];
+            
+            if (target != -1) {
+                const Enemy& other = globals->entities.enemies[target];
                 Bullet bullet;
                 bullet.lifetime = range / (bulletSpeed * 0.9);
                 bullet.explosionDamage = bulletExplosionDamage;
                 bullet.explosionRange = bulletExplosionRange;
                 bullet.owner = id;
-                f32 dist = nearestDist;
+                f32 dist = targetDist;
                 vec2 deltaP;
                 for (i32 i = 0; i < 2; i++) {
                     deltaP = other.physical.pos - physical.pos + other.physical.vel * dist / bulletSpeed;
@@ -978,6 +1046,7 @@ void Enemy::EventCreate() {
         } else {
             hitpoints = random(25, 100, globals->rng);
         }
+        age = 0.0;
     }
     spawnTimer = honkerSpawnInterval;
     if (!child) {
@@ -1007,6 +1076,7 @@ void Enemy::EventDestroy() {
 }
 
 void Enemy::Update(f32 timestep) {
+    age += timestep;
     size = decay(size, (f32)hitpoints, 0.1, timestep);
     physical.basis.circle.r = sqrt(size) + 2.0;
     physical.Update(timestep);
@@ -1022,6 +1092,7 @@ void Enemy::Update(f32 timestep) {
         if (spawnTimer <= 0.0) {
             Enemy newEnemy;
             newEnemy.child = true;
+            newEnemy.age = age;
             Angle32 spawnAngle = random(0.0, tau, globals->rng);
             vec2 spawnVector = vec2(cos(spawnAngle), -sin(spawnAngle)) * sqrt(random(0.0, 1.0, globals->rng));
             newEnemy.physical.pos = physical.pos + spawnVector * physical.basis.circle.r;

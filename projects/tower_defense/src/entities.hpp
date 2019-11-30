@@ -312,6 +312,7 @@ struct Enemy : public Entity {
     vec4 color;
     i32 value;
     Set<Id> damageContributors;
+    f32 age;
     bool child = false;
     void EventCreate();
     void EventDestroy();

@@ -269,6 +269,7 @@ struct Tower : public Entity {
     f32 bulletSpeedVariability;
     i32 bulletExplosionDamage;
     f32 bulletExplosionRange;
+    i32 sunkCost;
     vec4 color;
 
     enum TargetPriority {

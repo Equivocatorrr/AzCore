@@ -103,7 +103,7 @@ const Tower towerGaussTemplate = Tower(
     {vec2(0.0, 0.0), 600.0},                    // fieldPhysicalBasis
     TOWER_GAUSS,                                // TowerType
     600.0,                                      // range
-    3.0,                                        // shootInterval
+    2.0,                                        // shootInterval
     3.0,                                        // bulletSpread (degrees)
     1,                                          // bulletCount
     2000,                                       // damage
@@ -251,6 +251,7 @@ void Manager::EventSync() {
                 if (towers[i].id.generation < 0) continue;
                 if (towers[i].physical.MouseOver()) {
                     selectedTower = towers[i].id;
+                    globals->gui.playMenu.towerPriority->choice = (i32)towers[i].priority;
                     break;
                 }
             }
@@ -261,7 +262,7 @@ void Manager::EventSync() {
         }
     } else {
         Degrees32 increment(30.0);
-        if (globals->objects.Down(KC_KEY_LEFTSHIFT)) {
+        if (globals->objects.Down(KC_KEY_LEFTSHIFT) || globals->objects.Down(KC_KEY_RIGHTSHIFT)) {
             increment = Degrees32(5.0);
         }
         if (globals->objects.Pressed(KC_KEY_LEFT)) {
@@ -287,6 +288,7 @@ void Manager::EventSync() {
         }
         if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
             if (canPlace) {
+                tower.sunkCost = towerCosts[towerType];
                 towers.Create(tower);
                 money -= towerCosts[towerType];
             }
@@ -850,7 +852,7 @@ void Tower::Update(f32 timestep) {
             break;
         }
     }
-    shootTimer -= timestep;
+    shootTimer = max(shootTimer-timestep, -timestep);
     if (disabled) return;
     if (shootTimer <= 0.0) {
         if (type != TOWER_SHOCKWAVE && type != TOWER_FAN) {
@@ -958,7 +960,7 @@ void Tower::Update(f32 timestep) {
                     bullet.damage = damage;
                     globals->entities.bullets.Create(bullet);
                 }
-                shootTimer = shootInterval;
+                shootTimer += shootInterval;
             }
         } else if (type == TOWER_SHOCKWAVE) {
             bool shoot = false;
@@ -978,7 +980,7 @@ void Tower::Update(f32 timestep) {
                 explosion.physical.pos = physical.pos;
                 explosion.owner = id;
                 globals->entities.explosions.Create(explosion);
-                shootTimer = shootInterval;
+                shootTimer += shootInterval;
             }
         } else if (type == TOWER_FAN) {
             Wind wind;
@@ -1059,7 +1061,7 @@ void Enemy::EventCreate() {
         color = vec4(hsvToRgb(vec3(sqrt(size)/(tau*16.0) + (f32)globals->entities.wave / 9.0, min(size / 100.0, 1.0), 1.0)), 0.7);
     }
     value = hitpoints;
-    targetSpeed = 800.0 / log((f32)hitpoints);
+    targetSpeed = 800.0 / max(log((f32)hitpoints), 1.0);
     size = 0.0;
     if (!child) {
         globals->entities.enemyTimer += 10.0 * sqrt((f32)hitpoints) / globals->entities.hitpointsPerSecond;
@@ -1077,7 +1079,11 @@ void Enemy::EventDestroy() {
 
 void Enemy::Update(f32 timestep) {
     age += timestep;
-    size = decay(size, (f32)hitpoints, 0.1, timestep);
+    if (hitpoints > 0) {
+        size = decay(size, (f32)hitpoints, 0.1, timestep);
+    } else {
+        size = decay(size, 0.0, 0.025, timestep);
+    }
     physical.basis.circle.r = sqrt(size) + 2.0;
     physical.Update(timestep);
     physical.UpdateActual();

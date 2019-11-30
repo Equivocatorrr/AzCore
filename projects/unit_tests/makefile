@@ -13,7 +13,7 @@ WRC=x86_64-w64-mingw32-windres $(SDIR)/resources.rc -O coff
 RCFLAGS=-I $(IDIR)
 CFLAGS=-I$(IDIR) -I$(AZCORE_BASE)/src -Wall -std=c++17 -fsingle-precision-constant -DIO_FOR_VULKAN
 LCFLAGS=$(CFLAGS) #-Wl,-z,origin -Wl,-rpath,'$$ORIGIN/lib'
-WCFLAGS=$(CFLAGS) -D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -I$(WIN_VULKAN_SDK)/Include/
+WCFLAGS=$(CFLAGS) -I$(WIN_VULKAN_SDK)/Include/ -D_GLIBCXX_USE_NANOSLEEP -static -static-libgcc -static-libstdc++ -Llibwinpthread-1.dll
 
 WINDOWS_RESOURCES = $(AZCORE_BASE)/obj/Windows/resources.o
 

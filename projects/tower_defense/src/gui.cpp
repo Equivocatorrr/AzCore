@@ -448,7 +448,7 @@ void PlayMenu::Initialize() {
     list->fractionHeight = true;
     list->fractionWidth = false;
     list->margin = 0.0;
-    list->size = vec2(400.0, 1.0);
+    list->size = vec2(300.0, 1.0);
     AddWidget(screenListH, list);
 
     Text *towerHeader = new Text();
@@ -474,7 +474,7 @@ void PlayMenu::Initialize() {
     halfWidth->fractionHeight = false;
     halfWidth->size.y = 32.0;
     halfWidth->fontIndex = globals->gui.fontIndex;
-    halfWidth->fontSize = 24.0;
+    halfWidth->fontSize = 20.0;
 
     towerButtons.Resize(Entities::TOWER_MAX_RANGE + 1);
     for (i32 i = 0; i < towerButtons.size; i+=2) {
@@ -494,7 +494,7 @@ void PlayMenu::Initialize() {
     towerInfo->size.x = 1.0;
     towerInfo->color = vec4(1.0);
     towerInfo->fontIndex = globals->gui.fontIndex;
-    towerInfo->fontSize = 20.0;
+    towerInfo->fontSize = 18.0;
     towerInfo->string = ToWString("$MONEY");
     AddWidget(list, towerInfo);
 
@@ -508,6 +508,7 @@ void PlayMenu::Initialize() {
     selectedTowerListV->padding = 0.0;
     selectedTowerListV->margin = 0.0;
     selectedTowerListV->fractionHeight = false;
+    selectedTowerListV->color = 0.0;
     ListH *selectedTowerPriorityList = new ListH(*gridBase);
     Text *selectedTowerPriorityText = new Text();
     selectedTowerPriorityText->color = 1.0;
@@ -516,10 +517,25 @@ void PlayMenu::Initialize() {
     selectedTowerPriorityText->fractionHeight = true;
     selectedTowerPriorityText->alignV = Rendering::CENTER;
     selectedTowerPriorityText->fontIndex = globals->gui.fontIndex;
-    selectedTowerPriorityText->fontSize = 24.0;
+    selectedTowerPriorityText->fontSize = 18.0;
     selectedTowerPriorityText->string = globals->ReadLocale("Priority");
-    towerPriority = new Button(*halfWidth);
-    towerPriority->size.y = 32.0;
+    towerPriority = new Switch();
+    towerPriority->size.x = 0.5;
+    towerPriority->size.y = 0.0;
+    towerPriority->padding = 0.0;
+    for (i32 i = 0; i < 6; i++) {
+        Text *priorityText = new Text();
+        priorityText->selectable = true;
+        priorityText->size.x = 1.0;
+        priorityText->size.y = 22.0;
+        priorityText->margin = 2.0;
+        priorityText->fractionHeight = false;
+        priorityText->fontIndex = globals->gui.fontIndex;
+        priorityText->fontSize = 18.0;
+        priorityText->alignV = Rendering::CENTER;
+        priorityText->string = globals->ReadLocale(Entities::Tower::priorityStrings[i]);
+        AddWidget(towerPriority, priorityText);
+    }
     AddWidget(selectedTowerPriorityList, selectedTowerPriorityText);
     AddWidget(selectedTowerPriorityList, towerPriority);
     AddWidget(selectedTowerListV, selectedTowerPriorityList);
@@ -527,7 +543,7 @@ void PlayMenu::Initialize() {
     selectedTowerStats->size.x = 1.0;
     selectedTowerStats->color = 1.0;
     selectedTowerStats->fontIndex = globals->gui.fontIndex;
-    selectedTowerStats->fontSize = 20.0;
+    selectedTowerStats->fontSize = 18.0;
     AddWidget(selectedTowerListV, selectedTowerStats);
 
     selectedTowerInfo = new Hideable(selectedTowerListV);
@@ -552,14 +568,14 @@ void PlayMenu::Initialize() {
     waveTitle->color = vec4(1.0);
     waveTitle->outline = true;
     waveTitle->fontIndex = globals->gui.fontIndex;
-    waveTitle->fontSize = 40.0;
+    waveTitle->fontSize = 30.0;
     // waveTitle->bold = true;
     waveTitle->margin.y = 0.0;
     waveTitle->string = ToWString("Nothing");
     AddWidget(waveList, waveTitle);
     buttonStartWave = new Button(*halfWidth);
     buttonStartWave->string = globals->ReadLocale("Start Wave");
-    buttonStartWave->size.y = 40.0;
+    buttonStartWave->size.y = 32.0;
     AddWidget(waveList, buttonStartWave);
 
     AddWidget(list, waveList);
@@ -607,10 +623,9 @@ void PlayMenu::Update() {
         selectedTowerStats->string =
             globals->ReadLocale("Kills") + ": " + ToString(tower.kills) + "\n"
             + globals->ReadLocale("Damage") + ": " + ToString(tower.damageDone);
-        if (towerPriority->state.Released()) {
-            tower.priority = (Entities::Tower::TargetPriority)(((u32)tower.priority+1) % 6);
+        if (towerPriority->changed) {
+            tower.priority = (Entities::Tower::TargetPriority)(towerPriority->choice);
         }
-        towerPriority->string = globals->ReadLocale(Entities::Tower::priorityStrings[tower.priority]);
     } else {
         selectedTowerInfo->hidden = true;
     }
@@ -734,7 +749,7 @@ void Screen::UpdateSize(vec2 container) {
     }
 }
 
-List::List() : padding(8.0), color(0.05, 0.05, 0.05, 0.9), highlight(0.05, 0.05, 0.05, 0.9), selection(-2), selectionDefault(-1) { occludes = true; }
+List::List() : padding(8.0), color(0.05, 0.05, 0.05, 0.9), highlight(0.05, 0.05, 0.05, 0.9), select(0.2, 0.2, 0.2, 0.0), selection(-2), selectionDefault(-1) { occludes = true; }
 
 bool List::UpdateSelection(bool selected, u8 keyCodeSelect, u8 keyCodeBack, u8 keyCodeIncrement, u8 keyCodeDecrement) {
     highlighted = selected;
@@ -805,8 +820,12 @@ bool List::UpdateSelection(bool selected, u8 keyCodeSelect, u8 keyCodeBack, u8 k
 
 void List::Draw(Rendering::DrawingContext &context) const {
     if (color.a > 0.0) {
-        // const vec2 screenSizeFactor = vec2(2.0) / globals->rendering.screenSize;
         globals->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlight : color, positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
+    }
+    if (selection >= 0 && select.a > 0.0) {
+        vec2 selectionPos = children[selection]->positionAbsolute;
+        vec2 selectionSize = children[selection]->sizeAbsolute;
+        globals->rendering.DrawQuad(context, Rendering::texBlank, select, selectionPos * globals->gui.scale, vec2(1.0), selectionSize * globals->gui.scale);
     }
     PushScissor(context);
     Widget::Draw(context);
@@ -967,6 +986,101 @@ void ListH::Update(vec2 pos, bool selected) {
         child->Update(pos, selected && i == selection);
         pos.x += child->GetSize().x;
     }
+}
+
+Switch::Switch() : choice(0), open(false), changed(false) {
+    selectable = true;
+    selectionDefault = 0;
+    color = vec4(0.1, 0.1, 0.1, 0.9);
+    highlight = vec4(0.2, 0.2, 0.2, 0.9);
+    select = vec4(0.5);
+}
+
+void Switch::UpdateSize(vec2 container) {
+    if (open) {
+        ListV::UpdateSize(container);
+    } else {
+        sizeAbsolute = vec2(0.0);
+        if (size.x > 0.0) {
+            sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0) : size.x;
+        } else {
+            sizeAbsolute.x = padding.x * 2.0;
+        }
+        if (size.y > 0.0) {
+            sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0) : size.y;
+        } else {
+            sizeAbsolute.y = padding.y * 2.0;
+        }
+        LimitSize();
+        Widget *child = children[choice];
+        vec2 sizeForInheritance = sizeAbsolute - padding * 2.0;
+        if (size.x == 0.0) {
+            child->UpdateSize(sizeForInheritance);
+            vec2 childSize = child->GetSize();
+            sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + padding.x * 2.0);
+        }
+        sizeForInheritance = sizeAbsolute - padding * 2.0;
+        if (child->size.y == 0.0) {
+            child->UpdateSize(sizeForInheritance);
+            sizeForInheritance.y -= child->GetSize().y;
+        } else {
+            if (!child->fractionHeight) {
+                sizeForInheritance.y -= child->size.y + child->margin.y * 2.0;
+            }
+        }
+        child->UpdateSize(sizeForInheritance);
+        vec2 childSize = child->GetSize();
+        if (size.x == 0.0) {
+            sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + padding.x * 2.0);
+        }
+        if (size.y == 0.0) {
+            sizeAbsolute.y += childSize.y;
+        }
+        LimitSize();
+    }
+}
+
+void Switch::Update(vec2 pos, bool selected) {
+    changed = false;
+    if (open) {
+        if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
+            if (selection >= 0) {
+                choice = selection;
+                changed = true;
+            }
+            open = false;
+        }
+    } else {
+        highlighted = selected;
+        positionAbsolute = pos + margin;
+        if (globals->objects.Pressed(KC_MOUSE_LEFT) && MouseOver()) {
+            open = true;
+        }
+    }
+    if (open) {
+        ListV::Update(pos, selected);
+    } else {
+        children[choice]->Update(pos + padding + margin, selected);
+    }
+}
+
+void Switch::Draw(Rendering::DrawingContext &context) const {
+    if (color.a > 0.0) {
+        globals->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlight : color, positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
+    }
+    PushScissor(context);
+    if (open) {
+        if (selection >= 0 && select.a > 0.0) {
+            Widget *child = children[selection];
+            vec2 selectionPos = child->positionAbsolute - child->margin;
+            vec2 selectionSize = child->sizeAbsolute + child->margin * 2.0;
+            globals->rendering.DrawQuad(context, Rendering::texBlank, select, selectionPos * globals->gui.scale, vec2(1.0), selectionSize * globals->gui.scale);
+        }
+        Widget::Draw(context);
+    } else {
+        children[choice]->Draw(context);
+    }
+    PopScissor(context);
 }
 
 Text::Text() : stringFormatted(), string(), padding(0.1), fontSize(32.0), fontIndex(1), bold(false), paddingEM(true), alignH(Rendering::LEFT), alignV(Rendering::TOP), color(1.0), colorOutline(0.0, 0.0, 0.0, 1.0), outline(false) {

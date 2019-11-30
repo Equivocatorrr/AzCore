@@ -54,7 +54,7 @@ struct Screen : public Widget {
 
 struct List : public Widget {
     vec2 padding;
-    vec4 color, highlight;
+    vec4 color, highlight, select;
     i32 selection; // Which child we have selected, -1 for none
     i32 selectionDefault; // If we're ever selected, what should we select by default?
     List();
@@ -75,6 +75,17 @@ struct ListH : public List {
     ListH();
     void UpdateSize(vec2 container);
     void Update(vec2 pos, bool selected);
+};
+
+// Allows the user to choose from a selection of widgets (usually Text).
+struct Switch : public ListV {
+    i32 choice;
+    bool open, changed;
+    Switch();
+    ~Switch() = default;
+    void UpdateSize(vec2 container);
+    void Update(vec2 pos, bool selected);
+    void Draw(Rendering::DrawingContext &context) const;
 };
 
 struct Text : public Widget {
@@ -170,8 +181,6 @@ struct TextBox : public Widget {
     void Draw(Rendering::DrawingContext &context) const;
 };
 
-// struct Switch; // Allows the user to choose from a selection of widgets (usually Text).
-
 // A scalar within a range.
 struct Slider : public Widget {
     f32 value, valueMin, valueMax;
@@ -234,7 +243,7 @@ struct PlayMenu {
     Text *waveTitle, *waveInfo, *towerInfo;
     Hideable *selectedTowerInfo;
     Text *selectedTowerStats;
-    Button *towerPriority;
+    Switch *towerPriority;
     Array<Button*> towerButtons;
     Button *buttonMenu;
     Button *buttonStartWave;

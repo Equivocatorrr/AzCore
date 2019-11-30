@@ -15,7 +15,7 @@
 
 namespace AzCore {
 
-#pragma pack(1) // NOTE: I don't remember why I did this
+#pragma pack(1) // NOTE: This is so BigInt can fit in a single cache line.
 
 /*  struct: BucketArray
     Author: Philip Haynes

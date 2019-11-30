@@ -5,6 +5,7 @@
 
 #include "objects.hpp"
 #include "globals.hpp"
+#include "AzCore/Thread.hpp"
 
 namespace Objects {
 
@@ -66,7 +67,7 @@ void Manager::Update() {
 
 void Manager::Draw(Array<Rendering::DrawingContext>& contexts) {
     for (Object *object : objects) {
-        while (!object->readyForDraw) { std::this_thread::sleep_for(Nanoseconds(1000)); }
+        while (!object->readyForDraw) { Thread::Sleep(Nanoseconds(1000)); }
         object->EventDraw(contexts);
     }
 }

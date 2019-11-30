@@ -7,6 +7,7 @@
 #define AZCORE_LOGSTREAM_HPP
 
 #include "../memory.hpp"
+#include "../Thread.hpp"
 
 #include <iostream>
 #include <iomanip>

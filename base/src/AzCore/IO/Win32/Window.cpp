@@ -4,7 +4,7 @@
 */
 
 #include "../../io.hpp"
-#ifdef IO_FOR_VULKAN
+#ifdef AZCORE_IO_FOR_VULKAN
 #include "../../vk.hpp"
 #endif
 
@@ -82,7 +82,7 @@ Window::~Window()
     delete data;
 }
 
-#ifdef IO_FOR_VULKAN
+#ifdef AZCORE_IO_FOR_VULKAN
 bool Window::CreateVkSurface(vk::Instance *instance, VkSurfaceKHR *surface)
 {
     if (!open)

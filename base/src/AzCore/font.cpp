@@ -960,7 +960,7 @@ bool FontBuilder::Build() {
         return true;
     }
     if (renderThreadCount < 1) {
-        renderThreadCount = std::thread::hardware_concurrency();
+        renderThreadCount = Thread::HardwareConcurrency();
         if (renderThreadCount == 0) {
             // Couldn't get actual concurrency so this is just a guess.
             // More than actual concurrency isn't really a bad thing since it's lockless, unless the kernel am dum.
@@ -1102,8 +1102,8 @@ bool FontBuilder::Build() {
         threads[i] = Thread(RenderThreadProc, this, &glyphsToAdd, boundSquare, renderThreadCount, i);
     }
     for (i32 i = 0; i < renderThreadCount; i++) {
-        if (threads[i].joinable()) {
-            threads[i].join();
+        if (threads[i].Joinable()) {
+            threads[i].Join();
         }
     }
     Nanoseconds renderingTime = Clock::now() - start;

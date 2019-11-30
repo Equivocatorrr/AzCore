@@ -89,11 +89,11 @@ LogStream& LogStream::operator<<(stream_function func) {
 }
 
 void LogStream::MutexLock() {
-    mutex.lock();
+    mutex.Lock();
 }
 
 void LogStream::MutexUnlock() {
-    mutex.unlock();
+    mutex.Unlock();
 }
 
 } // namespace io

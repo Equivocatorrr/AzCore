@@ -6,6 +6,7 @@
 
 #include "globals.hpp"
 #include "AzCore/io.hpp"
+#include "AzCore/Thread.hpp"
 
 using namespace AzCore;
 
@@ -128,14 +129,14 @@ i32 main(i32 argumentCount, char** argumentValues) {
         threads[0] = Thread(UpdateProc);
         threads[1] = Thread(DrawProc);
         for (i32 i = 0; i < 2; i++) {
-            if (threads[i].joinable()) threads[i].join();
+            if (threads[i].Joinable()) threads[i].Join();
         }
         globals->sound.Update();
         globals->input.Tick(globals->objects.timestep);
         Nanoseconds frameDelta = Nanoseconds(Clock::now() - frameStart);
         Nanoseconds frameSleep = globals->frameDuration - frameDelta;
         if (frameSleep.count() >= 1000) {
-            std::this_thread::sleep_for(frameSleep);
+            Thread::Sleep(frameSleep);
         }
     }
     if (!globals->SaveSettings()) {
@@ -145,7 +146,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
         cout << "Error deinitializing Rendering::Manager: " << Rendering::error << std::endl;
         return 1;
     }
-    std::this_thread::sleep_for(Milliseconds(80)); // Don't cut off the exit click sound
+    Thread::Sleep(Milliseconds(80)); // Don't cut off the exit click sound
     if (!globals->sound.DeleteSources()) {
         cout << "Failed to delete sound sources: " << Sound::error << std::endl;
         return 1;

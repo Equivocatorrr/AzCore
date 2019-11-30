@@ -20,14 +20,6 @@
 
 #include <map>
 #include <set>
-#ifdef __MINGW32__
-#include "../mingw/mingw.thread.h"
-#include "../mingw/mingw.mutex.h"
-#else
-#include <mutex>
-#include <thread>
-#endif
-#include <chrono>
 #include <memory>
 
 namespace AzCore {
@@ -39,10 +31,6 @@ using Map = std::map<T, B>;
 
 template<typename T>
 using Set = std::set<T>;
-
-using Mutex = std::mutex;
-
-using Thread = std::thread;
 
 template<typename T, typename Deleter=std::default_delete<T>>
 using UniquePtr = std::unique_ptr<T, Deleter>;

@@ -10,6 +10,7 @@
 #include "objects.hpp"
 #include "AzCore/math.hpp"
 #include "rendering.hpp"
+#include "sound.hpp"
 
 namespace Entities {
 

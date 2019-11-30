@@ -5,6 +5,7 @@
 
 #include "entities.hpp"
 #include "globals.hpp"
+#include "AzCore/Thread.hpp"
 
 namespace Entities {
 
@@ -298,8 +299,8 @@ void Manager::EventUpdate() {
                 threads[j] = Thread(chunk.updateCallback, chunk.theThisPointer, j, concurrency);
             }
             for (i32 j = 0; j < concurrency; j++) {
-                if (threads[j].joinable()) {
-                    threads[j].join();
+                if (threads[j].Joinable()) {
+                    threads[j].Join();
                 }
             }
         }
@@ -317,8 +318,8 @@ void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
             threads[j] = Thread(chunk.drawCallback, chunk.theThisPointer, &contexts[j], j, concurrency);
         }
         for (i32 j = 0; j < concurrency; j++) {
-            if (threads[j].joinable()) {
-                threads[j].join();
+            if (threads[j].Joinable()) {
+                threads[j].Join();
             }
         }
     }
@@ -756,31 +757,31 @@ void DoubleBufferArray<T>::GetUpdateChunks(Array<UpdateChunk> &dstUpdateChunks) 
 
 template<typename T>
 void DoubleBufferArray<T>::Create(T &obj) {
-    mutex.lock();
+    mutex.Lock();
     obj.EventCreate();
     created.Append(obj);
-    mutex.unlock();
+    mutex.Unlock();
 }
 
 template<typename T>
 void DoubleBufferArray<T>::Destroy(Id id) {
-    mutex.lock();
+    mutex.Lock();
     if (array[!buffer][id.index].id != id) {
         // std::cout << "Attempt to destroy an object of the wrong generation! Expected gen = "
         //           << id.generation << ", actual gen = " << array[!buffer][id.index].id.generation << std::endl;
-        mutex.unlock();
+        mutex.Unlock();
         return;
     }
     for (i32 i = 0; i < destroyed.size; i++) {
         if (destroyed[i] == id.index) {
-            mutex.unlock();
+            mutex.Unlock();
             return;
         }
     }
     array[!buffer][id.index].EventDestroy();
     destroyed.Append(id.index);
     array[!buffer][id.index].id.generation *= -1;
-    mutex.unlock();
+    mutex.Unlock();
 }
 
 Tower::Tower(TowerType _type) {

@@ -162,7 +162,7 @@ void CheckPersistence(u32 minDigits, u32 maxDigits, u32 currentDigit=0, u32 tota
     }
     if (totalDigits >= minDigits) {
         u32 per = persistence(numStr);
-        persistenceMutex.lock();
+        persistenceMutex.Lock();
         totalPersistenceChecks++;
         remainingPersistenceChecks--;
         if (checksCount++ >= 10000000 / (minimumDigits+maximumDigits) || per > 10) {
@@ -172,11 +172,11 @@ void CheckPersistence(u32 minDigits, u32 maxDigits, u32 currentDigit=0, u32 tota
             cout.MutexUnlock();
             checksCount = 1;
         }
-        persistenceMutex.unlock();
+        persistenceMutex.Unlock();
         if (per >= 8) {
-            persistenceMutex.lock();
+            persistenceMutex.Lock();
             persistenceNumbers[per-8].Append(numStr);
-            persistenceMutex.unlock();
+            persistenceMutex.Unlock();
         }
         if (BetterPersistence(per, numStr)) {
             bestPersistence = per;
@@ -200,9 +200,9 @@ void GetRequiredPersistenceChecks(u32 minDigits, u32 maxDigits, u32 currentDigit
         return;
     }
     if (totalDigits >= minDigits) {
-        persistenceMutex.lock();
+        persistenceMutex.Lock();
         remainingPersistenceChecks++;
-        persistenceMutex.unlock();
+        persistenceMutex.Unlock();
     }
     for (u32 i = currentDigit; i < 8; i++) {
         if (totalDigits >= 2 && (i == 4 || i < 3))
@@ -289,7 +289,7 @@ bool CheckAllRearrangements(const DigitCounts& digits, String number=String()) {
             cout.MutexUnlock();
             success = true;
         }
-        persistenceMutex.lock();
+        persistenceMutex.Lock();
         totalRearrangementChecks++;
         remainingRearrangementChecks--;
         if (rearrangementChecks++ >= 1000000 || factors.size > 10) {
@@ -303,7 +303,7 @@ bool CheckAllRearrangements(const DigitCounts& digits, String number=String()) {
             cout.MutexUnlock();
             rearrangementChecks = 1;
         }
-        persistenceMutex.unlock();
+        persistenceMutex.Unlock();
     }
     return success;
 }
@@ -321,26 +321,26 @@ bool CheckAllRearrangements(const String& number) {
 
 void ThreadProc(u32 i) {
     CheckPersistence(i+minimumDigits, i+minimumDigits);
-    threadControlMutex.lock();
+    threadControlMutex.Lock();
     activeThreads--;
     completedThreads++;
     remainingThreads--;
     cout.MutexLock();
     cout << "\nThread " << i << " completed.\n" << remainingThreads << " remaining, " << completedThreads << " completed.\n\n" << std::endl;
     cout.MutexUnlock();
-    threadControlMutex.unlock();
+    threadControlMutex.Unlock();
 }
 
 void ThreadProc2(const String& number) {
     CheckAllRearrangements(number);
-    threadControlMutex.lock();
+    threadControlMutex.Lock();
     activeThreads--;
     completedThreads++;
     remainingThreads--;
     cout.MutexLock();
     cout << "\n\nThread for number " << number << " has completed.\n" << remainingThreads << " remaining, " << completedThreads << " completed.\n\n" << std::endl;
     cout.MutexUnlock();
-    threadControlMutex.unlock();
+    threadControlMutex.Unlock();
 }
 
 BigInt factorial(u32 a) {
@@ -397,19 +397,19 @@ void CheckNumbersForHighPersistence() {
         while (true) {
             if (activeThreads < numThreads) {
                 cout << "\nStarting thread " << randomizedDigits[i] << "\n" << std::endl;
-                Thread(ThreadProc, randomizedDigits[i]).detach();
-                threadControlMutex.lock();
+                Thread(ThreadProc, randomizedDigits[i]).Detach();
+                threadControlMutex.Lock();
                 activeThreads++;
-                threadControlMutex.unlock();
+                threadControlMutex.Unlock();
                 break;
             } else {
-                std::this_thread::sleep_for(Milliseconds(100));
+                Thread::Sleep(Milliseconds(100));
             }
         }
     }
     while (true) {
         if (activeThreads > 0) {
-            std::this_thread::sleep_for(Milliseconds(100));
+            Thread::Sleep(Milliseconds(100));
         } else {
             break;
         }
@@ -491,20 +491,20 @@ void CheckHighPersistenceNumbersForSingleDigitFactorability() {
         while (true) {
             if (activeThreads < numThreads) {
                 cout << "Launching thread for number " << allPersistenceElevenNumbers[i] << "..." << std::endl;
-                Thread(ThreadProc2, allPersistenceElevenNumbers[i]).detach();
-                threadControlMutex.lock();
+                Thread(ThreadProc2, allPersistenceElevenNumbers[i]).Detach();
+                threadControlMutex.Lock();
                 activeThreads++;
-                threadControlMutex.unlock();
+                threadControlMutex.Unlock();
                 break;
             } else {
-                std::this_thread::sleep_for(Milliseconds(100));
+                Thread::Sleep(Milliseconds(100));
             }
         }
     }
     cout << "\n" << std::endl;
     while (true) {
         if (activeThreads > 0) {
-            std::this_thread::sleep_for(Milliseconds(100));
+            Thread::Sleep(Milliseconds(100));
         } else {
             break;
         }

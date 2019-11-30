@@ -639,7 +639,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
         ClockTime now = Clock::now();
         if (std::chrono::duration_cast<Milliseconds>(frameEnd-now).count() > 2) {
-            std::this_thread::sleep_until(frameEnd);
+            Thread::Sleep(frameEnd-now);
             frameEnd += Nanoseconds(1000000000/framerate);
         } else {
             frameEnd = now + Milliseconds(1000/framerate-1);

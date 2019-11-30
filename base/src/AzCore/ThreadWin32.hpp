@@ -104,7 +104,7 @@ public:
     }
 
     void Detach() {
-        if (Joinable()) {
+        if (!Joinable()) {
             throw std::system_error(std::make_error_code(std::errc::invalid_argument));
         }
         CloseHandle(threadHandle);

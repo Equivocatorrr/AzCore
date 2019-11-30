@@ -129,6 +129,9 @@ struct Id {
         data = other.data;
         return *this;
     }
+    inline bool operator<(const Id& other) const {
+        return data < other.data;
+    }
 };
 
 
@@ -267,6 +270,19 @@ struct Tower : public Entity {
     i32 bulletExplosionDamage;
     f32 bulletExplosionRange;
     vec4 color;
+
+    enum TargetPriority {
+        PRIORITY_NEAREST,
+        PRIORITY_FURTHEST,
+        PRIORITY_WEAKEST,
+        PRIORITY_STRONGEST,
+        PRIORITY_NEWEST,
+        PRIORITY_OLDEST
+    } priority;
+    static const char *priorityStrings[6];
+    i64 kills;
+    i64 damageDone;
+
     Tower() = default;
     inline Tower(CollisionType collisionType, PhysicalBasis physicalBasis,
             CollisionType fieldCollisionType, PhysicalBasis fieldPhysicalBasis, TowerType _type,
@@ -295,6 +311,7 @@ struct Enemy : public Entity {
     f32 spawnTimer;
     vec4 color;
     i32 value;
+    Set<Id> damageContributors;
     bool child = false;
     void EventCreate();
     void EventDestroy();
@@ -308,6 +325,7 @@ struct Bullet : public Entity {
     i32 damage;
     i32 explosionDamage;
     f32 explosionRange;
+    Id owner;
     void EventCreate();
     void EventDestroy();
     void Update(f32 timestep);
@@ -326,6 +344,7 @@ extern template struct DoubleBufferArray<Wind>;
 struct Explosion : public Entity {
     f32 size, growth;
     i32 damage; // per second
+    Id owner;
     void EventCreate();
     void Update(f32 timestep);
     void Draw(Rendering::DrawingContext &context);

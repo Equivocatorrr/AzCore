@@ -472,7 +472,7 @@ void PlayMenu::Initialize() {
     halfWidth->fractionWidth = true;
     halfWidth->size.x = 0.5;
     halfWidth->fractionHeight = false;
-    halfWidth->size.y = 48.0;
+    halfWidth->size.y = 32.0;
     halfWidth->fontIndex = globals->gui.fontIndex;
     halfWidth->fontSize = 24.0;
 
@@ -498,35 +498,71 @@ void PlayMenu::Initialize() {
     towerInfo->string = ToWString("$MONEY");
     AddWidget(list, towerInfo);
 
-
     spacer = new Widget();
     spacer->fractionHeight = true;
     spacer->size.y = 1.0;
     AddWidget(list, spacer);
 
+    ListV *selectedTowerListV = new ListV();
+    selectedTowerListV->size.y = 0.0;
+    selectedTowerListV->padding = 0.0;
+    selectedTowerListV->margin = 0.0;
+    selectedTowerListV->fractionHeight = false;
+    ListH *selectedTowerPriorityList = new ListH(*gridBase);
+    Text *selectedTowerPriorityText = new Text();
+    selectedTowerPriorityText->color = 1.0;
+    selectedTowerPriorityText->size.x = 0.5;
+    selectedTowerPriorityText->size.y = 1.0;
+    selectedTowerPriorityText->fractionHeight = true;
+    selectedTowerPriorityText->alignV = Rendering::CENTER;
+    selectedTowerPriorityText->fontIndex = globals->gui.fontIndex;
+    selectedTowerPriorityText->fontSize = 24.0;
+    selectedTowerPriorityText->string = globals->ReadLocale("Priority");
+    towerPriority = new Button(*halfWidth);
+    towerPriority->size.y = 32.0;
+    AddWidget(selectedTowerPriorityList, selectedTowerPriorityText);
+    AddWidget(selectedTowerPriorityList, towerPriority);
+    AddWidget(selectedTowerListV, selectedTowerPriorityList);
+    selectedTowerStats = new Text();
+    selectedTowerStats->size.x = 1.0;
+    selectedTowerStats->color = 1.0;
+    selectedTowerStats->fontIndex = globals->gui.fontIndex;
+    selectedTowerStats->fontSize = 20.0;
+    AddWidget(selectedTowerListV, selectedTowerStats);
+
+    selectedTowerInfo = new Hideable(selectedTowerListV);
+    selectedTowerInfo->hidden = true;
+    AddWidget(list, selectedTowerInfo);
+
     Button *fullWidth = new Button();
     fullWidth->fractionWidth = true;
     fullWidth->size.x = 1.0;
     fullWidth->fractionHeight = false;
-    fullWidth->size.y = 48.0;
+    fullWidth->size.y = 32.0;
     fullWidth->fontIndex = globals->gui.fontIndex;
 
-    buttonStartWave = new Button(*fullWidth);
-    buttonStartWave->string = globals->ReadLocale("Start Wave");
-    AddWidget(list, buttonStartWave);
+    ListH *waveList = new ListH(*gridBase);
 
     waveTitle = new Text();
-    waveTitle->size.x = 1.0;
+    waveTitle->size.x = 0.5;
+    waveTitle->size.y = 1.0;
+    waveTitle->fractionHeight = true;
+    waveTitle->alignV = Rendering::CENTER;
     waveTitle->colorOutline = vec4(1.0, 0.0, 0.5, 1.0);
     waveTitle->color = vec4(1.0);
     waveTitle->outline = true;
     waveTitle->fontIndex = globals->gui.fontIndex;
-    waveTitle->fontSize = 48.0;
+    waveTitle->fontSize = 40.0;
     // waveTitle->bold = true;
     waveTitle->margin.y = 0.0;
     waveTitle->string = ToWString("Nothing");
-    waveTitle->alignH = Rendering::CENTER;
-    AddWidget(list, waveTitle);
+    AddWidget(waveList, waveTitle);
+    buttonStartWave = new Button(*halfWidth);
+    buttonStartWave->string = globals->ReadLocale("Start Wave");
+    buttonStartWave->size.y = 40.0;
+    AddWidget(waveList, buttonStartWave);
+
+    AddWidget(list, waveList);
 
     waveInfo = new Text();
     waveInfo->size.x = 1.0;
@@ -565,7 +601,20 @@ void PlayMenu::Update() {
     waveInfo->string =
         globals->ReadLocale("Wave Hitpoints Left") + ": " + ToString(globals->entities.hitpointsLeft) + "\n"
         + globals->ReadLocale("Lives") + ": " + ToString(globals->entities.lives);
-                                                                                                                                                                                                          screen.Update(vec2(0.0), true);
+    if (globals->entities.selectedTower != -1) {
+        Entities::Tower &tower = globals->entities.towers.GetMutable(globals->entities.selectedTower);
+        selectedTowerInfo->hidden = false;
+        selectedTowerStats->string =
+            globals->ReadLocale("Kills") + ": " + ToString(tower.kills) + "\n"
+            + globals->ReadLocale("Damage") + ": " + ToString(tower.damageDone);
+        if (towerPriority->state.Released()) {
+            tower.priority = (Entities::Tower::TargetPriority)(((u32)tower.priority+1) % 6);
+        }
+        towerPriority->string = globals->ReadLocale(Entities::Tower::priorityStrings[tower.priority]);
+    } else {
+        selectedTowerInfo->hidden = true;
+    }
+    screen.Update(vec2(0.0), true);
     if (buttonMenu->state.Released()) {
         globals->gui.nextMenu = MenuEnum::MENU_MAIN;
         globals->objects.paused = true;
@@ -1591,6 +1640,33 @@ void Slider::Draw(Rendering::DrawingContext &context) const {
     drawPos.x += map(value, valueMin, valueMax, 2.0, sizeAbsolute.x - 16.0) * globals->gui.scale;
     drawPos.y += 2.0 * globals->gui.scale;
     globals->rendering.DrawQuad(context, Rendering::texBlank, slider, drawPos, vec2(1.0), vec2(12.0, sizeAbsolute.y - 4.0) * globals->gui.scale);
+}
+
+Hideable::Hideable(Widget *child) : hidden(false) {
+    margin = 0.0;
+    AddWidget(this, child);
+    size = child->size; // We need to inherit this for Lists to work properly
+}
+
+void Hideable::UpdateSize(vec2 container) {
+    if (hidden) {
+        sizeAbsolute = 0.0;
+    } else {
+        children[0]->UpdateSize(container);
+        sizeAbsolute = children[0]->GetSize();
+    }
+}
+
+void Hideable::Update(vec2 pos, bool selected) {
+    if (!hidden) {
+        children[0]->Update(pos, selected);
+    }
+}
+
+void Hideable::Draw(Rendering::DrawingContext &context) const {
+    if (!hidden) {
+       children[0]->Draw(context);
+    }
 }
 
 } // namespace Int

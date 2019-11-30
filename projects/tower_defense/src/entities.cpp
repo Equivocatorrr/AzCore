@@ -33,6 +33,14 @@ const char *towerDescriptions[TOWER_MAX_RANGE + 1] = {
     "GaussDescription",
     "FlakDescription"
 };
+const char *Tower::priorityStrings[6] =  {
+    "Nearest",
+    "Furthest",
+    "Weakest",
+    "Strongest",
+    "Newest",
+    "Oldest"
+};
 
 const Tower towerGunTemplate = Tower(
     BOX,                                        // CollisionType
@@ -824,6 +832,9 @@ void Tower::EventCreate() {
     shootTimer = 0.0;
     field.pos = physical.pos;
     field.angle = physical.angle;
+    priority = PRIORITY_NEAREST;
+    kills = 0;
+    damageDone = 0;
 }
 
 void Tower::Update(f32 timestep) {
@@ -861,6 +872,7 @@ void Tower::Update(f32 timestep) {
                 bullet.lifetime = range / (bulletSpeed * 0.9);
                 bullet.explosionDamage = bulletExplosionDamage;
                 bullet.explosionRange = bulletExplosionRange;
+                bullet.owner = id;
                 f32 dist = nearestDist;
                 vec2 deltaP;
                 for (i32 i = 0; i < 2; i++) {
@@ -896,6 +908,7 @@ void Tower::Update(f32 timestep) {
                 explosion.growth = 5.0;
                 explosion.damage = damage;
                 explosion.physical.pos = physical.pos;
+                explosion.owner = id;
                 globals->entities.explosions.Create(explosion);
                 shootTimer = shootInterval;
             }
@@ -987,6 +1000,9 @@ void Enemy::EventCreate() {
 void Enemy::EventDestroy() {
     if (hitpoints <= 0) {
         globals->entities.money += value;
+        for (const Id &damager : damageContributors) {
+            globals->entities.towers.GetMutable(damager).kills++;
+        }
     }
 }
 
@@ -1020,7 +1036,7 @@ void Enemy::Update(f32 timestep) {
         }
     }
     for (i32 i = 0; i < globals->entities.towers.size; i++) {
-        const Tower &other = globals->entities.towers[i];
+        Tower &other = globals->entities.towers.GetMutable(i);
         if (other.id.generation < 0 || other.type != TOWER_FAN || other.disabled) continue;
         if (physical.Collides(other.field)) {
             vec2 deltaP = physical.pos - other.physical.pos;
@@ -1029,6 +1045,8 @@ void Enemy::Update(f32 timestep) {
                 * 5000.0 / pow(size, 1.5), timestep);
             if (other.damage != 0) {
                 if (random(0.0, 1.0, globals->rng) <= (f32)other.damage*timestep) {
+                    damageContributors.emplace(other.id);
+                    other.damageDone++;
                     hitpoints--;
                 }
             }
@@ -1041,13 +1059,15 @@ void Enemy::Update(f32 timestep) {
             vec2 deltaP = physical.pos - other.physical.pos;
             physical.Impulse(normalize(deltaP) * max((other.size + physical.basis.circle.r - abs(deltaP)), 0.0) * 500.0 / pow(size, 1.5), timestep);
             if (other.damage != 0) {
+                damageContributors.emplace(other.owner);
                 f32 prob = (f32)other.damage*timestep;
                 i32 hits = prob;
                 prob -= (f32)hits;
-                hitpoints -= hits;
                 if (random(0.0, 1.0, globals->rng) <= prob) {
-                    hitpoints--;
+                    hits++;
                 }
+                hitpoints -= hits;
+                globals->entities.towers.GetMutable(other.owner).damageDone += hits;
             }
         }
     }
@@ -1055,12 +1075,15 @@ void Enemy::Update(f32 timestep) {
         Bullet &other = globals->entities.bullets.GetMutable(i);
         if (other.id.generation < 0) continue;
         if (physical.Collides(other.physical)) {
+            damageContributors.emplace(other.owner);
             if (other.damage > hitpoints) {
                 other.damage -= hitpoints;
+                globals->entities.towers.GetMutable(other.owner).damageDone += hitpoints;
                 hitpoints = 0;
             } else {
                 globals->entities.bullets.Destroy(other.id);
                 hitpoints -= other.damage;
+                globals->entities.towers.GetMutable(other.owner).damageDone += other.damage;
                 physical.vel += normalize(other.physical.vel) * 100.0 / size;
             }
         }
@@ -1097,6 +1120,7 @@ void Bullet::EventDestroy() {
         explosion.growth = 8.0;
         explosion.physical.pos = physical.pos;
         explosion.physical.vel = physical.vel;
+        explosion.owner = owner;
         globals->entities.explosions.Create(explosion);
     }
 }

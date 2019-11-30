@@ -185,6 +185,17 @@ struct Slider : public Widget {
     void Draw(Rendering::DrawingContext &context) const;
 };
 
+// Must have exactly one child or else!
+struct Hideable : public Widget {
+    bool hidden;
+
+    Hideable(Widget *child);
+    ~Hideable() = default;
+    void UpdateSize(vec2 container);
+    void Update(vec2 pos, bool selected);
+    void Draw(Rendering::DrawingContext &context) const;
+};
+
 enum MenuEnum {
     MENU_MAIN,
     MENU_SETTINGS,
@@ -221,6 +232,9 @@ struct PlayMenu {
     Screen screen;
     ListV *list;
     Text *waveTitle, *waveInfo, *towerInfo;
+    Hideable *selectedTowerInfo;
+    Text *selectedTowerStats;
+    Button *towerPriority;
     Array<Button*> towerButtons;
     Button *buttonMenu;
     Button *buttonStartWave;

@@ -337,7 +337,7 @@ u8 KeyCodeToWinScan(u8 keyCode);
 u8 KeyCodeFromWinScan(u8 keyCode);
 
 namespace io {
-    class logStream;
+    class LogStream;
 }
 
 inline bool KeyCodeIsKeyboard(const u8 &keyCode) {
@@ -356,9 +356,9 @@ inline bool KeyCodeIsGamepad(const u8 &keyCode) {
 // Creates the inverse based on the "To" map
 // This might not work if there are multiple mappings to KeyCodes
 // And with multiple mappings from KeyCodes, it will use the first.
-void PrintKeyCodeMapsEvdev(io::logStream& cout);
-void PrintKeyCodeMapsWinVK(io::logStream& cout);
-void PrintKeyCodeMapsWinScan(io::logStream& cout);
+void PrintKeyCodeMapsEvdev(io::LogStream& cout);
+void PrintKeyCodeMapsWinVK(io::LogStream& cout);
+void PrintKeyCodeMapsWinScan(io::LogStream& cout);
 
 } // namespace AzCore
 

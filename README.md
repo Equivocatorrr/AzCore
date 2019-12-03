@@ -29,6 +29,8 @@ This, of course, also has downsides, namely the need to occasionally touch up th
 For some projects this is not desirable, and so these tools are still too early in development for such projects.
 
 ## Contributing
+**_Be sure to read the [Contribution Guidelines](https://github.com/SingularityAzure/AzCore/blob/master/CONTRIBUTING.md)_**
+
 Any and all contributions are appreciated so long as they're in line with the **Goals** of this project.
 If you have any questions regarding a specific feature, you may ask me a question via email at singularity.haynes@gmail.com.
 #### Feedback

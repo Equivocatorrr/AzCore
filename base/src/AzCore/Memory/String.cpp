@@ -6,10 +6,10 @@
 #include "String.hpp"
 #include "../math.hpp"
 
-namespace AzCore {
+AZCORE_STRING_TERMINATOR(char, '\0');
+AZCORE_STRING_TERMINATOR(char32, 0u);
 
-STRING_TERMINATOR(char, '\0');
-STRING_TERMINATOR(char32, 0u);
+namespace AzCore {
 
 String operator+(const char *cString, const String &string)
 {

@@ -28,8 +28,8 @@ struct StringTerminators
 };
 /* Macro to easily set a terminator. Must be called from one and only one .cpp file.
    Definitions for char and char32 are already set. */
-#define STRING_TERMINATOR(TYPE, VAL) template <> \
-                                     const TYPE StringTerminators<TYPE>::value = VAL
+#define AZCORE_STRING_TERMINATOR(TYPE, VAL) template <> \
+                                     const TYPE AzCore::StringTerminators<TYPE>::value = VAL
 
 /*  i32 StringLength(const T *string)
     Author: Philip Haynes

@@ -14,3 +14,4 @@ obj
 *.a
 .touch*
 *.conf
+.vscode

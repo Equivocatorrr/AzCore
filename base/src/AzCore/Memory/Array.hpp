@@ -326,18 +326,6 @@ struct Array
         return false;
     }
 
-    bool Contains(const T &val) const
-    {
-        for (i32 i = 0; i < size; i++)
-        {
-            if (val == data[i])
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
     const T &operator[](const i32 index) const
     {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
@@ -746,6 +734,28 @@ struct Array
     inline T &Back()
     {
         return data[size - 1];
+    }
+
+    bool Contains(const T &val) const
+    {
+        for (i32 i = 0; i < size; i++)
+        {
+            if (val == data[i])
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    i32 Count(const T &val) const {
+        i32 count = 0;
+        for (i32 i = 0; i < size; i++) {
+            if (val == data[i]) {
+                count++;
+            }
+        }
+        return count;
     }
 
     Ptr<T> GetPtr(const i32 &index)

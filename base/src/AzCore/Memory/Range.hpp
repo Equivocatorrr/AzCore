@@ -134,6 +134,54 @@ struct Range
             return it->value;
         }
     }
+
+    bool Contains(const T &val) const
+    {
+        if (index >= 0)
+        {
+            Array<T,0> *array = (Array<T,0>*)ptr;
+            for (i32 i = 0; i < size; i++)
+            {
+                if (val == array->data[i+index])
+                    return true;
+            }
+        }
+        else
+        {
+            ListIndex<T> *it = (ListIndex<T> *)ptr;
+            for (i32 i = 0; i < size; i++)
+            {
+                if (val == it->value)
+                    return true;
+                it = it->next;
+            }
+        }
+        return false;
+    }
+
+    i32 Count(const T &val) const {
+        i32 count = 0;
+        if (index >= 0)
+        {
+            Array<T,0> *array = (Array<T,0>*)ptr;
+            for (i32 i = 0; i < size; i++)
+            {
+                if (val == array->data[i+index])
+                    count++;
+            }
+        }
+        else
+        {
+            ListIndex<T> *it = (ListIndex<T> *)ptr;
+            for (i32 i = 0; i < size; i++)
+            {
+                if (val == it->value)
+                    count++;
+                it = it->next;
+            }
+        }
+        return count;
+    }
 };
 
 } // namespace AzCore

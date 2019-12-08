@@ -41,6 +41,8 @@ using SharedPtr = std::shared_ptr<T>;
 template<typename T>
 using WeakPtr = std::weak_ptr<T>;
 
+Array<char> FileContents(String filename);
+
 } // namespace AzCore
 
 #endif // AZCORE_MEMORY_HPP

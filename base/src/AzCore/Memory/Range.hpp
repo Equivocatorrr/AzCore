@@ -20,6 +20,39 @@ struct List;
 template <typename T>
 struct Ptr;
 
+template <typename T>
+struct RangeIterator {
+    void *ptr;
+    i32 iteration;
+    RangeIterator() : ptr(nullptr), iteration(-1) {}
+    RangeIterator(T *arrayPtr) : ptr(arrayPtr), iteration(-1) {}
+    RangeIterator(ListIndex<T> *listIndex, i32 it) : ptr(listIndex), iteration(it) {}
+    bool operator!=(const RangeIterator<T> &other) const {
+        if (iteration == -1) {
+            return ptr == other.ptr;
+        } else {
+            return iteration == other.iteration;
+        }
+    }
+    void operator++() {
+        if (iteration >= 0) {
+            ListIndex<T> *listIndex = (ListIndex<T>*)ptr;
+            listIndex = listIndex->next;
+            iteration++;
+        } else {
+            ((T*)ptr)++;
+        }
+    }
+    T& operator*() {
+        if (iteration >= 0) {
+            ListIndex<T> *listIndex = (ListIndex<T>*)ptr;
+            return listIndex->value;
+        } else {
+            return *(T*)ptr;
+        }
+    }
+};
+
 /*  struct: Range
     Author: Philip Haynes
     Using an index and count, points to a range of values from an Array or a List.        */
@@ -66,10 +99,12 @@ struct Range
     }
     Ptr<T> GetPtr(const i32 &i)
     {
+#ifndef MEMORY_NO_BOUNDS_CHECKS
         if (i >= size)
         {
             throw std::out_of_range("Range index is out of bounds");
         }
+#endif
         if (index >= 0)
         {
             return Ptr<T>((Array<T,0> *)ptr, index + i);
@@ -133,6 +168,69 @@ struct Range
             }
             return it->value;
         }
+    }
+
+    RangeIterator<T> begin() {
+        if (index >= 0) {
+            return RangeIterator(&((Array<T,0>*)ptr)->data[index]);
+        } else {
+            return RangeIterator((ListIndex<T>*)ptr, 0);
+        }
+    }
+    RangeIterator<T> end() {
+        if (index >= 0) {
+            return RangeIterator(&((Array<T,0>*)ptr)->data[index] + size);
+        } else {
+            return RangeIterator(nullptr, size);
+        }
+    }
+
+    bool Contains(const T &val) const
+    {
+        if (index >= 0)
+        {
+            Array<T,0> *array = (Array<T,0>*)ptr;
+            for (i32 i = 0; i < size; i++)
+            {
+                if (val == array->data[i+index])
+                    return true;
+            }
+        }
+        else
+        {
+            ListIndex<T> *it = (ListIndex<T> *)ptr;
+            for (i32 i = 0; i < size; i++)
+            {
+                if (val == it->value)
+                    return true;
+                it = it->next;
+            }
+        }
+        return false;
+    }
+
+    i32 Count(const T &val) const {
+        i32 count = 0;
+        if (index >= 0)
+        {
+            Array<T,0> *array = (Array<T,0>*)ptr;
+            for (i32 i = 0; i < size; i++)
+            {
+                if (val == array->data[i+index])
+                    count++;
+            }
+        }
+        else
+        {
+            ListIndex<T> *it = (ListIndex<T> *)ptr;
+            for (i32 i = 0; i < size; i++)
+            {
+                if (val == it->value)
+                    count++;
+                it = it->next;
+            }
+        }
+        return count;
     }
 };
 

@@ -8,6 +8,8 @@
 #include "Memory/Endian.cpp"
 #include "Memory/String.cpp"
 
+#include <cstdio>
+
 namespace AzCore {
 
 size_t align(const size_t& size, const size_t& alignment) {
@@ -35,6 +37,22 @@ String FormatTime(Nanoseconds time) {
         }
     }
     return out;
+}
+
+Array<char> FileContents(String filename) {
+    Array<char> result;
+    FILE *file = fopen(filename.data, "rb");
+    if (!file) {
+        return result;
+    }
+    fseek(file, 0, SEEK_END);
+    result.Resize(ftell(file));
+    fseek(file, 0, SEEK_SET);
+    if ((i32)fread(result.data, 1, result.size, file) != result.size) {
+        return result;
+    }
+    fclose(file);
+    return result;
 }
 
 } // namespace AzCore

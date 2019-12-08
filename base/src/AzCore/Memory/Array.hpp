@@ -194,9 +194,46 @@ struct Array
         {
             data = nullptr;
         }
-        for (i32 i = 0; i < size; i++)
+        if constexpr (std::is_trivially_copyable<T>::value)
         {
-            data[i] = string[i];
+            memcpy((void *)data, (void *)string, sizeof(T) * allocated);
+        }
+        else
+        {
+            for (i32 i = 0; i < size; i++)
+            {
+                data[i] = string[i];
+            }
+        }
+        SetTerminator();
+    }
+
+    Array(const Range<T> &range) : allocated(range.size), size(range.size) {
+        if (allocated)
+        {
+            data = new T[allocated + allocTail];
+        }
+        else
+        {
+            data = nullptr;
+        }
+        if (range.index >= 0) {
+            if constexpr (std::is_trivially_copyable<T>::value)
+            {
+                memcpy((void *)data, (void *)(((Array<T,0>*)range.ptr)->data + range.index), sizeof(T) * allocated);
+            }
+            else
+            {
+                for (i32 i = 0; i < size; i++)
+                {
+                    data[i] = range[i];
+                }
+            }
+        } else {
+            for (i32 i = 0; i < size; i++)
+            {
+                data[i] = range[i];
+            }
         }
         SetTerminator();
     }
@@ -323,18 +360,6 @@ struct Array
         }
         if (size < other.size) return true;
         if (size > other.size) return false;
-        return false;
-    }
-
-    bool Contains(const T &val) const
-    {
-        for (i32 i = 0; i < size; i++)
-        {
-            if (val == data[i])
-            {
-                return true;
-            }
-        }
         return false;
     }
 
@@ -746,6 +771,28 @@ struct Array
     inline T &Back()
     {
         return data[size - 1];
+    }
+
+    bool Contains(const T &val) const
+    {
+        for (i32 i = 0; i < size; i++)
+        {
+            if (val == data[i])
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    i32 Count(const T &val) const {
+        i32 count = 0;
+        for (i32 i = 0; i < size; i++) {
+            if (val == data[i]) {
+                count++;
+            }
+        }
+        return count;
     }
 
     Ptr<T> GetPtr(const i32 &index)

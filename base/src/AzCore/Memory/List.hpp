@@ -7,6 +7,7 @@
 #define AZCORE_LIST_HPP
 
 #include "../basictypes.hpp"
+#include "Array.hpp"
 #include <initializer_list>
 
 namespace AzCore {
@@ -300,6 +301,29 @@ struct List
             delete first;
             first = tmp;
         }
+    }
+
+    bool Contains(const T &val) const {
+        ListIndex<T> *it = first;
+        for (i32 i = 0; i < size; i++)
+        {
+            if (val == it->value)
+                return true;
+            it = it->next;
+        }
+        return false;
+    }
+
+    i32 Count(const T &val) const {
+        ListIndex<T> *it = first;
+        i32 count = 0;
+        for (i32 i = 0; i < size; i++)
+        {
+            if (val == it->value)
+                count++;
+            it = it->next;
+        }
+        return count;
     }
 };
 

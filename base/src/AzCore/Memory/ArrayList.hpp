@@ -7,23 +7,23 @@
 #define AZCORE_ARRAYLIST_HPP
 
 #include "../basictypes.hpp"
+#include "Array.hpp"
 
 namespace AzCore {
 
-/*  class: ArrayList
+/*  struct: ArrayList
     Author: Philip Haynes
     Data structure useful for sparse chunks of data at a very wide range of indices.
     Good for mapping values from Unicode characters, for example.
     Negative indices are also valid, if that's your thing.     */
 template <typename T>
-class ArrayList
+struct ArrayList
 {
     ArrayList<T> *prev = nullptr, *next = nullptr;
     i32 first = 0, last = 0;
     T outOfBoundsValue{};
     Array<T> indices{Array<T>(1)};
 
-public:
     ArrayList<T>() {}
     ArrayList<T>(const ArrayList<T> &other)
     {

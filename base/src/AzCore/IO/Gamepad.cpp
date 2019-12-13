@@ -16,6 +16,10 @@ Gamepad::Gamepad()
     {
         axisPush[i].canRepeat = true;
     }
+    for (u32 i = 0; i < IO_GAMEPAD_MAX_BUTTONS; i++)
+    {
+        button[i].canRepeat = true;
+    }
     for (u32 i = 0; i < 4; i++)
     {
         hat[i].canRepeat = true;
@@ -24,7 +28,7 @@ Gamepad::Gamepad()
 
 bool Gamepad::Pressed(u8 keyCode) const
 {
-    if (keyCode >= KC_GP_AXIS_LS_RIGHT && keyCode <= KC_GP_AXIS_RT_IN)
+    if (keyCode >= KC_GP_AXIS_LS_RIGHT && keyCode <= KC_GP_AXIS_H0_UP)
     {
         return axisPush[keyCode - KC_GP_AXIS_LS_RIGHT].Pressed();
     }
@@ -44,7 +48,7 @@ bool Gamepad::Pressed(u8 keyCode) const
 
 bool Gamepad::Down(u8 keyCode) const
 {
-    if (keyCode >= KC_GP_AXIS_LS_RIGHT && keyCode <= KC_GP_AXIS_RT_IN)
+    if (keyCode >= KC_GP_AXIS_LS_RIGHT && keyCode <= KC_GP_AXIS_H0_UP)
     {
         return axisPush[keyCode - KC_GP_AXIS_LS_RIGHT].Down();
     }
@@ -64,7 +68,7 @@ bool Gamepad::Down(u8 keyCode) const
 
 bool Gamepad::Released(u8 keyCode) const
 {
-    if (keyCode >= KC_GP_AXIS_LS_RIGHT && keyCode <= KC_GP_AXIS_RT_IN)
+    if (keyCode >= KC_GP_AXIS_LS_RIGHT && keyCode <= KC_GP_AXIS_H0_UP)
     {
         return axisPush[keyCode - KC_GP_AXIS_LS_RIGHT].Released();
     }

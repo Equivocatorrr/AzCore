@@ -349,7 +349,8 @@ inline bool KeyCodeIsMouse(const u8 &keyCode) {
 }
 
 inline bool KeyCodeIsGamepad(const u8 &keyCode) {
-    return keyCode >= KC_GP_AXIS_H0_UP_RIGHT && keyCode <= KC_GP_AXIS_H0_Y;
+    return (keyCode >= KC_GP_AXIS_H0_UP_RIGHT && keyCode <= KC_GP_AXIS_H0_UP_LEFT)
+        || (keyCode >= KC_GP_BTN_SOUTH && keyCode <= KC_GP_AXIS_H0_Y);
 }
 
 // Utility functions so you don't have to write both to and from maps

@@ -30,6 +30,7 @@ String ToString(const f128 &value, i32 base = 10, i32 precision = -1);
 
 f32 StringToF32(String string, i32 base = 10);
 f32 WStringToF32(WString string, i32 base = 10);
+i64 StringToI64(String string, i32 base = 10);
 
 inline bool operator==(const char *b, const String &a)
 {

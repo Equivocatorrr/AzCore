@@ -647,11 +647,11 @@ f32 StringToF32(String string, i32 base)
         }
         else if (base > 10)
         {
-            if (c >= 'a' && c < 'a' + base)
+            if (c >= 'a' && c < 'a' + base-10)
             {
                 value = c - 'a' + 10;
             }
-            else if (c >= 'A' && c < 'A' + base)
+            else if (c >= 'A' && c < 'A' + base-10)
             {
                 value = c - 'A' + 10;
             }
@@ -704,11 +704,11 @@ f32 WStringToF32(WString string, i32 base)
         }
         else if (base > 10)
         {
-            if (c >= 'a' && c < 'a' + base)
+            if (c >= 'a' && c < 'a' + base-10)
             {
                 value = c - 'a' + 10;
             }
-            else if (c >= 'A' && c < 'A' + base)
+            else if (c >= 'A' && c < 'A' + base-10)
             {
                 value = c - 'A' + 10;
             }
@@ -721,6 +721,29 @@ f32 WStringToF32(WString string, i32 base)
         multiplier *= baseF;
     }
     return out;
+}
+
+i64 StringToI64(String string, i32 base) {
+    i64 multiplier = 1;
+    i64 result = 0;
+    for (i32 i = string.size-1; i >= 0; i--) {
+        i8 value = 0;
+        char c = string[i];
+        if (isNumber(c)) {
+            value = c - '0';
+        } else if (c == '-') {
+            return -result;
+        } else if (base > 10) {
+            if (c >= 'a' && c < 'a'+base-10) {
+                value = c - 'a' + 10;
+            } else if (c >= 'A' && c < 'A'+base-10) {
+                value = c - 'A' + 10;
+            }
+        }
+        result += value * multiplier;
+        multiplier *= base;
+    }
+    return result;
 }
 
 bool equals(const char *a, const char *b)

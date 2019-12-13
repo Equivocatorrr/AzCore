@@ -53,6 +53,9 @@ Array<Range<T>> SeparateByValues(Array<T> *array, const Array<T> &values) {
             rangeStart = i+1;
         }
     }
+    if (rangeStart < array->size-1) {
+        result.Append(array->GetRange(rangeStart, array->size-1-rangeStart));
+    }
     return result;
 }
 

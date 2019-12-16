@@ -40,6 +40,7 @@ struct Widget {
     virtual void Update(vec2 pos, bool selected);
     virtual void Draw(Rendering::DrawingContext &context) const;
 
+    virtual bool Selectable() const;
     bool MouseOver() const;
     void FindMouseoverDepth(i32 actualDepth);
 };
@@ -120,6 +121,8 @@ struct Button : public Widget {
     i32 fontIndex;
     f32 fontSize;
     io::ButtonState state;
+    // These are any input keycodes that can affect state without the widget being focused
+    Array<u8> keycodeActivators;
     Button();
     ~Button() = default;
     void Update(vec2 pos, bool selected);
@@ -203,6 +206,7 @@ struct Hideable : public Widget {
     void UpdateSize(vec2 container);
     void Update(vec2 pos, bool selected);
     void Draw(Rendering::DrawingContext &context) const;
+    bool Selectable() const;
 };
 
 enum MenuEnum {

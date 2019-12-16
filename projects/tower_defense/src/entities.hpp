@@ -226,6 +226,7 @@ struct Manager : public Objects::Object {
     DoubleBufferArray<Explosion> explosions{};
     Array<UpdateChunk> updateChunks{};
     Id selectedTower = -1;
+    bool focusMenu = false;
     bool placeMode = false;
     TowerType towerType = TOWER_GUN;
     Angle32 placingAngle = 0.0;

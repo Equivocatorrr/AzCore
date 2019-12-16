@@ -358,6 +358,7 @@ void SettingsMenu::Initialize() {
     buttonBack->fractionHeight = false;
     buttonBack->margin = vec2(8.0);
     buttonBack->highlightBG = vec4(colorBack, 0.9);
+    buttonBack->keycodeActivators = {KC_GP_BTN_B};
     AddWidget(buttonList, buttonBack);
 
     buttonApply = new Button();
@@ -558,6 +559,7 @@ void PlayMenu::Initialize() {
     fullWidth->fontIndex = globals->gui.fontIndex;
 
     ListH *waveList = new ListH(*gridBase);
+    waveList->selectionDefault = 1;
 
     waveTitle = new Text();
     waveTitle->size.x = 0.5;
@@ -590,6 +592,7 @@ void PlayMenu::Initialize() {
 
     buttonMenu = new Button(*fullWidth);
     buttonMenu->string = globals->ReadLocale("Menu");
+    buttonMenu->keycodeActivators = {KC_GP_BTN_START};
     AddWidget(list, buttonMenu);
 
     delete gridBase;
@@ -629,7 +632,7 @@ void PlayMenu::Update() {
     } else {
         selectedTowerInfo->hidden = true;
     }
-    screen.Update(vec2(0.0), true);
+    screen.Update(vec2(0.0), globals->entities.focusMenu);
     if (buttonMenu->state.Released()) {
         globals->gui.nextMenu = MenuEnum::MENU_MAIN;
         globals->objects.paused = true;
@@ -712,6 +715,10 @@ void Widget::Draw(Rendering::DrawingContext &context) const {
     }
 }
 
+bool Widget::Selectable() const {
+    return selectable;
+}
+
 bool Widget::MouseOver() const {
     const vec2 mouse = vec2(globals->input.cursor) / globals->gui.scale;
     return mouse.x == median(positionAbsolute.x, mouse.x, positionAbsolute.x + sizeAbsolute.x)
@@ -760,13 +767,13 @@ bool List::UpdateSelection(bool selected, u8 keyCodeSelect, u8 keyCodeBack, u8 k
             }
             if (globals->objects.Pressed(keyCodeIncrement)) {
                 for (selection = max(selection+1, 0); selection < children.size; selection++) {
-                    if (children[selection]->selectable) {
+                    if (children[selection]->Selectable()) {
                         break;
                     }
                 }
                 if (selection == children.size) {
                     for (selection = 0; selection < children.size; selection++) {
-                        if (children[selection]->selectable) {
+                        if (children[selection]->Selectable()) {
                             break;
                         }
                     }
@@ -781,13 +788,13 @@ bool List::UpdateSelection(bool selected, u8 keyCodeSelect, u8 keyCodeBack, u8 k
                     --selection;
                 }
                 for (; selection >= 0; selection--) {
-                    if (children[selection]->selectable) {
+                    if (children[selection]->Selectable()) {
                         break;
                     }
                 }
                 if (selection == -1) {
                     for (selection = children.size-1; selection >= 0; selection--) {
-                        if (children[selection]->selectable) {
+                        if (children[selection]->Selectable()) {
                             break;
                         }
                     }
@@ -886,7 +893,7 @@ void ListV::Update(vec2 pos, bool selected) {
         f32 childY = pos.y;
         for (selection = 0; selection < children.size; selection++) {
             Widget *child = children[selection];
-            if (!child->selectable) {
+            if (!child->Selectable()) {
                 childY += child->GetSize().y;
                 continue;
             }
@@ -968,7 +975,7 @@ void ListH::Update(vec2 pos, bool selected) {
         f32 childX = pos.x;
         for (selection = 0; selection < children.size; selection++) {
             Widget *child = children[selection];
-            if (child->selectable) {
+            if (child->Selectable()) {
                 child->positionAbsolute.x = childX + child->margin.x;
                 child->positionAbsolute.y = pos.y + child->margin.y;
                 if (child->MouseOver()) {
@@ -1141,7 +1148,7 @@ void Image::Draw(Rendering::DrawingContext &context) const {
     globals->rendering.DrawQuad(context, texIndex, vec4(1.0), positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
 }
 
-Button::Button() : string(), colorBG(0.15, 0.15, 0.15, 0.9), highlightBG(colorHighlightMedium, 0.9), colorText(1.0), highlightText(0.0, 0.0, 0.0, 1.0), fontIndex(1), fontSize(28.0), state() {
+Button::Button() : string(), colorBG(0.15, 0.15, 0.15, 0.9), highlightBG(colorHighlightMedium, 0.9), colorText(1.0), highlightText(0.0, 0.0, 0.0, 1.0), fontIndex(1), fontSize(28.0), state(), keycodeActivators() {
     state.canRepeat = false;
     selectable = true;
     occludes = true;
@@ -1157,34 +1164,39 @@ void Button::Update(vec2 pos, bool selected) {
         mouseover = mouseoverNew;
     }
     state.Tick(0.0);
-    if (globals->gui.controlDepth != depth) {
-        highlighted = false;
-    }
     if (mouseover) {
-        highlighted = true;
         if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
             state.Press();
-            globals->gui.sndClickIn.Play();
         }
         if (globals->objects.Released(KC_MOUSE_LEFT)) {
             state.Release();
-            globals->gui.sndClickOut.Play();
         }
     }
     if (globals->gui.controlDepth == depth) {
         if (selected) {
             if (globals->objects.Pressed(KC_GP_BTN_A)) {
                 state.Press();
-                globals->gui.sndClickIn.Play();
             }
             if (globals->objects.Released(KC_GP_BTN_A)) {
                 state.Release();
-                globals->gui.sndClickOut.Play();
             }
-        } else if (!mouseover) {
-            state.Set(false, false, false);
+        }
+        for (u8 kc : keycodeActivators) {
+            if (globals->objects.Pressed(kc)) {
+                state.Press();
+            }
+            if (globals->objects.Released(kc)) {
+                state.Release();
+            }
         }
     }
+    if (state.Pressed()) {
+        globals->gui.sndClickIn.Play();
+    }
+    if (state.Released()) {
+        globals->gui.sndClickOut.Play();
+    }
+    highlighted = selected || mouseover || state.Down();
 }
 
 void Button::Draw(Rendering::DrawingContext &context) const {
@@ -1256,7 +1268,7 @@ void Checkbox::Draw(Rendering::DrawingContext &context) const {
 }
 
 TextBox::TextBox() : string(), colorBG(vec3(0.15), 0.9), highlightBG(vec3(0.2), 0.9), errorBG(0.1, 0.0, 0.0, 0.9), colorText(1.0), highlightText(1.0), errorText(1.0, 0.5, 0.5, 1.0), padding(2.0), cursor(0), fontIndex(1), fontSize(17.39), cursorBlinkTimer(0.0), alignH(Rendering::LEFT), textFilter(TextFilterBasic), textValidate(TextValidateAll), entry(false), multiline(false) {
-    selectable = true;
+    // selectable = true;
     occludes = true;
     fractionWidth = false;
     fractionHeight = false;
@@ -1666,6 +1678,7 @@ highlightBG(vec3(0.2), 0.9),    highlightSlider(colorHighlightHigh, 1.0),
 highlighted(false),             grabbed(false), left(), right()
 {
     occludes = true;
+    selectable = true;
     left.canRepeat = true;
     right.canRepeat = true;
 }
@@ -1675,6 +1688,19 @@ void Slider::Update(vec2 pos, bool selected) {
     highlighted = MouseOver();
     left.Tick(globals->objects.timestep);
     right.Tick(globals->objects.timestep);
+    if (selected) {
+        bool lmbDown = globals->objects.Down(KC_MOUSE_LEFT);
+        if (globals->objects.Pressed(KC_GP_AXIS_LS_LEFT)) {
+            left.Press();
+        } else if (left.Down() && !lmbDown) {
+            left.Release();
+        }
+        if (globals->objects.Pressed(KC_GP_AXIS_LS_RIGHT)) {
+            right.Press();
+        } else if (right.Down() && !lmbDown) {
+            right.Release();
+        }
+    }
     if (highlighted && !grabbed) {
         i32 mousePos = 0;
         f32 mouseX = (f32)globals->input.cursor.x / globals->gui.scale - positionAbsolute.x;
@@ -1781,6 +1807,10 @@ void Hideable::Draw(Rendering::DrawingContext &context) const {
     if (!hidden) {
        children[0]->Draw(context);
     }
+}
+
+bool Hideable::Selectable() const {
+    return selectable && !hidden;
 }
 
 } // namespace Int

@@ -173,6 +173,40 @@ void Manager::EventInitialize() {
 
 void Manager::EventSync() {
     timestep = globals->objects.timestep * globals->objects.simulationRate;
+    if (globals->input.cursorPrevious != globals->input.cursor) {
+        mouse = vec2(globals->input.cursor
+              - vec2i(globals->window.width, globals->window.height) / 2) / camZoom + camPos;
+    }
+    if (globals->gui.currentMenu == Int::MENU_PLAY) {
+        if (globals->gamepad != nullptr) {
+            vec2 mouseMove = globals->gamepad->axis.vec.RS;
+            mouse += mouseMove * globals->objects.timestep * 800.0 / camZoom;
+
+            if (!focusMenu) {
+                vec2 camMove = globals->gamepad->axis.vec.LS;
+                camPos += camMove * globals->objects.timestep * 800.0 / camZoom;
+            }
+            f32 zoomMove = globals->gamepad->axis.vec.RT - globals->gamepad->axis.vec.LT;
+            zoomMove *= globals->objects.timestep;
+            if (zoomMove > 0) {
+                camZoom *= 1.0 + zoomMove;
+            } else {
+                camZoom /= 1.0 - zoomMove;
+            }
+        }
+        if (globals->objects.Pressed(KC_GP_BTN_X)) {
+            focusMenu = !focusMenu;
+            placeMode = false;
+        }
+        if (focusMenu) {
+            if (globals->objects.Pressed(KC_GP_BTN_B)) {
+                focusMenu = false;
+            }
+        }
+    } else {
+        placeMode = false;
+        focusMenu = false;
+    }
     towers.Synchronize();
     enemies.Synchronize();
     bullets.Synchronize();
@@ -200,11 +234,13 @@ void Manager::EventSync() {
     if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
         if (globals->gui.playMenu.list->MouseOver()) {
             placeMode = false;
+            focusMenu = true;
         }
     }
     for (i32 i = 0; i <= TOWER_MAX_RANGE; i++) {
         if (globals->gui.playMenu.towerButtons[i]->state.Released()) {
             placeMode = true;
+            focusMenu = false;
             towerType = TowerType(i);
         }
     }
@@ -261,14 +297,31 @@ void Manager::EventSync() {
             camPos -= move;
         }
     } else {
-        Degrees32 increment(30.0);
+        // placeMode == true
+        if (globals->objects.Pressed(KC_GP_BTN_B)) {
+            placeMode = false;
+            focusMenu = true;
+        }
+        const Degrees32 increment30(30.0);
+        const Degrees32 increment5(5.0);
+        Degrees32 increment = increment30;
         if (globals->objects.Down(KC_KEY_LEFTSHIFT) || globals->objects.Down(KC_KEY_RIGHTSHIFT)) {
-            increment = Degrees32(5.0);
+            increment = increment5;
         }
         if (globals->objects.Pressed(KC_KEY_LEFT)) {
             placingAngle += increment;
         } else if (globals->objects.Pressed(KC_KEY_RIGHT)) {
             placingAngle += -increment;
+        }
+        if (globals->objects.Pressed(KC_GP_AXIS_H0_LEFT)) {
+            placingAngle += increment5;
+        } else if (globals->objects.Pressed(KC_GP_AXIS_H0_RIGHT)) {
+            placingAngle += -increment5;
+        }
+        if (globals->objects.Pressed(KC_GP_BTN_TL)) {
+            placingAngle += increment30;
+        } else if (globals->objects.Pressed(KC_GP_BTN_TR)) {
+            placingAngle += -increment30;
         }
         Tower tower(towerType);
         tower.physical.pos = mouse;
@@ -286,7 +339,7 @@ void Manager::EventSync() {
                 }
             }
         }
-        if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
+        if (globals->objects.Pressed(KC_MOUSE_LEFT) || globals->objects.Pressed(KC_GP_BTN_A)) {
             if (canPlace) {
                 tower.sunkCost = towerCosts[towerType];
                 towers.Create(tower);
@@ -298,8 +351,6 @@ void Manager::EventSync() {
 }
 
 void Manager::EventUpdate() {
-    mouse = vec2(globals->input.cursor
-          - vec2i(globals->window.width, globals->window.height) / 2) / camZoom + camPos;
     if (timestep != 0.0) {
         const i32 concurrency = 4;
         Array<Thread> threads(concurrency);
@@ -935,7 +986,7 @@ void Tower::Update(f32 timestep) {
                     }
                 } break;
             }
-            
+
             if (target != -1) {
                 const Enemy& other = globals->entities.enemies[target];
                 Bullet bullet;

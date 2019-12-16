@@ -253,12 +253,10 @@ const u8 KC_GP_BTN_A = KC_GP_BTN_SOUTH;
 const u8 KC_GP_BTN_EAST             = 0xb9; // GamePad B
 const u8 KC_GP_BTN_B = KC_GP_BTN_EAST;
 const u8 KC_GP_BTN_C                = 0xba; // GamePad C
-// NOTE: I swapped X and Y to reflect the layout of an Xbox controller
-//       and all that follow that same design.
-const u8 KC_GP_BTN_NORTH            = 0xbb; // GamePad Y
-const u8 KC_GP_BTN_Y = KC_GP_BTN_NORTH;
-const u8 KC_GP_BTN_WEST             = 0xbc; // GamePad X
-const u8 KC_GP_BTN_X = KC_GP_BTN_WEST;
+const u8 KC_GP_BTN_NORTH            = 0xbb; // GamePad X
+const u8 KC_GP_BTN_X = KC_GP_BTN_NORTH;
+const u8 KC_GP_BTN_WEST             = 0xbc; // GamePad Y
+const u8 KC_GP_BTN_Y = KC_GP_BTN_WEST;
 const u8 KC_GP_BTN_Z                = 0xbd; // GamePad Z
 const u8 KC_GP_BTN_TL               = 0xbe; // GamePad Left Trigger
 const u8 KC_GP_BTN_TR               = 0xbf; // GamePad Right Trigger

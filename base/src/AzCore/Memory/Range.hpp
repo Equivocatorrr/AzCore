@@ -29,9 +29,9 @@ struct RangeIterator {
     RangeIterator(ListIndex<T> *listIndex, i32 it) : ptr(listIndex), iteration(it) {}
     bool operator!=(const RangeIterator<T> &other) const {
         if (iteration == -1) {
-            return ptr == other.ptr;
+            return ptr != other.ptr;
         } else {
-            return iteration == other.iteration;
+            return iteration != other.iteration;
         }
     }
     void operator++() {
@@ -40,7 +40,9 @@ struct RangeIterator {
             listIndex = listIndex->next;
             iteration++;
         } else {
-            ((T*)ptr)++;
+            T* p = (T*)ptr;
+            p++;
+            ptr = (void*)p;
         }
     }
     T& operator*() {
@@ -181,7 +183,7 @@ struct Range
         if (index >= 0) {
             return RangeIterator(&((Array<T,0>*)ptr)->data[index] + size);
         } else {
-            return RangeIterator(nullptr, size);
+            return RangeIterator((ListIndex<T>*)nullptr, size);
         }
     }
 
@@ -231,6 +233,25 @@ struct Range
             }
         }
         return count;
+    }
+
+    bool operator==(Range<T> &other)
+    {
+        if (size != other.size)
+        {
+            return false;
+        }
+        auto myIterator = begin();
+        auto myIteratorEnd = end();
+        auto otherIterator = other.begin();
+        while (myIterator != myIteratorEnd) {
+            if (*myIterator != *otherIterator) {
+                return false;
+            }
+            ++myIterator;
+            ++otherIterator;
+        }
+        return true;
     }
 };
 

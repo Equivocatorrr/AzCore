@@ -179,29 +179,49 @@ void Manager::EventSync() {
     }
     if (globals->gui.currentMenu == Int::MENU_PLAY) {
         if (globals->gamepad != nullptr) {
-            vec2 mouseMove = globals->gamepad->axis.vec.RS;
-            mouse += mouseMove * globals->objects.timestep * 800.0 / camZoom;
+            vec2 screenBorder = (vec2(globals->window.width, globals->window.height) - vec2(50.0 * globals->gui.scale)) / 2.0 / camZoom;
+            vec2 mouseMove = globals->gamepad->axis.vec.RS * globals->objects.timestep * 800.0 / camZoom;
+            mouse += mouseMove;
+            if (mouseMove != vec2(0.0)) {
+                if (mouse.x < camPos.x-screenBorder.x || mouse.x > camPos.x+screenBorder.x) {
+                    camPos.x += mouseMove.x;
+                }
+                if (mouse.y < camPos.y-screenBorder.y || mouse.y > camPos.y+screenBorder.y) {
+                    camPos.y += mouseMove.y;
+                }
+            }
 
             if (!focusMenu) {
-                vec2 camMove = globals->gamepad->axis.vec.LS;
-                camPos += camMove * globals->objects.timestep * 800.0 / camZoom;
+                vec2 camMove = globals->gamepad->axis.vec.LS * globals->objects.timestep * 800.0 / camZoom;
+                camPos += camMove;
+                if (camMove != vec2(0.0)) {
+                    if (mouse.x < camPos.x-screenBorder.x || mouse.x > camPos.x+screenBorder.x) {
+                        mouse.x += camMove.x;
+                    }
+                    if (mouse.y < camPos.y-screenBorder.y || mouse.y > camPos.y+screenBorder.y) {
+                        mouse.y += camMove.y;
+                    }
+                }
             }
             f32 zoomMove = globals->gamepad->axis.vec.RT - globals->gamepad->axis.vec.LT;
             zoomMove *= globals->objects.timestep;
             if (zoomMove > 0) {
+                screenBorder *= camZoom;
                 camZoom *= 1.0 + zoomMove;
+                screenBorder /= camZoom;
+                mouse.x = median(camPos.x-screenBorder.x, mouse.x, camPos.x+screenBorder.x);
+                mouse.y = median(camPos.y-screenBorder.y, mouse.y, camPos.y+screenBorder.y);
             } else {
+                screenBorder *= camZoom;
                 camZoom /= 1.0 - zoomMove;
+                screenBorder /= camZoom;
+                mouse.x = median(camPos.x-screenBorder.x, mouse.x, camPos.x+screenBorder.x);
+                mouse.y = median(camPos.y-screenBorder.y, mouse.y, camPos.y+screenBorder.y);
             }
         }
-        if (globals->objects.Pressed(KC_GP_BTN_X)) {
+        if (globals->objects.Pressed(KC_GP_BTN_X) && globals->gui.controlDepth == globals->gui.playMenu.list->depth) {
             focusMenu = !focusMenu;
             placeMode = false;
-        }
-        if (focusMenu) {
-            if (globals->objects.Pressed(KC_GP_BTN_B)) {
-                focusMenu = false;
-            }
         }
     } else {
         placeMode = false;
@@ -279,7 +299,7 @@ void Manager::EventSync() {
         camZoom /= 1.1;
     }
     if (!placeMode) {
-        if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
+        if (globals->objects.Pressed(KC_MOUSE_LEFT) || (globals->objects.Pressed(KC_GP_BTN_A) && !focusMenu)) {
             if (selectedTower != -1) {
                 selectedTower = -1;
             }
@@ -401,6 +421,12 @@ void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
     basePhysical.Draw(contexts.Back(), vec4(hsvToRgb(vec3((f32)lives / 3000.0, 1.0, 0.8)), 1.0));
     for (i32 i = 0; i < enemySpawns.size; i++) {
         enemySpawns[i].Draw(contexts.Back(), vec4(vec3(0.0), 1.0));
+    }
+    if (!globals->gui.usingMouse && !placeMode && !focusMenu) {
+        // mouse = vec2(globals->input.cursor
+        //       - vec2i(globals->window.width, globals->window.height) / 2) / camZoom + camPos;
+        vec2 cursor = (mouse - camPos) * camZoom + vec2(globals->window.width, globals->window.height) / 2.0;
+        globals->rendering.DrawQuad(contexts.Back(), globals->gui.cursorIndex, vec4(1.0), cursor, vec2(32.0 * globals->gui.scale), vec2(1.0), vec2(0.5));
     }
 }
 

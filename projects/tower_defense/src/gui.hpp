@@ -81,6 +81,7 @@ struct ListH : public List {
 // Allows the user to choose from a selection of widgets (usually Text).
 struct Switch : public ListV {
     i32 choice;
+    i32 parentDepth;
     bool open, changed;
     Switch();
     ~Switch() = default;
@@ -259,7 +260,7 @@ struct PlayMenu {
 
 struct Gui : public Objects::Object {
     i32 fontIndex;
-    i32 texIndex;
+    i32 cursorIndex;
     Sound::Source sndClickInSources[4];
     Sound::Source sndClickOutSources[4];
     Sound::Source sndClickSoftSources[2];
@@ -270,6 +271,8 @@ struct Gui : public Objects::Object {
     Assets::Font *font;
     i32 controlDepth = 0;
     f32 scale = 1.0;
+    // false for gamepad, true for mouse
+    bool usingMouse = true;
     // Used to make sure the mouse can only interact with top-most widgets.
     // Also provides an easy test to see if the mouse can interact with items below it.
     Widget *mouseoverWidget;

@@ -37,6 +37,8 @@ void Gui::EventAssetInit() {
     globals->assets.filesToLoad.Append("click soft 2.ogg");
     globals->assets.filesToLoad.Append("Pop High.ogg");
     globals->assets.filesToLoad.Append("Pop Low.ogg");
+
+    globals->assets.filesToLoad.Append("Cursor.png");
 }
 
 void Gui::EventAssetAcquire() {
@@ -44,7 +46,6 @@ void Gui::EventAssetAcquire() {
     // fontIndex = globals->assets.FindMapping("LiberationSerif-Regular.ttf");
     // fontIndex = globals->assets.FindMapping("OpenSans-Regular.ttf");
     // fontIndex = globals->assets.FindMapping("Literata[wght].ttf");
-    texIndex = globals->assets.FindMapping("gamma.tga");
     sndClickInSources[0].Create("click in 1.ogg");
     sndClickInSources[1].Create("click in 2.ogg");
     sndClickInSources[2].Create("click in 3.ogg");
@@ -86,6 +87,8 @@ void Gui::EventAssetAcquire() {
     sndPopHigh.SetGain(0.1);
     sndPopLow.SetGain(0.1);
     font = &globals->assets.fonts[fontIndex];
+
+    cursorIndex = globals->assets.FindMapping("Cursor.png");
 }
 
 void Gui::EventInitialize() {
@@ -110,6 +113,12 @@ void Gui::EventSync() {
         break;
     }
     readyForDraw = true;
+    if (globals->input.cursor != globals->input.cursorPrevious) {
+        usingMouse = true;
+    }
+    if (globals->rawInput.AnyGP.Pressed()) {
+        usingMouse = false;
+    }
 }
 
 void Gui::EventDraw(Array<Rendering::DrawingContext> &contexts) {
@@ -124,10 +133,26 @@ void Gui::EventDraw(Array<Rendering::DrawingContext> &contexts) {
         playMenu.Draw(contexts.Back());
         break;
     }
+    if (usingMouse) {
+        // globals->rendering.DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, optional vec2 origin = vec2(0.0), optional Radians32 rotation = 0.0)
+        globals->rendering.DrawQuad(contexts.Back(), cursorIndex, vec4(1.0), globals->input.cursor, vec2(32.0 * scale), vec2(1.0), vec2(0.5));
+    }
 }
 
 void AddWidget(Widget *parent, Widget *newWidget, bool deeper = false) {
     newWidget->depth = parent->depth + (deeper ? 1 : 0);
+    if (newWidget->selectable) {
+        parent->selectable = true;
+    }
+    parent->children.Append(newWidget);
+    if (globals->gui.allWidgets.count(newWidget) == 0) {
+        globals->gui.allWidgets.emplace(newWidget);
+    }
+}
+
+void AddSwitch(Widget *parent, Switch *newWidget) {
+    newWidget->depth = parent->depth + 1;
+    newWidget->parentDepth = parent->depth;
     if (newWidget->selectable) {
         parent->selectable = true;
     }
@@ -450,6 +475,7 @@ void PlayMenu::Initialize() {
     list->fractionWidth = false;
     list->margin = 0.0;
     list->size = vec2(300.0, 1.0);
+    list->selectionDefault = 1;
     AddWidget(screenListH, list);
 
     Text *towerHeader = new Text();
@@ -510,7 +536,9 @@ void PlayMenu::Initialize() {
     selectedTowerListV->margin = 0.0;
     selectedTowerListV->fractionHeight = false;
     selectedTowerListV->color = 0.0;
+    selectedTowerListV->selectionDefault = 0;
     ListH *selectedTowerPriorityList = new ListH(*gridBase);
+    selectedTowerPriorityList->selectionDefault = 1;
     Text *selectedTowerPriorityText = new Text();
     selectedTowerPriorityText->color = 1.0;
     selectedTowerPriorityText->size.x = 0.5;
@@ -538,7 +566,7 @@ void PlayMenu::Initialize() {
         AddWidget(towerPriority, priorityText);
     }
     AddWidget(selectedTowerPriorityList, selectedTowerPriorityText);
-    AddWidget(selectedTowerPriorityList, towerPriority);
+    AddSwitch(selectedTowerPriorityList, towerPriority);
     AddWidget(selectedTowerListV, selectedTowerPriorityList);
     selectedTowerStats = new Text();
     selectedTowerStats->size.x = 1.0;
@@ -578,6 +606,7 @@ void PlayMenu::Initialize() {
     buttonStartWave = new Button(*halfWidth);
     buttonStartWave->string = globals->ReadLocale("Start Wave");
     buttonStartWave->size.y = 32.0;
+    buttonStartWave->keycodeActivators = {KC_GP_BTN_START};
     AddWidget(waveList, buttonStartWave);
 
     AddWidget(list, waveList);
@@ -592,7 +621,7 @@ void PlayMenu::Initialize() {
 
     buttonMenu = new Button(*fullWidth);
     buttonMenu->string = globals->ReadLocale("Menu");
-    buttonMenu->keycodeActivators = {KC_GP_BTN_START};
+    buttonMenu->keycodeActivators = {KC_GP_BTN_SELECT};
     AddWidget(list, buttonMenu);
 
     delete gridBase;
@@ -1050,23 +1079,29 @@ void Switch::UpdateSize(vec2 container) {
 void Switch::Update(vec2 pos, bool selected) {
     changed = false;
     if (open) {
-        if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
+        if (globals->objects.Pressed(KC_MOUSE_LEFT) || globals->objects.Released(KC_GP_BTN_A)) {
             if (selection >= 0) {
                 choice = selection;
                 changed = true;
             }
             open = false;
         }
+        if (globals->objects.Released(KC_GP_BTN_B)) {
+            open = false;
+        }
+        if (!open) {
+            globals->gui.controlDepth = parentDepth;
+        }
+        ListV::Update(pos, selected);
     } else {
         highlighted = selected;
         positionAbsolute = pos + margin;
         if (globals->objects.Pressed(KC_MOUSE_LEFT) && MouseOver()) {
             open = true;
         }
-    }
-    if (open) {
-        ListV::Update(pos, selected);
-    } else {
+        if (selected && globals->objects.Released(KC_GP_BTN_A)) {
+            open = true;
+        }
         children[choice]->Update(pos + padding + margin, selected);
     }
 }

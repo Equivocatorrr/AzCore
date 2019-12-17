@@ -65,7 +65,8 @@ struct Range
     i32 index = 0;
     i32 size = 0;
     Range() {}
-    Range(Array<T,0> *a, i32 i, i32 s)
+    template<i32 allocTail>
+    Range(Array<T,allocTail> *a, i32 i, i32 s)
     {
         ptr = a;
         index = i;
@@ -82,7 +83,8 @@ struct Range
         index = -1;
         size = s;
     }
-    void Set(Array<T,0> *a, i32 i, i32 s)
+    template<i32 allocTail>
+    void Set(Array<T,allocTail> *a, i32 i, i32 s)
     {
         ptr = a;
         index = i;

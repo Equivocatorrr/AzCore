@@ -43,8 +43,8 @@ using WeakPtr = std::weak_ptr<T>;
 
 Array<char> FileContents(String filename);
 
-template<typename T>
-Array<Range<T>> SeparateByValues(Array<T> *array, const Array<T> &values) {
+template<typename T, i32 allocTail>
+Array<Range<T>> SeparateByValues(Array<T, allocTail> *array, const Array<T> &values) {
     Array<Range<T>> result;
     i32 rangeStart = 0;
     for (i32 i = 0; i < array->size; i++) {

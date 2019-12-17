@@ -150,7 +150,7 @@ void AddWidget(Widget *parent, Widget *newWidget, bool deeper = false) {
     }
 }
 
-void AddSwitch(Widget *parent, Switch *newWidget) {
+void AddWidget(Widget *parent, Switch *newWidget) {
     newWidget->depth = parent->depth + 1;
     newWidget->parentDepth = parent->depth;
     if (newWidget->selectable) {
@@ -455,6 +455,129 @@ void SettingsMenu::Draw(Rendering::DrawingContext &context) {
     screen.Draw(context);
 }
 
+void UpgradesMenu::Initialize() {
+    ListV *list = new ListV();
+    list->fractionWidth = false;
+    list->fractionHeight = false;
+    list->size.x = 300.0;
+    list->size.y = 0.0;
+    list->color = vec4(vec3(0.05), 0.8);
+    list->highlight = list->color;
+    list->padding = 0.0;
+
+    Text *titleText = new Text();
+    titleText->fontIndex = globals->gui.fontIndex;
+    titleText->alignH = Rendering::CENTER;
+    titleText->alignV = Rendering::CENTER;
+    titleText->bold = true;
+    titleText->fontSize = 24.0;
+    titleText->fractionWidth = true;
+    titleText->fractionHeight = false;
+    titleText->size.x = 1.0;
+    titleText->size.y = 0.0;
+    titleText->string = globals->ReadLocale("Upgrades");
+    AddWidget(list, titleText);
+
+    const char *upgradeNameStrings[] = {
+        "Range",
+        "Firerate",
+        "Accuracy",
+        "Damage",
+        "Multishot"
+    };
+    const char *upgradeDescriptionStrings[] = {
+        "RangeDescription",
+        "FirerateDescription",
+        "AccuracyDescription",
+        "DamageDescription",
+        "MultishotDescription"
+    };
+
+    for (i32 i = 0; i < 5; i++) {
+        ListV *listV = new ListV();
+        listV->fractionWidth = true;
+        listV->fractionHeight = false;
+        listV->size = vec2(1.0, 0.0);
+        listV->margin *= 0.5;
+        listV->padding = 0.0;
+        listV->color = 0.0;
+        listV->highlight = 0.0;
+        listV->selectionDefault = 0;
+
+        ListH *listH = new ListH();
+        listH->fractionWidth = true;
+        listH->fractionHeight = false;
+        listH->size.x = 1.0;
+        listH->size.y = 0.0;
+        listH->margin = 0.0;
+        listH->padding = 0.0;
+        listH->color = 0.0;
+        listH->highlight = 0.0;
+        listH->select = vec4(vec3(0.2), 0.8);
+        listH->selectionDefault = 2;
+
+        Text *upgradeName = new Text();
+        upgradeName->fractionWidth = true;
+        upgradeName->size.x = 0.35;
+        upgradeName->fractionHeight = true;
+        upgradeName->size.y = 1.0;
+        upgradeName->margin *= 0.5;
+        upgradeName->alignV = Rendering::CENTER;
+        upgradeName->fontIndex = globals->gui.fontIndex;
+        upgradeName->fontSize = 18.0;
+        upgradeName->string = globals->ReadLocale(upgradeNameStrings[i]);
+        AddWidget(listH, upgradeName);
+
+        upgradeStatus[i] = new Text();
+        upgradeStatus[i]->fractionWidth = true;
+        upgradeStatus[i]->fractionHeight = true;
+        upgradeStatus[i]->size = vec2(0.4, 1.0);
+        upgradeStatus[i]->margin *= 0.5;
+        upgradeStatus[i]->alignV = Rendering::CENTER;
+        upgradeStatus[i]->fontIndex = globals->gui.fontIndex;
+        upgradeStatus[i]->fontSize = 18.0;
+        upgradeStatus[i]->string = ToWString("0");
+        AddWidget(listH, upgradeStatus[i]);
+
+        upgradeButton[i] = new Button();
+        upgradeButton[i]->fractionWidth = true;
+        upgradeButton[i]->fractionHeight = false;
+        upgradeButton[i]->size.x = 0.25;
+        upgradeButton[i]->size.y = 24.0;
+        upgradeButton[i]->margin *= 0.5;
+        upgradeButton[i]->fontIndex = globals->gui.fontIndex;
+        upgradeButton[i]->fontSize = 18.0;
+        upgradeButton[i]->string = globals->ReadLocale("Buy");
+        AddWidget(listH, upgradeButton[i]);
+
+        AddWidget(listV, listH);
+
+        Text *upgradeDescription = new Text();
+        upgradeDescription->alignH = Rendering::CENTER;
+        upgradeDescription->fractionWidth = true;
+        upgradeDescription->size.x = 1.0;
+        upgradeDescription->margin = 0.0;
+        upgradeDescription->fontIndex = globals->gui.fontIndex;
+        upgradeDescription->fontSize = 14.0;
+        upgradeDescription->string = globals->ReadLocale(upgradeDescriptionStrings[i]);
+        AddWidget(listV, upgradeDescription);
+
+        upgradeHideable[i] = new Hideable(listV);
+        AddWidget(list, upgradeHideable[i]);
+    }
+    hideable = new Hideable(list);
+}
+
+void UpgradesMenu::Update() {
+    if (globals->entities.selectedTower != -1) {
+        hideable->hidden = false;
+        vec2 towerScreenPos = globals->entities.WorldPosToScreen(globals->entities.towers[globals->entities.selectedTower].physical.pos);
+        hideable->position = towerScreenPos - vec2(hideable->sizeAbsolute.x / 2.0, 0.0);
+    } else {
+        hideable->hidden = true;
+    }
+}
+
 void PlayMenu::Initialize() {
     ListH *screenListH = new ListH();
     screenListH->fractionWidth = true;
@@ -566,7 +689,7 @@ void PlayMenu::Initialize() {
         AddWidget(towerPriority, priorityText);
     }
     AddWidget(selectedTowerPriorityList, selectedTowerPriorityText);
-    AddSwitch(selectedTowerPriorityList, towerPriority);
+    AddWidget(selectedTowerPriorityList, towerPriority);
     AddWidget(selectedTowerListV, selectedTowerPriorityList);
     selectedTowerStats = new Text();
     selectedTowerStats->size.x = 1.0;
@@ -627,9 +750,13 @@ void PlayMenu::Initialize() {
     delete gridBase;
     delete halfWidth;
     delete fullWidth;
+
+    upgradesMenu.Initialize();
+    AddWidget(&screen, upgradesMenu.hideable);
 }
 
 void PlayMenu::Update() {
+    upgradesMenu.Update();
     WString towerInfoString = globals->ReadLocale("Money") + ": $" + ToString(globals->entities.money);
     i32 textTower = -1;
     if (globals->entities.placeMode) {
@@ -730,7 +857,7 @@ void Widget::PopScissor(Rendering::DrawingContext &context) const {
 }
 
 void Widget::Update(vec2 pos, bool selected) {
-    pos += margin;
+    pos += margin + position;
     positionAbsolute = pos;
     highlighted = selected;
     for (Widget* child : children) {
@@ -749,7 +876,16 @@ bool Widget::Selectable() const {
 }
 
 bool Widget::MouseOver() const {
-    const vec2 mouse = vec2(globals->input.cursor) / globals->gui.scale;
+    vec2 mouse;
+    if (globals->gui.usingMouse) {
+        mouse = vec2(globals->input.cursor) / globals->gui.scale;
+    } else {
+        if (globals->gui.currentMenu == MENU_PLAY) {
+            mouse = globals->entities.WorldPosToScreen(globals->entities.mouse);
+        } else {
+            mouse = -1.0;
+        }
+    }
     return mouse.x == median(positionAbsolute.x, mouse.x, positionAbsolute.x + sizeAbsolute.x)
         && mouse.y == median(positionAbsolute.y, mouse.y, positionAbsolute.y + sizeAbsolute.y);
 }
@@ -774,7 +910,7 @@ Screen::Screen() {
 
 void Screen::Update(vec2 pos, bool selected) {
     UpdateSize(globals->rendering.screenSize / globals->gui.scale);
-    Widget::Update(pos, selected);
+    Widget::Update(pos + position, selected);
     FindMouseoverDepth(0);
 }
 
@@ -914,7 +1050,7 @@ void ListV::UpdateSize(vec2 container) {
 }
 
 void ListV::Update(vec2 pos, bool selected) {
-    pos += margin;
+    pos += margin + position;
     positionAbsolute = pos;
     const bool mouseSelect = UpdateSelection(selected, KC_GP_BTN_A, KC_GP_BTN_B, KC_GP_AXIS_LS_DOWN, KC_GP_AXIS_LS_UP);
     pos += padding;
@@ -996,7 +1132,7 @@ void ListH::UpdateSize(vec2 container) {
 }
 
 void ListH::Update(vec2 pos, bool selected) {
-    pos += margin;
+    pos += margin + position;
     positionAbsolute = pos;
     const bool mouseSelect = UpdateSelection(selected, KC_GP_BTN_A, KC_GP_BTN_B, KC_GP_AXIS_LS_RIGHT, KC_GP_AXIS_LS_LEFT);
     pos += padding;
@@ -1027,8 +1163,8 @@ void ListH::Update(vec2 pos, bool selected) {
 Switch::Switch() : choice(0), open(false), changed(false) {
     selectable = true;
     selectionDefault = 0;
-    color = vec4(0.1, 0.1, 0.1, 0.9);
-    highlight = vec4(0.2, 0.2, 0.2, 0.9);
+    color = vec4(vec3(0.2), 0.9);
+    highlight = vec4(vec3(0.3), 0.9);
     select = vec4(0.5);
 }
 
@@ -1079,7 +1215,8 @@ void Switch::UpdateSize(vec2 container) {
 void Switch::Update(vec2 pos, bool selected) {
     changed = false;
     if (open) {
-        if (globals->objects.Pressed(KC_MOUSE_LEFT) || globals->objects.Released(KC_GP_BTN_A)) {
+        ListV::Update(pos, selected);
+        if (globals->objects.Released(KC_MOUSE_LEFT) || globals->objects.Released(KC_GP_BTN_A)) {
             if (selection >= 0) {
                 choice = selection;
                 changed = true;
@@ -1092,7 +1229,6 @@ void Switch::Update(vec2 pos, bool selected) {
         if (!open) {
             globals->gui.controlDepth = parentDepth;
         }
-        ListV::Update(pos, selected);
     } else {
         highlighted = selected;
         positionAbsolute = pos + margin;
@@ -1102,7 +1238,10 @@ void Switch::Update(vec2 pos, bool selected) {
         if (selected && globals->objects.Released(KC_GP_BTN_A)) {
             open = true;
         }
-        children[choice]->Update(pos + padding + margin, selected);
+        if (open) {
+            globals->gui.controlDepth = depth;
+        }
+        children[choice]->Update(pos + padding + margin + position, selected);
     }
 }
 
@@ -1821,6 +1960,9 @@ Hideable::Hideable(Widget *child) : hidden(false) {
     margin = 0.0;
     AddWidget(this, child);
     size = child->size; // We need to inherit this for Lists to work properly
+    fractionWidth = child->fractionWidth;
+    fractionHeight = child->fractionHeight;
+    occludes = child->occludes;
 }
 
 void Hideable::UpdateSize(vec2 container) {
@@ -1834,7 +1976,8 @@ void Hideable::UpdateSize(vec2 container) {
 
 void Hideable::Update(vec2 pos, bool selected) {
     if (!hidden) {
-        children[0]->Update(pos, selected);
+        children[0]->Update(pos + position, selected);
+        positionAbsolute = children[0]->positionAbsolute;
     }
 }
 

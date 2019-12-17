@@ -251,6 +251,8 @@ struct Manager : public Objects::Object {
     void EventUpdate();
     void EventDraw(Array<Rendering::DrawingContext> &contexts);
     void CreateSpawn();
+    vec2 WorldPosToScreen(vec2 in) const;
+    vec2 ScreenPosToWorld(vec2 in) const;
 };
 
 struct Tower : public Entity {

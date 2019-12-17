@@ -1,4 +1,4 @@
-# We don't need no write most of these because it uses the key when it's not in the file.
+# We don't need to write most of these because it uses the key when it's not in the file.
 # The keys are all English, so no need to map them to themselves.
 GunDescription=         "Shoots bullets at a steady rate"
 ShotgunDescription=     "An inaccurate short-range weapon"
@@ -6,3 +6,8 @@ FanDescription=         "Pushes enemies in the direction that it points"
 ShockerDescription=     "An AOE burst tower"
 GaussDescription=       "Massive damage single-shot"
 FlakDescription=        "Multiple explosive flak shots that deal AOE damage"
+RangeDescription=       "How far the tower can see and reach"
+FirerateDescription=    "How quickly the tower can attack"
+AccuracyDescription=    "How consistent the tower is with its aim"
+DamageDescription=      "How much damage the tower does"
+MultishotDescription=   "How many bullets the tower shoots at once"

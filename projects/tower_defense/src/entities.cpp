@@ -174,8 +174,7 @@ void Manager::EventInitialize() {
 void Manager::EventSync() {
     timestep = globals->objects.timestep * globals->objects.simulationRate;
     if (globals->input.cursorPrevious != globals->input.cursor) {
-        mouse = vec2(globals->input.cursor
-              - vec2i(globals->window.width, globals->window.height) / 2) / camZoom + camPos;
+        mouse = ScreenPosToWorld(globals->input.cursor);
     }
     if (globals->gui.currentMenu == Int::MENU_PLAY) {
         if (globals->gamepad != nullptr) {
@@ -441,6 +440,15 @@ void Manager::CreateSpawn() {
     newSpawn.pos = place;
     newSpawn.angle = angle + pi;
     enemySpawns.Append(newSpawn);
+}
+
+vec2 Manager::WorldPosToScreen(vec2 in) const {
+    vec2 out = (in - camPos) * camZoom + vec2(globals->window.width, globals->window.height) / 2.0;
+    return out;
+}
+vec2 Manager::ScreenPosToWorld(vec2 in) const {
+    vec2 out = vec2(globals->input.cursor - vec2i(globals->window.width, globals->window.height) / 2) / camZoom + camPos;
+    return out;
 }
 
 bool AABB::Collides(const AABB &other) const {

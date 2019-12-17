@@ -242,6 +242,19 @@ struct SettingsMenu {
     void Draw(Rendering::DrawingContext &context);
 };
 
+struct UpgradesMenu {
+    Hideable *hideable;
+    // Some upgrades aren't available on some towers
+    Hideable *upgradeHideable[5];
+    // The number indicator for the state of each attribute
+    Text *upgradeStatus[5];
+    // Button for purchasing an upgrade
+    Button *upgradeButton[5];
+
+    void Initialize();
+    void Update();
+};
+
 struct PlayMenu {
     Screen screen;
     ListV *list;
@@ -252,6 +265,8 @@ struct PlayMenu {
     Array<Button*> towerButtons;
     Button *buttonMenu;
     Button *buttonStartWave;
+
+    UpgradesMenu upgradesMenu;
 
     void Initialize();
     void Update();

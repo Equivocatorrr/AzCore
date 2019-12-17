@@ -564,6 +564,15 @@ bool Window::Update()
     return true;
 }
 
+void Window::HideCursor(bool hide) {
+    cursorHidden = hide;
+    if (hide) {
+        ShowCursor(false);
+    } else {
+        ShowCursor(true);
+    }
+}
+
 String Window::InputName(u8 keyCode) const
 {
     return winGetInputName(keyCode);

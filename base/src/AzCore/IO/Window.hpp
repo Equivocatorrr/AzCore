@@ -49,6 +49,7 @@ public:
     bool focused = true;
     bool fullscreen = false;
     bool quit = false;
+    bool cursorHidden = false;
     u16 width = 1280;
     u16 height = 720;
     u16 windowedWidth = 1280;
@@ -67,6 +68,7 @@ public:
     bool Resize(u32 w, u32 h);
     bool Update();
     bool Close();
+    void HideCursor(bool hide = true);
     String InputName(u8 keyCode) const;
     u8 KeyCodeFromChar(char character) const;
 };

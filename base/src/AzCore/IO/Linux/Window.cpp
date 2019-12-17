@@ -345,6 +345,8 @@ struct WindowData
     xcb_screen_t *screen;
     xcb_generic_event_t *event;
     xcb_atom_t atoms[4];
+    xcb_cursor_t cursorHidden;
+    xcb_cursor_t cursorVisible;
     i32 windowDepth;
     xkb_keyboard xkb;
 };
@@ -555,6 +557,25 @@ bool Window::Open()
     xcb_change_property(data->connection, XCB_PROP_MODE_REPLACE,
                         data->window, data->atoms[0], 4, 32, 1, &data->atoms[1]);
 
+    xcb_pixmap_t pixmap_source, pixmap_mask;
+    pixmap_source = xcb_generate_id(data->connection);
+    xcb_create_pixmap(data->connection, 1, pixmap_source, data->window, 1, 1);
+    pixmap_mask = xcb_generate_id(data->connection);
+    xcb_create_pixmap(data->connection, 1, pixmap_mask, data->window, 1, 1);
+
+    xcb_gcontext_t gc = xcb_generate_id(data->connection);
+    u8 black[1] = {0};
+    xcb_create_gc(data->connection, gc, pixmap_mask, 0, nullptr);
+    xcb_put_image(data->connection, XCB_IMAGE_FORMAT_XY_PIXMAP, pixmap_mask, gc, 1, 1, 0, 0, 0, 1, 1, black);
+
+    xcb_free_gc(data->connection, gc);
+
+    data->cursorHidden = xcb_generate_id(data->connection);
+    xcb_create_cursor(data->connection, data->cursorHidden, pixmap_source, pixmap_mask, 0, 0, 0, 0, 0, 0, 0, 0);
+
+    xcb_free_pixmap(data->connection, pixmap_source);
+    xcb_free_pixmap(data->connection, pixmap_mask);
+
     open = true;
     return true;
 }
@@ -579,6 +600,7 @@ bool Window::Close()
         return false;
     }
     xkbCleanup(&data->xkb);
+    xcb_free_cursor(data->connection, data->cursorHidden);
     xcb_destroy_window(data->connection, data->window);
     CLOSE_CONNECTION(data);
     open = false;
@@ -651,17 +673,14 @@ bool Window::Update()
         bool press = false, release = false;
         switch (data->event->response_type & ~0x80)
         {
-        case XCB_CLIENT_MESSAGE:
-        {
+        case XCB_CLIENT_MESSAGE: {
             if (((xcb_client_message_event_t *)data->event)->data.data32[0] == data->atoms[1])
             {
                 free(data->event);
                 return false; // Because this atom was bound to the close button
             }
-            break;
-        }
-        case XCB_CONFIGURE_NOTIFY:
-        {
+        } break;
+        case XCB_CONFIGURE_NOTIFY: {
             xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t *)data->event;
             if (width != ev->width || height != ev->height)
             {
@@ -670,10 +689,8 @@ bool Window::Update()
                 screenSize = vec2((float)width, (float)height);
                 resized = true;
             }
-            break;
-        }
-        case XCB_KEY_PRESS:
-        {
+        } break;
+        case XCB_KEY_PRESS: {
             xcb_key_press_event_t *ev = (xcb_key_press_event_t *)data->event;
             keyCode = KeyCodeFromEvdev(ev->detail);
             // cout << "KeyCode down: " << KeyCodeName(keyCode) << std::endl;
@@ -691,10 +708,8 @@ bool Window::Update()
             if (keyCode == KC_KEY_F11)
                 changeFullscreen = true;
             press = true;
-            break;
-        }
-        case XCB_KEY_RELEASE:
-        {
+        } break;
+        case XCB_KEY_RELEASE: {
             xcb_key_release_event_t *ev = (xcb_key_release_event_t *)data->event;
             keyCode = KeyCodeFromEvdev(ev->detail);
             char buffer[4] = {0};
@@ -707,10 +722,8 @@ bool Window::Update()
                 }
             }
             release = true;
-            break;
-        }
-        case XCB_BUTTON_PRESS:
-        {
+        } break;
+        case XCB_BUTTON_PRESS: {
             xcb_button_press_event_t *ev = (xcb_button_press_event_t *)data->event;
             switch (ev->detail)
             {
@@ -762,10 +775,8 @@ bool Window::Update()
                 break;
             }
             press = true;
-            break;
-        }
-        case XCB_BUTTON_RELEASE:
-        {
+        } break;
+        case XCB_BUTTON_RELEASE: {
             xcb_button_release_event_t *ev = (xcb_button_release_event_t *)data->event;
             switch (ev->detail)
             {
@@ -801,41 +812,30 @@ bool Window::Update()
                 break;
             }
             release = true;
-            break;
-        }
-        case XCB_FOCUS_IN:
-        {
+        } break;
+        case XCB_FOCUS_IN: {
             focused = true;
-            break;
-        }
-        case XCB_FOCUS_OUT:
-        {
+        } break;
+        case XCB_FOCUS_OUT: {
             focused = false;
             if (input != nullptr)
             {
                 input->ReleaseAll();
             }
-            break;
-        }
-        case XCB_MOTION_NOTIFY:
-        {
+        } break;
+        case XCB_MOTION_NOTIFY: {
             xcb_motion_notify_event_t *ev = (xcb_motion_notify_event_t *)data->event;
             if (input != nullptr)
             {
                 input->cursor.x = ev->event_x;
                 input->cursor.y = ev->event_y;
             }
-            break;
-        }
-        case XCB_EXPOSE:
-        {
+        } break;
+        case XCB_EXPOSE: {
             // Repaint?
-            break;
-        }
-        default:
-        {
-            break;
-        }
+        } break;
+        default: {
+        } break;
         }
         free(data->event);
 
@@ -878,6 +878,18 @@ bool Window::Update()
     }
 
     return true;
+}
+
+void Window::HideCursor(bool hide) {
+    cursorHidden = hide;
+    if (hide) {
+        u32 value = data->cursorHidden;
+        xcb_change_window_attributes(data->connection, data->window, XCB_CW_CURSOR, &value);
+    } else {
+        u32 value = XCB_CURSOR_NONE;
+        xcb_change_window_attributes(data->connection, data->window, XCB_CW_CURSOR, &value);
+    }
+    xcb_flush(data->connection);
 }
 
 String Window::InputName(u8 keyCode) const

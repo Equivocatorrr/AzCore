@@ -103,6 +103,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
         cout << "Failed to open window: " << io::error << std::endl;
         return 1;
     }
+    globals->window.HideCursor();
 
     if (!globals->rendering.Init()) {
         cout << "Failed to init Rendering::Manager: " << Rendering::error << std::endl;

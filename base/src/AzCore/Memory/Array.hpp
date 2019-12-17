@@ -353,6 +353,10 @@ struct Array
         return true;
     }
 
+    bool operator!=(const Array<T, allocTail> &other) const {
+        return !(*this == other);
+    }
+
     bool operator<(const Array<T, allocTail> &other) const {
         for (i32 i = 0; i < size && i < other.size; i++) {
             if (data[i] < other.data[i]) return true;

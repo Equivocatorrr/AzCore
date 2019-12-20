@@ -122,9 +122,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
     while (globals->window.Update() && !globals->exit) {
         frameStart = Clock::now();
         globals->rawInput.Update(globals->objects.timestep);
-        if (globals->input.Released(KC_KEY_ESC)) {
-            break;
-        }
         globals->objects.Sync();
         Thread threads[2];
         threads[0] = Thread(UpdateProc);

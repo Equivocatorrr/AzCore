@@ -151,9 +151,12 @@ const Tower towerFlakTemplate = Tower(
 );
 
 void Manager::EventAssetInit() {
+    globals->assets.filesToLoad.Append("Money Cursed.ogg");
 }
 
 void Manager::EventAssetAcquire() {
+    sndMoney.Create("Money Cursed.ogg");
+    sndMoney.SetGain(0.5);
 }
 
 void Manager::EventInitialize() {
@@ -171,60 +174,239 @@ void Manager::EventInitialize() {
     camZoom = min(globals->rendering.screenSize.x, globals->rendering.screenSize.y) / 1500.0;
 }
 
+inline void Manager::HandleGamepadCamera() {
+    vec2 screenBorder = (vec2(globals->window.width, globals->window.height) - vec2(50.0 * globals->gui.scale)) / 2.0 / camZoom;
+    if (CursorVisible() || placeMode) {
+        vec2 mouseMove = globals->gamepad->axis.vec.RS * globals->objects.timestep * 800.0 / camZoom;
+        mouse += mouseMove;
+        if (mouseMove != vec2(0.0)) {
+            if (mouse.x < camPos.x-screenBorder.x || mouse.x > camPos.x+screenBorder.x) {
+                camPos.x += mouseMove.x;
+            }
+            if (mouse.y < camPos.y-screenBorder.y || mouse.y > camPos.y+screenBorder.y) {
+                camPos.y += mouseMove.y;
+            }
+        }
+    }
+
+    if (!focusMenu && selectedTower == -1) {
+        vec2 camMove = globals->gamepad->axis.vec.LS * globals->objects.timestep * 800.0 / camZoom;
+        camPos += camMove;
+        if (camMove != vec2(0.0)) {
+            if (mouse.x < camPos.x-screenBorder.x || mouse.x > camPos.x+screenBorder.x) {
+                mouse.x += camMove.x;
+            }
+            if (mouse.y < camPos.y-screenBorder.y || mouse.y > camPos.y+screenBorder.y) {
+                mouse.y += camMove.y;
+            }
+        }
+    }
+    f32 zoomMove = globals->gamepad->axis.vec.RT - globals->gamepad->axis.vec.LT;
+    zoomMove *= globals->objects.timestep;
+    if (zoomMove > 0) {
+        screenBorder *= camZoom;
+        camZoom *= 1.0 + zoomMove;
+        screenBorder /= camZoom;
+        mouse.x = median(camPos.x-screenBorder.x, mouse.x, camPos.x+screenBorder.x);
+        mouse.y = median(camPos.y-screenBorder.y, mouse.y, camPos.y+screenBorder.y);
+    } else {
+        screenBorder *= camZoom;
+        camZoom /= 1.0 - zoomMove;
+        screenBorder /= camZoom;
+        mouse.x = median(camPos.x-screenBorder.x, mouse.x, camPos.x+screenBorder.x);
+        mouse.y = median(camPos.y-screenBorder.y, mouse.y, camPos.y+screenBorder.y);
+    }
+}
+
+inline void Manager::HandleMouseCamera() {
+    if (globals->gui.mouseoverDepth > 0) {
+        return;
+    }
+    if (globals->objects.Pressed(KC_MOUSE_SCROLLUP)) {
+        camZoom *= 1.1;
+    } else if (globals->objects.Pressed(KC_MOUSE_SCROLLDOWN)) {
+        camZoom /= 1.1;
+    }
+    if (globals->objects.Down(KC_MOUSE_LEFT)) {
+        vec2 move = vec2(globals->input.cursor - globals->input.cursorPrevious) / camZoom;
+        camPos -= move;
+    }
+}
+
+bool TypedCode(String code) {
+    if (code.size > globals->input.typingString.size) return false;
+    Range<char> end = globals->input.typingString.GetRange(globals->input.typingString.size-code.size, code.size);
+    if (code == end) {
+        globals->input.typingString.Clear();
+        return true;
+    }
+    return false;
+}
+
+inline void Manager::HandleUI() {
+    if (globals->gui.usingMouse) {
+        HandleMouseCamera();
+        HandleMouseUI();
+    } else {
+        HandleGamepadCamera();
+        HandleGamepadUI();
+    }
+    if (TypedCode("money")) {
+        money += 50000;
+        sndMoney.Play();
+    }
+    for (i32 i = 0; i <= TOWER_MAX_RANGE; i++) {
+        if (globals->gui.playMenu.towerButtons[i]->state.Released()) {
+            placeMode = true;
+            focusMenu = false;
+            selectedTower = -1;
+            towerType = TowerType(i);
+        }
+    }
+    if (globals->gui.playMenu.buttonStartWave->state.Released()) {
+        if (!waveActive) {
+            wave++;
+            f64 factor = pow((f64)1.2, (f64)(wave+3));
+            hitpointsPerSecond = (f32)((i32)(factor * 5.0d) * 100);
+            hitpointsLeft += hitpointsPerSecond;
+            // Average wave length is wave+7 seconds
+            hitpointsPerSecond /= wave+7;
+            globals->objects.paused = false;
+            waveActive = true;
+            globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Pause");
+        } else {
+            if (globals->objects.paused) {
+                globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Pause");
+            } else {
+                globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Resume");
+            }
+            globals->objects.paused = !globals->objects.paused;
+        }
+    }
+}
+
+inline void Manager::HandleGamepadUI() {
+    if (globals->objects.Pressed(KC_GP_BTN_X) && globals->gui.controlDepth == globals->gui.playMenu.list->depth) {
+        focusMenu = !focusMenu;
+        placeMode = false;
+    }
+    if (!placeMode) {
+        if (globals->objects.Pressed(KC_GP_BTN_A) && !focusMenu && selectedTower == -1) {
+            for (i32 i = 0; i < towers.size; i++) {
+                if (towers[i].id.generation < 0) continue;
+                if (towers[i].physical.MouseOver()) {
+                    selectedTower = towers[i].id;
+                    globals->gui.playMenu.towerPriority->choice = (i32)towers[i].priority;
+                    break;
+                }
+            }
+        }
+        if (selectedTower != -1 && globals->objects.Pressed(KC_GP_BTN_B)) {
+            selectedTower = -1;
+        }
+    } else { // placeMode == true
+        if (globals->objects.Pressed(KC_GP_BTN_B)) {
+            placeMode = false;
+            focusMenu = true;
+        }
+        const Degrees32 increment30(30.0);
+        const Degrees32 increment5(5.0);
+        if (globals->objects.Pressed(KC_GP_AXIS_H0_LEFT)) {
+            placingAngle += increment5;
+        } else if (globals->objects.Pressed(KC_GP_AXIS_H0_RIGHT)) {
+            placingAngle += -increment5;
+        }
+        if (globals->objects.Pressed(KC_GP_BTN_TL)) {
+            placingAngle += increment30;
+        } else if (globals->objects.Pressed(KC_GP_BTN_TR)) {
+            placingAngle += -increment30;
+        }
+        HandleTowerPlacement(KC_GP_BTN_A);
+    }
+}
+
+inline void Manager::HandleMouseUI() {
+    if (globals->gui.playMenu.list->MouseOver()) {
+        focusMenu = true;
+        if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
+            placeMode = false;
+            selectedTower = -1;
+        }
+    } else {
+        focusMenu = false;
+    }
+    if (globals->gui.mouseoverDepth > 0) {
+        return;
+    }
+    if (!placeMode) {
+        if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
+            selectedTower = -1;
+            for (i32 i = 0; i < towers.size; i++) {
+                if (towers[i].id.generation < 0) continue;
+                if (towers[i].physical.MouseOver()) {
+                    selectedTower = towers[i].id;
+                    globals->gui.playMenu.towerPriority->choice = (i32)towers[i].priority;
+                    break;
+                }
+            }
+        }
+    } else { // placeMode == true
+        const Degrees32 increment30(30.0);
+        const Degrees32 increment5(5.0);
+        Degrees32 increment = increment30;
+        if (globals->objects.Down(KC_KEY_LEFTSHIFT) || globals->objects.Down(KC_KEY_RIGHTSHIFT)) {
+            increment = increment5;
+        }
+        if (globals->objects.Pressed(KC_KEY_LEFT)) {
+            placingAngle += increment;
+        } else if (globals->objects.Pressed(KC_KEY_RIGHT)) {
+            placingAngle += -increment;
+        }
+        HandleTowerPlacement(KC_MOUSE_LEFT);
+    }
+}
+
+inline void Manager::HandleTowerPlacement(u8 keycodePlace) {
+    Tower tower(towerType);
+    tower.physical.pos = mouse;
+    tower.physical.angle = placingAngle;
+    canPlace = true;
+    if (money < towerCosts[towerType]) {
+        canPlace = false;
+    } else {
+        for (i32 i = 0; i < towers.size; i++) {
+            const Tower &other = towers[i];
+            if (other.id.generation < 0) continue;
+            if (other.physical.Collides(tower.physical)) {
+                canPlace = false;
+                break;
+            }
+        }
+    }
+    if (globals->objects.Pressed(keycodePlace)) {
+        if (canPlace) {
+            tower.sunkCost = towerCosts[towerType];
+            towers.Create(tower);
+            money -= towerCosts[towerType];
+        }
+    }
+}
+
+inline bool Manager::CursorVisible() const {
+    return globals->gui.currentMenu == Int::MENU_PLAY && !globals->gui.usingMouse && !placeMode && !focusMenu && selectedTower == -1;
+}
+
 void Manager::EventSync() {
     timestep = globals->objects.timestep * globals->objects.simulationRate;
     if (globals->input.cursorPrevious != globals->input.cursor) {
         mouse = ScreenPosToWorld(globals->input.cursor);
     }
     if (globals->gui.currentMenu == Int::MENU_PLAY) {
-        if (globals->gamepad != nullptr) {
-            vec2 screenBorder = (vec2(globals->window.width, globals->window.height) - vec2(50.0 * globals->gui.scale)) / 2.0 / camZoom;
-            vec2 mouseMove = globals->gamepad->axis.vec.RS * globals->objects.timestep * 800.0 / camZoom;
-            mouse += mouseMove;
-            if (mouseMove != vec2(0.0)) {
-                if (mouse.x < camPos.x-screenBorder.x || mouse.x > camPos.x+screenBorder.x) {
-                    camPos.x += mouseMove.x;
-                }
-                if (mouse.y < camPos.y-screenBorder.y || mouse.y > camPos.y+screenBorder.y) {
-                    camPos.y += mouseMove.y;
-                }
-            }
-
-            if (!focusMenu) {
-                vec2 camMove = globals->gamepad->axis.vec.LS * globals->objects.timestep * 800.0 / camZoom;
-                camPos += camMove;
-                if (camMove != vec2(0.0)) {
-                    if (mouse.x < camPos.x-screenBorder.x || mouse.x > camPos.x+screenBorder.x) {
-                        mouse.x += camMove.x;
-                    }
-                    if (mouse.y < camPos.y-screenBorder.y || mouse.y > camPos.y+screenBorder.y) {
-                        mouse.y += camMove.y;
-                    }
-                }
-            }
-            f32 zoomMove = globals->gamepad->axis.vec.RT - globals->gamepad->axis.vec.LT;
-            zoomMove *= globals->objects.timestep;
-            if (zoomMove > 0) {
-                screenBorder *= camZoom;
-                camZoom *= 1.0 + zoomMove;
-                screenBorder /= camZoom;
-                mouse.x = median(camPos.x-screenBorder.x, mouse.x, camPos.x+screenBorder.x);
-                mouse.y = median(camPos.y-screenBorder.y, mouse.y, camPos.y+screenBorder.y);
-            } else {
-                screenBorder *= camZoom;
-                camZoom /= 1.0 - zoomMove;
-                screenBorder /= camZoom;
-                mouse.x = median(camPos.x-screenBorder.x, mouse.x, camPos.x+screenBorder.x);
-                mouse.y = median(camPos.y-screenBorder.y, mouse.y, camPos.y+screenBorder.y);
-            }
-        }
-        if (globals->objects.Pressed(KC_GP_BTN_X) && globals->gui.controlDepth == globals->gui.playMenu.list->depth) {
-            focusMenu = !focusMenu;
-            placeMode = false;
-        }
+        HandleUI();
     } else {
         placeMode = false;
         focusMenu = false;
+        selectedTower = -1;
     }
     towers.Synchronize();
     enemies.Synchronize();
@@ -250,121 +432,9 @@ void Manager::EventSync() {
             enemies.Create(enemy); // Enemy::EventCreate() increases enemyTimer based on HP
         }
     }
-    if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
-        if (globals->gui.playMenu.list->MouseOver()) {
-            placeMode = false;
-            focusMenu = true;
-        }
-    }
-    for (i32 i = 0; i <= TOWER_MAX_RANGE; i++) {
-        if (globals->gui.playMenu.towerButtons[i]->state.Released()) {
-            placeMode = true;
-            focusMenu = false;
-            towerType = TowerType(i);
-        }
-    }
-    if (globals->objects.Pressed(KC_KEY_SPACE) || globals->gui.playMenu.buttonStartWave->state.Released()) {
-        if (!waveActive) {
-            wave++;
-            f64 factor = pow((f64)1.2, (f64)(wave+3));
-            hitpointsPerSecond = (f32)((i32)(factor * 5.0d) * 100);
-            hitpointsLeft += hitpointsPerSecond;
-            // Average wave length is wave+7 seconds
-            hitpointsPerSecond /= wave+7;
-            globals->objects.paused = false;
-            waveActive = true;
-            globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Pause");
-        } else {
-            if (globals->objects.paused) {
-                globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Pause");
-            } else {
-                globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Resume");
-            }
-            globals->objects.paused = !globals->objects.paused;
-        }
-    }
     if (hitpointsLeft == 0 && waveActive && enemies.count == 0) {
         waveActive = false;
         globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Start Wave");
-    }
-
-    if (globals->gui.mouseoverDepth > 0) {
-        readyForDraw = true;
-        return; // Don't accept mouse input
-    }
-    if (globals->objects.Pressed(KC_MOUSE_SCROLLUP)) {
-        camZoom *= 1.1;
-    } else if (globals->objects.Pressed(KC_MOUSE_SCROLLDOWN)) {
-        camZoom /= 1.1;
-    }
-    if (!placeMode) {
-        if (globals->objects.Pressed(KC_MOUSE_LEFT) || (globals->objects.Pressed(KC_GP_BTN_A) && !focusMenu)) {
-            if (selectedTower != -1) {
-                selectedTower = -1;
-            }
-            for (i32 i = 0; i < towers.size; i++) {
-                if (towers[i].id.generation < 0) continue;
-                if (towers[i].physical.MouseOver()) {
-                    selectedTower = towers[i].id;
-                    globals->gui.playMenu.towerPriority->choice = (i32)towers[i].priority;
-                    break;
-                }
-            }
-        }
-        if (globals->objects.Down(KC_MOUSE_LEFT)) {
-            vec2 move = vec2(globals->input.cursor - globals->input.cursorPrevious) / camZoom;
-            camPos -= move;
-        }
-    } else {
-        // placeMode == true
-        if (globals->objects.Pressed(KC_GP_BTN_B)) {
-            placeMode = false;
-            focusMenu = true;
-        }
-        const Degrees32 increment30(30.0);
-        const Degrees32 increment5(5.0);
-        Degrees32 increment = increment30;
-        if (globals->objects.Down(KC_KEY_LEFTSHIFT) || globals->objects.Down(KC_KEY_RIGHTSHIFT)) {
-            increment = increment5;
-        }
-        if (globals->objects.Pressed(KC_KEY_LEFT)) {
-            placingAngle += increment;
-        } else if (globals->objects.Pressed(KC_KEY_RIGHT)) {
-            placingAngle += -increment;
-        }
-        if (globals->objects.Pressed(KC_GP_AXIS_H0_LEFT)) {
-            placingAngle += increment5;
-        } else if (globals->objects.Pressed(KC_GP_AXIS_H0_RIGHT)) {
-            placingAngle += -increment5;
-        }
-        if (globals->objects.Pressed(KC_GP_BTN_TL)) {
-            placingAngle += increment30;
-        } else if (globals->objects.Pressed(KC_GP_BTN_TR)) {
-            placingAngle += -increment30;
-        }
-        Tower tower(towerType);
-        tower.physical.pos = mouse;
-        tower.physical.angle = placingAngle;
-        canPlace = true;
-        if (money < towerCosts[towerType]) {
-            canPlace = false;
-        } else {
-            for (i32 i = 0; i < towers.size; i++) {
-                const Tower &other = towers[i];
-                if (other.id.generation < 0) continue;
-                if (other.physical.Collides(tower.physical)) {
-                    canPlace = false;
-                    break;
-                }
-            }
-        }
-        if (globals->objects.Pressed(KC_MOUSE_LEFT) || globals->objects.Pressed(KC_GP_BTN_A)) {
-            if (canPlace) {
-                tower.sunkCost = towerCosts[towerType];
-                towers.Create(tower);
-                money -= towerCosts[towerType];
-            }
-        }
     }
     readyForDraw = true;
 }
@@ -421,10 +491,8 @@ void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
     for (i32 i = 0; i < enemySpawns.size; i++) {
         enemySpawns[i].Draw(contexts.Back(), vec4(vec3(0.0), 1.0));
     }
-    if (!globals->gui.usingMouse && !placeMode && !focusMenu) {
-        // mouse = vec2(globals->input.cursor
-        //       - vec2i(globals->window.width, globals->window.height) / 2) / camZoom + camPos;
-        vec2 cursor = (mouse - camPos) * camZoom + vec2(globals->window.width, globals->window.height) / 2.0;
+    if (CursorVisible()) {
+        vec2 cursor = WorldPosToScreen(mouse);
         globals->rendering.DrawQuad(contexts.Back(), globals->gui.cursorIndex, vec4(1.0), cursor, vec2(32.0 * globals->gui.scale), vec2(1.0), vec2(0.5));
     }
 }
@@ -597,7 +665,7 @@ bool CollisionCircleBox(const Physical &a, const Physical &b) {
     return false;
 }
 
-bool CollisionBoxBox(const Physical &a, const Physical &b) {
+bool CollisionBoxBoxPart(const Physical &a, const Physical &b) {
     const mat2 rotation = mat2::Rotation(-b.angle.value());
     const vec2 A = (a.actual.box.a - b.pos) * rotation;
     if (A.x == median(A.x, b.basis.box.a.x, b.basis.box.b.x)
@@ -626,6 +694,11 @@ bool CollisionBoxBox(const Physical &a, const Physical &b) {
     if (SegmentInAABB(B, D, aabb)) return true;
     if (SegmentInAABB(D, A, aabb)) return true;
     return false;
+}
+
+bool CollisionBoxBox(const Physical &a, const Physical &b) {
+    // have to go both ways otherwise you can fit a smaller one inside a bigger one
+    return CollisionBoxBoxPart(a, b) || CollisionBoxBoxPart(b, a);
 }
 
 bool Physical::Collides(const Physical &other) const {

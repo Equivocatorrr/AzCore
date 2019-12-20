@@ -225,6 +225,7 @@ struct Manager : public Objects::Object {
     DoubleBufferArray<Wind> winds{};
     DoubleBufferArray<Explosion> explosions{};
     Array<UpdateChunk> updateChunks{};
+    Sound::Source sndMoney;
     Id selectedTower = -1;
     bool focusMenu = false;
     bool placeMode = false;
@@ -253,6 +254,14 @@ struct Manager : public Objects::Object {
     void CreateSpawn();
     vec2 WorldPosToScreen(vec2 in) const;
     vec2 ScreenPosToWorld(vec2 in) const;
+
+    inline void HandleUI();
+    inline void HandleGamepadUI();
+    inline void HandleMouseUI();
+    inline void HandleGamepadCamera();
+    inline void HandleMouseCamera();
+    inline void HandleTowerPlacement(u8 keycodePlace);
+    inline bool CursorVisible() const;
 };
 
 struct Tower : public Entity {

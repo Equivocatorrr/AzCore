@@ -216,6 +216,7 @@ void MainMenu::Initialize() {
     buttonExit->fractionHeight = false;
     buttonExit->margin = vec2(16.0);
     buttonExit->highlightBG = vec4(colorBack, 0.9);
+    buttonExit->keycodeActivators = {KC_KEY_ESC};
     AddWidget(buttonList, buttonExit);
 
     ListH *spacingList = new ListH();
@@ -383,7 +384,7 @@ void SettingsMenu::Initialize() {
     buttonBack->fractionHeight = false;
     buttonBack->margin = vec2(8.0);
     buttonBack->highlightBG = vec4(colorBack, 0.9);
-    buttonBack->keycodeActivators = {KC_GP_BTN_B};
+    buttonBack->keycodeActivators = {KC_GP_BTN_B, KC_KEY_ESC};
     AddWidget(buttonList, buttonBack);
 
     buttonApply = new Button();
@@ -566,6 +567,7 @@ void UpgradesMenu::Initialize() {
         AddWidget(list, upgradeHideable[i]);
     }
     hideable = new Hideable(list);
+    AddWidget(&screen, hideable);
 }
 
 void UpgradesMenu::Update() {
@@ -576,6 +578,11 @@ void UpgradesMenu::Update() {
     } else {
         hideable->hidden = true;
     }
+    screen.Update(vec2(0.0), !globals->entities.focusMenu); // Hideable will handle selection culling
+}
+
+void UpgradesMenu::Draw(Rendering::DrawingContext &context) {
+    screen.Draw(context);
 }
 
 void PlayMenu::Initialize() {
@@ -637,6 +644,7 @@ void PlayMenu::Initialize() {
             towerButtons[index]->highlightBG = Entities::Tower(Entities::TowerType(index)).color;
             AddWidget(grid, towerButtons[index]);
         }
+        towerButtonLists.Append(grid);
         AddWidget(list, grid);
     }
 
@@ -729,7 +737,7 @@ void PlayMenu::Initialize() {
     buttonStartWave = new Button(*halfWidth);
     buttonStartWave->string = globals->ReadLocale("Start Wave");
     buttonStartWave->size.y = 32.0;
-    buttonStartWave->keycodeActivators = {KC_GP_BTN_START};
+    buttonStartWave->keycodeActivators = {KC_GP_BTN_START, KC_KEY_SPACE};
     AddWidget(waveList, buttonStartWave);
 
     AddWidget(list, waveList);
@@ -744,7 +752,7 @@ void PlayMenu::Initialize() {
 
     buttonMenu = new Button(*fullWidth);
     buttonMenu->string = globals->ReadLocale("Menu");
-    buttonMenu->keycodeActivators = {KC_GP_BTN_SELECT};
+    buttonMenu->keycodeActivators = {KC_GP_BTN_SELECT, KC_KEY_ESC};
     AddWidget(list, buttonMenu);
 
     delete gridBase;
@@ -752,7 +760,7 @@ void PlayMenu::Initialize() {
     delete fullWidth;
 
     upgradesMenu.Initialize();
-    AddWidget(&screen, upgradesMenu.hideable);
+    // AddWidget(&screen, upgradesMenu.hideable);
 }
 
 void PlayMenu::Update() {
@@ -765,6 +773,20 @@ void PlayMenu::Update() {
         for (i32 i = 0; i < towerButtons.size; i++) {
             if (towerButtons[i]->highlighted) {
                 textTower = i;
+            }
+        }
+    }
+    { // Make the grid work more nicely (hacky)
+        i32 selection = -1;
+        for (ListH *list : towerButtonLists) {
+            if (list->selection >= 0) {
+                selection = list->selection;
+                break;
+            }
+        }
+        if (selection != -1) {
+            for (ListH *list : towerButtonLists) {
+                list->selectionDefault = selection;
             }
         }
     }
@@ -799,6 +821,7 @@ void PlayMenu::Update() {
 }
 
 void PlayMenu::Draw(Rendering::DrawingContext &context) {
+    upgradesMenu.Draw(context);
     screen.Draw(context);
 }
 
@@ -880,11 +903,11 @@ bool Widget::MouseOver() const {
     if (globals->gui.usingMouse) {
         mouse = vec2(globals->input.cursor) / globals->gui.scale;
     } else {
-        if (globals->gui.currentMenu == MENU_PLAY) {
-            mouse = globals->entities.WorldPosToScreen(globals->entities.mouse);
-        } else {
+        // if (globals->gui.currentMenu == MENU_PLAY) {
+        //     mouse = globals->entities.WorldPosToScreen(globals->entities.mouse);
+        // } else {
             mouse = -1.0;
-        }
+        // }
     }
     return mouse.x == median(positionAbsolute.x, mouse.x, positionAbsolute.x + sizeAbsolute.x)
         && mouse.y == median(positionAbsolute.y, mouse.y, positionAbsolute.y + sizeAbsolute.y);
@@ -911,7 +934,9 @@ Screen::Screen() {
 void Screen::Update(vec2 pos, bool selected) {
     UpdateSize(globals->rendering.screenSize / globals->gui.scale);
     Widget::Update(pos + position, selected);
-    FindMouseoverDepth(0);
+    if (selected) {
+        FindMouseoverDepth(0);
+    }
 }
 
 void Screen::UpdateSize(vec2 container) {

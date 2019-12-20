@@ -243,6 +243,7 @@ struct SettingsMenu {
 };
 
 struct UpgradesMenu {
+    Screen screen;
     Hideable *hideable;
     // Some upgrades aren't available on some towers
     Hideable *upgradeHideable[5];
@@ -253,6 +254,7 @@ struct UpgradesMenu {
 
     void Initialize();
     void Update();
+    void Draw(Rendering::DrawingContext &context);
 };
 
 struct PlayMenu {
@@ -262,6 +264,7 @@ struct PlayMenu {
     Hideable *selectedTowerInfo;
     Text *selectedTowerStats;
     Switch *towerPriority;
+    Array<ListH*> towerButtonLists;
     Array<Button*> towerButtons;
     Button *buttonMenu;
     Button *buttonStartWave;

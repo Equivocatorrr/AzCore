@@ -58,10 +58,9 @@ struct Gamepad
             f32 RT;
             vec2 H0;
             // If you plan on expanding the axes, be sure to add them here too!
-        } vec{{0.0, 0.0}, 0.0, {
-                                   0.0,
-                                   0.0,
-                               },
+        } vec{{0.0, 0.0},
+              0.0,
+              {0.0, 0.0},
               0.0,
               {0.0, 0.0}};
         f32 array[IO_GAMEPAD_MAX_AXES];
@@ -69,9 +68,10 @@ struct Gamepad
 
     Gamepad();
     void Update(f32 timestep, i32 index);
-    bool Pressed(u8 keyCode) const;
-    bool Down(u8 keyCode) const;
-    bool Released(u8 keyCode) const;
+    ButtonState* GetButtonState(u8 keyCode);
+    bool Pressed(u8 keyCode);
+    bool Down(u8 keyCode);
+    bool Released(u8 keyCode);
 };
 
 } // namespace io

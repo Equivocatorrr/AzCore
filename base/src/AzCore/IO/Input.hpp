@@ -42,6 +42,13 @@ struct Input
     bool PressedChar(char character) const;
     bool DownChar(char character) const;
     bool ReleasedChar(char character) const;
+
+    inline ButtonState& GetButtonState(u8 keyCode) {
+        return inputs[keyCode];
+    }
+    inline ButtonState& GetButtonStateChar(char character) {
+        return inputsChar[(u8)character];
+    }
 };
 
 } // namespace io

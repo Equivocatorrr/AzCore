@@ -291,12 +291,14 @@ inline void Manager::HandleGamepadUI() {
         placeMode = false;
     }
     if (!placeMode) {
-        if (globals->objects.Pressed(KC_GP_BTN_A) && !focusMenu && selectedTower == -1) {
+        if (globals->objects.Released(KC_GP_BTN_A) && !focusMenu && selectedTower == -1) {
             for (i32 i = 0; i < towers.size; i++) {
                 if (towers[i].id.generation < 0) continue;
                 if (towers[i].physical.MouseOver()) {
+                    io::ButtonState *state = globals->objects.GetButtonState(KC_GP_BTN_A);
+                    if (state) state->state = 0;
                     selectedTower = towers[i].id;
-                    globals->gui.playMenu.towerPriority->choice = (i32)towers[i].priority;
+                    globals->gui.playMenu.upgradesMenu.towerPriority->choice = (i32)towers[i].priority;
                     break;
                 }
             }
@@ -345,7 +347,7 @@ inline void Manager::HandleMouseUI() {
                 if (towers[i].id.generation < 0) continue;
                 if (towers[i].physical.MouseOver()) {
                     selectedTower = towers[i].id;
-                    globals->gui.playMenu.towerPriority->choice = (i32)towers[i].priority;
+                    globals->gui.playMenu.upgradesMenu.towerPriority->choice = (i32)towers[i].priority;
                     break;
                 }
             }

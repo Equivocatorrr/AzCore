@@ -72,37 +72,33 @@ void Manager::Draw(Array<Rendering::DrawingContext>& contexts) {
     }
 }
 
-bool Manager::Pressed(u8 keyCode) const {
+io::ButtonState* Manager::GetButtonState(u8 keyCode) {
     if (KeyCodeIsGamepad(keyCode)) {
         if (globals->gamepad == nullptr) {
-            return false;
+            return nullptr;
         }
-        return globals->gamepad->Pressed(keyCode);
+        return globals->gamepad->GetButtonState(keyCode);
     } else {
-        return globals->input.Pressed(keyCode);
+        return &globals->input.GetButtonState(keyCode);
     }
 }
 
-bool Manager::Down(u8 keyCode) const {
-    if (KeyCodeIsGamepad(keyCode)) {
-        if (globals->gamepad == nullptr) {
-            return false;
-        }
-        return globals->gamepad->Down(keyCode);
-    } else {
-        return globals->input.Down(keyCode);
-    }
+bool Manager::Pressed(u8 keyCode) {
+    io::ButtonState* state = GetButtonState(keyCode);
+    if (!state) return false;
+    return state->Pressed();
 }
 
-bool Manager::Released(u8 keyCode) const {
-    if (KeyCodeIsGamepad(keyCode)) {
-        if (globals->gamepad == nullptr) {
-            return false;
-        }
-        return globals->gamepad->Released(keyCode);
-    } else {
-        return globals->input.Released(keyCode);
-    }
+bool Manager::Down(u8 keyCode) {
+    io::ButtonState* state = GetButtonState(keyCode);
+    if (!state) return false;
+    return state->Down();
+}
+
+bool Manager::Released(u8 keyCode) {
+    io::ButtonState* state = GetButtonState(keyCode);
+    if (!state) return false;
+    return state->Released();
 }
 
 }

@@ -40,6 +40,9 @@ struct Widget {
     virtual void Update(vec2 pos, bool selected);
     virtual void Draw(Rendering::DrawingContext &context) const;
 
+    // If a widget gets hidden by a Hideable, this allows it to configure itself as a response
+    virtual void OnHide();
+
     virtual bool Selectable() const;
     bool MouseOver() const;
     void FindMouseoverDepth(i32 actualDepth);
@@ -88,6 +91,8 @@ struct Switch : public ListV {
     void UpdateSize(vec2 container);
     void Update(vec2 pos, bool selected);
     void Draw(Rendering::DrawingContext &context) const;
+
+    void OnHide();
 };
 
 struct Text : public Widget {
@@ -200,7 +205,7 @@ struct Slider : public Widget {
 
 // Must have exactly one child or else!
 struct Hideable : public Widget {
-    bool hidden;
+    bool hidden, hiddenPrev;
 
     Hideable(Widget *child);
     ~Hideable() = default;
@@ -245,6 +250,10 @@ struct SettingsMenu {
 struct UpgradesMenu {
     Screen screen;
     Hideable *hideable;
+    // Information about the currently selected tower
+    Text *selectedTowerStats;
+    // How the selected tower prioritizes target selection
+    Switch *towerPriority;
     // Some upgrades aren't available on some towers
     Hideable *upgradeHideable[5];
     // The number indicator for the state of each attribute
@@ -261,9 +270,6 @@ struct PlayMenu {
     Screen screen;
     ListV *list;
     Text *waveTitle, *waveInfo, *towerInfo;
-    Hideable *selectedTowerInfo;
-    Text *selectedTowerStats;
-    Switch *towerPriority;
     Array<ListH*> towerButtonLists;
     Array<Button*> towerButtons;
     Button *buttonMenu;

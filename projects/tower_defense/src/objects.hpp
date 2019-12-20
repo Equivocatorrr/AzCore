@@ -65,9 +65,10 @@ struct Manager {
     // Calls different Draw events.
     void Draw(Array<Rendering::DrawingContext>& drawingContexts);
 
-    bool Pressed(u8 keyCode) const;
-    bool Down(u8 keyCode) const;
-    bool Released(u8 keyCode) const;
+    bool Pressed(u8 keyCode);
+    bool Down(u8 keyCode);
+    bool Released(u8 keyCode);
+    io::ButtonState* GetButtonState(u8 keyCode);
 };
 
 }

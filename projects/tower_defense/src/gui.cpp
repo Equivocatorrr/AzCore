@@ -457,14 +457,25 @@ void SettingsMenu::Draw(Rendering::DrawingContext &context) {
 }
 
 void UpgradesMenu::Initialize() {
-    ListV *list = new ListV();
+    ListH *list = new ListH();
     list->fractionWidth = false;
     list->fractionHeight = false;
-    list->size.x = 300.0;
-    list->size.y = 0.0;
+    list->size = 0.0;
     list->color = vec4(vec3(0.05), 0.8);
     list->highlight = list->color;
-    list->padding = 0.0;
+    list->padding *= 0.5;
+    list->selectionDefault = 1;
+
+    ListV *listStats = new ListV();
+    listStats->fractionWidth = false;
+    listStats->fractionHeight = false;
+    listStats->size.x = 250.0;
+    listStats->size.y = 0.0;
+    listStats->margin = 0.0;
+    listStats->padding = 0.0;
+    listStats->color = 0.0;
+    listStats->highlight = 0.0;
+    listStats->selectionDefault = 1;
 
     Text *titleText = new Text();
     titleText->fontIndex = globals->gui.fontIndex;
@@ -476,8 +487,78 @@ void UpgradesMenu::Initialize() {
     titleText->fractionHeight = false;
     titleText->size.x = 1.0;
     titleText->size.y = 0.0;
+    titleText->string = globals->ReadLocale("Info");
+    AddWidget(listStats, titleText);
+
+    ListH *selectedTowerPriorityList = new ListH();
+    selectedTowerPriorityList->fractionWidth = true;
+    selectedTowerPriorityList->size.x = 1.0;
+    selectedTowerPriorityList->fractionHeight = false;
+    selectedTowerPriorityList->size.y = 0.0;
+    selectedTowerPriorityList->padding = vec2(0.0);
+    selectedTowerPriorityList->margin = vec2(0.0);
+    selectedTowerPriorityList->color = 0.0;
+    selectedTowerPriorityList->highlight = 0.0;
+    selectedTowerPriorityList->selectionDefault = 1;
+    Text *selectedTowerPriorityText = new Text();
+    selectedTowerPriorityText->color = 1.0;
+    selectedTowerPriorityText->size.x = 0.5;
+    selectedTowerPriorityText->size.y = 1.0;
+    selectedTowerPriorityText->fractionHeight = true;
+    selectedTowerPriorityText->alignV = Rendering::CENTER;
+    selectedTowerPriorityText->fontIndex = globals->gui.fontIndex;
+    selectedTowerPriorityText->fontSize = 18.0;
+    selectedTowerPriorityText->string = globals->ReadLocale("Priority");
+    towerPriority = new Switch();
+    towerPriority->size.x = 0.5;
+    towerPriority->size.y = 0.0;
+    towerPriority->padding = 0.0;
+    for (i32 i = 0; i < 6; i++) {
+        Text *priorityText = new Text();
+        priorityText->selectable = true;
+        priorityText->size.x = 1.0;
+        priorityText->size.y = 22.0;
+        priorityText->margin = 2.0;
+        priorityText->fractionHeight = false;
+        priorityText->fontIndex = globals->gui.fontIndex;
+        priorityText->fontSize = 18.0;
+        priorityText->alignV = Rendering::CENTER;
+        priorityText->string = globals->ReadLocale(Entities::Tower::priorityStrings[i]);
+        AddWidget(towerPriority, priorityText);
+    }
+    AddWidget(selectedTowerPriorityList, selectedTowerPriorityText);
+    AddWidget(selectedTowerPriorityList, towerPriority);
+    AddWidget(listStats, selectedTowerPriorityList);
+    selectedTowerStats = new Text();
+    selectedTowerStats->size.x = 1.0;
+    selectedTowerStats->color = 1.0;
+    selectedTowerStats->fontIndex = globals->gui.fontIndex;
+    selectedTowerStats->fontSize = 18.0;
+    AddWidget(listStats, selectedTowerStats);
+
+    ListV *listUpgrades = new ListV();
+    listUpgrades->fractionWidth = false;
+    listUpgrades->fractionHeight = false;
+    listUpgrades->size.x = 300.0;
+    listUpgrades->size.y = 0.0;
+    listUpgrades->margin = 0.0;
+    listUpgrades->padding = 0.0;
+    listUpgrades->color = 0.0;
+    listUpgrades->highlight = 0.0;
+    listUpgrades->selectionDefault = 1;
+
+    titleText = new Text();
+    titleText->fontIndex = globals->gui.fontIndex;
+    titleText->alignH = Rendering::CENTER;
+    titleText->alignV = Rendering::CENTER;
+    titleText->bold = true;
+    titleText->fontSize = 24.0;
+    titleText->fractionWidth = true;
+    titleText->fractionHeight = false;
+    titleText->size.x = 1.0;
+    titleText->size.y = 0.0;
     titleText->string = globals->ReadLocale("Upgrades");
-    AddWidget(list, titleText);
+    AddWidget(listUpgrades, titleText);
 
     const char *upgradeNameStrings[] = {
         "Range",
@@ -564,8 +645,10 @@ void UpgradesMenu::Initialize() {
         AddWidget(listV, upgradeDescription);
 
         upgradeHideable[i] = new Hideable(listV);
-        AddWidget(list, upgradeHideable[i]);
+        AddWidget(listUpgrades, upgradeHideable[i]);
     }
+    AddWidget(list, listStats);
+    AddWidget(list, listUpgrades);
     hideable = new Hideable(list);
     AddWidget(&screen, hideable);
 }
@@ -575,6 +658,14 @@ void UpgradesMenu::Update() {
         hideable->hidden = false;
         vec2 towerScreenPos = globals->entities.WorldPosToScreen(globals->entities.towers[globals->entities.selectedTower].physical.pos);
         hideable->position = towerScreenPos - vec2(hideable->sizeAbsolute.x / 2.0, 0.0);
+
+        Entities::Tower &tower = globals->entities.towers.GetMutable(globals->entities.selectedTower);
+        selectedTowerStats->string =
+            globals->ReadLocale("Kills") + ": " + ToString(tower.kills) + "\n"
+            + globals->ReadLocale("Damage") + ": " + ToString(tower.damageDone);
+        if (towerPriority->changed) {
+            tower.priority = (Entities::Tower::TargetPriority)(towerPriority->choice);
+        }
     } else {
         hideable->hidden = true;
     }
@@ -660,55 +751,6 @@ void PlayMenu::Initialize() {
     spacer->fractionHeight = true;
     spacer->size.y = 1.0;
     AddWidget(list, spacer);
-
-    ListV *selectedTowerListV = new ListV();
-    selectedTowerListV->size.y = 0.0;
-    selectedTowerListV->padding = 0.0;
-    selectedTowerListV->margin = 0.0;
-    selectedTowerListV->fractionHeight = false;
-    selectedTowerListV->color = 0.0;
-    selectedTowerListV->selectionDefault = 0;
-    ListH *selectedTowerPriorityList = new ListH(*gridBase);
-    selectedTowerPriorityList->selectionDefault = 1;
-    Text *selectedTowerPriorityText = new Text();
-    selectedTowerPriorityText->color = 1.0;
-    selectedTowerPriorityText->size.x = 0.5;
-    selectedTowerPriorityText->size.y = 1.0;
-    selectedTowerPriorityText->fractionHeight = true;
-    selectedTowerPriorityText->alignV = Rendering::CENTER;
-    selectedTowerPriorityText->fontIndex = globals->gui.fontIndex;
-    selectedTowerPriorityText->fontSize = 18.0;
-    selectedTowerPriorityText->string = globals->ReadLocale("Priority");
-    towerPriority = new Switch();
-    towerPriority->size.x = 0.5;
-    towerPriority->size.y = 0.0;
-    towerPriority->padding = 0.0;
-    for (i32 i = 0; i < 6; i++) {
-        Text *priorityText = new Text();
-        priorityText->selectable = true;
-        priorityText->size.x = 1.0;
-        priorityText->size.y = 22.0;
-        priorityText->margin = 2.0;
-        priorityText->fractionHeight = false;
-        priorityText->fontIndex = globals->gui.fontIndex;
-        priorityText->fontSize = 18.0;
-        priorityText->alignV = Rendering::CENTER;
-        priorityText->string = globals->ReadLocale(Entities::Tower::priorityStrings[i]);
-        AddWidget(towerPriority, priorityText);
-    }
-    AddWidget(selectedTowerPriorityList, selectedTowerPriorityText);
-    AddWidget(selectedTowerPriorityList, towerPriority);
-    AddWidget(selectedTowerListV, selectedTowerPriorityList);
-    selectedTowerStats = new Text();
-    selectedTowerStats->size.x = 1.0;
-    selectedTowerStats->color = 1.0;
-    selectedTowerStats->fontIndex = globals->gui.fontIndex;
-    selectedTowerStats->fontSize = 18.0;
-    AddWidget(selectedTowerListV, selectedTowerStats);
-
-    selectedTowerInfo = new Hideable(selectedTowerListV);
-    selectedTowerInfo->hidden = true;
-    AddWidget(list, selectedTowerInfo);
 
     Button *fullWidth = new Button();
     fullWidth->fractionWidth = true;
@@ -798,18 +840,6 @@ void PlayMenu::Update() {
     waveInfo->string =
         globals->ReadLocale("Wave Hitpoints Left") + ": " + ToString(globals->entities.hitpointsLeft) + "\n"
         + globals->ReadLocale("Lives") + ": " + ToString(globals->entities.lives);
-    if (globals->entities.selectedTower != -1) {
-        Entities::Tower &tower = globals->entities.towers.GetMutable(globals->entities.selectedTower);
-        selectedTowerInfo->hidden = false;
-        selectedTowerStats->string =
-            globals->ReadLocale("Kills") + ": " + ToString(tower.kills) + "\n"
-            + globals->ReadLocale("Damage") + ": " + ToString(tower.damageDone);
-        if (towerPriority->changed) {
-            tower.priority = (Entities::Tower::TargetPriority)(towerPriority->choice);
-        }
-    } else {
-        selectedTowerInfo->hidden = true;
-    }
     screen.Update(vec2(0.0), globals->entities.focusMenu);
     if (buttonMenu->state.Released()) {
         globals->gui.nextMenu = MenuEnum::MENU_MAIN;
@@ -891,6 +921,12 @@ void Widget::Update(vec2 pos, bool selected) {
 void Widget::Draw(Rendering::DrawingContext &context) const {
     for (const Widget* child : children) {
         child->Draw(context);
+    }
+}
+
+void Widget::OnHide() {
+    for (Widget *child : children) {
+        child->OnHide();
     }
 }
 
@@ -1287,6 +1323,12 @@ void Switch::Draw(Rendering::DrawingContext &context) const {
         children[choice]->Draw(context);
     }
     PopScissor(context);
+}
+
+void Switch::OnHide() {
+    Widget::OnHide();
+    open = false;
+    globals->gui.controlDepth = parentDepth;
 }
 
 Text::Text() : stringFormatted(), string(), padding(0.1), fontSize(32.0), fontIndex(1), bold(false), paddingEM(true), alignH(Rendering::LEFT), alignV(Rendering::TOP), color(1.0), colorOutline(0.0, 0.0, 0.0, 1.0), outline(false) {
@@ -1981,7 +2023,7 @@ void Slider::Draw(Rendering::DrawingContext &context) const {
     globals->rendering.DrawQuad(context, Rendering::texBlank, slider, drawPos, vec2(1.0), vec2(12.0, sizeAbsolute.y - 4.0) * globals->gui.scale);
 }
 
-Hideable::Hideable(Widget *child) : hidden(false) {
+Hideable::Hideable(Widget *child) : hidden(false), hiddenPrev(false) {
     margin = 0.0;
     AddWidget(this, child);
     size = child->size; // We need to inherit this for Lists to work properly
@@ -2004,6 +2046,10 @@ void Hideable::Update(vec2 pos, bool selected) {
         children[0]->Update(pos + position, selected);
         positionAbsolute = children[0]->positionAbsolute;
     }
+    if (hidden && !hiddenPrev) {
+        children[0]->OnHide();
+    }
+    hiddenPrev = hidden;
 }
 
 void Hideable::Draw(Rendering::DrawingContext &context) const {

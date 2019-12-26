@@ -1040,11 +1040,13 @@ bool List::UpdateSelection(bool selected, u8 keyCodeSelect, u8 keyCodeBack, u8 k
     }
     if (globals->gui.controlDepth == depth && selected) {
         bool reselect = false;
-        if (globals->input.cursor != globals->input.cursorPrevious) {
+        if (globals->gui.usingMouse && globals->input.cursor != globals->input.cursorPrevious) {
             if (MouseOver()) {
                 reselect = true;
             }
             selection = -1;
+        } else if (selection == -1 && !globals->gui.usingMouse && globals->rawInput.AnyGP.state != 0) {
+            selection = -2;
         }
         return reselect;
     }

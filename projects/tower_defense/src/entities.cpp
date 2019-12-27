@@ -18,14 +18,31 @@ const char* towerStrings[TOWER_MAX_RANGE+1] = {
     "Flak"
 };
 const i32 towerCosts[TOWER_MAX_RANGE+1] = {
-    2500,
-    5000,
+    2000,
+    3000,
     15000,
     30000,
     50000,
     200000
 };
-const char *towerDescriptions[TOWER_MAX_RANGE + 1] = {
+const bool towerHasPriority[TOWER_MAX_RANGE+1] = {
+    true,
+    true,
+    false,
+    false,
+    true,
+    true
+};
+// data[0] is Range, data[1] is Firerate, data[2] is Accuracy, data[3] is Damage, data[4] is Multishot
+const TowerUpgradeables towerUpgradeables[TOWER_MAX_RANGE+1] = {
+    {true, true, true, true, true},
+    {true, true, true, true, true},
+    {false, false, false, true, false},
+    {true, true, false, true, false},
+    {true, true, false, true, true},
+    {true, true, true, true, true}
+};
+const char *towerDescriptions[TOWER_MAX_RANGE+1] = {
     "GunDescription",
     "ShotgunDescription",
     "FanDescription",
@@ -46,11 +63,11 @@ const Tower towerGunTemplate = Tower(
     BOX,                                        // CollisionType
     {vec2(-20.0), vec2(20.0)},                  // PhysicalBasis
     CIRCLE,                                     // fieldCollisionType
-    {vec2(0.0), 400.0},                         // fieldPhysicalBasis
+    {vec2(0.0), 320.0},                         // fieldPhysicalBasis
     TOWER_GUN,                                  // TowerType
-    400.0,                                      // range
+    320.0,                                      // range
     0.125,                                      // shootInterval
-    1.0,                                        // bulletSpread (degrees)
+    2.7,                                        // bulletSpread (degrees)
     1,                                          // bulletCount
     12,                                         // damage
     800.0,                                      // bulletSpeed
@@ -64,11 +81,11 @@ const Tower towerShotgunTemplate = Tower(
     BOX,                                        // CollisionType
     {vec2(-16.0), vec2(16.0)},                  // PhysicalBasis
     CIRCLE,                                     // fieldCollisionType
-    {vec2(0.0), 300.0},                         // fieldPhysicalBasis
+    {vec2(0.0), 200.0},                         // fieldPhysicalBasis
     TOWER_SHOTGUN,                              // TowerType
-    300.0,                                      // range
+    200.0,                                      // range
     1.0,                                        // shootInterval
-    9.0,                                        // bulletSpread (degrees)
+    12.0,                                       // bulletSpread (degrees)
     15,                                         // bulletCount
     15,                                         // damage
     900.0,                                      // bulletSpeed
@@ -100,11 +117,11 @@ const Tower towerGaussTemplate = Tower(
     BOX,                                        // CollisionType
     {vec2(-32.0), vec2(32.0)},                  // PhysicalBasis
     CIRCLE,                                     // fieldCollisionType
-    {vec2(0.0, 0.0), 600.0},                    // fieldPhysicalBasis
+    {vec2(0.0, 0.0), 480.0},                    // fieldPhysicalBasis
     TOWER_GAUSS,                                // TowerType
-    600.0,                                      // range
+    480.0,                                      // range
     2.0,                                        // shootInterval
-    3.0,                                        // bulletSpread (degrees)
+    4.8,                                        // bulletSpread (degrees)
     1,                                          // bulletCount
     2000,                                       // damage
     2000.0,                                     // bulletSpeed
@@ -121,7 +138,7 @@ const Tower towerShockerTemplate = Tower(
     {vec2(0.0, 0.0), 120.0},                    // fieldPhysicalBasis
     TOWER_SHOCKWAVE,                            // TowerType
     120.0,                                      // range
-    1.0,                                        // shootInterval
+    1.2,                                        // shootInterval
     0.0,                                        // bulletSpread (degrees)
     1,                                          // bulletCount
     120,                                        // damage
@@ -136,10 +153,10 @@ const Tower towerFlakTemplate = Tower(
     CIRCLE,                                     // CollisionType
     {vec2(0.0), 32.0},                          // PhysicalBasis
     CIRCLE,                                     // fieldCollisionType
-    {vec2(0.0), 500.0},                         // fieldPhysicalBasis
+    {vec2(0.0), 400.0},                         // fieldPhysicalBasis
     TOWER_FLAK,                                 // TowerType
-    500.0,                                      // range
-    1.5,                                        // shootInterval
+    400.0,                                      // range
+    1.8,                                        // shootInterval
     6.0,                                        // bulletSpread (degrees)
     5,                                          // bulletCount
     100,                                        // damage
@@ -273,7 +290,7 @@ inline void Manager::HandleUI() {
         if (!waveActive) {
             wave++;
             f64 factor = pow((f64)1.2, (f64)(wave+3));
-            hitpointsPerSecond = (f32)((i32)(factor * 5.0d) * 100);
+            hitpointsPerSecond = (f64)((i64)(factor * 5.0d) * 100);
             hitpointsLeft += hitpointsPerSecond;
             // Average wave length is wave+7 seconds
             hitpointsPerSecond /= wave+7;

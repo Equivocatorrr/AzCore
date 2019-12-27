@@ -435,6 +435,7 @@ struct UpgradesMenu {
     Hideable *hideable;
     // Information about the currently selected tower
     Text *selectedTowerStats;
+    Hideable *towerPriorityHideable;
     // How the selected tower prioritizes target selection
     Switch *towerPriority;
     // Some upgrades aren't available on some towers

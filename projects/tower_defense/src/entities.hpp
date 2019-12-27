@@ -208,8 +208,14 @@ enum TowerType {
     TOWER_MAX_RANGE=5
 };
 
+struct TowerUpgradeables {
+    bool data[5];
+};
+
 extern const char* towerStrings[TOWER_MAX_RANGE+1];
 extern const i32 towerCosts[TOWER_MAX_RANGE+1];
+extern const bool towerHasPriority[TOWER_MAX_RANGE+1];
+extern const TowerUpgradeables towerUpgradeables[TOWER_MAX_RANGE+1];
 extern const char* towerDescriptions[TOWER_MAX_RANGE+1];
 
 struct Tower;
@@ -235,9 +241,9 @@ struct Manager : public Objects::Object {
     f32 enemyTimer = 0.0;
     i32 wave = 0;
     i64 hitpointsLeft = 0;
-    f32 hitpointsPerSecond = 200.0;
-    i32 lives = 1000;
-    i32 money = 5000;
+    f64 hitpointsPerSecond = 200.0;
+    i64 lives = 1000;
+    i64 money = 5000;
     f32 timestep;
     bool waveActive = false;
     f32 camZoom = 1.0;
@@ -281,7 +287,7 @@ struct Tower : public Entity {
     f32 bulletSpeedVariability;
     i32 bulletExplosionDamage;
     f32 bulletExplosionRange;
-    i32 sunkCost;
+    i64 sunkCost;
     vec4 color;
 
     enum TargetPriority {

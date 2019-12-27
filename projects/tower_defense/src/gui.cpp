@@ -545,7 +545,8 @@ void UpgradesMenu::Initialize() {
     }
     AddWidget(selectedTowerPriorityList, selectedTowerPriorityText);
     AddWidgetAsDefault(selectedTowerPriorityList, towerPriority);
-    AddWidgetAsDefault(listStats, selectedTowerPriorityList);
+    towerPriorityHideable = new Hideable(selectedTowerPriorityList);
+    AddWidgetAsDefault(listStats, towerPriorityHideable);
     selectedTowerStats = new Text();
     selectedTowerStats->size.x = 1.0;
     selectedTowerStats->color = 1.0;
@@ -618,25 +619,25 @@ void UpgradesMenu::Initialize() {
         upgradeName->alignV = Rendering::CENTER;
         upgradeName->fontIndex = globals->gui.fontIndex;
         upgradeName->fontSize = 18.0;
+        upgradeName->bold = true;
         upgradeName->string = globals->ReadLocale(upgradeNameStrings[i]);
         AddWidget(listH, upgradeName);
 
         upgradeStatus[i] = new Text();
         upgradeStatus[i]->fractionWidth = true;
-        upgradeStatus[i]->fractionHeight = true;
-        upgradeStatus[i]->size = vec2(0.4, 1.0);
+        upgradeStatus[i]->size = vec2(0.4, 0.0);
         upgradeStatus[i]->margin *= 0.5;
         upgradeStatus[i]->alignV = Rendering::CENTER;
         upgradeStatus[i]->fontIndex = globals->gui.fontIndex;
-        upgradeStatus[i]->fontSize = 18.0;
+        upgradeStatus[i]->fontSize = 14.0;
         upgradeStatus[i]->string = ToWString("0");
         AddWidget(listH, upgradeStatus[i]);
 
         upgradeButton[i] = new Button();
         upgradeButton[i]->fractionWidth = true;
-        upgradeButton[i]->fractionHeight = false;
+        upgradeButton[i]->fractionHeight = true;
         upgradeButton[i]->size.x = 0.25;
-        upgradeButton[i]->size.y = 24.0;
+        upgradeButton[i]->size.y = 1.0;
         upgradeButton[i]->margin *= 0.5;
         upgradeButton[i]->fontIndex = globals->gui.fontIndex;
         upgradeButton[i]->fontSize = 18.0;
@@ -671,6 +672,88 @@ void UpgradesMenu::Update() {
         hideable->position = towerScreenPos - vec2(hideable->sizeAbsolute.x / 2.0, 0.0);
 
         Entities::Tower &tower = globals->entities.towers.GetMutable(globals->entities.selectedTower);
+        towerPriorityHideable->hidden = !Entities::towerHasPriority[tower.type];
+        const Entities::TowerUpgradeables &upgradeables = Entities::towerUpgradeables[tower.type];
+        for (i32 i = 0; i < 5; i++) {
+            upgradeHideable[i]->hidden = !upgradeables.data[i];
+        }
+        WString costString = "\n" + globals->ReadLocale("Cost:") + ' ';
+        if (upgradeables.data[0]) { // Range
+            i64 cost = tower.sunkCost / 2;
+            f32 newRange = tower.range * 1.25;
+            bool canUpgrade = cost <= globals->entities.money;
+            upgradeStatus[0]->string =
+                ToString(tower.range/10.0) + "m > " + ToString(newRange/10.0) + "m" +
+                costString + ToString(cost);
+            upgradeButton[0]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8, 0.1, 0.1), 1.0);
+            if (upgradeButton[0]->state.Released() && canUpgrade) {
+                tower.range = newRange;
+                tower.field.basis.circle.r = newRange;
+                tower.sunkCost += cost;
+                globals->entities.money -= cost;
+            }
+        }
+        if (upgradeables.data[1]) { // Firerate
+            i64 cost = tower.sunkCost / 2;
+            f32 newFirerate = tower.shootInterval / 1.5;
+            bool canUpgrade = cost <= globals->entities.money && newFirerate >= 1.0/18.1;
+            upgradeStatus[1]->string =
+                ToString(1.0/tower.shootInterval) + "r/s > " + ToString(1.0/newFirerate) + "r/s" +
+                costString + ToString(cost);
+            upgradeButton[1]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8, 0.1, 0.1), 1.0);
+            if (upgradeButton[1]->state.Released() && canUpgrade) {
+                tower.shootInterval = newFirerate;
+                tower.sunkCost += cost;
+                globals->entities.money -= cost;
+            }
+        }
+        if (upgradeables.data[2]) { // Accuracy
+            i64 cost = tower.sunkCost / 5;
+            Degrees32 newSpread = tower.bulletSpread.value() / 1.5;
+            bool canUpgrade = cost <= globals->entities.money;
+            upgradeStatus[2]->string =
+                ToString(tower.bulletSpread.value()) + "° > " + ToString(newSpread.value()) + "°" +
+                costString + ToString(cost);
+            upgradeButton[2]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8, 0.1, 0.1), 1.0);
+            if (upgradeButton[2]->state.Released() && canUpgrade) {
+                tower.bulletSpread = newSpread;
+                tower.sunkCost += cost;
+                globals->entities.money -= cost;
+            }
+        }
+        if (upgradeables.data[3]) { // Damage
+            i64 cost = tower.sunkCost / 2;
+            i32 newDamage = tower.damage * 3 / 2;
+            bool canUpgrade = cost <= globals->entities.money;
+            upgradeStatus[3]->string =
+                ToString(tower.damage) + " > " + ToString(newDamage) +
+                costString + ToString(cost);
+            upgradeButton[3]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8, 0.1, 0.1), 1.0);
+            if (upgradeButton[3]->state.Released() && canUpgrade) {
+                tower.damage = newDamage;
+                tower.bulletExplosionDamage *= 2;
+                tower.sunkCost += cost;
+                globals->entities.money -= cost;
+            }
+        }
+        if (upgradeables.data[4]) { // Multishot
+            i64 cost = tower.sunkCost;
+            i32 newBulletCount = tower.bulletCount * 2;
+            if (tower.bulletCount >= 2) {
+                newBulletCount = tower.bulletCount * 3 / 2;
+                cost = cost * (newBulletCount - tower.bulletCount) / newBulletCount;
+            }
+            bool canUpgrade = cost <= globals->entities.money && newBulletCount <= 60;
+            upgradeStatus[4]->string =
+                ToString(tower.bulletCount) + " > " + ToString(newBulletCount) +
+                costString + ToString(cost);
+            upgradeButton[4]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8, 0.1, 0.1), 1.0);
+            if (upgradeButton[4]->state.Released() && canUpgrade) {
+                tower.bulletCount = newBulletCount;
+                tower.sunkCost += cost;
+                globals->entities.money -= cost;
+            }
+        }
         selectedTowerStats->string =
             globals->ReadLocale("Kills") + ": " + ToString(tower.kills) + "\n"
             + globals->ReadLocale("Damage") + ": " + ToString(tower.damageDone);

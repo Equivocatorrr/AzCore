@@ -162,6 +162,31 @@ void AddWidget(Widget *parent, Switch *newWidget) {
     }
 }
 
+void AddWidgetAsDefault(List *parent, Widget *newWidget, bool deeper = false) {
+    newWidget->depth = parent->depth + (deeper ? 1 : 0);
+    if (newWidget->selectable) {
+        parent->selectable = true;
+    }
+    parent->selectionDefault = parent->children.size;
+    parent->children.Append(newWidget);
+    if (globals->gui.allWidgets.count(newWidget) == 0) {
+        globals->gui.allWidgets.emplace(newWidget);
+    }
+}
+
+void AddWidgetAsDefault(List *parent, Switch *newWidget) {
+    newWidget->depth = parent->depth + 1;
+    newWidget->parentDepth = parent->depth;
+    if (newWidget->selectable) {
+        parent->selectable = true;
+    }
+    parent->selectionDefault = parent->children.size;
+    parent->children.Append(newWidget);
+    if (globals->gui.allWidgets.count(newWidget) == 0) {
+        globals->gui.allWidgets.emplace(newWidget);
+    }
+}
+
 //
 //      Menu implementations
 //
@@ -170,7 +195,6 @@ void MainMenu::Initialize() {
     ListV *listV = new ListV();
     listV->color = vec4(0.0);
     listV->highlight = vec4(vec3(0.0), 0.1);
-    listV->selectionDefault = 3;
 
     Widget *spacer = new Widget();
     spacer->size.y = 0.3;
@@ -221,17 +245,16 @@ void MainMenu::Initialize() {
 
     ListH *spacingList = new ListH();
     spacingList->color = vec4(0.0);
-    spacingList->highlight = vec4(vec3(0.0), 0.2);
+    spacingList->highlight = vec4(0.0);
     spacingList->size.y = 0.0;
-    spacingList->selectionDefault = 1;
 
     spacer = new Widget();
     spacer->size.x = 0.5;
     AddWidget(spacingList, spacer);
 
-    AddWidget(spacingList, buttonList);
+    AddWidgetAsDefault(spacingList, buttonList);
 
-    AddWidget(listV, spacingList);
+    AddWidgetAsDefault(listV, spacingList);
 
     AddWidget(&screen, listV);
 }
@@ -329,7 +352,6 @@ void SettingsMenu::Initialize() {
     settingListTemplate->size.y = 0.0;
     settingListTemplate->margin = vec2(8.0);
     settingListTemplate->padding = vec2(0.0);
-    settingListTemplate->selectionDefault = 1;
 
     Array<Widget*> settingListItems = {
         checkFullscreen, nullptr,
@@ -360,7 +382,7 @@ void SettingsMenu::Initialize() {
             Text *settingText = new Text(*settingTextTemplate);
             settingText->string = globals->ReadLocale(settingListNames[i / 2]);
             AddWidget(settingList, settingText);
-            AddWidget(settingList, settingListItems[i]);
+            AddWidgetAsDefault(settingList, settingListItems[i]);
             if (settingListItems[i+1] != nullptr) {
                 AddWidget(settingList, settingListItems[i+1]);
             }
@@ -375,7 +397,6 @@ void SettingsMenu::Initialize() {
     buttonList->padding = vec2(0.0);
     buttonList->color = vec4(0.0);
     buttonList->highlight = vec4(0.0);
-    buttonList->selectionDefault = 1;
 
     buttonBack = new Button();
     buttonBack->string = globals->ReadLocale("Back");
@@ -393,7 +414,7 @@ void SettingsMenu::Initialize() {
     buttonApply->size.y = 64.0;
     buttonApply->fractionHeight = false;
     buttonApply->margin = vec2(8.0);
-    AddWidget(buttonList, buttonApply);
+    AddWidgetAsDefault(buttonList, buttonApply);
 
     AddWidget(actualList, buttonList);
 
@@ -401,15 +422,14 @@ void SettingsMenu::Initialize() {
     spacingList->color = vec4(0.0);
     spacingList->highlight = vec4(0.0);
     spacingList->size.y = 0.0;
-    spacingList->selectionDefault = 1;
 
     spacer = new Widget();
     spacer->size.x = 0.5;
     AddWidget(spacingList, spacer);
 
-    AddWidget(spacingList, actualList);
+    AddWidgetAsDefault(spacingList, actualList);
 
-    AddWidget(listV, spacingList);
+    AddWidgetAsDefault(listV, spacingList);
 
     AddWidget(&screen, listV);
 
@@ -464,7 +484,6 @@ void UpgradesMenu::Initialize() {
     list->color = vec4(vec3(0.05), 0.8);
     list->highlight = list->color;
     list->padding *= 0.5;
-    list->selectionDefault = 1;
 
     ListV *listStats = new ListV();
     listStats->fractionWidth = false;
@@ -475,7 +494,6 @@ void UpgradesMenu::Initialize() {
     listStats->padding = 0.0;
     listStats->color = 0.0;
     listStats->highlight = 0.0;
-    listStats->selectionDefault = 1;
 
     Text *titleText = new Text();
     titleText->fontIndex = globals->gui.fontIndex;
@@ -499,7 +517,6 @@ void UpgradesMenu::Initialize() {
     selectedTowerPriorityList->margin = vec2(0.0);
     selectedTowerPriorityList->color = 0.0;
     selectedTowerPriorityList->highlight = 0.0;
-    selectedTowerPriorityList->selectionDefault = 1;
     Text *selectedTowerPriorityText = new Text();
     selectedTowerPriorityText->color = 1.0;
     selectedTowerPriorityText->size.x = 0.5;
@@ -527,8 +544,8 @@ void UpgradesMenu::Initialize() {
         AddWidget(towerPriority, priorityText);
     }
     AddWidget(selectedTowerPriorityList, selectedTowerPriorityText);
-    AddWidget(selectedTowerPriorityList, towerPriority);
-    AddWidget(listStats, selectedTowerPriorityList);
+    AddWidgetAsDefault(selectedTowerPriorityList, towerPriority);
+    AddWidgetAsDefault(listStats, selectedTowerPriorityList);
     selectedTowerStats = new Text();
     selectedTowerStats->size.x = 1.0;
     selectedTowerStats->color = 1.0;
@@ -577,26 +594,20 @@ void UpgradesMenu::Initialize() {
 
     for (i32 i = 0; i < 5; i++) {
         ListV *listV = new ListV();
-        listV->fractionWidth = true;
         listV->fractionHeight = false;
         listV->size = vec2(1.0, 0.0);
         listV->margin *= 0.5;
         listV->padding = 0.0;
         listV->color = 0.0;
         listV->highlight = 0.0;
-        listV->selectionDefault = 0;
 
         ListH *listH = new ListH();
-        listH->fractionWidth = true;
         listH->fractionHeight = false;
-        listH->size.x = 1.0;
         listH->size.y = 0.0;
         listH->margin = 0.0;
         listH->padding = 0.0;
         listH->color = 0.0;
         listH->highlight = 0.0;
-        listH->select = vec4(vec3(0.2), 0.8);
-        listH->selectionDefault = 2;
 
         Text *upgradeName = new Text();
         upgradeName->fractionWidth = true;
@@ -630,9 +641,9 @@ void UpgradesMenu::Initialize() {
         upgradeButton[i]->fontIndex = globals->gui.fontIndex;
         upgradeButton[i]->fontSize = 18.0;
         upgradeButton[i]->string = globals->ReadLocale("Buy");
-        AddWidget(listH, upgradeButton[i]);
+        AddWidgetAsDefault(listH, upgradeButton[i]);
 
-        AddWidget(listV, listH);
+        AddWidgetAsDefault(listV, listH);
 
         Text *upgradeDescription = new Text();
         upgradeDescription->alignH = Rendering::CENTER;
@@ -647,7 +658,7 @@ void UpgradesMenu::Initialize() {
         upgradeHideable[i] = new Hideable(listV);
         AddWidget(listUpgrades, upgradeHideable[i]);
     }
-    AddWidget(list, listStats);
+    AddWidgetAsDefault(list, listStats);
     AddWidget(list, listUpgrades);
     hideable = new Hideable(list);
     AddWidget(&screen, hideable);
@@ -685,7 +696,6 @@ void PlayMenu::Initialize() {
     screenListH->color = 0.0;
     screenListH->highlight = 0.0;
     screenListH->occludes = false;
-    screenListH->selectionDefault = 1;
     AddWidget(&screen, screenListH);
     Widget *spacer = new Widget();
     spacer->fractionWidth = true;
@@ -697,7 +707,7 @@ void PlayMenu::Initialize() {
     list->margin = 0.0;
     list->size = vec2(300.0, 1.0);
     list->selectionDefault = 1;
-    AddWidget(screenListH, list);
+    AddWidgetAsDefault(screenListH, list);
 
     Text *towerHeader = new Text();
     towerHeader->fontIndex = globals->gui.fontIndex;
@@ -760,7 +770,6 @@ void PlayMenu::Initialize() {
     fullWidth->fontIndex = globals->gui.fontIndex;
 
     ListH *waveList = new ListH(*gridBase);
-    waveList->selectionDefault = 1;
 
     waveTitle = new Text();
     waveTitle->size.x = 0.5;
@@ -780,7 +789,7 @@ void PlayMenu::Initialize() {
     buttonStartWave->string = globals->ReadLocale("Start Wave");
     buttonStartWave->size.y = 32.0;
     buttonStartWave->keycodeActivators = {KC_GP_BTN_START, KC_KEY_SPACE};
-    AddWidget(waveList, buttonStartWave);
+    AddWidgetAsDefault(waveList, buttonStartWave);
 
     AddWidget(list, waveList);
 
@@ -802,7 +811,6 @@ void PlayMenu::Initialize() {
     delete fullWidth;
 
     upgradesMenu.Initialize();
-    // AddWidget(&screen, upgradesMenu.hideable);
 }
 
 void PlayMenu::Update() {
@@ -859,7 +867,7 @@ void PlayMenu::Draw(Rendering::DrawingContext &context) {
 //      Widget implementations beyond this point
 //
 
-Widget::Widget() : children(), margin(8.0), size(1.0), fractionWidth(true), fractionHeight(true), sizeAbsolute(0.0), minSize(0.0), maxSize(-1.0), position(0.0), positionAbsolute(0.0), depth(0), selectable(false), highlighted(false), occludes(false) {}
+Widget::Widget() : children(), margin(8.0), size(1.0), fractionWidth(true), fractionHeight(true), minSize(0.0), maxSize(-1.0), position(0.0), sizeAbsolute(0.0), positionAbsolute(0.0), depth(0), selectable(false), highlighted(false), occludes(false) {}
 
 void Widget::UpdateSize(vec2 container) {
     sizeAbsolute = vec2(0.0);
@@ -1054,7 +1062,7 @@ bool List::UpdateSelection(bool selected, u8 keyCodeSelect, u8 keyCodeBack, u8 k
 }
 
 void List::Draw(Rendering::DrawingContext &context) const {
-    if (color.a > 0.0) {
+    if ((highlighted ? highlight.a : color.a) > 0.0) {
         globals->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlight : color, positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
     }
     if (selection >= 0 && select.a > 0.0) {
@@ -1227,8 +1235,8 @@ Switch::Switch() : choice(0), open(false), changed(false) {
     selectable = true;
     selectionDefault = 0;
     color = vec4(vec3(0.2), 0.9);
-    highlight = vec4(vec3(0.3), 0.9);
-    select = vec4(0.5);
+    highlight = vec4(colorHighlightMedium, 0.9);
+    select = vec4(colorHighlightMedium, 0.9);
 }
 
 void Switch::UpdateSize(vec2 container) {
@@ -1303,6 +1311,7 @@ void Switch::Update(vec2 pos, bool selected) {
         }
         if (open) {
             globals->gui.controlDepth = depth;
+            selection = choice;
         }
         children[choice]->Update(pos + padding + margin + position, selected);
     }
@@ -1310,7 +1319,7 @@ void Switch::Update(vec2 pos, bool selected) {
 
 void Switch::Draw(Rendering::DrawingContext &context) const {
     if (color.a > 0.0) {
-        globals->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlight : color, positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
+        globals->rendering.DrawQuad(context, Rendering::texBlank, (highlighted && !open) ? highlight : color, positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
     }
     PushScissor(context);
     if (open) {
@@ -1333,7 +1342,7 @@ void Switch::OnHide() {
     globals->gui.controlDepth = parentDepth;
 }
 
-Text::Text() : stringFormatted(), string(), padding(0.1), fontSize(32.0), fontIndex(1), bold(false), paddingEM(true), alignH(Rendering::LEFT), alignV(Rendering::TOP), color(1.0), colorOutline(0.0, 0.0, 0.0, 1.0), outline(false) {
+Text::Text() : stringFormatted(), string(), padding(0.1), fontSize(32.0), fontIndex(1), bold(false), paddingEM(true), alignH(Rendering::LEFT), alignV(Rendering::TOP), color(vec3(1.0), 1.0), colorOutline(vec3(0.0), 1.0), highlight(vec3(0.0), 1.0), highlightOutline(vec3(1.0), 1.0), outline(false) {
     size.y = 0.0;
 }
 
@@ -1379,9 +1388,9 @@ void Text::Draw(Rendering::DrawingContext &context) const {
     }
     f32 bounds = bold ? 0.425 : 0.525;
     if (outline) {
-        globals->rendering.DrawText(context, stringFormatted, fontIndex, colorOutline, drawPos, scale, alignH, alignV, textArea.x, 0.1, bounds - 0.2);
+        globals->rendering.DrawText(context, stringFormatted, fontIndex, highlighted? highlightOutline : colorOutline, drawPos, scale, alignH, alignV, textArea.x, 0.1, bounds - 0.2);
     }
-    globals->rendering.DrawText(context, stringFormatted, fontIndex, color, drawPos, scale, alignH, alignV, textArea.x, 0.0, bounds);
+    globals->rendering.DrawText(context, stringFormatted, fontIndex, highlighted? highlight : color, drawPos, scale, alignH, alignV, textArea.x, 0.0, bounds);
     PopScissor(context);
 }
 
@@ -1391,7 +1400,7 @@ void Image::Draw(Rendering::DrawingContext &context) const {
     globals->rendering.DrawQuad(context, texIndex, vec4(1.0), positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
 }
 
-Button::Button() : string(), colorBG(0.15, 0.15, 0.15, 0.9), highlightBG(colorHighlightMedium, 0.9), colorText(1.0), highlightText(0.0, 0.0, 0.0, 1.0), fontIndex(1), fontSize(28.0), state(), keycodeActivators() {
+Button::Button() : string(), colorBG(vec3(0.15), 0.9), highlightBG(colorHighlightMedium, 0.9), colorText(vec3(1.0), 1.0), highlightText(vec3(0.0), 1.0), fontIndex(1), fontSize(28.0), state(), keycodeActivators() {
     state.canRepeat = false;
     selectable = true;
     occludes = true;
@@ -1457,7 +1466,7 @@ void Button::Draw(Rendering::DrawingContext &context) const {
     PopScissor(context);
 }
 
-Checkbox::Checkbox() : colorOff(0.15, 0.15, 0.15, 0.9), highlightOff(colorHighlightLow, 0.9), colorOn(colorHighlightMedium, 1.0), highlightOn(colorHighlightHigh, 1.0), transition(0.0), checked(false) {
+Checkbox::Checkbox() : colorOff(vec3(0.15), 0.9), highlightOff(colorHighlightLow, 0.9), colorOn(colorHighlightMedium, 1.0), highlightOn(colorHighlightHigh, 1.0), transition(0.0), checked(false) {
     selectable = true;
     size = vec2(48.0, 24.0);
     fractionWidth = false;
@@ -1510,7 +1519,7 @@ void Checkbox::Draw(Rendering::DrawingContext &context) const {
     globals->rendering.DrawQuad(context, Rendering::texBlank, vec4(vec3(0.0), 0.8), switchPos, vec2(1.0), (sizeAbsolute * vec2(0.375, 0.75)) * globals->gui.scale);
 }
 
-TextBox::TextBox() : string(), colorBG(vec3(0.15), 0.9), highlightBG(vec3(0.2), 0.9), errorBG(0.1, 0.0, 0.0, 0.9), colorText(1.0), highlightText(1.0), errorText(1.0, 0.5, 0.5, 1.0), padding(2.0), cursor(0), fontIndex(1), fontSize(17.39), cursorBlinkTimer(0.0), alignH(Rendering::LEFT), textFilter(TextFilterBasic), textValidate(TextValidateAll), entry(false), multiline(false) {
+TextBox::TextBox() : string(), colorBG(vec3(0.15), 0.9), highlightBG(vec3(0.2), 0.9), errorBG(0.1, 0.0, 0.0, 0.9), colorText(vec3(1.0), 1.0), highlightText(vec3(1.0), 1.0), errorText(1.0, 0.5, 0.5, 1.0), padding(2.0), cursor(0), fontIndex(1), fontSize(17.39), cursorBlinkTimer(0.0), alignH(Rendering::LEFT), textFilter(TextFilterBasic), textValidate(TextValidateAll), entry(false), multiline(false) {
     // selectable = true;
     occludes = true;
     fractionWidth = false;
@@ -1918,7 +1927,7 @@ value(1.0),                     valueMin(0.0),
 valueMax(1.0),                  mirror(nullptr),
 colorBG(vec3(0.15), 0.9),       colorSlider(colorHighlightMedium, 1.0),
 highlightBG(vec3(0.2), 0.9),    highlightSlider(colorHighlightHigh, 1.0),
-highlighted(false),             grabbed(false), left(), right()
+grabbed(false), left(), right()
 {
     occludes = true;
     selectable = true;
@@ -1928,7 +1937,7 @@ highlighted(false),             grabbed(false), left(), right()
 
 void Slider::Update(vec2 pos, bool selected) {
     Widget::Update(pos, selected);
-    highlighted = MouseOver();
+    mouseover = MouseOver();
     left.Tick(globals->objects.timestep);
     right.Tick(globals->objects.timestep);
     if (selected) {
@@ -1944,7 +1953,7 @@ void Slider::Update(vec2 pos, bool selected) {
             right.Release();
         }
     }
-    if (highlighted && !grabbed) {
+    if (mouseover && !grabbed) {
         i32 mousePos = 0;
         f32 mouseX = (f32)globals->input.cursor.x / globals->gui.scale - positionAbsolute.x;
         f32 sliderX = map(value, valueMin, valueMax, 0.0, sizeAbsolute.x - 16.0);

@@ -177,7 +177,10 @@ void Manager::EventInitialize() {
 inline void Manager::HandleGamepadCamera() {
     vec2 screenBorder = (vec2(globals->window.width, globals->window.height) - vec2(50.0 * globals->gui.scale)) / 2.0 / camZoom;
     if (CursorVisible() || placeMode) {
-        vec2 mouseMove = globals->gamepad->axis.vec.RS * globals->objects.timestep * 800.0 / camZoom;
+        vec2 mouseMove = globals->gamepad->axis.vec.RS;
+        f32 mag = abs(mouseMove);
+        mouseMove *= sqrt(mag);
+        mouseMove *= globals->objects.timestep * 800.0 / camZoom;
         mouse += mouseMove;
         if (mouseMove != vec2(0.0)) {
             if (mouse.x < camPos.x-screenBorder.x || mouse.x > camPos.x+screenBorder.x) {
@@ -190,7 +193,10 @@ inline void Manager::HandleGamepadCamera() {
     }
 
     if (!focusMenu && selectedTower == -1) {
-        vec2 camMove = globals->gamepad->axis.vec.LS * globals->objects.timestep * 800.0 / camZoom;
+        vec2 camMove = globals->gamepad->axis.vec.LS;
+        f32 mag = abs(camMove);
+        camMove *= sqrt(mag);
+        camMove *= globals->objects.timestep * 800.0 / camZoom;
         camPos += camMove;
         if (camMove != vec2(0.0)) {
             if (mouse.x < camPos.x-screenBorder.x || mouse.x > camPos.x+screenBorder.x) {

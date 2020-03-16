@@ -54,6 +54,35 @@ public:
     }
 };
 
+/*  class: ListIteratorConst
+    Author: Philip Haynes
+    Iterating over our Linked List with const-ness      */
+template <typename T>
+class ListIteratorConst
+{
+    ListIndex<T> *me = nullptr;
+
+public:
+    ListIteratorConst() {}
+    ListIteratorConst(ListIndex<T> *a)
+    {
+        me = a;
+    }
+    bool operator!=(const ListIteratorConst<T> &other)
+    {
+        return me != other.me;
+    }
+    const ListIteratorConst<T> &operator++()
+    {
+        me = me->next;
+        return *this;
+    }
+    const T &operator*()
+    {
+        return me->value;
+    }
+};
+
 /*  struct: List
     Author: Philip Haynes
     Just a linked list that can clean itself up.      */
@@ -162,6 +191,14 @@ struct List
     ListIterator<T> end()
     {
         return ListIterator<T>();
+    }
+    ListIteratorConst<T> begin() const
+    {
+        return ListIteratorConst<T>(first);
+    }
+    ListIteratorConst<T> end() const
+    {
+        return ListIteratorConst<T>();
     }
     void Resize(i32 s)
     {

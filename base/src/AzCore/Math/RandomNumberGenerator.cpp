@@ -45,7 +45,7 @@ f32 random(f32 min, f32 max, RandomNumberGenerator &rng)
 
 i32 random(i32 min, i32 max, RandomNumberGenerator &rng)
 {
-    return i32(rng.Generate() % (max - min)) + min;
+    return i32(rng.Generate() % (max - min + 1)) + min;
 }
 
 } // namespace AzCore

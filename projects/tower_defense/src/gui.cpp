@@ -741,7 +741,7 @@ void UpgradesMenu::Update() {
             i32 newBulletCount = tower.bulletCount * 2;
             if (tower.bulletCount >= 2) {
                 newBulletCount = tower.bulletCount * 3 / 2;
-                cost = cost * (newBulletCount - tower.bulletCount) / newBulletCount;
+                cost = cost * (newBulletCount - tower.bulletCount) / tower.bulletCount;
             }
             bool canUpgrade = cost <= globals->entities.money && newBulletCount <= 60;
             upgradeStatus[4]->string =

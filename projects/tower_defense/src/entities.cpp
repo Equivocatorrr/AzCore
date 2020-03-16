@@ -1199,14 +1199,15 @@ void Tower::Draw(Rendering::DrawingContext &context) {
 
 template struct DoubleBufferArray<Tower>;
 
-const f32 honkerSpawnInterval = 5.0;
+const f32 honkerSpawnInterval = 2.0;
 
 void Enemy::EventCreate() {
     physical.type = CIRCLE;
     physical.basis.circle.c = vec2(0.0);
     physical.basis.circle.r = 0.0;
+    i32 multiplier = 1;
     if (!child) {
-        i32 spawnPoint = random(0, globals->entities.enemySpawns.size, globals->rng);
+        i32 spawnPoint = random(0, globals->entities.enemySpawns.size-1, globals->rng);
         f32 s, c;
         s = sin(globals->entities.enemySpawns[spawnPoint].angle);
         c = cos(globals->entities.enemySpawns[spawnPoint].angle);
@@ -1217,20 +1218,16 @@ void Enemy::EventCreate() {
           * random(-1.0, 1.0, globals->rng);
         physical.pos = globals->entities.enemySpawns[spawnPoint].pos + x + y;
         physical.vel = 0.0;
-        f32 honker = random(0.0, 50000.0 / pow((f32)globals->entities.hitpointsLeft, 0.5), globals->rng);
-        if (honker < 0.04) {
-            hitpoints = 250000;
-        } else if (honker < 0.5) {
-            hitpoints = random(20000, 50000, globals->rng);
-        } else if (honker < 2.5) {
-            hitpoints = random(5000, 10000, globals->rng);
+        multiplier = random(1, 3, globals->rng);
+        f32 honker = random(0.0, 10000.0, globals->rng);
+        if (honker < 1.0) {
+            multiplier = 1000;
         } else if (honker < 10.0) {
-            hitpoints = random(1000, 2500, globals->rng);
-        } else if (honker <= 40.0) {
-            hitpoints = random(200, 500, globals->rng);
-        } else {
-            hitpoints = random(25, 100, globals->rng);
+            multiplier = 500;
+        } else if (honker < 100.0) {
+            multiplier = 100;
         }
+        hitpoints = multiplier * floor(80.0 * pow(1.16, (f32)(globals->entities.wave + 3))) / (globals->entities.wave+7);
         age = 0.0;
     }
     spawnTimer = honkerSpawnInterval;
@@ -1244,10 +1241,11 @@ void Enemy::EventCreate() {
         color = vec4(hsvToRgb(vec3(sqrt(size)/(tau*16.0) + (f32)globals->entities.wave / 9.0, min(size / 100.0, 1.0), 1.0)), 0.7);
     }
     value = hitpoints;
-    targetSpeed = 800.0 / max(log((f32)hitpoints), 1.0);
+    f32 speedDivisor = max(log10((f32)multiplier), 1.0);
+    targetSpeed = 200.0 / speedDivisor;
     size = 0.0;
     if (!child) {
-        globals->entities.enemyTimer += 10.0 * sqrt((f32)hitpoints) / globals->entities.hitpointsPerSecond;
+        globals->entities.enemyTimer += (f32)hitpoints / globals->entities.hitpointsPerSecond / speedDivisor;
     }
 }
 

@@ -707,27 +707,27 @@ struct Array
         return data[index] = value;
     }
 
-    void Erase(const i32 index)
+    void Erase(const i32 index, const i32 count=1)
     {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
-        if (index >= size)
+        if (index+count > size)
         {
             throw std::out_of_range("Array::Erase index is out of bounds");
         }
 #endif
-        size--;
+        size -= count;
         if constexpr (std::is_trivially_copyable<T>::value)
         {
             if (size > index)
             {
-                memmove((void *)(data + index), (void *)(data + index + 1), sizeof(T) * (size - index));
+                memmove((void *)(data + index), (void *)(data + index + count), sizeof(T) * (size - index));
             }
         }
         else
         {
-            for (i32 i = index; i < size - 1; i++)
+            for (i32 i = index; i < size; i++)
             {
-                data[i] = data[i + 1];
+                data[i] = data[i + count];
             }
         }
         SetTerminator();

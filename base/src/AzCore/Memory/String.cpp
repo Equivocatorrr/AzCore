@@ -286,6 +286,7 @@ String ToString(const f32 &value, i32 base, i32 precision)
     }
     f32 crossover;
     i32 count = 8;
+    i32 dot = -1;
     if (newExponent > 7 || newExponent < -1)
     {
         crossover = basis / base;
@@ -305,6 +306,7 @@ String ToString(const f32 &value, i32 base, i32 precision)
         }
         crossover = 1.0 / base;
     }
+    bool roundUp = false;
     for (; count > 0; count--)
     {
         i32 digit = remaining / basis;
@@ -313,12 +315,41 @@ String ToString(const f32 &value, i32 base, i32 precision)
         if (remaining < 0.0)
             remaining = 0.0;
         basis /= base;
+        if (point && count == 1) {
+            if (i32(remaining / basis) >= base / 2) {
+                roundUp = true;
+            }
+        }
         if (!point && basis <= crossover)
         {
+            dot = out.size;
             out += '.';
             point = true;
             if (precision != -1)
                 count = precision + 1;
+        }
+    }
+    if (roundUp && precision != -1) {
+        out[dot+precision]++;
+        for (i32 i = dot+precision; i >= 0;) {
+            i32 nextI = i-1;
+            if (nextI == dot) nextI--;
+            if (out[i] > '9') {
+                if (i > dot+1) {
+                    out.Resize(i);
+                } else {
+                    out[i] = '0';
+                }
+                if (nextI == -1) {
+                    out.Insert(0, '1');
+                    dot++;
+                    break;
+                }
+                out[nextI]++;
+            } else {
+                break;
+            }
+            i = nextI;
         }
     }
     i32 i = out.size - 1;
@@ -416,6 +447,7 @@ String ToString(const f64 &value, i32 base, i32 precision)
     }
     f64 crossover;
     i32 count = 16;
+    i32 dot = -1;
     if (newExponent > 15 || newExponent < -1)
     {
         crossover = basis / base;
@@ -435,6 +467,7 @@ String ToString(const f64 &value, i32 base, i32 precision)
         }
         crossover = 1.0 / base;
     }
+    bool roundUp = false;
     for (; count > 0; count--)
     {
         i32 digit = remaining / basis;
@@ -443,12 +476,41 @@ String ToString(const f64 &value, i32 base, i32 precision)
         if (remaining < 0.0)
             remaining = 0.0;
         basis /= base;
+        if (point && count == 1) {
+            if (i32(remaining / basis) >= base / 2) {
+                roundUp = true;
+            }
+        }
         if (!point && basis <= crossover)
         {
+            dot = out.size;
             out += '.';
             point = true;
             if (precision != -1)
                 count = precision + 1;
+        }
+    }
+    if (roundUp && precision != -1) {
+        out[dot+precision]++;
+        for (i32 i = dot+precision; i >= 0;) {
+            i32 nextI = i-1;
+            if (nextI == dot) nextI--;
+            if (out[i] > '9') {
+                if (i > dot+1) {
+                    out.Resize(i);
+                } else {
+                    out[i] = '0';
+                }
+                if (nextI == -1) {
+                    out.Insert(0, '1');
+                    dot++;
+                    break;
+                }
+                out[nextI]++;
+            } else {
+                break;
+            }
+            i = nextI;
         }
     }
     i32 i = out.size - 1;
@@ -548,6 +610,7 @@ String ToString(const f128 &value, i32 base, i32 precision)
     }
     f128 crossover;
     i32 count = 34;
+    i32 dot = -1;
     if (newExponent > 33 || newExponent < -1)
     {
         crossover = basis / base;
@@ -557,6 +620,7 @@ String ToString(const f128 &value, i32 base, i32 precision)
         if (remaining < 1.0)
         {
             out += "0.";
+            dot = 1;
             point = true;
             if (precision != -1)
                 count = precision + 1;
@@ -567,6 +631,7 @@ String ToString(const f128 &value, i32 base, i32 precision)
         }
         crossover = 1.0 / base;
     }
+    bool roundUp = false;
     for (; count > 0; count--)
     {
         i32 digit = remaining / basis;
@@ -575,12 +640,41 @@ String ToString(const f128 &value, i32 base, i32 precision)
         if (remaining < 0.0)
             remaining = 0.0;
         basis /= base;
+        if (point && count == 1) {
+            if (i32(remaining / basis) >= base / 2) {
+                roundUp = true;
+            }
+        }
         if (!point && basis <= crossover)
         {
+            dot = out.size;
             out += '.';
             point = true;
             if (precision != -1)
                 count = precision + 1;
+        }
+    }
+    if (roundUp && precision != -1) {
+        out[dot+precision]++;
+        for (i32 i = dot+precision; i >= 0;) {
+            i32 nextI = i-1;
+            if (nextI == dot) nextI--;
+            if (out[i] > '9') {
+                if (i > dot+1) {
+                    out.Resize(i);
+                } else {
+                    out[i] = '0';
+                }
+                if (nextI == -1) {
+                    out.Insert(0, '1');
+                    dot++;
+                    break;
+                }
+                out[nextI]++;
+            } else {
+                break;
+            }
+            i = nextI;
         }
     }
     i32 i = out.size - 1;

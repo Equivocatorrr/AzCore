@@ -70,11 +70,11 @@ struct Ptr
     }
     bool operator==(Ptr<T> other) const
     {
-        return ptr == other.ptr;
+        return ptr == other.ptr && index == other.index;
     }
     bool operator!=(Ptr<T> other) const
     {
-        return ptr != other.ptr;
+        return ptr != other.ptr || index != other.index;
     }
     T &operator*()
     {

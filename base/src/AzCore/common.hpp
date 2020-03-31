@@ -3,11 +3,11 @@
     Author: Philip Haynes
     Description: Meta-file to include math and memory aliases.
 */
-#ifndef COMMON_HPP
-#define COMMON_HPP
+#ifndef AZCORE_COMMON_HPP
+#define AZCORE_COMMON_HPP
 
 #include "math.hpp"
 #include "memory.hpp"
 #include "keycodes.hpp"
 
-#endif
+#endif // AZCORE_COMMON_HPP

@@ -9,8 +9,8 @@
         4) Add support for bitmapped glyphs.
 */
 
-#ifndef FONT_HPP
-#define FONT_HPP
+#ifndef AZCORE_FONT_HPP
+#define AZCORE_FONT_HPP
 
 #include "common.hpp"
 #include "IO/LogStream.hpp"
@@ -205,4 +205,4 @@ namespace font {
 
 } // namespace AzCore
 
-#endif // FONT_HPP
+#endif // AZCORE_FONT_HPP

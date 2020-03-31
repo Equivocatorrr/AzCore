@@ -799,15 +799,17 @@ struct Array
         return count;
     }
 
-    Ptr<T> GetPtr(const i32 &index)
-    {
+    Ptr<T> GetPtr(const i32 &index, bool fromBack = false) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
-        if (index >= size)
-        {
+        if (index >= (size + (i32)fromBack)) {
             throw std::out_of_range("Array::GetPtr index is out of bounds");
         }
 #endif
-        return Ptr<T>(this, index);
+        if (fromBack) {
+            return Ptr<T>(this, index - size);
+        } else {
+            return Ptr<T>(this, index);
+        }
     }
 
     Range<T> GetRange(const i32 &index, const i32 &_size)

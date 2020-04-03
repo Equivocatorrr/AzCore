@@ -53,8 +53,8 @@ Array<Range<T>> SeparateByValues(Array<T, allocTail> *array, const Array<T> &val
             rangeStart = i+1;
         }
     }
-    if (rangeStart < array->size-1) {
-        result.Append(array->GetRange(rangeStart, array->size-1-rangeStart));
+    if (rangeStart < array->size) {
+        result.Append(array->GetRange(rangeStart, array->size-rangeStart));
     }
     return result;
 }

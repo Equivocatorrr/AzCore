@@ -16,6 +16,7 @@
 #include "Memory/List.hpp"
 #include "Memory/ArrayList.hpp"
 #include "Memory/BucketArray.hpp"
+#include "Memory/UniquePtr.hpp"
 #include "Time.hpp"
 
 #include <map>
@@ -32,8 +33,8 @@ using Map = std::map<T, B>;
 template<typename T>
 using Set = std::set<T>;
 
-template<typename T, typename Deleter=std::default_delete<T>>
-using UniquePtr = std::unique_ptr<T, Deleter>;
+// template<typename T, typename Deleter=std::default_delete<T>>
+// using UniquePtr = std::unique_ptr<T, Deleter>;
 
 template<typename T>
 using SharedPtr = std::shared_ptr<T>;

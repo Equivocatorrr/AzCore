@@ -45,6 +45,10 @@ WString ToWString(const char *string);
 WString ToWString(String string);
 // Returns how many bytes long a single UTF-8 character is based on the first.
 i32 CharLen(const char chr);
+inline char CharToUpper(char c) {
+    if (c >= 'a' && c <= 'z') c = c + 'A' - 'a';
+    return c;
+}
 
 inline WString operator+(const WString &wString, const char *cString)
 {
@@ -61,6 +65,15 @@ inline WString operator+(const char *cString, const WString &wString)
 inline WString operator+(const String string, const WString &wString)
 {
     return ToWString(string) + wString;
+}
+inline bool operator^(const String &lhs, const String &rhs) {
+    if (lhs.size != rhs.size) return false;
+    for (i32 i = 0; i < lhs.size; i++) {
+        char c1 = CharToUpper(lhs[i]);
+        char c2 = CharToUpper(rhs[i]);
+        if (c1 != c2) return false;
+    }
+    return true;
 }
 
 } // namespace AzCore

@@ -33,7 +33,8 @@ struct StringTerminators
 
 /*  i32 StringLength(const T *string)
     Author: Philip Haynes
-    Finds the length of a value-terminated string. The type T must have an associated StringTerminators declared somewhere. */
+    Finds the length of a value-terminated string. The type T must have an
+    associated StringTerminators declared somewhere. */
 template <typename T>
 i32 StringLength(const T *string)
 {
@@ -73,7 +74,8 @@ public:
 /*  struct: Array
     Author: Philip Haynes
     A templated dynamic array which is guaranteed to be 16 bytes on a 64-bit architecture.
-    allocTail is the number of elements of type T to be set at the end of the valid data, starting at data[size].
+    allocTail is the number of elements of type T to be set at the end of the valid data,
+    starting at data[size].
     For an allocTail != 0, an associated StringTerminators must be declared for type T. */
 template <typename T, i32 allocTail=0>
 struct Array
@@ -177,7 +179,8 @@ struct Array
         }
         SetTerminator();
     }
-    Array(Array<T, allocTail> &&other) noexcept : data(other.data), allocated(other.allocated), size(other.size)
+    Array(Array<T, allocTail> &&other) noexcept :
+    data(other.data), allocated(other.allocated), size(other.size)
     {
         other.data = nullptr;
         other.size = 0;
@@ -220,7 +223,9 @@ struct Array
         if (range.index >= 0) {
             if constexpr (std::is_trivially_copyable<T>::value)
             {
-                memcpy((void *)data, (void *)(((Array<T,0>*)range.ptr)->data + range.index), sizeof(T) * allocated);
+                memcpy((void *)data,
+                    (void *)(((Array<T,0>*)range.ptr)->data + range.index),
+                    sizeof(T) * allocated);
             }
             else
             {
@@ -674,7 +679,8 @@ struct Array
                 temp[index] = std::move(value);
                 if (size - index > 0)
                 {
-                    memcpy((void *)(temp + index + 1), (void *)(data + index), sizeof(T) * (size - index));
+                    memcpy((void *)(temp + index + 1), (void *)(data + index),
+                        sizeof(T) * (size - index));
                 }
             }
             else
@@ -720,7 +726,8 @@ struct Array
         {
             if (size > index)
             {
-                memmove((void *)(data + index), (void *)(data + index + count), sizeof(T) * (size - index));
+                memmove((void *)(data + index), (void *)(data + index + count),
+                    sizeof(T) * (size - index));
             }
         }
         else

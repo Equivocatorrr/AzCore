@@ -26,7 +26,7 @@ class Degrees
 public:
     Degrees() = default;
     Degrees(T a) : _value(a) {}
-    Degrees(const Degrees<T> &a) : _value(a._value) {}
+    // Degrees(const Degrees<T> &a) : _value(a._value) {}
     Degrees(const Radians<T> &a)
     {
         if constexpr (std::is_same<T, f32>())
@@ -83,7 +83,7 @@ class Radians
 public:
     Radians() = default;
     Radians(T a) : _value(a) {}
-    Radians(const Radians<T> &a) : _value(a._value) {}
+    // Radians(const Radians<T> &a) : _value(a._value) {}
     Radians(const Angle<T> &a) : _value(a.value()) {}
     Radians(const Degrees<T> &a)
     {
@@ -144,7 +144,7 @@ class Angle
 
 public:
     Angle() = default;
-    Angle(const Angle<T> &other) : _value(other._value) {}
+    // Angle(const Angle<T> &other) : _value(other._value) {}
     Angle(const T &other) : _value(Radians<T>(other)) {}
     Angle(const Degrees<T> &other) : _value(Radians<T>(other)) {}
     Angle(const Radians<T> &other)

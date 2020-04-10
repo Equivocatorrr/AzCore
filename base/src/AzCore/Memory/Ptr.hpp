@@ -12,6 +12,7 @@ namespace AzCore {
 
 template <typename T, i32 allocTail>
 struct Array;
+static constexpr i32 indexIndicatingRaw = -2147483648;
 
 /*  struct: Ptr
     Author: Philip Haynes
@@ -21,21 +22,18 @@ template <typename T>
 struct Ptr
 {
     union {
-        void *ptr = nullptr;
+        void *ptr;
         T *raw;
         Array<T, 0> *array;
     };
-    i32 index = 0;
-    static constexpr i32 indexIndicatingRaw = -2147483648;
-    Ptr() {}
-    Ptr(T *a) {
-        raw = a;
-        index = indexIndicatingRaw;
-    }
-    Ptr(Array<T,0> *a, i32 i) {
-        ptr = a;
-        index = i;
-    }
+    i32 index;
+    constexpr Ptr(const Ptr<T> &other) : ptr(other.ptr), index(other.index) {}
+    constexpr Ptr(Ptr<T> &&other) : ptr(other.ptr), index(other.index) {}
+    constexpr Ptr<T>& operator=(const Ptr<T> &other) { ptr = other.ptr; index = other.index; return *this; }
+    constexpr Ptr<T>& operator=(Ptr<T> &&other) { ptr = other.ptr; index = other.index; return *this; }
+    Ptr() = default;
+    constexpr Ptr(T *a) : raw(a), index(indexIndicatingRaw) {}
+    constexpr Ptr(Array<T,0> *a, i32 i) : array(a), index(i) {}
     void Set(Array<T,0> *a, i32 i) {
         ptr = a;
         index = i;

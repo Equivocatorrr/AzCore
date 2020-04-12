@@ -125,10 +125,10 @@ struct Id {
         data = a;
         return *this;
     }
-    inline Id& operator=(const Id &other) {
-        data = other.data;
-        return *this;
-    }
+    // inline Id& operator=(const Id &other) {
+    //     data = other.data;
+    //     return *this;
+    // }
     inline bool operator<(const Id& other) const {
         return data < other.data;
     }
@@ -232,6 +232,7 @@ struct Manager : public Objects::Object {
     DoubleBufferArray<Explosion> explosions{};
     Array<UpdateChunk> updateChunks{};
     Sound::Source sndMoney;
+    Sound::Stream streamSegment1;
     Id selectedTower = -1;
     bool focusMenu = false;
     bool placeMode = false;

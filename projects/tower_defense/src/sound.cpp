@@ -5,18 +5,17 @@
 
 #include "sound.hpp"
 #include "globals.hpp"
-// #include "AzCore/log_stream.hpp"
 
 namespace Sound {
 
 String error = "No error";
 
-// logStream cout("sound.log");
-
 String openAlErrorToString(ALenum err) {
     switch (err) {
     case AL_NO_ERROR:
         return "AL_NO_ERROR";
+    case AL_INVALID_NAME:
+        return "AL_INVALID_NAME";
     case AL_INVALID_ENUM:
         return "AL_INVALID_ENUM";
     case AL_INVALID_VALUE:
@@ -69,15 +68,28 @@ bool Manager::Initialize() {
         // alSourcef(sources[i], AL_ROLLOFF_FACTOR, 1.0f);
         // ErrorCheck("alSourcef(AL_ROLLOFF_FACTOR)");
     }
+    procStop = false;
+    procFailure = false;
+    streamUpdateProc = Thread(StreamUpdateProc, this);
     return true;
 }
 
 bool Manager::DeleteSources() {
+    for (i32 i = 0; i < sounds.size; i++) {
+        SourceBase *sound = sounds[i];
+        if (sound->active && sound->playing) {
+            if (!Deactivate(sound)) return false;
+        }
+    }
     alDeleteSources((ALuint)maxSources, sources);
     return ErrorCheck("alDeleteSources");
 }
 
 bool Manager::Deinitialize() {
+    procStop = true;
+    if (streamUpdateProc.Joinable()) {
+        streamUpdateProc.Join();
+    }
     if (!ErrorCheck("Unknown")) return false;
     alcMakeContextCurrent(nullptr);
     alcDestroyContext(context);
@@ -85,8 +97,9 @@ bool Manager::Deinitialize() {
     return true;
 }
 
-bool Manager::Update() {
-    Array<PriorityIndex> priorities(0);
+Array<PriorityIndex> Manager::GetPriorities() {
+    Array<PriorityIndex> priorities;
+    priorities.Reserve(sounds.size);
     for (i32 i = 0; i < sounds.size; i++) {
         PriorityIndex index;
         index.sound = sounds[i];
@@ -117,19 +130,148 @@ bool Manager::Update() {
         if (!foundSpot)
             priorities.Append(index);
     }
+    return priorities;
+}
 
-    for (i32 i = maxSources; i < priorities.size; i++) {
-        if (priorities[i].sound->active) {
-            // We have an active sound that was pushed out of our priority limit so deactivate it
-            alSourceStop(priorities[i].sound->source);
-            if (!ErrorCheck("alSourceStop")) return false;
-            priorities[i].sound->active = false;
-            priorities[i].sound->play = priorities[i].sound->playing;
-            for (i32 ii = 0; ii < maxSources; ii++) {
-                if (priorities[i].sound->source == sources[ii]) {
-                    sourcesFree[ii] = true;
-                    break;
+bool Manager::Deactivate(SourceBase *sound) {
+    alSourceStop(sound->source);
+    if (!ErrorCheck("alSourceStop")) return false;
+    sound->active = false;
+    sound->play = sound->playing;
+    if (sound->stream) {
+        Stream *stream = (Stream*)sound;
+        for (i32 i = 0; i < Assets::numStreamBuffers; i++) {
+            if (!stream->Unqueue(stream->file->buffers[i].buffer)) {
+                error = "Manager::Deactivate: Failed to Unqueue: " + error;
+                return false;
+            }
+        }
+    } else {
+        alSourcei(sound->source, AL_BUFFER, 0);
+    }
+    for (i32 i = 0; i < maxSources; i++) {
+        if (sound->source == sources[i]) {
+            sourcesFree[i] = true;
+            return true;
+        }
+    }
+    error = "Manager::Deactivate: source is not in sources???";
+    return false;
+}
+
+bool Manager::Activate(SourceBase *sound) {
+    for (i32 ii = 0; ii < maxSources; ii++) {
+        if (sourcesFree[ii]) {
+            sourcesFree[ii] = false;
+            sound->source = sources[ii];
+            sound->active = true;
+
+            if (!sound->stream) {
+                alSourcei(sources[ii], AL_BUFFER, ((Source*)sound)->buffer);
+                if (!ErrorCheck("Manager::Activate alSourcei(AL_BUFFER)")) return false;
+            } else {
+                Stream *stream = (Stream*)sound;
+                for (i32 i = 0; i < Assets::numStreamBuffers; i++) {
+                    if (!stream->file->Decode(stream->file->samplerate)) {
+                        error = "Manager::Activate: Failed to Decode: " + Assets::error;
+                        return false;
+                    }
+                    if (!stream->Queue(stream->file->LastBuffer())) {
+                        error = "Manager::Activate: Failed to Queue: " + error;
+                        return false;
+                    }
                 }
+            }
+            return true;
+        }
+    }
+    error = "Manager::Activate: didn't have a free source!";
+    return false;
+}
+
+bool Manager::UpdateActiveSound(SourceBase *sound) {
+    // alSource3f(sound->source, AL_POSITION, sound->position.x, sound->position.y, sound->position.z);
+    // ErrorCheck("alSource3f(AL_POSITION)");
+    // alSource3f(sound->source, AL_VELOCITY, sound->velocity.x, sound->velocity.y, sound->velocity.z);
+    // ErrorCheck("alSource3f(AL_VELOCITY)");
+    // alSource3f(sound->source, AL_DIRECTION, sound->direction.x, sound->direction.y, sound->direction.z);
+    // ErrorCheck("alSource3f(AL_DIRECTION)");
+    alSourcef(sound->source, AL_PITCH, sound->pitch * (sound->simulationPitch ? globals->objects.simulationRate : 1.0));
+    if (!ErrorCheck("alSourcef(AL_PITCH)")) return false;
+    f32 gain = sound->gain * globals->volumeMain;
+    switch(sound->channel) {
+        case MUSIC:
+            gain *= globals->volumeMusic;
+            break;
+        case FX:
+            gain *= globals->volumeEffects;
+            break;
+    }
+    alSourcef(sound->source, AL_GAIN, gain);
+    if (!ErrorCheck("alSourcef(AL_GAIN)")) return false;
+    alSourcei(sound->source, AL_LOOPING, sound->loop);
+    if (!ErrorCheck("alSourcei(AL_LOOPING)")) return false;
+    // Handle changing play states
+    ALint state;
+    alGetSourcei(sound->source, AL_SOURCE_STATE, &state);
+    if (!ErrorCheck("SourceBase::Playing alGetSourcei(AL_SOURCE_STATE)")) return false;
+    bool stopped = false;
+    if (state == AL_PLAYING) {
+        // We're playing. Should we keep doing that?
+        if (sound->pause) {
+            if (!Pause(sound)) return false;
+        }
+        if (sound->stop && !sound->stream) {
+            if (!Stop(sound)) return false;
+            stopped = true;
+        }
+    }
+    if (state != AL_PLAYING || stopped) {
+        // Not playing
+        if (sound->play) {
+            if (!Play(sound)) return false;
+        }
+    }
+    return true;
+}
+
+bool Manager::Play(SourceBase *sound) {
+    alSourcePlay(sound->source);
+    if (!ErrorCheck("alSourcePlay")) return false;
+    sound->play = false;
+    sound->stop = false;
+    sound->playing = true;
+    return true;
+}
+
+bool Manager::Pause(SourceBase *sound) {
+    alSourcePause(sound->source);
+    if (!ErrorCheck("alSourcePause")) return false;
+    sound->pause = false;
+    sound->playing = false;
+    return true;
+}
+
+bool Manager::Stop(SourceBase *sound) {
+    alSourceStop(sound->source);
+    if (!ErrorCheck("alSourceStop")) return false;
+    sound->stop = false;
+    sound->playing = false;
+    return true;
+}
+
+bool Manager::Update() {
+    if (procFailure) {
+        return false;
+    }
+    Array<PriorityIndex> priorities = GetPriorities();
+    soundMutex.Lock();
+    // Free up sources from the sounds that got pushed out of priorities
+    for (i32 i = maxSources; i < priorities.size; i++) {
+        SourceBase *sound = priorities[i].sound;
+        if (sound->active) {
+            if (!Deactivate(sound)) {
+                return false;
             }
         }
     }
@@ -138,80 +280,15 @@ bool Manager::Update() {
         SourceBase *sound = priorities[i].sound;
         if (!sound->active) {
             // We have a sound that's within our priority limit that isn't active so activate it
-            for (i32 ii = 0; ii < maxSources; ii++) {
-                if (sourcesFree[ii]) {
-                    sourcesFree[ii] = false;
-                    sound->source = sources[ii];
-                    sound->active = true;
-
-                    if (!sound->stream) {
-                        alSourcei(sources[ii], AL_BUFFER, ((Source*)sound)->buffer);
-                        if (!ErrorCheck("Manager::Update alSourcei(AL_BUFFER)")) return false;
-                    }
-                    break;
-                }
+            if (!Activate(sound)) {
+                return false;
             }
         }
         if (sound->active) {
-            // Updates for every active sound
-            // alSource3f(sound->source, AL_POSITION, sound->position.x, sound->position.y, sound->position.z);
-            // ErrorCheck("alSource3f(AL_POSITION)");
-            // alSource3f(sound->source, AL_VELOCITY, sound->velocity.x, sound->velocity.y, sound->velocity.z);
-            // ErrorCheck("alSource3f(AL_VELOCITY)");
-            // alSource3f(sound->source, AL_DIRECTION, sound->direction.x, sound->direction.y, sound->direction.z);
-            // ErrorCheck("alSource3f(AL_DIRECTION)");
-            alSourcef(sound->source, AL_PITCH, sound->pitch * (sound->simulationPitch ? globals->objects.simulationRate : 1.0));
-            if (!ErrorCheck("alSourcef(AL_PITCH)")) return false;
-            f32 gain = sound->gain * globals->volumeMain;
-            switch(sound->channel) {
-                case MUSIC:
-                    gain *= globals->volumeMusic;
-                    break;
-                case FX:
-                    gain *= globals->volumeEffects;
-                    break;
-            }
-            alSourcef(sound->source, AL_GAIN, gain);
-            if (!ErrorCheck("alSourcef(AL_GAIN)")) return false;
-            alSourcei(sound->source, AL_LOOPING, sound->loop);
-            if (!ErrorCheck("alSourcei(AL_LOOPING)")) return false;
-            // Handle changing play states
-            ALint state;
-            alGetSourcei(sound->source, AL_SOURCE_STATE, &state);
-            if (!ErrorCheck("SourceBase::Playing alGetSourcei(AL_SOURCE_STATE)")) return false;
-            bool stopped = false;
-            if (state == AL_PLAYING) {
-                if (sound->pause) {
-                    alSourcePause(sound->source);
-                    if (!ErrorCheck("alSourcePause")) return false;
-                    sound->pause = false;
-                    sound->playing = false;
-                }
-                if (sound->stop && !sound->stream) {
-                    alSourceStop(sound->source);
-                    if (!ErrorCheck("alSourceStop")) return false;
-                    sound->stop = false;
-                    sound->playing = false;
-                    stopped = true;
-                }
-            }
-            if (state != AL_PLAYING || stopped) {
-                // Not playing
-                if (sound->play) {
-                    //Sys::cout << "We're telling it to play" << std::endl;
-                    if (!sound->stream) {
-                        alSourcei(sound->source, AL_BUFFER, ((Source*)sound)->buffer);
-                        if (!ErrorCheck("DC::Update alSourcei(AL_BUFFER)")) return false;
-                    }
-                    alSourcePlay(sound->source);
-                    if (!ErrorCheck("alSourcePlay")) return false;
-                    sound->play = false;
-                    sound->stop = false;
-                    sound->playing = true;
-                }
-            }
+            if (!UpdateActiveSound(sound)) return false;
         }
     }
+    soundMutex.Unlock();
     return true;
 }
 
@@ -230,6 +307,35 @@ void Manager::Unregister(SourceBase *sound) {
             sounds.Erase(i);
             return;
         }
+    }
+}
+
+void Manager::StreamUpdateProc(Manager *theThisPointer) {
+    Array<SourceBase*> &sounds = theThisPointer->sounds;
+    while(!theThisPointer->procStop) {
+        for (i32 i = 0; i < sounds.size; i++) {
+            if (!sounds[i]->stream || !sounds[i]->active) continue;
+            Stream *stream = (Stream*)sounds[i];
+            if (stream->BuffersDone() > 0) {
+                // std::cout << "Decode and queue" << std::endl;
+                theThisPointer->soundMutex.Lock();
+                if (!stream->Unqueue(stream->file->currentBuffer)) {
+                    theThisPointer->procFailure = true;
+                    return;
+                }
+                if (!stream->file->Decode(stream->file->samplerate)) {
+                    theThisPointer->procFailure = true;
+                    return;
+                }
+                if (!stream->Queue(stream->file->LastBuffer())) {
+                    theThisPointer->procFailure = true;
+                    return;
+                }
+                // stream->buffersToQueue.Append(stream->file->LastBuffer());
+                theThisPointer->soundMutex.Unlock();
+            }
+        }
+        Thread::Sleep(Milliseconds(25));
     }
 }
 
@@ -292,10 +398,25 @@ void MultiSource::Stop() {
     }
 }
 
-void Stream::Create() {
+bool Stream::Create(Ptr<Assets::Stream> file_in) {
+    if (!file_in.Valid()) {
+        error = "Stream::Create: Ptr not valid!";
+        return false;
+    }
     playing = false;
     channel = MUSIC;
     stream = true;
+    file = file_in;
+    return true;
+}
+
+bool Stream::Create(String filename) {
+    i32 streamIndex = globals->assets.FindMapping(filename);
+    if (!Create(globals->assets.streams.GetPtr(streamIndex))) {
+        return false;
+    }
+    globals->sound.Register(this);
+    return true;
 }
 
 void Stream::Stop() {
@@ -315,7 +436,7 @@ bool Stream::Queue(ALuint buffer) {
 
 i32 Stream::BuffersDone() {
     if (!active)
-        return false;
+        return 0;
     ALint buffersProcessed;
     alGetSourcei(source, AL_BUFFERS_PROCESSED, &buffersProcessed);
     if (!ErrorCheck("Stream::BufferDone alGetSourcei(AL_BUFFERS_PROCESSED)")) return -1;

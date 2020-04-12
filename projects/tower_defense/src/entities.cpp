@@ -168,12 +168,16 @@ const Tower towerFlakTemplate = Tower(
 );
 
 void Manager::EventAssetInit() {
-    globals->assets.filesToLoad.Append("Money Cursed.ogg");
+    globals->assets.QueueFile("Money Cursed.ogg");
+    globals->assets.QueueFile("Segment 1.ogg", Assets::STREAM);
 }
 
 void Manager::EventAssetAcquire() {
     sndMoney.Create("Money Cursed.ogg");
     sndMoney.SetGain(0.5);
+    if (!streamSegment1.Create("Segment 1.ogg")) {
+        std::cout << "Failed to create stream for \"Segment 1.ogg\": " << Sound::error.data << std::endl;
+    }
 }
 
 void Manager::EventInitialize() {
@@ -189,6 +193,7 @@ void Manager::EventInitialize() {
     CreateSpawn();
     camPos = enemySpawns[0].pos * 0.5;
     camZoom = min(globals->rendering.screenSize.x, globals->rendering.screenSize.y) / 1500.0;
+    streamSegment1.Play();
 }
 
 inline void Manager::HandleGamepadCamera() {

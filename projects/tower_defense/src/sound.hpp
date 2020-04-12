@@ -8,10 +8,15 @@
 #define SOUND_HPP
 
 #include "AzCore/common.hpp"
+#include "AzCore/Thread.hpp"
 #include <AL/al.h>
 #include <AL/alc.h>
 
 using namespace AzCore;
+
+namespace Assets {
+    struct Stream;
+}
 
 namespace Sound {
 
@@ -99,7 +104,10 @@ struct MultiSource {
     Author: Philip Haynes
     Opens and maintains the buffers needed to stream long audio files       */
 struct Stream : public SourceBase {
-    void Create();
+    Ptr<Assets::Stream> file;
+    // Array<ALuint> buffersToQueue{};
+    bool Create(Ptr<Assets::Stream> file_in);
+    bool Create(String filename);
     bool Queue(ALuint buffer);
     i32 BuffersDone();
     bool Unqueue(ALuint buffer);
@@ -126,14 +134,30 @@ struct Manager {
 
     Array<SourceBase*> sounds;
 
+    Thread streamUpdateProc;
+    std::atomic<bool> procStop;
+    std::atomic<bool> procFailure;
+    Mutex soundMutex;
+
     bool Initialize();
     bool DeleteSources();
     bool Deinitialize();
+
 
     bool Update();
 
     inline void Register(SourceBase *sound) { sounds.Append(sound); }
     void Unregister(SourceBase *sound);
+
+private:
+    Array<PriorityIndex> GetPriorities();
+    bool Deactivate(SourceBase *sound);
+    bool Activate(SourceBase *sound);
+    bool UpdateActiveSound(SourceBase *sound);
+    bool Play(SourceBase *sound);
+    bool Pause(SourceBase *sound);
+    bool Stop(SourceBase *sound);
+    static void StreamUpdateProc(Manager *theThisPointer);
 };
 
 } // namespace Sound

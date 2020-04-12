@@ -129,7 +129,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
         for (i32 i = 0; i < 2; i++) {
             if (threads[i].Joinable()) threads[i].Join();
         }
-        globals->sound.Update();
+        if (!globals->sound.Update()) {
+            cout << Sound::error << std::endl;
+            return false;
+        }
         globals->input.Tick(globals->objects.timestep);
         Nanoseconds frameDelta = Nanoseconds(Clock::now() - frameStart);
         Nanoseconds frameSleep = globals->frameDuration - frameDelta;

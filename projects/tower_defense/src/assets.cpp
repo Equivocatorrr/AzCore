@@ -176,8 +176,6 @@ bool Sound::Load(String filename) {
     return true;
 }
 
-Sound::Sound() : valid(false), buffer({UINT32_MAX, false}) {}
-
 Sound::~Sound() {
     if (valid) {
         if (!buffer.Clean()) {
@@ -186,14 +184,101 @@ Sound::~Sound() {
     }
 }
 
+bool Stream::Open(String filename) {
+    filename = "data/sound/" + filename;
+    for (i32 i = 0; i < numStreamBuffers; i++) {
+        if (!buffers[i].Create()) {
+            error = "Stream::Open: Failed to create buffer: " + ::Sound::error;
+            return false;
+        }
+    }
+    i32 iError = 0;
+    vorbis = stb_vorbis_open_filename(filename.data, &iError, nullptr);
+    if (!vorbis) {
+        error = "Stream::Open: Failed to open \"" + filename + "\", error code " + ToString(iError);
+        return false;
+    }
+    totalSamples = stb_vorbis_stream_length_in_samples(vorbis);
+    stb_vorbis_info info = stb_vorbis_get_info(vorbis);
+    channels = info.channels;
+    samplerate = info.sample_rate;
+    if (channels > 2 || channels < 1) {
+        error = "Unsupported number of channels in sound file (" + filename + "): " + ToString(channels);
+        stb_vorbis_close(vorbis);
+        return false;
+    }
+    valid = true;
+    return true;
+}
+
+bool Stream::Decode(i32 sampleCount) {
+    if (!valid) {
+        error = "Stream::Decode: Stream not valid!";
+        return false;
+    }
+    if (cursorSample >= totalSamples) {
+        cursorSample = 0;
+        stb_vorbis_seek_start(vorbis);
+    }
+    Array<i16> samples(sampleCount * channels);
+
+    i32 length =
+    stb_vorbis_get_samples_short_interleaved(vorbis, channels, samples.data, samples.size);
+
+    cursorSample += length;
+    ::Sound::Buffer &buffer = buffers[(i32)currentBuffer];
+    if (!buffer.Load(samples.data, channels == 1 ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16, length * 2 * channels, samplerate)) {
+        error = "Stream::Decode: Failed to load buffer: " + ::Sound::error
+            + " channels=" + ToString(channels) + " length=" + ToString(length)
+            + " samplerate=" + ToString(samplerate) + " bufferid=" + ToString(buffer.buffer) + " &decoded=0x" + ToString((i64)samples.data, 16);
+        return false;
+    }
+    currentBuffer = (currentBuffer + 1) % numStreamBuffers;
+    return true;
+}
+
+ALuint Stream::LastBuffer() {
+    if (currentBuffer == 0) {
+        return buffers[numStreamBuffers-1].buffer;
+    } else {
+        return buffers[currentBuffer-1].buffer;
+    }
+}
+
+bool Stream::Close() {
+    if (!valid) {
+        error = "Stream::Close: Stream not valid!";
+        return false;
+    }
+    stb_vorbis_close(vorbis);
+    return true;
+}
+
+Stream::~Stream() {
+    if (valid) {
+        for (i32 i = 0; i < numStreamBuffers; i++) {
+            if (!buffers[i].Clean()) {
+                cout << "Failed to clean Stream buffer: " << ::Sound::error << std::endl;
+            }
+        }
+    }
+}
+
 bool Manager::LoadAll() {
     for (i32 i = 0; i < filesToLoad.size; i++) {
-        cout << "Loading asset \"" << filesToLoad[i] << "\": ";
-        Type type = FilenameToType(filesToLoad[i]);
+        cout << "Loading asset \"" << filesToLoad[i].filename << "\": ";
+        Type type;
+        if (filesToLoad[i].type == NONE) {
+            type = FilenameToType(filesToLoad[i].filename);
+        } else {
+            type = filesToLoad[i].type;
+        }
         i32 nextTexIndex = textures.size;
         i32 nextFontIndex = fonts.size;
         i32 nextSoundIndex = sounds.size;
+        i32 nextStreamIndex = streams.size;
         Mapping mapping;
+        mapping.type = type;
         switch (type) {
         case NONE:
             cout << "Unknown file type." << std::endl;
@@ -202,37 +287,38 @@ bool Manager::LoadAll() {
             cout << "as font." << std::endl;
             fonts.Append(Font());
             fonts[nextFontIndex].fontBuilder.resolution = font::FontBuilder::HIGH;
-            if (!fonts[nextFontIndex].Load(filesToLoad[i])) {
+            if (!fonts[nextFontIndex].Load(filesToLoad[i].filename)) {
                 return false;
             }
-            mapping.type = FONT;
             mapping.index = nextFontIndex;
-            mapping.SetFilename(filesToLoad[i]);
-            mappings.Append(std::move(mapping));
             break;
         case TEXTURE:
             cout << "as texture." << std::endl;
             textures.Append(Texture());
-            if (!textures[nextTexIndex].Load(filesToLoad[i])) {
+            if (!textures[nextTexIndex].Load(filesToLoad[i].filename)) {
                 return false;
             }
-            mapping.type = TEXTURE;
             mapping.index = nextTexIndex;
-            mapping.SetFilename(filesToLoad[i]);
-            mappings.Append(std::move(mapping));
             break;
         case SOUND:
             cout << "as sound." << std::endl;
             sounds.Append(Sound());
-            if (!sounds[nextSoundIndex].Load(filesToLoad[i])) {
+            if (!sounds[nextSoundIndex].Load(filesToLoad[i].filename)) {
                 return false;
             }
-            mapping.type = SOUND;
             mapping.index = nextSoundIndex;
-            mapping.SetFilename(filesToLoad[i]);
-            mappings.Append(std::move(mapping));
+            break;
+        case STREAM:
+            cout << "as stream." << std::endl;
+            streams.Append(Stream());
+            if (!streams[nextStreamIndex].Open(filesToLoad[i].filename)) {
+                return false;
+            }
+            mapping.index = nextStreamIndex;
             break;
         }
+        mapping.SetFilename(filesToLoad[i].filename);
+        mappings.Append(std::move(mapping));
     }
     return true;
 }
@@ -245,7 +331,7 @@ i32 Manager::FindMapping(String filename) {
         }
     }
     cout << "No mapping found for \"" << filename << "\"" << std::endl;
-    return 0;
+    return -1;
 }
 
 f32 Manager::CharacterWidth(char32 c, i32 fontIndex) const {

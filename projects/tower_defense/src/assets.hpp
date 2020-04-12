@@ -11,6 +11,8 @@
 #include "AzCore/font.hpp"
 #include "sound.hpp"
 
+struct stb_vorbis;
+
 namespace Rendering {
     struct Manager;
 }
@@ -23,7 +25,8 @@ enum Type {
     NONE,
     TEXTURE,
     FONT,
-    SOUND
+    SOUND,
+    STREAM
 };
 
 // Used to retrieve indices to actual assets
@@ -58,7 +61,7 @@ struct Font {
 struct Sound {
     bool valid;
     ::Sound::Buffer buffer;
-    Sound();
+    inline Sound() : valid(false), buffer({UINT32_MAX, false}) {}
     inline Sound(const Sound &a) : valid(false), buffer(a.buffer) {}
     inline Sound(Sound &&a) : valid(a.valid), buffer(a.buffer) { a.valid = false; }
     ~Sound();
@@ -77,14 +80,82 @@ struct Sound {
     bool Load(String filename);
 };
 
+constexpr i8 numStreamBuffers = 2;
+
+struct Stream {
+    stb_vorbis *vorbis;
+    bool valid;
+    i8 channels;
+    i8 currentBuffer;
+    i32 samplerate;
+    // The total number of samples in the audio file.
+    i32 totalSamples;
+    // The location in samples that we want to decode next.
+    i32 cursorSample;
+    ::Sound::Buffer buffers[numStreamBuffers];
+    inline Stream() : valid(false), currentBuffer(0), buffers({{UINT32_MAX, false}}) {}
+    inline Stream(const Stream &a) :
+        vorbis(a.vorbis), valid(false), currentBuffer(a.currentBuffer), buffers(a.buffers) {}
+    inline Stream(Stream &&a) :
+        vorbis(a.vorbis), valid(a.valid), currentBuffer(a.currentBuffer), buffers(a.buffers)
+    {
+        a.valid = false;
+    }
+    ~Stream();
+    inline Stream& operator=(const Stream &a) {
+        vorbis = a.vorbis;
+        valid = false;
+        currentBuffer = a.currentBuffer;
+        for (i32 i = 0; i < numStreamBuffers; i++) {
+            buffers[i] = a.buffers[i];
+        }
+        return *this;
+    }
+    inline Stream& operator=(Stream &&a) {
+        vorbis = a.vorbis;
+        valid = a.valid;
+        currentBuffer = a.currentBuffer;
+        for (i32 i = 0; i < numStreamBuffers; i++) {
+            buffers[i] = a.buffers[i];
+        }
+        a.valid = false;
+        return *this;
+    }
+
+    bool Open(String filename);
+    bool Decode(i32 sampleCount);
+    ALuint LastBuffer();
+    bool Close();
+};
+
 constexpr i32 textureIndexBlank = 1;
 
 struct Manager {
-    Array<String> filesToLoad{"TextureMissing.png", "blank.bmp", "DroidSansFallback.ttf"}; // Everything we want to actually load.
+    struct FileToLoad {
+        String filename;
+        Type type;
+        inline FileToLoad() : filename(), type(NONE) {}
+        inline FileToLoad(String fn) : filename(fn), type(NONE) {}
+        inline FileToLoad(String fn, Type t) : filename(fn), type(t) {}
+    };
+    // Everything we want to actually load.
+    Array<FileToLoad> filesToLoad{
+        FileToLoad("TextureMissing.png"),
+        FileToLoad("blank.bmp"),
+        FileToLoad("DroidSansFallback.ttf")
+    };
     Array<Mapping> mappings{};
     Array<Texture> textures{};
     Array<Font> fonts{};
     Array<Sound> sounds{};
+    Array<Stream> streams{};
+
+    inline void QueueFile(String filename) {
+        filesToLoad.Append(FileToLoad(filename));
+    }
+    inline void QueueFile(String filename, Type type) {
+        filesToLoad.Append({filename, type});
+    }
 
     bool LoadAll();
     i32 FindMapping(String filename);

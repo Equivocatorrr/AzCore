@@ -20,25 +20,24 @@ Gui::~Gui() {
 }
 
 void Gui::EventAssetInit() {
-    globals->assets.filesToLoad.Append("DroidSans.ttf");
-    // globals->assets.filesToLoad.Append("LiberationSerif-Regular.ttf");
-    // globals->assets.filesToLoad.Append("OpenSans-Regular.ttf");
-    // globals->assets.filesToLoad.Append("Literata[wght].ttf");
-    globals->assets.filesToLoad.Append("gamma.tga");
-    globals->assets.filesToLoad.Append("click in 1.ogg");
-    globals->assets.filesToLoad.Append("click in 2.ogg");
-    globals->assets.filesToLoad.Append("click in 3.ogg");
-    globals->assets.filesToLoad.Append("click in 4.ogg");
-    globals->assets.filesToLoad.Append("click out 1.ogg");
-    globals->assets.filesToLoad.Append("click out 2.ogg");
-    globals->assets.filesToLoad.Append("click out 3.ogg");
-    globals->assets.filesToLoad.Append("click out 4.ogg");
-    globals->assets.filesToLoad.Append("click soft 1.ogg");
-    globals->assets.filesToLoad.Append("click soft 2.ogg");
-    globals->assets.filesToLoad.Append("Pop High.ogg");
-    globals->assets.filesToLoad.Append("Pop Low.ogg");
-
-    globals->assets.filesToLoad.Append("Cursor.png");
+    globals->assets.QueueFile("DroidSans.ttf");
+    // globals->assets.QueueFile("LiberationSerif-Regular.ttf");
+    // globals->assets.QueueFile("OpenSans-Regular.ttf");
+    // globals->assets.QueueFile("Literata[wght].ttf");
+    globals->assets.QueueFile("gamma.tga");
+    globals->assets.QueueFile("click in 1.ogg");
+    globals->assets.QueueFile("click in 2.ogg");
+    globals->assets.QueueFile("click in 3.ogg");
+    globals->assets.QueueFile("click in 4.ogg");
+    globals->assets.QueueFile("click out 1.ogg");
+    globals->assets.QueueFile("click out 2.ogg");
+    globals->assets.QueueFile("click out 3.ogg");
+    globals->assets.QueueFile("click out 4.ogg");
+    globals->assets.QueueFile("click soft 1.ogg");
+    globals->assets.QueueFile("click soft 2.ogg");
+    globals->assets.QueueFile("Pop High.ogg");
+    globals->assets.QueueFile("Pop Low.ogg");
+    globals->assets.QueueFile("Cursor.png");
 }
 
 void Gui::EventAssetAcquire() {

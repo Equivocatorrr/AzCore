@@ -664,6 +664,10 @@ void UpgradesMenu::Initialize() {
     AddWidget(&screen, hideable);
 }
 
+inline String FloatToString(f32 in) {
+    return ToString(in, 10, 2);
+}
+
 void UpgradesMenu::Update() {
     if (globals->entities.selectedTower != -1) {
         hideable->hidden = false;
@@ -682,7 +686,7 @@ void UpgradesMenu::Update() {
             f32 newRange = tower.range * 1.25;
             bool canUpgrade = cost <= globals->entities.money;
             upgradeStatus[0]->string =
-                ToString(tower.range/10.0) + "m > " + ToString(newRange/10.0) + "m" +
+                FloatToString(tower.range/10.0) + "m > " + FloatToString(newRange/10.0) + "m" +
                 costString + ToString(cost);
             upgradeButton[0]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8, 0.1, 0.1), 1.0);
             if (upgradeButton[0]->state.Released() && canUpgrade) {
@@ -697,7 +701,7 @@ void UpgradesMenu::Update() {
             f32 newFirerate = tower.shootInterval / 1.5;
             bool canUpgrade = cost <= globals->entities.money && newFirerate >= 1.0/18.1;
             upgradeStatus[1]->string =
-                ToString(1.0/tower.shootInterval) + "r/s > " + ToString(1.0/newFirerate) + "r/s" +
+                FloatToString(1.0/tower.shootInterval) + "r/s > " + FloatToString(1.0/newFirerate) + "r/s" +
                 costString + ToString(cost);
             upgradeButton[1]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8, 0.1, 0.1), 1.0);
             if (upgradeButton[1]->state.Released() && canUpgrade) {
@@ -711,7 +715,7 @@ void UpgradesMenu::Update() {
             Degrees32 newSpread = tower.bulletSpread.value() / 1.5;
             bool canUpgrade = cost <= globals->entities.money;
             upgradeStatus[2]->string =
-                ToString(tower.bulletSpread.value()) + "° > " + ToString(newSpread.value()) + "°" +
+                FloatToString(tower.bulletSpread.value()) + "° > " + FloatToString(newSpread.value()) + "°" +
                 costString + ToString(cost);
             upgradeButton[2]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8, 0.1, 0.1), 1.0);
             if (upgradeButton[2]->state.Released() && canUpgrade) {

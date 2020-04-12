@@ -193,6 +193,7 @@ void Manager::EventInitialize() {
     CreateSpawn();
     camPos = enemySpawns[0].pos * 0.5;
     camZoom = min(globals->rendering.screenSize.x, globals->rendering.screenSize.y) / 1500.0;
+    HandleMusicLoops(1);
     streamSegment1.Play();
 }
 
@@ -294,6 +295,7 @@ inline void Manager::HandleUI() {
     if (globals->gui.playMenu.buttonStartWave->state.Released()) {
         if (!waveActive) {
             wave++;
+            HandleMusicLoops(wave);
             f64 factor = pow((f64)1.2, (f64)(wave+3));
             hitpointsPerSecond = (f64)((i64)(factor * 5.0d) * 100);
             hitpointsLeft += hitpointsPerSecond;
@@ -419,6 +421,14 @@ inline void Manager::HandleTowerPlacement(u8 keycodePlace) {
             towers.Create(tower);
             money -= towerCosts[towerType];
         }
+    }
+}
+
+inline void Manager::HandleMusicLoops(i32 w) {
+    if (w >= 1 && w <= 10) {
+        i32 section = 44100*16;
+        i32 preLoop = 44100*0;
+        streamSegment1.SetLoopRange(w*section+preLoop, (w+1)*section);
     }
 }
 

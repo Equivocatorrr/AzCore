@@ -85,19 +85,26 @@ constexpr i8 numStreamBuffers = 2;
 struct Stream {
     stb_vorbis *vorbis;
     bool valid;
-    i8 channels;
-    i8 currentBuffer;
-    i32 samplerate;
-    // The total number of samples in the audio file.
-    i32 totalSamples;
-    // The location in samples that we want to decode next.
-    i32 cursorSample;
+    struct {
+        i8 channels = 0;
+        i8 lastBuffer = 0;
+        i8 currentBuffer = 0;
+        i32 samplerate = 0;
+        // The total number of samples in the audio file.
+        i32 totalSamples = 0;
+        // The location in samples that we want to decode next.
+        i32 cursorSample = 0;
+        // Where we should seek to if we reach loopEndSample
+        i32 loopBeginSample = 0;
+        // Where we should stop before looping back to loopBeginSample
+        i32 loopEndSample = -1;
+    } data;
     ::Sound::Buffer buffers[numStreamBuffers];
-    inline Stream() : valid(false), currentBuffer(0), buffers({{UINT32_MAX, false}}) {}
+    inline Stream() : valid(false), data(), buffers({{UINT32_MAX, false}}) {}
     inline Stream(const Stream &a) :
-        vorbis(a.vorbis), valid(false), currentBuffer(a.currentBuffer), buffers(a.buffers) {}
+        vorbis(a.vorbis), valid(false), data(a.data), buffers(a.buffers) {}
     inline Stream(Stream &&a) :
-        vorbis(a.vorbis), valid(a.valid), currentBuffer(a.currentBuffer), buffers(a.buffers)
+        vorbis(a.vorbis), valid(a.valid), data(a.data), buffers(a.buffers)
     {
         a.valid = false;
     }
@@ -105,7 +112,7 @@ struct Stream {
     inline Stream& operator=(const Stream &a) {
         vorbis = a.vorbis;
         valid = false;
-        currentBuffer = a.currentBuffer;
+        data = a.data;
         for (i32 i = 0; i < numStreamBuffers; i++) {
             buffers[i] = a.buffers[i];
         }
@@ -114,7 +121,7 @@ struct Stream {
     inline Stream& operator=(Stream &&a) {
         vorbis = a.vorbis;
         valid = a.valid;
-        currentBuffer = a.currentBuffer;
+        data = a.data;
         for (i32 i = 0; i < numStreamBuffers; i++) {
             buffers[i] = a.buffers[i];
         }
@@ -123,7 +130,8 @@ struct Stream {
     }
 
     bool Open(String filename);
-    bool Decode(i32 sampleCount);
+    // Returns the number of samples decoded or -1 on error
+    i32 Decode(i32 sampleCount);
     ALuint LastBuffer();
     bool Close();
 };

@@ -198,12 +198,13 @@ bool Stream::Open(String filename) {
         error = "Stream::Open: Failed to open \"" + filename + "\", error code " + ToString(iError);
         return false;
     }
-    totalSamples = stb_vorbis_stream_length_in_samples(vorbis);
+    data.totalSamples = stb_vorbis_stream_length_in_samples(vorbis);
     stb_vorbis_info info = stb_vorbis_get_info(vorbis);
-    channels = info.channels;
-    samplerate = info.sample_rate;
-    if (channels > 2 || channels < 1) {
-        error = "Unsupported number of channels in sound file (" + filename + "): " + ToString(channels);
+    data.channels = info.channels;
+    data.samplerate = info.sample_rate;
+    if (data.channels > 2 || data.channels < 1) {
+        error = "Unsupported number of channels in sound file (" + filename + "): "
+              + ToString(data.channels);
         stb_vorbis_close(vorbis);
         return false;
     }
@@ -211,38 +212,80 @@ bool Stream::Open(String filename) {
     return true;
 }
 
-bool Stream::Decode(i32 sampleCount) {
+constexpr i32 crossfadeSamples = 8820;
+
+i32 Stream::Decode(i32 sampleCount) {
     if (!valid) {
         error = "Stream::Decode: Stream not valid!";
-        return false;
+        return -1;
     }
-    if (cursorSample >= totalSamples) {
-        cursorSample = 0;
-        stb_vorbis_seek_start(vorbis);
+    Array<i16> samples(sampleCount * data.channels);
+    i32 length; // How many samples were decoded
+    if (data.loopEndSample <= 0) {
+        if (data.cursorSample >= data.totalSamples) {
+            data.cursorSample = 0;
+            stb_vorbis_seek_start(vorbis);
+            return 0;
+        }
+        length =
+        stb_vorbis_get_samples_short_interleaved(vorbis, data.channels, samples.data, samples.size);
+        data.cursorSample += length;
+    } else {
+        if (data.cursorSample + sampleCount >= data.loopEndSample) {
+            // Don't go past the loop point
+            sampleCount = data.loopEndSample - data.cursorSample;
+            samples.Resize(sampleCount*data.channels);
+            length =
+            stb_vorbis_get_samples_short_interleaved(vorbis, data.channels, samples.data, samples.size);
+            Array<i16> crossfade(crossfadeSamples * data.channels);
+            if (data.loopBeginSample > crossfadeSamples) {
+                // crossfade can be actual audio
+                stb_vorbis_seek(vorbis, data.loopBeginSample-crossfadeSamples);
+                stb_vorbis_get_samples_short_interleaved(vorbis, data.channels, crossfade.data, crossfade.size);
+            } else if (data.loopBeginSample > 0) {
+                // crossfadeSamples > loopBeginSample
+                // some of the crossfade is audio
+                memset(crossfade.data, 0, crossfade.size * sizeof(i16));
+                stb_vorbis_seek_start(vorbis);
+                stb_vorbis_get_samples_short_interleaved(vorbis, data.channels, crossfade.data + (crossfadeSamples - data.loopBeginSample) * data.channels, data.loopBeginSample * data.channels);
+            } else {
+                // crossfade is silence
+                memset(crossfade.data, 0, crossfade.size * sizeof(i16));
+                stb_vorbis_seek_start(vorbis);
+            }
+            // I'll do a linear crossfade for now
+            for (i32 i = 0; i < crossfadeSamples; i++) {
+                for (i32 c = 0; c < data.channels; c++) {
+                    i16 &sample1 = samples[(sampleCount-crossfadeSamples+i) * data.channels + c];
+                    i16 &sample2 = crossfade[i * data.channels + c];
+                    f32 s = lerp((f32)sample1, (f32)sample2, (f32)(i+1) / (f32)(crossfadeSamples+1));
+                    sample1 = (i16)s;
+                }
+            }
+            data.cursorSample = data.loopBeginSample;
+        } else {
+            length =
+            stb_vorbis_get_samples_short_interleaved(vorbis, data.channels, samples.data, samples.size);
+            data.cursorSample += length;
+        }
     }
-    Array<i16> samples(sampleCount * channels);
 
-    i32 length =
-    stb_vorbis_get_samples_short_interleaved(vorbis, channels, samples.data, samples.size);
-
-    cursorSample += length;
-    ::Sound::Buffer &buffer = buffers[(i32)currentBuffer];
-    if (!buffer.Load(samples.data, channels == 1 ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16, length * 2 * channels, samplerate)) {
+    ::Sound::Buffer &buffer = buffers[(i32)data.currentBuffer];
+    ALenum format = data.channels == 1 ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16;
+    if (!buffer.Load(samples.data, format, length * 2 * data.channels, data.samplerate)) {
         error = "Stream::Decode: Failed to load buffer: " + ::Sound::error
-            + " channels=" + ToString(channels) + " length=" + ToString(length)
-            + " samplerate=" + ToString(samplerate) + " bufferid=" + ToString(buffer.buffer) + " &decoded=0x" + ToString((i64)samples.data, 16);
-        return false;
+            + " channels=" + ToString(data.channels) + " length=" + ToString(length)
+            + " samplerate=" + ToString(data.samplerate) + " bufferid=" + ToString(buffer.buffer)
+            + " &decoded=0x" + ToString((i64)samples.data, 16);
+        return -1;
     }
-    currentBuffer = (currentBuffer + 1) % numStreamBuffers;
-    return true;
+    data.lastBuffer = data.currentBuffer;
+    data.currentBuffer = (data.currentBuffer + 1) % numStreamBuffers;
+    return length;
 }
 
 ALuint Stream::LastBuffer() {
-    if (currentBuffer == 0) {
-        return buffers[numStreamBuffers-1].buffer;
-    } else {
-        return buffers[currentBuffer-1].buffer;
-    }
+    return buffers[(i32)data.lastBuffer].buffer;
 }
 
 bool Stream::Close() {

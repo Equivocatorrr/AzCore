@@ -268,6 +268,7 @@ struct Manager : public Objects::Object {
     inline void HandleGamepadCamera();
     inline void HandleMouseCamera();
     inline void HandleTowerPlacement(u8 keycodePlace);
+    inline void HandleMusicLoops(i32 w);
     inline bool CursorVisible() const;
 };
 

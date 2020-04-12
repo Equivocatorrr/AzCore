@@ -172,7 +172,7 @@ bool Manager::Activate(SourceBase *sound) {
             } else {
                 Stream *stream = (Stream*)sound;
                 for (i32 i = 0; i < Assets::numStreamBuffers; i++) {
-                    if (!stream->file->Decode(stream->file->samplerate)) {
+                    if (!stream->file->Decode(stream->file->data.samplerate)) {
                         error = "Manager::Activate: Failed to Decode: " + Assets::error;
                         return false;
                     }
@@ -319,17 +319,20 @@ void Manager::StreamUpdateProc(Manager *theThisPointer) {
             if (stream->BuffersDone() > 0) {
                 // std::cout << "Decode and queue" << std::endl;
                 theThisPointer->soundMutex.Lock();
-                if (!stream->Unqueue(stream->file->currentBuffer)) {
+                if (!stream->Unqueue(stream->file->data.currentBuffer)) {
                     theThisPointer->procFailure = true;
                     return;
                 }
-                if (!stream->file->Decode(stream->file->samplerate)) {
+                i32 decoded = stream->file->Decode(stream->file->data.samplerate);
+                if (decoded < 0) {
                     theThisPointer->procFailure = true;
                     return;
                 }
-                if (!stream->Queue(stream->file->LastBuffer())) {
-                    theThisPointer->procFailure = true;
-                    return;
+                if (decoded > 0) {
+                    if (!stream->Queue(stream->file->LastBuffer())) {
+                        theThisPointer->procFailure = true;
+                        return;
+                    }
                 }
                 // stream->buffersToQueue.Append(stream->file->LastBuffer());
                 theThisPointer->soundMutex.Unlock();
@@ -425,6 +428,22 @@ void Stream::Stop() {
         return;
     // alSourceStop(source);
     // ErrorCheck("alSourceStop");
+}
+
+bool Stream::SetLoopRange(i32 begin, i32 end) {
+    if (!file.Valid()) {
+        return false;
+    }
+    if (end < file->data.totalSamples) {
+        file->data.loopBeginSample = begin;
+        file->data.loopEndSample = end;
+    } else if (loop) {
+        file->data.loopBeginSample = 0;
+        file->data.loopEndSample = file->data.totalSamples;
+    } else {
+        file->data.loopEndSample = -1;
+    }
+    return true;
 }
 
 bool Stream::Queue(ALuint buffer) {

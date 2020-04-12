@@ -13,6 +13,7 @@
 #include <atomic>
 
 #include <pthread.h>
+#include <sys/sysinfo.h>
 
 namespace AzCore {
 
@@ -37,7 +38,7 @@ class FunctionCaller {
         std::invoke(std::move(func), std::move(std::get<S>(args))...);
     }
 public:
-    explicit FunctionCaller(Function&& function, Arguments&&... arguments) : 
+    explicit FunctionCaller(Function&& function, Arguments&&... arguments) :
         args(std::forward<Arguments>(arguments)...), func(std::forward<Function>(function)) {}
     void call() {
         call(typename IntSequenceGen<sizeof...(Arguments)>::type());
@@ -48,7 +49,7 @@ public:
 
 class Thread {
     pthread_t threadHandle;
-    
+
     template<class Call>
     static void* threadProc(void *ptr) {
         std::unique_ptr<Call> call(static_cast<Call*>(ptr));
@@ -115,7 +116,7 @@ public:
     }
 
     static unsigned HardwareConcurrency() {
-        return pthread_getconcurrency();
+        return get_nprocs();
     }
 
     template<class Rep, class Period>

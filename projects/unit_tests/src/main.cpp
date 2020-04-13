@@ -797,7 +797,7 @@ bool UnitTestRNG(io::LogStream& cout) {
         // }
         // cout << "}" << std::endl;
     }
-    UniquePtr<u16[]> count(new u16[1000000]);
+    Array<u16> count(1000000);
     for (u32 i = 0; i < 1000000; i++) {
         count[i] = 0;
     }
@@ -1308,12 +1308,33 @@ bool UnitTestArrayAndString(io::LogStream& cout) {
     return true;
 }
 
+bool UnitTestToString(io::LogStream &cout) {
+    cout << "Testing ToString." << std::endl;
+    try {
+        EXPECTEDVALUE(ToString(1.0), String("1.0"));
+        EXPECTEDVALUE(ToString(0.1), String("0.1"));
+        EXPECTEDVALUE(ToString(3.14159265), String("3.1415927"));
+        EXPECTEDVALUE(ToString(3.14159, 10, 2), String("3.14"));
+        EXPECTEDVALUE(ToString(63.14159, 10, 2), String("63.14"));
+        EXPECTEDVALUE(ToString(963.14159, 10, 2), String("963.14"));
+        EXPECTEDVALUE(ToString(123.456, 10, 2), String("123.46"));
+        EXPECTEDVALUE(ToString(123.456789d, 10, 4), String("123.4568"));
+        EXPECTEDVALUE(ToString(123.4567899d, 10, 5), String("123.45679"));
+        EXPECTEDVALUE(ToString(123.4567899d, 10, 6), String("123.45679"));
+    } catch (std::runtime_error& err) {
+        cout << "Failed: " << err.what() << std::endl;
+        return false;
+    }
+    cout << "...Success!" << std::endl;
+    return true;
+}
+
 i32 main(i32 argumentCount, char** argumentValues) {
     io::LogStream cout("test.log");
 
     cout << "Doing unit tests..." << std::endl;
 
-    const u32 numTests = 9;
+    const u32 numTests = 10;
     u32 numSuccessful = 0;
 
     if (UnitTestComplex(cout)) {
@@ -1341,6 +1362,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
         numSuccessful++;
     }
     if (UnitTestRNG(cout)) {
+        numSuccessful++;
+    }
+
+    if (UnitTestToString(cout)) {
         numSuccessful++;
     }
 

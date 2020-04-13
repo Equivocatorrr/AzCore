@@ -296,9 +296,10 @@ String ToString(const f32 &value, i32 base, i32 precision)
         if (remaining < 1.0)
         {
             out += "0.";
+            dot = 1;
             point = true;
             if (precision != -1)
-                count = precision + 1;
+                count = precision+1;
             for (i32 i = 2; i < newExponent; i++)
             {
                 out += '0';
@@ -326,10 +327,10 @@ String ToString(const f32 &value, i32 base, i32 precision)
             out += '.';
             point = true;
             if (precision != -1)
-                count = precision + 1;
+                count = precision+1;
         }
     }
-    if (roundUp && precision != -1) {
+    if (roundUp && precision != -1 && point) {
         out[dot+precision]++;
         for (i32 i = dot+precision; i >= 0;) {
             i32 nextI = i-1;
@@ -457,6 +458,7 @@ String ToString(const f64 &value, i32 base, i32 precision)
         if (remaining < 1.0)
         {
             out += "0.";
+            dot = 1;
             point = true;
             if (precision != -1)
                 count = precision + 1;
@@ -490,7 +492,7 @@ String ToString(const f64 &value, i32 base, i32 precision)
                 count = precision + 1;
         }
     }
-    if (roundUp && precision != -1) {
+    if (roundUp && precision != -1 && point) {
         out[dot+precision]++;
         for (i32 i = dot+precision; i >= 0;) {
             i32 nextI = i-1;
@@ -654,7 +656,7 @@ String ToString(const f128 &value, i32 base, i32 precision)
                 count = precision + 1;
         }
     }
-    if (roundUp && precision != -1) {
+    if (roundUp && precision != -1 && point) {
         out[dot+precision]++;
         for (i32 i = dot+precision; i >= 0;) {
             i32 nextI = i-1;

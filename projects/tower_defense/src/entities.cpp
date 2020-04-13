@@ -20,10 +20,10 @@ const char* towerStrings[TOWER_MAX_RANGE+1] = {
 const i32 towerCosts[TOWER_MAX_RANGE+1] = {
     2000,
     3000,
+    5000,
     15000,
-    30000,
-    50000,
-    200000
+    25000,
+    50000
 };
 const bool towerHasPriority[TOWER_MAX_RANGE+1] = {
     true,
@@ -66,10 +66,10 @@ const Tower towerGunTemplate = Tower(
     {vec2(0.0), 320.0},                         // fieldPhysicalBasis
     TOWER_GUN,                                  // TowerType
     320.0,                                      // range
-    0.125,                                      // shootInterval
+    0.25,                                       // shootInterval
     2.7,                                        // bulletSpread (degrees)
     1,                                          // bulletCount
-    12,                                         // damage
+    24,                                         // damage
     800.0,                                      // bulletSpeed
     50.0,                                       // bulletSpeedVariability
     0,                                          // bulletExplosionDamage
@@ -87,7 +87,7 @@ const Tower towerShotgunTemplate = Tower(
     1.0,                                        // shootInterval
     12.0,                                       // bulletSpread (degrees)
     15,                                         // bulletCount
-    15,                                         // damage
+    18,                                         // damage
     900.0,                                      // bulletSpeed
     200.0,                                      // bulletSpeedVariability
     0,                                          // bulletExplosionDamage
@@ -105,7 +105,7 @@ const Tower towerFanTemplate = Tower(
     0.1,                                        // shootInterval
     10.0,                                       // bulletSpread (degrees)
     2,                                          // bulletCount
-    1,                                          // damage
+    10,                                         // damage
     800.0,                                      // bulletSpeed
     200.0,                                      // bulletSpeedVariability
     0,                                          // bulletExplosionDamage
@@ -119,11 +119,11 @@ const Tower towerGaussTemplate = Tower(
     CIRCLE,                                     // fieldCollisionType
     {vec2(0.0, 0.0), 480.0},                    // fieldPhysicalBasis
     TOWER_GAUSS,                                // TowerType
-    480.0,                                      // range
+    400.0,                                      // range
     2.0,                                        // shootInterval
     4.8,                                        // bulletSpread (degrees)
     1,                                          // bulletCount
-    2000,                                       // damage
+    1200,                                       // damage
     2000.0,                                     // bulletSpeed
     0.0,                                        // bulletSpeedVariability
     0,                                          // bulletExplosionDamage
@@ -141,7 +141,7 @@ const Tower towerShockerTemplate = Tower(
     1.2,                                        // shootInterval
     0.0,                                        // bulletSpread (degrees)
     1,                                          // bulletCount
-    120,                                        // damage
+    60,                                         // damage
     1.0,                                        // bulletSpeed
     0.0,                                        // bulletSpeedVariability
     0,                                          // bulletExplosionDamage
@@ -159,10 +159,10 @@ const Tower towerFlakTemplate = Tower(
     1.8,                                        // shootInterval
     6.0,                                        // bulletSpread (degrees)
     5,                                          // bulletCount
-    100,                                        // damage
+    25,                                         // damage
     500.0,                                      // bulletSpeed
     100.0,                                      // bulletSpeedVariability
-    100,                                        // bulletExplosionDamage
+    25,                                         // bulletExplosionDamage
     80.0,                                       // bulletExplosionRange
     vec4(1.0, 0.0, 0.8, 1.0)                    // color
 );
@@ -1280,13 +1280,11 @@ void Enemy::Update(f32 timestep) {
     } else {
         size = decay(size, 0.0, 0.025, timestep);
     }
-    physical.basis.circle.r = sqrt(size) + 2.0;
+    physical.basis.circle.r = cbrt(size) + min(2.0, sqrt(size)/10.0) + 2.0;
     physical.Update(timestep);
     physical.UpdateActual();
     if (physical.Collides(globals->entities.basePhysical) || (hitpoints <= 0 && size < 0.01)) {
-        if (hitpoints > 5) {
-            globals->entities.lives -= hitpoints;
-        }
+        globals->entities.lives -= hitpoints;
         globals->entities.enemies.Destroy(id);
     }
     if (hitpoints == 0) return;
@@ -1429,7 +1427,7 @@ void Wind::Update(f32 timestep) {
     physical.Update(timestep);
     physical.UpdateActual();
     lifetime -= timestep;
-    if (physical.aabb.minPos.x > globals->rendering.screenSize.x || physical.aabb.minPos.y > globals->rendering.screenSize.y || lifetime <= 0.0) {
+    if (lifetime <= 0.0) {
         globals->entities.winds.Destroy(id);
     }
 }

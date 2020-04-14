@@ -10,10 +10,10 @@
     3. ~????????~
 - Background changes at the beginning of a new segment:
     1. Blue
-    2. Orange
-    3. Teal
-    4. Red
-    5. Purple
+    2. Green
+    3. Purple
+    4. Teal
+    5. Red
     6. ~?????~
 - Segment 2 starts with guaranteed honker and first instrument is foghorn.
 - The core has fixed health, but upgradeable shields.

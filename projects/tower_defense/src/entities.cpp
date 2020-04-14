@@ -284,6 +284,9 @@ inline void Manager::HandleUI() {
         money += 50000;
         sndMoney.Play();
     }
+    if (TypedCode("wave9")) {
+        wave = 9;
+    }
     for (i32 i = 0; i <= TOWER_MAX_RANGE; i++) {
         if (globals->gui.playMenu.towerButtons[i]->state.Released()) {
             placeMode = true;
@@ -292,9 +295,20 @@ inline void Manager::HandleUI() {
             towerType = TowerType(i);
         }
     }
+    if (backgroundTransition >= 0.0f) {
+        backgroundTransition += timestep / 30.0f;
+        if (backgroundTransition > 1.0f) backgroundTransition = 1.0f;
+        globals->rendering.backgroundHSV = lerp(backgroundFrom, backgroundTo, backgroundTransition);
+        globals->rendering.UpdateBackground();
+        if (backgroundTransition == 1.0f) {
+            backgroundTransition = -1.0f;
+        }
+    }
     if (globals->gui.playMenu.buttonStartWave->state.Released()) {
         if (!waveActive) {
-            wave++;
+            if (wave == 10) {
+                backgroundTransition = 0.0f;
+            }
             HandleMusicLoops(wave);
             f64 factor = pow((f64)1.2, (f64)(wave+3));
             hitpointsPerSecond = (f64)((i64)(factor * 5.0) * 100);
@@ -474,6 +488,7 @@ void Manager::EventSync() {
     }
     if (hitpointsLeft == 0 && waveActive && enemies.count == 0) {
         waveActive = false;
+        wave++;
         globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Start Wave");
     }
     readyForDraw = true;

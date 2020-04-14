@@ -163,6 +163,8 @@ struct Manager {
     Array<u32> fontIndexOffsets{0};
     vec2 screenSize = vec2(1280.0f, 720.0f);
     f32 aspectRatio; // height/width
+    vec3 backgroundHSV = vec3(215.0f/360.0f, 0.7f, 0.5f);
+    vec3 backgroundRGB; // Derivative of HSV
 
     inline void AddRenderCallback(fpRenderCallback_t callback, void* userdata) {
         data.renderCallbacks.Append({callback, userdata});
@@ -179,6 +181,10 @@ struct Manager {
 
     void PushScissor(DrawingContext &context, vec2i min, vec2i max);
     void PopScissor(DrawingContext &context);
+
+    inline void UpdateBackground() {
+        backgroundRGB = hsvToRgb(backgroundHSV);
+    }
 
     f32 CharacterWidth(char32 character, const Assets::Font *fontDesired, const Assets::Font *fontFallback) const;
     f32 LineWidth(const char32 *string, i32 fontIndex) const;

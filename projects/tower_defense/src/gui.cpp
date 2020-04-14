@@ -193,7 +193,7 @@ void AddWidgetAsDefault(List *parent, Switch *newWidget) {
 void MainMenu::Initialize() {
     ListV *listV = new ListV();
     listV->color = vec4(0.0f);
-    listV->highlight = vec4(vec3(0.0f), 0.1f);
+    listV->highlight = vec4(0.0f);
 
     Widget *spacer = new Widget();
     spacer->size.y = 0.3f;

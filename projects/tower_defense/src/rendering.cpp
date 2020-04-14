@@ -70,9 +70,11 @@ bool Manager::Init() {
     subpass->UseAttachment(attachment, vk::AttachmentType::ATTACHMENT_ALL,
             VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
     data.framebuffer->renderPass = data.renderPass;
-    attachment->clearColor = true;
+    // attachment->initialLayoutColor = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    // attachment->loadColor = true;
+    // attachment->clearColor = true;
     // attachment->clearColorValue = {1.0, 1.0, 1.0, 1.0};
-    attachment->clearColorValue = {0.0f, 0.1f, 0.2f, 1.0f}; // AzCore blue
+    // attachment->clearColorValue = {0.0f, 0.1f, 0.2f, 1.0f}; // AzCore blue
     if (data.concurrency < 1) {
         data.concurrency = 1;
     }
@@ -334,6 +336,7 @@ bool Manager::Init() {
         error = "Failed to update fonts: " + error;
         return false;
     }
+    UpdateBackground();
 
     return true;
 }
@@ -502,6 +505,18 @@ bool Manager::Draw() {
         vk::CmdSetViewportAndScissor(cmdBuf, globals->window.width, globals->window.height);
         vk::CmdBindIndexBuffer(cmdBuf, data.indexBuffer, VK_INDEX_TYPE_UINT32);
         commandBuffersSecondary.Append({cmdBuf, PIPELINE_NONE, {{vec2i(0), vec2i((i32)globals->window.width, (i32)globals->window.height)}}});
+    }
+    /*{ // Fade
+        DrawQuadSS(commandBuffersSecondary[0], texBlank, vec4(backgroundRGB, 0.2f), vec2(-1.0), vec2(2.0), vec2(1.0));
+    }*/
+    { // Clear
+        vk::CmdClearColorAttachment(
+            commandBuffersSecondary[0].commandBuffer,
+            data.renderPass->data.subpasses[0].data.referencesColor[0].attachment,
+            vec4(backgroundRGB, 1.0f),
+            globals->window.width,
+            globals->window.height
+        );
     }
 
     for (auto& renderCallback : data.renderCallbacks) {

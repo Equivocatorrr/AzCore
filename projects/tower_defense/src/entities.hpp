@@ -240,7 +240,7 @@ struct Manager : public Objects::Object {
     Angle32 placingAngle = 0.0;
     bool canPlace = false;
     f32 enemyTimer = 0.0;
-    i32 wave = 0;
+    i32 wave = 1;
     i64 hitpointsLeft = 0;
     f64 hitpointsPerSecond = 200.0;
     i64 lives = 1000;
@@ -248,6 +248,9 @@ struct Manager : public Objects::Object {
     f32 timestep;
     bool waveActive = false;
     f32 camZoom = 1.0;
+    f32 backgroundTransition = -1.0;
+    vec3 backgroundFrom = vec3(215.0f/360.0f, 0.7f, 0.5f);
+    vec3 backgroundTo = vec3(110.0f/360.0f, 0.8f, 0.5f);
     vec2 camPos = 0.0;
     vec2 mouse = 0.0;
     Physical basePhysical{};

@@ -8,7 +8,7 @@ CC=g++
 WCC=x86_64-w64-mingw32-g++
 WRC=x86_64-w64-mingw32-windres $(SDIR)/resources.rc -O coff
 RCFLAGS=-I $(IDIR)
-CFLAGS=-I$(IDIR) -Wall -std=c++17 -fsingle-precision-constant -DAZCORE_IO_FOR_VULKAN
+CFLAGS=-I$(IDIR) -Wall -std=c++17 -Wdouble-promotion -Wfloat-conversion -DAZCORE_IO_FOR_VULKAN
 LCFLAGS=$(CFLAGS) #-Wl,-z,origin -Wl,-rpath,'$$ORIGIN/lib'
 WCFLAGS=$(CFLAGS) -D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -I$(WIN_VULKAN_SDK)/Include/
 

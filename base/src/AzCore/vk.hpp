@@ -244,10 +244,10 @@ namespace vk {
         bool unnormalizedCoordinates = false;
         VkCompareOp compareOp = VK_COMPARE_OP_NEVER;
         VkSamplerMipmapMode mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-        f32 mipLodBias = 0.0;
-        f32 minLod = 0.0;
+        f32 mipLodBias = 0.0f;
+        f32 minLod = 0.0f;
         // Change maxLod to an integer multiple of the number of mip levels you generate
-        f32 maxLod = 0.0;
+        f32 maxLod = 0.0f;
 
         ~Sampler();
         void Init(Device *device, String debugMarker = String());
@@ -356,8 +356,8 @@ namespace vk {
         bool clearColor = false;
         bool clearDepth = false;
         bool clearStencil = false;
-        VkClearColorValue clearColorValue = {0.0, 0.0, 0.0, 1.0};
-        VkClearDepthStencilValue clearDepthStencilValue = {1.0, 0};
+        VkClearColorValue clearColorValue = {0.0f, 0.0f, 0.0f, 1.0f};
+        VkClearDepthStencilValue clearDepthStencilValue = {1.0f, 0};
         // Whether we should load previous values from the buffers
         // Overwrites clearing if true
         bool loadColor = false;
@@ -617,7 +617,7 @@ namespace vk {
         String debugMarker{};
         i32 queueFamilyIndex = -1;
         QueueType queueType = UNDEFINED;
-        f32 queuePriority = 1.0;
+        f32 queuePriority = 1.0f;
     };
 
     /*  struct: CommandBuffer
@@ -920,7 +920,7 @@ namespace vk {
     }
 
     inline void CmdSetViewport(VkCommandBuffer commandBuffer, f32 width, f32 height,
-                               f32 minDepth=0.0, f32 maxDepth=1.0, f32 x=0.0, f32 y=0.0) {
+                               f32 minDepth=0.0f, f32 maxDepth=1.0f, f32 x=0.0f, f32 y=0.0f) {
         VkViewport viewport;
         viewport.width = width;
         viewport.height = height;
@@ -941,7 +941,7 @@ namespace vk {
     }
 
     inline void CmdSetViewportAndScissor(VkCommandBuffer commandBuffer, f32 width, f32 height,
-                                         f32 minDepth=0.0, f32 maxDepth=0.0, f32 x=0.0, f32 y=0.0) {
+                                         f32 minDepth=0.0f, f32 maxDepth=0.0f, f32 x=0.0f, f32 y=0.0f) {
         CmdSetViewport(commandBuffer, width, height, minDepth, maxDepth, x, y);
         CmdSetScissor(commandBuffer, static_cast<u32>(width), static_cast<u32>(height),
                       static_cast<i32>(x), static_cast<i32>(y));

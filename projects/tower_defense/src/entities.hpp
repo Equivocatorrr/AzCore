@@ -70,13 +70,13 @@ union PhysicalAbs {
 struct Physical {
     mutable AABB aabb;
     CollisionType type;
-    Angle32 angle = 0.0;
+    Angle32 angle = 0.0f;
     PhysicalBasis basis; // What you set to define the collider
     mutable PhysicalAbs actual; // Will be updated at most once a frame (only when collision checking is happening)
     mutable bool updated = false;
     vec2 pos;
-    vec2 vel = vec2(0.0);
-    Radians32 rot = 0.0;
+    vec2 vel = vec2(0.0f);
+    Radians32 rot = 0.0f;
 
     bool Collides(const Physical &other) const;
     bool MouseOver() const;
@@ -85,17 +85,17 @@ struct Physical {
     inline void Impulse(vec2 amount, f32 timestep) {
         amount *= timestep;
         vel += amount;
-        pos += 0.5 * amount * timestep;
+        pos += 0.5f * amount * timestep;
     }
     inline void ImpulseX(f32 amount, f32 timestep) {
         amount *= timestep;
         vel.x += amount;
-        pos.x += 0.5 * amount * timestep;
+        pos.x += 0.5f * amount * timestep;
     }
     inline void ImpulseY(f32 amount, f32 timestep) {
         amount *= timestep;
         vel.y += amount;
-        pos.y += 0.5 * amount * timestep;
+        pos.y += 0.5f * amount * timestep;
     }
     void Draw(Rendering::DrawingContext &context, vec4 color) const;
 };

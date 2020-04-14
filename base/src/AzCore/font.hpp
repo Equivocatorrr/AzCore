@@ -40,8 +40,8 @@ namespace font {
         //      0 for no intersection
         i32 Intersection(const vec2 &point) const;
         inline vec2 Point(const f32& t) const {
-            const f32 tInv = 1.0 - t;
-            return p1 * square(tInv) + p2 * (2.0 * t * tInv) + p3 * square(t);
+            const f32 tInv = 1.0f - t;
+            return p1 * square(tInv) + p2 * (2.0f * t * tInv) + p3 * square(t);
         }
         f32 DistanceLess(const vec2 &point, f32 distSquared) const;
         void Scale(const mat2& scale);
@@ -75,10 +75,10 @@ namespace font {
         Author: Philip Haynes
         Defines some attributes of a glyph, like those necessary to draw text.  */
     struct GlyphInfo {
-        vec2 pos = vec2(0.0); // Position in atlas
-        vec2 size = vec2(0.0); // Total dimensions of the contours
-        vec2 offset = vec2(0.0); // Origin point relative to contours
-        vec2 advance = vec2(0.0); // How far to advance
+        vec2 pos = vec2(0.0f); // Position in atlas
+        vec2 size = vec2(0.0f); // Total dimensions of the contours
+        vec2 offset = vec2(0.0f); // Origin point relative to contours
+        vec2 advance = vec2(0.0f); // How far to advance
     };
 
     /*  struct: Glyph

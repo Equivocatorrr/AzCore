@@ -65,7 +65,7 @@ struct Widget {
     void LimitSize();
     void PushScissor(Rendering::DrawingContext &context) const;
     void PopScissor(Rendering::DrawingContext &context) const;
-    inline vec2 GetSize() const { return sizeAbsolute + margin * 2.0; }
+    inline vec2 GetSize() const { return sizeAbsolute + margin * 2.0f; }
     virtual void Update(vec2 pos, bool selected);
     virtual void Draw(Rendering::DrawingContext &context) const;
 
@@ -478,7 +478,7 @@ struct Gui : public Objects::Object {
     Sound::MultiSource sndClickSoft;
     Assets::Font *font;
     i32 controlDepth = 0;
-    f32 scale = 1.0;
+    f32 scale = 1.0f;
     // false for gamepad, true for mouse
     bool usingMouse = true;
     // Used to make sure the mouse can only interact with top-most widgets.

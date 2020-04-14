@@ -592,7 +592,7 @@ namespace cffs {
         Array<i32> OtherBlues; // Delta
         Array<i32> FamilyBlues; // Delta
         Array<i32> FamilyOtherBlues; // Delta
-        f32 BlueScale = 0.039625;
+        f32 BlueScale = 0.039625f;
         f32 BlueShift = 7;
         f32 BlueFuzz = 1;
         f32 StdHW;
@@ -601,7 +601,7 @@ namespace cffs {
         Array<f32> StemSnapV; // Delta
         bool ForceBold = false;
         i32 LanguageGroup = 0;
-        f32 ExpansionFactor = 0.06;
+        f32 ExpansionFactor = 0.06f;
         i32 initialRandomSeed = 0;
         i32 Subrs; // Offset to local subrs, relative to start of Private DICT data
         i32 defaultWidthX = 0;

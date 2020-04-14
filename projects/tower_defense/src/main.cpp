@@ -153,6 +153,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
         return 1;
     }
     globals->assets.sounds.Clear(); // Deletes the OpenAL buffers
+    globals->assets.streams.Clear(); // Deletes the OpenAL buffers
     globals->window.Close();
     if (!globals->sound.Deinitialize()) {
         cout << "Failed to deinitialize sound: " << Sound::error << std::endl;

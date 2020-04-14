@@ -126,13 +126,13 @@ bool Globals::LoadSettings() {
                 fullscreen = false;
             }
         } else if (token[0] == "framerate") {
-            Framerate(clamp(StringToF32(token[1]), 30.0, 300.0));
+            Framerate(clamp(StringToF32(token[1]), 30.0f, 300.0f));
         } else if (token[0] == "volumeMain") {
-            volumeMain = clamp(StringToF32(token[1]), 0.0, 1.0);
+            volumeMain = clamp(StringToF32(token[1]), 0.0f, 1.0f);
         } else if (token[0] == "volumeMusic") {
-            volumeMusic = clamp(StringToF32(token[1]), 0.0, 1.0);
+            volumeMusic = clamp(StringToF32(token[1]), 0.0f, 1.0f);
         } else if (token[0] == "volumeEffects") {
-            volumeEffects = clamp(StringToF32(token[1]), 0.0, 1.0);
+            volumeEffects = clamp(StringToF32(token[1]), 0.0f, 1.0f);
         } else if (token[0] == "localeOverride") {
             localeOverride[0] = token[1][0];
             localeOverride[1] = token[1][1];

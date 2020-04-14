@@ -36,8 +36,8 @@ enum GamepadAxisArrayIndices
 struct Gamepad
 {
     Ptr<RawInputDevice> rawInputDevice;
-    f32 deadZone = 0.05; // A value between 0.0 and 1.0, should probably not be very high.
-    f32 axisCurve = 1.0; // 1.0 is linear, 2.0 is squared, 0.5 is sqrt
+    f32 deadZone = 0.05f; // A value between 0.0 and 1.0, should probably not be very high.
+    f32 axisCurve = 1.0f; // 1.0 is linear, 2.0 is squared, 0.5 is sqrt
     // Basic button interface
     ButtonState button[IO_GAMEPAD_MAX_BUTTONS];
     // An axis has moved beyond 50% in its direction.
@@ -58,11 +58,11 @@ struct Gamepad
             f32 RT;
             vec2 H0;
             // If you plan on expanding the axes, be sure to add them here too!
-        } vec{{0.0, 0.0},
-              0.0,
-              {0.0, 0.0},
-              0.0,
-              {0.0, 0.0}};
+        } vec{{0.0f, 0.0f},
+              0.0f,
+              {0.0f, 0.0f},
+              0.0f,
+              {0.0f, 0.0f}};
         f32 array[IO_GAMEPAD_MAX_AXES];
     } axis;
 

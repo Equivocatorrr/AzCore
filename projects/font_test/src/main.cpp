@@ -4,10 +4,8 @@
 
 using namespace AzCore;
 
-#define pow(v, e) pow((double)v, (double)e)
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb/stb_image_write.h"
-#undef pow
 
 io::LogStream cout("main.log");
 

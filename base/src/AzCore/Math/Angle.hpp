@@ -31,11 +31,11 @@ public:
     {
         if constexpr (std::is_same<T, f32>())
         {
-            _value = a.value() / tau * 360.0;
+            _value = a.value() / tau * 360.0f;
         }
         else
         {
-            _value = a.value() / tau64 * 360.0d;
+            _value = a.value() / tau64 * 360.0;
         }
     }
     Degrees<T> &operator+=(const Degrees<T> &other)
@@ -89,11 +89,11 @@ public:
     {
         if constexpr (std::is_same<T, f32>())
         {
-            _value = a.value() * tau / 360.0;
+            _value = a.value() * tau / 360.0f;
         }
         else
         {
-            _value = a.value() * tau64 / 360.0d;
+            _value = a.value() * tau64 / 360.0;
         }
     }
     // Radians<T>& operator=(const Radians<T>& other) {
@@ -156,7 +156,7 @@ public:
             {
                 _value -= tau;
             }
-            while (_value < 0.0)
+            while (_value < 0.0f)
             {
                 _value += tau;
             }
@@ -167,7 +167,7 @@ public:
             {
                 _value -= tau64;
             }
-            while (_value < 0.0d)
+            while (_value < 0.0)
             {
                 _value += tau64;
             }

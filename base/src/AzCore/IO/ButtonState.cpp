@@ -9,7 +9,7 @@ namespace AzCore {
 
 namespace io {
 
-ButtonState::ButtonState() : state(0), canRepeat(false), repeatTimer(0.4) {}
+ButtonState::ButtonState() : state(0), canRepeat(false), repeatTimer(0.4f) {}
 
 void ButtonState::Set(bool pressed, bool down, bool released)
 {
@@ -27,19 +27,19 @@ void ButtonState::Tick(f32 timestep)
     state &= BUTTON_DOWN_BIT;
     if (state && canRepeat)
     {
-        if (repeatTimer > 0.0)
+        if (repeatTimer > 0.0f)
         {
             repeatTimer -= timestep;
-            if (repeatTimer <= 0.0)
+            if (repeatTimer <= 0.0f)
             {
                 state |= BUTTON_PRESSED_BIT;
-                repeatTimer += 1.0 / 15.0;
+                repeatTimer += 1.0f / 15.0f;
             }
         }
     }
     else
     {
-        repeatTimer = 0.4;
+        repeatTimer = 0.4f;
     }
 }
 

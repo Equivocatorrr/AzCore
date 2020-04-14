@@ -105,11 +105,11 @@ Array<PriorityIndex> Manager::GetPriorities() {
         index.sound = sounds[i];
         if (!sounds[i]->playing && !sounds[i]->play) {
             // No sense in prioritizing a sound that isn't playing
-            index.priority = 0.0;
+            index.priority = 0.0f;
         } else {
             if (sounds[i]->channel == MUSIC) {
                 // Music takes priority over everything and doesn't work spacially anyway
-                index.priority = 10000000.0 * index.sound->gain;
+                index.priority = 10000000.0f * index.sound->gain;
             } else /* if (sounds[i]->stereo) */ {
                 // Stereo sounds aren't spacially attenuated
                 index.priority = index.sound->gain;
@@ -196,7 +196,7 @@ bool Manager::UpdateActiveSound(SourceBase *sound) {
     // ErrorCheck("alSource3f(AL_VELOCITY)");
     // alSource3f(sound->source, AL_DIRECTION, sound->direction.x, sound->direction.y, sound->direction.z);
     // ErrorCheck("alSource3f(AL_DIRECTION)");
-    alSourcef(sound->source, AL_PITCH, sound->pitch * (sound->simulationPitch ? globals->objects.simulationRate : 1.0));
+    alSourcef(sound->source, AL_PITCH, sound->pitch * (sound->simulationPitch ? globals->objects.simulationRate : 1.0f));
     if (!ErrorCheck("alSourcef(AL_PITCH)")) return false;
     f32 gain = sound->gain * globals->volumeMain;
     switch(sound->channel) {
@@ -359,7 +359,7 @@ bool Buffer::Clean() {
 
 SourceBase::SourceBase() :
 source(0), /* position(0.0), velocity(0.0), direction(0.0), */
-pitch(1.0), gain(1.0), loop(false), playing(false),
+pitch(1.0f), gain(1.0f), loop(false), playing(false),
 play(false), pause(false), stop(false), active(false),
 stereo(false), stream(false), simulationPitch(false), channel(FX) {}
 

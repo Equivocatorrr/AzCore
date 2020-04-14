@@ -33,10 +33,10 @@ struct Globals {
     Map<String, WString> locale;
     // Settings
     bool fullscreen = false;
-    f32 framerate = 60;
-    f32 volumeMain = 1.0;
-    f32 volumeMusic = 1.0;
-    f32 volumeEffects = 1.0;
+    f32 framerate = 60.0f;
+    f32 volumeMain = 1.0f;
+    f32 volumeMusic = 1.0f;
+    f32 volumeEffects = 1.0f;
     char localeOverride[2] = {0};
 
     void LoadLocale();
@@ -50,7 +50,7 @@ struct Globals {
     bool SaveSettings();
     inline void Framerate(const f32 &fr) {
         framerate = fr;
-        objects.timestep = 1.0 / framerate;
+        objects.timestep = 1.0f / framerate;
         frameDuration = Nanoseconds(1000000000/(i32)fr);
     }
 };

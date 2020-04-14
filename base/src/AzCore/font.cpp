@@ -21,16 +21,16 @@ String ToString(font::Tag_t tag) {
 
 namespace font {
 
-const f32 sdfDistance = 0.12; // Units in the Em square
+const f32 sdfDistance = 0.12f; // Units in the Em square
 
 inline f32 BezierDerivative(f32 t, f32 p1, f32 p2, f32 p3) {
-    return 2.0 * ((1.0-t) * (p2-p1) + t * (p3-p2));
+    return 2.0f * ((1.0f-t) * (p2-p1) + t * (p3-p2));
 }
 
 inline i32 signToWinding(f32 d) {
-    if (d > 0.0) {
+    if (d > 0.0f) {
         return 1;
-    } else if (d < 0.0) {
+    } else if (d < 0.0f) {
         return -1;
     } else {
         return 0;
@@ -38,7 +38,7 @@ inline i32 signToWinding(f32 d) {
 }
 
 inline i32 BezierDerivativeSign(f32 t, f32 p1, f32 p2, f32 p3) {
-    return signToWinding((1.0-t) * (p2-p1) + t*(p3-p2));
+    return signToWinding((1.0f-t) * (p2-p1) + t*(p3-p2));
 }
 
 i32 Line::Intersection(const vec2 &point) const {
@@ -59,21 +59,21 @@ i32 Line::Intersection(const vec2 &point) const {
         }
     } else {
         f32 a = p2.y - p1.y, b; // coefficients of the line: y = ax + b
-        if (a == 0.0) {
+        if (a == 0.0f) {
             // Horizontal line
             return 0;
         } else {
             b = -p1.y + point.y;
             f32 t = b / a;
-            if (a > 0.0) {
-                if (t >= 0.0 && t < 1.0) {
+            if (a > 0.0f) {
+                if (t >= 0.0f && t < 1.0f) {
                     f32 x = (p2.x - p1.x) * t + p1.x;
                     if (x >= point.x) {
                         return 1;
                     }
                 }
-            } else if (a < 0.0) {
-                if (t > 0.0 && t <= 1.0) {
+            } else if (a < 0.0f) {
+                if (t > 0.0f && t <= 1.0f) {
                     f32 x = (p2.x - p1.x) * t + p1.x;
                     if (x >= point.x) {
                         return -1;
@@ -115,34 +115,34 @@ i32 Curve::Intersection(const vec2 &point) const {
     // Bezier'(t) = 2(1-t)(p2-p1) + 2t(p3-p2);
 
     f32 a, b, c; // coefficients of the curve: y = ax^2 - bx + c
-    a = p3.y - 2.0*p2.y + p1.y;
-    if (a == 0.0) {
+    a = p3.y - 2.0f*p2.y + p1.y;
+    if (a == 0.0f) {
         Line line{p1, p3};
         return line.Intersection(point);
     }
-    b = -2.0*(p2.y - p1.y);
+    b = -2.0f*(p2.y - p1.y);
     c = p1.y - point.y;
     const f32 bb = square(b);
-    const f32 ac4 = 4.0*a*c;
+    const f32 ac4 = 4.0f*a*c;
     if (bb <= ac4) {
         // We don't care about complex answers or tangent lines.
         return 0;
     }
     const f32 squareRoot = sqrt(bb - ac4);
-    a *= 2.0;
+    a *= 2.0f;
     const f32 t1 = (b + squareRoot) / a;
     const f32 t2 = (b - squareRoot) / a;
-    a = (p3.x - 2.0*p2.x + p1.x);
-    b = 2.0*(p2.x - p1.x);
+    a = (p3.x - 2.0f*p2.x + p1.x);
+    b = 2.0f*(p2.x - p1.x);
     c = p1.x;
     bool t1InRange = false;
     bool t2InRange = false;
     if (p1.y < p3.y) {
-        t1InRange = t1 >= 0.0 && t1 < 1.0;
-        t2InRange = t2 >= 0.0 && t2 < 1.0;
+        t1InRange = t1 >= 0.0f && t1 < 1.0f;
+        t2InRange = t2 >= 0.0f && t2 < 1.0f;
     } else {
-        t1InRange = t1 > 0.0 && t1 <= 1.0;
-        t2InRange = t2 > 0.0 && t2 <= 1.0;
+        t1InRange = t1 > 0.0f && t1 <= 1.0f;
+        t2InRange = t2 > 0.0f && t2 <= 1.0f;
     }
     if (t1InRange) {
         f32 x = a*square(t1) + b*t1 + c;
@@ -166,7 +166,7 @@ f32 Curve::DistanceLess(const vec2 &point, f32 distSquared) const {
     {
         f32 maxPointDistSquared = max(max(absSqr(p1-p2), absSqr(p2-p3)), absSqr(p3-p1));
         f32 minDistSquared = min(min(absSqr(p1-point), absSqr(p2-point)), absSqr(p3-point));
-        if (minDistSquared > distSquared + maxPointDistSquared * 0.25) {
+        if (minDistSquared > distSquared + maxPointDistSquared * 0.25f) {
             // NOTE: Should this be maxPointDist*square(sin(pi/4)) ???
             return distSquared;
         }
@@ -188,15 +188,15 @@ f32 Curve::DistanceLess(const vec2 &point, f32 distSquared) const {
     const vec2 o = p1 - point;
 
     const f32 a = absSqr(n);
-    const f32 b = dot(m, n) * 3.0;
-    const f32 c = absSqr(m) * 2.0 + dot(o, n);
+    const f32 b = dot(m, n) * 3.0f;
+    const f32 c = absSqr(m) * 2.0f + dot(o, n);
     const f32 d = dot(o, m);
     SolutionCubic<f32> solution = SolveCubic<f32>(a, b, c, d);
     // We're guaranteed at least 1 solution.
     f32 dist;
-    if (solution.x1 < 0.0) {
+    if (solution.x1 < 0.0f) {
         dist = absSqr(p1-point);
-    } else if (solution.x1 > 1.0) {
+    } else if (solution.x1 > 1.0f) {
         dist = absSqr(p3-point);
     } else {
         dist = absSqr(Point(solution.x1)-point);
@@ -205,9 +205,9 @@ f32 Curve::DistanceLess(const vec2 &point, f32 distSquared) const {
         distSquared = dist;
     }
     if (solution.x3Real) {
-        if (solution.x3 < 0.0) {
+        if (solution.x3 < 0.0f) {
             dist = absSqr(p1-point);
-        } else if (solution.x3 > 1.0) {
+        } else if (solution.x3 > 1.0f) {
             dist = absSqr(p3-point);
         } else {
             dist = absSqr(Point(solution.x3)-point);
@@ -217,9 +217,9 @@ f32 Curve::DistanceLess(const vec2 &point, f32 distSquared) const {
         }
     }
     if (solution.x2Real) {
-        if (solution.x2 < 0.0) {
+        if (solution.x2 < 0.0f) {
             dist = absSqr(p1-point);
-        } else if (solution.x2 > 1.0) {
+        } else if (solution.x2 > 1.0f) {
             dist = absSqr(p3-point);
         } else {
             dist = absSqr(Point(solution.x2)-point);
@@ -283,7 +283,7 @@ void Glyph::AddFromGlyfPoints(glyfPoint *glyfPoints, i32 count) {
                     curve.p3 = glyfPoints[(i+2)%count].coords;
                     i++; // next iteration starts at i+2
                 } else {
-                    curve.p3 = (glyfPoints[(i+1)%count].coords + glyfPoints[(i+2)%count].coords) * 0.5;
+                    curve.p3 = (glyfPoints[(i+1)%count].coords + glyfPoints[(i+2)%count].coords) * 0.5f;
                 }
                 curves.Append(curve);
             }
@@ -697,18 +697,18 @@ void Font::PrintGlyph(char32 unicode) const {
         return;
     }
     glyphParseTime = Clock::now()-start;
-    const f32 margin = 0.03;
+    const f32 margin = 0.03f;
     const i32 scale = 4;
     i32 stepsX = 16 * scale;
     i32 stepsY = 16 * scale;
     const char distSymbolsPos[] = "X-.";
     const char distSymbolsNeg[] = "@*'";
-    const f32 factorX = 1.0 / (f32)stepsX;
-    const f32 factorY = 1.0 / (f32)stepsY;
-    stepsY += i32(ceil(f32(stepsY) * margin * 2.0));
-    stepsX += i32(ceil(f32(stepsX) * margin * 2.0));
+    const f32 factorX = 1.0f / (f32)stepsX;
+    const f32 factorY = 1.0f / (f32)stepsY;
+    stepsY += i32(ceil(f32(stepsY) * margin * 2.0f));
+    stepsX += i32(ceil(f32(stepsX) * margin * 2.0f));
     for (i32 y = stepsY-1; y >= 0; y--) {
-        f32 prevDist = 1000.0;
+        f32 prevDist = 1000.0f;
         for (i32 x = 0; x < stepsX; x++) {
             vec2 point((f32)x * factorX - margin, (f32)y * factorY - margin);
             // point *= max(glyph.size.x, glyph.size.y);
@@ -721,13 +721,13 @@ void Font::PrintGlyph(char32 unicode) const {
             prevDist = dist + factorX; // Assume the worst change possible
             if (glyph.Inside(point)) {
                 if (dist < margin) {
-                    cout << distSymbolsNeg[i32(dist/margin*3.0)];
+                    cout << distSymbolsNeg[i32(dist/margin*3.0f)];
                 } else {
                     cout << ' ';
                 }
             } else {
                 if (dist < margin) {
-                    cout << distSymbolsPos[i32(dist/margin*3.0)];
+                    cout << distSymbolsPos[i32(dist/margin*3.0f)];
                 } else {
                     cout << ' ';
                 }
@@ -762,7 +762,7 @@ bool Intersects(const Box &a, const Box &b) {
 }
 
 bool Intersects(const Box &box, const vec2 &point) {
-    const f32 epsilon = 0.001;
+    const f32 epsilon = 0.001f;
     return (point.x == median(box.min.x-epsilon, point.x, box.max.x+epsilon)
          && point.y == median(box.min.y-epsilon, point.y, box.max.y+epsilon));
 }
@@ -902,15 +902,15 @@ void RenderThreadProc(FontBuilder *fontBuilder, Array<Glyph> *glyphsToAdd, const
     vec2i &dimensions = fontBuilder->dimensions;
     for (i32 i = threadId; i < glyphsToAdd->size; i+=numThreads) {
         Glyph &glyph = (*glyphsToAdd)[i];
-        if (glyph.info.size.x == 0.0 || glyph.info.size.y == 0.0 || glyph.components.size != 0) {
+        if (glyph.info.size.x == 0.0f || glyph.info.size.y == 0.0f || glyph.components.size != 0) {
             continue;
         }
-        const i32 texX = glyph.info.pos.x*dimensions.x;
-        const i32 texY = glyph.info.pos.y*dimensions.y;
+        const i32 texX = i32(glyph.info.pos.x*dimensions.x);
+        const i32 texY = i32(glyph.info.pos.y*dimensions.y);
         const f32 offsetX = glyph.info.pos.x * (f32)dimensions.x - (f32)texX;
         const f32 offsetY = glyph.info.pos.y * (f32)dimensions.y - (f32)texY;
-        const i32 texW = glyph.info.size.x*dimensions.x;
-        const i32 texH = glyph.info.size.y*dimensions.y;
+        const i32 texW = i32(glyph.info.size.x*dimensions.x);
+        const i32 texH = i32(glyph.info.size.y*dimensions.y);
 
         const f32 factorX = boundSquare / (f32)dimensions.x;
         const f32 factorY = boundSquare / (f32)dimensions.y;
@@ -933,18 +933,18 @@ void RenderThreadProc(FontBuilder *fontBuilder, Array<Glyph> *glyphsToAdd, const
                 prevDist = dist + factorX; // Assume the worst change possible
                 if (glyph.Inside(point)) {
                     if (dist < sdfDistance) {
-                        dist = (1.0 + dist / sdfDistance) * 0.5;
+                        dist = (1.0f + dist / sdfDistance) * 0.5f;
                     } else {
-                        dist = 1.0;
+                        dist = 1.0f;
                     }
                 } else {
                     if (dist < sdfDistance) {
-                        dist = (1.0 - dist / sdfDistance) * 0.5;
+                        dist = (1.0f - dist / sdfDistance) * 0.5f;
                     } else {
-                        dist = 0.0;
+                        dist = 0.0f;
                     }
                 }
-                pixel = u8(dist*255.0);
+                pixel = u8(dist*255.0f);
             }
         }
     }
@@ -982,7 +982,7 @@ bool FontBuilder::Build() {
                     allIndices.insert(component.glyphIndex);
                 }
             }
-            glyph.info.size = vec2(0.0);
+            glyph.info.size = vec2(0.0f);
             glyph.curves.Clear();
             glyph.lines.Clear();
         }
@@ -1002,7 +1002,7 @@ bool FontBuilder::Build() {
     Array<SizeIndex> sortedIndices;
     sortedIndices.Reserve(glyphsToAdd.size/2);
     for (i32 i = glyphsToAdd.size-1; i >= 0; i--) {
-        if (glyphsToAdd[i].info.size.x == 0.0 || glyphsToAdd[i].info.size.y == 0.0) {
+        if (glyphsToAdd[i].info.size.x == 0.0f || glyphsToAdd[i].info.size.y == 0.0f) {
             continue;
         }
         SizeIndex sizeIndex = {i, glyphsToAdd[i].info.size};
@@ -1021,10 +1021,10 @@ bool FontBuilder::Build() {
     }
     cout << "Took " << FormatTime(Nanoseconds(Clock::now()-start)) << " to sort by size." << std::endl;
     if (corners.size == 0) {
-        corners.Append(vec2(0.0));
-        bounding = vec2(0.0);
-        boundSquare = 0.0;
-        area = 0.0;
+        corners.Append(vec2(0.0f));
+        bounding = vec2(0.0f);
+        boundSquare = 0.0f;
+        area = 0.0f;
     }
     start = Clock::now();
     for (SizeIndex& si : sortedIndices) {
@@ -1032,7 +1032,7 @@ bool FontBuilder::Build() {
         Box box;
         for (i32 i = 0; i < corners.size; i++) {
             box.min = corners[i];
-            box.max = box.min + glyph.info.size + vec2(sdfDistance*2.0);
+            box.max = box.min + glyph.info.size + vec2(sdfDistance*2.0f);
             if (boxes.Intersects(box)) {
                 // Go to the next corner
                 continue;
@@ -1047,7 +1047,7 @@ bool FontBuilder::Build() {
             if (box.max.y > bounding.y) {
                 bounding.y = box.max.y;
             }
-            box.max += vec2(0.002);
+            box.max += vec2(0.002f);
             InsertCorner(corners, vec2(box.max.x, box.min.y));
             InsertCorner(corners, vec2(box.min.x, box.max.y));
             if (box.min.x != corners[i].x) {
@@ -1065,18 +1065,18 @@ bool FontBuilder::Build() {
     cout << "Took " << FormatTime(packingTime) << " to pack glyphs." << std::endl;
     f32 totalArea = bounding.x * bounding.y;
     cout << "Of a total page area of " << totalArea << ", "
-         << u32(area/totalArea*100.0) << "% was used." << std::endl;
+         << u32(area/totalArea*100.0f) << "% was used." << std::endl;
     bounding.x = max(bounding.x, 1.0f);
     bounding.y = max(bounding.y, 1.0f);
     f32 oldBoundSquare = boundSquare;
     // if (boundSquare == 0.0) {
-        boundSquare = i32(ceil(max(bounding.x, bounding.y))*64.0)/64;
+        boundSquare = i32(ceil(max(bounding.x, bounding.y))*64.0f)/64;
     // } else {
     //     if (max(bounding.x, bounding.y) > boundSquare)
     //         boundSquare *= 2.0;
     // }
     scale = boundSquare;
-    edge = sdfDistance*32.0;
+    edge = sdfDistance*32.0f;
 
     vec2i dimensionsNew = vec2i(i32(boundSquare)*resolution);
     cout << "Texture dimensions = {" << dimensionsNew.x << ", " << dimensionsNew.y << "}" << std::endl;
@@ -1089,7 +1089,7 @@ bool FontBuilder::Build() {
     }
     for (i32 i = 0; i < glyphsToAdd.size; i++) {
         Glyph& glyph = glyphsToAdd[i];
-        glyph.info.size += sdfDistance*2.0;
+        glyph.info.size += sdfDistance*2.0f;
         glyph.info.offset += sdfDistance;
         glyph.info.pos /= boundSquare;
         glyph.info.size /= boundSquare;

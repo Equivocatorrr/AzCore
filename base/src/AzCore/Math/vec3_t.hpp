@@ -142,11 +142,11 @@ T distSqrToLine(const AzCore::vec3_t<T> &segA, const AzCore::vec3_t<T> &segB, co
     AzCore::vec3_t<T> projection;
     if constexpr (isSegment)
     {
-        if (t < 0.0)
+        if (t < T(0))
         {
             projection = segA;
         }
-        else if (t > 1.0)
+        else if (t > T(1))
         {
             projection = segB;
         }

@@ -283,11 +283,11 @@ f32 mapAxisWithDeadZone(f32 in, f32 minRange, f32 maxRange, f32 deadZone)
 {
     if (abs(in) < deadZone)
     {
-        return 0.0;
+        return 0.0f;
     }
     else
     {
-        if (in >= 0.0)
+        if (in >= 0.0f)
         {
             return (in - deadZone) / (maxRange - deadZone);
         }
@@ -356,8 +356,8 @@ void Gamepad::Update(f32 timestep, i32 index)
         return;
     }
 
-    const f32 maxRange = 32767.0;
-    const f32 minRange = -32768.0;
+    const f32 maxRange = 32767.0f;
+    const f32 minRange = -32768.0f;
     const f32 deadZoneTemp = maxRange * deadZone;
 
     f32 axisLX = (f32)state.lX;
@@ -370,9 +370,9 @@ void Gamepad::Update(f32 timestep, i32 index)
     if (rawInputDevice->data->numAxes == 5)
     {
         // Probably combined Z-axes because Microsoft is a dum dum
-        axisRZ = map(axisLZ, 0.0, maxRange, minRange, maxRange);
-        axisLZ = max(axisRZ, 0.0);
-        axisRZ = max(-axisRZ, 0.0);
+        axisRZ = map(axisLZ, 0.0f, maxRange, minRange, maxRange);
+        axisLZ = max(axisRZ, 0.0f);
+        axisRZ = max(-axisRZ, 0.0f);
     }
 
     axis.vec.LS.x = mapAxisWithDeadZone(axisLX, minRange, maxRange, deadZoneTemp);
@@ -385,35 +385,35 @@ void Gamepad::Update(f32 timestep, i32 index)
     // We only support 1 hat right now
     if (LOWORD(state.rgdwPOV[0]) == 0xFFFF)
     {
-        axis.vec.H0 = vec2(0.0);
+        axis.vec.H0 = vec2(0.0f);
     }
     else
     {
-        f32 hatDirection = (f32)state.rgdwPOV[0] / 36000.0 * tau; // Radians clockwise from north
-        axis.vec.H0.y = mapAxisWithDeadZone(-cos(hatDirection), -1.0, 1.0, 0.0000001);
-        axis.vec.H0.x = mapAxisWithDeadZone(sin(hatDirection), -1.0, 1.0, 0.0000001);
+        f32 hatDirection = (f32)state.rgdwPOV[0] / 36000.0f * tau; // Radians clockwise from north
+        axis.vec.H0.y = mapAxisWithDeadZone(-cos(hatDirection), -1.0f, 1.0f, 0.0000001f);
+        axis.vec.H0.x = mapAxisWithDeadZone(sin(hatDirection), -1.0f, 1.0f, 0.0000001f);
         // cout << "H0.x = " << axis.vec.H0.x << ", H0.y = " << axis.vec.H0.y << std::endl;
     }
 
     for (u32 i = 0; i < IO_GAMEPAD_MAX_AXES; i++)
     {
-        if (abs(axis.array[i]) > 0.1)
+        if (abs(axis.array[i]) > 0.1f)
         {
             rawInputDevice->rawInput->AnyGPCode = i + KC_GP_AXIS_LS_X;
             rawInputDevice->rawInput->AnyGP.state = BUTTON_PRESSED_BIT;
             rawInputDevice->rawInput->AnyGPIndex = index;
         }
-        handleButton(axisPush[i * 2], axis.array[i] > 0.5, i * 2 + KC_GP_AXIS_LS_RIGHT,
+        handleButton(axisPush[i * 2], axis.array[i] > 0.5f, i * 2 + KC_GP_AXIS_LS_RIGHT,
                      rawInputDevice->rawInput, index);
-        handleButton(axisPush[i * 2 + 1], axis.array[i] < -0.5, i * 2 + KC_GP_AXIS_LS_LEFT,
+        handleButton(axisPush[i * 2 + 1], axis.array[i] < -0.5f, i * 2 + KC_GP_AXIS_LS_LEFT,
                      rawInputDevice->rawInput, index);
-        if (axisCurve != 1.0)
+        if (axisCurve != 1.0f)
         {
-            bool negative = axis.array[i] < 0.0;
+            bool negative = axis.array[i] < 0.0f;
             axis.array[i] = pow(abs(axis.array[i]), axisCurve);
             if (negative)
             {
-                axis.array[i] *= -1.0;
+                axis.array[i] *= -1.0f;
             }
         }
         // if (axisPush[i*2].Pressed()) {
@@ -429,13 +429,13 @@ void Gamepad::Update(f32 timestep, i32 index)
         //     cout << "Released " << KeyCodeName(i*2+1 + KC_GP_AXIS_LS_RIGHT) << std::endl;
         // }
     }
-    handleButton(hat[0], axis.vec.H0.x > 0.0 && axis.vec.H0.y < 0.0, KC_GP_AXIS_H0_UP_RIGHT,
+    handleButton(hat[0], axis.vec.H0.x > 0.0f && axis.vec.H0.y < 0.0f, KC_GP_AXIS_H0_UP_RIGHT,
                  rawInputDevice->rawInput, index);
-    handleButton(hat[1], axis.vec.H0.x > 0.0 && axis.vec.H0.y > 0.0, KC_GP_AXIS_H0_DOWN_RIGHT,
+    handleButton(hat[1], axis.vec.H0.x > 0.0f && axis.vec.H0.y > 0.0f, KC_GP_AXIS_H0_DOWN_RIGHT,
                  rawInputDevice->rawInput, index);
-    handleButton(hat[2], axis.vec.H0.x < 0.0 && axis.vec.H0.y > 0.0, KC_GP_AXIS_H0_DOWN_LEFT,
+    handleButton(hat[2], axis.vec.H0.x < 0.0f && axis.vec.H0.y > 0.0f, KC_GP_AXIS_H0_DOWN_LEFT,
                  rawInputDevice->rawInput, index);
-    handleButton(hat[3], axis.vec.H0.x < 0.0 && axis.vec.H0.y < 0.0, KC_GP_AXIS_H0_UP_LEFT,
+    handleButton(hat[3], axis.vec.H0.x < 0.0f && axis.vec.H0.y < 0.0f, KC_GP_AXIS_H0_UP_LEFT,
                  rawInputDevice->rawInput, index);
 
     // for (u32 i = 0; i < 4; i++) {

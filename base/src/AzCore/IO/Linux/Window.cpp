@@ -740,28 +740,28 @@ bool Window::Update()
                 keyCode = KC_MOUSE_SCROLLUP;
                 if (input != nullptr)
                 {
-                    input->scroll.y += 1.0;
+                    input->scroll.y += 1.0f;
                 }
                 break;
             case 5:
                 keyCode = KC_MOUSE_SCROLLDOWN;
                 if (input != nullptr)
                 {
-                    input->scroll.y -= 1.0;
+                    input->scroll.y -= 1.0f;
                 }
                 break;
             case 6: // Sideways scrolling
                 keyCode = KC_MOUSE_SCROLLLEFT;
                 if (input != nullptr)
                 {
-                    input->scroll.x -= 1.0;
+                    input->scroll.x -= 1.0f;
                 }
                 break;
             case 7:
                 keyCode = KC_MOUSE_SCROLLRIGHT;
                 if (input != nullptr)
                 {
-                    input->scroll.x += 1.0;
+                    input->scroll.x += 1.0f;
                 }
                 break;
             case 8:

@@ -9,10 +9,8 @@
 
 using namespace AzCore;
 
-#define pow(v, e) pow((double)v, (double)e)
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
-#undef pow
 
 io::LogStream cout("test.log");
 
@@ -31,12 +29,15 @@ i32 main(i32 argumentCount, char** argumentValues) {
     }
 
     struct Image {
-        UniquePtr<u8, void(&)(void*)> pixels;
+        u8* pixels;
         i32 width;
         i32 height;
         i32 channels;
-        Image(const char *filename) : pixels(stbi_load(filename, &width, &height, &channels, 4), stbi_image_free) {
+        Image(const char *filename) : pixels(stbi_load(filename, &width, &height, &channels, 4)) {
             channels = 4;
+        }
+        ~Image() {
+            stbi_image_free(pixels);
         }
     };
     Image image("data/icon.png");
@@ -91,7 +92,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     Ptr<vk::Attachment> attachment = vkRenderPass->AddAttachment(vkSwapchain);
     attachment->clearColor = true;
-    attachment->clearColorValue = {0.0, 0.05, 0.1, 1.0};
+    attachment->clearColorValue = {0.0f, 0.05f, 0.1f, 1.0f};
     // attachment->sampleCount = VK_SAMPLE_COUNT_4_BIT;
     // attachment->resolveColor = true;
 
@@ -111,10 +112,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
     };
 
     Array<Vertex> vertices = {
-        {vec2(-0.5, -0.5), vec2(0.0, 0.0)},
-        {vec2(-0.5, 0.5), vec2(0.0, 1.0)},
-        {vec2(0.5, 0.5), vec2(1.0, 1.0)},
-        {vec2(0.5, -0.5), vec2(1.0, 0.0)}
+        {vec2(-0.5f, -0.5f), vec2(0.0f, 0.0f)},
+        {vec2(-0.5f,  0.5f), vec2(0.0f, 1.0f)},
+        {vec2( 0.5f,  0.5f), vec2(1.0f, 1.0f)},
+        {vec2( 0.5f, -0.5f), vec2(1.0f, 0.0f)}
     };
     Array<u32> indices = {0, 1, 2, 2, 3, 0};
 
@@ -137,13 +138,13 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkTextureImage->format = VK_FORMAT_R8G8B8A8_UNORM;
     vkTextureImage->width = image.width;
     vkTextureImage->height = image.height;
-    vkTextureImage->mipLevels = floor(log2(max(image.width, image.height))) + 1;
+    vkTextureImage->mipLevels = (u32)floor(log2(max(image.width, image.height))) + 1;
     vkTextureImage->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
     Ptr<vk::Sampler> vkSampler = vkDevice->AddSampler();
     vkSampler->maxLod = vkTextureImage->mipLevels;
     vkSampler->anisotropy = 16;
-    vkSampler->mipLodBias = -0.5; // Keep things crisp
+    vkSampler->mipLodBias = -0.5f; // Keep things crisp
 
     Ptr<vk::Descriptors> vkDescriptors = vkDevice->AddDescriptors();
     Ptr<vk::DescriptorLayout> vkDescriptorLayoutTexture = vkDescriptors->AddLayout();
@@ -239,7 +240,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     vkStagingBuffers[0].CopyData(vertices.data);
     vkStagingBuffers[1].CopyData(indices.data);
-    vkStagingBuffers[2].CopyData(image.pixels.get());
+    vkStagingBuffers[2].CopyData(image.pixels);
 
     VkCommandBuffer cmdBufCopy = vkCommandBuffer->Begin();
     vkVertexBuffer->Copy(cmdBufCopy, vkStagingBuffers.GetPtr(0));
@@ -275,7 +276,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
                 cout << "Released  HID " << std::hex << i << "\t" << window.InputName(i) << std::endl;
             }
         }
-        input.Tick(1.0/60.0);
+        input.Tick(1.0f/60.0f);
 
         if (window.resized || resize) {
             if (!vkSwapchain->Resize()) {

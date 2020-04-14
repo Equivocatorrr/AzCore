@@ -8,10 +8,10 @@
 
 namespace Int {
 
-const vec3 colorBack = {1.0, 0.4, 0.1};
-const vec3 colorHighlightLow = {0.2, 0.45, 0.5};
-const vec3 colorHighlightMedium = {0.4, 0.9, 1.0};
-const vec3 colorHighlightHigh = {0.9, 0.98, 1.0};
+const vec3 colorBack = {1.0f, 0.4f, 0.1f};
+const vec3 colorHighlightLow = {0.2f, 0.45f, 0.5f};
+const vec3 colorHighlightMedium = {0.4f, 0.9f, 1.0f};
+const vec3 colorHighlightHigh = {0.9f, 0.98f, 1.0f};
 
 Gui::~Gui() {
     for (Widget* widget : allWidgets) {
@@ -66,25 +66,25 @@ void Gui::EventAssetAcquire() {
         &sndClickOutSources[3]
     };
     for (i32 i = 0; i < 4; i++) {
-        sndClickInSources[i].SetGain(0.15);
-        sndClickInSources[i].SetPitch(1.2);
-        sndClickOutSources[i].SetGain(0.15);
-        sndClickOutSources[i].SetPitch(1.2);
+        sndClickInSources[i].SetGain(0.15f);
+        sndClickInSources[i].SetPitch(1.2f);
+        sndClickOutSources[i].SetGain(0.15f);
+        sndClickOutSources[i].SetPitch(1.2f);
     }
     sndClickSoftSources[0].Create("click soft 1.ogg");
     sndClickSoftSources[1].Create("click soft 2.ogg");
-    sndClickSoftSources[0].SetGain(0.01);
-    sndClickSoftSources[1].SetGain(0.01);
-    sndClickSoftSources[0].SetPitch(1.2);
-    sndClickSoftSources[1].SetPitch(1.2);
+    sndClickSoftSources[0].SetGain(0.01f);
+    sndClickSoftSources[1].SetGain(0.01f);
+    sndClickSoftSources[0].SetPitch(1.2f);
+    sndClickSoftSources[1].SetPitch(1.2f);
     sndClickSoft.sources = {
         &sndClickSoftSources[0],
         &sndClickSoftSources[1]
     };
     sndPopHigh.Create("Pop High.ogg");
     sndPopLow.Create("Pop Low.ogg");
-    sndPopHigh.SetGain(0.1);
-    sndPopLow.SetGain(0.1);
+    sndPopHigh.SetGain(0.1f);
+    sndPopLow.SetGain(0.1f);
     font = &globals->assets.fonts[fontIndex];
 
     cursorIndex = globals->assets.FindMapping("Cursor.png");
@@ -134,7 +134,7 @@ void Gui::EventDraw(Array<Rendering::DrawingContext> &contexts) {
     }
     if (usingMouse) {
         // globals->rendering.DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, optional vec2 origin = vec2(0.0), optional Radians32 rotation = 0.0)
-        globals->rendering.DrawQuad(contexts.Back(), cursorIndex, vec4(1.0), globals->input.cursor, vec2(32.0 * scale), vec2(1.0), vec2(0.5));
+        globals->rendering.DrawQuad(contexts.Back(), cursorIndex, vec4(1.0f), globals->input.cursor, vec2(32.0f * scale), vec2(1.0f), vec2(0.5f));
     }
 }
 
@@ -192,63 +192,63 @@ void AddWidgetAsDefault(List *parent, Switch *newWidget) {
 
 void MainMenu::Initialize() {
     ListV *listV = new ListV();
-    listV->color = vec4(0.0);
-    listV->highlight = vec4(vec3(0.0), 0.1);
+    listV->color = vec4(0.0f);
+    listV->highlight = vec4(vec3(0.0f), 0.1f);
 
     Widget *spacer = new Widget();
-    spacer->size.y = 0.3;
+    spacer->size.y = 0.3f;
     AddWidget(listV, spacer);
 
     Text *title = new Text();
     title->alignH = Rendering::CENTER;
     title->bold = true;
-    title->color = vec4(0.0, 0.0, 0.0, 1.0);
-    title->colorOutline = vec4(1.0);
+    title->color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    title->colorOutline = vec4(1.0f);
     title->outline = true;
-    title->fontSize = 64.0;
+    title->fontSize = 64.0f;
     title->fontIndex = globals->gui.fontIndex;
     title->string = globals->ReadLocale("AzCore Tower Defense");
     AddWidget(listV, title);
 
     spacer = new Widget();
-    spacer->size.y = 0.4;
+    spacer->size.y = 0.4f;
     AddWidget(listV, spacer);
 
     ListV *buttonList = new ListV();
     buttonList->fractionWidth = false;
-    buttonList->size = vec2(500.0, 0.0);
-    buttonList->padding = vec2(16.0);
+    buttonList->size = vec2(500.0f, 0.0f);
+    buttonList->padding = vec2(16.0f);
 
     buttonStart = new Button();
     buttonStart->string = globals->ReadLocale("Start");
-    buttonStart->size.y = 64.0;
+    buttonStart->size.y = 64.0f;
     buttonStart->fractionHeight = false;
-    buttonStart->margin = vec2(16.0);
+    buttonStart->margin = vec2(16.0f);
     AddWidget(buttonList, buttonStart);
 
     buttonSettings = new Button();
     buttonSettings->string = globals->ReadLocale("Settings");
-    buttonSettings->size.y = 64.0;
+    buttonSettings->size.y = 64.0f;
     buttonSettings->fractionHeight = false;
-    buttonSettings->margin = vec2(16.0);
+    buttonSettings->margin = vec2(16.0f);
     AddWidget(buttonList, buttonSettings);
 
     buttonExit = new Button();
     buttonExit->string = globals->ReadLocale("Exit");
-    buttonExit->size.y = 64.0;
+    buttonExit->size.y = 64.0f;
     buttonExit->fractionHeight = false;
-    buttonExit->margin = vec2(16.0);
-    buttonExit->highlightBG = vec4(colorBack, 0.9);
+    buttonExit->margin = vec2(16.0f);
+    buttonExit->highlightBG = vec4(colorBack, 0.9f);
     buttonExit->keycodeActivators = {KC_KEY_ESC};
     AddWidget(buttonList, buttonExit);
 
     ListH *spacingList = new ListH();
-    spacingList->color = vec4(0.0);
-    spacingList->highlight = vec4(0.0);
-    spacingList->size.y = 0.0;
+    spacingList->color = vec4(0.0f);
+    spacingList->highlight = vec4(0.0f);
+    spacingList->size.y = 0.0f;
 
     spacer = new Widget();
-    spacer->size.x = 0.5;
+    spacer->size.x = 0.5f;
     AddWidget(spacingList, spacer);
 
     AddWidgetAsDefault(spacingList, buttonList);
@@ -259,7 +259,7 @@ void MainMenu::Initialize() {
 }
 
 void MainMenu::Update() {
-    screen.Update(vec2(0.0), true);
+    screen.Update(vec2(0.0f), true);
     if (buttonStart->state.Released()) {
         globals->gui.nextMenu = MENU_PLAY;
         buttonStart->string = globals->ReadLocale("Continue");
@@ -278,39 +278,39 @@ void MainMenu::Draw(Rendering::DrawingContext &context) {
 
 void SettingsMenu::Initialize() {
     ListV *listV = new ListV();
-    listV->color = vec4(0.0);
-    listV->highlight = vec4(0.0);
+    listV->color = vec4(0.0f);
+    listV->highlight = vec4(0.0f);
 
     Widget *spacer = new Widget();
-    spacer->size.y = 0.3;
+    spacer->size.y = 0.3f;
     AddWidget(listV, spacer);
 
     Text *title = new Text();
     title->alignH = Rendering::CENTER;
     title->bold = true;
-    title->color = vec4(0.0, 0.0, 0.0, 1.0);
-    title->colorOutline = vec4(1.0);
+    title->color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    title->colorOutline = vec4(1.0f);
     title->outline = true;
-    title->fontSize = 64.0;
+    title->fontSize = 64.0f;
     title->fontIndex = globals->gui.fontIndex;
     title->string = globals->ReadLocale("Settings");
     AddWidget(listV, title);
 
     spacer = new Widget();
-    spacer->size.y = 0.4;
+    spacer->size.y = 0.4f;
     AddWidget(listV, spacer);
 
     ListV *actualList = new ListV();
     actualList->fractionWidth = false;
-    actualList->size.x = 500.0;
-    actualList->size.y = 0.0;
-    actualList->padding = vec2(24.0);
+    actualList->size.x = 500.0f;
+    actualList->size.y = 0.0f;
+    actualList->padding = vec2(24.0f);
 
     Text *settingTextTemplate = new Text();
     settingTextTemplate->fontIndex = globals->gui.fontIndex;
-    settingTextTemplate->fontSize = 20.0;
+    settingTextTemplate->fontSize = 20.0f;
     settingTextTemplate->fractionHeight = true;
-    settingTextTemplate->size.y = 1.0;
+    settingTextTemplate->size.y = 1.0f;
     settingTextTemplate->alignV = Rendering::CENTER;
 
     checkFullscreen = new Checkbox();
@@ -318,7 +318,7 @@ void SettingsMenu::Initialize() {
 
     TextBox *textboxTemplate = new TextBox();
     textboxTemplate->fontIndex = globals->gui.fontIndex;
-    textboxTemplate->size.x = 64.0;
+    textboxTemplate->size.x = 64.0f;
     textboxTemplate->alignH = Rendering::RIGHT;
     textboxTemplate->textFilter = TextFilterDigits;
     textboxTemplate->textValidate = TextValidateNonempty;
@@ -326,8 +326,8 @@ void SettingsMenu::Initialize() {
     Slider *sliderTemplate = new Slider();
     sliderTemplate->fractionHeight = true;
     sliderTemplate->fractionWidth = false;
-    sliderTemplate->size = vec2(116.0, 1.0);
-    sliderTemplate->valueMax = 100.0;
+    sliderTemplate->size = vec2(116.0f, 1.0f);
+    sliderTemplate->valueMax = 100.0f;
 
     textboxFramerate = new TextBox(*textboxTemplate);
     textboxFramerate->string = ToWString(ToString((i32)globals->framerate));
@@ -340,17 +340,17 @@ void SettingsMenu::Initialize() {
         textboxVolumes[i]->textValidate = TextValidateDecimalsPositive;
         sliderVolumes[i]->mirror = textboxVolumes[i];
     }
-    textboxVolumes[0]->string = ToWString(ToString(globals->volumeMain*100.0, 10, 1));
-    textboxVolumes[1]->string = ToWString(ToString(globals->volumeMusic*100.0, 10, 1));
-    textboxVolumes[2]->string = ToWString(ToString(globals->volumeEffects*100.0, 10, 1));
-    sliderVolumes[0]->value = globals->volumeMain*100.0;
-    sliderVolumes[1]->value = globals->volumeMusic*100.0;
-    sliderVolumes[2]->value = globals->volumeEffects*100.0;
+    textboxVolumes[0]->string = ToWString(ToString(globals->volumeMain*100.0f, 10, 1));
+    textboxVolumes[1]->string = ToWString(ToString(globals->volumeMusic*100.0f, 10, 1));
+    textboxVolumes[2]->string = ToWString(ToString(globals->volumeEffects*100.0f, 10, 1));
+    sliderVolumes[0]->value = globals->volumeMain*100.0f;
+    sliderVolumes[1]->value = globals->volumeMusic*100.0f;
+    sliderVolumes[2]->value = globals->volumeEffects*100.0f;
 
     ListH *settingListTemplate = new ListH();
-    settingListTemplate->size.y = 0.0;
-    settingListTemplate->margin = vec2(8.0);
-    settingListTemplate->padding = vec2(0.0);
+    settingListTemplate->size.y = 0.0f;
+    settingListTemplate->margin = vec2(8.0f);
+    settingListTemplate->padding = vec2(0.0f);
 
     Array<Widget*> settingListItems = {
         checkFullscreen, nullptr,
@@ -374,7 +374,7 @@ void SettingsMenu::Initialize() {
             Text *settingText = new Text(*settingTextTemplate);
             settingText->string = globals->ReadLocale(settingListNames[i / 2]);
             settingText->alignH = Rendering::CENTER;
-            settingText->fontSize = 24.0;
+            settingText->fontSize = 24.0f;
             AddWidget(actualList, settingText);
         } else {
             ListH *settingList = new ListH(*settingListTemplate);
@@ -391,39 +391,39 @@ void SettingsMenu::Initialize() {
     }
 
     ListH *buttonList = new ListH();
-    buttonList->size.y = 0.0;
-    buttonList->margin = vec2(0.0);
-    buttonList->padding = vec2(0.0);
-    buttonList->color = vec4(0.0);
-    buttonList->highlight = vec4(0.0);
+    buttonList->size.y = 0.0f;
+    buttonList->margin = vec2(0.0f);
+    buttonList->padding = vec2(0.0f);
+    buttonList->color = vec4(0.0f);
+    buttonList->highlight = vec4(0.0f);
 
     buttonBack = new Button();
     buttonBack->string = globals->ReadLocale("Back");
-    buttonBack->size.x = 1.0 / 2.0;
-    buttonBack->size.y = 64.0;
+    buttonBack->size.x = 1.0f / 2.0f;
+    buttonBack->size.y = 64.0f;
     buttonBack->fractionHeight = false;
-    buttonBack->margin = vec2(8.0);
-    buttonBack->highlightBG = vec4(colorBack, 0.9);
+    buttonBack->margin = vec2(8.0f);
+    buttonBack->highlightBG = vec4(colorBack, 0.9f);
     buttonBack->keycodeActivators = {KC_GP_BTN_B, KC_KEY_ESC};
     AddWidget(buttonList, buttonBack);
 
     buttonApply = new Button();
     buttonApply->string = globals->ReadLocale("Apply");
-    buttonApply->size.x = 1.0 / 2.0;
-    buttonApply->size.y = 64.0;
+    buttonApply->size.x = 1.0f / 2.0f;
+    buttonApply->size.y = 64.0f;
     buttonApply->fractionHeight = false;
-    buttonApply->margin = vec2(8.0);
+    buttonApply->margin = vec2(8.0f);
     AddWidgetAsDefault(buttonList, buttonApply);
 
     AddWidget(actualList, buttonList);
 
     ListH *spacingList = new ListH();
-    spacingList->color = vec4(0.0);
-    spacingList->highlight = vec4(0.0);
-    spacingList->size.y = 0.0;
+    spacingList->color = vec4(0.0f);
+    spacingList->highlight = vec4(0.0f);
+    spacingList->size.y = 0.0f;
 
     spacer = new Widget();
-    spacer->size.x = 0.5;
+    spacer->size.x = 0.5f;
     AddWidget(spacingList, spacer);
 
     AddWidgetAsDefault(spacingList, actualList);
@@ -449,7 +449,7 @@ u64 WStringToU64(WString str) {
 }
 
 void SettingsMenu::Update() {
-    screen.Update(vec2(0.0), true);
+    screen.Update(vec2(0.0f), true);
     if (buttonApply->state.Released()) {
         globals->window.Fullscreen(checkFullscreen->checked);
         globals->fullscreen = checkFullscreen->checked;
@@ -459,9 +459,9 @@ void SettingsMenu::Update() {
             globals->Framerate((f32)framerate);
         }
         textboxFramerate->string = ToWString(ToString(framerate));
-        globals->volumeMain = sliderVolumes[0]->value / 100.0;
-        globals->volumeMusic = sliderVolumes[1]->value / 100.0;
-        globals->volumeEffects = sliderVolumes[2]->value / 100.0;
+        globals->volumeMain = sliderVolumes[0]->value / 100.0f;
+        globals->volumeMusic = sliderVolumes[1]->value / 100.0f;
+        globals->volumeEffects = sliderVolumes[2]->value / 100.0f;
         for (i32 i = 0; i < 3; i++) {
             textboxVolumes[i]->string = ToWString(ToString(sliderVolumes[i]->value, 10, 1));
         }
@@ -479,65 +479,65 @@ void UpgradesMenu::Initialize() {
     ListH *list = new ListH();
     list->fractionWidth = false;
     list->fractionHeight = false;
-    list->size = 0.0;
-    list->color = vec4(vec3(0.05), 0.8);
+    list->size = 0.0f;
+    list->color = vec4(vec3(0.05f), 0.8f);
     list->highlight = list->color;
-    list->padding *= 0.5;
+    list->padding *= 0.5f;
 
     ListV *listStats = new ListV();
     listStats->fractionWidth = false;
     listStats->fractionHeight = false;
-    listStats->size.x = 250.0;
-    listStats->size.y = 0.0;
-    listStats->margin = 0.0;
-    listStats->padding = 0.0;
-    listStats->color = 0.0;
-    listStats->highlight = 0.0;
+    listStats->size.x = 250.0f;
+    listStats->size.y = 0.0f;
+    listStats->margin = 0.0f;
+    listStats->padding = 0.0f;
+    listStats->color = 0.0f;
+    listStats->highlight = 0.0f;
 
     Text *titleText = new Text();
     titleText->fontIndex = globals->gui.fontIndex;
     titleText->alignH = Rendering::CENTER;
     titleText->alignV = Rendering::CENTER;
     titleText->bold = true;
-    titleText->fontSize = 24.0;
+    titleText->fontSize = 24.0f;
     titleText->fractionWidth = true;
     titleText->fractionHeight = false;
-    titleText->size.x = 1.0;
-    titleText->size.y = 0.0;
+    titleText->size.x = 1.0f;
+    titleText->size.y = 0.0f;
     titleText->string = globals->ReadLocale("Info");
     AddWidget(listStats, titleText);
 
     ListH *selectedTowerPriorityList = new ListH();
     selectedTowerPriorityList->fractionWidth = true;
-    selectedTowerPriorityList->size.x = 1.0;
+    selectedTowerPriorityList->size.x = 1.0f;
     selectedTowerPriorityList->fractionHeight = false;
-    selectedTowerPriorityList->size.y = 0.0;
-    selectedTowerPriorityList->padding = vec2(0.0);
-    selectedTowerPriorityList->margin = vec2(0.0);
-    selectedTowerPriorityList->color = 0.0;
-    selectedTowerPriorityList->highlight = 0.0;
+    selectedTowerPriorityList->size.y = 0.0f;
+    selectedTowerPriorityList->padding = vec2(0.0f);
+    selectedTowerPriorityList->margin = vec2(0.0f);
+    selectedTowerPriorityList->color = 0.0f;
+    selectedTowerPriorityList->highlight = 0.0f;
     Text *selectedTowerPriorityText = new Text();
-    selectedTowerPriorityText->color = 1.0;
-    selectedTowerPriorityText->size.x = 0.5;
-    selectedTowerPriorityText->size.y = 1.0;
+    selectedTowerPriorityText->color = 1.0f;
+    selectedTowerPriorityText->size.x = 0.5f;
+    selectedTowerPriorityText->size.y = 1.0f;
     selectedTowerPriorityText->fractionHeight = true;
     selectedTowerPriorityText->alignV = Rendering::CENTER;
     selectedTowerPriorityText->fontIndex = globals->gui.fontIndex;
-    selectedTowerPriorityText->fontSize = 18.0;
+    selectedTowerPriorityText->fontSize = 18.0f;
     selectedTowerPriorityText->string = globals->ReadLocale("Priority");
     towerPriority = new Switch();
-    towerPriority->size.x = 0.5;
-    towerPriority->size.y = 0.0;
-    towerPriority->padding = 0.0;
+    towerPriority->size.x = 0.5f;
+    towerPriority->size.y = 0.0f;
+    towerPriority->padding = 0.0f;
     for (i32 i = 0; i < 6; i++) {
         Text *priorityText = new Text();
         priorityText->selectable = true;
-        priorityText->size.x = 1.0;
-        priorityText->size.y = 22.0;
-        priorityText->margin = 2.0;
+        priorityText->size.x = 1.0f;
+        priorityText->size.y = 22.0f;
+        priorityText->margin = 2.0f;
         priorityText->fractionHeight = false;
         priorityText->fontIndex = globals->gui.fontIndex;
-        priorityText->fontSize = 18.0;
+        priorityText->fontSize = 18.0f;
         priorityText->alignV = Rendering::CENTER;
         priorityText->string = globals->ReadLocale(Entities::Tower::priorityStrings[i]);
         AddWidget(towerPriority, priorityText);
@@ -547,21 +547,21 @@ void UpgradesMenu::Initialize() {
     towerPriorityHideable = new Hideable(selectedTowerPriorityList);
     AddWidgetAsDefault(listStats, towerPriorityHideable);
     selectedTowerStats = new Text();
-    selectedTowerStats->size.x = 1.0;
-    selectedTowerStats->color = 1.0;
+    selectedTowerStats->size.x = 1.0f;
+    selectedTowerStats->color = 1.0f;
     selectedTowerStats->fontIndex = globals->gui.fontIndex;
-    selectedTowerStats->fontSize = 18.0;
+    selectedTowerStats->fontSize = 18.0f;
     AddWidget(listStats, selectedTowerStats);
 
     ListV *listUpgrades = new ListV();
     listUpgrades->fractionWidth = false;
     listUpgrades->fractionHeight = false;
-    listUpgrades->size.x = 300.0;
-    listUpgrades->size.y = 0.0;
-    listUpgrades->margin = 0.0;
-    listUpgrades->padding = 0.0;
-    listUpgrades->color = 0.0;
-    listUpgrades->highlight = 0.0;
+    listUpgrades->size.x = 300.0f;
+    listUpgrades->size.y = 0.0f;
+    listUpgrades->margin = 0.0f;
+    listUpgrades->padding = 0.0f;
+    listUpgrades->color = 0.0f;
+    listUpgrades->highlight = 0.0f;
     listUpgrades->selectionDefault = 1;
 
     titleText = new Text();
@@ -569,11 +569,11 @@ void UpgradesMenu::Initialize() {
     titleText->alignH = Rendering::CENTER;
     titleText->alignV = Rendering::CENTER;
     titleText->bold = true;
-    titleText->fontSize = 24.0;
+    titleText->fontSize = 24.0f;
     titleText->fractionWidth = true;
     titleText->fractionHeight = false;
-    titleText->size.x = 1.0;
-    titleText->size.y = 0.0;
+    titleText->size.x = 1.0f;
+    titleText->size.y = 0.0f;
     titleText->string = globals->ReadLocale("Upgrades");
     AddWidget(listUpgrades, titleText);
 
@@ -595,51 +595,51 @@ void UpgradesMenu::Initialize() {
     for (i32 i = 0; i < 5; i++) {
         ListV *listV = new ListV();
         listV->fractionHeight = false;
-        listV->size = vec2(1.0, 0.0);
-        listV->margin *= 0.5;
-        listV->padding = 0.0;
-        listV->color = 0.0;
-        listV->highlight = 0.0;
+        listV->size = vec2(1.0f, 0.0f);
+        listV->margin *= 0.5f;
+        listV->padding = 0.0f;
+        listV->color = 0.0f;
+        listV->highlight = 0.0f;
 
         ListH *listH = new ListH();
         listH->fractionHeight = false;
-        listH->size.y = 0.0;
-        listH->margin = 0.0;
-        listH->padding = 0.0;
-        listH->color = 0.0;
-        listH->highlight = 0.0;
+        listH->size.y = 0.0f;
+        listH->margin = 0.0f;
+        listH->padding = 0.0f;
+        listH->color = 0.0f;
+        listH->highlight = 0.0f;
 
         Text *upgradeName = new Text();
         upgradeName->fractionWidth = true;
-        upgradeName->size.x = 0.35;
+        upgradeName->size.x = 0.35f;
         upgradeName->fractionHeight = true;
-        upgradeName->size.y = 1.0;
-        upgradeName->margin *= 0.5;
+        upgradeName->size.y = 1.0f;
+        upgradeName->margin *= 0.5f;
         upgradeName->alignV = Rendering::CENTER;
         upgradeName->fontIndex = globals->gui.fontIndex;
-        upgradeName->fontSize = 18.0;
+        upgradeName->fontSize = 18.0f;
         upgradeName->bold = true;
         upgradeName->string = globals->ReadLocale(upgradeNameStrings[i]);
         AddWidget(listH, upgradeName);
 
         upgradeStatus[i] = new Text();
         upgradeStatus[i]->fractionWidth = true;
-        upgradeStatus[i]->size = vec2(0.4, 0.0);
-        upgradeStatus[i]->margin *= 0.5;
+        upgradeStatus[i]->size = vec2(0.4f, 0.0f);
+        upgradeStatus[i]->margin *= 0.5f;
         upgradeStatus[i]->alignV = Rendering::CENTER;
         upgradeStatus[i]->fontIndex = globals->gui.fontIndex;
-        upgradeStatus[i]->fontSize = 14.0;
+        upgradeStatus[i]->fontSize = 14.0f;
         upgradeStatus[i]->string = ToWString("0");
         AddWidget(listH, upgradeStatus[i]);
 
         upgradeButton[i] = new Button();
         upgradeButton[i]->fractionWidth = true;
         upgradeButton[i]->fractionHeight = true;
-        upgradeButton[i]->size.x = 0.25;
-        upgradeButton[i]->size.y = 1.0;
-        upgradeButton[i]->margin *= 0.5;
+        upgradeButton[i]->size.x = 0.25f;
+        upgradeButton[i]->size.y = 1.0f;
+        upgradeButton[i]->margin *= 0.5f;
         upgradeButton[i]->fontIndex = globals->gui.fontIndex;
-        upgradeButton[i]->fontSize = 18.0;
+        upgradeButton[i]->fontSize = 18.0f;
         upgradeButton[i]->string = globals->ReadLocale("Buy");
         AddWidgetAsDefault(listH, upgradeButton[i]);
 
@@ -648,10 +648,10 @@ void UpgradesMenu::Initialize() {
         Text *upgradeDescription = new Text();
         upgradeDescription->alignH = Rendering::CENTER;
         upgradeDescription->fractionWidth = true;
-        upgradeDescription->size.x = 1.0;
-        upgradeDescription->margin = 0.0;
+        upgradeDescription->size.x = 1.0f;
+        upgradeDescription->margin = 0.0f;
         upgradeDescription->fontIndex = globals->gui.fontIndex;
-        upgradeDescription->fontSize = 14.0;
+        upgradeDescription->fontSize = 14.0f;
         upgradeDescription->string = globals->ReadLocale(upgradeDescriptionStrings[i]);
         AddWidget(listV, upgradeDescription);
 
@@ -672,7 +672,7 @@ void UpgradesMenu::Update() {
     if (globals->entities.selectedTower != -1) {
         hideable->hidden = false;
         vec2 towerScreenPos = globals->entities.WorldPosToScreen(globals->entities.towers[globals->entities.selectedTower].physical.pos);
-        hideable->position = towerScreenPos - vec2(hideable->sizeAbsolute.x / 2.0, 0.0);
+        hideable->position = towerScreenPos - vec2(hideable->sizeAbsolute.x / 2.0f, 0.0f);
 
         Entities::Tower &tower = globals->entities.towers.GetMutable(globals->entities.selectedTower);
         towerPriorityHideable->hidden = !Entities::towerHasPriority[tower.type];
@@ -683,12 +683,12 @@ void UpgradesMenu::Update() {
         WString costString = "\n" + globals->ReadLocale("Cost:") + ' ';
         if (upgradeables.data[0]) { // Range
             i64 cost = tower.sunkCost / 2;
-            f32 newRange = tower.range * 1.25;
+            f32 newRange = tower.range * 1.25f;
             bool canUpgrade = cost <= globals->entities.money;
             upgradeStatus[0]->string =
-                FloatToString(tower.range/10.0) + "m > " + FloatToString(newRange/10.0) + "m" +
+                FloatToString(tower.range/10.0f) + "m > " + FloatToString(newRange/10.0f) + "m" +
                 costString + ToString(cost);
-            upgradeButton[0]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8, 0.1, 0.1), 1.0);
+            upgradeButton[0]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8f, 0.1f, 0.1f), 1.0f);
             if (upgradeButton[0]->state.Released() && canUpgrade) {
                 tower.range = newRange;
                 tower.field.basis.circle.r = newRange;
@@ -698,12 +698,12 @@ void UpgradesMenu::Update() {
         }
         if (upgradeables.data[1]) { // Firerate
             i64 cost = tower.sunkCost / 2;
-            f32 newFirerate = tower.shootInterval / 1.5;
-            bool canUpgrade = cost <= globals->entities.money && newFirerate >= 1.0/18.1;
+            f32 newFirerate = tower.shootInterval / 1.5f;
+            bool canUpgrade = cost <= globals->entities.money && newFirerate >= 1.0f/18.1f;
             upgradeStatus[1]->string =
-                FloatToString(1.0/tower.shootInterval) + "r/s > " + FloatToString(1.0/newFirerate) + "r/s" +
+                FloatToString(1.0f/tower.shootInterval) + "r/s > " + FloatToString(1.0f/newFirerate) + "r/s" +
                 costString + ToString(cost);
-            upgradeButton[1]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8, 0.1, 0.1), 1.0);
+            upgradeButton[1]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8f, 0.1f, 0.1f), 1.0f);
             if (upgradeButton[1]->state.Released() && canUpgrade) {
                 tower.shootInterval = newFirerate;
                 tower.sunkCost += cost;
@@ -712,12 +712,12 @@ void UpgradesMenu::Update() {
         }
         if (upgradeables.data[2]) { // Accuracy
             i64 cost = tower.sunkCost / 5;
-            Degrees32 newSpread = tower.bulletSpread.value() / 1.5;
+            Degrees32 newSpread = tower.bulletSpread.value() / 1.5f;
             bool canUpgrade = cost <= globals->entities.money;
             upgradeStatus[2]->string =
                 FloatToString(tower.bulletSpread.value()) + "° > " + FloatToString(newSpread.value()) + "°" +
                 costString + ToString(cost);
-            upgradeButton[2]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8, 0.1, 0.1), 1.0);
+            upgradeButton[2]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8f, 0.1f, 0.1f), 1.0f);
             if (upgradeButton[2]->state.Released() && canUpgrade) {
                 tower.bulletSpread = newSpread;
                 tower.sunkCost += cost;
@@ -731,7 +731,7 @@ void UpgradesMenu::Update() {
             upgradeStatus[3]->string =
                 ToString(tower.damage) + " > " + ToString(newDamage) +
                 costString + ToString(cost);
-            upgradeButton[3]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8, 0.1, 0.1), 1.0);
+            upgradeButton[3]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8f, 0.1f, 0.1f), 1.0f);
             if (upgradeButton[3]->state.Released() && canUpgrade) {
                 tower.damage = newDamage;
                 tower.bulletExplosionDamage *= 2;
@@ -750,7 +750,7 @@ void UpgradesMenu::Update() {
             upgradeStatus[4]->string =
                 ToString(tower.bulletCount) + " > " + ToString(newBulletCount) +
                 costString + ToString(cost);
-            upgradeButton[4]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8, 0.1, 0.1), 1.0);
+            upgradeButton[4]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8f, 0.1f, 0.1f), 1.0f);
             if (upgradeButton[4]->state.Released() && canUpgrade) {
                 tower.bulletCount = newBulletCount;
                 tower.sunkCost += cost;
@@ -766,7 +766,7 @@ void UpgradesMenu::Update() {
     } else {
         hideable->hidden = true;
     }
-    screen.Update(vec2(0.0), !globals->entities.focusMenu); // Hideable will handle selection culling
+    screen.Update(vec2(0.0f), !globals->entities.focusMenu); // Hideable will handle selection culling
 }
 
 void UpgradesMenu::Draw(Rendering::DrawingContext &context) {
@@ -776,22 +776,22 @@ void UpgradesMenu::Draw(Rendering::DrawingContext &context) {
 void PlayMenu::Initialize() {
     ListH *screenListH = new ListH();
     screenListH->fractionWidth = true;
-    screenListH->size.x = 1.0;
-    screenListH->padding = vec2(0.0);
-    screenListH->margin = vec2(0.0);
-    screenListH->color = 0.0;
-    screenListH->highlight = 0.0;
+    screenListH->size.x = 1.0f;
+    screenListH->padding = vec2(0.0f);
+    screenListH->margin = vec2(0.0f);
+    screenListH->color = 0.0f;
+    screenListH->highlight = 0.0f;
     screenListH->occludes = false;
     AddWidget(&screen, screenListH);
     Widget *spacer = new Widget();
     spacer->fractionWidth = true;
-    spacer->size.x = 1.0;
+    spacer->size.x = 1.0f;
     AddWidget(screenListH, spacer);
     list = new ListV();
     list->fractionHeight = true;
     list->fractionWidth = false;
-    list->margin = 0.0;
-    list->size = vec2(300.0, 1.0);
+    list->margin = 0.0f;
+    list->size = vec2(300.0f, 1.0f);
     list->selectionDefault = 1;
     AddWidgetAsDefault(screenListH, list);
 
@@ -803,22 +803,22 @@ void PlayMenu::Initialize() {
 
     ListH *gridBase = new ListH();
     gridBase->fractionWidth = true;
-    gridBase->size.x = 1.0;
+    gridBase->size.x = 1.0f;
     gridBase->fractionHeight = false;
-    gridBase->size.y = 0.0;
-    gridBase->padding = vec2(0.0);
-    gridBase->margin = vec2(0.0);
-    gridBase->color = 0.0;
-    gridBase->highlight = 0.0;
+    gridBase->size.y = 0.0f;
+    gridBase->padding = vec2(0.0f);
+    gridBase->margin = vec2(0.0f);
+    gridBase->color = 0.0f;
+    gridBase->highlight = 0.0f;
     gridBase->selectionDefault = 0;
 
     Button *halfWidth = new Button();
     halfWidth->fractionWidth = true;
-    halfWidth->size.x = 0.5;
+    halfWidth->size.x = 0.5f;
     halfWidth->fractionHeight = false;
-    halfWidth->size.y = 32.0;
+    halfWidth->size.y = 32.0f;
     halfWidth->fontIndex = globals->gui.fontIndex;
-    halfWidth->fontSize = 20.0;
+    halfWidth->fontSize = 20.0f;
 
     towerButtons.Resize(Entities::TOWER_MAX_RANGE + 1);
     for (i32 i = 0; i < towerButtons.size; i+=2) {
@@ -836,54 +836,54 @@ void PlayMenu::Initialize() {
     }
 
     towerInfo = new Text();
-    towerInfo->size.x = 1.0;
-    towerInfo->color = vec4(1.0);
+    towerInfo->size.x = 1.0f;
+    towerInfo->color = vec4(1.0f);
     towerInfo->fontIndex = globals->gui.fontIndex;
-    towerInfo->fontSize = 18.0;
+    towerInfo->fontSize = 18.0f;
     towerInfo->string = ToWString("$MONEY");
     AddWidget(list, towerInfo);
 
     spacer = new Widget();
     spacer->fractionHeight = true;
-    spacer->size.y = 1.0;
+    spacer->size.y = 1.0f;
     AddWidget(list, spacer);
 
     Button *fullWidth = new Button();
     fullWidth->fractionWidth = true;
-    fullWidth->size.x = 1.0;
+    fullWidth->size.x = 1.0f;
     fullWidth->fractionHeight = false;
-    fullWidth->size.y = 32.0;
+    fullWidth->size.y = 32.0f;
     fullWidth->fontIndex = globals->gui.fontIndex;
 
     ListH *waveList = new ListH(*gridBase);
 
     waveTitle = new Text();
-    waveTitle->size.x = 0.5;
-    waveTitle->size.y = 1.0;
+    waveTitle->size.x = 0.5f;
+    waveTitle->size.y = 1.0f;
     waveTitle->fractionHeight = true;
     waveTitle->alignV = Rendering::CENTER;
-    waveTitle->colorOutline = vec4(1.0, 0.0, 0.5, 1.0);
-    waveTitle->color = vec4(1.0);
+    waveTitle->colorOutline = vec4(1.0f, 0.0f, 0.5f, 1.0f);
+    waveTitle->color = vec4(1.0f);
     waveTitle->outline = true;
     waveTitle->fontIndex = globals->gui.fontIndex;
-    waveTitle->fontSize = 30.0;
+    waveTitle->fontSize = 30.0f;
     // waveTitle->bold = true;
-    waveTitle->margin.y = 0.0;
+    waveTitle->margin.y = 0.0f;
     waveTitle->string = ToWString("Nothing");
     AddWidget(waveList, waveTitle);
     buttonStartWave = new Button(*halfWidth);
     buttonStartWave->string = globals->ReadLocale("Start Wave");
-    buttonStartWave->size.y = 32.0;
+    buttonStartWave->size.y = 32.0f;
     buttonStartWave->keycodeActivators = {KC_GP_BTN_START, KC_KEY_SPACE};
     AddWidgetAsDefault(waveList, buttonStartWave);
 
     AddWidget(list, waveList);
 
     waveInfo = new Text();
-    waveInfo->size.x = 1.0;
-    waveInfo->color = vec4(1.0);
+    waveInfo->size.x = 1.0f;
+    waveInfo->color = vec4(1.0f);
     waveInfo->fontIndex = globals->gui.fontIndex;
-    waveInfo->fontSize = 20.0;
+    waveInfo->fontSize = 20.0f;
     waveInfo->string = ToWString("Nothing");
     AddWidget(list, waveInfo);
 
@@ -934,7 +934,7 @@ void PlayMenu::Update() {
     waveInfo->string =
         globals->ReadLocale("Wave Hitpoints Left") + ": " + ToString(globals->entities.hitpointsLeft) + "\n"
         + globals->ReadLocale("Lives") + ": " + ToString(globals->entities.lives);
-    screen.Update(vec2(0.0), globals->entities.focusMenu);
+    screen.Update(vec2(0.0f), globals->entities.focusMenu);
     if (buttonMenu->state.Released()) {
         globals->gui.nextMenu = MenuEnum::MENU_MAIN;
         globals->objects.paused = true;
@@ -953,30 +953,30 @@ void PlayMenu::Draw(Rendering::DrawingContext &context) {
 //      Widget implementations beyond this point
 //
 
-Widget::Widget() : children(), margin(8.0), size(1.0), fractionWidth(true), fractionHeight(true), minSize(0.0), maxSize(-1.0), position(0.0), sizeAbsolute(0.0), positionAbsolute(0.0), depth(0), selectable(false), highlighted(false), occludes(false) {}
+Widget::Widget() : children(), margin(8.0f), size(1.0f), fractionWidth(true), fractionHeight(true), minSize(0.0f), maxSize(-1.0f), position(0.0f), sizeAbsolute(0.0f), positionAbsolute(0.0f), depth(0), selectable(false), highlighted(false), occludes(false) {}
 
 void Widget::UpdateSize(vec2 container) {
-    sizeAbsolute = vec2(0.0);
-    if (size.x > 0.0) {
-        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0) : size.x;
+    sizeAbsolute = vec2(0.0f);
+    if (size.x > 0.0f) {
+        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0f) : size.x;
     } else {
-        sizeAbsolute.x = 0.0;
+        sizeAbsolute.x = 0.0f;
     }
-    if (size.y > 0.0) {
-        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0) : size.y;
+    if (size.y > 0.0f) {
+        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0f) : size.y;
     } else {
-        sizeAbsolute.y = 0.0;
+        sizeAbsolute.y = 0.0f;
     }
     LimitSize();
 }
 
 void Widget::LimitSize() {
-    if (maxSize.x >= 0.0) {
+    if (maxSize.x >= 0.0f) {
         sizeAbsolute.x = median(minSize.x, sizeAbsolute.x, maxSize.x);
     } else {
         sizeAbsolute.x = max(minSize.x, sizeAbsolute.x);
     }
-    if (maxSize.y >= 0.0) {
+    if (maxSize.y >= 0.0f) {
         sizeAbsolute.y = median(minSize.y, sizeAbsolute.y, maxSize.y);
     } else {
         sizeAbsolute.y = max(minSize.y, sizeAbsolute.y);
@@ -984,21 +984,21 @@ void Widget::LimitSize() {
 }
 
 void Widget::PushScissor(Rendering::DrawingContext &context) const {
-    if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
+    if (sizeAbsolute.x != 0.0f && sizeAbsolute.y != 0.0f) {
         vec2i topLeft = vec2i(
-            positionAbsolute.x * globals->gui.scale,
-            positionAbsolute.y * globals->gui.scale
+            i32(positionAbsolute.x * globals->gui.scale),
+            i32(positionAbsolute.y * globals->gui.scale)
         );
         vec2i botRight = vec2i(
-            ceil((positionAbsolute.x + sizeAbsolute.x) * globals->gui.scale),
-            ceil((positionAbsolute.y + sizeAbsolute.y) * globals->gui.scale)
+            (i32)ceil((positionAbsolute.x + sizeAbsolute.x) * globals->gui.scale),
+            (i32)ceil((positionAbsolute.y + sizeAbsolute.y) * globals->gui.scale)
         );
         globals->rendering.PushScissor(context, topLeft, botRight);
     }
 }
 
 void Widget::PopScissor(Rendering::DrawingContext &context) const {
-    if (sizeAbsolute.x != 0.0 && sizeAbsolute.y != 0.0) {
+    if (sizeAbsolute.x != 0.0f && sizeAbsolute.y != 0.0f) {
         globals->rendering.PopScissor(context);
     }
 }
@@ -1036,7 +1036,7 @@ bool Widget::MouseOver() const {
         // if (globals->gui.currentMenu == MENU_PLAY) {
         //     mouse = globals->entities.WorldPosToScreen(globals->entities.mouse);
         // } else {
-            mouse = -1.0;
+            mouse = -1.0f;
         // }
     }
     return mouse.x == median(positionAbsolute.x, mouse.x, positionAbsolute.x + sizeAbsolute.x)
@@ -1058,7 +1058,7 @@ void Widget::FindMouseoverDepth(i32 actualDepth) {
 }
 
 Screen::Screen() {
-    margin = vec2(0.0);
+    margin = vec2(0.0f);
 }
 
 void Screen::Update(vec2 pos, bool selected) {
@@ -1070,13 +1070,13 @@ void Screen::Update(vec2 pos, bool selected) {
 }
 
 void Screen::UpdateSize(vec2 container) {
-    sizeAbsolute = container - margin * 2.0;
+    sizeAbsolute = container - margin * 2.0f;
     for (Widget* child : children) {
         child->UpdateSize(sizeAbsolute);
     }
 }
 
-List::List() : padding(8.0), color(0.05, 0.05, 0.05, 0.9), highlight(0.05, 0.05, 0.05, 0.9), select(0.2, 0.2, 0.2, 0.0), selection(-2), selectionDefault(-1) { occludes = true; }
+List::List() : padding(8.0f), color(0.05f, 0.05f, 0.05f, 0.9f), highlight(0.05f, 0.05f, 0.05f, 0.9f), select(0.2f, 0.2f, 0.2f, 0.0f), selection(-2), selectionDefault(-1) { occludes = true; }
 
 bool List::UpdateSelection(bool selected, u8 keyCodeSelect, u8 keyCodeBack, u8 keyCodeIncrement, u8 keyCodeDecrement) {
     highlighted = selected;
@@ -1148,13 +1148,13 @@ bool List::UpdateSelection(bool selected, u8 keyCodeSelect, u8 keyCodeBack, u8 k
 }
 
 void List::Draw(Rendering::DrawingContext &context) const {
-    if ((highlighted ? highlight.a : color.a) > 0.0) {
-        globals->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlight : color, positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
+    if ((highlighted ? highlight.a : color.a) > 0.0f) {
+        globals->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlight : color, positionAbsolute * globals->gui.scale, vec2(1.0f), sizeAbsolute * globals->gui.scale);
     }
-    if (selection >= 0 && select.a > 0.0) {
+    if (selection >= 0 && select.a > 0.0f) {
         vec2 selectionPos = children[selection]->positionAbsolute;
         vec2 selectionSize = children[selection]->sizeAbsolute;
-        globals->rendering.DrawQuad(context, Rendering::texBlank, select, selectionPos * globals->gui.scale, vec2(1.0), selectionSize * globals->gui.scale);
+        globals->rendering.DrawQuad(context, Rendering::texBlank, select, selectionPos * globals->gui.scale, vec2(1.0f), selectionSize * globals->gui.scale);
     }
     PushScissor(context);
     Widget::Draw(context);
@@ -1162,44 +1162,44 @@ void List::Draw(Rendering::DrawingContext &context) const {
 }
 
 void ListV::UpdateSize(vec2 container) {
-    sizeAbsolute = vec2(0.0);
-    if (size.x > 0.0) {
-        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0) : size.x;
+    sizeAbsolute = vec2(0.0f);
+    if (size.x > 0.0f) {
+        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0f) : size.x;
     } else {
-        sizeAbsolute.x = padding.x * 2.0;
+        sizeAbsolute.x = padding.x * 2.0f;
     }
-    if (size.y > 0.0) {
-        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0) : size.y;
+    if (size.y > 0.0f) {
+        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0f) : size.y;
     } else {
-        sizeAbsolute.y = padding.y * 2.0;
+        sizeAbsolute.y = padding.y * 2.0f;
     }
     LimitSize();
-    vec2 sizeForInheritance = sizeAbsolute - padding * 2.0;
-    if (size.x == 0.0) {
+    vec2 sizeForInheritance = sizeAbsolute - padding * 2.0f;
+    if (size.x == 0.0f) {
         for (Widget* child : children) {
             child->UpdateSize(sizeForInheritance);
             vec2 childSize = child->GetSize();
-            sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + padding.x * 2.0);
+            sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + padding.x * 2.0f);
         }
     }
-    sizeForInheritance = sizeAbsolute - padding * 2.0;
+    sizeForInheritance = sizeAbsolute - padding * 2.0f;
     for (Widget* child : children) {
-        if (child->size.y == 0.0) {
+        if (child->size.y == 0.0f) {
             child->UpdateSize(sizeForInheritance);
             sizeForInheritance.y -= child->GetSize().y;
         } else {
             if (!child->fractionHeight) {
-                sizeForInheritance.y -= child->size.y + child->margin.y * 2.0;
+                sizeForInheritance.y -= child->size.y + child->margin.y * 2.0f;
             }
         }
     }
     for (Widget* child : children) {
         child->UpdateSize(sizeForInheritance);
         vec2 childSize = child->GetSize();
-        if (size.x == 0.0) {
-            sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + padding.x * 2.0);
+        if (size.x == 0.0f) {
+            sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + padding.x * 2.0f);
         }
-        if (size.y == 0.0) {
+        if (size.y == 0.0f) {
             sizeAbsolute.y += childSize.y;
         }
     }
@@ -1238,51 +1238,51 @@ void ListV::Update(vec2 pos, bool selected) {
 }
 
 ListH::ListH() {
-    color = vec4(0.0, 0.0, 0.0, 0.9);
-    highlight = vec4(0.1, 0.1, 0.1, 0.9);
+    color = vec4(0.0f, 0.0f, 0.0f, 0.9f);
+    highlight = vec4(0.1f, 0.1f, 0.1f, 0.9f);
     occludes = true;
 }
 
 void ListH::UpdateSize(vec2 container) {
-    sizeAbsolute = vec2(0.0);
-    if (size.x > 0.0) {
-        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0) : size.x;
+    sizeAbsolute = vec2(0.0f);
+    if (size.x > 0.0f) {
+        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0f) : size.x;
     } else {
-        sizeAbsolute.x = padding.x * 2.0;
+        sizeAbsolute.x = padding.x * 2.0f;
     }
-    if (size.y > 0.0) {
-        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0) : size.y;
+    if (size.y > 0.0f) {
+        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0f) : size.y;
     } else {
-        sizeAbsolute.y = padding.y * 2.0;
+        sizeAbsolute.y = padding.y * 2.0f;
     }
     LimitSize();
-    vec2 sizeForInheritance = sizeAbsolute - padding * 2.0;
-    if (size.y == 0.0) {
+    vec2 sizeForInheritance = sizeAbsolute - padding * 2.0f;
+    if (size.y == 0.0f) {
         for (Widget* child : children) {
             child->UpdateSize(sizeForInheritance);
             vec2 childSize = child->GetSize();
-            sizeAbsolute.y = max(sizeAbsolute.y, childSize.y + padding.y * 2.0);
+            sizeAbsolute.y = max(sizeAbsolute.y, childSize.y + padding.y * 2.0f);
         }
-        sizeForInheritance = sizeAbsolute - padding * 2.0;
+        sizeForInheritance = sizeAbsolute - padding * 2.0f;
     }
     for (Widget* child : children) {
-        if (child->size.x == 0.0) {
+        if (child->size.x == 0.0f) {
             child->UpdateSize(sizeForInheritance);
             sizeForInheritance.x -= child->GetSize().x;
         } else {
             if (!child->fractionWidth) {
-                sizeForInheritance.x -= child->size.x + child->margin.x * 2.0;
+                sizeForInheritance.x -= child->size.x + child->margin.x * 2.0f;
             }
         }
     }
     for (Widget* child : children) {
         child->UpdateSize(sizeForInheritance);
         vec2 childSize = child->GetSize();
-        if (size.x == 0.0) {
+        if (size.x == 0.0f) {
             sizeAbsolute.x += childSize.x;
         }
-        if (size.y == 0.0) {
-            sizeAbsolute.y = max(sizeAbsolute.y, childSize.y + padding.y * 2.0);
+        if (size.y == 0.0f) {
+            sizeAbsolute.y = max(sizeAbsolute.y, childSize.y + padding.y * 2.0f);
         }
     }
     LimitSize();
@@ -1320,49 +1320,49 @@ void ListH::Update(vec2 pos, bool selected) {
 Switch::Switch() : choice(0), open(false), changed(false) {
     selectable = true;
     selectionDefault = 0;
-    color = vec4(vec3(0.2), 0.9);
-    highlight = vec4(colorHighlightMedium, 0.9);
-    select = vec4(colorHighlightMedium, 0.9);
+    color = vec4(vec3(0.2f), 0.9f);
+    highlight = vec4(colorHighlightMedium, 0.9f);
+    select = vec4(colorHighlightMedium, 0.9f);
 }
 
 void Switch::UpdateSize(vec2 container) {
     if (open) {
         ListV::UpdateSize(container);
     } else {
-        sizeAbsolute = vec2(0.0);
-        if (size.x > 0.0) {
-            sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0) : size.x;
+        sizeAbsolute = vec2(0.0f);
+        if (size.x > 0.0f) {
+            sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0f) : size.x;
         } else {
-            sizeAbsolute.x = padding.x * 2.0;
+            sizeAbsolute.x = padding.x * 2.0f;
         }
-        if (size.y > 0.0) {
-            sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0) : size.y;
+        if (size.y > 0.0f) {
+            sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0f) : size.y;
         } else {
-            sizeAbsolute.y = padding.y * 2.0;
+            sizeAbsolute.y = padding.y * 2.0f;
         }
         LimitSize();
         Widget *child = children[choice];
-        vec2 sizeForInheritance = sizeAbsolute - padding * 2.0;
-        if (size.x == 0.0) {
+        vec2 sizeForInheritance = sizeAbsolute - padding * 2.0f;
+        if (size.x == 0.0f) {
             child->UpdateSize(sizeForInheritance);
             vec2 childSize = child->GetSize();
-            sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + padding.x * 2.0);
+            sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + padding.x * 2.0f);
         }
-        sizeForInheritance = sizeAbsolute - padding * 2.0;
-        if (child->size.y == 0.0) {
+        sizeForInheritance = sizeAbsolute - padding * 2.0f;
+        if (child->size.y == 0.0f) {
             child->UpdateSize(sizeForInheritance);
             sizeForInheritance.y -= child->GetSize().y;
         } else {
             if (!child->fractionHeight) {
-                sizeForInheritance.y -= child->size.y + child->margin.y * 2.0;
+                sizeForInheritance.y -= child->size.y + child->margin.y * 2.0f;
             }
         }
         child->UpdateSize(sizeForInheritance);
         vec2 childSize = child->GetSize();
-        if (size.x == 0.0) {
-            sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + padding.x * 2.0);
+        if (size.x == 0.0f) {
+            sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + padding.x * 2.0f);
         }
-        if (size.y == 0.0) {
+        if (size.y == 0.0f) {
             sizeAbsolute.y += childSize.y;
         }
         LimitSize();
@@ -1404,16 +1404,16 @@ void Switch::Update(vec2 pos, bool selected) {
 }
 
 void Switch::Draw(Rendering::DrawingContext &context) const {
-    if (color.a > 0.0) {
-        globals->rendering.DrawQuad(context, Rendering::texBlank, (highlighted && !open) ? highlight : color, positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
+    if (color.a > 0.0f) {
+        globals->rendering.DrawQuad(context, Rendering::texBlank, (highlighted && !open) ? highlight : color, positionAbsolute * globals->gui.scale, vec2(1.0f), sizeAbsolute * globals->gui.scale);
     }
     PushScissor(context);
     if (open) {
-        if (selection >= 0 && select.a > 0.0) {
+        if (selection >= 0 && select.a > 0.0f) {
             Widget *child = children[selection];
             vec2 selectionPos = child->positionAbsolute - child->margin;
-            vec2 selectionSize = child->sizeAbsolute + child->margin * 2.0;
-            globals->rendering.DrawQuad(context, Rendering::texBlank, select, selectionPos * globals->gui.scale, vec2(1.0), selectionSize * globals->gui.scale);
+            vec2 selectionSize = child->sizeAbsolute + child->margin * 2.0f;
+            globals->rendering.DrawQuad(context, Rendering::texBlank, select, selectionPos * globals->gui.scale, vec2(1.0f), selectionSize * globals->gui.scale);
         }
         Widget::Draw(context);
     } else {
@@ -1428,26 +1428,26 @@ void Switch::OnHide() {
     globals->gui.controlDepth = parentDepth;
 }
 
-Text::Text() : stringFormatted(), string(), padding(0.1), fontSize(32.0), fontIndex(1), bold(false), paddingEM(true), alignH(Rendering::LEFT), alignV(Rendering::TOP), color(vec3(1.0), 1.0), colorOutline(vec3(0.0), 1.0), highlight(vec3(0.0), 1.0), highlightOutline(vec3(1.0), 1.0), outline(false) {
-    size.y = 0.0;
+Text::Text() : stringFormatted(), string(), padding(0.1f), fontSize(32.0f), fontIndex(1), bold(false), paddingEM(true), alignH(Rendering::LEFT), alignV(Rendering::TOP), color(vec3(1.0f), 1.0f), colorOutline(vec3(0.0f), 1.0f), highlight(vec3(0.0f), 1.0f), highlightOutline(vec3(1.0f), 1.0f), outline(false) {
+    size.y = 0.0f;
 }
 
 void Text::UpdateSize(vec2 container) {
-    if (size.x > 0.0) {
-        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0) : size.x;
+    if (size.x > 0.0f) {
+        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0f) : size.x;
     } else {
-        sizeAbsolute.x = globals->rendering.StringWidth(stringFormatted, fontIndex) * fontSize + padding.x * (paddingEM ? fontSize * 2.0 : 2.0);
+        sizeAbsolute.x = globals->rendering.StringWidth(stringFormatted, fontIndex) * fontSize + padding.x * (paddingEM ? fontSize * 2.0f : 2.0f);
     }
-    if (size.y > 0.0) {
-        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0) : size.y;
+    if (size.y > 0.0f) {
+        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0f) : size.y;
     } else {
-        sizeAbsolute.y = Rendering::StringHeight(stringFormatted) * fontSize + padding.y * (paddingEM ? fontSize * 2.0 : 2.0);
+        sizeAbsolute.y = Rendering::StringHeight(stringFormatted) * fontSize + padding.y * (paddingEM ? fontSize * 2.0f : 2.0f);
     }
     LimitSize();
 }
 
 void Text::Update(vec2 pos, bool selected) {
-    if (size.x != 0.0) {
+    if (size.x != 0.0f) {
         stringFormatted = globals->rendering.StringAddNewlines(string, fontIndex, sizeAbsolute.x / fontSize);
     } else {
         stringFormatted = string;
@@ -1461,32 +1461,32 @@ void Text::Draw(Rendering::DrawingContext &context) const {
     if (paddingEM) paddingAbsolute *= fontSize;
     vec2 drawPos = (positionAbsolute + paddingAbsolute) * globals->gui.scale;
     vec2 scale = vec2(fontSize) * globals->gui.scale;
-    vec2 textArea = (sizeAbsolute - paddingAbsolute * 2.0) * globals->gui.scale;
+    vec2 textArea = (sizeAbsolute - paddingAbsolute * 2.0f) * globals->gui.scale;
     if (alignH == Rendering::CENTER) {
-        drawPos.x += textArea.x * 0.5;
+        drawPos.x += textArea.x * 0.5f;
     } else if (alignH == Rendering::RIGHT) {
         drawPos.x += textArea.x;
     }
     if (alignV == Rendering::CENTER) {
-        drawPos.y += textArea.y * 0.5;
+        drawPos.y += textArea.y * 0.5f;
     } else if (alignV == Rendering::BOTTOM) {
         drawPos.y += textArea.y;
     }
-    f32 bounds = bold ? 0.425 : 0.525;
+    f32 bounds = bold ? 0.425f : 0.525f;
     if (outline) {
-        globals->rendering.DrawText(context, stringFormatted, fontIndex, highlighted? highlightOutline : colorOutline, drawPos, scale, alignH, alignV, textArea.x, 0.1, bounds - 0.2);
+        globals->rendering.DrawText(context, stringFormatted, fontIndex, highlighted? highlightOutline : colorOutline, drawPos, scale, alignH, alignV, textArea.x, 0.1f, bounds - 0.2f);
     }
-    globals->rendering.DrawText(context, stringFormatted, fontIndex, highlighted? highlight : color, drawPos, scale, alignH, alignV, textArea.x, 0.0, bounds);
+    globals->rendering.DrawText(context, stringFormatted, fontIndex, highlighted? highlight : color, drawPos, scale, alignH, alignV, textArea.x, 0.0f, bounds);
     PopScissor(context);
 }
 
 Image::Image() : texIndex(0) { occludes = true; }
 
 void Image::Draw(Rendering::DrawingContext &context) const {
-    globals->rendering.DrawQuad(context, texIndex, vec4(1.0), positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
+    globals->rendering.DrawQuad(context, texIndex, vec4(1.0f), positionAbsolute * globals->gui.scale, vec2(1.0f), sizeAbsolute * globals->gui.scale);
 }
 
-Button::Button() : string(), colorBG(vec3(0.15), 0.9), highlightBG(colorHighlightMedium, 0.9), colorText(vec3(1.0), 1.0), highlightText(vec3(0.0), 1.0), fontIndex(1), fontSize(28.0), state(), keycodeActivators() {
+Button::Button() : string(), colorBG(vec3(0.15f), 0.9f), highlightBG(colorHighlightMedium, 0.9f), colorText(vec3(1.0f), 1.0f), highlightText(vec3(0.0f), 1.0f), fontIndex(1), fontSize(28.0f), state(), keycodeActivators() {
     state.canRepeat = false;
     selectable = true;
     occludes = true;
@@ -1501,7 +1501,7 @@ void Button::Update(vec2 pos, bool selected) {
         }
         mouseover = mouseoverNew;
     }
-    state.Tick(0.0);
+    state.Tick(0.0f);
     if (mouseover) {
         if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
             state.Press();
@@ -1541,20 +1541,20 @@ void Button::Draw(Rendering::DrawingContext &context) const {
     PushScissor(context);
     f32 scale;
     if (state.Down()) {
-        scale = 0.9;
+        scale = 0.9f;
     } else {
-        scale = 1.0;
+        scale = 1.0f;
     }
     scale *= globals->gui.scale;
-    vec2 drawPos = (positionAbsolute + sizeAbsolute * 0.5) * globals->gui.scale;
-    globals->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlightBG : colorBG, drawPos, vec2(1.0), sizeAbsolute * scale, vec2(0.5));
+    vec2 drawPos = (positionAbsolute + sizeAbsolute * 0.5f) * globals->gui.scale;
+    globals->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlightBG : colorBG, drawPos, vec2(1.0f), sizeAbsolute * scale, vec2(0.5f));
     globals->rendering.DrawText(context, string, fontIndex,  highlighted ? highlightText : colorText, drawPos, vec2(fontSize * scale), Rendering::CENTER, Rendering::CENTER, sizeAbsolute.x * globals->gui.scale);
     PopScissor(context);
 }
 
-Checkbox::Checkbox() : colorOff(vec3(0.15), 0.9), highlightOff(colorHighlightLow, 0.9), colorOn(colorHighlightMedium, 1.0), highlightOn(colorHighlightHigh, 1.0), transition(0.0), checked(false) {
+Checkbox::Checkbox() : colorOff(vec3(0.15f), 0.9f), highlightOff(colorHighlightLow, 0.9f), colorOn(colorHighlightMedium, 1.0f), highlightOn(colorHighlightHigh, 1.0f), transition(0.0f), checked(false) {
     selectable = true;
-    size = vec2(48.0, 24.0);
+    size = vec2(48.0f, 24.0f);
     fractionWidth = false;
     fractionHeight = false;
     occludes = true;
@@ -1590,9 +1590,9 @@ void Checkbox::Update(vec2 pos, bool selected) {
         }
     }
     if (checked) {
-        transition = decay(transition, 1.0, 0.05, globals->objects.timestep);
+        transition = decay(transition, 1.0f, 0.05f, globals->objects.timestep);
     } else {
-        transition = decay(transition, 0.0, 0.05, globals->objects.timestep);
+        transition = decay(transition, 0.0f, 0.05f, globals->objects.timestep);
     }
 }
 
@@ -1600,19 +1600,19 @@ void Checkbox::Draw(Rendering::DrawingContext &context) const {
     const vec4 &colorOnActual = highlighted ? highlightOn : colorOn;
     const vec4 &colorOffActual = highlighted ? highlightOff : colorOff;
     vec4 colorActual = lerp(colorOffActual, colorOnActual, transition);
-    vec2 switchPos = (positionAbsolute + sizeAbsolute * vec2(lerp(0.0625, 0.5625, transition), 0.125)) * globals->gui.scale;
-    globals->rendering.DrawQuad(context, Rendering::texBlank, colorActual, positionAbsolute * globals->gui.scale, vec2(1.0), sizeAbsolute * globals->gui.scale);
-    globals->rendering.DrawQuad(context, Rendering::texBlank, vec4(vec3(0.0), 0.8), switchPos, vec2(1.0), (sizeAbsolute * vec2(0.375, 0.75)) * globals->gui.scale);
+    vec2 switchPos = (positionAbsolute + sizeAbsolute * vec2(lerp(0.0625f, 0.5625f, transition), 0.125f)) * globals->gui.scale;
+    globals->rendering.DrawQuad(context, Rendering::texBlank, colorActual, positionAbsolute * globals->gui.scale, vec2(1.0f), sizeAbsolute * globals->gui.scale);
+    globals->rendering.DrawQuad(context, Rendering::texBlank, vec4(vec3(0.0f), 0.8f), switchPos, vec2(1.0f), (sizeAbsolute * vec2(0.375f, 0.75f)) * globals->gui.scale);
 }
 
-TextBox::TextBox() : string(), colorBG(vec3(0.15), 0.9), highlightBG(vec3(0.2), 0.9), errorBG(0.1, 0.0, 0.0, 0.9), colorText(vec3(1.0), 1.0), highlightText(vec3(1.0), 1.0), errorText(1.0, 0.5, 0.5, 1.0), padding(2.0), cursor(0), fontIndex(1), fontSize(17.39), cursorBlinkTimer(0.0), alignH(Rendering::LEFT), textFilter(TextFilterBasic), textValidate(TextValidateAll), entry(false), multiline(false) {
+TextBox::TextBox() : string(), colorBG(vec3(0.15f), 0.9f), highlightBG(vec3(0.2f), 0.9f), errorBG(0.1f, 0.0f, 0.0f, 0.9f), colorText(vec3(1.0f), 1.0f), highlightText(vec3(1.0f), 1.0f), errorText(1.0f, 0.5f, 0.5f, 1.0f), padding(2.0f), cursor(0), fontIndex(1), fontSize(17.39f), cursorBlinkTimer(0.0f), alignH(Rendering::LEFT), textFilter(TextFilterBasic), textValidate(TextValidateAll), entry(false), multiline(false) {
     // selectable = true;
     occludes = true;
     fractionWidth = false;
     fractionHeight = false;
-    size.x = 200.0;
-    size.y = 0.0;
-    minSize.y = 24.0;
+    size.x = 200.0f;
+    size.y = 0.0f;
+    minSize.y = 24.0f;
 }
 
 inline bool IsWhitespace(const char32 &c) {
@@ -1702,7 +1702,7 @@ bool TextValidateIntegers(const WString &string) {
 }
 
 void TextBox::CursorFromPosition(vec2 position) {
-    vec2 cursorPos = 0.0;
+    vec2 cursorPos = 0.0f;
     f32 spaceScale, spaceWidth;
     spaceWidth = globals->assets.CharacterWidth(' ', fontIndex) * fontSize;
     const char32 *lineString = &stringFormatted[0];
@@ -1725,12 +1725,12 @@ void TextBox::CursorFromPosition(vec2 position) {
             }
         }
     }
-    globals->rendering.LineCursorStartAndSpaceScale(cursorPos.x, spaceScale, fontSize, spaceWidth, fontIndex, lineString, sizeAbsolute.x - padding.x * 2.0, alignH);
+    globals->rendering.LineCursorStartAndSpaceScale(cursorPos.x, spaceScale, fontSize, spaceWidth, fontIndex, lineString, sizeAbsolute.x - padding.x * 2.0f, alignH);
     cursorPos.x += positionAbsolute.x + padding.x;
     if (alignH == Rendering::CENTER) {
-        cursorPos.x += sizeAbsolute.x * 0.5 - padding.x;
+        cursorPos.x += sizeAbsolute.x * 0.5f - padding.x;
     } else if (alignH == Rendering::RIGHT) {
-        cursorPos.x += sizeAbsolute.x - padding.x * 2.0;
+        cursorPos.x += sizeAbsolute.x - padding.x * 2.0f;
     }
     cursorPos *= globals->gui.scale;
     spaceWidth *= spaceScale * globals->gui.scale;
@@ -1741,9 +1741,9 @@ void TextBox::CursorFromPosition(vec2 position) {
             break;
         }
         if (c == ' ') {
-            advanceCarry = spaceWidth * 0.5;
+            advanceCarry = spaceWidth * 0.5f;
         } else {
-            advanceCarry = globals->assets.CharacterWidth(c, fontIndex) * fontSize * globals->gui.scale * 0.5;
+            advanceCarry = globals->assets.CharacterWidth(c, fontIndex) * fontSize * globals->gui.scale * 0.5f;
         }
         cursorPos.x += advanceCarry;
         if (cursorPos.x > position.x) {
@@ -1755,7 +1755,7 @@ void TextBox::CursorFromPosition(vec2 position) {
 }
 
 vec2 TextBox::PositionFromCursor() const {
-    vec2 cursorPos = 0.0;
+    vec2 cursorPos = 0.0f;
     f32 spaceScale, spaceWidth;
     spaceWidth = globals->assets.CharacterWidth(' ', fontIndex) * fontSize;
     const char32 *lineString = &stringFormatted[0];
@@ -1772,7 +1772,7 @@ vec2 TextBox::PositionFromCursor() const {
             lineStart = i+1;
         }
     }
-    globals->rendering.LineCursorStartAndSpaceScale(cursorPos.x, spaceScale, fontSize, spaceWidth, fontIndex, lineString, sizeAbsolute.x - padding.x * 2.0, alignH);
+    globals->rendering.LineCursorStartAndSpaceScale(cursorPos.x, spaceScale, fontSize, spaceWidth, fontIndex, lineString, sizeAbsolute.x - padding.x * 2.0f, alignH);
     spaceWidth *= spaceScale;
     for (i32 i = lineStart; i < cursor+formatNewlines; i++) {
         const char32 &c = stringFormatted[i];
@@ -1786,9 +1786,9 @@ vec2 TextBox::PositionFromCursor() const {
         }
     }
     if (alignH == Rendering::CENTER) {
-        cursorPos.x += sizeAbsolute.x * 0.5 - padding.x;
+        cursorPos.x += sizeAbsolute.x * 0.5f - padding.x;
     } else if (alignH == Rendering::RIGHT) {
-        cursorPos.x += sizeAbsolute.x - padding.x * 2.0;
+        cursorPos.x += sizeAbsolute.x - padding.x * 2.0f;
     }
     cursorPos += positionAbsolute + padding;
     cursorPos *= globals->gui.scale;
@@ -1796,15 +1796,15 @@ vec2 TextBox::PositionFromCursor() const {
 }
 
 void TextBox::UpdateSize(vec2 container) {
-    if (size.x > 0.0) {
-        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0) : size.x;
+    if (size.x > 0.0f) {
+        sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0f) : size.x;
     } else {
-        sizeAbsolute.x = globals->rendering.StringWidth(stringFormatted, fontIndex) * fontSize + padding.x * 2.0;
+        sizeAbsolute.x = globals->rendering.StringWidth(stringFormatted, fontIndex) * fontSize + padding.x * 2.0f;
     }
-    if (size.y > 0.0) {
-        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0) : size.y;
+    if (size.y > 0.0f) {
+        sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0f) : size.y;
     } else {
-        sizeAbsolute.y = Rendering::StringHeight(stringFormatted) * fontSize + padding.y * 2.0;
+        sizeAbsolute.y = Rendering::StringHeight(stringFormatted) * fontSize + padding.y * 2.0f;
     }
     LimitSize();
 }
@@ -1812,8 +1812,8 @@ void TextBox::UpdateSize(vec2 container) {
 void TextBox::Update(vec2 pos, bool selected) {
     if (entry) {
         cursorBlinkTimer += globals->objects.timestep;
-        if (cursorBlinkTimer > 1.0) {
-            cursorBlinkTimer -= 1.0;
+        if (cursorBlinkTimer > 1.0f) {
+            cursorBlinkTimer -= 1.0f;
         }
         highlighted = true;
         if (globals->input.AnyKey.Pressed()) {
@@ -1821,7 +1821,7 @@ void TextBox::Update(vec2 pos, bool selected) {
                 const char32 c = globals->input.typingString[i];
                 if (textFilter(c)) {
                     string.Insert(cursor, c);
-                    cursorBlinkTimer = 0.0;
+                    cursorBlinkTimer = 0.0f;
                     cursor++;
                 }
             }
@@ -1830,14 +1830,14 @@ void TextBox::Update(vec2 pos, bool selected) {
         if (globals->input.Pressed(KC_KEY_BACKSPACE)) {
             if (cursor <= string.size && cursor > 0) {
                 string.Erase(cursor-1);
-                cursorBlinkTimer = 0.0;
+                cursorBlinkTimer = 0.0f;
                 cursor--;
             }
         }
         if (globals->input.Pressed(KC_KEY_DELETE)) {
             if (cursor < string.size) {
                 string.Erase(cursor);
-                cursorBlinkTimer = 0.0;
+                cursorBlinkTimer = 0.0f;
             }
         }
         if (globals->input.Pressed(KC_KEY_HOME)) {
@@ -1849,7 +1849,7 @@ void TextBox::Update(vec2 pos, bool selected) {
                 }
                 cursor++;
             }
-            cursorBlinkTimer = 0.0;
+            cursorBlinkTimer = 0.0f;
         }
         if (globals->input.Pressed(KC_KEY_END)) {
             if (globals->input.Down(KC_KEY_LEFTCTRL) || globals->input.Down(KC_KEY_RIGHTCTRL) || !multiline) {
@@ -1859,29 +1859,29 @@ void TextBox::Update(vec2 pos, bool selected) {
                     if (string[cursor] == '\n') break;
                 }
             }
-            cursorBlinkTimer = 0.0;
+            cursorBlinkTimer = 0.0f;
         }
         if (multiline) {
             if (globals->input.Pressed(KC_KEY_ENTER)) {
                 string.Insert(cursor, '\n');
                 cursor++;
-                cursorBlinkTimer = 0.0;
+                cursorBlinkTimer = 0.0f;
             }
             if (globals->input.Pressed(KC_KEY_UP)) {
                 vec2 cursorPos = PositionFromCursor();
-                cursorPos.y -= fontSize * globals->gui.scale * Rendering::lineHeight * 0.5;
+                cursorPos.y -= fontSize * globals->gui.scale * Rendering::lineHeight * 0.5f;
                 CursorFromPosition(cursorPos);
-                cursorBlinkTimer = 0.0;
+                cursorBlinkTimer = 0.0f;
             }
             if (globals->input.Pressed(KC_KEY_DOWN)) {
                 vec2 cursorPos = PositionFromCursor();
-                cursorPos.y += fontSize * globals->gui.scale * Rendering::lineHeight * 1.5;
+                cursorPos.y += fontSize * globals->gui.scale * Rendering::lineHeight * 1.5f;
                 CursorFromPosition(cursorPos);
-                cursorBlinkTimer = 0.0;
+                cursorBlinkTimer = 0.0f;
             }
         }
         if (globals->input.Pressed(KC_KEY_LEFT)) {
-            cursorBlinkTimer = 0.0;
+            cursorBlinkTimer = 0.0f;
             if (globals->input.Down(KC_KEY_LEFTCTRL) || globals->input.Down(KC_KEY_RIGHTCTRL)) {
                 if (IsWhitespace(string[--cursor])) {
                     for (; cursor > 0; cursor--) {
@@ -1906,7 +1906,7 @@ void TextBox::Update(vec2 pos, bool selected) {
             }
         }
         if (globals->input.Pressed(KC_KEY_RIGHT)) {
-            cursorBlinkTimer = 0.0;
+            cursorBlinkTimer = 0.0f;
             if (globals->input.Down(KC_KEY_LEFTCTRL) || globals->input.Down(KC_KEY_RIGHTCTRL)) {
                 if (IsWhitespace(string[cursor])) {
                     for (cursor++; cursor < string.size; cursor++) {
@@ -1932,8 +1932,8 @@ void TextBox::Update(vec2 pos, bool selected) {
             entry = false;
         }
     }
-    if (size.x != 0.0 && multiline) {
-        stringFormatted = globals->rendering.StringAddNewlines(string, fontIndex, (sizeAbsolute.x - padding.x * 2.0) / fontSize);
+    if (size.x != 0.0f && multiline) {
+        stringFormatted = globals->rendering.StringAddNewlines(string, fontIndex, (sizeAbsolute.x - padding.x * 2.0f) / fontSize);
     } else {
         stringFormatted = string;
     }
@@ -1952,7 +1952,7 @@ void TextBox::Update(vec2 pos, bool selected) {
             }
             const vec2 mouse = vec2(globals->input.cursor);
             CursorFromPosition(mouse);
-            cursorBlinkTimer = 0.0;
+            cursorBlinkTimer = 0.0f;
         }
         if (!mouseover && entry && globals->gui.controlDepth == depth+1) {
             globals->gui.controlDepth = depth;
@@ -1991,28 +1991,28 @@ void TextBox::Draw(Rendering::DrawingContext &context) const {
     PushScissor(context);
     vec2 drawPosText = (positionAbsolute + padding) * globals->gui.scale;
     vec2 scale = vec2(fontSize * globals->gui.scale);
-    vec2 textArea = (sizeAbsolute - padding * 2.0) * globals->gui.scale;
+    vec2 textArea = (sizeAbsolute - padding * 2.0f) * globals->gui.scale;
     if (alignH == Rendering::CENTER) {
-        drawPosText.x += textArea.x * 0.5;
+        drawPosText.x += textArea.x * 0.5f;
     } else if (alignH == Rendering::RIGHT) {
         drawPosText.x += textArea.x;
     }
     vec2 drawPos = positionAbsolute * globals->gui.scale;
-    globals->rendering.DrawQuad(context, Rendering::texBlank, bg, drawPos, vec2(1.0), sizeAbsolute * globals->gui.scale);
+    globals->rendering.DrawQuad(context, Rendering::texBlank, bg, drawPos, vec2(1.0f), sizeAbsolute * globals->gui.scale);
     globals->rendering.DrawText(context, stringFormatted, fontIndex, text, drawPosText, scale, alignH, Rendering::TOP, textArea.x);
-    if (cursorBlinkTimer < 0.5 && entry) {
+    if (cursorBlinkTimer < 0.5f && entry) {
         vec2 cursorPos = PositionFromCursor();
-        cursorPos.y -= fontSize * globals->gui.scale * 0.1;
-        globals->rendering.DrawQuad(context, Rendering::texBlank, text, cursorPos, vec2(1.0), vec2(1.0, fontSize * globals->gui.scale * Rendering::lineHeight));
+        cursorPos.y -= fontSize * globals->gui.scale * 0.1f;
+        globals->rendering.DrawQuad(context, Rendering::texBlank, text, cursorPos, vec2(1.0f), vec2(1.0f, fontSize * globals->gui.scale * Rendering::lineHeight));
     }
     PopScissor(context);
 }
 
 Slider::Slider() :
-value(1.0),                     valueMin(0.0),
-valueMax(1.0),                  mirror(nullptr),
-colorBG(vec3(0.15), 0.9),       colorSlider(colorHighlightMedium, 1.0),
-highlightBG(vec3(0.2), 0.9),    highlightSlider(colorHighlightHigh, 1.0),
+value(1.0f),                    valueMin(0.0f),
+valueMax(1.0f),                 mirror(nullptr),
+colorBG(vec3(0.15f), 0.9f),     colorSlider(colorHighlightMedium, 1.0f),
+highlightBG(vec3(0.2f), 0.9f),  highlightSlider(colorHighlightHigh, 1.0f),
 grabbed(false), left(), right()
 {
     occludes = true;
@@ -2042,10 +2042,10 @@ void Slider::Update(vec2 pos, bool selected) {
     if (mouseover && !grabbed) {
         i32 mousePos = 0;
         f32 mouseX = (f32)globals->input.cursor.x / globals->gui.scale - positionAbsolute.x;
-        f32 sliderX = map(value, valueMin, valueMax, 0.0, sizeAbsolute.x - 16.0);
+        f32 sliderX = map(value, valueMin, valueMax, 0.0f, sizeAbsolute.x - 16.0f);
         if (mouseX < sliderX) {
             mousePos = -1;
-        } else if (mouseX > sliderX+16.0) {
+        } else if (mouseX > sliderX+16.0f) {
             mousePos = 1;
         }
         if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
@@ -2059,17 +2059,17 @@ void Slider::Update(vec2 pos, bool selected) {
         }
     }
     bool updated = false;
-    f32 scale = (valueMax - valueMin) / (sizeAbsolute.x - 16.0);
+    f32 scale = (valueMax - valueMin) / (sizeAbsolute.x - 16.0f);
     if (grabbed) {
         f32 moved = f32(globals->input.cursor.x - globals->input.cursorPrevious.x) / globals->gui.scale * scale;
         if (globals->objects.Down(KC_KEY_LEFTSHIFT)) {
-            moved /= 10.0;
+            moved /= 10.0f;
         }
-        if (moved != 0.0) updated = true;
+        if (moved != 0.0f) updated = true;
         value = clamp(value + moved, valueMin, valueMax);
     }
     if (!globals->objects.Down(KC_KEY_LEFTSHIFT)) {
-        scale *= 10.0;
+        scale *= 10.0f;
     }
     if (right.Pressed()) {
         value = clamp(value + scale, valueMin, valueMax);
@@ -2114,14 +2114,14 @@ void Slider::Draw(Rendering::DrawingContext &context) const {
     vec4 bg = highlighted ? highlightBG : colorBG;
     vec4 slider = highlighted ? highlightSlider : colorSlider;
     vec2 drawPos = positionAbsolute * globals->gui.scale;
-    globals->rendering.DrawQuad(context, Rendering::texBlank, bg, drawPos, vec2(1.0), sizeAbsolute * globals->gui.scale);
-    drawPos.x += map(value, valueMin, valueMax, 2.0, sizeAbsolute.x - 16.0) * globals->gui.scale;
-    drawPos.y += 2.0 * globals->gui.scale;
-    globals->rendering.DrawQuad(context, Rendering::texBlank, slider, drawPos, vec2(1.0), vec2(12.0, sizeAbsolute.y - 4.0) * globals->gui.scale);
+    globals->rendering.DrawQuad(context, Rendering::texBlank, bg, drawPos, vec2(1.0f), sizeAbsolute * globals->gui.scale);
+    drawPos.x += map(value, valueMin, valueMax, 2.0f, sizeAbsolute.x - 16.0f) * globals->gui.scale;
+    drawPos.y += 2.0f * globals->gui.scale;
+    globals->rendering.DrawQuad(context, Rendering::texBlank, slider, drawPos, vec2(1.0f), vec2(12.0f, sizeAbsolute.y - 4.0f) * globals->gui.scale);
 }
 
 Hideable::Hideable(Widget *child) : hidden(false), hiddenPrev(false) {
-    margin = 0.0;
+    margin = 0.0f;
     AddWidget(this, child);
     size = child->size; // We need to inherit this for Lists to work properly
     fractionWidth = child->fractionWidth;
@@ -2131,7 +2131,7 @@ Hideable::Hideable(Widget *child) : hidden(false), hiddenPrev(false) {
 
 void Hideable::UpdateSize(vec2 container) {
     if (hidden) {
-        sizeAbsolute = 0.0;
+        sizeAbsolute = 0.0f;
     } else {
         children[0]->UpdateSize(container);
         sizeAbsolute = children[0]->GetSize();

@@ -72,7 +72,7 @@ bool Manager::Init() {
     data.framebuffer->renderPass = data.renderPass;
     attachment->clearColor = true;
     // attachment->clearColorValue = {1.0, 1.0, 1.0, 1.0};
-    attachment->clearColorValue = {0.0, 0.1, 0.2, 1.0}; // AzCore blue
+    attachment->clearColorValue = {0.0f, 0.1f, 0.2f, 1.0f}; // AzCore blue
     if (data.concurrency < 1) {
         data.concurrency = 1;
     }
@@ -110,8 +110,8 @@ bool Manager::Init() {
 
     data.textureSampler = data.device->AddSampler();
     data.textureSampler->anisotropy = 4;
-    data.textureSampler->mipLodBias = -1.0; // Crisp!!!
-    data.textureSampler->maxLod = 1000000000000.0; // Just, like, BIG
+    data.textureSampler->mipLodBias = -1.0f; // Crisp!!!
+    data.textureSampler->maxLod = 1000000000000.0f; // Just, like, BIG
 
     data.stagingMemory = data.device->AddMemory();
     data.stagingMemory->deviceLocal = false;
@@ -125,10 +125,10 @@ bool Manager::Init() {
 
     // Unit square
     Array<Vertex> vertices = {
-        {vec2(0.0, 0.0), vec2(0.0, 0.0)},
-        {vec2(0.0, 1.0), vec2(0.0, 1.0)},
-        {vec2(1.0, 1.0), vec2(1.0, 1.0)},
-        {vec2(1.0, 0.0), vec2(1.0, 0.0)}
+        {vec2(0.0f, 0.0f), vec2(0.0f, 0.0f)},
+        {vec2(0.0f, 1.0f), vec2(0.0f, 1.0f)},
+        {vec2(1.0f, 1.0f), vec2(1.0f, 1.0f)},
+        {vec2(1.0f, 0.0f), vec2(1.0f, 0.0f)}
     };
     Array<u32> indices = {0, 1, 2, 2, 3, 0};
 
@@ -173,7 +173,7 @@ bool Manager::Init() {
         }
         texImages[i].width = globals->assets.textures[i].width;
         texImages[i].height = globals->assets.textures[i].height;
-        texImages[i].mipLevels = floor(log2((f32)max(texImages[i].width, texImages[i].height))) + 1;
+        texImages[i].mipLevels = (u32)floor(log2((f32)max(texImages[i].width, texImages[i].height))) + 1;
 
         texStagingBuffers[i].size = channels * texImages[i].width * texImages[i].height;
     }
@@ -363,7 +363,7 @@ bool Manager::UpdateFonts() {
     fontIndexOffsets = {0};
     for (i32 i = 0; i < globals->assets.fonts.size; i++) {
         for (font::Glyph& glyph : globals->assets.fonts[i].fontBuilder.glyphs) {
-            if (glyph.info.size.x == 0.0 || glyph.info.size.y == 0.0) {
+            if (glyph.info.size.x == 0.0f || glyph.info.size.y == 0.0f) {
                 continue;
             }
             const f32 boundSquare = globals->assets.fonts[i].fontBuilder.boundSquare;
@@ -400,7 +400,7 @@ bool Manager::UpdateFonts() {
     for (i32 i = 0; i < data.fontImages.size; i++) {
         data.fontImages[i].width = globals->assets.fonts[i].fontBuilder.dimensions.x;
         data.fontImages[i].height = globals->assets.fonts[i].fontBuilder.dimensions.y;
-        data.fontImages[i].mipLevels = floor(log2((f32)max(data.fontImages[i].width, data.fontImages[i].height))) + 1;
+        data.fontImages[i].mipLevels = (u32)floor(log2((f32)max(data.fontImages[i].width, data.fontImages[i].height))) + 1;
 
         data.fontStagingImageBuffers[i].size = data.fontImages[i].width * data.fontImages[i].height;
     }
@@ -605,7 +605,7 @@ f32 Manager::CharacterWidth(char32 character, const Assets::Font *fontDesired, c
 f32 Manager::LineWidth(const char32 *string, i32 fontIndex) const {
     const Assets::Font *fontDesired = &globals->assets.fonts[fontIndex];
     const Assets::Font *fontFallback = &globals->assets.fonts[0];
-    f32 size = 0.0;
+    f32 size = 0.0f;
     for (i32 i = 0; string[i] != '\n' && string[i] != 0; i++) {
         size += CharacterWidth(string[i], fontDesired, fontFallback);
     }
@@ -616,12 +616,12 @@ vec2 Manager::StringSize(WString string, i32 fontIndex) const {
     const Assets::Font *fontDesired = &globals->assets.fonts[fontIndex];
     const Assets::Font *fontFallback = &globals->assets.fonts[0];
     // vec2 size = vec2(0.0, lineHeight * 2.0 - 1.0);
-    vec2 size = vec2(0.0, (1.0 + lineHeight) * 0.5);
-    f32 lineSize = 0.0;
+    vec2 size = vec2(0.0f, (1.0f + lineHeight) * 0.5f);
+    f32 lineSize = 0.0f;
     for (i32 i = 0; i < string.size; i++) {
         const char32 character = string[i];
         if (character == '\n') {
-            lineSize = 0.0;
+            lineSize = 0.0f;
             size.y += lineHeight;
             continue;
         }
@@ -639,7 +639,7 @@ f32 Manager::StringWidth(WString string, i32 fontIndex) const {
 
 f32 StringHeight(WString string) {
     // f32 size = lineHeight * 2.0 - 1.0;
-    f32 size = (1.0 + lineHeight) * 0.5;
+    f32 size = (1.0f + lineHeight) * 0.5f;
     for (i32 i = 0; i < string.size; i++) {
         const char32 character = string[i];
         if (character == '\n') {
@@ -650,20 +650,20 @@ f32 StringHeight(WString string) {
 }
 
 WString Manager::StringAddNewlines(WString string, i32 fontIndex, f32 maxWidth) const {
-    if (maxWidth < 0.0) {
+    if (maxWidth < 0.0f) {
         cout << "Why are we negative???" << std::endl;
     }
-    if (maxWidth <= 0.0) {
+    if (maxWidth <= 0.0f) {
         return string;
     }
     const Assets::Font *fontDesired = &globals->assets.fonts[fontIndex];
     const Assets::Font *fontFallback = &globals->assets.fonts[0];
-    f32 lineSize = 0.0;
+    f32 lineSize = 0.0f;
     i32 lastSpace = -1;
     i32 charsThisLine = 0;
     for (i32 i = 0; i < string.size; i++) {
         if (string[i] == '\n') {
-            lineSize = 0.0;
+            lineSize = 0.0f;
             lastSpace = -1;
             charsThisLine = 0;
             continue;
@@ -680,7 +680,7 @@ WString Manager::StringAddNewlines(WString string, i32 fontIndex, f32 maxWidth) 
                 string[lastSpace] = '\n';
                 i = lastSpace;
             }
-            lineSize = 0.0;
+            lineSize = 0.0f;
             lastSpace = -1;
             charsThisLine = 0;
         }
@@ -689,28 +689,28 @@ WString Manager::StringAddNewlines(WString string, i32 fontIndex, f32 maxWidth) 
 }
 
 void Manager::LineCursorStartAndSpaceScale(f32 &dstCursor, f32 &dstSpaceScale, f32 scale, f32 spaceWidth, i32 fontIndex, const char32 *string, f32 maxWidth, FontAlign alignH) const {
-    dstSpaceScale = 1.0;
+    dstSpaceScale = 1.0f;
     if (alignH != LEFT) {
         f32 lineWidth = LineWidth(string, fontIndex) * scale;
         if (alignH == RIGHT) {
             dstCursor = -lineWidth;
         } else if (alignH == MIDDLE) {
-            dstCursor = -lineWidth * 0.5;
+            dstCursor = -lineWidth * 0.5f;
         } else if (alignH == JUSTIFY) {
-            dstCursor = 0.0;
+            dstCursor = 0.0f;
             i32 numSpaces = 0;
             for (i32 ii = 0; string[ii] != 0 && string[ii] != '\n'; ii++) {
                 if (string[ii] == ' ') {
                     numSpaces++;
                 }
             }
-            dstSpaceScale = 1.0 + max((maxWidth - lineWidth) / numSpaces / spaceWidth, 0.0);
-            if (dstSpaceScale > 4.0) {
-                dstSpaceScale = 1.5;
+            dstSpaceScale = 1.0f + max((maxWidth - lineWidth) / numSpaces / spaceWidth, 0.0f);
+            if (dstSpaceScale > 4.0f) {
+                dstSpaceScale = 1.5f;
             }
         }
     } else {
-        dstCursor = 0.0;
+        dstCursor = 0.0f;
     }
 }
 
@@ -743,13 +743,13 @@ void Manager::DrawCharSS(DrawingContext &context, char32 character,
         for (const font::Component& component : glyph.components) {
             i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
             pc.vert.transform = mat2::Scaler(fullScale);
-            pc.font_circle.font.edge = 0.5 / (font::sdfDistance * screenSize.y * pc.vert.transform.h.y2);
+            pc.font_circle.font.edge = 0.5f / (font::sdfDistance * screenSize.y * pc.vert.transform.h.y2);
             pc.vert.position = position + component.offset * fullScale;
             pc.PushFont(context.commandBuffer, this);
             vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + componentId * 4, 0);
         }
     } else {
-        pc.font_circle.font.edge = 0.5 / (font::sdfDistance * screenSize.y * scale.y);
+        pc.font_circle.font.edge = 0.5f / (font::sdfDistance * screenSize.y * scale.y);
         pc.vert.transform = mat2::Scaler(fullScale);
         pc.vert.position = position;
         pc.PushFont(context.commandBuffer, this);
@@ -767,17 +767,17 @@ void Manager::DrawTextSS(DrawingContext &context, WString string,
     if (context.currentPipeline != PIPELINE_FONT) BindPipelineFont(context);
     pc.frag.color = color;
     // position.y += scale.y * lineHeight;
-    position.y += scale.y * (lineHeight + 1.0) * 0.5;
+    position.y += scale.y * (lineHeight + 1.0f) * 0.5f;
     if (alignV != TOP) {
         f32 height = StringHeight(string) * scale.y;
         if (alignV == MIDDLE) {
-            position.y -= height * 0.5;
+            position.y -= height * 0.5f;
         } else {
             position.y -= height;
         }
     }
     vec2 cursor = position;
-    f32 spaceScale = 1.0;
+    f32 spaceScale = 1.0f;
     f32 spaceWidth = CharacterWidth((char32)' ', fontDesired, fontFallback) * scale.x;
     for (i32 i = 0; i < string.size; i++) {
         char32 character = string[i];
@@ -823,7 +823,7 @@ void Manager::DrawTextSS(DrawingContext &context, WString string,
                 // const font::Glyph& componentGlyph = font->fontBuilder.glyphs[componentId];
                 pc.vert.transform = component.transform * mat2::Scaler(scale);
                 pc.font_circle.font.edge = edge / (font::sdfDistance * screenSize.y * abs(pc.vert.transform.h.y2));
-                pc.vert.position = cursor + component.offset * scale * vec2(1.0, -1.0);
+                pc.vert.position = cursor + component.offset * scale * vec2(1.0f, -1.0f);
                 pc.PushFont(context.commandBuffer, this);
                 vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + componentId * 4, 0);
             }
@@ -849,7 +849,7 @@ void Manager::DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2
     pc.frag.texIndex = texIndex;
     pc.vert.position = position;
     pc.vert.transform = mat2::Scaler(scalePre);
-    if (rotation != 0.0) {
+    if (rotation != 0.0f) {
         pc.vert.transform = pc.vert.transform * mat2::Rotation(rotation.value());
     }
     pc.vert.transform = pc.vert.transform * mat2::Scaler(scalePost);
@@ -865,7 +865,7 @@ void Manager::DrawCircleSS(DrawingContext &context, i32 texIndex, vec4 color, ve
     pc.frag.texIndex = texIndex;
     pc.vert.position = position;
     pc.vert.transform = mat2::Scaler(scalePre);
-    if (rotation != 0.0) {
+    if (rotation != 0.0f) {
         pc.vert.transform = pc.vert.transform * mat2::Rotation(rotation.value());
     }
     pc.vert.transform = pc.vert.transform * mat2::Scaler(scalePost);
@@ -876,25 +876,25 @@ void Manager::DrawCircleSS(DrawingContext &context, i32 texIndex, vec4 color, ve
 }
 
 void Manager::DrawChar(DrawingContext &context, char32 character, i32 fontIndex, vec4 color, vec2 position, vec2 scale) {
-    const vec2 screenSizeFactor = vec2(2.0) / screenSize;
-    DrawCharSS(context, character, fontIndex, color, position * screenSizeFactor + vec2(-1.0), scale * screenSizeFactor);
+    const vec2 screenSizeFactor = vec2(2.0f) / screenSize;
+    DrawCharSS(context, character, fontIndex, color, position * screenSizeFactor + vec2(-1.0f), scale * screenSizeFactor);
 }
 
 void Manager::DrawText(DrawingContext &context, WString text, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH, FontAlign alignV, f32 maxWidth, f32 edge, f32 bounds) {
-    const vec2 screenSizeFactor = vec2(2.0) / screenSize;
-    edge += 0.35 + min(0.15, max(0.0, (scale.y - 12.0) / 12.0));
-    bounds -= min(0.05, max(0.0, (16.0 - scale.y) * 0.01));
-    DrawTextSS(context, text, fontIndex, color, position * screenSizeFactor + vec2(-1.0), scale * screenSizeFactor.y, alignH, alignV, maxWidth * screenSizeFactor.x, edge, bounds);
+    const vec2 screenSizeFactor = vec2(2.0f) / screenSize;
+    edge += 0.35f + min(0.15f, max(0.0f, (scale.y - 12.0f) / 12.0f));
+    bounds -= min(0.05f, max(0.0f, (16.0f - scale.y) * 0.01f));
+    DrawTextSS(context, text, fontIndex, color, position * screenSizeFactor + vec2(-1.0f), scale * screenSizeFactor.y, alignH, alignV, maxWidth * screenSizeFactor.x, edge, bounds);
 }
 
 void Manager::DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {
-    const vec2 screenSizeFactor = vec2(2.0) / screenSize;
-    DrawQuadSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0), scalePre, scalePost * screenSizeFactor, origin, rotation);
+    const vec2 screenSizeFactor = vec2(2.0f) / screenSize;
+    DrawQuadSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0f), scalePre, scalePost * screenSizeFactor, origin, rotation);
 }
 
 void Manager::DrawCircle(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {
-    const vec2 screenSizeFactor = vec2(2.0) / screenSize;
-    DrawCircleSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0), scalePre, scalePost * screenSizeFactor, 1.5 / scalePre.y, origin, rotation);
+    const vec2 screenSizeFactor = vec2(2.0f) / screenSize;
+    DrawCircleSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0f), scalePre, scalePost * screenSizeFactor, 1.5f / scalePre.y, origin, rotation);
 }
 
 } // namespace Rendering

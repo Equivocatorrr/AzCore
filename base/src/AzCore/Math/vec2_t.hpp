@@ -128,11 +128,11 @@ inline T distSqrToLine(const AzCore::vec2_t<T> &segA, const AzCore::vec2_t<T> &s
     AzCore::vec2_t<T> projection;
     if constexpr (isSegment)
     {
-        if (t < 0.0)
+        if (t < T(0))
         {
             projection = segA;
         }
-        else if (t > 1.0)
+        else if (t > T(1))
         {
             projection = segB;
         }

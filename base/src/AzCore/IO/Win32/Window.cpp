@@ -222,7 +222,7 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
     {
         if (thisWindow->input != nullptr)
         {
-            thisWindow->input->scroll.y = f32(HIWORD(wParam)) / 120.0;
+            thisWindow->input->scroll.y = f32(HIWORD(wParam)) / 120.0f;
             if (thisWindow->input->scroll.y > 0)
                 keyCode = KC_MOUSE_SCROLLUP;
             else
@@ -235,7 +235,7 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
     {
         if (thisWindow->input != nullptr)
         {
-            thisWindow->input->scroll.x = f32(HIWORD(wParam)) / 120.0;
+            thisWindow->input->scroll.x = f32(HIWORD(wParam)) / 120.0f;
             if (thisWindow->input->scroll.x > 0)
                 keyCode = KC_MOUSE_SCROLLRIGHT;
             else

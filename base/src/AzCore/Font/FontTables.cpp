@@ -23,7 +23,7 @@ f32 ToF32(const F2Dot14_t& in) {
         }
     }
     const u16 dot14 = in & 0x3fff;
-    out += (f32)dot14 / 16384.0;
+    out += (f32)dot14 / 16384.0f;
     return out;
 }
 
@@ -345,7 +345,7 @@ f32 OperandF32(u8 **data) {
         cout << "Operand ERROR " << (u16)b0;
         (*data)++;
     }
-    return out;
+    return (f32)out;
 }
 
 String DictOperatorResolution(u8 **data, u8 *firstOperand) {
@@ -1438,9 +1438,9 @@ Glyph glyfParsed::GetGlyph(u32 glyphIndex) const {
     out.info.offset += minBounds;
     longHorMetric metric = horMetrics->Metric(glyphIndex, horHeader->numOfLongHorMetrics);
     f32 lsb = (f32)metric.leftSideBearing / (f32)header->unitsPerEm;
-    out.info.offset.x -= lsb * 2.0;
+    out.info.offset.x -= lsb * 2.0f;
     out.info.advance.x = (f32)metric.advanceWidth / (f32)header->unitsPerEm;
-    out.info.advance.y = 0.0;
+    out.info.advance.y = 0.0f;
     // cout << "Advance width: " << out.info.advance.x << std::endl;
     // cout << "offset = { " << out.offset.x << ", " << out.offset.y
     //      << " }, size = {" << out.size.x << ", " << out.size.y << " }" << std::endl;

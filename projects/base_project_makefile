@@ -46,19 +46,19 @@ $(AZCORE_BASE)/.touchdw: $(AZCORE_DEPS_W) $(AZCORE_BASE)/makefile
 
 debugl: $(OBJ_LD) $(AZCORE_BASE)/.touchdl shaders
 	@mkdir -p  $(BDIR)/Linux/Debug
-	$(CC) -o $(BDIR)/Linux/Debug/$(APPNAME) $(OBJ_LD) $(AZCORE_OBJ_LD) -g -rdynamic $(CFLAGS) $(LCFLAGS) $(LIBS_L)
+	$(CC) -o $(BDIR)/Linux/Debug/$(APPNAME) $(OBJ_LD) $(AZCORE_OBJ_LD) -g -rdynamic $(LCFLAGS) $(LIBS_L)
 
 debugw: $(OBJ_WD) $(WINDOWS_RESOURCES) $(AZCORE_BASE)/.touchdw shaders
 	@mkdir -p $(BDIR)/Windows/Debug
-	$(WCC) -o $(BDIR)/Windows/Debug/$(APPNAME).exe $(OBJ_WD) $(WINDOWS_RESOURCES) $(AZCORE_OBJ_WD) -g $(CFLAGS) $(WCFLAGS) $(LIBS_W)
+	$(WCC) -o $(BDIR)/Windows/Debug/$(APPNAME).exe $(OBJ_WD) $(WINDOWS_RESOURCES) $(AZCORE_OBJ_WD) -g $(WCFLAGS) $(LIBS_W)
 
 releasel: $(OBJ_L) $(AZCORE_BASE)/.touchl shaders
 	@mkdir -p $(BDIR)/Linux/Release
-	$(CC) -o $(BDIR)/Linux/Release/$(APPNAME) $(OBJ_L) $(AZCORE_OBJ_L) $(CFLAGS) $(LCFLAGS) $(LIBS_L)
+	$(CC) -o $(BDIR)/Linux/Release/$(APPNAME) $(OBJ_L) $(AZCORE_OBJ_L) $(LCFLAGS) $(LIBS_L)
 
 releasew: $(OBJ_W) $(WINDOWS_RESOURCES) $(AZCORE_BASE)/.touchw shaders
 	@mkdir -p $(BDIR)/Windows/Release
-	$(WCC) -o $(BDIR)/Windows/Release/$(APPNAME).exe $(OBJ_W) $(WINDOWS_RESOURCES) $(AZCORE_OBJ_W) $(CFLAGS) $(WCFLAGS) -mwindows $(LIBS_W)
+	$(WCC) -o $(BDIR)/Windows/Release/$(APPNAME).exe $(OBJ_W) $(WINDOWS_RESOURCES) $(AZCORE_OBJ_W) $(WCFLAGS) -mwindows $(LIBS_W)
 
 debug: debugl debugw
 

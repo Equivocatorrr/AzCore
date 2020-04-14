@@ -40,8 +40,8 @@ struct Manager {
     // buffer swaps every frame. Used for lockless multithreading.
     Array<Object*> objects;
     bool buffer = false;
-    f32 timestep = 1.0/60.0;
-    f32 simulationRate = 1.0;
+    f32 timestep = 1.0f/60.0f;
+    f32 simulationRate = 1.0f;
     bool paused = false;
 
     static void RenderCallback(void *userdata, Rendering::Manager *rendering, Array<Rendering::DrawingContext>& drawingContexts);

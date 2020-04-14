@@ -127,7 +127,7 @@ struct quat_t
     // Make a rotation quaternion
     static inline quat_t<T> Rotation(const T &angle, const vec3_t<T> &axis)
     {
-        return quat_t<T>(cos(angle / 2.0), normalize(axis) * sin(angle / 2.0));
+        return quat_t<T>(cos(angle / T(2.0)), normalize(axis) * sin(angle / T(2.0)));
     }
     // A one-off rotation of a point
     static vec3_t<T> RotatePoint(vec3_t<T> point, T angle, vec3_t<T> axis)
@@ -180,12 +180,12 @@ AzCore::quat_t<T> slerp(AzCore::quat_t<T> a, AzCore::quat_t<T> b, T factor)
     a = normalize(a);
     b = normalize(b);
     T d = dot(a.vector, b.vector);
-    if (d < 0.0)
+    if (d < T(0.0))
     {
         b = -b.wxyz;
-        d *= -1.0;
+        d *= T(-1.0);
     }
-    const T threshold = 0.999;
+    const T threshold = T(0.999);
     if (d > threshold)
     {
         return normalize(a + (b - a) * factor);
@@ -200,7 +200,7 @@ template <typename T>
 AzCore::quat_t<T> exp(AzCore::quat_t<T> a)
 {
     T theta = abs(a.vector);
-    return AzCore::quat_t<T>(cos(theta), theta > 0.0000001 ? (a.vector * sin(theta) / theta) : AzCore::vec3_t<T>(0)) * exp(a.scalar);
+    return AzCore::quat_t<T>(cos(theta), theta > T(0.0000001) ? (a.vector * sin(theta) / theta) : AzCore::vec3_t<T>(0)) * exp(a.scalar);
 }
 
 template <typename T>
@@ -211,7 +211,7 @@ AzCore::quat_t<T> log(AzCore::quat_t<T> a)
     T len = log(a.Norm());
     T vLen = abs(a.vector);
     T theta = atan2(vLen, a.scalar);
-    return AzCore::quat_t<T>(len, vLen > 0.0000001 ? (a.vector / vLen * theta) : AzCore::vec3_t<T>(theta, 0, 0));
+    return AzCore::quat_t<T>(len, vLen > T(0.0000001) ? (a.vector / vLen * theta) : AzCore::vec3_t<T>(theta, 0, 0));
 }
 
 template <typename T>

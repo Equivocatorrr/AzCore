@@ -318,10 +318,10 @@ void Gamepad::Update(f32 timestep, i32 index)
     {
         return;
     }
-    if (rawInputDevice->data->retryTimer != -1.0)
+    if (rawInputDevice->data->retryTimer != -1.0f)
     {
         rawInputDevice->data->retryTimer -= timestep;
-        if (rawInputDevice->data->retryTimer < 0.0)
+        if (rawInputDevice->data->retryTimer < 0.0f)
         {
             i32 fd = open(rawInputDevice->data->path.data, O_RDONLY | O_NONBLOCK);
             if (fd >= 0)
@@ -331,7 +331,7 @@ void Gamepad::Update(f32 timestep, i32 index)
             }
             else
             {
-                rawInputDevice->data->retryTimer = 1.0;
+                rawInputDevice->data->retryTimer = 1.0f;
             }
         }
         return;
@@ -362,8 +362,8 @@ void Gamepad::Update(f32 timestep, i32 index)
         break;
         case JS_EVENT_AXIS:
         {
-            f32 maxRange = 1.0;
-            f32 minRange = -1.0;
+            f32 maxRange = 1.0f;
+            f32 minRange = -1.0f;
             f32 deadZoneTemp = deadZone;
             if (ev.number >= GAMEPAD_MAPPING_MAX_AXES)
                 continue; // Let's not make crazy things happen
@@ -371,48 +371,48 @@ void Gamepad::Update(f32 timestep, i32 index)
             if (aIndex == GP_AXIS_LT || aIndex == GP_AXIS_RT)
             {
                 // No such thing as an outward trigger pull AFAIK
-                minRange = 0.0;
-                deadZoneTemp = 0.0;
+                minRange = 0.0f;
+                deadZoneTemp = 0.0f;
             }
             if (aIndex >= IO_GAMEPAD_MAX_AXES)
             {
                 continue; // Unsupported
             }
-            f32 val = map((f32)ev.value, -32767.0, 32767.0, minRange, maxRange);
+            f32 val = map((f32)ev.value, -32767.0f, 32767.0f, minRange, maxRange);
             // cout << "axis = " << aIndex << ", val = " << val << std::endl;
             if (abs(val) < deadZoneTemp)
             {
-                axis.array[aIndex] = 0.0;
+                axis.array[aIndex] = 0.0f;
             }
             else
             {
-                if (val >= 0.0)
+                if (val >= 0.0f)
                 {
-                    axis.array[aIndex] = (val - deadZoneTemp) / (1.0 - deadZoneTemp);
+                    axis.array[aIndex] = (val - deadZoneTemp) / (1.0f - deadZoneTemp);
                 }
                 else
                 {
-                    axis.array[aIndex] = (val + deadZoneTemp) / (1.0 - deadZoneTemp);
+                    axis.array[aIndex] = (val + deadZoneTemp) / (1.0f - deadZoneTemp);
                 }
-                if (abs(axis.array[aIndex]) > 0.1)
+                if (abs(axis.array[aIndex]) > 0.1f)
                 {
                     rawInputDevice->rawInput->AnyGPCode = aIndex + KC_GP_AXIS_LS_X;
                     rawInputDevice->rawInput->AnyGP.state = BUTTON_PRESSED_BIT;
                     rawInputDevice->rawInput->AnyGPIndex = index;
                 }
             }
-            if (axisCurve != 1.0)
+            if (axisCurve != 1.0f)
             {
-                bool negative = axis.array[aIndex] < 0.0;
+                bool negative = axis.array[aIndex] < 0.0f;
                 axis.array[aIndex] = pow(abs(axis.array[aIndex]), axisCurve);
                 if (negative)
                 {
-                    axis.array[aIndex] *= -1.0;
+                    axis.array[aIndex] *= -1.0f;
                 }
             }
-            handleButton(axisPush[aIndex * 2], axis.array[aIndex] > 0.5, aIndex * 2 + KC_GP_AXIS_LS_RIGHT,
+            handleButton(axisPush[aIndex * 2], axis.array[aIndex] > 0.5f, aIndex * 2 + KC_GP_AXIS_LS_RIGHT,
                          rawInputDevice->rawInput, index);
-            handleButton(axisPush[aIndex * 2 + 1], axis.array[aIndex] < -0.5, aIndex * 2 + KC_GP_AXIS_LS_LEFT,
+            handleButton(axisPush[aIndex * 2 + 1], axis.array[aIndex] < -0.5f, aIndex * 2 + KC_GP_AXIS_LS_LEFT,
                          rawInputDevice->rawInput, index);
         }
         break;
@@ -432,11 +432,11 @@ void Gamepad::Update(f32 timestep, i32 index)
                              rawInputDevice->rawInput, index);
                 if (ev.value)
                 {
-                    axis.array[aIndex] = left ? -1.0 : 1.0;
+                    axis.array[aIndex] = left ? -1.0f : 1.0f;
                 }
                 else
                 {
-                    axis.array[aIndex] = 0.0;
+                    axis.array[aIndex] = 0.0f;
                 }
             }
             else if (bIndex < KC_GP_BTN_A || bIndex > KC_GP_AXIS_H0_UP)
@@ -459,18 +459,18 @@ void Gamepad::Update(f32 timestep, i32 index)
         break;
         }
     }
-    if (axis.vec.H0.x != 0.0 && axis.vec.H0.y != 0.0)
+    if (axis.vec.H0.x != 0.0f && axis.vec.H0.y != 0.0f)
     {
         axis.vec.H0 = normalize(axis.vec.H0);
         // cout << "H0.x = " << axis.vec.H0.x << ", H0.y = " << axis.vec.H0.y << std::endl;
     }
-    handleButton(hat[0], axis.vec.H0.x > 0.0 && axis.vec.H0.y < 0.0, KC_GP_AXIS_H0_UP_RIGHT,
+    handleButton(hat[0], axis.vec.H0.x > 0.0f && axis.vec.H0.y < 0.0f, KC_GP_AXIS_H0_UP_RIGHT,
                  rawInputDevice->rawInput, index);
-    handleButton(hat[1], axis.vec.H0.x > 0.0 && axis.vec.H0.y > 0.0, KC_GP_AXIS_H0_DOWN_RIGHT,
+    handleButton(hat[1], axis.vec.H0.x > 0.0f && axis.vec.H0.y > 0.0f, KC_GP_AXIS_H0_DOWN_RIGHT,
                  rawInputDevice->rawInput, index);
-    handleButton(hat[2], axis.vec.H0.x < 0.0 && axis.vec.H0.y > 0.0, KC_GP_AXIS_H0_DOWN_LEFT,
+    handleButton(hat[2], axis.vec.H0.x < 0.0f && axis.vec.H0.y > 0.0f, KC_GP_AXIS_H0_DOWN_LEFT,
                  rawInputDevice->rawInput, index);
-    handleButton(hat[3], axis.vec.H0.x < 0.0 && axis.vec.H0.y < 0.0, KC_GP_AXIS_H0_UP_LEFT,
+    handleButton(hat[3], axis.vec.H0.x < 0.0f && axis.vec.H0.y < 0.0f, KC_GP_AXIS_H0_UP_LEFT,
                  rawInputDevice->rawInput, index);
 #ifdef IO_GAMEPAD_LOGGING_VERBOSE
     for (u32 i = 0; i < IO_GAMEPAD_MAX_AXES; i++)

@@ -17,8 +17,8 @@ void Assert(bool condition, const char *messageOnFailure) {
 }
 
 bool equals(f32 a, f32 b) {
-    const f32 epsilon = 0.000001;
-    const f32 epsilonFac[2] = { 1.0 + epsilon, 1.0 - epsilon };
+    const f32 epsilon = 0.000001f;
+    const f32 epsilonFac[2] = { 1.0f + epsilon, 1.0f - epsilon };
     if (a == b) {
         return true;
     }
@@ -31,7 +31,7 @@ bool equals(T a, T b) {
 }
 
 bool equals(Angle32 a, Angle32 b) {
-    const f32 epsilon = 0.00001;
+    const f32 epsilon = 0.00001f;
     if (a == b) {
         return true;
     }
@@ -71,11 +71,11 @@ void ExpectedValue(T a, T b, const char *messageOnFailure) {
 void Print(vec3 v, io::LogStream& cout) {
     cout << "{";
     for (u32 i = 0; i < 3; i++) {
-        if (v[i] >= 0.0)
+        if (v[i] >= 0.0f)
             cout << " ";
-        if (v[i] < 10.0)
+        if (v[i] < 10.0f)
             cout << " ";
-        if (v[i] < 100.0)
+        if (v[i] < 100.0f)
             cout << " ";
         cout << v[i];
         if (i != 2)
@@ -97,11 +97,11 @@ void Print(mat3 m, io::LogStream& cout) {
 void Print(vec4 v, io::LogStream& cout) {
     cout << "{";
     for (u32 i = 0; i < 4; i++) {
-        if (v[i] >= 0.0)
+        if (v[i] >= 0.0f)
             cout << " ";
-        if (v[i] < 10.0)
+        if (v[i] < 10.0f)
             cout << " ";
-        if (v[i] < 100.0)
+        if (v[i] < 100.0f)
             cout << " ";
         cout << v[i];
         if (i != 3)
@@ -127,45 +127,45 @@ bool UnitTestMat2(io::LogStream& cout) {
     mat2 matrix;
     matrix = mat2::Identity();
     try {
-        EXPECTEDVALUE(matrix.data[0], 1.0);
-        EXPECTEDVALUE(matrix.data[1], 0.0);
-        EXPECTEDVALUE(matrix.data[2], 0.0);
-        EXPECTEDVALUE(matrix.data[3], 1.0);
+        EXPECTEDVALUE(matrix.data[0], 1.0f);
+        EXPECTEDVALUE(matrix.data[1], 0.0f);
+        EXPECTEDVALUE(matrix.data[2], 0.0f);
+        EXPECTEDVALUE(matrix.data[3], 1.0f);
         matrix = mat2(
-            1.0, 2.0,
-            3.0, 4.0
+            1.0f, 2.0f,
+            3.0f, 4.0f
         );
         vec2 rows[2] = {
             matrix.Row1(),
             matrix.Row2()
         };
-        EXPECTEDVALUE(rows[0].x, 1.0);
-        EXPECTEDVALUE(rows[0].y, 2.0);
-        EXPECTEDVALUE(rows[1].x, 3.0);
-        EXPECTEDVALUE(rows[1].y, 4.0);
+        EXPECTEDVALUE(rows[0].x, 1.0f);
+        EXPECTEDVALUE(rows[0].y, 2.0f);
+        EXPECTEDVALUE(rows[1].x, 3.0f);
+        EXPECTEDVALUE(rows[1].y, 4.0f);
         vec2 columns[2] = {
             matrix.Col1(),
             matrix.Col2()
         };
-        EXPECTEDVALUE(columns[0].x, 1.0);
-        EXPECTEDVALUE(columns[0].y, 3.0);
-        EXPECTEDVALUE(columns[1].x, 2.0);
-        EXPECTEDVALUE(columns[1].y, 4.0);
+        EXPECTEDVALUE(columns[0].x, 1.0f);
+        EXPECTEDVALUE(columns[0].y, 3.0f);
+        EXPECTEDVALUE(columns[1].x, 2.0f);
+        EXPECTEDVALUE(columns[1].y, 4.0f);
         matrix = mat2::Rotation(halfpi) * matrix;
-        EXPECTEDVALUE(matrix.h.x1,-3.0);
-        EXPECTEDVALUE(matrix.h.y1,-4.0);
-        EXPECTEDVALUE(matrix.h.x2, 1.0);
-        EXPECTEDVALUE(matrix.h.y2, 2.0);
-        matrix = mat2::Scaler({2.0, 3.0}) * matrix;
-        EXPECTEDVALUE(matrix.h.x1,-6.0);
-        EXPECTEDVALUE(matrix.h.y1,-8.0);
-        EXPECTEDVALUE(matrix.h.x2, 3.0);
-        EXPECTEDVALUE(matrix.h.y2, 6.0);
+        EXPECTEDVALUE(matrix.h.x1,-3.0f);
+        EXPECTEDVALUE(matrix.h.y1,-4.0f);
+        EXPECTEDVALUE(matrix.h.x2, 1.0f);
+        EXPECTEDVALUE(matrix.h.y2, 2.0f);
+        matrix = mat2::Scaler({2.0f, 3.0f}) * matrix;
+        EXPECTEDVALUE(matrix.h.x1,-6.0f);
+        EXPECTEDVALUE(matrix.h.y1,-8.0f);
+        EXPECTEDVALUE(matrix.h.x2, 3.0f);
+        EXPECTEDVALUE(matrix.h.y2, 6.0f);
         matrix = matrix.Transpose();
-        EXPECTEDVALUE(matrix.v.x1,-6.0);
-        EXPECTEDVALUE(matrix.v.y1,-8.0);
-        EXPECTEDVALUE(matrix.v.x2, 3.0);
-        EXPECTEDVALUE(matrix.v.y2, 6.0);
+        EXPECTEDVALUE(matrix.v.x1,-6.0f);
+        EXPECTEDVALUE(matrix.v.y1,-8.0f);
+        EXPECTEDVALUE(matrix.v.x2, 3.0f);
+        EXPECTEDVALUE(matrix.v.y2, 6.0f);
     } catch (std::runtime_error& err) {
         cout << "Failed: " << err.what() << std::endl;
         return false;
@@ -179,118 +179,118 @@ bool UnitTestMat3(io::LogStream& cout) {
     mat3 matrix;
     matrix = mat3::Identity();
     try {
-        EXPECTEDVALUE(matrix.data[0], 1.0);
-        EXPECTEDVALUE(matrix.data[1], 0.0);
-        EXPECTEDVALUE(matrix.data[2], 0.0);
-        EXPECTEDVALUE(matrix.data[3], 0.0);
-        EXPECTEDVALUE(matrix.data[4], 1.0);
-        EXPECTEDVALUE(matrix.data[5], 0.0);
-        EXPECTEDVALUE(matrix.data[6], 0.0);
-        EXPECTEDVALUE(matrix.data[7], 0.0);
-        EXPECTEDVALUE(matrix.data[8], 1.0);
+        EXPECTEDVALUE(matrix.data[0], 1.0f);
+        EXPECTEDVALUE(matrix.data[1], 0.0f);
+        EXPECTEDVALUE(matrix.data[2], 0.0f);
+        EXPECTEDVALUE(matrix.data[3], 0.0f);
+        EXPECTEDVALUE(matrix.data[4], 1.0f);
+        EXPECTEDVALUE(matrix.data[5], 0.0f);
+        EXPECTEDVALUE(matrix.data[6], 0.0f);
+        EXPECTEDVALUE(matrix.data[7], 0.0f);
+        EXPECTEDVALUE(matrix.data[8], 1.0f);
         matrix = mat3(
-            1.0, 2.0, 3.0,
-            4.0, 5.0, 6.0,
-            7.0, 8.0, 9.0
+            1.0f, 2.0f, 3.0f,
+            4.0f, 5.0f, 6.0f,
+            7.0f, 8.0f, 9.0f
         );
         vec3 rows[3] = {
             matrix.Row1(),
             matrix.Row2(),
             matrix.Row3()
         };
-        EXPECTEDVALUE(rows[0].x, 1.0);
-        EXPECTEDVALUE(rows[0].y, 2.0);
-        EXPECTEDVALUE(rows[0].z, 3.0);
-        EXPECTEDVALUE(rows[1].x, 4.0);
-        EXPECTEDVALUE(rows[1].y, 5.0);
-        EXPECTEDVALUE(rows[1].z, 6.0);
-        EXPECTEDVALUE(rows[2].x, 7.0);
-        EXPECTEDVALUE(rows[2].y, 8.0);
-        EXPECTEDVALUE(rows[2].z, 9.0);
+        EXPECTEDVALUE(rows[0].x, 1.0f);
+        EXPECTEDVALUE(rows[0].y, 2.0f);
+        EXPECTEDVALUE(rows[0].z, 3.0f);
+        EXPECTEDVALUE(rows[1].x, 4.0f);
+        EXPECTEDVALUE(rows[1].y, 5.0f);
+        EXPECTEDVALUE(rows[1].z, 6.0f);
+        EXPECTEDVALUE(rows[2].x, 7.0f);
+        EXPECTEDVALUE(rows[2].y, 8.0f);
+        EXPECTEDVALUE(rows[2].z, 9.0f);
         vec3 columns[3] = {
             matrix.Col1(),
             matrix.Col2(),
             matrix.Col3()
         };
-        EXPECTEDVALUE(columns[0].x, 1.0);
-        EXPECTEDVALUE(columns[0].y, 4.0);
-        EXPECTEDVALUE(columns[0].z, 7.0);
-        EXPECTEDVALUE(columns[1].x, 2.0);
-        EXPECTEDVALUE(columns[1].y, 5.0);
-        EXPECTEDVALUE(columns[1].z, 8.0);
-        EXPECTEDVALUE(columns[2].x, 3.0);
-        EXPECTEDVALUE(columns[2].y, 6.0);
-        EXPECTEDVALUE(columns[2].z, 9.0);
+        EXPECTEDVALUE(columns[0].x, 1.0f);
+        EXPECTEDVALUE(columns[0].y, 4.0f);
+        EXPECTEDVALUE(columns[0].z, 7.0f);
+        EXPECTEDVALUE(columns[1].x, 2.0f);
+        EXPECTEDVALUE(columns[1].y, 5.0f);
+        EXPECTEDVALUE(columns[1].z, 8.0f);
+        EXPECTEDVALUE(columns[2].x, 3.0f);
+        EXPECTEDVALUE(columns[2].y, 6.0f);
+        EXPECTEDVALUE(columns[2].z, 9.0f);
         matrix = mat3::RotationBasic(halfpi, Axis::X) * matrix;
-        EXPECTEDVALUE(matrix.h.x1, 1.0);
-        EXPECTEDVALUE(matrix.h.y1, 2.0);
-        EXPECTEDVALUE(matrix.h.z1, 3.0);
-        EXPECTEDVALUE(matrix.h.x2, -7.0);
-        EXPECTEDVALUE(matrix.h.y2, -8.0);
-        EXPECTEDVALUE(matrix.h.z2, -9.0);
-        EXPECTEDVALUE(matrix.h.x3, 4.0);
-        EXPECTEDVALUE(matrix.h.y3, 5.0);
-        EXPECTEDVALUE(matrix.h.z3, 6.0);
+        EXPECTEDVALUE(matrix.h.x1, 1.0f);
+        EXPECTEDVALUE(matrix.h.y1, 2.0f);
+        EXPECTEDVALUE(matrix.h.z1, 3.0f);
+        EXPECTEDVALUE(matrix.h.x2, -7.0f);
+        EXPECTEDVALUE(matrix.h.y2, -8.0f);
+        EXPECTEDVALUE(matrix.h.z2, -9.0f);
+        EXPECTEDVALUE(matrix.h.x3, 4.0f);
+        EXPECTEDVALUE(matrix.h.y3, 5.0f);
+        EXPECTEDVALUE(matrix.h.z3, 6.0f);
         matrix = mat3::RotationBasic(halfpi, Axis::Y) * matrix;
-        EXPECTEDVALUE(matrix.h.x1, 4.0);
-        EXPECTEDVALUE(matrix.h.y1, 5.0);
-        EXPECTEDVALUE(matrix.h.z1, 6.0);
-        EXPECTEDVALUE(matrix.h.x2, -7.0);
-        EXPECTEDVALUE(matrix.h.y2, -8.0);
-        EXPECTEDVALUE(matrix.h.z2, -9.0);
-        EXPECTEDVALUE(matrix.h.x3, -1.0);
-        EXPECTEDVALUE(matrix.h.y3, -2.0);
-        EXPECTEDVALUE(matrix.h.z3, -3.0);
+        EXPECTEDVALUE(matrix.h.x1, 4.0f);
+        EXPECTEDVALUE(matrix.h.y1, 5.0f);
+        EXPECTEDVALUE(matrix.h.z1, 6.0f);
+        EXPECTEDVALUE(matrix.h.x2, -7.0f);
+        EXPECTEDVALUE(matrix.h.y2, -8.0f);
+        EXPECTEDVALUE(matrix.h.z2, -9.0f);
+        EXPECTEDVALUE(matrix.h.x3, -1.0f);
+        EXPECTEDVALUE(matrix.h.y3, -2.0f);
+        EXPECTEDVALUE(matrix.h.z3, -3.0f);
         matrix = mat3::RotationBasic(halfpi, Axis::Z) * matrix;
-        EXPECTEDVALUE(matrix.h.x1, 7.0);
-        EXPECTEDVALUE(matrix.h.y1, 8.0);
-        EXPECTEDVALUE(matrix.h.z1, 9.0);
-        EXPECTEDVALUE(matrix.h.x2, 4.0);
-        EXPECTEDVALUE(matrix.h.y2, 5.0);
-        EXPECTEDVALUE(matrix.h.z2, 6.0);
-        EXPECTEDVALUE(matrix.h.x3, -1.0);
-        EXPECTEDVALUE(matrix.h.y3, -2.0);
-        EXPECTEDVALUE(matrix.h.z3, -3.0);
-        matrix = mat3::Rotation(pi, {sin(halfpi), cos(halfpi), 0.0}) * matrix;
-        EXPECTEDVALUE(matrix.h.x1, 7.0);
-        EXPECTEDVALUE(matrix.h.y1, 8.0);
-        EXPECTEDVALUE(matrix.h.z1, 9.0);
-        EXPECTEDVALUE(matrix.h.x2, -4.0);
-        EXPECTEDVALUE(matrix.h.y2, -5.0);
-        EXPECTEDVALUE(matrix.h.z2, -6.0);
-        EXPECTEDVALUE(matrix.h.x3, 1.0);
-        EXPECTEDVALUE(matrix.h.y3, 2.0);
-        EXPECTEDVALUE(matrix.h.z3, 3.0);
-        matrix = mat3::Rotation(halfpi, {0.0, 0.0, 1.0}) * matrix;
-        EXPECTEDVALUE(matrix.h.x1, 4.0);
-        EXPECTEDVALUE(matrix.h.y1, 5.0);
-        EXPECTEDVALUE(matrix.h.z1, 6.0);
-        EXPECTEDVALUE(matrix.h.x2, 7.0);
-        EXPECTEDVALUE(matrix.h.y2, 8.0);
-        EXPECTEDVALUE(matrix.h.z2, 9.0);
-        EXPECTEDVALUE(matrix.h.x3, 1.0);
-        EXPECTEDVALUE(matrix.h.y3, 2.0);
-        EXPECTEDVALUE(matrix.h.z3, 3.0);
-        matrix = mat3::Scaler({2.0, 3.0, 3.5}) * matrix;
-        EXPECTEDVALUE(matrix.h.x1, 8.0);
-        EXPECTEDVALUE(matrix.h.y1, 10.0);
-        EXPECTEDVALUE(matrix.h.z1, 12.0);
-        EXPECTEDVALUE(matrix.h.x2, 21.0);
-        EXPECTEDVALUE(matrix.h.y2, 24.0);
-        EXPECTEDVALUE(matrix.h.z2, 27.0);
-        EXPECTEDVALUE(matrix.h.x3, 3.5);
-        EXPECTEDVALUE(matrix.h.y3, 7.0);
-        EXPECTEDVALUE(matrix.h.z3, 10.5);
+        EXPECTEDVALUE(matrix.h.x1, 7.0f);
+        EXPECTEDVALUE(matrix.h.y1, 8.0f);
+        EXPECTEDVALUE(matrix.h.z1, 9.0f);
+        EXPECTEDVALUE(matrix.h.x2, 4.0f);
+        EXPECTEDVALUE(matrix.h.y2, 5.0f);
+        EXPECTEDVALUE(matrix.h.z2, 6.0f);
+        EXPECTEDVALUE(matrix.h.x3, -1.0f);
+        EXPECTEDVALUE(matrix.h.y3, -2.0f);
+        EXPECTEDVALUE(matrix.h.z3, -3.0f);
+        matrix = mat3::Rotation(pi, {sin(halfpi), cos(halfpi), 0.0f}) * matrix;
+        EXPECTEDVALUE(matrix.h.x1, 7.0f);
+        EXPECTEDVALUE(matrix.h.y1, 8.0f);
+        EXPECTEDVALUE(matrix.h.z1, 9.0f);
+        EXPECTEDVALUE(matrix.h.x2, -4.0f);
+        EXPECTEDVALUE(matrix.h.y2, -5.0f);
+        EXPECTEDVALUE(matrix.h.z2, -6.0f);
+        EXPECTEDVALUE(matrix.h.x3, 1.0f);
+        EXPECTEDVALUE(matrix.h.y3, 2.0f);
+        EXPECTEDVALUE(matrix.h.z3, 3.0f);
+        matrix = mat3::Rotation(halfpi, {0.0f, 0.0f, 1.0f}) * matrix;
+        EXPECTEDVALUE(matrix.h.x1, 4.0f);
+        EXPECTEDVALUE(matrix.h.y1, 5.0f);
+        EXPECTEDVALUE(matrix.h.z1, 6.0f);
+        EXPECTEDVALUE(matrix.h.x2, 7.0f);
+        EXPECTEDVALUE(matrix.h.y2, 8.0f);
+        EXPECTEDVALUE(matrix.h.z2, 9.0f);
+        EXPECTEDVALUE(matrix.h.x3, 1.0f);
+        EXPECTEDVALUE(matrix.h.y3, 2.0f);
+        EXPECTEDVALUE(matrix.h.z3, 3.0f);
+        matrix = mat3::Scaler({2.0f, 3.0f, 3.5f}) * matrix;
+        EXPECTEDVALUE(matrix.h.x1, 8.0f);
+        EXPECTEDVALUE(matrix.h.y1, 10.0f);
+        EXPECTEDVALUE(matrix.h.z1, 12.0f);
+        EXPECTEDVALUE(matrix.h.x2, 21.0f);
+        EXPECTEDVALUE(matrix.h.y2, 24.0f);
+        EXPECTEDVALUE(matrix.h.z2, 27.0f);
+        EXPECTEDVALUE(matrix.h.x3, 3.5f);
+        EXPECTEDVALUE(matrix.h.y3, 7.0f);
+        EXPECTEDVALUE(matrix.h.z3, 10.5f);
         matrix = matrix.Transpose();
-        EXPECTEDVALUE(matrix.v.x1, 8.0);
-        EXPECTEDVALUE(matrix.v.y1, 10.0);
-        EXPECTEDVALUE(matrix.v.z1, 12.0);
-        EXPECTEDVALUE(matrix.v.x2, 21.0);
-        EXPECTEDVALUE(matrix.v.y2, 24.0);
-        EXPECTEDVALUE(matrix.v.z2, 27.0);
-        EXPECTEDVALUE(matrix.v.x3, 3.5);
-        EXPECTEDVALUE(matrix.v.y3, 7.0);
-        EXPECTEDVALUE(matrix.v.z3, 10.5);
+        EXPECTEDVALUE(matrix.v.x1, 8.0f);
+        EXPECTEDVALUE(matrix.v.y1, 10.0f);
+        EXPECTEDVALUE(matrix.v.z1, 12.0f);
+        EXPECTEDVALUE(matrix.v.x2, 21.0f);
+        EXPECTEDVALUE(matrix.v.y2, 24.0f);
+        EXPECTEDVALUE(matrix.v.z2, 27.0f);
+        EXPECTEDVALUE(matrix.v.x3, 3.5f);
+        EXPECTEDVALUE(matrix.v.y3, 7.0f);
+        EXPECTEDVALUE(matrix.v.z3, 10.5f);
     } catch (std::runtime_error& err) {
         cout << "Failed: " << err.what() << std::endl;
         return false;
@@ -304,27 +304,27 @@ bool UnitTestMat4(io::LogStream& cout) {
     mat4 matrix;
     matrix = mat4::Identity();
     try {
-        EXPECTEDVALUE(matrix.data[ 0], 1.0);
-        EXPECTEDVALUE(matrix.data[ 1], 0.0);
-        EXPECTEDVALUE(matrix.data[ 2], 0.0);
-        EXPECTEDVALUE(matrix.data[ 3], 0.0);
-        EXPECTEDVALUE(matrix.data[ 4], 0.0);
-        EXPECTEDVALUE(matrix.data[ 5], 1.0);
-        EXPECTEDVALUE(matrix.data[ 6], 0.0);
-        EXPECTEDVALUE(matrix.data[ 7], 0.0);
-        EXPECTEDVALUE(matrix.data[ 8], 0.0);
-        EXPECTEDVALUE(matrix.data[ 9], 0.0);
-        EXPECTEDVALUE(matrix.data[10], 1.0);
-        EXPECTEDVALUE(matrix.data[11], 0.0);
-        EXPECTEDVALUE(matrix.data[12], 0.0);
-        EXPECTEDVALUE(matrix.data[13], 0.0);
-        EXPECTEDVALUE(matrix.data[14], 0.0);
-        EXPECTEDVALUE(matrix.data[15], 1.0);
+        EXPECTEDVALUE(matrix.data[ 0], 1.0f);
+        EXPECTEDVALUE(matrix.data[ 1], 0.0f);
+        EXPECTEDVALUE(matrix.data[ 2], 0.0f);
+        EXPECTEDVALUE(matrix.data[ 3], 0.0f);
+        EXPECTEDVALUE(matrix.data[ 4], 0.0f);
+        EXPECTEDVALUE(matrix.data[ 5], 1.0f);
+        EXPECTEDVALUE(matrix.data[ 6], 0.0f);
+        EXPECTEDVALUE(matrix.data[ 7], 0.0f);
+        EXPECTEDVALUE(matrix.data[ 8], 0.0f);
+        EXPECTEDVALUE(matrix.data[ 9], 0.0f);
+        EXPECTEDVALUE(matrix.data[10], 1.0f);
+        EXPECTEDVALUE(matrix.data[11], 0.0f);
+        EXPECTEDVALUE(matrix.data[12], 0.0f);
+        EXPECTEDVALUE(matrix.data[13], 0.0f);
+        EXPECTEDVALUE(matrix.data[14], 0.0f);
+        EXPECTEDVALUE(matrix.data[15], 1.0f);
         matrix = mat4(
-             1.0,  2.0,  3.0,  4.0,
-             5.0,  6.0,  7.0,  8.0,
-             9.0, 10.0, 11.0, 12.0,
-            13.0, 14.0, 15.0, 16.0
+             1.0f,  2.0f,  3.0f,  4.0f,
+             5.0f,  6.0f,  7.0f,  8.0f,
+             9.0f, 10.0f, 11.0f, 12.0f,
+            13.0f, 14.0f, 15.0f, 16.0f
         );
         vec4 rows[4] = {
             matrix.Row1(),
@@ -332,214 +332,214 @@ bool UnitTestMat4(io::LogStream& cout) {
             matrix.Row3(),
             matrix.Row4()
         };
-        EXPECTEDVALUE(rows[0].x,  1.0);
-        EXPECTEDVALUE(rows[0].y,  2.0);
-        EXPECTEDVALUE(rows[0].z,  3.0);
-        EXPECTEDVALUE(rows[0].w,  4.0);
-        EXPECTEDVALUE(rows[1].x,  5.0);
-        EXPECTEDVALUE(rows[1].y,  6.0);
-        EXPECTEDVALUE(rows[1].z,  7.0);
-        EXPECTEDVALUE(rows[1].w,  8.0);
-        EXPECTEDVALUE(rows[2].x,  9.0);
-        EXPECTEDVALUE(rows[2].y, 10.0);
-        EXPECTEDVALUE(rows[2].z, 11.0);
-        EXPECTEDVALUE(rows[2].w, 12.0);
-        EXPECTEDVALUE(rows[3].x, 13.0);
-        EXPECTEDVALUE(rows[3].y, 14.0);
-        EXPECTEDVALUE(rows[3].z, 15.0);
-        EXPECTEDVALUE(rows[3].w, 16.0);
+        EXPECTEDVALUE(rows[0].x,  1.0f);
+        EXPECTEDVALUE(rows[0].y,  2.0f);
+        EXPECTEDVALUE(rows[0].z,  3.0f);
+        EXPECTEDVALUE(rows[0].w,  4.0f);
+        EXPECTEDVALUE(rows[1].x,  5.0f);
+        EXPECTEDVALUE(rows[1].y,  6.0f);
+        EXPECTEDVALUE(rows[1].z,  7.0f);
+        EXPECTEDVALUE(rows[1].w,  8.0f);
+        EXPECTEDVALUE(rows[2].x,  9.0f);
+        EXPECTEDVALUE(rows[2].y, 10.0f);
+        EXPECTEDVALUE(rows[2].z, 11.0f);
+        EXPECTEDVALUE(rows[2].w, 12.0f);
+        EXPECTEDVALUE(rows[3].x, 13.0f);
+        EXPECTEDVALUE(rows[3].y, 14.0f);
+        EXPECTEDVALUE(rows[3].z, 15.0f);
+        EXPECTEDVALUE(rows[3].w, 16.0f);
         vec4 columns[4] = {
             matrix.Col1(),
             matrix.Col2(),
             matrix.Col3(),
             matrix.Col4()
         };
-        EXPECTEDVALUE(columns[0].x,  1.0);
-        EXPECTEDVALUE(columns[0].y,  5.0);
-        EXPECTEDVALUE(columns[0].z,  9.0);
-        EXPECTEDVALUE(columns[0].w, 13.0);
-        EXPECTEDVALUE(columns[1].x,  2.0);
-        EXPECTEDVALUE(columns[1].y,  6.0);
-        EXPECTEDVALUE(columns[1].z, 10.0);
-        EXPECTEDVALUE(columns[1].w, 14.0);
-        EXPECTEDVALUE(columns[2].x,  3.0);
-        EXPECTEDVALUE(columns[2].y,  7.0);
-        EXPECTEDVALUE(columns[2].z, 11.0);
-        EXPECTEDVALUE(columns[2].w, 15.0);
-        EXPECTEDVALUE(columns[3].x,  4.0);
-        EXPECTEDVALUE(columns[3].y,  8.0);
-        EXPECTEDVALUE(columns[3].z, 12.0);
-        EXPECTEDVALUE(columns[3].w, 16.0);
+        EXPECTEDVALUE(columns[0].x,  1.0f);
+        EXPECTEDVALUE(columns[0].y,  5.0f);
+        EXPECTEDVALUE(columns[0].z,  9.0f);
+        EXPECTEDVALUE(columns[0].w, 13.0f);
+        EXPECTEDVALUE(columns[1].x,  2.0f);
+        EXPECTEDVALUE(columns[1].y,  6.0f);
+        EXPECTEDVALUE(columns[1].z, 10.0f);
+        EXPECTEDVALUE(columns[1].w, 14.0f);
+        EXPECTEDVALUE(columns[2].x,  3.0f);
+        EXPECTEDVALUE(columns[2].y,  7.0f);
+        EXPECTEDVALUE(columns[2].z, 11.0f);
+        EXPECTEDVALUE(columns[2].w, 15.0f);
+        EXPECTEDVALUE(columns[3].x,  4.0f);
+        EXPECTEDVALUE(columns[3].y,  8.0f);
+        EXPECTEDVALUE(columns[3].z, 12.0f);
+        EXPECTEDVALUE(columns[3].w, 16.0f);
         matrix = mat4::RotationBasic(halfpi, Plane::XW) * matrix;
-        EXPECTEDVALUE(matrix.h.x1,  1.0);
-        EXPECTEDVALUE(matrix.h.y1,  2.0);
-        EXPECTEDVALUE(matrix.h.z1,  3.0);
-        EXPECTEDVALUE(matrix.h.w1,  4.0);
-        EXPECTEDVALUE(matrix.h.x2, -9.0);
-        EXPECTEDVALUE(matrix.h.y2,-10.0);
-        EXPECTEDVALUE(matrix.h.z2,-11.0);
-        EXPECTEDVALUE(matrix.h.w2,-12.0);
-        EXPECTEDVALUE(matrix.h.x3,  5.0);
-        EXPECTEDVALUE(matrix.h.y3,  6.0);
-        EXPECTEDVALUE(matrix.h.z3,  7.0);
-        EXPECTEDVALUE(matrix.h.w3,  8.0);
-        EXPECTEDVALUE(matrix.h.x4, 13.0);
-        EXPECTEDVALUE(matrix.h.y4, 14.0);
-        EXPECTEDVALUE(matrix.h.z4, 15.0);
-        EXPECTEDVALUE(matrix.h.w4, 16.0);
+        EXPECTEDVALUE(matrix.h.x1,  1.0f);
+        EXPECTEDVALUE(matrix.h.y1,  2.0f);
+        EXPECTEDVALUE(matrix.h.z1,  3.0f);
+        EXPECTEDVALUE(matrix.h.w1,  4.0f);
+        EXPECTEDVALUE(matrix.h.x2, -9.0f);
+        EXPECTEDVALUE(matrix.h.y2,-10.0f);
+        EXPECTEDVALUE(matrix.h.z2,-11.0f);
+        EXPECTEDVALUE(matrix.h.w2,-12.0f);
+        EXPECTEDVALUE(matrix.h.x3,  5.0f);
+        EXPECTEDVALUE(matrix.h.y3,  6.0f);
+        EXPECTEDVALUE(matrix.h.z3,  7.0f);
+        EXPECTEDVALUE(matrix.h.w3,  8.0f);
+        EXPECTEDVALUE(matrix.h.x4, 13.0f);
+        EXPECTEDVALUE(matrix.h.y4, 14.0f);
+        EXPECTEDVALUE(matrix.h.z4, 15.0f);
+        EXPECTEDVALUE(matrix.h.w4, 16.0f);
         matrix = mat4::RotationBasic(halfpi, Plane::YW) * matrix;
-        EXPECTEDVALUE(matrix.h.x1,  5.0);
-        EXPECTEDVALUE(matrix.h.y1,  6.0);
-        EXPECTEDVALUE(matrix.h.z1,  7.0);
-        EXPECTEDVALUE(matrix.h.w1,  8.0);
-        EXPECTEDVALUE(matrix.h.x2, -9.0);
-        EXPECTEDVALUE(matrix.h.y2,-10.0);
-        EXPECTEDVALUE(matrix.h.z2,-11.0);
-        EXPECTEDVALUE(matrix.h.w2,-12.0);
-        EXPECTEDVALUE(matrix.h.x3, -1.0);
-        EXPECTEDVALUE(matrix.h.y3, -2.0);
-        EXPECTEDVALUE(matrix.h.z3, -3.0);
-        EXPECTEDVALUE(matrix.h.w3, -4.0);
-        EXPECTEDVALUE(matrix.h.x4, 13.0);
-        EXPECTEDVALUE(matrix.h.y4, 14.0);
-        EXPECTEDVALUE(matrix.h.z4, 15.0);
-        EXPECTEDVALUE(matrix.h.w4, 16.0);
+        EXPECTEDVALUE(matrix.h.x1,  5.0f);
+        EXPECTEDVALUE(matrix.h.y1,  6.0f);
+        EXPECTEDVALUE(matrix.h.z1,  7.0f);
+        EXPECTEDVALUE(matrix.h.w1,  8.0f);
+        EXPECTEDVALUE(matrix.h.x2, -9.0f);
+        EXPECTEDVALUE(matrix.h.y2,-10.0f);
+        EXPECTEDVALUE(matrix.h.z2,-11.0f);
+        EXPECTEDVALUE(matrix.h.w2,-12.0f);
+        EXPECTEDVALUE(matrix.h.x3, -1.0f);
+        EXPECTEDVALUE(matrix.h.y3, -2.0f);
+        EXPECTEDVALUE(matrix.h.z3, -3.0f);
+        EXPECTEDVALUE(matrix.h.w3, -4.0f);
+        EXPECTEDVALUE(matrix.h.x4, 13.0f);
+        EXPECTEDVALUE(matrix.h.y4, 14.0f);
+        EXPECTEDVALUE(matrix.h.z4, 15.0f);
+        EXPECTEDVALUE(matrix.h.w4, 16.0f);
         matrix = mat4::RotationBasic(halfpi, Plane::ZW) * matrix;
-        EXPECTEDVALUE(matrix.h.x1,  9.0);
-        EXPECTEDVALUE(matrix.h.y1, 10.0);
-        EXPECTEDVALUE(matrix.h.z1, 11.0);
-        EXPECTEDVALUE(matrix.h.w1, 12.0);
-        EXPECTEDVALUE(matrix.h.x2,  5.0);
-        EXPECTEDVALUE(matrix.h.y2,  6.0);
-        EXPECTEDVALUE(matrix.h.z2,  7.0);
-        EXPECTEDVALUE(matrix.h.w2,  8.0);
-        EXPECTEDVALUE(matrix.h.x3, -1.0);
-        EXPECTEDVALUE(matrix.h.y3, -2.0);
-        EXPECTEDVALUE(matrix.h.z3, -3.0);
-        EXPECTEDVALUE(matrix.h.w3, -4.0);
-        EXPECTEDVALUE(matrix.h.x4, 13.0);
-        EXPECTEDVALUE(matrix.h.y4, 14.0);
-        EXPECTEDVALUE(matrix.h.z4, 15.0);
-        EXPECTEDVALUE(matrix.h.w4, 16.0);
+        EXPECTEDVALUE(matrix.h.x1,  9.0f);
+        EXPECTEDVALUE(matrix.h.y1, 10.0f);
+        EXPECTEDVALUE(matrix.h.z1, 11.0f);
+        EXPECTEDVALUE(matrix.h.w1, 12.0f);
+        EXPECTEDVALUE(matrix.h.x2,  5.0f);
+        EXPECTEDVALUE(matrix.h.y2,  6.0f);
+        EXPECTEDVALUE(matrix.h.z2,  7.0f);
+        EXPECTEDVALUE(matrix.h.w2,  8.0f);
+        EXPECTEDVALUE(matrix.h.x3, -1.0f);
+        EXPECTEDVALUE(matrix.h.y3, -2.0f);
+        EXPECTEDVALUE(matrix.h.z3, -3.0f);
+        EXPECTEDVALUE(matrix.h.w3, -4.0f);
+        EXPECTEDVALUE(matrix.h.x4, 13.0f);
+        EXPECTEDVALUE(matrix.h.y4, 14.0f);
+        EXPECTEDVALUE(matrix.h.z4, 15.0f);
+        EXPECTEDVALUE(matrix.h.w4, 16.0f);
         matrix = mat4::RotationBasic(halfpi, Plane::XY) * matrix;
-        EXPECTEDVALUE(matrix.h.x1,  9.0);
-        EXPECTEDVALUE(matrix.h.y1, 10.0);
-        EXPECTEDVALUE(matrix.h.z1, 11.0);
-        EXPECTEDVALUE(matrix.h.w1, 12.0);
-        EXPECTEDVALUE(matrix.h.x2,  5.0);
-        EXPECTEDVALUE(matrix.h.y2,  6.0);
-        EXPECTEDVALUE(matrix.h.z2,  7.0);
-        EXPECTEDVALUE(matrix.h.w2,  8.0);
-        EXPECTEDVALUE(matrix.h.x3,-13.0);
-        EXPECTEDVALUE(matrix.h.y3,-14.0);
-        EXPECTEDVALUE(matrix.h.z3,-15.0);
-        EXPECTEDVALUE(matrix.h.w3,-16.0);
-        EXPECTEDVALUE(matrix.h.x4, -1.0);
-        EXPECTEDVALUE(matrix.h.y4, -2.0);
-        EXPECTEDVALUE(matrix.h.z4, -3.0);
-        EXPECTEDVALUE(matrix.h.w4, -4.0);
+        EXPECTEDVALUE(matrix.h.x1,  9.0f);
+        EXPECTEDVALUE(matrix.h.y1, 10.0f);
+        EXPECTEDVALUE(matrix.h.z1, 11.0f);
+        EXPECTEDVALUE(matrix.h.w1, 12.0f);
+        EXPECTEDVALUE(matrix.h.x2,  5.0f);
+        EXPECTEDVALUE(matrix.h.y2,  6.0f);
+        EXPECTEDVALUE(matrix.h.z2,  7.0f);
+        EXPECTEDVALUE(matrix.h.w2,  8.0f);
+        EXPECTEDVALUE(matrix.h.x3,-13.0f);
+        EXPECTEDVALUE(matrix.h.y3,-14.0f);
+        EXPECTEDVALUE(matrix.h.z3,-15.0f);
+        EXPECTEDVALUE(matrix.h.w3,-16.0f);
+        EXPECTEDVALUE(matrix.h.x4, -1.0f);
+        EXPECTEDVALUE(matrix.h.y4, -2.0f);
+        EXPECTEDVALUE(matrix.h.z4, -3.0f);
+        EXPECTEDVALUE(matrix.h.w4, -4.0f);
         matrix = mat4::RotationBasic(halfpi, Plane::YZ) * matrix;
-        EXPECTEDVALUE(matrix.h.x1,  1.0);
-        EXPECTEDVALUE(matrix.h.y1,  2.0);
-        EXPECTEDVALUE(matrix.h.z1,  3.0);
-        EXPECTEDVALUE(matrix.h.w1,  4.0);
-        EXPECTEDVALUE(matrix.h.x2,  5.0);
-        EXPECTEDVALUE(matrix.h.y2,  6.0);
-        EXPECTEDVALUE(matrix.h.z2,  7.0);
-        EXPECTEDVALUE(matrix.h.w2,  8.0);
-        EXPECTEDVALUE(matrix.h.x3,-13.0);
-        EXPECTEDVALUE(matrix.h.y3,-14.0);
-        EXPECTEDVALUE(matrix.h.z3,-15.0);
-        EXPECTEDVALUE(matrix.h.w3,-16.0);
-        EXPECTEDVALUE(matrix.h.x4,  9.0);
-        EXPECTEDVALUE(matrix.h.y4, 10.0);
-        EXPECTEDVALUE(matrix.h.z4, 11.0);
-        EXPECTEDVALUE(matrix.h.w4, 12.0);
+        EXPECTEDVALUE(matrix.h.x1,  1.0f);
+        EXPECTEDVALUE(matrix.h.y1,  2.0f);
+        EXPECTEDVALUE(matrix.h.z1,  3.0f);
+        EXPECTEDVALUE(matrix.h.w1,  4.0f);
+        EXPECTEDVALUE(matrix.h.x2,  5.0f);
+        EXPECTEDVALUE(matrix.h.y2,  6.0f);
+        EXPECTEDVALUE(matrix.h.z2,  7.0f);
+        EXPECTEDVALUE(matrix.h.w2,  8.0f);
+        EXPECTEDVALUE(matrix.h.x3,-13.0f);
+        EXPECTEDVALUE(matrix.h.y3,-14.0f);
+        EXPECTEDVALUE(matrix.h.z3,-15.0f);
+        EXPECTEDVALUE(matrix.h.w3,-16.0f);
+        EXPECTEDVALUE(matrix.h.x4,  9.0f);
+        EXPECTEDVALUE(matrix.h.y4, 10.0f);
+        EXPECTEDVALUE(matrix.h.z4, 11.0f);
+        EXPECTEDVALUE(matrix.h.w4, 12.0f);
         matrix = mat4::RotationBasic(halfpi, Plane::ZX) * matrix;
-        EXPECTEDVALUE(matrix.h.x1,  1.0);
-        EXPECTEDVALUE(matrix.h.y1,  2.0);
-        EXPECTEDVALUE(matrix.h.z1,  3.0);
-        EXPECTEDVALUE(matrix.h.w1,  4.0);
-        EXPECTEDVALUE(matrix.h.x2,  9.0);
-        EXPECTEDVALUE(matrix.h.y2, 10.0);
-        EXPECTEDVALUE(matrix.h.z2, 11.0);
-        EXPECTEDVALUE(matrix.h.w2, 12.0);
-        EXPECTEDVALUE(matrix.h.x3,-13.0);
-        EXPECTEDVALUE(matrix.h.y3,-14.0);
-        EXPECTEDVALUE(matrix.h.z3,-15.0);
-        EXPECTEDVALUE(matrix.h.w3,-16.0);
-        EXPECTEDVALUE(matrix.h.x4, -5.0);
-        EXPECTEDVALUE(matrix.h.y4, -6.0);
-        EXPECTEDVALUE(matrix.h.z4, -7.0);
-        EXPECTEDVALUE(matrix.h.w4, -8.0);
-        matrix = mat4::Rotation(pi, {sin(halfpi), cos(halfpi), 0.0}) * matrix;
-        EXPECTEDVALUE(matrix.h.x1,  1.0);
-        EXPECTEDVALUE(matrix.h.y1,  2.0);
-        EXPECTEDVALUE(matrix.h.z1,  3.0);
-        EXPECTEDVALUE(matrix.h.w1,  4.0);
-        EXPECTEDVALUE(matrix.h.x2, -9.0);
-        EXPECTEDVALUE(matrix.h.y2,-10.0);
-        EXPECTEDVALUE(matrix.h.z2,-11.0);
-        EXPECTEDVALUE(matrix.h.w2,-12.0);
-        EXPECTEDVALUE(matrix.h.x3, 13.0);
-        EXPECTEDVALUE(matrix.h.y3, 14.0);
-        EXPECTEDVALUE(matrix.h.z3, 15.0);
-        EXPECTEDVALUE(matrix.h.w3, 16.0);
-        EXPECTEDVALUE(matrix.h.x4, -5.0);
-        EXPECTEDVALUE(matrix.h.y4, -6.0);
-        EXPECTEDVALUE(matrix.h.z4, -7.0);
-        EXPECTEDVALUE(matrix.h.w4, -8.0);
-        matrix = mat4::Rotation(halfpi, {0.0, 0.0, 1.0}) * matrix;
-        EXPECTEDVALUE(matrix.h.x1,  9.0);
-        EXPECTEDVALUE(matrix.h.y1, 10.0);
-        EXPECTEDVALUE(matrix.h.z1, 11.0);
-        EXPECTEDVALUE(matrix.h.w1, 12.0);
-        EXPECTEDVALUE(matrix.h.x2,  1.0);
-        EXPECTEDVALUE(matrix.h.y2,  2.0);
-        EXPECTEDVALUE(matrix.h.z2,  3.0);
-        EXPECTEDVALUE(matrix.h.w2,  4.0);
-        EXPECTEDVALUE(matrix.h.x3, 13.0);
-        EXPECTEDVALUE(matrix.h.y3, 14.0);
-        EXPECTEDVALUE(matrix.h.z3, 15.0);
-        EXPECTEDVALUE(matrix.h.w3, 16.0);
-        EXPECTEDVALUE(matrix.h.x4, -5.0);
-        EXPECTEDVALUE(matrix.h.y4, -6.0);
-        EXPECTEDVALUE(matrix.h.z4, -7.0);
-        EXPECTEDVALUE(matrix.h.w4, -8.0);
-        matrix = mat4::Scaler({2.0, 3.0, 3.5, 4.5}) * matrix;
-        EXPECTEDVALUE(matrix.h.x1, 18.0);
-        EXPECTEDVALUE(matrix.h.y1, 20.0);
-        EXPECTEDVALUE(matrix.h.z1, 22.0);
-        EXPECTEDVALUE(matrix.h.w1, 24.0);
-        EXPECTEDVALUE(matrix.h.x2,  3.0);
-        EXPECTEDVALUE(matrix.h.y2,  6.0);
-        EXPECTEDVALUE(matrix.h.z2,  9.0);
-        EXPECTEDVALUE(matrix.h.w2, 12.0);
-        EXPECTEDVALUE(matrix.h.x3, 45.5);
-        EXPECTEDVALUE(matrix.h.y3, 49.0);
-        EXPECTEDVALUE(matrix.h.z3, 52.5);
-        EXPECTEDVALUE(matrix.h.w3, 56.0);
-        EXPECTEDVALUE(matrix.h.x4,-22.5);
-        EXPECTEDVALUE(matrix.h.y4,-27.0);
-        EXPECTEDVALUE(matrix.h.z4,-31.5);
-        EXPECTEDVALUE(matrix.h.w4,-36.0);
+        EXPECTEDVALUE(matrix.h.x1,  1.0f);
+        EXPECTEDVALUE(matrix.h.y1,  2.0f);
+        EXPECTEDVALUE(matrix.h.z1,  3.0f);
+        EXPECTEDVALUE(matrix.h.w1,  4.0f);
+        EXPECTEDVALUE(matrix.h.x2,  9.0f);
+        EXPECTEDVALUE(matrix.h.y2, 10.0f);
+        EXPECTEDVALUE(matrix.h.z2, 11.0f);
+        EXPECTEDVALUE(matrix.h.w2, 12.0f);
+        EXPECTEDVALUE(matrix.h.x3,-13.0f);
+        EXPECTEDVALUE(matrix.h.y3,-14.0f);
+        EXPECTEDVALUE(matrix.h.z3,-15.0f);
+        EXPECTEDVALUE(matrix.h.w3,-16.0f);
+        EXPECTEDVALUE(matrix.h.x4, -5.0f);
+        EXPECTEDVALUE(matrix.h.y4, -6.0f);
+        EXPECTEDVALUE(matrix.h.z4, -7.0f);
+        EXPECTEDVALUE(matrix.h.w4, -8.0f);
+        matrix = mat4::Rotation(pi, {sin(halfpi), cos(halfpi), 0.0f}) * matrix;
+        EXPECTEDVALUE(matrix.h.x1,  1.0f);
+        EXPECTEDVALUE(matrix.h.y1,  2.0f);
+        EXPECTEDVALUE(matrix.h.z1,  3.0f);
+        EXPECTEDVALUE(matrix.h.w1,  4.0f);
+        EXPECTEDVALUE(matrix.h.x2, -9.0f);
+        EXPECTEDVALUE(matrix.h.y2,-10.0f);
+        EXPECTEDVALUE(matrix.h.z2,-11.0f);
+        EXPECTEDVALUE(matrix.h.w2,-12.0f);
+        EXPECTEDVALUE(matrix.h.x3, 13.0f);
+        EXPECTEDVALUE(matrix.h.y3, 14.0f);
+        EXPECTEDVALUE(matrix.h.z3, 15.0f);
+        EXPECTEDVALUE(matrix.h.w3, 16.0f);
+        EXPECTEDVALUE(matrix.h.x4, -5.0f);
+        EXPECTEDVALUE(matrix.h.y4, -6.0f);
+        EXPECTEDVALUE(matrix.h.z4, -7.0f);
+        EXPECTEDVALUE(matrix.h.w4, -8.0f);
+        matrix = mat4::Rotation(halfpi, {0.0f, 0.0f, 1.0f}) * matrix;
+        EXPECTEDVALUE(matrix.h.x1,  9.0f);
+        EXPECTEDVALUE(matrix.h.y1, 10.0f);
+        EXPECTEDVALUE(matrix.h.z1, 11.0f);
+        EXPECTEDVALUE(matrix.h.w1, 12.0f);
+        EXPECTEDVALUE(matrix.h.x2,  1.0f);
+        EXPECTEDVALUE(matrix.h.y2,  2.0f);
+        EXPECTEDVALUE(matrix.h.z2,  3.0f);
+        EXPECTEDVALUE(matrix.h.w2,  4.0f);
+        EXPECTEDVALUE(matrix.h.x3, 13.0f);
+        EXPECTEDVALUE(matrix.h.y3, 14.0f);
+        EXPECTEDVALUE(matrix.h.z3, 15.0f);
+        EXPECTEDVALUE(matrix.h.w3, 16.0f);
+        EXPECTEDVALUE(matrix.h.x4, -5.0f);
+        EXPECTEDVALUE(matrix.h.y4, -6.0f);
+        EXPECTEDVALUE(matrix.h.z4, -7.0f);
+        EXPECTEDVALUE(matrix.h.w4, -8.0f);
+        matrix = mat4::Scaler({2.0f, 3.0f, 3.5f, 4.5f}) * matrix;
+        EXPECTEDVALUE(matrix.h.x1, 18.0f);
+        EXPECTEDVALUE(matrix.h.y1, 20.0f);
+        EXPECTEDVALUE(matrix.h.z1, 22.0f);
+        EXPECTEDVALUE(matrix.h.w1, 24.0f);
+        EXPECTEDVALUE(matrix.h.x2,  3.0f);
+        EXPECTEDVALUE(matrix.h.y2,  6.0f);
+        EXPECTEDVALUE(matrix.h.z2,  9.0f);
+        EXPECTEDVALUE(matrix.h.w2, 12.0f);
+        EXPECTEDVALUE(matrix.h.x3, 45.5f);
+        EXPECTEDVALUE(matrix.h.y3, 49.0f);
+        EXPECTEDVALUE(matrix.h.z3, 52.5f);
+        EXPECTEDVALUE(matrix.h.w3, 56.0f);
+        EXPECTEDVALUE(matrix.h.x4,-22.5f);
+        EXPECTEDVALUE(matrix.h.y4,-27.0f);
+        EXPECTEDVALUE(matrix.h.z4,-31.5f);
+        EXPECTEDVALUE(matrix.h.w4,-36.0f);
         matrix = matrix.Transpose();
-        EXPECTEDVALUE(matrix.v.x1, 18.0);
-        EXPECTEDVALUE(matrix.v.y1, 20.0);
-        EXPECTEDVALUE(matrix.v.z1, 22.0);
-        EXPECTEDVALUE(matrix.v.w1, 24.0);
-        EXPECTEDVALUE(matrix.v.x2,  3.0);
-        EXPECTEDVALUE(matrix.v.y2,  6.0);
-        EXPECTEDVALUE(matrix.v.z2,  9.0);
-        EXPECTEDVALUE(matrix.v.w2, 12.0);
-        EXPECTEDVALUE(matrix.v.x3, 45.5);
-        EXPECTEDVALUE(matrix.v.y3, 49.0);
-        EXPECTEDVALUE(matrix.v.z3, 52.5);
-        EXPECTEDVALUE(matrix.v.w3, 56.0);
-        EXPECTEDVALUE(matrix.v.x4,-22.5);
-        EXPECTEDVALUE(matrix.v.y4,-27.0);
-        EXPECTEDVALUE(matrix.v.z4,-31.5);
-        EXPECTEDVALUE(matrix.v.w4,-36.0);
+        EXPECTEDVALUE(matrix.v.x1, 18.0f);
+        EXPECTEDVALUE(matrix.v.y1, 20.0f);
+        EXPECTEDVALUE(matrix.v.z1, 22.0f);
+        EXPECTEDVALUE(matrix.v.w1, 24.0f);
+        EXPECTEDVALUE(matrix.v.x2,  3.0f);
+        EXPECTEDVALUE(matrix.v.y2,  6.0f);
+        EXPECTEDVALUE(matrix.v.z2,  9.0f);
+        EXPECTEDVALUE(matrix.v.w2, 12.0f);
+        EXPECTEDVALUE(matrix.v.x3, 45.5f);
+        EXPECTEDVALUE(matrix.v.y3, 49.0f);
+        EXPECTEDVALUE(matrix.v.z3, 52.5f);
+        EXPECTEDVALUE(matrix.v.w3, 56.0f);
+        EXPECTEDVALUE(matrix.v.x4,-22.5f);
+        EXPECTEDVALUE(matrix.v.y4,-27.0f);
+        EXPECTEDVALUE(matrix.v.z4,-31.5f);
+        EXPECTEDVALUE(matrix.v.w4,-36.0f);
     } catch (std::runtime_error& err) {
         cout << "Failed: " << err.what() << std::endl;
         return false;
@@ -573,13 +573,13 @@ bool UnitTestComplex(io::LogStream& cout) {
     // cout << std::endl;
     try {
         complex c;
-        for (Degrees32 degrees = -360.0; degrees < 360.0; degrees += 1.0) {
+        for (Degrees32 degrees = -360.0f; degrees < 360.0f; degrees += 1.0f) {
             Angle32 angle = degrees;
-            c = exp(complex(0.0, angle.value()));
+            c = exp(complex(0.0f, angle.value()));
             EXPECTEDVALUE(c.real, cos(angle));
             EXPECTEDVALUE(c.imag, sin(angle));
             c = log(c);
-            EXPECTEDVALUE(c.real, 0.0);
+            EXPECTEDVALUE(c.real, 0.0f);
             EXPECTEDVALUE(Angle32(c.imag), angle);
             // Angle32 a = c.imag;
             // f32 diff = (a-angle).value();
@@ -587,21 +587,21 @@ bool UnitTestComplex(io::LogStream& cout) {
             //      << ", c.real = " << c.real << ", c.imag = " << c.imag << std::endl;
         }
 
-        c = {1.0, 1.0};
+        c = {1.0f, 1.0f};
         c *= c;
-        EXPECTEDVALUE(c.real, 0.0);
-        EXPECTEDVALUE(c.imag, 2.0);
-        c /= 2.0;
-        EXPECTEDVALUE(c.real, 0.0);
-        EXPECTEDVALUE(c.imag, 1.0);
+        EXPECTEDVALUE(c.real, 0.0f);
+        EXPECTEDVALUE(c.imag, 2.0f);
+        c /= 2.0f;
+        EXPECTEDVALUE(c.real, 0.0f);
+        EXPECTEDVALUE(c.imag, 1.0f);
         c *= c;
-        EXPECTEDVALUE(c.real, -1.0);
-        EXPECTEDVALUE(c.imag, 0.0);
-        c = {sin(pi*2.0/3.0), cos(pi/3.0)};
-        EXPECTEDVALUE(abs(c), 1.0);
-        c = pow(c, 2.0);
-        EXPECTEDVALUE(c.real, cos(pi/3.0));
-        EXPECTEDVALUE(c.imag, sin(pi*2.0/3.0));
+        EXPECTEDVALUE(c.real, -1.0f);
+        EXPECTEDVALUE(c.imag, 0.0f);
+        c = {sin(pi*2.0f/3.0f), cos(pi/3.0f)};
+        EXPECTEDVALUE(abs(c), 1.0f);
+        c = pow(c, 2.0f);
+        EXPECTEDVALUE(c.real, cos(pi/3.0f));
+        EXPECTEDVALUE(c.imag, sin(pi*2.0f/3.0f));
         // cout << "c.real = " << c.real << ", c.imag = " << c.imag << std::endl;
     } catch (std::runtime_error& err) {
         cout << "Failed: " << err.what() << std::endl;
@@ -630,57 +630,57 @@ bool UnitTestQuat(io::LogStream& cout) {
         quat quaternion;
         mat3 matrix;
         vec3 point1, point2;
-        for (Degrees32 degrees = -360.0; degrees <= 360.0; degrees += 5.0) {
+        for (Degrees32 degrees = -360.0f; degrees <= 360.0f; degrees += 5.0f) {
             Radians32 radians = degrees;
-            quaternion = quat::Rotation(radians.value(), {1.0, 0.0, 0.0});
-            matrix = mat3::Rotation(radians.value(), {1.0, 0.0, 0.0});
+            quaternion = quat::Rotation(radians.value(), {1.0f, 0.0f, 0.0f});
+            matrix = mat3::Rotation(radians.value(), {1.0f, 0.0f, 0.0f});
             QuatVsMatrix(quaternion, matrix);
-            point1 = {1.0, 0.0, 0.0};
+            point1 = {1.0f, 0.0f, 0.0f};
             point2 = matrix * point1;
             point1 = quaternion.RotatePoint(point1);
             EXPECTEDVALUE(point1.x, point2.x);
             EXPECTEDVALUE(point1.y, point2.y);
             EXPECTEDVALUE(point1.z, point2.z);
-            quaternion = quat::Rotation(radians.value(), {0.0, 1.0, 0.0});
-            matrix = mat3::Rotation(radians.value(), {0.0, 1.0, 0.0});
+            quaternion = quat::Rotation(radians.value(), {0.0f, 1.0f, 0.0f});
+            matrix = mat3::Rotation(radians.value(), {0.0f, 1.0f, 0.0f});
             QuatVsMatrix(quaternion, matrix);
-            point1 = {0.0, 1.0, 0.0};
+            point1 = {0.0f, 1.0f, 0.0f};
             point2 = matrix * point1;
             point1 = quaternion.RotatePoint(point1);
             EXPECTEDVALUE(point1.x, point2.x);
             EXPECTEDVALUE(point1.y, point2.y);
             EXPECTEDVALUE(point1.z, point2.z);
-            quaternion = quat::Rotation(radians.value(), {0.0, 0.0, 1.0});
-            matrix = mat3::Rotation(radians.value(), {0.0, 0.0, 1.0});
+            quaternion = quat::Rotation(radians.value(), {0.0f, 0.0f, 1.0f});
+            matrix = mat3::Rotation(radians.value(), {0.0f, 0.0f, 1.0f});
             QuatVsMatrix(quaternion, matrix);
-            point1 = {0.0, 0.0, 1.0};
+            point1 = {0.0f, 0.0f, 1.0f};
             point2 = matrix * point1;
             point1 = quaternion.RotatePoint(point1);
             EXPECTEDVALUE(point1.x, point2.x);
             EXPECTEDVALUE(point1.y, point2.y);
             EXPECTEDVALUE(point1.z, point2.z);
-            quaternion = quat::Rotation(radians.value(), {0.0, 1.0, 1.0});
-            matrix = mat3::Rotation(radians.value(), {0.0, 1.0, 1.0});
+            quaternion = quat::Rotation(radians.value(), {0.0f, 1.0f, 1.0f});
+            matrix = mat3::Rotation(radians.value(), {0.0f, 1.0f, 1.0f});
             QuatVsMatrix(quaternion, matrix);
-            point1 = {1.0, 2.0, 3.0};
+            point1 = {1.0f, 2.0f, 3.0f};
             point2 = matrix * point1;
             point1 = quaternion.RotatePoint(point1);
             EXPECTEDVALUE(point1.x, point2.x);
             EXPECTEDVALUE(point1.y, point2.y);
             EXPECTEDVALUE(point1.z, point2.z);
-            quaternion = quat::Rotation(radians.value(), {-1.0, 1.0, 0.0});
-            matrix = mat3::Rotation(radians.value(), {-1.0, 1.0, 0.0});
+            quaternion = quat::Rotation(radians.value(), {-1.0f, 1.0f, 0.0f});
+            matrix = mat3::Rotation(radians.value(), {-1.0f, 1.0f, 0.0f});
             QuatVsMatrix(quaternion, matrix);
-            point1 = {-1.0, pi, 1.0};
+            point1 = {-1.0f, pi, 1.0f};
             point2 = matrix * point1;
             point1 = quaternion.RotatePoint(point1);
             EXPECTEDVALUE(point1.x, point2.x);
             EXPECTEDVALUE(point1.y, point2.y);
             EXPECTEDVALUE(point1.z, point2.z);
-            quaternion = quat::Rotation(radians.value(), {-1.0, 0.0, -1.0});
-            matrix = mat3::Rotation(radians.value(), {-1.0, 0.0, -1.0});
+            quaternion = quat::Rotation(radians.value(), {-1.0f, 0.0f, -1.0f});
+            matrix = mat3::Rotation(radians.value(), {-1.0f, 0.0f, -1.0f});
             QuatVsMatrix(quaternion, matrix);
-            point1 = {1.0, 8.0, 3.0};
+            point1 = {1.0f, 8.0f, 3.0f};
             point2 = matrix * point1;
             point1 = quaternion.RotatePoint(point1);
             EXPECTEDVALUE(point1.x, point2.x);
@@ -704,34 +704,34 @@ bool UnitTestQuat(io::LogStream& cout) {
 bool UnitTestSlerp(io::LogStream& cout) {
     cout << "Unit testing slerp...\n";
     try {
-        quat a(0.0, 1.0, 0.0, 0.0);
-        quat b(0.0, 0.0, 1.0, 0.0);
+        quat a(0.0f, 1.0f, 0.0f, 0.0f);
+        quat b(0.0f, 0.0f, 1.0f, 0.0f);
         quat c;
-        c = slerp(a,b, 0.0);
+        c = slerp(a,b, 0.0f);
         EXPECTEDVALUE(c.w, a.w);
         EXPECTEDVALUE(c.x, a.x);
         EXPECTEDVALUE(c.y, a.y);
         EXPECTEDVALUE(c.z, a.z);
-        c = slerp(a,b, 1.0);
+        c = slerp(a,b, 1.0f);
         EXPECTEDVALUE(c.w, b.w);
         EXPECTEDVALUE(c.x, b.x);
         EXPECTEDVALUE(c.y, b.y);
         EXPECTEDVALUE(c.z, b.z);
-        c = slerp(a,b, 0.5);
-        EXPECTEDVALUE(c.w, 0.0);
-        EXPECTEDVALUE(c.x, sin(pi/4));
-        EXPECTEDVALUE(c.y, sin(pi/4));
-        EXPECTEDVALUE(c.z, 0.0);
-        c = slerp(a,b, 1.0/3.0);
-        EXPECTEDVALUE(c.w, 0.0);
-        EXPECTEDVALUE(c.x, cos(pi/6));
-        EXPECTEDVALUE(c.y, sin(pi/6));
-        EXPECTEDVALUE(c.z, 0.0);
-        c = slerp(a,b, 2.0/3.0);
-        EXPECTEDVALUE(c.w, 0.0);
-        EXPECTEDVALUE(c.x, cos(tau/6));
-        EXPECTEDVALUE(c.y, sin(tau/6));
-        EXPECTEDVALUE(c.z, 0.0);
+        c = slerp(a,b, 0.5f);
+        EXPECTEDVALUE(c.w, 0.0f);
+        EXPECTEDVALUE(c.x, sin(pi/4.0f));
+        EXPECTEDVALUE(c.y, sin(pi/4.0f));
+        EXPECTEDVALUE(c.z, 0.0f);
+        c = slerp(a,b, 1.0f/3.0f);
+        EXPECTEDVALUE(c.w, 0.0f);
+        EXPECTEDVALUE(c.x, cos(pi/6.0f));
+        EXPECTEDVALUE(c.y, sin(pi/6.0f));
+        EXPECTEDVALUE(c.z, 0.0f);
+        c = slerp(a,b, 2.0f/3.0f);
+        EXPECTEDVALUE(c.w, 0.0f);
+        EXPECTEDVALUE(c.x, cos(tau/6.0f));
+        EXPECTEDVALUE(c.y, sin(tau/6.0f));
+        EXPECTEDVALUE(c.z, 0.0f);
     } catch (std::runtime_error& err) {
         cout << "Failed: " << err.what() << std::endl;
         return false;
@@ -1269,37 +1269,6 @@ bool UnitTestArrayAndString(io::LogStream& cout) {
         EXPECTEDVALUE(test10[9], String("There once was a man who hated cheese."));
         EXPECTEDVALUE(test10[10], String("Once upon a time,"));
         EXPECTEDVALUE(test10[11], String("What was I talking about?"));
-
-        // {
-        //     cout << "Testing ToString on floats..." << std::endl;
-        //     f32 zero = 0.0;
-        //     f32 zeroN = -0.0;
-        //     f32 one = 1.0;
-        //     f32 oneN = -1.0;
-        //     f32 numsHigh = 10.0;
-        //     f32 numsLow = 0.01;
-        //     cout << " zero = " << ToString(zero) << std::endl;
-        //     cout << "-zero = " << ToString(zeroN) << std::endl;
-        //     cout << "  one = " << ToString(one) << std::endl;
-        //     cout << " -one = " << ToString(oneN) << std::endl;
-        //     cout << "numsHigh = " << ToString(numsHigh) << std::endl;
-        //     cout << " numsLow = " << ToString(numsLow) << "\n" << std::endl;
-        // }
-        // {
-        //     cout << "Testing ToString on doubles..." << std::endl;
-        //     f64 zero = 0.0;
-        //     f64 zeroN = -0.0;
-        //     f64 one = 1.0;
-        //     f64 oneN = -1.0;
-        //     f64 numsHigh = 100000000000000.0d;
-        //     f64 numsLow = 0.000000000000001d;
-        //     cout << " zero = " << ToString(zero) << std::endl;
-        //     cout << "-zero = " << ToString(zeroN) << std::endl;
-        //     cout << "  one = " << ToString(one) << std::endl;
-        //     cout << " -one = " << ToString(oneN) << std::endl;
-        //     cout << "numsHigh = " << ToString(numsHigh) << std::endl;
-        //     cout << " numsLow = " << ToString(numsLow) << "\n" << std::endl;
-        // }
     } catch (std::runtime_error& err) {
         cout << "Failed: " << err.what() << std::endl;
         return false;
@@ -1311,16 +1280,16 @@ bool UnitTestArrayAndString(io::LogStream& cout) {
 bool UnitTestToString(io::LogStream &cout) {
     cout << "Testing ToString." << std::endl;
     try {
-        EXPECTEDVALUE(ToString(1.0), String("1.0"));
-        EXPECTEDVALUE(ToString(0.1), String("0.1"));
-        EXPECTEDVALUE(ToString(3.14159265), String("3.1415927"));
-        EXPECTEDVALUE(ToString(3.14159, 10, 2), String("3.14"));
-        EXPECTEDVALUE(ToString(63.14159, 10, 2), String("63.14"));
-        EXPECTEDVALUE(ToString(963.14159, 10, 2), String("963.14"));
-        EXPECTEDVALUE(ToString(123.456, 10, 2), String("123.46"));
-        EXPECTEDVALUE(ToString(123.456789d, 10, 4), String("123.4568"));
-        EXPECTEDVALUE(ToString(123.4567899d, 10, 5), String("123.45679"));
-        EXPECTEDVALUE(ToString(123.4567899d, 10, 6), String("123.45679"));
+        EXPECTEDVALUE(ToString(1.0f), String("1.0"));
+        EXPECTEDVALUE(ToString(0.1f), String("0.1"));
+        EXPECTEDVALUE(ToString(3.14159265f), String("3.1415927"));
+        EXPECTEDVALUE(ToString(3.14159f, 10, 2), String("3.14"));
+        EXPECTEDVALUE(ToString(63.14159f, 10, 2), String("63.14"));
+        EXPECTEDVALUE(ToString(963.14159f, 10, 2), String("963.14"));
+        EXPECTEDVALUE(ToString(123.456f, 10, 2), String("123.46"));
+        EXPECTEDVALUE(ToString(123.456789, 10, 4), String("123.4568"));
+        EXPECTEDVALUE(ToString(123.4567899, 10, 5), String("123.45679"));
+        EXPECTEDVALUE(ToString(123.4567899, 10, 6), String("123.45679"));
     } catch (std::runtime_error& err) {
         cout << "Failed: " << err.what() << std::endl;
         return false;

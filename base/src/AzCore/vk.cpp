@@ -3557,7 +3557,7 @@ failure:
                         break;
                     }
                 }
-                if (pipeline.rasterizer.lineWidth != 1.0) {
+                if (pipeline.rasterizer.lineWidth != 1.0f) {
                     wideLines = true;
                 }
             }

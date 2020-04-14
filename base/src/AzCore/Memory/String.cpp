@@ -247,16 +247,16 @@ String ToString(const f32 &value, i32 base, i32 precision)
     }
     String out;
     out.Reserve(12);
-    f32 basis = 1.0;
+    f32 basis = 1.0f;
     f32 remaining = value;
-    if (remaining < 0.0)
+    if (remaining < 0.0f)
     {
         remaining = -remaining;
         out += '-';
     }
     i32 newExponent = 0;
     bool point = false;
-    if (remaining >= 1.0)
+    if (remaining >= 1.0f)
     {
         while (true)
         {
@@ -293,7 +293,7 @@ String ToString(const f32 &value, i32 base, i32 precision)
     }
     else
     {
-        if (remaining < 1.0)
+        if (remaining < 1.0f)
         {
             out += "0.";
             dot = 1;
@@ -305,16 +305,16 @@ String ToString(const f32 &value, i32 base, i32 precision)
                 out += '0';
             }
         }
-        crossover = 1.0 / base;
+        crossover = 1.0f / base;
     }
     bool roundUp = false;
     for (; count > 0; count--)
     {
-        i32 digit = remaining / basis;
+        i32 digit = i32(remaining / basis);
         out += digit >= 10 ? (digit + 'A' - 10) : (digit + '0');
         remaining -= basis * (f32)digit;
-        if (remaining < 0.0)
-            remaining = 0.0;
+        if (remaining < 0.0f)
+            remaining = 0.0f;
         basis /= base;
         if (point && count == 1) {
             if (i32(remaining / basis) >= base / 2) {
@@ -472,7 +472,7 @@ String ToString(const f64 &value, i32 base, i32 precision)
     bool roundUp = false;
     for (; count > 0; count--)
     {
-        i32 digit = remaining / basis;
+        i32 digit = i32(remaining / basis);
         out += digit >= 10 ? (digit + 'A' - 10) : (digit + '0');
         remaining -= basis * (f64)digit;
         if (remaining < 0.0)
@@ -636,7 +636,7 @@ String ToString(const f128 &value, i32 base, i32 precision)
     bool roundUp = false;
     for (; count > 0; count--)
     {
-        i32 digit = remaining / basis;
+        i32 digit = i32(remaining / basis);
         out += digit >= 10 ? (digit + 'A' - 10) : (digit + '0');
         remaining -= basis * (f128)digit;
         if (remaining < 0.0)
@@ -759,7 +759,7 @@ f32 StringToF32(String string, i32 base)
         out += value * multiplier;
         multiplier *= baseF;
     }
-    return out;
+    return (f32)out;
 }
 
 // This is literally the exact same code as above...
@@ -816,7 +816,7 @@ f32 WStringToF32(WString string, i32 base)
         out += value * multiplier;
         multiplier *= baseF;
     }
-    return out;
+    return (f32)out;
 }
 
 i64 StringToI64(String string, i32 base) {

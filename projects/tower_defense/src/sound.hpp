@@ -122,7 +122,7 @@ struct Stream : public SourceBase {
     replaced should there be too many to play at once.         */
 struct PriorityIndex {
     SourceBase* sound = nullptr;
-    f32 priority = 0.0;
+    f32 priority = 0.0f;
 };
 
 struct Manager {

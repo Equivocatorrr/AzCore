@@ -25,7 +25,7 @@ namespace Assets {
 
 namespace Rendering {
 
-constexpr f32 lineHeight = 1.3;
+constexpr f32 lineHeight = 1.3f;
 
 struct Manager;
 
@@ -49,13 +49,13 @@ struct Vertex {
 
 struct PushConstants {
     struct vert_t {
-        mat2 transform = mat2(1.0);
-        vec2 origin = vec2(0.0);
-        vec2 position = vec2(0.0);
+        mat2 transform = mat2(1.0f);
+        vec2 origin = vec2(0.0f);
+        vec2 position = vec2(0.0f);
         void Push(VkCommandBuffer commandBuffer, const Manager *rendering) const;
     } vert;
     struct frag_t {
-        vec4 color = vec4(1.0);
+        vec4 color = vec4(1.0f);
         int texIndex = 0;
         void Push(VkCommandBuffer commandBuffer, const Manager *rendering) const;
     } frag;
@@ -64,7 +64,7 @@ struct PushConstants {
             f32 edge;
             f32 bounds;
             void Push(VkCommandBuffer commandBuffer, const Manager *rendering) const;
-        } font = {0.1, 0.5};
+        } font = {0.1f, 0.5f};
         struct circle_t {
             f32 edge;
             void Push(VkCommandBuffer commandBuffer, const Manager *rendering) const;
@@ -161,7 +161,7 @@ struct Manager {
     } data;
 
     Array<u32> fontIndexOffsets{0};
-    vec2 screenSize = vec2(1280.0, 720.0);
+    vec2 screenSize = vec2(1280.0f, 720.0f);
     f32 aspectRatio; // height/width
 
     inline void AddRenderCallback(fpRenderCallback_t callback, void* userdata) {
@@ -193,14 +193,14 @@ struct Manager {
                     i32 fontIndex, vec4 color, vec2 position, vec2 scale);
     void DrawTextSS(DrawingContext &context, WString string,
                     i32 fontIndex, vec4 color, vec2 position, vec2 scale,
-                    FontAlign alignH = LEFT, FontAlign alignV = TOP, f32 maxWidth = 0.0, f32 edge = 0.5, f32 bounds = 0.5);
-    void DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0), Radians32 rotation = 0.0) const;
-    void DrawCircleSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, f32 edge, vec2 origin = vec2(0.0), Radians32 rotation = 0.0) const;
+                    FontAlign alignH = LEFT, FontAlign alignV = TOP, f32 maxWidth = 0.0f, f32 edge = 0.5f, f32 bounds = 0.5f);
+    void DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
+    void DrawCircleSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, f32 edge, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
     // Units are in pixel space
     void DrawChar(DrawingContext &context, char32 character, i32 fontIndex, vec4 color, vec2 position, vec2 scale);
-    void DrawText(DrawingContext &context, WString text, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH = LEFT, FontAlign alignV = BOTTOM, f32 maxWidth = 0.0, f32 edge = 0.0, f32 bounds = 0.5);
-    void DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0), Radians32 rotation = 0.0) const;
-    void DrawCircle(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0), Radians32 rotation = 0.0) const;
+    void DrawText(DrawingContext &context, WString text, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH = LEFT, FontAlign alignV = BOTTOM, f32 maxWidth = 0.0f, f32 edge = 0.0f, f32 bounds = 0.5f);
+    void DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
+    void DrawCircle(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
 };
 
 f32 StringHeight(WString string);

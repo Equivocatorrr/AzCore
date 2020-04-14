@@ -947,6 +947,26 @@ namespace vk {
                       static_cast<i32>(x), static_cast<i32>(y));
     }
 
+    inline void CmdClearColorAttachment(VkCommandBuffer commandBuffer, u32 attachment, vec4 color, u32 width, u32 height, i32 x=0, i32 y=0) {
+        VkClearValue clearValue;
+        clearValue.color.float32[0] = color.r;
+        clearValue.color.float32[1] = color.g;
+        clearValue.color.float32[2] = color.b;
+        clearValue.color.float32[3] = color.a;
+        VkClearRect clearRect;
+        clearRect.baseArrayLayer = 0;
+        clearRect.layerCount = 1;
+        clearRect.rect.extent.width = width;
+        clearRect.rect.extent.height = height;
+        clearRect.rect.offset.x = x;
+        clearRect.rect.offset.y = y;
+        VkClearAttachment clearAttachment;
+        clearAttachment.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        clearAttachment.clearValue = clearValue;
+        clearAttachment.colorAttachment = attachment;
+        vkCmdClearAttachments(commandBuffer, 1, &clearAttachment, 1, &clearRect);
+    }
+
     inline void QueueWaitIdle(Ptr<Queue> queue) {
         vkQueueWaitIdle(queue->queue);
     }

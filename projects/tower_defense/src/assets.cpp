@@ -210,7 +210,7 @@ bool Stream::Open(String filename) {
     return true;
 }
 
-constexpr i32 crossfadeSamples = 8820;
+constexpr i32 crossfadeSamples = 2205;
 
 i32 Stream::Decode(i32 sampleCount) {
     if (!valid) {
@@ -221,15 +221,14 @@ i32 Stream::Decode(i32 sampleCount) {
     i32 length; // How many samples were decoded
     if (data.loopEndSample <= 0) {
         if (data.cursorSample >= data.totalSamples) {
-            data.cursorSample = 0;
-            stb_vorbis_seek_start(vorbis);
+            SeekStart();
             return 0;
         }
         length =
         stb_vorbis_get_samples_short_interleaved(vorbis, data.channels, samples.data, samples.size);
         data.cursorSample += length;
     } else {
-        if (data.cursorSample + sampleCount >= data.loopEndSample) {
+        if (data.cursorSample + crossfadeSamples + sampleCount >= data.loopEndSample) {
             // Don't go past the loop point
             sampleCount = data.loopEndSample - data.cursorSample;
             samples.Resize(sampleCount*data.channels);
@@ -256,7 +255,7 @@ i32 Stream::Decode(i32 sampleCount) {
                 for (i32 c = 0; c < data.channels; c++) {
                     i16 &sample1 = samples[(sampleCount-crossfadeSamples+i) * data.channels + c];
                     i16 &sample2 = crossfade[i * data.channels + c];
-                    f32 s = lerp((f32)sample1, (f32)sample2, (f32)(i+1) / (f32)(crossfadeSamples+1));
+                    f32 s = lerp((f32)sample1, (f32)sample2, f32(i+1) / f32(crossfadeSamples+1));
                     sample1 = (i16)s;
                 }
             }
@@ -265,6 +264,24 @@ i32 Stream::Decode(i32 sampleCount) {
             length =
             stb_vorbis_get_samples_short_interleaved(vorbis, data.channels, samples.data, samples.size);
             data.cursorSample += length;
+        }
+    }
+
+    if (data.fadeoutSamples > 0) {
+        if (data.fadeoutCompleted >= data.fadeoutSamples) {
+            memset(samples.data, 0, samples.size * sizeof(i16));
+            data.fadeoutSamples = -1;
+        } else {
+            for (i32 i = 0; i < length; i++) {
+                for (i32 c = 0; c < data.channels; c++) {
+                    i16 &sample = samples[i*data.channels + c];
+                    f32 fadePos = f32(i + data.fadeoutCompleted);
+                    fadePos = min(fadePos / (f32)data.fadeoutSamples, 1.0f);
+                    f32 s = ease<2>((f32)sample, 0.0f, pow(fadePos, 2.0f/3.0f));
+                    sample = (i16)s;
+                }
+            }
+            data.fadeoutCompleted += length;
         }
     }
 
@@ -280,6 +297,11 @@ i32 Stream::Decode(i32 sampleCount) {
     data.lastBuffer = data.currentBuffer;
     data.currentBuffer = (data.currentBuffer + 1) % numStreamBuffers;
     return length;
+}
+
+void Stream::SeekStart() {
+    data.cursorSample = 0;
+    stb_vorbis_seek_start(vorbis);
 }
 
 ALuint Stream::LastBuffer() {

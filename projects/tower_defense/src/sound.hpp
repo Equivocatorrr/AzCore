@@ -105,13 +105,14 @@ struct MultiSource {
     Opens and maintains the buffers needed to stream long audio files       */
 struct Stream : public SourceBase {
     Ptr<Assets::Stream> file = nullptr;
+    bool fadeout = false;
     // Array<ALuint> buffersToQueue{};
     bool Create(Ptr<Assets::Stream> file_in);
     bool Create(String filename);
     bool Queue(ALuint buffer);
     i32 BuffersDone();
     bool Unqueue(ALuint buffer);
-    void Stop();
+    void Stop(f32 fadeoutDuration = 0.0f);
     bool SetLoopRange(i32 begin, i32 end);
 };
 

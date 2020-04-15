@@ -172,7 +172,7 @@ bool Manager::Activate(SourceBase *sound) {
             } else {
                 Stream *stream = (Stream*)sound;
                 for (i32 i = 0; i < Assets::numStreamBuffers; i++) {
-                    if (!stream->file->Decode(stream->file->data.samplerate/2)) {
+                    if (!stream->file->Decode(stream->file->data.samplerate/8)) {
                         error = "Manager::Activate: Failed to Decode: " + Assets::error;
                         return false;
                     }
@@ -215,13 +215,23 @@ bool Manager::UpdateActiveSound(SourceBase *sound) {
     ALint state;
     alGetSourcei(sound->source, AL_SOURCE_STATE, &state);
     if (!ErrorCheck("SourceBase::Playing alGetSourcei(AL_SOURCE_STATE)")) return false;
+    if (sound->stream) {
+        // Handle fadeouts
+        Stream *stream = (Stream*)sound;
+        if (stream->fadeout) {
+            if (stream->file->data.fadeoutSamples < 0) {
+                stream->stop = true;
+                stream->fadeout = false;
+            }
+        }
+    }
     bool stopped = false;
     if (state == AL_PLAYING) {
         // We're playing. Should we keep doing that?
         if (sound->pause) {
             if (!Pause(sound)) return false;
         }
-        if (sound->stop && !sound->stream) {
+        if (sound->stop) {
             if (!Stop(sound)) return false;
             stopped = true;
         }
@@ -239,7 +249,6 @@ bool Manager::Play(SourceBase *sound) {
     alSourcePlay(sound->source);
     if (!ErrorCheck("alSourcePlay")) return false;
     sound->play = false;
-    sound->stop = false;
     sound->playing = true;
     return true;
 }
@@ -255,6 +264,27 @@ bool Manager::Pause(SourceBase *sound) {
 bool Manager::Stop(SourceBase *sound) {
     alSourceStop(sound->source);
     if (!ErrorCheck("alSourceStop")) return false;
+    if (sound->stream) {
+        Stream *stream = (Stream*)sound;
+        for (i32 i = 0; i < Assets::numStreamBuffers; i++) {
+            if (!stream->Unqueue(stream->file->buffers[i].buffer)) {
+                error = "Manager::Stop: Failed to Unqueue: " + error;
+                return false;
+            }
+        }
+        stream->file->SeekStart();
+        for (i32 i = 0; i < Assets::numStreamBuffers; i++) {
+            if (!stream->file->Decode(stream->file->data.samplerate/8)) {
+                error = "Manager::Activate: Failed to Decode: " + Assets::error;
+                return false;
+            }
+            if (!stream->Queue(stream->file->LastBuffer())) {
+                error = "Manager::Activate: Failed to Queue: " + error;
+                return false;
+            }
+        }
+
+    }
     sound->stop = false;
     sound->playing = false;
     return true;
@@ -271,7 +301,7 @@ bool Manager::Update() {
         SourceBase *sound = priorities[i].sound;
         if (sound->active) {
             if (!Deactivate(sound)) {
-                return false;
+                goto failure;
             }
         }
     }
@@ -281,15 +311,18 @@ bool Manager::Update() {
         if (!sound->active) {
             // We have a sound that's within our priority limit that isn't active so activate it
             if (!Activate(sound)) {
-                return false;
+                goto failure;
             }
         }
         if (sound->active) {
-            if (!UpdateActiveSound(sound)) return false;
+            if (!UpdateActiveSound(sound)) goto failure;
         }
     }
     soundMutex.Unlock();
     return true;
+failure:
+    soundMutex.Unlock();
+    return false;
 }
 
 void Manager::Unregister(SourceBase *sound) {
@@ -313,33 +346,34 @@ void Manager::Unregister(SourceBase *sound) {
 void Manager::StreamUpdateProc(Manager *theThisPointer) {
     Array<SourceBase*> &sounds = theThisPointer->sounds;
     while(!theThisPointer->procStop) {
+        theThisPointer->soundMutex.Lock();
         for (i32 i = 0; i < sounds.size; i++) {
-            if (!sounds[i]->stream || !sounds[i]->active) continue;
+            if (!sounds[i]->stream || !sounds[i]->active || !sounds[i]->playing) continue;
             Stream *stream = (Stream*)sounds[i];
             if (stream->BuffersDone() > 0) {
                 // std::cout << "Decode and queue" << std::endl;
-                theThisPointer->soundMutex.Lock();
                 if (!stream->Unqueue(stream->file->data.currentBuffer)) {
-                    theThisPointer->procFailure = true;
-                    return;
+                    goto failure;
                 }
-                i32 decoded = stream->file->Decode(stream->file->data.samplerate/2);
+                i32 decoded = stream->file->Decode(stream->file->data.samplerate/8);
                 if (decoded < 0) {
-                    theThisPointer->procFailure = true;
-                    return;
+                    goto failure;
                 }
                 if (decoded > 0) {
                     if (!stream->Queue(stream->file->LastBuffer())) {
-                        theThisPointer->procFailure = true;
-                        return;
+                        goto failure;
                     }
                 }
                 // stream->buffersToQueue.Append(stream->file->LastBuffer());
-                theThisPointer->soundMutex.Unlock();
             }
         }
+        theThisPointer->soundMutex.Unlock();
         Thread::Sleep(Milliseconds(25));
     }
+    return;
+failure:
+    theThisPointer->procFailure = true;
+    theThisPointer->soundMutex.Unlock();
 }
 
 bool Buffer::Create() {
@@ -422,12 +456,15 @@ bool Stream::Create(String filename) {
     return true;
 }
 
-void Stream::Stop() {
-    playing = false;
+void Stream::Stop(f32 fadeoutDuration) {
     if (!active)
         return;
-    // alSourceStop(source);
-    // ErrorCheck("alSourceStop");
+    if (fadeoutDuration > 0.0f) {
+        file->BeginFadeout(fadeoutDuration);
+        fadeout = true;
+    } else {
+        stop = true;
+    }
 }
 
 bool Stream::SetLoopRange(i32 begin, i32 end) {

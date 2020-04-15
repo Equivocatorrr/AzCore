@@ -98,6 +98,10 @@ struct Stream {
         i32 loopBeginSample = 0;
         // Where we should stop before looping back to loopBeginSample
         i32 loopEndSample = -1;
+        // How long a fadeout should be.
+        i32 fadeoutSamples = -1;
+        // How many samples have been done in the fadeout.
+        i32 fadeoutCompleted = -1;
     } data;
     ::Sound::Buffer buffers[numStreamBuffers];
     inline Stream() : valid(false), data(), buffers({{UINT32_MAX, false}}) {}
@@ -132,7 +136,12 @@ struct Stream {
     bool Open(String filename);
     // Returns the number of samples decoded or -1 on error
     i32 Decode(i32 sampleCount);
+    void SeekStart();
     ALuint LastBuffer();
+    inline void BeginFadeout(f32 duration) {
+        data.fadeoutSamples = i32((f32)data.samplerate * duration);
+        data.fadeoutCompleted = 0;
+    }
     bool Close();
 };
 

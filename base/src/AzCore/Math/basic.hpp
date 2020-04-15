@@ -113,8 +113,26 @@ inline T sign(const T &a)
 template <typename T, typename F>
 inline T lerp(const T &a, const T &b, F factor)
 {
-    factor = clamp(factor, F(0.0), F(1.0));
+    factor = clamp(factor, F(0), F(1));
     return a + (b - a) * factor;
+}
+
+template <typename T, typename F>
+inline T cosInterp(const T &a, const T &b, F factor) {
+    factor = F(0.5) - cos(F(AzCore::pi64)*clamp(factor, F(0), F(1))) * F(0.5);
+    return a + (b - a) * factor;
+}
+
+template <u32 order, typename T, typename F>
+inline T ease(const T &a, const T &b, F factor) {
+    factor = clamp(factor, F(0), F(1));
+    F factorP = F(1);
+    F factorD = F(1);
+    for (u32 i = 0; i < order; i++) {
+        factorP *= factor;
+        factorD *= F(1) - factor;
+    }
+    return a + (b - a) * factorP / (factorP + factorD);
 }
 
 template <typename T, typename F>

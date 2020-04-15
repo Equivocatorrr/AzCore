@@ -186,15 +186,49 @@ void Manager::EventInitialize() {
     bullets.granularity = 50;
     winds.granularity = 50;
     explosions.granularity = 10;
+    // Reset();
+}
+
+void Manager::Reset() {
+    towers.Clear();
+    enemies.Clear();
+    bullets.Clear();
+    winds.Clear();
+    explosions.Clear();
+    updateChunks.Clear();
+    selectedTower = -1;
+    focusMenu = false;
+    placeMode = false;
+    towerType = TOWER_GUN;
+    placingAngle = 0.0;
+    canPlace = false;
+    enemyTimer = 0.0;
+    wave = 1;
+    hitpointsLeft = 0;
+    hitpointsPerSecond = 200.0;
+    lives = 1000;
+    money = 5000;
+    waveActive = false;
+    failed = false;
+    camZoom = 1.0;
+    backgroundTransition = -1.0f;
+    backgroundFrom = vec3(215.0f/360.0f, 0.7f, 0.5f);
+    backgroundTo = vec3(110.0f/360.0f, 0.8f, 0.5f);
+    camPos = 0.0;
+    mouse = 0.0;
+    failureText.Reset();
     basePhysical.type = CIRCLE;
     basePhysical.basis.circle.c = 0.0f;
     basePhysical.basis.circle.r = 128.0f;
     basePhysical.pos = 0.0f;
+    enemySpawns.Clear();
     CreateSpawn();
     camPos = enemySpawns[0].pos * 0.5f;
     camZoom = min(globals->rendering.screenSize.x, globals->rendering.screenSize.y) / 1500.0f;
     HandleMusicLoops(1);
     streamSegment1.Play();
+    globals->rendering.backgroundHSV = backgroundFrom;
+    globals->rendering.UpdateBackground();
 }
 
 inline void Manager::HandleGamepadCamera() {
@@ -287,14 +321,6 @@ inline void Manager::HandleUI() {
     if (TypedCode("wave9")) {
         wave = 9;
     }
-    for (i32 i = 0; i <= TOWER_MAX_RANGE; i++) {
-        if (globals->gui.playMenu.towerButtons[i]->state.Released()) {
-            placeMode = true;
-            focusMenu = false;
-            selectedTower = -1;
-            towerType = TowerType(i);
-        }
-    }
     if (backgroundTransition >= 0.0f) {
         backgroundTransition += timestep / 30.0f;
         if (backgroundTransition > 1.0f) backgroundTransition = 1.0f;
@@ -302,6 +328,24 @@ inline void Manager::HandleUI() {
         globals->rendering.UpdateBackground();
         if (backgroundTransition == 1.0f) {
             backgroundTransition = -1.0f;
+        }
+    }
+    if (lives == 0 && !failed) {
+        streamSegment1.Stop(2.0f);
+        placeMode = false;
+        failed = true;
+    }
+    if (failed) {
+        failureText.Update(timestep);
+        globals->objects.paused = false;
+        return;
+    }
+    for (i32 i = 0; i <= TOWER_MAX_RANGE; i++) {
+        if (globals->gui.playMenu.towerButtons[i]->state.Released()) {
+            placeMode = true;
+            focusMenu = false;
+            selectedTower = -1;
+            towerType = TowerType(i);
         }
     }
     if (globals->gui.playMenu.buttonStartWave->state.Released()) {
@@ -451,7 +495,12 @@ inline bool Manager::CursorVisible() const {
 }
 
 void Manager::EventSync() {
+    if (globals->gui.mainMenu.buttonNewGame->state.Released()) {
+        globals->gui.mainMenu.buttonNewGame->state.Set(false, false, false);
+        Reset();
+    }
     timestep = globals->objects.timestep * globals->objects.simulationRate;
+    if (globals->input.Down(KC_KEY_F)) timestep *= 2.0f;
     if (globals->input.cursorPrevious != globals->input.cursor) {
         mouse = ScreenPosToWorld(globals->input.cursor);
     }
@@ -461,6 +510,9 @@ void Manager::EventSync() {
         placeMode = false;
         focusMenu = false;
         selectedTower = -1;
+    }
+    if (globals->input.Pressed(KC_KEY_R)) {
+        failureText.Reset();
     }
     towers.Synchronize();
     enemies.Synchronize();
@@ -550,6 +602,9 @@ void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
         vec2 cursor = WorldPosToScreen(mouse);
         globals->rendering.DrawQuad(contexts.Back(), globals->gui.cursorIndex, vec4(1.0f), cursor, vec2(32.0f * globals->gui.scale), vec2(1.0f), vec2(0.5f));
     }
+    if (lives == 0) {
+        failureText.Draw(contexts.Back());
+    }
 }
 
 void Manager::CreateSpawn() {
@@ -572,6 +627,38 @@ vec2 Manager::WorldPosToScreen(vec2 in) const {
 vec2 Manager::ScreenPosToWorld(vec2 in) const {
     vec2 out = vec2(globals->input.cursor - vec2i(globals->window.width, globals->window.height) / 2) / camZoom + camPos;
     return out;
+}
+
+void FailureText::Reset() {
+    angle = Radians32(Degrees32(random(-180.0f, 180.0f, globals->rng))).value();
+    position = vec2(cos(angle), sin(angle)) * 0.5;
+    size = 0.001f;
+    velocity = -position * 15.0;
+    rotation = 0.0f;
+    scaleSpeed = 1.0f;
+    targetPosition = vec2(random(-0.25f, 0.25f, globals->rng), random(-0.25f, 0.25f, globals->rng));
+    targetAngle = Radians32(Degrees32(random(-30.0f, 30.0f, globals->rng))).value();
+    targetSize = 0.3f;
+    text = globals->ReadLocale("Game Over");
+}
+
+void FailureText::Update(f32 timestep) {
+    const f32 rate = 30.0f;
+    velocity   += (targetPosition - position) * timestep * rate;
+    rotation   += (targetAngle - angle) * timestep * rate;
+    scaleSpeed += (targetSize - size) * timestep * rate;
+    velocity   = decay(velocity,   vec2(0.0f), 0.125f, timestep);
+    rotation   = decay(rotation,   0.0f,       0.125f, timestep);
+    scaleSpeed = decay(scaleSpeed, 0.0f,       0.125f, timestep);
+
+    position += velocity * timestep;
+    angle += rotation * timestep;
+    size += scaleSpeed * timestep;
+}
+
+void FailureText::Draw(Rendering::DrawingContext &context) {
+    globals->rendering.DrawTextSS(context, text, globals->gui.fontIndex, vec4(vec3(0.0f), 1.0f), position, size, Rendering::CENTER, Rendering::CENTER, 0.0f, 0.5f, 0.325f, angle);
+    globals->rendering.DrawTextSS(context, text, globals->gui.fontIndex, vec4(1.0f, 0.0f, 0.0f, 1.0f), position, size, Rendering::CENTER, Rendering::CENTER, 0.0f, 0.5f, 0.525f, angle);
 }
 
 bool AABB::Collides(const AABB &other) const {
@@ -913,12 +1000,21 @@ template<typename T>
 void DoubleBufferArray<T>::Update(void *theThisPointer, i32 threadIndex, i32 concurrency) {
     DoubleBufferArray<T> *theActualThisPointer = (DoubleBufferArray<T>*)theThisPointer;
     i32 g = theActualThisPointer->granularity;
+    bool doTwice = globals->entities.timestep < 1.0f/30.0f;
+    f32 timestep = globals->entities.timestep;
+    if (doTwice) timestep /= 2.0f;
     for (i32 i = threadIndex*g; i < theActualThisPointer->array[theActualThisPointer->buffer].size; i += g*concurrency) {
         for (i32 j = 0; j < g; j++) {
             if (i+j >= theActualThisPointer->array[theActualThisPointer->buffer].size) break;
             T &obj = theActualThisPointer->array[theActualThisPointer->buffer][i+j];
-            if (obj.id.generation >= 0)
-                obj.Update(globals->entities.timestep);
+            if (obj.id.generation >= 0) {
+                obj.Update(timestep);
+            }
+            if (doTwice) {
+                if (obj.id.generation >= 0) {
+                    obj.Update(timestep);
+                }
+            }
         }
     }
 }
@@ -1299,7 +1395,7 @@ void Enemy::Update(f32 timestep) {
     physical.Update(timestep);
     physical.UpdateActual();
     if (physical.Collides(globals->entities.basePhysical) || (hitpoints <= 0 && size < 0.01f)) {
-        globals->entities.lives -= hitpoints;
+        globals->entities.lives = max(globals->entities.lives-hitpoints, (i64)0);
         globals->entities.enemies.Destroy(id);
     }
     if (hitpoints == 0) return;

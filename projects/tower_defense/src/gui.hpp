@@ -407,7 +407,9 @@ enum MenuEnum {
 // Now we can have some different screens
 struct MainMenu {
     Screen screen;
-    Button *buttonStart;
+    Hideable *continueHideable;
+    Button *buttonContinue;
+    Button *buttonNewGame;
     Button *buttonSettings;
     Button *buttonExit;
 

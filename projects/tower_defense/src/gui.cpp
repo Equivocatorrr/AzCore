@@ -219,12 +219,22 @@ void MainMenu::Initialize() {
     buttonList->size = vec2(500.0f, 0.0f);
     buttonList->padding = vec2(16.0f);
 
-    buttonStart = new Button();
-    buttonStart->string = globals->ReadLocale("Start");
-    buttonStart->size.y = 64.0f;
-    buttonStart->fractionHeight = false;
-    buttonStart->margin = vec2(16.0f);
-    AddWidget(buttonList, buttonStart);
+    buttonContinue = new Button();
+    buttonContinue->string = globals->ReadLocale("Continue");
+    buttonContinue->size.y = 64.0f;
+    buttonContinue->fractionHeight = false;
+    buttonContinue->margin = vec2(16.0f);
+
+    continueHideable = new Hideable(buttonContinue);
+    continueHideable->hidden = true;
+    AddWidget(buttonList, continueHideable);
+
+    buttonNewGame = new Button();
+    buttonNewGame->string = globals->ReadLocale("New Game");
+    buttonNewGame->size.y = 64.0f;
+    buttonNewGame->fractionHeight = false;
+    buttonNewGame->margin = vec2(16.0f);
+    AddWidget(buttonList, buttonNewGame);
 
     buttonSettings = new Button();
     buttonSettings->string = globals->ReadLocale("Settings");
@@ -260,9 +270,12 @@ void MainMenu::Initialize() {
 
 void MainMenu::Update() {
     screen.Update(vec2(0.0f), true);
-    if (buttonStart->state.Released()) {
+    if (buttonContinue->state.Released()) {
         globals->gui.nextMenu = MENU_PLAY;
-        buttonStart->string = globals->ReadLocale("Continue");
+    }
+    if (buttonNewGame->state.Released()) {
+        globals->gui.nextMenu = MENU_PLAY;
+        continueHideable->hidden = false;
     }
     if (buttonSettings->state.Released()) {
         globals->gui.nextMenu = MENU_SETTINGS;

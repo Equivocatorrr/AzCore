@@ -184,6 +184,16 @@ struct DoubleBufferArray {
     inline T& GetMutable(const Id &id) {
         return array[buffer][id.index];
     }
+    inline void Clear() {
+        array[0].Clear();
+        array[1].Clear();
+        created.Clear();
+        empty.Clear();
+        destroyed.Clear();
+        size = 0;
+        count = 0;
+        buffer = false;
+    }
 };
 
 /*  struct: Entity
@@ -224,6 +234,23 @@ struct Bullet;
 struct Wind;
 struct Explosion;
 
+struct FailureText {
+    vec2 position;
+    f32 angle;
+    f32 size;
+    vec2 velocity;
+    f32 rotation;
+    f32 scaleSpeed;
+    vec2 targetPosition;
+    f32 targetAngle;
+    f32 targetSize;
+    WString text;
+
+    void Reset();
+    void Update(f32 timestep);
+    void Draw(Rendering::DrawingContext &context);
+};
+
 struct Manager : public Objects::Object {
     DoubleBufferArray<Tower> towers{};
     DoubleBufferArray<Enemy> enemies{};
@@ -237,22 +264,24 @@ struct Manager : public Objects::Object {
     bool focusMenu = false;
     bool placeMode = false;
     TowerType towerType = TOWER_GUN;
-    Angle32 placingAngle = 0.0;
+    Angle32 placingAngle = 0.0f;
     bool canPlace = false;
     f32 enemyTimer = 0.0;
     i32 wave = 1;
     i64 hitpointsLeft = 0;
     f64 hitpointsPerSecond = 200.0;
     i64 lives = 1000;
-    i64 money = 5000;
+    i64 money= 5000;
     f32 timestep;
     bool waveActive = false;
-    f32 camZoom = 1.0;
+    bool failed = false;
+    f32 camZoom = 0.00001f;
     f32 backgroundTransition = -1.0;
-    vec3 backgroundFrom = vec3(215.0f/360.0f, 0.7f, 0.5f);
-    vec3 backgroundTo = vec3(110.0f/360.0f, 0.8f, 0.5f);
-    vec2 camPos = 0.0;
-    vec2 mouse = 0.0;
+    vec3 backgroundFrom;
+    vec3 backgroundTo;
+    vec2 camPos = vec2(0.0f);
+    vec2 mouse = 0.0f;
+    FailureText failureText;
     Physical basePhysical{};
     Array<Physical> enemySpawns{};
     void EventAssetInit();
@@ -264,6 +293,8 @@ struct Manager : public Objects::Object {
     void CreateSpawn();
     vec2 WorldPosToScreen(vec2 in) const;
     vec2 ScreenPosToWorld(vec2 in) const;
+
+    void Reset();
 
     inline void HandleUI();
     inline void HandleGamepadUI();

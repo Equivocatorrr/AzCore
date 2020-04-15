@@ -58,7 +58,7 @@ bool Manager::Init() {
     data.queuePresent = data.device->AddQueue();
     data.queuePresent->queueType = vk::QueueType::PRESENT;
     data.swapchain = data.device->AddSwapchain();
-    data.swapchain->vsync = false;
+    data.swapchain->vsync = true;
     data.swapchain->window = data.instance.AddWindowForSurface(&globals->window);
     data.framebuffer = data.device->AddFramebuffer();
     data.framebuffer->swapchain = data.swapchain;
@@ -774,10 +774,12 @@ void Manager::DrawCharSS(DrawingContext &context, char32 character,
 
 void Manager::DrawTextSS(DrawingContext &context, WString string,
                          i32 fontIndex, vec4 color, vec2 position, vec2 scale,
-                         FontAlign alignH, FontAlign alignV, f32 maxWidth, f32 edge, f32 bounds) {
+                         FontAlign alignH, FontAlign alignV, f32 maxWidth,
+                         f32 edge, f32 bounds, Radians32 rotation) {
     Assets::Font *fontDesired = &globals->assets.fonts[fontIndex];
     Assets::Font *fontFallback = &globals->assets.fonts[0];
-    scale.x *= aspectRatio;
+    // scale.x *= aspectRatio;
+    position.x /= aspectRatio;
     Rendering::PushConstants pc = Rendering::PushConstants();
     if (context.currentPipeline != PIPELINE_FONT) BindPipelineFont(context);
     pc.frag.color = color;
@@ -831,20 +833,34 @@ void Manager::DrawTextSS(DrawingContext &context, WString string,
         pc.frag.texIndex = actualFontIndex;
         pc.font_circle.font.edge = edge / (font::sdfDistance * screenSize.y * scale.y);
         pc.font_circle.font.bounds = bounds;
-        pc.vert.transform = mat2::Scaler(scale);
+        pc.vert.transform = mat2::Scaler(scale * vec2(aspectRatio, 1.0f));
+        if (rotation != 0.0f) {
+            pc.vert.transform = mat2::Rotation(rotation.value()) * pc.vert.transform;
+        }
         if (glyph.components.size != 0) {
             for (const font::Component& component : glyph.components) {
                 i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
                 // const font::Glyph& componentGlyph = font->fontBuilder.glyphs[componentId];
-                pc.vert.transform = component.transform * mat2::Scaler(scale);
+                pc.vert.transform = component.transform * mat2::Scaler(scale * vec2(aspectRatio, 1.0f));
+                if (rotation != 0.0f) {
+                    pc.vert.transform = mat2::Rotation(rotation.value()) * pc.vert.transform;
+                }
                 pc.font_circle.font.edge = edge / (font::sdfDistance * screenSize.y * abs(pc.vert.transform.h.y2));
                 pc.vert.position = cursor + component.offset * scale * vec2(1.0f, -1.0f);
+                if (rotation != 0.0f) {
+                    pc.vert.position = (pc.vert.position - position) * mat2::Rotation(rotation.value()) + position;
+                }
+                pc.vert.position *= vec2(aspectRatio, 1.0f);
                 pc.PushFont(context.commandBuffer, this);
                 vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + componentId * 4, 0);
             }
         } else {
             if (character != ' ') {
                 pc.vert.position = cursor;
+                if (rotation != 0.0f) {
+                    pc.vert.position = (cursor-position) * mat2::Rotation(rotation.value()) + position;
+                }
+                pc.vert.position *= vec2(aspectRatio, 1.0f);
                 pc.PushFont(context.commandBuffer, this);
                 vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + glyphId * 4, 0);
             }

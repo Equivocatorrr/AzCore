@@ -10,8 +10,6 @@
 #include "AzCore/memory.hpp"
 #include "AzCore/vk.hpp"
 
-using namespace AzCore;
-
 namespace AzCore {
 namespace io {
     struct Window;
@@ -24,6 +22,8 @@ namespace Assets {
 }
 
 namespace Rendering {
+
+using namespace AzCore;
 
 constexpr f32 lineHeight = 1.3f;
 

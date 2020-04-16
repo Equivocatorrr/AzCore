@@ -19,6 +19,8 @@ namespace Rendering {
 
 namespace Assets {
 
+using namespace AzCore;
+
 extern String error;
 
 enum Type {

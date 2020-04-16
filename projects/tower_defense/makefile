@@ -30,7 +30,7 @@ $(ODIR)/Windows/resources.o: $(IDIR)/resources.h $(SDIR)/resources.rc $(WINDOWS_
 LIBS_L=-lvulkan -lxcb -lpthread -lxkbcommon -lxkbcommon-x11 -lxcb-xkb -lopenal
 LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib/" -lvulkan-1 -lgdi32 -ldinput8 -ldxguid -l"OpenAL32.dll"
 
-_DEPS = sound.hpp rendering.hpp objects.hpp gui.hpp globals.hpp entities.hpp assets.hpp
+_DEPS = sound.hpp rendering.hpp objects.hpp gui.hpp globals.hpp entities.hpp entity_basics.hpp entity_basics.cpp assets.hpp
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS)) makefile
 
 _AZCORE_OBJ = io.o memory.o keycodes.o IO/LogStream.o vk.o math.o font.o

@@ -16,21 +16,21 @@
 #include "AzCore/io.hpp"
 
 struct Globals {
-    String error = "No error";
+    AzCore::String error = "No error";
     Objects::Manager objects;
-    io::Input input;
-    io::Window window;
-    io::RawInput rawInput;
-    io::Gamepad *gamepad = nullptr;
+    AzCore::io::Input input;
+    AzCore::io::Window window;
+    AzCore::io::RawInput rawInput;
+    AzCore::io::Gamepad *gamepad = nullptr;
     Assets::Manager assets;
     Rendering::Manager rendering;
     Entities::Manager entities;
     Int::Gui gui;
     Sound::Manager sound;
-    RandomNumberGenerator rng;
+    AzCore::RandomNumberGenerator rng;
     bool exit = false;
-    Nanoseconds frameDuration;
-    Map<String, WString> locale;
+    AzCore::Nanoseconds frameDuration;
+    AzCore::Map<AzCore::String, AzCore::WString> locale;
     // Settings
     bool fullscreen = false;
     f32 framerate = 60.0f;
@@ -40,9 +40,9 @@ struct Globals {
     char localeOverride[2] = {0};
 
     void LoadLocale();
-    inline WString ReadLocale(String name) {
+    inline AzCore::WString ReadLocale(AzCore::String name) {
         if (locale.count(name) == 0)
-            return ToWString(name);
+            return AzCore::ToWString(name);
         else
             return locale[name];
     }
@@ -51,7 +51,7 @@ struct Globals {
     inline void Framerate(const f32 &fr) {
         framerate = fr;
         objects.timestep = 1.0f / framerate;
-        frameDuration = Nanoseconds(1000000000/(i32)fr);
+        frameDuration = AzCore::Nanoseconds(1000000000/(i32)fr);
     }
 };
 

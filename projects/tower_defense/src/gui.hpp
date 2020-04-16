@@ -12,6 +12,8 @@
 
 namespace Int { // Short for Interface
 
+using namespace AzCore;
+
 // Ways to define a GUI with a hierarchy
 struct Gui;
 

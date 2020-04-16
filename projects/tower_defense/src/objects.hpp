@@ -21,6 +21,8 @@ struct Manager;
 
 namespace Objects {
 
+using namespace AzCore;
+
 struct Manager;
 
 // The basis for any object registered with Manager

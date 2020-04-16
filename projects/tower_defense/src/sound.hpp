@@ -12,13 +12,13 @@
 #include <AL/al.h>
 #include <AL/alc.h>
 
-using namespace AzCore;
-
 namespace Assets {
     struct Stream;
 }
 
 namespace Sound {
+
+using namespace AzCore;
 
 extern String error;
 

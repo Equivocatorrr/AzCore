@@ -249,6 +249,7 @@ bool Manager::Play(SourceBase *sound) {
     alSourcePlay(sound->source);
     if (!ErrorCheck("alSourcePlay")) return false;
     sound->play = false;
+    sound->stop = false;
     sound->playing = true;
     return true;
 }

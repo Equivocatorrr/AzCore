@@ -7,6 +7,8 @@
 #include <cstdio>
 #include <locale>
 
+using namespace AzCore;
+
 Globals *globals;
 
 void Globals::LoadLocale() {

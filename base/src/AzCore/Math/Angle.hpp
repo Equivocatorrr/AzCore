@@ -69,7 +69,8 @@ public:
     bool operator<(const Degrees<T> &other) const { return _value < other._value; }
     bool operator>(const Degrees<T> &other) const { return _value > other._value; }
     Degrees<T> operator-() const { return Degrees<T>(-_value); }
-    const T value() const { return _value; }
+    T value() const { return _value; }
+    T& value() { return _value; }
 };
 
 /*  class: Radians
@@ -131,7 +132,8 @@ public:
     bool operator<(const Radians<T> &other) const { return _value < other._value; }
     bool operator>(const Radians<T> &other) const { return _value > other._value; }
     Radians<T> operator-() const { return Radians<T>(-_value); }
-    const T value() const { return _value; }
+    T value() const { return _value; }
+    T& value() { return _value; }
 };
 
 /*  class: Angle
@@ -178,7 +180,8 @@ public:
     Radians<T> operator-(const Angle<T> &other) const;
     bool operator==(const Angle<T> &other) const { return _value == other._value; }
     bool operator!=(const Angle<T> &other) const { return _value != other._value; }
-    const T value() const { return _value.value(); }
+    T value() const { return _value.value(); }
+    T& value() { return _value.value(); }
 };
 
 // Finds the shortest distance from one angle to another.

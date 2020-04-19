@@ -172,6 +172,7 @@ const Tower towerFlakTemplate = Tower(
 void Manager::EventAssetInit() {
     globals->assets.QueueFile("Money Cursed.ogg");
     globals->assets.QueueFile("Segment 1.ogg", Assets::STREAM);
+    globals->assets.QueueFile("Segment 2.ogg", Assets::STREAM);
 }
 
 void Manager::EventAssetAcquire() {
@@ -179,6 +180,9 @@ void Manager::EventAssetAcquire() {
     sndMoney.SetGain(0.5f);
     if (!streamSegment1.Create("Segment 1.ogg")) {
         std::cout << "Failed to create stream for \"Segment 1.ogg\": " << Sound::error.data << std::endl;
+    }
+    if (!streamSegment2.Create("Segment 2.ogg")) {
+        std::cout << "Failed to create stream for \"Segment 2.ogg\": " << Sound::error.data << std::endl;
     }
 }
 
@@ -205,17 +209,17 @@ void Manager::Reset() {
     placingAngle = 0.0;
     canPlace = false;
     enemyTimer = 0.0;
-    wave = 1;
+    wave = 0;
     hitpointsLeft = 0;
     hitpointsPerSecond = 200.0;
     lives = 1000;
     money = 5000;
-    waveActive = false;
+    waveActive = true;
     failed = false;
     camZoom = 1.0;
     backgroundTransition = -1.0f;
     backgroundFrom = vec3(215.0f/360.0f, 0.7f, 0.5f);
-    backgroundTo = vec3(110.0f/360.0f, 0.8f, 0.5f);
+    backgroundTo = vec3(50.0f/360.0f, 0.5f, 0.5f);
     camPos = 0.0;
     mouse = 0.0;
     failureText.Reset();
@@ -352,14 +356,9 @@ inline void Manager::HandleUI() {
     }
     if (globals->gui.playMenu.buttonStartWave->state.Released()) {
         if (!waveActive) {
-            if (wave == 10) {
+            if (wave == 11) {
                 backgroundTransition = 0.0f;
             }
-            f64 factor = pow((f64)1.2, (f64)(wave+3));
-            hitpointsPerSecond = (f64)((i64)(factor * 5.0) * 100);
-            hitpointsLeft += (i64)hitpointsPerSecond;
-            // Average wave length is wave+7 seconds
-            hitpointsPerSecond /= wave+7;
             globals->objects.paused = false;
             waveActive = true;
             globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Pause");
@@ -488,6 +487,18 @@ inline void Manager::HandleMusicLoops(i32 w) {
         i32 section = 44100*16;
         i32 preLoop = 44100*0;
         streamSegment1.SetLoopRange(w*section+preLoop, (w+1)*section);
+    } else if (w >= 11 && w <= 20) {
+        if (w == 11) {
+            streamSegment1.SetLoopRange(0, -1);
+        }
+        i32 section = 192*4410;
+        i32 preLoop = 0;
+        w -= 10;
+        streamSegment2.SetLoopRange(w*section+preLoop, (w+1)*section);
+    } else if (w >= 21 && w <= 30) {
+        if (w == 21) {
+            streamSegment2.SetLoopRange(0, -1);
+        }
     }
 }
 
@@ -529,21 +540,36 @@ void Manager::EventSync() {
     winds.GetUpdateChunks(updateChunks);
     explosions.GetUpdateChunks(updateChunks);
 
-    if (timestep != 0.0f && hitpointsLeft > 0) {
+    if (timestep != 0.0f && hitpointsLeft > 0 && waveActive) {
         enemyTimer -= timestep;
         if (enemies.count == 0) {
             enemyTimer = 0.0f;
         }
         while (enemyTimer <= 0.0f && hitpointsLeft > 0) {
             Enemy enemy;
+            for (i32 i = 0; i < 3; i++) {
+                enemy.type = (Enemy::Type)random(0, 3, globals->rng);
+                if (enemy.type != Enemy::HONKER) break;
+            }
             enemies.Create(enemy); // Enemy::EventCreate() increases enemyTimer based on HP
         }
     }
-    if (hitpointsLeft == 0 && waveActive && enemies.count == 0) {
+    if (hitpointsLeft == 0 && waveActive && enemies.count == 0
+     && !globals->gui.playMenu.buttonStartWave->state.Released()) {
         waveActive = false;
         wave++;
         HandleMusicLoops(wave);
+        f64 factor = pow((f64)1.2, (f64)(wave+3));
+        hitpointsPerSecond = (f64)((i64)(factor * 5.0) * 100);
+        hitpointsLeft += (i64)hitpointsPerSecond;
+        // Average wave length is wave+7 seconds
+        hitpointsPerSecond /= wave+7;
         globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Start Wave");
+    }
+    if (wave >= 11 && wave < 13) {
+        if (!streamSegment1.playing && !streamSegment2.playing) {
+            streamSegment2.Play();
+        }
     }
     readyForDraw = true;
 }
@@ -711,16 +737,16 @@ void Tower::EventCreate() {
 void Tower::Update(f32 timestep) {
     physical.Update(timestep);
     selected = globals->entities.selectedTower == id;
-    if (shootTimer <= 0.0f) disabled = false;
-    for (i32 i = 0; i < globals->entities.enemies.size; i++) {
-        const Enemy& other = globals->entities.enemies[i];
-        if (other.id.generation < 0 || other.hitpoints <= 2000) continue;
-        if (physical.Collides(other.physical)) {
-            disabled = true;
-            shootTimer = 0.5f;
-            break;
-        }
-    }
+    // if (shootTimer <= 0.0f) disabled = false;
+    // for (i32 i = 0; i < globals->entities.enemies.size; i++) {
+    //     const Enemy& other = globals->entities.enemies[i];
+    //     if (other.id.generation < 0 || other.hitpoints <= 2000) continue;
+    //     if (physical.Collides(other.physical)) {
+    //         disabled = true;
+    //         shootTimer = 0.5f;
+    //         break;
+    //     }
+    // }
     shootTimer = max(shootTimer-timestep, -timestep);
     if (disabled) return;
     if (shootTimer <= 0.0f) {
@@ -887,48 +913,72 @@ template struct DoubleBufferArray<Tower>;
 
 const f32 honkerSpawnInterval = 2.0f;
 
+vec2 GetSpawnLocation() {
+    i32 spawnPoint = random(0, globals->entities.enemySpawns.size-1, globals->rng);
+    f32 s, c;
+    s = sin(globals->entities.enemySpawns[spawnPoint].angle);
+    c = cos(globals->entities.enemySpawns[spawnPoint].angle);
+    vec2 x, y;
+    x = vec2(c, -s) * globals->entities.enemySpawns[spawnPoint].basis.box.b.x
+      * random(-1.0f, 1.0f, globals->rng);
+    y = vec2(s, c) * globals->entities.enemySpawns[spawnPoint].basis.box.b.y
+      * random(-1.0f, 1.0f, globals->rng);
+    return globals->entities.enemySpawns[spawnPoint].pos + x + y;
+}
+
 void Enemy::EventCreate() {
     physical.type = CIRCLE;
     physical.basis.circle.c = vec2(0.0f);
     physical.basis.circle.r = 0.0f;
     i32 multiplier = 1;
     if (!child) {
-        i32 spawnPoint = random(0, globals->entities.enemySpawns.size-1, globals->rng);
-        f32 s, c;
-        s = sin(globals->entities.enemySpawns[spawnPoint].angle);
-        c = cos(globals->entities.enemySpawns[spawnPoint].angle);
-        vec2 x, y;
-        x = vec2(c, -s) * globals->entities.enemySpawns[spawnPoint].basis.box.b.x
-          * random(-1.0f, 1.0f, globals->rng);
-        y = vec2(s, c) * globals->entities.enemySpawns[spawnPoint].basis.box.b.y
-          * random(-1.0f, 1.0f, globals->rng);
-        physical.pos = globals->entities.enemySpawns[spawnPoint].pos + x + y;
-        physical.vel = 0.0f;
-        multiplier = random(1, 3, globals->rng);
-        f32 honker = random(0.0f, 10000.0f, globals->rng);
-        if (honker < 1.0f) {
-            multiplier = 1000;
-        } else if (honker < 10.0f) {
-            multiplier = 500;
-        } else if (honker < 100.0f) {
-            multiplier = 100;
+        physical.pos = GetSpawnLocation();
+        physical.vel = vec2(random(-2.0f, 2.0f, globals->rng), random(-2.0f, 2.0f, globals->rng));
+        switch (type) {
+            case BASIC:
+            case STUNNER:
+                multiplier = random(1, 3, globals->rng);
+                break;
+            case HONKER: {
+                f32 honker = random(0.0f, 100.0f, globals->rng);
+                if (honker < 1.0f) {
+                    multiplier = 1000;
+                } else if (honker < 10.0f) {
+                    multiplier = 500;
+                } else {
+                    multiplier = 100;
+                }
+            } break;
+            case ORBITER:
+                multiplier = random(1, 2, globals->rng);
+                break;
         }
         hitpoints = multiplier * (i32)floor(80.0f * pow(1.16f, (f32)(globals->entities.wave + 3))) / (globals->entities.wave+7);
         age = 0.0f;
     }
     spawnTimer = honkerSpawnInterval;
     if (!child) {
-        i64 limit = median(globals->entities.hitpointsLeft / 2, (i64)500, globals->entities.hitpointsLeft);
+        i64 limit = median(
+            globals->entities.hitpointsLeft / 2,
+            (i64)500,
+            globals->entities.hitpointsLeft
+        );
         if (hitpoints > limit) {
             hitpoints = limit;
         }
         globals->entities.hitpointsLeft -= hitpoints;
-        size = hitpoints;
-        color = vec4(hsvToRgb(vec3(sqrt(size)/(tau*16.0f) + (f32)globals->entities.wave / 9.0f, min(size / 100.0f, 1.0f), 1.0f)), 0.7f);
+        color = vec4(hsvToRgb(vec3(
+            sqrt((f32)hitpoints)/(tau*16.0f) + (f32)globals->entities.wave / 9.0f,
+            min((f32)hitpoints / 100.0f, 1.0f),
+            1.0f
+        )), 0.7f);
     }
     value = hitpoints;
     f64 speedDivisor = max(log10((f64)multiplier), 1.0);
     targetSpeed = f32(200.0 / speedDivisor);
+    if (type == ORBITER) {
+        targetSpeed *= 2.0f;
+    }
     size = 0.0f;
     if (!child) {
         globals->entities.enemyTimer += f32((f64)hitpoints / globals->entities.hitpointsPerSecond / speedDivisor);
@@ -944,6 +994,16 @@ void Enemy::EventDestroy() {
     }
 }
 
+inline i32 DamageOverTime(i32 dps, f32 timestep) {
+    f32 prob = (f32)dps*timestep;
+    i32 hits = (i32)prob;
+    prob -= (f32)hits;
+    if (random(0.0f, 1.0f, globals->rng) <= prob) {
+        hits++;
+    }
+    return hits;
+}
+
 void Enemy::Update(f32 timestep) {
     age += timestep;
     if (hitpoints > 0) {
@@ -951,17 +1011,20 @@ void Enemy::Update(f32 timestep) {
     } else {
         size = decay(size, 0.0f, 0.025f, timestep);
     }
-    physical.basis.circle.r = cbrt(size) + min(2.0f, sqrt(size)/10.0f) + 2.0f;
+    physical.basis.circle.r = sqrt(size) + 2.0f;
     physical.Update(timestep);
     physical.UpdateActual();
     if (physical.Collides(globals->entities.basePhysical) || (hitpoints <= 0 && size < 0.01f)) {
-        globals->entities.lives = max(globals->entities.lives-hitpoints, (i64)0);
+        if (hitpoints > 0) {
+            globals->entities.lives = max(globals->entities.lives-hitpoints, (i64)0);
+        }
         globals->entities.enemies.Destroy(id);
     }
     if (hitpoints == 0) return;
-    if (hitpoints > 5000) {
+    if (type == HONKER) {
         if (spawnTimer <= 0.0f) {
             Enemy newEnemy;
+            newEnemy.type = ORBITER;
             newEnemy.child = true;
             newEnemy.age = age;
             Angle32 spawnAngle = random(0.0f, tau, globals->rng);
@@ -984,12 +1047,13 @@ void Enemy::Update(f32 timestep) {
             vec2 deltaP = physical.pos - other.physical.pos;
             physical.Impulse(normalize(deltaP)
                 * max((other.range + physical.basis.circle.r - abs(deltaP)), 0.0f)
-                * 5000.0f / pow(size, 1.5f), timestep);
+                * (type == HONKER? 0.1f : 5.0f), timestep);
             if (other.damage != 0) {
-                if (random(0.0f, 1.0f, globals->rng) <= (f32)other.damage*timestep) {
+                i32 hits = DamageOverTime(other.damage, timestep);
+                if (hits) {
                     damageContributors.emplace(other.id);
-                    other.damageDone++;
-                    hitpoints--;
+                    other.damageDone += hits;
+                    hitpoints -= hits;
                 }
             }
         }
@@ -1001,15 +1065,12 @@ void Enemy::Update(f32 timestep) {
             vec2 deltaP = physical.pos - other.physical.pos;
             physical.Impulse(normalize(deltaP) * max((other.size + physical.basis.circle.r - abs(deltaP)), 0.0f) * 500.0f / pow(size, 1.5f), timestep);
             if (other.damage != 0) {
-                damageContributors.emplace(other.owner);
-                f32 prob = (f32)other.damage*timestep;
-                i32 hits = (i32)prob;
-                prob -= (f32)hits;
-                if (random(0.0f, 1.0f, globals->rng) <= prob) {
-                    hits++;
+                i32 hits = DamageOverTime(other.damage, timestep);
+                if (hits) {
+                    damageContributors.emplace(other.owner);
+                    globals->entities.towers.GetMutable(other.owner).damageDone += hits;
+                    hitpoints -= hits;
                 }
-                hitpoints -= hits;
-                globals->entities.towers.GetMutable(other.owner).damageDone += hits;
             }
         }
     }
@@ -1033,10 +1094,18 @@ void Enemy::Update(f32 timestep) {
     vec2 norm = normalize(-physical.pos);
     f32 velocity = abs(physical.vel);
     f32 forward = dot(norm, physical.vel/velocity);
-    if (forward < 0.2f) {
-        physical.vel += norm * (0.2f - forward) * velocity;
+    const f32 outerMost = cos(Radians32(Degrees32(72.0f)).value());
+    if (forward < outerMost) {
+        physical.vel += norm * (outerMost - forward) * velocity;
     }
-    physical.Impulse(norm * targetSpeed, timestep);
+    if (type == ORBITER) {
+        const f32 innerMost = cos(Radians32(Degrees32(62.0f)).value());
+        if (forward > innerMost) {
+            physical.vel += norm * (innerMost - forward) * velocity;
+        }
+    } else {
+        physical.Impulse(norm * targetSpeed, timestep);
+    }
     physical.vel = normalize(physical.vel) * targetSpeed;
 }
 

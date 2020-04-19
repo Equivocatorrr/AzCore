@@ -240,6 +240,8 @@ bool Manager::UpdateActiveSound(SourceBase *sound) {
         // Not playing
         if (sound->play) {
             if (!Play(sound)) return false;
+        } else if (sound->playing) {
+            sound->playing = false;
         }
     }
     return true;

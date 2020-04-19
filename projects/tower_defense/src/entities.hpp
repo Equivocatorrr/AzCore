@@ -70,6 +70,7 @@ struct Manager : public Objects::Object {
     Array<UpdateChunk> updateChunks{};
     Sound::Source sndMoney;
     Sound::Stream streamSegment1;
+    Sound::Stream streamSegment2;
     Id selectedTower = -1;
     bool focusMenu = false;
     bool placeMode = false;
@@ -77,13 +78,13 @@ struct Manager : public Objects::Object {
     Angle32 placingAngle = 0.0f;
     bool canPlace = false;
     f32 enemyTimer = 0.0;
-    i32 wave = 1;
+    i32 wave = 0;
     i64 hitpointsLeft = 0;
     f64 hitpointsPerSecond = 200.0;
     i64 lives = 1000;
     i64 money= 5000;
     f32 timestep;
-    bool waveActive = false;
+    bool waveActive = true;
     bool failed = false;
     f32 camZoom = 0.00001f;
     f32 backgroundTransition = -1.0;
@@ -170,6 +171,12 @@ struct Tower : public Entity {
 extern template struct DoubleBufferArray<Tower>;
 
 struct Enemy : public Entity {
+    enum Type {
+        BASIC,
+        HONKER,
+        ORBITER,
+        STUNNER
+    } type;
     i32 hitpoints;
     f32 size;
     f32 targetSpeed;

@@ -5,9 +5,11 @@
 - Guaranteed honker spawns every 5 or 10 waves?
 - Segments are 10 waves a piece
 - Each segment introduces a new type of enemy:
-    1. Honkers
-    2. Honkers that spawn stunners
-    3. ~????????~
+    1. Regular Enemies
+    2. Honkers
+    3. Spiraling Boys (Orbiters)
+    4. Stunners
+    5. ~????????~
 - Background changes at the beginning of a new segment:
     1. Blue
     2. Green

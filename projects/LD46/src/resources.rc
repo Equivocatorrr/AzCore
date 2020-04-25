@@ -1,0 +1,38 @@
+/*
+    File: resources.rc
+    Author: Philip Haynes
+*/
+#include "resources.h"
+
+#ifdef _WIN32
+
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "../../base/manifest.xml"
+
+IDI_ICON_128 ICON "../../base/icon.ico"
+
+1 VERSIONINFO
+FILEVERSION     1,0,0,0
+PRODUCTVERSION  1,0,0,0
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904E4"
+    BEGIN
+      VALUE "CompanyName", "Azure Indie"
+      VALUE "FileDescription", "AzCore Tower Defense"
+      VALUE "FileVersion", "1.0"
+      VALUE "InternalName", "AzCore"
+      VALUE "LegalCopyright", "Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)"
+      VALUE "OriginalFilename", "AzCore.exe"
+      VALUE "ProductName", "Example for an advanced window-system IO framework for games."
+      VALUE "ProductVersion", "1.0"
+    END
+  END
+
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1252
+  END
+END
+
+#endif

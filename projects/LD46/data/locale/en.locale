@@ -1,0 +1,5 @@
+# We don't need to write most of these because it uses the key when it's not in the file.
+# The keys are all English, so no need to map them to themselves.
+ResizeText=             "What are the new dimensions you want for the level?"
+SaveText=               "What do you want to name your level?"
+LoadText=               "What is the name of the level you want to load?"

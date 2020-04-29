@@ -280,24 +280,35 @@ SolutionQuintic<T> SolveQuintic(T a, T b, T c, T d, T e, T f) {
     // We're guaranteed to have at least 1 real root.
     // That root can be used to transform it into a Quartic via synthetic division.
     // We'll use an iterative search to find one root, doesn't matter which.
-    T strength = T(4); // How much the output affects the next input
+    T ba = b/a;
+    T ca = c/a;
+    T da = d/a;
+    T ea = e/a;
+    T fa = f/a;
+    T strength = T(1); // How much the output affects the next input
     T lastInput = T(0);
-    T input = -f/a;
-    bool lastPositive = f/a >= T(0);
-    while (abs(input-lastInput) > abs(input) / T(10000)) {
+    T lastOutput = fa;
+    T input = -fa;
+    bool lastPositive = fa >= T(0);
+    while (true) {
         T x = input;
         T xx = x*x;
         T xxx = xx*x;
         T xxxx = xx*xx;
         T xxxxx = xxx*xx;
-        T output = (xxxxx + (b*xxxx + c*xxx + d*xx + e*x + f)/a)/(abs(xxxxx)+T(1));
-        if (output == T(0)) break; // Edge case that could cause a hard lock
+        T output = (xxxxx + ba*xxxx + ca*xxx + da*xx + ea*x + fa)/(xxxx+T(1));
+        if (abs(output) < T(1)/T(1000000)) break; // Edge case that could cause a hard lock
         bool positive = output > T(0);
         if (positive != lastPositive) {
-            strength /= T(2);
+            // 1/slope should take you approximately to zero
+            strength = T(1)/abs((output-lastOutput)/(input-lastInput));
         }
         lastInput = input;
         input -= output*strength;
+        if (abs(input-lastInput) < max(abs(input), T(1)) / T(1000000)) {
+            break;
+        }
+        lastOutput = output;
         lastPositive = positive;
     }
     // input should be a root

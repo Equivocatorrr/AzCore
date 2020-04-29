@@ -1298,6 +1298,83 @@ bool UnitTestToString(io::LogStream &cout) {
     return true;
 }
 
+void ProfileEquations(io::LogStream &cout) {
+    // Get how long it takes to generate numbers
+    RandomNumberGenerator rng;
+    ClockTime start = Clock::now();
+    f32 dontOptimizeThisOut = 0.0f;
+    for (i32 i = 0; i < 100000000; i++) {
+        dontOptimizeThisOut += random(-10.0f, 10.0f, rng);
+    }
+    Nanoseconds rngDuration = Clock::now()-start;
+    cout << "Time to generate 100000000 random numbers: " << FormatTime(rngDuration) << std::endl;
+    // Get how long it takes to solve random Quadratics, Cubics, Quartics, and Quintics
+
+    // Quadratics
+    start = Clock::now();
+    for (i32 i = 0; i < 1000000; i++) {
+        SolveQuadratic(
+            random(-10.0f, 10.0f, rng),
+            random(-10.0f, 10.0f, rng),
+            random(-10.0f, 10.0f, rng)
+        );
+    }
+    Nanoseconds quadraticsTime = Clock::now()-start;
+    cout << "Time to solve 1000000 random quadratics: " << FormatTime(quadraticsTime)
+         << "\n\tAdjusted for rng time: " << FormatTime(quadraticsTime - rngDuration*3/100) << std::endl;
+
+    // Cubics
+    start = Clock::now();
+    for (i32 i = 0; i < 1000000; i++) {
+        SolveCubic(
+            random(-10.0f, 10.0f, rng),
+            random(-10.0f, 10.0f, rng),
+            random(-10.0f, 10.0f, rng),
+            random(-10.0f, 10.0f, rng)
+        );
+    }
+    Nanoseconds cubicsTime = Clock::now()-start;
+    cout << "Time to solve 1000000 random cubics: " << FormatTime(cubicsTime)
+         << "\n\tAdjusted for rng time: " << FormatTime(cubicsTime - rngDuration*4/100) << std::endl;
+
+    // Quartics
+    start = Clock::now();
+    for (i32 i = 0; i < 1000000; i++) {
+        SolveQuartic(
+            random(-10.0f, 10.0f, rng),
+            random(-10.0f, 10.0f, rng),
+            random(-10.0f, 10.0f, rng),
+            random(-10.0f, 10.0f, rng),
+            random(-10.0f, 10.0f, rng)
+        );
+    }
+    Nanoseconds quarticsTime = Clock::now()-start;
+    cout << "Time to solve 1000000 random quartics: " << FormatTime(quarticsTime)
+         << "\n\tAdjusted for rng time: " << FormatTime(quarticsTime - rngDuration*5/100) << std::endl;
+
+    // Quintics
+    start = Clock::now();
+    for (i32 i = 0; i < 1000000; i++) {
+        SolveQuintic(
+            random(-10.0f, 10.0f, rng),
+            random(-10.0f, 10.0f, rng),
+            random(-10.0f, 10.0f, rng),
+            random(-10.0f, 10.0f, rng),
+            random(-10.0f, 10.0f, rng),
+            random(-10.0f, 10.0f, rng)
+        );
+    }
+    Nanoseconds quinticsTime = Clock::now()-start;
+    cout << "Time to solve 1000000 random quintics: " << FormatTime(quinticsTime)
+         << "\n\tAdjusted for rng time: " << FormatTime(quinticsTime - rngDuration*6/100) << std::endl;
+
+    // cout << "Roots:" << std::endl;
+    // SolutionQuintic<f32> solution = SolveQuintic(1.7f, 6.0f, 3.0f, -6.3f, -3.0f, 2.2f);
+    // for (i32 i = 0; i < solution.nReal; i++) {
+    //     cout << "\t" << solution.root[i] << std::endl;
+    // }
+}
+
 i32 main(i32 argumentCount, char** argumentValues) {
     io::LogStream cout("test.log");
 
@@ -1339,4 +1416,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
     }
 
     cout << "Unit tests complete: " << numSuccessful << "/" << numTests << " were successful." << std::endl;
+
+    ProfileEquations(cout);
 }

@@ -13,8 +13,8 @@ namespace AzCore {
 template <typename T>
 struct SolutionLinear
 {
-    T x;
-    bool real = false;
+    T root;
+    i8 nReal;
 };
 
 template <typename T>
@@ -23,8 +23,10 @@ SolutionLinear<T> SolveLinear(T a, T b)
     SolutionLinear<T> solution;
     if (a != T(0.0))
     {
-        solution.x = -b / a;
-        solution.real = true;
+        solution.root = -b / a;
+        solution.nReal = 1;
+    } else {
+        solution.nReal = 0;
     }
     return solution;
 }
@@ -32,10 +34,11 @@ SolutionLinear<T> SolveLinear(T a, T b)
 template <typename T>
 struct SolutionQuadratic
 {
-    T x1, x2;
-    bool x1Real = false, x2Real = false;
+    T root[2];
+    i8 nReal;
     SolutionQuadratic() = default;
-    SolutionQuadratic(const SolutionLinear<T> &solution) : x1(solution.x), x1Real(solution.real) {}
+    SolutionQuadratic(const SolutionLinear<T> &solution) :
+        root{solution.root}, nReal(solution.nReal) {}
 };
 
 template <typename T>
@@ -51,30 +54,31 @@ SolutionQuadratic<T> SolveQuadratic(T a, T b, T c)
     if (bb < ac4)
     {
         // We don't care about complex answers
+        solution.nReal = 0;
         return solution;
     }
     if (bb == ac4)
     {
-        solution.x1 = -b / a;
-        solution.x1Real = true;
+        solution.root[0] = -b / a;
+        solution.nReal = 1;
         return solution;
     }
     const T squareRoot = sqrt(bb - ac4);
     a *= T(2.0);
-    solution.x1 = (-b + squareRoot) / a;
-    solution.x1Real = true;
-    solution.x2 = (-b - squareRoot) / a;
-    solution.x2Real = true;
+    solution.root[0] = (-b + squareRoot) / a;
+    solution.root[1] = (-b - squareRoot) / a;
+    solution.nReal = 2;
     return solution;
 }
 
 template <typename T>
 struct SolutionCubic
 {
-    T x1, x2, x3;
-    bool x1Real, x2Real, x3Real;
+    T root[3];
+    i8 nReal;
     SolutionCubic() = default;
-    SolutionCubic(const SolutionQuadratic<T> &solution) : x1(solution.x1), x2(solution.x2), x1Real(solution.x1Real), x2Real(solution.x2Real), x3Real(false) {}
+    SolutionCubic(const SolutionQuadratic<T> &solution) :
+        root{solution.root[0], solution.root[1]}, nReal(solution.nReal) {}
 };
 
 template <typename T>
@@ -109,33 +113,202 @@ SolutionCubic<T> SolveCubic(T a, T b, T c, T d)
         const T rootD = sqrt(sqrD);
         const T u = cubert((q + rootD) * T(0.5));
         const T v = cubert((q - rootD) * T(0.5));
-        solution.x1 = u + v + offset;
-        solution.x1Real = true;
-        solution.x2Real = false;
-        solution.x3Real = false;
+        solution.root[0] = u + v + offset;
+        solution.nReal = 1;
     }
     else if (sqrD < T(0.0))
     {
         // We have 3 real solutions
         const T u = T(2.0) * sqrt(-p / T(3.0));
         const T v = acos(sqrt(T(-27.0) / p3) * q * T(0.5)) / T(3.0);
-        solution.x1 = u * cos(v) + offset;
-        solution.x2 = u * cos(v + T(tau64) / T(3.0)) + offset;
-        solution.x3 = u * cos(v + T(tau64) * T(2.0) / T(3.0)) + offset;
-        solution.x1Real = true;
-        solution.x2Real = true;
-        solution.x3Real = true;
+        solution.root[0] = u * cos(v) + offset;
+        solution.root[1] = u * cos(v + T(tau64) / T(3.0)) + offset;
+        solution.root[2] = u * cos(v + T(tau64) * T(2.0) / T(3.0)) + offset;
+        solution.nReal = 3;
     }
     else
     {
         // We have 2 real solutions
         const T u = cubert(q * T(0.5));
-        solution.x1 = u * T(2.0) + offset;
-        solution.x2 = -u + offset;
-        solution.x1Real = true;
-        solution.x2Real = true;
-        solution.x3Real = false;
+        solution.root[0] = u * T(2.0) + offset;
+        solution.root[1] = -u + offset;
+        solution.nReal = 2;
     }
+    return solution;
+}
+
+template <typename T>
+struct SolutionQuartic
+{
+    T root[4];
+    i8 nReal;
+    SolutionQuartic() = default;
+    SolutionQuartic(const SolutionCubic<T> &solution) :
+        root{solution.root[0], solution.root[1], solution.root[2]}, nReal(solution.nReal) {}
+};
+
+template <typename T>
+SolutionQuartic<T> SolveQuartic(T a, T b, T c, T d, T e) {
+    SolutionQuartic<T> solution;
+    if (a == T(0)) {
+        return SolveCubic<T>(b, c, d, e);
+    }
+    // Check whether we're bi-quadratic
+    // If we are, then we're symmetrical across the y-axis
+    if (b == T(0) && d == T(0)) {
+        // We can solve this like a quadratic
+        // z = x^2
+        SolutionQuadratic<T> quad = SolveQuadratic(a, c, e);
+        if (quad.nReal >= 1) {
+            if (quad.root[0] >= T(0)) {
+                solution.nReal = 2;
+                solution.root[0] = sqrt(quad.root[0]);
+                solution.root[1] = -solution.root[0];
+            } else if (quad.root[0] == T(0)) {
+                solution.nReal = 1;
+                solution.root[0] = T(0);
+            } else {
+                solution.nReal = 0;
+            }
+        } else {
+            return SolutionCubic<T>(quad);
+        }
+        if (quad.nReal == 2) {
+            if (quad.root[1] >= T(0)) {
+                solution.root[(i32)solution.nReal] = sqrt(quad.root[1]);
+                solution.root[(i32)solution.nReal+1] = -solution.root[(i32)solution.nReal];
+                solution.nReal += 2;
+            } else if (quad.root[1] == T(0)) {
+                solution.root[(i32)solution.nReal++] = T(0);
+            }
+        }
+        return solution;
+    }
+    T d0 = square(c) - T(3)*b*d + T(12)*a*e;
+    T d1 = T(2)*c*c*c - T(9)*b*c*d + T(27)*(b*b*e + a*d*d) - T(72)*a*c*e;
+    T d27 = d1*d1 - T(4)*d0*d0*d0;
+    T p = (T(8)*a*c - T(3)*b*b) / (T(8)*a*a);
+    T q = (b*b*b - T(4)*a*b*c + T(8)*a*a*d) / (T(8)*a*a*a);
+    if (d27 > T(0)) {
+        // We have 2 real solutions
+        T Q = cubert((d1 + sqrt(d1*d1 - T(4)*d0*d0*d0)) / T(2));
+        T S = sqrt(-p*T(2)/T(3) + (Q+d0/Q)/(T(3)*a)) / T(2);
+        T base;
+        T offset;
+        offset = -T(4)*S*S - T(2)*p;
+        if (offset >= T(0)) {
+            base = -b/(T(4)*a) - S;
+            offset = sqrt(offset + q/S) / T(2);
+        } else {
+            base = -b/(T(4)*a) + S;
+            offset = sqrt(offset - q/S) / T(2);
+        }
+        if (offset == T(0)) {
+            // One doubled solution
+            solution.nReal = 1;
+            solution.root[0] = base;
+        } else {
+            // Two unique solutions
+            solution.nReal = 2;
+            solution.root[0] = base - offset;
+            solution.root[1] = base + offset;
+        }
+    } else {
+        // We have 4 or 0 solutions
+        T theta = acos(d1 / (T(2)*sqrt(d0*d0*d0)));
+        T body = -p*T(2)/T(3) + T(2)/(T(3)*a)*sqrt(d0)*cos(theta/T(3));
+        if (body < T(0)) {
+            // 0 solutions
+            solution.nReal = 0;
+        } else {
+            // 4 solutions
+            T S = sqrt(body) / T(2);
+            T base1 = -b/(T(4)*a) - S;
+            T base2 = -b/(T(4)*a) + S;
+            T part1 = -T(4)*S*S - T(2)*p;
+            T part2 = q/S;
+            T offset1 = sqrt(part1 + part2) / T(2);
+            T offset2;
+            if (part2 == T(0)) {
+                offset2 = offset1;
+            } else {
+                offset2 = sqrt(part1 - part2) / T(2);
+            }
+            if (offset1 == T(0)) {
+                // Doubled solution
+                solution.nReal = 1;
+                solution.root[0] = base1;
+            } else {
+                // Unique solutions
+                solution.nReal = 2;
+                solution.root[0] = base1 + offset1;
+                solution.root[1] = base1 - offset1;
+            }
+            if (offset2 == T(0)) {
+                // Doubled solution
+                solution.root[(i32)solution.nReal++] = base2;
+            } else {
+                // Unique solutions
+                solution.root[(i32)solution.nReal++] = base2 + offset2;
+                solution.root[(i32)solution.nReal++] = base2 - offset2;
+            }
+        }
+    }
+
+    return solution;
+}
+
+
+template <typename T>
+struct SolutionQuintic
+{
+    T root[5];
+    i8 nReal;
+    SolutionQuintic() = default;
+    SolutionQuintic(const SolutionQuartic<T> &solution) :
+        root{solution.root[0], solution.root[1], solution.root[2], solution.root[3]},
+        nReal(solution.nReal) {}
+};
+
+template <typename T>
+SolutionQuintic<T> SolveQuintic(T a, T b, T c, T d, T e, T f) {
+    SolutionQuintic<T> solution;
+    if (a == T(0)) {
+        // We're not a quintic in the first place
+        return SolveQuartic(b, c, d, e, f);
+    }
+    // We're guaranteed to have at least 1 real root.
+    // That root can be used to transform it into a Quartic via synthetic division.
+    // We'll use an iterative search to find one root, doesn't matter which.
+    T strength = T(4); // How much the output affects the next input
+    T lastInput = T(0);
+    T input = -f/a;
+    bool lastPositive = f/a >= T(0);
+    while (abs(input-lastInput) > abs(input) / T(10000)) {
+        T x = input;
+        T xx = x*x;
+        T xxx = xx*x;
+        T xxxx = xx*xx;
+        T xxxxx = xxx*xx;
+        T output = (xxxxx + (b*xxxx + c*xxx + d*xx + e*x + f)/a)/(abs(xxxxx)+T(1));
+        if (output == T(0)) break; // Edge case that could cause a hard lock
+        bool positive = output > T(0);
+        if (positive != lastPositive) {
+            strength /= T(2);
+        }
+        lastInput = input;
+        input -= output*strength;
+        lastPositive = positive;
+    }
+    // input should be a root
+    T newA = a;
+    T newB = b + newA*input;
+    T newC = c + newB*input;
+    T newD = d + newC*input;
+    T newE = e + newD*input;
+    solution = SolveQuartic(newA, newB, newC, newD, newE);
+    solution.root[(i32)solution.nReal++] = input;
+
     return solution;
 }
 

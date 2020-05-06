@@ -1368,11 +1368,11 @@ void ProfileEquations(io::LogStream &cout) {
     cout << "Time to solve 1000000 random quintics: " << FormatTime(quinticsTime)
          << "\n\tAdjusted for rng time: " << FormatTime(quinticsTime - rngDuration*6/100) << std::endl;
 
-    // cout << "Roots:" << std::endl;
-    // SolutionQuintic<f32> solution = SolveQuintic(1.7f, 6.0f, 3.0f, -6.3f, -3.0f, 2.2f);
-    // for (i32 i = 0; i < solution.nReal; i++) {
-    //     cout << "\t" << solution.root[i] << std::endl;
-    // }
+    cout << "Roots:" << std::endl;
+    SolutionQuintic<f32> solution = SolveQuintic(1.7f, 6.0f, 3.0f, -6.3f, -3.0f, 2.2f);
+    for (i32 i = 0; i < solution.nReal; i++) {
+        cout << "\t" << solution.root[i] << std::endl;
+    }
 }
 
 i32 main(i32 argumentCount, char** argumentValues) {

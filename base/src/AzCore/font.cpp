@@ -22,6 +22,7 @@ String ToString(font::Tag_t tag) {
 namespace font {
 
 const f32 sdfDistance = 0.12f; // Units in the Em square
+// const f32 sdfDistance = 0.05f; // Units in the Em square
 
 inline f32 BezierDerivative(f32 t, f32 p1, f32 p2, f32 p3) {
     return 2.0f * ((1.0f-t) * (p2-p1) + t * (p3-p2));
@@ -41,48 +42,104 @@ inline i32 BezierDerivativeSign(f32 t, f32 p1, f32 p2, f32 p3) {
     return signToWinding((1.0f-t) * (p2-p1) + t*(p3-p2));
 }
 
+inline f32 BezierDerivative(f32 t, f32 p1, f32 p2, f32 p3, f32 p4) {
+    f32 tInv = 1.0f - t;
+    return 3.0f * (square(tInv)*(p2-p1) + 2.0f*tInv*t*(p3-p2) + square(t)*(p4-p3));
+}
+
+inline i32 BezierDerivativeSign(f32 t, f32 p1, f32 p2, f32 p3, f32 p4) {
+    f32 tInv = 1.0f - t;
+    return signToWinding(square(tInv)*(p2-p1) + 2.0f*tInv*t*(p3-p2) + square(t)*(p4-p3));
+}
+
 i32 Line::Intersection(const vec2 &point) const {
     // Bezier(t) = (1-t)*p1 + t*p3
     // Bezier(t) = t(p3 - p1) + p1
     // t = -p1 / (p3 - p1)
 
-    if (p2.x == p1.x) {
-        // Vertical line
-        if (p2.x >= point.x) {
-            if (point.y >= p1.y && point.y < p2.y) {
-                return 1;
-            } else if (point.y >= p2.y && point.y < p1.y) {
-                return -1;
-            } else {
-                return 0;
-            }
-        }
-    } else {
-        f32 a = p2.y - p1.y, b; // coefficients of the line: y = ax + b
-        if (a == 0.0f) {
-            // Horizontal line
-            return 0;
-        } else {
-            b = -p1.y + point.y;
-            f32 t = b / a;
-            if (a > 0.0f) {
-                if (t >= 0.0f && t < 1.0f) {
-                    f32 x = (p2.x - p1.x) * t + p1.x;
-                    if (x >= point.x) {
-                        return 1;
-                    }
-                }
-            } else if (a < 0.0f) {
-                if (t > 0.0f && t <= 1.0f) {
-                    f32 x = (p2.x - p1.x) * t + p1.x;
-                    if (x >= point.x) {
-                        return -1;
-                    }
-                }
+    // if (p2.x == p1.x) {
+    //     // Vertical line
+    //     if (p2.x >= point.x) {
+    //         if (point.y >= p1.y && point.y < p2.y) {
+    //             return 1;
+    //         } else if (point.y >= p2.y && point.y < p1.y) {
+    //             return -1;
+    //         } else {
+    //             return 0;
+    //         }
+    //     }
+    // } else {
+    //     f32 a = p2.y - p1.y, b; // coefficients of the line: y = ax + b
+    //     if (a == 0.0f) {
+    //         // Horizontal line
+    //         return 0;
+    //     } else {
+    //         b = -p1.y + point.y;
+    //         f32 t = b / a;
+    //         if (a > 0.0f) {
+    //             if (t >= 0.0f && t < 1.0f) {
+    //                 f32 x = (p2.x - p1.x) * t + p1.x;
+    //                 if (x >= point.x) {
+    //                     return 1;
+    //                 }
+    //             }
+    //         } else {
+    //             if (t > 0.0f && t <= 1.0f) {
+    //                 f32 x = (p2.x - p1.x) * t + p1.x;
+    //                 if (x >= point.x) {
+    //                     return -1;
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+    // return 0;
+    if (point.x > max(p1.x, p2.x)) {
+        return 0;
+    }
+    if (point.y < min(p1.y, p2.y)-0.00001f) {
+        return 0;
+    }
+    if (point.y > max(p1.y, p2.y)+0.00001f) {
+        return 0;
+    }
+    i32 winding = 0;
+
+    f32 a, b; // coefficients of the line: y = bx + c
+    a = p2.y - p1.y;
+    if (a == 0.0f) {
+        return 0;
+    }
+    if (abs(point.y-p1.y) < 0.00001f && p1.x >= point.x) {
+        return signToWinding(p2.y - p1.y);
+    }
+    if (abs(point.y-p2.y) < 0.00001f && p2.x >= point.x) {
+        return 0;
+    }
+    b = p1.y - point.y;
+
+    SolutionLinear<f32> solution = SolveLinear(a, b);
+
+    a = p2.x - p1.x;
+    b = p1.x;
+    if (solution.nReal) {
+        f32 t = solution.root;
+        bool tInRange;
+        // if (p1.y < p2.y) {
+        //     tInRange = t >= 0.0f && t < 1.0f;
+        // } else {
+        //     tInRange = t > 0.0f && t <= 1.0f;
+        // }
+        tInRange = t > 0.00001f && t < 0.99999f;
+        if (tInRange) {
+            f32 x = a*t + b;
+            if (x >= point.x) {
+                // We have an intersection
+                winding += signToWinding(p2.y - p1.y);
             }
         }
     }
-    return 0;
+    return winding;
 };
 
 f32 Line::DistanceLess(const vec2 &point, f32 distSquared) const {
@@ -103,8 +160,18 @@ void Line::Offset(const vec2 &offset) {
     p2 = p2 + offset;
 }
 
+void Line::Print(io::LogStream &cout) {
+    cout << "p1={" << p1.x << "," << p1.y << "}, p2={" << p2.x << "," << p2.y << "}";
+}
+
 i32 Curve::Intersection(const vec2 &point) const {
     if (point.x > max(max(p1.x, p2.x), p3.x)) {
+        return 0;
+    }
+    if (point.y < min(min(p1.y, p2.y), p3.y)-0.00001f) {
+        return 0;
+    }
+    if (point.y > max(max(p1.y, p2.y), p3.y)+0.00001f) {
         return 0;
     }
     i32 winding = 0;
@@ -114,48 +181,54 @@ i32 Curve::Intersection(const vec2 &point) const {
     // Bezier(t) = t^2(p3 - 2*p2 + p1) + t(2*p2 - 2*p1) + p1
     // Bezier'(t) = 2(1-t)(p2-p1) + 2t(p3-p2);
 
-    f32 a, b, c; // coefficients of the curve: y = ax^2 - bx + c
+    f32 a, b, c; // coefficients of the curve: y = ax^2 + bx + c
     a = p3.y - 2.0f*p2.y + p1.y;
+    b = 2.0f*(p2.y - p1.y);
     if (a == 0.0f) {
         Line line{p1, p3};
         return line.Intersection(point);
     }
-    b = -2.0f*(p2.y - p1.y);
     c = p1.y - point.y;
-    const f32 bb = square(b);
-    const f32 ac4 = 4.0f*a*c;
-    if (bb <= ac4) {
-        // We don't care about complex answers or tangent lines.
-        return 0;
+    if (abs(p1.y-point.y) < 0.00001f && p1.x >= point.x) {
+        c = b;
+        b = a;
+        a = 0.0f;
+        winding += signToWinding(p2.y - p1.y);
     }
-    const f32 squareRoot = sqrt(bb - ac4);
-    a *= 2.0f;
-    const f32 t1 = (b + squareRoot) / a;
-    const f32 t2 = (b - squareRoot) / a;
-    a = (p3.x - 2.0f*p2.x + p1.x);
-    b = 2.0f*(p2.x - p1.x);
-    c = p1.x;
-    bool t1InRange = false;
-    bool t2InRange = false;
-    if (p1.y < p3.y) {
-        t1InRange = t1 >= 0.0f && t1 < 1.0f;
-        t2InRange = t2 >= 0.0f && t2 < 1.0f;
-    } else {
-        t1InRange = t1 > 0.0f && t1 <= 1.0f;
-        t2InRange = t2 > 0.0f && t2 <= 1.0f;
+    if (abs(p3.y-point.y) < 0.00001f && p3.x >= point.x) {
+        c = b + a;
+        b = a;
+        a = 0.0f;
+        // winding += signToWinding(p3.y - p2.y);
     }
-    if (t1InRange) {
-        f32 x = a*square(t1) + b*t1 + c;
-        if (x >= point.x) {
-            // We have an intersection
-            winding += BezierDerivativeSign(t1, p1.y, p2.y, p3.y);
-        }
+
+    SolutionQuadratic<f32> solution = SolveQuadratic(a, b, c);
+
+    if (solution.nReal) {
+        a = (p3.x - 2.0f*p2.x + p1.x);
+        b = 2.0f*(p2.x - p1.x);
+        c = p1.x;
     }
-    if (t2InRange) {
-        f32 x = a*square(t2) + b*t2 + c;
-        if (x >= point.x) {
-            // We have an intersection
-            winding += BezierDerivativeSign(t2, p1.y, p2.y, p3.y);
+    for (i32 i = 0; i < solution.nReal; i++) {
+        f32 t = solution.root[i];
+        bool tInRange;
+        // if (p1.y < p2.y) {
+        //     tInRange = t >= 0.0f;
+        // } else {
+            // tInRange = t > 0.0f;
+        // }
+        // if (p2.y < p3.y) {
+            // tInRange = tInRange && t < 1.0f;
+        // } else {
+        //     tInRange = tInRange && t <= 1.0f;
+        // }
+        tInRange = t > 0.00001f && t < 0.99999f;
+        if (tInRange) {
+            f32 x = a*square(t) + b*t + c;
+            if (x >= point.x) {
+                // We have an intersection
+                winding += BezierDerivativeSign(t, p1.y, p2.y, p3.y);
+            }
         }
     }
     return winding;
@@ -193,36 +266,14 @@ f32 Curve::DistanceLess(const vec2 &point, f32 distSquared) const {
     const f32 d = dot(o, m);
     SolutionCubic<f32> solution = SolveCubic<f32>(a, b, c, d);
     // We're guaranteed at least 1 solution.
-    f32 dist;
-    if (solution.x1 < 0.0f) {
-        dist = absSqr(p1-point);
-    } else if (solution.x1 > 1.0f) {
-        dist = absSqr(p3-point);
-    } else {
-        dist = absSqr(Point(solution.x1)-point);
-    }
-    if (dist < distSquared) {
-        distSquared = dist;
-    }
-    if (solution.x3Real) {
-        if (solution.x3 < 0.0f) {
+    for (i32 i = 0; i < solution.nReal; i++) {
+        f32 dist;
+        if (solution.root[i] < 0.0f) {
             dist = absSqr(p1-point);
-        } else if (solution.x3 > 1.0f) {
+        } else if (solution.root[i] > 1.0f) {
             dist = absSqr(p3-point);
         } else {
-            dist = absSqr(Point(solution.x3)-point);
-        }
-        if (dist < distSquared) {
-            distSquared = dist;
-        }
-    }
-    if (solution.x2Real) {
-        if (solution.x2 < 0.0f) {
-            dist = absSqr(p1-point);
-        } else if (solution.x2 > 1.0f) {
-            dist = absSqr(p3-point);
-        } else {
-            dist = absSqr(Point(solution.x2)-point);
+            dist = absSqr(Point(solution.root[i])-point);
         }
         if (dist < distSquared) {
             distSquared = dist;
@@ -243,8 +294,175 @@ void Curve::Offset(const vec2 &offset) {
     p3 = p3 + offset;
 }
 
+void Curve::Print(io::LogStream &cout) {
+    cout << "p1={" << p1.x << "," << p1.y << "}, p2={" << p2.x << "," << p2.y << "}, p3={"
+         << p3.x << "," << p3.y << "}";
+}
+
+i32 Curve2::Intersection(const vec2 &point) const {
+    if (point.x > max(max(max(p1.x, p2.x), p3.x), p4.x)) {
+        return 0;
+    }
+    if (point.y < min(min(min(p1.y, p2.y), p3.y), p4.y)-0.00001f) {
+        return 0;
+    }
+    if (point.y > max(max(max(p1.y, p2.y), p3.y), p4.y)+0.00001f) {
+        return 0;
+    }
+    i32 winding = 0;
+
+    // B(t) = p1 + t*(3*(p2-p1)) + t^2*(3*(p1 - 2*p2 + p3)) + t^3*(-p1 + 3*(p2 - p3) + p4)
+
+    f32 a, b, c, d; // coefficients of the curve: y = ax^3 + bx^2 + cx + d
+    a = p4.y + 3.0f * (p2.y - p3.y) - p1.y;
+    if (abs(a) < 0.00001f) {
+        Curve curve{p1, p1 + (p2-p1) * 3.0f/2.0f, p4};
+        return curve.Intersection(point);
+    }
+    b = 3.0f * (p3.y - 2.0f * p2.y + p1.y);
+    c = 3.0f * (p2.y - p1.y);
+    d = p1.y - point.y;
+    if (abs(p1.y-point.y) < 0.00001f && p1.x >= point.x) {
+        d = c;
+        c = b;
+        b = a;
+        a = 0.0f;
+        winding += signToWinding(p2.y - p1.y);
+    }
+    if (abs(p4.y-point.y) < 0.00001f && p4.x >= point.x) {
+        d = c + b + a;
+        c = b + a;
+        b = a;
+        a = 0.0f;
+        // winding += signToWinding(p4.y - p3.y);
+    }
+
+    // SolutionCubic<f64> solution = SolveCubic((f64)a, (f64)b, (f64)c, (f64)d);
+    SolutionCubic<f32> solution = SolveCubic(a, b, c, d);
+
+    a = (p4.x + 3.0f*(p2.x - p3.x) - p1.x);
+    b = 3.0f * (p3.x - 2.0f * p2.x + p1.x);
+    c = 3.0f * (p2.x - p1.x);
+    d = p1.x;
+    for (i32 i = 0; i < solution.nReal; i++) {
+        bool tInRange;
+        f32 t = (f32)solution.root[i];
+        // if (p1.y < p2.y) {
+        //     tInRange = t >= 0.0f;
+        // } else {
+            // tInRange = t > 0.0f;
+        // }
+        // if (p3.y < p4.y) {
+            // tInRange = tInRange && t < 1.0;
+        // } else {
+        //     tInRange = tInRange && t <= 1.0f;
+        // }
+        tInRange = t > 0.00001f && t < 0.99999f;
+        if (tInRange) {
+            f32 x = a*(t*t*t) + b*square(t) + c*t + d;
+            if (x >= point.x) {
+                // We have an intersection
+                winding += BezierDerivativeSign(t, p1.y, p2.y, p3.y, p4.y);
+            }
+        }
+    }
+    return winding;
+}
+
+f32 Curve2::DistanceLess(const vec2 &point, f32 distSquared) const {
+    // Try to do an early out if we can
+    {
+        // NOTE: This could probably be refined
+        f32 maxPointDistSquared = max(
+            max(max(absSqr(p1-p2), absSqr(p1-p3)), absSqr(p1-p4)),
+            max(max(absSqr(p2-p3), absSqr(p2-p4)), absSqr(p3-p4))
+        );
+        f32 minDistSquared = min(
+            min(
+                min(absSqr(p1-point), absSqr(p2-point)),
+                absSqr(p3-point)
+            ), absSqr(p4-point)
+        );
+        if (minDistSquared > distSquared + maxPointDistSquared * 0.25f) {
+            return distSquared;
+        }
+    }
+    // A huge thanks to desmos for making all this work smooth and confirmable
+    // B(t) = (1-t)^3*p1 + 3t(1-t)^2*p2 + 3t^2(1-t)p3 + t^3*p4
+    // B'(t) = 3((1-t)^2(p2-p1) + 2t(1-t)(p3-p2) + t^2(p4-p3))
+    // B'(t) = 3((t^2-2t+1)(p2-p1) + 2(t-t^2)(p3-p2) + t^2(p4-p3))
+    // B'(t) = 3(t^2(p4 - 3*p3 + 3*p2 - p1) + 2t(p3 - 2*p2 + p1) + (p2-p1))
+    // M = p2 - p1
+    // N = p3 - 2*p2 + p1
+    // O = p4 - 3*p3 + 3*p2 - p1
+    // B'(t) = 3(M + 2t*N + t^2*O)
+    // Rather than doing all that work for B(t) again I'll just integrate
+    // B(t) = 3t*M + 3t^2*N + t^3*O + p1
+    // dot(B(t) - point, B'(t)) = 0
+    // dot(3t*M + 3t^2*N + t^3*O + p1 - point, 3M + 6t*N + 3t^2*O)) = 0
+    // Rearrange everything into the following form:
+    // at^5 + bt^4 + ct^3 + dt^2 + et + f = 0
+    // a = 3*|O^2|
+    // b = 15*dot(O, N)
+    // c = 12*dot(O, M) + 18*|N^2|
+    // d = 27*dot(N, M) + 3*dot(p1, O) - 3*dot(point, O)
+    // e = 9*|M^2| + 6*dot(p1, N) - 6*dot(point, N)
+    // f = 3*dot(p1, M) - 3*dot(point, M)
+    const vec2 m = p2 - p1;
+    const vec2 n = p3 - p2 - m; // Equates to p3 - 2*p2 + p1, but is faster
+    const vec2 o = p4 + (p2 - p3) * 3.0f - p1;
+
+    const f32 a = 3.0f * absSqr(o);
+    const f32 b = 15.0f * dot(o, n);
+    const f32 c = 12.0f * dot(o, m) + 18.0f * absSqr(n);
+    const f32 d = 27.0f * dot(n, m) + 3.0f * dot(p1, o) - 3.0f * dot(point, o);
+    const f32 e = 9.0f * absSqr(m) + 6.0f * dot(p1, n) - 6.0f * dot(point, n);
+    const f32 f = 3.0f * dot(p1, m) - 3.0f * dot(point, m);
+    SolutionQuintic<f32> solution = SolveQuintic<f32>(a, b, c, d, e, f);
+    // We're guaranteed at least 1 solution.
+    for (i32 i = 0; i < solution.nReal; i++) {
+        if (isnan(solution.root[i])) {
+            throw std::runtime_error("Hahah fuck");
+        }
+        f32 dist;
+        if (solution.root[i] <= 0.0f) {
+            dist = absSqr(p1-point);
+        } else if (solution.root[i] >= 1.0f) {
+            dist = absSqr(p4-point);
+        } else {
+            dist = absSqr(Point(solution.root[i])-point);
+        }
+        if (dist < distSquared) {
+            distSquared = dist;
+        }
+    }
+    return distSquared;
+}
+
+void Curve2::Scale(const mat2 &scale) {
+    p1 = scale * p1;
+    p2 = scale * p2;
+    p3 = scale * p3;
+    p4 = scale * p4;
+}
+
+void Curve2::Offset(const vec2 &offset) {
+    p1 = p1 + offset;
+    p2 = p2 + offset;
+    p3 = p3 + offset;
+    p4 = p4 + offset;
+}
+
+void Curve2::Print(io::LogStream &cout) {
+    cout << "p1={" << p1.x << "," << p1.y << "}, p2={" << p2.x << "," << p2.y << "}, p3={"
+         << p3.x << "," << p3.y << "}, p4={" << p4.x << "," << p4.y << "}";
+}
+
 bool Glyph::Inside(const vec2 &point) const {
     i32 winding = 0;
+    for (const Curve2& curve2 : curve2s) {
+        winding += curve2.Intersection(point);
+    }
     for (const Curve& curve : curves) {
         winding += curve.Intersection(point);
     }
@@ -256,6 +474,9 @@ bool Glyph::Inside(const vec2 &point) const {
 
 f32 Glyph::MinDistance(vec2 point, const f32& startingDist) const {
     f32 minDistSquared = startingDist*startingDist; // Glyphs should be normalized to the em square more or less.
+    for (const Curve2& curve2 : curve2s) {
+        minDistSquared = curve2.DistanceLess(point, minDistSquared);
+    }
     for (const Curve& curve : curves) {
         minDistSquared = curve.DistanceLess(point, minDistSquared);
     }
@@ -308,6 +529,9 @@ void Glyph::AddFromGlyfPoints(glyfPoint *glyfPoints, i32 count) {
 }
 
 void Glyph::Scale(const mat2 &scale) {
+    for (Curve2& curve2 : curve2s) {
+        curve2.Scale(scale);
+    }
     for (Curve& curve : curves) {
         curve.Scale(scale);
     }
@@ -317,12 +541,63 @@ void Glyph::Scale(const mat2 &scale) {
 }
 
 void Glyph::Offset(const vec2 &offset) {
+    for (Curve2& curve2 : curve2s) {
+        curve2.Offset(offset);
+    }
     for (Curve& curve : curves) {
         curve.Offset(offset);
     }
     for (Line& line : lines) {
         line.Offset(offset);
     }
+}
+
+void Glyph::Print(io::LogStream &cout) {
+    cout << "Curve2s: " << curve2s.size << "\n";
+    for (Curve2& curve2 : curve2s) {
+        cout << "\t";
+        curve2.Print(cout);
+        cout << "\n";
+    }
+    cout << "Curves: " << curves.size << "\n";
+    for (Curve& curve : curves) {
+        cout << "\t";
+        curve.Print(cout);
+        cout << "\n";
+    }
+    cout << "Lines: " << lines.size << "\n";
+    for (Line& line : lines) {
+        cout << "\t";
+        line.Print(cout);
+        cout << "\n";
+    }
+    cout << std::endl;
+}
+
+Glyph& Glyph::Simplify() {
+    for (i32 i = 0; i < curve2s.size; i++) {
+        Curve2 &curve2 = curve2s[i];
+        vec2 normal = normalize(curve2.p4 - curve2.p1);
+        if (dot(normal, normalize(curve2.p2 - curve2.p1)) == 1.0f
+         && dot(normal, normalize(curve2.p4 - curve2.p3)) == 1.0f) {
+            // We're actually a line
+            Line line = {curve2.p1, curve2.p4};
+            lines.Append(line);
+            curve2s.Erase(i--);
+            continue;
+        }
+    }
+    for (i32 i = 0; i < curves.size; i++) {
+        Curve &curve = curves[i];
+        vec2 normal = normalize(curve.p3 - curve.p1);
+        if (dot(normal, normalize(curve.p2 - curve.p1)) == 1.0f) {
+            // We're actually a line
+            Line line = {curve.p1, curve.p3};
+            lines.Append(line);
+            curves.Erase(i--);
+        }
+    }
+    return *this;
 }
 
 bool Font::Load() {
@@ -409,7 +684,14 @@ bool Font::Load() {
         }
         u32 checksum = tables::Checksum((u32*)ptr, record.length);
         if (checksum != record.checkSum) {
-            cout << "Checksum for table " << ToString(record.tableTag) << " didn't match!" << std::endl;
+            cout << "Checksum (" << checksum << ") for table " << ToString(record.tableTag) << " didn't match record (" << record.checkSum << "), trying backup!" << std::endl;
+            checksum = tables::ChecksumV2((u32*)ptr, record.length);
+            if (checksum == record.checkSum) {
+                checksumsCorrect++;
+                cout << "...backup worked!" << std::endl;
+            } else {
+                cout << "...no good (" << checksum << ")" << std::endl;
+            }
         } else {
             checksumsCorrect++;
         }
@@ -471,12 +753,12 @@ bool Font::Load() {
             if (tag == "loca"_Tag) {
                 loca = (tables::loca*)ptr;
                 loca->EndianSwap(numGlyphs, longOffsets);
-                u32 locaGlyphs = record.length / (2 << (u32)longOffsets)-1;
-                if (numGlyphs != locaGlyphs) {
-                    error = "Glyph counts don't match between maxp(" + ToString(numGlyphs)
-                          + ") and loca(" + ToString(locaGlyphs) + ")";
-                    return false;
-                }
+                // u32 locaGlyphs = record.length / (2 << (u32)longOffsets) - 1;
+                // if (numGlyphs != locaGlyphs) {
+                //     error = "Glyph counts don't match between maxp(" + ToString(numGlyphs)
+                //           + ") and loca(" + ToString(locaGlyphs) + ")";
+                //     return false;
+                // }
             } else if (tag == "hmtx"_Tag) {
                 tables::hmtx *hmtx = (tables::hmtx*)ptr;
                 hmtx->EndianSwap(numOfLongHorMetrics, numGlyphs);
@@ -575,12 +857,16 @@ bool Font::Load() {
                 data.glyfParsed.indexToLoc = (tables::loca*)ptr;
             } else if (tag == "maxp"_Tag) {
                 data.glyfParsed.maxProfile = (tables::maxp*)ptr;
+                data.cffParsed.maxProfile = (tables::maxp*)ptr;
             } else if (tag == "head"_Tag || tag == "bhed"_Tag) {
                 data.glyfParsed.header = (tables::head*)ptr;
+                data.cffParsed.header = (tables::head*)ptr;
             } else if (tag == "hhea"_Tag) {
                 data.glyfParsed.horHeader = (tables::hhea*)ptr;
+                data.cffParsed.horHeader = (tables::hhea*)ptr;
             } else if (tag == "hmtx"_Tag) {
                 data.glyfParsed.horMetrics = (tables::hmtx*)ptr;
+                data.cffParsed.horMetrics = (tables::hmtx*)ptr;
             }
         }
         if (chosenCmap == -1) {
@@ -635,6 +921,24 @@ bool Font::Load() {
             }
         }
     }
+    if (data.cffParsed.active) {
+        if (data.cffParsed.header == nullptr) {
+            error = "Can't use CFF without head!";
+            return false;
+        }
+        if (data.cffParsed.maxProfile == nullptr) {
+            error = "Can't use CFF without maxp!";
+            return false;
+        }
+        if (data.cffParsed.horHeader == nullptr) {
+            error = "Can't use CFF without hhea!";
+            return false;
+        }
+        if (data.cffParsed.horMetrics == nullptr) {
+            error = "Can't use CFF without hmtx!";
+            return false;
+        }
+    }
 
     cout << "Successfully prepared \"" << filename << "\" for usage." << std::endl;
 
@@ -654,8 +958,7 @@ u16 Font::GetGlyphIndex(char32 unicode) const {
 
 Glyph Font::GetGlyphByIndex(u16 index) const {
     if (data.cffParsed.active) {
-        // TODO: Something not stupid like this
-        throw std::runtime_error("CFF parsing not yet implemented!");
+        return data.cffParsed.GetGlyph(index);
     } else if (data.glyfParsed.active) {
         return data.glyfParsed.GetGlyph(index);
     }
@@ -669,8 +972,7 @@ Glyph Font::GetGlyph(char32 unicode) const {
 
 GlyphInfo Font::GetGlyphInfoByIndex(u16 index) const {
     if (data.cffParsed.active) {
-        // TODO: Something not stupid like this
-        throw std::runtime_error("CFF parsing not yet implemented!");
+        return data.cffParsed.GetGlyphInfo(index);
     } else if (data.glyfParsed.active) {
         return data.glyfParsed.GetGlyphInfo(index);
     }
@@ -905,6 +1207,11 @@ void RenderThreadProc(FontBuilder *fontBuilder, Array<Glyph> *glyphsToAdd, const
         if (glyph.info.size.x == 0.0f || glyph.info.size.y == 0.0f || glyph.components.size != 0) {
             continue;
         }
+        /*
+        cout.MutexLock();
+        glyph.Print(cout);
+        cout.MutexUnlock();
+        */
         const i32 texX = i32(glyph.info.pos.x*dimensions.x);
         const i32 texY = i32(glyph.info.pos.y*dimensions.y);
         const f32 offsetX = glyph.info.pos.x * (f32)dimensions.x - (f32)texX;
@@ -915,7 +1222,16 @@ void RenderThreadProc(FontBuilder *fontBuilder, Array<Glyph> *glyphsToAdd, const
         const f32 factorX = boundSquare / (f32)dimensions.x;
         const f32 factorY = boundSquare / (f32)dimensions.y;
 
+        // i32 lastPercentage = 0;
+
         for (i32 y = 0; y <= texH; y++) {
+            // {
+            //     i32 percentage = i32(100.0f * (f32)y / (f32)texH);
+            //     if (percentage > lastPercentage) {
+            //         // cout << percentage << "%" << std::endl;
+            //         lastPercentage = percentage;
+            //     }
+            // }
             f32 prevDist = sdfDistance;
             for (i32 x = 0; x <= texW; x++) {
                 vec2 point = vec2(((f32)x - offsetX) * factorX - sdfDistance,
@@ -929,7 +1245,10 @@ void RenderThreadProc(FontBuilder *fontBuilder, Array<Glyph> *glyphsToAdd, const
                     break;
                 }
                 u8& pixel = fontBuilder->pixels[dimensions.x * yy + xx];
+                // if (lastPercentage == 23 && x == 42)
+                //     cout << "TEST HERE" << std::endl;
                 f32 dist = glyph.MinDistance(point, prevDist);
+                // if (lastPercentage == 23 && x == 42) cout << "\tMinDistance Passed" << std::endl;
                 prevDist = dist + factorX; // Assume the worst change possible
                 if (glyph.Inside(point)) {
                     if (dist < sdfDistance) {
@@ -945,6 +1264,7 @@ void RenderThreadProc(FontBuilder *fontBuilder, Array<Glyph> *glyphsToAdd, const
                     }
                 }
                 pixel = u8(dist*255.0f);
+                // if (lastPercentage == 23 && x == 42) cout << "\tInside passed" << std::endl;
             }
         }
     }
@@ -961,6 +1281,7 @@ bool FontBuilder::Build() {
     }
     if (renderThreadCount < 1) {
         renderThreadCount = Thread::HardwareConcurrency();
+        // renderThreadCount = 1;
         if (renderThreadCount == 0) {
             // Couldn't get actual concurrency so this is just a guess.
             // More than actual concurrency isn't really a bad thing since it's lockless, unless the kernel am dum.

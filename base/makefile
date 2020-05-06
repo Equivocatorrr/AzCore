@@ -25,7 +25,7 @@ WCFLAGS=$(CFLAGS) -D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -I$(
 #LIBS_L_GLX= $(LIBS_L) -lX11 -lX11-xcb
 #LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib32/" -lvulkan-1 -lgdi32
 
-_DEPS_BASE = keycodes.hpp io.hpp math.hpp memory.hpp vk.hpp font.hpp Font/FontTables.hpp Font/FontTables.cpp Font/font_cff_std_data.c Time.hpp Thread.hpp ThreadLinux.hpp ThreadWin32.hpp
+_DEPS_BASE = keycodes.hpp io.hpp math.hpp memory.hpp vk.hpp font.hpp Font/FontTables.hpp Font/FontTables.cpp Font/font_cff_std_data.c Font/CFF.hpp Font/CFF.cpp Time.hpp Thread.hpp ThreadLinux.hpp ThreadWin32.hpp
 DEPS_BASE = $(patsubst %,$(IDIR)/AzCore/%,$(_DEPS_BASE)) makefile
 _DEPS_IO = ButtonState.hpp ButtonState.cpp Gamepad.hpp Gamepad.cpp Input.hpp Input.cpp LogStream.hpp LogStream.cpp RawInput.hpp RawInput.cpp Window.hpp
 _DEPS_IO_PLATFORM = RawInput.cpp Window.cpp

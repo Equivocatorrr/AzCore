@@ -5,10 +5,12 @@
     can have more high-level structures.
 */
 
-#ifndef FONT_TABLES_HPP
-#define FONT_TABLES_HPP
+#ifndef AZCORE_FONT_TABLES_HPP
+#define AZCORE_FONT_TABLES_HPP
 
 #include "../common.hpp"
+
+#include "CFF.hpp"
 
 namespace AzCore {
 namespace font {
@@ -28,6 +30,12 @@ union Fixed_t {
         u16 minor;
     }; // For versions
 };
+Fixed_t bytesToFixed(char *buffer, const bool swapEndian);
+inline f32 ToF32(const Fixed_t &in) {
+    f32 out = in.iPart;
+    out += (f32)in.fPart / 65535.0f * sign(out);
+    return out;
+}
 typedef i16 FWord_t;
 typedef u16 uFWord_t;
 typedef i16 F2Dot14_t;
@@ -59,6 +67,7 @@ namespace tables {
 #pragma pack(1)
 
 u32 Checksum(u32 *table, u32 length);
+u32 ChecksumV2(u32 *table, u32 length); // Allows lengths to not be a multiple of 4
 
 /*  struct: Record
     Author: Philip Haynes
@@ -426,246 +435,6 @@ struct hmtx {
     longHorMetric Metric(u32 glyphIndex, u16 numOfLongHorMetrics) const;
 };
 
-namespace cffs {
-
-    /*
-    Information on the CFF table is courtesy of Adobe.
-    http://wwwimages.adobe.com/www.adobe.com/content/dam/acom/en/devnet/font/pdfs/5176.CFF.pdf
-    */
-
-    // Data types used in a CFF table
-    typedef u8 Card8;       // 1-byte unsigned integer. Range: 0-255
-    typedef u16 Card16;     // 2-byte unsigned integer. Range: 0-65535
-    typedef u8 OffSize;     // Size of an Offset. Range: 1-4
-    typedef u8 Offset8;     // When OffSize is 1
-    typedef u16 Offset16;   // When OffSize is 2
-    struct Offset24 {       // When OffSize is 3
-        u8 bytes[3];        // Always big-endian
-        u32 value() const;
-        void set(u32 val);
-    };
-    // I'm probably being paranoid here, but if these assertions failed it would be a huge pain to debug.
-    // I believe "#pragma pack(1)" could fix it, but according to the C99 standard, these should pass.
-    // I guess it depends on how the C++ compiler conforms to C memory standards. GCC passes.
-    static_assert(sizeof(Offset24) == 3);
-    static_assert(sizeof(Offset24)*3 == sizeof(Offset24[3]));
-    typedef u32 Offset32;   // When OffSize is 4
-    typedef u16 SID;        // 2-byte string identifier. Range: 0-64999
-
-    constexpr u32 nStdStrings = 391;
-    extern const char *stdStrings[nStdStrings];
-    extern const SID stdEncoding0[256];
-    extern const SID stdEncoding1[256];
-    inline const SID stdCharset0(const SID& in) {
-        return in > 228 ? 0 : in;
-    }
-    extern const SID stdCharset1[166];
-    extern const SID stdCharset2[87];
-
-    /*      Charsets
-        Author: Philip Haynes
-        With different formats come different responsibilities.
-        struct: charset_format_any
-        Can polymorph into the appropriate format, according to its format byte.
-        struct: charset_format0
-        Uses an array of SIDs with a size that depends on the CharStrings INDEX
-        struct: charset_format1
-        Uses an array of structs that hold SIDs and the number of glyphs left in the array as a byte.
-        struct: charset_format2
-        Same as format1 but uses Card16 instead of Card8 in the struct.     */
-    struct charset_format_any {
-        Card8 format;
-        // The rest of the data is specific to the format.
-        bool EndianSwap(Card16 nGlyphs);
-    };
-
-    struct charset_format0 {
-        Card8 format; // Should be 0
-        // The rest of the data is variable-sized like so:
-        // SID glyph[nGlyphs-1]; // nGlyphs is the value of the count field in the CharStrings INDEX
-        void EndianSwap(Card16 nGlyphs);
-    };
-
-    struct charset_range1 {
-        SID first; // First glyph in range.
-        Card8 nLeft; // Glyphs left in range (excluding first)
-        void EndianSwap();
-    };
-    static_assert(sizeof(charset_range1) == 3);
-
-    struct charset_range2 {
-        SID first; // First glyph in range.
-        Card16 nLeft; // Glyphs left in range (excluding first)
-        void EndianSwap();
-    };
-    static_assert(sizeof(charset_range2) == 4);
-
-    struct charset_format1 {
-        Card8 format; // Should be 1
-        // The rest of the data is variable-sized like so:
-        // charset_range1 range[...];
-        void EndianSwap(Card16 nGlyphs);
-    };
-
-    struct charset_format2 {
-        Card8 format; // Should be 2
-        // The rest of the data is variable-sized like so:
-        // charset_range2 range[...];
-        void EndianSwap(Card16 nGlyphs);
-    };
-
-    /*          FDSelect & FDArray (Font Dict INDEX)
-        Author: Philip Haynes
-        Font DICT association for each glyph.
-        struct: FDSelect_any
-        Basic type that will polymorph based on its format.
-        struct: FDSelect_format0
-        For relatively randomly-ordered fonts.
-        struct: FDSelect_range3
-        Used for format3.
-        struct: FDSelect_format3
-        For more sequentially-ordered fonts.       */
-
-    struct FDSelect_any {
-        Card8 format;
-        bool EndianSwap();
-    };
-
-    struct FDSelect_format0 {
-        Card8 format; // Should be 0
-        // Card8 fds[nGlyphs]; // nGlyphs is the count field of the CharStrings INDEX
-    };
-
-    struct FDSelect_range3 {
-        Card16 first;   // First glyph in range
-        Card8 fd;       // Which index of FDArray the range maps to.
-    };
-    static_assert(sizeof(FDSelect_range3) == 3);
-
-    struct FDSelect_format3 {
-        Card8 format; // Should be 3
-        Card16 nRanges;
-        // FDSelect_range3 range[nRanges];
-        // Card16 sentinel; // Used to delimit the last range element
-        void EndianSwap();
-    };
-    static_assert(sizeof(FDSelect_format3) == 3);
-
-    /*  struct: dict
-        Author: Philip Haynes
-        Information parsed from DICT charstrings with appropriate defaults.       */
-    struct dict {
-        // NOTE: Should we use f64 for all the real numbers since they're
-        //       not explicitly integers in any cases, at least per the spec?
-        SID version;
-        SID Notice;
-        SID Copyright;
-        SID FullName;
-        SID FamilyName;
-        SID Weight;
-        bool isFixedPitch = false;
-        i32 ItalicAngle = 0;
-        i32 UnderlinePosition = -100;
-        i32 UnderlineThickness = 50;
-        i32 PaintType = 0;
-        i32 CharstringType = 2;
-        Array<f32> FontMatrix = {0.001, 0.0, 0.0, 0.001, 0.0, 0.0};
-        i32 UniqueID;
-        Array<i32> FontBBox = {0, 0, 0, 0};
-        f32 StrokeWidth = 0.0;
-        Array<i32> XUID;
-        i32 charset = 0;
-        i32 Encoding = 0;
-        i32 CharStrings = -1;
-        struct {
-            i32 offset;
-            i32 size;
-        } Private;
-        i32 SyntheticBase;
-        SID PostScript;
-        SID BaseFontName;
-        Array<i32> BaseFontBlend; // Delta
-        //
-        //          Private DICT values
-        //
-        Array<i32> BlueValues; // Delta
-        Array<i32> OtherBlues; // Delta
-        Array<i32> FamilyBlues; // Delta
-        Array<i32> FamilyOtherBlues; // Delta
-        f32 BlueScale = 0.039625f;
-        f32 BlueShift = 7;
-        f32 BlueFuzz = 1;
-        f32 StdHW;
-        f32 StdVW;
-        Array<f32> StemSnapH; // Delta
-        Array<f32> StemSnapV; // Delta
-        bool ForceBold = false;
-        i32 LanguageGroup = 0;
-        f32 ExpansionFactor = 0.06f;
-        i32 initialRandomSeed = 0;
-        i32 Subrs; // Offset to local subrs, relative to start of Private DICT data
-        i32 defaultWidthX = 0;
-        i32 nominalWidthX = 0;
-        //
-        //          CIDFont Operator Extensions
-        //
-        struct {
-            SID registry;
-            SID ordering;
-            i32 supplement;
-        } ROS;
-        f32 CIDFontVersion = 0;
-        f32 CIDFontRevision = 0;
-        i32 CIDFontType = 0;
-        i32 CIDCount = 8720;
-        i32 UIDBase;
-        i32 FDArray = -1;
-        i32 FDSelect = -1;
-        SID FontName;
-        void ParseCharString(u8 *data, u32 size);
-        void ResolveOperator(u8 **data, u8 *firstOperand);
-    };
-
-    struct index {
-        Card16 count;               // Number of objects stored in this index
-        // If count is 0, then the entire struct is 2 bytes exactly, and everything past this point isn't there.
-        OffSize offSize;
-        /*  The rest of the data varies in size and offset as follows:
-        OffsetXX offset[count+1];   // Data type depend on offSize.
-            Offsets are relative to the byte preceding data.
-        Card8 data[...];
-        */
-        // Returns an Array of offsets into data
-        bool Parse(char **ptr, u8** dataStart, Array<u32> *dstOffsets, bool swapEndian);
-    };
-    static_assert(sizeof(index) == 3);
-
-    struct header {
-        Card8 versionMajor; // Should be at least 1
-        Card8 versionMinor; // We don't care about this unless we want to support extensions
-        Card8 size;         // Size of this header, used to locate the Name INDEX since it may vary between versions
-        OffSize offSize;    // Specifies the size of all offsets into the CFF data.
-        // At least that's what the spec says. It looks like actual fonts don't care about this value.
-    };
-    static_assert(sizeof(header) == 4);
-
-};
-
-/*  struct: cff
-    Author: Philip Haynes
-    Compact Font Format table.     */
-struct cff {
-    cffs::header header; // We probably only need version 1.0???
-    /* All data beyond this point is of variable offset
-        Starting at an offset of header.size
-    cffs::index nameIndex;
-    cffs::index dictIndex;
-    cffs::index stringsIndex;
-    cffs::index gsubrIndex; // Stands for Global Subroutines
-    */
-    bool Parse(struct cffParsed *parsed, bool swapEndian);
-};
-
 #pragma pack() // We want alignment for parsed data for maximum efficiency
 
 /*  struct: cffParsed
@@ -674,6 +443,13 @@ Contains pointers to all the INDEX's and any data decompressed for easier use.  
 struct cffParsed {
     bool active = false;    // Whether we're using CFF data or not.
     bool CIDFont = false;   // Whether we're a CID-keyed Font
+
+    head *header = nullptr;
+    maxp *maxProfile = nullptr;
+    hhea *horHeader = nullptr;
+    hmtx *horMetrics = nullptr;
+
+    cff *cffData;
     u8 *nameIndexData;
     u8 *dictIndexData;
     u8 *stringsIndexData;
@@ -693,7 +469,10 @@ struct cffParsed {
     Array<u32> gsubrIndexOffsets;
     Array<u32> charStringsIndexOffsets;
     Array<u32> fdArrayOffsets;
+    mutable Array<cffs::index*> privateIndicesAlreadySwapped; // Because these get read at Glyph retrieval
     cffs::dict dictIndexValues;
+    Glyph GetGlyph(u32 glyphIndex) const;
+    GlyphInfo GetGlyphInfo(u32 glyphIndex) const;
 };
 
 /*  struct: glyfParsed
@@ -719,4 +498,4 @@ struct glyfParsed {
 } // namespace font
 } // namespace AzCore
 
-#endif // FONT_TABLES_HPP
+#endif // AZCORE_FONT_TABLES_HPP

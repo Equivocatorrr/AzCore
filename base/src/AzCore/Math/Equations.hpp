@@ -85,7 +85,7 @@ template <typename T>
 SolutionCubic<T> SolveCubic(T a, T b, T c, T d)
 {
     SolutionCubic<T> solution;
-    if (a == T(0.0))
+    if (abs(max(max(b, c), d)/a) > T(2500000))
     {
         return SolveQuadratic<T>(b, c, d);
     }
@@ -102,37 +102,49 @@ SolutionCubic<T> SolveCubic(T a, T b, T c, T d)
     // substitute t for x to get
     // t^3 + pt + q
     // where t = (x + i/3), p = (j - i^2/3), and q = (k + 2i^3/27 - ij/3)
-    const T p = j - i * i / T(3.0);
-    const T q = -i * (T(2.0) * i * i - T(9.0) * j) / T(27.0) - k;
+    const T p = j - i * i / T(3);
+    const T q = -i * (T(2) * i * i - T(9) * j) / T(27) - k;
     const T p3 = p * p * p;
-    const T sqrD = q * q + p3 * T(4.0) / T(27.0);
-    const T offset = -i / T(3.0); // Since t = (x + i/3), x = t - i/3
-    if (sqrD > T(0.0))
+    const T sqrD = q * q + p3 * T(4) / T(27);
+    const T offset = -i / T(3); // Since t = (x + i/3), x = t - i/3
+    if (sqrD > T(0))
     {
         // We have a single real solution
         const T rootD = sqrt(sqrD);
-        const T u = cubert((q + rootD) * T(0.5));
-        const T v = cubert((q - rootD) * T(0.5));
+        const T u = cubert((q + rootD) / T(2));
+        const T v = cubert((q - rootD) / T(2));
         solution.root[0] = u + v + offset;
         solution.nReal = 1;
     }
-    else if (sqrD < T(0.0))
+    else if (sqrD < T(0))
     {
-        // We have 3 real solutions
-        const T u = T(2.0) * sqrt(-p / T(3.0));
-        const T v = acos(sqrt(T(-27.0) / p3) * q * T(0.5)) / T(3.0);
-        solution.root[0] = u * cos(v) + offset;
-        solution.root[1] = u * cos(v + T(tau64) / T(3.0)) + offset;
-        solution.root[2] = u * cos(v + T(tau64) * T(2.0) / T(3.0)) + offset;
-        solution.nReal = 3;
+        if (p != T(0)) {
+            // We have 3 real solutions
+            const T u = T(2) * sqrt(-p / T(3));
+            const T v = acos(sqrt(T(-27) / p3) * q / T(2)) / T(3);
+            solution.root[0] = u * cos(v) + offset;
+            solution.root[1] = u * cos(v + T(tau64) / T(3)) + offset;
+            solution.root[2] = u * cos(v + T(tau64) * T(2) / T(3)) + offset;
+            solution.nReal = 3;
+        } else {
+            // We have 1 tripled solution
+            solution.root[0] = offset;
+            solution.nReal = 1;
+        }
     }
     else
     {
-        // We have 2 real solutions
-        const T u = cubert(q * T(0.5));
-        solution.root[0] = u * T(2.0) + offset;
-        solution.root[1] = -u + offset;
-        solution.nReal = 2;
+        if (q != T(0)) {
+            // We have 2 real solutions
+            const T u = cubert(q / T(2));
+            solution.root[0] = u * T(2) + offset;
+            solution.root[1] = -u + offset;
+            solution.nReal = 2;
+        } else {
+            // We have 1 doubled solution
+            solution.root[0] = offset;
+            solution.nReal = 1;
+        }
     }
     return solution;
 }
@@ -196,12 +208,16 @@ SolutionQuartic<T> SolveQuartic(T a, T b, T c, T d, T e) {
         T base;
         T offset;
         offset = -T(4)*S*S - T(2)*p;
-        if (offset >= T(0)) {
+        if (offset + q/S >= T(0)) {
             base = -b/(T(4)*a) - S;
             offset = sqrt(offset + q/S) / T(2);
-        } else {
+        } else if (offset - q/S >= T(0)) {
             base = -b/(T(4)*a) + S;
             offset = sqrt(offset - q/S) / T(2);
+        } else {
+            // Precision errors might get us here maybe?
+            solution.nReal = 0;
+            return solution;
         }
         if (offset == T(0)) {
             // One doubled solution
@@ -227,30 +243,33 @@ SolutionQuartic<T> SolveQuartic(T a, T b, T c, T d, T e) {
             T base2 = -b/(T(4)*a) + S;
             T part1 = -T(4)*S*S - T(2)*p;
             T part2 = q/S;
-            T offset1 = sqrt(part1 + part2) / T(2);
-            T offset2;
-            if (part2 == T(0)) {
-                offset2 = offset1;
+            T body1 = part1 + part2;
+            T body2 = part1 - part2;
+            if (body1 >= T(0)) {
+                T offset1 = sqrt(body1) / T(2);
+                if (offset1 == T(0)) {
+                    // Doubled solution
+                    solution.nReal = 1;
+                    solution.root[0] = base1;
+                } else {
+                    // Unique solutions
+                    solution.nReal = 2;
+                    solution.root[0] = base1 + offset1;
+                    solution.root[1] = base1 - offset1;
+                }
             } else {
-                offset2 = sqrt(part1 - part2) / T(2);
+                solution.nReal = 0;
             }
-            if (offset1 == T(0)) {
-                // Doubled solution
-                solution.nReal = 1;
-                solution.root[0] = base1;
-            } else {
-                // Unique solutions
-                solution.nReal = 2;
-                solution.root[0] = base1 + offset1;
-                solution.root[1] = base1 - offset1;
-            }
-            if (offset2 == T(0)) {
-                // Doubled solution
-                solution.root[(i32)solution.nReal++] = base2;
-            } else {
-                // Unique solutions
-                solution.root[(i32)solution.nReal++] = base2 + offset2;
-                solution.root[(i32)solution.nReal++] = base2 - offset2;
+            if (body2 >= T(0)) {
+                T offset2 = sqrt(body2) / T(2);
+                if (offset2 == T(0)) {
+                    // Doubled solution
+                    solution.root[(i32)solution.nReal++] = base2;
+                } else {
+                    // Unique solutions
+                    solution.root[(i32)solution.nReal++] = base2 + offset2;
+                    solution.root[(i32)solution.nReal++] = base2 - offset2;
+                }
             }
         }
     }
@@ -273,7 +292,7 @@ struct SolutionQuintic
 template <typename T>
 SolutionQuintic<T> SolveQuintic(T a, T b, T c, T d, T e, T f) {
     SolutionQuintic<T> solution;
-    if (a == T(0)) {
+    if (abs(max(b, max(c, max(d, max(e, f))))/a) > T(50000000)) {
         // We're not a quintic in the first place
         return SolveQuartic(b, c, d, e, f);
     }
@@ -301,7 +320,7 @@ SolutionQuintic<T> SolveQuintic(T a, T b, T c, T d, T e, T f) {
         bool positive = output > T(0);
         if (positive != lastPositive) {
             // 1/slope should take you approximately to zero
-            strength = T(1)/abs((output-lastOutput)/(input-lastInput));
+            strength = min(strength, T(1)/abs((output-lastOutput)/(input-lastInput)));
         }
         lastInput = input;
         input -= output*strength;

@@ -22,7 +22,7 @@ i32 main(i32 argumentCount, char **argumentValues) {
         cout << "Failed to load font: " << font::error << std::endl;
         return 1;
     }
-    WString string = ToWString("私ñÑēÈèéîêâô∵…ėȯȧıëäöïü学元気出区電話番号이작품희망");
+    WString string = ToWString("ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890[]/=?+_-\"<>',.\\|~!@#$%^&*(){}私ñÑēÈèéîêâô∵…ėȯȧıëäöïü学元気出区電話番号이작품희망");
     // for (u32 i = 0; i < 256; i++) {
     //     for (char32 c : string) {
     //         font.PrintGlyph(c);
@@ -33,22 +33,24 @@ i32 main(i32 argumentCount, char **argumentValues) {
     //         font.PrintGlyph(c);
     //     }
     // }
-    // font.PrintGlyph((char32)'2');
+    // font.PrintGlyph((char32)'o');
     font::FontBuilder fontBuilder;
     fontBuilder.font = &font;
-    for (i32 i = 0; i < 65536; i+=64) {
-        // cout << "AddRange" << std::endl;
-        if (!fontBuilder.AddRange(i, i+63)) {
-            cout << "Failed fontBuilder.AddRange: " << font::error << std::endl;
-            return 1;
-        }
-        // cout << "Build" << std::endl;
+    fontBuilder.resolution = font::FontBuilder::HIGH;
+    fontBuilder.AddString(string);
+    // for (i32 i = 0; i < 1024; i+=64) {
+    //     // cout << "AddRange" << std::endl;
+    //     if (!fontBuilder.AddRange(i, i+63)) {
+    //         cout << "Failed fontBuilder.AddRange: " << font::error << std::endl;
+    //         return 1;
+    //     }
+    //     // cout << "Build" << std::endl;
         if (!fontBuilder.Build()) {
             cout << "Failed fontBuilder.Build: " << font::error << std::endl;
             return 1;
         }
-    }
-    cout << "Total time: " << std::chrono::duration_cast<Milliseconds>(Clock::now()-start).count() << "ms" << std::endl;
+    // }
+    cout << "Total time: " << FormatTime(Clock::now() - start) << std::endl;
     stbi_write_png("data/atlas.png", fontBuilder.dimensions.x, fontBuilder.dimensions.y, 1, fontBuilder.pixels.data, fontBuilder.dimensions.x);
     return 0;
 }

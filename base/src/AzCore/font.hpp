@@ -28,9 +28,33 @@ namespace font {
 
     extern const f32 sdfDistance;
 
+    /*  struct: Curve2
+        Author: Philip Haynes
+        Defines a single cubic bezier curve.          */
+    struct Curve2 {
+        vec2 p1, p2, p3, p4;
+        // Intersection assumes the ray is traveling in the x-positive direction from the point.
+        // Returns:
+        //      1 for clockwise-winding intersection
+        //      -1 for counter-clockwise-winding intersection
+        //      0 for no intersection
+        i32 Intersection(const vec2 &point) const;
+        inline vec2 Point(const f32& t) const {
+            const f32 tInv = 1.0f - t;
+            const f32 t2 = t*t;
+            const f32 tInv2 = tInv*tInv;
+            return p1 * tInv2*tInv + (p2 * tInv2*t + p3 * t2*tInv) * 3.0f + p4 * t2*t;
+        }
+        f32 DistanceLess(const vec2 &point, f32 distSquared) const;
+        void Scale(const mat2& scale);
+        void Offset(const vec2& offset);
+        void Print(io::LogStream &cout);
+    };
+    static_assert(sizeof(Curve2) == 32);
+
     /*  struct: Curve
         Author: Philip Haynes
-        Defines a single bezier curve.          */
+        Defines a single quadtratic bezier curve.          */
     struct Curve {
         vec2 p1, p2, p3;
         // Intersection assumes the ray is traveling in the x-positive direction from the point.
@@ -46,6 +70,7 @@ namespace font {
         f32 DistanceLess(const vec2 &point, f32 distSquared) const;
         void Scale(const mat2& scale);
         void Offset(const vec2& offset);
+        void Print(io::LogStream &cout);
     };
     static_assert(sizeof(Curve) == 24);
 
@@ -58,6 +83,7 @@ namespace font {
         f32 DistanceLess(const vec2 &point, f32 distSquared) const;
         void Scale(const mat2& scale);
         void Offset(const vec2& offset);
+        void Print(io::LogStream &cout);
     };
     static_assert(sizeof(Line) == 16);
 
@@ -86,6 +112,7 @@ namespace font {
         Defines a single glyph, including all the contours.     */
     struct Glyph {
         // All coordinates are in Em units
+        Array<Curve2> curve2s{};
         Array<Curve> curves{};
         Array<Line> lines{};
         Array<Component> components{};
@@ -96,6 +123,9 @@ namespace font {
         void AddFromGlyfPoints(glyfPoint *glyfPoints, i32 count);
         void Scale(const mat2& scale);
         void Offset(const vec2& offset);
+        void Print(io::LogStream &cout);
+        // Converts curves into lines if they're actually linear
+        Glyph& Simplify();
     };
 
     /*  struct: Font

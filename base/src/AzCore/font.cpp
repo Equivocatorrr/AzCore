@@ -184,7 +184,7 @@ i32 Curve::Intersection(const vec2 &point) const {
     f32 a, b, c; // coefficients of the curve: y = ax^2 + bx + c
     a = p3.y - 2.0f*p2.y + p1.y;
     b = 2.0f*(p2.y - p1.y);
-    if (a == 0.0f) {
+    if (abs(a) < 0.0000001f) {
         Line line{p1, p3};
         return line.Intersection(point);
     }

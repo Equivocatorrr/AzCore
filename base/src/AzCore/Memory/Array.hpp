@@ -713,6 +713,76 @@ struct Array
         return data[index] = value;
     }
 
+    Range<T> Insert(const i32 index, const Array<T, allocTail> &other) {
+        Array<T, allocTail> array(other);
+        return Insert(index, std::move(array));
+    }
+
+    Range<T> Insert(const i32 index, Array<T, allocTail> &&other) {
+#ifndef MEMORY_NO_BOUNDS_CHECKS
+        if (index > size)
+        {
+            throw std::out_of_range("Array::Insert index is out of bounds");
+        }
+#endif
+        if (size == 0) {
+            *this = std::move(other);
+            return GetRange(0, size);
+        }
+        if (size+other.size > allocated) {
+            const bool doDelete = allocated != 0;
+            allocated += (allocated >> 1) + 2;
+            if (allocated < size+other.size) allocated = size+other.size;
+            T *temp = new T[allocated + allocTail];
+            if constexpr (std::is_trivially_copyable<T>::value)
+            {
+                if (index > 0)
+                {
+                    memcpy((void *)temp, (void *)data, sizeof(T) * index);
+                }
+                memcpy((void *)(temp + index), (void *)other.data, sizeof(T) * other.size);
+                if (size - index > 0)
+                {
+                    memcpy((void *)(temp + index + other.size), (void *)(data + index),
+                        sizeof(T) * (size - index));
+                }
+            }
+            else
+            {
+                for (i32 i = 0; i < index; i++)
+                {
+                    temp[i] = std::move(data[i]);
+                }
+                for (i32 i = 0; i < other.size; i++) {
+                    temp[index+i] = std::move(other[i]);
+                }
+                for (i32 i = index; i < size; i++)
+                {
+                    temp[i+other.size] = std::move(data[i]);
+                }
+            }
+            if (doDelete)
+            {
+                delete[] data;
+            }
+            data = temp;
+            size += other.size;
+            other.Clear();
+            SetTerminator();
+            return GetRange(index, other.size);
+        }
+        size += other.size;
+        for (i32 i = size - 1; i > index; i--) {
+            data[i] = std::move(data[i - other.size]);
+        }
+        for (i32 i = 0; i < other.size; i++) {
+            data[index + i] = std::move(other.data[i]);
+        }
+        other.Clear();
+        SetTerminator();
+        return GetRange(index, other.size);
+    }
+
     void Erase(const i32 index, const i32 count=1)
     {
 #ifndef MEMORY_NO_BOUNDS_CHECKS

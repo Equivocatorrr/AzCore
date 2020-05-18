@@ -25,15 +25,29 @@ Ex: io::cout << "Say it ain't so!!" << std::endl;
 Entries in this class will be printed to terminal and a log file.   */
 class LogStream {
     std::ofstream fstream;
+    bool openAttempt;
     bool logFile;
     bool logConsole;
     bool flushed;
     Mutex mutex;
     String prepend;
+    String filename;
+
+    inline void HandleFileOpening() {
+        if (openAttempt) return;
+
+        fstream.open(filename.data);
+        if (!fstream.is_open()) {
+            logFile = false;
+        }
+
+        openAttempt = true;
+    }
 public:
     LogStream();
     LogStream(String logFilename, bool console=true);
     template<typename T> LogStream& operator<<(const T& something) {
+        HandleFileOpening();
         if (logConsole) {
             if (flushed && prepend.size != 0) {
                 std::cout.write(prepend.data, prepend.size);

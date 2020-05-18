@@ -9,17 +9,12 @@ namespace AzCore {
 namespace io {
 
 LogStream::LogStream() :
-fstream("log.log"), logFile(true), logConsole(true),
-flushed(true), prepend("") {
-    if (!fstream.is_open()) {
-        std::cout << "Failed to open log.log for writing" << std::endl;
-        logFile = false;
-    }
-}
+fstream(), openAttempt(false), logFile(true), logConsole(true),
+flushed(true), prepend(""), filename("log.log") {}
 
 LogStream::LogStream(String logFilename, bool console) :
-fstream(logFilename.data), logFile(true),
-logConsole(console), flushed(true) {
+fstream(), openAttempt(false), logFile(true),
+logConsole(console), flushed(true), filename(logFilename) {
     String logFilenameNoDirectories;
     u32 lastSlash = 0;
     for (i32 i = 0; i < logFilename.size; i++) {
@@ -33,15 +28,10 @@ logConsole(console), flushed(true) {
     for (u32 i = prepend.size; i <= 16; i++) {
         prepend += " ";
     }
-    if (!fstream.is_open()) {
-        std::cout << "Failed to open ";
-        std::cout.write(logFilename.data, logFilename.size);
-        std::cout << " for writing" << std::endl;
-        logFile = false;
-    }
 }
 
 LogStream& LogStream::operator<<(const char* string) {
+    HandleFileOpening();
     if (logConsole) {
         String actualOutput;
         if (prepend.size != 0) {
@@ -76,6 +66,7 @@ LogStream& LogStream::operator<<(const String& string) {
 }
 
 LogStream& LogStream::operator<<(stream_function func) {
+    HandleFileOpening();
     if (logConsole) {
         if (func == &std::endl<char, std::char_traits<char>>) {
             flushed = true;

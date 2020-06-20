@@ -6,12 +6,19 @@
 #ifndef AZCORE_STRING_HPP
 #define AZCORE_STRING_HPP
 
-#include "Array.hpp"
+#include "ArrayWithBucket.hpp"
 
 namespace AzCore {
 
-using String = Array<char, 1>;
-using WString = Array<char32, 1>;
+#define AZCORE_STRING_WITH_BUCKET
+#ifdef AZCORE_STRING_WITH_BUCKET
+    // Both of these should fit in two cache lines each.
+    using String = ArrayWithBucket<char, 16/sizeof(char), 1>;
+    using WString = ArrayWithBucket<char32, 16/sizeof(char32), 1>;
+#else
+    using String = Array<char, 1>;
+    using WString = Array<char32, 1>;
+#endif
 
 String operator+(const char *cString, String &&string);
 String operator+(const char *cString, const String &string);

@@ -1,107 +1,43 @@
 /*
-    File: Array.hpp
+    File: ArrayWithBucket.hpp
     Author: Philip Haynes
-    Defines a dynamic array template and some associated functions and structures.
+    A variation on ArrayWithBucket that has some static storage space for small Arrays.
 */
-
-#ifndef AZCORE_ARRAY_HPP
-#define AZCORE_ARRAY_HPP
+#ifndef AZCORE_ARRAYWITHBUCKET_HPP
+#define AZCORE_ARRAYWITHBUCKET_HPP
 
 #include "../basictypes.hpp"
-#include "Ptr.hpp"
-#include "Range.hpp"
+#include "Array.hpp"
 #include <stdexcept> // std::out_of_range
 #include <initializer_list>
 #include <type_traits> // std::is_trivially_copyable
-#include <cstring> // memcpy
+#include <cstring>     // memcpy
 
 namespace AzCore {
 
-/*  struct: StringTerminators
-    Author: Philip Haynes
-    If you want to use value-terminated strings with Arrays or StringLength, the correct
-    string terminator must be declared somewhere in a .cpp file. char and char32 are already set.  */
-template <typename T>
-struct StringTerminators
-{
-    static const T value;
-};
-/* Macro to easily set a terminator. Must be called from one and only one .cpp file.
-   Definitions for char and char32 are already set. */
-#define AZCORE_STRING_TERMINATOR(TYPE, VAL) template <> \
-                                     const TYPE AzCore::StringTerminators<TYPE>::value = VAL
-
-/*  i32 StringLength(const T *string)
-    Author: Philip Haynes
-    Finds the length of a value-terminated string. The type T must have an
-    associated StringTerminators declared somewhere. */
-template <typename T>
-i32 StringLength(const T *string)
-{
-    i32 length = 0;
-    for (; string[length] != StringTerminators<T>::value; length++)
-    {
-    }
-    return length;
-}
-
-/*  class: ArrayIterator
-    Author: Philip Haynes
-    Because const correctness can't work without it...      */
-template <typename T>
-class ArrayIterator
-{
-    T *data;
-
-public:
-    ArrayIterator() : data(nullptr) {}
-    ArrayIterator(T *d) : data(d) {}
-    bool operator!=(const ArrayIterator<T> &other) const
-    {
-        return data != other.data;
-    }
-    const ArrayIterator<T> &operator++()
-    {
-        data++;
-        return *this;
-    }
-    const T &operator*() const
-    {
-        return *data;
-    }
-};
-
-/*  struct: Array
-    Author: Philip Haynes
-    A templated dynamic array which is guaranteed to be 16 bytes on a 64-bit architecture.
-    allocTail is the number of elements of type T to be set at the end of the valid data,
-    starting at data[size].
-    For an allocTail != 0, an associated StringTerminators must be declared for type T. */
-template <typename T, i32 allocTail=0>
-struct Array {
+template <typename T, i32 noAllocCount, i32 allocTail=0>
+struct ArrayWithBucket {
+    static_assert(noAllocCount > 0);
     T *data;
     i32 allocated;
     i32 size;
+    T noAllocData[noAllocCount];
 
-    inline void _SetTerminator()
-    {
+    inline void _SetTerminator() {
         if constexpr (allocTail != 0) {
-            if (allocated == 0) {
-                data = (T *)&StringTerminators<T>::value;
-            } else {
-                for (i32 i = size; i < size + allocTail; i++) {
-                    data[i] = StringTerminators<T>::value;
-                }
+            for (i32 i = size; i < size + allocTail; i++) {
+                data[i] = StringTerminators<T>::value;
             }
         }
     }
     inline void _Initialize(const i32 newSize) {
         size = newSize;
-        allocated = newSize;
-        if (newSize > 0) {
+        if (newSize+allocTail > noAllocCount) {
+            allocated = newSize;
             data = new T[allocated + allocTail];
         } else {
-            data = nullptr;
+            allocated = 0;
+            data = noAllocData;
         }
     }
     inline void _Deinitialize() {
@@ -109,7 +45,8 @@ struct Array {
             delete[] data;
         }
     }
-    inline void _Copy(const Array &other) {
+
+    inline void _Copy(const ArrayWithBucket &other) {
         if constexpr (std::is_trivially_copyable<T>::value) {
             memcpy((void *)data, (void *)other.data, sizeof(T) * size);
         } else {
@@ -118,6 +55,7 @@ struct Array {
             }
         }
     }
+
     inline void _Copy(const std::initializer_list<T> &init) {
         i32 i = 0;
         for (const T &val : init) {
@@ -126,15 +64,21 @@ struct Array {
     }
     // Let go of allocations without deleting them.
     inline void _Drop() {
-        data = nullptr;
+        data = noAllocData;
         size = 0;
         allocated = 0;
     }
-    // Take the allocations and/or values from another Array.
-    inline void _Acquire(Array &&other) {
+    // Take the allocations and/or values from another ArrayWithBucket.
+    inline void _Acquire(ArrayWithBucket &&other) {
         allocated = other.allocated;
         size = other.size;
-        data = other.data;
+        if (allocated) {
+            data = other.data;
+        } else {
+            data = noAllocData;
+            _Copy(other);
+            _SetTerminator();
+        }
     }
     void Clear() {
         _Deinitialize();
@@ -142,41 +86,40 @@ struct Array {
         _SetTerminator();
     }
 
-    Array() {
+    ArrayWithBucket() {
         _Initialize(0);
         _SetTerminator();
     }
-    Array(const i32 newSize) {
+    ArrayWithBucket(const i32 newSize) {
         _Initialize(newSize);
         _SetTerminator();
     }
-    Array(const i32 newSize, const T &value) {
+    ArrayWithBucket(const i32 newSize, const T &value) {
         _Initialize(newSize);
         for (i32 i = 0; i < size; i++) {
             data[i] = value;
         }
         _SetTerminator();
     }
-    inline Array(const u32 newSize) : Array((i32)newSize) {}
-    inline Array(const u32 newSize, const T &value) : Array((i32)newSize, value) {}
-    Array(const std::initializer_list<T> &init) {
+    inline ArrayWithBucket(const u32 newSize) : ArrayWithBucket((i32)newSize) {}
+    inline ArrayWithBucket(const u32 newSize, const T &value) : ArrayWithBucket((i32)newSize, value) {}
+    ArrayWithBucket(const std::initializer_list<T> &init) {
         _Initialize(init.size());
         _Copy(init);
         _SetTerminator();
     }
 
-    Array(const Array &other) {
+    ArrayWithBucket(const ArrayWithBucket &other) {
         _Initialize(other.size);
         _Copy(other);
         _SetTerminator();
     }
-    Array(Array &&other) noexcept {
+    ArrayWithBucket(ArrayWithBucket &&other) noexcept {
         _Acquire(std::move(other));
         other._Drop();
-        _SetTerminator();
     }
 
-    Array(const T *string) {
+    ArrayWithBucket(const T *string) {
         _Initialize(StringLength(string));
         if constexpr (std::is_trivially_copyable<T>::value) {
             memcpy((void *)data, (void *)string, sizeof(T) * size);
@@ -188,12 +131,12 @@ struct Array {
         _SetTerminator();
     }
 
-    Array(const Range<T> &range) {
+    ArrayWithBucket(const Range<T> &range) {
         _Initialize(range.size);
         if (range.index >= 0) {
             if constexpr (std::is_trivially_copyable<T>::value) {
                 memcpy((void *)data,
-                    (void *)(((Array<T, allocTail>*)range.ptr)->data + range.index),
+                    (void *)(((ArrayWithBucket<T,allocTail,noAllocCount>*)range.ptr)->data + range.index),
                     sizeof(T) * size);
             } else {
                 for (i32 i = 0; i < size; i++) {
@@ -202,7 +145,7 @@ struct Array {
             }
         } else {
             i32 i = 0;
-            for (const auto &it : range) {
+            for (const T &it : range) {
                 data[i] = it;
                 i++;
             }
@@ -210,28 +153,27 @@ struct Array {
         _SetTerminator();
     }
 
-    ~Array() {
+    ~ArrayWithBucket() {
         _Deinitialize();
     }
 
-    Array<T, allocTail>&
-    operator=(const Array &other) {
+    ArrayWithBucket<T, noAllocCount, allocTail>&
+    operator=(const ArrayWithBucket &other) {
         Resize(other.size);
         _Copy(other);
         _SetTerminator();
         return *this;
     }
-    Array<T, allocTail>&
-    operator=(Array &&other) {
+    ArrayWithBucket<T, noAllocCount, allocTail>&
+    operator=(ArrayWithBucket &&other) {
         _Deinitialize();
         _Acquire(std::move(other));
         _SetTerminator();
         other._Drop();
-        other._SetTerminator();
         return *this;
     }
 
-    Array<T, allocTail>&
+    ArrayWithBucket<T, noAllocCount, allocTail>&
     operator=(const std::initializer_list<T> &init) {
         Resize(init.size());
         if (size != 0) {
@@ -241,7 +183,7 @@ struct Array {
         return *this;
     }
 
-    Array<T, allocTail>&
+    ArrayWithBucket<T, noAllocCount, allocTail>&
     operator=(const T *string) {
         Resize(StringLength(string));
         for (i32 i = 0; i < size; i++) {
@@ -251,7 +193,7 @@ struct Array {
         return *this;
     }
 
-    bool operator==(const Array &other) const {
+    bool operator==(const ArrayWithBucket &other) const {
         if (size != other.size) {
             return false;
         }
@@ -288,11 +230,11 @@ struct Array {
         return true;
     }
 
-    bool operator!=(const Array &other) const {
+    bool operator!=(const ArrayWithBucket &other) const {
         return !(*this == other);
     }
 
-    bool operator<(const Array &other) const {
+    bool operator<(const ArrayWithBucket &other) const {
         for (i32 i = 0; i < size && i < other.size; i++) {
             if (data[i] < other.data[i]) return true;
             if (data[i] > other.data[i]) return false;
@@ -302,8 +244,8 @@ struct Array {
 
     const T &operator[](const i32 index) const {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
-        if (index > size) {
-            throw std::out_of_range("Array index is out of bounds");
+        if (index > size) { // Negative values should be large in a u32
+            throw std::out_of_range("ArrayWithBucket index is out of bounds");
         }
 #endif
         return data[index];
@@ -312,43 +254,43 @@ struct Array {
     T &operator[](const i32 index) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index > size) {
-            throw std::out_of_range("Array index is out of bounds");
+            throw std::out_of_range("ArrayWithBucket index is out of bounds");
         }
 #endif
         return data[index];
     }
 
-    Array<T, allocTail>
+    ArrayWithBucket<T, noAllocCount, allocTail>
     operator+(T &&other) const {
-        Array<T, allocTail> result(*this);
+        ArrayWithBucket<T, noAllocCount, allocTail> result(*this);
         result.Append(std::move(other));
         return result;
     }
 
-    Array<T, allocTail>
+    ArrayWithBucket<T, noAllocCount, allocTail>
     operator+(const T &other) const {
-        Array<T, allocTail> result(*this);
+        ArrayWithBucket<T, noAllocCount, allocTail> result(*this);
         result.Append(other);
         return result;
     }
 
-    Array<T, allocTail>
+    ArrayWithBucket<T, noAllocCount, allocTail>
     operator+(const T *string) const {
-        Array<T, allocTail> result(*this);
+        ArrayWithBucket<T, noAllocCount, allocTail> result(*this);
         result.Append(string);
         return result;
     }
 
-    Array<T, allocTail>
-    operator+(Array &&other) const {
-        Array<T, allocTail> result(*this);
+    ArrayWithBucket<T, noAllocCount, allocTail>
+    operator+(ArrayWithBucket &&other) const {
+        ArrayWithBucket<T, noAllocCount, allocTail> result(*this);
         result.Append(std::move(other));
         return result;
     }
 
-    Array<T, allocTail>
-    operator+(const Array &other) const {
-        Array<T, allocTail> result(*this);
+    ArrayWithBucket<T, noAllocCount, allocTail>
+    operator+(const ArrayWithBucket &other) const {
+        ArrayWithBucket<T, noAllocCount, allocTail> result(*this);
         result.Append(other);
         return result;
     }
@@ -361,23 +303,23 @@ struct Array {
         return Append(value);
     }
 
-    inline Array<T, allocTail>&
-    operator+=(const Array &other) {
+    inline ArrayWithBucket<T, noAllocCount, allocTail>&
+    operator+=(const ArrayWithBucket &other) {
         return Append(other);
     }
 
-    inline Array<T, allocTail>&
-    operator+=(Array &&other) {
+    inline ArrayWithBucket<T, noAllocCount, allocTail>&
+    operator+=(ArrayWithBucket &&other) {
         return Append(std::move(other));
     }
 
-    inline Array<T, allocTail>&
+    inline ArrayWithBucket<T, noAllocCount, allocTail>&
     operator+=(const T *string) {
         return Append(string);
     }
 
     void Reserve(i32 newSize) {
-        if (newSize <= allocated) {
+        if (newSize <= allocated || newSize+allocTail <= noAllocCount) {
             return;
         }
         const bool doDelete = allocated != 0;
@@ -404,13 +346,13 @@ struct Array {
         if (allocated) {
             data = new T[allocated + allocTail];
         } else {
-            data = nullptr;
+            data = noAllocData;
         }
         _SetTerminator();
     }
 
     inline void _Grow(i32 minSize) {
-        if (minSize > allocated) {
+        if (minSize > allocated && minSize+allocTail > noAllocCount) {
             i32 growth = (allocated >> 1) + 2;
             Reserve(minSize >= growth ? minSize : growth);
         }
@@ -457,7 +399,7 @@ struct Array {
         return data[size - 1] = std::move(value);
     }
 
-    Array<T, allocTail> &Append(const T *string) {
+    ArrayWithBucket<T, noAllocCount, allocTail> &Append(const T *string) {
         i32 newSize = size + StringLength(string);
         Reserve(newSize);
         for (i32 i = size; i < newSize; i++) {
@@ -468,17 +410,14 @@ struct Array {
         return *this;
     }
 
-    Array<T, allocTail>&
-    Append(const Array &other) {
-        Array<T, allocTail> value(other);
+    ArrayWithBucket<T, noAllocCount, allocTail>&
+    Append(const ArrayWithBucket &other) {
+        ArrayWithBucket<T, noAllocCount, allocTail> value(other);
         return Append(std::move(value));
     }
 
-    Array<T, allocTail>&
-    Append(Array &&other) {
-        if (size == 0) {
-            return *this = std::move(other);
-        }
+    ArrayWithBucket<T, noAllocCount, allocTail>&
+    Append(ArrayWithBucket &&other) {
         i32 copyStart = size;
         Resize(size + other.size);
         if constexpr (std::is_trivially_copyable<T>::value) {
@@ -501,10 +440,10 @@ struct Array {
     T &Insert(const i32 index, T &&value) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index > size) {
-            throw std::out_of_range("Array::Insert index is out of bounds");
+            throw std::out_of_range("ArrayWithBucket::Insert index is out of bounds");
         }
 #endif
-        if (size >= allocated) {
+        if (size >= allocated && size >= noAllocCount) {
             const bool doDelete = allocated != 0;
             allocated += (allocated >> 1) + 2;
             T *temp = new T[allocated + allocTail];
@@ -543,15 +482,15 @@ struct Array {
         return data[index] = std::move(value);
     }
 
-    Range<T> Insert(const i32 index, const Array<T, allocTail> &other) {
-        Array<T, allocTail> array(other);
+    Range<T> Insert(const i32 index, const ArrayWithBucket<T, allocTail> &other) {
+        ArrayWithBucket<T, allocTail> array(other);
         return Insert(index, std::move(array));
     }
 
-    Range<T> Insert(const i32 index, Array &&other) {
+    Range<T> Insert(const i32 index, ArrayWithBucket &&other) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
-        if (index > size) {
-            throw std::out_of_range("Array::Insert index is out of bounds");
+        if (*((u32*)&index) > size) {
+            throw std::out_of_range("ArrayWithBucket::Insert index is out of bounds");
         }
 #endif
         if (size == 0) {
@@ -609,7 +548,7 @@ struct Array {
     void Erase(const i32 index, const i32 count=1) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index+count > size && index >= 0) {
-            throw std::out_of_range("Array::Erase index is out of bounds");
+            throw std::out_of_range("ArrayWithBucket::Erase index is out of bounds");
         }
 #endif
         size -= count;
@@ -626,7 +565,7 @@ struct Array {
         _SetTerminator();
     }
 
-    Array<T, allocTail> &Reverse() {
+    ArrayWithBucket<T, noAllocCount, allocTail> &Reverse() {
         for (i32 i = 0; i < size / 2; i++) {
             T buf = std::move(data[i]);
             data[i] = std::move(data[size - i - 1]);
@@ -673,26 +612,26 @@ struct Array {
     Ptr<T> GetPtr(const i32 &index, bool fromBack = false) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index >= (size + (i32)fromBack)) {
-            throw std::out_of_range("Array::GetPtr index is out of bounds");
+            throw std::out_of_range("ArrayWithBucket::GetPtr index is out of bounds");
         }
 #endif
         if (fromBack) {
-            return Ptr<T>(this, index - size);
+            return Ptr<T>((Array<T,0>*)this, index - size);
         } else {
-            return Ptr<T>(this, index);
+            return Ptr<T>((Array<T,0>*)this, index);
         }
     }
 
     Range<T> GetRange(const i32 &index, const i32 &_size) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index + _size > size && index >= 0) {
-            throw std::out_of_range("Array::Range index + size is out of bounds");
+            throw std::out_of_range("ArrayWithBucket::Range index + size is out of bounds");
         }
 #endif
-        return Range<T>(this, index, _size);
+        return Range<T>((Array<T,0>*)this, index, _size);
     }
 };
 
 } // namespace AzCore
 
-#endif // AZCORE_ARRAY_HPP
+#endif // AZCORE_ARRAYWITHBUCKET_HPP

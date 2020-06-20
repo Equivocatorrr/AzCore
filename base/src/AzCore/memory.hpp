@@ -12,6 +12,7 @@
 
 #include "Memory/Endian.hpp"
 #include "Memory/Array.hpp"
+#include "Memory/ArrayWithBucket.hpp"
 #include "Memory/String.hpp"
 #include "Memory/List.hpp"
 #include "Memory/ArrayList.hpp"
@@ -45,7 +46,24 @@ using WeakPtr = std::weak_ptr<T>;
 Array<char> FileContents(String filename);
 
 template<typename T, i32 allocTail>
-Array<Range<T>> SeparateByValues(Array<T, allocTail> *array, const Array<T> &values) {
+Array<Range<T>> SeparateByValues(Array<T, allocTail> *array, const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values) {
+    Array<Range<T>> result;
+    i32 rangeStart = 0;
+    for (i32 i = 0; i < array->size; i++) {
+        if (values.Contains(array->data[i])) {
+            result.Append(array->GetRange(rangeStart, i-rangeStart));
+            rangeStart = i+1;
+        }
+    }
+    if (rangeStart < array->size) {
+        result.Append(array->GetRange(rangeStart, array->size-rangeStart));
+    }
+    return result;
+}
+
+template<typename T, i32 allocTail, i32 noAllocCount>
+Array<Range<T>> SeparateByValues(ArrayWithBucket<T, noAllocCount, allocTail> *array,
+        const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values) {
     Array<Range<T>> result;
     i32 rangeStart = 0;
     for (i32 i = 0; i < array->size; i++) {

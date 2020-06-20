@@ -15,15 +15,14 @@ flushed(true), prepend(""), filename("log.log") {}
 LogStream::LogStream(String logFilename, bool console) :
 fstream(), openAttempt(false), logFile(true),
 logConsole(console), flushed(true), filename(logFilename) {
-    String logFilenameNoDirectories;
     u32 lastSlash = 0;
-    for (i32 i = 0; i < logFilename.size; i++) {
-        if (logFilename[i] == '\\' || logFilename[i] == '/') {
+    for (i32 i = 0; i < filename.size; i++) {
+        if (filename[i] == '\\' || filename[i] == '/') {
             lastSlash = i+1;
         }
     }
     prepend = "[";
-    prepend += logFilename.data+lastSlash;
+    prepend += filename.data+lastSlash;
     prepend += "] ";
     for (u32 i = prepend.size; i <= 16; i++) {
         prepend += " ";

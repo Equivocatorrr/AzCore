@@ -53,6 +53,14 @@ struct RangeIterator {
             return *(T*)ptr;
         }
     }
+    const T& operator*() const {
+        if (iteration >= 0) {
+            ListIndex<T> *listIndex = (ListIndex<T>*)ptr;
+            return listIndex->value;
+        } else {
+            return *(T*)ptr;
+        }
+    }
 };
 
 /*  struct: Range
@@ -66,27 +74,25 @@ struct Range
     i32 size = 0;
     Range() {}
     template<i32 allocTail>
-    Range(Array<T,allocTail> *a, i32 i, i32 s)
-    {
-        ptr = a;
+    Range(Array<T, allocTail> *a, i32 i, i32 s) {
+        ptr = (void*)a;
         index = i;
         size = s;
     }
-    Range(List<T> *a, i32 i, i32 s)
-    {
+    Range(List<T> *a, i32 i, i32 s) {
         ListIndex<T> *it = a->first;
         for (index = 0; index < i; index++)
         {
             it = it->next;
         }
-        ptr = it;
+        ptr = (void*)it;
         index = -1;
         size = s;
     }
     template<i32 allocTail>
     void Set(Array<T,allocTail> *a, i32 i, i32 s)
     {
-        ptr = a;
+        ptr = (void*)a;
         index = i;
         size = s;
     }
@@ -97,7 +103,7 @@ struct Range
         {
             it = it->next;
         }
-        ptr = it;
+        ptr = (void*)it;
         index = -1;
         size = s;
     }
@@ -174,14 +180,14 @@ struct Range
         }
     }
 
-    RangeIterator<T> begin() {
+    RangeIterator<T> begin() const {
         if (index >= 0) {
             return RangeIterator(&((Array<T,0>*)ptr)->data[index]);
         } else {
             return RangeIterator((ListIndex<T>*)ptr, 0);
         }
     }
-    RangeIterator<T> end() {
+    RangeIterator<T> end() const {
         if (index >= 0) {
             return RangeIterator(&((Array<T,0>*)ptr)->data[index] + size);
         } else {

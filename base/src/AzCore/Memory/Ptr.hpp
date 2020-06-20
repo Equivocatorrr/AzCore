@@ -24,7 +24,7 @@ struct Ptr
     union {
         void *ptr;
         T *raw;
-        Array<T, 0> *array;
+        Array<T,0> *array;
     };
     i32 index;
     constexpr Ptr(const Ptr<T> &other) : ptr(other.ptr), index(other.index) {}
@@ -33,13 +33,18 @@ struct Ptr
     constexpr Ptr<T>& operator=(Ptr<T> &&other) { ptr = other.ptr; index = other.index; return *this; }
     Ptr() = default;
     constexpr Ptr(T *a) : raw(a), index(indexIndicatingRaw) {}
-    constexpr Ptr(Array<T,0> *a, i32 i) : array(a), index(i) {}
-    void Set(Array<T,0> *a, i32 i) {
-        ptr = a;
+
+    template<i32 allocTail>
+    constexpr Ptr(Array<T,allocTail> *a, i32 i) :
+        array((Array<T,0>*)a), index(i) {}
+
+    template<i32 allocTail>
+    void Set(Array<T,allocTail> *a, i32 i) {
+        array = (Array<T,0>*)a;
         index = i;
     }
     void Set(T *a) {
-        ptr = a;
+        raw = a;
         index = indexIndicatingRaw;
     }
     bool Valid() const {

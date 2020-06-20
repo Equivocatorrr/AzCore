@@ -26,7 +26,7 @@ AZCORE_DEPS_IO_W = $(patsubst %,$(AZCORE_BASE)/src/AzCore/IO/%,$(_AZCORE_DEPS_IO
 _AZCORE_DEPS_MATH = Angle.hpp Angle.cpp basic.hpp complex_t.hpp Equations.hpp mat2_t.hpp mat3_t.hpp mat4_t.hpp mat5_t.hpp quat_t.hpp RandomNumberGenerator.hpp RandomNumberGenerator.cpp vec2_t.hpp vec3_t.hpp vec4_t.hpp vec5_t.hpp
 AZCORE_DEPS_MATH = $(patsubst %,$(AZCORE_BASE)/src/AzCore/Math/%,$(_AZCORE_DEPS_MATH))
 
-_AZCORE_DEPS_MEMORY = Array.hpp ArrayList.hpp BigInt.hpp BucketArray.hpp Endian.hpp Endian.cpp List.hpp Ptr.hpp Range.hpp String.hpp String.cpp
+_AZCORE_DEPS_MEMORY = Array.hpp ArrayWithBucket.hpp ArrayList.hpp BigInt.hpp BucketArray.hpp Endian.hpp Endian.cpp List.hpp Ptr.hpp Range.hpp String.hpp String.cpp
 AZCORE_DEPS_MEMORY = $(patsubst %,$(AZCORE_BASE)/src/AzCore/Memory/%,$(_AZCORE_DEPS_MEMORY))
 
 AZCORE_DEPS_L = $(AZCORE_DEPS_BASE) $(AZCORE_DEPS_IO_L) $(AZCORE_DEPS_MATH) $(AZCORE_DEPS_MEMORY) $(AZCORE_BASE)/src/AzCore/ThreadLinux.hpp

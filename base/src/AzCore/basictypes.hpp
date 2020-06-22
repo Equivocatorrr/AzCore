@@ -40,4 +40,17 @@ static_assert(sizeof(f128) == 16);
 static_assert(sizeof(u128) == 16);
 static_assert(sizeof(i128) == 16);
 
+// Let's pretend we support compilers other than GCC for a moment.
+#if 1
+#if defined(__clang__)
+    #define force_inline
+#elif defined(__GNUG__)
+    #define force_inline __attribute__((always_inline))
+#elif defined(_MSC_VER)
+    #define force_inline __forceinline
 #endif
+#else
+    #define force_inline
+#endif
+
+#endif // AZCORE_BASICTYPES_HPP

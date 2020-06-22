@@ -83,9 +83,10 @@ struct Array {
     i32 allocated;
     i32 size;
 
-    inline void _SetTerminator()
+    inline void force_inline
+    _SetTerminator()
     {
-        if constexpr (allocTail != 0) {
+        if constexpr (allocTail > 1) {
             if (allocated == 0) {
                 data = (T *)&StringTerminators<T>::value;
             } else {
@@ -93,9 +94,16 @@ struct Array {
                     data[i] = StringTerminators<T>::value;
                 }
             }
+        } else if constexpr (allocTail == 1) {
+            if (allocated == 0) {
+                data = (T *)&StringTerminators<T>::value;
+            } else {
+                data[size] = StringTerminators<T>::value;
+            }
         }
     }
-    inline void _Initialize(const i32 newSize) {
+    inline void force_inline
+    _Initialize(const i32 newSize) {
         size = newSize;
         allocated = newSize;
         if (newSize > 0) {
@@ -104,12 +112,14 @@ struct Array {
             data = nullptr;
         }
     }
-    inline void _Deinitialize() {
+    inline void force_inline
+    _Deinitialize() {
         if (allocated != 0) {
             delete[] data;
         }
     }
-    inline void _Copy(const Array &other) {
+    inline void force_inline
+    _Copy(const Array &other) {
         if constexpr (std::is_trivially_copyable<T>::value) {
             memcpy((void *)data, (void *)other.data, sizeof(T) * size);
         } else {
@@ -118,20 +128,23 @@ struct Array {
             }
         }
     }
-    inline void _Copy(const std::initializer_list<T> &init) {
+    inline void force_inline
+    _Copy(const std::initializer_list<T> &init) {
         i32 i = 0;
         for (const T &val : init) {
             data[i++] = val;
         }
     }
     // Let go of allocations without deleting them.
-    inline void _Drop() {
+    inline void force_inline
+    _Drop() {
         data = nullptr;
         size = 0;
         allocated = 0;
     }
     // Take the allocations and/or values from another Array.
-    inline void _Acquire(Array &&other) {
+    inline void force_inline
+    _Acquire(Array &&other) {
         allocated = other.allocated;
         size = other.size;
         data = other.data;
@@ -157,8 +170,13 @@ struct Array {
         }
         _SetTerminator();
     }
-    inline Array(const u32 newSize) : Array((i32)newSize) {}
-    inline Array(const u32 newSize, const T &value) : Array((i32)newSize, value) {}
+
+    inline force_inline
+    Array(const u32 newSize) : Array((i32)newSize) {}
+
+    inline force_inline
+    Array(const u32 newSize, const T &value) : Array((i32)newSize, value) {}
+
     Array(const std::initializer_list<T> &init) {
         _Initialize(init.size());
         _Copy(init);
@@ -221,6 +239,7 @@ struct Array {
         _SetTerminator();
         return *this;
     }
+
     Array<T, allocTail>&
     operator=(Array &&other) {
         _Deinitialize();
@@ -318,60 +337,62 @@ struct Array {
         return data[index];
     }
 
-    Array<T, allocTail>
+    inline Array<T, allocTail> force_inline
     operator+(T &&other) const {
         Array<T, allocTail> result(*this);
         result.Append(std::move(other));
         return result;
     }
 
-    Array<T, allocTail>
+    inline Array<T, allocTail> force_inline
     operator+(const T &other) const {
         Array<T, allocTail> result(*this);
         result.Append(other);
         return result;
     }
 
-    Array<T, allocTail>
+    inline Array<T, allocTail> force_inline
     operator+(const T *string) const {
         Array<T, allocTail> result(*this);
         result.Append(string);
         return result;
     }
 
-    Array<T, allocTail>
+    inline Array<T, allocTail> force_inline
     operator+(Array &&other) const {
         Array<T, allocTail> result(*this);
         result.Append(std::move(other));
         return result;
     }
 
-    Array<T, allocTail>
+    inline Array<T, allocTail> force_inline
     operator+(const Array &other) const {
         Array<T, allocTail> result(*this);
         result.Append(other);
         return result;
     }
 
-    inline T &operator+=(T &&value) {
+    inline T& force_inline
+    operator+=(T &&value) {
         return Append(std::move(value));
     }
 
-    inline T &operator+=(const T &value) {
+    inline T& force_inline
+    operator+=(const T &value) {
         return Append(value);
     }
 
-    inline Array<T, allocTail>&
+    inline Array<T, allocTail>& force_inline
     operator+=(const Array &other) {
         return Append(other);
     }
 
-    inline Array<T, allocTail>&
+    inline Array<T, allocTail>& force_inline
     operator+=(Array &&other) {
         return Append(std::move(other));
     }
 
-    inline Array<T, allocTail>&
+    inline Array<T, allocTail>& force_inline
     operator+=(const T *string) {
         return Append(string);
     }
@@ -410,9 +431,9 @@ struct Array {
     }
 
     inline void _Grow(i32 minSize) {
-        if (minSize > allocated) {
-            i32 growth = (allocated >> 1) + 2;
-            Reserve(minSize >= growth ? minSize : growth);
+    if (minSize > allocated) {
+            i32 growth = minSize + (minSize >> 1) + 4;
+            Reserve(growth);
         }
     }
 
@@ -692,6 +713,14 @@ struct Array {
         return Range<T>(this, index, _size);
     }
 };
+
+template<typename T, i32 allocTail>
+inline Array<T, allocTail> force_inline
+operator+(Array<T, allocTail> &&lhs, Array<T, allocTail> &&rhs) {
+    Array<T, allocTail> out(std::move(lhs));
+    out.Append(std::move(rhs));
+    return out;
+}
 
 } // namespace AzCore
 

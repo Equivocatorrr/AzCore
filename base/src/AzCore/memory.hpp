@@ -1,7 +1,7 @@
 /*
     File: memory.hpp
     Author: Philip Haynes
-    Includes all the headers in Azcore/Memory and aliases some from the C++ Standard Library.
+    Includes all the headers in AzCore/Memory and aliases some from the C++ Standard Library.
 */
 #ifndef AZCORE_MEMORY_HPP
 #define AZCORE_MEMORY_HPP
@@ -19,20 +19,14 @@
 #include "Memory/BucketArray.hpp"
 #include "Memory/UniquePtr.hpp"
 #include "Memory/Map.hpp"
+#include "Memory/Set.hpp"
 #include "Time.hpp"
 
-#include <set>
 #include <memory>
 
 namespace AzCore {
 
 size_t align(const size_t& size, const size_t& alignment);
-
-template<typename T>
-using Set = std::set<T>;
-
-// template<typename T, typename Deleter=std::default_delete<T>>
-// using UniquePtr = std::unique_ptr<T, Deleter>;
 
 template<typename T>
 using SharedPtr = std::shared_ptr<T>;
@@ -71,6 +65,23 @@ Array<Range<T>> SeparateByValues(ArrayWithBucket<T, noAllocCount, allocTail> *ar
     }
     if (rangeStart < array->size) {
         result.Append(array->GetRange(rangeStart, array->size-rangeStart));
+    }
+    return result;
+}
+
+template<typename T, i32 allocTail=0>
+Array<Range<T>> SeparateByValues(Range<T> *range,
+        const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values) {
+    Array<Range<T>> result;
+    i32 rangeStart = 0;
+    for (i32 i = 0; i < range->size; i++) {
+        if (values.Contains((*range)[i])) {
+            result.Append(range->SubRange(rangeStart, i-rangeStart));
+            rangeStart = i+1;
+        }
+    }
+    if (rangeStart < range->size) {
+        result.Append(range->SubRange(rangeStart, range->size-rangeStart));
     }
     return result;
 }

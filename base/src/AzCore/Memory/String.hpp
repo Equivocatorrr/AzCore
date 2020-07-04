@@ -57,20 +57,16 @@ inline char CharToUpper(char c) {
     return c;
 }
 
-inline WString operator+(const WString &wString, const char *cString)
-{
+inline WString operator+(const WString &wString, const char *cString) {
     return wString + ToWString(cString);
 }
-inline WString operator+(const WString &wString, const String &string)
-{
+inline WString operator+(const WString &wString, const String &string) {
     return wString + ToWString(string);
 }
-inline WString operator+(const char *cString, const WString &wString)
-{
+inline WString operator+(const char *cString, const WString &wString) {
     return ToWString(cString) + wString;
 }
-inline WString operator+(const String string, const WString &wString)
-{
+inline WString operator+(const String string, const WString &wString) {
     return ToWString(string) + wString;
 }
 inline bool operator^(const String &lhs, const String &rhs) {

@@ -13,8 +13,7 @@ namespace AzCore {
 
 namespace io {
 
-enum RawInputDeviceType
-{
+enum RawInputDeviceType {
     UNSUPPORTED = 0,
     KEYBOARD = 1,
     MOUSE = 2,
@@ -24,8 +23,7 @@ enum RawInputDeviceType
 
 extern const char *RawInputDeviceTypeString[5];
 
-enum RawInputFeatureBits
-{
+enum RawInputFeatureBits {
     RAW_INPUT_ENABLE_KEYBOARD_BIT = 0x01,
     RAW_INPUT_ENABLE_MOUSE_BIT = 0x02,
     RAW_INPUT_ENABLE_GAMEPAD_BIT = 0x04,
@@ -41,8 +39,7 @@ struct RawInput;
 /*  struct: RawInputDevice
         Author: Philip Haynes
         A generic interface to raw input devices.   */
-struct RawInputDevice
-{
+struct RawInputDevice {
     struct RawInputDeviceData *data = nullptr;
     RawInput *rawInput;
     RawInputDeviceType type;
@@ -58,8 +55,7 @@ struct Gamepad;
 /*  struct: RawInput
         Author: Philip Haynes
         Manages all RawInputDevices */
-struct RawInput
-{
+struct RawInput {
     struct RawInputData *data = nullptr;
     // Provide this pointer to automatically disable input when it's not the focused window.
     // Leave it null to always capture input.

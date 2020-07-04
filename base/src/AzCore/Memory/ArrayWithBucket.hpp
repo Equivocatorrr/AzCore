@@ -34,7 +34,7 @@ struct ArrayWithBucket {
         }
     }
     inline void force_inline
-    _Initialize(const i32 newSize) {
+    _Initialize(i32 newSize) {
         size = newSize;
         if (newSize > noAllocCount-allocTail) {
             allocated = newSize;
@@ -99,11 +99,11 @@ struct ArrayWithBucket {
         _Initialize(0);
         _SetTerminator();
     }
-    ArrayWithBucket(const i32 newSize) {
+    ArrayWithBucket(i32 newSize) {
         _Initialize(newSize);
         _SetTerminator();
     }
-    ArrayWithBucket(const i32 newSize, const T &value) {
+    ArrayWithBucket(i32 newSize, const T &value) {
         _Initialize(newSize);
         for (i32 i = 0; i < size; i++) {
             data[i] = value;
@@ -111,9 +111,9 @@ struct ArrayWithBucket {
         _SetTerminator();
     }
     inline force_inline
-    ArrayWithBucket(const u32 newSize) : ArrayWithBucket((i32)newSize) {}
+    ArrayWithBucket(u32 newSize) : ArrayWithBucket((i32)newSize) {}
     inline force_inline
-    ArrayWithBucket(const u32 newSize, const T &value) : ArrayWithBucket((i32)newSize, value) {}
+    ArrayWithBucket(u32 newSize, const T &value) : ArrayWithBucket((i32)newSize, value) {}
 
     ArrayWithBucket(const std::initializer_list<T> &init) {
         _Initialize(init.size());
@@ -256,7 +256,7 @@ struct ArrayWithBucket {
         return size < other.size;
     }
 
-    const T &operator[](const i32 index) const {
+    const T &operator[](i32 index) const {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index > size) { // Negative values should be large in a u32
             throw std::out_of_range("ArrayWithBucket index is out of bounds");
@@ -265,7 +265,7 @@ struct ArrayWithBucket {
         return data[index];
     }
 
-    T &operator[](const i32 index) {
+    T &operator[](i32 index) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index > size) {
             throw std::out_of_range("ArrayWithBucket index is out of bounds");
@@ -375,7 +375,7 @@ struct ArrayWithBucket {
         }
     }
 
-    void Resize(const i32 newSize, const T &value) {
+    void Resize(i32 newSize, const T &value) {
         if (newSize == 0) {
             _Deinitialize();
             _Drop();
@@ -390,7 +390,7 @@ struct ArrayWithBucket {
         _SetTerminator();
     }
 
-    void Resize(const i32 newSize) {
+    void Resize(i32 newSize) {
         if (newSize == 0) {
             _Deinitialize();
             _Drop();
@@ -451,12 +451,12 @@ struct ArrayWithBucket {
     }
 
     inline T& force_inline
-    Insert(const i32 index, const T &value) {
+    Insert(i32 index, const T &value) {
         T val(value);
         return Insert(index, std::move(val));
     }
 
-    T& Insert(const i32 index, T &&value) {
+    T& Insert(i32 index, T &&value) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index > size) {
             throw std::out_of_range("ArrayWithBucket::Insert index is out of bounds");
@@ -502,12 +502,12 @@ struct ArrayWithBucket {
     }
 
     inline Range<T> force_inline
-    Insert(const i32 index, const ArrayWithBucket<T, allocTail> &other) {
+    Insert(i32 index, const ArrayWithBucket<T, allocTail> &other) {
         ArrayWithBucket<T, allocTail> array(other);
         return Insert(index, std::move(array));
     }
 
-    Range<T> Insert(const i32 index, ArrayWithBucket &&other) {
+    Range<T> Insert(i32 index, ArrayWithBucket &&other) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
         if (*((u32*)&index) > size) {
             throw std::out_of_range("ArrayWithBucket::Insert index is out of bounds");
@@ -565,7 +565,7 @@ struct ArrayWithBucket {
         return range;
     }
 
-    void Erase(const i32 index, const i32 count=1) {
+    void Erase(i32 index, const i32 count=1) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index+count > size && index >= 0) {
             throw std::out_of_range("ArrayWithBucket::Erase index is out of bounds");
@@ -632,7 +632,7 @@ struct ArrayWithBucket {
         return count;
     }
 
-    Ptr<T> GetPtr(const i32 &index, bool fromBack = false) {
+    Ptr<T> GetPtr(i32 index, bool fromBack = false) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index >= (size + (i32)fromBack)) {
             throw std::out_of_range("ArrayWithBucket::GetPtr index is out of bounds");
@@ -645,7 +645,7 @@ struct ArrayWithBucket {
         }
     }
 
-    Range<T> GetRange(const i32 &index, const i32 &_size) {
+    Range<T> GetRange(i32 index, i32 _size) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index + _size > size && index >= 0) {
             throw std::out_of_range("ArrayWithBucket::Range index + size is out of bounds");

@@ -14,8 +14,7 @@ namespace AzCore {
     Author: Philip Haynes
     Uses the JKISS generator by David Jones
     From http://www0.cs.ucl.ac.uk/staff/d.jones/GoodPracticeRNG.pdf */
-struct RandomNumberGenerator
-{
+struct RandomNumberGenerator {
     u32 x, y, z, c;
     RandomNumberGenerator(); // Automatically seeds itself based on time.
     u32 Generate();

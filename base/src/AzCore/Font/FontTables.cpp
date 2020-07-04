@@ -360,19 +360,19 @@ void glyf::EndianSwap(loca *loc, u16 numGlyphs, bool longOffsets) {
     if (longOffsets) {
         Set<u32> offsetsDone;
         for (u16 i = 0; i < numGlyphs; i++) {
-            if (offsetsDone.count(loc->offsets32(i)) == 0) {
+            if (!offsetsDone.Exists(loc->offsets32(i))) {
                 glyf_header *header = (glyf_header*)((char*)this + loc->offsets32(i));
                 DO_SWAP();
-                offsetsDone.insert(loc->offsets32(i));
+                offsetsDone.Emplace(loc->offsets32(i));
             }
         }
     } else {
         Set<u16> offsetsDone;
         for (u16 i = 0; i < numGlyphs; i++) {
-            if (offsetsDone.count(loc->offsets16(i)) == 0) {
+            if (!offsetsDone.Exists(loc->offsets16(i))) {
                 glyf_header *header = (glyf_header*)(((char*)this) + loc->offsets16(i) * 2);
                 DO_SWAP();
-                offsetsDone.insert(loc->offsets16(i));
+                offsetsDone.Emplace(loc->offsets16(i));
             }
         }
     }

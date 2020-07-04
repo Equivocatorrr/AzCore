@@ -33,21 +33,17 @@ namespace io {
 
 u32 windowClassNum = 0;
 
-String winGetInputName(u8 hid)
-{
-    if (hid == 255)
-    {
+String winGetInputName(u8 hid) {
+    if (hid == 255) {
         return "Null";
     }
     // First make sure we're not anything that doesn't move
-    if (hid < 0x04 || (hid >= 0x28 && hid <= 0x2c) || (hid >= 0x39 && hid <= 0x58) || hid >= 0x64)
-    {
+    if (hid < 0x04 || (hid >= 0x28 && hid <= 0x2c) || (hid >= 0x39 && hid <= 0x58) || hid >= 0x64) {
         return KeyCodeName(hid);
     }
     // Check if we even have a mapping at all
     u8 keyCode = KeyCodeToWinScan(hid);
-    if (keyCode == 255)
-    {
+    if (keyCode == 255) {
         return "None";
     }
     // If layout-dependent, update the label based on the layout
@@ -59,8 +55,7 @@ String winGetInputName(u8 hid)
 
 Window *focusedWindow = nullptr;
 
-struct WindowData
-{
+struct WindowData {
     HINSTANCE instance;
     HWND window;
     WNDCLASSEX windowClass;
@@ -68,25 +63,20 @@ struct WindowData
     String windowClassName;
 };
 
-Window::Window()
-{
+Window::Window() {
     data = new WindowData;
 }
 
-Window::~Window()
-{
-    if (open)
-    {
+Window::~Window() {
+    if (open) {
         Close();
     }
     delete data;
 }
 
 #ifdef AZCORE_IO_FOR_VULKAN
-bool Window::CreateVkSurface(vk::Instance *instance, VkSurfaceKHR *surface)
-{
-    if (!open)
-    {
+bool Window::CreateVkSurface(vk::Instance *instance, VkSurfaceKHR *surface) {
+    if (!open) {
         error = "CreateVkSurface was called before the window was created!";
         return false;
     }
@@ -94,8 +84,7 @@ bool Window::CreateVkSurface(vk::Instance *instance, VkSurfaceKHR *surface)
     createInfo.hinstance = data->instance;
     createInfo.hwnd = data->window;
     VkResult result = vkCreateWin32SurfaceKHR(instance->data.instance, &createInfo, nullptr, surface);
-    if (result != VK_SUCCESS)
-    {
+    if (result != VK_SUCCESS) {
         error = "Failed to create Win32 Surface!";
         return false;
     }
@@ -103,65 +92,45 @@ bool Window::CreateVkSurface(vk::Instance *instance, VkSurfaceKHR *surface)
 }
 #endif
 
-LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
+LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     Window *thisWindow = focusedWindow;
-    if (focusedWindow == nullptr)
-    {
+    if (focusedWindow == nullptr) {
         PostQuitMessage(0);
         return 0;
     }
     u8 keyCode = 0;
     char character = '\0';
     bool press = false, release = false;
-    switch (uMsg)
-    {
+    switch (uMsg) {
     case WM_INPUTLANGCHANGE:
-    case WM_INPUTLANGCHANGEREQUEST:
-    {
+    case WM_INPUTLANGCHANGEREQUEST: {
         return DefWindowProc(hWnd, uMsg, wParam, lParam);
     }
     // Dealing with the close button
-    case WM_CLOSE:
-    {
+    case WM_CLOSE: {
         focusedWindow->quit = true;
         return 0;
     }
-    case WM_DESTROY:
-    {
+    case WM_DESTROY: {
         return 0;
     }
     // Keyboard Controls
-    case WM_KEYDOWN:
-    {
+    case WM_KEYDOWN: {
         // keyCode = KeyCodeFromWinVK((u8)wParam);
         keyCode = KeyCodeFromWinScan((u8)(lParam >> 16));
-        if (wParam >= VK_NUMPAD1 && wParam <= VK_NUMPAD9)
-        {
+        if (wParam >= VK_NUMPAD1 && wParam <= VK_NUMPAD9) {
             keyCode = KC_KEY_KP1 + wParam - VK_NUMPAD1;
-        }
-        else if (wParam == VK_NUMPAD0)
-        {
+        } else if (wParam == VK_NUMPAD0) {
             keyCode = KC_KEY_KP0;
-        }
-        else if (wParam == VK_NUMLOCK)
-        {
+        } else if (wParam == VK_NUMLOCK) {
             keyCode = KC_KEY_NUMLOCK;
-        }
-        else if (wParam == VK_DECIMAL)
-        {
+        } else if (wParam == VK_DECIMAL) {
             keyCode = KC_KEY_KPDOT;
-        }
-        else if (wParam == VK_MULTIPLY)
-        {
+        } else if (wParam == VK_MULTIPLY) {
             keyCode = KC_KEY_KPASTERISK;
-        }
-        else if (wParam == VK_DIVIDE)
-        {
+        } else if (wParam == VK_DIVIDE) {
             keyCode = KC_KEY_KPSLASH;
-        }
-        else if (wParam == VK_MULTIPLY)
-        {
+        } else if (wParam == VK_MULTIPLY) {
             keyCode = KC_KEY_KPASTERISK;
         }
         // cout << "KeyCode down: " << KeyCodeName(keyCode) << std::endl;
@@ -170,36 +139,22 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
         press = true;
         break;
     }
-    case WM_KEYUP:
-    {
+    case WM_KEYUP: {
         // keyCode = KeyCodeFromWinVK((u8)wParam);
         keyCode = KeyCodeFromWinScan((u8)(lParam >> 16));
-        if (wParam >= VK_NUMPAD1 && wParam <= VK_NUMPAD9)
-        {
+        if (wParam >= VK_NUMPAD1 && wParam <= VK_NUMPAD9) {
             keyCode = KC_KEY_KP1 + wParam - VK_NUMPAD1;
-        }
-        else if (wParam == VK_NUMPAD0)
-        {
+        } else if (wParam == VK_NUMPAD0) {
             keyCode = KC_KEY_KP0;
-        }
-        else if (wParam == VK_NUMLOCK)
-        {
+        } else if (wParam == VK_NUMLOCK) {
             keyCode = KC_KEY_NUMLOCK;
-        }
-        else if (wParam == VK_DECIMAL)
-        {
+        } else if (wParam == VK_DECIMAL) {
             keyCode = KC_KEY_KPDOT;
-        }
-        else if (wParam == VK_MULTIPLY)
-        {
+        } else if (wParam == VK_MULTIPLY) {
             keyCode = KC_KEY_KPASTERISK;
-        }
-        else if (wParam == VK_DIVIDE)
-        {
+        } else if (wParam == VK_DIVIDE) {
             keyCode = KC_KEY_KPSLASH;
-        }
-        else if (wParam == VK_MULTIPLY)
-        {
+        } else if (wParam == VK_MULTIPLY) {
             keyCode = KC_KEY_KPASTERISK;
         }
         // cout << "KeyCode up: " << KeyCodeName(keyCode) << std::endl;
@@ -209,19 +164,15 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
         break;
     }
     // Mouse Controls
-    case WM_MOUSEMOVE:
-    {
-        if (thisWindow->input != nullptr)
-        {
+    case WM_MOUSEMOVE: {
+        if (thisWindow->input != nullptr) {
             thisWindow->input->cursor.x = i32(i16(lParam));
             thisWindow->input->cursor.y = i32(lParam >> 16);
         }
         break;
     }
-    case WM_MOUSEWHEEL:
-    {
-        if (thisWindow->input != nullptr)
-        {
+    case WM_MOUSEWHEEL: {
+        if (thisWindow->input != nullptr) {
             thisWindow->input->scroll.y = f32(HIWORD(wParam)) / 120.0f;
             if (thisWindow->input->scroll.y > 0)
                 keyCode = KC_MOUSE_SCROLLUP;
@@ -231,10 +182,8 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
         }
         break;
     }
-    case WM_MOUSEHWHEEL:
-    {
-        if (thisWindow->input != nullptr)
-        {
+    case WM_MOUSEHWHEEL: {
+        if (thisWindow->input != nullptr) {
             thisWindow->input->scroll.x = f32(HIWORD(wParam)) / 120.0f;
             if (thisWindow->input->scroll.x > 0)
                 keyCode = KC_MOUSE_SCROLLRIGHT;
@@ -244,44 +193,37 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
         }
         break;
     }
-    case WM_LBUTTONDOWN:
-    {
+    case WM_LBUTTONDOWN: {
         keyCode = KC_MOUSE_LEFT;
         press = true;
         break;
     }
-    case WM_LBUTTONUP:
-    {
+    case WM_LBUTTONUP: {
         keyCode = KC_MOUSE_LEFT;
         release = true;
         break;
     }
-    case WM_MBUTTONDOWN:
-    {
+    case WM_MBUTTONDOWN: {
         keyCode = KC_MOUSE_MIDDLE;
         press = true;
         break;
     }
-    case WM_MBUTTONUP:
-    {
+    case WM_MBUTTONUP: {
         keyCode = KC_MOUSE_MIDDLE;
         release = true;
         break;
     }
-    case WM_RBUTTONDOWN:
-    {
+    case WM_RBUTTONDOWN: {
         keyCode = KC_MOUSE_RIGHT;
         press = true;
         break;
     }
-    case WM_RBUTTONUP:
-    {
+    case WM_RBUTTONUP: {
         keyCode = KC_MOUSE_RIGHT;
         release = true;
         break;
     }
-    case WM_XBUTTONDOWN:
-    {
+    case WM_XBUTTONDOWN: {
         i16 i = HIWORD(wParam);
         if (i == XBUTTON1)
             keyCode = KC_MOUSE_XONE;
@@ -290,8 +232,7 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
         press = true;
         break;
     }
-    case WM_XBUTTONUP:
-    {
+    case WM_XBUTTONUP: {
         i16 i = HIWORD(wParam); // XBUTTON1 = 1, XBUTTON2 = 2
         if (i == XBUTTON1)
             keyCode = KC_MOUSE_XONE;
@@ -300,21 +241,16 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
         release = true;
         break;
     }
-    case WM_CHAR:
-    {
-        if (thisWindow->input != nullptr)
-        {
+    case WM_CHAR: {
+        if (thisWindow->input != nullptr) {
             thisWindow->input->typingString += (char)wParam;
         }
         // handleCharInput((char)wParam);
         break;
     }
-    case WM_MOVE:
-    {
-        if (!thisWindow->resized)
-        {
-            if (!thisWindow->fullscreen)
-            {
+    case WM_MOVE: {
+        if (!thisWindow->resized) {
+            if (!thisWindow->fullscreen) {
                 thisWindow->windowedX = LOWORD(lParam);
                 thisWindow->windowedY = HIWORD(lParam);
             }
@@ -323,32 +259,25 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
         }
         break;
     }
-    case WM_SIZE:
-    {
-        if (!thisWindow->resized)
-        {
+    case WM_SIZE: {
+        if (!thisWindow->resized) {
             // Workaround because Windows sucks
             thisWindow->width = LOWORD(lParam);
             thisWindow->height = HIWORD(lParam);
-            if (!thisWindow->fullscreen)
-            {
+            if (!thisWindow->fullscreen) {
                 thisWindow->windowedWidth = LOWORD(lParam);
                 thisWindow->windowedHeight = HIWORD(lParam);
             }
-        }
-        else
-        {
+        } else {
             thisWindow->resized = false;
         }
         break;
     }
-    case WM_SETFOCUS:
-    {
+    case WM_SETFOCUS: {
         thisWindow->focused = true;
         break;
     }
-    case WM_KILLFOCUS:
-    {
+    case WM_KILLFOCUS: {
         thisWindow->focused = false;
         thisWindow->input->ReleaseAll();
         break;
@@ -357,28 +286,21 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
         return DefWindowProc(hWnd, uMsg, wParam, lParam);
     }
 
-    if (thisWindow->input != nullptr && thisWindow->focused)
-    {
-        if (press)
-        {
+    if (thisWindow->input != nullptr && thisWindow->focused) {
+        if (press) {
 
-            if (keyCode != 0)
-            {
+            if (keyCode != 0) {
                 thisWindow->input->Press(keyCode);
             }
-            if (character != '\0')
-            {
+            if (character != '\0') {
                 thisWindow->input->PressChar(character);
             }
         }
-        if (release)
-        {
-            if (keyCode != 0)
-            {
+        if (release) {
+            if (keyCode != 0) {
                 thisWindow->input->Release(keyCode);
             }
-            if (character != '\0')
-            {
+            if (character != '\0') {
                 thisWindow->input->ReleaseChar(character);
             }
         }
@@ -390,8 +312,7 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
     return 0;
 }
 
-bool Window::Open()
-{
+bool Window::Open() {
     data->instance = GetModuleHandle(NULL);
     data->windowIcon = LoadIcon(data->instance, "icon.ico");
     data->windowIconSmall = data->windowIcon;
@@ -410,8 +331,7 @@ bool Window::Open()
     data->windowClassName += ToString(windowClassNum++);
     data->windowClass.lpszClassName = data->windowClassName.data;
     data->windowClass.hIconSm = data->windowIconSmall;
-    if (!RegisterClassEx(&data->windowClass))
-    {
+    if (!RegisterClassEx(&data->windowClass)) {
         error = "Failed to register window class: ";
         error += ToString((u32)GetLastError());
         return false;
@@ -426,8 +346,7 @@ bool Window::Open()
     focusedWindow = this;
     data->window = CreateWindowEx(0, data->windowClassName.data, name.data, WS_WINDOWED, CW_USEDEFAULT, CW_USEDEFAULT,
                                   rect.right - rect.left, rect.bottom - rect.top, NULL, NULL, data->instance, 0);
-    if (data->window == NULL)
-    {
+    if (data->window == NULL) {
         error = "Failed to create window: ";
         error += ToString((u32)GetLastError());
         return false;
@@ -436,10 +355,8 @@ bool Window::Open()
     return true;
 }
 
-bool Window::Show()
-{
-    if (!open)
-    {
+bool Window::Show() {
+    if (!open) {
         error = "Window hasn't been created yet";
         return false;
     }
@@ -448,10 +365,8 @@ bool Window::Show()
     return true;
 }
 
-bool Window::Close()
-{
-    if (!open)
-    {
+bool Window::Close() {
+    if (!open) {
         error = "Window hasn't been created yet";
         return false;
     }
@@ -462,10 +377,8 @@ bool Window::Close()
     return true;
 }
 
-bool Window::Fullscreen(bool fs)
-{
-    if (!open)
-    {
+bool Window::Fullscreen(bool fs) {
+    if (!open) {
         error = "Window hasn't been created yet";
         return false;
     }
@@ -475,11 +388,9 @@ bool Window::Fullscreen(bool fs)
     fullscreen = fs;
     resized = true; // Prevent WM_SIZE from lying to us, the ungrateful bastard
 
-    if (fullscreen)
-    {
+    if (fullscreen) {
         HMONITOR monitor = MonitorFromWindow(data->window, MONITOR_DEFAULTTONEAREST);
-        if (monitor != NULL)
-        {
+        if (monitor != NULL) {
             MONITORINFO minfo;
             minfo.cbSize = sizeof(MONITORINFO);
             GetMonitorInfo(monitor, &minfo);
@@ -494,9 +405,7 @@ bool Window::Fullscreen(bool fs)
         }
         SetWindowLongPtr(data->window, GWL_STYLE, WS_FULLSCREEN);
         MoveWindow(data->window, x, y, width, height, TRUE);
-    }
-    else
-    {
+    } else {
         width = windowedWidth;
         height = windowedHeight;
         RECT rect;
@@ -514,15 +423,12 @@ bool Window::Fullscreen(bool fs)
     return true;
 }
 
-bool Window::Resize(u32 w, u32 h)
-{
-    if (!open)
-    {
+bool Window::Resize(u32 w, u32 h) {
+    if (!open) {
         error = "Window hasn't been created yet";
         return false;
     }
-    if (fullscreen)
-    {
+    if (fullscreen) {
         error = "Fullscreen windows can't be resized";
         return false;
     }
@@ -536,24 +442,17 @@ bool Window::Resize(u32 w, u32 h)
     return true;
 }
 
-bool Window::Update()
-{
+bool Window::Update() {
     MSG msg;
-    while (PeekMessage(&msg, data->window, 0, 0, PM_REMOVE))
-    {
-        if (quit || msg.message == WM_QUIT)
-        {
+    while (PeekMessage(&msg, data->window, 0, 0, PM_REMOVE)) {
+        if (quit || msg.message == WM_QUIT) {
             return false;
-        }
-        else
-        {
-            if (msg.message == WM_SETFOCUS)
-            {
+        } else {
+            if (msg.message == WM_SETFOCUS) {
                 focusedWindow = this;
                 focused = true;
             }
-            if (msg.message == WM_KEYDOWN)
-            {
+            if (msg.message == WM_KEYDOWN) {
                 if (KC_KEY_F11 == KeyCodeFromWinScan((u8)(msg.lParam >> 16)))
                     Fullscreen(!fullscreen);
             }
@@ -573,8 +472,7 @@ void Window::HideCursor(bool hide) {
     }
 }
 
-String Window::InputName(u8 keyCode) const
-{
+String Window::InputName(u8 keyCode) const {
     return winGetInputName(keyCode);
 }
 

@@ -17,8 +17,7 @@ namespace io {
 /*  struct: Input
     Author: Philip Haynes
     Holds the state for the entire Keyboard and Mouse. Gamepads sold separately.   */
-struct Input
-{
+struct Input {
     ButtonState Any, AnyKey, AnyMB;
     u8 codeAny, codeAnyKey, codeAnyMB;
     char charAny; // This can be associated with AnyKey only

@@ -11,23 +11,18 @@
 namespace AzCore {
 
 template <typename T>
-struct vec3_t
-{
+struct vec3_t {
     union {
-        struct
-        {
+        struct {
             T x, y, z;
         };
-        struct
-        {
+        struct {
             T r, g, b;
         };
-        struct
-        {
+        struct {
             T h, s, v;
         };
-        struct
-        {
+        struct {
             T data[3];
         };
     };
@@ -47,43 +42,37 @@ struct vec3_t
     inline bool operator==(const vec3_t<T> &a) const { return x == a.x && y == a.y && z == a.z; }
     inline bool operator!=(const vec3_t<T> &a) const { return x != a.x || y != a.y || z != a.z; }
     inline T &operator[](const u32 &i) { return data[i]; }
-    inline vec3_t<T> operator+=(const vec3_t<T> &a)
-    {
+    inline vec3_t<T> operator+=(const vec3_t<T> &a) {
         x += a.x;
         y += a.y;
         z += a.z;
         return *this;
     }
-    inline vec3_t<T> operator-=(const vec3_t<T> &a)
-    {
+    inline vec3_t<T> operator-=(const vec3_t<T> &a) {
         x -= a.x;
         y -= a.y;
         z -= a.z;
         return *this;
     }
-    inline vec3_t<T> operator/=(const vec3_t<T> &a)
-    {
+    inline vec3_t<T> operator/=(const vec3_t<T> &a) {
         x /= a.x;
         y /= a.y;
         z /= a.z;
         return *this;
     }
-    inline vec3_t<T> operator/=(const T &a)
-    {
+    inline vec3_t<T> operator/=(const T &a) {
         x /= a;
         y /= a;
         z /= a;
         return *this;
     }
-    inline vec3_t<T> operator*=(const vec3_t<T> &a)
-    {
+    inline vec3_t<T> operator*=(const vec3_t<T> &a) {
         x *= a.x;
         y *= a.y;
         z *= a.z;
         return *this;
     }
-    inline vec3_t<T> operator*=(const T &a)
-    {
+    inline vec3_t<T> operator*=(const T &a) {
         x *= a;
         y *= a;
         z *= a;
@@ -101,14 +90,12 @@ vec3_t<T> rgbToHsv(vec3_t<T> rgb);
 } // namespace AzCore
 
 template <typename T>
-inline AzCore::vec3_t<T> operator*(const T &a, const AzCore::vec3_t<T> &b)
-{
+inline AzCore::vec3_t<T> operator*(const T &a, const AzCore::vec3_t<T> &b) {
     return b * a;
 }
 
 template <typename T>
-inline AzCore::vec3_t<T> cross(const AzCore::vec3_t<T> &a, const AzCore::vec3_t<T> &b)
-{
+inline AzCore::vec3_t<T> cross(const AzCore::vec3_t<T> &a, const AzCore::vec3_t<T> &b) {
     return AzCore::vec3_t<T>(
         a.y * b.z - a.z * b.y,
         a.z * b.x - a.x * b.z,
@@ -116,47 +103,35 @@ inline AzCore::vec3_t<T> cross(const AzCore::vec3_t<T> &a, const AzCore::vec3_t<
 }
 
 template <typename T>
-inline T dot(const AzCore::vec3_t<T> &a, const AzCore::vec3_t<T> &b)
-{
+inline T dot(const AzCore::vec3_t<T> &a, const AzCore::vec3_t<T> &b) {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
 template <typename T>
-inline T absSqr(const AzCore::vec3_t<T> &a)
-{
+inline T absSqr(const AzCore::vec3_t<T> &a) {
     return a.x * a.x + a.y * a.y + a.z * a.z;
 }
 
 template <typename T>
-inline T abs(const AzCore::vec3_t<T> &a)
-{
+inline T abs(const AzCore::vec3_t<T> &a) {
     return sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
 }
 
 template <bool isSegment, typename T>
-T distSqrToLine(const AzCore::vec3_t<T> &segA, const AzCore::vec3_t<T> &segB, const AzCore::vec3_t<T> &point)
-{
+T distSqrToLine(const AzCore::vec3_t<T> &segA, const AzCore::vec3_t<T> &segB, const AzCore::vec3_t<T> &point) {
     const AzCore::vec3_t<T> diff = segA - segB;
     const T lengthSquared = absSqr(diff);
     const T t = dot(diff, segA - point) / lengthSquared;
     AzCore::vec3_t<T> projection;
-    if constexpr (isSegment)
-    {
-        if (t < T(0))
-        {
+    if constexpr (isSegment) {
+        if (t < T(0)) {
             projection = segA;
-        }
-        else if (t > T(1))
-        {
+        } else if (t > T(1)) {
             projection = segB;
-        }
-        else
-        {
+        } else {
             projection = segA - diff * t;
         }
-    }
-    else
-    {
+    } else {
         projection = segA - diff * t;
     }
     return absSqr(point - projection);

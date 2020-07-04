@@ -123,7 +123,7 @@ bool BigInt::operator<=(const BigInt& a) const {
     return true;
 }
 
-bool BigInt::operator>(const u64& a) const {
+bool BigInt::operator>(u64 a) const {
     if (*this == a) {
         return false;
     }
@@ -145,7 +145,7 @@ bool BigInt::operator>(const u64& a) const {
     return false;
 }
 
-bool BigInt::operator>=(const u64& a) const {
+bool BigInt::operator>=(u64 a) const {
     if (negative) {
         return false;
     } else {
@@ -164,7 +164,7 @@ bool BigInt::operator>=(const u64& a) const {
     return true;
 }
 
-bool BigInt::operator<(const u64& a) const {
+bool BigInt::operator<(u64 a) const {
     if (*this == a) {
         return false;
     }
@@ -186,7 +186,7 @@ bool BigInt::operator<(const u64& a) const {
     return false;
 }
 
-bool BigInt::operator<=(const u64& a) const {
+bool BigInt::operator<=(u64 a) const {
     if (negative) {
         return true;
     } else {
@@ -410,7 +410,7 @@ void BigInt::QuotientAndRemainder(const BigInt &a, const BigInt &b, BigInt *dstQ
     *dstRemainder = (dividend-taken).Trimmed();
 }
 
-BigInt& BigInt::operator+=(const u64& a) {
+BigInt& BigInt::operator+=(u64 a) {
     if (negative) {
         return *this = (BigInt(a) - -*this);
     }
@@ -435,7 +435,7 @@ BigInt& BigInt::operator+=(const u64& a) {
     return *this;
 }
 
-BigInt& BigInt::operator-=(const u64& a) {
+BigInt& BigInt::operator-=(u64 a) {
     if (negative) {
         return *this += -BigInt(a);
     }
@@ -489,7 +489,7 @@ BigInt& BigInt::operator-=(const u64& a) {
     return *this;
 }
 
-BigInt& BigInt::operator*=(const u64& a) {
+BigInt& BigInt::operator*=(u64 a) {
     if (a == 1) {
         return *this;
     } else if (a == 0) {
@@ -508,7 +508,7 @@ BigInt& BigInt::operator*=(const u64& a) {
     return *this;
 }
 
-BigInt& BigInt::operator/=(const u64& a) {
+BigInt& BigInt::operator/=(u64 a) {
     if (a == 0) {
         throw std::invalid_argument("Divide by zero error");
     }
@@ -541,7 +541,7 @@ BigInt& BigInt::operator/=(const u64& a) {
     return *this;
 }
 
-BigInt& BigInt::operator%=(const u64& a) {
+BigInt& BigInt::operator%=(u64 a) {
     if (a == 0) {
         throw std::invalid_argument("Divide by zero error");
     }
@@ -569,7 +569,7 @@ BigInt& BigInt::operator%=(const u64& a) {
     return *this;
 }
 
-void BigInt::QuotientAndRemainder(const BigInt &a, const u64 &b, BigInt *dstQuotient, u64 *dstRemainder) {
+void BigInt::QuotientAndRemainder(const BigInt &a, u64 b, BigInt *dstQuotient, u64 *dstRemainder) {
     if (b == 0) {
         throw std::invalid_argument("Divide by zero error");
     }

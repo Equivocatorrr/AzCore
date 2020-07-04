@@ -13,23 +13,18 @@
 namespace AzCore {
 
 template <typename T>
-struct complex_t
-{
+struct complex_t {
     union {
-        struct
-        {
+        struct {
             T real, imag;
         };
-        struct
-        {
+        struct {
             vec2_t<T> vector;
         };
-        struct
-        {
+        struct {
             T x, y;
         };
-        struct
-        {
+        struct {
             T data[2];
         };
     };
@@ -37,156 +32,124 @@ struct complex_t
     complex_t() = default;
     inline complex_t(const T &a) : x(a), y(0) {}
     inline complex_t(const T &a, const T &b) : x(a), y(b) {}
-    inline complex_t(const vec2_t<T> &vec) : vector(vec)
-    {
-    }
-    inline complex_t(const T d[2]) : x(d[0]), y(d[1])
-    {
-    }
+    inline complex_t(const vec2_t<T> &vec) : vector(vec) { }
+    inline complex_t(const T d[2]) : x(d[0]), y(d[1]) { }
 
-    inline complex_t<T> operator*(const complex_t<T> &a) const
-    {
+    inline complex_t<T> operator*(const complex_t<T> &a) const {
         return complex_t<T>(real * a.real - imag * a.imag, real * a.imag + imag * a.real);
     }
-    inline complex_t<T> operator*(const T &a) const
-    {
+    inline complex_t<T> operator*(const T &a) const {
         return complex_t<T>(real * a, imag * a);
     }
-    inline complex_t<T> operator/(const complex_t<T> &a) const
-    {
+    inline complex_t<T> operator/(const complex_t<T> &a) const {
         return (*this) * a.Reciprocal();
     }
-    inline complex_t<T> operator/(const T &a) const
-    {
+    inline complex_t<T> operator/(const T &a) const {
         return complex_t<T>(real / a, imag / a);
     }
-    inline complex_t<T> operator+(const complex_t<T> &a) const
-    {
+    inline complex_t<T> operator+(const complex_t<T> &a) const {
         return complex_t<T>(real + a.real, imag + a.imag);
     }
-    inline complex_t<T> operator+(const T &a) const
-    {
+    inline complex_t<T> operator+(const T &a) const {
         return complex_t<T>(real + a, imag);
     }
-    inline complex_t<T> operator-(const complex_t<T> &a) const
-    {
+    inline complex_t<T> operator-(const complex_t<T> &a) const {
         return complex_t<T>(real - a.real, imag - a.imag);
     }
-    inline complex_t<T> operator-(const T &a) const
-    {
+    inline complex_t<T> operator-(const T &a) const {
         return complex_t<T>(real - a, imag);
     }
-    inline complex_t<T> operator-() const
-    {
+    inline complex_t<T> operator-() const {
         return complex_t<T>(-real, -imag);
     }
-    inline complex_t<T>& operator+=(const complex_t<T> &a)
-    {
+    inline complex_t<T>& operator+=(const complex_t<T> &a) {
         real += a.real;
         imag += a.imag;
         return *this;
     }
-    inline complex_t<T>& operator-=(const complex_t<T> &a)
-    {
+    inline complex_t<T>& operator-=(const complex_t<T> &a) {
         real -= a.real;
         imag -= a.imag;
         return *this;
     }
-    inline complex_t<T>& operator*=(const complex_t<T> &a)
-    {
+    inline complex_t<T>& operator*=(const complex_t<T> &a) {
         *this = *this * a;
         return *this;
     }
-    inline complex_t<T>& operator/=(const complex_t<T> &a)
-    {
+    inline complex_t<T>& operator/=(const complex_t<T> &a) {
         *this = *this / a;
         return *this;
     }
-    inline complex_t<T>& operator+=(const T &a)
-    {
+    inline complex_t<T>& operator+=(const T &a) {
         real += a;
         return *this;
     }
-    inline complex_t<T>& operator-=(const T &a)
-    {
+    inline complex_t<T>& operator-=(const T &a) {
         real -= a;
         return *this;
     }
-    inline complex_t<T>& operator*=(const T &a)
-    {
+    inline complex_t<T>& operator*=(const T &a) {
         real *= a;
         imag *= a;
         return *this;
     }
-    inline complex_t<T>& operator/=(const T &a)
-    {
+    inline complex_t<T>& operator/=(const T &a) {
         real /= a;
         imag /= a;
         return *this;
     }
-    inline complex_t<T> Conjugate() const
-    {
+    inline complex_t<T> Conjugate() const {
         return complex_t<T>(real, -imag);
     }
-    inline complex_t<T> Reciprocal() const
-    {
+    inline complex_t<T> Reciprocal() const {
         return Conjugate() / (x * x + y * y);
     }
 };
 
 template <typename T>
-inline complex_t<T> operator*(const T &a, const complex_t<T> &b)
-{
+inline complex_t<T> operator*(const T &a, const complex_t<T> &b) {
     return b * a;
 }
 
 template <typename T>
-inline complex_t<T> operator/(const T &a, const complex_t<T> &b)
-{
+inline complex_t<T> operator/(const T &a, const complex_t<T> &b) {
     return complex_t<T>(a) / b;
 }
 
 template <typename T>
-inline complex_t<T> operator+(const T &a, const complex_t<T> &b)
-{
+inline complex_t<T> operator+(const T &a, const complex_t<T> &b) {
     return b + a;
 }
 
 template <typename T>
-inline complex_t<T> operator-(const T &a, const complex_t<T> &b)
-{
+inline complex_t<T> operator-(const T &a, const complex_t<T> &b) {
     return -b + a;
 }
 
 } // namespace AzCore
 
 template <typename T>
-inline T abs(const AzCore::complex_t<T> &a)
-{
+inline T abs(const AzCore::complex_t<T> &a) {
     return sqrt(a.x * a.x + a.y * a.y);
 }
 
 template <typename T>
-AzCore::complex_t<T> exp(const AzCore::complex_t<T> &a)
-{
+AzCore::complex_t<T> exp(const AzCore::complex_t<T> &a) {
     return AzCore::complex_t<T>(cos(a.imag), sin(a.imag)) * exp(a.real);
 }
 
 template <typename T>
-AzCore::complex_t<T> log(const AzCore::complex_t<T> &a)
-{
+AzCore::complex_t<T> log(const AzCore::complex_t<T> &a) {
     return AzCore::complex_t<T>(log(abs(a)), atan2(a.imag, a.real));
 }
 
 template <typename T>
-AzCore::complex_t<T> pow(const AzCore::complex_t<T> &a, const AzCore::complex_t<T> &e)
-{
+AzCore::complex_t<T> pow(const AzCore::complex_t<T> &a, const AzCore::complex_t<T> &e) {
     return exp(log(a) * e);
 }
 
 template <typename T>
-AzCore::complex_t<T> pow(const AzCore::complex_t<T> &a, const T &e)
-{
+AzCore::complex_t<T> pow(const AzCore::complex_t<T> &a, const T &e) {
     return exp(log(a) * e);
 }
 

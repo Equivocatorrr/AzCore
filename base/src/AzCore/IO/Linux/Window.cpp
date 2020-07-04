@@ -34,8 +34,7 @@ namespace AzCore {
 
 namespace io {
 
-xcb_atom_t xcbGetAtom(xcb_connection_t *connection, bool onlyIfExists, const String &name)
-{
+xcb_atom_t xcbGetAtom(xcb_connection_t *connection, bool onlyIfExists, const String &name) {
     xcb_intern_atom_cookie_t cookie;
     xcb_intern_atom_reply_t *reply;
 
@@ -43,8 +42,7 @@ xcb_atom_t xcbGetAtom(xcb_connection_t *connection, bool onlyIfExists, const Str
     cookie = xcb_intern_atom(connection, (u8)onlyIfExists, name.size, name.data);
     reply = xcb_intern_atom_reply(connection, cookie, 0);
 
-    if (reply == nullptr)
-    {
+    if (reply == nullptr) {
         error = "Failed to get reply to a cookie for retrieving an XCB atom!";
         return 0;
     }
@@ -54,8 +52,7 @@ xcb_atom_t xcbGetAtom(xcb_connection_t *connection, bool onlyIfExists, const Str
     return atom;
 }
 
-struct xkb_keyboard
-{
+struct xkb_keyboard {
     xcb_connection_t *connection;
     u8 first_xkb_event;
     struct xkb_context *context{nullptr};
@@ -65,106 +62,83 @@ struct xkb_keyboard
     struct xkb_state *stateNone{nullptr};
 };
 
-String xkbGetInputName(xkb_keyboard *xkb, u8 hid)
-{
-    if (hid == 255)
-    {
+String xkbGetInputName(xkb_keyboard *xkb, u8 hid) {
+    if (hid == 255) {
         return "Null";
     }
     char utf8[16];
     // First make sure we're not anything that doesn't move
-    if (hid < 0x04 || (hid >= 0x28 && hid <= 0x2c) || (hid >= 0x39 && hid <= 0x58) || hid >= 0x64)
-    {
+    if (hid < 0x04 || (hid >= 0x28 && hid <= 0x2c) || (hid >= 0x39 && hid <= 0x58) || hid >= 0x64) {
         return KeyCodeName(hid);
     }
     // Check if we even have a mapping at all
     u8 keyCode = KeyCodeToEvdev(hid);
-    if (keyCode == 255)
-    {
+    if (keyCode == 255) {
         return "None";
     }
     // If layout-dependent, update the label based on the layout
-    if (hid >= 0x64 || hid <= 0x58)
-    { // Non-keypad
+    if (hid >= 0x64 || hid <= 0x58) { // Non-keypad
         xkb_state_key_get_utf8(xkb->stateNone, (xkb_keycode_t)keyCode, utf8, 16);
-    }
-    else
-    { // Keypad
+    } else { // Keypad
         xkb_state_key_get_utf8(xkb->state, (xkb_keycode_t)keyCode, utf8, 16);
-        if (utf8[0] != '\0' && utf8[1] == '\0')
-        { // Single-character from the keypad
+        if (utf8[0] != '\0' && utf8[1] == '\0') { // Single-character from the keypad
             // This is if numlock is on.
             return KeyCodeName(hid);
         }
     }
-    if (utf8[0] != '\0')
-    {
+    if (utf8[0] != '\0') {
         return utf8;
     }
     // If we don't have a proper utf-8 label find the keySym name
     xkb_keysym_t keySym = xkb_state_key_get_one_sym(xkb->stateNone, (xkb_keycode_t)keyCode);
     xkb_keysym_get_name(keySym, utf8, 16);
-    if (utf8[0] != '\0')
-    {
+    if (utf8[0] != '\0') {
         return utf8;
-    }
-    else
-    {
+    } else {
         // If all else fails we don't know what to do.
         return "Error";
     }
 }
 
-void xkbCleanup(xkb_keyboard *xkb)
-{
-    if (xkb->keymap)
-    {
+void xkbCleanup(xkb_keyboard *xkb) {
+    if (xkb->keymap) {
         xkb_keymap_unref(xkb->keymap);
         xkb->keymap = nullptr;
     }
-    if (xkb->state)
-    {
+    if (xkb->state) {
         xkb_state_unref(xkb->state);
         xkb->state = nullptr;
     }
-    if (xkb->stateNone)
-    {
+    if (xkb->stateNone) {
         xkb_state_unref(xkb->stateNone);
         xkb->stateNone = nullptr;
     }
-    if (xkb->context)
-    {
+    if (xkb->context) {
         xkb_context_unref(xkb->context);
         xkb->context = nullptr;
     }
 }
 
-bool xkbUpdateKeymap(xkb_keyboard *xkb)
-{
+bool xkbUpdateKeymap(xkb_keyboard *xkb) {
     // Cleanup first
-    if (xkb->keymap)
-    {
+    if (xkb->keymap) {
         xkb_keymap_unref(xkb->keymap);
     }
-    if (xkb->state)
-    {
+    if (xkb->state) {
         xkb_state_unref(xkb->state);
     }
-    if (xkb->stateNone)
-    {
+    if (xkb->stateNone) {
         xkb_state_unref(xkb->stateNone);
     }
     // Then reload
     xkb->keymap = xkb_x11_keymap_new_from_device(xkb->context, xkb->connection, xkb->deviceId, XKB_KEYMAP_COMPILE_NO_FLAGS);
-    if (!xkb->keymap)
-    {
+    if (!xkb->keymap) {
         error = "Cannot get XKB keymap from device!";
         return false;
     }
 
     xkb->state = xkb_x11_state_new_from_device(xkb->keymap, xkb->connection, xkb->deviceId);
-    if (!xkb->state)
-    {
+    if (!xkb->state) {
         xkb_keymap_unref(xkb->keymap);
         xkb->keymap = nullptr;
         error = "Cannot get XKB state from keymap!";
@@ -172,8 +146,7 @@ bool xkbUpdateKeymap(xkb_keyboard *xkb)
     }
 
     xkb->stateNone = xkb_x11_state_new_from_device(xkb->keymap, xkb->connection, xkb->deviceId);
-    if (!xkb->stateNone)
-    {
+    if (!xkb->stateNone) {
         xkb_keymap_unref(xkb->keymap);
         xkb->keymap = nullptr;
         xkb_state_unref(xkb->state);
@@ -186,29 +159,25 @@ bool xkbUpdateKeymap(xkb_keyboard *xkb)
     return true;
 }
 
-bool xkbSetupKeyboard(xkb_keyboard *xkb, xcb_connection_t *connection)
-{
+bool xkbSetupKeyboard(xkb_keyboard *xkb, xcb_connection_t *connection) {
     xkb->connection = connection;
     if (!xkb_x11_setup_xkb_extension(xkb->connection,
                                      XKB_X11_MIN_MAJOR_XKB_VERSION,
                                      XKB_X11_MIN_MINOR_XKB_VERSION,
                                      XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
-                                     NULL, NULL, &xkb->first_xkb_event, NULL))
-    {
+                                     NULL, NULL, &xkb->first_xkb_event, NULL)) {
         error = "Failed to connect xkb to x11!";
         return false;
     }
 
     xkb->context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-    if (!xkb->context)
-    {
+    if (!xkb->context) {
         error = "Cannot get XKB context!";
         return false;
     }
 
     xkb->deviceId = xkb_x11_get_core_keyboard_device_id(xkb->connection);
-    if (xkb->deviceId == -1)
-    {
+    if (xkb->deviceId == -1) {
         xkb_context_unref(xkb->context);
         xkb->context = nullptr;
         error = "Cannot get XKB keyboard device id!";
@@ -218,8 +187,7 @@ bool xkbSetupKeyboard(xkb_keyboard *xkb, xcb_connection_t *connection)
     return xkbUpdateKeymap(xkb);
 }
 
-struct xkb_generic_event_t
-{
+struct xkb_generic_event_t {
     u8 response_type;
     u8 xkb_type;
     u16 sequence;
@@ -227,35 +195,28 @@ struct xkb_generic_event_t
     u8 deviceId;
 };
 
-bool xkbProcessEvent(xkb_keyboard *xkb, xkb_generic_event_t *event)
-{
-    if (event->deviceId != xkb->deviceId)
-    {
+bool xkbProcessEvent(xkb_keyboard *xkb, xkb_generic_event_t *event) {
+    if (event->deviceId != xkb->deviceId) {
         return true;
     }
 
-    switch (event->xkb_type)
-    {
-    case XCB_XKB_NEW_KEYBOARD_NOTIFY:
-    {
+    switch (event->xkb_type) {
+    case XCB_XKB_NEW_KEYBOARD_NOTIFY: {
         // cout << "XCB_XKB_NEW_KEYBOARD_NOTIFY" << std::endl;
         xcb_xkb_new_keyboard_notify_event_t *ev = (xcb_xkb_new_keyboard_notify_event_t *)event;
-        if (ev->changed)
-        {
+        if (ev->changed) {
             if (!xkbUpdateKeymap(xkb))
                 return false;
         }
         break;
     }
-    case XCB_XKB_MAP_NOTIFY:
-    {
+    case XCB_XKB_MAP_NOTIFY: {
         // cout << "XCB_XKB_MAP_NOTIFY" << std::endl;
         if (!xkbUpdateKeymap(xkb))
             return false;
         break;
     }
-    case XCB_XKB_STATE_NOTIFY:
-    {
+    case XCB_XKB_STATE_NOTIFY: {
         // cout << "XCB_XKB_STATE_NOTIFY" << std::endl;
         xcb_xkb_state_notify_event_t *ev = (xcb_xkb_state_notify_event_t *)event;
         xkb_state_update_mask(xkb->state,
@@ -267,18 +228,15 @@ bool xkbProcessEvent(xkb_keyboard *xkb, xkb_generic_event_t *event)
                               ev->lockedGroup);
         break;
     }
-    default:
-    {
+    default: {
         break;
     }
     }
     return true;
 }
 
-bool xkbSelectEventsForDevice(xkb_keyboard *xkb)
-{
-    enum
-    {
+bool xkbSelectEventsForDevice(xkb_keyboard *xkb) {
+    enum {
         required_events =
             (XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY |
              XCB_XKB_EVENT_TYPE_MAP_NOTIFY |
@@ -323,8 +281,7 @@ bool xkbSelectEventsForDevice(xkb_keyboard *xkb)
                                           &details);          /* details */
 
     xcb_generic_error_t *err = xcb_request_check(xkb->connection, cookie);
-    if (err)
-    {
+    if (err) {
         free(err);
         error = "Failed to select xkb events for device";
         return false;
@@ -333,8 +290,7 @@ bool xkbSelectEventsForDevice(xkb_keyboard *xkb)
     return true;
 }
 
-struct WindowData
-{
+struct WindowData {
 #ifndef AZCORE_IO_NO_XLIB
     Display *display;
 #endif
@@ -351,26 +307,21 @@ struct WindowData
     xkb_keyboard xkb;
 };
 
-Window::Window()
-{
+Window::Window() {
     data = new WindowData;
     data->windowDepth = 24;
 }
 
-Window::~Window()
-{
-    if (open)
-    {
+Window::~Window() {
+    if (open) {
         Close();
     }
     delete data;
 }
 
 #ifdef AZCORE_IO_FOR_VULKAN
-bool Window::CreateVkSurface(vk::Instance *instance, VkSurfaceKHR *surface)
-{
-    if (!open)
-    {
+bool Window::CreateVkSurface(vk::Instance *instance, VkSurfaceKHR *surface) {
+    if (!open) {
         error = "CreateVkSurface was called before the window was created!";
         return false;
     }
@@ -378,8 +329,7 @@ bool Window::CreateVkSurface(vk::Instance *instance, VkSurfaceKHR *surface)
     createInfo.connection = data->connection;
     createInfo.window = data->window;
     VkResult result = vkCreateXcbSurfaceKHR(instance->data.instance, &createInfo, nullptr, surface);
-    if (result != VK_SUCCESS)
-    {
+    if (result != VK_SUCCESS) {
         error = "Failed to create XCB surface!";
         return false;
     }
@@ -393,13 +343,11 @@ bool Window::CreateVkSurface(vk::Instance *instance, VkSurfaceKHR *surface)
 #define CLOSE_CONNECTION(data) xcb_disconnect(data->connection)
 #endif
 
-bool Window::Open()
-{
+bool Window::Open() {
     i32 defaultScreen = 0;
 #ifndef AZCORE_IO_NO_XLIB
     data->display = XOpenDisplay(0);
-    if (!data->display)
-    {
+    if (!data->display) {
         error = "Can't open X display";
         return false;
     }
@@ -407,8 +355,7 @@ bool Window::Open()
     defaultScreen = DefaultScreen(data->display);
 
     data->connection = XGetXCBConnection(data->display);
-    if (!data->connection)
-    {
+    if (!data->connection) {
         XCloseDisplay(data->display);
         error = "Can't get xcb connection from display";
         return false;
@@ -418,8 +365,7 @@ bool Window::Open()
 #else
     data->connection = xcb_connect(NULL, NULL);
 
-    if (xcb_connection_has_error(data->connection) > 0)
-    {
+    if (xcb_connection_has_error(data->connection) > 0) {
         error = "Cannot open display";
         return false;
     }
@@ -437,18 +383,15 @@ bool Window::Open()
     xcb_depth_iterator_t depth_iter = xcb_screen_allowed_depths_iterator(data->screen);
     xcb_depth_t *depth = nullptr;
 
-    while (depth_iter.rem)
-    {
-        if (depth_iter.data->depth == data->windowDepth && depth_iter.data->visuals_len)
-        {
+    while (depth_iter.rem) {
+        if (depth_iter.data->depth == data->windowDepth && depth_iter.data->visuals_len) {
             depth = depth_iter.data;
             break;
         }
         xcb_depth_next(&depth_iter);
     }
 
-    if (!depth)
-    {
+    if (!depth) {
         CLOSE_CONNECTION(data);
         error = "Screen doesn't support " + ToString(data->windowDepth) + "-bit depth!";
         return false;
@@ -457,18 +400,15 @@ bool Window::Open()
     xcb_visualtype_iterator_t visual_iter = xcb_depth_visuals_iterator(depth);
     xcb_visualtype_t *visual = nullptr;
 
-    while (visual_iter.rem)
-    {
-        if (visual_iter.data->_class == XCB_VISUAL_CLASS_TRUE_COLOR)
-        {
+    while (visual_iter.rem) {
+        if (visual_iter.data->_class == XCB_VISUAL_CLASS_TRUE_COLOR) {
             visual = visual_iter.data;
             break;
         }
         xcb_visualtype_next(&visual_iter);
     }
 
-    if (!visual)
-    {
+    if (!visual) {
         CLOSE_CONNECTION(data);
         error = "Screen doesn't support True Color";
         return false;
@@ -481,8 +421,7 @@ bool Window::Open()
     cookie = xcb_create_colormap_checked(data->connection, XCB_COLORMAP_ALLOC_NONE,
                                          data->colormap, data->screen->root, data->visualID);
 
-    if (xcb_generic_error_t *err = xcb_request_check(data->connection, cookie))
-    {
+    if (xcb_generic_error_t *err = xcb_request_check(data->connection, cookie)) {
         error = "Failed to create colormap: " + ToString(err->error_code);
         CLOSE_CONNECTION(data);
         return false;
@@ -499,22 +438,19 @@ bool Window::Open()
     data->window = xcb_generate_id(data->connection);
     cookie = xcb_create_window_checked(data->connection, data->windowDepth, data->window, data->screen->root,
                                        x, y, width, height, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, data->visualID, mask, values);
-    if (xcb_generic_error_t *err = xcb_request_check(data->connection, cookie))
-    {
+    if (xcb_generic_error_t *err = xcb_request_check(data->connection, cookie)) {
         error = "Error creating xcb window: " + ToString(err->error_code);
         CLOSE_CONNECTION(data);
         return false;
     }
 
-    if (!xkbSetupKeyboard(&data->xkb, data->connection))
-    {
+    if (!xkbSetupKeyboard(&data->xkb, data->connection)) {
         xcb_destroy_window(data->connection, data->window);
         CLOSE_CONNECTION(data);
         return false;
     }
 
-    if (!xkbSelectEventsForDevice(&data->xkb))
-    {
+    if (!xkbSelectEventsForDevice(&data->xkb)) {
         xcb_destroy_window(data->connection, data->window);
         CLOSE_CONNECTION(data);
         return false;
@@ -525,29 +461,25 @@ bool Window::Open()
     xcb_change_property(data->connection, XCB_PROP_MODE_REPLACE, data->window,
                         XCB_ATOM_WM_ICON_NAME, XCB_ATOM_STRING, 8, name.size, name.data);
 
-    if ((data->atoms[0] = xcbGetAtom(data->connection, true, "WM_PROTOCOLS")) == 0)
-    {
+    if ((data->atoms[0] = xcbGetAtom(data->connection, true, "WM_PROTOCOLS")) == 0) {
         error = "Couldn't get WM_PROTOCOLS atom";
         xcb_destroy_window(data->connection, data->window);
         CLOSE_CONNECTION(data);
         return false;
     }
-    if ((data->atoms[1] = xcbGetAtom(data->connection, false, "WM_DELETE_WINDOW")) == 0)
-    {
+    if ((data->atoms[1] = xcbGetAtom(data->connection, false, "WM_DELETE_WINDOW")) == 0) {
         error = "Couldn't get WM_DELETE_WINDOW atom";
         xcb_destroy_window(data->connection, data->window);
         CLOSE_CONNECTION(data);
         return false;
     }
-    if ((data->atoms[2] = xcbGetAtom(data->connection, false, "_NET_WM_STATE")) == 0)
-    {
+    if ((data->atoms[2] = xcbGetAtom(data->connection, false, "_NET_WM_STATE")) == 0) {
         error = "Couldn't get _NET_WM_STATE atom";
         xcb_destroy_window(data->connection, data->window);
         CLOSE_CONNECTION(data);
         return false;
     }
-    if ((data->atoms[3] = xcbGetAtom(data->connection, false, "_NET_WM_STATE_FULLSCREEN")) == 0)
-    {
+    if ((data->atoms[3] = xcbGetAtom(data->connection, false, "_NET_WM_STATE_FULLSCREEN")) == 0) {
         error = "Couldn't get _NET_WM_STATE_FULLSCREEN atom";
         xcb_destroy_window(data->connection, data->window);
         CLOSE_CONNECTION(data);
@@ -580,10 +512,8 @@ bool Window::Open()
     return true;
 }
 
-bool Window::Show()
-{
-    if (!open)
-    {
+bool Window::Show() {
+    if (!open) {
         error = "Window hasn't been created yet";
         return false;
     }
@@ -592,10 +522,8 @@ bool Window::Show()
     return true;
 }
 
-bool Window::Close()
-{
-    if (!open)
-    {
+bool Window::Close() {
+    if (!open) {
         error = "Window hasn't been created yet";
         return false;
     }
@@ -611,10 +539,8 @@ bool Window::Close()
 #define _NET_WM_STATE_ADD 1    // add/set property
 #define _NET_WM_STATE_TOGGLE 2 // toggle property
 
-bool Window::Fullscreen(bool fs)
-{
-    if (!open)
-    {
+bool Window::Fullscreen(bool fs) {
+    if (!open) {
         error = "Window hasn't been created yet";
         return false;
     }
@@ -639,15 +565,12 @@ bool Window::Fullscreen(bool fs)
     return true;
 }
 
-bool Window::Resize(u32 w, u32 h)
-{
-    if (!open)
-    {
+bool Window::Resize(u32 w, u32 h) {
+    if (!open) {
         error = "Window hasn't been created yet";
         return false;
     }
-    if (fullscreen)
-    {
+    if (fullscreen) {
         error = "Fullscreen windows can't be resized";
         return false;
     }
@@ -657,33 +580,27 @@ bool Window::Resize(u32 w, u32 h)
     return true;
 }
 
-bool Window::Update()
-{
+bool Window::Update() {
     bool changeFullscreen = false;
     resized = false;
-    while ((data->event = xcb_poll_for_event(data->connection)))
-    {
-        if (!xkbProcessEvent(&data->xkb, (xkb_generic_event_t *)data->event))
-        {
+    while ((data->event = xcb_poll_for_event(data->connection))) {
+        if (!xkbProcessEvent(&data->xkb, (xkb_generic_event_t *)data->event)) {
             free(data->event);
             return false;
         }
         u8 keyCode = 0;
         char character = '\0';
         bool press = false, release = false;
-        switch (data->event->response_type & ~0x80)
-        {
+        switch (data->event->response_type & ~0x80) {
         case XCB_CLIENT_MESSAGE: {
-            if (((xcb_client_message_event_t *)data->event)->data.data32[0] == data->atoms[1])
-            {
+            if (((xcb_client_message_event_t *)data->event)->data.data32[0] == data->atoms[1]) {
                 free(data->event);
                 return false; // Because this atom was bound to the close button
             }
         } break;
         case XCB_CONFIGURE_NOTIFY: {
             xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t *)data->event;
-            if (width != ev->width || height != ev->height)
-            {
+            if (width != ev->width || height != ev->height) {
                 width = ev->width;
                 height = ev->height;
                 screenSize = vec2((float)width, (float)height);
@@ -697,10 +614,8 @@ bool Window::Update()
             // cout << "XCB_KEY_PRESS scancode: " << std::hex << (u32)ev->detail << " evdev: " << std::dec << ev->detail-8 << std::endl;
             char buffer[4] = {0};
             xkb_state_key_get_utf8(data->xkb.state, (xkb_keycode_t)ev->detail, buffer, 4);
-            if (buffer[1] == '\0')
-            {
-                if (!(buffer[0] & 0x80))
-                {
+            if (buffer[1] == '\0') {
+                if (!(buffer[0] & 0x80)) {
                     character = buffer[0];
                 }
                 // handleCharInput(buffer[0]);
@@ -714,10 +629,8 @@ bool Window::Update()
             keyCode = KeyCodeFromEvdev(ev->detail);
             char buffer[4] = {0};
             xkb_state_key_get_utf8(data->xkb.state, (xkb_keycode_t)ev->detail, buffer, 4);
-            if (buffer[1] == '\0')
-            {
-                if (!(buffer[0] & 0x80))
-                {
+            if (buffer[1] == '\0') {
+                if (!(buffer[0] & 0x80)) {
                     character = buffer[0];
                 }
             }
@@ -725,8 +638,7 @@ bool Window::Update()
         } break;
         case XCB_BUTTON_PRESS: {
             xcb_button_press_event_t *ev = (xcb_button_press_event_t *)data->event;
-            switch (ev->detail)
-            {
+            switch (ev->detail) {
             case 1:
                 keyCode = KC_MOUSE_LEFT;
                 break;
@@ -738,29 +650,25 @@ bool Window::Update()
                 break;
             case 4:
                 keyCode = KC_MOUSE_SCROLLUP;
-                if (input != nullptr)
-                {
+                if (input != nullptr) {
                     input->scroll.y += 1.0f;
                 }
                 break;
             case 5:
                 keyCode = KC_MOUSE_SCROLLDOWN;
-                if (input != nullptr)
-                {
+                if (input != nullptr) {
                     input->scroll.y -= 1.0f;
                 }
                 break;
             case 6: // Sideways scrolling
                 keyCode = KC_MOUSE_SCROLLLEFT;
-                if (input != nullptr)
-                {
+                if (input != nullptr) {
                     input->scroll.x -= 1.0f;
                 }
                 break;
             case 7:
                 keyCode = KC_MOUSE_SCROLLRIGHT;
-                if (input != nullptr)
-                {
+                if (input != nullptr) {
                     input->scroll.x += 1.0f;
                 }
                 break;
@@ -778,8 +686,7 @@ bool Window::Update()
         } break;
         case XCB_BUTTON_RELEASE: {
             xcb_button_release_event_t *ev = (xcb_button_release_event_t *)data->event;
-            switch (ev->detail)
-            {
+            switch (ev->detail) {
             case 1:
                 keyCode = KC_MOUSE_LEFT;
                 break;
@@ -818,15 +725,13 @@ bool Window::Update()
         } break;
         case XCB_FOCUS_OUT: {
             focused = false;
-            if (input != nullptr)
-            {
+            if (input != nullptr) {
                 input->ReleaseAll();
             }
         } break;
         case XCB_MOTION_NOTIFY: {
             xcb_motion_notify_event_t *ev = (xcb_motion_notify_event_t *)data->event;
-            if (input != nullptr)
-            {
+            if (input != nullptr) {
                 input->cursor.x = ev->event_x;
                 input->cursor.y = ev->event_y;
             }
@@ -839,41 +744,32 @@ bool Window::Update()
         }
         free(data->event);
 
-        if (input != nullptr && focused)
-        {
+        if (input != nullptr && focused) {
             if (press)
                 input->typingString += character;
-            if (character >= 'a' && character <= 'z')
-            {
+            if (character >= 'a' && character <= 'z') {
                 character += 'A' - 'a';
             }
-            if (press)
-            {
-                if (keyCode != 0)
-                {
+            if (press) {
+                if (keyCode != 0) {
                     input->Press(keyCode);
                 }
-                if (character != '\0')
-                {
+                if (character != '\0') {
                     input->PressChar(character);
                 }
             }
-            if (release)
-            {
-                if (keyCode != 0)
-                {
+            if (release) {
+                if (keyCode != 0) {
                     input->Release(keyCode);
                 }
-                if (character != '\0')
-                {
+                if (character != '\0') {
                     input->ReleaseChar(character);
                 }
             }
         }
     }
 
-    if (changeFullscreen)
-    {
+    if (changeFullscreen) {
         Fullscreen(!fullscreen);
     }
 
@@ -892,10 +788,8 @@ void Window::HideCursor(bool hide) {
     xcb_flush(data->connection);
 }
 
-String Window::InputName(u8 keyCode) const
-{
-    if (!open)
-    {
+String Window::InputName(u8 keyCode) const {
+    if (!open) {
         return "Error";
     }
     return xkbGetInputName(&data->xkb, keyCode);

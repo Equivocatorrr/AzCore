@@ -11,12 +11,10 @@
 
 namespace AzCore {
 
-struct SystemEndianness_t
-{
+struct SystemEndianness_t {
     union {
         u16 _bytes;
-        struct
-        {
+        struct {
             bool little, big;
         };
     };
@@ -39,37 +37,30 @@ u16 endianSwap(u16 in, bool swapEndian = true);
 u32 endianSwap(u32 in, bool swapEndian = true);
 u64 endianSwap(u64 in, bool swapEndian = true);
 
-inline i16 endianSwap(i16 in, bool swapEndian = true)
-{
+inline i16 endianSwap(i16 in, bool swapEndian = true) {
     return endianSwap((u16)in, swapEndian);
 }
-inline i32 endianSwap(i32 in, bool swapEndian = true)
-{
+inline i32 endianSwap(i32 in, bool swapEndian = true) {
     return endianSwap((u32)in, swapEndian);
 }
-inline i64 endianSwap(i64 in, bool swapEndian = true)
-{
+inline i64 endianSwap(i64 in, bool swapEndian = true) {
     return endianSwap((u64)in, swapEndian);
 }
 
 template <typename T>
-inline T endianFromL(T in)
-{
+inline T endianFromL(T in) {
     return endianSwap(in, SysEndian.big);
 }
 template <typename T>
-inline T endianToL(T in)
-{
+inline T endianToL(T in) {
     return endianSwap(in, SysEndian.big);
 }
 template <typename T>
-inline T endianFromB(T in)
-{
+inline T endianFromB(T in) {
     return endianSwap(in, SysEndian.little);
 }
 template <typename T>
-inline T endianToB(T in)
-{
+inline T endianToB(T in) {
     return endianSwap(in, SysEndian.little);
 }
 

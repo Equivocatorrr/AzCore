@@ -19,42 +19,33 @@ class Angle;
     Author: Philip Haynes
     A discrete type that represents an angle in degrees.    */
 template <typename T>
-class Degrees
-{
+class Degrees {
     T _value;
 
 public:
     Degrees() = default;
     Degrees(T a) : _value(a) {}
     // Degrees(const Degrees<T> &a) : _value(a._value) {}
-    Degrees(const Radians<T> &a)
-    {
-        if constexpr (std::is_same<T, f32>())
-        {
+    Degrees(const Radians<T> &a) {
+        if constexpr (std::is_same<T, f32>()) {
             _value = a.value() / tau * 360.0f;
-        }
-        else
-        {
+        } else {
             _value = a.value() / tau64 * 360.0;
         }
     }
-    Degrees<T> &operator+=(const Degrees<T> &other)
-    {
+    Degrees<T> &operator+=(const Degrees<T> &other) {
         _value += other._value;
         return *this;
     }
-    Degrees<T> &operator-=(const Degrees<T> &other)
-    {
+    Degrees<T> &operator-=(const Degrees<T> &other) {
         _value -= other._value;
         return *this;
     }
-    Degrees<T> &operator*=(const Degrees<T> &other)
-    {
+    Degrees<T> &operator*=(const Degrees<T> &other) {
         _value *= other._value;
         return *this;
     }
-    Degrees<T> &operator/=(const Degrees<T> &other)
-    {
+    Degrees<T> &operator/=(const Degrees<T> &other) {
         _value /= other._value;
         return *this;
     }
@@ -77,8 +68,7 @@ public:
     Author: Philip Haynes
     A discrete type that represents an angle in radians.    */
 template <typename T>
-class Radians
-{
+class Radians {
     T _value;
 
 public:
@@ -86,14 +76,10 @@ public:
     Radians(T a) : _value(a) {}
     // Radians(const Radians<T> &a) : _value(a._value) {}
     Radians(const Angle<T> &a) : _value(a.value()) {}
-    Radians(const Degrees<T> &a)
-    {
-        if constexpr (std::is_same<T, f32>())
-        {
+    Radians(const Degrees<T> &a) {
+        if constexpr (std::is_same<T, f32>()) {
             _value = a.value() * tau / 360.0f;
-        }
-        else
-        {
+        } else {
             _value = a.value() * tau64 / 360.0;
         }
     }
@@ -101,23 +87,19 @@ public:
     //     _value = other._value;
     //     return *this;
     // }
-    Radians<T> &operator+=(const Radians<T> &other)
-    {
+    Radians<T> &operator+=(const Radians<T> &other) {
         _value += other._value;
         return *this;
     }
-    Radians<T> &operator-=(const Radians<T> &other)
-    {
+    Radians<T> &operator-=(const Radians<T> &other) {
         _value -= other._value;
         return *this;
     }
-    Radians<T> &operator*=(const Radians<T> &other)
-    {
+    Radians<T> &operator*=(const Radians<T> &other) {
         _value *= other._value;
         return *this;
     }
-    Radians<T> &operator/=(const Radians<T> &other)
-    {
+    Radians<T> &operator/=(const Radians<T> &other) {
         _value /= other._value;
         return *this;
     }
@@ -140,8 +122,7 @@ public:
     Author: Philip Haynes
     A discrete type to represent all angles while regarding the circular nature of angles.   */
 template <typename T>
-class Angle
-{
+class Angle {
     Radians<T> _value;
 
 public:
@@ -149,28 +130,20 @@ public:
     // Angle(const Angle<T> &other) : _value(other._value) {}
     Angle(const T &other) : _value(Radians<T>(other)) {}
     Angle(const Degrees<T> &other) : _value(Radians<T>(other)) {}
-    Angle(const Radians<T> &other)
-    {
+    Angle(const Radians<T> &other) {
         _value = other;
-        if constexpr (std::is_same<T, f32>())
-        {
-            while (_value > tau)
-            {
+        if constexpr (std::is_same<T, f32>()) {
+            while (_value > tau) {
                 _value -= tau;
             }
-            while (_value < 0.0f)
-            {
+            while (_value < 0.0f) {
                 _value += tau;
             }
-        }
-        else
-        {
-            while (_value > tau64)
-            {
+        } else {
+            while (_value > tau64) {
                 _value -= tau64;
             }
-            while (_value < 0.0)
-            {
+            while (_value < 0.0) {
                 _value += tau64;
             }
         }
@@ -199,14 +172,12 @@ Radians64 angleDiff(Angle64 from, Angle64 to);
 #endif
 
 template <typename T>
-Radians<T> Angle<T>::operator-(const Angle<T> &to) const
-{
+Radians<T> Angle<T>::operator-(const Angle<T> &to) const {
     return angleDiff(*this, to);
 }
 
 template <typename T>
-inline Radians<T> angleDir(const Angle<T> &from, const Angle<T> &to)
-{
+inline Radians<T> angleDir(const Angle<T> &from, const Angle<T> &to) {
     return sign(angleDiff(from, to));
 }
 

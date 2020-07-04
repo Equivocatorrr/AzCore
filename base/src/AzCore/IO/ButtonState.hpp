@@ -12,16 +12,14 @@ namespace AzCore {
 
 namespace io {
 
-enum ButtonStateBits
-{
+enum ButtonStateBits {
     BUTTON_PRESSED_BIT = 0x01,
     BUTTON_DOWN_BIT = 0x02,
     BUTTON_RELEASED_BIT = 0x04
 };
 /*  struct: ButtonState
         Author: Philip Haynes   */
-struct ButtonState
-{
+struct ButtonState {
     i16 state;
     bool canRepeat;
     f32 repeatTimer;

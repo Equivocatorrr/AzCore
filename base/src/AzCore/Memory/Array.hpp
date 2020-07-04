@@ -22,8 +22,7 @@ namespace AzCore {
     If you want to use value-terminated strings with Arrays or StringLength, the correct
     string terminator must be declared somewhere in a .cpp file. char and char32 are already set.  */
 template <typename T>
-struct StringTerminators
-{
+struct StringTerminators {
     static const T value;
 };
 /* Macro to easily set a terminator. Must be called from one and only one .cpp file.
@@ -36,11 +35,10 @@ struct StringTerminators
     Finds the length of a value-terminated string. The type T must have an
     associated StringTerminators declared somewhere. */
 template <typename T>
-i32 StringLength(const T *string)
-{
+i32 StringLength(const T *string) {
     i32 length = 0;
-    for (; string[length] != StringTerminators<T>::value; length++)
-    {
+    while (string[length] != StringTerminators<T>::value) {
+        length++;
     }
     return length;
 }
@@ -49,24 +47,20 @@ i32 StringLength(const T *string)
     Author: Philip Haynes
     Because const correctness can't work without it...      */
 template <typename T>
-class ArrayIterator
-{
+class ArrayIterator {
     T *data;
 
 public:
     ArrayIterator() : data(nullptr) {}
     ArrayIterator(T *d) : data(d) {}
-    bool operator!=(const ArrayIterator<T> &other) const
-    {
+    bool operator!=(const ArrayIterator<T> &other) const {
         return data != other.data;
     }
-    const ArrayIterator<T> &operator++()
-    {
+    const ArrayIterator<T> &operator++() {
         data++;
         return *this;
     }
-    const T &operator*() const
-    {
+    const T &operator*() const {
         return *data;
     }
 };
@@ -84,8 +78,7 @@ struct Array {
     i32 size;
 
     inline void force_inline
-    _SetTerminator()
-    {
+    _SetTerminator() {
         if constexpr (allocTail > 1) {
             if (allocated == 0) {
                 data = (T *)&StringTerminators<T>::value;
@@ -103,7 +96,7 @@ struct Array {
         }
     }
     inline void force_inline
-    _Initialize(const i32 newSize) {
+    _Initialize(i32 newSize) {
         size = newSize;
         allocated = newSize;
         if (newSize > 0) {
@@ -159,11 +152,11 @@ struct Array {
         _Initialize(0);
         _SetTerminator();
     }
-    Array(const i32 newSize) {
+    Array(i32 newSize) {
         _Initialize(newSize);
         _SetTerminator();
     }
-    Array(const i32 newSize, const T &value) {
+    Array(i32 newSize, const T &value) {
         _Initialize(newSize);
         for (i32 i = 0; i < size; i++) {
             data[i] = value;
@@ -172,10 +165,10 @@ struct Array {
     }
 
     inline force_inline
-    Array(const u32 newSize) : Array((i32)newSize) {}
+    Array(u32 newSize) : Array((i32)newSize) {}
 
     inline force_inline
-    Array(const u32 newSize, const T &value) : Array((i32)newSize, value) {}
+    Array(u32 newSize, const T &value) : Array((i32)newSize, value) {}
 
     Array(const std::initializer_list<T> &init) {
         _Initialize(init.size());
@@ -319,7 +312,7 @@ struct Array {
         return size < other.size;
     }
 
-    const T &operator[](const i32 index) const {
+    const T &operator[](i32 index) const {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index > size) {
             throw std::out_of_range("Array index is out of bounds");
@@ -328,7 +321,7 @@ struct Array {
         return data[index];
     }
 
-    T &operator[](const i32 index) {
+    T &operator[](i32 index) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index > size) {
             throw std::out_of_range("Array index is out of bounds");
@@ -437,7 +430,7 @@ struct Array {
         }
     }
 
-    void Resize(const i32 newSize, const T &value) {
+    void Resize(i32 newSize, const T &value) {
         if (newSize == 0) {
             _Deinitialize();
             _Drop();
@@ -452,7 +445,7 @@ struct Array {
         _SetTerminator();
     }
 
-    void Resize(const i32 newSize) {
+    void Resize(i32 newSize) {
         if (newSize == 0) {
             _Deinitialize();
             _Drop();
@@ -514,12 +507,12 @@ struct Array {
         return *this;
     }
 
-    T &Insert(const i32 index, const T &value) {
+    T &Insert(i32 index, const T &value) {
         T val(value);
         return Insert(index, std::move(val));
     }
 
-    T &Insert(const i32 index, T &&value) {
+    T &Insert(i32 index, T &&value) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index > size) {
             throw std::out_of_range("Array::Insert index is out of bounds");
@@ -564,7 +557,7 @@ struct Array {
         return data[index] = std::move(value);
     }
 
-    Range<T> Insert(const i32 index, const Array<T, allocTail> &other) {
+    Range<T> Insert(i32 index, const Array<T, allocTail> &other) {
         Array<T, allocTail> array(other);
         return Insert(index, std::move(array));
     }
@@ -671,6 +664,9 @@ struct Array {
     inline T &Back() {
         return data[size - 1];
     }
+    inline const T &Back() const {
+        return data[size - 1];
+    }
 
     bool Contains(const T &val) const {
         for (i32 i = 0; i < size; i++) {
@@ -691,7 +687,7 @@ struct Array {
         return count;
     }
 
-    Ptr<T> GetPtr(const i32 &index, bool fromBack = false) {
+    Ptr<T> GetPtr(i32 index, bool fromBack = false) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index >= (size + (i32)fromBack)) {
             throw std::out_of_range("Array::GetPtr index is out of bounds");
@@ -704,7 +700,7 @@ struct Array {
         }
     }
 
-    Range<T> GetRange(const i32 &index, const i32 &_size) {
+    Range<T> GetRange(i32 index, i32 _size) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
         if (index + _size > size && index >= 0) {
             throw std::out_of_range("Array::Range index + size is out of bounds");

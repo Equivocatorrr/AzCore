@@ -8,13 +8,11 @@
 
 namespace AzCore {
 
-RandomNumberGenerator::RandomNumberGenerator()
-{
+RandomNumberGenerator::RandomNumberGenerator() {
     Seed(Clock::now().time_since_epoch().count());
 }
 
-u32 RandomNumberGenerator::Generate()
-{
+u32 RandomNumberGenerator::Generate() {
     u64 t;
     x = 314527869 * x + 1234567;
     y ^= y << 5;
@@ -26,8 +24,7 @@ u32 RandomNumberGenerator::Generate()
     return x + y + z;
 }
 
-void RandomNumberGenerator::Seed(u64 seed)
-{
+void RandomNumberGenerator::Seed(u64 seed) {
     // The power of keysmashes!
     if (seed == 0)
         seed += 3478596;
@@ -37,14 +34,12 @@ void RandomNumberGenerator::Seed(u64 seed)
     c = seed * 32497;
 }
 
-f32 random(f32 min, f32 max, RandomNumberGenerator &rng)
-{
+f32 random(f32 min, f32 max, RandomNumberGenerator &rng) {
     u32 num = rng.Generate();
     return (f32)(((f64)num * (f64)(max - min) / (f64)UINT32_MAX) + (f64)min);
 }
 
-i32 random(i32 min, i32 max, RandomNumberGenerator &rng)
-{
+i32 random(i32 min, i32 max, RandomNumberGenerator &rng) {
     return i32(rng.Generate() % (max - min + 1)) + min;
 }
 

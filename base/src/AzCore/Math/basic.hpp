@@ -19,15 +19,13 @@ const f32 halfpi = (f32)halfpi64;
 const f32 pi = (f32)pi64;
 const f32 tau = (f32)tau64;
 
-enum Axis
-{
+enum Axis {
     X = 0,
     Y = 1,
     Z = 2
 };
 
-enum Plane
-{
+enum Plane {
     XY = 0,
     XZ = 1,
     XW = 2,
@@ -63,14 +61,12 @@ enum Plane
 } // namespace AzCore
 
 template <typename T>
-inline T square(const T &a)
-{
+inline T square(const T &a) {
     return a * a;
 }
 
 template <typename T>
-inline T median(const T &a, const T &b, const T &c)
-{
+inline T median(const T &a, const T &b, const T &c) {
     if ((b >= a && a >= c) || (c >= a && a >= b))
         return a;
     if ((a >= b && b >= c) || (c >= b && b >= a))
@@ -81,38 +77,32 @@ inline T median(const T &a, const T &b, const T &c)
 }
 
 template <typename T>
-inline T min(const T &a, const T &b)
-{
+inline T min(const T &a, const T &b) {
     return a > b ? b : a;
 }
 
 template <typename T>
-inline T max(const T &a, const T &b)
-{
+inline T max(const T &a, const T &b) {
     return a > b ? a : b;
 }
 
 template <typename T>
-inline T clamp(const T &a, const T &b, const T &c)
-{
+inline T clamp(const T &a, const T &b, const T &c) {
     return median(a, b, c);
 }
 
 template <typename T>
-inline T abs(const T &a)
-{
+inline T abs(const T &a) {
     return a >= 0 ? a : -a;
 }
 
 template <typename T>
-inline T sign(const T &a)
-{
+inline T sign(const T &a) {
     return a >= 0 ? 1 : -1;
 }
 
 template <typename T, typename F>
-inline T lerp(const T &a, const T &b, F factor)
-{
+inline T lerp(const T &a, const T &b, F factor) {
     factor = clamp(factor, F(0), F(1));
     return a + (b - a) * factor;
 }
@@ -136,8 +126,7 @@ inline T ease(const T &a, const T &b, F factor) {
 }
 
 template <typename T, typename F>
-T decay(T a, T b, F halfLife, F timestep)
-{
+T decay(T a, T b, F halfLife, F timestep) {
     F fac = exp(-timestep / halfLife);
     if (fac > F(1.0))
         fac = F(1.0);
@@ -147,26 +136,21 @@ T decay(T a, T b, F halfLife, F timestep)
 }
 
 template <typename T>
-inline T map(const T &in, const T &minFrom, const T &maxFrom, const T &minTo, const T &maxTo)
-{
+inline T map(const T &in, const T &minFrom, const T &maxFrom, const T &minTo, const T &maxTo) {
     return (in - minFrom) * (maxTo - minTo) / (maxFrom - minFrom) + minTo;
 }
 
 template <typename T>
-inline T cubert(const T &a)
-{
+inline T cubert(const T &a) {
     return a >= T(0.0) ? pow(a, T(1.0 / 3.0)) : -pow(-a, T(1.0 / 3.0));
 }
 
 template <typename T>
-inline T wrap(T a, T max)
-{
-    while (a > max)
-    {
+inline T wrap(T a, T max) {
+    while (a > max) {
         a -= max;
     }
-    while (a < 0)
-    {
+    while (a < 0) {
         a += max;
     }
     return a;

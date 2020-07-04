@@ -35,8 +35,7 @@ struct Input;
 /*  class: Window
     Author: Philip Haynes
     Generic window class that can receive events and display an image.  */
-class Window
-{
+class Window {
     friend vk::Instance;
     // Opaque type for clean cross-platform implementation
     struct WindowData *data = nullptr;

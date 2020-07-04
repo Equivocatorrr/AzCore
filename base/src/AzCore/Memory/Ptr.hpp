@@ -19,8 +19,7 @@ static constexpr i32 indexIndicatingRaw = -2147483648;
     May refer to an index in an Array relative to
     the start or the end or just a raw pointer.     */
 template <typename T>
-struct Ptr
-{
+struct Ptr {
     union {
         void *ptr;
         T *raw;

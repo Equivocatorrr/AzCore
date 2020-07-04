@@ -11,31 +11,26 @@
 #include <linux/joystick.h>
 #include <unistd.h>
 
-namespace AzCore
-{
+namespace AzCore {
 
-namespace io
-{
+namespace io {
 
 const i32 GAMEPAD_MAPPING_MAX_AXES = 12;
 const i32 GAMEPAD_MAPPING_MAX_BUTTONS = 20;
 
-struct GamepadMapping
-{
+struct GamepadMapping {
     // Just some overkill numbers to prevent segfaults in the case of a really wacky controller
     u8 axes[GAMEPAD_MAPPING_MAX_AXES];
     u8 buttons[GAMEPAD_MAPPING_MAX_BUTTONS];
     void FromDevice(int fd);
 };
 
-struct jsMapping
-{
+struct jsMapping {
     __u8 axes[ABS_CNT];
     __u16 buttons[(KEY_MAX - BTN_MISC + 1)];
 };
 
-void GamepadMapping::FromDevice(int fd)
-{
+void GamepadMapping::FromDevice(int fd) {
     jsMapping driverMap;
     char numAxes, numButtons;
     ioctl(fd, JSIOCGAXES, &numAxes);
@@ -43,30 +38,19 @@ void GamepadMapping::FromDevice(int fd)
     ioctl(fd, JSIOCGAXMAP, driverMap.axes);
     ioctl(fd, JSIOCGBTNMAP, driverMap.buttons);
     bool hasLTAxis = false, hasRTAxis = false;
-    for (i32 i = 0; i < numAxes; i++)
-    {
-        if (driverMap.axes[i] > ABS_HAT0Y)
-        {
-            if (driverMap.axes[i] >= BTN_GAMEPAD && driverMap.axes[i] <= BTN_DPAD_RIGHT)
-            {
+    for (i32 i = 0; i < numAxes; i++) {
+        if (driverMap.axes[i] > ABS_HAT0Y) {
+            if (driverMap.axes[i] >= BTN_GAMEPAD && driverMap.axes[i] <= BTN_DPAD_RIGHT) {
                 // Axis-to-button mapping
                 axes[i] = 255; // Disabled for now
-            }
-            else
-            {
+            } else {
                 axes[i] = 255;
             }
-        }
-        else if (driverMap.axes[i] < ABS_THROTTLE)
-        {
+        } else if (driverMap.axes[i] < ABS_THROTTLE) {
             axes[i] = driverMap.axes[i];
-        }
-        else if (driverMap.axes[i] < ABS_HAT0X)
-        {
+        } else if (driverMap.axes[i] < ABS_HAT0X) {
             axes[i] = 255;
-        }
-        else
-        {
+        } else {
             axes[i] = driverMap.axes[i] - 10;
         }
         if (axes[i] == GP_AXIS_LT)
@@ -74,37 +58,25 @@ void GamepadMapping::FromDevice(int fd)
         if (axes[i] == GP_AXIS_RT)
             hasRTAxis = true;
     }
-    for (i32 i = 0; i < numButtons; i++)
-    {
-        if (driverMap.buttons[i] < BTN_GAMEPAD)
-        {
+    for (i32 i = 0; i < numButtons; i++) {
+        if (driverMap.buttons[i] < BTN_GAMEPAD) {
             buttons[i] = 0;
-        }
-        else if (driverMap.buttons[i] <= BTN_THUMBR)
-        {
+        } else if (driverMap.buttons[i] <= BTN_THUMBR) {
             buttons[i] = driverMap.buttons[i] - BTN_A + KC_GP_BTN_A;
-        }
-        else if (driverMap.buttons[i] < BTN_DPAD_UP)
-        {
+        } else if (driverMap.buttons[i] < BTN_DPAD_UP) {
             buttons[i] = 0;
-        }
-        else if (driverMap.buttons[i] <= BTN_DPAD_RIGHT)
-        {
+        } else if (driverMap.buttons[i] <= BTN_DPAD_RIGHT) {
             buttons[i] = KC_GP_AXIS_H0_UP - (driverMap.buttons[i] - BTN_DPAD_UP);
-        }
-        else
-        {
+        } else {
             buttons[i] = 0;
         }
-        if (buttons[i] == KC_GP_BTN_TL2)
-        {
+        if (buttons[i] == KC_GP_BTN_TL2) {
             if (hasLTAxis)
                 buttons[i] = 0;
             else
                 buttons[i] = KC_GP_AXIS_LT_IN;
         }
-        if (buttons[i] == KC_GP_BTN_TR2)
-        {
+        if (buttons[i] == KC_GP_BTN_TR2) {
             if (hasRTAxis)
                 buttons[i] = 0;
             else
@@ -113,8 +85,7 @@ void GamepadMapping::FromDevice(int fd)
     }
 }
 
-struct RawInputDeviceData
-{
+struct RawInputDeviceData {
     GamepadMapping mapping;
     String name;
     String path;
@@ -123,22 +94,17 @@ struct RawInputDeviceData
     f32 retryTimer;
 };
 
-RawInputDevice::~RawInputDevice()
-{
-    if (data != nullptr)
-    {
-        if (data->fd > -1)
-        {
+RawInputDevice::~RawInputDevice() {
+    if (data != nullptr) {
+        if (data->fd > -1) {
             close(data->fd);
         }
         delete data;
     }
 }
 
-RawInputDevice &RawInputDevice::operator=(RawInputDevice &&other)
-{
-    if (data != nullptr)
-    {
+RawInputDevice &RawInputDevice::operator=(RawInputDevice &&other) {
+    if (data != nullptr) {
         delete data;
     }
     data = other.data;
@@ -148,22 +114,18 @@ RawInputDevice &RawInputDevice::operator=(RawInputDevice &&other)
     return *this;
 }
 
-void RawInputDeviceInit(RawInputDevice *rid, i32 fd, String &&path, RawInputFeatureBits enableMask)
-{
-    if (rid->data == nullptr)
-    {
+void RawInputDeviceInit(RawInputDevice *rid, i32 fd, String &&path, RawInputFeatureBits enableMask) {
+    if (rid->data == nullptr) {
         rid->data = new RawInputDeviceData;
     }
     rid->data->fd = fd;
     rid->data->retryTimer = -1.0;
     rid->data->path = std::move(path);
     rid->data->name.Resize(128);
-    if (-1 == ioctl(fd, JSIOCGNAME(rid->data->name.size), rid->data->name.data))
-    {
+    if (-1 == ioctl(fd, JSIOCGNAME(rid->data->name.size), rid->data->name.data)) {
         rid->data->name = "Error Retrieving Name";
     }
-    if (-1 == ioctl(fd, JSIOCGVERSION, &rid->data->version))
-    {
+    if (-1 == ioctl(fd, JSIOCGVERSION, &rid->data->version)) {
         rid->data->version = UINT32_MAX;
     }
     // TODO: Recognize Joysticks separately
@@ -173,30 +135,22 @@ void RawInputDeviceInit(RawInputDevice *rid, i32 fd, String &&path, RawInputFeat
          "\t   Name: " << rid->data->name << "\n"
          "\tVersion: " << rid->data->version << std::endl;
     u8 axes, buttons;
-    if (-1 == ioctl(fd, JSIOCGAXES, &axes))
-    {
+    if (-1 == ioctl(fd, JSIOCGAXES, &axes)) {
         cout << "\tFailed to get axes..." << std::endl;
-    }
-    else
-    {
+    } else {
         cout << "\tJoystick has " << (u32)axes << " axes." << std::endl;
     }
-    if (-1 == ioctl(fd, JSIOCGBUTTONS, &buttons))
-    {
+    if (-1 == ioctl(fd, JSIOCGBUTTONS, &buttons)) {
         cout << "\tFailed to get buttons..." << std::endl;
-    }
-    else
-    {
+    } else {
         cout << "\tJoystick has " << (u32)buttons << " buttons." << std::endl;
     }
     rid->data->mapping.FromDevice(rid->data->fd);
 }
 
-bool GetRawInputDeviceEvent(Ptr<RawInputDevice> rid, js_event *dst)
-{
+bool GetRawInputDeviceEvent(Ptr<RawInputDevice> rid, js_event *dst) {
     ssize_t rc = read(rid->data->fd, dst, sizeof(js_event));
-    if (rc == -1 && errno != EAGAIN)
-    {
+    if (rc == -1 && errno != EAGAIN) {
         cout << "Lost raw input device " << rid->data->path << std::endl;
         close(rid->data->fd);
         rid->data->retryTimer = 1.0;
@@ -205,44 +159,34 @@ bool GetRawInputDeviceEvent(Ptr<RawInputDevice> rid, js_event *dst)
     return rc == sizeof(js_event);
 }
 
-struct RawInputData
-{
+struct RawInputData {
     u32 frame;
 };
 
-RawInput::~RawInput()
-{
-    if (data != nullptr)
-    {
+RawInput::~RawInput() {
+    if (data != nullptr) {
         delete data;
     }
 }
 
-bool RawInput::Init(RawInputFeatureBits enableMask)
-{
+bool RawInput::Init(RawInputFeatureBits enableMask) {
     devices.Reserve(4);
     data = new RawInputData;
     data->frame = 0;
     ClockTime start = Clock::now();
     char path[] = "/dev/input/jsXX";
-    for (u32 i = 0; i < 32; i++)
-    {
-        if (i < 10)
-        {
+    for (u32 i = 0; i < 32; i++) {
+        if (i < 10) {
             path[13] = i + '0';
             path[14] = 0;
-        }
-        else
-        {
+        } else {
             path[13] = i / 10 + '0';
             path[14] = i % 10 + '0';
         }
         // cout << path << std::endl;
         i32 fd = open(path, O_RDONLY | O_NONBLOCK);
-        if (fd < 0)
-        {
-            if (errno == EACCES)
-            {
+        if (fd < 0) {
+            if (errno == EACCES) {
                 cout << "Permission denied opening device with path \""
                      << path << "\"." << std::endl;
             }
@@ -253,16 +197,14 @@ bool RawInput::Init(RawInputFeatureBits enableMask)
         RawInputDeviceInit(&device, fd, std::move(path), enableMask);
         device.rawInput = this;
         devices.Append(std::move(device));
-        switch (device.type)
-        {
+        switch (device.type) {
         case KEYBOARD:
             // TODO: Implement raw keyboards
             break;
         case MOUSE:
             // TODO: Implement raw mice
             break;
-        case GAMEPAD:
-        {
+        case GAMEPAD: {
             Gamepad gamepad;
             gamepad.rawInputDevice = devices.GetPtr(devices.size - 1);
             gamepads.Append(gamepad);
@@ -279,32 +221,26 @@ bool RawInput::Init(RawInputFeatureBits enableMask)
     return true;
 }
 
-void RawInput::Update(f32 timestep)
-{
+void RawInput::Update(f32 timestep) {
     // TODO: The rest of the raw input device types.
     AnyGP.Tick(timestep);
-    if (window != nullptr)
-    {
+    if (window != nullptr) {
         if (!window->focused)
             return;
     }
-    for (i32 i = 0; i < gamepads.size; i++)
-    {
+    for (i32 i = 0; i < gamepads.size; i++) {
         gamepads[i].Update(timestep, i);
     }
 }
 
-void handleButton(ButtonState &dst, bool down, u8 keyCode, RawInput *rawInput, i32 index)
-{
-    if (down && !dst.Down())
-    {
+void handleButton(ButtonState &dst, bool down, u8 keyCode, RawInput *rawInput, i32 index) {
+    if (down && !dst.Down()) {
         rawInput->AnyGPCode = keyCode;
         rawInput->AnyGP.state = BUTTON_PRESSED_BIT;
         dst.Press();
         rawInput->AnyGPIndex = index;
     }
-    if (!down && dst.Down())
-    {
+    if (!down && dst.Down()) {
         rawInput->AnyGPCode = keyCode;
         rawInput->AnyGP.state = BUTTON_RELEASED_BIT;
         dst.Release();
@@ -312,101 +248,76 @@ void handleButton(ButtonState &dst, bool down, u8 keyCode, RawInput *rawInput, i
     }
 }
 
-void Gamepad::Update(f32 timestep, i32 index)
-{
-    if (!rawInputDevice.Valid())
-    {
+void Gamepad::Update(f32 timestep, i32 index) {
+    if (!rawInputDevice.Valid()) {
         return;
     }
-    if (rawInputDevice->data->retryTimer != -1.0f)
-    {
+    if (rawInputDevice->data->retryTimer != -1.0f) {
         rawInputDevice->data->retryTimer -= timestep;
-        if (rawInputDevice->data->retryTimer < 0.0f)
-        {
+        if (rawInputDevice->data->retryTimer < 0.0f) {
             i32 fd = open(rawInputDevice->data->path.data, O_RDONLY | O_NONBLOCK);
-            if (fd >= 0)
-            {
+            if (fd >= 0) {
                 String path(std::move(rawInputDevice->data->path)); // Kinda weird but if it moved in place it would self destruct lol
                 RawInputDeviceInit(&(*rawInputDevice), fd, std::move(path), RAW_INPUT_ENABLE_GAMEPAD_BIT);
-            }
-            else
-            {
+            } else {
                 rawInputDevice->data->retryTimer = 1.0f;
             }
         }
         return;
     }
-    for (u32 i = 0; i < IO_GAMEPAD_MAX_BUTTONS; i++)
-    {
+    for (u32 i = 0; i < IO_GAMEPAD_MAX_BUTTONS; i++) {
         button[i].Tick(timestep);
     }
-    for (u32 i = 0; i < IO_GAMEPAD_MAX_AXES * 2; i++)
-    {
+    for (u32 i = 0; i < IO_GAMEPAD_MAX_AXES * 2; i++) {
         axisPush[i].Tick(timestep);
     }
-    for (u32 i = 0; i < 4; i++)
-    {
+    for (u32 i = 0; i < 4; i++) {
         hat[i].Tick(timestep);
     }
     js_event ev;
     const GamepadMapping &mapping = rawInputDevice->data->mapping;
-    while (GetRawInputDeviceEvent(rawInputDevice, &ev))
-    {
-        switch (ev.type)
-        {
-        case JS_EVENT_INIT:
-        {
+    while (GetRawInputDeviceEvent(rawInputDevice, &ev)) {
+        switch (ev.type) {
+        case JS_EVENT_INIT: {
             // Not sure what this is for... seems to not be triggered ever???
             cout << "JS_EVENT_INIT has number " << (u32)ev.number << " and value " << ev.value << std::endl;
         }
         break;
-        case JS_EVENT_AXIS:
-        {
+        case JS_EVENT_AXIS: {
             f32 maxRange = 1.0f;
             f32 minRange = -1.0f;
             f32 deadZoneTemp = deadZone;
             if (ev.number >= GAMEPAD_MAPPING_MAX_AXES)
                 continue; // Let's not make crazy things happen
             i32 aIndex = mapping.axes[ev.number];
-            if (aIndex == GP_AXIS_LT || aIndex == GP_AXIS_RT)
-            {
+            if (aIndex == GP_AXIS_LT || aIndex == GP_AXIS_RT) {
                 // No such thing as an outward trigger pull AFAIK
                 minRange = 0.0f;
                 deadZoneTemp = 0.0f;
             }
-            if (aIndex >= IO_GAMEPAD_MAX_AXES)
-            {
+            if (aIndex >= IO_GAMEPAD_MAX_AXES) {
                 continue; // Unsupported
             }
             f32 val = map((f32)ev.value, -32767.0f, 32767.0f, minRange, maxRange);
             // cout << "axis = " << aIndex << ", val = " << val << std::endl;
-            if (abs(val) < deadZoneTemp)
-            {
+            if (abs(val) < deadZoneTemp) {
                 axis.array[aIndex] = 0.0f;
-            }
-            else
-            {
-                if (val >= 0.0f)
-                {
+            } else {
+                if (val >= 0.0f) {
                     axis.array[aIndex] = (val - deadZoneTemp) / (1.0f - deadZoneTemp);
-                }
-                else
-                {
+                } else {
                     axis.array[aIndex] = (val + deadZoneTemp) / (1.0f - deadZoneTemp);
                 }
-                if (abs(axis.array[aIndex]) > 0.1f)
-                {
+                if (abs(axis.array[aIndex]) > 0.1f) {
                     rawInputDevice->rawInput->AnyGPCode = aIndex + KC_GP_AXIS_LS_X;
                     rawInputDevice->rawInput->AnyGP.state = BUTTON_PRESSED_BIT;
                     rawInputDevice->rawInput->AnyGPIndex = index;
                 }
             }
-            if (axisCurve != 1.0f)
-            {
+            if (axisCurve != 1.0f) {
                 bool negative = axis.array[aIndex] < 0.0f;
                 axis.array[aIndex] = pow(abs(axis.array[aIndex]), axisCurve);
-                if (negative)
-                {
+                if (negative) {
                     axis.array[aIndex] *= -1.0f;
                 }
             }
@@ -416,13 +327,11 @@ void Gamepad::Update(f32 timestep, i32 index)
                          rawInputDevice->rawInput, index);
         }
         break;
-        case JS_EVENT_BUTTON:
-        {
+        case JS_EVENT_BUTTON: {
             if (ev.number >= GAMEPAD_MAPPING_MAX_BUTTONS)
                 continue; // No tomfuckery here, oh no
             i32 bIndex = mapping.buttons[ev.number];
-            if (bIndex >= KC_GP_AXIS_LS_RIGHT && bIndex <= KC_GP_AXIS_H0_UP)
-            {
+            if (bIndex >= KC_GP_AXIS_LS_RIGHT && bIndex <= KC_GP_AXIS_H0_UP) {
                 // In the case where buttons have to be mapped to axes
                 // Like how Sony's Playstation 3 controller uses buttons for the D-pad
                 i32 aIndex = (bIndex - KC_GP_AXIS_LS_RIGHT);
@@ -430,27 +339,19 @@ void Gamepad::Update(f32 timestep, i32 index)
                 aIndex /= 2;
                 handleButton(axisPush[bIndex - KC_GP_AXIS_LS_RIGHT], ev.value != 0, bIndex,
                              rawInputDevice->rawInput, index);
-                if (ev.value)
-                {
+                if (ev.value) {
                     axis.array[aIndex] = left ? -1.0f : 1.0f;
-                }
-                else
-                {
+                } else {
                     axis.array[aIndex] = 0.0f;
                 }
-            }
-            else if (bIndex < KC_GP_BTN_A || bIndex > KC_GP_AXIS_H0_UP)
-            {
+            } else if (bIndex < KC_GP_BTN_A || bIndex > KC_GP_AXIS_H0_UP) {
                 continue; // Unsupported
             }
             rawInputDevice->rawInput->AnyGPCode = bIndex;
-            if (ev.value)
-            {
+            if (ev.value) {
                 rawInputDevice->rawInput->AnyGP.state = BUTTON_PRESSED_BIT;
                 button[bIndex - KC_GP_BTN_A].Press();
-            }
-            else
-            {
+            } else {
                 rawInputDevice->rawInput->AnyGP.state = BUTTON_RELEASED_BIT;
                 button[bIndex - KC_GP_BTN_A].Release();
             }
@@ -459,8 +360,7 @@ void Gamepad::Update(f32 timestep, i32 index)
         break;
         }
     }
-    if (axis.vec.H0.x != 0.0f && axis.vec.H0.y != 0.0f)
-    {
+    if (axis.vec.H0.x != 0.0f && axis.vec.H0.y != 0.0f) {
         axis.vec.H0 = normalize(axis.vec.H0);
         // cout << "H0.x = " << axis.vec.H0.x << ", H0.y = " << axis.vec.H0.y << std::endl;
     }
@@ -473,44 +373,33 @@ void Gamepad::Update(f32 timestep, i32 index)
     handleButton(hat[3], axis.vec.H0.x < 0.0f && axis.vec.H0.y < 0.0f, KC_GP_AXIS_H0_UP_LEFT,
                  rawInputDevice->rawInput, index);
 #ifdef IO_GAMEPAD_LOGGING_VERBOSE
-    for (u32 i = 0; i < IO_GAMEPAD_MAX_AXES; i++)
-    {
-        if (axisPush[i * 2].Pressed())
-        {
+    for (u32 i = 0; i < IO_GAMEPAD_MAX_AXES; i++) {
+        if (axisPush[i * 2].Pressed()) {
             cout << "Pressed " << KeyCodeName(i * 2 + KC_GP_AXIS_LS_RIGHT) << std::endl;
         }
-        if (axisPush[i * 2 + 1].Pressed())
-        {
+        if (axisPush[i * 2 + 1].Pressed()) {
             cout << "Pressed " << KeyCodeName(i * 2 + 1 + KC_GP_AXIS_LS_RIGHT) << std::endl;
         }
-        if (axisPush[i * 2].Released())
-        {
+        if (axisPush[i * 2].Released()) {
             cout << "Released " << KeyCodeName(i * 2 + KC_GP_AXIS_LS_RIGHT) << std::endl;
         }
-        if (axisPush[i * 2 + 1].Released())
-        {
+        if (axisPush[i * 2 + 1].Released()) {
             cout << "Released " << KeyCodeName(i * 2 + 1 + KC_GP_AXIS_LS_RIGHT) << std::endl;
         }
     }
-    for (u32 i = 0; i < 4; i++)
-    {
-        if (hat[i].Pressed())
-        {
+    for (u32 i = 0; i < 4; i++) {
+        if (hat[i].Pressed()) {
             cout << "Pressed " << KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT) << std::endl;
         }
-        if (hat[i].Released())
-        {
+        if (hat[i].Released()) {
             cout << "Released " << KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT) << std::endl;
         }
     }
-    for (u32 i = 0; i < IO_GAMEPAD_MAX_BUTTONS; i++)
-    {
-        if (button[i].Pressed())
-        {
+    for (u32 i = 0; i < IO_GAMEPAD_MAX_BUTTONS; i++) {
+        if (button[i].Pressed()) {
             cout << "Pressed " << KeyCodeName(i + KC_GP_BTN_A) << std::endl;
         }
-        if (button[i].Released())
-        {
+        if (button[i].Released()) {
             cout << "Released " << KeyCodeName(i + KC_GP_BTN_A) << std::endl;
         }
     }

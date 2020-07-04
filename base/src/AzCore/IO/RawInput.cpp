@@ -17,8 +17,7 @@ const char *RawInputDeviceTypeString[5] = {
     "Joystick"
 };
 
-RawInputDevice::RawInputDevice(RawInputDevice &&other)
-{
+RawInputDevice::RawInputDevice(RawInputDevice &&other) {
     data = other.data;
     other.data = nullptr;
     rawInput = other.rawInput;

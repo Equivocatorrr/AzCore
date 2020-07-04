@@ -11,18 +11,15 @@
 namespace AzCore {
 
 template <typename T>
-struct SolutionLinear
-{
+struct SolutionLinear {
     T root;
     i8 nReal;
 };
 
 template <typename T>
-SolutionLinear<T> SolveLinear(T a, T b)
-{
+SolutionLinear<T> SolveLinear(T a, T b) {
     SolutionLinear<T> solution;
-    if (a != T(0.0))
-    {
+    if (a != T(0.0)) {
         solution.root = -b / a;
         solution.nReal = 1;
     } else {
@@ -32,8 +29,7 @@ SolutionLinear<T> SolveLinear(T a, T b)
 }
 
 template <typename T>
-struct SolutionQuadratic
-{
+struct SolutionQuadratic {
     T root[2];
     i8 nReal;
     SolutionQuadratic() = default;
@@ -42,23 +38,19 @@ struct SolutionQuadratic
 };
 
 template <typename T>
-SolutionQuadratic<T> SolveQuadratic(T a, T b, T c)
-{
+SolutionQuadratic<T> SolveQuadratic(T a, T b, T c) {
     SolutionQuadratic<T> solution;
-    if (a == T(0.0))
-    {
+    if (a == T(0.0)) {
         return SolveLinear<T>(b, c);
     }
     const T bb = square(b);
     const T ac4 = T(4.0) * a * c;
-    if (bb < ac4)
-    {
+    if (bb < ac4) {
         // We don't care about complex answers
         solution.nReal = 0;
         return solution;
     }
-    if (bb == ac4)
-    {
+    if (bb == ac4) {
         solution.root[0] = -b / a;
         solution.nReal = 1;
         return solution;
@@ -72,8 +64,7 @@ SolutionQuadratic<T> SolveQuadratic(T a, T b, T c)
 }
 
 template <typename T>
-struct SolutionCubic
-{
+struct SolutionCubic {
     T root[3];
     i8 nReal;
     SolutionCubic() = default;
@@ -82,11 +73,9 @@ struct SolutionCubic
 };
 
 template <typename T>
-SolutionCubic<T> SolveCubic(T a, T b, T c, T d)
-{
+SolutionCubic<T> SolveCubic(T a, T b, T c, T d) {
     SolutionCubic<T> solution;
-    if (abs(max(max(b, c), d)/a) > T(2500000))
-    {
+    if (abs(max(max(b, c), d)/a) > T(2500000)) {
         return SolveQuadratic<T>(b, c, d);
     }
     // We'll use Cardano's formula
@@ -107,17 +96,14 @@ SolutionCubic<T> SolveCubic(T a, T b, T c, T d)
     const T p3 = p * p * p;
     const T sqrD = q * q + p3 * T(4) / T(27);
     const T offset = -i / T(3); // Since t = (x + i/3), x = t - i/3
-    if (sqrD > T(0))
-    {
+    if (sqrD > T(0)) {
         // We have a single real solution
         const T rootD = sqrt(sqrD);
         const T u = cubert((q + rootD) / T(2));
         const T v = cubert((q - rootD) / T(2));
         solution.root[0] = u + v + offset;
         solution.nReal = 1;
-    }
-    else if (sqrD < T(0))
-    {
+    } else if (sqrD < T(0)) {
         if (p != T(0)) {
             // We have 3 real solutions
             const T u = T(2) * sqrt(-p / T(3));
@@ -131,9 +117,7 @@ SolutionCubic<T> SolveCubic(T a, T b, T c, T d)
             solution.root[0] = offset;
             solution.nReal = 1;
         }
-    }
-    else
-    {
+    } else {
         if (q != T(0)) {
             // We have 2 real solutions
             const T u = cubert(q / T(2));
@@ -150,8 +134,7 @@ SolutionCubic<T> SolveCubic(T a, T b, T c, T d)
 }
 
 template <typename T>
-struct SolutionQuartic
-{
+struct SolutionQuartic {
     T root[4];
     i8 nReal;
     SolutionQuartic() = default;
@@ -279,8 +262,7 @@ SolutionQuartic<T> SolveQuartic(T a, T b, T c, T d, T e) {
 
 
 template <typename T>
-struct SolutionQuintic
-{
+struct SolutionQuintic {
     T root[5];
     i8 nReal;
     SolutionQuintic() = default;

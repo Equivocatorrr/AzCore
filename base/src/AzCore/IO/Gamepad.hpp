@@ -19,8 +19,7 @@ namespace AzCore {
 
 namespace io {
 
-enum GamepadAxisArrayIndices
-{
+enum GamepadAxisArrayIndices {
     GP_AXIS_LS_X = 0x00,
     GP_AXIS_LS_Y = 0x01,
     GP_AXIS_RS_X = 0x03,
@@ -33,8 +32,7 @@ enum GamepadAxisArrayIndices
 /*  struct: Gamepad
         Author: Philip Haynes
         Utilities to use a RawInputDevice as a gamepad.     */
-struct Gamepad
-{
+struct Gamepad {
     Ptr<RawInputDevice> rawInputDevice;
     f32 deadZone = 0.05f; // A value between 0.0 and 1.0, should probably not be very high.
     f32 axisCurve = 1.0f; // 1.0 is linear, 2.0 is squared, 0.5 is sqrt
@@ -50,8 +48,7 @@ struct Gamepad
     ButtonState hat[4];
     // Axis values are between -1.0 and 1.0
     union {
-        struct
-        {
+        struct {
             vec2 LS;
             f32 LT;
             vec2 RS;
@@ -59,10 +56,8 @@ struct Gamepad
             vec2 H0;
             // If you plan on expanding the axes, be sure to add them here too!
         } vec{{0.0f, 0.0f},
-              0.0f,
-              {0.0f, 0.0f},
-              0.0f,
-              {0.0f, 0.0f}};
+              0.0f, {0.0f, 0.0f},
+              0.0f, {0.0f, 0.0f}};
         f32 array[IO_GAMEPAD_MAX_AXES];
     } axis;
 

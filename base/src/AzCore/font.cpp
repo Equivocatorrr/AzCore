@@ -651,9 +651,9 @@ bool Font::Load() {
                 data.offsetMax = record.offset + record.length;
             }
             // Keep track of unique tables
-            if (uniqueOffsets.count(record.offset) == 0) {
+            if (!uniqueOffsets.Exists(record.offset)) {
                 data.uniqueTables.Append(record);
-                uniqueOffsets.insert(record.offset);
+                uniqueOffsets.Emplace(record.offset);
             }
 #ifdef LOG_VERBOSE
             cout << "\tTable: \"" << ToString(record.tableTag) << "\"\n\t\toffset = " << record.offset << ", length = " << record.length << std::endl;
@@ -1177,9 +1177,9 @@ bool FontBuilder::AddRange(char32 min, char32 max) {
     for (char32 c = min; c <= max; c++) { // OI, THAT'S THE LANGUAGE THIS IS WRITTEN IN!!!
         // Let the hype for such trivial things flow through you!
         u16 glyphIndex = font->GetGlyphIndex(c);
-        if (allIndices.count(glyphIndex) == 0) {
+        if (!allIndices.Exists(glyphIndex)) {
             indicesToAdd += glyphIndex;
-            allIndices.insert(glyphIndex);
+            allIndices.Emplace(glyphIndex);
         }
     }
     return true;
@@ -1192,9 +1192,9 @@ bool FontBuilder::AddString(WString string) {
     }
     for (char32 c : string) {
         u16 glyphIndex = font->GetGlyphIndex(c);
-        if (allIndices.count(glyphIndex) == 0) {
+        if (!allIndices.Exists(glyphIndex)) {
             indicesToAdd += glyphIndex;
-            allIndices.insert(glyphIndex);
+            allIndices.Emplace(glyphIndex);
         }
     }
     return true;
@@ -1298,9 +1298,9 @@ bool FontBuilder::Build() {
         Glyph glyph = font->GetGlyphByIndex(indicesToAdd[i]);
         if (glyph.components.size != 0) {
             for (Component& component : glyph.components) {
-                if (allIndices.count(component.glyphIndex) == 0) {
+                if (!allIndices.Exists(component.glyphIndex)) {
                     indicesToAdd += component.glyphIndex;
-                    allIndices.insert(component.glyphIndex);
+                    allIndices.Emplace(component.glyphIndex);
                 }
             }
             glyph.info.size = vec2(0.0f);

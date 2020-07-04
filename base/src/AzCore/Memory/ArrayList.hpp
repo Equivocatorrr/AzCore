@@ -17,20 +17,17 @@ namespace AzCore {
     Good for mapping values from Unicode characters, for example.
     Negative indices are also valid, if that's your thing.     */
 template <typename T>
-struct ArrayList
-{
+struct ArrayList {
     ArrayList<T> *prev = nullptr, *next = nullptr;
     i32 first = 0, last = 0;
     T outOfBoundsValue{};
     Array<T> indices{Array<T>(1)};
 
     ArrayList<T>() {}
-    ArrayList<T>(const ArrayList<T> &other)
-    {
+    ArrayList<T>(const ArrayList<T> &other) {
         *this = other;
     }
-    ArrayList<T>(const ArrayList<T> &&other) noexcept
-    {
+    ArrayList<T>(const ArrayList<T> &&other) noexcept {
         prev = other.prev;
         next = other.next;
         first = other.first;
@@ -38,32 +35,26 @@ struct ArrayList
         outOfBoundsValue = std::move(other.outOfBoundsValue);
         indices = std::move(other.indices);
     }
-    ~ArrayList<T>()
-    {
-        if (prev != nullptr)
-        {
+    ~ArrayList<T>() {
+        if (prev != nullptr) {
             prev->next = nullptr;
             delete prev;
         }
-        if (next != nullptr)
-        {
+        if (next != nullptr) {
             next->prev = nullptr;
             delete next;
         }
     }
-    const ArrayList<T> &operator=(const ArrayList<T> &other)
-    {
+    const ArrayList<T> &operator=(const ArrayList<T> &other) {
         first = other.first;
         last = other.last;
         outOfBoundsValue = other.outOfBoundsValue;
         indices = other.indices;
-        if (prev != nullptr)
-        {
+        if (prev != nullptr) {
             prev->next = nullptr;
             delete prev;
         }
-        if (next != nullptr)
-        {
+        if (next != nullptr) {
             next->prev = nullptr;
             delete next;
         }
@@ -71,8 +62,7 @@ struct ArrayList
         prev = nullptr;
         ArrayList<T> *it = other.prev;
         ArrayList<T> *me = this;
-        while (it != nullptr)
-        {
+        while (it != nullptr) {
             ArrayList<T> *created = new ArrayList<T>;
             created->first = it->first;
             created->last = it->last;
@@ -85,8 +75,7 @@ struct ArrayList
         }
         it = other.next;
         me = this;
-        while (it != nullptr)
-        {
+        while (it != nullptr) {
             ArrayList<T> *created = new ArrayList<T>;
             created->first = it->first;
             created->last = it->last;
@@ -101,92 +90,66 @@ struct ArrayList
     }
     // This has to be const because changing values may require reallocating data
     // And I'd rather not reallocate data just for a read since reading out of bounds is valid
-    const T &operator[](const i32 index) const
-    {
-        if (index < first)
-        {
-            if (prev != nullptr)
-            {
+    const T &operator[](i32 index) const {
+        if (index < first) {
+            if (prev != nullptr) {
                 if (index <= prev->last)
                     return (*prev)[index];
                 else
                     return outOfBoundsValue;
-            }
-            else
-            {
+            } else {
                 return outOfBoundsValue;
             }
         }
-        else if (index > last)
-        {
-            if (next != nullptr)
-            {
+        else if (index > last) {
+            if (next != nullptr) {
                 if (index >= next->first)
                     return (*next)[index];
                 else
                     return outOfBoundsValue;
-            }
-            else
-            {
+            } else {
                 return outOfBoundsValue;
             }
-        }
-        else
-        {
+        } else {
             return indices[index - first];
         }
     }
-    bool Exists(const i32 index)
-    {
-        if (index < first)
-        {
-            if (prev != nullptr)
-            {
+    bool Exists(i32 index) {
+        if (index < first) {
+            if (prev != nullptr) {
                 if (index <= prev->last)
                     return prev->Exists(index);
                 else
                     return false;
-            }
-            else
-            {
+            } else {
                 return false;
             }
         }
-        else if (index > last)
-        {
-            if (next != nullptr)
-            {
+        else if (index > last) {
+            if (next != nullptr) {
                 if (index >= next->first)
                     return next->Exists(index);
                 else
                     return false;
-            }
-            else
-            {
+            } else {
                 return false;
             }
-        }
-        else
-        {
+        } else {
             return true;
         }
     }
     // Having this in a separate function is useful because it may
     // have to allocate another ArrayList or expand an Array
-    void Set(const i32 index, T value)
-    {
-        if (index < first - 1)
-        {
-            if (prev == nullptr)
-            {
+    void Set(i32 index, T value) {
+        if (index < first - 1) {
+            if (prev == nullptr) {
                 prev = new ArrayList<T>;
                 prev->next = this;
                 prev->first = index;
                 prev->last = index;
                 prev->outOfBoundsValue = outOfBoundsValue;
             }
-            if (index > prev->last + 1)
-            {
+            if (index > prev->last + 1) {
                 ArrayList<T> *between = new ArrayList<T>;
                 between->next = this;
                 between->prev = prev;
@@ -198,18 +161,15 @@ struct ArrayList
             }
             prev->Set(index, value);
         }
-        else if (index > last + 1)
-        {
-            if (next == nullptr)
-            {
+        else if (index > last + 1) {
+            if (next == nullptr) {
                 next = new ArrayList<T>;
                 next->prev = this;
                 next->first = index;
                 next->last = index;
                 next->outOfBoundsValue = outOfBoundsValue;
             }
-            if (index < next->first - 1)
-            {
+            if (index < next->first - 1) {
                 ArrayList<T> *between = new ArrayList<T>;
                 between->prev = this;
                 between->next = next;
@@ -220,69 +180,51 @@ struct ArrayList
                 next = between;
             }
             next->Set(index, value);
-        }
-        else
-        {
-            if (index == first - 1)
-            {
+        } else {
+            if (index == first - 1) {
                 indices.Insert(0, value);
                 first--;
             }
-            else if (index == last + 1)
-            {
+            else if (index == last + 1) {
                 indices.Append(value);
                 last++;
-            }
-            else
-            {
+            } else {
                 indices[index - first] = value;
             }
         }
     }
     // TODO: Can't say I remember what I was smoking when I implemented this...
-    // void Shift(const i32 amount) {
+    // void Shift(i32 amount) {
     //     last++;
     //     if (next != nullptr) {
     //         next->Shift(1);
     //     }
     // }
-    void Append(Array<T> &values)
-    {
-        if (next != nullptr)
-        {
+    void Append(Array<T> &values) {
+        if (next != nullptr) {
             next->Append(values);
-        }
-        else
-        {
+        } else {
             indices.Resize(indices.size + values.size);
-            for (i32 i = 0; i < values.size; i++)
-            {
+            for (i32 i = 0; i < values.size; i++) {
                 indices[i + last - first] = values[i];
             }
             last += values.size;
         }
     }
-    void Append(T &value)
-    {
-        if (next != nullptr)
-        {
+    void Append(T &value) {
+        if (next != nullptr) {
             next->Append(value);
-        }
-        else
-        {
+        } else {
             indices.Append(value);
             last++;
         }
     }
-    void SetRange(const i32 f, const i32 l)
-    {
-        if (prev != nullptr)
-        {
+    void SetRange(i32 f, i32 l) {
+        if (prev != nullptr) {
             prev->next = nullptr;
             delete prev;
         }
-        if (next != nullptr)
-        {
+        if (next != nullptr) {
             next->prev = nullptr;
             delete next;
         }
@@ -290,30 +232,25 @@ struct ArrayList
         last = l;
         indices.Resize(last - first);
     }
-    i32 First()
-    {
+    i32 First() {
         i32 actualFirst = first;
         ArrayList<T> *it = prev;
-        while (it != nullptr)
-        {
+        while (it != nullptr) {
             actualFirst = it->first;
             it = it->prev;
         }
         return actualFirst;
     }
-    i32 Last()
-    {
+    i32 Last() {
         i32 actualLast = last;
         ArrayList<T> *it = next;
-        while (it != nullptr)
-        {
+        while (it != nullptr) {
             actualLast = it->last;
             it = it->next;
         }
         return actualLast;
     }
-    i32 Size()
-    {
+    i32 Size() {
         return Last() - First();
     }
 };

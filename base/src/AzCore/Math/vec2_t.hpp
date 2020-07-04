@@ -11,19 +11,15 @@
 namespace AzCore {
 
 template <typename T>
-struct vec2_t
-{
+struct vec2_t {
     union {
-        struct
-        {
+        struct {
             T x, y;
         };
-        struct
-        {
+        struct {
             T u, v;
         };
-        struct
-        {
+        struct {
             T data[2];
         };
     };
@@ -96,53 +92,40 @@ struct vec2_t
 } // namespace AzCore
 
 template <typename T>
-inline AzCore::vec2_t<T> operator*(const T &a, const AzCore::vec2_t<T> &b)
-{
+inline AzCore::vec2_t<T> operator*(const T &a, const AzCore::vec2_t<T> &b) {
     return b * a;
 }
 
 template <typename T>
-inline T dot(const AzCore::vec2_t<T> &a, const AzCore::vec2_t<T> &b)
-{
+inline T dot(const AzCore::vec2_t<T> &a, const AzCore::vec2_t<T> &b) {
     return a.x * b.x + a.y * b.y;
 }
 
 template <typename T>
-inline T absSqr(const AzCore::vec2_t<T> &a)
-{
+inline T absSqr(const AzCore::vec2_t<T> &a) {
     return a.x * a.x + a.y * a.y;
 }
 
 template <typename T>
-inline T abs(const AzCore::vec2_t<T> &a)
-{
+inline T abs(const AzCore::vec2_t<T> &a) {
     return sqrt(a.x * a.x + a.y * a.y);
 }
 
 template <bool isSegment, typename T>
-inline T distSqrToLine(const AzCore::vec2_t<T> &segA, const AzCore::vec2_t<T> &segB, const AzCore::vec2_t<T> &point)
-{
+inline T distSqrToLine(const AzCore::vec2_t<T> &segA, const AzCore::vec2_t<T> &segB, const AzCore::vec2_t<T> &point) {
     const AzCore::vec2_t<T> diff = segA - segB;
     const T lengthSquared = absSqr(diff);
     const T t = dot(diff, segA - point) / lengthSquared;
     AzCore::vec2_t<T> projection;
-    if constexpr (isSegment)
-    {
-        if (t < T(0))
-        {
+    if constexpr (isSegment) {
+        if (t < T(0)) {
             projection = segA;
-        }
-        else if (t > T(1))
-        {
+        } else if (t > T(1)) {
             projection = segB;
-        }
-        else
-        {
+        } else {
             projection = segA - diff * t;
         }
-    }
-    else
-    {
+    } else {
         projection = segA - diff * t;
     }
     return absSqr(point - projection);

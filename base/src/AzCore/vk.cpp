@@ -3659,7 +3659,7 @@ failure:
         for (i32 i = 0; i < queueFamilies; i++) {
             for (auto& queue : data.queues) {
                 if (queue.queueFamilyIndex == (i32)i) {
-                    queuePriorities[i].insert(queue.queuePriority);
+                    queuePriorities[i].Emplace(queue.queuePriority);
                 }
             }
         }

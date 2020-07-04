@@ -243,10 +243,8 @@ struct Range
         return count;
     }
 
-    bool operator==(Range<T> &other)
-    {
-        if (size != other.size)
-        {
+    bool operator==(const Range<T> &other) const {
+        if (size != other.size) {
             return false;
         }
         auto myIterator = begin();
@@ -260,6 +258,24 @@ struct Range
             ++otherIterator;
         }
         return true;
+    }
+
+    bool operator<(const Range<T> &other) const {
+        auto myIterator = begin();
+        auto myIteratorEnd = end();
+        auto otherIterator = other.begin();
+        auto otherIteratorEnd = other.end();
+        while (otherIterator != otherIteratorEnd) {
+            if (!(myIterator != myIteratorEnd)) {
+                return true;
+            }
+            if (*myIterator <= *otherIterator) {
+                return *myIterator != *otherIterator;
+            }
+            ++myIterator;
+            ++otherIterator;
+        }
+        return false;
     }
 };
 

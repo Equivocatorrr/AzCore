@@ -18,18 +18,15 @@
 #include "Memory/ArrayList.hpp"
 #include "Memory/BucketArray.hpp"
 #include "Memory/UniquePtr.hpp"
+#include "Memory/Map.hpp"
 #include "Time.hpp"
 
-#include <map>
 #include <set>
 #include <memory>
 
 namespace AzCore {
 
 size_t align(const size_t& size, const size_t& alignment);
-
-template<typename T, typename B>
-using Map = std::map<T, B>;
 
 template<typename T>
 using Set = std::set<T>;
@@ -76,6 +73,33 @@ Array<Range<T>> SeparateByValues(ArrayWithBucket<T, noAllocCount, allocTail> *ar
         result.Append(array->GetRange(rangeStart, array->size-rangeStart));
     }
     return result;
+}
+
+// Extract the base 2 exponent directly from the bits.
+inline i16 force_inline
+Exponent(const f128 &value) {
+    u128 byteCode;
+    memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
+    i16 exponent = ((byteCode >> 112) & 0x7fff) - 0x3fff;
+    return exponent;
+}
+
+// Extract the base 2 exponent directly from the bits.
+inline i16 force_inline
+Exponent(const f64 &value) {
+    u64 byteCode;
+    memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
+    i16 exponent = ((byteCode >> 52) & 0x7ff) - 0x3ff;
+    return exponent;
+}
+
+// Extract the base 2 exponent directly from the bits.
+inline i16 force_inline
+Exponent(const f32 &value) {
+    u32 byteCode;
+    memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
+    i16 exponent = ((byteCode >> 23) & 0xff) - 0x7f;
+    return exponent;
 }
 
 } // namespace AzCore

@@ -41,7 +41,7 @@ struct Globals {
 
     void LoadLocale();
     inline AzCore::WString ReadLocale(AzCore::String name) {
-        if (locale.count(name) == 0)
+        if (!locale.Exists(name))
             return AzCore::ToWString(name);
         else
             return locale[name];

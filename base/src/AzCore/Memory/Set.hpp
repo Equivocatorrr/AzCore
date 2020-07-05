@@ -46,6 +46,43 @@ struct Set {
             if (left) delete left;
             if (right) delete right;
         }
+        Node& operator=(const Node &other) {
+            if (left) {
+                if (other.left) {
+                    *left = *other.left;
+                } else {
+                    delete left;
+                    left = nullptr;
+                }
+            } else {
+                if (other.left) {
+                    left = new Node(*other.left);
+                }
+            }
+            if (right) {
+                if (other.right) {
+                    *right = *other.right;
+                } else {
+                    delete right;
+                    right = nullptr;
+                }
+            } else {
+                if (other.right) {
+                    right = new Node(*other.right);
+                }
+            }
+            return *this;
+        }
+
+        Node& operator=(Node &&other) {
+            if (left) delete left;
+            left = other.left;
+            other.left = nullptr;
+            if (right) delete right;
+            right = other.right;
+            other.right = nullptr;
+            return *this;
+        }
 
         void Emplace(Node && node) {
             if (key == node.key) {
@@ -80,8 +117,11 @@ struct Set {
     Node *base = nullptr;
 
     Set() = default;
-    // TODO: Maybe allow this?
-    Set(const Set &other) = delete;
+    Set(const Set &other) {
+        if (other.base) {
+            base = new Node(*other.base);
+        }
+    }
     Set(Set &&other) : base(other.base) {other.base = nullptr;};
     Set(const std::initializer_list<Node> &init) {
         // TODO: Maybe sort and recursively bisect before emplacing?
@@ -92,6 +132,27 @@ struct Set {
     }
     ~Set() {
         if (base) delete base;
+    }
+    Set& operator=(const Set &other) {
+        if (base) {
+            if (other.base) {
+                *base = *other.base;
+            } else {
+                delete base;
+                base = nullptr;
+            }
+        } else {
+            if (other.base) {
+                base = new Node(*other.base);
+            }
+        }
+        return *this;
+    }
+    Set& operator=(Set &&other) {
+        if (base) delete base;
+        base = other.base;
+        other.base = nullptr;
+        return *this;
     }
 
     inline force_inline
@@ -133,14 +194,17 @@ class SetIterator {
 public:
     SetIterator() : stack({nullptr}) {}
     SetIterator(typename Set<Key_t>::Node *startNode) : stack({startNode}) {
-        while (stack.Back()->left) {
-            stack.Append(stack.Back()->left);
+        if (stack.Back()) {
+            while (stack.Back()->left) {
+                stack.Append(stack.Back()->left);
+            }
         }
     }
     bool operator!=(const SetIterator &other) const {
         return stack.Back() != other.stack.Back();
     }
     void operator++() {
+        if (!stack.Back()) return;
         if (stack.Back()->right) {
             stack.Back() = stack.Back()->right;
             while (stack.Back()->left) {

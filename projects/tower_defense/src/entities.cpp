@@ -1051,7 +1051,7 @@ void Enemy::Update(f32 timestep) {
             if (other.damage != 0) {
                 i32 hits = DamageOverTime(other.damage, timestep);
                 if (hits) {
-                    damageContributors.emplace(other.id);
+                    damageContributors.Emplace(other.id);
                     other.damageDone += hits;
                     hitpoints -= hits;
                 }
@@ -1067,7 +1067,7 @@ void Enemy::Update(f32 timestep) {
             if (other.damage != 0) {
                 i32 hits = DamageOverTime(other.damage, timestep);
                 if (hits) {
-                    damageContributors.emplace(other.owner);
+                    damageContributors.Emplace(other.owner);
                     globals->entities.towers.GetMutable(other.owner).damageDone += hits;
                     hitpoints -= hits;
                 }
@@ -1078,7 +1078,7 @@ void Enemy::Update(f32 timestep) {
         Bullet &other = globals->entities.bullets.GetMutable(i);
         if (other.id.generation < 0) continue;
         if (physical.Collides(other.physical)) {
-            damageContributors.emplace(other.owner);
+            damageContributors.Emplace(other.owner);
             if (other.damage > hitpoints) {
                 other.damage -= hitpoints;
                 globals->entities.towers.GetMutable(other.owner).damageDone += hitpoints;

@@ -144,8 +144,8 @@ void AddWidget(Widget *parent, Widget *newWidget, bool deeper = false) {
         parent->selectable = true;
     }
     parent->children.Append(newWidget);
-    if (globals->gui.allWidgets.count(newWidget) == 0) {
-        globals->gui.allWidgets.emplace(newWidget);
+    if (!globals->gui.allWidgets.Exists(newWidget)) {
+        globals->gui.allWidgets.Emplace(newWidget);
     }
 }
 
@@ -156,8 +156,8 @@ void AddWidget(Widget *parent, Switch *newWidget) {
         parent->selectable = true;
     }
     parent->children.Append(newWidget);
-    if (globals->gui.allWidgets.count(newWidget) == 0) {
-        globals->gui.allWidgets.emplace(newWidget);
+    if (!globals->gui.allWidgets.Exists(newWidget)) {
+        globals->gui.allWidgets.Emplace(newWidget);
     }
 }
 
@@ -168,8 +168,8 @@ void AddWidgetAsDefault(List *parent, Widget *newWidget, bool deeper = false) {
     }
     parent->selectionDefault = parent->children.size;
     parent->children.Append(newWidget);
-    if (globals->gui.allWidgets.count(newWidget) == 0) {
-        globals->gui.allWidgets.emplace(newWidget);
+    if (!globals->gui.allWidgets.Exists(newWidget)) {
+        globals->gui.allWidgets.Emplace(newWidget);
     }
 }
 
@@ -181,8 +181,8 @@ void AddWidgetAsDefault(List *parent, Switch *newWidget) {
     }
     parent->selectionDefault = parent->children.size;
     parent->children.Append(newWidget);
-    if (globals->gui.allWidgets.count(newWidget) == 0) {
-        globals->gui.allWidgets.emplace(newWidget);
+    if (!globals->gui.allWidgets.Exists(newWidget)) {
+        globals->gui.allWidgets.Emplace(newWidget);
     }
 }
 

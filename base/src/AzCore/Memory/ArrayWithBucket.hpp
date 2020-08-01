@@ -62,6 +62,18 @@ struct ArrayWithBucket {
         }
     }
 
+    template<i32 otherAllocTail>
+    inline void force_inline
+    _Copy(const Array<T, otherAllocTail> &other) {
+        if constexpr (std::is_trivially_copyable<T>::value) {
+            memcpy((void *)data, (void *)other.data, sizeof(T) * size);
+        } else {
+            for (i32 i = 0; i < size; i++) {
+                data[i] = other.data[i];
+            }
+        }
+    }
+
     inline void force_inline
     _Copy(const std::initializer_list<T> &init) {
         i32 i = 0;
@@ -79,6 +91,19 @@ struct ArrayWithBucket {
     // Take the allocations and/or values from another ArrayWithBucket.
     inline void force_inline
     _Acquire(ArrayWithBucket &&other) {
+        allocated = other.allocated;
+        size = other.size;
+        if (allocated) {
+            data = other.data;
+        } else {
+            data = noAllocData;
+            _Copy(other);
+            _SetTerminator();
+        }
+    }
+    template<i32 otherAllocTail>
+    inline void force_inline
+    _Acquire(Array<T, otherAllocTail> &&other) {
         allocated = other.allocated;
         size = other.size;
         if (allocated) {
@@ -132,6 +157,19 @@ struct ArrayWithBucket {
         other._Drop();
     }
 
+    template<i32 otherAllocTail>
+    ArrayWithBucket(const Array<T, otherAllocTail> &other) {
+        _Initialize(other.size);
+        _Copy(other);
+        _SetTerminator();
+    }
+
+    template<i32 otherAllocTail>
+    ArrayWithBucket(Array<T, otherAllocTail> &&other) noexcept {
+        _Acquire(std::move(other));
+        other._Drop();
+    }
+
     ArrayWithBucket(const T *string) {
         _Initialize(StringLength(string));
         if constexpr (std::is_trivially_copyable<T>::value) {
@@ -180,6 +218,25 @@ struct ArrayWithBucket {
 
     ArrayWithBucket<T, noAllocCount, allocTail>&
     operator=(ArrayWithBucket &&other) {
+        _Deinitialize();
+        _Acquire(std::move(other));
+        _SetTerminator();
+        other._Drop();
+        return *this;
+    }
+
+    template<i32 otherAllocTail>
+    ArrayWithBucket<T, noAllocCount, allocTail>&
+    operator=(const Array<T, otherAllocTail> &other) {
+        Resize(other.size);
+        _Copy(other);
+        _SetTerminator();
+        return *this;
+    }
+
+    template<i32 otherAllocTail>
+    ArrayWithBucket<T, noAllocCount, allocTail>&
+    operator=(Array<T, otherAllocTail> &&other) {
         _Deinitialize();
         _Acquire(std::move(other));
         _SetTerminator();

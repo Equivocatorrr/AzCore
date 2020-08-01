@@ -121,6 +121,17 @@ struct Array {
             }
         }
     }
+    template<i32 otherAllocTail>
+    inline void force_inline
+    _Copy(const Array<T, otherAllocTail> &other) {
+        if constexpr (std::is_trivially_copyable<T>::value) {
+            memcpy((void *)data, (void *)other.data, sizeof(T) * size);
+        } else {
+            for (i32 i = 0; i < size; i++) {
+                data[i] = other.data[i];
+            }
+        }
+    }
     inline void force_inline
     _Copy(const std::initializer_list<T> &init) {
         i32 i = 0;
@@ -138,6 +149,13 @@ struct Array {
     // Take the allocations and/or values from another Array.
     inline void force_inline
     _Acquire(Array &&other) {
+        allocated = other.allocated;
+        size = other.size;
+        data = other.data;
+    }
+    template<i32 otherAllocTail>
+    inline void force_inline
+    _Acquire(Array<T, otherAllocTail> &&other) {
         allocated = other.allocated;
         size = other.size;
         data = other.data;
@@ -182,6 +200,18 @@ struct Array {
         _SetTerminator();
     }
     Array(Array &&other) noexcept {
+        _Acquire(std::move(other));
+        other._Drop();
+        _SetTerminator();
+    }
+    template<i32 otherAllocTail>
+    Array(const Array<T, otherAllocTail> &other) {
+        _Initialize(other.size);
+        _Copy(other);
+        _SetTerminator();
+    }
+    template<i32 otherAllocTail>
+    Array(Array<T, otherAllocTail> &&other) noexcept {
         _Acquire(std::move(other));
         other._Drop();
         _SetTerminator();
@@ -235,6 +265,26 @@ struct Array {
 
     Array<T, allocTail>&
     operator=(Array &&other) {
+        _Deinitialize();
+        _Acquire(std::move(other));
+        _SetTerminator();
+        other._Drop();
+        other._SetTerminator();
+        return *this;
+    }
+
+    template<i32 otherAllocTail>
+    Array<T, allocTail>&
+    operator=(const Array<T, otherAllocTail> &other) {
+        Resize(other.size);
+        _Copy(other);
+        _SetTerminator();
+        return *this;
+    }
+
+    template<i32 otherAllocTail>
+    Array<T, allocTail>&
+    operator=(Array<T, otherAllocTail> &&other) {
         _Deinitialize();
         _Acquire(std::move(other));
         _SetTerminator();

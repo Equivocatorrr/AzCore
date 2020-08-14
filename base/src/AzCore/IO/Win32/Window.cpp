@@ -4,9 +4,6 @@
 */
 
 #include "../../io.hpp"
-#ifdef AZCORE_IO_FOR_VULKAN
-#include "../../vk.hpp"
-#endif
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -73,24 +70,6 @@ Window::~Window() {
     }
     delete data;
 }
-
-#ifdef AZCORE_IO_FOR_VULKAN
-bool Window::CreateVkSurface(vk::Instance *instance, VkSurfaceKHR *surface) {
-    if (!open) {
-        error = "CreateVkSurface was called before the window was created!";
-        return false;
-    }
-    VkWin32SurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
-    createInfo.hinstance = data->instance;
-    createInfo.hwnd = data->window;
-    VkResult result = vkCreateWin32SurfaceKHR(instance->data.instance, &createInfo, nullptr, surface);
-    if (result != VK_SUCCESS) {
-        error = "Failed to create Win32 Surface!";
-        return false;
-    }
-    return true;
-}
-#endif
 
 LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     Window *thisWindow = focusedWindow;

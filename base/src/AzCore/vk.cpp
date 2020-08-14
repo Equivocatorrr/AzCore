@@ -2,16 +2,64 @@
     File: vk.cpp
     Author: Philip Haynes
 */
+#include "io.hpp"
 #include "vk.hpp"
-// #ifdef AZCORE_IO_FOR_VULKAN
-    #include "io.hpp"
-// #endif
 #include "IO/LogStream.hpp"
 #include <cstring>
 #include <cstdlib>
 #include <fstream>
 
+#ifdef __unix
+    #include <xcb/xcb.h>
+    #include <xkbcommon/xkbcommon.h>
+    #include <xkbcommon/xkbcommon-x11.h>
+
+    #define explicit extern_explicit // Preventing C++ keyword bug
+    #include <xcb/xkb.h>
+    #undef explicit
+#endif
+
 namespace AzCore {
+
+#ifdef AZCORE_IO_FOR_VULKAN
+namespace io {
+
+#ifdef __unix
+    struct xkb_keyboard {
+        xcb_connection_t *connection;
+        u8 first_xkb_event;
+        struct xkb_context *context;
+        struct xkb_keymap *keymap;
+        i32 deviceId;
+        struct xkb_state *state;
+        struct xkb_state *stateNone;
+    };
+
+    struct WindowData {
+        xcb_connection_t *connection;
+        xcb_colormap_t colormap;
+        i32 visualID;
+        xcb_window_t window;
+        xcb_screen_t *screen;
+        xcb_generic_event_t *event;
+        xcb_atom_t atoms[4];
+        xcb_cursor_t cursorHidden;
+        xcb_cursor_t cursorVisible;
+        i32 windowDepth;
+        xkb_keyboard xkb;
+    };
+#elif defined(_WIN32)
+    struct WindowData {
+        HINSTANCE instance;
+        HWND window;
+        WNDCLASSEX windowClass;
+        HICON windowIcon, windowIconSmall;
+        String windowClassName;
+    };
+#endif
+
+} // namespace io
+#endif // AZCORE_IO_FOR_VULKAN
 
 namespace vk {
 
@@ -300,6 +348,43 @@ namespace vk {
         vkCmdBindVertexBuffers(commandBuffer, firstBinding, vkBuffers.size, vkBuffers.data, offsets.data);
     }
 
+#ifdef AZCORE_IO_FOR_VULKAN
+
+#ifdef __unix
+    bool Window::CreateVkSurface(Instance *instance) {
+        if (nullptr == surfaceWindow || !surfaceWindow->open) {
+            error = "CreateVkSurface was called before the window was created!";
+            return false;
+        }
+        VkXcbSurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
+        createInfo.connection = surfaceWindow->data->connection;
+        createInfo.window = surfaceWindow->data->window;
+        VkResult result = vkCreateXcbSurfaceKHR(instance->data.instance, &createInfo, nullptr, &surface);
+        if (result != VK_SUCCESS) {
+            error = "Failed to create XCB surface!";
+            return false;
+        }
+        return true;
+    }
+#elif defined(_WIN32)
+    bool Window::CreateVkSurface(Instance *instance) {
+        if (nullptr == surfaceWindow || !surfaceWindow->open) {
+            error = "CreateVkSurface was called before the window was created!";
+            return false;
+        }
+        VkWin32SurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
+        createInfo.hinstance = surfaceWindow->data->instance;
+        createInfo.hwnd = surfaceWindow->data->window;
+        VkResult result = vkCreateWin32SurfaceKHR(instance->data.instance, &createInfo, nullptr, &surface);
+        if (result != VK_SUCCESS) {
+            error = "Failed to create Win32 Surface!";
+            return false;
+        }
+        return true;
+    }
+#endif
+
+#endif // AZCORE_IO_FOR_VULKAN
     bool PhysicalDevice::Init(VkInstance instance) {
         vkGetPhysicalDeviceProperties(physicalDevice, &properties);
         vkGetPhysicalDeviceFeatures(physicalDevice, &features);
@@ -4213,10 +4298,14 @@ failed:
         // Create a surface if we want one
 #ifdef AZCORE_IO_FOR_VULKAN
         for (Window& w : data.windows) {
-            if (!w.surfaceWindow->CreateVkSurface(this, &w.surface)) {
+            if (!w.CreateVkSurface(this)) {
                 error = "Failed to CreateVkSurface: " + error;
                 goto failed;
             }
+            // if (!w.surfaceWindow->CreateVkSurface(this, &w.surface)) {
+            //     error = "Failed to CreateVkSurface: " + error;
+            //     goto failed;
+            // }
         }
 #endif
         {

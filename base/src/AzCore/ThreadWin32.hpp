@@ -41,7 +41,7 @@ class FunctionCaller {
         std::invoke(std::move(func), std::move(std::get<S>(args))...);
     }
 public:
-    explicit FunctionCaller(Function&& function, Arguments&&... arguments) : 
+    explicit FunctionCaller(Function&& function, Arguments&&... arguments) :
         args(std::forward<Arguments>(arguments)...), func(std::forward<Function>(function)) {}
     void call() {
         call(typename IntSequenceGen<sizeof...(Arguments)>::type());
@@ -53,7 +53,7 @@ public:
 class Thread {
     HANDLE threadHandle;
     DWORD id;
-    
+
     template<class Call>
     static unsigned __stdcall threadProc(void *ptr) {
         std::unique_ptr<Call> call(static_cast<Call*>(ptr));
@@ -141,6 +141,9 @@ public:
         ::Sleep((DWORD)std::chrono::duration_cast<std::chrono::milliseconds>(duration).count());
     }
 
+    #ifdef Yield
+    #undef Yield
+    #endif // I don't know who the fuck did this but I'm gonna scream I swear to god
     static inline void Yield() {
         ::Sleep(0);
     }

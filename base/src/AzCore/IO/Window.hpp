@@ -6,22 +6,13 @@
 #ifndef AZCORE_WINDOW_HPP
 #define AZCORE_WINDOW_HPP
 
-#ifdef AZCORE_IO_FOR_VULKAN
-    #ifdef __unix
-        #define VK_USE_PLATFORM_XCB_KHR
-    #elif defined(_WIN32)
-        #define VK_USE_PLATFORM_WIN32_KHR
-    #endif
-    #include <vulkan/vulkan.h>
-#endif
-
 #include "../basictypes.hpp"
 #include "../Memory/String.hpp"
 
 namespace AzCore {
 
 namespace vk {
-    class Instance;
+    struct Window;
 }
 
 namespace io {
@@ -36,12 +27,9 @@ struct Input;
     Author: Philip Haynes
     Generic window class that can receive events and display an image.  */
 class Window {
-    friend vk::Instance;
+    friend vk::Window;
     // Opaque type for clean cross-platform implementation
     struct WindowData *data = nullptr;
-#ifdef AZCORE_IO_FOR_VULKAN
-    bool CreateVkSurface(vk::Instance *instance, VkSurfaceKHR *surface);
-#endif
 public:
     bool open = false;
     bool resized = false;

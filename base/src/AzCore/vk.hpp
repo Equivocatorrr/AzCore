@@ -41,6 +41,14 @@
 #define VK_NO_ALLOCATION_CALLBACKS
 
 #include "common.hpp"
+
+#ifdef AZCORE_IO_FOR_VULKAN
+    #ifdef __unix
+        #define VK_USE_PLATFORM_XCB_KHR
+    #elif defined(_WIN32)
+        #define VK_USE_PLATFORM_WIN32_KHR
+    #endif
+#endif
 #include <vulkan/vulkan.h>
 
 namespace AzCore {
@@ -87,6 +95,9 @@ namespace vk {
     struct Window {
         io::Window *surfaceWindow = nullptr;
         VkSurfaceKHR surface;
+#ifdef AZCORE_IO_FOR_VULKAN
+        bool CreateVkSurface(Instance *instance);
+#endif
     };
 
     /*  struct: PhysicalDevice

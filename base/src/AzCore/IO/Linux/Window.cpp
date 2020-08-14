@@ -7,10 +7,6 @@
 #include "../../io.hpp"
 #include "../../keycodes.hpp"
 
-#ifdef AZCORE_IO_FOR_VULKAN
-    #include "../../vk.hpp"
-#endif
-
 // To use GLX, you need Xlib, but for Vulkan you can just use xcb
 #ifdef AZCORE_IO_FOR_VULKAN
     #define AZCORE_IO_NO_XLIB
@@ -318,24 +314,6 @@ Window::~Window() {
     }
     delete data;
 }
-
-#ifdef AZCORE_IO_FOR_VULKAN
-bool Window::CreateVkSurface(vk::Instance *instance, VkSurfaceKHR *surface) {
-    if (!open) {
-        error = "CreateVkSurface was called before the window was created!";
-        return false;
-    }
-    VkXcbSurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
-    createInfo.connection = data->connection;
-    createInfo.window = data->window;
-    VkResult result = vkCreateXcbSurfaceKHR(instance->data.instance, &createInfo, nullptr, surface);
-    if (result != VK_SUCCESS) {
-        error = "Failed to create XCB surface!";
-        return false;
-    }
-    return true;
-}
-#endif
 
 #ifndef AZCORE_IO_NO_XLIB
 #define CLOSE_CONNECTION(data) XCloseDisplay(data->display)

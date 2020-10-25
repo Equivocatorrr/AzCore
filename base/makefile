@@ -21,16 +21,21 @@ WCFLAGS=$(CFLAGS) -D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -I$(
 #		Windows:
 #	io_win32.o: gdi32 dinput8 dxguid
 #	vk.o: vulkan-1
+#	sockets.o: ws2_32
 #LIBS_L=-lvulkan -lxcb -lpthread -lxkbcommon -lxkbcommon-x11 -lxcb-xkb
 #LIBS_L_GLX= $(LIBS_L) -lX11 -lX11-xcb
 #LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib32/" -lvulkan-1 -lgdi32
 
-_DEPS_BASE = keycodes.hpp io.hpp math.hpp memory.hpp vk.hpp font.hpp Font/FontTables.hpp Font/FontTables.cpp Font/font_cff_std_data.c Font/CFF.hpp Font/CFF.cpp Time.hpp Thread.hpp ThreadLinux.hpp ThreadWin32.hpp
+_DEPS_BASE = keycodes.hpp io.hpp math.hpp memory.hpp vk.hpp font.hpp Font/FontTables.hpp Font/FontTables.cpp Font/font_cff_std_data.c Font/CFF.hpp Font/CFF.cpp Time.hpp Thread.hpp ThreadLinux.hpp ThreadWin32.hpp Net/Sockets.hpp
 DEPS_BASE = $(patsubst %,$(IDIR)/AzCore/%,$(_DEPS_BASE)) makefile
 _DEPS_IO = ButtonState.hpp ButtonState.cpp Gamepad.hpp Gamepad.cpp Input.hpp Input.cpp LogStream.hpp LogStream.cpp RawInput.hpp RawInput.cpp Window.hpp
 _DEPS_IO_PLATFORM = RawInput.cpp Window.cpp
 DEPS_IO_L = $(patsubst %,$(IDIR)/AzCore/IO/%,$(_DEPS_IO)) $(patsubst %,$(IDIR)/AzCore/IO/Linux/%,$(_DEPS_IO_PLATFORM))
 DEPS_IO_W = $(patsubst %,$(IDIR)/AzCore/IO/%,$(_DEPS_IO)) $(patsubst %,$(IDIR)/AzCore/IO/Win32/%,$(_DEPS_IO_PLATFORM))
+
+_DEPS_SOCKETS_PLATFORM = Sockets.cpp
+DEPS_SOCKETS_L = $(patsubst %,$(IDIR)/AzCore/Net/Linux/%,$(_DEPS_SOCKETS_PLATFORM))
+DEPS_SOCKETS_W = $(patsubst %,$(IDIR)/AzCore/Net/Win32/%,$(_DEPS_SOCKETS_PLATFORM))
 
 _DEPS_MATH = Angle.hpp Angle.cpp basic.hpp complex_t.hpp Equations.hpp mat2_t.hpp mat3_t.hpp mat4_t.hpp mat5_t.hpp quat_t.hpp RandomNumberGenerator.hpp RandomNumberGenerator.cpp vec2_t.hpp vec3_t.hpp vec4_t.hpp vec5_t.hpp
 DEPS_MATH = $(patsubst %,$(IDIR)/AzCore/Math/%,$(_DEPS_MATH))
@@ -38,10 +43,10 @@ DEPS_MATH = $(patsubst %,$(IDIR)/AzCore/Math/%,$(_DEPS_MATH))
 _DEPS_MEMORY = Array.hpp ArrayWithBucket.hpp ArrayList.hpp BigInt.hpp BucketArray.hpp Endian.hpp Endian.cpp List.hpp Ptr.hpp Range.hpp String.hpp String.cpp Map.hpp Set.hpp
 DEPS_MEMORY = $(patsubst %,$(IDIR)/AzCore/Memory/%,$(_DEPS_MEMORY))
 
-DEPS_L = $(DEPS_BASE) $(DEPS_IO_L) $(DEPS_MATH) $(DEPS_MEMORY)
-DEPS_W = $(DEPS_BASE) $(DEPS_IO_W) $(DEPS_MATH) $(DEPS_MEMORY)
+DEPS_L = $(DEPS_BASE) $(DEPS_IO_L) $(DEPS_MATH) $(DEPS_MEMORY) $(DEPS_SOCKETS_L)
+DEPS_W = $(DEPS_BASE) $(DEPS_IO_W) $(DEPS_MATH) $(DEPS_MEMORY) $(DEPS_SOCKETS_W)
 
-_OBJ = io.o memory.o keycodes.o IO/LogStream.o vk.o math.o Memory/BigInt.o font.o
+_OBJ = io.o memory.o keycodes.o IO/LogStream.o vk.o math.o Memory/BigInt.o font.o Net/Sockets.o
 OBJ_L = $(patsubst %,$(ODIR)/Linux/Release/%,$(_OBJ))
 OBJ_W = $(patsubst %,$(ODIR)/Windows/Release/%,$(_OBJ))
 OBJ_LD = $(patsubst %,$(ODIR)/Linux/Debug/%,$(_OBJ))

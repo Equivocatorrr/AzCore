@@ -53,4 +53,7 @@ static_assert(sizeof(i128) == 16);
     #define force_inline
 #endif
 
+namespace AzCore {}
+namespace az = AzCore;
+
 #endif // AZCORE_BASICTYPES_HPP

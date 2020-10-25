@@ -79,6 +79,8 @@ inline bool operator^(const String &lhs, const String &rhs) {
     return true;
 }
 
+void CleanFilePath(String *path);
+
 } // namespace AzCore
 
 #endif // AZCORE_STRING_HPP

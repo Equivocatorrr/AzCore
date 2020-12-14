@@ -18,7 +18,8 @@
 #include "Memory/ArrayList.hpp"
 #include "Memory/BucketArray.hpp"
 #include "Memory/UniquePtr.hpp"
-#include "Memory/Map.hpp"
+#include "Memory/BinaryMap.hpp"
+#include "Memory/HashMap.hpp"
 #include "Memory/Set.hpp"
 #include "Time.hpp"
 

@@ -46,6 +46,10 @@ class LogStream {
 public:
     LogStream();
     LogStream(String logFilename, bool console=true);
+    LogStream(const LogStream &other);
+    LogStream& operator=(const LogStream& other);
+    LogStream(LogStream &&other) = default;
+    LogStream& operator=(LogStream&& other) = default;
     template<typename T> LogStream& operator<<(const T& something) {
         HandleFileOpening();
         if (logConsole) {

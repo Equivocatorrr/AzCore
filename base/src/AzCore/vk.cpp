@@ -148,8 +148,9 @@ namespace vk {
             STR(DISPLAY_KHR);
             STR(DISPLAY_MODE_KHR);
             STR(DEBUG_REPORT_CALLBACK_EXT);
-            STR(OBJECT_TABLE_NVX);
-            STR(INDIRECT_COMMANDS_LAYOUT_NVX);
+            // Now not defined in general???
+            // STR(OBJECT_TABLE_NVX);
+            // STR(INDIRECT_COMMANDS_LAYOUT_NVX);
             STR(DEBUG_UTILS_MESSENGER_EXT);
             STR(VALIDATION_CACHE_EXT);
             // Not defined on some older versions of the API

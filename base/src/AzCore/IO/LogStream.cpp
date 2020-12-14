@@ -29,6 +29,23 @@ logConsole(console), flushed(true), filename(logFilename) {
     }
 }
 
+LogStream::LogStream(const LogStream &other) :
+fstream(), openAttempt(false), logFile(true), logConsole(other.logConsole),
+flushed(true), prepend(other.prepend), filename(other.filename+"_d") {}
+
+LogStream& LogStream::operator=(const LogStream &other) {
+    if (fstream.is_open()) {
+        fstream.close();
+    }
+    openAttempt = false;
+    logFile = true;
+    logConsole = other.logConsole;
+    flushed = true;
+    prepend = other.prepend;
+    filename = other.filename+"_d";
+    return *this;
+}
+
 LogStream& LogStream::operator<<(const char* string) {
     HandleFileOpening();
     if (logConsole) {

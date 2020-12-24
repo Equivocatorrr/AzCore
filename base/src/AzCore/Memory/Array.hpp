@@ -658,7 +658,7 @@ struct Array {
             return range;
         }
         size += other.size;
-        for (i32 i = size - 1; i > index; i--) {
+        for (i32 i = size - 1; i >= index+other.size; i--) {
             data[i] = std::move(data[i - other.size]);
         }
         for (i32 i = 0; i < other.size; i++) {

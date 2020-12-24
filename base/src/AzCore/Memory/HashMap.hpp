@@ -160,11 +160,13 @@ struct HashMap {
 
     HashMap(const std::initializer_list<Node> &init) :
     nodes(256, nullptr) {
-        // TODO: Maybe sort and recursively bisect before emplacing?
         for (const Node &node : init) {
-            Node newNode = node;
-            Emplace(std::move(newNode));
+            Emplace(node.key, node.value);
         }
+    }
+
+    ~HashMap() {
+        Clear();
     }
 
     void Clear() {

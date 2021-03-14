@@ -1,12 +1,12 @@
 /*
-    File: HashMap.hpp
+    File: HashSet.hpp
     Author: Philip Haynes
     A map implemented as a hash table.
-    Requires u8 HashMapHash(T) to be defined for T.
+    Requires u8 HashSetHash(T) to be defined for T.
 */
 
-#ifndef AZCORE_HASH_MAP_HPP
-#define AZCORE_HASH_MAP_HPP
+#ifndef AZCORE_HASH_SET_HPP
+#define AZCORE_HASH_SET_HPP
 
 #include "../basictypes.hpp"
 #include "Array.hpp"
@@ -18,36 +18,35 @@
 namespace AzCore {
 
 template <typename Node_t, u16 arraySize>
-struct HashMapIterator;
+struct HashSetIterator;
 
-template <typename Key_t, typename Value_t, u16 arraySize=256>
-struct HashMap {
+template <typename Key_t, u16 arraySize=256>
+struct HashSet {
     struct Node {
+        typedef Key_t KeyType;
         Key_t key;
-        Value_t value;
         Node *next = nullptr;
 
         Node() = default;
-        Node(const Node &other) : key(other.key), value(other.value) {
+        Node(const Node &other) : key(other.key) {
             if (other.next) {
                 next = new Node(*other.next);
             }
         }
         Node(Node &&other) :
-            key(std::move(other.key)), value(std::move(other.value)),
+            key(std::move(other.key)),
             next(other.next)
         {
             other.next = nullptr;
         }
-        Node(Key_t newKey, Value_t newValue) :
-            key(newKey), value(newValue) {}
+        Node(Key_t newKey) :
+            key(newKey) {}
         ~Node() {
             if (next) delete next;
         }
 
         Node& operator=(const Node &other) {
             key = other.key;
-            value = other.value;
             if (next) {
                 if (other.next) {
                     *next = *other.next;
@@ -66,21 +65,17 @@ struct HashMap {
         Node& operator=(Node &&other) {
             if (next) delete next;
             key = std::move(other.key);
-            value = std::move(other.value);
             next = other.next;
             other.next = nullptr;
             return *this;
         }
 
-        Value_t& Emplace(Node && node) {
-            if (key == node.key) {
-                return value = std::move(node.value);
-            } else {
+        void Emplace(Node && node) {
+            if (key != node.key) {
                 if (next) {
-                    return next->Emplace(std::move(node));
+                    next->Emplace(std::move(node));
                 } else {
                     next = new Node(std::move(node));
-                    return next->value;
                 }
             }
         }
@@ -102,21 +97,12 @@ struct HashMap {
                 return nullptr;
             }
         }
-
-        Value_t& ValueOf(const Key_t& testKey) {
-            if (key == testKey) return value;
-            if (next) {
-                return next->ValueOf(testKey);
-            } else {
-                next = new Node();
-                next->key = testKey;
-                return next->value;
-            }
-        }
     };
     Array<Node*> nodes;
 
-    inline force_inline HashMap(const HashMap& other) : nodes(arraySize) {
+    inline force_inline HashSet() : nodes(arraySize, nullptr) {}
+
+    inline force_inline HashSet(const HashSet& other) : nodes(arraySize) {
         for (i32 i = 0; i < arraySize; i++) {
             if (other.nodes[i]) {
                 nodes[i] = new Node(*other.nodes[i]);
@@ -125,18 +111,18 @@ struct HashMap {
             }
         }
     }
-    inline force_inline HashMap(HashMap&& other) : nodes(std::move(other.nodes)) {
+    inline force_inline HashSet(HashSet&& other) : nodes(std::move(other.nodes)) {
         other.nodes.Resize(arraySize, nullptr);
     }
 
-    HashMap(const std::initializer_list<Node> &init) :
+    HashSet(const std::initializer_list<Node> &init) :
     nodes(arraySize, nullptr) {
         for (const Node &node : init) {
-            Emplace(node.key, node.value);
+            Emplace(node.key);
         }
     }
 
-    ~HashMap() {
+    ~HashSet() {
         Clear();
     }
 
@@ -149,7 +135,7 @@ struct HashMap {
         }
     }
 
-    HashMap& operator=(const HashMap &other) {
+    HashSet& operator=(const HashSet &other) {
         Clear();
         for (i32 i = 0; i < arraySize; i++) {
             if (other.nodes[i]) {
@@ -160,25 +146,24 @@ struct HashMap {
         }
         return *this;
     }
-    HashMap& operator=(HashMap &&other) {
+    HashSet& operator=(HashSet &&other) {
         Clear();
         nodes = std::move(other.nodes);
         other.nodes.Resize(arraySize, nullptr);
         return *this;
     }
 
-    inline Value_t& force_inline
+    inline void force_inline
     Emplace(Node &&node) {
-        return Emplace(node.key, node.value);
+        Emplace(node.key);
     }
 
-    Value_t& Emplace(Key_t key, Value_t value) {
+    void Emplace(Key_t key) {
         i32 index = IndexHash<arraySize>(key);
         if (nodes[index]) {
-            return nodes[index]->Emplace(Node(key, value));
+            nodes[index]->Emplace(Node(key));
         } else {
-            nodes[index] = new Node(key, value);
-            return nodes[index]->value;
+            nodes[index] = new Node(key);
         }
     }
 
@@ -189,85 +174,55 @@ struct HashMap {
     }
 
     Node* Find(Key_t key) {
-        i32 index = IndexHash<arraySize>(key);
+        i32 index = IndexHash(key);
         if (nodes[index] == nullptr) return nullptr;
         return nodes[index]->Find(key);
     }
 
-    Value_t& ValueOf(Key_t key) {
-        i32 index = IndexHash<arraySize>(key);
-        if (nodes[index]) {
-            return nodes[index]->ValueOf(key);
-        } else {
-            nodes[index] = new Node();
-            nodes[index]->key = key;
-            return nodes[index]->value;
-        }
-    }
-
-    const Value_t& ValueOf(Key_t key) const {
-        i32 index = IndexHash<arraySize>(key);
-        if (nodes[index]) {
-            return nodes[index]->ValueOf(key);
-        } else {
-            throw std::invalid_argument("key doesn't exist in HashMap");
-        }
-    }
-
-    inline Value_t& force_inline
-    operator[](Key_t key) {
-        return ValueOf(key);
-    }
-
-    inline const Value_t& force_inline
-    operator[](Key_t key) const {
-        return ValueOf(key);
-    }
-
-    HashMapIterator<Node, arraySize> begin() {
+    HashSetIterator<Node, arraySize> begin() {
         i32 firstIndex = 0;
         while (nodes[firstIndex] == nullptr && firstIndex < arraySize) {
             firstIndex++;
         }
         if (firstIndex == arraySize) {
-            return HashMapIterator<Node, arraySize>(&nodes, firstIndex, nullptr);
+            return HashSetIterator<Node, arraySize>(&nodes, firstIndex, nullptr);
         } else {
-            return HashMapIterator<Node, arraySize>(&nodes, firstIndex, nodes[firstIndex]);
+            return HashSetIterator<Node, arraySize>(&nodes, firstIndex, nodes[firstIndex]);
         }
     }
-    HashMapIterator<Node, arraySize> end() {
-        return HashMapIterator<Node, arraySize>(nullptr, arraySize, nullptr);
+    HashSetIterator<Node, arraySize> end() {
+        return HashSetIterator<Node, arraySize>(nullptr, arraySize, nullptr);
     }
-    HashMapIterator<const Node, arraySize> begin() const {
+    HashSetIterator<const Node, arraySize> begin() const {
         i32 firstIndex = 0;
         while (nodes[firstIndex] == nullptr && firstIndex < arraySize) {
             firstIndex++;
         }
         if (firstIndex == arraySize) {
-            return HashMapIterator<const Node, arraySize>((const Array<const Node*>*)&nodes, firstIndex, nullptr);
+            return HashSetIterator<const Node, arraySize>((const Array<const Node*>*)&nodes, firstIndex, nullptr);
         } else {
-            return HashMapIterator<const Node, arraySize>((const Array<const Node*>*)&nodes, firstIndex, nodes[firstIndex]);
+            return HashSetIterator<const Node, arraySize>((const Array<const Node*>*)&nodes, firstIndex, nodes[firstIndex]);
         }
     }
-    HashMapIterator<const Node, arraySize> end() const {
-        return HashMapIterator<const Node, arraySize>(nullptr, arraySize, nullptr);
+    HashSetIterator<const Node, arraySize> end() const {
+        return HashSetIterator<const Node, arraySize>(nullptr, arraySize, nullptr);
     }
 };
 
 template <typename Node_t, u16 arraySize>
-class HashMapIterator {
+class HashSetIterator {
     const Array<Node_t*> *nodes;
     i32 index;
     Node_t *node;
 
 public:
-    HashMapIterator(const Array<Node_t*> *nodesArray, i32 i, Node_t *n) :
+    HashSetIterator(const Array<Node_t*> *nodesArray, i32 i, Node_t *n) :
     nodes(nodesArray), index(i), node(n) {}
     void Rebase(const Array<Node_t*> *nodesArray) {
         nodes = nodesArray;
     }
     inline bool force_inline
-    operator!=(const HashMapIterator &other) const {
+    operator!=(const HashSetIterator &other) const {
         return node != other.node;
     }
     inline void
@@ -282,9 +237,9 @@ public:
             }
         }
     }
-    inline Node_t& force_inline
+    inline typename Node_t::KeyType& force_inline
     operator*() {
-        return *node;
+        return node->key;
     }
 };
 

@@ -20,14 +20,15 @@
 #include "Memory/UniquePtr.hpp"
 #include "Memory/BinaryMap.hpp"
 #include "Memory/HashMap.hpp"
-#include "Memory/Set.hpp"
+#include "Memory/BinarySet.hpp"
+#include "Memory/HashSet.hpp"
 #include "Time.hpp"
 
 #include <memory>
 
 namespace AzCore {
 
-size_t align(const size_t& size, const size_t& alignment);
+size_t align(size_t size, size_t alignment);
 
 template<typename T>
 using SharedPtr = std::shared_ptr<T>;

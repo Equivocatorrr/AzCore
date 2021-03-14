@@ -83,6 +83,7 @@ namespace vk {
         // Thanks to Sascha Willems for this snippet! :D
         switch (errorCode) {
 #define STR(r) case VK_ ##r: return #r
+            STR(SUCCESS);
             STR(NOT_READY);
             STR(TIMEOUT);
             STR(EVENT_SET);
@@ -99,16 +100,45 @@ namespace vk {
             STR(ERROR_INCOMPATIBLE_DRIVER);
             STR(ERROR_TOO_MANY_OBJECTS);
             STR(ERROR_FORMAT_NOT_SUPPORTED);
+            STR(ERROR_FRAGMENTED_POOL);
+            STR(ERROR_UNKNOWN);
+            // Provided by VK_VERSION_1_1
+            STR(ERROR_OUT_OF_POOL_MEMORY);
+            STR(ERROR_INVALID_EXTERNAL_HANDLE);
+            // Provided by VK_VERSION_1_2
+            STR(ERROR_FRAGMENTATION);
+            STR(ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS);
+            // Provided by VK_KHR_surface
             STR(ERROR_SURFACE_LOST_KHR);
             STR(ERROR_NATIVE_WINDOW_IN_USE_KHR);
+            // Provided by VK_KHR_swapchain
             STR(SUBOPTIMAL_KHR);
             STR(ERROR_OUT_OF_DATE_KHR);
+            // Provided by VK_KHR_display_swapchain
             STR(ERROR_INCOMPATIBLE_DISPLAY_KHR);
+            // Provided by VK_EXT_debug_report
             STR(ERROR_VALIDATION_FAILED_EXT);
+            // Provided by VK_NV_glsl_shader
             STR(ERROR_INVALID_SHADER_NV);
+            // Provided by VK_EXT_image_drm_format_modifier
+            STR(ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT);
+            // Provided by VK_EXT_global_priority
+            STR(ERROR_NOT_PERMITTED_EXT);
+            // Provided by VK_EXT_full_screen_exclusive
+            STR(ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT);
+            // Provided by VK_KHR_deferred_host_operations
+            STR(THREAD_IDLE_KHR);
+            // Provided by VK_KHR_deferred_host_operations
+            STR(THREAD_DONE_KHR);
+            // Provided by VK_KHR_deferred_host_operations
+            STR(OPERATION_DEFERRED_KHR);
+            // Provided by VK_KHR_deferred_host_operations
+            STR(OPERATION_NOT_DEFERRED_KHR);
+            // Provided by VK_EXT_pipeline_creation_cache_control
+            STR(PIPELINE_COMPILE_REQUIRED_EXT);
 #undef STR
         default:
-            return "UNKNOWN_ERROR";
+            return "UNKNOWN_ERROR " + ToString((i64)errorCode);
         }
     }
 
@@ -1048,14 +1078,17 @@ failure:
         }
         data.memoryTypeBits = memReqs.memoryTypeBits;
 
-        u32 alignedOffset;
-        if (memReqs.size % memReqs.alignment == 0) {
-            alignedOffset = memReqs.size;
-        } else {
-            alignedOffset = (memReqs.size/memReqs.alignment+1)*memReqs.alignment;
-        }
+        // NOTE: Images can have different alignment values, and must begin at an aligned offset
+        data.offsets.Back() = align(data.offsets.Back(), memReqs.alignment);
 
-        data.offsets.Append(data.offsets.Back() + alignedOffset);
+        // u32 alignedOffset;
+        // if (memReqs.size % memReqs.alignment == 0) {
+        //     alignedOffset = memReqs.size;
+        // } else {
+        //     alignedOffset = (memReqs.size/memReqs.alignment+1)*memReqs.alignment;
+        // }
+
+        data.offsets.Append(data.offsets.Back() + memReqs.size);
         return index;
     }
 
@@ -3741,7 +3774,7 @@ failure:
         }
 
         Array<VkDeviceQueueCreateInfo> queueCreateInfos{};
-        Array<Set<f32>> queuePriorities(queueFamilies);
+        Array<BinarySet<f32>> queuePriorities(queueFamilies);
         for (i32 i = 0; i < queueFamilies; i++) {
             for (auto& queue : data.queues) {
                 if (queue.queueFamilyIndex == (i32)i) {

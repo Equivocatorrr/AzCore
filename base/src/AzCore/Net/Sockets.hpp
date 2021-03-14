@@ -21,7 +21,12 @@ struct Socket {
         TCP,
         UDP
     } type;
-    socketdata *data;
+    union {
+        char dataArr[24];
+    };
+private:
+    inline socketdata& Data();
+public:
     String error;
 
     inline void _Err(const char *explain);

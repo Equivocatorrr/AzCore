@@ -30,7 +30,7 @@ struct Globals {
     AzCore::RandomNumberGenerator rng;
     bool exit = false;
     AzCore::Nanoseconds frameDuration;
-    AzCore::Map<AzCore::String, AzCore::WString> locale;
+    AzCore::BinaryMap<AzCore::String, AzCore::WString> locale;
     // Settings
     bool fullscreen = false;
     f32 framerate = 60.0f;

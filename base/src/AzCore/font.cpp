@@ -631,7 +631,7 @@ bool Font::Load() {
     }
 
     data.offsetTables.Resize(data.ttcHeader.numFonts);
-    Set<u32> uniqueOffsets;
+    HashSet<u32, 32> uniqueOffsets;
     for (u32 i = 0; i < data.ttcHeader.numFonts; i++) {
         data.file.seekg(data.ttcHeader.offsetTables[i]);
         tables::Offset &offsetTable = data.offsetTables[i];

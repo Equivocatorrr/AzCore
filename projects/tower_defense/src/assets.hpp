@@ -106,7 +106,7 @@ struct Stream {
         i32 fadeoutCompleted = -1;
     } data;
     ::Sound::Buffer buffers[numStreamBuffers];
-    inline Stream() : valid(false), data(), buffers({{UINT32_MAX, false}}) {}
+    inline Stream() : valid(false), data(), buffers{{UINT32_MAX, false}} {}
     inline Stream(const Stream &a) :
         vorbis(a.vorbis), valid(false), data(a.data), buffers(a.buffers) {}
     inline Stream(Stream &&a) :

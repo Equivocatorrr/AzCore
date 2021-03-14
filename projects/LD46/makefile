@@ -8,16 +8,16 @@ SDIR=src
 ODIR=obj
 
 
-WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.1.121.2
-WIN_OPENAL_LIB=/home/singularity/Programming/OpenAL/libs/Win64/
+WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.2.162.1
+WIN_OPENAL_LIB=lib
 
 CC=g++
 WCC=x86_64-w64-mingw32-g++
 WRC=x86_64-w64-mingw32-windres $(SDIR)/resources.rc -O coff
 RCFLAGS=-I $(IDIR)
-CFLAGS=-I$(IDIR) -I$(AZCORE_BASE)/src -Wall -std=c++17 -Wdouble-promotion -Wfloat-conversion -DAZCORE_IO_FOR_VULKAN
+CFLAGS=-I$(IDIR) -I$(AZCORE_BASE)/src -Wall -Wextra -std=c++17 -Wdouble-promotion -Wfloat-conversion -DAZCORE_IO_FOR_VULKAN
 LCFLAGS=$(CFLAGS) #-Wl,-z,origin -Wl,-rpath,'$$ORIGIN/lib'
-WCFLAGS=$(CFLAGS) -I$(WIN_VULKAN_SDK)/Include/ -D_GLIBCXX_USE_NANOSLEEP -static -static-libgcc -static-libstdc++ -Llibwinpthread-1.dll
+WCFLAGS=$(CFLAGS) -I$(WIN_VULKAN_SDK)/Include/ -D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -Llibwinpthread-1.dll
 
 # This is optional, but recommended.
 WINDOWS_RESOURCES = $(ODIR)/Windows/resources.o
@@ -29,7 +29,7 @@ $(ODIR)/Windows/resources.o: $(IDIR)/resources.h $(SDIR)/resources.rc $(WINDOWS_
 #WINDOWS_RESOURCES = $(AZCORE_BASE)/obj/Windows/resources.o
 
 LIBS_L=-lvulkan -lxcb -lpthread -lxkbcommon -lxkbcommon-x11 -lxcb-xkb -lopenal
-LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib/" -lvulkan-1 -lgdi32 -ldinput8 -ldxguid -L"$(WIN_OPENAL_LIB)" -lOpenAL32
+LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib/" -lvulkan-1 -lgdi32 -ldinput8 -ldxguid -L$(WIN_OPENAL_LIB) -lOpenAL32.dll
 
 _DEPS = sound.hpp rendering.hpp objects.hpp gui.hpp globals.hpp entities.hpp entity_basics.hpp entity_basics.cpp assets.hpp
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS)) makefile

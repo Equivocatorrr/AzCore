@@ -13,8 +13,8 @@ namespace AzCore {
 #define AZCORE_STRING_WITH_BUCKET
 #ifdef AZCORE_STRING_WITH_BUCKET
     // Both of these should fit in two cache lines each.
-    using String = ArrayWithBucket<char, 16/sizeof(char), 1>;
-    using WString = ArrayWithBucket<char32, 16/sizeof(char32), 1>;
+    using String = ArrayWithBucket<char, 8/sizeof(char), 1>;
+    using WString = ArrayWithBucket<char32, 8/sizeof(char32), 1>;
 #else
     using String = Array<char, 1>;
     using WString = Array<char32, 1>;

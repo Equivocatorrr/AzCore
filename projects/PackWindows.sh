@@ -15,7 +15,7 @@ fi
 cp bin/Windows/Release/$1.exe Exports/Windows/Release.exe
 cp bin/Windows/Debug/$1.exe Exports/Windows/Debug.exe
 
-cp ../../base/lib/libgcc_s_sjlj-1.dll Exports/Windows
+# cp ../../base/lib/libgcc_s_sjlj-1.dll Exports/Windows
 
 if [ -e lib ]
 then

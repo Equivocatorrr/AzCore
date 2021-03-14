@@ -32,20 +32,17 @@ i32 main(i32 argumentCount, char** argumentValues) {
     Globals _globals;
     globals = &_globals;
 
-    bool enableLayers = false, enableCoreValidation = false;
+    bool enableLayers = false;
 
     cout << "\nTest program received " << argumentCount << " arguments:\n";
     for (i32 i = 0; i < argumentCount; i++) {
         cout << i << ": " << argumentValues[i] << std::endl;
-        if (equals(argumentValues[i], "--enable-layers")) {
+        if (equals(argumentValues[i], "--validation")) {
             enableLayers = true;
-        } else if (equals(argumentValues[i], "--core-validation")) {
-            enableCoreValidation = true;
         }
     }
 
-    cout << "Starting with layers " << (enableLayers ? "enabled" : "disabled")
-         << " and core validation " << (enableCoreValidation ? "enabled" : "disabled") << std::endl;
+    cout << "Starting with layers " << (enableLayers ? "enabled" : "disabled") << std::endl;
 
     if (!globals->LoadSettings()) {
         cout << "No settings to load. Using defaults." << std::endl;
@@ -87,14 +84,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     if (enableLayers) {
         Array<const char*> layers = {
-            "VK_LAYER_GOOGLE_threading",
-            "VK_LAYER_LUNARG_parameter_validation",
-            "VK_LAYER_LUNARG_object_tracker",
-            "VK_LAYER_GOOGLE_unique_objects"
+            "VK_LAYER_KHRONOS_validation",
         };
-        if (enableCoreValidation) {
-            layers.Append("VK_LAYER_LUNARG_core_validation");
-        }
         globals->rendering.data.instance.AddLayers(layers);
     }
 

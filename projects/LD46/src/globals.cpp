@@ -118,6 +118,7 @@ bool Globals::LoadSettings() {
                     token[t].Resize(j-i);
                     memcpy(token[t].data, &buffer[i], token[t].size);
                     i += token[t].size+1;
+                    i += i32(token[i] == '\r');
                     break;
                 }
             }

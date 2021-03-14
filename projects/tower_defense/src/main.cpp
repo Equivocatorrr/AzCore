@@ -7,6 +7,7 @@
 #include "globals.hpp"
 #include "AzCore/io.hpp"
 #include "AzCore/Thread.hpp"
+#include "AzCore/Time.hpp"
 
 using namespace AzCore;
 
@@ -28,7 +29,7 @@ void DrawProc() {
 }
 
 i32 main(i32 argumentCount, char** argumentValues) {
-
+    ClockTime loadStart = Clock::now();
     Globals _globals;
     globals = &_globals;
 
@@ -116,6 +117,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
     }
 
     globals->window.Fullscreen(globals->fullscreen);
+
+    cout << "Initialization took " << FormatTime(Clock::now() - loadStart) << std::endl;
 
     ClockTime frameStart;
 

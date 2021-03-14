@@ -183,7 +183,7 @@ struct Enemy : public Entity {
     f32 spawnTimer;
     vec4 color;
     i32 value;
-    Set<Id> damageContributors;
+    BinarySet<Id> damageContributors;
     f32 age;
     bool child = false;
     void EventCreate();

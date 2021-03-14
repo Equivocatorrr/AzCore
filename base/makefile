@@ -2,7 +2,7 @@ IDIR=src
 SDIR=src
 ODIR=obj
 
-WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.1.121.2
+WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.2.162.1
 
 CC=g++
 WCC=x86_64-w64-mingw32-g++
@@ -40,7 +40,7 @@ DEPS_SOCKETS_W = $(patsubst %,$(IDIR)/AzCore/Net/Win32/%,$(_DEPS_SOCKETS_PLATFOR
 _DEPS_MATH = Angle.hpp Angle.cpp basic.hpp complex_t.hpp Equations.hpp mat2_t.hpp mat3_t.hpp mat4_t.hpp mat5_t.hpp quat_t.hpp RandomNumberGenerator.hpp RandomNumberGenerator.cpp vec2_t.hpp vec3_t.hpp vec4_t.hpp vec5_t.hpp
 DEPS_MATH = $(patsubst %,$(IDIR)/AzCore/Math/%,$(_DEPS_MATH))
 
-_DEPS_MEMORY = Array.hpp ArrayWithBucket.hpp ArrayList.hpp BigInt.hpp BucketArray.hpp Endian.hpp Endian.cpp List.hpp Ptr.hpp Range.hpp String.hpp String.cpp BinaryMap.hpp HashMap.hpp Set.hpp
+_DEPS_MEMORY = Array.hpp ArrayWithBucket.hpp ArrayList.hpp BigInt.hpp BucketArray.hpp Endian.hpp Endian.cpp List.hpp Ptr.hpp Range.hpp String.hpp String.cpp BinaryMap.hpp HashMap.hpp BinarySet.hpp HashSet.hpp
 DEPS_MEMORY = $(patsubst %,$(IDIR)/AzCore/Memory/%,$(_DEPS_MEMORY))
 
 DEPS_L = $(DEPS_BASE) $(DEPS_IO_L) $(DEPS_MATH) $(DEPS_MEMORY) $(DEPS_SOCKETS_L)

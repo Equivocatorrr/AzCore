@@ -1,12 +1,12 @@
 /*
-    File: Set.hpp
+    File: BinarySet.hpp
     Author: Philip Haynes
     A set implemented as a binary tree.
     Requires operator< to be defined for T.
 */
 
-#ifndef AZCORE_SET_HPP
-#define AZCORE_SET_HPP
+#ifndef AZCORE_BINARY_SET_HPP
+#define AZCORE_BINARY_SET_HPP
 
 #include "../basictypes.hpp"
 #include "Array.hpp"
@@ -16,10 +16,10 @@
 namespace AzCore {
 
 template <typename Key_t>
-struct SetIterator;
+struct BinarySetIterator;
 
 template <typename Key_t>
-struct Set {
+struct BinarySet {
     struct Node {
         Node *left = nullptr;
         Node *right = nullptr;
@@ -116,24 +116,24 @@ struct Set {
     };
     Node *base = nullptr;
 
-    Set() = default;
-    Set(const Set &other) {
+    BinarySet() = default;
+    BinarySet(const BinarySet &other) {
         if (other.base) {
             base = new Node(*other.base);
         }
     }
-    Set(Set &&other) : base(other.base) {other.base = nullptr;};
-    Set(const std::initializer_list<Node> &init) {
+    BinarySet(BinarySet &&other) : base(other.base) {other.base = nullptr;};
+    BinarySet(const std::initializer_list<Node> &init) {
         // TODO: Maybe sort and recursively bisect before emplacing?
         for (const Node &node : init) {
             Node newNode = node;
             Emplace(std::move(newNode));
         }
     }
-    ~Set() {
+    ~BinarySet() {
         if (base) delete base;
     }
-    Set& operator=(const Set &other) {
+    BinarySet& operator=(const BinarySet &other) {
         if (base) {
             if (other.base) {
                 *base = *other.base;
@@ -148,7 +148,7 @@ struct Set {
         }
         return *this;
     }
-    Set& operator=(Set &&other) {
+    BinarySet& operator=(BinarySet &&other) {
         if (base) delete base;
         base = other.base;
         other.base = nullptr;
@@ -173,34 +173,34 @@ struct Set {
         return base->Exists(key);
     }
 
-    SetIterator<Key_t> begin() {
-        return SetIterator<Key_t>(base);
+    BinarySetIterator<Key_t> begin() {
+        return BinarySetIterator<Key_t>(base);
     }
-    SetIterator<Key_t> end() {
-        return SetIterator<Key_t>(nullptr);
+    BinarySetIterator<Key_t> end() {
+        return BinarySetIterator<Key_t>(nullptr);
     }
-    SetIterator<const Key_t> begin() const {
-        return SetIterator<const Key_t>(base);
+    BinarySetIterator<const Key_t> begin() const {
+        return BinarySetIterator<const Key_t>(base);
     }
-    SetIterator<const Key_t> end() const {
-        return SetIterator<const Key_t>(nullptr);
+    BinarySetIterator<const Key_t> end() const {
+        return BinarySetIterator<const Key_t>(nullptr);
     }
 };
 
 template <typename Key_t>
-class SetIterator {
-    Array<typename Set<Key_t>::Node*> stack;
+class BinarySetIterator {
+    Array<typename BinarySet<Key_t>::Node*> stack;
 
 public:
-    SetIterator() : stack({nullptr}) {}
-    SetIterator(typename Set<Key_t>::Node *startNode) : stack({startNode}) {
+    BinarySetIterator() : stack({nullptr}) {}
+    BinarySetIterator(typename BinarySet<Key_t>::Node *startNode) : stack({startNode}) {
         if (stack.Back()) {
             while (stack.Back()->left) {
                 stack.Append(stack.Back()->left);
             }
         }
     }
-    bool operator!=(const SetIterator &other) const {
+    bool operator!=(const BinarySetIterator &other) const {
         return stack.Back() != other.stack.Back();
     }
     void operator++() {

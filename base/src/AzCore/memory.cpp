@@ -12,7 +12,7 @@
 
 namespace AzCore {
 
-size_t align(const size_t& size, const size_t& alignment) {
+size_t align(size_t size, size_t alignment) {
     // if (size % alignment == 0) {
     //     return size;
     // } else {

@@ -358,7 +358,7 @@ void glyf::EndianSwap(loca *loc, u16 numGlyphs, bool longOffsets) {
                             EndianSwapCompound(header);         \
                         }
     if (longOffsets) {
-        Set<u32> offsetsDone;
+        HashSet<u32> offsetsDone;
         for (u16 i = 0; i < numGlyphs; i++) {
             if (!offsetsDone.Exists(loc->offsets32(i))) {
                 glyf_header *header = (glyf_header*)((char*)this + loc->offsets32(i));
@@ -367,7 +367,7 @@ void glyf::EndianSwap(loca *loc, u16 numGlyphs, bool longOffsets) {
             }
         }
     } else {
-        Set<u16> offsetsDone;
+        HashSet<u16> offsetsDone;
         for (u16 i = 0; i < numGlyphs; i++) {
             if (!offsetsDone.Exists(loc->offsets16(i))) {
                 glyf_header *header = (glyf_header*)(((char*)this) + loc->offsets16(i) * 2);

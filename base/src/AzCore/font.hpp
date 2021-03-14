@@ -209,7 +209,7 @@ namespace font {
         // Which glyphs we need from the font. Not including ones already in the atlas.
         Array<u16> indicesToAdd = {0};
         // Which glyphs are already accounted for and don't need to be added?
-        Set<u16> allIndices = {0};
+        HashSet<u16> allIndices = {0};
         // Sets the scaling of the actual image
         // HIGH is good for titles and gives the crispest result.
         // MEDIUM is good for subtitles/titles and gives a fairly crisp result.

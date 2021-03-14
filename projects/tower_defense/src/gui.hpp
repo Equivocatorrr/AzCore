@@ -490,7 +490,7 @@ struct Gui : public Objects::Object {
     Widget *mouseoverWidget;
     i32 mouseoverDepth;
 
-    Set<Widget*> allWidgets; // So we can delete them at the end of the program.
+    HashSet<Widget*> allWidgets; // So we can delete them at the end of the program.
 
     MenuEnum currentMenu = MENU_MAIN;
     MenuEnum nextMenu = MENU_MAIN;

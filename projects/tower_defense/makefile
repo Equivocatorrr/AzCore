@@ -8,7 +8,7 @@ SDIR=src
 ODIR=obj
 
 
-WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.1.121.2
+WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.2.162.1
 
 CC=g++
 WCC=x86_64-w64-mingw32-g++

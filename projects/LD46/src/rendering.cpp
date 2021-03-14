@@ -223,7 +223,7 @@ bool Manager::Init() {
     data.pipeline2D->subpass = 0;
     data.pipeline2D->shaders.Append(shaderRefs[0]);
     data.pipeline2D->shaders.Append(shaderRefs[1]);
-    data.pipeline2D->rasterizer.cullMode = VK_CULL_MODE_NONE; 
+    data.pipeline2D->rasterizer.cullMode = VK_CULL_MODE_NONE;
 
     data.pipeline2D->descriptorLayouts.Append(descriptorLayoutTexture);
 
@@ -487,6 +487,9 @@ bool Manager::Draw() {
     } else if (acquisitionResult == VK_TIMEOUT) {
         cout << "Skipping a frame because acquisition returned: " << vk::ErrorString(acquisitionResult) << std::endl;
         return true;
+    } else if (acquisitionResult == VK_SUBOPTIMAL_KHR) {
+        data.resized = true;
+        // We'll try to render this frame anyway
     } else if (acquisitionResult != VK_SUCCESS) {
         error = "Failed to acquire swapchain image: " + vk::error;
         return false;

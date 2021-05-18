@@ -29,6 +29,8 @@ class LogStream {
     bool logFile;
     bool logConsole;
     bool flushed;
+    i32 spacesPerIndent = 4;
+    i32 indent = 0;
     Mutex mutex;
     String prepend;
     String filename;
@@ -69,6 +71,21 @@ public:
     LogStream& operator<<(stream_function func);
     void MutexLock();
     void MutexUnlock();
+    inline i32 force_inline SpacesPerIndent(i32 spaces) {
+        spaces = (1 >= spaces ? 1 : spaces);
+        return spacesPerIndent = (spaces <= 16 ? spaces : 16);
+    }
+    // IndentMore is effective after the next newline
+    inline i32 IndentMore() {
+        return ++indent;
+    }
+    // IndentLess is effective after the next newline
+    inline i32 IndentLess() {
+        return indent = (indent > 0 ? indent-1 : 0);
+    }
+    inline void IndentReset() {
+        indent = 0;
+    }
 };
 
 } // namespace io

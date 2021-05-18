@@ -47,17 +47,26 @@ LogStream& LogStream::operator=(const LogStream &other) {
 }
 
 LogStream& LogStream::operator<<(const char* string) {
+    const char *sixteenSpaces = "                ";
     HandleFileOpening();
     if (logConsole) {
         String actualOutput;
-        if (prepend.size != 0) {
+        if (prepend.size+indent != 0) {
             if (flushed) {
-                std::cout.write(prepend.data, prepend.size);
+                if (prepend.size) {
+                    std::cout.write(prepend.data, prepend.size);
+                }
+                for (i32 i = 0; i < indent; i++) {
+                    std::cout.write(sixteenSpaces, spacesPerIndent);
+                }
                 flushed = false;
             }
             for (u32 i = 0; string[i] != '\0'; i++) {
                 if (string[i] == '\n') {
                     actualOutput += "\n" + prepend;
+                    for (i32 ii = 0; ii < indent; ii++) {
+                        actualOutput += sixteenSpaces + 16 - spacesPerIndent;
+                    }
                 } else {
                     actualOutput += string[i];
                 }

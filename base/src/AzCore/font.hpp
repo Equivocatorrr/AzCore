@@ -45,6 +45,16 @@ namespace font {
             const f32 tInv2 = tInv*tInv;
             return p1 * tInv2*tInv + (p2 * tInv2*t + p3 * t2*tInv) * 3.0f + p4 * t2*t;
         }
+        inline vec2 Point(f32 t, vec2 &derivative, vec2 &derivative2) const {
+            const vec2 M = p2 - p1;
+            const vec2 N = p3 - 2.0f * p2 + p1;
+            const vec2 O = p4 - 3.0f * (p3 - p2) - p1;
+            const f32 tt = t*t;
+            const f32 ttt = tt*t;
+            derivative = 3.0f * (M + 2.0f * t * N + tt * O);
+            derivative2 = 6.0f * (N + t * O);
+            return p1 + 3.0f * (t * M + tt * N) + ttt * O;
+        }
         f32 DistanceLess(const vec2 &point, f32 distSquared) const;
         void Scale(const mat2& scale);
         void Offset(const vec2& offset);

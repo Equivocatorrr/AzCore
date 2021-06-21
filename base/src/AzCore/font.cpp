@@ -369,6 +369,8 @@ i32 Curve2::Intersection(const vec2 &point) const {
     return winding;
 }
 
+#if 0
+
 f32 Curve2::DistanceLess(const vec2 &point, f32 distSquared) const {
     // Try to do an early out if we can
     {
@@ -438,6 +440,70 @@ f32 Curve2::DistanceLess(const vec2 &point, f32 distSquared) const {
     }
     return distSquared;
 }
+
+#else
+
+f32 Curve2::DistanceLess(const vec2 &point, f32 distSquared) const {
+    // Try to do an early out if we can
+    {
+        // NOTE: This could probably be refined
+        f32 maxPointDistSquared = max(
+            max(max(absSqr(p1-p2), absSqr(p1-p3)), absSqr(p1-p4)),
+            max(max(absSqr(p2-p3), absSqr(p2-p4)), absSqr(p3-p4))
+        );
+        f32 minDistSquared = min(
+            min(
+                min(absSqr(p1-point), absSqr(p2-point)),
+                absSqr(p3-point)
+            ), absSqr(p4-point)
+        );
+        if (minDistSquared > distSquared + maxPointDistSquared * 0.25f) {
+            return distSquared;
+        }
+    }
+
+    constexpr i32 accuracy = 13;
+    Curve2 curve = *this;
+    curve.Offset(-point);
+    // Thanks to Freya Holmér for this algorithm
+    f32 sqDistStart = absSqr(curve.p1);
+    f32 sqDistEnd = absSqr(curve.p4);
+    if (sqDistStart < distSquared) {
+        distSquared = sqDistStart;
+    }
+    if (sqDistEnd < distSquared) {
+        distSquared = sqDistEnd;
+    }
+    BucketArray<f32, accuracy+3> samples(accuracy+3);
+    BucketArray<f32, 4> pits;
+    for (i32 i = 0; i <= accuracy; i++) {
+        f32 t = (f32)i / (f32)accuracy;
+        samples[i+1] = absSqr(curve.Point(t));
+    }
+    samples[0] = samples[1];
+    samples.Back() = samples[samples.size-2];
+    for (i32 i = 1; i < accuracy+2; i++) {
+        if (samples[i] <= samples[i-1] && samples[i] <= samples[i+1]) {
+            pits.Append((f32)(i-1) / (f32)accuracy);
+        }
+    }
+    for (f32 &t : pits) {
+        for (i32 i = 0; i < 4; i++) {
+            vec2 f, fp, fpp;
+            f = curve.Point(t, fp, fpp);
+            f32 distDerivative = dot(f, fp);
+            t -= distDerivative / (dot(f, fpp) + absSqr(fp));
+        }
+        t = clamp(t, 0.0f, 1.0f);
+        f32 dist = absSqr(curve.Point(t));
+        if (dist < distSquared) {
+            distSquared = dist;
+        }
+    }
+    return distSquared;
+}
+
+#endif
 
 void Curve2::Scale(const mat2 &scale) {
     p1 = scale * p1;

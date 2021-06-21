@@ -741,25 +741,4 @@ i32 CharLen(const char chr) {
     return 1;
 }
 
-bool isSlash(char c) {
-    return c == '\\' || c == '/';
-}
-
-void CleanFilePath(String *path) {
-    i32 lastDir = -1;
-    for (i32 i = 0; i < path->size+3; i++) {
-        char c1 = (*path)[i];
-        char c2 = (*path)[i+1];
-        char c3 = (*path)[i+2];
-        char c4 = (*path)[i+3];
-        if (isSlash(c1) && c2 == '.' && c3 == '.' && isSlash(c4)) {
-            path->Erase(lastDir+1, i+3 - lastDir);
-        } else {
-            if (c1 == '\\' || c1 == '/') {
-                lastDir = i;
-            }
-        }
-    }
-}
-
 } // namespace AzCore

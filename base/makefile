@@ -2,7 +2,7 @@ IDIR=src
 SDIR=src
 ODIR=obj
 
-WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.2.162.1
+WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.2.176.1
 
 CC=g++
 WCC=x86_64-w64-mingw32-g++
@@ -26,7 +26,7 @@ WCFLAGS=$(CFLAGS) -D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -I$(
 #LIBS_L_GLX= $(LIBS_L) -lX11 -lX11-xcb
 #LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib32/" -lvulkan-1 -lgdi32
 
-_DEPS_BASE = keycodes.hpp io.hpp math.hpp memory.hpp vk.hpp font.hpp Font/FontTables.hpp Font/FontTables.cpp Font/font_cff_std_data.c Font/CFF.hpp Font/CFF.cpp Time.hpp Thread.hpp ThreadLinux.hpp ThreadWin32.hpp Net/Sockets.hpp
+_DEPS_BASE = keycodes.hpp io.hpp math.hpp memory.hpp vk.hpp font.hpp Font/FontTables.hpp Font/FontTables.cpp Font/font_cff_std_data.c Font/CFF.hpp Font/CFF.cpp Time.hpp Thread.hpp ThreadLinux.hpp ThreadWin32.hpp Net/Sockets.hpp Environment.hpp
 DEPS_BASE = $(patsubst %,$(IDIR)/AzCore/%,$(_DEPS_BASE)) makefile
 _DEPS_IO = ButtonState.hpp ButtonState.cpp Gamepad.hpp Gamepad.cpp Input.hpp Input.cpp LogStream.hpp LogStream.cpp RawInput.hpp RawInput.cpp Window.hpp
 _DEPS_IO_PLATFORM = RawInput.cpp Window.cpp
@@ -46,7 +46,7 @@ DEPS_MEMORY = $(patsubst %,$(IDIR)/AzCore/Memory/%,$(_DEPS_MEMORY))
 DEPS_L = $(DEPS_BASE) $(DEPS_IO_L) $(DEPS_MATH) $(DEPS_MEMORY) $(DEPS_SOCKETS_L)
 DEPS_W = $(DEPS_BASE) $(DEPS_IO_W) $(DEPS_MATH) $(DEPS_MEMORY) $(DEPS_SOCKETS_W)
 
-_OBJ = io.o memory.o keycodes.o IO/LogStream.o vk.o math.o Memory/BigInt.o font.o Net/Sockets.o
+_OBJ = io.o memory.o keycodes.o IO/LogStream.o vk.o math.o Memory/BigInt.o font.o Net/Sockets.o Environment.o
 OBJ_L = $(patsubst %,$(ODIR)/Linux/Release/%,$(_OBJ))
 OBJ_W = $(patsubst %,$(ODIR)/Windows/Release/%,$(_OBJ))
 OBJ_LD = $(patsubst %,$(ODIR)/Linux/Debug/%,$(_OBJ))

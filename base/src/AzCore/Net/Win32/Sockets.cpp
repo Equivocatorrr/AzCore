@@ -32,14 +32,20 @@ inline void Socket::_Err(const char *explain) {
     error = explain + ToString(WSAGetLastError());
 }
 
-Socket::Socket() : connected(false), type(TCP), data(new socketdata()), error{} {}
+inline socketdata& Socket::Data() {
+    return *(socketdata*)dataArr;
+}
+
+Socket::Socket() : connected(false), type(TCP), error{} {
+    Data() = socketdata();
+}
 
 Socket::~Socket() {
     if (connected) Disconnect();
-    delete data;
 }
 
 bool Socket::Connect(const char *serverAddress, i32 portNumber) {
+    socketdata &data = Data();
     addrinfo hints;
     ZeroMemory(&hints, sizeof(hints));
     hints.ai_family = AF_INET;
@@ -52,22 +58,22 @@ bool Socket::Connect(const char *serverAddress, i32 portNumber) {
     }
     String portString = ToString(portNumber);
     i32 errorCode;
-    errorCode = getaddrinfo(serverAddress, portString.data, &hints, &data->address);
+    errorCode = getaddrinfo(serverAddress, portString.data, &hints, &data.address);
     if (errorCode != 0) {
         _Err("Failed to getaddrinfo: ");
         return false;
     }
-    data->sockh = socket(data->address->ai_family, data->address->ai_socktype, data->address->ai_protocol);
-    if (data->sockh == INVALID_SOCKET) {
+    data.sockh = socket(data.address->ai_family, data.address->ai_socktype, data.address->ai_protocol);
+    if (data.sockh == INVALID_SOCKET) {
         _Err("Failed to create socket: ");
-        freeaddrinfo(data->address);
+        freeaddrinfo(data.address);
         return false;
     }
-    errorCode = connect(data->sockh, data->address->ai_addr, (i32)data->address->ai_addrlen);
-    freeaddrinfo(data->address);
+    errorCode = connect(data.sockh, data.address->ai_addr, (i32)data.address->ai_addrlen);
+    freeaddrinfo(data.address);
     if (errorCode == SOCKET_ERROR) {
         _Err("Failed to connect: ");
-        closesocket(data->sockh);
+        closesocket(data.sockh);
         return false;
     }
     connected = true;
@@ -75,6 +81,7 @@ bool Socket::Connect(const char *serverAddress, i32 portNumber) {
 }
 
 bool Socket::Host(i32 portNumber) {
+    socketdata &data = Data();
     addrinfo hints;
     ZeroMemory(&hints, sizeof(hints));
     hints.ai_family = AF_INET;
@@ -88,37 +95,38 @@ bool Socket::Host(i32 portNumber) {
     }
     String portString = ToString(portNumber);
     i32 errorCode;
-    errorCode = getaddrinfo(NULL, portString.data, &hints, &data->address);
+    errorCode = getaddrinfo(NULL, portString.data, &hints, &data.address);
     if (errorCode != 0) {
         _Err("Failed to getaddrinfo: ");
     }
-    data->sockh = socket(data->address->ai_family, data->address->ai_socktype, data->address->ai_protocol);
-    if (data->sockh == INVALID_SOCKET) {
+    data.sockh = socket(data.address->ai_family, data.address->ai_socktype, data.address->ai_protocol);
+    if (data.sockh == INVALID_SOCKET) {
         _Err("Failed to create socket: ");
-        freeaddrinfo(data->address);
+        freeaddrinfo(data.address);
         return false;
     }
-    errorCode = bind(data->sockh, data->address->ai_addr, (i32)data->address->ai_addrlen);
-    freeaddrinfo(data->address);
+    errorCode = bind(data.sockh, data.address->ai_addr, (i32)data.address->ai_addrlen);
+    freeaddrinfo(data.address);
     if (errorCode == SOCKET_ERROR) {
         _Err("Failed to bind: ");
-        closesocket(data->sockh);
+        closesocket(data.sockh);
         return false;
     }
     // Sets up a connection queue of length SOMAXCONN (the limit)
-    errorCode = listen(data->sockh, SOMAXCONN);
+    errorCode = listen(data.sockh, SOMAXCONN);
     if (errorCode == SOCKET_ERROR) {
         _Err("Failed to listen: ");
-        closesocket(data->sockh);
+        closesocket(data.sockh);
         return false;
     }
     return true;
 }
 
 bool Socket::Accept(Socket &host) {
+    socketdata &data = Data();
     i32 addressLength = sizeof(addrinfo);
-    data->sockh = accept(host.data->sockh, (sockaddr*)&data->address, &addressLength);
-    if (data->sockh == INVALID_SOCKET) {
+    data.sockh = accept(host.Data().sockh, (sockaddr*)&data.address, &addressLength);
+    if (data.sockh == INVALID_SOCKET) {
         _Err("Failed to accept connection: ");
         return false;
     }
@@ -127,13 +135,15 @@ bool Socket::Accept(Socket &host) {
 }
 
 void Socket::Disconnect() {
-    closesocket(data->sockh);
-    data->sockh = INVALID_SOCKET;
+    socketdata &data = Data();
+    closesocket(data.sockh);
+    data.sockh = INVALID_SOCKET;
     connected = false;
 }
 
 i32 Socket::Send(char *src, u32 length) {
-    i32 numSent = send(data->sockh, src, length, 0);
+    socketdata &data = Data();
+    i32 numSent = send(data.sockh, src, length, 0);
     if (numSent == SOCKET_ERROR) {
         if (WSAGetLastError() == WSAECONNABORTED) {
             Disconnect();
@@ -144,7 +154,8 @@ i32 Socket::Send(char *src, u32 length) {
 }
 
 i32 Socket::Receive(char *dst, u32 length) {
-    i32 numReceived = recv(data->sockh, dst, length, 0);
+    socketdata &data = Data();
+    i32 numReceived = recv(data.sockh, dst, length, 0);
     if (numReceived == SOCKET_ERROR) {
         if (WSAGetLastError() == WSAECONNABORTED) {
             Disconnect();

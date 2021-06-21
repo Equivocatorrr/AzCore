@@ -193,15 +193,15 @@ struct mat4_t {
     }
 };
 
+} // namespace AzCore
+
 template <typename T>
-inline vec4_t<T> operator*(const vec4_t<T> &a, const mat4_t<T> &b) {
-    return vec4_t<T>(
+inline AzCore::vec4_t<T> operator*(const AzCore::vec4_t<T> &a, const AzCore::mat4_t<T> &b) {
+    return AzCore::vec4_t<T>(
         a.x * b.v.x1 + a.y * b.v.y1 + a.z * b.v.z1 + a.w * b.v.w1,
         a.x * b.v.x2 + a.y * b.v.y2 + a.z * b.v.z2 + a.w * b.v.w2,
         a.x * b.v.x3 + a.y * b.v.y3 + a.z * b.v.z3 + a.w * b.v.w3,
         a.x * b.v.x4 + a.y * b.v.y4 + a.z * b.v.z4 + a.w * b.v.w4);
 }
-
-} // namespace AzCore
 
 #endif // AZCORE_MATH_MAT4_T_HPP

@@ -79,13 +79,13 @@ struct mat2_t {
     }
 };
 
+} // namespace AzCore
+
 template <typename T>
-inline vec2_t<T> operator*(const vec2_t<T> &a, const mat2_t<T> &b) {
-    return vec2_t<T>(
+inline AzCore::vec2_t<T> operator*(const AzCore::vec2_t<T> &a, const AzCore::mat2_t<T> &b) {
+    return AzCore::vec2_t<T>(
         a.x * b.v.x1 + a.y * b.v.y1,
         a.x * b.v.x2 + a.y * b.v.y2);
 }
-
-} // namespace AzCore
 
 #endif // AZCORE_MATH_MAT2_T_HPP

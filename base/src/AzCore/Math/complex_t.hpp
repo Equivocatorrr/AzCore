@@ -106,27 +106,27 @@ struct complex_t {
     }
 };
 
+} // namespace AzCore
+
 template <typename T>
-inline complex_t<T> operator*(const T &a, const complex_t<T> &b) {
+inline AzCore::complex_t<T> operator*(const T &a, const AzCore::complex_t<T> &b) {
     return b * a;
 }
 
 template <typename T>
-inline complex_t<T> operator/(const T &a, const complex_t<T> &b) {
-    return complex_t<T>(a) / b;
+inline AzCore::complex_t<T> operator/(const T &a, const AzCore::complex_t<T> &b) {
+    return AzCore::complex_t<T>(a) / b;
 }
 
 template <typename T>
-inline complex_t<T> operator+(const T &a, const complex_t<T> &b) {
+inline AzCore::complex_t<T> operator+(const T &a, const AzCore::complex_t<T> &b) {
     return b + a;
 }
 
 template <typename T>
-inline complex_t<T> operator-(const T &a, const complex_t<T> &b) {
+inline AzCore::complex_t<T> operator-(const T &a, const AzCore::complex_t<T> &b) {
     return -b + a;
 }
-
-} // namespace AzCore
 
 template <typename T>
 inline T abs(const AzCore::complex_t<T> &a) {

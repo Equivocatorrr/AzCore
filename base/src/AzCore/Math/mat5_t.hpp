@@ -229,16 +229,16 @@ struct mat5_t {
     }
 };
 
+} // namespace AzCore
+
 template <typename T>
-inline vec5_t<T> operator*(const vec5_t<T> &a, const mat5_t<T> &b) {
-    return vec5_t<T>(
+inline AzCore::vec5_t<T> operator*(const AzCore::vec5_t<T> &a, const AzCore::mat5_t<T> &b) {
+    return AzCore::vec5_t<T>(
         a.x * b.v.x1 + a.y * b.v.y1 + a.z * b.v.z1 + a.w * b.v.w1 + a.v * b.v.v1,
         a.x * b.v.x2 + a.y * b.v.y2 + a.z * b.v.z2 + a.w * b.v.w2 + a.v * b.v.v2,
         a.x * b.v.x3 + a.y * b.v.y3 + a.z * b.v.z3 + a.w * b.v.w3 + a.v * b.v.v3,
         a.x * b.v.x4 + a.y * b.v.y4 + a.z * b.v.z4 + a.w * b.v.w4 + a.v * b.v.v4,
         a.x * b.v.x5 + a.y * b.v.y5 + a.z * b.v.z5 + a.w * b.v.w5 + a.v * b.v.v5);
 }
-
-} // namespace AzCore
 
 #endif // AZCORE_MATH_MAT5_T_HPP

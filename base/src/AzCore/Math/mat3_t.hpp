@@ -131,14 +131,14 @@ struct mat3_t {
     }
 };
 
+} // namespace AzCore
+
 template <typename T>
-inline vec3_t<T> operator*(const vec3_t<T> &a, const mat3_t<T> &b) {
-    return vec3_t<T>(
+inline AzCore::vec3_t<T> operator*(const AzCore::vec3_t<T> &a, const AzCore::mat3_t<T> &b) {
+    return AzCore::vec3_t<T>(
         a.x * b.v.x1 + a.y * b.v.y1 + a.z * b.v.z1,
         a.x * b.v.x2 + a.y * b.v.y2 + a.z * b.v.z2,
         a.x * b.v.x3 + a.y * b.v.y3 + a.z * b.v.z3);
 }
-
-} // namespace AzCore
 
 #endif // AZCORE_MATH_MAT3_T_HPP

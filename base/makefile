@@ -28,7 +28,7 @@ WCFLAGS=$(CFLAGS) -D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -I$(
 
 _DEPS_BASE = keycodes.hpp io.hpp math.hpp memory.hpp vk.hpp font.hpp Font/FontTables.hpp Font/FontTables.cpp Font/font_cff_std_data.c Font/CFF.hpp Font/CFF.cpp Time.hpp Thread.hpp ThreadLinux.hpp ThreadWin32.hpp Net/Sockets.hpp Environment.hpp
 DEPS_BASE = $(patsubst %,$(IDIR)/AzCore/%,$(_DEPS_BASE)) makefile
-_DEPS_IO = ButtonState.hpp ButtonState.cpp Gamepad.hpp Gamepad.cpp Input.hpp Input.cpp LogStream.hpp LogStream.cpp RawInput.hpp RawInput.cpp Window.hpp
+_DEPS_IO = ButtonState.hpp ButtonState.cpp Gamepad.hpp Gamepad.cpp Input.hpp Input.cpp LogStream.hpp Log.hpp RawInput.hpp RawInput.cpp Window.hpp
 _DEPS_IO_PLATFORM = RawInput.cpp Window.cpp
 DEPS_IO_L = $(patsubst %,$(IDIR)/AzCore/IO/%,$(_DEPS_IO)) $(patsubst %,$(IDIR)/AzCore/IO/Linux/%,$(_DEPS_IO_PLATFORM))
 DEPS_IO_W = $(patsubst %,$(IDIR)/AzCore/IO/%,$(_DEPS_IO)) $(patsubst %,$(IDIR)/AzCore/IO/Win32/%,$(_DEPS_IO_PLATFORM))
@@ -46,7 +46,7 @@ DEPS_MEMORY = $(patsubst %,$(IDIR)/AzCore/Memory/%,$(_DEPS_MEMORY))
 DEPS_L = $(DEPS_BASE) $(DEPS_IO_L) $(DEPS_MATH) $(DEPS_MEMORY) $(DEPS_SOCKETS_L)
 DEPS_W = $(DEPS_BASE) $(DEPS_IO_W) $(DEPS_MATH) $(DEPS_MEMORY) $(DEPS_SOCKETS_W)
 
-_OBJ = io.o memory.o keycodes.o IO/LogStream.o vk.o math.o Memory/BigInt.o font.o Net/Sockets.o Environment.o
+_OBJ = io.o memory.o keycodes.o IO/LogStream.o IO/Log.o vk.o math.o Memory/BigInt.o font.o Net/Sockets.o Environment.o
 OBJ_L = $(patsubst %,$(ODIR)/Linux/Release/%,$(_OBJ))
 OBJ_W = $(patsubst %,$(ODIR)/Windows/Release/%,$(_OBJ))
 OBJ_LD = $(patsubst %,$(ODIR)/Linux/Debug/%,$(_OBJ))

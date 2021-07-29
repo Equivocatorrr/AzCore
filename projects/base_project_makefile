@@ -18,7 +18,7 @@ $(ODIR)/Windows/Release/%.o: $(SDIR)/%.cpp $(DEPS) $(AZCORE_BASE)/.touchw
 
 _AZCORE_DEPS_BASE = basictypes.hpp common.hpp keycodes.hpp keycodes.cpp io.hpp io.cpp math.hpp math.cpp memory.hpp memory.cpp vk.hpp vk.cpp font.hpp font.cpp Font/FontTables.hpp Font/FontTables.cpp Font/font_cff_std_data.c Font/CFF.hpp Font/CFF.cpp Time.hpp Thread.hpp
 AZCORE_DEPS_BASE = $(patsubst %,$(AZCORE_BASE)/src/AzCore/%,$(_AZCORE_DEPS_BASE)) makefile
-_AZCORE_DEPS_IO = ButtonState.hpp ButtonState.cpp Gamepad.hpp Gamepad.cpp Input.hpp Input.cpp LogStream.hpp LogStream.cpp RawInput.hpp RawInput.cpp Window.hpp
+_AZCORE_DEPS_IO = ButtonState.hpp ButtonState.cpp Gamepad.hpp Gamepad.cpp Input.hpp Input.cpp LogStream.hpp Log.hpp RawInput.hpp RawInput.cpp Window.hpp
 _AZCORE_DEPS_IO_PLATFORM = RawInput.cpp Window.cpp
 AZCORE_DEPS_IO_L = $(patsubst %,$(AZCORE_BASE)/src/AzCore/IO/%,$(_AZCORE_DEPS_IO)) $(patsubst %,$(AZCORE_BASE)/src/AzCore/IO/Linux/%,$(_AZCORE_DEPS_IO_PLATFORM))
 AZCORE_DEPS_IO_W = $(patsubst %,$(AZCORE_BASE)/src/AzCore/IO/%,$(_AZCORE_DEPS_IO)) $(patsubst %,$(AZCORE_BASE)/src/AzCore/IO/Win32/%,$(_AZCORE_DEPS_IO_PLATFORM))

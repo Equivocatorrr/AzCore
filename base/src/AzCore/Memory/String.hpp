@@ -35,6 +35,34 @@ String ToString(const f32 &value, i32 base = 10, i32 precision = -1);
 String ToString(const f64 &value, i32 base = 10, i32 precision = -1);
 String ToString(const f128 &value, i32 base = 10, i32 precision = -1);
 
+
+inline String ToString(String value) {
+    return value;
+}
+
+inline String ToString(const char *value) {
+    return String(value);
+}
+
+inline String ToString(char *value) {
+    return String(value);
+}
+
+template<typename T>
+inline String ToString(Range<T> value) {
+    return String(value);
+}
+
+template<typename T>
+inline String Stringify(T value) {
+    return ToString(value);
+}
+template<typename T, typename... Args>
+inline String Stringify(T value, Args... args) {
+    return Stringify(value) + Stringify(args...);
+}
+
+
 f32 StringToF32(String string, i32 base = 10);
 f32 WStringToF32(WString string, i32 base = 10);
 i64 StringToI64(String string, i32 base = 10);

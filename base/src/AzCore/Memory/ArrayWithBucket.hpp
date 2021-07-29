@@ -566,7 +566,7 @@ struct ArrayWithBucket {
 
     Range<T> Insert(i32 index, ArrayWithBucket &&other) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
-        if (*((u32*)&index) > size) {
+        if (index > size) {
             throw std::out_of_range("ArrayWithBucket::Insert index is out of bounds");
         }
 #endif
@@ -610,7 +610,7 @@ struct ArrayWithBucket {
             return range;
         }
         size += other.size;
-        for (i32 i = size - 1; i > index; i--) {
+        for (i32 i = size - 1; i >= index+other.size; i--) {
             data[i] = std::move(data[i - other.size]);
         }
         for (i32 i = 0; i < other.size; i++) {

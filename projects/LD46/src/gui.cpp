@@ -20,7 +20,8 @@ Gui::~Gui() {
 }
 
 void Gui::EventAssetInit() {
-    globals->assets.QueueFile("DroidSans.ttf");
+    // globals->assets.QueueFile("DroidSans.ttf");
+    globals->assets.QueueFile("FiraSans-Book.otf");
     // globals->assets.QueueFile("LiberationSerif-Regular.ttf");
     // globals->assets.QueueFile("OpenSans-Regular.ttf");
     // globals->assets.QueueFile("Literata[wght].ttf");
@@ -60,7 +61,8 @@ void Gui::EventAssetInit() {
 }
 
 void Gui::EventAssetAcquire() {
-    fontIndex = globals->assets.FindMapping("DroidSans.ttf");
+    // fontIndex = globals->assets.FindMapping("DroidSans.ttf");
+    fontIndex = globals->assets.FindMapping("FiraSans-Book.otf");
     sndClickInSources[0].Create("click in 1.ogg");
     sndClickInSources[1].Create("click in 2.ogg");
     sndClickInSources[2].Create("click in 3.ogg");

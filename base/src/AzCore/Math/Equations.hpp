@@ -286,6 +286,7 @@ SolutionQuintic<T> SolveQuintic(T a, T b, T c, T d, T e, T f) {
     T da = d/a;
     T ea = e/a;
     T fa = f/a;
+
     T strength = T(1); // How much the output affects the next input
     T lastInput = T(0);
     T lastOutput = fa;
@@ -297,8 +298,8 @@ SolutionQuintic<T> SolveQuintic(T a, T b, T c, T d, T e, T f) {
         T xxx = xx*x;
         T xxxx = xx*xx;
         T xxxxx = xxx*xx;
-        T output = (xxxxx + ba*xxxx + ca*xxx + da*xx + ea*x + fa)/(xxxx+T(1));
-        if (abs(output) < T(1)/T(1000000)) break; // Edge case that could cause a hard lock
+        T output = (xxxxx + ba*xxxx + ca*xxx + da*xx + ea*x + fa) / (xxxx + T(1));
+        if (abs(output) < T(1)/T(10000)) break; // Edge case that could cause a hard lock
         bool positive = output > T(0);
         if (positive != lastPositive) {
             // 1/slope should take you approximately to zero
@@ -306,11 +307,25 @@ SolutionQuintic<T> SolveQuintic(T a, T b, T c, T d, T e, T f) {
         }
         lastInput = input;
         input -= output*strength;
-        if (abs(input-lastInput) < max(abs(input), T(1)) / T(1000000)) {
+        if (abs(input-lastInput) < max(abs(input), T(1)) / T(10000)) {
             break;
         }
         lastOutput = output;
         lastPositive = positive;
+    }
+    T db4 = ba * T(4);
+    T dc3 = ca * T(3);
+    T dd2 = da * T(2);
+    // Newton's method
+    for (i32 i = 0; i < 32; i++) {
+        T x = input;
+        T xx = x*x;
+        T xxx = xx*x;
+        T xxxx = xx*xx;
+        T xxxxx = xxx*xx;
+        T num = xxxxx + xxxx * ba + xxx * ca + xx * da + x * ea + fa;
+        T denom = xxxx * T(5) + xxx*db4 + xx*dc3 + x*dd2 + ea;
+        input -= num / denom;
     }
     // input should be a root
     T newA = a;

@@ -524,7 +524,7 @@ struct Gui : public Objects::Object {
     i32 creditsEquivocator, creditsFlubz;
 
     i32 controlDepth = 0;
-    f32 scale = 1.0f;
+    f32 scale = 2.0f;
     // false for gamepad, true for mouse
     bool usingMouse = true;
     // Used to make sure the mouse can only interact with top-most widgets.

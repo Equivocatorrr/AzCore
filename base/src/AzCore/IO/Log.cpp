@@ -1,0 +1,165 @@
+/*
+    File: Log.cpp
+    Author: Philip Haynes
+*/
+
+#include "Log.hpp"
+
+namespace AzCore {
+
+namespace io {
+
+Log::~Log() {
+    if (file) fclose(file);
+}
+
+Log::Log(const Log &other) {
+    logFile = other.logFile;
+    logConsole = other.logConsole;
+    spacesPerIndent = other.spacesPerIndent;
+    indent = other.indent;
+    prepend = other.prepend;
+    filename = other.filename + "_d";
+}
+
+Log& Log::operator=(const Log &other) {
+    if (file) fclose(file);
+    file = nullptr;
+    openAttempt = false;
+    logFile = other.logFile;
+    logConsole = other.logConsole;
+    spacesPerIndent = other.spacesPerIndent;
+    indent = other.indent;
+    prepend = other.prepend;
+    filename = other.filename + "_d";
+    return *this;
+}
+
+inline void Log::_HandleFile() {
+    if (!logFile) return;
+    if (openAttempt) return;
+
+    file = fopen(filename.data, "w");
+    if (!file) {
+        logFile = false;
+    }
+
+    openAttempt = true;
+}
+
+inline void Indent(String &str, i32 indent, i32 spacesPerIndent) {
+    if (str.size && indent) {
+        str.Resize(str.size + indent*spacesPerIndent, ' ');
+    }
+}
+
+template<bool newline>
+void Log::_Print(Range<char> out) {
+    if (!logConsole && !logFile) return;
+    _HandleFile();
+    static String consoleOut;
+    static String fileOut;
+    if ((!logConsole || prepend.size == 0) && indent == 0) {
+        if constexpr (newline) {
+            PrintLnPlain(out);
+        } else {
+            PrintPlain(out);
+        }
+        return;
+    }
+    // Soft reset since we don't want to reallocate all the time
+    consoleOut.size = 0;
+    fileOut.size = 0;
+    if (startOnNewline) {
+        if (logConsole) {
+            consoleOut = prepend;
+            Indent(consoleOut, indent, spacesPerIndent);
+        }
+        if (logFile) {
+            Indent(fileOut, indent, spacesPerIndent);
+        }
+    }
+    i32 i = 0;
+    i32 last = 0;
+    for (; i < out.size; i++) {
+        char c = out[i];
+        if (c == '\n' || c == '\r') {
+            Range<char> range = Range<char>((char*)&out[last], i-last);
+            if (logConsole) {
+                consoleOut += range;
+                consoleOut += prepend;
+                Indent(consoleOut, indent, spacesPerIndent);
+            }
+            if (logFile) {
+                fileOut += range;
+                Indent(fileOut, indent, spacesPerIndent);
+            }
+            last = i+1;
+        }
+    }
+    if (i != last) {
+        Range<char> range = Range<char>((char*)&out[last], i-last);
+        if (logConsole) {
+            consoleOut += range;
+            if constexpr (newline) {
+                consoleOut += '\n';
+            }
+        }
+        if (logFile) {
+            fileOut += range;
+            if constexpr (newline) {
+                fileOut += '\n';
+            }
+        }
+        if constexpr (newline) {
+            startOnNewline = true;
+        } else {
+            startOnNewline = false;
+        }
+    } else {
+        startOnNewline = true;
+    }
+    if (file) {
+        size_t written = fwrite(fileOut.data, sizeof(char), fileOut.size, file);
+        if (written != (size_t)fileOut.size) logFile = false;
+    }
+    if (logConsole) {
+        size_t written = fwrite(consoleOut.data, sizeof(char), consoleOut.size, stdout);
+        if (written != (size_t)consoleOut.size) logConsole = false;
+    }
+}
+
+template void Log::_Print<false>(Range<char>);
+template void Log::_Print<true>(Range<char>);
+
+void Log::PrintPlain(Range<char> out) {
+    if (!logConsole && !logFile) return;
+    _HandleFile();
+    if (file) {
+        size_t written = fwrite(&out[0], sizeof(char), out.size, file);
+        if (written != (size_t)out.size) logFile = false;
+    }
+    if (logConsole) {
+        size_t written = fwrite(&out[0], sizeof(char), out.size, stdout);
+        if (written != (size_t)out.size) logConsole = false;
+    }
+}
+
+void Log::PrintLnPlain(Range<char> out) {
+    if (!logConsole && !logFile) return;
+    _HandleFile();
+    if (file) {
+        size_t written = fwrite(&out[0], sizeof(char), out.size, file);
+        if (written != (size_t)out.size) logFile = false;
+        fputc('\n', file);
+    }
+    if (logConsole) {
+        size_t written = fwrite(&out[0], sizeof(char), out.size, stdout);
+        if (written != (size_t)out.size) logConsole = false;
+        fputc('\n', stdout);
+    }
+}
+
+} // namespace io
+
+} // namespace AzCore

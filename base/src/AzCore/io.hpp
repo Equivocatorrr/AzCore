@@ -9,6 +9,7 @@
 #define AZCORE_IO_HPP
 
 #include "IO/LogStream.hpp"
+#include "IO/Log.hpp"
 #include "math.hpp"
 
 namespace AzCore {
@@ -19,7 +20,7 @@ namespace io {
     extern vec2 screenSize;
 
     extern LogStream cout;
-    
+
 } // namespace io
 
 } // namespace AzCore

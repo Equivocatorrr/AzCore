@@ -8,6 +8,7 @@
 
 #include "../basictypes.hpp"
 #include <stdexcept> // std::out_of_range
+#include "Ptr.hpp"
 
 namespace AzCore {
 
@@ -18,7 +19,7 @@ struct ListIndex;
 template <typename T>
 struct List;
 template <typename T>
-struct Ptr;
+struct StringTerminators;
 
 template <typename T>
 struct RangeIterator {
@@ -87,6 +88,11 @@ struct Range {
         index = -1;
         size = s;
     }
+    Range(T *raw, i32 s) {
+        ptr = (void*)raw;
+        index = indexIndicatingRaw;
+        size = s;
+    }
     template<i32 allocTail>
     void Set(Array<T,allocTail> *a, i32 i, i32 s) {
         ptr = (void*)a;
@@ -102,6 +108,11 @@ struct Range {
         index = -1;
         size = s;
     }
+    void Set(T *raw, i32 s) {
+        ptr = (void*)raw;
+        index = indexIndicatingRaw;
+        size = s;
+    }
     Ptr<T> GetPtr(i32 i) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
         if (i >= size) {
@@ -110,6 +121,8 @@ struct Range {
 #endif
         if (index >= 0) {
             return Ptr<T>((Array<T,0> *)ptr, index + i);
+        } else if (index == indexIndicatingRaw) {
+            return Ptr<T>((T*)ptr);
         } else {
             ListIndex<T> *it = (ListIndex<T> *)ptr;
             for (index = 0; index < i; index++) {
@@ -127,6 +140,8 @@ struct Range {
 #endif
         if (index >= 0) {
             return Range<T>((Array<T,0> *)ptr, index + _index, _size);
+        } else if (index == indexIndicatingRaw) {
+            return Range<T>(((T*)ptr) + _index, _size);
         } else {
             ListIndex<T> *it = (ListIndex<T> *)ptr;
             for (index = 0; index < _index; index++) {
@@ -151,6 +166,8 @@ struct Range {
 #endif
         if (index >= 0) {
             return (*((Array<T,0> *)ptr))[i + index];
+        } else if (index == indexIndicatingRaw) {
+            return ((T*)ptr)[i];
         } else {
             ListIndex<T> *it = (ListIndex<T> *)ptr;
             for (index = 0; index < i; index++) {
@@ -168,6 +185,8 @@ struct Range {
 #endif
         if (index >= 0) {
             return (*((Array<T,0> *)ptr))[i + index];
+        } else if (index == indexIndicatingRaw) {
+            return ((T*)ptr)[i];
         } else {
             ListIndex<T> *it = (ListIndex<T> *)ptr;
             for (i32 ii = 0; ii < i; ii++) {
@@ -180,6 +199,8 @@ struct Range {
     RangeIterator<T> begin() const {
         if (index >= 0) {
             return RangeIterator(&((Array<T,0>*)ptr)->data[index]);
+        } else if (index == indexIndicatingRaw) {
+            return RangeIterator((T*)ptr);
         } else {
             return RangeIterator((ListIndex<T>*)ptr, 0);
         }
@@ -187,45 +208,26 @@ struct Range {
     RangeIterator<T> end() const {
         if (index >= 0) {
             return RangeIterator(&((Array<T,0>*)ptr)->data[index] + size);
+        } else if (index == indexIndicatingRaw) {
+            return RangeIterator(((T*)ptr) + size);
         } else {
             return RangeIterator((ListIndex<T>*)nullptr, size);
         }
     }
 
     bool Contains(const T &val) const {
-        if (index >= 0) {
-            Array<T,0> *array = (Array<T,0>*)ptr;
-            for (i32 i = 0; i < size; i++) {
-                if (val == array->data[i+index])
-                    return true;
-            }
-        } else {
-            ListIndex<T> *it = (ListIndex<T> *)ptr;
-            for (i32 i = 0; i < size; i++)
-            {
-                if (val == it->value)
-                    return true;
-                it = it->next;
-            }
+        for (const T &item : *this) {
+            if (val == item)
+                return true;
         }
         return false;
     }
 
     i32 Count(const T &val) const {
         i32 count = 0;
-        if (index >= 0) {
-            Array<T,0> *array = (Array<T,0>*)ptr;
-            for (i32 i = 0; i < size; i++) {
-                if (val == array->data[i+index])
-                    count++;
-            }
-        } else {
-            ListIndex<T> *it = (ListIndex<T> *)ptr;
-            for (i32 i = 0; i < size; i++) {
-                if (val == it->value)
-                    count++;
-                it = it->next;
-            }
+        for (const T &item : *this) {
+            if (val == item)
+                count++;
         }
         return count;
     }
@@ -245,6 +247,21 @@ struct Range {
             ++otherIterator;
         }
         return true;
+    }
+
+    bool operator==(const T *other) const {
+        auto myIterator = begin();
+        auto myIteratorEnd = end();
+        while (myIterator != myIteratorEnd) {
+            if (*other == StringTerminators<T>::value)
+                return false;
+            if (*myIterator != *other) {
+                return false;
+            }
+            ++myIterator;
+            ++other;
+        }
+        return *other == StringTerminators<T>::value;
     }
 
     bool operator<(const Range<T> &other) const {

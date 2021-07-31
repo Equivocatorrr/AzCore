@@ -267,16 +267,17 @@ struct BucketArray {
         }
         return *this;
     }
-    ArrayIterator<T> begin() const {
-        return ArrayIterator<T>(data);
-    }
-    ArrayIterator<T> end() const {
-        return ArrayIterator<T>(data + size);
-    }
-    T *begin() {
+    
+    T* begin() {
         return data;
     }
-    T *end() {
+    T* end() {
+        return data + size;
+    }
+    const T* begin() const {
+        return data;
+    }
+    const T* end() const {
         return data + size;
     }
 

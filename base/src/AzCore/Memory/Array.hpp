@@ -18,28 +18,6 @@
 
 namespace AzCore {
 
-/*  class: ArrayIterator
-    Author: Philip Haynes
-    Because const correctness can't work without it...      */
-template <typename T>
-class ArrayIterator {
-    T *data;
-
-public:
-    ArrayIterator() : data(nullptr) {}
-    ArrayIterator(T *d) : data(d) {}
-    bool operator!=(const ArrayIterator<T> &other) const {
-        return data != other.data;
-    }
-    const ArrayIterator<T> &operator++() {
-        data++;
-        return *this;
-    }
-    const T &operator*() const {
-        return *data;
-    }
-};
-
 /*  struct: Array
     Author: Philip Haynes
     A templated dynamic array which is guaranteed to be 16 bytes on a 64-bit architecture.
@@ -692,7 +670,7 @@ struct Array {
     inline const T* end() const {
         return data + size;
     }
-    
+
     inline T &Back() {
         return data[size - 1];
     }

@@ -54,14 +54,39 @@ inline String ToString(Range<T> value) {
 }
 
 template<typename T>
+inline String ToString(SimpleRange<T> value) {
+    return String(value);
+}
+
+template<typename T>
 inline String Stringify(T value) {
     return ToString(value);
 }
+
+template<typename T>
+inline String Stringify(T value, const char* c_str) {
+    return Stringify(value) + c_str;
+}
+
+template<typename T, typename... Args>
+inline String Stringify(T value, const char* c_str, Args... args) {
+    return Stringify(value) + c_str + Stringify(args...);
+}
+
+template<typename T>
+inline String Stringify(T value, Range<char> range) {
+    return Stringify(value) + range;
+}
+
+template<typename T, typename... Args>
+inline String Stringify(T value, Range<char> range, Args... args) {
+    return Stringify(value) + range + Stringify(args...);
+}
+
 template<typename T, typename... Args>
 inline String Stringify(T value, Args... args) {
     return Stringify(value) + Stringify(args...);
 }
-
 
 f32 StringToF32(String string, i32 base = 10);
 f32 WStringToF32(WString string, i32 base = 10);

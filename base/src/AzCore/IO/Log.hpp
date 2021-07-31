@@ -18,7 +18,7 @@ namespace io {
 class Log {
     FILE *file = nullptr;
     bool openAttempt = false;
-    bool logFile = true;
+    bool logFile = false;
     bool logConsole = true;
     bool startOnNewline = true;
     i32 spacesPerIndent = 4;
@@ -40,6 +40,7 @@ public:
         prepend = "[" + filename.GetRange(lastSlash, filename.size-lastSlash) + "] ";
         prepend.Resize(align(prepend.size, spacesPerIndent), ' ');
         logConsole = console;
+        logFile = true;
     }
     ~Log();
 
@@ -52,18 +53,48 @@ public:
         logFile = false;
     }
 
+    template<bool newline>
+    void _Print(SimpleRange<char> out);
+
+    inline void Print(String out) {
+        _Print<false>(out);
+    }
+    inline void Print(const char *out) {
+        _Print<false>(out);
+    }
+    inline void Print(char *out) {
+        _Print<false>(out);
+    }
+    inline void Print(SimpleRange<char> out) {
+        _Print<false>(out);
+    }
+
+    inline void PrintLn(String out) {
+        _Print<true>(out);
+    }
+    inline void PrintLn(const char *out) {
+        _Print<true>(out);
+    }
+    inline void PrintLn(char *out) {
+        _Print<true>(out);
+    }
+    inline void PrintLn(SimpleRange<char> out) {
+        _Print<true>(out);
+    }
+
     template <typename T>
     inline void Print(T out) {
         Print(ToString(out));
     }
+    template <typename T>
+    inline void PrintLn(T out) {
+        PrintLn(ToString(out));
+    }
+
     template <typename T, typename... Args>
     inline void Print(T first, Args... args) {
         Print(first);
         Print<Args...>(args...);
-    }
-    template <typename T>
-    inline void PrintLn(T out) {
-        PrintLn(ToString(out));
     }
     template <typename T, typename... Args>
     inline void PrintLn(T first, Args... args) {
@@ -71,11 +102,8 @@ public:
         PrintLn<Args...>(args...);
     }
     // Print without indenting or prepending on newlines
-    void PrintPlain(Range<char> out);
-    void PrintLnPlain(Range<char> out);
-
-    template<bool newline>
-    void _Print(Range<char> out);
+    void PrintPlain(SimpleRange<char> out);
+    void PrintLnPlain(SimpleRange<char> out);
 
     inline void IndentMore() {
         indent++;
@@ -96,32 +124,6 @@ public:
         prepend.Resize(align(prepend.size, spacesPerIndent), ' ');
     }
 };
-
-template<>
-inline void Log::Print(String out) {
-    _Print<false>(out.GetRange(0, out.size));
-}
-template<>
-inline void Log::Print(const char *out) {
-    _Print<false>(Range<char>((char*)out, StringLength(out)));
-}
-template<>
-inline void Log::Print(char *out) {
-    _Print<false>(Range<char>(out, StringLength(out)));
-}
-
-template<>
-inline void Log::PrintLn(String out) {
-    _Print<true>(out.GetRange(0, out.size));
-}
-template<>
-inline void Log::PrintLn(const char *out) {
-    _Print<true>(Range<char>((char*)out, StringLength(out)));
-}
-template<>
-inline void Log::PrintLn(char *out) {
-    _Print<true>(Range<char>(out, StringLength(out)));
-}
 
 } // namespace io
 

@@ -184,10 +184,20 @@ struct ArrayWithBucket {
 
     ArrayWithBucket(const Range<T> &range) {
         _Initialize(range.size);
-        if (range.index >= 0) {
+        if (range.PointsToArray()) {
             if constexpr (std::is_trivially_copyable<T>::value) {
                 memcpy((void *)data,
                     (void *)(((ArrayWithBucket<T,allocTail,noAllocCount>*)range.ptr)->data + range.index),
+                    sizeof(T) * size);
+            } else {
+                for (i32 i = 0; i < size; i++) {
+                    data[i] = range[i];
+                }
+            }
+        } else if (range.PointsToRaw()) {
+            if constexpr (std::is_trivially_copyable<T>::value) {
+                memcpy((void *)data,
+                    (void *)((T*)range.ptr),
                     sizeof(T) * size);
             } else {
                 for (i32 i = 0; i < size; i++) {
@@ -199,6 +209,20 @@ struct ArrayWithBucket {
             for (const T &it : range) {
                 data[i] = it;
                 i++;
+            }
+        }
+        _SetTerminator();
+    }
+
+    ArrayWithBucket(SimpleRange<T> range) {
+        _Initialize(range.size);
+        if constexpr (std::is_trivially_copyable<T>::value) {
+            memcpy((void *)data,
+                (void *)(range.str),
+                sizeof(T) * size);
+        } else {
+            for (i32 i = 0; i < size; i++) {
+                data[i] = range[i];
             }
         }
         _SetTerminator();
@@ -391,6 +415,16 @@ struct ArrayWithBucket {
         return Append(string);
     }
 
+    inline ArrayWithBucket<T, noAllocCount, allocTail>& force_inline
+    operator+=(Range<T> range) {
+        return Append(range);
+    }
+
+    inline ArrayWithBucket<T, noAllocCount, allocTail>& force_inline
+    operator+=(SimpleRange<T> range) {
+        return Append(range);
+    }
+
     void Reserve(i32 newSize) {
         if (newSize <= allocated || newSize <= noAllocCount-allocTail) {
             return;
@@ -479,6 +513,39 @@ struct ArrayWithBucket {
         Reserve(newSize);
         for (i32 i = size; i < newSize; i++) {
             data[i] = string[i - size];
+        }
+        size = newSize;
+        _SetTerminator();
+        return *this;
+    }
+
+    ArrayWithBucket<T, noAllocCount, allocTail>&
+    Append(Range<T> range) {
+        i32 newSize = size + range.size;
+        Reserve(newSize);
+        if (range.index == indexIndicatingRaw) {
+            T* it = (T*)range.ptr;
+            for (i32 i = size; i < newSize; i++) {
+                data[i] = *(it++);
+            }
+        } else {
+            i32 i = size;
+            for (T &it : range) {
+                data[i++] = it;
+            }
+        }
+        size = newSize;
+        _SetTerminator();
+        return *this;
+    }
+
+    ArrayWithBucket<T, noAllocCount, allocTail>&
+    Append(SimpleRange<T> range) {
+        i32 newSize = size + range.size;
+        Reserve(newSize);
+        T* it = range.str;
+        for (i32 i = size; i < newSize; i++) {
+            data[i] = *(it++);
         }
         size = newSize;
         _SetTerminator();

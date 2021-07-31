@@ -9,17 +9,18 @@
 #include "../basictypes.hpp"
 #include <stdexcept> // std::out_of_range
 #include "Ptr.hpp"
+#include "StringCommon.hpp"
 
 namespace AzCore {
 
-template <typename T, i32 allocTail>
-struct Array;
+// template <typename T, i32 allocTail>
+// struct Array;
+template <typename T, i32 noAllocCount, i32 allocTail>
+struct ArrayWithBucket;
 template <typename T>
 struct ListIndex;
 template <typename T>
 struct List;
-template <typename T>
-struct StringTerminators;
 
 template <typename T>
 struct RangeIterator {
@@ -92,6 +93,15 @@ struct Range {
         ptr = (void*)raw;
         index = indexIndicatingRaw;
         size = s;
+    }
+    inline bool PointsToArray() const {
+        return index >= 0;
+    }
+    inline bool PointsToRaw() const {
+        return index == indexIndicatingRaw;
+    }
+    inline bool PointsToList() const {
+        return !PointsToArray() && !PointsToRaw();
     }
     template<i32 allocTail>
     void Set(Array<T,allocTail> *a, i32 i, i32 s) {
@@ -280,6 +290,99 @@ struct Range {
             ++otherIterator;
         }
         return false;
+    }
+};
+
+// Like Range above, but with fewer bells and whistles.
+// Because sometimes simplicity is best.
+template <typename T>
+struct SimpleRange {
+    T *str;
+    i64 size;
+
+    SimpleRange() : str(nullptr), size(0) {}
+    SimpleRange(T *string, i64 length) : str(string), size(length) {}
+    SimpleRange(const T *string) : str((char*)string), size(StringLength(string)) {}
+    template<i32 allocTail>
+    SimpleRange(Array<T, allocTail> &array) : str(array.data), size(array.size) {}
+    template<i32 bucketSize, i32 allocTail>
+    SimpleRange(ArrayWithBucket<T, bucketSize, allocTail> &array) : str(array.data), size(array.size) {}
+    SimpleRange(Range<T> &range) : size(range.size) {
+        if (range.PointsToArray()) {
+            str = (*((Array<T,0> *)range.ptr))[0];
+        } else if (range.PointsToRaw()) {
+            str = (T*)range.ptr;
+        } else {
+            throw std::runtime_error("SimpleRange doesn't work on Lists");
+        }
+    }
+
+    SimpleRange<T> SubRange(i64 index, i64 _size) {
+#ifndef MEMORY_NO_BOUNDS_CHECKS
+        if (index + _size > size && index >= 0) {
+            throw std::out_of_range("SimpleRange::SubRange index + size is out of bounds");
+        }
+#endif
+        return SimpleRange<T>(str + index, _size);
+    }
+
+    T* begin() {
+        return str;
+    }
+    T* end() {
+        return str + size;
+    }
+    const T* begin() const {
+        return str;
+    }
+    const T* end() const {
+        return str + size;
+    }
+
+    inline T& operator[](i64 i) {
+        return str[i];
+    }
+    inline const T& operator[](i64 i) const {
+        return str[i];
+    }
+
+    inline bool operator==(SimpleRange<T> other) {
+        if (size != other.size) return false;
+        for (i64 i = 0; i < size; i++) {
+            if (str[i] != other.str[i]) return false;
+        }
+        return true;
+    }
+    inline bool operator==(const T *string) {
+        for (i64 i = 0; i < size; i++) {
+            if (str[i] != string[i]) return false;
+        }
+        return string[size] == StringTerminators<T>::value;
+    }
+
+    bool operator<(const SimpleRange<T> &other) {
+        if (size != other.size) return size < other.size;
+        for (i64 i = 0; i < size; i++) {
+            if (str[i] != other.str[i]) return str[i] < other.str[i];
+        }
+        return false;
+    }
+
+    bool Contains(const T &val) const {
+        for (const T &item : *this) {
+            if (val == item)
+                return true;
+        }
+        return false;
+    }
+
+    i64 Count(const T &val) const {
+        i64 count = 0;
+        for (const T &item : *this) {
+            if (val == item)
+                count++;
+        }
+        return count;
     }
 };
 

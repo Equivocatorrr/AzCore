@@ -54,7 +54,7 @@ inline void Indent(String &str, i32 indent, i32 spacesPerIndent) {
 }
 
 template<bool newline>
-void Log::_Print(Range<char> out) {
+void Log::_Print(SimpleRange<char> out) {
     if (!logConsole && !logFile) return;
     _HandleFile();
     static String consoleOut;
@@ -84,7 +84,7 @@ void Log::_Print(Range<char> out) {
     for (; i < out.size; i++) {
         char c = out[i];
         if (c == '\n' || c == '\r') {
-            Range<char> range = Range<char>((char*)&out[last], i-last);
+            SimpleRange<char> range = out.SubRange(last, i-last+1);
             if (logConsole) {
                 consoleOut += range;
                 consoleOut += prepend;
@@ -98,7 +98,7 @@ void Log::_Print(Range<char> out) {
         }
     }
     if (i != last) {
-        Range<char> range = Range<char>((char*)&out[last], i-last);
+        SimpleRange<char> range = out.SubRange(last, i-last);
         if (logConsole) {
             consoleOut += range;
             if constexpr (newline) {
@@ -129,32 +129,32 @@ void Log::_Print(Range<char> out) {
     }
 }
 
-template void Log::_Print<false>(Range<char>);
-template void Log::_Print<true>(Range<char>);
+template void Log::_Print<false>(SimpleRange<char>);
+template void Log::_Print<true>(SimpleRange<char>);
 
-void Log::PrintPlain(Range<char> out) {
+void Log::PrintPlain(SimpleRange<char> out) {
     if (!logConsole && !logFile) return;
     _HandleFile();
     if (file) {
-        size_t written = fwrite(&out[0], sizeof(char), out.size, file);
+        size_t written = fwrite(out.str, sizeof(char), out.size, file);
         if (written != (size_t)out.size) logFile = false;
     }
     if (logConsole) {
-        size_t written = fwrite(&out[0], sizeof(char), out.size, stdout);
+        size_t written = fwrite(out.str, sizeof(char), out.size, stdout);
         if (written != (size_t)out.size) logConsole = false;
     }
 }
 
-void Log::PrintLnPlain(Range<char> out) {
+void Log::PrintLnPlain(SimpleRange<char> out) {
     if (!logConsole && !logFile) return;
     _HandleFile();
     if (file) {
-        size_t written = fwrite(&out[0], sizeof(char), out.size, file);
+        size_t written = fwrite(out.str, sizeof(char), out.size, file);
         if (written != (size_t)out.size) logFile = false;
         fputc('\n', file);
     }
     if (logConsole) {
-        size_t written = fwrite(&out[0], sizeof(char), out.size, stdout);
+        size_t written = fwrite(out.str, sizeof(char), out.size, stdout);
         if (written != (size_t)out.size) logConsole = false;
         fputc('\n', stdout);
     }

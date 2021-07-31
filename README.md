@@ -40,7 +40,7 @@ Simply providing feedback is probably the easiest way to contribute. Be sure to 
 *To-Do* list already. If it is, but you'd like me to treat it with a higher-priority, you may open an Issue explaining why.
 #### Implementing
 If you find something lacking and know how to fix it, you may do so and open a
-[Pull Request](https://github.com/SingularityAzure/AzCore/pulls). 
+[Pull Request](https://github.com/SingularityAzure/AzCore/pulls).
 
 ## Features
 #### Window System I/O
@@ -61,25 +61,34 @@ but does so in a style that describes the relationship between structures.
 In my estimations thus far, the framework divides the necessary lines of code by about ten when compared to writing raw Vulkan
 code.
 #### Logging
-io::LogStream is a std::cout-like structure that logs information to both the console and a log file simultaneously.
+io::Log is an intuitive and efficient way to log to both a log file and console at the same time. It completely usurps the C++ stream-like logger style for a somewhat more traditional printf-style logger. Using template varargs, you don't need a format string, and instead just put the values to print in order.
+
+`logger.Print("This ", integer, " is ", float, " less ", string, " cumbersome!");`
+
+*DEPRECATED*: io::LogStream is a std::cout-like structure that logs information to both the console and a log file simultaneously.
 #### Math
 - Vector, Matrix, Complex, and Quaternion data types.
-- BigInt, a fast, 128-byte integer data type that uses up to 15 u64's to represent values approximately spanning
--10^289 to 10^289.
+- BigInt, a fast, 128-byte integer data type that uses up to 15 u64's to represent values approximately spanning 10^289 to 10^289.
 #### Memory Primitives
 - `Array<typename T, i32 allocTail>`, a heap-allocated array of type T with an optional string terminator guaranteed to be on
 the end.
-- `String` and `WString` are `Array<char, 1>` and `Array<char32, 1>` respectively and come with some special operators to work
+- `ArrayWithBucket<typename T, i32 noAllocCount, i32 allocTail>`, like Array above, except for sizes between 0 and noAllocCount, it uses a buffer within the struct rather than heap-allocating one. For larger sizes, it behaves the same as Array.
+- `String` and `WString` are `ArrayWithBucket<char, 16, 1>` and `Array<char32, 4, 1>` respectively and come with some special operators to work
 nicely together with `char*` and `char32*` strings.
 - UTF-8 to Unicode converter, used to translate a `String` or a `char*` to `WString`.
 - Converters from most basic data types to `String`, including 128-bit wide integers and floats.
 - Converters from `String` and `WString` to `f32`.
+- `String Stringify(args...)` returns a String that concatenates all the args together, converting any types into characters that have `void AppendToString(String &string, T value)` defined for them. This is done without allocating more than one String.
 - `BucketArray<typename T, i32 count>`, a stack-allocated constant-storage-sized array with a variable effective size.
 - Tools to identify and convert endianness.
 - `List<typename T>`, a singly-linked list.
 - `Ptr<typename T>`, polymorphs into either a raw `T *pointer` or an index of an `Array<T, 0>`. Helps in the case of Array data
   moving because of a resize.
-- `Range<typename T>`, like `Ptr<T>` except it has an associated size.
+- `Range<typename T>`, like `Ptr<T>` except it has an associated size. This can represent a range inside a List<T>, an Array<T>, or a c-style array.
+- `SimpleRange<typename T>`, points to a c-style array with an associated size. Less versatile than Range, but much simpler and without much (or any?) overhead.
+- `HashMap<typename Key_t, typename Value_t, u16 arraySize>` and `HashSet<typename Key_t, u16 arraySize>` use `constexpr i32 IndexHash<u16 bounds>(T in)` functions to index into an Array of Nodes, which is O(1) for sets of values smaller than arraySize.
+- `BinaryMap<typename Key_t, typename Value_t>` and `BinarySet<typename Key_t>` use `bool operator<(...)` from `Key_t` to sort its Nodes and look them up.
+- `UniquePtr<typename T>` manages a single heap-allocated object in a way that's less restrictive than `std::unique_ptr`
 #### Font Files and Atlases
 - Dependency-free font parser
 - Automatic atlas packing

@@ -25,67 +25,53 @@ String operator+(const char *cString, const String &string);
 WString operator+(const char32 *cString, WString &&string);
 WString operator+(const char32 *cString, const WString &string);
 
-String ToString(const u32 &value, i32 base = 10);
-String ToString(const u64 &value, i32 base = 10);
-String ToString(const u128 &value, i32 base = 10);
-String ToString(const i32 &value, i32 base = 10);
-String ToString(const i64 &value, i32 base = 10);
-String ToString(const i128 &value, i32 base = 10);
-String ToString(const f32 &value, i32 base = 10, i32 precision = -1);
-String ToString(const f64 &value, i32 base = 10, i32 precision = -1);
-String ToString(const f128 &value, i32 base = 10, i32 precision = -1);
-
-
-inline String ToString(String value) {
-    return value;
-}
-
-inline String ToString(const char *value) {
-    return String(value);
-}
-
-inline String ToString(char *value) {
-    return String(value);
-}
+void AppendToString(String &string, u32 value, i32 base = 10);
+void AppendToString(String &string, u64 value, i32 base = 10);
+void AppendToString(String &string, u128 value, i32 base = 10);
+void AppendToString(String &string, i32 value, i32 base = 10);
+void AppendToString(String &string, i64 value, i32 base = 10);
+void AppendToString(String &string, i128 value, i32 base = 10);
+void AppendToString(String &string, f32 value, i32 base = 10, i32 precision = -1);
+void AppendToString(String &string, f64 value, i32 base = 10, i32 precision = -1);
+void AppendToString(String &string, f128 value, i32 base = 10, i32 precision = -1);
 
 template<typename T>
-inline String ToString(Range<T> value) {
-    return String(value);
-}
-
-template<typename T>
-inline String ToString(SimpleRange<T> value) {
-    return String(value);
-}
-
-template<typename T>
-inline String Stringify(T value) {
-    return ToString(value);
-}
-
-template<typename T>
-inline String Stringify(T value, const char* c_str) {
-    return Stringify(value) + c_str;
+inline void AppendToString(String &string, T value) {
+    string.Append(value);
 }
 
 template<typename T, typename... Args>
-inline String Stringify(T value, const char* c_str, Args... args) {
-    return Stringify(value) + c_str + Stringify(args...);
+inline void AppendToString(String &string, T value, Args... args) {
+    AppendToString(string, value);
+    AppendToString(string, args...);
+}
+
+template<typename... Args>
+inline String Stringify(Args... args) {
+    String out;
+    AppendToString(out, args...);
+    return out;
 }
 
 template<typename T>
-inline String Stringify(T value, Range<char> range) {
-    return Stringify(value) + range;
+inline String ToString(T value) {
+    String out;
+    AppendToString(out, value);
+    return out;
 }
 
-template<typename T, typename... Args>
-inline String Stringify(T value, Range<char> range, Args... args) {
-    return Stringify(value) + range + Stringify(args...);
+template<typename T>
+inline String ToString(T value, i32 base) {
+    String out;
+    AppendToString(out, value, base);
+    return out;
 }
 
-template<typename T, typename... Args>
-inline String Stringify(T value, Args... args) {
-    return Stringify(value) + Stringify(args...);
+template<typename T>
+inline String ToString(T value, i32 base, i32 precision) {
+    String out;
+    AppendToString(out, value, base, precision);
+    return out;
 }
 
 f32 StringToF32(String string, i32 base = 10);

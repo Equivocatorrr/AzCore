@@ -674,18 +674,25 @@ struct Array {
         return *this;
     }
 
-    ArrayIterator<T> begin() const {
-        return ArrayIterator<T>(data);
-    }
-    ArrayIterator<T> end() const {
-        return ArrayIterator<T>(data + size);
-    }
-    T *begin() {
+    // ArrayIterator<T> begin() const {
+    //     return ArrayIterator<T>(data);
+    // }
+    // ArrayIterator<T> end() const {
+    //     return ArrayIterator<T>(data + size);
+    // }
+    inline T* begin() {
         return data;
     }
-    T *end() {
+    inline T* end() {
         return data + size;
     }
+    inline const T* begin() const {
+        return data;
+    }
+    inline const T* end() const {
+        return data + size;
+    }
+    
     inline T &Back() {
         return data[size - 1];
     }

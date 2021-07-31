@@ -82,24 +82,13 @@ public:
         _Print<true>(out);
     }
 
-    template <typename T>
-    inline void Print(T out) {
-        Print(ToString(out));
+    template <typename... Args>
+    inline void Print(Args... args) {
+        Print(Stringify(args...));
     }
-    template <typename T>
-    inline void PrintLn(T out) {
-        PrintLn(ToString(out));
-    }
-
-    template <typename T, typename... Args>
-    inline void Print(T first, Args... args) {
-        Print(first);
-        Print<Args...>(args...);
-    }
-    template <typename T, typename... Args>
-    inline void PrintLn(T first, Args... args) {
-        Print(first);
-        PrintLn<Args...>(args...);
+    template <typename... Args>
+    inline void PrintLn(Args... args) {
+        PrintLn(Stringify(args...));
     }
     // Print without indenting or prepending on newlines
     void PrintPlain(SimpleRange<char> out);

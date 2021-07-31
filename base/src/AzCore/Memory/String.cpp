@@ -210,14 +210,13 @@ void AppendToString(String &string, f32 value, i32 base, i32 precision) {
         string.Append(".0");
         return;
     }
-    // TODO: don't use another String
-    String out;
-    out.Reserve(12);
+    i32 startSize = string.size;
+    string.Reserve(startSize + 12);
     f32 basis = 1.0f;
     f32 remaining = value;
     if (remaining < 0.0f) {
         remaining = -remaining;
-        out += '-';
+        string += '-';
     }
     i32 newExponent = 0;
     bool point = false;
@@ -247,13 +246,13 @@ void AppendToString(String &string, f32 value, i32 base, i32 precision) {
         crossover = basis / base;
     } else {
         if (remaining < 1.0f) {
-            out += "0.";
+            string += "0.";
             dot = 1;
             point = true;
             if (precision != -1)
                 count = precision+1;
             for (i32 i = 2; i < newExponent; i++) {
-                out += '0';
+                string += '0';
             }
         }
         crossover = 1.0f / base;
@@ -261,7 +260,7 @@ void AppendToString(String &string, f32 value, i32 base, i32 precision) {
     bool roundUp = false;
     for (; count > 0; count--) {
         i32 digit = i32(remaining / basis);
-        out += digit >= 10 ? (digit + 'A' - 10) : (digit + '0');
+        string += digit >= 10 ? (digit + 'A' - 10) : (digit + '0');
         remaining -= basis * (f32)digit;
         if (remaining < 0.0f)
             remaining = 0.0f;
@@ -272,51 +271,49 @@ void AppendToString(String &string, f32 value, i32 base, i32 precision) {
             }
         }
         if (!point && basis <= crossover) {
-            dot = out.size;
-            out += '.';
+            dot = string.size;
+            string += '.';
             point = true;
             if (precision != -1)
                 count = precision+1;
         }
     }
     if (roundUp && precision != -1 && point) {
-        out[dot+precision]++;
+        string[dot+precision]++;
         for (i32 i = dot+precision; i >= 0;) {
             i32 nextI = i-1;
             if (nextI == dot) nextI--;
-            if (out[i] > '9') {
+            if (string[i] > '9') {
                 if (i > dot+1) {
-                    out.Resize(i);
+                    string.Resize(i);
                 } else {
-                    out[i] = '0';
+                    string[i] = '0';
                 }
                 if (nextI == -1) {
-                    out.Insert(0, '1');
+                    string.Insert(startSize, '1');
                     dot++;
                     break;
                 }
-                out[nextI]++;
+                string[nextI]++;
             } else {
                 break;
             }
             i = nextI;
         }
     }
-    i32 i = out.size - 1;
-    for (; out[i] == '0'; i--) {
+    i32 i = string.size - 1;
+    for (; string[i] == '0'; i--) {
     }
-    if (out[i] == '.') {
+    if (string[i] == '.') {
         i++; // Leave 1 trailing zero
     }
-    out.Resize(i + 1);
+    string.Resize(i + 1);
     if (newExponent > 7) {
-        out += "e+" + ToString(newExponent);
+        string += "e+" + ToString(newExponent);
     }
     else if (newExponent < -1) {
-        out += "e-" + ToString(-newExponent);
+        string += "e-" + ToString(-newExponent);
     }
-
-    string.Append(out);
 }
 
 void AppendToString(String &string, f64 value, i32 base, i32 precision) {
@@ -346,13 +343,13 @@ void AppendToString(String &string, f64 value, i32 base, i32 precision) {
         string.Append(".0");
         return;
     }
-    String out;
-    out.Reserve(24);
+    i32 startSize = string.size;
+    string.Reserve(startSize + 24);
     f64 basis = 1.0;
     f64 remaining = value;
     if (remaining < 0.0) {
         remaining = -remaining;
-        out += '-';
+        string += '-';
     }
     i32 newExponent = 0;
     bool point = false;
@@ -382,13 +379,13 @@ void AppendToString(String &string, f64 value, i32 base, i32 precision) {
         crossover = basis / base;
     } else {
         if (remaining < 1.0) {
-            out += "0.";
+            string += "0.";
             dot = 1;
             point = true;
             if (precision != -1)
                 count = precision + 1;
             for (i32 i = 2; i < newExponent; i++) {
-                out += '0';
+                string += '0';
             }
         }
         crossover = 1.0 / base;
@@ -396,7 +393,7 @@ void AppendToString(String &string, f64 value, i32 base, i32 precision) {
     bool roundUp = false;
     for (; count > 0; count--) {
         i32 digit = i32(remaining / basis);
-        out += digit >= 10 ? (digit + 'A' - 10) : (digit + '0');
+        string += digit >= 10 ? (digit + 'A' - 10) : (digit + '0');
         remaining -= basis * (f64)digit;
         if (remaining < 0.0)
             remaining = 0.0;
@@ -407,51 +404,49 @@ void AppendToString(String &string, f64 value, i32 base, i32 precision) {
             }
         }
         if (!point && basis <= crossover) {
-            dot = out.size;
-            out += '.';
+            dot = string.size;
+            string += '.';
             point = true;
             if (precision != -1)
                 count = precision + 1;
         }
     }
     if (roundUp && precision != -1 && point) {
-        out[dot+precision]++;
+        string[dot+precision]++;
         for (i32 i = dot+precision; i >= 0;) {
             i32 nextI = i-1;
             if (nextI == dot) nextI--;
-            if (out[i] > '9') {
+            if (string[i] > '9') {
                 if (i > dot+1) {
-                    out.Resize(i);
+                    string.Resize(i);
                 } else {
-                    out[i] = '0';
+                    string[i] = '0';
                 }
                 if (nextI == -1) {
-                    out.Insert(0, '1');
+                    string.Insert(startSize, '1');
                     dot++;
                     break;
                 }
-                out[nextI]++;
+                string[nextI]++;
             } else {
                 break;
             }
             i = nextI;
         }
     }
-    i32 i = out.size - 1;
-    for (; out[i] == '0'; i--) {
+    i32 i = string.size - 1;
+    for (; string[i] == '0'; i--) {
     }
-    if (out[i] == '.') {
+    if (string[i] == '.') {
         i++; // Leave 1 trailing zero
     }
-    out.Resize(i + 1);
+    string.Resize(i + 1);
     if (newExponent > 15) {
-        out += "e+" + ToString(newExponent);
+        string += "e+" + ToString(newExponent);
     }
     else if (newExponent < -1) {
-        out += "e-" + ToString(-newExponent);
+        string += "e-" + ToString(-newExponent);
     }
-
-    string.Append(out);
 }
 
 void AppendToString(String &string, f128 value, i32 base, i32 precision) {
@@ -482,14 +477,14 @@ void AppendToString(String &string, f128 value, i32 base, i32 precision) {
         string.Append(".0");
         return;
     }
-    String out;
-    out.Reserve(40);
+    i32 startSize = string.size;
+    string.Reserve(startSize + 40);
 
     f128 basis = 1.0;
     f128 remaining = value;
     if (remaining < 0.0) {
         remaining = -remaining;
-        out += '-';
+        string += '-';
     }
     i32 newExponent = 0;
     bool point = false;
@@ -519,13 +514,13 @@ void AppendToString(String &string, f128 value, i32 base, i32 precision) {
         crossover = basis / base;
     } else {
         if (remaining < 1.0) {
-            out += "0.";
+            string += "0.";
             dot = 1;
             point = true;
             if (precision != -1)
                 count = precision + 1;
             for (i32 i = 2; i < newExponent; i++) {
-                out += '0';
+                string += '0';
             }
         }
         crossover = 1.0 / base;
@@ -533,7 +528,7 @@ void AppendToString(String &string, f128 value, i32 base, i32 precision) {
     bool roundUp = false;
     for (; count > 0; count--) {
         i32 digit = i32(remaining / basis);
-        out += digit >= 10 ? (digit + 'A' - 10) : (digit + '0');
+        string += digit >= 10 ? (digit + 'A' - 10) : (digit + '0');
         remaining -= basis * (f128)digit;
         if (remaining < 0.0)
             remaining = 0.0;
@@ -544,51 +539,49 @@ void AppendToString(String &string, f128 value, i32 base, i32 precision) {
             }
         }
         if (!point && basis <= crossover) {
-            dot = out.size;
-            out += '.';
+            dot = string.size;
+            string += '.';
             point = true;
             if (precision != -1)
                 count = precision + 1;
         }
     }
     if (roundUp && precision != -1 && point) {
-        out[dot+precision]++;
+        string[dot+precision]++;
         for (i32 i = dot+precision; i >= 0;) {
             i32 nextI = i-1;
             if (nextI == dot) nextI--;
-            if (out[i] > '9') {
+            if (string[i] > '9') {
                 if (i > dot+1) {
-                    out.Resize(i);
+                    string.Resize(i);
                 } else {
-                    out[i] = '0';
+                    string[i] = '0';
                 }
                 if (nextI == -1) {
-                    out.Insert(0, '1');
+                    string.Insert(startSize, '1');
                     dot++;
                     break;
                 }
-                out[nextI]++;
+                string[nextI]++;
             } else {
                 break;
             }
             i = nextI;
         }
     }
-    i32 i = out.size - 1;
-    for (; out[i] == '0'; i--) {
+    i32 i = string.size - 1;
+    for (; string[i] == '0'; i--) {
     }
-    if (out[i] == '.') {
+    if (string[i] == '.') {
         i++; // Leave 1 trailing zero
     }
-    out.Resize(i + 1);
+    string.Resize(i + 1);
     if (newExponent > 33) {
-        out += "e+" + ToString(newExponent);
+        string += "e+" + ToString(newExponent);
     }
     else if (newExponent < -1) {
-        out += "e-" + ToString(-newExponent);
+        string += "e-" + ToString(-newExponent);
     }
-
-    string.Append(out);
 }
 
 inline bool isNumber(char c) {

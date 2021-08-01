@@ -10,6 +10,9 @@
 
 namespace AzCore {
 
+size_t align(size_t size, size_t alignment);
+size_t alignNonPowerOfTwo(size_t size, size_t alignment);
+
 #define AZCORE_STRING_WITH_BUCKET
 #ifdef AZCORE_STRING_WITH_BUCKET
     using String = ArrayWithBucket<char, 16/sizeof(char), 1>;
@@ -24,6 +27,13 @@ String operator+(const char *cString, const String &string);
 WString operator+(const char32 *cString, WString &&string);
 WString operator+(const char32 *cString, const WString &string);
 
+struct AlignText {
+    u16 value;
+    char fill;
+    AlignText() = delete;
+    inline AlignText(u16 alignment, char filler=' ') : value(alignment), fill(filler) {}
+};
+
 void AppendToString(String &string, u32 value, i32 base = 10);
 void AppendToString(String &string, u64 value, i32 base = 10);
 void AppendToString(String &string, u128 value, i32 base = 10);
@@ -33,6 +43,17 @@ void AppendToString(String &string, i128 value, i32 base = 10);
 void AppendToString(String &string, f32 value, i32 base = 10, i32 precision = -1);
 void AppendToString(String &string, f64 value, i32 base = 10, i32 precision = -1);
 void AppendToString(String &string, f128 value, i32 base = 10, i32 precision = -1);
+
+inline void AppendToString(String &string, u16 value, i32 base = 10) {
+    AppendToString(string, (u32)value, base);
+}
+inline void AppendToString(String &string, i16 value, i32 base = 10) {
+    AppendToString(string, (i32)value, base);
+}
+
+inline void AppendToString(String &string, AlignText alignment) {
+    string.Resize(alignNonPowerOfTwo(string.size, alignment.value), alignment.fill);
+}
 
 template<typename T>
 inline void AppendToString(String &string, T value) {

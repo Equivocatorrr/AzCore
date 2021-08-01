@@ -29,6 +29,7 @@
 namespace AzCore {
 
 size_t align(size_t size, size_t alignment);
+size_t alignNonPowerOfTwo(size_t size, size_t alignment);
 
 template<typename T>
 using SharedPtr = std::shared_ptr<T>;

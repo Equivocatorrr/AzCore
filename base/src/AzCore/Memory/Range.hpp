@@ -386,6 +386,15 @@ struct SimpleRange {
     }
 };
 
+template<u16 bounds>
+constexpr i32 IndexHash(const SimpleRange<char> &in) {
+    i32 hash;
+    for (char c : in) {
+        hash = hash * 31 + c;
+    }
+    return hash % bounds;
+}
+
 } // namespace AzCore
 
 #endif // AZCORE_RANGE_HPP

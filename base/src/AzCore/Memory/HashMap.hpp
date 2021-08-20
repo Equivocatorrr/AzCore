@@ -116,6 +116,8 @@ struct HashMap {
     };
     Array<Node*> nodes;
 
+    inline force_inline HashMap() : nodes(arraySize) {}
+
     inline force_inline HashMap(const HashMap& other) : nodes(arraySize) {
         for (i32 i = 0; i < arraySize; i++) {
             if (other.nodes[i]) {

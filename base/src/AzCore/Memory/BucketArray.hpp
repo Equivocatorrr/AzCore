@@ -118,9 +118,10 @@ struct BucketArray {
         return i == size;
     }
 
-    bool Contains(const T &val) const {
+    bool Contains(const T &val, i32 *dstIndex=nullptr) const {
         for (i32 i = 0; i < size; i++) {
             if (val == data[i]) {
+                if (dstIndex) *dstIndex = i;
                 return true;
             }
         }
@@ -267,7 +268,7 @@ struct BucketArray {
         }
         return *this;
     }
-    
+
     T* begin() {
         return data;
     }

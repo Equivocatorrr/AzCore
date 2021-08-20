@@ -17,6 +17,8 @@ struct UniquePtr {
     mutable T* ptr;
 
     UniquePtr() : ptr(nullptr) {}
+    // We claim ownership of the pointer
+    inline UniquePtr(T *val) : ptr(val) {}
     inline UniquePtr(const T &val) : ptr(new T(val)) {}
     inline UniquePtr(T &&val) : ptr(new T(std::move(val))) {}
     inline UniquePtr(const UniquePtr<T> &other) {
@@ -33,11 +35,25 @@ struct UniquePtr {
     inline ~UniquePtr() {
         if (ptr) delete ptr;
     }
+    // Let go of the pointer, leaving the responsibility of cleaning it up to someone else.
+    T* Release() {
+        T* out = ptr;
+        ptr = nullptr;
+        return out;
+    }
     void Clear() {
         if (ptr) {
             delete ptr;
             ptr = nullptr;
         }
+    }
+    // We claim ownership of the pointer
+    inline UniquePtr<T>& operator=(T *other) {
+        if (ptr) {
+            delete ptr;
+        }
+        ptr = other;
+        return *this;
     }
     UniquePtr<T>& operator=(const UniquePtr<T> &other) {
         if (other.ptr) {

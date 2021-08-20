@@ -14,7 +14,7 @@ namespace AzCore {
 
 size_t align(size_t size, size_t alignment) {
 #ifndef NDEBUG
-    if ((alignment >> __builtin_ctz(alignment)) != 1)
+    if ((alignment & (alignment-1)) != 0)
         throw std::runtime_error("align must be a power of 2");
 #endif
     return (size + alignment-1) & ~(alignment-1);
@@ -39,7 +39,8 @@ String FormatTime(Nanoseconds time) {
             if (addSpace) {
                 out += ' ';
             }
-            out += ToString((count%unitTimes[i])/unitTimes[i+1]) + unitStrings[i];
+            AppendToString(out, (count%unitTimes[i])/unitTimes[i+1]);
+            out.Append(unitStrings[i]);
             addSpace = true;
         }
     }

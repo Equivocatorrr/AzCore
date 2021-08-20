@@ -21,7 +21,7 @@ class Log {
     bool logFile = false;
     bool logConsole = true;
     bool startOnNewline = true;
-    i32 spacesPerIndent = 4;
+    String indentString = "    ";
     i32 indent = 0;
     Mutex mutex;
     String prepend;
@@ -37,8 +37,8 @@ public:
                 lastSlash = i+1;
             }
         }
-        prepend = "[" + filename.GetRange(lastSlash, filename.size-lastSlash) + "] ";
-        prepend.Resize(align(prepend.size, spacesPerIndent), ' ');
+        prepend = Stringify("[", filename.GetRange(lastSlash, filename.size-lastSlash), "] ");
+        prepend.Resize(align(prepend.size, indentString.size), ' ');
         logConsole = console;
         logFile = true;
     }
@@ -106,11 +106,11 @@ public:
     inline void Unlock() {
         mutex.Unlock();
     }
-    inline void SpacesPerIndent(i32 value) {
-        if (value < 1) value = 1;
-        spacesPerIndent = value;
+    inline void IndentString(String value) {
+        if (value.size == 0) value = " ";
+        indentString = value;
         prepend.Resize(filename.size + 3);
-        prepend.Resize(align(prepend.size, spacesPerIndent), ' ');
+        prepend.Resize(align(prepend.size, indentString.size), ' ');
     }
 };
 

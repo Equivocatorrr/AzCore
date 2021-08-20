@@ -16,7 +16,7 @@ Log::~Log() {
 Log::Log(const Log &other) {
     logFile = other.logFile;
     logConsole = other.logConsole;
-    spacesPerIndent = other.spacesPerIndent;
+    indentString = other.indentString;
     indent = other.indent;
     prepend = other.prepend;
     filename = other.filename + "_d";
@@ -28,7 +28,7 @@ Log& Log::operator=(const Log &other) {
     openAttempt = false;
     logFile = other.logFile;
     logConsole = other.logConsole;
-    spacesPerIndent = other.spacesPerIndent;
+    indentString = other.indentString;
     indent = other.indent;
     prepend = other.prepend;
     filename = other.filename + "_d";
@@ -47,9 +47,11 @@ inline void Log::_HandleFile() {
     openAttempt = true;
 }
 
-inline void Indent(String &str, i32 indent, i32 spacesPerIndent) {
+inline void Indent(String &str, i32 indent, String indentString) {
     if (str.size && indent) {
-        str.Resize(str.size + indent*spacesPerIndent, ' ');
+        for (i32 i = 0; i < indent; i++) {
+            str.Append(indentString);
+        }
     }
 }
 
@@ -73,10 +75,10 @@ void Log::_Print(SimpleRange<char> out) {
     if (startOnNewline) {
         if (logConsole) {
             consoleOut = prepend;
-            Indent(consoleOut, indent, spacesPerIndent);
+            Indent(consoleOut, indent, indentString);
         }
         if (logFile) {
-            Indent(fileOut, indent, spacesPerIndent);
+            Indent(fileOut, indent, indentString);
         }
     }
     i32 i = 0;
@@ -88,11 +90,11 @@ void Log::_Print(SimpleRange<char> out) {
             if (logConsole) {
                 consoleOut += range;
                 consoleOut += prepend;
-                Indent(consoleOut, indent, spacesPerIndent);
+                Indent(consoleOut, indent, indentString);
             }
             if (logFile) {
                 fileOut += range;
-                Indent(fileOut, indent, spacesPerIndent);
+                Indent(fileOut, indent, indentString);
             }
             last = i+1;
         }

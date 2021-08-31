@@ -233,6 +233,17 @@ struct Range {
         return false;
     }
 
+    i32 Find(const T &val) const {
+        i32 index = 0;
+        for (const T &item : *this) {
+            if (val == item) {
+                return index;
+            }
+            index++;
+        }
+        return -1;
+    }
+
     i32 Count(const T &val) const {
         i32 count = 0;
         for (const T &item : *this) {
@@ -374,6 +385,14 @@ struct SimpleRange {
                 return true;
         }
         return false;
+    }
+
+    i64 Find(const T &val) const {
+        for (i64 index = 0; index < size; index++) {
+            if (val == str[index])
+                return index;
+        }
+        return -1;
     }
 
     i64 Count(const T &val) const {

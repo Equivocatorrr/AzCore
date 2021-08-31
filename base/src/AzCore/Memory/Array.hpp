@@ -204,6 +204,20 @@ struct Array {
         _SetTerminator();
     }
 
+    Array(const SimpleRange<T> &range) {
+        _Initialize(range.size);
+        if constexpr (std::is_trivially_copyable<T>::value) {
+            memcpy((void *)data,
+                (void *)range.str,
+                sizeof(T) * size);
+        } else {
+            for (i32 i = 0; i < size; i++) {
+                data[i] = range[i];
+            }
+        }
+        _SetTerminator();
+    }
+
     ~Array() {
         _Deinitialize();
     }

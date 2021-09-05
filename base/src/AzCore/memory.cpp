@@ -14,7 +14,7 @@ namespace AzCore {
 
 size_t align(size_t size, size_t alignment) {
 #ifndef NDEBUG
-    if ((alignment & (alignment-1)) != 0)
+    if (!IsPowerOfTwo(alignment))
         throw std::runtime_error("align must be a power of 2");
 #endif
     return (size + alignment-1) & ~(alignment-1);

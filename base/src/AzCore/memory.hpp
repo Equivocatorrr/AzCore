@@ -28,6 +28,9 @@
 
 namespace AzCore {
 
+inline bool IsPowerOfTwo(size_t value) {
+    return (value & (value-1)) == 0;
+}
 size_t align(size_t size, size_t alignment);
 size_t alignNonPowerOfTwo(size_t size, size_t alignment);
 

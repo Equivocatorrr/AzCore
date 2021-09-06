@@ -313,7 +313,7 @@ struct SimpleRange {
 
     SimpleRange() : str(nullptr), size(0) {}
     SimpleRange(T *string, i64 length) : str(string), size(length) {}
-    SimpleRange(const T *string) : str((char*)string), size(StringLength(string)) {}
+    SimpleRange(const T *string) : str((T*)string), size(StringLength(string)) {}
     template<i32 allocTail>
     SimpleRange(Array<T, allocTail> &array) : str(array.data), size(array.size) {}
     template<i32 bucketSize, i32 allocTail>
@@ -369,6 +369,15 @@ struct SimpleRange {
             if (str[i] != string[i]) return false;
         }
         return string[size] == StringTerminators<T>::value;
+    }
+
+    inline bool force_inline
+    operator!=(SimpleRange<T> other) {
+        return !operator==(other);
+    }
+    inline bool force_inline
+    operator!=(const T *string) {
+        return !operator==(string);
     }
 
     bool operator<(const SimpleRange<T> &other) {

@@ -1,4 +1,4 @@
-#include "AzCore/IO/LogStream.hpp"
+#include "AzCore/IO/Log.hpp"
 #include "AzCore/memory.hpp"
 #include "AzCore/font.hpp"
 
@@ -7,19 +7,19 @@ using namespace AzCore;
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb/stb_image_write.h"
 
-io::LogStream cout("main.log");
+io::Log cout("main.log");
 
 i32 main(i32 argumentCount, char **argumentValues) {
 
     if (argumentCount == 1) {
-        cout << "In order to use this program, you must pass the name of a font file as an argument." << std::endl;
+        cout.PrintLn("In order to use this program, you must pass the name of a font file as an argument.");
         return 0;
     }
     ClockTime start = Clock::now();
     font::Font font;
     font.filename = argumentValues[1];
     if (!font.Load()) {
-        cout << "Failed to load font: " << font::error << std::endl;
+        cout.PrintLn("Failed to load font: ", font::error);
         return 1;
     }
     WString string = ToWString("ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890[]/=?+_-\"<>',.\\|~!@#$%^&*(){}私ñÑēÈèéîêâô∵…ėȯȧıëäöïü学元気出区電話番号이작품희망");
@@ -46,11 +46,11 @@ i32 main(i32 argumentCount, char **argumentValues) {
     //     }
     //     // cout << "Build" << std::endl;
         if (!fontBuilder.Build()) {
-            cout << "Failed fontBuilder.Build: " << font::error << std::endl;
+            cout.PrintLn("Failed fontBuilder.Build: ", font::error);
             return 1;
         }
     // }
-    cout << "Total time: " << FormatTime(Clock::now() - start) << std::endl;
+    cout.PrintLn("Total time: ", FormatTime(Clock::now() - start));
     stbi_write_png("data/atlas.png", fontBuilder.dimensions.x, fontBuilder.dimensions.y, 1, fontBuilder.pixels.data, fontBuilder.dimensions.x);
     return 0;
 }

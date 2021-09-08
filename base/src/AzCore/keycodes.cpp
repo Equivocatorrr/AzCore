@@ -322,27 +322,27 @@ u8 KeyCodeFromWinScan(u8 keyCode) {
     return mapKeyCodeFromWinScan[keyCode];
 }
 
-void PrintKeyCodeMaps(const u8* map, const char* name, const char* inverseName, io::LogStream& cout) {
-    cout << "\nconst u8 " << name << "[256] = {\n";
+void PrintKeyCodeMaps(const u8* map, const char* name, const char* inverseName, io::Log& cout) {
+    cout.PrintLn("\nconst u8 ", name, "[256] = {");
     for (u16 i = 0; i < 256; i++) {
         u32 toPrint = map[i];
-        cout << "0x";
+        cout.Print("0x");
         if (toPrint < 0x10)
-            cout << "0";
-        cout << std::hex << toPrint;
+            cout.Print("0");
+        cout.Print(ToString(toPrint, 16));
         if (i != 255)
-            cout << ",   ";
+            cout.Print(",   ");
         else
-            cout << "    ";
+            cout.Print("    ");
         if (i%8 == 7) {
-            cout << "// 0x";
-            if (i < 16)
-                cout << "0";
-            cout << (i/8)*8 << "\n";
+            cout.Print("// 0x");
+            if (i < 0x10)
+                cout.Print("0");
+            cout.PrintLn(ToString((i/8)*8, 16));
         }
     }
-    cout << "};\n" << std::endl;
-    cout << "const u8 " << inverseName << "[256] = {\n";
+    cout.PrintLn("};\n");
+    cout.PrintLn("const u8 ", inverseName, "[256] = {");
     for (u16 i = 0; i < 256; i++) {
         u32 toPrint = 0xff;
         if (i != 0xff) // Since 0xff is what we use for invalid characters
@@ -351,33 +351,33 @@ void PrintKeyCodeMaps(const u8* map, const char* name, const char* inverseName, 
                     toPrint = j;
                 }
             }
-        cout << "0x";
+        cout.Print("0x");
         if (toPrint < 0x10)
-            cout << "0";
-        cout << std::hex << toPrint;
+            cout.Print("0");
+        cout.Print(ToString(toPrint, 16));
         if (i != 0xff)
-            cout << ",   ";
+            cout.Print(",   ");
         else
-            cout << "    ";
+            cout.Print("    ");
         if (i%8 == 7) {
-            cout << "// 0x";
+            cout.Print("// 0x");
             if (i < 0x10)
-                cout << "0";
-            cout << (i/8)*8 << "\n";
+                cout.Print("0");
+            cout.PrintLn(ToString((i/8)*8, 16));
         }
     }
-    cout << "};\n" << std::endl;
+    cout.PrintLn("};\n");
 }
 
-void PrintKeyCodeMapsEvdev(io::LogStream& cout) {
+void PrintKeyCodeMapsEvdev(io::Log& cout) {
     PrintKeyCodeMaps(mapKeyCodeToEvdev, "mapKeyCodeToEvdev", "mapKeyCodeFromEvdev", cout);
 }
 
-void PrintKeyCodeMapsWinVK(io::LogStream& cout) {
+void PrintKeyCodeMapsWinVK(io::Log& cout) {
     PrintKeyCodeMaps(mapKeyCodeToWinVK, "mapKeyCodeToWinVK", "mapKeyCodeFromWinVK", cout);
 }
 
-void PrintKeyCodeMapsWinScan(io::LogStream& cout) {
+void PrintKeyCodeMapsWinScan(io::Log& cout) {
     PrintKeyCodeMaps(mapKeyCodeToWinScan, "mapKeyCodeToWinScan", "mapKeyCodeFromWinScan", cout);
 }
 

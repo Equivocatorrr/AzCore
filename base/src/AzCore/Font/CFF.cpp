@@ -193,7 +193,7 @@ void charset_range2::EndianSwap() {
     ENDIAN_SWAP(first);
     ENDIAN_SWAP(nLeft);
 #ifdef LOG_VERBOSE
-    cout << "charset_range2: first = " << (u32)first << ", nLeft = " << nLeft << std::endl;
+    cout.PrintLn("charset_range2: first = ", (u32)first, ", nLeft = ", nLeft);
 #endif
 }
 
@@ -220,11 +220,11 @@ void charset_format2::EndianSwap(Card16 nGlyphs) {
 bool FDSelect_any::EndianSwap() {
     if (format == 0) {
 #ifdef LOG_VERBOSE
-        cout << "Format 0" << std::endl;
+        cout.PrintLn("Format 0");
 #endif
     } else if (format == 3) {
 #ifdef LOG_VERBOSE
-        cout << "Format 3" << std::endl;
+        cout.PrintLn("Format 3");
 #endif
         ((cffs::FDSelect_format3*)this)->EndianSwap();
     } else {
@@ -253,16 +253,16 @@ u32 FDSelect_format0::GetFD(char32 glyphIndex, u32 nGlyphs) const {
 void FDSelect_format3::EndianSwap() {
     ENDIAN_SWAP(nRanges);
 #ifdef LOG_VERBOSE
-    cout << "nRanges = " << nRanges << std::endl;
+    cout.PrintLn("nRanges = ", nRanges);
 #endif
     cffs::FDSelect_range3 *range = (cffs::FDSelect_range3*)(&format + 3);
     for (u32 i = 0; i < (u32)nRanges; i++) {
         ENDIAN_SWAP(range->first);
-        // cout << "Range[" << i << "].first = " << range->first << ", fd = " << (u32)range->fd << std::endl;
+        // cout.PrintLn("Range[", i, "].first = ", range->first, ", fd = ", (u32)range->fd);
         range++;
     }
     ENDIAN_SWAP(range->first);
-    // cout << "Sentinel = " << range->first << std::endl;
+    // cout.PrintLn("Sentinel = ", range->first);
 }
 
 u32 FDSelect_format3::GetFD(char32 glyphIndex, u32 nGlyphs) const {
@@ -287,7 +287,7 @@ bool index::Parse(char **ptr, u8 **dataStart, Array<u32> *dstOffsets, bool swapE
     if (count != 0) {
         offsets.Resize(count+1);
 #ifdef LOG_VERBOSE
-        cout << "count = " << count << ", offSize = " << (u32)offSize << std::endl;
+        cout.PrintLn("count = ", count, ", offSize = ", (u32)offSize);
 #endif
         (*ptr)++; // Getting over offSize
         for (u32 i = 0; i < (u32)count+1; i++) {
@@ -353,7 +353,7 @@ bool index::Parse(char **ptr, u8 **dataStart, Array<u32> *dstOffsets, bool swapE
 //         } while (nibbles[0] != 0xf && nibbles[1] != 0xf);
 //         (*data)++;
 //     } else {
-//         cout << "Operand ERROR " << (u16)b0;
+//         cout.Print("Operand ERROR ", (u16)b0);
 //         (*data)++;
 //     }
 // }
@@ -504,7 +504,7 @@ i32 GetDictOperand(u8 *data, Operand *dst) {
         dst->real = (f32)out;
         return i+1;
     } else {
-        cout << "Operand ERROR " << (u16)b0;
+        cout.Print("Operand ERROR ", (u16)b0);
         return 1;
     }
 }
@@ -536,7 +536,7 @@ i32 GetType2Operand(u8 *data, Operand *dst) {
         dst->integer = ((i32)b1<<8) | ((i32)b2);
         return 3;
     } else {
-        cout << "Operand ERROR " << (u16)b0;
+        cout.Print("Operand ERROR ", (u16)b0);
         return 1;
     }
 }
@@ -654,7 +654,7 @@ i32 DictOperatorResolution(u8 *data, OperandStack &stack, String &out) {
                         out += "FontName = " + ToString((SID)stack.Pop().ToI32());
                     } break;
                     default: {
-                        cout << "Operator Error (12 " << op2 << ")" << std::endl;
+                        cout.PrintLn("Operator Error (12 ", op2, ")");
                     }
                 }
                 return 2;
@@ -739,7 +739,7 @@ i32 DictOperatorResolution(u8 *data, OperandStack &stack, String &out) {
         return count;
     } else {
         // We're an invalid operator
-        cout << "Invalid Operator (" << (i32)op1 << ")" << std::endl;
+        cout.PrintLn("Invalid Operator (", (i32)op1, ")");
         return 1;
     }
 }
@@ -1081,7 +1081,7 @@ i32 ResolveType2Operator(u8 *data, Type2ParsingInfo &info, Glyph &out) {
                         return 2;
                     }
                     default:
-                        cout << "Type2 operator error(12 " << (i32)op2 << ")" << std::endl;
+                        cout.PrintLn("Type2 operator error(12 ", (i32)op2, ")");
                         return 2;
                 }
             } break;
@@ -1369,7 +1369,7 @@ i32 ResolveType2Operator(u8 *data, Type2ParsingInfo &info, Glyph &out) {
                 info.ret = true;
                 return 1;
             default:
-                cout << "Type2 operator error (" << (i32)op1 << ")" << std::endl;
+                cout.PrintLn("Type2 operator error (", (i32)op1, ")");
                 return 1;
         }
     } else {
@@ -1510,7 +1510,7 @@ i32 dict::ResolveOperator(u8 *data, OperandStack &stack) {
                         FontName = (SID)stack.Pop().ToI32();
                     } break;
                     default: {
-                        cout << "Operator Error (12 " << op2 << ")" << std::endl;
+                        cout.PrintLn("Operator Error (12 ", op2, ")");
                     }
                 }
                 return 2;
@@ -1595,7 +1595,7 @@ i32 dict::ResolveOperator(u8 *data, OperandStack &stack) {
         return count;
     } else {
         // We're an invalid operator
-        cout << "Invalid Operator (" << (i32)op1 << ")" << std::endl;
+        cout.PrintLn("Invalid Operator (", (i32)op1, ")");
         return 1;
     }
 }
@@ -1613,20 +1613,20 @@ bool cff::Parse(cffParsed *parsed, bool swapEndian) {
 
     parsed->nameIndex = (cffs::index*)ptr;
 #ifdef LOG_VERBOSE
-    cout << "nameIndex:\n";
+    cout.PrintLn("nameIndex:");
 #endif
     if (!parsed->nameIndex->Parse(&ptr, &parsed->nameIndexData, &parsed->nameIndexOffsets, swapEndian)) {
         error = "nameIndex: " + error;
         return false;
     }
 #ifdef LOG_VERBOSE
-    cout << "nameIndex data:\n";
+    cout.PrintLn("nameIndex data:");
     for (i32 i = 0; i < parsed->nameIndexOffsets.size-1; i++) {
         String string(parsed->nameIndexOffsets[i+1] - parsed->nameIndexOffsets[i]);
         memcpy(string.data, parsed->nameIndexData + parsed->nameIndexOffsets[i], string.size);
-        cout << "[" << i << "]=\"" << string << "\" ";
+        cout.Print("[", i, "]=\"", string, "\" ");
     }
-    cout << std::endl;
+    cout.Print(std::endl);
 #endif
     if (parsed->nameIndexOffsets.size > 2) {
         error = "We only support CFF tables with 1 Name entry (1 font).";
@@ -1639,7 +1639,7 @@ bool cff::Parse(cffParsed *parsed, bool swapEndian) {
 
     parsed->dictIndex = (cffs::index*)ptr;
 #ifdef LOG_VERBOSE
-    cout << "dictIndex:\n";
+    cout.PrintLn("dictIndex:");
 #endif
     if (!parsed->dictIndex->Parse(&ptr, &parsed->dictIndexData, &parsed->dictIndexOffsets, swapEndian)) {
         error = "dictIndex: " + error;
@@ -1667,7 +1667,7 @@ bool cff::Parse(cffParsed *parsed, bool swapEndian) {
 
     parsed->stringsIndex = (cffs::index*)ptr;
 #ifdef LOG_VERBOSE
-    cout << "stringsIndex:\n";
+    cout.PrintLn("stringsIndex:");
 #endif
     if (!parsed->stringsIndex->Parse(&ptr, &parsed->stringsIndexData,
                                      &parsed->stringsIndexOffsets, swapEndian)) {
@@ -1675,13 +1675,13 @@ bool cff::Parse(cffParsed *parsed, bool swapEndian) {
         return false;
     }
 #ifdef LOG_VERBOSE
-    cout << "stringsIndex data:\n";
+    cout.PrintLn("stringsIndex data:");
     for (i32 i = 0; i < parsed->stringsIndexOffsets.size-1; i++) {
         String string(parsed->stringsIndexOffsets[i+1] - parsed->stringsIndexOffsets[i]);
         memcpy(string.data, parsed->stringsIndexData + parsed->stringsIndexOffsets[i], string.size);
-        cout << "\n[" << i << "]=\"" << string << "\" ";
+        cout.Print("\n[", i, "]=\"", string, "\" ");
     }
-    cout << std::endl;
+    cout.Print(std::endl);
 #endif
 
     //
@@ -1690,26 +1690,26 @@ bool cff::Parse(cffParsed *parsed, bool swapEndian) {
 
     parsed->gsubrIndex = (cffs::index*)ptr;
 #ifdef LOG_VERBOSE
-    cout << "gsubrIndex:\n";
+    cout.PrintLn("gsubrIndex:");
 #endif
     if (!parsed->gsubrIndex->Parse(&ptr, &parsed->gsubrIndexData, &parsed->gsubrIndexOffsets, swapEndian)) {
         error = "gsubrIndex: " + error;
         return false;
     }
-    // cout << "gsubrIndex data dump:\n" << std::hex;
+    // cout.Print("gsubrIndex data dump:\n", std::hex);
     // for (i32 i = 0; i < gsubrIndexOffsets.size-1; i++) {
     //     String string(gsubrIndexOffsets[i+1] - gsubrIndexOffsets[i]);
     //     memcpy(string.data, gsubrIndexData + gsubrIndexOffsets[i], string.size);
-    //     cout << "\n[" << i << "]=\"";
+    //     cout.Print("\n[", i, "]=\"");
     //     for (i32 i = 0; i < string.size; i++) {
-    //         cout << "0x" << (u32)(u8)string[i];
+    //         cout.Print("0x", (u32)(u8)string[i]);
     //         if (i < string.size-1) {
-    //             cout << ", ";
+    //             cout.Print(", ");
     //         }
     //     }
-    //     cout << "\" ";
+    //     cout.Print("\" ");
     // }
-    // cout << std::endl;
+    // cout.Print(std::endl);
 
     //
     //                  charStringsIndex
@@ -1721,7 +1721,7 @@ bool cff::Parse(cffParsed *parsed, bool swapEndian) {
     }
 
 #ifdef LOG_VERBOSE
-    cout << "charStringsIndex:\n";
+    cout.PrintLn("charStringsIndex:");
 #endif
     ptr = (char*)this + parsed->dictIndexValues.CharStrings;
     parsed->charStringsIndex = (cffs::index*)ptr;
@@ -1739,23 +1739,23 @@ bool cff::Parse(cffParsed *parsed, bool swapEndian) {
     if (parsed->dictIndexValues.charset == 0) {
         // ISOAdobe charset
 #ifdef LOG_VERBOSE
-        cout << "We are using the ISOAdobe predefined charset." << std::endl;
+        cout.PrintLn("We are using the ISOAdobe predefined charset.");
 #endif
     } else if (parsed->dictIndexValues.charset == 1) {
         // Expert charset
 #ifdef LOG_VERBOSE
-        cout << "We are using the Expert predefined charset." << std::endl;
+        cout.PrintLn("We are using the Expert predefined charset.");
 #endif
     } else if (parsed->dictIndexValues.charset == 2) {
         // ExpertSubset charset
 #ifdef LOG_VERBOSE
-        cout << "We are using the ExpertSubset predefined charset." << std::endl;
+        cout.PrintLn("We are using the ExpertSubset predefined charset.");
 #endif
     } else {
         // Custom charset
         cffs::charset_format_any *charset = (cffs::charset_format_any*)((char*)this + parsed->dictIndexValues.charset);
 #ifdef LOG_VERBOSE
-        cout << "We are using a custom charset with format " << (i32)charset->format << std::endl;
+        cout.PrintLn("We are using a custom charset with format ", (i32)charset->format);
 #endif
         if (swapEndian) {
             charset->EndianSwap(parsed->charStringsIndex->count);
@@ -1773,7 +1773,7 @@ bool cff::Parse(cffParsed *parsed, bool swapEndian) {
             return false;
         }
 #ifdef LOG_VERBOSE
-        cout << "FDSelect:\n";
+        cout.PrintLn("FDSelect:");
 #endif
         parsed->fdSelect = (cffs::FDSelect_any*)((char*)this + parsed->dictIndexValues.FDSelect);
         if (swapEndian) {
@@ -1781,7 +1781,7 @@ bool cff::Parse(cffParsed *parsed, bool swapEndian) {
         }
 
 #ifdef LOG_VERBOSE
-        cout << "FDArray:\n";
+        cout.PrintLn("FDArray:");
 #endif
         ptr = (char*)this + parsed->dictIndexValues.FDArray;
         parsed->fdArray = (cffs::index*)ptr;
@@ -1797,14 +1797,14 @@ bool cff::Parse(cffParsed *parsed, bool swapEndian) {
             ) << std::endl;
             cffs::dict Dict = parsed->dictIndexValues;
             Dict.ParseCharString(parsed->fdArrayData + parsed->fdArrayOffsets[i], parsed->fdArrayOffsets[i+1] - parsed->fdArrayOffsets[i]);
-            cout << "Name: ";
+            cout.Print("Name: ");
             if (Dict.FontName >= cffs::nStdStrings) {
                 i32 s = Dict.FontName - cffs::nStdStrings;
                 String name(parsed->stringsIndexOffsets[s+1] - parsed->stringsIndexOffsets[s]);
                 memcpy(name.data, parsed->stringsIndexData + parsed->stringsIndexOffsets[s], name.size);
-                cout << name << std::endl;
+                cout.PrintLn(name);
             } else {
-                cout << cffs::stdStrings[Dict.FontName] << std::endl;
+                cout.PrintLn(cffs::stdStrings[Dict.FontName]);
             }
             cout << "Private DICT charstrings: " << cffs::DictCharString(
                 ((u8*)this) + Dict.Private.offset,

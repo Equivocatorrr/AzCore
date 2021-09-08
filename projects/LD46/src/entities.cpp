@@ -100,7 +100,7 @@ void Manager::EventAssetAcquire() {
 
 void Manager::EventInitialize() {
     Array<char> levels = FileContents("data/levels.txt");
-    Array<Range<char>> lines = SeparateByValues(&levels, {'\n'});
+    Array<Range<char>> lines = SeparateByValues(levels, {'\n'});
     for (i32 i = 0; i < lines.size; i++) {
         if (lines[i].size == 0) continue;
         if (lines[i][0] == '#') continue;

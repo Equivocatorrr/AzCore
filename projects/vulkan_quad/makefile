@@ -7,7 +7,7 @@ IDIR=src
 SDIR=src
 ODIR=obj
 
-WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.1.121.2
+WIN_VULKAN_SDK=/home/singularity/.wine/drive_c/VulkanSDK/1.2.176.1
 
 CC=g++
 WCC=x86_64-w64-mingw32-g++
@@ -33,7 +33,7 @@ LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib/" -lvulkan-1 -lgdi32 -ldinput8 -ldxguid
 _DEPS =
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS)) makefile
 
-_AZCORE_OBJ = io.o memory.o keycodes.o IO/LogStream.o vk.o math.o
+_AZCORE_OBJ = io.o memory.o keycodes.o IO/Log.o vk.o math.o
 AZCORE_OBJ_L = $(patsubst %,$(AZCORE_BASE)/obj/Linux/Release/%,$(_AZCORE_OBJ))
 AZCORE_OBJ_W = $(patsubst %,$(AZCORE_BASE)/obj/Windows/Release/%,$(_AZCORE_OBJ))
 AZCORE_OBJ_LD = $(patsubst %,$(AZCORE_BASE)/obj/Linux/Debug/%,$(_AZCORE_OBJ))

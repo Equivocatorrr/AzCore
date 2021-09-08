@@ -1,11 +1,11 @@
-#include "AzCore/IO/LogStream.hpp"
+#include "AzCore/IO/Log.hpp"
 #include "AzCore/memory.hpp"
 #include "AzCore/Memory/BigInt.hpp"
 #include "AzCore/Math/RandomNumberGenerator.hpp"
 
 using namespace AzCore;
 
-io::LogStream cout("checks.log");
+io::Log cout("checks.log");
 
 u64 StringToU64(String str) {
     u64 number = 0;
@@ -103,9 +103,9 @@ u32 persistence(BigInt number, u32 iteration=0) {
         }
     }
     // if (iteration == 3) {
-    //     cout.MutexLock();
-    //     cout << "Fourth iteration number: " << number.ToString() << " with numString " << numString << " multiplied = " << newNumber.ToString() << std::endl;
-    //     cout.MutexUnlock();
+    //     cout.Lock();
+    //     cout.PrintLn("Fourth iteration number: ", number.ToString(), " with numString ", numString, " multiplied = ", newNumber.ToString());
+    //     cout.Unlock();
     // }
     if (cache != 1) {
         newNumber *= cache;
@@ -167,9 +167,9 @@ void CheckPersistence(u32 minDigits, u32 maxDigits, u32 currentDigit=0, u32 tota
         remainingPersistenceChecks--;
         if (checksCount++ >= 10000000 / (minimumDigits+maximumDigits) || per > 10) {
             const Milliseconds delta = std::chrono::duration_cast<Milliseconds>(Clock::now() - startTime);
-            cout.MutexLock();
-            cout << "Per: " << per << " for num: " << numStr << "\nTotal Persistence Checks So Far: " << totalPersistenceChecks << "\n" << DurationString(delta.count()) << "elapsed. Estimated " << DurationString(delta.count() * remainingPersistenceChecks / totalPersistenceChecks) << "remaining.\n" << std::endl;
-            cout.MutexUnlock();
+            cout.Lock();
+            cout.PrintLn("Per: ", per, " for num: ", numStr, "\nTotal Persistence Checks So Far: ", totalPersistenceChecks, "\n", DurationString(delta.count()), "elapsed. Estimated ", DurationString(delta.count() * remainingPersistenceChecks / totalPersistenceChecks), "remaining.\n");
+            cout.Unlock();
             checksCount = 1;
         }
         persistenceMutex.Unlock();
@@ -182,9 +182,9 @@ void CheckPersistence(u32 minDigits, u32 maxDigits, u32 currentDigit=0, u32 tota
             bestPersistence = per;
             bestPersistenceNum = numStr;
             if (per > 2) {
-                cout.MutexLock();
-                cout << "New Best Persistence (of " << per << ") number found: " << numStr << "\nTotal Persistence Checks So Far: " << totalPersistenceChecks << "\n" << std::endl;
-                cout.MutexUnlock();
+                cout.Lock();
+                cout.PrintLn("New Best Persistence (of ", per, ") number found: ", numStr, "\nTotal Persistence Checks So Far: ", totalPersistenceChecks, "\n");
+                cout.Unlock();
             }
         }
     }
@@ -279,28 +279,28 @@ bool CheckAllRearrangements(const DigitCounts& digits, String number=String()) {
     if (constructed) {
         String factors;
         if (GetSingleDigitFactors(BigInt(number), &factors)) {
-            cout.MutexLock();
+            cout.Lock();
             successfulFactorizations.Append(factors);
-            cout << "\n\n\n\nWe found one!!! It's " << number << " and it has the factors: ";
+            cout.Print("\n\n\n\nWe found one!!! It's ", number, " and it has the factors: ");
             for (i32 i = 0; i < factors.size; i++) {
-                cout << factors[i] << " ";
+                cout.Print(factors[i], " ");
             }
-            cout << "\n\n\n" << std::endl;
-            cout.MutexUnlock();
+            cout.PrintLn("\n\n\n");
+            cout.Unlock();
             success = true;
         }
         persistenceMutex.Lock();
         totalRearrangementChecks++;
         remainingRearrangementChecks--;
         if (rearrangementChecks++ >= 1000000 || factors.size > 10) {
-            cout.MutexLock();
-            cout << "\nChecked number: " << number << " which has the factors: ";
+            cout.Lock();
+            cout.Print("\nChecked number: ", number, " which has the factors: ");
             for (i32 i = 0; i < factors.size; i++) {
-                cout << factors[i] << " ";
+                cout.Print(factors[i], " ");
             }
             totalTimeTaken = std::chrono::duration_cast<Milliseconds>(Clock::now() - startTime);
-            cout << "\n" << totalRearrangementChecks << " total checks, " << remainingRearrangementChecks << " remaining.\n" << DurationString(totalTimeTaken.count()) << " passed so far, estimated " << DurationString(totalTimeTaken.count() * remainingRearrangementChecks / totalRearrangementChecks) << "remaining.\n" << std::endl;
-            cout.MutexUnlock();
+            cout.PrintLn("\n", totalRearrangementChecks, " total checks, ", remainingRearrangementChecks, " remaining.\n", DurationString(totalTimeTaken.count()), " passed so far, estimated ", DurationString(totalTimeTaken.count() * remainingRearrangementChecks / totalRearrangementChecks), "remaining.\n");
+            cout.Unlock();
             rearrangementChecks = 1;
         }
         persistenceMutex.Unlock();
@@ -325,9 +325,9 @@ void ThreadProc(u32 i) {
     activeThreads--;
     completedThreads++;
     remainingThreads--;
-    cout.MutexLock();
-    cout << "\nThread " << i << " completed.\n" << remainingThreads << " remaining, " << completedThreads << " completed.\n\n" << std::endl;
-    cout.MutexUnlock();
+    cout.Lock();
+    cout.PrintLn("\nThread ", i, " completed.\n", remainingThreads, " remaining, ", completedThreads, " completed.\n\n");
+    cout.Unlock();
     threadControlMutex.Unlock();
 }
 
@@ -337,9 +337,9 @@ void ThreadProc2(const String& number) {
     activeThreads--;
     completedThreads++;
     remainingThreads--;
-    cout.MutexLock();
-    cout << "\n\nThread for number " << number << " has completed.\n" << remainingThreads << " remaining, " << completedThreads << " completed.\n\n" << std::endl;
-    cout.MutexUnlock();
+    cout.Lock();
+    cout.PrintLn("\n\nThread for number ", number, " has completed.\n", remainingThreads, " remaining, ", completedThreads, " completed.\n\n");
+    cout.Unlock();
     threadControlMutex.Unlock();
 }
 
@@ -362,16 +362,16 @@ u64 pow(const u64& base, const u64& exponent) {
 void BigIntTest() {
     BigInt test(BucketArray<u64, BIGINT_BUCKET_SIZE>({0, 1}));
     BigInt test2(2);
-    cout << "test = " << test.HexString() << " and test2 = " << test2.HexString() << std::endl;
-    cout << "test * test2 = " << (test * test2).HexString() << std::endl;
-    cout << "test / test2 = " << (test / test2).HexString() << std::endl;
-    cout << "test % test2 = " << (test % test2).HexString() << std::endl;
-    cout << "test + test2 = " << (test + test2).HexString() << std::endl;
-    cout << "test - test2 = " << (test - test2).HexString() << std::endl;
-    cout << "test2 << 32 = " << (test2 << 32).HexString() << std::endl;
-    cout << "test >> 32 = " << (test >> 32).HexString() << std::endl;
-    cout << "test2 << 64 = " << (test2 << 64).HexString() << std::endl;
-    cout << "test >> 64 = " << (test >> 64).HexString() << std::endl;
+    cout.PrintLn("test = ", test.HexString(), " and test2 = ", test2.HexString());
+    cout.PrintLn("test * test2 = ", (test * test2).HexString());
+    cout.PrintLn("test / test2 = ", (test / test2).HexString());
+    cout.PrintLn("test % test2 = ", (test % test2).HexString());
+    cout.PrintLn("test + test2 = ", (test + test2).HexString());
+    cout.PrintLn("test - test2 = ", (test - test2).HexString());
+    cout.PrintLn("test2 << 32 = ", (test2 << 32).HexString());
+    cout.PrintLn("test >> 32 = ", (test >> 32).HexString());
+    cout.PrintLn("test2 << 64 = ", (test2 << 64).HexString());
+    cout.PrintLn("test >> 64 = ", (test >> 64).HexString());
 }
 
 void CheckNumbersForHighPersistence() {
@@ -389,14 +389,14 @@ void CheckNumbersForHighPersistence() {
         }
         GetRequiredPersistenceChecks(i, i);
     }
-    cout << "A total of " << remainingPersistenceChecks << " persistence checks will be made.\n" << std::endl;
+    cout.PrintLn("A total of ", remainingPersistenceChecks, " persistence checks will be made.\n");
     completedThreads = 0;
     remainingThreads = randomizedDigits.size;
     startTime = Clock::now();
     for (i32 i = 0; i <= maximumDigits-minimumDigits; i++) {
         while (true) {
             if (activeThreads < numThreads) {
-                cout << "\nStarting thread " << randomizedDigits[i] << "\n" << std::endl;
+                cout.PrintLn("\nStarting thread ", randomizedDigits[i], "\n");
                 Thread(ThreadProc, randomizedDigits[i]).Detach();
                 threadControlMutex.Lock();
                 activeThreads++;
@@ -415,11 +415,11 @@ void CheckNumbersForHighPersistence() {
         }
     }
 
-    cout << "\n\nBest Number: " << bestPersistenceNum << "\nTotal steps: " << bestPersistence << "\nTotal numbers checked: " << totalPersistenceChecks << "\nBiggest 2nd Iteration Number has " << biggestSecondIterationNumberDigits << " digits.\n" << std::endl;
+    cout.PrintLn("\n\nBest Number: ", bestPersistenceNum, "\nTotal steps: ", bestPersistence, "\nTotal numbers checked: ", totalPersistenceChecks, "\nBiggest 2nd Iteration Number has ", biggestSecondIterationNumberDigits, " digits.\n");
     for (i32 x = 8; x <= 12; x++) {
-        cout << "\n\nList of numbers found with persistence of " << x << ":\n";
+        cout.PrintLn("\n\nList of numbers found with persistence of ", x, ":");
         for (i32 i = 0; i < persistenceNumbers[x-8].size; i++) {
-            cout << persistenceNumbers[x-8][i] << "\n";
+            cout.PrintLn(persistenceNumbers[x-8][i]);
             // cout << "Factors: ";
             // Array<u64> factors = GetPrimeFactors(persistenceNumbers[x-8][i]);
             // for (const u64& factor : factors) {
@@ -428,16 +428,16 @@ void CheckNumbersForHighPersistence() {
             // cout << "\n\n";
         }
         if (persistenceNumbers[x-8].size == 0) {
-            cout << "None.\n";
+            cout.PrintLn("None.");
         }
-        cout << std::endl;
+        cout.Print("\n");
     }
 }
 
 void CheckHighPersistenceNumbersForSingleDigitFactorability() {
     CheckNumbersForHighPersistence();
 
-    cout << "Adding variations of all persistence 11 numbers, now including leading ones." << std::endl;
+    cout.PrintLn("Adding variations of all persistence 11 numbers, now including leading ones.");
     Array<String> allPersistenceElevenNumbers(persistenceNumbers[3]);
     for (i32 i = 0; i < persistenceNumbers[3].size; i++) {
         String lead = "1";
@@ -447,7 +447,7 @@ void CheckHighPersistenceNumbersForSingleDigitFactorability() {
         }
     }
 
-    cout << "\nTrimming persistence 11 numbers with fewer than " << minimumPermutationDigits << " digits.\n" << std::endl;
+    cout.PrintLn("\nTrimming persistence 11 numbers with fewer than ", minimumPermutationDigits, " digits.\n");
 
     for (i32 i = 0; i < allPersistenceElevenNumbers.size; i++) {
         if (allPersistenceElevenNumbers[i].size < minimumPermutationDigits) {
@@ -455,7 +455,7 @@ void CheckHighPersistenceNumbersForSingleDigitFactorability() {
         }
     }
 
-    cout << "Calculating how many permutations we will have to run..." << std::endl;
+    cout.PrintLn("Calculating how many permutations we will have to run...");
     remainingRearrangementChecks = 0;
     for (i32 i = 0; i < allPersistenceElevenNumbers.size; i++) {
         DigitCounts digits;
@@ -472,10 +472,10 @@ void CheckHighPersistenceNumbersForSingleDigitFactorability() {
             }
         }
         if (permutationCount.words.size > 2) {
-            cout << "Number " << allPersistenceElevenNumbers[i] << " has too many permutations: " << ToString(permutationCount) << std::endl;
+            cout.PrintLn("Number ", allPersistenceElevenNumbers[i], " has too many permutations: ", ToString(permutationCount));
             return;
         }
-        cout << "Number " << allPersistenceElevenNumbers[i] << " has " << ToString(permutationCount) << " permutations." << std::endl;
+        cout.PrintLn("Number ", allPersistenceElevenNumbers[i], " has ", ToString(permutationCount), " permutations.");
         remainingRearrangementChecks += permutationCount.words[0];
         if (permutationCount.words.size == 2) {
             remainingRearrangementChecks += (u64)permutationCount.words[1] << 32;
@@ -490,7 +490,7 @@ void CheckHighPersistenceNumbersForSingleDigitFactorability() {
     for (i32 i = 0; i < allPersistenceElevenNumbers.size; i++) {
         while (true) {
             if (activeThreads < numThreads) {
-                cout << "Launching thread for number " << allPersistenceElevenNumbers[i] << "..." << std::endl;
+                cout.PrintLn("Launching thread for number ", allPersistenceElevenNumbers[i], "...");
                 Thread(ThreadProc2, allPersistenceElevenNumbers[i]).Detach();
                 threadControlMutex.Lock();
                 activeThreads++;
@@ -501,7 +501,7 @@ void CheckHighPersistenceNumbersForSingleDigitFactorability() {
             }
         }
     }
-    cout << "\n" << std::endl;
+    cout.PrintLn("\n");
     while (true) {
         if (activeThreads > 0) {
             Thread::Sleep(Milliseconds(100));
@@ -512,14 +512,14 @@ void CheckHighPersistenceNumbersForSingleDigitFactorability() {
 
     totalTimeTaken = std::chrono::duration_cast<Milliseconds>(Clock::now() - startTime);
 
-    cout << "\n\n\nAll permutations checked.\nTotal time taken: " << DurationString(totalTimeTaken.count()) << std::endl;
+    cout.PrintLn("\n\n\nAll permutations checked.\nTotal time taken: ", DurationString(totalTimeTaken.count()));
 
-    cout << "\nResults show " << successfulFactorizations.size << " factorizations successfully found to have a greater persistence:\n";
+    cout.PrintLn("\nResults show ", successfulFactorizations.size, " factorizations successfully found to have a greater persistence:");
     for (i32 i = 0; i < successfulFactorizations.size; i++) {
-        cout << successfulFactorizations[i] << "\n";
+        cout.PrintLn(successfulFactorizations[i]);
     }
 
-    cout << std::endl;
+    cout.Print("\n");
 }
 
 i32 main(i32 argumentCount, char** argumentValues) {

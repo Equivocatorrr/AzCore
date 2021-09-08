@@ -9,7 +9,7 @@
 
 using namespace AzCore;
 
-io::LogStream cout("main.log");
+io::Log cout("main.log");
 
 // NOTE: Using an immediate-mode renderer like this isn't necessarily a good idea.
 //       It's just an easy way to do things that would otherwise require special shaders.
@@ -49,9 +49,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
     bool enableLayers = false, enableCoreValidation = false;
 
-    cout << "\nTest program received " << argumentCount << " arguments:\n";
+    cout.PrintLn("\nTest program received ",  argumentCount,  " arguments:");
     for (i32 i = 0; i < argumentCount; i++) {
-        cout << i << ": " << argumentValues[i] << std::endl;
+        cout.PrintLn(i,  ": ",  argumentValues[i]);
         if (equals(argumentValues[i], "--enable-layers")) {
             enableLayers = true;
         } else if (equals(argumentValues[i], "--core-validation")) {
@@ -59,10 +59,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
         }
     }
 
-    cout << "Initializing RawInput" << std::endl;
+    cout.PrintLn("Initializing RawInput");
     io::RawInput rawInput;
     if (!rawInput.Init(io::RAW_INPUT_ENABLE_GAMEPAD_JOYSTICK)) {
-        cout << "Failed to Init RawInput: " << io::error << std::endl;
+        cout.PrintLn("Failed to Init RawInput: ",  io::error);
     }
 
     io::Input input;
@@ -72,7 +72,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     window.width = 800;
     window.height = 800;
     if (!window.Open()) {
-        cout << "Failed to open window: " << io::error << std::endl;
+        cout.PrintLn("Failed to open window: ",  io::error);
         return 1;
     }
 
@@ -83,7 +83,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     Ptr<vk::Window> vkWindow = instance.AddWindowForSurface(&window);
 
     if (enableLayers) {
-        cout << "Validation layers enabled." << std::endl;
+        cout.PrintLn("Validation layers enabled.");
         Array<const char*> layers = {
             "VK_LAYER_GOOGLE_threading",
             "VK_LAYER_LUNARG_parameter_validation",
@@ -229,12 +229,12 @@ i32 main(i32 argumentCount, char** argumentValues) {
     queueSubmissionDraw->noAutoConfig = true;
 
     if (!instance.Init()) {
-        cout << "Failed to init instance: " << vk::error << std::endl;
+        cout.PrintLn("Failed to init instance: ",  vk::error);
         return 1;
     }
 
     if (!window.Show()) {
-        cout << "Failed to show window: " << io::error << std::endl;
+        cout.PrintLn("Failed to show window: ",  io::error);
         return 1;
     }
 
@@ -366,14 +366,14 @@ i32 main(i32 argumentCount, char** argumentValues) {
         if (input.PressedChar('V')) {
             vkSwapchain->vsync = !vkSwapchain->vsync;
             if (!vkSwapchain->Reconfigure()) {
-                cout << "Failed to switch VSync: " << vk::error << std::endl;
+                cout.PrintLn("Failed to switch VSync: ",  vk::error);
                 return 1;
             }
         }
 
         if (resized) {
             if (!vkSwapchain->Resize()) {
-                cout << "Failed to resize vkSwapchain: " << vk::error << std::endl;
+                cout.PrintLn("Failed to resize vkSwapchain: ",  vk::error);
                 return 1;
             }
             resized = false;
@@ -382,14 +382,14 @@ i32 main(i32 argumentCount, char** argumentValues) {
         VkResult acquisitionResult = vkSwapchain->AcquireNextImage();
 
         if (acquisitionResult == VK_ERROR_OUT_OF_DATE_KHR || acquisitionResult == VK_NOT_READY) {
-            cout << "Skipping a frame because acquisition returned: " << vk::ErrorString(acquisitionResult) << std::endl;
+            cout.PrintLn("Skipping a frame because acquisition returned: ",  vk::ErrorString(acquisitionResult));
             resized = true;
             continue; // Don't render this frame.
         } else if (acquisitionResult == VK_TIMEOUT) {
-            cout << "Skipping a frame because acquisition returned: " << vk::ErrorString(acquisitionResult) << std::endl;
+            cout.PrintLn("Skipping a frame because acquisition returned: ",  vk::ErrorString(acquisitionResult));
             continue;
         } else if (acquisitionResult != VK_SUCCESS) {
-            cout << vk::error << std::endl;
+            cout.PrintLn(vk::error);
             return 1;
         }
 
@@ -397,7 +397,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
         VkCommandBuffer cmdBuf = vkCommandBufferAllDrawing->Begin();
         if (cmdBuf == VK_NULL_HANDLE) {
-            cout << "Failed to Begin recording vkCommandBufferDraw: " << vk::error << std::endl;
+            cout.PrintLn("Failed to Begin recording vkCommandBufferDraw: ",  vk::error);
             return 1;
         }
         // You can explicitly transfer ownership like this, but since we're using a semaphore, we don't have to.
@@ -620,20 +620,20 @@ i32 main(i32 argumentCount, char** argumentValues) {
         vkCommandBufferTransfer->End();
 
         if (!queueSubmissionDraw->Config()) {
-            cout << "Failed to re-Config queueSubmissionDraw: " << vk::error << std::endl;
+            cout.PrintLn("Failed to re-Config queueSubmissionDraw: ",  vk::error);
             return 1;
         }
 
         if (!device->SubmitCommandBuffers(queueTransfer, {queueSubmissionTransfer})) {
-            cout << "Failed to sumbit transfer command buffers to transfer queue: " << vk::error << std::endl;
+            cout.PrintLn("Failed to sumbit transfer command buffers to transfer queue: ",  vk::error);
             return 1;
         }
         if (!device->SubmitCommandBuffers(queueGraphics, {queueSubmissionDraw})) {
-            cout << "Failed to sumbit draw command buffers to graphics queue: " << vk::error << std::endl;
+            cout.PrintLn("Failed to sumbit draw command buffers to graphics queue: ",  vk::error);
             return 1;
         }
         if (!vkSwapchain->Present(queuePresent, {semaphoreRenderFinished->semaphore})) {
-            cout << "Failed to present: " << vk::error << std::endl;
+            cout.PrintLn("Failed to present: ",  vk::error);
             return 1;
         }
 
@@ -650,8 +650,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
     }
     instance.Deinit();
     window.Close();
-    cout << "Last io::error was \"" << io::error << "\"" << std::endl;
-    cout << "Last vk::error was \"" << vk::error << "\"" << std::endl;
+    cout.PrintLn("Last io::error was \"",  io::error,  "\"");
+    cout.PrintLn("Last vk::error was \"",  vk::error,  "\"");
 
     delete[] vertices;
 

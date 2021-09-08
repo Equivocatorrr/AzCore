@@ -33,7 +33,7 @@ LIBS_W=-L"$(WIN_VULKAN_SDK)/Lib/" -lvulkan-1 -lgdi32 -ldinput8 -ldxguid -l"OpenA
 _DEPS = sound.hpp rendering.hpp objects.hpp gui.hpp globals.hpp entities.hpp entity_basics.hpp entity_basics.cpp assets.hpp
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS)) makefile
 
-_AZCORE_OBJ = io.o memory.o keycodes.o IO/LogStream.o vk.o math.o font.o
+_AZCORE_OBJ = io.o memory.o keycodes.o IO/Log.o vk.o math.o font.o
 AZCORE_OBJ_L = $(patsubst %,$(AZCORE_BASE)/obj/Linux/Release/%,$(_AZCORE_OBJ))
 AZCORE_OBJ_W = $(patsubst %,$(AZCORE_BASE)/obj/Windows/Release/%,$(_AZCORE_OBJ))
 AZCORE_OBJ_LD = $(patsubst %,$(AZCORE_BASE)/obj/Linux/Debug/%,$(_AZCORE_OBJ))

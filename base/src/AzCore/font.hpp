@@ -13,7 +13,7 @@
 #define AZCORE_FONT_HPP
 
 #include "common.hpp"
-#include "IO/LogStream.hpp"
+#include "IO/Log.hpp"
 
 #include "Font/FontTables.hpp"
 
@@ -24,7 +24,7 @@ namespace AzCore {
 namespace font {
 
     extern String error;
-    extern io::LogStream cout;
+    extern io::Log cout;
 
     extern const f32 sdfDistance;
 
@@ -58,7 +58,7 @@ namespace font {
         f32 DistanceLess(const vec2 &point, f32 distSquared) const;
         void Scale(const mat2& scale);
         void Offset(const vec2& offset);
-        void Print(io::LogStream &cout);
+        void Print(io::Log &cout);
     };
     static_assert(sizeof(Curve2) == 32);
 
@@ -80,7 +80,7 @@ namespace font {
         f32 DistanceLess(const vec2 &point, f32 distSquared) const;
         void Scale(const mat2& scale);
         void Offset(const vec2& offset);
-        void Print(io::LogStream &cout);
+        void Print(io::Log &cout);
     };
     static_assert(sizeof(Curve) == 24);
 
@@ -93,7 +93,7 @@ namespace font {
         f32 DistanceLess(const vec2 &point, f32 distSquared) const;
         void Scale(const mat2& scale);
         void Offset(const vec2& offset);
-        void Print(io::LogStream &cout);
+        void Print(io::Log &cout);
     };
     static_assert(sizeof(Line) == 16);
 
@@ -133,7 +133,7 @@ namespace font {
         void AddFromGlyfPoints(glyfPoint *glyfPoints, i32 count);
         void Scale(const mat2& scale);
         void Offset(const vec2& offset);
-        void Print(io::LogStream &cout);
+        void Print(io::Log &cout);
         // Converts curves into lines if they're actually linear
         Glyph& Simplify();
     };

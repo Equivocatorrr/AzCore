@@ -48,7 +48,7 @@ namespace cffs {
     extern const char *stdStrings[nStdStrings];
     extern const SID stdEncoding0[256];
     extern const SID stdEncoding1[256];
-    inline const SID stdCharset0(const SID& in) {
+    inline SID stdCharset0(const SID& in) {
         return in > 228 ? 0 : in;
     }
     extern const SID stdCharset1[166];

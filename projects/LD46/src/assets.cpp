@@ -6,7 +6,7 @@
 #include "assets.hpp"
 #include "globals.hpp"
 
-#include "AzCore/IO/LogStream.hpp"
+#include "AzCore/IO/Log.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
@@ -14,7 +14,7 @@
 
 namespace Assets {
 
-io::LogStream cout("assets.log");
+io::Log cout("assets.log");
 
 String error = "No error.";
 
@@ -170,7 +170,7 @@ bool Sound::Load(String filename) {
 Sound::~Sound() {
     if (valid) {
         if (!buffer.Clean()) {
-            cout << "Failed to clean Sound buffer: " << ::Sound::error << std::endl;
+            cout.PrintLn("Failed to clean Sound buffer: ", ::Sound::error);
         }
     }
 }
@@ -314,7 +314,7 @@ Stream::~Stream() {
     if (valid) {
         for (i32 i = 0; i < numStreamBuffers; i++) {
             if (!buffers[i].Clean()) {
-                cout << "Failed to clean Stream buffer: " << ::Sound::error << std::endl;
+                cout.PrintLn("Failed to clean Stream buffer: ", ::Sound::error);
             }
         }
     }
@@ -322,7 +322,7 @@ Stream::~Stream() {
 
 bool Manager::LoadAll() {
     for (i32 i = 0; i < filesToLoad.size; i++) {
-        cout << "Loading asset \"" << filesToLoad[i].filename << "\": ";
+        cout.Print("Loading asset \"", filesToLoad[i].filename, "\": ");
         Type type;
         if (filesToLoad[i].type == NONE) {
             type = FilenameToType(filesToLoad[i].filename);
@@ -337,10 +337,10 @@ bool Manager::LoadAll() {
         mapping.type = type;
         switch (type) {
         case NONE:
-            cout << "Unknown file type." << std::endl;
+            cout.PrintLn("Unknown file type.");
             continue;
         case FONT:
-            cout << "as font." << std::endl;
+            cout.PrintLn("as font.");
             fonts.Append(Font());
             fonts[nextFontIndex].fontBuilder.resolution = font::FontBuilder::HIGH;
             if (!fonts[nextFontIndex].Load(filesToLoad[i].filename)) {
@@ -349,7 +349,7 @@ bool Manager::LoadAll() {
             mapping.index = nextFontIndex;
             break;
         case TEXTURE:
-            cout << "as texture." << std::endl;
+            cout.PrintLn("as texture.");
             textures.Append(Texture());
             if (!textures[nextTexIndex].Load(filesToLoad[i].filename)) {
                 return false;
@@ -357,7 +357,7 @@ bool Manager::LoadAll() {
             mapping.index = nextTexIndex;
             break;
         case SOUND:
-            cout << "as sound." << std::endl;
+            cout.PrintLn("as sound.");
             sounds.Append(Sound());
             if (!sounds[nextSoundIndex].Load(filesToLoad[i].filename)) {
                 return false;
@@ -365,7 +365,7 @@ bool Manager::LoadAll() {
             mapping.index = nextSoundIndex;
             break;
         case STREAM:
-            cout << "as stream." << std::endl;
+            cout.PrintLn("as stream.");
             streams.Append(Stream());
             if (!streams[nextStreamIndex].Open(filesToLoad[i].filename)) {
                 return false;
@@ -386,7 +386,7 @@ i32 Manager::FindMapping(String filename) {
             return mapping.index;
         }
     }
-    cout << "No mapping found for \"" << filename << "\"" << std::endl;
+    cout.PrintLn("No mapping found for \"", filename, "\"");
     return -1;
 }
 

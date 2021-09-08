@@ -130,20 +130,20 @@ void RawInputDeviceInit(RawInputDevice *rid, i32 fd, String &&path, RawInputFeat
     }
     // TODO: Recognize Joysticks separately
     rid->type = GAMEPAD;
-    cout << "RawInputDevice from path \"" << rid->data->path << "\":\n"
-         "\t   Type: " << RawInputDeviceTypeString[rid->type] << "\n"
-         "\t   Name: " << rid->data->name << "\n"
-         "\tVersion: " << rid->data->version << std::endl;
+    cout.PrintLn("RawInputDevice from path \"", rid->data->path, "\":\n"
+         "\t   Type: ", RawInputDeviceTypeString[rid->type], "\n"
+         "\t   Name: ", rid->data->name, "\n"
+         "\tVersion: ", rid->data->version);
     u8 axes, buttons;
     if (-1 == ioctl(fd, JSIOCGAXES, &axes)) {
-        cout << "\tFailed to get axes..." << std::endl;
+        cout.PrintLn("\tFailed to get axes...");
     } else {
-        cout << "\tJoystick has " << (u32)axes << " axes." << std::endl;
+        cout.PrintLn("\tJoystick has ",  (u32)axes,  " axes.");
     }
     if (-1 == ioctl(fd, JSIOCGBUTTONS, &buttons)) {
-        cout << "\tFailed to get buttons..." << std::endl;
+        cout.PrintLn("\tFailed to get buttons...");
     } else {
-        cout << "\tJoystick has " << (u32)buttons << " buttons." << std::endl;
+        cout.PrintLn("\tJoystick has ",  (u32)buttons,  " buttons.");
     }
     rid->data->mapping.FromDevice(rid->data->fd);
 }
@@ -151,7 +151,7 @@ void RawInputDeviceInit(RawInputDevice *rid, i32 fd, String &&path, RawInputFeat
 bool GetRawInputDeviceEvent(Ptr<RawInputDevice> rid, js_event *dst) {
     ssize_t rc = read(rid->data->fd, dst, sizeof(js_event));
     if (rc == -1 && errno != EAGAIN) {
-        cout << "Lost raw input device " << rid->data->path << std::endl;
+        cout.PrintLn("Lost raw input device ",  rid->data->path);
         close(rid->data->fd);
         rid->data->retryTimer = 1.0;
         return false;
@@ -183,12 +183,11 @@ bool RawInput::Init(RawInputFeatureBits enableMask) {
             path[13] = i / 10 + '0';
             path[14] = i % 10 + '0';
         }
-        // cout << path << std::endl;
+        // cout.PrintLn(path);
         i32 fd = open(path, O_RDONLY | O_NONBLOCK);
         if (fd < 0) {
             if (errno == EACCES) {
-                cout << "Permission denied opening device with path \""
-                     << path << "\"." << std::endl;
+                cout.PrintLn("Permission denied opening device with path \"",  path,  "\".");
             }
             continue;
         }
@@ -217,7 +216,7 @@ bool RawInput::Init(RawInputFeatureBits enableMask) {
             break;
         }
     }
-    cout << "Total time to check 32 raw input devices: " << FormatTime(Clock::now() - start) << std::endl;
+    cout.PrintLn("Total time to check 32 raw input devices: ",  FormatTime(Clock::now() - start));
     return true;
 }
 
@@ -280,7 +279,7 @@ void Gamepad::Update(f32 timestep, i32 index) {
         switch (ev.type) {
         case JS_EVENT_INIT: {
             // Not sure what this is for... seems to not be triggered ever???
-            cout << "JS_EVENT_INIT has number " << (u32)ev.number << " and value " << ev.value << std::endl;
+            cout.PrintLn("JS_EVENT_INIT has number ",  (u32)ev.number,  " and value ",  ev.value);
         }
         break;
         case JS_EVENT_AXIS: {
@@ -299,7 +298,7 @@ void Gamepad::Update(f32 timestep, i32 index) {
                 continue; // Unsupported
             }
             f32 val = map((f32)ev.value, -32767.0f, 32767.0f, minRange, maxRange);
-            // cout << "axis = " << aIndex << ", val = " << val << std::endl;
+            // cout.PrintLn("axis = ",  aIndex,  ", val = ",  val);
             if (abs(val) < deadZoneTemp) {
                 axis.array[aIndex] = 0.0f;
             } else {
@@ -362,7 +361,7 @@ void Gamepad::Update(f32 timestep, i32 index) {
     }
     if (axis.vec.H0.x != 0.0f && axis.vec.H0.y != 0.0f) {
         axis.vec.H0 = normalize(axis.vec.H0);
-        // cout << "H0.x = " << axis.vec.H0.x << ", H0.y = " << axis.vec.H0.y << std::endl;
+        // cout.PrintLn("H0.x = ",  axis.vec.H0.x,  ", H0.y = ",  axis.vec.H0.y);
     }
     handleButton(hat[0], axis.vec.H0.x > 0.0f && axis.vec.H0.y < 0.0f, KC_GP_AXIS_H0_UP_RIGHT,
                  rawInputDevice->rawInput, index);
@@ -375,32 +374,32 @@ void Gamepad::Update(f32 timestep, i32 index) {
 #ifdef IO_GAMEPAD_LOGGING_VERBOSE
     for (u32 i = 0; i < IO_GAMEPAD_MAX_AXES; i++) {
         if (axisPush[i * 2].Pressed()) {
-            cout << "Pressed " << KeyCodeName(i * 2 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+            cout.PrintLn("Pressed ",  KeyCodeName(i * 2 + KC_GP_AXIS_LS_RIGHT));
         }
         if (axisPush[i * 2 + 1].Pressed()) {
-            cout << "Pressed " << KeyCodeName(i * 2 + 1 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+            cout.PrintLn("Pressed ",  KeyCodeName(i * 2 + 1 + KC_GP_AXIS_LS_RIGHT));
         }
         if (axisPush[i * 2].Released()) {
-            cout << "Released " << KeyCodeName(i * 2 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+            cout.PrintLn("Released ",  KeyCodeName(i * 2 + KC_GP_AXIS_LS_RIGHT));
         }
         if (axisPush[i * 2 + 1].Released()) {
-            cout << "Released " << KeyCodeName(i * 2 + 1 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+            cout.PrintLn("Released ",  KeyCodeName(i * 2 + 1 + KC_GP_AXIS_LS_RIGHT));
         }
     }
     for (u32 i = 0; i < 4; i++) {
         if (hat[i].Pressed()) {
-            cout << "Pressed " << KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT) << std::endl;
+            cout.PrintLn("Pressed ",  KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT));
         }
         if (hat[i].Released()) {
-            cout << "Released " << KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT) << std::endl;
+            cout.PrintLn("Released ",  KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT));
         }
     }
     for (u32 i = 0; i < IO_GAMEPAD_MAX_BUTTONS; i++) {
         if (button[i].Pressed()) {
-            cout << "Pressed " << KeyCodeName(i + KC_GP_BTN_A) << std::endl;
+            cout.PrintLn("Pressed ",  KeyCodeName(i + KC_GP_BTN_A));
         }
         if (button[i].Released()) {
-            cout << "Released " << KeyCodeName(i + KC_GP_BTN_A) << std::endl;
+            cout.PrintLn("Released ",  KeyCodeName(i + KC_GP_BTN_A));
         }
     }
 #endif

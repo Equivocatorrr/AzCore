@@ -9,6 +9,7 @@
 #define AZCORE_KEYCODES_HPP
 
 #include "basictypes.hpp"
+#include "IO/Log.hpp"
 
 namespace AzCore {
 
@@ -335,7 +336,7 @@ u8 KeyCodeToWinScan(u8 keyCode);
 u8 KeyCodeFromWinScan(u8 keyCode);
 
 namespace io {
-    class LogStream;
+    class Log;
 }
 
 inline bool KeyCodeIsKeyboard(const u8 &keyCode) {
@@ -355,9 +356,9 @@ inline bool KeyCodeIsGamepad(const u8 &keyCode) {
 // Creates the inverse based on the "To" map
 // This might not work if there are multiple mappings to KeyCodes
 // And with multiple mappings from KeyCodes, it will use the first.
-void PrintKeyCodeMapsEvdev(io::LogStream& cout);
-void PrintKeyCodeMapsWinVK(io::LogStream& cout);
-void PrintKeyCodeMapsWinScan(io::LogStream& cout);
+void PrintKeyCodeMapsEvdev(io::Log& cout);
+void PrintKeyCodeMapsWinVK(io::Log& cout);
+void PrintKeyCodeMapsWinScan(io::Log& cout);
 
 } // namespace AzCore
 

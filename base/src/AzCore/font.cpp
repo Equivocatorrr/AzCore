@@ -160,8 +160,8 @@ void Line::Offset(const vec2 &offset) {
     p2 = p2 + offset;
 }
 
-void Line::Print(io::LogStream &cout) {
-    cout << "p1={" << p1.x << "," << p1.y << "}, p2={" << p2.x << "," << p2.y << "}";
+void Line::Print(io::Log &cout) {
+    cout.Print("p1={", p1.x, ",", p1.y, "}, p2={", p2.x, ",", p2.y, "}");
 }
 
 i32 Curve::Intersection(const vec2 &point) const {
@@ -294,9 +294,8 @@ void Curve::Offset(const vec2 &offset) {
     p3 = p3 + offset;
 }
 
-void Curve::Print(io::LogStream &cout) {
-    cout << "p1={" << p1.x << "," << p1.y << "}, p2={" << p2.x << "," << p2.y << "}, p3={"
-         << p3.x << "," << p3.y << "}";
+void Curve::Print(io::Log &cout) {
+    cout.Print("p1={", p1.x, ",", p1.y, "}, p2={", p2.x, ",", p2.y, "}, p3={", p3.x, ",", p3.y, "}");
 }
 
 i32 Curve2::Intersection(const vec2 &point) const {
@@ -519,9 +518,8 @@ void Curve2::Offset(const vec2 &offset) {
     p4 = p4 + offset;
 }
 
-void Curve2::Print(io::LogStream &cout) {
-    cout << "p1={" << p1.x << "," << p1.y << "}, p2={" << p2.x << "," << p2.y << "}, p3={"
-         << p3.x << "," << p3.y << "}, p4={" << p4.x << "," << p4.y << "}";
+void Curve2::Print(io::Log &cout) {
+    cout.Print("p1={", p1.x, ",", p1.y, "}, p2={", p2.x, ",", p2.y, "}, p3={", p3.x, ",", p3.y, "}, p4={", p4.x, ",", p4.y, "}");
 }
 
 bool Glyph::Inside(const vec2 &point) const {
@@ -618,26 +616,26 @@ void Glyph::Offset(const vec2 &offset) {
     }
 }
 
-void Glyph::Print(io::LogStream &cout) {
-    cout << "Curve2s: " << curve2s.size << "\n";
+void Glyph::Print(io::Log &cout) {
+    cout.PrintLn("Curve2s: ", curve2s.size, "");
     for (Curve2& curve2 : curve2s) {
-        cout << "\t";
+        cout.Print("\t");
         curve2.Print(cout);
-        cout << "\n";
+        cout.Print("\n");
     }
-    cout << "Curves: " << curves.size << "\n";
+    cout.PrintLn("Curves: ", curves.size, "");
     for (Curve& curve : curves) {
-        cout << "\t";
+        cout.Print("\t");
         curve.Print(cout);
-        cout << "\n";
+        cout.Print("\n");
     }
-    cout << "Lines: " << lines.size << "\n";
+    cout.PrintLn("Lines: ", lines.size, "");
     for (Line& line : lines) {
-        cout << "\t";
+        cout.Print("\t");
         line.Print(cout);
-        cout << "\n";
+        cout.Print("\n");
     }
-    cout << std::endl;
+    cout.Print("\n");
 }
 
 Glyph& Glyph::Simplify() {
@@ -671,7 +669,7 @@ bool Font::Load() {
         error = "No filename specified!";
         return false;
     }
-    cout << "Attempting to load \"" << filename << "\"" << std::endl;
+    cout.PrintLn("Attempting to load \"", filename, "\"");
 
     data.file.open(filename.data, std::ios::in | std::ios::binary);
     if (!data.file.is_open()) {
@@ -682,15 +680,15 @@ bool Font::Load() {
     data.ttcHeader.Read(data.file);
 
     if (data.ttcHeader.ttcTag == 0x10000_Tag) {
-        cout << "TrueType outline" << std::endl;
+        cout.PrintLn("TrueType outline");
     } else if (data.ttcHeader.ttcTag == "true"_Tag) {
-        cout << "TrueType" << std::endl;
+        cout.PrintLn("TrueType");
     } else if (data.ttcHeader.ttcTag == "OTTO"_Tag) {
-        cout << "OpenType with CFF" << std::endl;
+        cout.PrintLn("OpenType with CFF");
     } else if (data.ttcHeader.ttcTag == "typ1"_Tag) {
-        cout << "Old-style PostScript" << std::endl;
+        cout.PrintLn("Old-style PostScript");
     } else if (data.ttcHeader.ttcTag == "ttcf"_Tag) {
-        cout << "TrueType Collection" << std::endl;
+        cout.PrintLn("TrueType Collection");
     } else {
         error = "Unknown font type for file: \"" + filename + "\"";
         return false;
@@ -722,13 +720,13 @@ bool Font::Load() {
                 uniqueOffsets.Emplace(record.offset);
             }
 #ifdef LOG_VERBOSE
-            cout << "\tTable: \"" << ToString(record.tableTag) << "\"\n\t\toffset = " << record.offset << ", length = " << record.length << std::endl;
+            cout.PrintLn("\tTable: \"", ToString(record.tableTag), "\"\n\t\toffset = ", record.offset, ", length = ", record.length);
 #endif
         }
     }
 
 #ifdef LOG_VERBOSE
-    cout << "offsetMin = " << data.offsetMin << ", offsetMax = " << data.offsetMax << std::endl;
+    cout.PrintLn("offsetMin = ", data.offsetMin, ", offsetMax = ", data.offsetMax);
 #endif
     data.tableData.Resize(align(data.offsetMax-data.offsetMin, 4), 0);
 
@@ -750,21 +748,20 @@ bool Font::Load() {
         }
         u32 checksum = tables::Checksum((u32*)ptr, record.length);
         if (checksum != record.checkSum) {
-            cout << "Checksum (" << checksum << ") for table " << ToString(record.tableTag) << " didn't match record (" << record.checkSum << "), trying backup!" << std::endl;
+            cout.PrintLn("Checksum (", checksum, ") for table ", ToString(record.tableTag), " didn't match record (", record.checkSum, "), trying backup!");
             checksum = tables::ChecksumV2((u32*)ptr, record.length);
             if (checksum == record.checkSum) {
                 checksumsCorrect++;
-                cout << "...backup worked!" << std::endl;
+                cout.PrintLn("...backup worked!");
             } else {
-                cout << "...no good (" << checksum << ")" << std::endl;
+                cout.PrintLn("...no good (", checksum, ")");
             }
         } else {
             checksumsCorrect++;
         }
         checksumsCompleted++;
     }
-    cout << "Checksums completed. " << checksumsCorrect
-         << "/" << checksumsCompleted << " correct.\n" << std::endl;
+    cout.PrintLn("Checksums completed. ", checksumsCorrect, "/", checksumsCompleted, " correct.\n");
 
     // File is in big-endian, so we may need to swap the data before we can use it.
 
@@ -794,7 +791,7 @@ bool Font::Load() {
                         tables::cmap_format_any *cmap = (tables::cmap_format_any*)(ptr + encoding->offset);
                         if (!cmap->EndianSwap()) {
 #ifdef LOG_VERBOSE
-                            cout << "Unsupported cmap table format " << cmap->format << std::endl;
+                            cout.PrintLn("Unsupported cmap table format ", cmap->format);
 #endif
                         }
                     }
@@ -852,7 +849,7 @@ bool Font::Load() {
 
     for (i32 i = 0; i < data.offsetTables.size; i++) {
 #ifdef LOG_VERBOSE
-        cout << "\nFont[" << i << "]\n\n";
+        cout.PrintLn("\nFont[", i, "]\n");
 #endif
         tables::Offset &offsetTable = data.offsetTables[i];
         i16 chosenCmap = -1; // -1 is not found, bigger is better
@@ -876,7 +873,7 @@ bool Font::Load() {
                      << ", header.offSize: " << (u32)cff->header.offSize << std::endl;
             } else if (tag == "maxp"_Tag) {
                 tables::maxp *maxp = (tables::maxp*)ptr;
-                cout << "\tmaxp table:\nnumGlyphs: " << maxp->numGlyphs << "\n" << std::endl;
+                cout.PrintLn("\tmaxp table:\nnumGlyphs: ", maxp->numGlyphs, "\n");
             }
 #endif
             if (tag == "cmap"_Tag) {
@@ -909,7 +906,7 @@ bool Font::Load() {
                     #undef CHOOSE
                 }
 #ifdef LOG_VERBOSE
-                cout << std::endl;
+                cout.Print(std::endl);
 #endif
             } else if (tag == "CFF "_Tag && !data.cffParsed.active) {
                 tables::cff *cff = (tables::cff*)ptr;
@@ -936,7 +933,7 @@ bool Font::Load() {
             }
         }
         if (chosenCmap == -1) {
-            cout << "Font[" << i << "] doesn't have a supported cmap table." << std::endl;
+            cout.PrintLn("Font[", i, "] doesn't have a supported cmap table.");
             data.offsetTables.Erase(i--);
         } else {
 #ifdef LOG_VERBOSE
@@ -1006,7 +1003,7 @@ bool Font::Load() {
         }
     }
 
-    cout << "Successfully prepared \"" << filename << "\" for usage." << std::endl;
+    cout.PrintLn("Successfully prepared \"", filename, "\" for usage.");
 
     return true;
 }
@@ -1061,7 +1058,7 @@ void Font::PrintGlyph(char32 unicode) const {
     try {
         glyph = GetGlyph(unicode);
     } catch (std::runtime_error &err) {
-        cout << "Failed to get glyph: " << err.what() << std::endl;
+        cout.PrintLn("Failed to get glyph: ", err.what());
         return;
     }
     glyphParseTime = Clock::now()-start;
@@ -1089,32 +1086,28 @@ void Font::PrintGlyph(char32 unicode) const {
             prevDist = dist + factorX; // Assume the worst change possible
             if (glyph.Inside(point)) {
                 if (dist < margin) {
-                    cout << distSymbolsNeg[i32(dist/margin*3.0f)];
+                    cout.Print(distSymbolsNeg[i32(dist/margin*3.0f)]);
                 } else {
-                    cout << ' ';
+                    cout.Print(' ');
                 }
             } else {
                 if (dist < margin) {
-                    cout << distSymbolsPos[i32(dist/margin*3.0f)];
+                    cout.Print(distSymbolsPos[i32(dist/margin*3.0f)]);
                 } else {
-                    cout << ' ';
+                    cout.Print(' ');
                 }
             }
         }
-        cout << "\n";
+        cout.Print("\n");
     }
-    cout << std::endl;
+    cout.Print("\n");
     totalParseTime += glyphParseTime.count();
     totalDrawTime += glyphDrawTime.count();
     iterations++;
     // cout << "Glyph Parse Time: " << glyphParseTime.count() << "ns\n"
     //     "Glyph Draw Time: " << glyphDrawTime.count() << "ns" << std::endl;
     if (iterations%64 == 0) {
-        cout << "After " << iterations << " iterations, average glyph parse time is "
-             << totalParseTime/iterations << "ns and average glyph draw time is "
-             << totalDrawTime/iterations << "ns.\nTotal glyph parse time is "
-             << totalParseTime/1000000 << "ms and total glyph draw time is "
-             << totalDrawTime/1000000 << "ms." << std::endl;
+        cout.PrintLn("After ", iterations, " iterations, average glyph parse time is ", totalParseTime/iterations, "ns and average glyph draw time is ", totalDrawTime/iterations, "ns.\nTotal glyph parse time is ", totalParseTime/1000000, "ms and total glyph draw time is ", totalDrawTime/1000000, "ms.");
     }
 }
 
@@ -1294,7 +1287,7 @@ void RenderThreadProc(FontBuilder *fontBuilder, Array<Glyph> *glyphsToAdd, const
             // {
             //     i32 percentage = i32(100.0f * (f32)y / (f32)texH);
             //     if (percentage > lastPercentage) {
-            //         // cout << percentage << "%" << std::endl;
+            //         // cout.PrintLn(percentage, "%");
             //         lastPercentage = percentage;
             //     }
             // }
@@ -1312,9 +1305,9 @@ void RenderThreadProc(FontBuilder *fontBuilder, Array<Glyph> *glyphsToAdd, const
                 }
                 u8& pixel = fontBuilder->pixels[dimensions.x * yy + xx];
                 // if (lastPercentage == 23 && x == 42)
-                //     cout << "TEST HERE" << std::endl;
+                //     cout.PrintLn("TEST HERE");
                 f32 dist = glyph.MinDistance(point, prevDist);
-                // if (lastPercentage == 23 && x == 42) cout << "\tMinDistance Passed" << std::endl;
+                // if (lastPercentage == 23 && x == 42) cout.PrintLn("\tMinDistance Passed");
                 prevDist = dist + factorX; // Assume the worst change possible
                 if (glyph.Inside(point)) {
                     if (dist < sdfDistance) {
@@ -1330,7 +1323,7 @@ void RenderThreadProc(FontBuilder *fontBuilder, Array<Glyph> *glyphsToAdd, const
                     }
                 }
                 pixel = u8(dist*255.0f);
-                // if (lastPercentage == 23 && x == 42) cout << "\tInside passed" << std::endl;
+                // if (lastPercentage == 23 && x == 42) cout.PrintLn("\tInside passed");
             }
         }
     }
@@ -1352,9 +1345,9 @@ bool FontBuilder::Build() {
             // Couldn't get actual concurrency so this is just a guess.
             // More than actual concurrency isn't really a bad thing since it's lockless, unless the kernel am dum.
             renderThreadCount = 8;
-            cout << "Using default concurrency: " << renderThreadCount << std::endl;
+            cout.PrintLn("Using default concurrency: ", renderThreadCount);
         } else {
-            cout << "Using concurrency: " << renderThreadCount << std::endl;
+            cout.PrintLn("Using concurrency: ", renderThreadCount);
         }
     }
     ClockTime start = Clock::now();
@@ -1379,8 +1372,8 @@ bool FontBuilder::Build() {
         indexToId.Set(indicesToAdd[i], glyphs.size + i);
     }
     indicesToAdd.Clear();
-    cout << "Took " << FormatTime(Nanoseconds(Clock::now()-start)) << " to parse glyphs." << std::endl;
-    cout << "Packing " << glyphsToAdd.size << " glyphs..." << std::endl;
+    cout.PrintLn("Took ", FormatTime(Nanoseconds(Clock::now()-start)), " to parse glyphs.");
+    cout.PrintLn("Packing ", glyphsToAdd.size, " glyphs...");
     struct SizeIndex {
         i32 index;
         vec2 size;
@@ -1406,7 +1399,7 @@ bool FontBuilder::Build() {
         }
         sortedIndices.Insert(insertPos, sizeIndex);
     }
-    cout << "Took " << FormatTime(Nanoseconds(Clock::now()-start)) << " to sort by size." << std::endl;
+    cout.PrintLn("Took ", FormatTime(Nanoseconds(Clock::now()-start)), " to sort by size.");
     if (corners.size == 0) {
         corners.Append(vec2(0.0f));
         bounding = vec2(0.0f);
@@ -1449,10 +1442,9 @@ bool FontBuilder::Build() {
         }
     }
     Nanoseconds packingTime = Clock::now()-start;
-    cout << "Took " << FormatTime(packingTime) << " to pack glyphs." << std::endl;
+    cout.PrintLn("Took ", FormatTime(packingTime), " to pack glyphs.");
     f32 totalArea = bounding.x * bounding.y;
-    cout << "Of a total page area of " << totalArea << ", "
-         << u32(area/totalArea*100.0f) << "% was used." << std::endl;
+    cout.PrintLn("Of a total page area of ", totalArea, ", ", u32(area/totalArea*100.0f), "% was used.");
     bounding.x = max(bounding.x, 1.0f);
     bounding.y = max(bounding.y, 1.0f);
     f32 oldBoundSquare = boundSquare;
@@ -1466,7 +1458,7 @@ bool FontBuilder::Build() {
     edge = sdfDistance*32.0f;
 
     vec2i dimensionsNew = vec2i(i32(boundSquare)*resolution);
-    cout << "Texture dimensions = {" << dimensionsNew.x << ", " << dimensionsNew.y << "}" << std::endl;
+    cout.PrintLn("Texture dimensions = {", dimensionsNew.x, ", ", dimensionsNew.y, "}");
     ResizeImage(dimensionsNew.x, dimensionsNew.y);
     for (i32 i = 0; i < glyphs.size; i++) {
         Glyph& glyph = glyphs[i];
@@ -1494,7 +1486,7 @@ bool FontBuilder::Build() {
         }
     }
     Nanoseconds renderingTime = Clock::now() - start;
-    cout << "Rendering took " << FormatTime(renderingTime) << std::endl;
+    cout.PrintLn("Rendering took ", FormatTime(renderingTime));
     glyphs.Append(std::move(glyphsToAdd));
     return true;
 }

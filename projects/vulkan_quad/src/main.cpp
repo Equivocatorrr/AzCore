@@ -12,15 +12,15 @@ using namespace AzCore;
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 
-io::LogStream cout("test.log");
+io::Log cout("test.log");
 
 i32 main(i32 argumentCount, char** argumentValues) {
 
     bool enableLayers = false, enableCoreValidation = false;
 
-    cout << "\nTest program received " << argumentCount << " arguments:\n";
+    cout.PrintLn("\nTest program received ", argumentCount, " arguments:");
     for (i32 i = 0; i < argumentCount; i++) {
-        cout << i << ": " << argumentValues[i] << std::endl;
+        cout.PrintLn(i, ": ", argumentValues[i]);
         if (equals(argumentValues[i], "--enable-layers")) {
             enableLayers = true;
         } else if (equals(argumentValues[i], "--core-validation")) {
@@ -42,7 +42,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     };
     Image image("data/icon.png");
     if (image.pixels == nullptr) {
-        cout << "Failed to load image!" << std::endl;
+        cout.PrintLn("Failed to load image!");
         return 1;
     }
 
@@ -50,7 +50,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkInstance.AppInfo("AzCore Test Program", 1, 0, 0);
 
     if (enableLayers) {
-        cout << "Validation layers enabled." << std::endl;
+        cout.PrintLn("Validation layers enabled.");
         Array<const char*> layers = {
             "VK_LAYER_GOOGLE_threading",
             "VK_LAYER_LUNARG_parameter_validation",
@@ -80,7 +80,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     window.width = 480;
     window.height = 480;
     if (!window.Open()) {
-        cout << "Failed to open Window: " << io::error << std::endl;
+        cout.PrintLn("Failed to open Window: ", io::error);
         return 1;
     }
 
@@ -155,7 +155,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkDescriptorLayoutTexture->bindings[0].count = 1;
     Ptr<vk::DescriptorSet> vkDescriptorSetTexture = vkDescriptors->AddSet(vkDescriptorLayoutTexture);
     if (!vkDescriptorSetTexture->AddDescriptor(vkTextureImage, vkSampler, 0)) {
-        cout << "Failed to add Texture Descriptor: " << vk::error << std::endl;
+        cout.PrintLn("Failed to add Texture Descriptor: ", vk::error);
         return 1;
     }
 
@@ -234,7 +234,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkTransferQueueSubmission->waitSemaphores = {};
 
     if (!vkInstance.Init()) { // Do this once you've set up the structure of your program.
-        cout << "Failed to initialize Vulkan: " << vk::error << std::endl;
+        cout.PrintLn("Failed to initialize Vulkan: ", vk::error);
         return 1;
     }
 
@@ -250,19 +250,19 @@ i32 main(i32 argumentCount, char** argumentValues) {
     vkTextureImage->Copy(cmdBufCopy, vkStagingBuffers.GetPtr(2));
     vkTextureImage->GenerateMipMaps(cmdBufCopy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     if (!vkCommandBuffer->End()) {
-        cout << "Failed to copy from staging buffers: " << vk::error << std::endl;
+        cout.PrintLn("Failed to copy from staging buffers: ", vk::error);
         return 1;
     }
     vkDevice->SubmitCommandBuffers(queueGraphics, {vkTransferQueueSubmission});
     vk::QueueWaitIdle(queueGraphics);
 
     if (!vkDescriptors->Update()) {
-        cout << "Failed to update descriptors: " << vk::error << std::endl;
+        cout.PrintLn("Failed to update descriptors: ", vk::error);
         return 1;
     }
 
     if(!window.Show()) {
-        cout << "Failed to show Window: " << io::error << std::endl;
+        cout.PrintLn("Failed to show Window: ", io::error);
         return 1;
     }
     RandomNumberGenerator rng;
@@ -270,17 +270,17 @@ i32 main(i32 argumentCount, char** argumentValues) {
     do {
         for (i32 i = 0; i < 256; i++) {
             if (input.inputs[i].Pressed()) {
-                cout << "Pressed   HID " << std::hex << i << "\t" << window.InputName(i) << std::endl;
+                cout.PrintLn("Pressed   HID 0x", ToString(i, 16), "\t", window.InputName(i));
             }
             if (input.inputs[i].Released()) {
-                cout << "Released  HID " << std::hex << i << "\t" << window.InputName(i) << std::endl;
+                cout.PrintLn("Released  HID 0x", ToString(i, 16), "\t", window.InputName(i));
             }
         }
         input.Tick(1.0f/60.0f);
 
         if (window.resized || resize) {
             if (!vkSwapchain->Resize()) {
-                cout << "Failed to resize vkSwapchain: " << vk::error << std::endl;
+                cout.PrintLn("Failed to resize vkSwapchain: ", vk::error);
                 return 1;
             }
             resize = false;
@@ -289,14 +289,14 @@ i32 main(i32 argumentCount, char** argumentValues) {
         VkResult acquisitionResult = vkSwapchain->AcquireNextImage();
 
         if (acquisitionResult == VK_ERROR_OUT_OF_DATE_KHR || acquisitionResult == VK_NOT_READY) {
-            cout << "Skipping a frame because acquisition returned: " << vk::ErrorString(acquisitionResult) << std::endl;
+            cout.PrintLn("Skipping a frame because acquisition returned: ", vk::ErrorString(acquisitionResult));
             resize = true;
             continue; // Don't render this frame.
         } else if (acquisitionResult == VK_TIMEOUT) {
-            cout << "Skipping a frame because acquisition returned: " << vk::ErrorString(acquisitionResult) << std::endl;
+            cout.PrintLn("Skipping a frame because acquisition returned: ", vk::ErrorString(acquisitionResult));
             continue;
         } else if (acquisitionResult != VK_SUCCESS) {
-            cout << vk::error << std::endl;
+            cout.PrintLn(vk::error);
             return 1;
         }
 
@@ -304,7 +304,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
         VkCommandBuffer cmdBuf = vkCommandBuffer->Begin();
         if (cmdBuf == VK_NULL_HANDLE) {
-            cout << "Failed to Begin recording vkCommandBuffer: " << vk::error << std::endl;
+            cout.PrintLn("Failed to Begin recording vkCommandBuffer: ", vk::error);
             return 1;
         }
 
@@ -327,18 +327,18 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
         // We have to re-config any QueueSubmissions connected to a Swapchain every time we acquire a Swapchain image.
         if (!vkQueueSubmission->Config()) {
-            cout << "Failed to re-Config vkQueueSubmission: " << vk::error << std::endl;
+            cout.PrintLn("Failed to re-Config vkQueueSubmission: ", vk::error);
             return 1;
         }
 
         // Submit to queue
         if (!vkDevice->SubmitCommandBuffers(queueGraphics, {vkQueueSubmission})) {
-            cout << "Failed to SubmitCommandBuffers: " << vk::error << std::endl;
+            cout.PrintLn("Failed to SubmitCommandBuffers: ", vk::error);
             return 1;
         }
 
         if (!vkSwapchain->Present(queuePresent, {semaphoreRenderFinished->semaphore})) {
-            cout << vk::error << std::endl;
+            cout.PrintLn(vk::error);
             return 1;
         }
 
@@ -349,14 +349,14 @@ i32 main(i32 argumentCount, char** argumentValues) {
     // But you also could just let the vk::Instance go out of scope and it will
     // clean itself up.
     if (!vkInstance.Deinit()) {
-        cout << "Failed to cleanup Vulkan Tree: " << vk::error << std::endl;
+        cout.PrintLn("Failed to cleanup Vulkan Tree: ", vk::error);
     }
     if (!window.Close()) {
-        cout << "Failed to close Window: " << io::error << std::endl;
+        cout.PrintLn("Failed to close Window: ", io::error);
         return 1;
     }
-    cout << "Last io::error was \"" << io::error << "\"" << std::endl;
-    cout << "Last vk::error was \"" << vk::error << "\"" << std::endl;
+    cout.PrintLn("Last io::error was \"", io::error, "\"");
+    cout.PrintLn("Last vk::error was \"", vk::error, "\"");
 
     return 0;
 }

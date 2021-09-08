@@ -189,7 +189,8 @@ bool RawInput::Init(RawInputFeatureBits enableMask) {
             error = "Failed to DirectInput8Create: " + ToString((u32)GetLastError());
             return false;
         }
-        cout << "Created DirectInput8!" << std::endl; {
+        cout.PrintLn("Created DirectInput8!");
+        {
             // Enumerate DirectInput devices
             if (data->directInput->EnumDevices(DI8DEVCLASS_GAMECTRL,
                                                RawInputDeviceEnumeration, this, DIEDFL_ATTACHEDONLY) != DI_OK) {
@@ -212,7 +213,7 @@ bool RawInput::Init(RawInputFeatureBits enableMask) {
                 error = "Failed to EnumObjects: " + ToString((u32)GetLastError());
                 return false;
             }
-            cout << "Device has " << rid.data->numAxes << " axes, " << rid.data->numButtons << " buttons, and " << rid.data->numHats << " hats." << std::endl;
+            cout.PrintLn("Device has ", rid.data->numAxes, " axes, ", rid.data->numButtons, " buttons, and ", rid.data->numHats, " hats.");
             if (rid.data->device->Acquire() != DI_OK) {
                 error = "Failed to Acquire: " + ToString((u32)GetLastError());
                 return false;
@@ -292,15 +293,15 @@ void Gamepad::Update(f32 timestep, i32 index) {
     if (result != DI_OK && result != DI_NOEFFECT) {
         result = rawInputDevice->data->device->Acquire();
         while (result == DIERR_INPUTLOST) {
-            cout << "DIERR_INPUTLOST" << std::endl;
+            cout.PrintLn("DIERR_INPUTLOST");
             result = rawInputDevice->data->device->Acquire();
         }
-        cout << "Poll failed: " << result << std::endl;
+        cout.PrintLn("Poll failed: ", result);
         return;
     }
 
     if (rawInputDevice->data->device->GetDeviceState(sizeof(DIJOYSTATE), &state) != DI_OK) {
-        cout << "Failed to GetDeviceState" << std::endl;
+        cout.PrintLn("Failed to GetDeviceState");
         return;
     }
 
@@ -336,7 +337,7 @@ void Gamepad::Update(f32 timestep, i32 index) {
         f32 hatDirection = (f32)state.rgdwPOV[0] / 36000.0f * tau; // Radians clockwise from north
         axis.vec.H0.y = mapAxisWithDeadZone(-cos(hatDirection), -1.0f, 1.0f, 0.0000001f);
         axis.vec.H0.x = mapAxisWithDeadZone(sin(hatDirection), -1.0f, 1.0f, 0.0000001f);
-        // cout << "H0.x = " << axis.vec.H0.x << ", H0.y = " << axis.vec.H0.y << std::endl;
+        // cout.PrintLn("H0.x = ", axis.vec.H0.x, ", H0.y = ", axis.vec.H0.y);
     }
 
     for (u32 i = 0; i < IO_GAMEPAD_MAX_AXES; i++) {
@@ -357,16 +358,16 @@ void Gamepad::Update(f32 timestep, i32 index) {
             }
         }
         // if (axisPush[i*2].Pressed()) {
-        //     cout << "Pressed " << KeyCodeName(i*2 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+        //     cout.PrintLn("Pressed ", KeyCodeName(i*2 + KC_GP_AXIS_LS_RIGHT));
         // }
         // if (axisPush[i*2+1].Pressed()) {
-        //     cout << "Pressed " << KeyCodeName(i*2+1 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+        //     cout.PrintLn("Pressed ", KeyCodeName(i*2+1 + KC_GP_AXIS_LS_RIGHT));
         // }
         // if (axisPush[i*2].Released()) {
-        //     cout << "Released " << KeyCodeName(i*2 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+        //     cout.PrintLn("Released ", KeyCodeName(i*2 + KC_GP_AXIS_LS_RIGHT));
         // }
         // if (axisPush[i*2+1].Released()) {
-        //     cout << "Released " << KeyCodeName(i*2+1 + KC_GP_AXIS_LS_RIGHT) << std::endl;
+        //     cout.PrintLn("Released ", KeyCodeName(i*2+1 + KC_GP_AXIS_LS_RIGHT));
         // }
     }
     handleButton(hat[0], axis.vec.H0.x > 0.0f && axis.vec.H0.y < 0.0f, KC_GP_AXIS_H0_UP_RIGHT,
@@ -380,10 +381,10 @@ void Gamepad::Update(f32 timestep, i32 index) {
 
     // for (u32 i = 0; i < 4; i++) {
     //     if (hat[i].Pressed()) {
-    //         cout << "Pressed " << KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT) << std::endl;
+    //         cout.PrintLn("Pressed ", KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT));
     //     }
     //     if (hat[i].Released()) {
-    //         cout << "Released " << KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT) << std::endl;
+    //         cout.PrintLn("Released ", KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT));
     //     }
     // }
 
@@ -435,7 +436,7 @@ void Gamepad::Update(f32 timestep, i32 index) {
     // If you want to improve one of the above mappings or add one, this is your best bet.
     // for (u32 i = 0; i < 32; i++) {
     //     if (state.rgbButtons[i]) {
-    //         cout << "Button[" << i << "] is down!" << std::endl;
+    //         cout.PrintLn("Button[", i, "] is down!");
     //     }
     // }
 }
@@ -445,7 +446,7 @@ LRESULT CALLBACK RawInputProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
         SetLastError(0);
         SetWindowLongPtr(hWnd, 0, (LONG_PTR)((CREATESTRUCT *)lParam)->lpCreateParams);
         if (GetLastError()) {
-            cout << "Failed to SetWindowLongPtr: " + ToString((u32)GetLastError());
+            cout.PrintLn("Failed to SetWindowLongPtr: ", (u32)GetLastError());
         }
         return 0;
     }
@@ -465,7 +466,7 @@ LRESULT CALLBACK RawInputProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
         LPBYTE lpb = new BYTE[dwSize];
 
         if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, lpb, &dwSize, sizeof(RAWINPUTHEADER)) != dwSize) {
-            cout << "GetRawInputData didn't return the correct size!" << std::endl;
+            cout.PrintLn("GetRawInputData didn't return the correct size!");
         }
 
         RAWINPUT *raw = (RAWINPUT *)lpb;
@@ -475,16 +476,16 @@ LRESULT CALLBACK RawInputProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
         GetRawInputDeviceInfo(raw->header.hDevice, RIDI_DEVICEINFO, &deviceInfo, &deviceInfoSize);
         if (raw->header.dwType == RIM_TYPEKEYBOARD) {
             // TODO: Implement keyboards
-            // cout << "Raw Input from KEYBOARD:\n"
-            // "Vendor: " << deviceInfo.hid.dwVendorId <<
-            // "Product: " << deviceInfo.hid.dwProductId <<
-            // "Version: " << deviceInfo.hid.dwVersionNumber << std::endl;
+            // cout.PrintLn("Raw Input from KEYBOARD:\n"
+            // "Vendor: ", deviceInfo.hid.dwVendorId,
+            // "Product: ", deviceInfo.hid.dwProductId,
+            // "Version: ", deviceInfo.hid.dwVersionNumber);
         } else if (raw->header.dwType == RIM_TYPEMOUSE) {
             // TODO: Implement mice
-            // cout << "Raw Input from MOUSE:\n"
-            // "Vendor: " << deviceInfo.hid.dwVendorId <<
-            // "Product: " << deviceInfo.hid.dwProductId <<
-            // "Version: " << deviceInfo.hid.dwVersionNumber << std::endl;
+            // cout.PrintLn("Raw Input from MOUSE:\n"
+            // "Vendor: ", deviceInfo.hid.dwVendorId,
+            // "Product: ", deviceInfo.hid.dwProductId,
+            // "Version: ", deviceInfo.hid.dwVersionNumber);
         } /* else if (raw->header.dwType == RIM_TYPEHID) {
                 // HID means not keyboard or mouse
                 // This is handled by DirectInput and XInput
@@ -497,26 +498,26 @@ LRESULT CALLBACK RawInputProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
 
 BOOL CALLBACK RawInputDeviceEnumeration(const DIDEVICEINSTANCE *devInst, VOID *userdata) {
     RawInput *rawInput = (RawInput *)userdata;
-    cout << "Enumerating Joystick\n\tInstance(" << ToString(devInst->guidInstance) << ") Name: " << devInst->tszInstanceName << "\n\tProduct(" << ToString(devInst->guidProduct) << ") Name: " << devInst->tszProductName << std::endl;
+    cout.PrintLn("Enumerating Joystick\n\tInstance(", ToString(devInst->guidInstance), ") Name: ", devInst->tszInstanceName, "\n\tProduct(", ToString(devInst->guidProduct), ") Name: ", devInst->tszProductName);
     if (devInst->wUsagePage != 0x01) {
-        cout << "Device is not HID!" << std::endl;
+        cout.PrintLn("Device is not HID!");
         return DIENUM_CONTINUE;
     }
     RawInputDevice rid;
     if (devInst->wUsage == 0x05) {
-        cout << "Device is a gamepad" << std::endl;
+        cout.PrintLn("Device is a gamepad");
         if (!(rawInput->data->enableMask & RAW_INPUT_ENABLE_GAMEPAD_BIT)) {
             return DIENUM_CONTINUE;
         }
         rid.type = GAMEPAD;
     } else if (devInst->wUsage == 0x04) {
-        cout << "Device is a joystick proper" << std::endl;
+        cout.PrintLn("Device is a joystick proper");
         if (!(rawInput->data->enableMask & RAW_INPUT_ENABLE_JOYSTICK_BIT)) {
             return DIENUM_CONTINUE;
         }
         rid.type = JOYSTICK;
     } else {
-        cout << "Unsupported wUsage 0x" << std::hex << devInst->wUsage << std::endl;
+        cout.PrintLn("Unsupported wUsage 0x", ToString(devInst->wUsage, 16));
         return DIENUM_CONTINUE;
     }
     RawInputDeviceInit(&rid);

@@ -11,7 +11,7 @@ namespace io {
 
     String error = "No Error";
     vec2 screenSize;
-    LogStream cout("io.log");
+    Log cout("io.log");
 
 } // namespace io
 

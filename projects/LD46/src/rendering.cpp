@@ -6,13 +6,13 @@
 #include "rendering.hpp"
 #include "globals.hpp"
 
-#include "AzCore/IO/LogStream.hpp"
+#include "AzCore/IO/Log.hpp"
 #include "AzCore/io.hpp"
 #include "AzCore/font.hpp"
 
 namespace Rendering {
 
-io::LogStream cout("rendering.log");
+io::Log cout("rendering.log");
 
 String error = "No error.";
 
@@ -481,11 +481,11 @@ bool Manager::Draw() {
     VkResult acquisitionResult = data.swapchain->AcquireNextImage();
 
     if (acquisitionResult == VK_ERROR_OUT_OF_DATE_KHR || acquisitionResult == VK_NOT_READY) {
-        cout << "Skipping a frame because acquisition returned: " << vk::ErrorString(acquisitionResult) << std::endl;
+        cout.PrintLn("Skipping a frame because acquisition returned: ", vk::ErrorString(acquisitionResult));
         data.resized = true;
         return true; // Don't render this frame.
     } else if (acquisitionResult == VK_TIMEOUT) {
-        cout << "Skipping a frame because acquisition returned: " << vk::ErrorString(acquisitionResult) << std::endl;
+        cout.PrintLn("Skipping a frame because acquisition returned: ", vk::ErrorString(acquisitionResult));
         return true;
     } else if (acquisitionResult == VK_SUBOPTIMAL_KHR) {
         data.resized = true;
@@ -670,7 +670,7 @@ f32 StringHeight(WString string) {
 
 WString Manager::StringAddNewlines(WString string, i32 fontIndex, f32 maxWidth) const {
     if (maxWidth < 0.0f) {
-        cout << "Why are we negative???" << std::endl;
+        cout.PrintLn("Why are we negative???");
     }
     if (maxWidth <= 0.0f) {
         return string;

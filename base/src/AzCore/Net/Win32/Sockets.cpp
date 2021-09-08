@@ -29,7 +29,8 @@ struct socketdata {
 static_assert(sizeof(socketdata) < 24);
 
 inline void Socket::_Err(const char *explain) {
-    error = explain + ToString(WSAGetLastError());
+    error = explain;
+    AppendToString(error, WSAGetLastError());
 }
 
 inline socketdata& Socket::Data() {

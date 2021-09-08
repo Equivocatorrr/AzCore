@@ -19,7 +19,7 @@ namespace io {
     extern String error;
     extern vec2 screenSize;
 
-    extern LogStream cout;
+    extern Log cout;
 
 } // namespace io
 

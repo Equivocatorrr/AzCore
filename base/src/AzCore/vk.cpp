@@ -4,7 +4,7 @@
 */
 #include "io.hpp"
 #include "vk.hpp"
-#include "IO/LogStream.hpp"
+#include "IO/Log.hpp"
 #include <cstring>
 #include <cstdlib>
 #include <fstream>
@@ -66,9 +66,9 @@ namespace vk {
     String error = "No Error";
 
 #ifndef AZCORE_VK_LOGGING_NO_CONSOLE
-    io::LogStream cout("vk.log");
+    io::Log cout("vk.log");
 #else
-    io::LogStream cout("vk.log", false);
+    io::Log cout("vk.log", false);
 #endif
 
     const char *QueueTypeString[5] = {
@@ -195,16 +195,16 @@ namespace vk {
         i32 width = 80-(i32)str.size;
         if (width > 0) {
             for (u32 i = (width+1)/2; i > 0; i--) {
-                cout << "-";
+                cout.Print("-");
             }
-            cout << str;
+            cout.Print(str);
             for (u32 i = width/2; i > 0; i--) {
-                cout << "-";
+                cout.Print("-");
             }
         } else {
-            cout << str;
+            cout.Print(str);
         }
-        cout << std::endl;
+        cout.Print("\n");
     }
 
     String FormatSize(u64 size) {
@@ -244,36 +244,36 @@ namespace vk {
 
         const VkDebugUtilsMessengerCallbackDataEXT& data = *pCallbackData;
 
-        cout.MutexLock();
+        cout.Lock();
 
         PrintDashed("Validation Message Begin");
 
-        cout << "Message ID Name: \"" << data.pMessageIdName << "\"\nMessage: \"" << data.pMessage << "\n";
+        cout.PrintLn("Message ID Name: \"", data.pMessageIdName, "\"\nMessage: \"", data.pMessage);
 
-        cout << data.queueLabelCount << " Queue Labels:\n";
+        cout.PrintLn(data.queueLabelCount, " Queue Labels:");
         for (u32 i = 0; i < data.queueLabelCount; i++) {
             const VkDebugUtilsLabelEXT& label = data.pQueueLabels[i];
-            cout << "\t" << label.pLabelName << " with color {" << label.color[0] << ", " << label.color[1] << ", " << label.color[2] << ", " << label.color[3] << "}\n";
+            cout.PrintLn("\t", label.pLabelName, " with color {", label.color[0], ", ", label.color[1], ", ", label.color[2], ", ", label.color[3], "}");
         }
-        cout << data.cmdBufLabelCount << " Command Buffer Labels:\n";
+        cout.PrintLn(data.cmdBufLabelCount, " Command Buffer Labels:");
         for (u32 i = 0; i < data.cmdBufLabelCount; i++) {
             const VkDebugUtilsLabelEXT& label = data.pCmdBufLabels[i];
-            cout << "\t" << label.pLabelName << " with color {" << label.color[0] << ", " << label.color[1] << ", " << label.color[2] << ", " << label.color[3] << "}\n";
+            cout.PrintLn("\t", label.pLabelName, " with color {", label.color[0], ", ", label.color[1], ", ", label.color[2], ", ", label.color[3], "}");
         }
-        cout << data.objectCount << " Objects:\n";
+        cout.PrintLn(data.objectCount, " Objects:");
         for (u32 i = 0; i < data.objectCount; i++) {
             const VkDebugUtilsObjectNameInfoEXT& name = data.pObjects[i];
-            cout << "\tType: " << ObjectTypeString(name.objectType) << " with name: ";
+            cout.Print("\tType: ", ObjectTypeString(name.objectType), " with name: ");
             if (name.pObjectName != nullptr) {
-                cout << name.pObjectName << "\n";
+                cout.PrintLn(name.pObjectName, "");
             } else {
-                cout << "nullptr\n";
+                cout.PrintLn("nullptr");
             }
         }
 
         PrintDashed("Validation Message End");
 
-        cout.MutexUnlock();
+        cout.Unlock();
 
         return VK_FALSE;
     }
@@ -283,7 +283,7 @@ namespace vk {
     VKAPI_ATTR void* VKAPI_CALL Allocate(void *pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope) {
         Instance *instance = (Instance*)pUserData;
         size_t aligned = align(size, alignment);
-        // cout << "Allocate size " << size << " with alignment " << alignment << " should be " << aligned << std::endl;
+        // cout.PrintLn("Allocate size ", size, " with alignment ", alignment, " should be ", aligned);
         instance->data.allocationMutex.lock();
 #ifdef __unix
         void *ptr = aligned_alloc(alignment, aligned);
@@ -297,7 +297,7 @@ namespace vk {
     }
 
     VKAPI_ATTR void* VKAPI_CALL Reallocate(void *pUserData, void *pOriginal, size_t size, size_t alignment, VkSystemAllocationScope allocationScope) {
-        // cout << "Reallocate" << std::endl;
+        // cout.PrintLn("Reallocate");
         if (pOriginal == nullptr) {
             return Allocate(pUserData, size, alignment, allocationScope);
         }
@@ -314,7 +314,7 @@ namespace vk {
             }
         }
         if (aligned <= originalSize) {
-            // cout << "Reallocate doesn't need to do anything, returning original ptr" << std::endl;
+            // cout.PrintLn("Reallocate doesn't need to do anything, returning original ptr");
             return pOriginal;
         }
 #ifdef __unix
@@ -333,7 +333,7 @@ namespace vk {
     }
 
     VKAPI_ATTR void VKAPI_CALL Free(void *pUserData, void *pMemory) {
-        // cout << "Free" << std::endl;
+        // cout.PrintLn("Free");
         if (pMemory == nullptr) {
             return;
         }
@@ -349,7 +349,7 @@ namespace vk {
             index++;
         }
         if (index == instance->data.allocations.size) {
-            cout << "Attempted to free memory that we don't have in our list of allocations: " << (u64)pMemory << std::endl;
+            cout.PrintLn("Attempted to free memory that we don't have in our list of allocations: ", (u64)pMemory);
             return;
         }
         instance->data.allocations.Erase(index);
@@ -444,27 +444,19 @@ namespace vk {
 
     void PhysicalDevice::PrintInfo(Array<Window> windows, bool checkSurface) {
         // Basic info
-        cout << "Name: " << properties.deviceName
-            << "\nVulkan: "
-            << VK_VERSION_MAJOR(properties.apiVersion) << "."
-            << VK_VERSION_MINOR(properties.apiVersion) << "."
-            << VK_VERSION_PATCH(properties.apiVersion) << std::endl;
+        cout.PrintLn("Name: ", properties.deviceName, "\nVulkan: ", VK_VERSION_MAJOR(properties.apiVersion), ".", VK_VERSION_MINOR(properties.apiVersion), ".", VK_VERSION_PATCH(properties.apiVersion));
         // Memory
         u64 deviceLocalMemory = 0;
         for (u32 i = 0; i < memoryProperties.memoryHeapCount; i++) {
             if (memoryProperties.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
                 deviceLocalMemory += memoryProperties.memoryHeaps[i].size;
         }
-        cout << "Memory: " << FormatSize(deviceLocalMemory) << std::endl;
+        cout.PrintLn("Memory: ", FormatSize(deviceLocalMemory));
         // Queue families
-        cout << "Queue Families:";
+        cout.Print("Queue Families:");
         for (i32 i = 0; i < queueFamiliesAvailable.size; i++) {
             const VkQueueFamilyProperties &props = queueFamiliesAvailable[i];
-            cout << "\n\tFamily[" << i << "] Queue count: " << props.queueCount
-                << "\tSupports: "
-                << ((props.queueFlags & VK_QUEUE_COMPUTE_BIT) ? "COMPUTE " : "")
-                << ((props.queueFlags & VK_QUEUE_GRAPHICS_BIT) ? "GRAPHICS " : "")
-                << ((props.queueFlags & VK_QUEUE_TRANSFER_BIT) ? "TRANSFER " : "");
+            cout.Print("\n\tFamily[", i, "] Queue count: ", props.queueCount, "\tSupports: ", ((props.queueFlags & VK_QUEUE_COMPUTE_BIT) ? "COMPUTE " : ""), ((props.queueFlags & VK_QUEUE_GRAPHICS_BIT) ? "GRAPHICS " : ""), ((props.queueFlags & VK_QUEUE_TRANSFER_BIT) ? "TRANSFER " : ""));
             if (checkSurface) {
                 String presentString = "PRESENT on windows {";
                 VkBool32 presentSupport = false;
@@ -481,10 +473,10 @@ namespace vk {
                 }
                 presentString += "}";
                 if (!first)
-                    cout << presentString;
+                    cout.Print(presentString);
             }
         }
-        cout << std::endl;
+        cout.Print("\n");
     }
 
     void Image::Init(Device *device, String debugMarker) {
@@ -600,11 +592,11 @@ namespace vk {
     void Image::CopyData(void *src, u32 bytesPerPixel) {
 #ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (src == nullptr) {
-            cout << "Warning: Image::CopyData src is nullptr! Skipping copy." << std::endl;
+            cout.PrintLn("Warning: Image::CopyData src is nullptr! Skipping copy.");
             return;
         }
         if (data.memory == nullptr) {
-            cout << "Warning: Image::CopyData: Image is not associated with a Memory object! Skipping copy." << std::endl;
+            cout.PrintLn("Warning: Image::CopyData: Image is not associated with a Memory object! Skipping copy.");
             return;
         }
 #endif
@@ -675,7 +667,7 @@ namespace vk {
             srcStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
             break;
         default:
-            cout << "Warning: Image::TransitionLayout from layout is not explicitly supported! Keeping defaults... This may not work as intended." << std::endl;
+            cout.PrintLn("Warning: Image::TransitionLayout from layout is not explicitly supported! Keeping defaults... This may not work as intended.");
             break;
         }
 
@@ -712,7 +704,7 @@ namespace vk {
             dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
             break;
         default:
-            cout << "Warning: Image::TransitionLayout to layout is not explicitly supported! Keeping defaults... This may not work as intended." << std::endl;
+            cout.PrintLn("Warning: Image::TransitionLayout to layout is not explicitly supported! Keeping defaults... This may not work as intended.");
             break;
         }
 
@@ -722,7 +714,7 @@ namespace vk {
     void Image::Copy(VkCommandBuffer commandBuffer, Ptr<Buffer> src) {
 #ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (!src.Valid()) {
-            cout << "Warning: Image::Copy src is not a valid Ptr! Skipping copy." << std::endl;
+            cout.PrintLn("Warning: Image::Copy src is not a valid Ptr! Skipping copy.");
             return;
         }
 #endif
@@ -740,12 +732,12 @@ namespace vk {
 
     void Image::GenerateMipMaps(VkCommandBuffer commandBuffer, VkImageLayout startingLayout, VkImageLayout finalLayout) {
         if (mipLevels <= 1) {
-            cout << "Warning: Image::GenerateMipMaps only has 1 mipLevel.";
+            cout.Print("Warning: Image::GenerateMipMaps only has 1 mipLevel.");
             if (startingLayout != finalLayout) {
-                cout << " Doing the transition only." << std::endl;
+                cout.PrintLn(" Doing the transition only.");
                 TransitionLayout(commandBuffer, startingLayout, finalLayout);
             } else {
-                cout << " We have nothing to do." << std::endl;
+                cout.PrintLn(" We have nothing to do.");
             }
             return;
         }
@@ -830,15 +822,15 @@ namespace vk {
     void Buffer::CopyData(void *src, VkDeviceSize copySize, VkDeviceSize dstOffset) {
 #ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (src == nullptr) {
-            cout << "Warning: Buffer::CopyData src is nullptr! Skipping copy." << std::endl;
+            cout.PrintLn("Warning: Buffer::CopyData src is nullptr! Skipping copy.");
             return;
         }
         if (data.memory == nullptr) {
-            cout << "Warning: Buffer::CopyData: Buffer is not associated with a Memory object! Skipping copy." << std::endl;
+            cout.PrintLn("Warning: Buffer::CopyData: Buffer is not associated with a Memory object! Skipping copy.");
             return;
         }
         if (copySize+dstOffset > size) {
-            cout << "Warning: Buffer::CopyData copySize+dstOffset goes beyond buffer size! Skipping copy." << std::endl;
+            cout.PrintLn("Warning: Buffer::CopyData copySize+dstOffset goes beyond buffer size! Skipping copy.");
             return;
         }
 #endif
@@ -853,21 +845,21 @@ namespace vk {
     {
 #ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (!src.Valid()) {
-            cout << "Warning: Buffer::Copy src is not a valid Ptr! Skipping copy." << std::endl;
+            cout.PrintLn("Warning: Buffer::Copy src is not a valid Ptr! Skipping copy.");
             return;
         }
         if (dstOffset >= size) {
-            cout << "Warning: Buffer::Copy dstOffset is greater than dst size! Skipping copy." << std::endl;
+            cout.PrintLn("Warning: Buffer::Copy dstOffset is greater than dst size! Skipping copy.");
             return;
         }
         if (srcOffset >= src->size) {
-            cout << "Warning: Buffer::Copy srcOffset is greater than src size! Skipping copy." << std::endl;
+            cout.PrintLn("Warning: Buffer::Copy srcOffset is greater than src size! Skipping copy.");
             return;
         }
 #endif
         if (copySize == 0) {
             if (src->size-srcOffset > size-dstOffset) {
-                cout << "Warning: Buffer::Copy with unspecified copySize has a larger src size than dst at given offsets!" << std::endl;
+                cout.PrintLn("Warning: Buffer::Copy with unspecified copySize has a larger src size than dst at given offsets!");
                 copySize = size - dstOffset;
             } else {
                 copySize = src->size - srcOffset;
@@ -973,7 +965,7 @@ namespace vk {
             data.memoryProperties = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
         }
 
-        cout << "Memory will create " << data.images.size << " images and " << data.buffers.size << " buffers." << std::endl;
+        cout.PrintLn("Memory will create ", data.images.size, " images and ", data.buffers.size, " buffers.");
 
         for (Image& image : data.images) {
             image.data.memory = this;
@@ -1141,7 +1133,7 @@ failure:
             return false;
         }
 #endif
-        cout << "Allocating " << (deviceLocal ? "Device" : "Host") << " Memory with size: " << FormatSize(data.offsets.Back()) << std::endl;
+        cout.PrintLn("Allocating ", (deviceLocal ? "Device" : "Host"), " Memory with size: ", FormatSize(data.offsets.Back()));
         VkMemoryAllocateInfo allocInfo = {};
         allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         allocInfo.allocationSize = data.offsets.Back();
@@ -1163,23 +1155,23 @@ failure:
     void Memory::CopyData(void *src, VkDeviceSize size, i32 index) {
 #ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (src == nullptr) {
-            cout << "Warning: Memory::CopyData has nullptr src! Skipping copy." << std::endl;
+            cout.PrintLn("Warning: Memory::CopyData has nullptr src! Skipping copy.");
             return;
         }
         if (size == 0) {
-            cout << "Warning: Memory::CopyData has size of 0! Skipping copy." << std::endl;
+            cout.PrintLn("Warning: Memory::CopyData has size of 0! Skipping copy.");
             return;
         }
         if ((data.memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0
             && (data.memoryPropertiesDeferred & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
-            cout << "Warning: Memory::CopyData is trying to copy memory that isn't host coherent!" << std::endl;
+            cout.PrintLn("Warning: Memory::CopyData is trying to copy memory that isn't host coherent!");
         }
         if ((data.memoryProperties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0
             && (data.memoryPropertiesDeferred & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0) {
-            cout << "Warning: Memory::CopyData is trying to copy memory that isn't host visible!" << std::endl;
+            cout.PrintLn("Warning: Memory::CopyData is trying to copy memory that isn't host visible!");
         }
         if (index >= data.offsets.size-1) {
-            cout << "Warning: Memory::CopyData offset index is out of bounds! Skipping copy." << std::endl;
+            cout.PrintLn("Warning: Memory::CopyData offset index is out of bounds! Skipping copy.");
         }
 #endif
         void* dst;
@@ -1191,31 +1183,31 @@ failure:
     void Memory::CopyData2D(void *src, Ptr<Image> image, i32 index, u32 bytesPerPixel) {
 #ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
         if (src == nullptr) {
-            cout << "Warning: Memory::CopyData2D has nullptr src! Skipping copy." << std::endl;
+            cout.PrintLn("Warning: Memory::CopyData2D has nullptr src! Skipping copy.");
             return;
         }
         if (!image.Valid()) {
-            cout << "Warning: Memory::CopyData2D image is not a valid Ptr! Skipping copy." << std::endl;
+            cout.PrintLn("Warning: Memory::CopyData2D image is not a valid Ptr! Skipping copy.");
             return;
         }
         if (image->width == 0) {
-            cout << "Warning: Memory::CopyData2D image has width of 0! Skipping copy." << std::endl;
+            cout.PrintLn("Warning: Memory::CopyData2D image has width of 0! Skipping copy.");
             return;
         }
         if (image->height == 0) {
-            cout << "Warning: Memory::CopyData2D image has height of 0! Skipping copy." << std::endl;
+            cout.PrintLn("Warning: Memory::CopyData2D image has height of 0! Skipping copy.");
             return;
         }
         if ((data.memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0
             && (data.memoryPropertiesDeferred & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
-            cout << "Warning: Memory::CopyData2D is trying to copy memory that isn't host coherent!" << std::endl;
+            cout.PrintLn("Warning: Memory::CopyData2D is trying to copy memory that isn't host coherent!");
         }
         if ((data.memoryProperties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0
             && (data.memoryPropertiesDeferred & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0) {
-            cout << "Warning: Memory::CopyData2D is trying to copy memory that isn't host visible!" << std::endl;
+            cout.PrintLn("Warning: Memory::CopyData2D is trying to copy memory that isn't host visible!");
         }
         if (index >= data.offsets.size-1) {
-            cout << "Warning: Memory::CopyData2D offset index is out of bounds! Skipping copy." << std::endl;
+            cout.PrintLn("Warning: Memory::CopyData2D offset index is out of bounds! Skipping copy.");
         }
 #endif
         VkImageSubresource subresource = {};
@@ -1506,7 +1498,7 @@ failure:
         }
 
         data.exists = true;
-        cout << "Allocating " << data.sets.size << " Descriptor Sets." << std::endl;
+        cout.PrintLn("Allocating ", data.sets.size, " Descriptor Sets.");
         Array<VkDescriptorSetLayout> setLayouts(data.sets.size);
         for (i32 i = 0; i < data.sets.size; i++) {
             setLayouts[i] = data.sets[i].data.layout->data.layout;
@@ -1840,7 +1832,7 @@ failure:
     RenderPass::~RenderPass() {
         if (data.initted) {
             if (!Deinit()) {
-                cout << "Failed to clean up vk::RenderPass: " << error << std::endl;
+                cout.PrintLn("Failed to clean up vk::RenderPass: ", error);
             }
         }
     }
@@ -1978,35 +1970,35 @@ failure:
                     subpass.data.referencesInput.Append(ref);
                 }
             }
-            cout << "Subpass[" << i << "] is using the following attachments:\n";
+            cout.PrintLn("Subpass[", i, "] is using the following attachments:");
             if (subpass.data.referencesColor.size != 0) {
-                cout << "\tColor: ";
+                cout.Print("\tColor: ");
                 for (auto& ref : subpass.data.referencesColor) {
-                    cout << ref.attachment << " ";
+                    cout.Print(ref.attachment, " ");
                 }
             }
             if (subpass.data.referencesResolve.size != 0) {
-                cout << "\n\tResolve: ";
+                cout.Print("\n\tResolve: ");
                 for (auto& ref : subpass.data.referencesResolve) {
-                    cout << ref.attachment << " ";
+                    cout.Print(ref.attachment, " ");
                 }
             }
             if (subpass.data.referencesInput.size != 0) {
-                cout << "\n\tInput: ";
+                cout.Print("\n\tInput: ");
                 for (auto& ref : subpass.data.referencesInput) {
-                    cout << ref.attachment << " ";
+                    cout.Print(ref.attachment, " ");
                 }
             }
             if (subpass.data.referencesPreserve.size != 0) {
-                cout << "\n\tPreserve: ";
+                cout.Print("\n\tPreserve: ");
                 for (auto& ref : subpass.data.referencesPreserve) {
-                    cout << ref << " ";
+                    cout.Print(ref, " ");
                 }
             }
             if (depthStencilTaken) {
-                cout << "\n\tDepth: " << subpass.data.referenceDepthStencil.attachment;
+                cout.Print("\n\tDepth: ", subpass.data.referenceDepthStencil.attachment);
             }
-            cout << std::endl;
+            cout.Print("\n");
             VkSubpassDescription description{};
             description.pipelineBindPoint = subpass.pipelineBindPoint;
             description.colorAttachmentCount = subpass.data.referencesColor.size;
@@ -2067,7 +2059,7 @@ failure:
             data.subpassDependencies.Append(dep);
         }
         if (data.subpasses.size > 2) {
-            cout << "Warning: Automatic subpass dependencies are currently not implemented." << std::endl;
+            cout.PrintLn("Warning: Automatic subpass dependencies are currently not implemented.");
         }
         for (i32 i = 1; i < data.subpasses.size-1; i++) {
             // VkSubpassDependency dep;
@@ -2165,7 +2157,7 @@ failure:
     Framebuffer::~Framebuffer() {
         if (data.initted) {
             if (!Deinit()) {
-                cout << "Failed to clean up vk::Framebuffer: " << error << std::endl;
+                cout.PrintLn("Failed to clean up vk::Framebuffer: ", error);
             }
         }
         if (depthMemory != nullptr) {
@@ -2239,7 +2231,7 @@ failure:
                 swapchain->data.framebuffers.Append(Ptr<Framebuffer>(this));
             }
         }
-        cout << "Width: " << width << "  Height: " << height << std::endl;
+        cout.PrintLn("Width: ", width, "  Height: ", height);
         if (ownMemory) {
             // Create Memory objects according to the RenderPass attachments
             if (depth && depthMemory == nullptr) {
@@ -2284,17 +2276,17 @@ failure:
                 image.format = attachment.format;
                 image.samples = attachment.samples;
                 if (attachment.finalLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-                    cout << "Adding color image " << i << " to colorMemory." << std::endl;
+                    cout.PrintLn("Adding color image ", i, " to colorMemory.");
                     image.aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
                     image.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
                     ourImages.Append(colorMemory->AddImage(image));
                 } else if (attachment.finalLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-                    cout << "Adding depth image " << i << " to depthMemory." << std::endl;
+                    cout.PrintLn("Adding depth image ", i, " to depthMemory.");
                     image.aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
                     image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
                     ourImages.Append(depthMemory->AddImage(image));
                 } else if (attachment.finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
-                    cout << "Adding null image " << i << " for replacement with swapchain images." << std::endl;
+                    cout.PrintLn("Adding null image ", i, " for replacement with swapchain images.");
                     ourImages.Append(Ptr<Image>());
                 }
                 i++;
@@ -2393,7 +2385,7 @@ failure:
                  }
             }
         }
-        cout << "Making " << numFramebuffers << " total framebuffers." << std::endl;
+        cout.PrintLn("Making ", numFramebuffers, " total framebuffers.");
         data.framebuffers.Resize(numFramebuffers);
         if (data.debugMarker.size != 0) {
             data.debugMarkers.Resize(numFramebuffers);
@@ -2599,7 +2591,7 @@ failure:
     Pipeline::~Pipeline() {
         if (data.initted) {
             if (!Deinit()) {
-                cout << "Failed to clean up pipeline: " << error << std::endl;
+                cout.PrintLn("Failed to clean up pipeline: ", error);
             }
         }
     }
@@ -2647,25 +2639,25 @@ failure:
         for (i32 i = 0; i < shaders.size; i++) {
             switch (shaders[i].stage) {
             case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
-                cout << "Tesselation Control ";
+                cout.Print("Tesselation Control ");
                 break;
             case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
-                cout << "Tesselation Evaluation ";
+                cout.Print("Tesselation Evaluation ");
                 break;
             case VK_SHADER_STAGE_GEOMETRY_BIT:
-                cout << "Geometry ";
+                cout.Print("Geometry ");
                 break;
             case VK_SHADER_STAGE_VERTEX_BIT:
-                cout << "Vertex ";
+                cout.Print("Vertex ");
                 break;
             case VK_SHADER_STAGE_FRAGMENT_BIT:
-                cout << "Fragment ";
+                cout.Print("Fragment ");
                 break;
             default:
                 break;
             }
-            cout << "Shader: \"" << shaders[i].shader->filename
-                 << "\" accessing function \"" << shaders[i].functionName << "\"" << std::endl;
+            cout.PrintLn("Shader: \"", shaders[i].shader->filename
+                , "\" accessing function \"", shaders[i].functionName, "\"");
             shaderStages[i] = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
             shaderStages[i].stage = shaders[i].stage;
             shaderStages[i].module = shaders[i].shader->data.module;
@@ -3018,7 +3010,7 @@ failure:
                 p++;
             }
         }
-        cout << "Allocating " << p << " primary command buffers and " << s << " secondary command buffers." << std::endl;
+        cout.PrintLn("Allocating ", p, " primary command buffers and ", s, " secondary command buffers.");
         primaryBuffers.Resize(p);
         secondaryBuffers.Resize(s);
         VkCommandBufferAllocateInfo allocInfo{};
@@ -3121,7 +3113,7 @@ failure:
 
         VkResult result = vkQueuePresentKHR(queue->queue, &presentInfo);
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-            cout << "Swapchain::Present Warning: vkQueuePresentKHR returned " << ErrorString(result) << std::endl;
+            cout.PrintLn("Swapchain::Present Warning: vkQueuePresentKHR returned ", ErrorString(result));
         } else if (result != VK_SUCCESS) {
             error = "Failed to present swapchain image: " + ErrorString(result);
             return false;
@@ -3130,9 +3122,9 @@ failure:
     }
 
     bool Swapchain::Resize() {
-        cout << "\n\n";
+        cout.PrintLn("\n");
         PrintDashed("Resizing Swapchain");
-        cout << "\n";
+        cout.PrintLn("");
         vkDeviceWaitIdle(data.device->data.device);
         VkPhysicalDevice physicalDevice = data.device->data.physicalDevice.physicalDevice;
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, data.surface, &data.surfaceCapabilities);
@@ -3160,7 +3152,7 @@ failure:
     Swapchain::~Swapchain() {
         if (data.initted) {
             if (!Deinit()) {
-                cout << "Failed to clean up vk::Swapchain: " << error << std::endl;
+                cout.PrintLn("Failed to clean up vk::Swapchain: ", error);
             }
         }
     }
@@ -3231,7 +3223,7 @@ failure:
                 }
             }
             if (!found && data.surfaceFormats.size > 0) {
-                cout << "We couldn't use our preferred window surface format!" << std::endl;
+                cout.PrintLn("We couldn't use our preferred window surface format!");
                 data.surfaceFormat = data.surfaceFormats[0];
                 found = true;
             }
@@ -3265,7 +3257,7 @@ failure:
                 }
             }
             if (!found && data.presentModes.size > 0) {
-                cout << "Our preferred present modes aren't available, but we can still do something" << std::endl;
+                cout.PrintLn("Our preferred present modes aren't available, but we can still do something");
                 data.presentMode = data.presentModes[0];
                 found = true;
             }
@@ -3273,22 +3265,22 @@ failure:
                 error = "No adequate present modes available! ¯\\_(ツ)_/¯";
                 return false;
             }
-            cout << "Present Mode: ";
+            cout.Print("Present Mode: ");
             switch(data.presentMode) {
                 case VK_PRESENT_MODE_FIFO_KHR:
-                    cout << "VK_PRESENT_MODE_FIFO_KHR" << std::endl;
+                    cout.PrintLn("VK_PRESENT_MODE_FIFO_KHR");
                     break;
                 case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
-                    cout << "VK_PRESENT_MODE_FIFO_RELAXED_KHR" << std::endl;
+                    cout.PrintLn("VK_PRESENT_MODE_FIFO_RELAXED_KHR");
                     break;
                 case VK_PRESENT_MODE_MAILBOX_KHR:
-                    cout << "VK_PRESENT_MODE_MAILBOX_KHR" << std::endl;
+                    cout.PrintLn("VK_PRESENT_MODE_MAILBOX_KHR");
                     break;
                 case VK_PRESENT_MODE_IMMEDIATE_KHR:
-                    cout << "VK_PRESENT_MODE_IMMEDIATE_KHR" << std::endl;
+                    cout.PrintLn("VK_PRESENT_MODE_IMMEDIATE_KHR");
                     break;
                 default:
-                    cout << "wtf the fuck" << std::endl;
+                    cout.PrintLn("wtf the fuck");
                     break;
             }
         }
@@ -3304,9 +3296,9 @@ failure:
                             min(data.surfaceCapabilities.maxImageExtent.height, data.extent.height));
         }
 
-        cout << "extent is {" << data.extent.width << ", " << data.extent.height << "}" << std::endl;
+        cout.PrintLn("extent is {", data.extent.width, ", ", data.extent.height, "}");
         data.imageCount = max(data.surfaceCapabilities.minImageCount, min(data.surfaceCapabilities.maxImageCount, imageCountPreferred));
-        cout << "Swapchain will use " << data.imageCount << " images" << std::endl;
+        cout.PrintLn("Swapchain will use ", data.imageCount, " images");
         // Put it all together
         VkSwapchainCreateInfoKHR createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -3337,12 +3329,12 @@ failure:
             createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
             createInfo.queueFamilyIndexCount = queueFamilies.size;
             createInfo.pQueueFamilyIndices = queueFamilies.data;
-            cout << "Swapchain image sharing mode is concurrent" << std::endl;
+            cout.PrintLn("Swapchain image sharing mode is concurrent");
         } else {
             createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
             createInfo.queueFamilyIndexCount = 0;
             createInfo.pQueueFamilyIndices = nullptr;
-            cout << "Swapchain image sharing mode is exclusive" << std::endl;
+            cout.PrintLn("Swapchain image sharing mode is exclusive");
         }
         createInfo.preTransform = data.surfaceCapabilities.currentTransform;
         createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -3374,7 +3366,7 @@ failure:
             data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
         }
 
-        cout << "Acquiring images and creating image views..." << std::endl;
+        cout.PrintLn("Acquiring images and creating image views...");
 
         // Get our images
         Array<VkImage> imagesTemp;
@@ -3498,7 +3490,7 @@ failure:
     Device::~Device() {
         if (data.initted) {
             if (!Deinit()) {
-                cout << "Failed to clean up vk::Device: " << error << std::endl;
+                cout.PrintLn("Failed to clean up vk::Device: ", error);
             }
         }
     }
@@ -3655,7 +3647,7 @@ failure:
                 }
             }
             if (anisotropy) {
-                cout << "Enabling samplerAnisotropy optional device feature" << std::endl;
+                cout.PrintLn("Enabling samplerAnisotropy optional device feature");
                 data.deviceFeaturesOptional.samplerAnisotropy = VK_TRUE;
             }
             bool independentBlending = false;
@@ -3681,11 +3673,11 @@ failure:
                 }
             }
             if (independentBlending) {
-                cout << "Enabling independentBlend device feature" << std::endl;
+                cout.PrintLn("Enabling independentBlend device feature");
                 data.deviceFeaturesRequired.independentBlend = VK_TRUE;
             }
             if (wideLines) {
-                cout << "Enabling wideLines device feature" << std::endl;
+                cout.PrintLn("Enabling wideLines device feature");
                 data.deviceFeaturesRequired.wideLines = VK_TRUE;
             }
             // Which ones are available?
@@ -3697,7 +3689,7 @@ failure:
             }
             // Which ones don't we have that we wanted?
             if (anisotropy && deviceFeatures.samplerAnisotropy == VK_FALSE) {
-                cout << "Sampler Anisotropy desired, but unavailable...disabling." << std::endl;
+                cout.PrintLn("Sampler Anisotropy desired, but unavailable...disabling.");
                 for (auto& sampler : data.samplers) {
                     sampler.anisotropy = 1;
                 }
@@ -3789,7 +3781,7 @@ failure:
             }
         }
         for (i32 i = 0; i < queueFamilies; i++) {
-            cout << "Allocating " << queuePrioritiesArray[i].size << " queues from family " << i << std::endl;
+            cout.PrintLn("Allocating ", queuePrioritiesArray[i].size, " queues from family ", i);
             if (queuePrioritiesArray[i].size != 0) {
                 VkDeviceQueueCreateInfo queueCreateInfo = {};
                 queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -3984,7 +3976,7 @@ failure:
             }
         }
         // Semaphores
-        cout << "Creating " << data.semaphores.size << " semaphores..." << std::endl;
+        cout.PrintLn("Creating ", data.semaphores.size, " semaphores...");
         for (i32 i = 0; i < data.semaphores.size; i++) {
             const VkSemaphoreCreateInfo createInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
             VkResult result = vkCreateSemaphore(data.device, &createInfo, nullptr, &data.semaphores[i].semaphore);
@@ -4003,7 +3995,7 @@ failure:
             }
         }
         // Queue Submissions
-        cout << "Configuring " << data.queueSubmissions.size << " QueueSubmissions..." << std::endl;
+        cout.PrintLn("Configuring ", data.queueSubmissions.size, " QueueSubmissions...");
         for (auto& queueSubmission : data.queueSubmissions) {
             if (!queueSubmission.noAutoConfig) {
                 queueSubmission.Config();
@@ -4139,7 +4131,7 @@ failed:
     Instance::~Instance() {
         if (data.initted) {
             if (!Deinit()) {
-                cout << "Failed to clean up vk::Instance: " << error << std::endl;
+                cout.PrintLn("Failed to clean up vk::Instance: ", error);
             }
         }
     }
@@ -4152,7 +4144,7 @@ failed:
             // Should we bother? It only really makes sense to call this at the beginning
             // and it won't change anything about the renderer itself...
             // Oh well, let's fire a warning.
-            cout << "Warning: vk::Instance::AppInfo should be used before initializing." << std::endl;
+            cout.PrintLn("Warning: vk::Instance::AppInfo should be used before initializing.");
         }
 #endif
     }
@@ -4367,9 +4359,9 @@ failed:
                 }
                 data.physicalDevices.Insert(spot, temp);
             }
-            cout << "Physical Devices:";
+            cout.Print("Physical Devices:");
             for (u32 i = 0; i < physicalDeviceCount; i++) {
-                cout << "\n\tDevice #" << i << "\n";
+                cout.PrintLn("\n\tDevice #", i, "");
                 data.physicalDevices[i].PrintInfo(data.windows, data.windows.size > 0);
             }
         }
@@ -4389,12 +4381,12 @@ failed:
         // Tell everything else to initialize here
         // If it fails, clean up the instance.
         data.initted = true;
-        cout << "\n\n";
+        cout.PrintLn("\n");
         PrintDashed("Vulkan Tree Initialized");
 #ifndef VK_NO_ALLOCATION_CALLBACKS
-        cout << "Total Heap Memory Used: " << FormatSize(data.totalHeapMemory) << "\nAcross " << data.allocations.size << " allocations." << std::endl;
+        cout.PrintLn("Total Heap Memory Used: ", FormatSize(data.totalHeapMemory), "\nAcross ", data.allocations.size, " allocations.");
 #endif
-        cout << "\n\n";
+        cout.PrintLn("\n");
         return true;
 failed:
         for (i32 i = 0; i < data.devices.size; i++) {
@@ -4436,9 +4428,9 @@ failed:
 #ifndef VK_NO_ALLOCATION_CALLBACKS
         vkDestroyInstance(data.instance, &data.allocationCallbacks);
         if (data.totalHeapMemory != 0) {
-            cout << "Some memory (" << FormatSize(data.totalHeapMemory) << ") was not freed by the Vulkan driver!\nallocations.size = " << data.allocations.size << std::endl;
+            cout.PrintLn("Some memory (", FormatSize(data.totalHeapMemory), ") was not freed by the Vulkan driver!\nallocations.size = ", data.allocations.size);
             for (auto& i : data.allocations) {
-                cout << "\tAllocation at address: " << i.ptr << " with size " << i.size << " freed by Instance." << std::endl;
+                cout.PrintLn("\tAllocation at address: ", i.ptr, " with size ", i.size, " freed by Instance.");
                 free(i.ptr);
             }
             data.allocations.Resize(0);

@@ -60,7 +60,7 @@ Fixed_t bytesToFixed(char *buffer, const bool swapEndian) {
 }
 
 String error = "No Error";
-io::LogStream cout("font.log");
+io::Log cout("font.log");
 
 inline bool operator==(const Tag_t &a, const Tag_t &b) {
     return a.data == b.data;

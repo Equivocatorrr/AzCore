@@ -1,7 +1,7 @@
 /*
-    File: memory.hpp
-    Author: Philip Haynes
-    Includes all the headers in AzCore/Memory and aliases some from the C++ Standard Library.
+	File: memory.hpp
+	Author: Philip Haynes
+	Includes all the headers in AzCore/Memory and aliases some from the C++ Standard Library.
 */
 #ifndef AZCORE_MEMORY_HPP
 #define AZCORE_MEMORY_HPP
@@ -29,7 +29,7 @@
 namespace AzCore {
 
 inline bool IsPowerOfTwo(size_t value) {
-    return (value & (value-1)) == 0;
+	return (value & (value-1)) == 0;
 }
 size_t align(size_t size, size_t alignment);
 size_t alignNonPowerOfTwo(size_t size, size_t alignment);
@@ -44,96 +44,96 @@ Array<char> FileContents(String filename);
 
 template<typename T, i32 allocTail>
 Array<Range<T>> SeparateByValues(Array<T, allocTail> &array, const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values) {
-    Array<Range<T>> result;
-    i32 rangeStart = 0;
-    for (i32 i = 0; i < array.size; i++) {
-        if (values.Contains(array.data[i])) {
-            result.Append(array.GetRange(rangeStart, i-rangeStart));
-            rangeStart = i+1;
-        }
-    }
-    if (rangeStart < array.size) {
-        result.Append(array.GetRange(rangeStart, array.size-rangeStart));
-    }
-    return result;
+	Array<Range<T>> result;
+	i32 rangeStart = 0;
+	for (i32 i = 0; i < array.size; i++) {
+		if (values.Contains(array.data[i])) {
+			result.Append(array.GetRange(rangeStart, i-rangeStart));
+			rangeStart = i+1;
+		}
+	}
+	if (rangeStart < array.size) {
+		result.Append(array.GetRange(rangeStart, array.size-rangeStart));
+	}
+	return result;
 }
 
 template<typename T, i32 allocTail, i32 noAllocCount>
 Array<Range<T>> SeparateByValues(ArrayWithBucket<T, noAllocCount, allocTail> &array,
-        const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values) {
-    Array<Range<T>> result;
-    i32 rangeStart = 0;
-    for (i32 i = 0; i < array.size; i++) {
-        if (values.Contains(array.data[i])) {
-            result.Append(array.GetRange(rangeStart, i-rangeStart));
-            rangeStart = i+1;
-        }
-    }
-    if (rangeStart < array.size) {
-        result.Append(array.GetRange(rangeStart, array.size-rangeStart));
-    }
-    return result;
+		const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values) {
+	Array<Range<T>> result;
+	i32 rangeStart = 0;
+	for (i32 i = 0; i < array.size; i++) {
+		if (values.Contains(array.data[i])) {
+			result.Append(array.GetRange(rangeStart, i-rangeStart));
+			rangeStart = i+1;
+		}
+	}
+	if (rangeStart < array.size) {
+		result.Append(array.GetRange(rangeStart, array.size-rangeStart));
+	}
+	return result;
 }
 
 template<typename T, i32 allocTail=0>
 Array<Range<T>> SeparateByValues(Range<T> &range,
-        const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values) {
-    Array<Range<T>> result;
-    i32 rangeStart = 0;
-    for (i32 i = 0; i < range.size; i++) {
-        if (values.Contains((*range)[i])) {
-            result.Append(range.SubRange(rangeStart, i-rangeStart));
-            rangeStart = i+1;
-        }
-    }
-    if (rangeStart < range.size) {
-        result.Append(range.SubRange(rangeStart, range.size-rangeStart));
-    }
-    return result;
+		const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values) {
+	Array<Range<T>> result;
+	i32 rangeStart = 0;
+	for (i32 i = 0; i < range.size; i++) {
+		if (values.Contains((*range)[i])) {
+			result.Append(range.SubRange(rangeStart, i-rangeStart));
+			rangeStart = i+1;
+		}
+	}
+	if (rangeStart < range.size) {
+		result.Append(range.SubRange(rangeStart, range.size-rangeStart));
+	}
+	return result;
 }
 
 template<typename T, i32 allocTail=0>
 Array<Range<T>> SeparateByValues(T *array,
-        const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values) {
-    Array<Range<T>> result;
-    i32 rangeStart = 0;
-    for (i32 i = 0; array[i] != StringTerminators<T>::value; i++) {
-        if (values.Contains(array[i])) {
-            result.Append(Range<T>(&array[rangeStart], i-rangeStart));
-            rangeStart = i+1;
-        }
-    }
-    if (array[rangeStart] != StringTerminators<T>::value) {
-        result.Append(Range<T>(&array[rangeStart], StringLength(array+rangeStart)));
-    }
-    return result;
+		const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values) {
+	Array<Range<T>> result;
+	i32 rangeStart = 0;
+	for (i32 i = 0; array[i] != StringTerminators<T>::value; i++) {
+		if (values.Contains(array[i])) {
+			result.Append(Range<T>(&array[rangeStart], i-rangeStart));
+			rangeStart = i+1;
+		}
+	}
+	if (array[rangeStart] != StringTerminators<T>::value) {
+		result.Append(Range<T>(&array[rangeStart], StringLength(array+rangeStart)));
+	}
+	return result;
 }
 
 // Extract the base 2 exponent directly from the bits.
 inline i16 force_inline
 Exponent(const f128 &value) {
-    u128 byteCode;
-    memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
-    i16 exponent = ((byteCode >> 112) & 0x7fff) - 0x3fff;
-    return exponent;
+	u128 byteCode;
+	memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
+	i16 exponent = ((byteCode >> 112) & 0x7fff) - 0x3fff;
+	return exponent;
 }
 
 // Extract the base 2 exponent directly from the bits.
 inline i16 force_inline
 Exponent(const f64 &value) {
-    u64 byteCode;
-    memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
-    i16 exponent = ((byteCode >> 52) & 0x7ff) - 0x3ff;
-    return exponent;
+	u64 byteCode;
+	memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
+	i16 exponent = ((byteCode >> 52) & 0x7ff) - 0x3ff;
+	return exponent;
 }
 
 // Extract the base 2 exponent directly from the bits.
 inline i16 force_inline
 Exponent(const f32 &value) {
-    u32 byteCode;
-    memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
-    i16 exponent = ((byteCode >> 23) & 0xff) - 0x7f;
-    return exponent;
+	u32 byteCode;
+	memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
+	i16 exponent = ((byteCode >> 23) & 0xff) - 0x7f;
+	return exponent;
 }
 
 } // namespace AzCore

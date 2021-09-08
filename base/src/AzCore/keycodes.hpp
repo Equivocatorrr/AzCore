@@ -1,9 +1,9 @@
 /*
-    File: keycodes.hpp
-    Author: Philip Haynes
-    An intermediate representation of various inputs, used for
-    cross-platform referencing of keyboard, mouse, and gamepad inputs.
-    Based on USB HID scancodes, and modified to represent the mouse and gamepad at the same time.
+	File: keycodes.hpp
+	Author: Philip Haynes
+	An intermediate representation of various inputs, used for
+	cross-platform referencing of keyboard, mouse, and gamepad inputs.
+	Based on USB HID scancodes, and modified to represent the mouse and gamepad at the same time.
 */
 #ifndef AZCORE_KEYCODES_HPP
 #define AZCORE_KEYCODES_HPP
@@ -336,20 +336,20 @@ u8 KeyCodeToWinScan(u8 keyCode);
 u8 KeyCodeFromWinScan(u8 keyCode);
 
 namespace io {
-    class Log;
+	class Log;
 }
 
 inline bool KeyCodeIsKeyboard(const u8 &keyCode) {
-    return (keyCode >= KC_KEY_A && keyCode <= KC_KEY_ZENKAKUHANKAKU) || keyCode == KC_KEY_KPLEFTPAREN || keyCode == KC_KEY_KPRIGHTPAREN || (keyCode >= KC_KEY_LEFTCTRL && keyCode <= KC_KEY_MEDIA_FILE);
+	return (keyCode >= KC_KEY_A && keyCode <= KC_KEY_ZENKAKUHANKAKU) || keyCode == KC_KEY_KPLEFTPAREN || keyCode == KC_KEY_KPRIGHTPAREN || (keyCode >= KC_KEY_LEFTCTRL && keyCode <= KC_KEY_MEDIA_FILE);
 }
 
 inline bool KeyCodeIsMouse(const u8 &keyCode) {
-    return keyCode >= KC_MOUSE_LEFT && keyCode <= KC_MOUSE_SCROLLRIGHT;
+	return keyCode >= KC_MOUSE_LEFT && keyCode <= KC_MOUSE_SCROLLRIGHT;
 }
 
 inline bool KeyCodeIsGamepad(const u8 &keyCode) {
-    return (keyCode >= KC_GP_AXIS_H0_UP_RIGHT && keyCode <= KC_GP_AXIS_H0_UP_LEFT)
-        || (keyCode >= KC_GP_BTN_SOUTH && keyCode <= KC_GP_AXIS_H0_Y);
+	return (keyCode >= KC_GP_AXIS_H0_UP_RIGHT && keyCode <= KC_GP_AXIS_H0_UP_LEFT)
+		|| (keyCode >= KC_GP_BTN_SOUTH && keyCode <= KC_GP_AXIS_H0_Y);
 }
 
 // Utility functions so you don't have to write both to and from maps

@@ -1,6 +1,6 @@
 /*
-    File: Window.hpp
-    Author: Philip Haynes
+	File: Window.hpp
+	Author: Philip Haynes
 */
 
 #ifndef AZCORE_WINDOW_HPP
@@ -12,7 +12,7 @@
 namespace AzCore {
 
 namespace vk {
-    struct Window;
+	struct Window;
 }
 
 namespace io {
@@ -24,40 +24,40 @@ extern u32 windowClassNum; // Prevent identical windowClasses
 struct Input;
 
 /*  class: Window
-    Author: Philip Haynes
-    Generic window class that can receive events and display an image.  */
+	Author: Philip Haynes
+	Generic window class that can receive events and display an image.  */
 class Window {
-    friend vk::Window;
-    // Opaque type for clean cross-platform implementation
-    struct WindowData *data = nullptr;
+	friend vk::Window;
+	// Opaque type for clean cross-platform implementation
+	struct WindowData *data = nullptr;
 public:
-    bool open = false;
-    bool resized = false;
-    bool focused = true;
-    bool fullscreen = false;
-    bool quit = false;
-    bool cursorHidden = false;
-    u16 width = 1280;
-    u16 height = 720;
-    u16 windowedWidth = 1280;
-    u16 windowedHeight = 720;
-    i16 x = 0;
-    i16 y = 0;
-    i16 windowedX = 0;
-    i16 windowedY = 0;
-    String name = "AzCore";
-    Input *input = nullptr;
-    Window();
-    ~Window();
-    bool Open();
-    bool Show();
-    bool Fullscreen(bool fullscreen);
-    bool Resize(u32 w, u32 h);
-    bool Update();
-    bool Close();
-    void HideCursor(bool hide = true);
-    String InputName(u8 keyCode) const;
-    u8 KeyCodeFromChar(char character) const;
+	bool open = false;
+	bool resized = false;
+	bool focused = true;
+	bool fullscreen = false;
+	bool quit = false;
+	bool cursorHidden = false;
+	u16 width = 1280;
+	u16 height = 720;
+	u16 windowedWidth = 1280;
+	u16 windowedHeight = 720;
+	i16 x = 0;
+	i16 y = 0;
+	i16 windowedX = 0;
+	i16 windowedY = 0;
+	String name = "AzCore";
+	Input *input = nullptr;
+	Window();
+	~Window();
+	bool Open();
+	bool Show();
+	bool Fullscreen(bool fullscreen);
+	bool Resize(u32 w, u32 h);
+	bool Update();
+	bool Close();
+	void HideCursor(bool hide = true);
+	String InputName(u8 keyCode) const;
+	u8 KeyCodeFromChar(char character) const;
 };
 
 } // namespace io

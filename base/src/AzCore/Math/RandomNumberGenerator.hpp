@@ -1,6 +1,6 @@
 /*
-    File: RandomNumberGenerator.hpp
-    Author: Philip Haynes
+	File: RandomNumberGenerator.hpp
+	Author: Philip Haynes
 */
 
 #ifndef AZCORE_RANDOMNUMBERGENERATOR_HPP
@@ -11,14 +11,14 @@
 namespace AzCore {
 
 /*  struct: RandomNumberGenerator
-    Author: Philip Haynes
-    Uses the JKISS generator by David Jones
-    From http://www0.cs.ucl.ac.uk/staff/d.jones/GoodPracticeRNG.pdf */
+	Author: Philip Haynes
+	Uses the JKISS generator by David Jones
+	From http://www0.cs.ucl.ac.uk/staff/d.jones/GoodPracticeRNG.pdf */
 struct RandomNumberGenerator {
-    u32 x, y, z, c;
-    RandomNumberGenerator(); // Automatically seeds itself based on time.
-    u32 Generate();
-    void Seed(u64 seed);
+	u32 x, y, z, c;
+	RandomNumberGenerator(); // Automatically seeds itself based on time.
+	u32 Generate();
+	void Seed(u64 seed);
 };
 
 f32 random(f32 min, f32 max, RandomNumberGenerator &rng);

@@ -1,7 +1,7 @@
 /*
-    File: Environment.hpp
-    Author: Philip Haynes
-    Utilities for dealing with filesystem paths.
+	File: Environment.hpp
+	Author: Philip Haynes
+	Utilities for dealing with filesystem paths.
 */
 
 #ifndef AZCORE_ENVIRONMENT_HPP

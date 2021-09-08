@@ -2,14 +2,14 @@
 echo "Packing everything needed to distribute on Windows . . ."
 if [ -e Exports ]
 then
-    rm -r Exports/Windows*
+	rm -r Exports/Windows*
 fi
 
 mkdir -p Exports/Windows
 
 if [ -e data ]
 then
-    cp -r data Exports/Windows/data
+	cp -r data Exports/Windows/data
 fi
 
 cp bin/Windows/Release/$1.exe Exports/Windows/Release.exe
@@ -19,9 +19,9 @@ cp bin/Windows/Debug/$1.exe Exports/Windows/Debug.exe
 
 if [ -e lib ]
 then
-    for filename in lib/*.dll; do
-        cp "$filename" Exports/Windows
-    done
+	for filename in lib/*.dll; do
+		cp "$filename" Exports/Windows
+	done
 fi
 
 cd Exports

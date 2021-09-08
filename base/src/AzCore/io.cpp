@@ -1,6 +1,6 @@
 /*
-    File: io.cpp
-    Author: Philip Haynes
+	File: io.cpp
+	Author: Philip Haynes
 */
 
 #include "io.hpp"
@@ -9,9 +9,9 @@ namespace AzCore {
 
 namespace io {
 
-    String error = "No Error";
-    vec2 screenSize;
-    Log cout("io.log");
+	String error = "No Error";
+	vec2 screenSize;
+	Log cout("io.log");
 
 } // namespace io
 

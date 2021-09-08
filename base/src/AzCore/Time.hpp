@@ -1,6 +1,6 @@
 /*
-    File: Time.hpp
-    Author: Philip Haynes
+	File: Time.hpp
+	Author: Philip Haynes
 */
 
 #ifndef AZCORE_TIME_HPP

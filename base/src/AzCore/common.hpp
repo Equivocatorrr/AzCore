@@ -1,7 +1,7 @@
 /*
-    File: common.hpp
-    Author: Philip Haynes
-    Description: Meta-file to include math and memory aliases.
+	File: common.hpp
+	Author: Philip Haynes
+	Description: Meta-file to include math and memory aliases.
 */
 #ifndef AZCORE_COMMON_HPP
 #define AZCORE_COMMON_HPP

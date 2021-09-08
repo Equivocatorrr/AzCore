@@ -1,9 +1,9 @@
 /*
-    File: io.hpp
-    Author: Philip Haynes
-    Description: Handles keyboard, mouse, gamepads/joysticks, windows, ect.
-    TODO:
-        - Add raw input support (including gamepads/joysticks)
+	File: io.hpp
+	Author: Philip Haynes
+	Description: Handles keyboard, mouse, gamepads/joysticks, windows, ect.
+	TODO:
+		- Add raw input support (including gamepads/joysticks)
 */
 #ifndef AZCORE_IO_HPP
 #define AZCORE_IO_HPP
@@ -16,10 +16,10 @@ namespace AzCore {
 
 namespace io {
 
-    extern String error;
-    extern vec2 screenSize;
+	extern String error;
+	extern vec2 screenSize;
 
-    extern Log cout;
+	extern Log cout;
 
 } // namespace io
 

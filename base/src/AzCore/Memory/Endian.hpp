@@ -1,7 +1,7 @@
 /*
-    File: Endian.hpp
-    Author: Philip Haynes
-    Utilities for knowing endianness and swapping between big and little endian.
+	File: Endian.hpp
+	Author: Philip Haynes
+	Utilities for knowing endianness and swapping between big and little endian.
 */
 
 #ifndef AZCORE_ENDIAN_HPP
@@ -12,12 +12,12 @@
 namespace AzCore {
 
 struct SystemEndianness_t {
-    union {
-        u16 _bytes;
-        struct {
-            bool little, big;
-        };
-    };
+	union {
+		u16 _bytes;
+		struct {
+			bool little, big;
+		};
+	};
 };
 
 extern SystemEndianness_t SysEndian;
@@ -38,30 +38,30 @@ u32 endianSwap(u32 in, bool swapEndian = true);
 u64 endianSwap(u64 in, bool swapEndian = true);
 
 inline i16 endianSwap(i16 in, bool swapEndian = true) {
-    return endianSwap((u16)in, swapEndian);
+	return endianSwap((u16)in, swapEndian);
 }
 inline i32 endianSwap(i32 in, bool swapEndian = true) {
-    return endianSwap((u32)in, swapEndian);
+	return endianSwap((u32)in, swapEndian);
 }
 inline i64 endianSwap(i64 in, bool swapEndian = true) {
-    return endianSwap((u64)in, swapEndian);
+	return endianSwap((u64)in, swapEndian);
 }
 
 template <typename T>
 inline T endianFromL(T in) {
-    return endianSwap(in, SysEndian.big);
+	return endianSwap(in, SysEndian.big);
 }
 template <typename T>
 inline T endianToL(T in) {
-    return endianSwap(in, SysEndian.big);
+	return endianSwap(in, SysEndian.big);
 }
 template <typename T>
 inline T endianFromB(T in) {
-    return endianSwap(in, SysEndian.little);
+	return endianSwap(in, SysEndian.little);
 }
 template <typename T>
 inline T endianToB(T in) {
-    return endianSwap(in, SysEndian.little);
+	return endianSwap(in, SysEndian.little);
 }
 
 } // namespace AzCore

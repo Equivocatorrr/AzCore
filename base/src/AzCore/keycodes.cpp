@@ -1,6 +1,6 @@
 /*
-    File: keycodes.cpp
-    Author: Philip Haynes
+	File: keycodes.cpp
+	Author: Philip Haynes
 */
 
 #include "keycodes.hpp"
@@ -9,70 +9,70 @@
 namespace AzCore {
 
 const char *keyCodeNames[256] = {
-    "None",             "Error_Roll_Over",  "NULL",             "NULL",             // 0x00
-    "A",                "B",                "C",                "D",                // 0x04
-    "E",                "F",                "G",                "H",                // 0x08
-    "I",                "J",                "K",                "L",                // 0x0c
-    "M",                "N",                "O",                "P",                // 0x10
-    "Q",                "R",                "S",                "T",                // 0x14
-    "U",                "V",                "W",                "X",                // 0x18
-    "Y",                "Z",                "1",                "2",                // 0x1c
-    "3",                "4",                "5",                "6",                // 0x20
-    "7",                "8",                "9",                "0",                // 0x24
-    "Enter",            "Escape",           "Backspace",        "Tab",              // 0x28
-    "Space",            "Minus",            "Equals",           "Left_Bracket",     // 0x2c
-    "Right_Bracket",    "Backslash",        "NULL",             "Semicolon",        // 0x30
-    "Quote",            "Grave",            "Comma",            "Period",           // 0x34
-    "Slash",            "CapsLock",         "F1",               "F2",               // 0x38
-    "F3",               "F4",               "F5",               "F6",               // 0x3c
-    "F7",               "F8",               "F9",               "F10",              // 0x40
-    "F11",              "F12",              "PrintScreen",      "ScrollLock",       // 0x44
-    "Pause",            "Insert",           "Home",             "PageUp",           // 0x48
-    "Delete",           "End",              "Page_Down",        "Right_Arrow",      // 0x4c
-    "Left_Arrow",       "Down_Arrow",       "Up_Arrow",         "KP_NumLock",       // 0x50
-    "KP_Divide",        "KP_Multiply",      "KP_Subtract",      "KP_Add",           // 0x54
-    "KP_Enter",         "KP_1",             "KP_2",             "KP_3",             // 0x58
-    "KP_4",             "KP_5",             "KP_6",             "KP_7",             // 0x5c
-    "KP_8",             "KP_9",             "KP_0",             "KP_Point",         // 0x60
-    "Non-US_Backslash", "Menu",             "Power",            "KP_Equals",        // 0x64
-    "F13",              "F14",              "F15",              "F16",              // 0x68
-    "F17",              "F18",              "F19",              "F20",              // 0x6c
-    "F21",              "F22",              "F23",              "F24",              // 0x70
-    "Execute",          "Help",             "Properties",       "Select",           // 0x74
-    "Stop",             "Again",            "Undo",             "Cut",              // 0x78
-    "Copy",             "Paste",            "Find",             "Mute",             // 0x7c
-    "Volume_Up",        "Volume_Down",      "NULL",             "NULL",             // 0x80
-    "NULL",             "KP_Comma",         "NULL",             "International1",   // 0x84
-    "International2",   "International3",   "International4",   "International5",   // 0x88
-    "International6",   "International7",   "International8",   "International9",   // 0x8c
-    "LANG1",            "LANG2",            "LANG3",            "LANG4",            // 0x90
-    "LANG5",            "LANG6",            "LANG7",            "LANG8",            // 0x94
-    "LANG9",            "NULL",             "NULL",             "NULL",             // 0x98
-    "NULL",             "NULL",             "NULL",             "NULL",             // 0x9c
-    "NULL",             "NULL",             "NULL",             "NULL",             // 0xa0
-    "NULL",             "NULL",             "MB_Left",          "MB_Right",         // 0xa4
-    "MB_Middle",        "MB_X1",            "MB_X2",            "Scroll_Up",        // 0xa8
-    "Scroll_Down",      "Scroll_Left",      "Scroll_Right",     "NULL",             // 0xac
-    "NULL",             "NULL",             "H0_Up_Right",      "H0_Down_Right",    // 0xb0
-    "H0_Down_Left",     "H0_Up_Left",       "KP_LeftParen",     "KP_RightParen",    // 0xb4
-    "A_Button",         "B_Button",         "C_Button",         "Y_Button",         // 0xb8
-    "X_Button",         "Z_Button",         "LB",               "RB",               // 0xbc
-    "LB_2",             "RB_2",             "Select",           "Start",            // 0xc0
-    "Mode",             "LS_Press",         "RS_Press",         "LS_Right",         // 0xc4
-    "LS_Left",          "LS_Down",          "LS_Up",            "LT_In",            // 0xc8
-    "NULL",             "RS_Right",         "RS_Left",          "RS_Down",          // 0xcc
-    "RS_Up",            "RT_In",            "NULL",             "H0_Right",         // 0xd0
-    "H0_Left",          "H0_Down",          "H0_Up",            "Axis_LS_X",        // 0xd4
-    "Axis_LS_Y",        "Axis_LT",          "Axis_RS_X",        "Axis_RS_Y",        // 0xd8
-    "Axis_RT",          "Axis_H0_X",        "Axis_H0_Y",        "NULL",             // 0xdc
-    "Left_Control",     "Left_Shift",       "Left_Alt",         "Left_GUI",         // 0xe0
-    "Right_Control",    "Right_Shift",      "Right_Alt",        "Right_GUI",        // 0xe4
-    "Media_Play/Pause", "Media_Stop_CD",    "Media_Previous",   "Media_Next",       // 0xe8
-    "Media_Eject",      "Media_Volume_Up",  "Media_Volume_Down","Media_Mute",       // 0xec
-    "Media_WWW",        "Media_Back",       "Media_Forward",    "Media_Stop",       // 0xf0
-    "Media_Find",       "Media_Scroll_Up",  "Media_Scroll_Down","Media_Edit",       // 0xf4
-    "Media_Sleep",      "Media_Coffee",     "Media_Refresh",    "Media_Calculator", // 0xf8
-    "Media_Mail",       "Media_File",       "NULL",             "NULL"              // 0xfc
+	"None",             "Error_Roll_Over",  "NULL",             "NULL",             // 0x00
+	"A",                "B",                "C",                "D",                // 0x04
+	"E",                "F",                "G",                "H",                // 0x08
+	"I",                "J",                "K",                "L",                // 0x0c
+	"M",                "N",                "O",                "P",                // 0x10
+	"Q",                "R",                "S",                "T",                // 0x14
+	"U",                "V",                "W",                "X",                // 0x18
+	"Y",                "Z",                "1",                "2",                // 0x1c
+	"3",                "4",                "5",                "6",                // 0x20
+	"7",                "8",                "9",                "0",                // 0x24
+	"Enter",            "Escape",           "Backspace",        "Tab",              // 0x28
+	"Space",            "Minus",            "Equals",           "Left_Bracket",     // 0x2c
+	"Right_Bracket",    "Backslash",        "NULL",             "Semicolon",        // 0x30
+	"Quote",            "Grave",            "Comma",            "Period",           // 0x34
+	"Slash",            "CapsLock",         "F1",               "F2",               // 0x38
+	"F3",               "F4",               "F5",               "F6",               // 0x3c
+	"F7",               "F8",               "F9",               "F10",              // 0x40
+	"F11",              "F12",              "PrintScreen",      "ScrollLock",       // 0x44
+	"Pause",            "Insert",           "Home",             "PageUp",           // 0x48
+	"Delete",           "End",              "Page_Down",        "Right_Arrow",      // 0x4c
+	"Left_Arrow",       "Down_Arrow",       "Up_Arrow",         "KP_NumLock",       // 0x50
+	"KP_Divide",        "KP_Multiply",      "KP_Subtract",      "KP_Add",           // 0x54
+	"KP_Enter",         "KP_1",             "KP_2",             "KP_3",             // 0x58
+	"KP_4",             "KP_5",             "KP_6",             "KP_7",             // 0x5c
+	"KP_8",             "KP_9",             "KP_0",             "KP_Point",         // 0x60
+	"Non-US_Backslash", "Menu",             "Power",            "KP_Equals",        // 0x64
+	"F13",              "F14",              "F15",              "F16",              // 0x68
+	"F17",              "F18",              "F19",              "F20",              // 0x6c
+	"F21",              "F22",              "F23",              "F24",              // 0x70
+	"Execute",          "Help",             "Properties",       "Select",           // 0x74
+	"Stop",             "Again",            "Undo",             "Cut",              // 0x78
+	"Copy",             "Paste",            "Find",             "Mute",             // 0x7c
+	"Volume_Up",        "Volume_Down",      "NULL",             "NULL",             // 0x80
+	"NULL",             "KP_Comma",         "NULL",             "International1",   // 0x84
+	"International2",   "International3",   "International4",   "International5",   // 0x88
+	"International6",   "International7",   "International8",   "International9",   // 0x8c
+	"LANG1",            "LANG2",            "LANG3",            "LANG4",            // 0x90
+	"LANG5",            "LANG6",            "LANG7",            "LANG8",            // 0x94
+	"LANG9",            "NULL",             "NULL",             "NULL",             // 0x98
+	"NULL",             "NULL",             "NULL",             "NULL",             // 0x9c
+	"NULL",             "NULL",             "NULL",             "NULL",             // 0xa0
+	"NULL",             "NULL",             "MB_Left",          "MB_Right",         // 0xa4
+	"MB_Middle",        "MB_X1",            "MB_X2",            "Scroll_Up",        // 0xa8
+	"Scroll_Down",      "Scroll_Left",      "Scroll_Right",     "NULL",             // 0xac
+	"NULL",             "NULL",             "H0_Up_Right",      "H0_Down_Right",    // 0xb0
+	"H0_Down_Left",     "H0_Up_Left",       "KP_LeftParen",     "KP_RightParen",    // 0xb4
+	"A_Button",         "B_Button",         "C_Button",         "Y_Button",         // 0xb8
+	"X_Button",         "Z_Button",         "LB",               "RB",               // 0xbc
+	"LB_2",             "RB_2",             "Select",           "Start",            // 0xc0
+	"Mode",             "LS_Press",         "RS_Press",         "LS_Right",         // 0xc4
+	"LS_Left",          "LS_Down",          "LS_Up",            "LT_In",            // 0xc8
+	"NULL",             "RS_Right",         "RS_Left",          "RS_Down",          // 0xcc
+	"RS_Up",            "RT_In",            "NULL",             "H0_Right",         // 0xd0
+	"H0_Left",          "H0_Down",          "H0_Up",            "Axis_LS_X",        // 0xd4
+	"Axis_LS_Y",        "Axis_LT",          "Axis_RS_X",        "Axis_RS_Y",        // 0xd8
+	"Axis_RT",          "Axis_H0_X",        "Axis_H0_Y",        "NULL",             // 0xdc
+	"Left_Control",     "Left_Shift",       "Left_Alt",         "Left_GUI",         // 0xe0
+	"Right_Control",    "Right_Shift",      "Right_Alt",        "Right_GUI",        // 0xe4
+	"Media_Play/Pause", "Media_Stop_CD",    "Media_Previous",   "Media_Next",       // 0xe8
+	"Media_Eject",      "Media_Volume_Up",  "Media_Volume_Down","Media_Mute",       // 0xec
+	"Media_WWW",        "Media_Back",       "Media_Forward",    "Media_Stop",       // 0xf0
+	"Media_Find",       "Media_Scroll_Up",  "Media_Scroll_Down","Media_Edit",       // 0xf4
+	"Media_Sleep",      "Media_Coffee",     "Media_Refresh",    "Media_Calculator", // 0xf8
+	"Media_Mail",       "Media_File",       "NULL",             "NULL"              // 0xfc
 };
 
 const u8 mapKeyCodeToEvdev[256] = {
@@ -146,11 +146,11 @@ const u8 mapKeyCodeFromEvdev[256] = {
 };
 
 /*
-    TODO: The Windows mappings are incomplete and several of the
-    miscellaneous keys may not work. Perhaps a raw input scheme would
-    be better, since to achieve behavior on Windows like how it works
-    in Linux would require a bunch of logic combining the Virtual Key
-    codes and scan codes.
+	TODO: The Windows mappings are incomplete and several of the
+	miscellaneous keys may not work. Perhaps a raw input scheme would
+	be better, since to achieve behavior on Windows like how it works
+	in Linux would require a bunch of logic combining the Virtual Key
+	codes and scan codes.
 */
 
 const u8 mapKeyCodeToWinVK[256] = {
@@ -295,90 +295,90 @@ const u8 mapKeyCodeFromWinScan[256] = {
 };
 
 const char* KeyCodeName(u8 keyCode) {
-    return keyCodeNames[keyCode];
+	return keyCodeNames[keyCode];
 }
 
 u8 KeyCodeToEvdev(u8 keyCode) {
-    return mapKeyCodeToEvdev[keyCode];
+	return mapKeyCodeToEvdev[keyCode];
 }
 
 u8 KeyCodeFromEvdev(u8 keyCode) {
-    return mapKeyCodeFromEvdev[keyCode];
+	return mapKeyCodeFromEvdev[keyCode];
 }
 
 u8 KeyCodeToWinVK(u8 keyCode) {
-    return mapKeyCodeToWinVK[keyCode];
+	return mapKeyCodeToWinVK[keyCode];
 }
 
 u8 KeyCodeFromWinVK(u8 keyCode) {
-    return mapKeyCodeFromWinVK[keyCode];
+	return mapKeyCodeFromWinVK[keyCode];
 }
 
 u8 KeyCodeToWinScan(u8 keyCode) {
-    return mapKeyCodeToWinScan[keyCode];
+	return mapKeyCodeToWinScan[keyCode];
 }
 
 u8 KeyCodeFromWinScan(u8 keyCode) {
-    return mapKeyCodeFromWinScan[keyCode];
+	return mapKeyCodeFromWinScan[keyCode];
 }
 
 void PrintKeyCodeMaps(const u8* map, const char* name, const char* inverseName, io::Log& cout) {
-    cout.PrintLn("\nconst u8 ", name, "[256] = {");
-    for (u16 i = 0; i < 256; i++) {
-        u32 toPrint = map[i];
-        cout.Print("0x");
-        if (toPrint < 0x10)
-            cout.Print("0");
-        cout.Print(ToString(toPrint, 16));
-        if (i != 255)
-            cout.Print(",   ");
-        else
-            cout.Print("    ");
-        if (i%8 == 7) {
-            cout.Print("// 0x");
-            if (i < 0x10)
-                cout.Print("0");
-            cout.PrintLn(ToString((i/8)*8, 16));
-        }
-    }
-    cout.PrintLn("};\n");
-    cout.PrintLn("const u8 ", inverseName, "[256] = {");
-    for (u16 i = 0; i < 256; i++) {
-        u32 toPrint = 0xff;
-        if (i != 0xff) // Since 0xff is what we use for invalid characters
-            for (u16 j = 0; j < 256 && toPrint == 0xff; j++) {
-                if (i == map[j]) {
-                    toPrint = j;
-                }
-            }
-        cout.Print("0x");
-        if (toPrint < 0x10)
-            cout.Print("0");
-        cout.Print(ToString(toPrint, 16));
-        if (i != 0xff)
-            cout.Print(",   ");
-        else
-            cout.Print("    ");
-        if (i%8 == 7) {
-            cout.Print("// 0x");
-            if (i < 0x10)
-                cout.Print("0");
-            cout.PrintLn(ToString((i/8)*8, 16));
-        }
-    }
-    cout.PrintLn("};\n");
+	cout.PrintLn("\nconst u8 ", name, "[256] = {");
+	for (u16 i = 0; i < 256; i++) {
+		u32 toPrint = map[i];
+		cout.Print("0x");
+		if (toPrint < 0x10)
+			cout.Print("0");
+		cout.Print(ToString(toPrint, 16));
+		if (i != 255)
+			cout.Print(",   ");
+		else
+			cout.Print("    ");
+		if (i%8 == 7) {
+			cout.Print("// 0x");
+			if (i < 0x10)
+				cout.Print("0");
+			cout.PrintLn(ToString((i/8)*8, 16));
+		}
+	}
+	cout.PrintLn("};\n");
+	cout.PrintLn("const u8 ", inverseName, "[256] = {");
+	for (u16 i = 0; i < 256; i++) {
+		u32 toPrint = 0xff;
+		if (i != 0xff) // Since 0xff is what we use for invalid characters
+			for (u16 j = 0; j < 256 && toPrint == 0xff; j++) {
+				if (i == map[j]) {
+					toPrint = j;
+				}
+			}
+		cout.Print("0x");
+		if (toPrint < 0x10)
+			cout.Print("0");
+		cout.Print(ToString(toPrint, 16));
+		if (i != 0xff)
+			cout.Print(",   ");
+		else
+			cout.Print("    ");
+		if (i%8 == 7) {
+			cout.Print("// 0x");
+			if (i < 0x10)
+				cout.Print("0");
+			cout.PrintLn(ToString((i/8)*8, 16));
+		}
+	}
+	cout.PrintLn("};\n");
 }
 
 void PrintKeyCodeMapsEvdev(io::Log& cout) {
-    PrintKeyCodeMaps(mapKeyCodeToEvdev, "mapKeyCodeToEvdev", "mapKeyCodeFromEvdev", cout);
+	PrintKeyCodeMaps(mapKeyCodeToEvdev, "mapKeyCodeToEvdev", "mapKeyCodeFromEvdev", cout);
 }
 
 void PrintKeyCodeMapsWinVK(io::Log& cout) {
-    PrintKeyCodeMaps(mapKeyCodeToWinVK, "mapKeyCodeToWinVK", "mapKeyCodeFromWinVK", cout);
+	PrintKeyCodeMaps(mapKeyCodeToWinVK, "mapKeyCodeToWinVK", "mapKeyCodeFromWinVK", cout);
 }
 
 void PrintKeyCodeMapsWinScan(io::Log& cout) {
-    PrintKeyCodeMaps(mapKeyCodeToWinScan, "mapKeyCodeToWinScan", "mapKeyCodeFromWinScan", cout);
+	PrintKeyCodeMaps(mapKeyCodeToWinScan, "mapKeyCodeToWinScan", "mapKeyCodeFromWinScan", cout);
 }
 
 } // namespace AzCore

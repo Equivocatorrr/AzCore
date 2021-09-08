@@ -1,7 +1,7 @@
 /*
-    File: basictypes.hpp
-    Author: Philip Haynes
-    Aliasing of basic numeric types to a shorter representation
+	File: basictypes.hpp
+	Author: Philip Haynes
+	Aliasing of basic numeric types to a shorter representation
 */
 #ifndef AZCORE_BASICTYPES_HPP
 #define AZCORE_BASICTYPES_HPP
@@ -43,14 +43,14 @@ static_assert(sizeof(i128) == 16);
 // Let's pretend we support compilers other than GCC for a moment.
 #if 1
 #if defined(__clang__)
-    #define force_inline
+	#define force_inline
 #elif defined(__GNUG__)
-    #define force_inline __attribute__((always_inline))
+	#define force_inline __attribute__((always_inline))
 #elif defined(_MSC_VER)
-    #define force_inline __forceinline
+	#define force_inline __forceinline
 #endif
 #else
-    #define force_inline
+	#define force_inline
 #endif
 
 namespace AzCore {}

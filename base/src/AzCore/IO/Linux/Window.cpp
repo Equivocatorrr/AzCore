@@ -48,6 +48,36 @@ xcb_atom_t xcbGetAtom(xcb_connection_t *connection, bool onlyIfExists, const Str
 	return atom;
 }
 
+char* xcbGetProperty(xcb_connection_t *connection, xcb_window_t window, xcb_atom_t atom, xcb_atom_t type, i32 size) {
+	xcb_get_property_cookie_t cookie;
+	xcb_get_property_reply_t *reply;
+	xcb_generic_error_t *err;
+	i32 reply_len;
+
+	cookie = xcb_get_property(connection, 0, window, atom, type, 0, size);
+	reply = xcb_get_property_reply(connection, cookie, &err);
+	if (err != nullptr) {
+		free(err);
+		return nullptr;
+	}
+	if (reply == nullptr) {
+		return nullptr;
+	}
+	if(0 == (reply_len = xcb_get_property_value_length(reply))) {
+		free(reply);
+		return nullptr;
+	}
+	if (reply->bytes_after > 0) {
+		i32 newSize = size + (i32)ceil(reply->bytes_after / 4.0f);
+		free(reply);
+		return xcbGetProperty(connection, window, atom, type, newSize);
+	}
+	char *content = new char[reply_len];
+	memcpy(content, xcb_get_property_value(reply), reply_len);
+	free(reply);
+	return content;
+}
+
 struct xkb_keyboard {
 	xcb_connection_t *connection;
 	u8 first_xkb_event;
@@ -771,6 +801,46 @@ String Window::InputName(u8 keyCode) const {
 		return "Error";
 	}
 	return xkbGetInputName(&data->xkb, keyCode);
+}
+
+i32 Window::GetDPI() {
+	if (!open) return -1;
+	Array<char> resources = xcbGetProperty(data->connection, data->screen->root, XCB_ATOM_RESOURCE_MANAGER, XCB_ATOM_STRING, 16*1024);
+	if (0 == resources.size) {
+		error = "Couldn't get X Resource Manager property";
+		return -1;
+	}
+	// u32 widthPx, heightPx, widthMM, heightMM;
+	// widthPx  = data->screen->width_in_pixels;
+	// widthMM  = data->screen->width_in_millimeters;
+	// heightPx = data->screen->height_in_pixels;
+	// heightMM = data->screen->height_in_millimeters;
+	// cout.PrintLn("Screen info:"
+	// 	"\nwidthPx: ", widthPx,
+	// 	"\nheightPx: ", heightPx,
+	// 	"\nwidthMM: ", widthMM,
+	// 	"\nheightMM: ", heightMM,
+	// 	"\nhorizontal dpi: ", i32((f32)widthPx * 25.4f / (f32)widthMM),
+	// 	"\nvertical dpi: ", i32((f32)heightPx * 25.4f / (f32)heightMM));
+	// cout.PrintLn("Resource Manager: \n\n", resources, "\n");
+	i32 dpi = -1;
+	Array<Range<char>> ranges = SeparateByValues(resources, {'\n', ' ', ':', '\t'});
+	for (i32 i = 0; i < ranges.size; i++) {
+		if (ranges[i].size == 0) {
+			ranges.Erase(i);
+			i--;
+			continue;
+		}
+		// cout.PrintLn("\"", ranges[i], "\"");
+	}
+	for (i32 i = 0; i < ranges.size-1; i++) {
+		if (ranges[i] == "Xft.dpi") {
+			dpi = StringToI64(ranges[i+1]);
+			break;
+		}
+	}
+	// cout.PrintLn("Chosen DPI: ", dpi);
+	return dpi;
 }
 
 } // namespace io

@@ -58,6 +58,8 @@ public:
 	void HideCursor(bool hide = true);
 	String InputName(u8 keyCode) const;
 	u8 KeyCodeFromChar(char character) const;
+
+	i32 GetDPI();
 };
 
 } // namespace io

@@ -204,7 +204,7 @@ namespace vk {
 		} else {
 			cout.Print(str);
 		}
-		cout.Print("\n");
+		cout.Newline();
 	}
 
 	String FormatSize(u64 size) {
@@ -476,7 +476,7 @@ namespace vk {
 					cout.Print(presentString);
 			}
 		}
-		cout.Print("\n");
+		cout.Newline();
 	}
 
 	void Image::Init(Device *device, String debugMarker) {
@@ -1998,7 +1998,7 @@ failure:
 			if (depthStencilTaken) {
 				cout.Print("\n\tDepth: ", subpass.data.referenceDepthStencil.attachment);
 			}
-			cout.Print("\n");
+			cout.Newline();
 			VkSubpassDescription description{};
 			description.pipelineBindPoint = subpass.pipelineBindPoint;
 			description.colorAttachmentCount = subpass.data.referencesColor.size;
@@ -3122,9 +3122,9 @@ failure:
 	}
 
 	bool Swapchain::Resize() {
-		cout.PrintLn("\n");
+		cout.Newline(2);
 		PrintDashed("Resizing Swapchain");
-		cout.PrintLn("");
+		cout.Newline();
 		vkDeviceWaitIdle(data.device->data.device);
 		VkPhysicalDevice physicalDevice = data.device->data.physicalDevice.physicalDevice;
 		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, data.surface, &data.surfaceCapabilities);
@@ -4381,12 +4381,12 @@ failed:
 		// Tell everything else to initialize here
 		// If it fails, clean up the instance.
 		data.initted = true;
-		cout.PrintLn("\n");
+		cout.Newline(2);
 		PrintDashed("Vulkan Tree Initialized");
 #ifndef VK_NO_ALLOCATION_CALLBACKS
 		cout.PrintLn("Total Heap Memory Used: ", FormatSize(data.totalHeapMemory), "\nAcross ", data.allocations.size, " allocations.");
 #endif
-		cout.PrintLn("\n");
+		cout.Newline(2);
 		return true;
 failed:
 		for (i32 i = 0; i < data.devices.size; i++) {

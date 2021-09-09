@@ -684,7 +684,7 @@ inline String FloatToString(f32 in) {
 void UpgradesMenu::Update() {
 	if (globals->entities.selectedTower != -1) {
 		hideable->hidden = false;
-		vec2 towerScreenPos = globals->entities.WorldPosToScreen(globals->entities.towers[globals->entities.selectedTower].physical.pos);
+		vec2 towerScreenPos = globals->entities.WorldPosToScreen(globals->entities.towers[globals->entities.selectedTower].physical.pos) / globals->gui.scale;
 		hideable->position = towerScreenPos - vec2(hideable->sizeAbsolute.x / 2.0f, 0.0f);
 
 		Entities::Tower &tower = globals->entities.towers.GetMutable(globals->entities.selectedTower);

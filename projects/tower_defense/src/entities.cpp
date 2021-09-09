@@ -653,7 +653,7 @@ vec2 Manager::WorldPosToScreen(vec2 in) const {
 	return out;
 }
 vec2 Manager::ScreenPosToWorld(vec2 in) const {
-	vec2 out = vec2(globals->input.cursor - vec2i(globals->window.width, globals->window.height) / 2) / camZoom + camPos;
+	vec2 out = vec2(in - vec2(globals->window.width, globals->window.height) / 2.0f) / camZoom + camPos;
 	return out;
 }
 

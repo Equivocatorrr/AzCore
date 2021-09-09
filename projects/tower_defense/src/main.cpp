@@ -103,6 +103,15 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		cout.PrintLn("Failed to open window: ", io::error);
 		return 1;
 	}
+	{
+		i32 dpi;
+		if ((dpi = globals->window.GetDPI()) <= 0) {
+			cout.PrintLn("Failed to GetDPI(): ", io::error);
+			return 1;
+		}
+		f32 scale = (f32)dpi / 96.0f;
+		globals->gui.scale = scale;
+	}
 	globals->window.HideCursor();
 
 	if (!globals->rendering.Init()) {

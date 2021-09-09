@@ -57,6 +57,11 @@ inline void Indent(String &str, i32 indent, String indentString) {
 
 template<bool newline>
 void Log::_Print(SimpleRange<char> out) {
+#ifndef NDEBUG
+	if (out == "\n") {
+		out = "\nPlease use Log::Newline() instead of Log::Print(\"\\n\")\n";
+	}
+#endif
 	if (!logConsole && !logFile) return;
 	_HandleFile();
 	static String consoleOut;
@@ -72,7 +77,7 @@ void Log::_Print(SimpleRange<char> out) {
 	// Soft reset since we don't want to reallocate all the time
 	consoleOut.size = 0;
 	fileOut.size = 0;
-	if (startOnNewline) {
+	if (startOnNewline && out.size && out[0] != '\n' && out[0] != '\r') {
 		if (logConsole) {
 			consoleOut = prepend;
 			Indent(consoleOut, indent, indentString);
@@ -89,12 +94,16 @@ void Log::_Print(SimpleRange<char> out) {
 			SimpleRange<char> range = out.SubRange(last, i-last+1);
 			if (logConsole) {
 				consoleOut += range;
-				consoleOut += prepend;
-				Indent(consoleOut, indent, indentString);
+				if (i < out.size-1) {
+					consoleOut += prepend;
+					Indent(consoleOut, indent, indentString);
+				}
 			}
 			if (logFile) {
 				fileOut += range;
-				Indent(fileOut, indent, indentString);
+				if (i < out.size-1) {
+					Indent(fileOut, indent, indentString);
+				}
 			}
 			last = i+1;
 		}
@@ -160,6 +169,20 @@ void Log::PrintLnPlain(SimpleRange<char> out) {
 		if (written != (size_t)out.size) logConsole = false;
 		fputc('\n', stdout);
 	}
+}
+
+void Log::Newline(i32 count) {
+	if (!logConsole && !logFile) return;
+	_HandleFile();
+	if (file) {
+		for (i32 i = 0; i < count; i++)
+			fputc('\n', file);
+	}
+	if (logConsole) {
+		for (i32 i = 0; i < count; i++)
+			fputc('\n', stdout);
+	}
+	startOnNewline = true;
 }
 
 } // namespace io

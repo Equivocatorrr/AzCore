@@ -94,6 +94,8 @@ public:
 	void PrintPlain(SimpleRange<char> out);
 	void PrintLnPlain(SimpleRange<char> out);
 
+	void Newline(i32 count = 1);
+
 	inline void IndentMore() {
 		indent++;
 	}

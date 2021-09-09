@@ -574,6 +574,30 @@ struct ArrayWithBucket {
 		return *this;
 	}
 
+	template<i32 otherAllocTail>
+	inline ArrayWithBucket<T, noAllocCount, allocTail>& force_inline
+	Append(const Array<T, otherAllocTail> &other) {
+		Array<T, otherAllocTail> value(other);
+		return Append(std::move(value));
+	}
+
+	template<i32 otherAllocTail>
+	ArrayWithBucket<T, noAllocCount, allocTail>&
+	Append(Array<T, otherAllocTail> &&other) {
+		i32 copyStart = size;
+		Resize(size + other.size);
+		if constexpr (std::is_trivially_copyable<T>::value) {
+			memcpy((void *)(data + copyStart), (void *)other.data, sizeof(T) * other.size);
+		} else {
+			for (i32 i = copyStart; i < size; i++) {
+				data[i] = std::move(other.data[i - copyStart]);
+			}
+		}
+		_SetTerminator();
+		other.Clear();
+		return *this;
+	}
+
 	inline T& force_inline
 	Insert(i32 index, const T &value) {
 		T val(value);

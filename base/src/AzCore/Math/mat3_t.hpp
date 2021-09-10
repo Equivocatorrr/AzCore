@@ -28,12 +28,12 @@ struct mat3_t {
 		};
 	};
 	mat3_t() = default;
-	inline mat3_t(const T &a) : h{a, 0, 0, 0, a, 0, 0, 0, a} {}
-	inline mat3_t(const T &x1, const T &y1, const T &z1,
-				  const T &x2, const T &y2, const T &z2,
-				  const T &x3, const T &y3, const T &z3) : data{x1, y1, z1, x2, y2, z2, x3, y3, z3} {}
+	inline mat3_t(T a) : h{a, 0, 0, 0, a, 0, 0, 0, a} {}
+	inline mat3_t(T x1, T y1, T z1,
+				  T x2, T y2, T z2,
+				  T x3, T y3, T z3) : data{x1, y1, z1, x2, y2, z2, x3, y3, z3} {}
 	template <bool rowMajor = true>
-	inline mat3_t(const vec3_t<T> &a, const vec3_t<T> &b, const vec3_t<T> &c) {
+	inline mat3_t(vec3_t<T> a, vec3_t<T> b, vec3_t<T> c) {
 		if constexpr (rowMajor) {
 			h = {a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z};
 		} else {
@@ -93,13 +93,13 @@ struct mat3_t {
 	inline mat3_t<T> Transpose() const {
 		return mat3_t<T>(v.x1, v.y1, v.z1, v.x2, v.y2, v.z2, v.x3, v.y3, v.z3);
 	}
-	inline mat3_t<T> operator+(const mat3_t<T> &a) const {
+	inline mat3_t<T> operator+(mat3_t<T> a) const {
 		return mat3_t<T>(
 			h.x1 + a.h.x1, h.y1 + a.h.y1, h.z1 + a.h.z1,
 			h.x2 + a.h.x2, h.y2 + a.h.y2, h.z2 + a.h.z2,
 			h.x3 + a.h.x3, h.y3 + a.h.y3, h.z3 + a.h.z3);
 	}
-	inline mat3_t<T> operator*(const mat3_t<T> &a) const {
+	inline mat3_t<T> operator*(mat3_t<T> a) const {
 		return mat3_t<T>(
 			h.x1 * a.v.x1 + h.y1 * a.v.y1 + h.z1 * a.v.z1,
 			h.x1 * a.v.x2 + h.y1 * a.v.y2 + h.z1 * a.v.z2,
@@ -111,19 +111,19 @@ struct mat3_t {
 			h.x3 * a.v.x2 + h.y3 * a.v.y2 + h.z3 * a.v.z2,
 			h.x3 * a.v.x3 + h.y3 * a.v.y3 + h.z3 * a.v.z3);
 	}
-	inline vec3_t<T> operator*(const vec3_t<T> &a) const {
+	inline vec3_t<T> operator*(vec3_t<T> a) const {
 		return vec3_t<T>(
 			h.x1 * a.x + h.y1 * a.y + h.z1 * a.z,
 			h.x2 * a.x + h.y2 * a.y + h.z2 * a.z,
 			h.x3 * a.x + h.y3 * a.y + h.z3 * a.z);
 	}
-	inline mat3_t<T> operator*(const T &a) const {
+	inline mat3_t<T> operator*(T a) const {
 		return mat3_t<T>(
 			h.x1 * a, h.y1 * a, h.z1 * a,
 			h.x2 * a, h.y2 * a, h.z2 * a,
 			h.x3 * a, h.y3 * a, h.z3 * a);
 	}
-	inline mat3_t<T> operator/(const T &a) const {
+	inline mat3_t<T> operator/(T a) const {
 		return mat3_t<T>(
 			h.x1 / a, h.y1 / a, h.z1 / a,
 			h.x2 / a, h.y2 / a, h.z2 / a,
@@ -134,7 +134,7 @@ struct mat3_t {
 } // namespace AzCore
 
 template <typename T>
-inline AzCore::vec3_t<T> operator*(const AzCore::vec3_t<T> &a, const AzCore::mat3_t<T> &b) {
+inline AzCore::vec3_t<T> operator*(AzCore::vec3_t<T> a, AzCore::mat3_t<T> b) {
 	return AzCore::vec3_t<T>(
 		a.x * b.v.x1 + a.y * b.v.y1 + a.z * b.v.z1,
 		a.x * b.v.x2 + a.y * b.v.y2 + a.z * b.v.z2,

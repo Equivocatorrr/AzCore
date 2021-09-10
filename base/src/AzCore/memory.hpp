@@ -119,7 +119,7 @@ Array<Range<T>> SeparateByValues(T *array,
 
 // Extract the base 2 exponent directly from the bits.
 inline i16 force_inline
-Exponent(const f128 &value) {
+Exponent(f128 value) {
 	u128 byteCode;
 	memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
 	i16 exponent = ((byteCode >> 112) & 0x7fff) - 0x3fff;
@@ -128,7 +128,7 @@ Exponent(const f128 &value) {
 
 // Extract the base 2 exponent directly from the bits.
 inline i16 force_inline
-Exponent(const f64 &value) {
+Exponent(f64 value) {
 	u64 byteCode;
 	memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
 	i16 exponent = ((byteCode >> 52) & 0x7ff) - 0x3ff;
@@ -137,7 +137,7 @@ Exponent(const f64 &value) {
 
 // Extract the base 2 exponent directly from the bits.
 inline i16 force_inline
-Exponent(const f32 &value) {
+Exponent(f32 value) {
 	u32 byteCode;
 	memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
 	i16 exponent = ((byteCode >> 23) & 0xff) - 0x7f;

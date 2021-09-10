@@ -30,13 +30,13 @@ struct mat4_t {
 		};
 	};
 	mat4_t() = default;
-	inline mat4_t(const T &a) : h{a, 0, 0, 0, 0, a, 0, 0, 0, 0, a, 0, 0, 0, 0, a} {}
-	inline mat4_t(const T &x1, const T &y1, const T &z1, const T &w1,
-				  const T &x2, const T &y2, const T &z2, const T &w2,
-				  const T &x3, const T &y3, const T &z3, const T &w3,
-				  const T &x4, const T &y4, const T &z4, const T &w4) : data{x1, y1, z1, w1, x2, y2, z2, w2, x3, y3, z3, w3, x4, y4, z4, w4} {}
+	inline mat4_t(T a) : h{a, 0, 0, 0, 0, a, 0, 0, 0, 0, a, 0, 0, 0, 0, a} {}
+	inline mat4_t(T x1, T y1, T z1, T w1,
+				  T x2, T y2, T z2, T w2,
+				  T x3, T y3, T z3, T w3,
+				  T x4, T y4, T z4, T w4) : data{x1, y1, z1, w1, x2, y2, z2, w2, x3, y3, z3, w3, x4, y4, z4, w4} {}
 	template <bool rowMajor = true>
-	inline mat4_t(const vec4_t<T> &a, const vec4_t<T> &b, const vec4_t<T> &c, const vec4_t<T> &d) {
+	inline mat4_t(vec4_t<T> a, vec4_t<T> b, vec4_t<T> c, vec4_t<T> d) {
 		if constexpr (rowMajor) {
 			h = {a.x, a.y, a.z, a.w, b.x, b.y, b.z, b.w, c.x, c.y, c.z, c.w, d.x, d.y, d.z, d.w};
 		} else {
@@ -144,14 +144,14 @@ struct mat4_t {
 						 v.x3, v.y3, v.z3, v.w3,
 						 v.x4, v.y4, v.z4, v.w4);
 	}
-	inline mat4_t<T> operator+(const mat4_t<T> &a) const {
+	inline mat4_t<T> operator+(mat4_t<T> a) const {
 		return mat4_t<T>(
 			h.x1 + a.h.x1, h.y1 + a.h.y1, h.z1 + a.h.z1, h.w1 + a.h.w1,
 			h.x2 + a.h.x2, h.y2 + a.h.y2, h.z2 + a.h.z2, h.w2 + a.h.w2,
 			h.x3 + a.h.x3, h.y3 + a.h.y3, h.z3 + a.h.z3, h.w3 + a.h.w3,
 			h.x4 + a.h.x4, h.y4 + a.h.y4, h.z4 + a.h.z4, h.w4 + a.h.w4);
 	}
-	inline mat4_t<T> operator*(const mat4_t<T> &a) const {
+	inline mat4_t<T> operator*(mat4_t<T> a) const {
 		return mat4_t<T>(
 			h.x1 * a.v.x1 + h.y1 * a.v.y1 + h.z1 * a.v.z1 + h.w1 * a.v.w1,
 			h.x1 * a.v.x2 + h.y1 * a.v.y2 + h.z1 * a.v.z2 + h.w1 * a.v.w2,
@@ -170,21 +170,21 @@ struct mat4_t {
 			h.x4 * a.v.x3 + h.y4 * a.v.y3 + h.z4 * a.v.z3 + h.w4 * a.v.w3,
 			h.x4 * a.v.x4 + h.y4 * a.v.y4 + h.z4 * a.v.z4 + h.w4 * a.v.w4);
 	}
-	inline vec4_t<T> operator*(const vec4_t<T> &a) const {
+	inline vec4_t<T> operator*(vec4_t<T> a) const {
 		return vec4_t<T>(
 			h.x1 * a.x + h.y1 * a.y + h.z1 * a.z + h.w1 * a.w,
 			h.x2 * a.x + h.y2 * a.y + h.z2 * a.z + h.w2 * a.w,
 			h.x3 * a.x + h.y3 * a.y + h.z3 * a.z + h.w3 * a.w,
 			h.x4 * a.x + h.y4 * a.y + h.z4 * a.z + h.w4 * a.w);
 	}
-	inline mat4_t<T> operator*(const T &a) const {
+	inline mat4_t<T> operator*(T a) const {
 		return mat4_t<T>(
 			h.x1 * a, h.y1 * a, h.z1 * a, h.w1 * a,
 			h.x2 * a, h.y2 * a, h.z2 * a, h.w2 * a,
 			h.x3 * a, h.y3 * a, h.z3 * a, h.w3 * a,
 			h.x4 * a, h.y4 * a, h.z4 * a, h.w4 * a);
 	}
-	inline mat4_t<T> operator/(const T &a) const {
+	inline mat4_t<T> operator/(T a) const {
 		return mat4_t<T>(
 			h.x1 / a, h.y1 / a, h.z1 / a, h.w1 / a,
 			h.x2 / a, h.y2 / a, h.z2 / a, h.w2 / a,
@@ -196,7 +196,7 @@ struct mat4_t {
 } // namespace AzCore
 
 template <typename T>
-inline AzCore::vec4_t<T> operator*(const AzCore::vec4_t<T> &a, const AzCore::mat4_t<T> &b) {
+inline AzCore::vec4_t<T> operator*(AzCore::vec4_t<T> a, AzCore::mat4_t<T> b) {
 	return AzCore::vec4_t<T>(
 		a.x * b.v.x1 + a.y * b.v.y1 + a.z * b.v.z1 + a.w * b.v.w1,
 		a.x * b.v.x2 + a.y * b.v.y2 + a.z * b.v.z2 + a.w * b.v.w2,

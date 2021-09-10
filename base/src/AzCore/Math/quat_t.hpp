@@ -33,61 +33,61 @@ struct quat_t {
 	};
 
 	quat_t() = default;
-	inline quat_t(const T &a) : data{a, 0, 0, 0} {}
-	inline quat_t(const T &a, const vec3_t<T> &v) : scalar(a), vector(v) {}
-	inline quat_t(const vec4_t<T> &v) : wxyz(v) {}
-	inline quat_t(const T &a, const T &b, const T &c, const T &d) : w(a), x(b), y(c), z(d) {}
+	inline quat_t(T a) : data{a, 0, 0, 0} {}
+	inline quat_t(T a, vec3_t<T> v) : scalar(a), vector(v) {}
+	inline quat_t(vec4_t<T> v) : wxyz(v) {}
+	inline quat_t(T a, T b, T c, T d) : w(a), x(b), y(c), z(d) {}
 	inline quat_t(const T d[4]) : data{d[0], d[1], d[2], d[3]} {}
 
-	inline quat_t<T> operator*(const quat_t<T> &a) const {
+	inline quat_t<T> operator*(quat_t<T> a) const {
 		return quat_t<T>(
 			w * a.w - x * a.x - y * a.y - z * a.z,
 			w * a.x + x * a.w + y * a.z - z * a.y,
 			w * a.y - x * a.z + y * a.w + z * a.x,
 			w * a.z + x * a.y - y * a.x + z * a.w);
 	}
-	inline quat_t<T> operator*(const T &a) const {
+	inline quat_t<T> operator*(T a) const {
 		return quat_t<T>(w * a, x * a, y * a, z * a);
 	}
-	inline quat_t<T> operator/(const quat_t<T> &a) const {
+	inline quat_t<T> operator/(quat_t<T> a) const {
 		return (*this) * a.Reciprocal();
 	}
-	inline quat_t<T> operator/(const T &a) const {
+	inline quat_t<T> operator/(T a) const {
 		return quat_t<T>(w / a, x / a, y / a, z / a);
 	}
-	inline quat_t<T> operator-(const quat_t<T> &a) const {
+	inline quat_t<T> operator-(quat_t<T> a) const {
 		return quat_t<T>(w - a.w, x - a.x, y - a.y, z - a.z);
 	}
-	inline quat_t<T> operator+(const quat_t<T> &a) const {
+	inline quat_t<T> operator+(quat_t<T> a) const {
 		return quat_t<T>(w + a.w, x + a.x, y + a.y, z + a.z);
 	}
-	inline quat_t<T>& operator+=(const quat_t<T> &a) {
+	inline quat_t<T>& operator+=(quat_t<T> a) {
 		w += a.w;
 		x += a.x;
 		y += a.y;
 		z += a.z;
 		return *this;
 	}
-	inline quat_t<T>& operator-=(const quat_t<T> &a) {
+	inline quat_t<T>& operator-=(quat_t<T> a) {
 		w -= a.w;
 		x -= a.x;
 		y -= a.y;
 		z -= a.z;
 		return *this;
 	}
-	inline quat_t<T>& operator*=(const quat_t<T> &a) {
+	inline quat_t<T>& operator*=(quat_t<T> a) {
 		*this = *this * a;
 		return *this;
 	}
-	inline quat_t<T>& operator/=(const quat_t<T> &a) {
+	inline quat_t<T>& operator/=(quat_t<T> a) {
 		*this = *this / a;
 		return *this;
 	}
-	inline quat_t<T>& operator*=(const T &a) {
+	inline quat_t<T>& operator*=(T a) {
 		*this = *this * a;
 		return *this;
 	}
-	inline quat_t<T>& operator/=(const T &a) {
+	inline quat_t<T>& operator/=(T a) {
 		*this = *this / a;
 		return *this;
 	}
@@ -101,7 +101,7 @@ struct quat_t {
 		return Conjugate() / (w * w + x * x + y * y + z * z); // For unit quaternions just use Conjugate()
 	}
 	// Make a rotation quaternion
-	static inline quat_t<T> Rotation(const T &angle, const vec3_t<T> &axis) {
+	static inline quat_t<T> Rotation(T angle, vec3_t<T> axis) {
 		return quat_t<T>(cos(angle / T(2.0)), normalize(axis) * sin(angle / T(2.0)));
 	}
 	// A one-off rotation of a point
@@ -139,7 +139,7 @@ struct quat_t {
 } // namespace AzCore
 
 template <typename T>
-inline AzCore::quat_t<T> normalize(const AzCore::quat_t<T> &a) {
+inline AzCore::quat_t<T> normalize(AzCore::quat_t<T> a) {
 	return a / a.Norm();
 }
 
@@ -179,12 +179,12 @@ AzCore::quat_t<T> log(AzCore::quat_t<T> a) {
 }
 
 template <typename T>
-AzCore::quat_t<T> pow(const AzCore::quat_t<T> &a, const AzCore::quat_t<T> &e) {
+AzCore::quat_t<T> pow(AzCore::quat_t<T> a, AzCore::quat_t<T> e) {
 	return exp(log(a) * e);
 }
 
 template <typename T>
-AzCore::quat_t<T> pow(const AzCore::quat_t<T> &a, const T &e) {
+AzCore::quat_t<T> pow(AzCore::quat_t<T> a, T e) {
 	return exp(log(a) * e);
 }
 

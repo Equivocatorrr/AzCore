@@ -339,15 +339,15 @@ namespace io {
 	class Log;
 }
 
-inline bool KeyCodeIsKeyboard(const u8 &keyCode) {
+inline bool KeyCodeIsKeyboard(u8 keyCode) {
 	return (keyCode >= KC_KEY_A && keyCode <= KC_KEY_ZENKAKUHANKAKU) || keyCode == KC_KEY_KPLEFTPAREN || keyCode == KC_KEY_KPRIGHTPAREN || (keyCode >= KC_KEY_LEFTCTRL && keyCode <= KC_KEY_MEDIA_FILE);
 }
 
-inline bool KeyCodeIsMouse(const u8 &keyCode) {
+inline bool KeyCodeIsMouse(u8 keyCode) {
 	return keyCode >= KC_MOUSE_LEFT && keyCode <= KC_MOUSE_SCROLLRIGHT;
 }
 
-inline bool KeyCodeIsGamepad(const u8 &keyCode) {
+inline bool KeyCodeIsGamepad(u8 keyCode) {
 	return (keyCode >= KC_GP_AXIS_H0_UP_RIGHT && keyCode <= KC_GP_AXIS_H0_UP_LEFT)
 		|| (keyCode >= KC_GP_BTN_SOUTH && keyCode <= KC_GP_AXIS_H0_Y);
 }

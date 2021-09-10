@@ -98,7 +98,7 @@
 #endif // AZCORE_MATH_EQUATIONS
 
 template <typename T>
-inline T normalize(const T &a)
+inline T normalize(T a)
 {
 	return a / abs(a);
 }

@@ -26,10 +26,10 @@ struct mat2_t {
 		};
 	};
 	mat2_t() = default;
-	inline mat2_t(const T &a) : h{a, 0, 0, a} {};
-	inline mat2_t(const T &a, const T &b, const T &c, const T &d) : h{a, b, c, d} {};
+	inline mat2_t(T a) : h{a, 0, 0, a} {};
+	inline mat2_t(T a, T b, T c, T d) : h{a, b, c, d} {};
 	template <bool rowMajor = true>
-	inline mat2_t(const vec2_t<T> &a, const vec2_t<T> &b) {
+	inline mat2_t(vec2_t<T> a, vec2_t<T> b) {
 		if constexpr (rowMajor) {
 			h = {a.x, a.y, b.x, b.y};
 		} else {
@@ -57,22 +57,22 @@ struct mat2_t {
 	inline mat2_t<T> Transpose() const {
 		return mat2_t<T>(v.x1, v.y1, v.x2, v.y2);
 	}
-	inline mat2_t<T> operator+(const mat2_t<T> &a) const {
+	inline mat2_t<T> operator+(mat2_t<T> a) const {
 		return mat2_t<T>(
 			h.x1 + a.h.x1, h.y1 + a.h.y1,
 			h.x2 + a.h.x2, h.y2 + a.h.y2);
 	}
-	inline mat2_t<T> operator*(const mat2_t<T> &a) const {
+	inline mat2_t<T> operator*(mat2_t<T> a) const {
 		return mat2_t<T>(
 			h.x1 * a.v.x1 + h.y1 * a.v.y1, h.x1 * a.v.x2 + h.y1 * a.v.y2,
 			h.x2 * a.v.x1 + h.y2 * a.v.y1, h.x2 * a.v.x2 + h.y2 * a.v.y2);
 	}
-	inline vec2_t<T> operator*(const vec2_t<T> &a) const {
+	inline vec2_t<T> operator*(vec2_t<T> a) const {
 		return vec2_t<T>(
 			h.x1 * a.x + h.y1 * a.y,
 			h.x2 * a.x + h.y2 * a.y);
 	}
-	inline mat2_t<T> operator*(const T &a) const {
+	inline mat2_t<T> operator*(T a) const {
 		return mat2_t<T>(
 			h.x1 * a, h.y1 * a,
 			h.x2 * a, h.y2 * a);
@@ -82,7 +82,7 @@ struct mat2_t {
 } // namespace AzCore
 
 template <typename T>
-inline AzCore::vec2_t<T> operator*(const AzCore::vec2_t<T> &a, const AzCore::mat2_t<T> &b) {
+inline AzCore::vec2_t<T> operator*(AzCore::vec2_t<T> a, AzCore::mat2_t<T> b) {
 	return AzCore::vec2_t<T>(
 		a.x * b.v.x1 + a.y * b.v.y1,
 		a.x * b.v.x2 + a.y * b.v.y2);

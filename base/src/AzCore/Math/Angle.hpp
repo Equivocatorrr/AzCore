@@ -25,40 +25,40 @@ class Degrees {
 public:
 	Degrees() = default;
 	Degrees(T a) : _value(a) {}
-	// Degrees(const Degrees<T> &a) : _value(a._value) {}
-	Degrees(const Radians<T> &a) {
+	// Degrees(Degrees<T> a) : _value(a._value) {}
+	Degrees(Radians<T> a) {
 		if constexpr (std::is_same<T, f32>()) {
 			_value = a.value() / tau * 360.0f;
 		} else {
 			_value = a.value() / tau64 * 360.0;
 		}
 	}
-	Degrees<T> &operator+=(const Degrees<T> &other) {
+	Degrees<T> &operator+=(Degrees<T> other) {
 		_value += other._value;
 		return *this;
 	}
-	Degrees<T> &operator-=(const Degrees<T> &other) {
+	Degrees<T> &operator-=(Degrees<T> other) {
 		_value -= other._value;
 		return *this;
 	}
-	Degrees<T> &operator*=(const Degrees<T> &other) {
+	Degrees<T> &operator*=(Degrees<T> other) {
 		_value *= other._value;
 		return *this;
 	}
-	Degrees<T> &operator/=(const Degrees<T> &other) {
+	Degrees<T> &operator/=(Degrees<T> other) {
 		_value /= other._value;
 		return *this;
 	}
-	Degrees<T> operator+(const Degrees<T> &other) const { return Degrees<T>(_value + other._value); }
-	Degrees<T> operator-(const Degrees<T> &other) const { return Degrees<T>(_value - other._value); }
-	Degrees<T> operator*(const Degrees<T> &other) const { return Degrees<T>(_value * other._value); }
-	Degrees<T> operator/(const Degrees<T> &other) const { return Degrees<T>(_value / other._value); }
-	bool operator==(const Degrees<T> &other) const { return _value == other._value; }
-	bool operator!=(const Degrees<T> &other) const { return _value != other._value; }
-	bool operator<=(const Degrees<T> &other) const { return _value <= other._value; }
-	bool operator>=(const Degrees<T> &other) const { return _value >= other._value; }
-	bool operator<(const Degrees<T> &other) const { return _value < other._value; }
-	bool operator>(const Degrees<T> &other) const { return _value > other._value; }
+	Degrees<T> operator+(Degrees<T> other) const { return Degrees<T>(_value + other._value); }
+	Degrees<T> operator-(Degrees<T> other) const { return Degrees<T>(_value - other._value); }
+	Degrees<T> operator*(Degrees<T> other) const { return Degrees<T>(_value * other._value); }
+	Degrees<T> operator/(Degrees<T> other) const { return Degrees<T>(_value / other._value); }
+	bool operator==(Degrees<T> other) const { return _value == other._value; }
+	bool operator!=(Degrees<T> other) const { return _value != other._value; }
+	bool operator<=(Degrees<T> other) const { return _value <= other._value; }
+	bool operator>=(Degrees<T> other) const { return _value >= other._value; }
+	bool operator<(Degrees<T> other) const { return _value < other._value; }
+	bool operator>(Degrees<T> other) const { return _value > other._value; }
 	Degrees<T> operator-() const { return Degrees<T>(-_value); }
 	T value() const { return _value; }
 	T& value() { return _value; }
@@ -74,9 +74,9 @@ class Radians {
 public:
 	Radians() = default;
 	Radians(T a) : _value(a) {}
-	// Radians(const Radians<T> &a) : _value(a._value) {}
-	Radians(const Angle<T> &a) : _value(a.value()) {}
-	Radians(const Degrees<T> &a) {
+	// Radians(Radians<T> a) : _value(a._value) {}
+	Radians(Angle<T> a) : _value(a.value()) {}
+	Radians(Degrees<T> a) {
 		if constexpr (std::is_same<T, f32>()) {
 			_value = a.value() * tau / 360.0f;
 		} else {
@@ -87,32 +87,32 @@ public:
 	//	 _value = other._value;
 	//	 return *this;
 	// }
-	Radians<T> &operator+=(const Radians<T> &other) {
+	Radians<T> &operator+=(Radians<T> other) {
 		_value += other._value;
 		return *this;
 	}
-	Radians<T> &operator-=(const Radians<T> &other) {
+	Radians<T> &operator-=(Radians<T> other) {
 		_value -= other._value;
 		return *this;
 	}
-	Radians<T> &operator*=(const Radians<T> &other) {
+	Radians<T> &operator*=(Radians<T> other) {
 		_value *= other._value;
 		return *this;
 	}
-	Radians<T> &operator/=(const Radians<T> &other) {
+	Radians<T> &operator/=(Radians<T> other) {
 		_value /= other._value;
 		return *this;
 	}
-	Radians<T> operator+(const Radians<T> &other) const { return Radians<T>(_value + other._value); }
-	Radians<T> operator-(const Radians<T> &other) const { return Radians<T>(_value - other._value); }
-	Radians<T> operator*(const Radians<T> &other) const { return Radians<T>(_value * other._value); }
-	Radians<T> operator/(const Radians<T> &other) const { return Radians<T>(_value / other._value); }
-	bool operator==(const Radians<T> &other) const { return _value == other._value; }
-	bool operator!=(const Radians<T> &other) const { return _value != other._value; }
-	bool operator<=(const Radians<T> &other) const { return _value <= other._value; }
-	bool operator>=(const Radians<T> &other) const { return _value >= other._value; }
-	bool operator<(const Radians<T> &other) const { return _value < other._value; }
-	bool operator>(const Radians<T> &other) const { return _value > other._value; }
+	Radians<T> operator+(Radians<T> other) const { return Radians<T>(_value + other._value); }
+	Radians<T> operator-(Radians<T> other) const { return Radians<T>(_value - other._value); }
+	Radians<T> operator*(Radians<T> other) const { return Radians<T>(_value * other._value); }
+	Radians<T> operator/(Radians<T> other) const { return Radians<T>(_value / other._value); }
+	bool operator==(Radians<T> other) const { return _value == other._value; }
+	bool operator!=(Radians<T> other) const { return _value != other._value; }
+	bool operator<=(Radians<T> other) const { return _value <= other._value; }
+	bool operator>=(Radians<T> other) const { return _value >= other._value; }
+	bool operator<(Radians<T> other) const { return _value < other._value; }
+	bool operator>(Radians<T> other) const { return _value > other._value; }
 	Radians<T> operator-() const { return Radians<T>(-_value); }
 	T value() const { return _value; }
 	T& value() { return _value; }
@@ -127,10 +127,10 @@ class Angle {
 
 public:
 	Angle() = default;
-	// Angle(const Angle<T> &other) : _value(other._value) {}
+	// Angle(Angle<T> other) : _value(other._value) {}
 	Angle(const T &other) : _value(Radians<T>(other)) {}
-	Angle(const Degrees<T> &other) : _value(Radians<T>(other)) {}
-	Angle(const Radians<T> &other) {
+	Angle(Degrees<T> other) : _value(Radians<T>(other)) {}
+	Angle(Radians<T> other) {
 		_value = other;
 		if constexpr (std::is_same<T, f32>()) {
 			while (_value > tau) {
@@ -148,11 +148,11 @@ public:
 			}
 		}
 	}
-	Angle<T> &operator+=(const Radians<T> &other) { return *this = _value + other; }
-	Angle<T> operator+(const Radians<T> &other) const { return Angle<T>(_value + other); }
-	Radians<T> operator-(const Angle<T> &other) const;
-	bool operator==(const Angle<T> &other) const { return _value == other._value; }
-	bool operator!=(const Angle<T> &other) const { return _value != other._value; }
+	Angle<T> &operator+=(Radians<T> other) { return *this = _value + other; }
+	Angle<T> operator+(Radians<T> other) const { return Angle<T>(_value + other); }
+	Radians<T> operator-(Angle<T> other) const;
+	bool operator==(Angle<T> other) const { return _value == other._value; }
+	bool operator!=(Angle<T> other) const { return _value != other._value; }
 	T value() const { return _value.value(); }
 	T& value() { return _value.value(); }
 };
@@ -172,29 +172,29 @@ Radians64 angleDiff(Angle64 from, Angle64 to);
 #endif
 
 template <typename T>
-Radians<T> Angle<T>::operator-(const Angle<T> &to) const {
+Radians<T> Angle<T>::operator-(Angle<T> to) const {
 	return angleDiff(*this, to);
 }
 
 template <typename T>
-inline Radians<T> angleDir(const Angle<T> &from, const Angle<T> &to) {
+inline Radians<T> angleDir(Angle<T> from, Angle<T> to) {
 	return sign(angleDiff(from, to));
 }
 
 } // namespace AzCore
 
 template <typename T>
-inline T sin(const AzCore::Radians<T> &a) { return sin(a.value()); }
+inline T sin(AzCore::Radians<T> a) { return sin(a.value()); }
 template <typename T>
-inline T cos(const AzCore::Radians<T> &a) { return cos(a.value()); }
+inline T cos(AzCore::Radians<T> a) { return cos(a.value()); }
 template <typename T>
-inline T tan(const AzCore::Radians<T> &a) { return tan(a.value()); }
+inline T tan(AzCore::Radians<T> a) { return tan(a.value()); }
 
 template <typename T>
-inline T sin(const AzCore::Angle<T> &a) { return sin(a.value()); }
+inline T sin(AzCore::Angle<T> a) { return sin(a.value()); }
 template <typename T>
-inline T cos(const AzCore::Angle<T> &a) { return cos(a.value()); }
+inline T cos(AzCore::Angle<T> a) { return cos(a.value()); }
 template <typename T>
-inline T tan(const AzCore::Angle<T> &a) { return tan(a.value()); }
+inline T tan(AzCore::Angle<T> a) { return tan(a.value()); }
 
 #endif // AZCORE_ANGLE_HPP

@@ -61,12 +61,12 @@ enum Plane {
 } // namespace AzCore
 
 template <typename T>
-inline T square(const T &a) {
+inline T square(T a) {
 	return a * a;
 }
 
 template <typename T>
-inline T median(const T &a, const T &b, const T &c) {
+inline T median(T a, T b, T c) {
 	if ((b >= a && a >= c) || (c >= a && a >= b))
 		return a;
 	if ((a >= b && b >= c) || (c >= b && b >= a))
@@ -77,44 +77,44 @@ inline T median(const T &a, const T &b, const T &c) {
 }
 
 template <typename T>
-inline T min(const T &a, const T &b) {
+inline T min(T a, T b) {
 	return a > b ? b : a;
 }
 
 template <typename T>
-inline T max(const T &a, const T &b) {
+inline T max(T a, T b) {
 	return a > b ? a : b;
 }
 
 template <typename T>
-inline T clamp(const T &a, const T &b, const T &c) {
+inline T clamp(T a, T b, T c) {
 	return median(a, b, c);
 }
 
 template <typename T>
-inline T abs(const T &a) {
+inline T abs(T a) {
 	return a >= 0 ? a : -a;
 }
 
 template <typename T>
-inline T sign(const T &a) {
+inline T sign(T a) {
 	return a >= 0 ? 1 : -1;
 }
 
 template <typename T, typename F>
-inline T lerp(const T &a, const T &b, F factor) {
+inline T lerp(T a, T b, F factor) {
 	factor = clamp(factor, F(0), F(1));
 	return a + (b - a) * factor;
 }
 
 template <typename T, typename F>
-inline T cosInterp(const T &a, const T &b, F factor) {
+inline T cosInterp(T a, T b, F factor) {
 	factor = F(0.5) - cos(F(AzCore::pi64)*clamp(factor, F(0), F(1))) * F(0.5);
 	return a + (b - a) * factor;
 }
 
 template <u32 order, typename T, typename F>
-inline T ease(const T &a, const T &b, F factor) {
+inline T ease(T a, T b, F factor) {
 	factor = clamp(factor, F(0), F(1));
 	F factorP = F(1);
 	F factorD = F(1);
@@ -136,12 +136,12 @@ T decay(T a, T b, F halfLife, F timestep) {
 }
 
 template <typename T>
-inline T map(const T &in, const T &minFrom, const T &maxFrom, const T &minTo, const T &maxTo) {
+inline T map(T in, T minFrom, T maxFrom, T minTo, T maxTo) {
 	return (in - minFrom) * (maxTo - minTo) / (maxFrom - minFrom) + minTo;
 }
 
 template <typename T>
-inline T cubert(const T &a) {
+inline T cubert(T a) {
 	return a >= T(0.0) ? pow(a, T(1.0 / 3.0)) : -pow(-a, T(1.0 / 3.0));
 }
 
@@ -157,6 +157,6 @@ inline T wrap(T a, T max) {
 }
 
 template <typename T>
-T normalize(const T&);
+T normalize(T);
 
 #endif // AZCORE_MATH_BASIC_HPP

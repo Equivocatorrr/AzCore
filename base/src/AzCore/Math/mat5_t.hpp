@@ -33,15 +33,15 @@ struct mat5_t {
 		};
 	};
 	mat5_t() = default;
-	inline mat5_t(const T &a) : h{a, 0, 0, 0, 0, 0, a, 0, 0, 0, 0, 0, a, 0, 0, 0, 0, 0, a, 0, 0, 0, 0, 0, a} {}
-	inline mat5_t(const T &x1, const T &y1, const T &z1, const T &w1, const T &v1,
-				  const T &x2, const T &y2, const T &z2, const T &w2, const T &v2,
-				  const T &x3, const T &y3, const T &z3, const T &w3, const T &v3,
-				  const T &x4, const T &y4, const T &z4, const T &w4, const T &v4,
-				  const T &x5, const T &y5, const T &z5, const T &w5, const T &v5)
+	inline mat5_t(T a) : h{a, 0, 0, 0, 0, 0, a, 0, 0, 0, 0, 0, a, 0, 0, 0, 0, 0, a, 0, 0, 0, 0, 0, a} {}
+	inline mat5_t(T x1, T y1, T z1, T w1, T v1,
+				  T x2, T y2, T z2, T w2, T v2,
+				  T x3, T y3, T z3, T w3, T v3,
+				  T x4, T y4, T z4, T w4, T v4,
+				  T x5, T y5, T z5, T w5, T v5)
 				: data{x1, y1, z1, w1, v1, x2, y2, z2, w2, v2, x3, y3, z3, w3, v3, x4, y4, z4, w4, v4, x5, y5, z5, w5, v5} {}
 	template <bool rowMajor = true>
-	inline mat5_t(const vec5_t<T> &a, const vec5_t<T> &b, const vec5_t<T> &c, const vec5_t<T> &d, const vec5_t<T> &e) {
+	inline mat5_t(vec5_t<T> a, vec5_t<T> b, vec5_t<T> c, vec5_t<T> d, vec5_t<T> e) {
 		if constexpr (rowMajor) {
 			h = {a.x, a.y, a.z, a.w, a.v,
 				 b.x, b.y, b.z, b.w, b.v,
@@ -167,7 +167,7 @@ struct mat5_t {
 						 v.x4, v.y4, v.z4, v.w4, v.v4,
 						 v.x5, v.y5, v.z5, v.w5, v.v5);
 	}
-	inline mat5_t<T> operator+(const mat5_t<T> &a) const {
+	inline mat5_t<T> operator+(mat5_t<T> a) const {
 		return mat5_t<T>(
 			h.x1 + a.h.x1, h.y1 + a.h.y1, h.z1 + a.h.z1, h.w1 + a.h.w1, h.v1 + a.h.v1,
 			h.x2 + a.h.x2, h.y2 + a.h.y2, h.z2 + a.h.z2, h.w2 + a.h.w2, h.v2 + a.h.v2,
@@ -175,7 +175,7 @@ struct mat5_t {
 			h.x4 + a.h.x4, h.y4 + a.h.y4, h.z4 + a.h.z4, h.w4 + a.h.w4, h.v4 + a.h.v4,
 			h.x5 + a.h.x5, h.y5 + a.h.y5, h.z5 + a.h.z5, h.w5 + a.h.w5, h.v5 + a.h.v5);
 	}
-	inline mat5_t<T> operator*(const mat5_t<T> &a) const {
+	inline mat5_t<T> operator*(mat5_t<T> a) const {
 		return mat5_t<T>(
 			h.x1 * a.v.x1 + h.y1 * a.v.y1 + h.z1 * a.v.z1 + h.w1 * a.v.w1 + h.v1 * a.v.v1,
 			h.x1 * a.v.x2 + h.y1 * a.v.y2 + h.z1 * a.v.z2 + h.w1 * a.v.w2 + h.v1 * a.v.v2,
@@ -203,7 +203,7 @@ struct mat5_t {
 			h.x5 * a.v.x4 + h.y5 * a.v.y4 + h.z5 * a.v.z4 + h.w5 * a.v.w4 + h.v5 * a.v.v4,
 			h.x5 * a.v.x5 + h.y5 * a.v.y5 + h.z5 * a.v.z5 + h.w5 * a.v.w5 + h.v5 * a.v.v5);
 	}
-	inline vec5_t<T> operator*(const vec5_t<T> &a) const {
+	inline vec5_t<T> operator*(vec5_t<T> a) const {
 		return vec5_t<T>(
 			h.x1 * a.x + h.y1 * a.y + h.z1 * a.z + h.w1 * a.w + h.v1 * a.v,
 			h.x2 * a.x + h.y2 * a.y + h.z2 * a.z + h.w2 * a.w + h.v2 * a.v,
@@ -211,7 +211,7 @@ struct mat5_t {
 			h.x4 * a.x + h.y4 * a.y + h.z4 * a.z + h.w4 * a.w + h.v4 * a.v,
 			h.x5 * a.x + h.y5 * a.y + h.z5 * a.z + h.w5 * a.w + h.v5 * a.v);
 	}
-	inline mat5_t<T> operator*(const T &a) const {
+	inline mat5_t<T> operator*(T a) const {
 		return mat5_t<T>(
 			h.x1 * a, h.y1 * a, h.z1 * a, h.w1 * a, h.v1 * a,
 			h.x2 * a, h.y2 * a, h.z2 * a, h.w2 * a, h.v2 * a,
@@ -219,7 +219,7 @@ struct mat5_t {
 			h.x4 * a, h.y4 * a, h.z4 * a, h.w4 * a, h.v4 * a,
 			h.x5 * a, h.y5 * a, h.z5 * a, h.w5 * a, h.v5 * a);
 	}
-	inline mat5_t<T> operator/(const T &a) const {
+	inline mat5_t<T> operator/(T a) const {
 		return mat5_t<T>(
 			h.x1 / a, h.y1 / a, h.z1 / a, h.w1 / a, h.v1 / a,
 			h.x2 / a, h.y2 / a, h.z2 / a, h.w2 / a, h.v2 / a,
@@ -232,7 +232,7 @@ struct mat5_t {
 } // namespace AzCore
 
 template <typename T>
-inline AzCore::vec5_t<T> operator*(const AzCore::vec5_t<T> &a, const AzCore::mat5_t<T> &b) {
+inline AzCore::vec5_t<T> operator*(AzCore::vec5_t<T> a, AzCore::mat5_t<T> b) {
 	return AzCore::vec5_t<T>(
 		a.x * b.v.x1 + a.y * b.v.y1 + a.z * b.v.z1 + a.w * b.v.w1 + a.v * b.v.v1,
 		a.x * b.v.x2 + a.y * b.v.y2 + a.z * b.v.z2 + a.w * b.v.w2 + a.v * b.v.v2,

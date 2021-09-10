@@ -39,59 +39,59 @@ struct vec4_t {
 	};
 
 	vec4_t() = default;
-	inline vec4_t(const T &vec) : x(vec), y(vec), z(vec), w(vec) {}
-	inline vec4_t(const T &v1, const T &v2, const T &v3, const T &v4) : x(v1), y(v2), z(v3), w(v4) {}
-	inline vec4_t(const vec3_t<T> &vec, const T &v1) : r(vec.r), g(vec.g), b(vec.b), a(v1) {
+	inline vec4_t(T vec) : x(vec), y(vec), z(vec), w(vec) {}
+	inline vec4_t(T v1, T v2, T v3, T v4) : x(v1), y(v2), z(v3), w(v4) {}
+	inline vec4_t(vec3_t<T> vec, T v1) : r(vec.r), g(vec.g), b(vec.b), a(v1) {
 	}
 	template <typename I>
-	vec4_t(const vec4_t<I> &a) : x((T)a.x), y((T)a.y), z((T)a.z), w((T)a.w) {
+	vec4_t(vec4_t<I> a) : x((T)a.x), y((T)a.y), z((T)a.z), w((T)a.w) {
 	}
-	inline vec4_t<T> operator+(const vec4_t<T> &vec) const { return vec4_t<T>(x + vec.x, y + vec.y, z + vec.z, w + vec.w); }
-	inline vec4_t<T> operator-(const vec4_t<T> &vec) const { return vec4_t<T>(x - vec.x, y - vec.y, z - vec.z, w - vec.w); }
+	inline vec4_t<T> operator+(vec4_t<T> vec) const { return vec4_t<T>(x + vec.x, y + vec.y, z + vec.z, w + vec.w); }
+	inline vec4_t<T> operator-(vec4_t<T> vec) const { return vec4_t<T>(x - vec.x, y - vec.y, z - vec.z, w - vec.w); }
 	inline vec4_t<T> operator-() const { return vec4_t<T>(-x, -y, -z, -w); }
-	inline vec4_t<T> operator*(const vec4_t<T> &vec) const { return vec4_t<T>(x * vec.x, y * vec.y, z * vec.z, w * vec.w); }
-	inline vec4_t<T> operator/(const vec4_t<T> &vec) const { return vec4_t<T>(x / vec.x, y / vec.y, z / vec.z, w / vec.w); }
-	inline vec4_t<T> operator*(const T &vec) const { return vec4_t<T>(x * vec, y * vec, z * vec, w * vec); }
-	inline vec4_t<T> operator/(const T &vec) const { return vec4_t<T>(x / vec, y / vec, z / vec, w / vec); }
-	inline bool operator==(const vec4_t<T> &a) const { return x == a.x && y == a.y && z == a.z && w == a.w; }
-	inline bool operator!=(const vec4_t<T> &a) const { return x != a.x || y != a.y || z != a.z || w != a.w; }
-	inline T &operator[](const u32 &i) { return data[i]; }
-	inline vec4_t<T> operator+=(const vec4_t<T> &vec) {
+	inline vec4_t<T> operator*(vec4_t<T> vec) const { return vec4_t<T>(x * vec.x, y * vec.y, z * vec.z, w * vec.w); }
+	inline vec4_t<T> operator/(vec4_t<T> vec) const { return vec4_t<T>(x / vec.x, y / vec.y, z / vec.z, w / vec.w); }
+	inline vec4_t<T> operator*(T vec) const { return vec4_t<T>(x * vec, y * vec, z * vec, w * vec); }
+	inline vec4_t<T> operator/(T vec) const { return vec4_t<T>(x / vec, y / vec, z / vec, w / vec); }
+	inline bool operator==(vec4_t<T> a) const { return x == a.x && y == a.y && z == a.z && w == a.w; }
+	inline bool operator!=(vec4_t<T> a) const { return x != a.x || y != a.y || z != a.z || w != a.w; }
+	inline T &operator[](u32 i) { return data[i]; }
+	inline vec4_t<T> operator+=(vec4_t<T> vec) {
 		x += vec.x;
 		y += vec.y;
 		z += vec.z;
 		w += vec.w;
 		return *this;
 	}
-	inline vec4_t<T> operator-=(const vec4_t<T> &vec) {
+	inline vec4_t<T> operator-=(vec4_t<T> vec) {
 		x -= vec.x;
 		y -= vec.y;
 		z -= vec.z;
 		w -= vec.w;
 		return *this;
 	}
-	inline vec4_t<T> operator/=(const vec4_t<T> &vec) {
+	inline vec4_t<T> operator/=(vec4_t<T> vec) {
 		x /= vec.x;
 		y /= vec.y;
 		z /= vec.z;
 		w /= vec.w;
 		return *this;
 	}
-	inline vec4_t<T> operator/=(const T &vec) {
+	inline vec4_t<T> operator/=(T vec) {
 		x /= vec;
 		y /= vec;
 		z /= vec;
 		w /= vec;
 		return *this;
 	}
-	inline vec4_t<T> operator*=(const vec4_t<T> &vec) {
+	inline vec4_t<T> operator*=(vec4_t<T> vec) {
 		x *= vec.x;
 		y *= vec.y;
 		z *= vec.z;
 		w *= vec.w;
 		return *this;
 	}
-	inline vec4_t<T> operator*=(const T &vec) {
+	inline vec4_t<T> operator*=(T vec) {
 		x *= vec;
 		y *= vec;
 		z *= vec;
@@ -103,27 +103,27 @@ struct vec4_t {
 } // namespace AzCore
 
 template <typename T>
-inline AzCore::vec4_t<T> operator*(const T &a, const AzCore::vec4_t<T> &b) {
+inline AzCore::vec4_t<T> operator*(T a, AzCore::vec4_t<T> b) {
 	return b * a;
 }
 
 template <typename T>
-inline T dot(const AzCore::vec4_t<T> &a, const AzCore::vec4_t<T> &b) {
+inline T dot(AzCore::vec4_t<T> a, AzCore::vec4_t<T> b) {
 	return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 }
 
 template <typename T>
-inline T absSqr(const AzCore::vec4_t<T> &a) {
+inline T absSqr(AzCore::vec4_t<T> a) {
 	return a.x * a.x + a.y * a.y + a.z * a.z + a.w * a.w;
 }
 
 template <typename T>
-inline T abs(const AzCore::vec4_t<T> &a) {
+inline T abs(AzCore::vec4_t<T> a) {
 	return sqrt(a.x * a.x + a.y * a.y + a.z * a.z + a.w * a.w);
 }
 
 template <bool isSegment, typename T>
-T distSqrToLine(const AzCore::vec4_t<T> &segA, const AzCore::vec4_t<T> &segB, const AzCore::vec4_t<T> &point) {
+T distSqrToLine(AzCore::vec4_t<T> segA, AzCore::vec4_t<T> segB, AzCore::vec4_t<T> point) {
 	const AzCore::vec4_t<T> diff = segA - segB;
 	const T lengthSquared = absSqr(diff);
 	const T t = dot(diff, segA - point) / lengthSquared;

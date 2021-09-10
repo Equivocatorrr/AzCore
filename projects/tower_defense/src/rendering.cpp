@@ -479,7 +479,7 @@ bool Manager::Draw() {
 
 	VkResult acquisitionResult = data.swapchain->AcquireNextImage();
 
-	if (acquisitionResult == VK_ERROR_OUT_OF_DATE_KHR || acquisitionResult == VK_NOT_READY) {
+	if (acquisitionResult == VK_ERROR_OUT_OF_DATE_KHR || acquisitionResult == VK_NOT_READY || acquisitionResult == VK_SUBOPTIMAL_KHR) {
 		cout.PrintLn("Skipping a frame because acquisition returned: ", vk::ErrorString(acquisitionResult));
 		data.resized = true;
 		return true; // Don't render this frame.
@@ -521,6 +521,19 @@ bool Manager::Draw() {
 
 	for (auto& renderCallback : data.renderCallbacks) {
 		renderCallback.callback(renderCallback.userdata, this, commandBuffersSecondary);
+	}
+
+	{ // Debug info
+		if (showFramerate) {
+			frametimeCounter.Update();
+			f32 msAvg = frametimeCounter.Average();
+			f32 msMax = frametimeCounter.Max();
+			f32 msMin = frametimeCounter.Min();
+			f32 msDiff = msMax - msMin;
+			f32 fps = 1000.0f / msAvg;
+			WString string = ToWString(Stringify("fps: ", FloatFormat(fps, 10, 1), "\navg: ", FloatFormat(msAvg, 10, 1), "ms\nmax: ", FloatFormat(msMax, 10, 1), "ms\nmin: ", FloatFormat(msMin, 10, 1), "ms\ndiff: ", FloatFormat(msDiff, 10, 1), "ms"));
+			DrawText(commandBuffersSecondary.Back(), string, 0, vec4(1.0f), vec2(8.0f), vec2(16.0f * globals->gui.scale), LEFT, TOP);
+		}
 	}
 
 	for (auto& commandBuffer : data.commandBuffersSecondary[data.buffer]) {

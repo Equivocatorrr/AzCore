@@ -1836,6 +1836,9 @@ void TextBox::Update(vec2 pos, bool selected) {
 					string.Insert(cursor, c);
 					cursorBlinkTimer = 0.0f;
 					cursor++;
+				} else {
+					i32 dosomething = 3;
+					dosomething *= 3;
 				}
 			}
 		}

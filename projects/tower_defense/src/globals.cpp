@@ -25,8 +25,8 @@ void Globals::LoadLocale() {
 
 		std::cout << "localeString = " << localeString << std::endl;
 
-		localeName += localeString[0];
-		localeName += localeString[1];
+		localeName += CharToLower(localeString[0]);
+		localeName += CharToLower(localeString[1]);
 	}
 
 	localeName += ".locale";
@@ -90,54 +90,26 @@ void Globals::LoadLocale() {
 }
 
 bool Globals::LoadSettings() {
-	FILE *file = fopen("settings.conf", "rb");
-	if (!file) {
-		error = "Failed to open settings.conf";
-		return false;
-	}
-	String buffer;
-	fseek(file, 0, SEEK_END);
-	buffer.Resize(ftell(file));
-	fseek(file, 0, SEEK_SET);
-	if (0 == fread(buffer.data, 1, buffer.size, file)) {
-		error = "Nothing read from settings.conf";
-		return false;
-	}
-	fclose(file);
-	// Now parse the buffer
-	for (i32 i = 0; i < buffer.size;) {
-		if (buffer[i] == ' ' || buffer[i] == '\n') {
-			i++;
-			continue;
-		}
-		String token[2];
-		for (i32 t = 0; t < 2; t++) {
-			for (i32 j = i; j <= buffer.size; j++) {
-				if (j == buffer.size || buffer[j] == ' ' || buffer[j] == '\n') {
-					token[t].Resize(j-i);
-					memcpy(token[t].data, &buffer[i], token[t].size);
-					i += token[t].size+1;
-					break;
-				}
-			}
-		}
-		if (token[0] == "fullscreen") {
-			if (token[1] == "true") {
+	Array<char> buffer = FileContents("settings.conf");
+	Array<Range<char>> ranges = SeparateByValues(buffer, {'\n', '\r', '\t', ' '});
+	for (i32 i = 0; i < ranges.size-1; i++) {
+		if (ranges[i] == "fullscreen") {
+			if (ranges[i+1] == "true") {
 				fullscreen = true;
-			} else if (token[1] == "false") {
+			} else if (ranges[i+1] == "false") {
 				fullscreen = false;
 			}
-		} else if (token[0] == "framerate") {
-			Framerate(clamp(StringToF32(token[1]), 30.0f, 300.0f));
-		} else if (token[0] == "volumeMain") {
-			volumeMain = clamp(StringToF32(token[1]), 0.0f, 1.0f);
-		} else if (token[0] == "volumeMusic") {
-			volumeMusic = clamp(StringToF32(token[1]), 0.0f, 1.0f);
-		} else if (token[0] == "volumeEffects") {
-			volumeEffects = clamp(StringToF32(token[1]), 0.0f, 1.0f);
-		} else if (token[0] == "localeOverride") {
-			localeOverride[0] = token[1][0];
-			localeOverride[1] = token[1][1];
+		} else if (ranges[i] == "framerate") {
+			Framerate(clamp(StringToF32(ranges[i+1]), 30.0f, 300.0f));
+		} else if (ranges[i] == "volumeMain") {
+			volumeMain = clamp(StringToF32(ranges[i+1]), 0.0f, 1.0f);
+		} else if (ranges[i] == "volumeMusic") {
+			volumeMusic = clamp(StringToF32(ranges[i+1]), 0.0f, 1.0f);
+		} else if (ranges[i] == "volumeEffects") {
+			volumeEffects = clamp(StringToF32(ranges[i+1]), 0.0f, 1.0f);
+		} else if (ranges[i] == "localeOverride") {
+			localeOverride[0] = ranges[i+1][0];
+			localeOverride[1] = ranges[i+1][1];
 		}
 	}
 	return true;
@@ -155,11 +127,11 @@ bool Globals::SaveSettings() {
 	fwrite(output.data, 1, output.size, file);
 	output = "framerate " + ToString((i32)framerate) + '\n';
 	fwrite(output.data, 1, output.size, file);
-	output = "volumeMain " + ToString(volumeMain) + '\n';
+	output = "volumeMain " + ToString(volumeMain, 10, 3) + '\n';
 	fwrite(output.data, 1, output.size, file);
-	output = "volumeMusic " + ToString(volumeMusic) + '\n';
+	output = "volumeMusic " + ToString(volumeMusic, 10, 3) + '\n';
 	fwrite(output.data, 1, output.size, file);
-	output = "volumeEffects " + ToString(volumeEffects) + '\n';
+	output = "volumeEffects " + ToString(volumeEffects, 10, 3) + '\n';
 	fwrite(output.data, 1, output.size, file);
 	if (localeOverride[0] != 0) {
 		output = "localeOverride ";

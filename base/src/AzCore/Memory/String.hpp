@@ -34,6 +34,14 @@ struct AlignText {
 	inline AlignText(u16 alignment, char filler=' ') : value(alignment), fill(filler) {}
 };
 
+template<typename T>
+struct FloatFormat {
+	T value;
+	i32 _base;
+	i32 _precision;
+	FloatFormat(T in, i32 base, i32 precision=-1) : value(in), _base(base), _precision(precision) {}
+};
+
 void AppendToString(String &string, u32 value, i32 base = 10);
 void AppendToString(String &string, u64 value, i32 base = 10);
 void AppendToString(String &string, u128 value, i32 base = 10);
@@ -43,6 +51,11 @@ void AppendToString(String &string, i128 value, i32 base = 10);
 void AppendToString(String &string, f32 value, i32 base = 10, i32 precision = -1);
 void AppendToString(String &string, f64 value, i32 base = 10, i32 precision = -1);
 void AppendToString(String &string, f128 value, i32 base = 10, i32 precision = -1);
+
+template<typename T>
+inline void force_inline AppendToString(String &string, FloatFormat<T> fmt) {
+	AppendToString(string, fmt.value, fmt._base, fmt._precision);
+}
 
 inline void AppendToString(String &string, u16 value, i32 base = 10) {
 	AppendToString(string, (u32)value, base);
@@ -114,6 +127,37 @@ i32 CharLen(const char chr);
 inline char CharToUpper(char c) {
 	if (c >= 'a' && c <= 'z') c = c + 'A' - 'a';
 	return c;
+}
+inline char CharToLower(char c) {
+	if (c >= 'A' && c <= 'Z') c = c + 'a' - 'A';
+	return c;
+}
+inline bool isNewline(char c) {
+    return c == '\n' || c == '\r';
+}
+inline bool isWhitespace(char c) {
+    return c == ' ' || c == '\t' || isNewline(c);
+}
+inline bool isLowercase(char c) {
+    return c >= 'a' && c <= 'z';
+}
+inline bool isUppercase(char c) {
+    return c >= 'A' && c <= 'Z';
+}
+inline bool isText(char c) {
+    return isLowercase(c) || isUppercase(c);
+}
+inline bool isNumber(char c) {
+    return c >= '0' && c <= '9';
+}
+inline bool isWordChar(char c) {
+    return c == '_'
+        || isText(c)
+        || isNumber(c);
+}
+
+inline bool isAlphaNumeric(char c) {
+    return isNumber(c) || isText(c);
 }
 
 inline WString operator+(const WString &wString, const char *cString) {

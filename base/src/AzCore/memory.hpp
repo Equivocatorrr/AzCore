@@ -48,7 +48,9 @@ Array<Range<T>> SeparateByValues(Array<T, allocTail> &array, const ArrayWithBuck
 	i32 rangeStart = 0;
 	for (i32 i = 0; i < array.size; i++) {
 		if (values.Contains(array.data[i])) {
-			result.Append(array.GetRange(rangeStart, i-rangeStart));
+			if (i-rangeStart > 0) {
+				result.Append(array.GetRange(rangeStart, i-rangeStart));
+			}
 			rangeStart = i+1;
 		}
 	}
@@ -65,7 +67,9 @@ Array<Range<T>> SeparateByValues(ArrayWithBucket<T, noAllocCount, allocTail> &ar
 	i32 rangeStart = 0;
 	for (i32 i = 0; i < array.size; i++) {
 		if (values.Contains(array.data[i])) {
-			result.Append(array.GetRange(rangeStart, i-rangeStart));
+			if (i-rangeStart > 0) {
+				result.Append(array.GetRange(rangeStart, i-rangeStart));
+			}
 			rangeStart = i+1;
 		}
 	}
@@ -82,7 +86,9 @@ Array<Range<T>> SeparateByValues(Range<T> &range,
 	i32 rangeStart = 0;
 	for (i32 i = 0; i < range.size; i++) {
 		if (values.Contains((*range)[i])) {
-			result.Append(range.SubRange(rangeStart, i-rangeStart));
+			if (i-rangeStart > 0) {
+				result.Append(range.SubRange(rangeStart, i-rangeStart));
+			}
 			rangeStart = i+1;
 		}
 	}
@@ -99,7 +105,9 @@ Array<Range<T>> SeparateByValues(T *array,
 	i32 rangeStart = 0;
 	for (i32 i = 0; array[i] != StringTerminators<T>::value; i++) {
 		if (values.Contains(array[i])) {
-			result.Append(Range<T>(&array[rangeStart], i-rangeStart));
+			if (i-rangeStart > 0) {
+				result.Append(Range<T>(&array[rangeStart], i-rangeStart));
+			}
 			rangeStart = i+1;
 		}
 	}

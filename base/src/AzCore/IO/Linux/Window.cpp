@@ -30,6 +30,8 @@ namespace AzCore {
 
 namespace io {
 
+i32 GetWindowDpi(Window *window);
+
 xcb_atom_t xcbGetAtom(xcb_connection_t *connection, bool onlyIfExists, const String &name) {
 	xcb_intern_atom_cookie_t cookie;
 	xcb_intern_atom_reply_t *reply;
@@ -72,8 +74,9 @@ char* xcbGetProperty(xcb_connection_t *connection, xcb_window_t window, xcb_atom
 		free(reply);
 		return xcbGetProperty(connection, window, atom, type, newSize);
 	}
-	char *content = new char[reply_len];
+	char *content = new char[reply_len+1];
 	memcpy(content, xcb_get_property_value(reply), reply_len);
+	content[reply_len] = 0;
 	free(reply);
 	return content;
 }
@@ -331,11 +334,13 @@ struct WindowData {
 	xcb_cursor_t cursorVisible;
 	i32 windowDepth;
 	xkb_keyboard xkb;
+	i32 frameCount;
 };
 
 Window::Window() {
 	data = new WindowData;
 	data->windowDepth = 24;
+	data->frameCount = 0;
 }
 
 Window::~Window() {
@@ -517,6 +522,8 @@ bool Window::Open() {
 	xcb_free_pixmap(data->connection, pixmap_mask);
 
 	open = true;
+	dpi = GetWindowDpi(this);
+	data->frameCount = 0;
 	return true;
 }
 
@@ -588,9 +595,19 @@ bool Window::Resize(u32 w, u32 h) {
 	return true;
 }
 
+void UpdateWindowDpi(Window *window) {
+	window->dpi = GetWindowDpi(window);
+}
+
 bool Window::Update() {
 	bool changeFullscreen = false;
 	resized = false;
+	data->frameCount++;
+	if (data->frameCount >= 15) {
+		Thread dpiThread = Thread(UpdateWindowDpi, this);
+		dpiThread.Detach(); // YEET
+		data->frameCount = 0;
+	}
 	while ((data->event = xcb_poll_for_event(data->connection))) {
 		if (!xkbProcessEvent(&data->xkb, (xkb_generic_event_t *)data->event)) {
 			free(data->event);
@@ -803,13 +820,18 @@ String Window::InputName(u8 keyCode) const {
 	return xkbGetInputName(&data->xkb, keyCode);
 }
 
-i32 Window::GetDPI() {
-	if (!open) return -1;
-	Array<char> resources = xcbGetProperty(data->connection, data->screen->root, XCB_ATOM_RESOURCE_MANAGER, XCB_ATOM_STRING, 16*1024);
+i32 GetWindowDpi(Window *window) {
+	// ClockTime start = Clock::now();
+	char *res = xcbGetProperty(window->data->connection, window->data->screen->root, XCB_ATOM_RESOURCE_MANAGER, XCB_ATOM_STRING, 16*1024);
+	Array<char> resources;
+	resources.data = res;
+	resources.size = StringLength(res);
+	resources.allocated = resources.size;
 	if (0 == resources.size) {
 		error = "Couldn't get X Resource Manager property";
 		return -1;
 	}
+	// ClockTime endGetProperty = Clock::now();
 	// u32 widthPx, heightPx, widthMM, heightMM;
 	// widthPx  = data->screen->width_in_pixels;
 	// widthMM  = data->screen->width_in_millimeters;
@@ -823,24 +845,22 @@ i32 Window::GetDPI() {
 	// 	"\nhorizontal dpi: ", i32((f32)widthPx * 25.4f / (f32)widthMM),
 	// 	"\nvertical dpi: ", i32((f32)heightPx * 25.4f / (f32)heightMM));
 	// cout.PrintLn("Resource Manager: \n\n", resources, "\n");
-	i32 dpi = -1;
+
+	// This could be sped up, but the vast majority of our time is spent above.
+	i32 dpi;
 	Array<Range<char>> ranges = SeparateByValues(resources, {'\n', ' ', ':', '\t'});
-	for (i32 i = 0; i < ranges.size; i++) {
-		if (ranges[i].size == 0) {
-			ranges.Erase(i);
-			i--;
-			continue;
-		}
-		// cout.PrintLn("\"", ranges[i], "\"");
-	}
 	for (i32 i = 0; i < ranges.size-1; i++) {
 		if (ranges[i] == "Xft.dpi") {
 			dpi = StringToI64(ranges[i+1]);
 			break;
 		}
 	}
-	// cout.PrintLn("Chosen DPI: ", dpi);
+	// cout.PrintLn("DPI took ", FormatTime(Clock::now() - start), " total, where ", FormatTime(endGetProperty - start), " was xcbGetProperty.");
 	return dpi;
+}
+
+i32 Window::GetDPI() {
+	return dpi > 0 ? dpi : 96;
 }
 
 } // namespace io

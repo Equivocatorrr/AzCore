@@ -19,6 +19,10 @@
 #define WM_MOUSEHWHEEL 0x020E
 #endif
 
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED 0x02E0
+#endif
+
 #include "../RawInput.hpp"
 #include "../../io.hpp"
 #include "../../basictypes.hpp"
@@ -71,6 +75,8 @@ Window::~Window() {
 	}
 	delete data;
 }
+
+i32 GetWindowDpi(Window *window);
 
 LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	Window *thisWindow = focusedWindow;
@@ -153,7 +159,8 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 	}
 	case WM_MOUSEWHEEL: {
 		if (thisWindow->input != nullptr) {
-			thisWindow->input->scroll.y = f32(HIWORD(wParam)) / 120.0f;
+			thisWindow->input->scroll.y = f32(GET_WHEEL_DELTA_WPARAM(wParam)) / 120.0f;
+			// cout.PrintLn("Scroll: ", GET_WHEEL_DELTA_WPARAM(wParam));
 			if (thisWindow->input->scroll.y > 0)
 				keyCode = KC_MOUSE_SCROLLUP;
 			else
@@ -262,6 +269,17 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 		thisWindow->input->ReleaseAll();
 		break;
 	}
+	case WM_DPICHANGED: {
+		thisWindow->dpi = LOWORD(wParam);
+
+		RECT *const newWindow = (RECT*)lParam;
+		i32 newX, newY, newWidth, newHeight;
+		newX = newWindow->left;
+		newY = newWindow->top;
+		newWidth = newWindow->right - newX;
+		newHeight = newWindow->bottom - newY;
+		SetWindowPos(thisWindow->data->window, nullptr, newX, newY, newWidth, newHeight, SWP_NOZORDER | SWP_NOACTIVATE);
+	} break;
 	default:
 		return DefWindowProc(hWnd, uMsg, wParam, lParam);
 	}
@@ -332,6 +350,7 @@ bool Window::Open() {
 		return false;
 	}
 	open = true;
+	dpi = GetWindowDpi(this);
 	return true;
 }
 
@@ -454,6 +473,36 @@ void Window::HideCursor(bool hide) {
 
 String Window::InputName(u8 keyCode) const {
 	return winGetInputName(keyCode);
+}
+
+typedef HRESULT (WINAPI *fp_GetDpiForMonitor)(HMONITOR hmonitor, int dpiType, UINT *dpiX, UINT *dpiY);
+
+i32 GetWindowDpi(Window *window) {
+	HMODULE hShcore = LoadLibraryW(L"shcore");
+	if (hShcore) {
+		fp_GetDpiForMonitor GetDpiForMonitor = (fp_GetDpiForMonitor)GetProcAddress(hShcore, "GetDpiForMonitor");
+		if (GetDpiForMonitor) {
+			HMONITOR monitor = MonitorFromWindow(window->data->window, MONITOR_DEFAULTTOPRIMARY);
+			UINT dpiX, dpiY;
+			HRESULT result = GetDpiForMonitor(monitor, 0, &dpiX, &dpiY);
+			if (SUCCEEDED(result)) {
+				// cout.PrintLn("DPI = ", dpiX);
+				return (i32)dpiX;
+			}
+		}
+	}
+
+	// Couldn't get it by the above method, so we'll do it the old-fashioned way.
+	HDC screenDC = GetDC(0);
+	i32 dpiX = GetDeviceCaps(screenDC, LOGPIXELSX);
+	ReleaseDC(0, screenDC);
+
+	// cout.PrintLn("DPI = ", dpiX);
+	return dpiX;
+}
+
+i32 Window::GetDPI() {
+	return dpi;
 }
 
 } // namespace io

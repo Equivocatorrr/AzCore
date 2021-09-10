@@ -33,6 +33,7 @@ struct Globals {
 	AzCore::BinaryMap<AzCore::String, AzCore::WString> locale;
 	// Settings
 	bool fullscreen = false;
+	bool debugInfo = false;
 	f32 framerate = 60.0f;
 	f32 volumeMain = 1.0f;
 	f32 volumeMusic = 1.0f;

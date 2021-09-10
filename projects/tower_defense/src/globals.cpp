@@ -89,16 +89,24 @@ void Globals::LoadLocale() {
 	}
 }
 
+bool ReadBool(Range<char> val, bool def) {
+	if (val == "true") {
+		return true;
+	} else if (val == "false") {
+		return false;
+	} else {
+		return def;
+	}
+}
+
 bool Globals::LoadSettings() {
 	Array<char> buffer = FileContents("settings.conf");
 	Array<Range<char>> ranges = SeparateByValues(buffer, {'\n', '\r', '\t', ' '});
 	for (i32 i = 0; i < ranges.size-1; i++) {
 		if (ranges[i] == "fullscreen") {
-			if (ranges[i+1] == "true") {
-				fullscreen = true;
-			} else if (ranges[i+1] == "false") {
-				fullscreen = false;
-			}
+			fullscreen = ReadBool(ranges[i+1], false);
+		} else if (ranges[i] == "debugInfo") {
+			debugInfo = ReadBool(ranges[i+1], false);
 		} else if (ranges[i] == "framerate") {
 			Framerate(clamp(StringToF32(ranges[i+1]), 30.0f, 300.0f));
 		} else if (ranges[i] == "volumeMain") {
@@ -115,6 +123,12 @@ bool Globals::LoadSettings() {
 	return true;
 }
 
+void WriteBool(String &output, const char *name, bool val) {
+	output.Append(name);
+	output.Append(' ');
+	output.Append(val ? "true\n" : "false\n");
+}
+
 bool Globals::SaveSettings() {
 	FILE *file = fopen("settings.conf", "w+");
 	if (!file) {
@@ -122,8 +136,8 @@ bool Globals::SaveSettings() {
 		return false;
 	}
 	String output;
-	output = "fullscreen ";
-	output += fullscreen ? "true\n" : "false\n";
+	WriteBool(output, "fullscreen", fullscreen);
+	WriteBool(output, "debugInfo", debugInfo);
 	fwrite(output.data, 1, output.size, file);
 	output = "framerate " + ToString((i32)framerate) + '\n';
 	fwrite(output.data, 1, output.size, file);

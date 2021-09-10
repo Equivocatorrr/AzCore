@@ -20,8 +20,8 @@ Gui::~Gui() {
 }
 
 void Gui::EventAssetInit() {
-	// globals->assets.QueueFile("DroidSans.ttf");
-	globals->assets.QueueFile("FiraSans-Book.otf");
+	globals->assets.QueueFile("DroidSans.ttf");
+	// globals->assets.QueueFile("FiraSans-Book.otf");
 	// globals->assets.QueueFile("LiberationSerif-Regular.ttf");
 	// globals->assets.QueueFile("OpenSans-Regular.ttf");
 	// globals->assets.QueueFile("Literata[wght].ttf");

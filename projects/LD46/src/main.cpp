@@ -94,6 +94,12 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		cout.PrintLn("Failed to open window: ", io::error);
 		return 1;
 	}
+	{
+		i32 dpi = globals->window.GetDPI();
+		f32 scale = (f32)dpi / 96.0f;
+		globals->gui.scale = scale;
+		globals->window.Resize(u32((f32)globals->window.width * scale), u32((u32)globals->window.height * scale));
+	}
 	globals->window.HideCursor();
 
 	if (!globals->rendering.Init()) {
@@ -108,10 +114,22 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
 	globals->window.Fullscreen(globals->fullscreen);
 
-	ClockTime frameStart;
+	ClockTime frameStart, frameNext;
+	frameNext = Clock::now();
 
 	while (globals->window.Update() && !globals->exit) {
-		frameStart = Clock::now();
+		if (abs(Nanoseconds(frameNext - Clock::now()).count()) >= 1000000) {
+			// Something must have hung the program. Start fresh.
+			frameStart = Clock::now();
+		} else {
+			frameStart = frameNext;
+		}
+		frameNext = frameStart + globals->frameDuration;
+		{
+			i32 dpi = globals->window.GetDPI();
+			f32 scale = (f32)dpi / 96.0f;
+			globals->gui.scale = scale;
+		}
 		globals->rawInput.Update(globals->objects.timestep);
 		globals->objects.Sync();
 		Thread threads[2];
@@ -125,8 +143,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			return false;
 		}
 		globals->input.Tick(globals->objects.timestep);
-		Nanoseconds frameDelta = Nanoseconds(Clock::now() - frameStart);
-		Nanoseconds frameSleep = globals->frameDuration - frameDelta;
+		Nanoseconds frameSleep = frameNext - Clock::now() - Nanoseconds(1000);
 		if (frameSleep.count() >= 1000) {
 			Thread::Sleep(frameSleep);
 		}

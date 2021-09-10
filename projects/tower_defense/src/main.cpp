@@ -129,8 +129,12 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	frameNext = Clock::now();
 
 	while (globals->window.Update() && !globals->exit) {
-		frameStart = frameNext;
-		frameNext += globals->frameDuration;
+		if (abs(Nanoseconds(frameNext - Clock::now()).count()) >= 1000000) {
+			// Something must have hung the program. Start fresh.
+			frameStart = Clock::now();
+		} else {
+			frameStart = frameNext;
+		}
 		{
 			i32 dpi = globals->window.GetDPI();
 			f32 scale = (f32)dpi / 96.0f;

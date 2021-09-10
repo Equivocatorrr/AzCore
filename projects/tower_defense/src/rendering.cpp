@@ -524,7 +524,7 @@ bool Manager::Draw() {
 	}
 
 	{ // Debug info
-		if (showFramerate) {
+		if (globals->debugInfo) {
 			frametimeCounter.Update();
 			f32 msAvg = frametimeCounter.Average();
 			f32 msMax = frametimeCounter.Max();

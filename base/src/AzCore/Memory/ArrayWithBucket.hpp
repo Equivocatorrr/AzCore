@@ -610,7 +610,7 @@ struct ArrayWithBucket {
 			throw std::out_of_range("ArrayWithBucket::Insert index is out of bounds");
 		}
 #endif
-		if (size >= allocated && size >= noAllocCount) {
+		if (size+allocTail >= allocated && size+allocTail >= noAllocCount) {
 			const bool doDelete = allocated != 0;
 			allocated += (allocated >> 1) + 2;
 			T *temp = new T[allocated + allocTail];

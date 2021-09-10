@@ -16,13 +16,15 @@ io::Log cout("main.log");
 
 const u32 maxVertices = 8192;
 
+f32 scale = 1.0f;
+
 struct Vertex {
 	vec4 color;
 	vec2 pos;
 };
 
 void DrawCircle(VkCommandBuffer cmdBuf, Vertex *vertices, u32 *vertex, vec2 center, f32 radius, vec4 color, f32 aspectRatio) {
-	u32 circumference = (u32)clamp(sqrt(radius*tau*1600.0f), 5.0f, 80.0f);
+	u32 circumference = (u32)(scale * clamp(sqrt(radius*tau*1600.0f), 5.0f, 80.0f));
 	center.x *= aspectRatio;
 	vertices[(*vertex)++] = {color, center};
 	for (u32 i = 0; i <= circumference; i++) {
@@ -75,6 +77,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		cout.PrintLn("Failed to open window: ",  io::error);
 		return 1;
 	}
+
+	scale = (f32)window.GetDPI() / 96.0f;
+	window.Resize(u32((f32)window.width * scale), u32((u32)window.height * scale));
 
 	rawInput.window = &window;
 
@@ -190,7 +195,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	pipelineLines->inputBindingDescriptions = {inputBindingDescription};
 	pipelineLines->inputAttributeDescriptions = inputAttributeDescriptions;
 	pipelineLines->colorBlendAttachments.Append(colorBlendAttachment);
-	pipelineLines->rasterizer.lineWidth = 4.0f;
+	pipelineLines->rasterizer.lineWidth = 4.0f * scale;
 	// pipelineLines->depthStencil.depthTestEnable = VK_TRUE;
 	// pipelineLines->depthStencil.depthWriteEnable = VK_TRUE;
 

@@ -16,6 +16,8 @@ io::Log cout("test.log");
 
 i32 main(i32 argumentCount, char** argumentValues) {
 
+	f32 scale = 1.0f;
+
 	bool enableLayers = false, enableCoreValidation = false;
 
 	cout.PrintLn("\nTest program received ", argumentCount, " arguments:");
@@ -83,6 +85,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		cout.PrintLn("Failed to open Window: ", io::error);
 		return 1;
 	}
+
+	scale = (f32)window.GetDPI() / 96.0f;
+	window.Resize(u32((f32)window.width * scale), u32((u32)window.height * scale));
 
 	Ptr<vk::Swapchain> vkSwapchain = vkDevice->AddSwapchain();
 	vkSwapchain->window = vkInstance.AddWindowForSurface(&window);

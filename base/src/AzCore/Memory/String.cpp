@@ -247,7 +247,7 @@ void AppendToString(String &string, f32 value, i32 base, i32 precision) {
 	} else {
 		if (remaining < 1.0f) {
 			string += "0.";
-			dot = 1;
+			dot = string.size-1;
 			point = true;
 			if (precision != -1)
 				count = precision+1;
@@ -280,7 +280,7 @@ void AppendToString(String &string, f32 value, i32 base, i32 precision) {
 	}
 	if (roundUp && precision != -1 && point) {
 		string[dot+precision]++;
-		for (i32 i = dot+precision; i >= 0;) {
+		for (i32 i = dot+precision; i >= startSize;) {
 			i32 nextI = i-1;
 			if (nextI == dot) nextI--;
 			if (string[i] > '9') {
@@ -289,7 +289,7 @@ void AppendToString(String &string, f32 value, i32 base, i32 precision) {
 				} else {
 					string[i] = '0';
 				}
-				if (nextI == -1) {
+				if (nextI == startSize-1) {
 					string.Insert(startSize, '1');
 					dot++;
 					break;
@@ -309,10 +309,10 @@ void AppendToString(String &string, f32 value, i32 base, i32 precision) {
 	}
 	string.Resize(i + 1);
 	if (newExponent > 7) {
-		string += "e+" + ToString(newExponent);
+		string += "e+" + ToString(newExponent, base);
 	}
 	else if (newExponent < -1) {
-		string += "e-" + ToString(-newExponent);
+		string += "e-" + ToString(-newExponent, base);
 	}
 }
 
@@ -380,7 +380,7 @@ void AppendToString(String &string, f64 value, i32 base, i32 precision) {
 	} else {
 		if (remaining < 1.0) {
 			string += "0.";
-			dot = 1;
+			dot = startSize+1;
 			point = true;
 			if (precision != -1)
 				count = precision + 1;
@@ -413,7 +413,7 @@ void AppendToString(String &string, f64 value, i32 base, i32 precision) {
 	}
 	if (roundUp && precision != -1 && point) {
 		string[dot+precision]++;
-		for (i32 i = dot+precision; i >= 0;) {
+		for (i32 i = dot+precision; i >= startSize;) {
 			i32 nextI = i-1;
 			if (nextI == dot) nextI--;
 			if (string[i] > '9') {
@@ -422,7 +422,7 @@ void AppendToString(String &string, f64 value, i32 base, i32 precision) {
 				} else {
 					string[i] = '0';
 				}
-				if (nextI == -1) {
+				if (nextI == startSize-1) {
 					string.Insert(startSize, '1');
 					dot++;
 					break;
@@ -442,10 +442,10 @@ void AppendToString(String &string, f64 value, i32 base, i32 precision) {
 	}
 	string.Resize(i + 1);
 	if (newExponent > 15) {
-		string += "e+" + ToString(newExponent);
+		string += "e+" + ToString(newExponent, base);
 	}
 	else if (newExponent < -1) {
-		string += "e-" + ToString(-newExponent);
+		string += "e-" + ToString(-newExponent, base);
 	}
 }
 
@@ -515,7 +515,7 @@ void AppendToString(String &string, f128 value, i32 base, i32 precision) {
 	} else {
 		if (remaining < 1.0) {
 			string += "0.";
-			dot = 1;
+			dot = startSize+1;
 			point = true;
 			if (precision != -1)
 				count = precision + 1;
@@ -548,7 +548,7 @@ void AppendToString(String &string, f128 value, i32 base, i32 precision) {
 	}
 	if (roundUp && precision != -1 && point) {
 		string[dot+precision]++;
-		for (i32 i = dot+precision; i >= 0;) {
+		for (i32 i = dot+precision; i >= startSize;) {
 			i32 nextI = i-1;
 			if (nextI == dot) nextI--;
 			if (string[i] > '9') {
@@ -557,7 +557,7 @@ void AppendToString(String &string, f128 value, i32 base, i32 precision) {
 				} else {
 					string[i] = '0';
 				}
-				if (nextI == -1) {
+				if (nextI == startSize-1) {
 					string.Insert(startSize, '1');
 					dot++;
 					break;
@@ -577,16 +577,14 @@ void AppendToString(String &string, f128 value, i32 base, i32 precision) {
 	}
 	string.Resize(i + 1);
 	if (newExponent > 33) {
-		string += "e+" + ToString(newExponent);
+		string += "e+" + ToString(newExponent, base);
 	}
 	else if (newExponent < -1) {
-		string += "e-" + ToString(-newExponent);
+		string += "e-" + ToString(-newExponent, base);
 	}
 }
 
-inline bool isNumber(char c) {
-	return c >= '0' && c <= '9';
-}
+#include <stdio.h>
 
 // TODO: Write some unit tests to confirm the reliability of this.
 f32 StringToF32(String string, i32 base) {
@@ -603,6 +601,23 @@ f32 StringToF32(String string, i32 base) {
 		if (string[i] == '.') {
 			dot = i;
 			string.Erase(i);
+		}
+	}
+	// handle e-# and e+#
+	for (i32 i = 0; i < string.size-2; i++) {
+		if (string[i] == 'e' && (string[i+1] == '+' || string[i+1] == '-')) {
+			i32 exp = StringToI64(SimpleRange<char>(&string[i+1], string.size-i-1), base);
+			if (exp > 0) {
+				while (0 != exp--) {
+					multiplier *= baseF;
+				}
+			} else if (exp < 0) {
+				while (0 != exp++) {
+					multiplier /= baseF;
+				}
+			}
+			string.Resize(i);
+			break;
 		}
 	}
 	start = string.size - 1;
@@ -688,6 +703,8 @@ i64 StringToI64(String string, i32 base) {
 		char c = string[i];
 		if (isNumber(c)) {
 			value = c - '0';
+		} else if (c == '+') {
+			return result;
 		} else if (c == '-') {
 			return -result;
 		} else if (base > 10) {

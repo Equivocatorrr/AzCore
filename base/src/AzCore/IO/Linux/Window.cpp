@@ -847,7 +847,7 @@ i32 GetWindowDpi(Window *window) {
 	// cout.PrintLn("Resource Manager: \n\n", resources, "\n");
 
 	// This could be sped up, but the vast majority of our time is spent above.
-	i32 dpi;
+	i32 dpi = -1;
 	Array<Range<char>> ranges = SeparateByValues(resources, {'\n', ' ', ':', '\t'});
 	for (i32 i = 0; i < ranges.size-1; i++) {
 		if (ranges[i] == "Xft.dpi") {

@@ -4,12 +4,8 @@
 */
 
 #include "../../io.hpp"
+#include "WindowData.hpp"
 
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #include <dinput.h>
 
 #define WS_FULLSCREEN (WS_SYSMENU | WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_VISIBLE)
@@ -56,14 +52,6 @@ String winGetInputName(u8 hid) {
 }
 
 Window *focusedWindow = nullptr;
-
-struct WindowData {
-	HINSTANCE instance;
-	HWND window;
-	WNDCLASSEX windowClass;
-	HICON windowIcon, windowIconSmall;
-	String windowClassName;
-};
 
 Window::Window() {
 	data = new WindowData;

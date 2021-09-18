@@ -6,25 +6,7 @@
 #include "../Window.hpp"
 #include "../../io.hpp"
 #include "../../keycodes.hpp"
-
-// To use GLX, you need Xlib, but for Vulkan you can just use xcb
-#ifdef AZCORE_IO_FOR_VULKAN
-	#define AZCORE_IO_NO_XLIB
-#endif
-
-#include <xcb/xcb.h>
-#ifndef AZCORE_IO_NO_XLIB
-#include <X11/Xlib.h>
-#include <X11/Xlib-xcb.h>
-#endif
-#include <xcb/xproto.h>
-#include <linux/input.h>
-#include <xkbcommon/xkbcommon.h>
-#include <xkbcommon/xkbcommon-x11.h>
-
-#define explicit extern_explicit // Preventing C++ keyword bug
-#include <xcb/xkb.h>
-#undef explicit
+#include "WindowData.hpp"
 
 namespace AzCore {
 
@@ -80,16 +62,6 @@ char* xcbGetProperty(xcb_connection_t *connection, xcb_window_t window, xcb_atom
 	free(reply);
 	return content;
 }
-
-struct xkb_keyboard {
-	xcb_connection_t *connection;
-	u8 first_xkb_event;
-	struct xkb_context *context{nullptr};
-	struct xkb_keymap *keymap{nullptr};
-	i32 deviceId;
-	struct xkb_state *state{nullptr};
-	struct xkb_state *stateNone{nullptr};
-};
 
 String xkbGetInputName(xkb_keyboard *xkb, u8 hid) {
 	if (hid == 255) {
@@ -319,24 +291,6 @@ bool xkbSelectEventsForDevice(xkb_keyboard *xkb) {
 	return true;
 }
 
-struct WindowData {
-#ifndef AZCORE_IO_NO_XLIB
-	Display *display;
-#endif
-	xcb_connection_t *connection;
-	xcb_colormap_t colormap;
-	i32 visualID;
-	xcb_window_t window;
-	xcb_screen_t *screen;
-	xcb_generic_event_t *event;
-	xcb_atom_t atoms[4];
-	xcb_cursor_t cursorHidden;
-	xcb_cursor_t cursorVisible;
-	i32 windowDepth;
-	xkb_keyboard xkb;
-	i32 frameCount;
-};
-
 Window::Window() {
 	data = new WindowData;
 	data->windowDepth = 24;
@@ -542,6 +496,7 @@ bool Window::Close() {
 		error = "Window hasn't been created yet";
 		return false;
 	}
+	if (data->dpiThread.Joinable()) data->dpiThread.Join();
 	xkbCleanup(&data->xkb);
 	xcb_free_cursor(data->connection, data->cursorHidden);
 	xcb_destroy_window(data->connection, data->window);
@@ -589,6 +544,10 @@ bool Window::Resize(u32 w, u32 h) {
 		error = "Fullscreen windows can't be resized";
 		return false;
 	}
+	width = w;
+	height = h;
+	windowedWidth = w;
+	windowedHeight = h;
 	const u32 values[2] = {w, h};
 	xcb_configure_window(data->connection, data->window, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, values);
 	xcb_flush(data->connection);
@@ -604,8 +563,8 @@ bool Window::Update() {
 	resized = false;
 	data->frameCount++;
 	if (data->frameCount >= 15) {
-		Thread dpiThread = Thread(UpdateWindowDpi, this);
-		dpiThread.Detach(); // YEET
+		if (data->dpiThread.Joinable()) data->dpiThread.Join();
+		data->dpiThread = Thread(UpdateWindowDpi, this);
 		data->frameCount = 0;
 	}
 	while ((data->event = xcb_poll_for_event(data->connection))) {

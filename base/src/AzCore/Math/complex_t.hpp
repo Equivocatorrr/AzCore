@@ -31,7 +31,7 @@ struct complex_t {
 
 	complex_t() = default;
 	inline complex_t(T a) : x(a), y(0) {}
-	inline complex_t(T &a, T b) : x(a), y(b) {}
+	inline complex_t(T a, T b) : x(a), y(b) {}
 	inline complex_t(vec2_t<T> vec) : vector(vec) { }
 	inline complex_t(T d[2]) : x(d[0]), y(d[1]) { }
 
@@ -144,12 +144,12 @@ AzCore::complex_t<T> log(AzCore::complex_t<T> a) {
 }
 
 template <typename T>
-AzCore::complex_t<T> pow(AzCore::complex_t<T> &a, AzCore::complex_t<T> e) {
+AzCore::complex_t<T> pow(AzCore::complex_t<T> a, AzCore::complex_t<T> e) {
 	return exp(log(a) * e);
 }
 
 template <typename T>
-AzCore::complex_t<T> pow(AzCore::complex_t<T> &a, T e) {
+AzCore::complex_t<T> pow(AzCore::complex_t<T> a, T e) {
 	return exp(log(a) * e);
 }
 

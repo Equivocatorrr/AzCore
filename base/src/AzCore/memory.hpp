@@ -28,6 +28,13 @@
 
 namespace AzCore {
 
+template<typename T>
+void Swap(T &a, T &b) {
+	T c = std::move(a);
+	a = std::move(b);
+	b = std::move(c);
+}
+
 inline bool IsPowerOfTwo(size_t value) {
 	return (value & (value-1)) == 0;
 }

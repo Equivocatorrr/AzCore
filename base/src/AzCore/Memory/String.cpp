@@ -5,6 +5,7 @@
 
 #include "String.hpp"
 #include "../math.hpp"
+#include "../memory.hpp"
 
 AZCORE_STRING_TERMINATOR(char, '\0');
 AZCORE_STRING_TERMINATOR(char32, 0u);
@@ -35,13 +36,6 @@ WString operator+(const char32 *cString, WString &&string) {
 	result.Append(cString);
 	result.Append(std::move(string));
 	return result;
-}
-
-template <typename T>
-void Swap(T &a, T &b) {
-	T c = a;
-	a = b;
-	b = c;
 }
 
 template <typename T>

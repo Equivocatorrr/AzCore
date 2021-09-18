@@ -135,6 +135,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		} else {
 			frameStart = frameNext;
 		}
+		frameNext = frameStart + globals->frameDuration;
 		{
 			i32 dpi = globals->window.GetDPI();
 			f32 scale = (f32)dpi / 96.0f;

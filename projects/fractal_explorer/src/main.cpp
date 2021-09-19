@@ -294,11 +294,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
 	io::Window window;
 	io::Input input;
-	Image image;
-	if (!image.Load("data/icon.png")) {
-		cout.PrintLn("Failed to load image.");
-		return 1;
-	}
 	window.input = &input;
 	window.width = 512;
 	window.height = 512;

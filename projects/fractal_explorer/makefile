@@ -42,7 +42,4 @@ OBJ_W = $(patsubst %,$(ODIR)/Windows/Release/%,$(_OBJ))
 OBJ_LD = $(patsubst %,$(ODIR)/Linux/Debug/%,$(_OBJ))
 OBJ_WD = $(patsubst %,$(ODIR)/Windows/Debug/%,$(_OBJ))
 
-_SHADERS = test.vert.spv test.frag.spv
-SHADERS = $(patsubst %,data/shaders/%,$(_SHADERS))
-
 include ../base_project_makefile

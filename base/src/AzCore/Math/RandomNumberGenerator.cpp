@@ -5,8 +5,7 @@
 
 #include "RandomNumberGenerator.hpp"
 #include "../Time.hpp"
-#include "../Memory/HashMap.hpp"
-#include "../Memory/Array.hpp"
+#include "../memory.hpp"
 
 namespace AzCore {
 
@@ -71,12 +70,21 @@ void shuffleReset(i32 id, i32 size, RandomNumberGenerator *rng) {
 	if (nullptr == rng) rng = &globalRNG;
 	u32 actualId = GetActualId(id, size);
 	Playlist &playlist = playlists[actualId];
+	i32 carryOver;
+	if (playlist.indices.size) {
+		carryOver = playlist.indices.Back();
+	} else {
+		carryOver = rng->Generate() % size;
+	}
 	playlist.indices.Reserve(size);
 	playlist.indices.size = 0;
 	playlist.current = 0;
 	for (i32 i = 0; i < size; i++) {
 		i32 index = rng->Generate() % (playlist.indices.size+1);
 		playlist.indices.Insert(index, i);
+	}
+	if (playlist.indices.size > 1 && playlist.indices[0] == carryOver) {
+		Swap(playlist.indices[0], playlist.indices[1]);
 	}
 }
 

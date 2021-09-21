@@ -94,6 +94,7 @@ struct Source : public SourceBase {
 struct MultiSource {
 	Array<Source*> sources;
 	i32 current = -1;
+	i32 shuffleId = genShuffleId();
 	void Play(f32 gain, f32 pitch);
 	void Play();
 	void Pause();

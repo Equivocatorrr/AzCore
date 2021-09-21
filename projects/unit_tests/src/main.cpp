@@ -1375,12 +1375,38 @@ void ProfileEquations(io::LogStream &cout) {
 	}
 }
 
+bool UnitTestShuffle(io::LogStream &cout) {
+	cout << "Testing shuffle." << std::endl;
+	try {
+		HashSet<i32> set;
+		i32 shuffleId = genShuffleId();
+		for (i32 i = 0; i < 100; i++) {
+			i32 index = shuffle(shuffleId, 100);
+			if (set.Exists(index)) {
+				String error = Stringify("index ", index, " was already set!");
+				throw std::runtime_error(error.data);
+			}
+			set.Emplace(index);
+		}
+		i32 mustExist = shuffle(shuffleId, 100);
+		if (!set.Exists(mustExist)) {
+			String error = Stringify("Expected the shuffle playlist to restart, but we somehow got a number not already in the set: ", mustExist);
+			throw std::runtime_error(error.data);
+		}
+	} catch (std::runtime_error& err) {
+		cout << "Failed: " << err.what() << std::endl;
+		return false;
+	}
+	cout << "...Success!" << std::endl;
+	return true;
+}
+
 i32 main(i32 argumentCount, char** argumentValues) {
 	io::LogStream cout("test.log");
 
 	cout << "Doing unit tests..." << std::endl;
 
-	const u32 numTests = 10;
+	const u32 numTests = 11;
 	u32 numSuccessful = 0;
 
 	if (UnitTestComplex(cout)) {
@@ -1410,6 +1436,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	if (UnitTestRNG(cout)) {
 		numSuccessful++;
 	}
+	if (UnitTestShuffle(cout)) {
+		numSuccessful++;
+	}
 
 	if (UnitTestToString(cout)) {
 		numSuccessful++;
@@ -1417,5 +1446,5 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
 	cout << "Unit tests complete: " << numSuccessful << "/" << numTests << " were successful." << std::endl;
 
-	ProfileEquations(cout);
+	// ProfileEquations(cout);
 }

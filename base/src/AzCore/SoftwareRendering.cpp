@@ -149,8 +149,8 @@ bool QueryShm(xcb_connection_t *connection) {
 }
 
 bool CreateShmImage(SoftwareRenderer &swr, io::Window *window) {
-	xcb_connection_t *connection = window->data->connection;
-	swr.data->image = xcb_image_create_native(window->data->connection, window->width, window->height, XCB_IMAGE_FORMAT_Z_PIXMAP, window->data->windowDepth, 0, 0xffffffff, 0);
+	xcb_connection_t *connection = window->data->x11.connection;
+	swr.data->image = xcb_image_create_native(window->data->x11.connection, window->width, window->height, XCB_IMAGE_FORMAT_Z_PIXMAP, window->data->x11.windowDepth, 0, 0xffffffff, 0);
 
 	swr.stride = swr.data->image->stride;
 	swr.depth = swr.data->image->bpp/8;
@@ -161,8 +161,8 @@ bool CreateShmImage(SoftwareRenderer &swr, io::Window *window) {
 	swr.data->segInfo.shmseg = xcb_generate_id(connection);
 
 	xcb_void_cookie_t cookie;
-	cookie = xcb_shm_attach_checked(window->data->connection, swr.data->segInfo.shmseg, swr.data->segInfo.shmid, 0);
-	if (xcb_generic_error_t *err = xcb_request_check(window->data->connection, cookie)) {
+	cookie = xcb_shm_attach_checked(window->data->x11.connection, swr.data->segInfo.shmseg, swr.data->segInfo.shmid, 0);
+	if (xcb_generic_error_t *err = xcb_request_check(window->data->x11.connection, cookie)) {
 		swr.error = Stringify("Failed to shm_attach: op: ", (u32)err->error_code, ", major: ", (u32)err->major_code, ", minor: ", (u32)err->minor_code);
 		free(err);
 		return false;
@@ -172,7 +172,7 @@ bool CreateShmImage(SoftwareRenderer &swr, io::Window *window) {
 }
 
 void DestroyShmImage(SWData *data, io::Window *window) {
-	xcb_shm_detach(window->data->connection, data->shmseg);
+	xcb_shm_detach(window->data->x11.connection, data->shmseg);
 	xcb_image_destroy(data->image);
 	shmdt(data->segInfo.shmaddr);
 	shmctl(data->segInfo.shmid, IPC_RMID, nullptr);
@@ -182,11 +182,11 @@ bool SoftwareRenderer::Init() {
 	if (!window->open) return false;
 	width = window->width;
 	height = window->height;
-	xcb_connection_t *connection = window->data->connection;
+	xcb_connection_t *connection = window->data->x11.connection;
 	if (!QueryShm(connection)) return false;
 
 	data->gc = xcb_generate_id(connection);
-	xcb_create_gc(connection, data->gc, window->data->window, 0, 0);
+	xcb_create_gc(connection, data->gc, window->data->x11.window, 0, 0);
 
 	if (!CreateShmImage(*this, window)) return false;
 
@@ -204,13 +204,13 @@ bool SoftwareRenderer::Update() {
 	return true;
 }
 bool SoftwareRenderer::Present() {
-	xcb_connection_t *connection = window->data->connection;
-	xcb_image_shm_put(connection, window->data->window, data->gc, data->image, data->segInfo, 0, 0, 0, 0, width, height, false);
+	xcb_connection_t *connection = window->data->x11.connection;
+	xcb_image_shm_put(connection, window->data->x11.window, data->gc, data->image, data->segInfo, 0, 0, 0, 0, width, height, false);
 	xcb_flush(connection);
 	return true;
 }
 bool SoftwareRenderer::Deinit() {
-	xcb_connection_t *connection = window->data->connection;
+	xcb_connection_t *connection = window->data->x11.connection;
 	DestroyShmImage(data, window);
 	xcb_free_gc(connection, data->gc);
 	initted = false;

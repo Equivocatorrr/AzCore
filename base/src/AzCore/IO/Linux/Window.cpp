@@ -3,17 +3,18 @@
 	Author: Philip Haynes
 */
 
-#include "../Window.hpp"
-#include "../../io.hpp"
-#include "../../keycodes.hpp"
-#include "WindowData.hpp"
-#include "../../memory.hpp"
+// #include "../Window.hpp"
+// #include "../../io.hpp"
+// #include "../../keycodes.hpp"
+// #include "WindowData.hpp"
+// ^these are included by Wayland.cpp
+#include "Wayland.cpp"
 
 namespace AzCore {
 
 namespace io {
 
-u16 GetWindowDpi(Window *window);
+i32 GetWindowDpiX11(Window *window);
 
 xcb_atom_t xcbGetAtom(xcb_connection_t *connection, bool onlyIfExists, const String &name) {
 	xcb_intern_atom_cookie_t cookie;
@@ -293,8 +294,12 @@ bool xkbSelectEventsForDevice(xkb_keyboard *xkb) {
 }
 
 Window::Window() {
-	data = new WindowData;
-	data->windowDepth = 24;
+	char *wayland = getenv("WAYLAND_DISPLAY");
+	data = new WindowData(wayland != nullptr);
+	if (!data->useWayland) {
+		data->x11.windowDepth = 24;
+	}
+	cout.PrintLn("Wayland is ", data->useWayland ? "enabled" : "disabled");
 	data->frameCount = 0;
 }
 
@@ -306,53 +311,61 @@ Window::~Window() {
 }
 
 #ifndef AZCORE_IO_NO_XLIB
-#define CLOSE_CONNECTION(data) XCloseDisplay(data->display)
+#define CLOSE_CONNECTION(data) XCloseDisplay(data->x11.display)
 #else
-#define CLOSE_CONNECTION(data) xcb_disconnect(data->connection)
+#define CLOSE_CONNECTION(data) xcb_disconnect(data->x11.connection)
 #endif
 
-bool Window::Open() {
+bool windowOpenX11(Window *window) {
+	WindowData *data = window->data;
+	i16 &x = window->x;
+	i16 &y = window->y;
+	u16 &width = window->width;
+	u16 &height = window->height;
+	String &name = window->name;
+	bool &open = window->open;
+	u16 &dpi = window->dpi;
 	i32 defaultScreen = 0;
 #ifndef AZCORE_IO_NO_XLIB
-	data->display = XOpenDisplay(0);
-	if (!data->display) {
+	data->x11.display = XOpenDisplay(0);
+	if (!data->x11.display) {
 		error = "Can't open X display";
 		return false;
 	}
 
-	defaultScreen = DefaultScreen(data->display);
+	defaultScreen = DefaultScreen(data->x11.display);
 
-	data->connection = XGetXCBConnection(data->display);
-	if (!data->connection) {
-		XCloseDisplay(data->display);
+	data->x11.connection = XGetXCBConnection(data->x11.display);
+	if (!data->x11.connection) {
+		XCloseDisplay(data->x11.display);
 		error = "Can't get xcb connection from display";
 		return false;
 	}
 
-	XSetEventQueueOwner(data->display, XCBOwnsEventQueue);
+	XSetEventQueueOwner(data->x11.display, XCBOwnsEventQueue);
 #else
-	data->connection = xcb_connect(NULL, NULL);
+	data->x11.connection = xcb_connect(NULL, NULL);
 
-	if (xcb_connection_has_error(data->connection) > 0) {
+	if (xcb_connection_has_error(data->x11.connection) > 0) {
 		error = "Cannot open display";
 		return false;
 	}
 #endif
 
 	/* Find XCB screen */
-	data->screen = 0;
-	xcb_screen_iterator_t screen_iter = xcb_setup_roots_iterator(xcb_get_setup(data->connection));
+	data->x11.screen = 0;
+	xcb_screen_iterator_t screen_iter = xcb_setup_roots_iterator(xcb_get_setup(data->x11.connection));
 	for (i32 screen_num = defaultScreen;
 		 screen_iter.rem && screen_num > 0;
 		 --screen_num, xcb_screen_next(&screen_iter))
 		;
-	data->screen = screen_iter.data;
+	data->x11.screen = screen_iter.data;
 
-	xcb_depth_iterator_t depth_iter = xcb_screen_allowed_depths_iterator(data->screen);
+	xcb_depth_iterator_t depth_iter = xcb_screen_allowed_depths_iterator(data->x11.screen);
 	xcb_depth_t *depth = nullptr;
 
 	while (depth_iter.rem) {
-		if (depth_iter.data->depth == data->windowDepth && depth_iter.data->visuals_len) {
+		if (depth_iter.data->depth == data->x11.windowDepth && depth_iter.data->visuals_len) {
 			depth = depth_iter.data;
 			break;
 		}
@@ -361,7 +374,7 @@ bool Window::Open() {
 
 	if (!depth) {
 		CLOSE_CONNECTION(data);
-		error = "Screen doesn't support " + ToString(data->windowDepth) + "-bit depth!";
+		error = "Screen doesn't support " + ToString(data->x11.windowDepth) + "-bit depth!";
 		return false;
 	}
 
@@ -381,103 +394,112 @@ bool Window::Open() {
 		error = "Screen doesn't support True Color";
 		return false;
 	}
-	data->visualID = visual->visual_id;
+	data->x11.visualID = visual->visual_id;
 
 	xcb_void_cookie_t cookie;
 
-	data->colormap = xcb_generate_id(data->connection);
-	cookie = xcb_create_colormap_checked(data->connection, XCB_COLORMAP_ALLOC_NONE,
-										 data->colormap, data->screen->root, data->visualID);
+	data->x11.colormap = xcb_generate_id(data->x11.connection);
+	cookie = xcb_create_colormap_checked(data->x11.connection, XCB_COLORMAP_ALLOC_NONE,
+										 data->x11.colormap, data->x11.screen->root, data->x11.visualID);
 
-	if (xcb_generic_error_t *err = xcb_request_check(data->connection, cookie)) {
+	if (xcb_generic_error_t *err = xcb_request_check(data->x11.connection, cookie)) {
 		error = "Failed to create colormap: " + ToString(err->error_code);
 		CLOSE_CONNECTION(data);
 		return false;
 	}
 
 	u32 mask = XCB_CW_BACK_PIXEL | XCB_CW_BORDER_PIXEL | XCB_CW_EVENT_MASK | XCB_CW_COLORMAP;
-	u32 values[] = {data->screen->black_pixel, data->screen->black_pixel,
+	u32 values[] = {data->x11.screen->black_pixel, data->x11.screen->black_pixel,
 					XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE |
 						XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_POINTER_MOTION |
 						XCB_EVENT_MASK_STRUCTURE_NOTIFY | XCB_EVENT_MASK_FOCUS_CHANGE,
-					data->colormap,
+					data->x11.colormap,
 					0};
 
-	data->window = xcb_generate_id(data->connection);
-	cookie = xcb_create_window_checked(data->connection, data->windowDepth, data->window, data->screen->root,
-									   x, y, width, height, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, data->visualID, mask, values);
-	if (xcb_generic_error_t *err = xcb_request_check(data->connection, cookie)) {
+	data->x11.window = xcb_generate_id(data->x11.connection);
+	cookie = xcb_create_window_checked(data->x11.connection, data->x11.windowDepth, data->x11.window, data->x11.screen->root,
+									   x, y, width, height, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, data->x11.visualID, mask, values);
+	if (xcb_generic_error_t *err = xcb_request_check(data->x11.connection, cookie)) {
 		error = "Error creating xcb window: " + ToString(err->error_code);
 		CLOSE_CONNECTION(data);
 		return false;
 	}
 
-	if (!xkbSetupKeyboard(&data->xkb, data->connection)) {
-		xcb_destroy_window(data->connection, data->window);
+	if (!xkbSetupKeyboard(&data->xkb, data->x11.connection)) {
+		xcb_destroy_window(data->x11.connection, data->x11.window);
 		CLOSE_CONNECTION(data);
 		return false;
 	}
 
 	if (!xkbSelectEventsForDevice(&data->xkb)) {
-		xcb_destroy_window(data->connection, data->window);
+		xcb_destroy_window(data->x11.connection, data->x11.window);
 		CLOSE_CONNECTION(data);
 		return false;
 	}
 
-	xcb_change_property(data->connection, XCB_PROP_MODE_REPLACE, data->window,
+	xcb_change_property(data->x11.connection, XCB_PROP_MODE_REPLACE, data->x11.window,
 						XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, name.size, name.data);
-	xcb_change_property(data->connection, XCB_PROP_MODE_REPLACE, data->window,
+	xcb_change_property(data->x11.connection, XCB_PROP_MODE_REPLACE, data->x11.window,
 						XCB_ATOM_WM_ICON_NAME, XCB_ATOM_STRING, 8, name.size, name.data);
 
-	if ((data->atoms[0] = xcbGetAtom(data->connection, true, "WM_PROTOCOLS")) == 0) {
+	if ((data->x11.atoms[0] = xcbGetAtom(data->x11.connection, true, "WM_PROTOCOLS")) == 0) {
 		error = "Couldn't get WM_PROTOCOLS atom";
-		xcb_destroy_window(data->connection, data->window);
+		xcb_destroy_window(data->x11.connection, data->x11.window);
 		CLOSE_CONNECTION(data);
 		return false;
 	}
-	if ((data->atoms[1] = xcbGetAtom(data->connection, false, "WM_DELETE_WINDOW")) == 0) {
+	if ((data->x11.atoms[1] = xcbGetAtom(data->x11.connection, false, "WM_DELETE_WINDOW")) == 0) {
 		error = "Couldn't get WM_DELETE_WINDOW atom";
-		xcb_destroy_window(data->connection, data->window);
+		xcb_destroy_window(data->x11.connection, data->x11.window);
 		CLOSE_CONNECTION(data);
 		return false;
 	}
-	if ((data->atoms[2] = xcbGetAtom(data->connection, false, "_NET_WM_STATE")) == 0) {
+	if ((data->x11.atoms[2] = xcbGetAtom(data->x11.connection, false, "_NET_WM_STATE")) == 0) {
 		error = "Couldn't get _NET_WM_STATE atom";
-		xcb_destroy_window(data->connection, data->window);
+		xcb_destroy_window(data->x11.connection, data->x11.window);
 		CLOSE_CONNECTION(data);
 		return false;
 	}
-	if ((data->atoms[3] = xcbGetAtom(data->connection, false, "_NET_WM_STATE_FULLSCREEN")) == 0) {
+	if ((data->x11.atoms[3] = xcbGetAtom(data->x11.connection, false, "_NET_WM_STATE_FULLSCREEN")) == 0) {
 		error = "Couldn't get _NET_WM_STATE_FULLSCREEN atom";
-		xcb_destroy_window(data->connection, data->window);
+		xcb_destroy_window(data->x11.connection, data->x11.window);
 		CLOSE_CONNECTION(data);
 		return false;
 	}
 
-	xcb_change_property(data->connection, XCB_PROP_MODE_REPLACE,
-						data->window, data->atoms[0], 4, 32, 1, &data->atoms[1]);
+	xcb_change_property(data->x11.connection, XCB_PROP_MODE_REPLACE,
+						data->x11.window, data->x11.atoms[0], 4, 32, 1, &data->x11.atoms[1]);
 
 	xcb_pixmap_t pixmap_source, pixmap_mask;
-	pixmap_source = xcb_generate_id(data->connection);
-	xcb_create_pixmap(data->connection, 1, pixmap_source, data->window, 1, 1);
-	pixmap_mask = xcb_generate_id(data->connection);
-	xcb_create_pixmap(data->connection, 1, pixmap_mask, data->window, 1, 1);
+	pixmap_source = xcb_generate_id(data->x11.connection);
+	xcb_create_pixmap(data->x11.connection, 1, pixmap_source, data->x11.window, 1, 1);
+	pixmap_mask = xcb_generate_id(data->x11.connection);
+	xcb_create_pixmap(data->x11.connection, 1, pixmap_mask, data->x11.window, 1, 1);
 
-	xcb_gcontext_t gc = xcb_generate_id(data->connection);
+	xcb_gcontext_t gc = xcb_generate_id(data->x11.connection);
 	u8 black[1] = {0};
-	xcb_create_gc(data->connection, gc, pixmap_mask, 0, nullptr);
-	xcb_put_image(data->connection, XCB_IMAGE_FORMAT_XY_PIXMAP, pixmap_mask, gc, 1, 1, 0, 0, 0, 1, 1, black);
+	xcb_create_gc(data->x11.connection, gc, pixmap_mask, 0, nullptr);
+	xcb_put_image(data->x11.connection, XCB_IMAGE_FORMAT_XY_PIXMAP, pixmap_mask, gc, 1, 1, 0, 0, 0, 1, 1, black);
 
-	xcb_free_gc(data->connection, gc);
+	xcb_free_gc(data->x11.connection, gc);
 
-	data->cursorHidden = xcb_generate_id(data->connection);
-	xcb_create_cursor(data->connection, data->cursorHidden, pixmap_source, pixmap_mask, 0, 0, 0, 0, 0, 0, 0, 0);
+	data->x11.cursorHidden = xcb_generate_id(data->x11.connection);
+	xcb_create_cursor(data->x11.connection, data->x11.cursorHidden, pixmap_source, pixmap_mask, 0, 0, 0, 0, 0, 0, 0, 0);
 
-	xcb_free_pixmap(data->connection, pixmap_source);
-	xcb_free_pixmap(data->connection, pixmap_mask);
+	xcb_free_pixmap(data->x11.connection, pixmap_source);
+	xcb_free_pixmap(data->x11.connection, pixmap_mask);
 
 	open = true;
-	dpi = GetWindowDpi(this);
+	dpi = GetWindowDpiX11(window);
+	return true;
+}
+
+bool Window::Open() {
+	if (data->useWayland) {
+		if (!windowOpenWayland(this)) return false;
+	} else {
+		if (!windowOpenX11(this)) return false;
+	}
 	data->frameCount = 0;
 	return true;
 }
@@ -487,8 +509,12 @@ bool Window::Show() {
 		error = "Window hasn't been created yet";
 		return false;
 	}
-	xcb_map_window(data->connection, data->window);
-	xcb_flush(data->connection);
+	if (data->useWayland) {
+		// TODO: Implement this
+	} else {
+		xcb_map_window(data->x11.connection, data->x11.window);
+		xcb_flush(data->x11.connection);
+	}
 	return true;
 }
 
@@ -498,10 +524,14 @@ bool Window::Close() {
 		return false;
 	}
 	if (data->dpiThread.Joinable()) data->dpiThread.Join();
-	xkbCleanup(&data->xkb);
-	xcb_free_cursor(data->connection, data->cursorHidden);
-	xcb_destroy_window(data->connection, data->window);
-	CLOSE_CONNECTION(data);
+	if (data->useWayland) {
+		wl_display_disconnect(data->wayland.display);
+	} else {
+		xkbCleanup(&data->xkb);
+		xcb_free_cursor(data->x11.connection, data->x11.cursorHidden);
+		xcb_destroy_window(data->x11.connection, data->x11.window);
+		CLOSE_CONNECTION(data);
+	}
 	open = false;
 	return true;
 }
@@ -509,6 +539,23 @@ bool Window::Close() {
 #define _NET_WM_STATE_REMOVE 0 // remove/unset property
 #define _NET_WM_STATE_ADD 1    // add/set property
 #define _NET_WM_STATE_TOGGLE 2 // toggle property
+
+void windowFullscreenX11(Window *window) {
+	WindowData *data = window->data;
+	xcb_client_message_event_t ev;
+	ev.response_type = XCB_CLIENT_MESSAGE;
+	ev.type = data->x11.atoms[2];
+	ev.format = 32;
+	ev.window = data->x11.window;
+	ev.data.data32[0] = _NET_WM_STATE_TOGGLE;
+	ev.data.data32[1] = data->x11.atoms[3];
+	ev.data.data32[2] = XCB_ATOM_NONE;
+	ev.data.data32[3] = 0;
+	ev.data.data32[4] = 0;
+
+	xcb_send_event(data->x11.connection, 1, data->x11.window, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY, (const char *)(&ev));
+	xcb_flush(data->x11.connection);
+}
 
 bool Window::Fullscreen(bool fs) {
 	if (!open) {
@@ -520,21 +567,20 @@ bool Window::Fullscreen(bool fs) {
 
 	fullscreen = fs;
 
-	xcb_client_message_event_t ev;
-	memset(&ev, 0, sizeof(ev));
-	ev.response_type = XCB_CLIENT_MESSAGE;
-	ev.type = data->atoms[2];
-	ev.format = 32;
-	ev.window = data->window;
-	ev.data.data32[0] = _NET_WM_STATE_TOGGLE;
-	ev.data.data32[1] = data->atoms[3];
-	ev.data.data32[2] = XCB_ATOM_NONE;
-	ev.data.data32[3] = 0;
-	ev.data.data32[4] = 0;
+	if (data->useWayland) {
+		windowFullscreenWayland(this);
+	} else {
+		windowFullscreenX11(this);
+	}
 
-	xcb_send_event(data->connection, 1, data->window, XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY, (const char *)(&ev));
-	xcb_flush(data->connection);
 	return true;
+}
+
+void windowResizeX11(Window *window) {
+	WindowData *data = window->data;
+	const u32 values[2] = {window->width, window->height};
+	xcb_configure_window(data->x11.connection, data->x11.window, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, values);
+	xcb_flush(data->x11.connection);
 }
 
 bool Window::Resize(u32 w, u32 h) {
@@ -550,42 +596,46 @@ bool Window::Resize(u32 w, u32 h) {
 	height = h;
 	windowedWidth = w;
 	windowedHeight = h;
-	const u32 values[2] = {w, h};
-	xcb_configure_window(data->connection, data->window, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, values);
-	xcb_flush(data->connection);
+	if (data->useWayland) {
+		windowResizeWayland(this);
+	} else {
+		windowResizeX11(this);
+	}
 	return true;
 }
 
 void UpdateWindowDpi(Window *window) {
-	window->dpi = GetWindowDpi(window);
+	if (window->data->useWayland) {
+
+	} else {
+		window->dpi = GetWindowDpiX11(window);
+	}
 }
 
-bool Window::Update() {
-	bool changeFullscreen = false;
-	resized = false;
-	data->frameCount++;
-	if (data->frameCount >= 15) {
-		if (data->dpiThread.Joinable()) data->dpiThread.Join();
-		data->dpiThread = Thread(UpdateWindowDpi, this);
-		data->frameCount = 0;
-	}
-	while ((data->event = xcb_poll_for_event(data->connection))) {
-		if (!xkbProcessEvent(&data->xkb, (xkb_generic_event_t *)data->event)) {
-			free(data->event);
+bool windowUpdateX11(Window *window, bool &changeFullscreen) {
+	WindowData *data = window->data;
+	Input *input = window->input;
+	u16 &width = window->width;
+	u16 &height = window->height;
+	bool &resized = window->resized;
+	bool &focused = window->focused;
+	while ((data->x11.event = xcb_poll_for_event(data->x11.connection))) {
+		if (!xkbProcessEvent(&data->xkb, (xkb_generic_event_t *)data->x11.event)) {
+			free(data->x11.event);
 			return false;
 		}
 		u8 keyCode = 0;
 		char character = '\0';
 		bool press = false, release = false;
-		switch (data->event->response_type & ~0x80) {
+		switch (data->x11.event->response_type & ~0x80) {
 		case XCB_CLIENT_MESSAGE: {
-			if (((xcb_client_message_event_t *)data->event)->data.data32[0] == data->atoms[1]) {
-				free(data->event);
+			if (((xcb_client_message_event_t *)data->x11.event)->data.data32[0] == data->x11.atoms[1]) {
+				free(data->x11.event);
 				return false; // Because this atom was bound to the close button
 			}
 		} break;
 		case XCB_CONFIGURE_NOTIFY: {
-			xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t *)data->event;
+			xcb_configure_notify_event_t *ev = (xcb_configure_notify_event_t *)data->x11.event;
 			if (width != ev->width || height != ev->height) {
 				width = ev->width;
 				height = ev->height;
@@ -594,7 +644,7 @@ bool Window::Update() {
 			}
 		} break;
 		case XCB_KEY_PRESS: {
-			xcb_key_press_event_t *ev = (xcb_key_press_event_t *)data->event;
+			xcb_key_press_event_t *ev = (xcb_key_press_event_t *)data->x11.event;
 			keyCode = KeyCodeFromEvdev(ev->detail);
 			// cout << "KeyCode down: " << KeyCodeName(keyCode) << std::endl;
 			// cout << "XCB_KEY_PRESS scancode: " << std::hex << (u32)ev->detail << " evdev: " << std::dec << ev->detail-8 << std::endl;
@@ -611,7 +661,7 @@ bool Window::Update() {
 			press = true;
 		} break;
 		case XCB_KEY_RELEASE: {
-			xcb_key_release_event_t *ev = (xcb_key_release_event_t *)data->event;
+			xcb_key_release_event_t *ev = (xcb_key_release_event_t *)data->x11.event;
 			keyCode = KeyCodeFromEvdev(ev->detail);
 			char buffer[4] = {0};
 			xkb_state_key_get_utf8(data->xkb.state, (xkb_keycode_t)ev->detail, buffer, 4);
@@ -623,7 +673,7 @@ bool Window::Update() {
 			release = true;
 		} break;
 		case XCB_BUTTON_PRESS: {
-			xcb_button_press_event_t *ev = (xcb_button_press_event_t *)data->event;
+			xcb_button_press_event_t *ev = (xcb_button_press_event_t *)data->x11.event;
 			switch (ev->detail) {
 			case 1:
 				keyCode = KC_MOUSE_LEFT;
@@ -671,7 +721,7 @@ bool Window::Update() {
 			press = true;
 		} break;
 		case XCB_BUTTON_RELEASE: {
-			xcb_button_release_event_t *ev = (xcb_button_release_event_t *)data->event;
+			xcb_button_release_event_t *ev = (xcb_button_release_event_t *)data->x11.event;
 			switch (ev->detail) {
 			case 1:
 				keyCode = KC_MOUSE_LEFT;
@@ -716,7 +766,7 @@ bool Window::Update() {
 			}
 		} break;
 		case XCB_MOTION_NOTIFY: {
-			xcb_motion_notify_event_t *ev = (xcb_motion_notify_event_t *)data->event;
+			xcb_motion_notify_event_t *ev = (xcb_motion_notify_event_t *)data->x11.event;
 			if (input != nullptr) {
 				input->cursor.x = ev->event_x;
 				input->cursor.y = ev->event_y;
@@ -728,7 +778,7 @@ bool Window::Update() {
 		default: {
 		} break;
 		}
-		free(data->event);
+		free(data->x11.event);
 
 		if (input != nullptr && focused) {
 			if (press)
@@ -754,6 +804,25 @@ bool Window::Update() {
 			}
 		}
 	}
+	return true;
+}
+
+bool Window::Update() {
+	bool changeFullscreen = false;
+	resized = false;
+	data->frameCount++;
+	if (data->frameCount >= 15) {
+		if (!data->dpiThread.Joinable()) {
+			// Only try again if the last thread finished already
+			data->dpiThread = Thread(UpdateWindowDpi, this);
+			data->frameCount = 0;
+		}
+	}
+	if (data->useWayland) {
+		if (!windowUpdateWayland(this, changeFullscreen)) return false;
+	} else {
+		if (!windowUpdateX11(this, changeFullscreen)) return false;
+	}
 
 	if (changeFullscreen) {
 		Fullscreen(!fullscreen);
@@ -764,14 +833,18 @@ bool Window::Update() {
 
 void Window::HideCursor(bool hide) {
 	cursorHidden = hide;
-	if (hide) {
-		u32 value = data->cursorHidden;
-		xcb_change_window_attributes(data->connection, data->window, XCB_CW_CURSOR, &value);
+	if (data->useWayland) {
+		// TODO: Implement this
 	} else {
-		u32 value = XCB_CURSOR_NONE;
-		xcb_change_window_attributes(data->connection, data->window, XCB_CW_CURSOR, &value);
+		if (hide) {
+			u32 value = data->x11.cursorHidden;
+			xcb_change_window_attributes(data->x11.connection, data->x11.window, XCB_CW_CURSOR, &value);
+		} else {
+			u32 value = XCB_CURSOR_NONE;
+			xcb_change_window_attributes(data->x11.connection, data->x11.window, XCB_CW_CURSOR, &value);
+		}
+		xcb_flush(data->x11.connection);
 	}
-	xcb_flush(data->connection);
 }
 
 String Window::InputName(u8 keyCode) const {
@@ -781,9 +854,9 @@ String Window::InputName(u8 keyCode) const {
 	return xkbGetInputName(&data->xkb, keyCode);
 }
 
-u16 GetWindowDpi(Window *window) {
+i32 GetWindowDpiX11(Window *window) {
 	// ClockTime start = Clock::now();
-	char *res = xcbGetProperty(window->data->connection, window->data->screen->root, XCB_ATOM_RESOURCE_MANAGER, XCB_ATOM_STRING, 16*1024);
+	char *res = xcbGetProperty(window->data->x11.connection, window->data->x11.screen->root, XCB_ATOM_RESOURCE_MANAGER, XCB_ATOM_STRING, 16*1024);
 	Array<char> resources;
 	resources.data = res;
 	resources.size = StringLength(res);
@@ -794,10 +867,10 @@ u16 GetWindowDpi(Window *window) {
 	}
 	// ClockTime endGetProperty = Clock::now();
 	// u32 widthPx, heightPx, widthMM, heightMM;
-	// widthPx  = data->screen->width_in_pixels;
-	// widthMM  = data->screen->width_in_millimeters;
-	// heightPx = data->screen->height_in_pixels;
-	// heightMM = data->screen->height_in_millimeters;
+	// widthPx  = data->x11.screen->width_in_pixels;
+	// widthMM  = data->x11.screen->width_in_millimeters;
+	// heightPx = data->x11.screen->height_in_pixels;
+	// heightMM = data->x11.screen->height_in_millimeters;
 	// cout.PrintLn("Screen info:"
 	// 	"\nwidthPx: ", widthPx,
 	// 	"\nheightPx: ", heightPx,

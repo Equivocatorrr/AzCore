@@ -30,11 +30,14 @@
 #include <xcb/xkb.h>
 #undef explicit
 
+#include <wayland-client.h>
+
 namespace AzCore {
 
 namespace io {
 
 struct xkb_keyboard {
+	bool useWayland;
 	xcb_connection_t *connection;
 	u8 first_xkb_event;
 	struct xkb_context *context{nullptr};
@@ -45,23 +48,44 @@ struct xkb_keyboard {
 };
 
 struct WindowData {
-	xcb_connection_t *connection;
-	xcb_colormap_t colormap;
-	i32 visualID;
-	xcb_window_t window;
-	xcb_screen_t *screen;
-	xcb_generic_event_t *event;
-	xcb_atom_t atoms[4];
-	xcb_cursor_t cursorHidden;
-	xcb_cursor_t cursorVisible;
-	i32 windowDepth;
+	bool useWayland;
+	union {
+		struct { // X11
+			xcb_connection_t *connection;
+			xcb_colormap_t colormap;
+			i32 visualID;
+			xcb_window_t window;
+			xcb_screen_t *screen;
+			xcb_generic_event_t *event;
+			xcb_atom_t atoms[4];
+			xcb_cursor_t cursorHidden;
+			xcb_cursor_t cursorVisible;
+			i32 windowDepth;
+		#ifndef AZCORE_IO_NO_XLIB
+			Display *display;
+		#endif
+		} x11;
+		struct { // wayland
+			wl_display *display;
+			// These come from global registry
+			wl_compositor *compositor;
+			wl_shell *shell;
+			wl_seat *seat;
+			wl_shm *shm;
+			// These we created, in order
+			wl_surface *surface;
+			wl_shell_surface *shell_surface;
+			wl_buffer *buffer;
+			wl_region *region;
+		} wayland;
+	};
 	xkb_keyboard xkb;
 	i32 frameCount;
 	Thread dpiThread;
-#ifndef AZCORE_IO_NO_XLIB
-	Display *display;
-#endif
-};
+	WindowData(bool _useWayland) : useWayland(_useWayland) {
+		xkb.useWayland = useWayland;
+	}
+}; // struct WindowData
 
 } // namespace io
 

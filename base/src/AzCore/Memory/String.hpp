@@ -35,11 +35,20 @@ struct AlignText {
 };
 
 template<typename T>
-struct FloatFormat {
+struct FormatFloat {
 	T value;
 	i32 _base;
 	i32 _precision;
-	FloatFormat(T in, i32 base, i32 precision=-1) : value(in), _base(base), _precision(precision) {}
+	FormatFloat() = delete;
+	inline FormatFloat(T in, i32 base, i32 precision=-1) : value(in), _base(base), _precision(precision) {}
+};
+
+template<typename T>
+struct FormatInt {
+	T value;
+	i32 _base;
+	FormatInt() = delete;
+	inline FormatInt(T in, i32 base) : value(in), _base(base) {}
 };
 
 void AppendToString(String &string, u32 value, i32 base = 10);
@@ -53,8 +62,13 @@ void AppendToString(String &string, f64 value, i32 base = 10, i32 precision = -1
 void AppendToString(String &string, f128 value, i32 base = 10, i32 precision = -1);
 
 template<typename T>
-inline void force_inline AppendToString(String &string, FloatFormat<T> fmt) {
+inline void force_inline AppendToString(String &string, FormatFloat<T> fmt) {
 	AppendToString(string, fmt.value, fmt._base, fmt._precision);
+}
+
+template<typename T>
+inline void force_inline AppendToString(String &string, FormatInt<T> fmt) {
+	AppendToString(string, fmt.value, fmt._base);
 }
 
 inline void AppendToString(String &string, u16 value, i32 base = 10) {

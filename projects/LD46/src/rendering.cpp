@@ -535,7 +535,7 @@ bool Manager::Draw() {
 			f32 msMin = frametimeCounter.Min();
 			f32 msDiff = msMax - msMin;
 			f32 fps = 1000.0f / msAvg;
-			WString string = ToWString(Stringify("fps: ", FloatFormat(fps, 10, 1), "\navg: ", FloatFormat(msAvg, 10, 1), "ms\nmax: ", FloatFormat(msMax, 10, 1), "ms\nmin: ", FloatFormat(msMin, 10, 1), "ms\ndiff: ", FloatFormat(msDiff, 10, 1), "ms"));
+			WString string = ToWString(Stringify("fps: ", FormatFloat(fps, 10, 1), "\navg: ", FormatFloat(msAvg, 10, 1), "ms\nmax: ", FormatFloat(msMax, 10, 1), "ms\nmin: ", FormatFloat(msMin, 10, 1), "ms\ndiff: ", FormatFloat(msDiff, 10, 1), "ms"));
 			DrawText(commandBuffersSecondary.Back(), string, 0, vec4(1.0f), vec2(8.0f), vec2(16.0f * globals->gui.scale), LEFT, TOP);
 		}
 	}

@@ -27,6 +27,7 @@ namespace io {
 
 #include "IO/ButtonState.hpp"
 #include "IO/Input.hpp"
+#include "keycodes.hpp"
 #include "IO/RawInput.hpp"
 #include "IO/Gamepad.hpp"
 #include "IO/Window.hpp"

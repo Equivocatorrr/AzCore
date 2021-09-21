@@ -17,12 +17,15 @@ namespace AzCore {
 struct RandomNumberGenerator {
 	u32 x, y, z, c;
 	RandomNumberGenerator(); // Automatically seeds itself based on time.
+	inline RandomNumberGenerator(u64 seed) {
+		Seed(seed);
+	}
 	u32 Generate();
 	void Seed(u64 seed);
 };
 
-f32 random(f32 min, f32 max, RandomNumberGenerator &rng);
-i32 random(i32 min, i32 max, RandomNumberGenerator &rng);
+f32 random(f32 min, f32 max, RandomNumberGenerator *rng=nullptr);
+i32 random(i32 min, i32 max, RandomNumberGenerator *rng=nullptr);
 
 } // namespace AzCore
 

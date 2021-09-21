@@ -34,13 +34,18 @@ void RandomNumberGenerator::Seed(u64 seed) {
 	c = seed * 32497;
 }
 
-f32 random(f32 min, f32 max, RandomNumberGenerator &rng) {
-	u32 num = rng.Generate();
+RandomNumberGenerator globalRNG;
+
+f32 random(f32 min, f32 max, RandomNumberGenerator *rng) {
+	if (nullptr == rng) rng = &globalRNG;
+	u32 num = rng->Generate();
 	return (f32)(((f64)num * (f64)(max - min) / (f64)UINT32_MAX) + (f64)min);
 }
 
-i32 random(i32 min, i32 max, RandomNumberGenerator &rng) {
-	return i32(rng.Generate() % (max - min + 1)) + min;
+i32 random(i32 min, i32 max, RandomNumberGenerator *rng) {
+	if (nullptr == rng) rng = &globalRNG;
+	return i32(rng->Generate() % (max - min + 1)) + min;
+}
 }
 
 } // namespace AzCore

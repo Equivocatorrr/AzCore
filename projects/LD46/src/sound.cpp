@@ -415,7 +415,7 @@ void Source::Create(String filename) {
 
 void MultiSource::Play(f32 gain, f32 pitch) {
 	Stop();
-	current = random(0, sources.size-1, globals->rng);
+	current = random(0, sources.size-1, &globals->rng);
 	sources[current]->SetGain(gain);
 	sources[current]->SetPitch(pitch);
 	sources[current]->Play();
@@ -423,7 +423,7 @@ void MultiSource::Play(f32 gain, f32 pitch) {
 
 void MultiSource::Play() {
 	Stop();
-	current = random(0, sources.size-1, globals->rng);
+	current = random(0, sources.size-1, &globals->rng);
 	sources[current]->Play();
 }
 

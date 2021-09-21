@@ -548,7 +548,7 @@ void Manager::EventSync() {
 		while (enemyTimer <= 0.0f && hitpointsLeft > 0) {
 			Enemy enemy;
 			for (i32 i = 0; i < 3; i++) {
-				enemy.type = (Enemy::Type)random(0, 3, globals->rng);
+				enemy.type = (Enemy::Type)random(0, 3, &globals->rng);
 				if (enemy.type != Enemy::HONKER) break;
 			}
 			enemies.Create(enemy); // Enemy::EventCreate() increases enemyTimer based on HP
@@ -636,7 +636,7 @@ void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 }
 
 void Manager::CreateSpawn() {
-	f32 angle = random(0.0f, tau, globals->rng);
+	f32 angle = random(0.0f, tau, &globals->rng);
 	vec2 place(sin(angle), cos(angle));
 	place *= 1500.0f;
 	Physical newSpawn;
@@ -658,14 +658,14 @@ vec2 Manager::ScreenPosToWorld(vec2 in) const {
 }
 
 void FailureText::Reset() {
-	angle = Radians32(Degrees32(random(-180.0f, 180.0f, globals->rng))).value();
+	angle = Radians32(Degrees32(random(-180.0f, 180.0f, &globals->rng))).value();
 	position = vec2(cos(angle), sin(angle)) * 0.5;
 	size = 0.001f;
 	velocity = -position * 15.0;
 	rotation = 0.0f;
 	scaleSpeed = 1.0f;
-	targetPosition = vec2(random(-0.25f, 0.25f, globals->rng), random(-0.25f, 0.25f, globals->rng));
-	targetAngle = Radians32(Degrees32(random(-30.0f, 30.0f, globals->rng))).value();
+	targetPosition = vec2(random(-0.25f, 0.25f, &globals->rng), random(-0.25f, 0.25f, &globals->rng));
+	targetAngle = Radians32(Degrees32(random(-30.0f, 30.0f, &globals->rng))).value();
 	targetSize = 0.3f;
 	text = globals->ReadLocale("Game Over");
 }
@@ -847,10 +847,10 @@ void Tower::Update(f32 timestep) {
 				deltaP = other.physical.pos - physical.pos + other.physical.vel * dist / bulletSpeed;
 				Angle32 idealAngle = atan2(-deltaP.y, deltaP.x);
 				for (i32 i = 0; i < bulletCount; i++) {
-					Angle32 angle = idealAngle + Degrees32(random(-bulletSpread.value(), bulletSpread.value(), globals->rng));
+					Angle32 angle = idealAngle + Degrees32(random(-bulletSpread.value(), bulletSpread.value(), &globals->rng));
 					bullet.physical.vel.x = cos(angle);
 					bullet.physical.vel.y = -sin(angle);
-					bullet.physical.vel *= bulletSpeed + random(-bulletSpeedVariability, bulletSpeedVariability, globals->rng);
+					bullet.physical.vel *= bulletSpeed + random(-bulletSpeedVariability, bulletSpeedVariability, &globals->rng);
 					bullet.physical.pos = physical.pos + bullet.physical.vel * timestep;
 					bullet.damage = damage;
 					globals->entities.bullets.Create(bullet);
@@ -881,14 +881,14 @@ void Tower::Update(f32 timestep) {
 			Wind wind;
 			wind.physical.pos = physical.pos;
 			wind.lifetime = range / bulletSpeed;
-			f32 randomPos = random(-20.0f, 20.0f, globals->rng);
+			f32 randomPos = random(-20.0f, 20.0f, &globals->rng);
 			wind.physical.pos.x += cos(physical.angle.value() + pi * 0.5f) * randomPos;
 			wind.physical.pos.y -= sin(physical.angle.value() + pi * 0.5f) * randomPos;
 			for (i32 i = 0; i < bulletCount; i++) {
-				Angle32 angle = physical.angle + Degrees32(random(-bulletSpread.value(), bulletSpread.value(), globals->rng));
+				Angle32 angle = physical.angle + Degrees32(random(-bulletSpread.value(), bulletSpread.value(), &globals->rng));
 				wind.physical.vel.x = cos(angle);
 				wind.physical.vel.y = -sin(angle);
-				wind.physical.vel *= bulletSpeed + random(-bulletSpeedVariability, bulletSpeedVariability, globals->rng);
+				wind.physical.vel *= bulletSpeed + random(-bulletSpeedVariability, bulletSpeedVariability, &globals->rng);
 				wind.physical.pos += wind.physical.vel * 0.03f;
 				globals->entities.winds.Create(wind);
 			}
@@ -914,15 +914,15 @@ template struct DoubleBufferArray<Tower>;
 const f32 honkerSpawnInterval = 2.0f;
 
 vec2 GetSpawnLocation() {
-	i32 spawnPoint = random(0, globals->entities.enemySpawns.size-1, globals->rng);
+	i32 spawnPoint = random(0, globals->entities.enemySpawns.size-1, &globals->rng);
 	f32 s, c;
 	s = sin(globals->entities.enemySpawns[spawnPoint].angle);
 	c = cos(globals->entities.enemySpawns[spawnPoint].angle);
 	vec2 x, y;
 	x = vec2(c, -s) * globals->entities.enemySpawns[spawnPoint].basis.box.b.x
-	  * random(-1.0f, 1.0f, globals->rng);
+	  * random(-1.0f, 1.0f, &globals->rng);
 	y = vec2(s, c) * globals->entities.enemySpawns[spawnPoint].basis.box.b.y
-	  * random(-1.0f, 1.0f, globals->rng);
+	  * random(-1.0f, 1.0f, &globals->rng);
 	return globals->entities.enemySpawns[spawnPoint].pos + x + y;
 }
 
@@ -933,14 +933,14 @@ void Enemy::EventCreate() {
 	i32 multiplier = 1;
 	if (!child) {
 		physical.pos = GetSpawnLocation();
-		physical.vel = vec2(random(-2.0f, 2.0f, globals->rng), random(-2.0f, 2.0f, globals->rng));
+		physical.vel = vec2(random(-2.0f, 2.0f, &globals->rng), random(-2.0f, 2.0f, &globals->rng));
 		switch (type) {
 			case BASIC:
 			case STUNNER:
-				multiplier = random(1, 3, globals->rng);
+				multiplier = random(1, 3, &globals->rng);
 				break;
 			case HONKER: {
-				f32 honker = random(0.0f, 100.0f, globals->rng);
+				f32 honker = random(0.0f, 100.0f, &globals->rng);
 				if (honker < 1.0f) {
 					multiplier = 1000;
 				} else if (honker < 10.0f) {
@@ -950,7 +950,7 @@ void Enemy::EventCreate() {
 				}
 			} break;
 			case ORBITER:
-				multiplier = random(1, 2, globals->rng);
+				multiplier = random(1, 2, &globals->rng);
 				break;
 		}
 		hitpoints = multiplier * (i32)floor(80.0f * pow(1.16f, (f32)(globals->entities.wave + 3))) / (globals->entities.wave+7);
@@ -998,7 +998,7 @@ inline i32 DamageOverTime(i32 dps, f32 timestep) {
 	f32 prob = (f32)dps*timestep;
 	i32 hits = (i32)prob;
 	prob -= (f32)hits;
-	if (random(0.0f, 1.0f, globals->rng) <= prob) {
+	if (random(0.0f, 1.0f, &globals->rng) <= prob) {
 		hits++;
 	}
 	return hits;
@@ -1027,8 +1027,8 @@ void Enemy::Update(f32 timestep) {
 			newEnemy.type = ORBITER;
 			newEnemy.child = true;
 			newEnemy.age = age;
-			Angle32 spawnAngle = random(0.0f, tau, globals->rng);
-			vec2 spawnVector = vec2(cos(spawnAngle), -sin(spawnAngle)) * sqrt(random(0.0f, 1.0f, globals->rng));
+			Angle32 spawnAngle = random(0.0f, tau, &globals->rng);
+			vec2 spawnVector = vec2(cos(spawnAngle), -sin(spawnAngle)) * sqrt(random(0.0f, 1.0f, &globals->rng));
 			newEnemy.physical.pos = physical.pos + spawnVector * physical.basis.circle.r;
 			newEnemy.physical.vel = physical.vel + spawnVector * 100.0f;
 			newEnemy.color = color;
@@ -1157,10 +1157,10 @@ template struct DoubleBufferArray<Bullet>;
 
 void Wind::EventCreate() {
 	physical.type = CIRCLE;
-	physical.basis.circle.c = vec2(random(-8.0f, 8.0f, globals->rng), random(-8.0f, 8.0f, globals->rng));
-	physical.basis.circle.r = random(16.0f, 32.0f, globals->rng);
-	physical.angle = random(0.0f, tau, globals->rng);
-	physical.rot = random(-tau, tau, globals->rng);
+	physical.basis.circle.c = vec2(random(-8.0f, 8.0f, &globals->rng), random(-8.0f, 8.0f, &globals->rng));
+	physical.basis.circle.r = random(16.0f, 32.0f, &globals->rng);
+	physical.angle = random(0.0f, tau, &globals->rng);
+	physical.rot = random(-tau, tau, &globals->rng);
 }
 
 void Wind::Update(f32 timestep) {

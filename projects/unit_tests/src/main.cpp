@@ -1304,7 +1304,7 @@ void ProfileEquations(io::LogStream &cout) {
 	ClockTime start = Clock::now();
 	f32 dontOptimizeThisOut = 0.0f;
 	for (i32 i = 0; i < 100000000; i++) {
-		dontOptimizeThisOut += random(-10.0f, 10.0f, rng);
+		dontOptimizeThisOut += random(-10.0f, 10.0f, &rng);
 	}
 	Nanoseconds rngDuration = Clock::now()-start;
 	cout << "Time to generate 100000000 random numbers: " << FormatTime(rngDuration) << std::endl;
@@ -1314,9 +1314,9 @@ void ProfileEquations(io::LogStream &cout) {
 	start = Clock::now();
 	for (i32 i = 0; i < 1000000; i++) {
 		SolveQuadratic(
-			random(-10.0f, 10.0f, rng),
-			random(-10.0f, 10.0f, rng),
-			random(-10.0f, 10.0f, rng)
+			random(-10.0f, 10.0f, &rng),
+			random(-10.0f, 10.0f, &rng),
+			random(-10.0f, 10.0f, &rng)
 		);
 	}
 	Nanoseconds quadraticsTime = Clock::now()-start;
@@ -1327,10 +1327,10 @@ void ProfileEquations(io::LogStream &cout) {
 	start = Clock::now();
 	for (i32 i = 0; i < 1000000; i++) {
 		SolveCubic(
-			random(-10.0f, 10.0f, rng),
-			random(-10.0f, 10.0f, rng),
-			random(-10.0f, 10.0f, rng),
-			random(-10.0f, 10.0f, rng)
+			random(-10.0f, 10.0f, &rng),
+			random(-10.0f, 10.0f, &rng),
+			random(-10.0f, 10.0f, &rng),
+			random(-10.0f, 10.0f, &rng)
 		);
 	}
 	Nanoseconds cubicsTime = Clock::now()-start;
@@ -1341,11 +1341,11 @@ void ProfileEquations(io::LogStream &cout) {
 	start = Clock::now();
 	for (i32 i = 0; i < 1000000; i++) {
 		SolveQuartic(
-			random(-10.0f, 10.0f, rng),
-			random(-10.0f, 10.0f, rng),
-			random(-10.0f, 10.0f, rng),
-			random(-10.0f, 10.0f, rng),
-			random(-10.0f, 10.0f, rng)
+			random(-10.0f, 10.0f, &rng),
+			random(-10.0f, 10.0f, &rng),
+			random(-10.0f, 10.0f, &rng),
+			random(-10.0f, 10.0f, &rng),
+			random(-10.0f, 10.0f, &rng)
 		);
 	}
 	Nanoseconds quarticsTime = Clock::now()-start;
@@ -1356,12 +1356,12 @@ void ProfileEquations(io::LogStream &cout) {
 	start = Clock::now();
 	for (i32 i = 0; i < 1000000; i++) {
 		SolveQuintic(
-			random(-10.0f, 10.0f, rng),
-			random(-10.0f, 10.0f, rng),
-			random(-10.0f, 10.0f, rng),
-			random(-10.0f, 10.0f, rng),
-			random(-10.0f, 10.0f, rng),
-			random(-10.0f, 10.0f, rng)
+			random(-10.0f, 10.0f, &rng),
+			random(-10.0f, 10.0f, &rng),
+			random(-10.0f, 10.0f, &rng),
+			random(-10.0f, 10.0f, &rng),
+			random(-10.0f, 10.0f, &rng),
+			random(-10.0f, 10.0f, &rng)
 		);
 	}
 	Nanoseconds quinticsTime = Clock::now()-start;

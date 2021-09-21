@@ -973,7 +973,7 @@ i32 ResolveType2Operator(u8 *data, Type2ParsingInfo &info, Glyph &out) {
 					case 23: { // random num2
 						f32 val;
 						do {
-							val = random(0.0f, 1.0f, info.rng);
+							val = random(0.0f, 1.0f, &info.rng);
 						} while (val == 0.0f);
 						info.stack.Push(Operand(val));
 						return 2;

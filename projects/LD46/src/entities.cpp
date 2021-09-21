@@ -187,7 +187,7 @@ inline void Manager::HandleUI() {
 		if (level < levelNames.size-1) {
 			level++;
 			world.Load(levelNames[level]);
-			if (random(0, 1, globals->rng) == 1) {
+			if (random(0, 1, &globals->rng) == 1) {
 				jump = &jump1;
 			} else {
 				jump = &jump2;
@@ -244,7 +244,7 @@ void Manager::EventSync() {
 			if (flameTimer > 0.0f) flameTimer -= timestep;
 			while (flameTimer <= 0.0f) {
 				Flame flame;
-				vec2 offset = vec2(random(-12.0f, 12.0f, globals->rng), random(-8.0f, 16.0f, globals->rng));
+				vec2 offset = vec2(random(-12.0f, 12.0f, &globals->rng), random(-8.0f, 16.0f, &globals->rng));
 				flame.physical.pos = goalPos + offset;
 				flame.physical.vel = 0.0f;
 				flame.size = goalFlame;
@@ -384,14 +384,14 @@ vec2 Manager::ScreenPosToWorld(vec2 in) const {
 }
 
 void MessageText::Reset() {
-	angle = Radians32(Degrees32(random(-180.0f, 180.0f, globals->rng))).value();
+	angle = Radians32(Degrees32(random(-180.0f, 180.0f, &globals->rng))).value();
 	position = vec2(cos(angle), sin(angle)) * 0.5;
 	size = 0.001f;
 	velocity = -position * 15.0;
 	rotation = 0.0f;
 	scaleSpeed = 1.0f;
-	targetPosition = vec2(random(-0.25f, 0.25f, globals->rng), random(-0.25f, 0.25f, globals->rng));
-	targetAngle = Radians32(Degrees32(random(-30.0f, 30.0f, globals->rng))).value();
+	targetPosition = vec2(random(-0.25f, 0.25f, &globals->rng), random(-0.25f, 0.25f, &globals->rng));
+	targetAngle = Radians32(Degrees32(random(-30.0f, 30.0f, &globals->rng))).value();
 	targetSize = 0.3f;
 }
 
@@ -561,8 +561,8 @@ void Lantern::Update(f32 timestep) {
 	if (globals->entities.flame > 0.0f) {
 		if (particleTimer <= 0.0f) {
 			Flame flame;
-			f32 a = random(-pi, pi, globals->rng);
-			vec2 offset = vec2(cos(a), sin(a)) * random(0.0f, 4.0f, globals->rng);
+			f32 a = random(-pi, pi, &globals->rng);
+			vec2 offset = vec2(cos(a), sin(a)) * random(0.0f, 4.0f, &globals->rng);
 			flame.physical.pos = pos + offset + v * 14.0f;
 			flame.physical.vel = vel * 0.5f;
 			flame.size = globals->entities.flame;
@@ -755,7 +755,7 @@ void Player::Update(f32 timestep) {
 		}
 	}
 	if (jumped) {
-		globals->entities.jump->Play(0.5f, random(0.90f, 1.1f, globals->rng));
+		globals->entities.jump->Play(0.5f, random(0.90f, 1.1f, &globals->rng));
 	}
 	{ // Lantern pos
 		vec2 delta = globals->entities.mouse - (physical.pos+vec2(16.0f, 0.0f));

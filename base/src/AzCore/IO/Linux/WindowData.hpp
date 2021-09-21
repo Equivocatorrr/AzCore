@@ -4,6 +4,9 @@
 	For anyone who needs to know about WindowData
 */
 
+#ifndef AZCORE_WINDOW_DATA_HPP
+#define AZCORE_WINDOW_DATA_HPP
+
 // To use GLX, you need Xlib, but for Vulkan you can just use xcb
 #if defined(AZCORE_IO_FOR_VULKAN) && !defined(AZCORE_IO_NO_XLIB)
 	#define AZCORE_IO_NO_XLIB
@@ -63,3 +66,5 @@ struct WindowData {
 } // namespace io
 
 } // namespace AzCore
+
+#endif // AZCORE_WINDOW_DATA_HPP

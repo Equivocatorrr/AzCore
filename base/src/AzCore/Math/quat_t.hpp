@@ -37,7 +37,7 @@ struct quat_t {
 	inline quat_t(T a, vec3_t<T> v) : scalar(a), vector(v) {}
 	inline quat_t(vec4_t<T> v) : wxyz(v) {}
 	inline quat_t(T a, T b, T c, T d) : w(a), x(b), y(c), z(d) {}
-	inline quat_t(const T d[4]) : data{d[0], d[1], d[2], d[3]} {}
+	inline quat_t(T d[4]) : data{d[0], d[1], d[2], d[3]} {}
 
 	inline quat_t<T> operator*(quat_t<T> a) const {
 		return quat_t<T>(

@@ -8,7 +8,7 @@ $(ODIR)/Windows/Debug/%.o: $(SDIR)/%.cpp $(DEPS) $(AZCORE_BASE)/.touchdw
 
 $(ODIR)/Linux/Release/%.o: $(SDIR)/%.cpp $(DEPS) $(AZCORE_BASE)/.touchl
 	@mkdir -p $(@D)
-	$(CC) -c -o $@ $< -g -O2 $(LCFLAGS) -DNDEBUG
+	$(CC) -c -o $@ $< -O2 $(LCFLAGS) -DNDEBUG
 
 $(ODIR)/Windows/Release/%.o: $(SDIR)/%.cpp $(DEPS) $(AZCORE_BASE)/.touchw
 	@mkdir -p $(@D)

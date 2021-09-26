@@ -62,7 +62,7 @@ $(ODIR)/Windows/Debug/%.o: $(SDIR)/AzCore/%.cpp $(DEPS_W)
 
 $(ODIR)/Linux/Release/%.o: $(SDIR)/AzCore/%.cpp $(DEPS_L)
 	@mkdir -p $(@D)
-	$(CC) -c -o $@ $< -g -O2 $(LCFLAGS) -DNDEBUG
+	$(CC) -c -o $@ $< -O2 $(LCFLAGS) -DNDEBUG
 
 $(ODIR)/Windows/Release/%.o: $(SDIR)/AzCore/%.cpp $(DEPS_W)
 	@mkdir -p $(@D)

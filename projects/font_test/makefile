@@ -11,7 +11,7 @@ CC=g++
 WCC=x86_64-w64-mingw32-g++
 WRC=x86_64-w64-mingw32-windres $(SDIR)/resources.rc -O coff
 RCFLAGS=-I $(IDIR)
-CFLAGS=-I$(IDIR) -I$(AZCORE_BASE)/src -Wall -std=c++17 -Wdouble-promotion -Wfloat-conversion -Werror
+CFLAGS=-I$(IDIR) -I$(AZCORE_BASE)/src -Wall -std=c++17
 LCFLAGS=$(CFLAGS) #-Wl,-z,origin -Wl,-rpath,'$$ORIGIN/lib'
 WCFLAGS=$(CFLAGS) -I$(WIN_VULKAN_SDK)/Include/ -D_GLIBCXX_USE_NANOSLEEP -static -static-libgcc -static-libstdc++ -Llibwinpthread-1.dll
 

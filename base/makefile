@@ -29,7 +29,7 @@ WCFLAGS=$(CFLAGS) -D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -I$(
 _DEPS_BASE = keycodes.hpp io.hpp math.hpp memory.hpp vk.hpp font.hpp Font/FontTables.hpp Font/FontTables.cpp Font/font_cff_std_data.c Font/CFF.hpp Font/CFF.cpp Time.hpp Thread.hpp ThreadLinux.hpp ThreadWin32.hpp Net/Sockets.hpp Environment.hpp Image.hpp Simd.hpp SIMD/SimdSSE2.hpp SIMD/SimdAVX.hpp SoftwareRendering.hpp
 DEPS_BASE = $(patsubst %,$(IDIR)/AzCore/%,$(_DEPS_BASE)) makefile
 _DEPS_IO = ButtonState.hpp ButtonState.cpp Gamepad.hpp Gamepad.cpp Input.hpp Input.cpp LogStream.hpp Log.hpp RawInput.hpp RawInput.cpp Window.hpp
-_DEPS_IO_PLATFORM = RawInput.cpp Window.cpp WindowData.hpp
+_DEPS_IO_PLATFORM = RawInput.cpp WindowData.hpp
 DEPS_IO_L = $(patsubst %,$(IDIR)/AzCore/IO/%,$(_DEPS_IO)) $(patsubst %,$(IDIR)/AzCore/IO/Linux/%,$(_DEPS_IO_PLATFORM))
 DEPS_IO_W = $(patsubst %,$(IDIR)/AzCore/IO/%,$(_DEPS_IO)) $(patsubst %,$(IDIR)/AzCore/IO/Win32/%,$(_DEPS_IO_PLATFORM))
 

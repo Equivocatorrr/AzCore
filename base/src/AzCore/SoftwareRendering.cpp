@@ -148,13 +148,6 @@ bool QueryShm(xcb_connection_t *connection) {
 	return false;
 }
 
-SoftwareRenderer::SoftwareRenderer(io::Window *inWindow) : window(inWindow) {
-	data = new SWData;
-}
-SoftwareRenderer::~SoftwareRenderer() {
-	delete data;
-}
-
 bool CreateShmImage(SoftwareRenderer &swr, io::Window *window) {
 	xcb_connection_t *connection = window->data->connection;
 	swr.data->image = xcb_image_create_native(window->data->connection, window->width, window->height, XCB_IMAGE_FORMAT_Z_PIXMAP, window->data->windowDepth, 0, 0xffffffff, 0);
@@ -229,8 +222,125 @@ bool SoftwareRenderer::FramebufferToImage(Image *dst) {
 
 #elif defined(_WIN32)
 
-// Windows stuff
+struct SWData {
+	HDC hdc;
+	HDC mdc;
+	HBITMAP hbitmap;
+	HGDIOBJ oldObject;
+};
+
+bool CreateFramebufferImage(SoftwareRenderer &swr, io::Window *window) {
+	SWData *data = swr.data;
+	swr.width = window->width;
+	swr.height = window->height;
+	if (data->mdc) {
+		DeleteDC(data->mdc);
+	}
+	if (data->hbitmap) {
+		DeleteObject(data->hbitmap);
+	}
+	size_t bitmapInfoSize = sizeof(BITMAPINFOHEADER) + 256 * sizeof(RGBQUAD);
+	LPBITMAPINFO info = (LPBITMAPINFO)malloc(bitmapInfoSize);
+	memset(info, 0, bitmapInfoSize);
+	info->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+
+	{ // Get depth
+		HBITMAP hbm = CreateCompatibleBitmap(data->hdc, 1, 1);
+		GetDIBits(data->hdc, hbm, 0, 0, nullptr, info, DIB_RGB_COLORS);
+		GetDIBits(data->hdc, hbm, 0, 0, nullptr, info, DIB_RGB_COLORS);
+		DeleteObject(hbm);
+
+		swr.depth = 4;
+		if (info->bmiHeader.biCompression == BI_BITFIELDS) {
+			swr.depth = info->bmiHeader.biBitCount / 8;
+			// TODO: Handle various image formats
+			// Right now we assume BGRA
+		} else {
+			// We'll determine the format
+			memset(info, 0, bitmapInfoSize);
+			info->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+			info->bmiHeader.biPlanes = 1;
+			info->bmiHeader.biBitCount = 32;
+			info->bmiHeader.biCompression = BI_RGB;
+		}
+	}
+
+	swr.stride = align(swr.width * swr.depth, 4);
+	info->bmiHeader.biWidth = swr.width;
+	// Negative means top-down
+	info->bmiHeader.biHeight = -swr.height;
+	info->bmiHeader.biSizeImage = swr.height * swr.stride;
+
+	data->mdc = CreateCompatibleDC(data->hdc);
+	data->hbitmap = CreateDIBSection(data->hdc, info, DIB_RGB_COLORS, (void**)&swr.framebuffer, nullptr, 0);
+
+	if (!data->hbitmap) {
+		swr.error = "Failed to create DIB";
+		DeleteDC(data->mdc);
+		data->mdc = 0;
+		return false;
+	}
+	data->oldObject = SelectObject(data->mdc, data->hbitmap);
+
+	return true;
+}
+
+void DestroyFramebufferImage(SWData *data, io::Window *window) {
+	if (data->mdc) {
+		SelectObject(data->mdc, data->oldObject);
+		DeleteDC(data->mdc);
+		data->mdc = 0;
+	}
+	if (data->hbitmap) {
+		DeleteObject(data->hbitmap);
+		data->hbitmap = 0;
+	}
+}
+
+bool SoftwareRenderer::Init() {
+	if (!window->open) return false;
+	width = window->width;
+	height = window->height;
+	data->hdc = GetDC(window->data->window);
+	if (!CreateFramebufferImage(*this, window)) {
+		ReleaseDC(window->data->window, data->hdc);
+		return false;
+	}
+	return true;
+}
+
+bool SoftwareRenderer::Update() {
+	if (window->width != width || window->height != height) {
+		DestroyFramebufferImage(data, window);
+		width = window->width;
+		height = window->height;
+		if (!CreateFramebufferImage(*this, window)) return false;
+	}
+	return true;
+}
+bool SoftwareRenderer::Present() {
+	BitBlt(data->hdc, 0, 0, width, height, data->mdc, 0, 0, SRCCOPY);
+	return true;
+}
+bool SoftwareRenderer::Deinit() {
+	DestroyFramebufferImage(data, window);
+	ReleaseDC(window->data->window, data->hdc);
+	return true;
+}
+
+bool SoftwareRenderer::FramebufferToImage(Image *dst) {
+	dst->Alloc(width, height, 3);
+	return dst->Copy(framebuffer, width, height, depth, Image::BGRA, stride, 255);
+}
 
 #endif
+
+SoftwareRenderer::SoftwareRenderer(io::Window *inWindow) : window(inWindow) {
+	data = new SWData;
+}
+SoftwareRenderer::~SoftwareRenderer() {
+	Deinit();
+	delete data;
+}
 
 } // namespace AzCore

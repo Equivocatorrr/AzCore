@@ -235,7 +235,7 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 		break;
 	}
 	case WM_SIZE: {
-		if (!thisWindow->resized) {
+		if (!thisWindow->data->resizeHack) {
 			// Workaround because Windows sucks
 			thisWindow->width = LOWORD(lParam);
 			thisWindow->height = HIWORD(lParam);
@@ -243,8 +243,9 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 				thisWindow->windowedWidth = LOWORD(lParam);
 				thisWindow->windowedHeight = HIWORD(lParam);
 			}
+			thisWindow->resized = true;
 		} else {
-			thisWindow->resized = false;
+			thisWindow->data->resizeHack = false;
 		}
 		break;
 	}
@@ -373,7 +374,8 @@ bool Window::Fullscreen(bool fs) {
 		return true;
 
 	fullscreen = fs;
-	resized = true; // Prevent WM_SIZE from lying to us, the ungrateful bastard
+	resized = true;
+	data->resizeHack = true; // Prevent WM_SIZE from lying to us, the ungrateful bastard
 
 	if (fullscreen) {
 		HMONITOR monitor = MonitorFromWindow(data->window, MONITOR_DEFAULTTONEAREST);
@@ -426,11 +428,13 @@ bool Window::Resize(u32 w, u32 h) {
 	rect.bottom = h;
 	AdjustWindowRect(&rect, WS_WINDOWED, FALSE);
 	SetWindowPos(data->window, 0, 0, 0, rect.right - rect.left, rect.bottom - rect.top, SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
+	resized = true;
 	return true;
 }
 
 bool Window::Update() {
 	MSG msg;
+	resized = false;
 	while (PeekMessage(&msg, data->window, 0, 0, PM_REMOVE)) {
 		if (quit || msg.message == WM_QUIT) {
 			return false;

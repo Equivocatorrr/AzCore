@@ -234,6 +234,7 @@ struct ArrayWithBucket {
 
 	ArrayWithBucket<T, noAllocCount, allocTail>&
 	operator=(const ArrayWithBucket &other) {
+		if (this == &other) return *this;
 		Resize(other.size);
 		_Copy(other);
 		_SetTerminator();
@@ -242,6 +243,7 @@ struct ArrayWithBucket {
 
 	ArrayWithBucket<T, noAllocCount, allocTail>&
 	operator=(ArrayWithBucket &&other) {
+		if (this == &other) return *this;
 		_Deinitialize();
 		_Acquire(std::move(other));
 		_SetTerminator();

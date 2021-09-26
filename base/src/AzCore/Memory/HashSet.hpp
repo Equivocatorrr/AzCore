@@ -136,6 +136,7 @@ struct HashSet {
 	}
 
 	HashSet& operator=(const HashSet &other) {
+		if (this == &other) return *this;
 		Clear();
 		for (i32 i = 0; i < arraySize; i++) {
 			if (other.nodes[i]) {
@@ -147,6 +148,7 @@ struct HashSet {
 		return *this;
 	}
 	HashSet& operator=(HashSet &&other) {
+		if (this == &other) return *this;
 		Clear();
 		nodes = std::move(other.nodes);
 		other.nodes.Resize(arraySize, nullptr);

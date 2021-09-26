@@ -46,6 +46,7 @@ struct ArrayList {
 		}
 	}
 	const ArrayList<T> &operator=(const ArrayList<T> &other) {
+		if (this == &other) return *this;
 		first = other.first;
 		last = other.last;
 		outOfBoundsValue = other.outOfBoundsValue;
@@ -193,13 +194,6 @@ struct ArrayList {
 			}
 		}
 	}
-	// TODO: Can't say I remember what I was smoking when I implemented this...
-	// void Shift(i32 amount) {
-	//	 last++;
-	//	 if (next != nullptr) {
-	//		 next->Shift(1);
-	//	 }
-	// }
 	void Append(Array<T> &values) {
 		if (next != nullptr) {
 			next->Append(values);

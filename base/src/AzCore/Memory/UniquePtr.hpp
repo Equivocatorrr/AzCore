@@ -56,6 +56,7 @@ struct UniquePtr {
 		return *this;
 	}
 	UniquePtr<T>& operator=(const UniquePtr<T> &other) {
+		if (this == &other) return *this;
 		if (other.ptr) {
 			if (ptr) {
 				*ptr = *other.ptr;
@@ -73,6 +74,7 @@ struct UniquePtr {
 		return *this;
 	}
 	UniquePtr<T>& operator=(UniquePtr<T> &&other) {
+		if (this == &other) return *this;
 		if (other.ptr) {
 			if (ptr) {
 				delete ptr;

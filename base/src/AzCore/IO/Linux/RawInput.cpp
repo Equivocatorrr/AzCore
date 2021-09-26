@@ -173,7 +173,9 @@ bool RawInput::Init(RawInputFeatureBits enableMask) {
 	devices.Reserve(4);
 	data = new RawInputData;
 	data->frame = 0;
+#ifdef IO_GAMEPAD_LOGGING_VERBOSE
 	ClockTime start = Clock::now();
+#endif
 	char path[] = "/dev/input/jsXX";
 	for (u32 i = 0; i < 32; i++) {
 		if (i < 10) {
@@ -216,7 +218,9 @@ bool RawInput::Init(RawInputFeatureBits enableMask) {
 			break;
 		}
 	}
+#ifdef IO_GAMEPAD_LOGGING_VERBOSE
 	cout.PrintLn("Total time to check 32 raw input devices: ",  FormatTime(Clock::now() - start));
+#endif
 	return true;
 }
 
@@ -256,8 +260,8 @@ void Gamepad::Update(f32 timestep, i32 index) {
 		if (rawInputDevice->data->retryTimer < 0.0f) {
 			i32 fd = open(rawInputDevice->data->path.data, O_RDONLY | O_NONBLOCK);
 			if (fd >= 0) {
-				String path(std::move(rawInputDevice->data->path)); // Kinda weird but if it moved in place it would self destruct lol
-				RawInputDeviceInit(&(*rawInputDevice), fd, std::move(path), RAW_INPUT_ENABLE_GAMEPAD_BIT);
+				// String path(std::move(rawInputDevice->data->path)); // Kinda weird but if it moved in place it would self destruct lol
+				RawInputDeviceInit(&(*rawInputDevice), fd, std::move(rawInputDevice->data->path), RAW_INPUT_ENABLE_GAMEPAD_BIT);
 			} else {
 				rawInputDevice->data->retryTimer = 1.0f;
 			}

@@ -102,6 +102,7 @@ struct List {
 		}
 	}
 	List<T> &operator=(const List<T> &other) {
+		if (this == &other) return *this;
 		Resize(other.size);
 		ListIndex<T> *it = other.first;
 		ListIndex<T> *me = first;
@@ -113,6 +114,7 @@ struct List {
 		return *this;
 	}
 	List<T> &operator=(List<T> &&other) {
+		if (this == &other) return *this;
 		if (first != nullptr) {
 			delete first;
 		}

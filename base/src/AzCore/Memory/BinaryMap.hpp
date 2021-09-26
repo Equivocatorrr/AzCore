@@ -176,6 +176,7 @@ struct BinaryMap {
 	}
 
 	BinaryMap& operator=(const BinaryMap &other) {
+		if (this == &other) return *this;
 		if (base) {
 			if (other.base) {
 				*base = *other.base;
@@ -191,6 +192,7 @@ struct BinaryMap {
 		return *this;
 	}
 	BinaryMap& operator=(BinaryMap &&other) {
+		if (this == &other) return *this;
 		if (base) delete base;
 		base = other.base;
 		other.base = nullptr;

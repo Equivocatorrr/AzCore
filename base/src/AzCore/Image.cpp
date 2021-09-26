@@ -16,7 +16,7 @@
 
 namespace AzCore {
 
-Image::Image(Image &other) {
+void Image::_Copy(const Image &other) {
 	if (other.pixels == nullptr) {
 		pixels = nullptr;
 	} else {

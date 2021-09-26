@@ -224,6 +224,7 @@ struct Array {
 
 	Array<T, allocTail>&
 	operator=(const Array &other) {
+		if (this == &other) return *this;
 		Resize(other.size);
 		_Copy(other);
 		_SetTerminator();
@@ -232,6 +233,7 @@ struct Array {
 
 	Array<T, allocTail>&
 	operator=(Array &&other) {
+		if (this == &other) return *this;
 		_Deinitialize();
 		_Acquire(std::move(other));
 		_SetTerminator();

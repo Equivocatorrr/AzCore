@@ -152,6 +152,7 @@ struct HashMap {
 	}
 
 	HashMap& operator=(const HashMap &other) {
+		if (this == &other) return *this;
 		Clear();
 		for (i32 i = 0; i < arraySize; i++) {
 			if (other.nodes[i]) {
@@ -163,6 +164,7 @@ struct HashMap {
 		return *this;
 	}
 	HashMap& operator=(HashMap &&other) {
+		if (this == &other) return *this;
 		Clear();
 		nodes = std::move(other.nodes);
 		other.nodes.Resize(arraySize, nullptr);

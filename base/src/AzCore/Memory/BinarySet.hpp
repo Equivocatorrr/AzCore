@@ -134,6 +134,7 @@ struct BinarySet {
 		if (base) delete base;
 	}
 	BinarySet& operator=(const BinarySet &other) {
+		if (this == &other) return *this;
 		if (base) {
 			if (other.base) {
 				*base = *other.base;
@@ -149,6 +150,7 @@ struct BinarySet {
 		return *this;
 	}
 	BinarySet& operator=(BinarySet &&other) {
+		if (this == &other) return *this;
 		if (base) delete base;
 		base = other.base;
 		other.base = nullptr;

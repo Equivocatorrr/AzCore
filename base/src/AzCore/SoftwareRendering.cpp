@@ -190,6 +190,7 @@ bool SoftwareRenderer::Init() {
 
 	if (!CreateShmImage(*this, window)) return false;
 
+	initted = true;
 	return true;
 }
 
@@ -212,6 +213,7 @@ bool SoftwareRenderer::Deinit() {
 	xcb_connection_t *connection = window->data->connection;
 	DestroyShmImage(data, window);
 	xcb_free_gc(connection, data->gc);
+	initted = false;
 	return true;
 }
 
@@ -306,6 +308,7 @@ bool SoftwareRenderer::Init() {
 		ReleaseDC(window->data->window, data->hdc);
 		return false;
 	}
+	initted = true;
 	return true;
 }
 
@@ -325,6 +328,7 @@ bool SoftwareRenderer::Present() {
 bool SoftwareRenderer::Deinit() {
 	DestroyFramebufferImage(data, window);
 	ReleaseDC(window->data->window, data->hdc);
+	initted = false;
 	return true;
 }
 
@@ -335,11 +339,12 @@ bool SoftwareRenderer::FramebufferToImage(Image *dst) {
 
 #endif
 
-SoftwareRenderer::SoftwareRenderer(io::Window *inWindow) : window(inWindow) {
+SoftwareRenderer::SoftwareRenderer(io::Window *inWindow) : window(inWindow), initted(false) {
 	data = new SWData;
 }
 SoftwareRenderer::~SoftwareRenderer() {
-	Deinit();
+	if (initted)
+		Deinit();
 	delete data;
 }
 

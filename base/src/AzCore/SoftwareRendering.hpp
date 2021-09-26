@@ -30,6 +30,7 @@ struct SoftwareRenderer {
 	u8 *framebuffer;
 	i32 stride;
 	String error;
+	bool initted;
 
 	inline Pixel& GetPixel(i32 x, i32 y) {
 #ifndef NDEBUG

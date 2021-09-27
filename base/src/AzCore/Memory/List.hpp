@@ -17,11 +17,43 @@ namespace AzCore {
 	A single index in a linked list     */
 template <typename T>
 struct ListIndex {
-	ListIndex<T> *next;
+	ListIndex *next;
 	T value;
 	ListIndex() : next(nullptr), value() {}
 	ListIndex(const T &a) : next(nullptr), value(a) {}
 	ListIndex(T &&a) : next(nullptr), value(std::move(a)) {}
+	ListIndex(const ListIndex &other) = delete;
+	ListIndex(ListIndex &&other) = delete;
+	~ListIndex() {
+		if (next) delete next;
+	}
+	// Remove all entries after this one
+	void Cut() {
+		if (next) delete next;
+		next = nullptr;
+	}
+	// Places an index after this one.
+	T& InsertNext(const T &in) {
+		ListIndex *nextNext = next;
+		next = new ListIndex(in);
+		next->next = nextNext;
+		return next->value;
+	}
+	// Places an index after this one.
+	T& InsertNext(T &&in) {
+		ListIndex *nextNext = next;
+		next = new ListIndex(std::move(in));
+		next->next = nextNext;
+		return next->value;
+	}
+	// Erases the next index, keeping the nodes after that
+	void EraseNext() {
+		if (!next) return;
+		ListIndex *nextNext = next->next;
+		next->next = nullptr;
+		delete next;
+		next = nextNext;
+	}
 };
 
 /*  class: ListIterator
@@ -39,36 +71,23 @@ public:
 	bool operator!=(const ListIterator<T> &other) {
 		return me != other.me;
 	}
-	const ListIterator<T> &operator++() {
+	ListIterator<T> &operator++() {
 		me = me->next;
 		return *this;
 	}
-	T &operator*() {
-		return me->value;
+	const ListIterator<T> operator+(i32 count) const {
+		ListIterator<T> it = *this;
+		while (count && it.me) {
+			it.me = it.me->next;
+			count--;
+		}
+		return it;
 	}
-};
-
-/*  class: ListIteratorConst
-	Author: Philip Haynes
-	Iterating over our Linked List with const-ness      */
-template <typename T>
-class ListIteratorConst {
-	ListIndex<T> *me = nullptr;
-
-public:
-	ListIteratorConst() {}
-	ListIteratorConst(ListIndex<T> *a) {
-		me = a;
+	ListIndex<T>& operator*() {
+		return *me;
 	}
-	bool operator!=(const ListIteratorConst<T> &other) {
-		return me != other.me;
-	}
-	const ListIteratorConst<T> &operator++() {
-		me = me->next;
-		return *this;
-	}
-	const T &operator*() {
-		return me->value;
+	const ListIndex<T>& operator*() const {
+		return *me;
 	}
 };
 
@@ -77,84 +96,116 @@ public:
 	Just a linked list that can clean itself up.      */
 template <typename T>
 struct List {
-	ListIndex<T> *first;
-	i32 size;
-	List() : first(nullptr), size(0) {}
-	List(const List<T> &other) : first(nullptr), size(0) {
+	using Index = ListIndex<T>;
+	Index *first;
+	mutable Index *last;
+	List() : first(nullptr), last(nullptr) {}
+	List(const List<T> &other) : first(nullptr), last(nullptr) {
 		*this = other;
 	}
-	List(List<T> &&other) noexcept : first(other.first), size(other.size) {
+	List(List<T> &&other) noexcept : first(other.first), last(other.last) {
 		other.first = nullptr;
-		other.size = 0;
+		other.last = nullptr;
 	}
-	List(std::initializer_list<T> init) : first(nullptr), size(0) {
+	List(std::initializer_list<T> init) : first(nullptr), last(nullptr) {
 		*this = init;
 	}
-	List(const Array<T> &array) : first(nullptr), size(0) {
+	List(const Array<T> &array) : first(nullptr), last(nullptr) {
 		*this = array;
 	}
 	~List() {
-		ListIndex<T> *next = first;
-		while (next != nullptr) {
-			first = next->next;
-			delete next;
-			next = first;
-		}
+		if (first) delete first;
 	}
-	List<T> &operator=(const List<T> &other) {
+	List<T>& operator=(const List<T> &other) {
 		if (this == &other) return *this;
-		Resize(other.size);
-		ListIndex<T> *it = other.first;
-		ListIndex<T> *me = first;
-		for (i32 i = 0; i < size; i++) {
+		if (other.first && !first) {
+			first = new Index;
+		} else if (first) {
+			Clear();
+			return *this;
+		} else {
+			// We're both empty
+			return *this;
+		}
+		Index *it = other.first;
+		Index *me = first;
+		while (true) {
 			me->value = it->value;
+			if (!it->next) {
+				me->Cut();
+				last = me;
+				break;
+			}
+			if (!me->next) {
+				me->next = new Index;
+			}
 			me = me->next;
 			it = it->next;
 		}
 		return *this;
 	}
-	List<T> &operator=(List<T> &&other) {
+	List<T>& operator=(List<T> &&other) {
 		if (this == &other) return *this;
 		if (first != nullptr) {
 			delete first;
 		}
 		first = other.first;
 		other.first = nullptr;
-		size = other.size;
-		other.size = 0;
+		last = other.last;
+		other.last = nullptr;
 		return *this;
 	}
-	List<T> &operator=(const std::initializer_list<T> init) {
-		Resize(init.size());
-		ListIndex<T> *it = first;
-		for (u32 i = 0; i < init.size(); i++) {
-			it->value = *(init.begin() + i);
-			it = it->next;
+	List<T>& operator=(const std::initializer_list<T> init) {
+		if (init.size() == 0) {
+			Clear();
+			return *this;
+		}
+		if (!first) {
+			first = new Index;
+		}
+		ListIndex<T> *me = first;
+		auto iterator = init.begin();
+		auto end = init.end();
+		while (true) {
+			const T& value = *iterator;
+			me->value = value;
+			if (++iterator == end) {
+				me->Cut();
+				last = me;
+				break;
+			}
+			if (nullptr == me->next) {
+				me->next = new Index;
+			}
+			me = me->next;
 		}
 		return *this;
 	}
-	List<T> &operator=(const Array<T> &array) {
-		Resize(array.size);
-		ListIndex<T> *it = first;
-		for (i32 i = 0; i < array.size; i++) {
-			it->value = array[i];
-			it = it->next;
+	List<T>& operator=(const Array<T> &array) {
+		if (array.size == 0) {
+			Clear();
+			return *this;
+		}
+		if (!first) {
+			first = new Index;
+		}
+		ListIndex<T> *me = first;
+		auto iterator = array.begin();
+		auto end = array.end();
+		while (true) {
+			const T& value = *iterator;
+			me->value = value;
+			if (++iterator == end) {
+				me->Cut();
+				last = me;
+				break;
+			}
+			if (nullptr == me->next) {
+				me->next = new Index;
+			}
+			me = me->next;
 		}
 		return *this;
-	}
-	T &operator[](i32 index) {
-		ListIndex<T> *it = first;
-		for (i32 i = 0; i < index; i++) {
-			it = it->next;
-		}
-		return it->value;
-	}
-	const T &operator[](i32 index) const {
-		const ListIndex<T> *it = first;
-		for (i32 i = 0; i < index; i++) {
-			it = it->next;
-		}
-		return it->value;
 	}
 	ListIterator<T> begin() {
 		return ListIterator<T>(first);
@@ -162,130 +213,111 @@ struct List {
 	ListIterator<T> end() {
 		return ListIterator<T>();
 	}
-	ListIteratorConst<T> begin() const {
-		return ListIteratorConst<T>(first);
+	ListIterator<const T> begin() const {
+		return ListIterator<const T>(first);
 	}
-	ListIteratorConst<T> end() const {
-		return ListIteratorConst<T>();
+	ListIterator<const T> end() const {
+		return ListIterator<const T>();
 	}
-	void Resize(i32 s) {
-		if (s > size) {
-			for (i32 i = size; i < s; i++) {
-				Append(T());
-			}
+	inline void _UpdateLast() {
+		if (!last) return;
+		while (last->next) {
+			// Since entries can be inserted by Index::Insert, which can be at the end of the list
+			// So last isn't necessarily always correct
+			last = last->next;
 		}
-		else if (s == 0) {
-			ListIndex<T> *it = first;
-			while (it != nullptr) {
-				ListIndex<T> *next = it->next;
-				delete it;
-				it = next;
-			}
-			first = nullptr;
-		}
-		else if (size > s) {
-			ListIndex<T> *it = first;
-			for (i32 i = 0; i < s - 1; i++) {
-				it = it->next;
-			}
-			ListIndex<T> *middle = it;
-			it = it->next;
-			for (i32 i = s; i < size; i++) {
-				ListIndex<T> *n = it->next;
-				delete it;
-				it = n;
-			}
-			middle->next = nullptr;
-		}
-		size = s;
 	}
-	T &Append(const T &a) {
-		size++;
-		if (size == 1) {
-			first = new ListIndex<T>(a);
-			return first->value;
-		}
-		ListIndex<T> *it = first;
-		for (i32 i = 2; i < size; i++) {
-			it = it->next;
-		}
-		it->next = new ListIndex<T>(a);
-		return it->next->value;
+	T& Prepend(const T &a) {
+		Index *next = first;
+		first = new Index(a);
+		first->next = next;
+		return first->value;
 	}
-	T &Append(T &&a) {
-		size++;
-		if (size == 1) {
-			first = new ListIndex<T>(std::move(a));
-			return first->value;
-		}
-		ListIndex<T> *it = first;
-		for (i32 i = 2; i < size; i++) {
-			it = it->next;
-		}
-		it->next = new ListIndex<T>(std::move(a));
-		return it->next->value;
+	T& Prepend(T &&a) {
+		Index *next = first;
+		first = new Index(std::move(a));
+		first->next = next;
+		return first->value;
 	}
-	T &Insert(i32 index, const T &a) {
-		size++;
-		if (index == 0) {
-			ListIndex<T> *f = first;
-			first = new ListIndex<T>(a);
-			first->next = f;
-			return first->value;
+	T& Append(const T &a) {
+		if (!first) {
+			first = new Index(a);
+			last = first;
+			return last->value;
 		}
-		ListIndex<T> *it = first;
-		for (i32 i = 1; i < index; i++) {
-			it = it->next;
-		}
-		ListIndex<T> *n = it->next;
-		it->next = new ListIndex<T>(a);
-		it->next->next = n;
-		return it->next->value;
+		_UpdateLast();
+		last->next = new Index(a);
+		last = last->next;
+		return last->value;
 	}
-	T &Insert(i32 index, T &&a) {
-		size++;
-		if (index == 0) {
-			ListIndex<T> *f = first;
-			first = new ListIndex<T>(std::move(a));
-			first->next = f;
-			return first->value;
+	T& Append(T &&a) {
+		if (!first) {
+			first = new Index(std::move(a));
+			last = first;
+			return last->value;
 		}
-		ListIndex<T> *it = first;
-		for (i32 i = 1; i < index; i++) {
-			it = it->next;
-		}
-		ListIndex<T> *n = it->next;
-		it->next = new ListIndex<T>(std::move(a));
-		it->next->next = n;
-		return it->next->value;
-	}
-	void Erase(i32 index) {
-		size--;
-		if (index == 0) {
-			ListIndex<T> *f = first;
-			first = first->next;
-			delete f;
-			return;
-		}
-		ListIndex<T> *it = first;
-		for (i32 i = 1; i < index; i++) {
-			it = it->next;
-		}
-		ListIndex<T> *n = it->next;
-		it->next = it->next->next;
-		delete n;
+		_UpdateLast();
+		last->next = new Index(std::move(a));
+		last = last->next;
+		return last->value;
 	}
 	void Clear() {
-		while (first != nullptr) {
-			ListIndex<T> *tmp = first->next;
-			delete first;
-			first = tmp;
+		if (first) delete first;
+		first = nullptr;
+		last = nullptr;
+	}
+	void EraseFirst() {
+		if (!first) return;
+		Index *leftover = first;
+		first = first->next;
+		leftover->next = nullptr;
+		delete leftover;
+	}
+	void EraseLast() {
+		_UpdateLast();
+		if (!last) return;
+		Index *oldLast = last;
+		delete last;
+		if (last != first) {
+			last = first;
+		} else {
+			first = nullptr;
+			last = nullptr;
 		}
+		while (last->next != oldLast) {
+			last = last->next;
+		}
+		last->next = nullptr;
+	}
+
+	T& Back() {
+		_UpdateLast();
+		return last->value;
+	}
+	const T& Back() const {
+		_UpdateLast();
+		return last->value;
+	}
+
+	// Whether we're empty or not
+	bool Empty() const {
+		return nullptr == first;
+	}
+
+	// Iterates the entire List to find the size
+	i32 size() const {
+		i32 result = 0;
+		Index *it = first;
+		while (it) {
+			result++;
+			it = it->next;
+		}
+		return result;
 	}
 
 	bool Contains(const T &val) const {
-		ListIndex<T> *it = first;
-		for (i32 i = 0; i < size; i++) {
+		Index *it = first;
+		while (it) {
 			if (val == it->value)
 				return true;
 			it = it->next;
@@ -294,14 +326,25 @@ struct List {
 	}
 
 	i32 Count(const T &val) const {
-		ListIndex<T> *it = first;
+		Index *it = first;
 		i32 count = 0;
-		for (i32 i = 0; i < size; i++) {
+		while (it) {
 			if (val == it->value)
 				count++;
 			it = it->next;
 		}
 		return count;
+	}
+
+	i32 IndexOf(Index *index) {
+		Index *it = first;
+		i32 i = 0;
+		while (it) {
+			if (it == index) return i;
+			it = it->next;
+			++i;
+		}
+		return -1;
 	}
 };
 

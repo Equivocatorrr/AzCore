@@ -2913,7 +2913,7 @@ failure:
 		}
 #endif
 		data.dynamicBuffers.Append(CommandBuffer());
-		CommandBuffer *buffer = &data.dynamicBuffers[data.dynamicBuffers.size-1];
+		CommandBuffer *buffer = &data.dynamicBuffers.Back();
 		buffer->secondary = secondary;
 		buffer->data.pool = this;
 		buffer->data.device = data.device;
@@ -2939,17 +2939,12 @@ failure:
 		}
 #endif
 		vkFreeCommandBuffers(data.device->data.device, data.commandPool, 1, &buffer->data.commandBuffer);
-		i32 i = 0;
-		for (CommandBuffer& b : data.dynamicBuffers) {
-			if (&b == buffer) {
+		for (ListIndex<CommandBuffer>& b : data.dynamicBuffers) {
+			if (b.next && &b.next->value == buffer) {
+				b.EraseNext();
 				break;
 			}
-			i++;
 		}
-		if (i >= data.dynamicBuffers.size) {
-			return;
-		}
-		data.dynamicBuffers.Erase(i);
 	}
 
 	bool CommandPool::Init(Device *device, String debugMarker) {
@@ -3313,16 +3308,16 @@ failure:
 
 		// Queue family sharing...ugh
 		Array<u32> queueFamilies{};
-		for (i32 i = 0; i < data.device->data.queues.size; i++) {
+		for (auto &queue : data.device->data.queues) {
 			bool found = false;
 			for (i32 j = 0; j < queueFamilies.size; j++) {
-				if (data.device->data.queues[i].queueFamilyIndex == (i32)queueFamilies[j]) {
+				if (queue.value.queueFamilyIndex == (i32)queueFamilies[j]) {
 					found = true;
 					break;
 				}
 			}
 			if (!found) {
-				queueFamilies.Append(data.device->data.queues[i].queueFamilyIndex);
+				queueFamilies.Append(queue.value.queueFamilyIndex);
 			}
 		}
 		if (queueFamilies.size > 1) {
@@ -3497,17 +3492,17 @@ failure:
 
 	Ptr<Queue> Device::AddQueue() {
 		data.queues.Append(Queue());
-		return &data.queues[data.queues.size-1];
+		return &data.queues.Back();
 	}
 
 	Ptr<Swapchain> Device::AddSwapchain() {
 		data.swapchains.Append(Swapchain());
-		return &data.swapchains[data.swapchains.size-1];
+		return &data.swapchains.Back();
 	}
 
 	Ptr<RenderPass> Device::AddRenderPass() {
 		data.renderPasses.Append(RenderPass());
-		return &data.renderPasses[data.renderPasses.size-1];
+		return &data.renderPasses.Back();
 	}
 
 	Ptr<Sampler> Device::AddSampler() {
@@ -3517,12 +3512,12 @@ failure:
 
 	Ptr<Memory> Device::AddMemory() {
 		data.memories.Append(Memory());
-		return &data.memories[data.memories.size-1];
+		return &data.memories.Back();
 	}
 
 	Ptr<Descriptors> Device::AddDescriptors() {
 		data.descriptors.Append(Descriptors());
-		return &data.descriptors[data.descriptors.size-1];
+		return &data.descriptors.Back();
 	}
 
 	Ptr<Shader> Device::AddShader() {
@@ -3537,17 +3532,17 @@ failure:
 
 	Ptr<Pipeline> Device::AddPipeline() {
 		data.pipelines.Append(Pipeline());
-		return &data.pipelines[data.pipelines.size-1];
+		return &data.pipelines.Back();
 	}
 
 	Ptr<CommandPool> Device::AddCommandPool(Ptr<Queue> queue) {
 		data.commandPools.Append(CommandPool(queue));
-		return &data.commandPools[data.commandPools.size-1];
+		return &data.commandPools.Back();
 	}
 
 	Ptr<Framebuffer> Device::AddFramebuffer() {
 		data.framebuffers.Append(Framebuffer());
-		return &data.framebuffers[data.framebuffers.size-1];
+		return &data.framebuffers.Back();
 	}
 
 	Ptr<Semaphore> Device::AddSemaphore() {
@@ -3557,7 +3552,7 @@ failure:
 
 	Ptr<QueueSubmission> Device::AddQueueSubmission() {
 		data.queueSubmissions.Append(QueueSubmission());
-		return &data.queueSubmissions[data.queueSubmissions.size-1];
+		return &data.queueSubmissions.Back();
 	}
 
 	bool Device::SubmitCommandBuffers(Ptr<Queue> queue, Array<Ptr<QueueSubmission>> submissions) {
@@ -3612,7 +3607,7 @@ failure:
 		Array<const char*> extensionsAll(data.extensionsRequired);
 
 		// TODO: Find out what extensions we need based on context
-		if (data.swapchains.size != 0) {
+		if (!data.swapchains.Empty()) {
 			extensionsAll.Append(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 		}
 
@@ -3653,9 +3648,9 @@ failure:
 			bool independentBlending = false;
 			bool wideLines = false;
 			for (auto& pipeline : data.pipelines) {
-				for (i32 i = 1; i < pipeline.colorBlendAttachments.size; i++) {
-					VkPipelineColorBlendAttachmentState& s1 = pipeline.colorBlendAttachments[i-1];
-					VkPipelineColorBlendAttachmentState& s2 = pipeline.colorBlendAttachments[i];
+				for (i32 i = 1; i < pipeline.value.colorBlendAttachments.size; i++) {
+					VkPipelineColorBlendAttachmentState& s1 = pipeline.value.colorBlendAttachments[i-1];
+					VkPipelineColorBlendAttachmentState& s2 = pipeline.value.colorBlendAttachments[i];
 					if (s1.blendEnable != s2.blendEnable
 					||  s1.alphaBlendOp != s2.alphaBlendOp
 					||  s1.colorBlendOp != s2.colorBlendOp
@@ -3668,7 +3663,7 @@ failure:
 						break;
 					}
 				}
-				if (pipeline.rasterizer.lineWidth != 1.0f) {
+				if (pipeline.value.rasterizer.lineWidth != 1.0f) {
 					wideLines = true;
 				}
 			}
@@ -3709,7 +3704,8 @@ failure:
 			queuesPerFamily[i] = data.physicalDevice.queueFamiliesAvailable[i].queueCount;
 		}
 
-		for (i32 i = 0; i < data.queues.size; i++) {
+		for (auto &queueIndex : data.queues) {
+			Queue &queue = queueIndex.value;
 			for (i32 j = 0; j < queueFamilies; j++) {
 				if (queuesPerFamily[j] == 0)
 					continue; // This family has been exhausted of queues, try the next.
@@ -3723,52 +3719,53 @@ failure:
 					if (presentSupport)
 						break;
 				}
-				switch(data.queues[i].queueType) {
+				switch(queue.queueType) {
 					case COMPUTE: {
 						if (props.queueFlags & VK_QUEUE_COMPUTE_BIT) {
-							data.queues[i].queueFamilyIndex = j;
+							queue.queueFamilyIndex = j;
 						}
 						break;
 					}
 					case GRAPHICS: {
 						if (props.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-							data.queues[i].queueFamilyIndex = j;
+							queue.queueFamilyIndex = j;
 						}
 						break;
 					}
 					case TRANSFER: {
 						if (props.queueFlags & VK_QUEUE_TRANSFER_BIT) {
-							data.queues[i].queueFamilyIndex = j;
+							queue.queueFamilyIndex = j;
 						}
 						break;
 					}
 					case PRESENT: {
 						if (presentSupport) {
-							data.queues[i].queueFamilyIndex = j;
+							queue.queueFamilyIndex = j;
 						}
 						break;
 					}
 					default: {
-						error = "queues[" + ToString(i) + "] has a QueueType of UNDEFINED!";
+						error = "queues[" + ToString(data.queues.IndexOf(&queueIndex)) + "] has a QueueType of UNDEFINED!";
 						return false;
 					}
 				}
-				if (preferSameQueueFamilies && data.queues[i].queueFamilyIndex != -1)
+				if (preferSameQueueFamilies && queue.queueFamilyIndex != -1)
 					break;
 			}
-			if (data.queues[i].queueFamilyIndex == -1) {
-				error = "queues[" + ToString(i) + "] couldn't find a queue family :(";
+			if (queue.queueFamilyIndex == -1) {
+				error = "queues[" + ToString(data.queues.IndexOf(&queueIndex)) + "] couldn't find a queue family :(";
 				return false;
 			}
 			if (!preferMonolithicQueues) {
-				queuesPerFamily[data.queues[i].queueFamilyIndex]--;
+				queuesPerFamily[queue.queueFamilyIndex]--;
 			}
 		}
 
 		Array<VkDeviceQueueCreateInfo> queueCreateInfos{};
 		Array<BinarySet<f32>> queuePriorities(queueFamilies);
 		for (i32 i = 0; i < queueFamilies; i++) {
-			for (auto& queue : data.queues) {
+			for (auto& queueIndex : data.queues) {
+				Queue &queue = queueIndex.value;
 				if (queue.queueFamilyIndex == (i32)i) {
 					queuePriorities[i].Emplace(queue.queuePriority);
 				}
@@ -3828,7 +3825,8 @@ failure:
 		// Get our queues
 		i32 index = 0;
 		for (i32 i = 0; i < queueFamilies; i++) {
-			for (auto& queue : data.queues) {
+			for (auto& queueIndex : data.queues) {
+				Queue &queue = queueIndex.value;
 				if (queue.queueFamilyIndex == (i32)i) {
 					i32 queueIndex = 0;
 					for (i32 p = 0; p < queuePrioritiesArray[i].size; p++) {
@@ -3852,7 +3850,8 @@ failure:
 			}
 		}
 		// Swapchains
-		for (auto& swapchain : data.swapchains) {
+		for (auto& swapchainIndex : data.swapchains) {
+			Swapchain &swapchain = swapchainIndex.value;
 			if (data.debugMarker.size == 0) {
 				if (!swapchain.Init(this)) {
 					goto failed;
@@ -3866,7 +3865,8 @@ failure:
 		}
 		// RenderPasses
 		index = 0;
-		for (auto& renderPass : data.renderPasses) {
+		for (auto& renderPassIndex : data.renderPasses) {
+			RenderPass &renderPass = renderPassIndex.value;
 			if (data.debugMarker.size == 0) {
 				if (!renderPass.Init(this)) {
 					goto failed;
@@ -3880,13 +3880,14 @@ failure:
 		}
 		// Framebuffer init phase, may allocate Memory objects with Images
 		for (auto& framebuffer : data.framebuffers) {
-			if (!framebuffer.Init(this)) {
+			if (!framebuffer.value.Init(this)) {
 				goto failed;
 			}
 		}
 		// Memory
 		index = 0;
-		for (auto& memory : data.memories) {
+		for (auto& memoryIndex : data.memories) {
+			Memory &memory = memoryIndex.value;
 			if (data.debugMarker.size == 0) {
 				if (!memory.Init(this)) {
 					goto failed;
@@ -3913,7 +3914,8 @@ failure:
 		}
 		// Descriptors
 		index = 0;
-		for (auto& descriptor : data.descriptors) {
+		for (auto& descriptorIndex : data.descriptors) {
+			Descriptors &descriptor = descriptorIndex.value;
 			if (data.debugMarker.size == 0) {
 				descriptor.Init(this);
 			} else {
@@ -3943,7 +3945,8 @@ failure:
 		}
 		// Pipelines
 		index = 0;
-		for (auto& pipeline : data.pipelines) {
+		for (auto& pipelineIndex : data.pipelines) {
+			Pipeline &pipeline = pipelineIndex.value;
 			if (data.debugMarker.size == 0) {
 				if (!pipeline.Init(this)) {
 					goto failed;
@@ -3957,7 +3960,8 @@ failure:
 		}
 		// CommandPools
 		index = 0;
-		for (auto& commandPool : data.commandPools) {
+		for (auto& commandPoolIndex : data.commandPools) {
+			CommandPool &commandPool = commandPoolIndex.value;
 			if (data.debugMarker.size == 0) {
 				if (!commandPool.Init(this)) {
 					goto failed;
@@ -3970,7 +3974,8 @@ failure:
 			}
 		}
 		// Framebuffer create phase
-		for (auto& framebuffer : data.framebuffers) {
+		for (auto& framebufferIndex : data.framebuffers) {
+			Framebuffer &framebuffer = framebufferIndex.value;
 			if (!framebuffer.Create()) {
 				goto failed;
 			}
@@ -3995,8 +4000,9 @@ failure:
 			}
 		}
 		// Queue Submissions
-		cout.PrintLn("Configuring ", data.queueSubmissions.size, " QueueSubmissions...");
-		for (auto& queueSubmission : data.queueSubmissions) {
+		cout.PrintLn("Configuring ", data.queueSubmissions.size(), " QueueSubmissions...");
+		for (auto& queueSubmissionIndex : data.queueSubmissions) {
+			QueueSubmission &queueSubmission = queueSubmissionIndex.value;
 			if (!queueSubmission.noAutoConfig) {
 				queueSubmission.Config();
 			}
@@ -4014,40 +4020,40 @@ failure:
 		return true;
 failed:
 		for (auto& swapchain : data.swapchains) {
-			if (swapchain.data.initted) {
-				swapchain.Deinit();
+			if (swapchain.value.data.initted) {
+				swapchain.value.Deinit();
 			}
 		}
 		for (auto& renderPass : data.renderPasses) {
-			if (renderPass.data.initted) {
-				renderPass.Deinit();
+			if (renderPass.value.data.initted) {
+				renderPass.value.Deinit();
 			}
 		}
 		for (auto& memory : data.memories) {
-			if (memory.data.initted) {
-				memory.Deinit();
+			if (memory.value.data.initted) {
+				memory.value.Deinit();
 			}
 		}
 		for (auto& sampler : data.samplers) {
 			sampler.Clean();
 		}
 		for (auto& descriptor : data.descriptors) {
-			descriptor.Clean();
+			descriptor.value.Clean();
 		}
 		for (auto& shader : data.shaders) {
 			shader.Clean();
 		}
 		for (auto& pipeline : data.pipelines) {
-			if (pipeline.data.initted) {
-				pipeline.Deinit();
+			if (pipeline.value.data.initted) {
+				pipeline.value.Deinit();
 			}
 		}
 		for (auto& commandPool : data.commandPools) {
-			commandPool.Clean();
+			commandPool.value.Clean();
 		}
 		for (auto& framebuffer : data.framebuffers) {
-			if (framebuffer.data.initted) {
-				framebuffer.Deinit();
+			if (framebuffer.value.data.initted) {
+				framebuffer.value.Deinit();
 			}
 		}
 		for (i32 i = 0; i < data.semaphores.size; i++) {
@@ -4070,38 +4076,38 @@ failed:
 #endif
 		vkDeviceWaitIdle(data.device);
 		for (auto& swapchain : data.swapchains) {
-			if (swapchain.data.initted) {
-				swapchain.Deinit();
+			if (swapchain.value.data.initted) {
+				swapchain.value.Deinit();
 			}
 		}
 		for (auto& renderPass : data.renderPasses) {
-			if (renderPass.data.initted) {
-				renderPass.Deinit();
+			if (renderPass.value.data.initted) {
+				renderPass.value.Deinit();
 			}
 		}
 		for (auto& memory : data.memories) {
-			if (memory.data.initted) {
-				memory.Deinit();
+			if (memory.value.data.initted) {
+				memory.value.Deinit();
 			}
 		}
 		for (auto& sampler : data.samplers) {
 			sampler.Clean();
 		}
 		for (auto& descriptor : data.descriptors) {
-			descriptor.Clean();
+			descriptor.value.Clean();
 		}
 		// We don't need to clean the shaders since they should have already been cleaned
 		for (auto& pipeline : data.pipelines) {
-			if (pipeline.data.initted) {
-				pipeline.Deinit();
+			if (pipeline.value.data.initted) {
+				pipeline.value.Deinit();
 			}
 		}
 		for (auto& commandPool : data.commandPools) {
-			commandPool.Clean();
+			commandPool.value.Clean();
 		}
 		for (auto& framebuffer : data.framebuffers) {
-			if (framebuffer.data.initted) {
-				framebuffer.Deinit();
+			if (framebuffer.value.data.initted) {
+				framebuffer.value.Deinit();
 			}
 		}
 		for (i32 i = 0; i < data.semaphores.size; i++) {
@@ -4172,7 +4178,7 @@ failed:
 
 	Ptr<Device> Instance::AddDevice() {
 		data.devices.Append(Device());
-		return &data.devices[data.devices.size-1];
+		return &data.devices.Back();
 	}
 
 	bool Instance::Reconfigure() {
@@ -4366,14 +4372,18 @@ failed:
 			}
 		}
 		// Initialize our logical devices according to their rules
-		for (i32 i = 0; i < data.devices.size; i++) {
-			if (data.enableLayers) {
-				if (!data.devices[i].Init(this, debugMarker + ".devices[" + ToString(i) + "]")) {
-					goto failed;
-				}
-			} else {
-				if (!data.devices[i].Init(this)) {
-					goto failed;
+		{
+			i32 i = 0;
+			for (auto &device : data.devices) {
+				if (data.enableLayers) {
+					if (!device.value.Init(this, debugMarker + ".devices[" + ToString(i) + "]")) {
+						goto failed;
+					}
+					i++;
+				} else {
+					if (!device.value.Init(this)) {
+						goto failed;
+					}
 				}
 			}
 		}
@@ -4389,9 +4399,9 @@ failed:
 		cout.Newline(2);
 		return true;
 failed:
-		for (i32 i = 0; i < data.devices.size; i++) {
-			if (data.devices[i].data.initted)
-				data.devices[i].Deinit();
+		for (auto &device : data.devices) {
+			if (device.value.data.initted)
+				device.value.Deinit();
 		}
 		if (data.enableLayers) {
 			// data.fpDestroyDebugReportCallbackEXT(data.instance, data.debugReportCallback, &data.allocationCallbacks);
@@ -4413,8 +4423,8 @@ failed:
 			return false;
 		}
 #endif
-		for (i32 i = 0; i < data.devices.size; i++) {
-			data.devices[i].Deinit();
+		for (auto &device : data.devices) {
+			device.value.Deinit();
 		}
 		// Clean up everything else here
 #ifdef AZCORE_IO_FOR_VULKAN

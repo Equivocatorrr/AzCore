@@ -19,47 +19,17 @@
 	#undef explicit
 #endif
 
-namespace AzCore {
-
 #ifdef AZCORE_IO_FOR_VULKAN
-namespace io {
 
 #ifdef __unix
-	struct xkb_keyboard {
-		xcb_connection_t *connection;
-		u8 first_xkb_event;
-		struct xkb_context *context;
-		struct xkb_keymap *keymap;
-		i32 deviceId;
-		struct xkb_state *state;
-		struct xkb_state *stateNone;
-	};
-
-	struct WindowData {
-		xcb_connection_t *connection;
-		xcb_colormap_t colormap;
-		i32 visualID;
-		xcb_window_t window;
-		xcb_screen_t *screen;
-		xcb_generic_event_t *event;
-		xcb_atom_t atoms[4];
-		xcb_cursor_t cursorHidden;
-		xcb_cursor_t cursorVisible;
-		i32 windowDepth;
-		xkb_keyboard xkb;
-	};
+	#include "IO/Linux/WindowData.hpp"
 #elif defined(_WIN32)
-	struct WindowData {
-		HINSTANCE instance;
-		HWND window;
-		WNDCLASSEX windowClass;
-		HICON windowIcon, windowIconSmall;
-		String windowClassName;
-	};
+	#include "IO/Win32/WindowData.hpp"
 #endif
 
-} // namespace io
 #endif // AZCORE_IO_FOR_VULKAN
+
+namespace AzCore {
 
 namespace vk {
 

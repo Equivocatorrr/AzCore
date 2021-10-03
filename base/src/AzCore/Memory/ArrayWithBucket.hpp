@@ -341,7 +341,7 @@ struct ArrayWithBucket {
 
 	const T &operator[](i32 index) const {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index > size) { // Negative values should be large in a u32
+		if (index >= size || index < 0) {
 			throw std::out_of_range("ArrayWithBucket index is out of bounds");
 		}
 #endif
@@ -350,7 +350,7 @@ struct ArrayWithBucket {
 
 	T &operator[](i32 index) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index > size) {
+		if (index >= size || index < 0) {
 			throw std::out_of_range("ArrayWithBucket index is out of bounds");
 		}
 #endif

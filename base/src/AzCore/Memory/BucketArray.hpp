@@ -130,7 +130,7 @@ struct BucketArray {
 
 	inline const T &operator[](i32 index) const {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index > size) {
+		if (index >= size || index < 0) {
 			throw std::out_of_range("BucketArray index is out of bounds");
 		}
 #endif
@@ -139,7 +139,7 @@ struct BucketArray {
 
 	inline T &operator[](i32 index) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index > size) {
+		if (index >= size || index < 0) {
 			throw std::out_of_range("BucketArray index is out of bounds");
 		}
 #endif

@@ -125,7 +125,7 @@ struct Range {
 	}
 	Ptr<T> GetPtr(i32 i) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (i >= size) {
+		if (i >= size || i < 0) {
 			throw std::out_of_range("Range index is out of bounds");
 		}
 #endif
@@ -170,7 +170,7 @@ struct Range {
 	}
 	T &operator[](i32 i) {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (i >= size) {
+		if (i >= size || i < 0) {
 			throw std::out_of_range("Range index is out of bounds");
 		}
 #endif
@@ -189,7 +189,7 @@ struct Range {
 	}
 	const T &operator[](i32 i) const {
 #ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (i >= size) {
+		if (i >= size || i < 0) {
 			throw std::out_of_range("Range index is out of bounds");
 		}
 #endif
@@ -351,9 +351,19 @@ struct SimpleRange {
 	}
 
 	inline T& operator[](i64 i) {
+#ifndef MEMORY_NO_BOUNDS_CHECKS
+		if (i >= size || i < 0) {
+			throw std::out_of_range("Range index is out of bounds");
+		}
+#endif
 		return str[i];
 	}
 	inline const T& operator[](i64 i) const {
+#ifndef MEMORY_NO_BOUNDS_CHECKS
+		if (i >= size || i < 0) {
+			throw std::out_of_range("Range index is out of bounds");
+		}
+#endif
 		return str[i];
 	}
 

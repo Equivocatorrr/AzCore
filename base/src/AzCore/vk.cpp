@@ -72,40 +72,55 @@ namespace vk {
 			STR(ERROR_FORMAT_NOT_SUPPORTED);
 			STR(ERROR_FRAGMENTED_POOL);
 			STR(ERROR_UNKNOWN);
-			// Provided by VK_VERSION_1_1
+			#if VK_VERSION_1_1
 			STR(ERROR_OUT_OF_POOL_MEMORY);
 			STR(ERROR_INVALID_EXTERNAL_HANDLE);
-			// Provided by VK_VERSION_1_2
+			#endif
+			#if VK_VERSION_1_2
 			STR(ERROR_FRAGMENTATION);
 			STR(ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS);
-			// Provided by VK_KHR_surface
+			#endif
+			#if VK_KHR_surface
 			STR(ERROR_SURFACE_LOST_KHR);
 			STR(ERROR_NATIVE_WINDOW_IN_USE_KHR);
-			// Provided by VK_KHR_swapchain
+			#endif
+			#if VK_KHR_swapchain
 			STR(SUBOPTIMAL_KHR);
 			STR(ERROR_OUT_OF_DATE_KHR);
-			// Provided by VK_KHR_display_swapchain
+			#endif
+			#if VK_KHR_display_swapchain
 			STR(ERROR_INCOMPATIBLE_DISPLAY_KHR);
-			// Provided by VK_EXT_debug_report
+			#endif
+			#if VK_EXT_debug_report
 			STR(ERROR_VALIDATION_FAILED_EXT);
-			// Provided by VK_NV_glsl_shader
+			#endif
+			#if VK_NV_glsl_shader
 			STR(ERROR_INVALID_SHADER_NV);
-			// Provided by VK_EXT_image_drm_format_modifier
+			#endif
+			#if VK_EXT_image_drm_format_modifier
 			STR(ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT);
-			// Provided by VK_EXT_global_priority
+			#endif
+			#if VK_EXT_global_priority
 			STR(ERROR_NOT_PERMITTED_EXT);
-			// Provided by VK_EXT_full_screen_exclusive
+			#endif
+			#if VK_EXT_full_screen_exclusive
 			STR(ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT);
-			// Provided by VK_KHR_deferred_host_operations
+			#endif
+			#if VK_KHR_deferred_host_operations
 			STR(THREAD_IDLE_KHR);
-			// Provided by VK_KHR_deferred_host_operations
+			#endif
+			#if VK_KHR_deferred_host_operations
 			STR(THREAD_DONE_KHR);
-			// Provided by VK_KHR_deferred_host_operations
+			#endif
+			#if VK_KHR_deferred_host_operations
 			STR(OPERATION_DEFERRED_KHR);
-			// Provided by VK_KHR_deferred_host_operations
+			#endif
+			#if VK_KHR_deferred_host_operations
 			STR(OPERATION_NOT_DEFERRED_KHR);
-			// Provided by VK_EXT_pipeline_creation_cache_control
+			#endif
+			#if VK_EXT_pipeline_creation_cache_control
 			STR(PIPELINE_COMPILE_REQUIRED_EXT);
+			#endif
 #undef STR
 		default:
 			return "UNKNOWN_ERROR " + ToString((i64)errorCode);

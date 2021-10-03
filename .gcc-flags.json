@@ -1,6 +1,6 @@
 {
     "execPath": "/usr/bin/g++",
     "gccDefaultCFlags": "-c -Wall",
-    "gccDefaultCppFlags": "-c -Wall -std=c++17 -Wdouble-promotion -Wfloat-conversion -Werror -fsyntax-only",
-    "gccIncludePaths": ".,./include,../../base/src"
+    "gccDefaultCppFlags": "-c -Wall -std=c++17 -fsyntax-only",
+    "gccIncludePaths": "-/,-/include,./base/src"
 }

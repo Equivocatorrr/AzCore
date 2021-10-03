@@ -520,6 +520,7 @@ bool Window::Fullscreen(bool fs) {
 	fullscreen = fs;
 
 	xcb_client_message_event_t ev;
+	memset(&ev, 0, sizeof(ev));
 	ev.response_type = XCB_CLIENT_MESSAGE;
 	ev.type = data->atoms[2];
 	ev.format = 32;

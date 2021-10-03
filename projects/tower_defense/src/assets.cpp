@@ -394,7 +394,7 @@ i32 Manager::FindMapping(String filename) {
 		}
 	}
 	cout.PrintLn("No mapping found for \"", filename, "\"");
-	return -1;
+	return 0;
 }
 
 f32 Manager::CharacterWidth(char32 c, i32 fontIndex) const {

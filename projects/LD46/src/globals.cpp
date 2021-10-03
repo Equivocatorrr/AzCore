@@ -53,7 +53,9 @@ void Globals::LoadLocale() {
 	{
 		if (buffer[i] == '\n') {
 			i++;
-			skipToNewline = buffer[i] == '#';
+			if (i < buffer.size) {
+				skipToNewline = buffer[i] == '#';
+			}
 			continue;
 		}
 		if (skipToNewline) {

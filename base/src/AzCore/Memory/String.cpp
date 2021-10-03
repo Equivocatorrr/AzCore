@@ -48,6 +48,7 @@ void Reverse(SimpleRange<T> range) {
 void AppendToString(String &string, u32 value, i32 base) {
 	if (value == 0) {
 		string.Append("0");
+		return;
 	}
 	i32 startSize = string.size;
 	string.Reserve(startSize + i32(log((f32)value) / log((f32)base)) + 1);
@@ -62,12 +63,13 @@ void AppendToString(String &string, u32 value, i32 base) {
 		}
 		remaining = quot;
 	}
-	Reverse(SimpleRange(&string[startSize], string.size-startSize));
+	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
 }
 
 void AppendToString(String &string, u64 value, i32 base) {
 	if (value == 0) {
 		string.Append("0");
+		return;
 	}
 	i32 startSize = string.size;
 	string.Reserve(startSize + i32((f32)log((f64)value) / log((f32)base)) + 1);
@@ -82,12 +84,13 @@ void AppendToString(String &string, u64 value, i32 base) {
 		}
 		remaining = quot;
 	}
-	Reverse(SimpleRange(&string[startSize], string.size-startSize));
+	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
 }
 
 void AppendToString(String &string, u128 value, i32 base) {
 	if (value == 0) {
 		string.Append("0");
+		return;
 	}
 	i32 startSize = string.size;
 	string.Reserve(startSize + i32((f32)log((f64)value) / log((f32)base)) + 1);
@@ -102,12 +105,13 @@ void AppendToString(String &string, u128 value, i32 base) {
 		}
 		remaining = quot;
 	}
-	Reverse(SimpleRange(&string[startSize], string.size-startSize));
+	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
 }
 
 void AppendToString(String &string, i32 value, i32 base) {
 	if (value == 0) {
 		string.Append("0");
+		return;
 	}
 	i32 startSize = string.size;
 	string.Reserve(startSize + i32(log((f32)value) / log((f32)base)) + 1);
@@ -126,12 +130,13 @@ void AppendToString(String &string, i32 value, i32 base) {
 	if (negative) {
 		string += '-';
 	}
-	Reverse(SimpleRange(&string[startSize], string.size-startSize));
+	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
 }
 
 void AppendToString(String &string, i64 value, i32 base) {
 	if (value == 0) {
 		string.Append("0");
+		return;
 	}
 	i32 startSize = string.size;
 	string.Reserve(startSize + i32((f32)log((f64)value) / log((f32)base)) + 1);
@@ -150,12 +155,13 @@ void AppendToString(String &string, i64 value, i32 base) {
 	if (negative) {
 		string += '-';
 	}
-	Reverse(SimpleRange(&string[startSize], string.size-startSize));
+	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
 }
 
 void AppendToString(String &string, i128 value, i32 base) {
 	if (value == 0) {
 		string.Append("0");
+		return;
 	}
 	i32 startSize = string.size;
 	string.Reserve(startSize + i32((f32)log((f64)value) / log((f32)base)) + 1);
@@ -174,7 +180,7 @@ void AppendToString(String &string, i128 value, i32 base) {
 	if (negative) {
 		string += '-';
 	}
-	Reverse(SimpleRange(&string[startSize], string.size-startSize));
+	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
 }
 
 void AppendToString(String &string, f32 value, i32 base, i32 precision) {

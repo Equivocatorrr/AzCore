@@ -24,7 +24,7 @@ WCFLAGS=$(CFLAGS) -D_GLIBCXX_USE_NANOSLEEP -static -static-libgcc -static-libstd
 # You can use the base one from AzCore by uncommenting this
 WINDOWS_RESOURCES = $(AZCORE_BASE)/obj/Windows/resources.o
 
-LIBS_L=-lxcb -lpthread -lxkbcommon -lxkbcommon-x11 -lxcb-xkb -lwayland-client
+LIBS_L=-lxcb -lpthread -lxkbcommon -lxkbcommon-x11 -lxcb-xkb
 LIBS_W=-lgdi32 -ldinput8 -ldxguid
 
 _DEPS =

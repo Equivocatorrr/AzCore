@@ -21,6 +21,37 @@ namespace io {
 
 	extern Log cout;
 
+	inline bool ArgumentIsFlag(char *argument) {
+		if (!argument) return false;
+		if (argument[0] != '-') return false;
+		if (argument[1] != '-') return false;
+		return true;
+	}
+
+	inline SimpleRange<char> ArgumentFlag(char *argument) {
+		return SimpleRange<char>(argument+2);
+	}
+
+	struct Argument {
+		// Whether it starts with '--'
+		bool isFlag;
+		// The text part minus the beginning '--' if it's a flag
+		SimpleRange<char> str;
+	};
+
+	inline Array<Argument> GetArguments(i32 argc, char *argv[]) {
+		// NOTE: Do we want to omit the first one since it's just the app name on the system?
+		Array<Argument> out(argc-1);
+		for (i32 i = 1; i < argc; i++) {
+			if (ArgumentIsFlag(argv[i])) {
+				out.Append({true, ArgumentFlag(argv[i])});
+			} else {
+				out.Append({false, argv[i]});
+			}
+		}
+		return out;
+	}
+
 } // namespace io
 
 } // namespace AzCore

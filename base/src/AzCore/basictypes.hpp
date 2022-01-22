@@ -57,7 +57,7 @@ namespace AzCore {}
 namespace az = AzCore;
 
 #ifdef NDEBUG
-	#define Assert(condition, message) ((void)0)
+	#define Assert(condition, message) 
 #else
 	#include <stdio.h>
 	#include <stdlib.h>

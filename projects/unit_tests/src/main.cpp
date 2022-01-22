@@ -10,7 +10,7 @@
 
 using namespace AzCore;
 
-void Assert(bool condition, const char *messageOnFailure) {
+void MyAssert(bool condition, const char *messageOnFailure) {
 	if (!condition) {
 		throw std::runtime_error(messageOnFailure);
 	}
@@ -63,7 +63,7 @@ void ExpectedValue(T a, T b, const char *messageOnFailure) {
 #define STR2(a) #a
 #define STR(a) STR2(a)
 #define ASSERT(condition) \
-	Assert((condition), "Assertion failed: " #condition " in file: " __FILE__ " on line: " STR(__LINE__) )
+	MyAssert((condition), "Assertion failed: " #condition " in file: " __FILE__ " on line: " STR(__LINE__) )
 
 #define EXPECTEDVALUE(a, b) \
 	ExpectedValue(a, b, "Expected value " #a " to be equal to " #b " in file: " __FILE__ " on line: " STR(__LINE__) )

@@ -198,4 +198,14 @@ inline bool operator^(const String &lhs, const String &rhs) {
 
 } // namespace AzCore
 
+#ifndef NDEBUG
+inline void _Assert(bool condition, const char *file, const char *line, az::String message) {
+	if (!condition) {
+		fprintf(stderr, "\033[96m%s\033[0m:\033[96m%s\033[0m Assert failed: \033[91m%s\033[0m\n", file, line, message.data);
+		PrintBacktrace(stderr);
+		abort();
+	}
+}
+#endif // NDEBUG
+
 #endif // AZCORE_STRING_HPP

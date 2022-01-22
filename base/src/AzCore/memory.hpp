@@ -50,12 +50,12 @@ using WeakPtr = std::weak_ptr<T>;
 Array<char> FileContents(String filename);
 
 template<typename T, i32 allocTail>
-Array<Range<T>> SeparateByValues(Array<T, allocTail> &array, const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values) {
+Array<Range<T>> SeparateByValues(Array<T, allocTail> &array, const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values, bool allowEmpty=false) {
 	Array<Range<T>> result;
 	i32 rangeStart = 0;
 	for (i32 i = 0; i < array.size; i++) {
 		if (values.Contains(array.data[i])) {
-			if (i-rangeStart > 0) {
+			if (allowEmpty || i-rangeStart > 0) {
 				result.Append(array.GetRange(rangeStart, i-rangeStart));
 			}
 			rangeStart = i+1;
@@ -69,12 +69,12 @@ Array<Range<T>> SeparateByValues(Array<T, allocTail> &array, const ArrayWithBuck
 
 template<typename T, i32 allocTail, i32 noAllocCount>
 Array<Range<T>> SeparateByValues(ArrayWithBucket<T, noAllocCount, allocTail> &array,
-		const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values) {
+		const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values, bool allowEmpty=false) {
 	Array<Range<T>> result;
 	i32 rangeStart = 0;
 	for (i32 i = 0; i < array.size; i++) {
 		if (values.Contains(array.data[i])) {
-			if (i-rangeStart > 0) {
+			if (allowEmpty || i-rangeStart > 0) {
 				result.Append(array.GetRange(rangeStart, i-rangeStart));
 			}
 			rangeStart = i+1;
@@ -88,12 +88,12 @@ Array<Range<T>> SeparateByValues(ArrayWithBucket<T, noAllocCount, allocTail> &ar
 
 template<typename T, i32 allocTail=0>
 Array<Range<T>> SeparateByValues(Range<T> &range,
-		const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values) {
+		const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values, bool allowEmpty=false) {
 	Array<Range<T>> result;
 	i32 rangeStart = 0;
 	for (i32 i = 0; i < range.size; i++) {
-		if (values.Contains((*range)[i])) {
-			if (i-rangeStart > 0) {
+		if (values.Contains(range[i])) {
+			if (allowEmpty || i-rangeStart > 0) {
 				result.Append(range.SubRange(rangeStart, i-rangeStart));
 			}
 			rangeStart = i+1;
@@ -107,12 +107,12 @@ Array<Range<T>> SeparateByValues(Range<T> &range,
 
 template<typename T, i32 allocTail=0>
 Array<Range<T>> SeparateByValues(T *array,
-		const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values) {
+		const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values, bool allowEmpty=false) {
 	Array<Range<T>> result;
 	i32 rangeStart = 0;
 	for (i32 i = 0; array[i] != StringTerminators<T>::value; i++) {
 		if (values.Contains(array[i])) {
-			if (i-rangeStart > 0) {
+			if (allowEmpty || i-rangeStart > 0) {
 				result.Append(Range<T>(&array[rangeStart], i-rangeStart));
 			}
 			rangeStart = i+1;

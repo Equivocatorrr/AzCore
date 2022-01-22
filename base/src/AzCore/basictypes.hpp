@@ -56,4 +56,46 @@ static_assert(sizeof(i128) == 16);
 namespace AzCore {}
 namespace az = AzCore;
 
+#ifdef NDEBUG
+	#define Assert(condition, message) ((void)0)
+#else
+	#include <stdio.h>
+	#include <stdlib.h>
+	#ifdef __unix
+	#include <execinfo.h>
+	inline void PrintBacktrace(FILE *file) {
+		constexpr size_t stackSizeMax = 256;
+		void *array[stackSizeMax];
+		int size;
+
+		size = backtrace(array, stackSizeMax);
+		fprintf(file, "Backtrace:\n");
+		backtrace_symbols_fd(array, size, fileno(file));
+	}
+	inline void PrintBacktrace() {
+		PrintBacktrace(stderr);
+	}
+	#else
+	inline void PrintBacktrace(FILE *file) {}
+	inline void PrintBacktrace() {}
+	#endif // __unix
+	constexpr void _Assert(bool condition, const char *file, const char *line, const char *message) {
+		if (!condition) {
+			fprintf(stderr, "\033[96m%s\033[0m:\033[96m%s\033[0m Assert failed: \033[91m%s\033[0m\n", file, line, message);
+			PrintBacktrace(stderr);
+			abort();
+		}
+	}
+	constexpr auto* _GetFileName(const char* const path) {
+		const auto* startPosition = path;
+		for (const auto* cur = path; *cur != '\0'; ++cur) {
+			if (*cur == '\\' || *cur == '/') startPosition = cur+1;
+		}
+		return startPosition;
+	}
+	#define STRINGIFY_DAMMIT(x) #x
+	#define STRINGIFY(x) STRINGIFY_DAMMIT(x)
+	#define Assert(condition, message) _Assert((condition), _GetFileName(__FILE__), STRINGIFY(__LINE__), (message))
+#endif
+
 #endif // AZCORE_BASICTYPES_HPP

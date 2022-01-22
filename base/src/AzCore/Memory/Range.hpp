@@ -367,14 +367,14 @@ struct SimpleRange {
 		return str[i];
 	}
 
-	inline bool operator==(SimpleRange<T> other) {
+	inline bool operator==(const SimpleRange<T> other) const {
 		if (size != other.size) return false;
 		for (i64 i = 0; i < size; i++) {
 			if (str[i] != other.str[i]) return false;
 		}
 		return true;
 	}
-	inline bool operator==(const T *string) {
+	inline bool operator==(const T *string) const {
 		for (i64 i = 0; i < size; i++) {
 			if (str[i] != string[i]) return false;
 		}
@@ -382,15 +382,15 @@ struct SimpleRange {
 	}
 
 	inline bool force_inline
-	operator!=(SimpleRange<T> other) {
+	operator!=(const SimpleRange<T> other) const {
 		return !operator==(other);
 	}
 	inline bool force_inline
-	operator!=(const T *string) {
+	operator!=(const T *string) const {
 		return !operator==(string);
 	}
 
-	bool operator<(const SimpleRange<T> &other) {
+	bool operator<(const SimpleRange<T> &other) const {
 		if (size != other.size) return size < other.size;
 		for (i64 i = 0; i < size; i++) {
 			if (str[i] != other.str[i]) return str[i] < other.str[i];
@@ -426,11 +426,11 @@ struct SimpleRange {
 
 template<u16 bounds>
 constexpr i32 IndexHash(const SimpleRange<char> &in) {
-	i32 hash;
+	u32 hash = 0;
 	for (char c : in) {
 		hash = hash * 31 + c;
 	}
-	return hash % bounds;
+	return i32(hash % bounds);
 }
 
 } // namespace AzCore

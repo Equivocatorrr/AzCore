@@ -103,6 +103,15 @@ struct HashMap {
 			}
 		}
 
+		const Node* Find(const Key_t& testKey) const {
+			if (key == testKey) return this;
+			if (next) {
+				return next->Find(testKey);
+			} else {
+				return nullptr;
+			}
+		}
+
 		Value_t& ValueOf(const Key_t& testKey) {
 			if (key == testKey) return value;
 			if (next) {
@@ -193,6 +202,12 @@ struct HashMap {
 	}
 
 	Node* Find(Key_t key) {
+		i32 index = IndexHash<arraySize>(key);
+		if (nodes[index] == nullptr) return nullptr;
+		return nodes[index]->Find(key);
+	}
+
+	const Node* Find(Key_t key) const {
 		i32 index = IndexHash<arraySize>(key);
 		if (nodes[index] == nullptr) return nullptr;
 		return nodes[index]->Find(key);

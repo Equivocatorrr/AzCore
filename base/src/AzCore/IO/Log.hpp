@@ -22,12 +22,12 @@ class Log {
 	bool logConsole = true;
 	bool startOnNewline = true;
 	String indentString = "    ";
-	i32 indent = 0;
 	Mutex mutex;
 	String prepend;
 	String filename;
 	inline void _HandleFile();
 public:
+	i32 indent = 0;
 	Log() = default;
 	inline Log(String logFilename, bool console=true) : Log() {
 		filename = logFilename;

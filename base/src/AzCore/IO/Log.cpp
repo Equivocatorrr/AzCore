@@ -128,6 +128,8 @@ void Log::_Print(SimpleRange<char> out) {
 			startOnNewline = false;
 		}
 	} else {
+		if (logConsole) consoleOut += '\n';
+		if (logFile) fileOut += '\n';
 		startOnNewline = true;
 	}
 	if (file) {

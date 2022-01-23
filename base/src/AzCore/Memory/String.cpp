@@ -778,4 +778,18 @@ i32 CharLen(const char chr) {
 	return 1;
 }
 
+void TrimWhitespace(String &string) {
+	i32 leading = -1;
+	i32 trailing = 0;
+	for (i32 i = 0; i < string.size; i++) {
+		trailing++;
+		if (!isWhitespace(string[i])) {
+			if (leading == -1) leading = i;
+			trailing = 0;
+		}
+	}
+	if (leading != -1) string.Erase(0, leading);
+	string.Resize(string.size - trailing);
+}
+
 } // namespace AzCore

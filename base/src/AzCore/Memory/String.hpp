@@ -196,6 +196,9 @@ inline bool operator^(const String &lhs, const String &rhs) {
 	return true;
 }
 
+// Removes leading and trailing whitespace
+void TrimWhitespace(String &string);
+
 } // namespace AzCore
 
 #ifndef NDEBUG

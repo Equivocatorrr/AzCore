@@ -41,7 +41,8 @@ namespace io {
 
 	inline Array<Argument> GetArguments(i32 argc, char *argv[]) {
 		// NOTE: Do we want to omit the first one since it's just the app name on the system?
-		Array<Argument> out(argc-1);
+		Array<Argument> out;
+		out.Reserve(argc-1);
 		for (i32 i = 1; i < argc; i++) {
 			if (ArgumentIsFlag(argv[i])) {
 				out.Append({true, ArgumentFlag(argv[i])});

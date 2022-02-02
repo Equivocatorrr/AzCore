@@ -199,6 +199,15 @@ inline bool operator^(const String &lhs, const String &rhs) {
 // Removes leading and trailing whitespace
 void TrimWhitespace(String &string);
 
+template<u16 bounds>
+constexpr i32 IndexHash(const String &in) {
+	u32 hash = 0;
+	for (char c : in) {
+		hash = hash * 31 + c;
+	}
+	return i32(hash % bounds);
+}
+
 } // namespace AzCore
 
 #ifndef NDEBUG

@@ -208,6 +208,8 @@ constexpr i32 IndexHash(const String &in) {
 	return i32(hash % bounds);
 }
 
+String Join(const Array<SimpleRange<char>> &values, SimpleRange<char> joiner);
+
 } // namespace AzCore
 
 #ifndef NDEBUG

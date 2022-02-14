@@ -792,4 +792,16 @@ void TrimWhitespace(String &string) {
 	string.Resize(string.size - trailing);
 }
 
+String Join(const Array<SimpleRange<char>> &values, SimpleRange<char> joiner) {
+	String output;
+	for (const SimpleRange<char> &value : values) {
+		if (value.size) {
+			output.Append(value);
+			output.Append(joiner);
+		}
+	}
+	output.size -= joiner.size;
+	return output;
+}
+
 } // namespace AzCore

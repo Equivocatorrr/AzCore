@@ -41,6 +41,7 @@ struct HashMap {
 		}
 		Node(Key_t newKey, Value_t newValue) :
 			key(newKey), value(newValue) {}
+		Node(Key_t newKey) : key(newKey), value() {}
 		~Node() {
 			if (next) delete next;
 		}
@@ -80,6 +81,19 @@ struct HashMap {
 					return next->Emplace(std::move(node));
 				} else {
 					next = new Node(std::move(node));
+					return next->value;
+				}
+			}
+		}
+
+		Value_t& Get(Key_t newKey) {
+			if (key == newKey) {
+				return value;
+			} else {
+				if (next) {
+					return next->Get(newKey);
+				} else {
+					next = new Node(newKey);
 					return next->value;
 				}
 			}
@@ -191,6 +205,16 @@ struct HashMap {
 			return nodes[index]->Emplace(Node(key, value));
 		} else {
 			nodes[index] = new Node(key, value);
+			return nodes[index]->value;
+		}
+	}
+
+	Value_t& Get(Key_t key) {
+		i32 index = IndexHash<arraySize>(key);
+		if (nodes[index]) {
+			return nodes[index]->Get(key);
+		} else {
+			nodes[index] = new Node(key);
 			return nodes[index]->value;
 		}
 	}

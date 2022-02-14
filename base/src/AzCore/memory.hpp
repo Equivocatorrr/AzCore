@@ -124,6 +124,35 @@ Array<Range<T>> SeparateByValues(T *array,
 	return result;
 }
 
+template<typename T, i32 allocTail=0>
+Array<Range<T>> SeparateByStrings(Array<T, allocTail> &array,
+		const ArrayWithBucket<SimpleRange<T>, 16/sizeof(SimpleRange<T>), 0> &strings, bool allowEmpty=false) {
+	Array<Range<T>> result;
+	i32 rangeStart = 0;
+	for (i32 i = 0; i < array.size;) {
+		i32 foundLen = 0;
+		for (const SimpleRange<T> &r : strings) {
+			i32 len = 0;
+			while (len < r.size && i+len < array.size && r[len] == array[i+len]) {
+				len++;
+			}
+			if (len == r.size && len > foundLen)
+				foundLen = len;
+		}
+		if (foundLen > 0) {
+			if (allowEmpty || i-rangeStart > 0) {
+				result.Append(array.GetRange(rangeStart, i-rangeStart));
+			}
+			i += foundLen;
+			rangeStart = i;
+		} else {
+			i++;
+		}
+	}
+	return result;
+}
+// TODO: Implement SeparateByStrings for ArrayWithBucket, Range, and raw strings.
+
 // Extract the base 2 exponent directly from the bits.
 inline i16 force_inline
 Exponent(f128 value) {

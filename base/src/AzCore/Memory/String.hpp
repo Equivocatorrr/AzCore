@@ -15,12 +15,14 @@ size_t alignNonPowerOfTwo(size_t size, size_t alignment);
 
 #define AZCORE_STRING_WITH_BUCKET
 #ifdef AZCORE_STRING_WITH_BUCKET
-	using String = ArrayWithBucket<char, 16/sizeof(char), 1>;
-	using WString = ArrayWithBucket<char32, 16/sizeof(char32), 1>;
+	template<typename T>
+	using StringBase = ArrayWithBucket<T, 16/sizeof(T), 1>;
 #else
-	using String = Array<char, 1>;
-	using WString = Array<char32, 1>;
+	template<typename T>
+	using StringBase = Array<T, 1>;
 #endif
+using String = StringBase<char>;
+using WString = StringBase<char32>;
 
 String operator+(const char *cString, String &&string);
 String operator+(const char *cString, const String &string);
@@ -121,9 +123,15 @@ inline String ToString(T value, i32 base, i32 precision) {
 	return out;
 }
 
-f32 StringToF32(String string, i32 base = 10);
-f32 WStringToF32(WString string, i32 base = 10);
-i64 StringToI64(String string, i32 base = 10);
+bool StringToF32(String string, f32 *dst, i32 base = 10);
+bool StringToF64(String string, f64 *dst, i32 base = 10);
+bool StringToF128(String string, f128 *dst, i32 base = 10);
+
+bool WStringToF32(WString string, f32 *dst, i32 base = 10);
+
+bool StringToI32(String string, i32 *dst, i32 base = 10);
+bool StringToI64(String string, i64 *dst, i32 base = 10);
+bool StringToI128(String string, i128 *dst, i32 base = 10);
 
 inline bool operator==(const char *b, const String &a)
 {
@@ -146,31 +154,31 @@ inline char CharToLower(char c) {
 	if (c >= 'A' && c <= 'Z') c = c + 'a' - 'A';
 	return c;
 }
-inline bool isNewline(char c) {
+inline bool isNewline(i32 c) {
     return c == '\n' || c == '\r';
 }
-inline bool isWhitespace(char c) {
+inline bool isWhitespace(i32 c) {
     return c == ' ' || c == '\t' || isNewline(c);
 }
-inline bool isLowercase(char c) {
+inline bool isLowercase(i32 c) {
     return c >= 'a' && c <= 'z';
 }
-inline bool isUppercase(char c) {
+inline bool isUppercase(i32 c) {
     return c >= 'A' && c <= 'Z';
 }
-inline bool isText(char c) {
+inline bool isText(i32 c) {
     return isLowercase(c) || isUppercase(c);
 }
-inline bool isNumber(char c) {
+inline bool isNumber(i32 c) {
     return c >= '0' && c <= '9';
 }
-inline bool isWordChar(char c) {
+inline bool isWordChar(i32 c) {
     return c == '_'
         || isText(c)
         || isNumber(c);
 }
 
-inline bool isAlphaNumeric(char c) {
+inline bool isAlphaNumeric(i32 c) {
     return isNumber(c) || isText(c);
 }
 

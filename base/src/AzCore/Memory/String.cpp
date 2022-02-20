@@ -586,15 +586,49 @@ void AppendToString(String &string, f128 value, i32 base, i32 precision) {
 
 #include <stdio.h>
 
+template<typename Int, typename Char>
+bool _StringToInt(SimpleRange<Char> string, Int *dst, i32 base) {
+	Int multiplier = 1;
+	Int result = 0;
+	for (i32 i = string.size-1; i >= 0; i--) {
+		i8 value = 0;
+		Char c = string[i];
+		if (isNumber(c)) {
+			value = c - '0';
+		} else if (c == '+') {
+			*dst = result;
+			return true;
+		} else if (c == '-') {
+			*dst = -result;
+			return true;
+		} else if (base > 10) {
+			if (c >= 'a' && c < Char('a'+base-10)) {
+				value = c - 'a' + 10;
+			} else if (c >= 'A' && c < Char('A'+base-10)) {
+				value = c - 'A' + 10;
+			} else {
+				return false;
+			}
+		} else {
+			return false;
+		}
+		result += value * multiplier;
+		multiplier *= base;
+	}
+	*dst = result;
+	return true;
+}
+
 // TODO: Write some unit tests to confirm the reliability of this.
-f32 StringToF32(String string, i32 base) {
-	f64 out = 0.0;
-	f64 multiplier = 1.0;
-	f64 baseF = base;
+template<typename Float, typename Char>
+bool _StringToFloat(StringBase<Char> string, Float *dst, i32 base) {
+	Float out = Float(0);
+	Float multiplier = Float(1);
+	Float baseF = base;
 	i32 dot = -1;
 	i32 start;
 	if (string[0] == '-') {
-		multiplier = -1.0;
+		multiplier = Float(-1);
 		string.Erase(0);
 	}
 	for (i32 i = 0; i < string.size; i++) {
@@ -606,7 +640,8 @@ f32 StringToF32(String string, i32 base) {
 	// handle e-# and e+#
 	for (i32 i = 0; i < string.size-2; i++) {
 		if (string[i] == 'e' && (string[i+1] == '+' || string[i+1] == '-')) {
-			i32 exp = StringToI64(SimpleRange<char>(&string[i+1], string.size-i-1), base);
+			i32 exp;
+			if (!_StringToInt<i32, Char>(SimpleRange<Char>(&string[i+1], string.size-i-1), &exp, base)) return false;
 			if (exp > 0) {
 				while (0 != exp--) {
 					multiplier *= baseF;
@@ -627,97 +662,55 @@ f32 StringToF32(String string, i32 base) {
 		multiplier /= baseF;
 	}
 	for (i32 i = start; i >= 0; i--) {
-		f64 value = baseF;
+		Float value = baseF;
 		char c = string[i];
 		if (isNumber(c)) {
 			value = c - '0';
-		}
-		else if (base > 10) {
-			if (c >= 'a' && c < 'a' + base-10) {
-				value = c - 'a' + 10;
-			}
-			else if (c >= 'A' && c < 'A' + base-10) {
-				value = c - 'A' + 10;
-			}
-		}
-		if (value >= baseF) {
-			return 0.0;
-		}
-		out += value * multiplier;
-		multiplier *= baseF;
-	}
-	return (f32)out;
-}
-
-// This is literally the exact same code as above...
-f32 WStringToF32(WString string, i32 base) {
-	f64 out = 0.0;
-	f64 multiplier = 1.0;
-	f64 baseF = base;
-	i32 dot = -1;
-	i32 start;
-	if (string[0] == '-') {
-		multiplier = -1.0;
-		string.Erase(0);
-	}
-	for (i32 i = 0; i < string.size; i++) {
-		if (string[i] == '.') {
-			dot = i;
-			string.Erase(i);
-		}
-	}
-	start = string.size - 1;
-	if (dot == -1)
-		dot = string.size;
-	for (; dot <= start; dot++) {
-		multiplier /= baseF;
-	}
-	for (i32 i = start; i >= 0; i--) {
-		f64 value = baseF;
-		char c = string[i];
-		if (isNumber(c)) {
-			value = c - '0';
-		}
-		else if (base > 10) {
-			if (c >= 'a' && c < 'a' + base-10) {
-				value = c - 'a' + 10;
-			}
-			else if (c >= 'A' && c < 'A' + base-10) {
-				value = c - 'A' + 10;
-			}
-		}
-		if (value >= baseF) {
-			return 0.0;
-		}
-		out += value * multiplier;
-		multiplier *= baseF;
-	}
-	return (f32)out;
-}
-
-i64 StringToI64(String string, i32 base) {
-	i64 multiplier = 1;
-	i64 result = 0;
-	for (i32 i = string.size-1; i >= 0; i--) {
-		i8 value = 0;
-		char c = string[i];
-		if (isNumber(c)) {
-			value = c - '0';
-		} else if (c == '+') {
-			return result;
-		} else if (c == '-') {
-			return -result;
 		} else if (base > 10) {
-			if (c >= 'a' && c < 'a'+base-10) {
+			if (c >= 'a' && c < 'a' + base-10) {
 				value = c - 'a' + 10;
-			} else if (c >= 'A' && c < 'A'+base-10) {
+			} else if (c >= 'A' && c < 'A' + base-10) {
 				value = c - 'A' + 10;
+			} else {
+				return false;
 			}
+		} else {
+			return false;
 		}
-		result += value * multiplier;
-		multiplier *= base;
+		Assert(value < baseF, "StringToFloat machine broke :(");
+		out += value * multiplier;
+		multiplier *= baseF;
 	}
-	return result;
+	*dst = out;
+	return true;
+}
+
+bool StringToF32(String string, f32 *dst, i32 base) {
+	return _StringToFloat<f32>(string, dst, base);
+}
+
+bool StringToF64(String string, f64 *dst, i32 base) {
+	return _StringToFloat<f64>(string, dst, base);
+}
+
+bool StringToF128(String string, f128 *dst, i32 base) {
+	return _StringToFloat<f128>(string, dst, base);
+}
+
+bool WStringToF32(WString string, f32 *dst, i32 base) {
+	return _StringToFloat<f32>(string, dst, base);
+}
+
+bool StringToI32(String string, i32 *dst, i32 base) {
+	return _StringToInt<i32, char>(string, dst, base);
+}
+
+bool StringToI64(String string, i64 *dst, i32 base) {
+	return _StringToInt<i64, char>(string, dst, base);
+}
+
+bool StringToI128(String string, i128 *dst, i32 base) {
+	return _StringToInt<i128, char>(string, dst, base);
 }
 
 bool equals(const char *a, const char *b) {

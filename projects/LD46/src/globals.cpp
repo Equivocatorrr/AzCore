@@ -110,13 +110,18 @@ bool Globals::LoadSettings() {
 		} else if (ranges[i] == "debugInfo") {
 			debugInfo = ReadBool(ranges[i+1], false);
 		} else if (ranges[i] == "framerate") {
-			Framerate(clamp(StringToF32(ranges[i+1]), 30.0f, 300.0f));
+			f32 fr;
+			StringToF32(ranges[i+1], &fr);
+			Framerate(clamp(fr, 30.0f, 300.0f));
 		} else if (ranges[i] == "volumeMain") {
-			volumeMain = clamp(StringToF32(ranges[i+1]), 0.0f, 1.0f);
+			StringToF32(ranges[i+1], &volumeMain);
+			volumeMain = clamp(volumeMain, 0.0f, 1.0f);
 		} else if (ranges[i] == "volumeMusic") {
-			volumeMusic = clamp(StringToF32(ranges[i+1]), 0.0f, 1.0f);
+			StringToF32(ranges[i+1], &volumeMusic);
+			volumeMusic = clamp(volumeMusic, 0.0f, 1.0f);
 		} else if (ranges[i] == "volumeEffects") {
-			volumeEffects = clamp(StringToF32(ranges[i+1]), 0.0f, 1.0f);
+			StringToF32(ranges[i+1], &volumeEffects);
+			volumeEffects = clamp(volumeEffects, 0.0f, 1.0f);
 		} else if (ranges[i] == "localeOverride") {
 			localeOverride[0] = ranges[i+1][0];
 			localeOverride[1] = ranges[i+1][1];

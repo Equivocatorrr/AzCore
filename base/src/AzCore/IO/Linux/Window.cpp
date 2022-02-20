@@ -811,7 +811,9 @@ i32 GetWindowDpi(Window *window) {
 	Array<Range<char>> ranges = SeparateByValues(resources, {'\n', ' ', ':', '\t'});
 	for (i32 i = 0; i < ranges.size-1; i++) {
 		if (ranges[i] == "Xft.dpi") {
-			dpi = StringToI64(ranges[i+1]);
+			if (!StringToI32(ranges[i+1], &dpi)) {
+				error = Stringify("Failed to parse DPI from Range '", ranges[i+1], "'");
+			}
 			break;
 		}
 	}

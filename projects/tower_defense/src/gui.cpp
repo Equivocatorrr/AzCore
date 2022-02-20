@@ -2120,7 +2120,8 @@ void Slider::Update(vec2 pos, bool selected) {
 			}
 		} else if (mirror->entry) {
 			if (mirror->textValidate(mirror->string)) {
-				value = clamp(WStringToF32(mirror->string), valueMin, valueMax);
+				WStringToF32(mirror->string, &value);
+				value = clamp(value, valueMin, valueMax);
 			}
 		}
 	}

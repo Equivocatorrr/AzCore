@@ -312,6 +312,7 @@ struct SimpleRange {
 	i64 size;
 
 	SimpleRange() : str(nullptr), size(0) {}
+	SimpleRange(nullptr_t) : str(nullptr), size(0) {}
 	SimpleRange(T *string, i64 length) : str(string), size(length) {}
 	SimpleRange(const T *string) : str((T*)string), size(StringLength(string)) {}
 	template<i32 allocTail>

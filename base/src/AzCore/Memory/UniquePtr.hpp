@@ -113,6 +113,16 @@ struct UniquePtr {
 		}
 		return ptr;
 	}
+
+	inline bool operator==(const UniquePtr<T> &other) {
+		if (!ptr) return !other.ptr;
+		if (!other.ptr) return false;
+		return *ptr == *other.ptr;
+	}
+
+	inline bool operator!=(const UniquePtr<T> &other) {
+		return !operator==(other);
+	}
 };
 
 } // namespace AzCore

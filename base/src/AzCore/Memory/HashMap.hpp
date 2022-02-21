@@ -86,19 +86,6 @@ struct HashMap {
 			}
 		}
 
-		Value_t& Get(Key_t newKey) {
-			if (key == newKey) {
-				return value;
-			} else {
-				if (next) {
-					return next->Get(newKey);
-				} else {
-					next = new Node(newKey);
-					return next->value;
-				}
-			}
-		}
-
 		bool Exists(const Key_t& testKey) const {
 			if (key == testKey) return true;
 			if (next) {
@@ -205,16 +192,6 @@ struct HashMap {
 			return nodes[index]->Emplace(Node(key, value));
 		} else {
 			nodes[index] = new Node(key, value);
-			return nodes[index]->value;
-		}
-	}
-
-	Value_t& Get(Key_t key) {
-		i32 index = IndexHash<arraySize>(key);
-		if (nodes[index]) {
-			return nodes[index]->Get(key);
-		} else {
-			nodes[index] = new Node(key);
 			return nodes[index]->value;
 		}
 	}

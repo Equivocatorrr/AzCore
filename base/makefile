@@ -15,7 +15,7 @@ WCFLAGS=$(CFLAGS) -D_GLIBCXX_USE_NANOSLEEP -static-libgcc -static-libstdc++ -I$(
 # These are all the library dependencies you need to link to in order to use the entire library
 #		Linux:
 #	memory.o: pthread
-#	io_linux.o: xcb, xkbcommon, xkbcommon-x11, xcb-xkb
+#	io_linux.o: xcb, xkbcommon, xkbcommon-x11, xcb-xkb, pthread
 #		- GLX: X11, X11-xcb
 #	vk.o: vulkan
 #		Windows:

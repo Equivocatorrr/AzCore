@@ -8,6 +8,7 @@
 GitStats
 Exports
 bin
+build*
 obj
 *.data
 *.data.old

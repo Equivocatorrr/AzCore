@@ -1,0 +1,10 @@
+# make ALL the projects!
+add_subdirectory(font_test)
+add_subdirectory(fractal_explorer)
+# add_subdirectory(LD46)
+# add_subdirectory(persistence)
+add_subdirectory(tower_defense)
+add_subdirectory(unit_tests)
+# add_subdirectory(vulkan_quad)
+# add_subdirectory(vulkan_tesseract)
+# add_subdirectory(window_test)

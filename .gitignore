@@ -8,7 +8,10 @@
 GitStats
 Exports
 bin
-build*
+buildDebugL
+buildReleaseL
+buildDebugW
+buildReleaseW
 obj
 *.data
 *.data.old

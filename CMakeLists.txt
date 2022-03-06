@@ -69,8 +69,8 @@ function(VULKAN_SHADERS target SHADER_SOURCE_DIR SHADER_OUT_DIR)
 	add_dependencies(${target} ${target}_shaders)
 endfunction()
 
-add_subdirectory(ThirdParty/Vulkan-Headers EXCLUDE_FROM_ALL)
-add_subdirectory(ThirdParty/openal-soft EXCLUDE_FROM_ALL)
+add_subdirectory(external/Vulkan-Headers EXCLUDE_FROM_ALL)
+add_subdirectory(external/openal-soft EXCLUDE_FROM_ALL)
 
 # Actual library
 add_subdirectory(base)

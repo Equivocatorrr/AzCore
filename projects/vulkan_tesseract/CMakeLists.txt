@@ -6,7 +6,7 @@ add_executable(vulkan_tesseract
 )
 
 target_include_directories(vulkan_tesseract PUBLIC "${PROJECT_SOURCE_DIR}/base/src/")
-target_include_directories(vulkan_tesseract PUBLIC "${PROJECT_SOURCE_DIR}/ThirdParty/Vulkan-Headers/include")
+target_include_directories(vulkan_tesseract PUBLIC "${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include")
 
 # gets included in src/entities.cpp
 set_source_files_properties(src/entity_basics.cpp PROPERTIES HEADER_FILE_ONLY TRUE)

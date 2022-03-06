@@ -6,8 +6,8 @@ add_executable(vulkan_quad
 )
 
 target_include_directories(vulkan_quad PUBLIC "${PROJECT_SOURCE_DIR}/base/src/")
-target_include_directories(vulkan_quad PUBLIC "${PROJECT_SOURCE_DIR}/ThirdParty/Vulkan-Headers/include")
-target_include_directories(vulkan_quad PUBLIC "${PROJECT_SOURCE_DIR}/ThirdParty/stb")
+target_include_directories(vulkan_quad PUBLIC "${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include")
+target_include_directories(vulkan_quad PUBLIC "${PROJECT_SOURCE_DIR}/external/stb")
 
 set(OUTPUT_DIR "${PROJECT_SOURCE_DIR}/projects/vulkan_quad")
 

@@ -127,7 +127,7 @@ abort_if_failed()
 }
 
 if [ $clean -ne 0 ]; then
-	rm -rf projects/*/bin projects/*/*.log
+	rm -rf projects/*/bin projects/*/*.log buildDebugL buildReleaseL buildDebugW buildReleaseW
 fi
 
 if [ $BuildDebugL -eq 1 ]

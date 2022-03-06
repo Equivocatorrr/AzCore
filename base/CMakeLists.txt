@@ -99,8 +99,8 @@ add_library(AzCore STATIC
 	src/AzCore/vk.hpp
 )
 
-target_include_directories(AzCore PRIVATE "${PROJECT_SOURCE_DIR}/ThirdParty/Vulkan-Headers/include")
-target_include_directories(AzCore PRIVATE "${PROJECT_SOURCE_DIR}/ThirdParty/stb")
+target_include_directories(AzCore PRIVATE "${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include")
+target_include_directories(AzCore PRIVATE "${PROJECT_SOURCE_DIR}/external/stb")
 
 set_target_properties(AzCore PROPERTIES DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX})
 

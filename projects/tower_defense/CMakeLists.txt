@@ -22,9 +22,9 @@ add_executable(tower_defense
 )
 
 target_include_directories(tower_defense PUBLIC "${PROJECT_SOURCE_DIR}/base/src/")
-target_include_directories(tower_defense PUBLIC "${PROJECT_SOURCE_DIR}/ThirdParty/Vulkan-Headers/include")
-target_include_directories(tower_defense PUBLIC "${PROJECT_SOURCE_DIR}/ThirdParty/openal-soft/include")
-target_include_directories(tower_defense PUBLIC "${PROJECT_SOURCE_DIR}/ThirdParty/stb")
+target_include_directories(tower_defense PUBLIC "${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include")
+target_include_directories(tower_defense PUBLIC "${PROJECT_SOURCE_DIR}/external/openal-soft/include")
+target_include_directories(tower_defense PUBLIC "${PROJECT_SOURCE_DIR}/external/stb")
 
 # gets included in src/entities.cpp
 set_source_files_properties(src/entity_basics.cpp PROPERTIES HEADER_FILE_ONLY TRUE)

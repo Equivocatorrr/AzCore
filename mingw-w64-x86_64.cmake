@@ -11,6 +11,9 @@ set(CMAKE_RC_COMPILER ${TOOLCHAIN_PREFIX}-windres)
 
 # target environment on the build host system
 set(CMAKE_FIND_ROOT_PATH /usr/${TOOLCHAIN_PREFIX})
+set(CMAKE_INSTALL_BINDIR "${CMAKE_FIND_ROOT_PATH}/bin")
+set(CMAKE_INSTALL_INCLUDEDIR "${CMAKE_FIND_ROOT_PATH}/include")
+set(CMAKE_INSTALL_LIBDIR "${CMAKE_FIND_ROOT_PATH}/lib")
 
 # modify default behavior of FIND_XXX() commands
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)

@@ -21,6 +21,7 @@ add_executable(LD46
 	"${PROJECT_SOURCE_DIR}/base/src/manifest.xml"
 )
 
+target_include_directories(LD46 PUBLIC "${PROJECT_SOURCE_DIR}/base/src/")
 target_include_directories(LD46 PRIVATE "${PROJECT_SOURCE_DIR}/ThirdParty/Vulkan-Headers/include")
 target_include_directories(LD46 PRIVATE "${PROJECT_SOURCE_DIR}/ThirdParty/openal-soft/include")
 target_include_directories(LD46 PRIVATE "${PROJECT_SOURCE_DIR}/ThirdParty/stb")

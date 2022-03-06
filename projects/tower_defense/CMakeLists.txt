@@ -21,6 +21,7 @@ add_executable(tower_defense
 	"${PROJECT_SOURCE_DIR}/base/src/manifest.xml"
 )
 
+target_include_directories(tower_defense PUBLIC "${PROJECT_SOURCE_DIR}/base/src/")
 target_include_directories(tower_defense PUBLIC "${PROJECT_SOURCE_DIR}/ThirdParty/Vulkan-Headers/include")
 target_include_directories(tower_defense PUBLIC "${PROJECT_SOURCE_DIR}/ThirdParty/openal-soft/include")
 target_include_directories(tower_defense PUBLIC "${PROJECT_SOURCE_DIR}/ThirdParty/stb")

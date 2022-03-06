@@ -5,6 +5,7 @@ add_executable(vulkan_tesseract
 	"${PROJECT_SOURCE_DIR}/base/src/manifest.xml"
 )
 
+target_include_directories(vulkan_tesseract PUBLIC "${PROJECT_SOURCE_DIR}/base/src/")
 target_include_directories(vulkan_tesseract PUBLIC "${PROJECT_SOURCE_DIR}/ThirdParty/Vulkan-Headers/include")
 
 # gets included in src/entities.cpp

@@ -99,15 +99,6 @@ add_library(AzCore STATIC
 	src/AzCore/vk.hpp
 )
 
-# file(GLOB AZCORE_HEADER_FILES
-	# "src/AzCore/*.hpp"
-	# "src/AzCore/*/*.hpp"
-# )
-
-# message(STATUS "List of headers we want to install: ${AZCORE_HEADER_FILES}")
-
-# set_target_properties(AzCore PROPERTIES PUBLIC_HEADER "${AZCORE_HEADER_FILES}")
-
 target_include_directories(AzCore PRIVATE "${PROJECT_SOURCE_DIR}/ThirdParty/Vulkan-Headers/include")
 target_include_directories(AzCore PRIVATE "${PROJECT_SOURCE_DIR}/ThirdParty/stb")
 

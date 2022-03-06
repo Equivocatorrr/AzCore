@@ -19,16 +19,16 @@ vulkan_sdk_linux=""
 vulkan_sdk_win32_arg=0
 vulkan_sdk_linux_arg=0
 
-if [ $WIN32_VULKAN_SDK != "" ]; then
+if [ "$WIN32_VULKAN_SDK" != "" ]; then
 	vulkan_sdk_win32="-DVULKAN_SDK=$WIN32_VULKAN_SDK"
 fi
-if [ $LINUX_VULKAN_SDK != "" ]; then
+if [ "$LINUX_VULKAN_SDK" != "" ]; then
 	vulkan_sdk_linux="-DVULKAN_SDK=$LINUX_VULKAN_SDK"
 fi
 
 usage()
 {
-	echo "Usage: build.sh [clean]? [verbose]? [trace]? (WIN32_VULKAN_SDK path_to_sdk)? (LINUX_VULKAN_SDK path_to_sdk)? [All|Debug|Release|Linux|Win32|DebugL|ReleaseL|DebugW|ReleaseW]? ([run|run_debug] project_name)?"
+	echo "Usage: build.sh [clean]? [verbose]? [trace]? [install]? (WIN32_VULKAN_SDK path_to_sdk)? (LINUX_VULKAN_SDK path_to_sdk)? [All|Debug|Release|Linux|Win32|DebugL|ReleaseL|DebugW|ReleaseW]? ([run|run_debug] project_name)?"
 	exit 1
 }
 
@@ -191,6 +191,10 @@ then
 	abort_if_failed "CMake configure failed!"
 	cmake --build . $verbose -j $NumThreads
 	abort_if_failed "CMake build failed!"
+	if [ $install -ne 0 ]; then
+		echo "To install, you need root access:"
+		sudo cmake --install . $verbose
+	fi
 	cd ..
 fi
 

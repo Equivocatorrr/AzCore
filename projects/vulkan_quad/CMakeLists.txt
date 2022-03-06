@@ -5,6 +5,7 @@ add_executable(vulkan_quad
 	"${PROJECT_SOURCE_DIR}/base/src/manifest.xml"
 )
 
+target_include_directories(vulkan_quad PUBLIC "${PROJECT_SOURCE_DIR}/base/src/")
 target_include_directories(vulkan_quad PUBLIC "${PROJECT_SOURCE_DIR}/ThirdParty/Vulkan-Headers/include")
 target_include_directories(vulkan_quad PUBLIC "${PROJECT_SOURCE_DIR}/ThirdParty/stb")
 

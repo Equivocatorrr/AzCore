@@ -2,6 +2,7 @@ add_executable(font_test
 	src/main.cpp
 )
 
+target_include_directories(font_test PUBLIC "${PROJECT_SOURCE_DIR}/base/src/")
 target_include_directories(font_test PRIVATE "${PROJECT_SOURCE_DIR}/ThirdParty/stb")
 
 target_link_libraries(font_test PRIVATE AzCore)

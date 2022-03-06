@@ -99,8 +99,28 @@ add_library(AzCore STATIC
 	src/AzCore/vk.hpp
 )
 
-target_include_directories(AzCore PUBLIC "${PROJECT_SOURCE_DIR}/ThirdParty/Vulkan-Headers/include")
-target_include_directories(AzCore PUBLIC "${PROJECT_SOURCE_DIR}/ThirdParty/stb")
+# file(GLOB AZCORE_HEADER_FILES
+	# "src/AzCore/*.hpp"
+	# "src/AzCore/*/*.hpp"
+# )
+
+# message(STATUS "List of headers we want to install: ${AZCORE_HEADER_FILES}")
+
+# set_target_properties(AzCore PROPERTIES PUBLIC_HEADER "${AZCORE_HEADER_FILES}")
+
+install(TARGETS AzCore
+	EXPORT AzCore
+	CONFIGURATIONS Release
+	ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" # is destination required?
+)
+install(FILES AzCore-config.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+install(DIRECTORY "src/AzCore"
+	DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+	FILES_MATCHING PATTERN "*.hpp"
+)
+
+target_include_directories(AzCore PRIVATE "${PROJECT_SOURCE_DIR}/ThirdParty/Vulkan-Headers/include")
+target_include_directories(AzCore PRIVATE "${PROJECT_SOURCE_DIR}/ThirdParty/stb")
 
 set_target_properties(AzCore PROPERTIES DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX})
 

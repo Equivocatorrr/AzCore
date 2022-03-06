@@ -9,7 +9,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 add_compile_options(-Wall -mavx2 -DAZCORE_IO_FOR_VULKAN)
 
-
 if (CMAKE_SYSTEM MATCHES Windows)
 	add_compile_options(-D_GLIBCXX_USE_NANOSLEEP)
 	add_link_options(-static-libgcc -static-libstdc++ -static -Llibwinpthread-1.dll)
@@ -78,3 +77,5 @@ add_subdirectory(base)
 
 # Projects meta-list
 add_subdirectory(projects)
+
+install(EXPORT AzCore DESTINATION "${CMAKE_INSTALL_LIBDIR}")

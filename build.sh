@@ -11,6 +11,7 @@ run=0
 run_debug=0
 run_target=""
 clean=0
+install=0
 trace=""
 verbose=""
 vulkan_sdk_win32=""
@@ -102,6 +103,9 @@ for arg in "$@"; do
 		elif [ "$arg" = "verbose" ]
 		then
 			verbose="--verbose"
+		elif [ "$arg" = "install" ]
+		then
+			install=1
 		else
 			usage
 		fi
@@ -153,6 +157,10 @@ then
 	abort_if_failed "CMake configure failed!"
 	cmake --build . $verbose -j $NumThreads
 	abort_if_failed "CMake build failed!"
+	if [ $install -ne 0 ]; then
+		echo "To install, you need root access:"
+		sudo cmake --install . $verbose
+	fi
 	cd ..
 fi
 

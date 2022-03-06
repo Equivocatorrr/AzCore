@@ -145,11 +145,17 @@ elseif (CMAKE_SYSTEM MATCHES Linux)
 	target_link_libraries(AzCore_SoftwareRenderer INTERFACE xcb-shm xcb-image)
 endif()
 
-install(TARGETS AzCore AzCore_Net AzCore_IO AzCore_Vulkan AzCore_SoftwareRenderer Vulkan
+install(TARGETS AzCore AzCore_Net AzCore_IO AzCore_Vulkan AzCore_SoftwareRenderer
 	EXPORT AzCore
 	CONFIGURATIONS Release
 	ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}/AzCore"
 )
+if (NOT Vulkan_FOUND)
+	install(TARGETS Vulkan
+		EXPORT AzCore
+		CONFIGURATIONS Release
+	)
+endif()
 install(FILES AzCoreConfig.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/AzCore")
 install(DIRECTORY "src/AzCore"
 	DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"

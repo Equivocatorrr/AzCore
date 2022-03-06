@@ -108,17 +108,6 @@ add_library(AzCore STATIC
 
 # set_target_properties(AzCore PROPERTIES PUBLIC_HEADER "${AZCORE_HEADER_FILES}")
 
-install(TARGETS AzCore
-	EXPORT AzCore
-	CONFIGURATIONS Release
-	ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" # is destination required?
-)
-install(FILES AzCore-config.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}")
-install(DIRECTORY "src/AzCore"
-	DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-	FILES_MATCHING PATTERN "*.hpp"
-)
-
 target_include_directories(AzCore PRIVATE "${PROJECT_SOURCE_DIR}/ThirdParty/Vulkan-Headers/include")
 target_include_directories(AzCore PRIVATE "${PROJECT_SOURCE_DIR}/ThirdParty/stb")
 
@@ -164,3 +153,14 @@ elseif (CMAKE_SYSTEM MATCHES Linux)
 	target_link_libraries(AzCore_IO INTERFACE xcb xkbcommon xkbcommon-x11 xcb-xkb)
 	target_link_libraries(AzCore_SoftwareRenderer INTERFACE xcb-shm xcb-image)
 endif()
+
+install(TARGETS AzCore AzCore_Net AzCore_IO AzCore_Vulkan AzCore_SoftwareRenderer Vulkan
+	EXPORT AzCore
+	CONFIGURATIONS Release
+	ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}/AzCore"
+)
+install(FILES AzCoreConfig.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/AzCore")
+install(DIRECTORY "src/AzCore"
+	DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+	FILES_MATCHING PATTERN "*.hpp"
+)

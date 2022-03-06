@@ -78,4 +78,4 @@ add_subdirectory(base)
 # Projects meta-list
 add_subdirectory(projects)
 
-install(EXPORT AzCore DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+install(EXPORT AzCore DESTINATION "${CMAKE_INSTALL_LIBDIR}/AzCore")

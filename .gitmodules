@@ -1,3 +1,9 @@
 [submodule "ThirdParty/Vulkan-Headers"]
 	path = ThirdParty/Vulkan-Headers
 	url = git@github.com:KhronosGroup/Vulkan-Headers.git
+[submodule "ThirdParty/stb"]
+	path = ThirdParty/stb
+	url = git@github.com:nothings/stb.git
+[submodule "ThirdParty/openal-soft"]
+	path = ThirdParty/openal-soft
+	url = git@github.com:kcat/openal-soft.git

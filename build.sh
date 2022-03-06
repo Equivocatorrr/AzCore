@@ -5,15 +5,43 @@ BuildDebugL=0
 BuildReleaseW=0
 BuildDebugW=0
 
+has_args=0
 run_arg=0
 run=0
 run_debug=0
 run_target=""
+clean=0
+trace=""
+verbose=""
+vulkan_sdk_win32=""
+vulkan_sdk_linux=""
+vulkan_sdk_win32_arg=0
+vulkan_sdk_linux_arg=0
+
+if [ $WIN32_VULKAN_SDK != "" ]; then
+	vulkan_sdk_win32="-DVULKAN_SDK=$WIN32_VULKAN_SDK"
+fi
+if [ $LINUX_VULKAN_SDK != "" ]; then
+	vulkan_sdk_linux="-DVULKAN_SDK=$LINUX_VULKAN_SDK"
+fi
+
+usage()
+{
+	echo "Usage: build.sh [clean]? [verbose]? [trace]? (WIN32_VULKAN_SDK path_to_sdk)? (LINUX_VULKAN_SDK path_to_sdk)? [All|Debug|Release|Linux|Win32|DebugL|ReleaseL|DebugW|ReleaseW]? ([run|run_debug] project_name)?"
+	exit 1
+}
 
 for arg in "$@"; do
+	has_args=1
 	if [ $run_arg -ne 0 ]; then
-		run_target="$run_arg"
+		run_target="$arg"
 		run_arg=0
+	elif [ $vulkan_sdk_linux_arg -ne 0 ]; then
+		vulkan_sdk_linux="-DVULKAN_SDK=$arg"
+		vulkan_sdk_linux_arg=0
+	elif [ $vulkan_sdk_win32_arg -ne 0 ]; then
+		vulkan_sdk_win32="-DVULKAN_SDK=$arg"
+		vulkan_sdk_win32_arg=0
 	else
 		if [ "$arg" = "All" ]
 		then
@@ -28,6 +56,14 @@ for arg in "$@"; do
 		elif [ "$arg" = "Debug" ]
 		then
 			BuildDebugL=1
+			BuildDebugW=1
+		elif [ "$arg" = "Linux" ]
+		then
+			BuildReleaseL=1
+			BuildDebugL=1
+		elif [ "$arg" = "Win32" ]
+		then
+			BuildReleaseW=1
 			BuildDebugW=1
 		elif [ "$arg" = "ReleaseL" ]
 		then
@@ -51,13 +87,30 @@ for arg in "$@"; do
 			run_arg=1
 			run=0
 			run_debug=1
+		elif [ "$arg" = "LINUX_VULKAN_SDK" ]
+		then
+			vulkan_sdk_linux_arg=1
+		elif [ "$arg" = "WIN32_VULKAN_SDK" ]
+		then
+			vulkan_sdk_win32_arg=1
+		elif [ "$arg" = "clean" ]
+		then
+			clean=1
+		elif [ "$arg" = "trace" ]
+		then
+			trace="--trace"
+		elif [ "$arg" = "verbose" ]
+		then
+			verbose="--verbose"
 		else
-			echo "Usage: build.sh [All|Debug|Release|Linux|Win32|DebugL|ReleaseL|DebugW|ReleaseW]? ([run|run_debug] project_name)?"
-			exit 1
+			usage
 		fi
 	fi
 done
 
+if [ $has_args -eq 0 ]; then
+	usage
+fi
 
 NumThreads=`grep processor /proc/cpuinfo | wc -l`
 
@@ -69,15 +122,21 @@ abort_if_failed()
 	fi
 }
 
+if [ $clean -ne 0 ]; then
+	rm -rf projects/*/bin projects/*/*.log
+fi
+
 if [ $BuildDebugL -eq 1 ]
 then
 	echo "Building Linux Debug"
 	mkdir -p buildDebugL
-	# rm -rf buildDebugL/*
+	if [ $clean -ne 0 ]; then
+		rm -rf buildDebugL/*
+	fi
 	cd buildDebugL
-	cmake -DCMAKE_BUILD_TYPE=Debug ../
+	cmake $trace $vulkan_sdk_linux -DCMAKE_BUILD_TYPE=Debug ../
 	abort_if_failed "CMake configure failed!"
-	cmake --build . -j $NumThreads
+	cmake --build . $verbose -j $NumThreads
 	abort_if_failed "CMake build failed!"
 	cd ..
 fi
@@ -86,11 +145,13 @@ if [ $BuildReleaseL -eq 1 ]
 then
 	echo "Building Linux Release"
 	mkdir -p buildReleaseL
-	# rm -rf buildReleaseL/*
+	if [ $clean -ne 0 ]; then
+		rm -rf buildReleaseL/*
+	fi
 	cd buildReleaseL
-	cmake -DCMAKE_BUILD_TYPE=Release ../
+	cmake $trace $vulkan_sdk_linux -DCMAKE_BUILD_TYPE=Release ../
 	abort_if_failed "CMake configure failed!"
-	cmake --build . -j $NumThreads
+	cmake --build . $verbose -j $NumThreads
 	abort_if_failed "CMake build failed!"
 	cd ..
 fi
@@ -99,11 +160,13 @@ if [ $BuildDebugW -eq 1 ]
 then
 	echo "Building Windows Debug"
 	mkdir -p buildDebugW
-	rm -rf buildDebugW/*
+	if [ $clean -ne 0 ]; then
+		rm -rf buildDebugW/*
+	fi
 	cd buildDebugW
-	cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=../mingw-w64-x86_64.cmake ../
+	cmake $trace $vulkan_sdk_win32 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=../mingw-w64-x86_64.cmake ../
 	abort_if_failed "CMake configure failed!"
-	cmake --build . -j $NumThreads
+	cmake --build . $verbose -j $NumThreads
 	abort_if_failed "CMake build failed!"
 	cd ..
 fi
@@ -112,11 +175,13 @@ if [ $BuildReleaseW -eq 1 ]
 then
 	echo "Building Windows Release"
 	mkdir -p buildReleaseW
-	# rm -rf buildReleaseW/*
+	if [ $clean -ne 0 ]; then
+		rm -rf buildReleaseW/*
+	fi
 	cd buildReleaseW
-	cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=../mingw-w64-x86_64.cmake ../
+	cmake $trace $vulkan_sdk_win32 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=../mingw-w64-x86_64.cmake ../
 	abort_if_failed "CMake configure failed!"
-	cmake --build . -j $NumThreads
+	cmake --build . $verbose -j $NumThreads
 	abort_if_failed "CMake build failed!"
 	cd ..
 fi

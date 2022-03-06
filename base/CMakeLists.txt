@@ -8,6 +8,7 @@ endif()
 add_library(AzCore STATIC
 	src/resources.h
 	src/resources.rc
+	src/manifest.xml
 	src/AzCore/basictypes.hpp
 	src/AzCore/common.hpp
 	src/AzCore/Environment.cpp
@@ -98,6 +99,9 @@ add_library(AzCore STATIC
 	src/AzCore/vk.hpp
 )
 
+target_include_directories(AzCore PUBLIC "${PROJECT_SOURCE_DIR}/ThirdParty/Vulkan-Headers/include")
+target_include_directories(AzCore PUBLIC "${PROJECT_SOURCE_DIR}/ThirdParty/stb")
+
 set_target_properties(AzCore PROPERTIES DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX})
 
 # these are all included in another source file and get compiled that way
@@ -126,7 +130,7 @@ target_link_libraries(AzCore_IO INTERFACE AzCore)
 
 # Link Vulkan libraries
 add_library(AzCore_Vulkan INTERFACE)
-target_link_libraries(AzCore_Vulkan INTERFACE AzCore_IO Vulkan-Headers)
+target_link_libraries(AzCore_Vulkan INTERFACE AzCore_IO Vulkan::Vulkan)
 
 # Link Software Renderer libraries
 add_library(AzCore_SoftwareRenderer INTERFACE)
@@ -135,10 +139,8 @@ target_link_libraries(AzCore_SoftwareRenderer INTERFACE AzCore_IO)
 if (CMAKE_SYSTEM MATCHES Windows)
 	target_link_libraries(AzCore_Net INTERFACE ws2_32)
 	target_link_libraries(AzCore_IO INTERFACE gdi32 dinput8 dxguid)
-	target_link_libraries(AzCore_Vulkan INTERFACE vulkan-1)
 elseif (CMAKE_SYSTEM MATCHES Linux)
 	target_link_libraries(AzCore INTERFACE pthread)
 	target_link_libraries(AzCore_IO INTERFACE xcb xkbcommon xkbcommon-x11 xcb-xkb)
-	target_link_libraries(AzCore_Vulkan INTERFACE vulkan)
 	target_link_libraries(AzCore_SoftwareRenderer INTERFACE xcb-shm xcb-image)
 endif()

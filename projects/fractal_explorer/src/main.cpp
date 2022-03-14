@@ -24,6 +24,7 @@ i64 nanoseconds = 0;
 #define SIMD_ENABLE 1
 #define SIMD_AVX 1
 
+#ifdef __GNUG__
 struct SimdInfo {
 	bool mmx;
 	bool sse;
@@ -60,6 +61,7 @@ SimdInfo GetSimdInfo() {
 	info.avx512_f = 0 != (ebx & (1 << 16));
 	return info;
 }
+#endif
 
 const char* BoolString(bool in) {
 	return in ? "true" : "false";
@@ -274,7 +276,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	// }
 
 	f32 scale = 1.0f;
-
+#ifdef __GNUG__
 	SimdInfo simdInfo = GetSimdInfo();
 	cout.PrintLn(
 		"MMX: ", BoolString(simdInfo.mmx),
@@ -289,6 +291,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		"\nAVX2: ", BoolString(simdInfo.avx2),
 		"\nAVX512_f: ", BoolString(simdInfo.avx512_f)
 	);
+#endif
 
 	cout.PrintLn("\nTest program received ", argumentCount, " arguments:");
 

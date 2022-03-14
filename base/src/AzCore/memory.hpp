@@ -154,29 +154,31 @@ Array<Range<T>> SeparateByStrings(Array<T, allocTail> &array,
 // TODO: Implement SeparateByStrings for ArrayWithBucket, Range, and raw strings.
 
 // Extract the base 2 exponent directly from the bits.
-inline i16 force_inline
+#if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
+force_inline(i16)
 Exponent(f128 value) {
 	u128 byteCode;
 	memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
 	i16 exponent = ((byteCode >> 112) & 0x7fff) - 0x3fff;
 	return exponent;
 }
+#endif
 
 // Extract the base 2 exponent directly from the bits.
-inline i16 force_inline
+force_inline(i16)
 Exponent(f64 value) {
 	u64 byteCode;
 	memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
-	i16 exponent = ((byteCode >> 52) & 0x7ff) - 0x3ff;
+	i16 exponent = ((i16)(byteCode >> 52) & 0x7ff) - 0x3ff;
 	return exponent;
 }
 
 // Extract the base 2 exponent directly from the bits.
-inline i16 force_inline
+force_inline(i16)
 Exponent(f32 value) {
 	u32 byteCode;
 	memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
-	i16 exponent = ((byteCode >> 23) & 0xff) - 0x7f;
+	i16 exponent = ((i16)(byteCode >> 23) & 0xff) - 0x7f;
 	return exponent;
 }
 

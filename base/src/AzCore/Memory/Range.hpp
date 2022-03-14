@@ -382,11 +382,11 @@ struct SimpleRange {
 		return string[size] == StringTerminators<T>::value;
 	}
 
-	inline bool force_inline
+	force_inline(bool)
 	operator!=(const SimpleRange<T> other) const {
 		return !operator==(other);
 	}
-	inline bool force_inline
+	force_inline(bool)
 	operator!=(const T *string) const {
 		return !operator==(string);
 	}

@@ -12,6 +12,8 @@ buildDebugL
 buildReleaseL
 buildDebugW
 buildReleaseW
+.vs
+vs
 obj
 *.data
 *.data.old

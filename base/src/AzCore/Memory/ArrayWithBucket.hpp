@@ -23,7 +23,7 @@ struct ArrayWithBucket {
 	i32 size;
 	T noAllocData[noAllocCount];
 
-	inline void force_inline
+	force_inline(void)
 	_SetTerminator() {
 		if constexpr (allocTail > 1) {
 			for (i32 i = size; i < size + allocTail; i++) {
@@ -33,7 +33,7 @@ struct ArrayWithBucket {
 			data[size] = StringTerminators<T>::value;
 		}
 	}
-	inline void force_inline
+	force_inline(void)
 	_Initialize(i32 newSize) {
 		size = newSize;
 		if (newSize > noAllocCount-allocTail) {
@@ -44,14 +44,14 @@ struct ArrayWithBucket {
 			data = noAllocData;
 		}
 	}
-	inline void force_inline
+	force_inline(void)
 	_Deinitialize() {
 		if (allocated != 0) {
 			delete[] data;
 		}
 	}
 
-	inline void force_inline
+	force_inline(void)
 	_Copy(const ArrayWithBucket &other) {
 		if constexpr (std::is_trivially_copyable<T>::value) {
 			memcpy((void *)data, (void *)other.data, sizeof(T) * size);
@@ -63,7 +63,7 @@ struct ArrayWithBucket {
 	}
 
 	template<i32 otherAllocTail>
-	inline void force_inline
+	force_inline(void)
 	_Copy(const Array<T, otherAllocTail> &other) {
 		if constexpr (std::is_trivially_copyable<T>::value) {
 			memcpy((void *)data, (void *)other.data, sizeof(T) * size);
@@ -74,7 +74,7 @@ struct ArrayWithBucket {
 		}
 	}
 
-	inline void force_inline
+	force_inline(void)
 	_Copy(const std::initializer_list<T> &init) {
 		i32 i = 0;
 		for (const T &val : init) {
@@ -82,14 +82,14 @@ struct ArrayWithBucket {
 		}
 	}
 	// Let go of allocations without deleting them.
-	inline void force_inline
+	force_inline(void)
 	_Drop() {
 		data = noAllocData;
 		size = 0;
 		allocated = 0;
 	}
 	// Take the allocations and/or values from another ArrayWithBucket.
-	inline void force_inline
+	force_inline(void)
 	_Acquire(ArrayWithBucket &&other) {
 		allocated = other.allocated;
 		size = other.size;
@@ -102,7 +102,7 @@ struct ArrayWithBucket {
 		}
 	}
 	template<i32 otherAllocTail>
-	inline void force_inline
+	force_inline(void)
 	_Acquire(Array<T, otherAllocTail> &&other) {
 		allocated = other.allocated;
 		size = other.size;
@@ -135,9 +135,9 @@ struct ArrayWithBucket {
 		}
 		_SetTerminator();
 	}
-	inline force_inline
+	force_inline()
 	ArrayWithBucket(u32 newSize) : ArrayWithBucket((i32)newSize) {}
-	inline force_inline
+	force_inline()
 	ArrayWithBucket(u32 newSize, const T &value) : ArrayWithBucket((i32)newSize, value) {}
 
 	ArrayWithBucket(const std::initializer_list<T> &init) {
@@ -357,72 +357,72 @@ struct ArrayWithBucket {
 		return data[index];
 	}
 
-	inline ArrayWithBucket<T, noAllocCount, allocTail> force_inline
+	force_inline(ArrayWithBucket<T, noAllocCount, allocTail>)
 	operator+(T &&other) const {
 		ArrayWithBucket<T, noAllocCount, allocTail> result(*this);
 		result.Append(std::move(other));
 		return result;
 	}
 
-	inline ArrayWithBucket<T, noAllocCount, allocTail> force_inline
+	force_inline(ArrayWithBucket<T, noAllocCount, allocTail>)
 	operator+(const T &other) const {
 		ArrayWithBucket<T, noAllocCount, allocTail> result(*this);
 		result.Append(other);
 		return result;
 	}
 
-	inline ArrayWithBucket<T, noAllocCount, allocTail> force_inline
+	force_inline(ArrayWithBucket<T, noAllocCount, allocTail>)
 	operator+(const T *string) const {
 		ArrayWithBucket<T, noAllocCount, allocTail> result(*this);
 		result.Append(string);
 		return result;
 	}
 
-	inline ArrayWithBucket<T, noAllocCount, allocTail> force_inline
+	force_inline(ArrayWithBucket<T, noAllocCount, allocTail>)
 	operator+(ArrayWithBucket &&other) const {
 		ArrayWithBucket<T, noAllocCount, allocTail> result(*this);
 		result.Append(std::move(other));
 		return result;
 	}
 
-	inline ArrayWithBucket<T, noAllocCount, allocTail> force_inline
+	force_inline(ArrayWithBucket<T, noAllocCount, allocTail>)
 	operator+(const ArrayWithBucket &other) const {
 		ArrayWithBucket<T, noAllocCount, allocTail> result(*this);
 		result.Append(other);
 		return result;
 	}
 
-	inline T force_inline
+	force_inline(T)
 	&operator+=(T &&value) {
 		return Append(std::move(value));
 	}
 
-	inline T force_inline
+	force_inline(T)
 	&operator+=(const T &value) {
 		return Append(value);
 	}
 
-	inline ArrayWithBucket<T, noAllocCount, allocTail>& force_inline
+	force_inline(ArrayWithBucket<T, noAllocCount, allocTail>&)
 	operator+=(const ArrayWithBucket &other) {
 		return Append(other);
 	}
 
-	inline ArrayWithBucket<T, noAllocCount, allocTail>& force_inline
+	force_inline(ArrayWithBucket<T, noAllocCount, allocTail>&)
 	operator+=(ArrayWithBucket &&other) {
 		return Append(std::move(other));
 	}
 
-	inline ArrayWithBucket<T, noAllocCount, allocTail>& force_inline
+	force_inline(ArrayWithBucket<T, noAllocCount, allocTail>&)
 	operator+=(const T *string) {
 		return Append(string);
 	}
 
-	inline ArrayWithBucket<T, noAllocCount, allocTail>& force_inline
+	force_inline(ArrayWithBucket<T, noAllocCount, allocTail>&)
 	operator+=(Range<T> range) {
 		return Append(range);
 	}
 
-	inline ArrayWithBucket<T, noAllocCount, allocTail>& force_inline
+	force_inline(ArrayWithBucket<T, noAllocCount, allocTail>&)
 	operator+=(SimpleRange<T> range) {
 		return Append(range);
 	}
@@ -460,7 +460,7 @@ struct ArrayWithBucket {
 		_SetTerminator();
 	}
 
-	inline void force_inline
+	force_inline(void)
 	_Grow(i32 minSize) {
 		if (minSize > allocated && minSize > noAllocCount-allocTail) {
 			i32 growth = minSize + (minSize >> 1) + 4;
@@ -554,7 +554,7 @@ struct ArrayWithBucket {
 		return *this;
 	}
 
-	inline ArrayWithBucket<T, noAllocCount, allocTail>& force_inline
+	force_inline(ArrayWithBucket<T, noAllocCount, allocTail>&)
 	Append(const ArrayWithBucket &other) {
 		ArrayWithBucket<T, noAllocCount, allocTail> value(other);
 		return Append(std::move(value));
@@ -577,7 +577,7 @@ struct ArrayWithBucket {
 	}
 
 	template<i32 otherAllocTail>
-	inline ArrayWithBucket<T, noAllocCount, allocTail>& force_inline
+	force_inline(ArrayWithBucket<T, noAllocCount, allocTail>&)
 	Append(const Array<T, otherAllocTail> &other) {
 		Array<T, otherAllocTail> value(other);
 		return Append(std::move(value));
@@ -600,7 +600,7 @@ struct ArrayWithBucket {
 		return *this;
 	}
 
-	inline T& force_inline
+	force_inline(T&)
 	Insert(i32 index, const T &value) {
 		T val(value);
 		return Insert(index, std::move(val));
@@ -651,7 +651,7 @@ struct ArrayWithBucket {
 		return data[index] = std::move(value);
 	}
 
-	inline Range<T> force_inline
+	force_inline(Range<T>)
 	Insert(i32 index, const ArrayWithBucket<T, allocTail> &other) {
 		ArrayWithBucket<T, allocTail> array(other);
 		return Insert(index, std::move(array));
@@ -758,7 +758,7 @@ struct ArrayWithBucket {
 		return data + size;
 	}
 
-	inline T& force_inline
+	force_inline(T&)
 	Back() {
 		return data[size - 1];
 	}
@@ -806,7 +806,7 @@ struct ArrayWithBucket {
 };
 
 template<typename T, i32 noAllocCount, i32 allocTail>
-inline ArrayWithBucket<T, noAllocCount, allocTail> force_inline
+force_inline(ArrayWithBucket<T, noAllocCount, allocTail>)
 operator+(ArrayWithBucket<T, noAllocCount, allocTail> &&lhs, ArrayWithBucket<T, noAllocCount, allocTail> &&rhs) {
 	ArrayWithBucket<T, noAllocCount, allocTail> out(std::move(lhs));
 	out.Append(std::move(rhs));

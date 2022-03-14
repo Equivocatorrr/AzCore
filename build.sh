@@ -134,9 +134,6 @@ if [ $BuildDebugL -eq 1 ]
 then
 	echo "Building Linux Debug"
 	mkdir -p buildDebugL
-	if [ $clean -ne 0 ]; then
-		rm -rf buildDebugL/*
-	fi
 	cd buildDebugL
 	cmake $trace $vulkan_sdk_linux -DCMAKE_BUILD_TYPE=Debug ../
 	abort_if_failed "CMake configure failed!"
@@ -149,9 +146,6 @@ if [ $BuildReleaseL -eq 1 ]
 then
 	echo "Building Linux Release"
 	mkdir -p buildReleaseL
-	if [ $clean -ne 0 ]; then
-		rm -rf buildReleaseL/*
-	fi
 	cd buildReleaseL
 	cmake $trace $vulkan_sdk_linux -DCMAKE_BUILD_TYPE=Release ../
 	abort_if_failed "CMake configure failed!"
@@ -168,9 +162,6 @@ if [ $BuildDebugW -eq 1 ]
 then
 	echo "Building Windows Debug"
 	mkdir -p buildDebugW
-	if [ $clean -ne 0 ]; then
-		rm -rf buildDebugW/*
-	fi
 	cd buildDebugW
 	cmake $trace $vulkan_sdk_win32 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=../mingw-w64-x86_64.cmake ../
 	abort_if_failed "CMake configure failed!"
@@ -183,9 +174,6 @@ if [ $BuildReleaseW -eq 1 ]
 then
 	echo "Building Windows Release"
 	mkdir -p buildReleaseW
-	if [ $clean -ne 0 ]; then
-		rm -rf buildReleaseW/*
-	fi
 	cd buildReleaseW
 	cmake $trace $vulkan_sdk_win32 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=../mingw-w64-x86_64.cmake ../
 	abort_if_failed "CMake configure failed!"

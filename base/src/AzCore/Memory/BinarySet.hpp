@@ -16,7 +16,7 @@
 namespace AzCore {
 
 template <typename Key_t>
-struct BinarySetIterator;
+class BinarySetIterator;
 
 template <typename Key_t>
 struct BinarySet {
@@ -157,7 +157,7 @@ struct BinarySet {
 		return *this;
 	}
 
-	inline force_inline
+	force_inline()
 	void Emplace(Key_t key) {
 		Emplace(Node(key));
 	}

@@ -71,7 +71,7 @@ public:
 	LogStream& operator<<(stream_function func);
 	void MutexLock();
 	void MutexUnlock();
-	inline i32 force_inline SpacesPerIndent(i32 spaces) {
+	force_inline(i32) SpacesPerIndent(i32 spaces) {
 		spaces = (1 >= spaces ? 1 : spaces);
 		return spacesPerIndent = (spaces <= 16 ? spaces : 16);
 	}

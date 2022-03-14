@@ -18,7 +18,7 @@ add_executable(LD46
 	src/sound.hpp
 	src/resources.h
 	src/resources.rc
-	"${PROJECT_SOURCE_DIR}/base/src/manifest.xml"
+	"${PROJECT_SOURCE_DIR}/base/src/manifest.xml.manifest"
 )
 
 target_include_directories(LD46 PUBLIC "${PROJECT_SOURCE_DIR}/base/src/")
@@ -46,4 +46,8 @@ elseif (CMAKE_SYSTEM MATCHES Linux)
 	target_link_libraries(LD46 PRIVATE openal)
 endif()
 
-set_target_properties(LD46 PROPERTIES DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX} RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_DIR}/bin")
+set_target_properties(LD46 PROPERTIES
+	DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}
+	RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_DIR}/bin"
+	VS_DEBUGGER_WORKING_DIRECTORY "${OUTPUT_DIR}"
+)

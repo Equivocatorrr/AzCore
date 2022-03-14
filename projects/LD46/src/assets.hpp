@@ -107,10 +107,17 @@ struct Stream {
 	::Sound::Buffer buffers[numStreamBuffers];
 	inline Stream() : valid(false), data(), buffers{{UINT32_MAX, false}} {}
 	inline Stream(const Stream &a) :
-		vorbis(a.vorbis), valid(false), data(a.data), buffers(a.buffers) {}
+		vorbis(a.vorbis), valid(false), data(a.data) {
+		for (i32 i = 0; i < numStreamBuffers; i++) {
+			buffers[i] = a.buffers[i];
+		}
+	}
 	inline Stream(Stream &&a) :
-		vorbis(a.vorbis), valid(a.valid), data(a.data), buffers(a.buffers)
+		vorbis(a.vorbis), valid(a.valid), data(a.data)
 	{
+		for (i32 i = 0; i < numStreamBuffers; i++) {
+			buffers[i] = a.buffers[i];
+		}
 		a.valid = false;
 	}
 	~Stream();

@@ -7,6 +7,9 @@ target_include_directories(font_test PRIVATE "${PROJECT_SOURCE_DIR}/external/stb
 
 target_link_libraries(font_test PRIVATE AzCore)
 
-set_target_properties(font_test PROPERTIES DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX})
+set(OUTPUT_DIR "${PROJECT_SOURCE_DIR}/projects/font_test")
 
-set_property(TARGET font_test PROPERTY RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/projects/font_test/bin")
+set_target_properties(font_test PROPERTIES DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}
+	RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_DIR}/bin"
+	VS_DEBUGGER_WORKING_DIRECTORY "${OUTPUT_DIR}"
+)

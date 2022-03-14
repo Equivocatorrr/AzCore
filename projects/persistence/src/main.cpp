@@ -46,7 +46,7 @@ const i32 minimumDigits = 4;
 const i32 minimumPermutationDigits = 17;
 const i32 maximumDigits = 32;
 // const i32 maximumDigits = 237;
-const i32 numThreads = 8;
+const i32 numThreads = 24;
 
 Mutex threadControlMutex;
 u32 activeThreads = 0;
@@ -211,9 +211,9 @@ void GetRequiredPersistenceChecks(u32 minDigits, u32 maxDigits, u32 currentDigit
 	}
 }
 
-Array<u128> GetPrimeFactors(BigInt number) {
+Array<u64> GetPrimeFactors(BigInt number) {
 	#include "tenThousandPrimes.cpp"
-	Array<u128> factors{};
+	Array<u64> factors{};
 	bool fullStop = false;
 	for (i32 i = 0; i < primes.size && !fullStop; i++) {
 		bool keepGoing = true;
@@ -362,11 +362,14 @@ u64 pow(const u64& base, const u64& exponent) {
 void BigIntTest() {
 	BigInt test(BucketArray<u64, BIGINT_BUCKET_SIZE>({0, 1}));
 	BigInt test2(2);
-	cout.PrintLn("test = ", test.HexString(), " and test2 = ", test2.HexString());
+	BigInt test3(0xffffffffffffffffULL);
+	cout.PrintLn("test = ", test.HexString(), ", test2 = ", test2.HexString(), ", test3 = ", test3.HexString());
 	cout.PrintLn("test * test2 = ", (test * test2).HexString());
 	cout.PrintLn("test / test2 = ", (test / test2).HexString());
 	cout.PrintLn("test % test2 = ", (test % test2).HexString());
 	cout.PrintLn("test + test2 = ", (test + test2).HexString());
+	cout.PrintLn("test2 + test3 = ", (test2 + test3).HexString());
+	cout.PrintLn("test3 + test2 = ", (test3 + test2).HexString());
 	cout.PrintLn("test - test2 = ", (test - test2).HexString());
 	cout.PrintLn("test2 << 32 = ", (test2 << 32).HexString());
 	cout.PrintLn("test >> 32 = ", (test >> 32).HexString());
@@ -393,13 +396,14 @@ void CheckNumbersForHighPersistence() {
 	completedThreads = 0;
 	remainingThreads = randomizedDigits.size;
 	startTime = Clock::now();
-	for (i32 i = 0; i <= maximumDigits-minimumDigits; i++) {
+	for (i32 i = 0; i < randomizedDigits.size; i++) {
 		while (true) {
 			if (activeThreads < numThreads) {
 				cout.PrintLn("\nStarting thread ", randomizedDigits[i], "\n");
 				Thread(ThreadProc, randomizedDigits[i]).Detach();
 				threadControlMutex.Lock();
 				activeThreads++;
+				cout.PrintLn("Active Threads: ", activeThreads);
 				threadControlMutex.Unlock();
 				break;
 			} else {
@@ -407,6 +411,7 @@ void CheckNumbersForHighPersistence() {
 			}
 		}
 	}
+	cout.PrintLn("We started all the threads!");
 	while (true) {
 		if (activeThreads > 0) {
 			Thread::Sleep(Milliseconds(100));

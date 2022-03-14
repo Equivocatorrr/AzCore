@@ -18,7 +18,7 @@
 namespace AzCore {
 
 template <typename Node_t, u16 arraySize>
-struct HashSetIterator;
+class HashSetIterator;
 
 template <typename Key_t, u16 arraySize=256>
 struct HashSet {
@@ -100,9 +100,9 @@ struct HashSet {
 	};
 	Array<Node*> nodes;
 
-	inline force_inline HashSet() : nodes(arraySize, nullptr) {}
+	force_inline() HashSet() : nodes(arraySize, nullptr) {}
 
-	inline force_inline HashSet(const HashSet& other) : nodes(arraySize) {
+	force_inline() HashSet(const HashSet& other) : nodes(arraySize) {
 		for (i32 i = 0; i < arraySize; i++) {
 			if (other.nodes[i]) {
 				nodes[i] = new Node(*other.nodes[i]);
@@ -111,7 +111,7 @@ struct HashSet {
 			}
 		}
 	}
-	inline force_inline HashSet(HashSet&& other) : nodes(std::move(other.nodes)) {
+	force_inline() HashSet(HashSet&& other) : nodes(std::move(other.nodes)) {
 		other.nodes.Resize(arraySize, nullptr);
 	}
 
@@ -155,7 +155,7 @@ struct HashSet {
 		return *this;
 	}
 
-	inline void force_inline
+	force_inline(void)
 	Emplace(Node &&node) {
 		Emplace(node.key);
 	}
@@ -223,7 +223,7 @@ public:
 	void Rebase(const Array<Node_t*> *nodesArray) {
 		nodes = nodesArray;
 	}
-	inline bool force_inline
+	force_inline(bool)
 	operator!=(const HashSetIterator &other) const {
 		return node != other.node;
 	}
@@ -239,7 +239,7 @@ public:
 			}
 		}
 	}
-	inline typename Node_t::KeyType& force_inline
+	force_inline(typename Node_t::KeyType&)
 	operator*() {
 		return node->key;
 	}

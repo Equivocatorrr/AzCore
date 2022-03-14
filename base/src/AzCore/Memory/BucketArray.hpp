@@ -28,10 +28,10 @@ struct BucketArray {
 
 	BucketArray() : size(0) {}
 	BucketArray(i32 newSize) : size(newSize) {
-		Assert(size <= count, "BucketArray initialized with a size bigger than count");
+		AzAssert(size <= count, "BucketArray initialized with a size bigger than count");
 	}
 	BucketArray(i32 newSize, const T &value) : size(newSize) {
-		Assert(size <= count, "BucketArray initialized with a size bigger than count");
+		AzAssert(size <= count, "BucketArray initialized with a size bigger than count");
 		for (i32 i = 0; i < size; i++) {
 			data[i] = value;
 		}
@@ -39,7 +39,7 @@ struct BucketArray {
 	BucketArray(u32 newSize) : BucketArray((i32)newSize) {}
 	BucketArray(u32 newSize, const T &value) : BucketArray((i32)newSize, value) {}
 	BucketArray(const std::initializer_list<T> &init) : size(init.size()) {
-		Assert(size <= count, "BucketArray initialized with a size bigger than count");
+		AzAssert(size <= count, "BucketArray initialized with a size bigger than count");
 		i32 i = 0;
 		for (const T &val : init) {
 			data[i++] = val;
@@ -55,7 +55,7 @@ struct BucketArray {
 		}
 	}
 	BucketArray(const T *string) : size(StringLength(string)) {
-		Assert(size <= count, "BucketArray initialized with a size bigger than count");
+		AzAssert(size <= count, "BucketArray initialized with a size bigger than count");
 		if constexpr (std::is_trivially_copyable<T>::value) {
 			memcpy((void *)data, (void *)string, sizeof(T) * size);
 		} else {
@@ -79,7 +79,7 @@ struct BucketArray {
 
 	BucketArray<T, count> &operator=(const std::initializer_list<T> &init) {
 		size = init.size();
-		Assert(size <= count, "BucketArray assigned with a size bigger than count");
+		AzAssert(size <= count, "BucketArray assigned with a size bigger than count");
 		if (size == 0) {
 			return *this;
 		}
@@ -92,7 +92,7 @@ struct BucketArray {
 
 	BucketArray<T, count> &operator=(const T *string) {
 		size = StringLength(string);
-		Assert(size <= count, "BucketArray assigned with a size bigger than count");
+		AzAssert(size <= count, "BucketArray assigned with a size bigger than count");
 		if constexpr (std::is_trivially_copyable<T>::value) {
 			memcpy((void *)data, (void *)string, sizeof(T) * size);
 		} else {
@@ -136,12 +136,12 @@ struct BucketArray {
 	}
 
 	inline const T &operator[](i32 index) const {
-		Assert(index < size && index >= 0, "BucketArray index is out of bounds");
+		AzAssert(index < size && index >= 0, "BucketArray index is out of bounds");
 		return data[index];
 	}
 
 	inline T &operator[](i32 index) {
-		Assert(index < size && index >= 0, "BucketArray index is out of bounds");
+		AzAssert(index < size && index >= 0, "BucketArray index is out of bounds");
 		return data[index];
 	}
 
@@ -180,7 +180,7 @@ struct BucketArray {
 	}
 
 	inline void Resize(i32 newSize, const T &value) {
-		Assert(newSize <= count, "BucketArray Resized bigger than count");
+		AzAssert(newSize <= count, "BucketArray Resized bigger than count");
 		for (i32 i = size; i < newSize; i++) {
 			data[i] = value;
 		}
@@ -188,23 +188,23 @@ struct BucketArray {
 	}
 
 	inline void Resize(i32 newSize) {
-		Assert(newSize <= count, "BucketArray Resized bigger than count");
+		AzAssert(newSize <= count, "BucketArray Resized bigger than count");
 		size = newSize;
 	}
 
 	inline T &Append(const T &value) {
-		Assert(size < count, "BucketArray Single-Append would overfill");
+		AzAssert(size < count, "BucketArray Single-Append would overfill");
 		return data[size++] = value;
 	}
 
 	inline T &Append(T &&value) {
-		Assert(size < count, "BucketArray Single-Append would overfill");
+		AzAssert(size < count, "BucketArray Single-Append would overfill");
 		return data[size++] = std::move(value);
 	}
 
 	BucketArray<T, count> &Append(const T *string) {
 		i32 newSize = size + StringLength(string);
-		Assert(newSize <= count, "BucketArray C-string Append would overfill");
+		AzAssert(newSize <= count, "BucketArray C-string Append would overfill");
 		for (i32 i = size; i < newSize; i++) {
 			data[i] = string[i - size];
 		}
@@ -215,7 +215,7 @@ struct BucketArray {
 	BucketArray<T, count> &Append(const BucketArray<T, count> &other) {
 		i32 copyStart = size;
 		size += other.size;
-		Assert(size <= count, "BucketArray Append would overfill");
+		AzAssert(size <= count, "BucketArray Append would overfill");
 		if constexpr (std::is_trivially_copyable<T>::value) {
 			memcpy((void *)(data + copyStart), (void *)other.data, sizeof(T) * other.size);
 		} else {
@@ -232,8 +232,8 @@ struct BucketArray {
 	}
 
 	T &Insert(i32 index, T &&value) {
-		Assert(index <= size && index >= 0, "BucketArray::Insert index is out of bounds");
-		Assert(size < count, "BucketArray::Insert would overfill");
+		AzAssert(index <= size && index >= 0, "BucketArray::Insert index is out of bounds");
+		AzAssert(size < count, "BucketArray::Insert would overfill");
 		for (i32 i = size++; i > index; i--) {
 			data[i] = std::move(data[i - 1]);
 		}
@@ -241,7 +241,7 @@ struct BucketArray {
 	}
 
 	void Erase(i32 index) {
-		Assert(index < size && index >= 0, "BucketArray::Erase index is out of bounds");
+		AzAssert(index < size && index >= 0, "BucketArray::Erase index is out of bounds");
 		size--;
 		if constexpr (std::is_trivially_copyable<T>::value) {
 			if (size > index) {

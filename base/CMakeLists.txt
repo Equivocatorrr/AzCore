@@ -8,7 +8,7 @@ endif()
 add_library(AzCore STATIC
 	src/resources.h
 	src/resources.rc
-	src/manifest.xml
+	src/manifest.xml.manifest
 	src/AzCore/basictypes.hpp
 	src/AzCore/common.hpp
 	src/AzCore/Environment.cpp
@@ -105,18 +105,23 @@ target_include_directories(AzCore PRIVATE "${PROJECT_SOURCE_DIR}/external/stb")
 set_target_properties(AzCore PROPERTIES DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX})
 
 # these are all included in another source file and get compiled that way
-set_source_files_properties(src/AzCore/Font/CFF.cpp PROPERTIES HEADER_FILE_ONLY TRUE)
-set_source_files_properties(src/AzCore/Font/font_cff_std_data.c PROPERTIES HEADER_FILE_ONLY TRUE)
-set_source_files_properties(src/AzCore/Font/FontTables.cpp PROPERTIES HEADER_FILE_ONLY TRUE)
-set_source_files_properties(src/AzCore/IO/ButtonState.cpp PROPERTIES HEADER_FILE_ONLY TRUE)
-set_source_files_properties(src/AzCore/IO/Gamepad.cpp PROPERTIES HEADER_FILE_ONLY TRUE)
-set_source_files_properties(src/AzCore/IO/Input.cpp PROPERTIES HEADER_FILE_ONLY TRUE)
-set_source_files_properties(src/AzCore/IO/RawInput.cpp PROPERTIES HEADER_FILE_ONLY TRUE)
-set_source_files_properties(src/AzCore/IO/${TARGET_PLATFORM_NAME}/RawInput.cpp PROPERTIES HEADER_FILE_ONLY TRUE)
-set_source_files_properties(src/AzCore/Net/${TARGET_PLATFORM_NAME}/Sockets.cpp PROPERTIES HEADER_FILE_ONLY TRUE)
-set_source_files_properties(src/AzCore/Math/Angle.cpp PROPERTIES HEADER_FILE_ONLY TRUE)
-set_source_files_properties(src/AzCore/Math/RandomNumberGenerator.cpp PROPERTIES HEADER_FILE_ONLY TRUE)
-set_source_files_properties(src/AzCore/Memory/String.cpp PROPERTIES HEADER_FILE_ONLY TRUE)
+set_source_files_properties(
+	src/AzCore/Font/CFF.cpp
+	src/AzCore/Font/font_cff_std_data.c
+	src/AzCore/Font/FontTables.cpp
+	src/AzCore/IO/ButtonState.cpp
+	src/AzCore/IO/Gamepad.cpp
+	src/AzCore/IO/Input.cpp
+	src/AzCore/IO/RawInput.cpp
+	src/AzCore/IO/${TARGET_PLATFORM_NAME}/RawInput.cpp
+	src/AzCore/IO/${TARGET_PLATFORM_NAME}/Window.cpp
+	src/AzCore/Net/${TARGET_PLATFORM_NAME}/Sockets.cpp
+	src/AzCore/Math/Angle.cpp
+	src/AzCore/Math/RandomNumberGenerator.cpp
+	src/AzCore/Memory/Endian.cpp
+	src/AzCore/Memory/String.cpp
+	PROPERTIES HEADER_FILE_ONLY TRUE
+)
 
 set_property(TARGET AzCore PROPERTY RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/base/lib")
 
@@ -137,6 +142,7 @@ add_library(AzCore_SoftwareRenderer INTERFACE)
 target_link_libraries(AzCore_SoftwareRenderer INTERFACE AzCore_IO)
 
 if (CMAKE_SYSTEM MATCHES Windows)
+	target_link_libraries(AzCore INTERFACE winmm)
 	target_link_libraries(AzCore_Net INTERFACE ws2_32)
 	target_link_libraries(AzCore_IO INTERFACE gdi32 dinput8 dxguid)
 elseif (CMAKE_SYSTEM MATCHES Linux)
@@ -161,3 +167,9 @@ install(DIRECTORY "src/AzCore"
 	DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 	FILES_MATCHING PATTERN "*.hpp"
 )
+
+file(GLOB_RECURSE SOURCE_LIST
+	"${CMAKE_CURRENT_SOURCE_DIR}*.[hc](pp)?"
+)
+
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES SOURCE_LIST)

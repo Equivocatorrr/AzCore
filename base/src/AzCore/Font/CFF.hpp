@@ -90,7 +90,14 @@ namespace cffs {
 			DICT_PRIVATE,
 		};
 		union {
-			i128 data;
+			struct _Data {
+				u64 _data[2];
+				_Data() = default;
+				_Data(u64 in) : _data{in, in} {}
+				inline bool operator==(const _Data &other) const {
+					return _data[0] == other._data[0] && _data[1] == other._data[1];
+				}
+			} data;
 			bool boolean;
 			// i32 fontID;
 			i32 integer;
@@ -357,7 +364,7 @@ namespace cffs {
 		i32 UnderlineThickness = 50;
 		i32 PaintType = 0;
 		i32 CharstringType = 2;
-		Array<f32> FontMatrix = {0.001, 0.0, 0.0, 0.001, 0.0, 0.0};
+		Array<f32> FontMatrix = {0.001f, 0.0f, 0.0f, 0.001f, 0.0f, 0.0f};
 		i32 UniqueID;
 		Array<i32> FontBBox = {0, 0, 0, 0};
 		f32 StrokeWidth = 0.0;

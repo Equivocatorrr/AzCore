@@ -16,7 +16,7 @@
 namespace AzCore {
 
 template <typename Node_t>
-struct BinaryMapIterator;
+class BinaryMapIterator;
 
 template <typename Key_t, typename Value_t>
 struct BinaryMap {
@@ -199,7 +199,7 @@ struct BinaryMap {
 		return *this;
 	}
 
-	inline force_inline
+	force_inline()
 	Value_t& Emplace(Key_t key, Value_t value) {
 		return Emplace(Node(key, value));
 	}
@@ -234,7 +234,7 @@ struct BinaryMap {
 		}
 	}
 
-	inline force_inline
+	force_inline()
 	Value_t& operator[](Key_t key) {
 		return ValueOf(key);
 	}

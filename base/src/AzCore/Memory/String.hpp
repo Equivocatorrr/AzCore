@@ -55,21 +55,24 @@ struct FormatInt {
 
 void AppendToString(String &string, u32 value, i32 base = 10);
 void AppendToString(String &string, u64 value, i32 base = 10);
-void AppendToString(String &string, u128 value, i32 base = 10);
 void AppendToString(String &string, i32 value, i32 base = 10);
 void AppendToString(String &string, i64 value, i32 base = 10);
-void AppendToString(String &string, i128 value, i32 base = 10);
 void AppendToString(String &string, f32 value, i32 base = 10, i32 precision = -1);
 void AppendToString(String &string, f64 value, i32 base = 10, i32 precision = -1);
+
+#if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
+void AppendToString(String &string, u128 value, i32 base = 10);
+void AppendToString(String &string, i128 value, i32 base = 10);
 void AppendToString(String &string, f128 value, i32 base = 10, i32 precision = -1);
+#endif
 
 template<typename T>
-inline void force_inline AppendToString(String &string, FormatFloat<T> fmt) {
+force_inline(void) AppendToString(String &string, FormatFloat<T> fmt) {
 	AppendToString(string, fmt.value, fmt._base, fmt._precision);
 }
 
 template<typename T>
-inline void force_inline AppendToString(String &string, FormatInt<T> fmt) {
+force_inline(void) AppendToString(String &string, FormatInt<T> fmt) {
 	AppendToString(string, fmt.value, fmt._base);
 }
 
@@ -125,13 +128,16 @@ inline String ToString(T value, i32 base, i32 precision) {
 
 bool StringToF32(String string, f32 *dst, i32 base = 10);
 bool StringToF64(String string, f64 *dst, i32 base = 10);
-bool StringToF128(String string, f128 *dst, i32 base = 10);
 
 bool WStringToF32(WString string, f32 *dst, i32 base = 10);
 
 bool StringToI32(String string, i32 *dst, i32 base = 10);
 bool StringToI64(String string, i64 *dst, i32 base = 10);
+
+#if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
+bool StringToF128(String string, f128 *dst, i32 base = 10);
 bool StringToI128(String string, i128 *dst, i32 base = 10);
+#endif
 
 inline bool operator==(const char *b, const String &a)
 {
@@ -217,6 +223,9 @@ constexpr i32 IndexHash(const String &in) {
 }
 
 String Join(const Array<SimpleRange<char>> &values, SimpleRange<char> joiner);
+
+Array<SimpleRange<char>> SeparateByNewlines(SimpleRange<char> string, bool allowEmpty=false);
+Array<SimpleRange<char32>> SeparateByNewlines(SimpleRange<char32> string, bool allowEmpty=false);
 
 } // namespace AzCore
 

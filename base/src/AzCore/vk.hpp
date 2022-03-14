@@ -54,7 +54,7 @@
 namespace AzCore {
 
 namespace io {
-	class Window;
+	struct Window;
 }
 
 namespace vk {
@@ -866,13 +866,13 @@ namespace vk {
 			VkInstance instance;
 			Array<Window> windows{};
 			VkApplicationInfo appInfo = {
-				.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-				.pNext = nullptr,
-				.pApplicationName = "AzCore Test",
-				.applicationVersion = 1,
-				.pEngineName = "AzCore",
-				.engineVersion = VK_MAKE_VERSION(0, 1, 0),
-				.apiVersion = VK_API_VERSION_1_1
+				/*.sType = */ VK_STRUCTURE_TYPE_APPLICATION_INFO,
+				/*.pNext = */ nullptr,
+				/*.pApplicationName = */ "AzCore Test",
+				/*.applicationVersion = */ 1,
+				/*.pEngineName = */ "AzCore",
+				/*.engineVersion = */ VK_MAKE_API_VERSION(0, 0, 1, 0),
+				/*.apiVersion = */ VK_API_VERSION_1_1,
 			};
 			Array<VkExtensionProperties> extensionsAvailable;
 			Array<const char*> extensionsRequired{};

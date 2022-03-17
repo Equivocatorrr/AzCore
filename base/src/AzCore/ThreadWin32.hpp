@@ -24,7 +24,7 @@
 #include <sysinfoapi.h>
 #include <processthreadsapi.h>
 #include <process.h>
-#include <timeapi.h>
+AZ_MSVC_ONLY(#include <timeapi.h>)
 
 namespace AzCore {
 
@@ -146,9 +146,9 @@ public:
 
 	template<class Rep, class Period>
 	static void Sleep(const std::chrono::duration<Rep,Period>& duration) {
-		timeBeginPeriod(1);
+		AZ_MSVC_ONLY(timeBeginPeriod(1));
 		::Sleep((DWORD)std::chrono::duration_cast<std::chrono::milliseconds>(duration).count());
-		timeEndPeriod(1);
+		AZ_MSVC_ONLY(timeEndPeriod(1));
 	}
 
 	#ifdef Yield

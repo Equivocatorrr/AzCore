@@ -62,6 +62,12 @@ static_assert(sizeof(f64) == 8);
 	#define AZCORE_COMPILER_SUPPORTS_128BIT_TYPES 0
 #endif
 
+#if defined(_MSC_VER)
+#define AZ_MSVC_ONLY(a) a
+#else
+#define AZ_MSVC_ONLY(a)
+#endif
+
 namespace AzCore {}
 namespace az = AzCore;
 

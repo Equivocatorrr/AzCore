@@ -21,3 +21,4 @@ obj
 .touch*
 *.conf
 .vscode
+projects/fractal_explorer/*.png

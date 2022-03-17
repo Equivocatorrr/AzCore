@@ -134,9 +134,9 @@ i32 HorizontalAdd(Integer in) {
 	return horizontalAdd(in);
 }
 void GetValues(Integer in, i32 *dst) {
-	i32 values[simdLanes];
+	i32 values[intLanes];
 	in.GetValues(values);
-	memcpy(dst, values, sizeof(i32)*intLanes);
+	memcpy(dst, values, sizeof(i32)*simdLanes);
 }
 void GetValues(Real in, Float *dst) {
 	in.GetValues(dst);

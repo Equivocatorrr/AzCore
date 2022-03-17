@@ -234,7 +234,7 @@ inline void _Assert(bool condition, const char *file, const char *line, az::Stri
 	if (!condition) {
 		fprintf(stderr, "\033[96m%s\033[0m:\033[96m%s\033[0m Assert failed: \033[91m%s\033[0m\n", file, line, message.data);
 		PrintBacktrace(stderr);
-		abort();
+		exit(1);
 	}
 }
 #endif // NDEBUG

@@ -92,7 +92,7 @@ namespace az = AzCore;
 		if (!condition) {
 			fprintf(stderr, "\033[96m%s\033[0m:\033[96m%s\033[0m Assert failed: \033[91m%s\033[0m\n", file, line, message);
 			PrintBacktrace(stderr);
-			abort();
+			exit(1);
 		}
 	}
 	constexpr auto* _GetFileName(const char* const path) {

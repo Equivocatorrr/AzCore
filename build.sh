@@ -127,6 +127,7 @@ abort_if_failed()
 }
 
 if [ $clean -ne 0 ]; then
+	echo "Cleaning..."
 	rm -rf projects/*/bin projects/*/*.log buildDebugL buildReleaseL buildDebugW buildReleaseW
 fi
 
@@ -189,9 +190,11 @@ fi
 echo "All builds complete!"
 
 if [ $run -ne 0 ]; then
+	echo "Running $run_target"
 	cd "projects/$run_target"
 	bin/$run_target
 elif [ $run_debug -ne 0 ]; then
+	echo "Running $run_target in debug mode"
 	cd "projects/$run_target"
 	bin/${run_target}_debug
 fi

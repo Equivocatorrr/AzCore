@@ -314,6 +314,10 @@ BigInt& BigInt::operator*=(const BigInt& a) {
 		for (i32 j = 0; j < a.words.size; j++) {
 			u64 mul = (a.words[j] & 0xFFFFFFFF) * (wordsTemp[i] & 0xFFFFFFFF);
 			*this += BigInt(mul) << (64*(i+j));
+			mul = (a.words[j] >> 32) * (wordsTemp[i] & 0xFFFFFFFF);
+			*this += BigInt(mul) << (32+64*(i+j));
+			mul = (a.words[j] & 0xFFFFFFFF) * (wordsTemp[i] >> 32);
+			*this += BigInt(mul) << (32+64*(i+j));
 			mul = (a.words[j] >> 32) * (wordsTemp[i] >> 32);
 			*this += BigInt(mul) << (64*(i+j+1));
 		}
@@ -426,7 +430,7 @@ BigInt& BigInt::operator+=(u64 a) {
 	if (negative) {
 		return *this = (BigInt(a) - -*this);
 	}
-	i32 newSize = max((u32)words.size, 1u);
+	i32 newSize = max(words.size, 1);
 	words.Resize(newSize, 0);
 	u64 carry = a;
 	i32 i;
@@ -518,6 +522,10 @@ BigInt& BigInt::operator*=(u64 a) {
 	for (i32 i = 0; i < wordsTemp.size; i++) {
 		u64 mul = (wordsTemp[i] & 0xFFFFFFFF) * (a & 0xFFFFFFFF);
 		*this += BigInt(mul) << (64*i);
+		mul = (wordsTemp[i] >> 32) * (a & 0xFFFFFFFF);
+		*this += BigInt(mul) << (32+64*i);
+		mul = (wordsTemp[i] & 0xFFFFFFFF) * (a >> 32);
+		*this += BigInt(mul) << (32+64*i);
 		mul = (wordsTemp[i] >> 32) * (a >> 32);
 		*this += BigInt(mul) << (64*(i+1));
 	}

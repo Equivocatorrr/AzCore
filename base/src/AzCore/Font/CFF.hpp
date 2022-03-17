@@ -89,15 +89,16 @@ namespace cffs {
 			DICT_FONT, // For CID-keyed fonts
 			DICT_PRIVATE,
 		};
+		struct _Data {
+			u64 _data[2];
+			_Data() = default;
+			_Data(u64 in) : _data{in, in} {}
+			inline bool operator==(const _Data &other) const {
+				return _data[0] == other._data[0] && _data[1] == other._data[1];
+			}
+		};
 		union {
-			struct _Data {
-				u64 _data[2];
-				_Data() = default;
-				_Data(u64 in) : _data{in, in} {}
-				inline bool operator==(const _Data &other) const {
-					return _data[0] == other._data[0] && _data[1] == other._data[1];
-				}
-			} data;
+			_Data data;
 			bool boolean;
 			// i32 fontID;
 			i32 integer;

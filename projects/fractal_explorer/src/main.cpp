@@ -22,7 +22,7 @@ i64 iterations = 0;
 i64 nanoseconds = 0;
 
 #define SIMD_ENABLE 1
-#define SIMD_AVX 1
+#define SIMD_AVX 0
 
 #ifdef __GNUG__
 struct SimdInfo {
@@ -73,6 +73,7 @@ typedef f64 Real;
 typedef i32 Integer;
 typedef u32 Mask;
 constexpr i32 simdLanes = 1;
+constexpr i32 intLanes = 1;
 
 u32 SimplifyMask(Mask in) {
 	return in;
@@ -104,6 +105,7 @@ typedef f64x4 Real;
 typedef i32x4 Integer;
 typedef u32x4 Mask;
 constexpr i32 simdLanes = 4;
+constexpr i32 intLanes = 4;
 
 u32 SimplifyMask(Mask in) {
 	return _mm_movemask_epi8(in.V);
@@ -113,12 +115,13 @@ u32 SimplifyMask(Mask in) {
 
 typedef f64 Float;
 typedef f64x2 Real;
-typedef i32x2 Integer;
-typedef u32x2 Mask;
+typedef i32x4 Integer;
+typedef u32x4 Mask;
 constexpr i32 simdLanes = 2;
+constexpr i32 intLanes = 4;
 
 u32 SimplifyMask(Mask in) {
-	return _mm_movemask_pi8(in.V);
+	return _mm_movemask_epi8(in.V);
 }
 
 #endif // SIMD_AVX
@@ -131,7 +134,9 @@ i32 HorizontalAdd(Integer in) {
 	return horizontalAdd(in);
 }
 void GetValues(Integer in, i32 *dst) {
-	in.GetValues(dst);
+	i32 values[simdLanes];
+	in.GetValues(values);
+	memcpy(dst, values, sizeof(i32)*intLanes);
 }
 void GetValues(Real in, Float *dst) {
 	in.GetValues(dst);
@@ -147,7 +152,7 @@ typedef complex_t<Real> Complex;
 Integer GetIterations(Complex z, Complex c, i64 limit) {
 	ClockTime start = Clock::now();
 	Integer result(0);
-	Mask increment(1);
+	Integer increment(1);
 	Mask incompleteMask(0xffffffff);
 	for (i64 i = 0; i < limit; i++) {
 		 z = z*z + c;
@@ -232,7 +237,7 @@ i32 Fitness(Pattern pattern) {
 }
 
 void SortBySize(Array<Pattern> &pattern) {
-	// Just gonna do a simple merge sort
+	// Just gonna do a simple insertion sort
 	Array<Pattern> intermediate;
 	for (i32 i = 0; i < pattern.size; i++) {
 		Pattern p = pattern[i];

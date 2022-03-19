@@ -22,7 +22,7 @@ i64 iterations = 0;
 i64 nanoseconds = 0;
 
 #define SIMD_ENABLE 1
-#define SIMD_AVX 0
+#define SIMD_AVX 1
 
 #ifdef __GNUG__
 struct SimdInfo {

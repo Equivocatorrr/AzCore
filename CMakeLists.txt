@@ -9,6 +9,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 if (MSVC)
 	add_compile_options(/W3 /arch:AVX2 -DAZCORE_IO_FOR_VULKAN)
+	# Disable common warnings that we don't care about.
+	# C4267: 'var' : conversion from 'size_t' to 'type', possible loss of data
+	add_compile_options(/wd4267)
+	# C4244: 'argument' : conversion from 'type1' to 'type2', possible loss of data
+	add_compile_options(/wd4244)
+	# C4996: Your code uses a function, class member, variable, or typedef that's marked deprecated.
+	# This one sounds bad, but c'mon... deprecating stdio.h functions is ridiculous...
+	add_compile_options(/wd4996)
 	# Disable generating a manifest in Visual Studio since we provide our own
 	add_link_options(/MANIFEST:NO)
 else()
@@ -56,10 +64,10 @@ function(VULKAN_SHADERS target SHADER_SOURCE_DIR SHADER_OUT_DIR)
 	)
 
 	if (NOT EXISTS "${VULKAN_SDK}")
-		if (NOT EXISTS Vulkan::glslc)
+		if (NOT EXISTS Vulkan_GLSLANG_VALIDATOR_EXECUTABLE)
 			message(FATAL_ERROR "Compiling shaders requires either the Vulkan SDK or Vulkan::glslc, neither of which are present.")
 		else()
-			set(GLSL_VALIDATOR Vulkan::glslc)
+			set(GLSL_VALIDATOR Vulkan_GLSLANG_VALIDATOR_EXECUTABLE)
 		endif()
 	else()
 		if (CMAKE_HOST_SYSTEM MATCHES Windows)

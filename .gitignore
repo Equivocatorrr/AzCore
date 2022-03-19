@@ -12,6 +12,7 @@ buildDebugL
 buildReleaseL
 buildDebugW
 buildReleaseW
+build
 .vs
 vs
 obj

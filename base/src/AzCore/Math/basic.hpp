@@ -98,7 +98,7 @@ inline T abs(T a) {
 
 template <typename T>
 inline T sign(T a) {
-	return a >= 0 ? 1 : -1;
+	return a >= T(0) ? T(1) : T(-1);
 }
 
 template <typename T, typename F>

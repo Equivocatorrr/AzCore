@@ -24,7 +24,9 @@
 #include <sysinfoapi.h>
 #include <processthreadsapi.h>
 #include <process.h>
-AZ_MSVC_ONLY(#include <timeapi.h>)
+#if defined(_MSC_VER)
+	#include <timeapi.h>
+#endif
 
 namespace AzCore {
 

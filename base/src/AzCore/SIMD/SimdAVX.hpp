@@ -65,7 +65,7 @@ struct u32x8 {
 	// Loads 8 values from src
 	force_inline(void)
 	SetValues(u32 *src) {
-		V = _mm256_loadu_si256((const __m256i_u*)src);
+		V = _mm256_loadu_si256((const __m256i*)src);
 	}
 
 	template<u32 i>
@@ -226,7 +226,7 @@ struct i32x8 {
 	// Loads 8 values from src
 	force_inline(void)
 	SetValues(i32 *src) {
-		V = _mm256_loadu_si256((const __m256i_u*)src);
+		V = _mm256_loadu_si256((const __m256i*)src);
 	}
 
 	template<u32 i>

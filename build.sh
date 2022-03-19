@@ -128,30 +128,32 @@ abort_if_failed()
 
 if [ $clean -ne 0 ]; then
 	echo "Cleaning..."
-	rm -rf projects/*/bin projects/*/*.log buildDebugL buildReleaseL buildDebugW buildReleaseW
+	( set -x; rm -rf projects/*/bin projects/*/*.log buildDebugL buildReleaseL buildDebugW buildReleaseW )
 fi
 
 if [ $BuildDebugL -eq 1 ]
 then
-	echo "Building Linux Debug"
+	buildName="Linux Debug"
+	echo "Building $buildName"
 	mkdir -p buildDebugL
 	cd buildDebugL
-	cmake $trace $vulkan_sdk_linux -DCMAKE_BUILD_TYPE=Debug ../
-	abort_if_failed "CMake configure failed!"
-	cmake --build . $verbose -j $NumThreads
-	abort_if_failed "CMake build failed!"
+	( set -x; cmake $trace $vulkan_sdk_linux -DCMAKE_BUILD_TYPE=Debug ../ )
+	abort_if_failed "CMake configure failed for $buildName!"
+	( set -x; cmake --build . $verbose -j $NumThreads )
+	abort_if_failed "CMake build failed for $buildName!"
 	cd ..
 fi
 
 if [ $BuildReleaseL -eq 1 ]
 then
-	echo "Building Linux Release"
+	buildName="Linux Release"
+	echo "Building $buildName"
 	mkdir -p buildReleaseL
 	cd buildReleaseL
-	cmake $trace $vulkan_sdk_linux -DCMAKE_BUILD_TYPE=Release ../
-	abort_if_failed "CMake configure failed!"
-	cmake --build . $verbose -j $NumThreads
-	abort_if_failed "CMake build failed!"
+	( set -x; cmake $trace $vulkan_sdk_linux -DCMAKE_BUILD_TYPE=Release ../ )
+	abort_if_failed "CMake configure failed for $buildName!"
+	( set -x; cmake --build . $verbose -j $NumThreads )
+	abort_if_failed "CMake build failed for $buildName!"
 	if [ $install -ne 0 ]; then
 		echo "To install, you need root access:"
 		sudo cmake --install . $verbose
@@ -161,25 +163,27 @@ fi
 
 if [ $BuildDebugW -eq 1 ]
 then
-	echo "Building Windows Debug"
+	buildName="Windows Debug"
+	echo "Building $buildName"
 	mkdir -p buildDebugW
 	cd buildDebugW
-	cmake $trace $vulkan_sdk_win32 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=../mingw-w64-x86_64.cmake ../
-	abort_if_failed "CMake configure failed!"
-	cmake --build . $verbose -j $NumThreads
-	abort_if_failed "CMake build failed!"
+	( set -x; cmake $trace $vulkan_sdk_win32 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=../mingw-w64-x86_64.cmake ../ )
+	abort_if_failed "CMake configure failed for $buildName!"
+	( set -x; cmake --build . $verbose -j $NumThreads )
+	abort_if_failed "CMake build failed for $buildName!"
 	cd ..
 fi
 
 if [ $BuildReleaseW -eq 1 ]
 then
-	echo "Building Windows Release"
+	buildName="Windows Release"
+	echo "Building $buildName"
 	mkdir -p buildReleaseW
 	cd buildReleaseW
-	cmake $trace $vulkan_sdk_win32 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=../mingw-w64-x86_64.cmake ../
-	abort_if_failed "CMake configure failed!"
-	cmake --build . $verbose -j $NumThreads
-	abort_if_failed "CMake build failed!"
+	( set -x; cmake $trace $vulkan_sdk_win32 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=../mingw-w64-x86_64.cmake ../ )
+	abort_if_failed "CMake configure failed for $buildName!"
+	( set -x; cmake --build . $verbose -j $NumThreads )
+	abort_if_failed "CMake build failed for $buildName!"
 	if [ $install -ne 0 ]; then
 		echo "To install, you need root access:"
 		sudo cmake --install . $verbose

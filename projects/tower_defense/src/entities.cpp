@@ -291,10 +291,16 @@ inline void Manager::HandleMouseCamera() {
 	if (globals->gui.mouseoverDepth > 0) {
 		return;
 	}
+	bool changed = false;
 	if (globals->objects.Pressed(KC_MOUSE_SCROLLUP)) {
 		camZoom *= 1.1f;
+		changed = true;
 	} else if (globals->objects.Pressed(KC_MOUSE_SCROLLDOWN)) {
 		camZoom /= 1.1f;
+		changed = true;
+	}
+	if (changed) {
+		mouse = ScreenPosToWorld(globals->input.cursor);
 	}
 	if (globals->objects.Down(KC_MOUSE_LEFT)) {
 		vec2 move = vec2(globals->input.cursor - globals->input.cursorPrevious) / camZoom;

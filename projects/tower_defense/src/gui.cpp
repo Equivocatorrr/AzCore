@@ -1771,7 +1771,7 @@ vec2 TextBox::PositionFromCursor() const {
 	vec2 cursorPos = 0.0f;
 	f32 spaceScale, spaceWidth;
 	spaceWidth = globals->assets.CharacterWidth(' ', fontIndex) * fontSize;
-	const char32 *lineString = &stringFormatted[0];
+	const char32 *lineString = stringFormatted.data;
 	i32 lineStart = 0;
 	i32 formatNewlines = 0;
 	for (i32 i = 0; i < cursor+formatNewlines; i++) {

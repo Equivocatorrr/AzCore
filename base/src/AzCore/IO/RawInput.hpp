@@ -59,7 +59,7 @@ struct RawInput {
 	struct RawInputData *data = nullptr;
 	// Provide this pointer to automatically disable input when it's not the focused window.
 	// Leave it null to always capture input.
-	class Window *window = nullptr;
+	struct Window *window = nullptr;
 	Array<RawInputDevice> devices;
 	Array<Gamepad> gamepads;
 	ButtonState AnyGP;

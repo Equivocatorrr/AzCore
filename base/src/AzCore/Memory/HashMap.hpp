@@ -18,7 +18,7 @@
 namespace AzCore {
 
 template <typename Node_t, u16 arraySize>
-struct HashMapIterator;
+class HashMapIterator;
 
 template <typename Key_t, typename Value_t, u16 arraySize=256>
 struct HashMap {
@@ -126,9 +126,9 @@ struct HashMap {
 	};
 	Array<Node*> nodes;
 
-	inline force_inline HashMap() : nodes(arraySize, nullptr) {}
+	force_inline() HashMap() : nodes(arraySize, nullptr) {}
 
-	inline force_inline HashMap(const HashMap& other) : nodes(arraySize) {
+	force_inline() HashMap(const HashMap& other) : nodes(arraySize) {
 		for (i32 i = 0; i < arraySize; i++) {
 			if (other.nodes[i]) {
 				nodes[i] = new Node(*other.nodes[i]);
@@ -137,7 +137,7 @@ struct HashMap {
 			}
 		}
 	}
-	inline force_inline HashMap(HashMap&& other) : nodes(std::move(other.nodes)) {
+	force_inline() HashMap(HashMap&& other) : nodes(std::move(other.nodes)) {
 		other.nodes.Resize(arraySize, nullptr);
 	}
 
@@ -181,7 +181,7 @@ struct HashMap {
 		return *this;
 	}
 
-	inline Value_t& force_inline
+	force_inline(Value_t&)
 	Emplace(Node &&node) {
 		return Emplace(node.key, node.value);
 	}
@@ -234,12 +234,12 @@ struct HashMap {
 		}
 	}
 
-	inline Value_t& force_inline
+	force_inline(Value_t&)
 	operator[](Key_t key) {
 		return ValueOf(key);
 	}
 
-	inline const Value_t& force_inline
+	force_inline(const Value_t&)
 	operator[](Key_t key) const {
 		return ValueOf(key);
 	}
@@ -286,7 +286,7 @@ public:
 	void Rebase(const Array<Node_t*> *nodesArray) {
 		nodes = nodesArray;
 	}
-	inline bool force_inline
+	force_inline(bool)
 	operator!=(const HashMapIterator &other) const {
 		return node != other.node;
 	}
@@ -302,7 +302,7 @@ public:
 			}
 		}
 	}
-	inline Node_t& force_inline
+	force_inline(Node_t&)
 	operator*() {
 		return *node;
 	}

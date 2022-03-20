@@ -30,7 +30,7 @@ struct Array {
 	i32 allocated;
 	i32 size;
 
-	inline void force_inline
+	force_inline(void)
 	_SetTerminator() {
 		if constexpr (allocTail > 1) {
 			if (allocated == 0) {
@@ -48,7 +48,7 @@ struct Array {
 			}
 		}
 	}
-	inline void force_inline
+	force_inline(void)
 	_Initialize(i32 newSize) {
 		size = newSize;
 		allocated = newSize;
@@ -58,13 +58,13 @@ struct Array {
 			data = nullptr;
 		}
 	}
-	inline void force_inline
+	force_inline(void)
 	_Deinitialize() {
 		if (allocated != 0) {
 			delete[] data;
 		}
 	}
-	inline void force_inline
+	force_inline(void)
 	_Copy(const Array &other) {
 		if constexpr (std::is_trivially_copyable<T>::value) {
 			memcpy((void *)data, (void *)other.data, sizeof(T) * size);
@@ -75,7 +75,7 @@ struct Array {
 		}
 	}
 	template<i32 otherAllocTail>
-	inline void force_inline
+	force_inline(void)
 	_Copy(const Array<T, otherAllocTail> &other) {
 		if constexpr (std::is_trivially_copyable<T>::value) {
 			memcpy((void *)data, (void *)other.data, sizeof(T) * size);
@@ -85,7 +85,7 @@ struct Array {
 			}
 		}
 	}
-	inline void force_inline
+	force_inline(void)
 	_Copy(const std::initializer_list<T> &init) {
 		i32 i = 0;
 		for (const T &val : init) {
@@ -93,21 +93,21 @@ struct Array {
 		}
 	}
 	// Let go of allocations without deleting them.
-	inline void force_inline
+	force_inline(void)
 	_Drop() {
 		data = nullptr;
 		size = 0;
 		allocated = 0;
 	}
 	// Take the allocations and/or values from another Array.
-	inline void force_inline
+	force_inline(void)
 	_Acquire(Array &&other) {
 		allocated = other.allocated;
 		size = other.size;
 		data = other.data;
 	}
 	template<i32 otherAllocTail>
-	inline void force_inline
+	force_inline(void)
 	_Acquire(Array<T, otherAllocTail> &&other) {
 		allocated = other.allocated;
 		size = other.size;
@@ -135,10 +135,10 @@ struct Array {
 		_SetTerminator();
 	}
 
-	inline force_inline
+	force_inline()
 	Array(u32 newSize) : Array((i32)newSize) {}
 
-	inline force_inline
+	force_inline()
 	Array(u32 newSize, const T &value) : Array((i32)newSize, value) {}
 
 	Array(const std::initializer_list<T> &init) {
@@ -349,62 +349,62 @@ struct Array {
 		return data[index];
 	}
 
-	inline Array<T, allocTail> force_inline
+	force_inline(Array<T, allocTail>)
 	operator+(T &&other) const {
 		Array<T, allocTail> result(*this);
 		result.Append(std::move(other));
 		return result;
 	}
 
-	inline Array<T, allocTail> force_inline
+	force_inline(Array<T, allocTail>)
 	operator+(const T &other) const {
 		Array<T, allocTail> result(*this);
 		result.Append(other);
 		return result;
 	}
 
-	inline Array<T, allocTail> force_inline
+	force_inline(Array<T, allocTail>)
 	operator+(const T *string) const {
 		Array<T, allocTail> result(*this);
 		result.Append(string);
 		return result;
 	}
 
-	inline Array<T, allocTail> force_inline
+	force_inline(Array<T, allocTail>)
 	operator+(Array &&other) const {
 		Array<T, allocTail> result(*this);
 		result.Append(std::move(other));
 		return result;
 	}
 
-	inline Array<T, allocTail> force_inline
+	force_inline(Array<T, allocTail>)
 	operator+(const Array &other) const {
 		Array<T, allocTail> result(*this);
 		result.Append(other);
 		return result;
 	}
 
-	inline T& force_inline
+	force_inline(T&)
 	operator+=(T &&value) {
 		return Append(std::move(value));
 	}
 
-	inline T& force_inline
+	force_inline(T&)
 	operator+=(const T &value) {
 		return Append(value);
 	}
 
-	inline Array<T, allocTail>& force_inline
+	force_inline(Array<T, allocTail>&)
 	operator+=(const Array &other) {
 		return Append(other);
 	}
 
-	inline Array<T, allocTail>& force_inline
+	force_inline(Array<T, allocTail>&)
 	operator+=(Array &&other) {
 		return Append(std::move(other));
 	}
 
-	inline Array<T, allocTail>& force_inline
+	force_inline(Array<T, allocTail>&)
 	operator+=(const T *string) {
 		return Append(string);
 	}
@@ -737,7 +737,7 @@ struct Array {
 };
 
 template<typename T, i32 allocTail>
-inline Array<T, allocTail> force_inline
+force_inline(Array<T, allocTail>)
 operator+(Array<T, allocTail> &&lhs, Array<T, allocTail> &&rhs) {
 	Array<T, allocTail> out(std::move(lhs));
 	out.Append(std::move(rhs));

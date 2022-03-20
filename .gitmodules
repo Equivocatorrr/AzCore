@@ -1,0 +1,9 @@
+[submodule "external/Vulkan-Headers"]
+	path = external/Vulkan-Headers
+	url = https://github.com/KhronosGroup/Vulkan-Headers.git
+[submodule "external/stb"]
+	path = external/stb
+	url = https://github.com/nothings/stb.git
+[submodule "external/openal-soft"]
+	path = external/openal-soft
+	url = https://github.com/kcat/openal-soft.git

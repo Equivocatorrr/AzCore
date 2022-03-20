@@ -76,8 +76,12 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 	char character = '\0';
 	bool press = false, release = false;
 	switch (uMsg) {
-	case WM_INPUTLANGCHANGE:
+	case WM_INPUTLANGCHANGE: {
+		//cout.PrintLn("WM_INPUTLANGCHANGE");
+		return DefWindowProc(hWnd, uMsg, wParam, lParam);
+	}
 	case WM_INPUTLANGCHANGEREQUEST: {
+		//cout.PrintLn("WM_INPUTLANGCHANGEREQUEST");
 		return DefWindowProc(hWnd, uMsg, wParam, lParam);
 	}
 	// Dealing with the close button
@@ -450,6 +454,11 @@ bool Window::Update() {
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
+	}
+	// Do an unfiltered one because Windows might make hidden child windows that need to have their messages processed.
+	while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
 	}
 	return true;
 }

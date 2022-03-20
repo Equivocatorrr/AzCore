@@ -118,7 +118,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	frameNext = Clock::now();
 
 	while (globals->window.Update() && !globals->exit) {
-		if (abs(Nanoseconds(frameNext - Clock::now()).count()) >= 1000000) {
+		if (abs(Nanoseconds(frameNext - Clock::now()).count()) >= 10000000) {
 			// Something must have hung the program. Start fresh.
 			frameStart = Clock::now();
 		} else {
@@ -143,8 +143,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			return false;
 		}
 		globals->input.Tick(globals->objects.timestep);
-		Nanoseconds frameSleep = frameNext - Clock::now() - Nanoseconds(1000);
-		if (frameSleep.count() >= 1000) {
+		Nanoseconds frameSleep = frameNext - Clock::now() - Nanoseconds(1000000);
+		if (frameSleep.count() >= 1000000) {
 			Thread::Sleep(frameSleep);
 		}
 	}

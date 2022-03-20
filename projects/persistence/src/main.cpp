@@ -41,12 +41,12 @@ Milliseconds totalTimeTaken(0);
 
 Array<String> successfulFactorizations{};
 
-const i32 minimumDigits = 4;
-// const i32 minimumDigits = 237;
+// const i32 minimumDigits = 4;
+const i32 minimumDigits = 237;
 const i32 minimumPermutationDigits = 17;
-const i32 maximumDigits = 32;
-// const i32 maximumDigits = 237;
-const i32 numThreads = 8;
+// const i32 maximumDigits = 64;
+const i32 maximumDigits = 248;
+const i32 numThreads = 12;
 
 Mutex threadControlMutex;
 u32 activeThreads = 0;
@@ -102,11 +102,6 @@ u32 persistence(BigInt number, u32 iteration=0) {
 			cache = 1;
 		}
 	}
-	// if (iteration == 3) {
-	//	 cout.Lock();
-	//	 cout.PrintLn("Fourth iteration number: ", number.ToString(), " with numString ", numString, " multiplied = ", newNumber.ToString());
-	//	 cout.Unlock();
-	// }
 	if (cache != 1) {
 		newNumber *= cache;
 	}
@@ -132,6 +127,11 @@ u32 persistence(String number, u32 iteration=0) {
 	if (cache != 1) {
 		newNumber *= cache;
 	}
+	// if (newNumber.words.size > 1) {
+	// 	cout.Lock();
+	// 	cout.PrintLn("\n\n\n\nbig number: ", number, " multiplied = ", ToString(newNumber), "\n\n\n\n");
+	// 	cout.Unlock();
+	// }
 	return persistence(newNumber, iteration+1);
 }
 
@@ -211,9 +211,9 @@ void GetRequiredPersistenceChecks(u32 minDigits, u32 maxDigits, u32 currentDigit
 	}
 }
 
-Array<u128> GetPrimeFactors(BigInt number) {
+Array<u64> GetPrimeFactors(BigInt number) {
 	#include "tenThousandPrimes.cpp"
-	Array<u128> factors{};
+	Array<u64> factors{};
 	bool fullStop = false;
 	for (i32 i = 0; i < primes.size && !fullStop; i++) {
 		bool keepGoing = true;
@@ -359,19 +359,26 @@ u64 pow(const u64& base, const u64& exponent) {
 	return answer;
 }
 
+#define TEST(expression) val = expression; cout.PrintLn(#expression " = ", val.HexString(), " = ", val.Digits());
+
 void BigIntTest() {
 	BigInt test(BucketArray<u64, BIGINT_BUCKET_SIZE>({0, 1}));
 	BigInt test2(2);
-	cout.PrintLn("test = ", test.HexString(), " and test2 = ", test2.HexString());
-	cout.PrintLn("test * test2 = ", (test * test2).HexString());
-	cout.PrintLn("test / test2 = ", (test / test2).HexString());
-	cout.PrintLn("test % test2 = ", (test % test2).HexString());
-	cout.PrintLn("test + test2 = ", (test + test2).HexString());
-	cout.PrintLn("test - test2 = ", (test - test2).HexString());
-	cout.PrintLn("test2 << 32 = ", (test2 << 32).HexString());
-	cout.PrintLn("test >> 32 = ", (test >> 32).HexString());
-	cout.PrintLn("test2 << 64 = ", (test2 << 64).HexString());
-	cout.PrintLn("test >> 64 = ", (test >> 64).HexString());
+	BigInt test3(0xffffffffffffffffULL);
+	BigInt val;
+	cout.PrintLn("test = ", test.HexString(), ", test2 = ", test2.HexString(), ", test3 = ", test3.HexString());
+	TEST(test * test2);
+	TEST(test / test2);
+	TEST(test % test2);
+	TEST(test + test2);
+	TEST(test2 + test3);
+	TEST(test3 + test2);
+	TEST(test - test2);
+	TEST(test2 << 32);
+	TEST(test >> 32);
+	TEST(test2 << 64);
+	TEST(test >> 64);
+	TEST((test >> 32) * (test2 << 32));
 }
 
 void CheckNumbersForHighPersistence() {
@@ -393,13 +400,18 @@ void CheckNumbersForHighPersistence() {
 	completedThreads = 0;
 	remainingThreads = randomizedDigits.size;
 	startTime = Clock::now();
-	for (i32 i = 0; i <= maximumDigits-minimumDigits; i++) {
+	for (i32 i = 0; i < randomizedDigits.size; i++) {
 		while (true) {
 			if (activeThreads < numThreads) {
+				cout.Lock();
 				cout.PrintLn("\nStarting thread ", randomizedDigits[i], "\n");
+				cout.Unlock();
 				Thread(ThreadProc, randomizedDigits[i]).Detach();
 				threadControlMutex.Lock();
 				activeThreads++;
+				cout.Lock();
+				cout.PrintLn("Active Threads: ", activeThreads);
+				cout.Unlock();
 				threadControlMutex.Unlock();
 				break;
 			} else {
@@ -407,6 +419,9 @@ void CheckNumbersForHighPersistence() {
 			}
 		}
 	}
+	cout.Lock();
+	cout.PrintLn("We started all the threads!");
+	cout.Unlock();
 	while (true) {
 		if (activeThreads > 0) {
 			Thread::Sleep(Milliseconds(100));

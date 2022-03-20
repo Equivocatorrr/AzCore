@@ -6,10 +6,13 @@
 #include "entities.hpp"
 #include "globals.hpp"
 #include "AzCore/Thread.hpp"
+#include "AzCore/IO/Log.hpp"
 
 #include "entity_basics.cpp"
 
 namespace Entities {
+
+	AzCore::io::Log cout("entities.log");
 
 template<typename T>
 inline void ApplyFriction(T &obj, f32 friction, f32 timestep) {
@@ -99,12 +102,14 @@ void Manager::EventAssetAcquire() {
 }
 
 void Manager::EventInitialize() {
+	cout.NoLogFile();
 	Array<char> levels = FileContents("data/levels.txt");
-	Array<Range<char>> lines = SeparateByValues(levels, {'\n'});
+	Array<SimpleRange<char>> lines = SeparateByNewlines(levels);
 	for (i32 i = 0; i < lines.size; i++) {
 		if (lines[i].size == 0) continue;
 		if (lines[i][0] == '#') continue;
 		levelNames += lines[i];
+		cout.PrintLn("Added level \"", lines[i], "\"");
 	}
 
 	failureText.color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
@@ -540,6 +545,7 @@ bool World::Save(String filename) {
 
 bool World::Load(String filename) {
 	filename = "data/levels/" + filename + ".world";
+	cout.PrintLn("Loading '", filename, "'");
 	FILE *file = fopen(filename.data, "rb");
 	if (!file) return false;
 	if (fread(&size, 4, 2, file) != 2) {

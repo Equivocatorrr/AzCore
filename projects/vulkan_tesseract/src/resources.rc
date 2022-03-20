@@ -6,9 +6,9 @@
 
 #ifdef _WIN32
 
-CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "../../base/manifest.xml"
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "../../../base/src/manifest.xml.manifest"
 
-IDI_ICON_128 ICON "../../base/icon.ico"
+IDI_ICON_128 ICON "../../../base/src/icon.ico"
 
 1 VERSIONINFO
 FILEVERSION     1,0,0,0

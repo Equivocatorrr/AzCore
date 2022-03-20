@@ -6,9 +6,9 @@
 
 #ifdef _WIN32
 
-CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "../../base/manifest.xml"
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "../../../base/src/manifest.xml.manifest"
 
-IDI_ICON_128 ICON "../../base/icon.ico"
+IDI_ICON_128 ICON "../../../base/src/icon.ico"
 
 1 VERSIONINFO
 FILEVERSION     1,0,0,0
@@ -19,12 +19,12 @@ BEGIN
     BLOCK "040904E4"
     BEGIN
       VALUE "CompanyName", "Azure Indie"
-      VALUE "FileDescription", "AzCore Quad"
+      VALUE "FileDescription", "AzCore Fractal Explorer"
       VALUE "FileVersion", "1.0"
       VALUE "InternalName", "AzCore"
       VALUE "LegalCopyright", "Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)"
       VALUE "OriginalFilename", "AzCore.exe"
-      VALUE "ProductName", "Example for an advanced window-system IO framework for games."
+      VALUE "ProductName", "Example for a software renderer and SIMD instructions."
       VALUE "ProductVersion", "1.0"
     END
   END

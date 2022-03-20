@@ -12,11 +12,21 @@
 
 #include <atomic>
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 #include <synchapi.h>
 #include <handleapi.h>
 #include <sysinfoapi.h>
 #include <processthreadsapi.h>
 #include <process.h>
+#if defined(_MSC_VER)
+	#include <timeapi.h>
+#endif
 
 namespace AzCore {
 
@@ -138,7 +148,9 @@ public:
 
 	template<class Rep, class Period>
 	static void Sleep(const std::chrono::duration<Rep,Period>& duration) {
+		AZ_MSVC_ONLY(timeBeginPeriod(1));
 		::Sleep((DWORD)std::chrono::duration_cast<std::chrono::milliseconds>(duration).count());
+		AZ_MSVC_ONLY(timeEndPeriod(1));
 	}
 
 	#ifdef Yield

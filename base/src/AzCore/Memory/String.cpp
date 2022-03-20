@@ -87,6 +87,7 @@ void AppendToString(String &string, u64 value, i32 base) {
 	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
 }
 
+#if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
 void AppendToString(String &string, u128 value, i32 base) {
 	if (value == 0) {
 		string.Append("0");
@@ -107,6 +108,7 @@ void AppendToString(String &string, u128 value, i32 base) {
 	}
 	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
 }
+#endif
 
 void AppendToString(String &string, i32 value, i32 base) {
 	if (value == 0) {
@@ -158,6 +160,7 @@ void AppendToString(String &string, i64 value, i32 base) {
 	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
 }
 
+#if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
 void AppendToString(String &string, i128 value, i32 base) {
 	if (value == 0) {
 		string.Append("0");
@@ -182,6 +185,7 @@ void AppendToString(String &string, i128 value, i32 base) {
 	}
 	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
 }
+#endif
 
 void AppendToString(String &string, f32 value, i32 base, i32 precision) {
 	u32 byteCode;
@@ -449,6 +453,7 @@ void AppendToString(String &string, f64 value, i32 base, i32 precision) {
 	}
 }
 
+#if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
 void AppendToString(String &string, f128 value, i32 base, i32 precision) {
 	u128 byteCode;
 	memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
@@ -583,6 +588,7 @@ void AppendToString(String &string, f128 value, i32 base, i32 precision) {
 		string += "e-" + ToString(-newExponent, base);
 	}
 }
+#endif
 
 #include <stdio.h>
 
@@ -677,7 +683,7 @@ bool _StringToFloat(StringBase<Char> string, Float *dst, i32 base) {
 		} else {
 			return false;
 		}
-		Assert(value < baseF, "StringToFloat machine broke :(");
+		AzAssert(value < baseF, "StringToFloat machine broke :(");
 		out += value * multiplier;
 		multiplier *= baseF;
 	}
@@ -693,9 +699,11 @@ bool StringToF64(String string, f64 *dst, i32 base) {
 	return _StringToFloat<f64>(string, dst, base);
 }
 
+#if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
 bool StringToF128(String string, f128 *dst, i32 base) {
 	return _StringToFloat<f128>(string, dst, base);
 }
+#endif
 
 bool WStringToF32(WString string, f32 *dst, i32 base) {
 	return _StringToFloat<f32>(string, dst, base);
@@ -709,9 +717,11 @@ bool StringToI64(String string, i64 *dst, i32 base) {
 	return _StringToInt<i64, char>(string, dst, base);
 }
 
+#if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
 bool StringToI128(String string, i128 *dst, i32 base) {
 	return _StringToInt<i128, char>(string, dst, base);
 }
+#endif
 
 bool equals(const char *a, const char *b) {
 	for (u32 i = 0; a[i] != 0; i++) {
@@ -795,6 +805,36 @@ String Join(const Array<SimpleRange<char>> &values, SimpleRange<char> joiner) {
 	}
 	output.size -= joiner.size;
 	return output;
+}
+
+template<typename char_t>
+Array<SimpleRange<char_t>> _SeparateByNewlines(SimpleRange<char_t> string, bool allowEmpty) {
+	Array<SimpleRange<char_t>> result;
+	i64 rangeStart = 0;
+	for (i64 i = 0; i < string.size; i++) {
+		char_t c = string[i];
+		if (c == '\r' || c == '\n') {
+			if (allowEmpty || i-rangeStart > 0) {
+				result.Append(SimpleRange(&string[rangeStart], i-rangeStart));
+			}
+			if (c == '\r' && string.size > i+1 && string[i+1] == '\n') {
+				++i;
+			}
+			rangeStart = i+1;
+		}
+	}
+	if (rangeStart < string.size) {
+		result.Append(SimpleRange(&string[rangeStart], string.size-rangeStart));
+	}
+	return result;
+}
+
+Array<SimpleRange<char>> SeparateByNewlines(SimpleRange<char> string, bool allowEmpty) {
+	return _SeparateByNewlines<char>(string, allowEmpty);
+}
+
+Array<SimpleRange<char32>> SeparateByNewlines(SimpleRange<char32> string, bool allowEmpty) {
+	return _SeparateByNewlines<char32>(string, allowEmpty);
 }
 
 } // namespace AzCore

@@ -28,6 +28,8 @@ void DrawProc() {
 	};
 }
 
+#define DEBUG_SLEEP 0
+
 i32 main(i32 argumentCount, char** argumentValues) {
 	ClockTime loadStart = Clock::now();
 	Globals _globals;
@@ -129,9 +131,13 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	frameNext = Clock::now();
 
 	while (globals->window.Update() && !globals->exit) {
-		if (abs(Nanoseconds(frameNext - Clock::now()).count()) >= 1000000) {
+		if (abs(Nanoseconds(frameNext - Clock::now()).count()) >= 10000000) {
 			// Something must have hung the program. Start fresh.
 			frameStart = Clock::now();
+#if DEBUG_SLEEP
+			cout.PrintLn("Sync! Frame difference was ", Nanoseconds(frameNext - Clock::now()).count()/1000000, "ms");
+			cout.PrintLn("frameDuration is ", globals->frameDuration.count() / 1000000, "ms");
+#endif
 		} else {
 			frameStart = frameNext;
 		}
@@ -154,9 +160,16 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			return false;
 		}
 		globals->input.Tick(globals->objects.timestep);
-		Nanoseconds frameSleep = frameNext - Clock::now() - Nanoseconds(1000);
-		if (frameSleep.count() >= 1000) {
+		Nanoseconds frameSleep = frameNext - Clock::now() - Nanoseconds(1000000);
+		if (frameSleep.count() >= 1000000) {
+#if DEBUG_SLEEP
+			ClockTime sleepStart = Clock::now();
+			cout.PrintLn("Sleeping for ", frameSleep.count()/1000000, "ms");
+#endif
 			Thread::Sleep(frameSleep);
+#if DEBUG_SLEEP
+			cout.PrintLn("Actually slept for ", Nanoseconds(Clock::now() - sleepStart).count() / 1000000, "ms");
+#endif
 		}
 	}
 	if (!globals->SaveSettings()) {

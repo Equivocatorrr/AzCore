@@ -49,6 +49,8 @@ template<u16 bounds>
 constexpr i32 IndexHash(i64 in) {
 	return u64(in) % bounds;
 }
+
+#if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
 template<u16 bounds>
 constexpr i32 IndexHash(u128 in) {
 	return in % bounds;
@@ -57,6 +59,7 @@ template<u16 bounds>
 constexpr i32 IndexHash(i128 in) {
 	return u128(in) % bounds;
 }
+#endif
 
 template<u16 bounds>
 constexpr i32 IndexHash(void *in) {

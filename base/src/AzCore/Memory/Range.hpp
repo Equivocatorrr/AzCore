@@ -312,7 +312,7 @@ struct SimpleRange {
 	i64 size;
 
 	SimpleRange() : str(nullptr), size(0) {}
-	SimpleRange(nullptr_t) : str(nullptr), size(0) {}
+	SimpleRange(std::nullptr_t) : str(nullptr), size(0) {}
 	SimpleRange(T *string, i64 length) : str(string), size(length) {}
 	SimpleRange(const T *string) : str((T*)string), size(StringLength(string)) {}
 	template<i32 allocTail>
@@ -382,11 +382,11 @@ struct SimpleRange {
 		return string[size] == StringTerminators<T>::value;
 	}
 
-	inline bool force_inline
+	force_inline(bool)
 	operator!=(const SimpleRange<T> other) const {
 		return !operator==(other);
 	}
-	inline bool force_inline
+	force_inline(bool)
 	operator!=(const T *string) const {
 		return !operator==(string);
 	}

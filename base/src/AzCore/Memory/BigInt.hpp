@@ -25,7 +25,9 @@ public:
 	u32 negative;
 	inline BigInt() : words(1, 0), negative(false) {}
 	inline BigInt(const BigInt& a) : words(a.words), negative(a.negative) {}
+	#if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
 	explicit inline BigInt(const u128& a, bool neg=false) { *this = a; negative = neg; }
+	#endif
 	explicit inline BigInt(u64 a, bool neg=false) { *this = a; negative = neg; }
 	explicit inline BigInt(u32 a, bool neg=false) { *this = a; negative = neg; }
 	explicit inline BigInt(i64 a) { *this = a; }
@@ -37,6 +39,7 @@ public:
 		negative = a.negative;
 		return *this;
 	}
+	#if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
 	inline BigInt& operator=(const u128& a) {
 		u64 a1 = a;
 		u64 a2 = a >> 64;
@@ -47,6 +50,7 @@ public:
 		}
 		return *this;
 	}
+	#endif
 	inline BigInt& operator=(u64 a) {
 		words = {a};
 		return *this;
@@ -55,6 +59,7 @@ public:
 		words = {a};
 		return *this;
 	}
+	#if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
 	inline BigInt& operator=(const i128& a) {
 		u64 a1 = a;
 		u64 a2 = (*((u64*)(&a)+1)) & 0x7fffffffffffffff;
@@ -66,6 +71,7 @@ public:
 		negative = a < 0;
 		return *this;
 	}
+	#endif
 	inline BigInt& operator=(i64 a) {
 		u64 aa = (*((u64*)(&a))) & 0x7fffffffffffffff;
 		words = {aa};
@@ -239,6 +245,8 @@ inline BigInt abs(const BigInt& a) {
 	BigInt newValue(a.words);
 	return newValue;
 }
+
+#pragma pack()
 
 } // namespace AzCore
 

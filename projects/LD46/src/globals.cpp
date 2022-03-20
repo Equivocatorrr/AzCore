@@ -85,7 +85,9 @@ void Globals::LoadLocale() {
 				break;
 		}
 		text.Resize(i - start);
-		memcpy(text.data, &buffer[start], text.size);
+		if (text.size) {
+			memcpy(text.data, &buffer[start], text.size);
+		}
 		locale[name] = ToWString(text);
 		i++;
 	}

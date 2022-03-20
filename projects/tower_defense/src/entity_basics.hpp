@@ -111,7 +111,7 @@ struct Id {
 		i32 data;
 		struct {
 			u16 index;
-			i16 generation = 0; // If generation is negative, then the object doesn't exist.
+			i16 generation; // If generation is negative, then the object doesn't exist.
 		};
 	};
 

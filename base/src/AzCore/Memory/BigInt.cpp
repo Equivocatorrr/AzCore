@@ -222,19 +222,24 @@ BigInt& BigInt::operator+=(const BigInt& a) {
 	if (a.words.size > words.size) {
 		words.Resize(a.words.size, 0);
 	}
-	u128 dword = 0; // Used to carry between words.
-	i32 i;
-	for (i = 0; i < words.size; i++) {
+	u64 carry = 0;
+	for (i32 i = 0; i < words.size; i++) {
+		u64 word1 = 0, word2 = 0;
 		if (i < a.words.size) {
-			dword += a.words[i];
+			word1 = a.words[i];
 		}
-		dword += words[i];
-		words[i] = (u64)dword;
-		dword >>= 64;
+		word2 = words[i];
+		if (word1 < word2) word1 += carry;
+		else word2 += carry;
+		u64 word = word1 + word2;
+		words[i] = word;
+		// If we overflowed, word is necessarily less than both of the other words.
+		carry = (word < word1 && word < word2);
 	}
-	if (dword != 0) {
-		words.Append((u64)dword);
+	if (carry != 0) {
+		words.Append(carry);
 	}
+	Trim();
 	return *this;
 }
 
@@ -289,6 +294,7 @@ BigInt& BigInt::operator-=(const BigInt& a) {
 			}
 		}
 	}
+	Trim();
 	return *this;
 }
 
@@ -306,11 +312,18 @@ BigInt& BigInt::operator*=(const BigInt& a) {
 	words = {0};
 	for (i32 i = 0; i < wordsTemp.size; i++) {
 		for (i32 j = 0; j < a.words.size; j++) {
-			const u128 mul = (u128)a.words[j] * (u128)wordsTemp[i];
+			u64 mul = (a.words[j] & 0xFFFFFFFF) * (wordsTemp[i] & 0xFFFFFFFF);
 			*this += BigInt(mul) << (64*(i+j));
+			mul = (a.words[j] >> 32) * (wordsTemp[i] & 0xFFFFFFFF);
+			*this += BigInt(mul) << (32+64*(i+j));
+			mul = (a.words[j] & 0xFFFFFFFF) * (wordsTemp[i] >> 32);
+			*this += BigInt(mul) << (32+64*(i+j));
+			mul = (a.words[j] >> 32) * (wordsTemp[i] >> 32);
+			*this += BigInt(mul) << (64*(i+j+1));
 		}
 	}
 	negative = neg;
+	Trim();
 	return *this;
 }
 
@@ -411,31 +424,35 @@ void BigInt::QuotientAndRemainder(const BigInt &a, const BigInt &b, BigInt *dstQ
 }
 
 BigInt& BigInt::operator+=(u64 a) {
+	if (a == 0) {
+		return *this;
+	}
 	if (negative) {
 		return *this = (BigInt(a) - -*this);
 	}
-	i32 newSize = max((u32)words.size, a == 0u ? 0u : 1u);
-	if (newSize == 0) {
-		return *this;
-	}
+	i32 newSize = max(words.size, 1);
 	words.Resize(newSize, 0);
-	u128 dword = a; // Used to carry between words.
+	u64 carry = a;
 	i32 i;
 	for (i = 0; i < words.size; i++) {
-		dword += words[i];
-		words[i] = (u64)dword;
-		dword >>= 64;
-		if (dword == 0) {
+		u64 sum = words[i] + carry;
+		carry = (carry < words[0] && carry < a);
+		words[i] = sum;
+		if (carry == 0) {
 			break;
 		}
 	}
-	if (dword != 0) {
-		words.Append((u64)dword);
+	if (carry != 0) {
+		words.Append(carry);
 	}
+	Trim();
 	return *this;
 }
 
 BigInt& BigInt::operator-=(u64 a) {
+	if (a == 0) {
+		return *this;
+	}
 	if (negative) {
 		return *this += -BigInt(a);
 	}
@@ -486,6 +503,7 @@ BigInt& BigInt::operator-=(u64 a) {
 			words.Append(a);
 		}
 	}
+	Trim();
 	return *this;
 }
 
@@ -502,9 +520,16 @@ BigInt& BigInt::operator*=(u64 a) {
 	BucketArray<u64, BIGINT_BUCKET_SIZE> wordsTemp = words;
 	words = {0};
 	for (i32 i = 0; i < wordsTemp.size; i++) {
-		const u128 mul = (u128)wordsTemp[i] * (u128)a;
+		u64 mul = (wordsTemp[i] & 0xFFFFFFFF) * (a & 0xFFFFFFFF);
 		*this += BigInt(mul) << (64*i);
+		mul = (wordsTemp[i] >> 32) * (a & 0xFFFFFFFF);
+		*this += BigInt(mul) << (32+64*i);
+		mul = (wordsTemp[i] & 0xFFFFFFFF) * (a >> 32);
+		*this += BigInt(mul) << (32+64*i);
+		mul = (wordsTemp[i] >> 32) * (a >> 32);
+		*this += BigInt(mul) << (64*(i+1));
 	}
+	Trim();
 	return *this;
 }
 
@@ -579,6 +604,7 @@ void BigInt::QuotientAndRemainder(const BigInt &a, u64 b, BigInt *dstQuotient, u
 		return;
 	}
 	BigInt dividend(a.words);
+	AzAssert(dividend.words.size > 0, "Expected dividend.words.size to be at least 1!");
 	if (b > dividend) {
 		*dstQuotient = 0u;
 		*dstRemainder = dividend.words[0];
@@ -593,7 +619,7 @@ void BigInt::QuotientAndRemainder(const BigInt &a, u64 b, BigInt *dstQuotient, u
 	BigInt taken(0u);
 	dstQuotient->words = BucketArray<u64, BIGINT_BUCKET_SIZE>(a.words.size, 0);
 	i32 startingI = dividend.words.size*64-1;
-	for (; (dividend.words[startingI/64] & (1ull << startingI%64)) == 0;) { startingI--; }
+	for (; startingI >= 0 && (dividend.words[startingI/64] & (1ull << startingI%64)) == 0;) { startingI--; }
 	BigInt shifted = divisor << startingI;
 	for (i32 i = startingI; i >= 0; i--) {
 		BigInt added = taken + shifted;

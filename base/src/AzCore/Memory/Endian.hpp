@@ -38,13 +38,13 @@ u32 endianSwap(u32 in, bool swapEndian = true);
 u64 endianSwap(u64 in, bool swapEndian = true);
 
 inline i16 endianSwap(i16 in, bool swapEndian = true) {
-	return endianSwap((u16)in, swapEndian);
+	return (i16)endianSwap((u16)in, swapEndian);
 }
 inline i32 endianSwap(i32 in, bool swapEndian = true) {
-	return endianSwap((u32)in, swapEndian);
+	return (i32)endianSwap((u32)in, swapEndian);
 }
 inline i64 endianSwap(i64 in, bool swapEndian = true) {
-	return endianSwap((u64)in, swapEndian);
+	return (i64)endianSwap((u64)in, swapEndian);
 }
 
 template <typename T>

@@ -2,5 +2,5 @@
     "execPath": "/usr/bin/g++",
     "gccDefaultCFlags": "-c -Wall",
     "gccDefaultCppFlags": "-c -Wall -std=c++17 -fsyntax-only",
-    "gccIncludePaths": "-/,-/include,./base/src"
+    "gccIncludePaths": "-/,-/include,./base/src,./external/stb,./external/openal-soft/include,./external/Vulkan-Headers/include"
 }

@@ -12,7 +12,7 @@ namespace AzCore {
 
 namespace io {
 
-i32 GetWindowDpi(Window *window);
+u16 GetWindowDpi(Window *window);
 
 xcb_atom_t xcbGetAtom(xcb_connection_t *connection, bool onlyIfExists, const String &name) {
 	xcb_intern_atom_cookie_t cookie;
@@ -780,7 +780,7 @@ String Window::InputName(u8 keyCode) const {
 	return xkbGetInputName(&data->xkb, keyCode);
 }
 
-i32 GetWindowDpi(Window *window) {
+u16 GetWindowDpi(Window *window) {
 	// ClockTime start = Clock::now();
 	char *res = xcbGetProperty(window->data->connection, window->data->screen->root, XCB_ATOM_RESOURCE_MANAGER, XCB_ATOM_STRING, 16*1024);
 	Array<char> resources;
@@ -807,18 +807,19 @@ i32 GetWindowDpi(Window *window) {
 	// cout.PrintLn("Resource Manager: \n\n", resources, "\n");
 
 	// This could be sped up, but the vast majority of our time is spent above.
-	i32 dpi = -1;
+	i32 dpi = 0;
 	Array<Range<char>> ranges = SeparateByValues(resources, {'\n', ' ', ':', '\t'});
 	for (i32 i = 0; i < ranges.size-1; i++) {
 		if (ranges[i] == "Xft.dpi") {
 			if (!StringToI32(ranges[i+1], &dpi)) {
 				error = Stringify("Failed to parse DPI from Range '", ranges[i+1], "'");
+				return 0;
 			}
 			break;
 		}
 	}
 	// cout.PrintLn("DPI took ", FormatTime(Clock::now() - start), " total, where ", FormatTime(endGetProperty - start), " was xcbGetProperty.");
-	return dpi;
+	return dpi > 0 ? dpi : 0;
 }
 
 i32 Window::GetDPI() {

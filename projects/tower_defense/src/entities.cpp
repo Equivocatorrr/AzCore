@@ -343,7 +343,12 @@ inline void Manager::HandleUI() {
 		}
 	}
 	if (lives == 0 && !failed) {
-		streamSegment1.Stop(2.0f);
+		if (streamSegment1.playing) {
+			streamSegment1.Stop(2.0f);
+		}
+		if (streamSegment2.playing) {
+			streamSegment2.Stop(2.0f);
+		}
 		placeMode = false;
 		failed = true;
 	}
@@ -572,7 +577,7 @@ void Manager::EventSync() {
 		hitpointsPerSecond /= wave+7;
 		globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Start Wave");
 	}
-	if (wave >= 11 && wave < 13) {
+	if (wave >= 11 && wave < 20) {
 		if (!streamSegment1.playing && !streamSegment2.playing) {
 			streamSegment2.Play();
 		}

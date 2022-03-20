@@ -124,6 +124,7 @@ public:
 
 	~Thread() {
 		if (Joinable()) {
+			fprintf(stderr, "Tried to destruct a thread that's still joinable!\n");
 			std::terminate();
 		}
 	}
@@ -131,7 +132,7 @@ public:
 	Thread& operator=(const Thread& other) = delete;
 	Thread& operator=(Thread&& other) {
 		if (Joinable()) {
-			std::terminate();
+			throw std::system_error(std::make_error_code(std::errc::operation_in_progress));
 		}
 		threadHandle = other.threadHandle;
 		id = other.id;

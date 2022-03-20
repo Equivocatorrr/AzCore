@@ -42,6 +42,11 @@ If you find something lacking and know how to fix it, you may do so and open a
 [Pull Request](https://github.com/SingularityAzure/AzCore/pulls).
 
 ## Building
+First clone the repository:
+```console
+$ git clone --recurse-submodules https://github.com/SingularityAzure/AzCore.git
+$ cd AzCore
+```
 ### Linux
 #### Dependencies
 AzCore uses Vulkan as its primary graphics API, so make sure to set up a build environment for Vulkan.

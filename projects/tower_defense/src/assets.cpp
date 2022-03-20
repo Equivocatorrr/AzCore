@@ -319,6 +319,7 @@ bool Stream::Close() {
 
 Stream::~Stream() {
 	if (valid) {
+		Close();
 		for (i32 i = 0; i < numStreamBuffers; i++) {
 			if (!buffers[i].Clean()) {
 				cout.PrintLn("Failed to clean Stream buffer: ", ::Sound::error);

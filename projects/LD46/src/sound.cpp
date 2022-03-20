@@ -40,6 +40,7 @@ bool ErrorCheck(const char* info) {
 }
 
 bool Manager::Initialize() {
+	if (initialized) return false;
 	device = alcOpenDevice(nullptr);
 	if (!device) {
 		error = "Failed to alcOpenDevice: " + openAlErrorToString(alGetError());
@@ -71,6 +72,7 @@ bool Manager::Initialize() {
 	procStop = false;
 	procFailure = false;
 	streamUpdateProc = Thread(StreamUpdateProc, this);
+	initialized = true;
 	return true;
 }
 
@@ -86,6 +88,7 @@ bool Manager::DeleteSources() {
 }
 
 bool Manager::Deinitialize() {
+	if (!initialized) return true;
 	procStop = true;
 	if (streamUpdateProc.Joinable()) {
 		streamUpdateProc.Join();
@@ -94,7 +97,12 @@ bool Manager::Deinitialize() {
 	alcMakeContextCurrent(nullptr);
 	alcDestroyContext(context);
 	alcCloseDevice(device);
+	initialized = true;
 	return true;
+}
+
+Manager::~Manager() {
+	Deinitialize();
 }
 
 Array<PriorityIndex> Manager::GetPriorities() {

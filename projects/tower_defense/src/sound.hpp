@@ -127,6 +127,7 @@ struct PriorityIndex {
 };
 
 struct Manager {
+	bool initialized = false;
 	String name{};
 	ALCdevice *device;
 	ALCcontext *context;
@@ -144,6 +145,7 @@ struct Manager {
 	bool Initialize();
 	bool DeleteSources();
 	bool Deinitialize();
+	~Manager();
 
 
 	bool Update();

@@ -22,11 +22,11 @@ struct Globals {
 	AzCore::io::Window window;
 	AzCore::io::RawInput rawInput;
 	AzCore::io::Gamepad *gamepad = nullptr;
+	Sound::Manager sound;
 	Assets::Manager assets;
 	Rendering::Manager rendering;
 	Entities::Manager entities;
 	Int::Gui gui;
-	Sound::Manager sound;
 	AzCore::RandomNumberGenerator rng;
 	bool exit = false;
 	AzCore::Nanoseconds frameDuration = AzCore::Nanoseconds(1000000000/60);

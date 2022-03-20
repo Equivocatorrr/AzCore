@@ -29,7 +29,7 @@ struct Globals {
 	Sound::Manager sound;
 	AzCore::RandomNumberGenerator rng;
 	bool exit = false;
-	AzCore::Nanoseconds frameDuration;
+	AzCore::Nanoseconds frameDuration = AzCore::Nanoseconds(1000000000/60);
 	AzCore::BinaryMap<AzCore::String, AzCore::WString> locale;
 	// Settings
 	bool fullscreen = false;

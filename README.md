@@ -55,7 +55,9 @@ On a Debian-based system (such as Ubuntu) you can get that like so:
 $ sudo apt-get install libvulkan-dev
 ```
 Alternatively, you can grab the Vulkan SDK from [LunarG.](https://www.lunarg.com/vulkan-sdk/)
-*Note that using the Vulkan SDK requires setting the environment variable `LINUX_VULKAN_SDK` to the path of the SDK's root folder, or specifying the path when calling `build.sh`. Likewise, the environment variable `WIN32_VULKAN_SDK` that can be set for cross-compiling to Windows.*
+*Note that using the Vulkan SDK requires setting the environment variable `LINUX_VULKAN_SDK` to the path of the SDK's root folder, or specifying the path when calling `build.sh`. Likewise, the environment variable `WIN32_VULKAN_SDK` can be set for cross-compiling to Windows.*
+
+Also note that you only need the development package from your distribution *OR* the SDK and **not both.** *When using the development packages, you don't need to set any environment variables.*
 
 #### Building
 This project is built using CMake, but to keep things simple and easy, I've written a script to handle everything cleanly. Just calling: `$ ./build.sh` should tell you what the script can do for you.

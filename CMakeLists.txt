@@ -53,7 +53,7 @@ if (EXISTS "${VULKAN_SDK}")
 	if (CMAKE_HOST_SYSTEM MATCHES Windows)
 		set(GLSL_VALIDATOR "${VULKAN_SDK}/Bin/glslangValidator.exe")
 	elseif (CMAKE_HOST_SYSTEM MATCHES Linux)
-		set(GLSL_VALIDATOR "${VULKAN_SDK}/bin/glslangValidator")
+		set(GLSL_VALIDATOR "${VULKAN_SDK}/x86_64/bin/glslangValidator")
 	endif()
 else()
 	find_package(Vulkan)
@@ -63,7 +63,7 @@ else()
 	if (NOT EXISTS Vulkan_GLSLANG_VALIDATOR_EXECUTABLE)
 		find_program(GLSL_VALIDATOR
 			NAMES glslangValidator glslangValidator.exe
-			HINTS "$ENV{VULKAN_SDK}/bin"
+			HINTS "$ENV{VULKAN_SDK}/x86_64/bin" "$ENV{VULKAN_SDK}/Bin"
 		)
 		if (GLSL_VALIDATOR STREQUAL "GLSL_VALIDATOR-NOTFOUND")
 			message(FATAL_ERROR "Couldn't find glslangValidator, needed for compiling spir-v")

@@ -45,15 +45,6 @@ struct BucketArray {
 			data[i++] = val;
 		}
 	}
-	BucketArray(const BucketArray<T, count> &other) : size(other.size) {
-		if constexpr (std::is_trivially_copyable<T>::value) {
-			memcpy((void *)data, (void *)other.data, sizeof(T) * size);
-		} else {
-			for (i32 i = 0; i < size; i++) {
-				data[i] = other.data[i];
-			}
-		}
-	}
 	BucketArray(const T *string) : size(StringLength(string)) {
 		AzAssert(size <= count, "BucketArray initialized with a size bigger than count");
 		if constexpr (std::is_trivially_copyable<T>::value) {
@@ -63,18 +54,6 @@ struct BucketArray {
 				data[i] = string[i];
 			}
 		}
-	}
-
-	BucketArray<T, count> &operator=(const BucketArray<T, count> &other) {
-		size = other.size;
-		if constexpr (std::is_trivially_copyable<T>::value) {
-			memcpy((void *)data, (void *)other.data, sizeof(T) * size);
-		} else {
-			for (i32 i = 0; i < size; i++) {
-				data[i] = other.data[i];
-			}
-		}
-		return *this;
 	}
 
 	BucketArray<T, count> &operator=(const std::initializer_list<T> &init) {

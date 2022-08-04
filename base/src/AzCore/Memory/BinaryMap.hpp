@@ -175,6 +175,10 @@ struct BinaryMap {
 		base = nullptr;
 	}
 
+	inline bool Empty() const {
+		return nullptr == base;
+	}
+
 	BinaryMap& operator=(const BinaryMap &other) {
 		if (this == &other) return *this;
 		if (base) {

@@ -49,10 +49,10 @@ $ cd AzCore
 ```
 ### Linux
 #### Dependencies
-AzCore uses Vulkan as its primary graphics API, so make sure to set up a build environment for Vulkan.
-On a Debian-based system (such as Ubuntu) you can get that like so:
+AzCore uses Vulkan as its primary graphics API, and xcb for window IO, so make sure to set up a build environment for Vulkan, xcb, xkbcommon, and openal for the example projects.
+On a Debian-based system (such as Ubuntu) the you can get all the dependencies with:
 ```console
-$ sudo apt-get install libvulkan-dev
+$ sudo apt-get install libvulkan-dev libxcb1-dev libxcb-image0-dev libxcb-shm0-dev libxkbcommon-dev libxkbcommon-x11-dev libopenal-dev
 ```
 Alternatively, you can grab the Vulkan SDK from [LunarG.](https://www.lunarg.com/vulkan-sdk/)
 *Note that using the Vulkan SDK requires setting the environment variable `LINUX_VULKAN_SDK` to the path of the SDK's root folder, or specifying the path when calling `build.sh`. Likewise, the environment variable `WIN32_VULKAN_SDK` can be set for cross-compiling to Windows.*

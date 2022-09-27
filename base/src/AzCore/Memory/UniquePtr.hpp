@@ -9,6 +9,7 @@
 #define AZCORE_UNIQUEPTR_HPP
 
 #include <utility>
+#include "../basictypes.hpp"
 
 namespace AzCore {
 
@@ -46,6 +47,12 @@ struct UniquePtr {
 			delete ptr;
 			ptr = nullptr;
 		}
+	}
+	force_inline(T*) RawPtr() {
+		return ptr;
+	}
+	force_inline(const T*) RawPtr() const {
+		return ptr;
 	}
 	// We claim ownership of the pointer
 	inline UniquePtr<T>& operator=(T *other) {

@@ -58,6 +58,12 @@ struct Ptr {
 			}
 		}
 	}
+	force_inline(T*) RawPtr() {
+		return operator->();
+	}
+	force_inline(const T*) RawPtr() const {
+		return operator->();
+	}
 	bool operator==(T *other) const {
 		if (index == indexIndicatingRaw) {
 			return other == raw;

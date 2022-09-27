@@ -132,7 +132,7 @@ public:
 	}
 
 	static inline void Yield() {
-		pthread_yield();
+		sched_yield();
 	}
 };
 

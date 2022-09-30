@@ -83,6 +83,7 @@ add_library(AzCore STATIC
 		src/AzCore/Memory/String.hpp
 		src/AzCore/Memory/StringCommon.hpp
 		src/AzCore/Memory/UniquePtr.hpp
+	src/AzCore/QuickSort.hpp
 	src/AzCore/Simd.hpp
 		src/AzCore/SIMD/SimdAVX.hpp
 		src/AzCore/SIMD/SimdSSE2.hpp

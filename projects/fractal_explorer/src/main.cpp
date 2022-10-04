@@ -199,7 +199,7 @@ void Render(SoftwareRenderer &renderer, vec2_t<Float> pos, bool julia, Complex j
 				Float value = values[i];
 				vec3 color;
 				f32 control = (f32)value;
-				f32 hue = control/6.0f;
+				f32 hue = control/4.0f;
 				f32 sat = sin(control*tau*2.0f)/4.0f
 				        + 0.75f;
 				f32 val = min(1.0f, control*16.0f);
@@ -361,7 +361,11 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		delta.y *= aspect;
 		if (input.scroll.y != 0.0f) {
 			Float factor = pow(1.2f, input.scroll.y);
-			pos += mouse * (factor-1);
+			pos += mouse - mouse / factor;
+			if (input.scroll.y > 0.0f) {
+				// Slight tendency to scroll towards center of screen on zoom in
+				pos += mouse * (factor-1) / 8;
+			}
 			zoom /= factor;
 			updated = true;
 		}
@@ -376,7 +380,11 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			updated = true;
 		}
 		if (input.Pressed(KC_KEY_P)) {
-			cout.PrintLn("Julia Point: ", julia.x, " + ", julia.y, "i");
+			if (renderJulia) {
+				cout.PrintLn("Julia Point: ", julia.x, " + ", julia.y, "i");
+			} else {
+				cout.PrintLn("Center Point: ", pos.x, " + ", pos.y, "i");
+			}
 		}
 		if (input.Pressed(KC_KEY_I) && nanoseconds != 0) {
 			cout.PrintLn("Iterations: ", iterations, "\nTime: ", FormatTime(Nanoseconds(nanoseconds)), "\nits/msec = ", (1000000*iterations)/nanoseconds);

@@ -56,7 +56,7 @@ public:
 	void NoLogFile() {
 		static bool once = false;
 		if (!once) {
-			Print("NoLogFile() is deprecated, and Log by default doesn't use a file. Switch to UseLogFile(bool)");
+			PrintLn("NoLogFile() is deprecated, and Log by default doesn't use a file. Switch to UseLogFile(bool)");
 			once = true;
 		}
 		mLogFile = false;

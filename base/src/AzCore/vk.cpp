@@ -36,9 +36,9 @@ namespace vk {
 	String error = "No Error";
 
 #ifndef AZCORE_VK_LOGGING_NO_CONSOLE
-	io::Log cout("vk.log");
+	io::Log cout("vk.log", true, true);
 #else
-	io::Log cout("vk.log", false);
+	io::Log cout("vk.log", false, true);
 #endif
 
 	const char *QueueTypeString[5] = {

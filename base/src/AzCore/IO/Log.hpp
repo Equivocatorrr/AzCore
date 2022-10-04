@@ -16,31 +16,31 @@ namespace io {
 
 /*  Use this to write any and all console output. */
 class Log {
-	FILE *file = nullptr;
-	bool openAttempt = false;
-	bool logFile = false;
-	bool logConsole = true;
-	bool startOnNewline = true;
-	String indentString = "    ";
-	Mutex mutex;
-	String prepend;
-	String filename;
+	FILE *mFile = nullptr;
+	bool mOpenAttempt = false;
+	bool mLogFile = false;
+	bool mLogConsole = true;
+	bool mStartOnNewline = true;
+	String mIndentString = "    ";
+	Mutex mMutex;
+	String mPrepend;
+	String mFilename;
 	inline void _HandleFile();
 public:
 	i32 indent = 0;
 	Log() = default;
-	inline Log(String logFilename, bool console=true) : Log() {
-		filename = logFilename;
+	inline Log(String filename, bool useConsole=true, bool useFile=false) : Log() {
+		mFilename = filename;
 		u32 lastSlash = 0;
-		for (i32 i = 0; i < filename.size; i++) {
-			if (filename[i] == '\\' || filename[i] == '/') {
+		for (i32 i = 0; i < mFilename.size; i++) {
+			if (mFilename[i] == '\\' || mFilename[i] == '/') {
 				lastSlash = i+1;
 			}
 		}
-		prepend = Stringify("[", filename.GetRange(lastSlash, filename.size-lastSlash), "] ");
-		prepend.Resize(align(prepend.size, indentString.size), ' ');
-		logConsole = console;
-		logFile = true;
+		mPrepend = Stringify("[", mFilename.GetRange(lastSlash, mFilename.size-lastSlash), "] ");
+		mPrepend.Resize(align(mPrepend.size, mIndentString.size), ' ');
+		mLogConsole = useConsole;
+		mLogFile = useFile;
 	}
 	~Log();
 
@@ -49,8 +49,17 @@ public:
 	Log(Log &&other) = default;
 	Log& operator=(Log &&other) = default;
 
+	void UseLogFile(bool useFile=true) {
+		mLogFile = useFile;
+	}
+
 	void NoLogFile() {
-		logFile = false;
+		static bool once = false;
+		if (!once) {
+			Print("NoLogFile() is deprecated, and Log by default doesn't use a file. Switch to UseLogFile(bool)");
+			once = true;
+		}
+		mLogFile = false;
 	}
 
 	template<bool newline>
@@ -103,16 +112,16 @@ public:
 		indent--;
 	}
 	inline void Lock() {
-		mutex.Lock();
+		mMutex.Lock();
 	}
 	inline void Unlock() {
-		mutex.Unlock();
+		mMutex.Unlock();
 	}
 	inline void IndentString(String value) {
 		if (value.size == 0) value = " ";
-		indentString = value;
-		prepend.Resize(filename.size + 3);
-		prepend.Resize(align(prepend.size, indentString.size), ' ');
+		mIndentString = value;
+		mPrepend.Resize(mFilename.size + 3);
+		mPrepend.Resize(align(mPrepend.size, mIndentString.size), ' ');
 	}
 };
 

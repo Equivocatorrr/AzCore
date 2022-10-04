@@ -5,7 +5,7 @@
 
 using namespace AzCore;
 
-io::Log cout("checks.log");
+io::Log cout("checks.log", true, true);
 
 u64 StringToU64(String str) {
 	u64 number = 0;

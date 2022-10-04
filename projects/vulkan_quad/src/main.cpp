@@ -12,7 +12,7 @@ using namespace AzCore;
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-io::Log cout("test.log");
+io::Log cout("test.log", true, true);
 
 i32 main(i32 argumentCount, char** argumentValues) {
 

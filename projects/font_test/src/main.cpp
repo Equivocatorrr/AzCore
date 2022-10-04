@@ -7,7 +7,7 @@ using namespace AzCore;
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
 
-io::Log cout("main.log");
+io::Log cout("main.log", true, true);
 
 i32 main(i32 argumentCount, char **argumentValues) {
 

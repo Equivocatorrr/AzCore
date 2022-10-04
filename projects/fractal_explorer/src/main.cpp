@@ -15,7 +15,7 @@ using namespace AzCore;
 #include "AzCore/Time.hpp"
 #include "AzCore/keycodes.hpp"
 
-io::Log cout("test.log");
+io::Log cout("test.log", true, true);
 
 constexpr i32 fpsLimit = 60;
 i64 iterations = 0;

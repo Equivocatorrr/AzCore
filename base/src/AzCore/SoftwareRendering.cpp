@@ -21,7 +21,7 @@
 
 namespace AzCore {
 
-io::Log cout("SoftwareRendering.log");
+// io::Log cout("SoftwareRendering.log");
 
 inline void blend(u8 &dst, u8 src, u8 alpha) {
 	u16 tempDst = (u16)dst * ((u16)255 - (u16)alpha);

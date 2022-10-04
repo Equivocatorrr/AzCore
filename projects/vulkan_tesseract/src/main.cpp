@@ -9,7 +9,7 @@
 
 using namespace AzCore;
 
-io::Log cout("main.log");
+io::Log cout("main.log", true, true);
 
 // NOTE: Using an immediate-mode renderer like this isn't necessarily a good idea.
 //	   It's just an easy way to do things that would otherwise require special shaders.

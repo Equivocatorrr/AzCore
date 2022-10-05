@@ -7,7 +7,8 @@
 #ifndef AZCORE_LOG_HPP
 #define AZCORE_LOG_HPP
 
-#include "../memory.hpp"
+#include "../Memory/String.hpp"
+#include "../Memory/Range.hpp"
 #include "../Thread.hpp"
 
 namespace AzCore {

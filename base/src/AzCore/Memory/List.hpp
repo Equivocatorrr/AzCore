@@ -7,10 +7,13 @@
 #define AZCORE_LIST_HPP
 
 #include "../basictypes.hpp"
-#include "Array.hpp"
 #include <initializer_list>
+#include <utility> // std::move
 
 namespace AzCore {
+
+template <typename T, i32 allocTail>
+struct Array;
 
 /*  struct: ListIndex
 	Author: Philip Haynes
@@ -110,7 +113,7 @@ struct List {
 	List(std::initializer_list<T> init) : first(nullptr), last(nullptr) {
 		*this = init;
 	}
-	List(const Array<T> &array) : first(nullptr), last(nullptr) {
+	List(const Array<T,0> &array) : first(nullptr), last(nullptr) {
 		*this = array;
 	}
 	~List() {
@@ -181,7 +184,7 @@ struct List {
 		}
 		return *this;
 	}
-	List<T>& operator=(const Array<T> &array) {
+	List<T>& operator=(const Array<T,0> &array) {
 		if (array.size == 0) {
 			Clear();
 			return *this;

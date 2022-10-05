@@ -12,7 +12,6 @@ namespace AzCore {
 
 template <typename T, i32 allocTail>
 struct Array;
-static constexpr i32 indexIndicatingRaw = (i32)0xFFFFFFFF; // Because MSVC is stupid
 
 /*  struct: Ptr
 	Author: Philip Haynes

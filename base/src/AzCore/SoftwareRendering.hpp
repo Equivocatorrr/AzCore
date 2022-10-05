@@ -10,6 +10,7 @@
 #include "IO/Window.hpp"
 #include "math.hpp"
 #include "Image.hpp"
+#include "memory.hpp"
 
 namespace AzCore {
 

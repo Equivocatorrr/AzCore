@@ -10,17 +10,13 @@
 #include <stdexcept> // std::out_of_range
 #include "Ptr.hpp"
 #include "StringCommon.hpp"
+#include "Array.hpp"
+#include "List.hpp"
 
 namespace AzCore {
 
-// template <typename T, i32 allocTail>
-// struct Array;
 template <typename T, i32 noAllocCount, i32 allocTail>
 struct ArrayWithBucket;
-template <typename T>
-struct ListIndex;
-template <typename T>
-struct List;
 
 template <typename T>
 struct RangeIterator {

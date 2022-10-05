@@ -8,9 +8,12 @@
 #define AZCORE_ARRAY_HPP
 
 #include "../basictypes.hpp"
+
+namespace AzCore {
+template <typename T, i32 allocTail=0>
+struct Array;
+}
 #include "StringCommon.hpp"
-#include "Ptr.hpp"
-#include "Range.hpp"
 #include <stdexcept> // std::out_of_range
 #include <initializer_list>
 #include <type_traits> // std::is_trivially_copyable
@@ -18,13 +21,20 @@
 
 namespace AzCore {
 
+template <typename T>
+struct Ptr;
+template <typename T>
+struct Range;
+template <typename T>
+struct SimpleRange;
+
 /*  struct: Array
 	Author: Philip Haynes
 	A templated dynamic array which is guaranteed to be 16 bytes on a 64-bit architecture.
 	allocTail is the number of elements of type T to be set at the end of the valid data,
 	starting at data[size].
 	For an allocTail != 0, an associated StringTerminators must be declared for type T. */
-template <typename T, i32 allocTail=0>
+template <typename T, i32 allocTail>
 struct Array {
 	T *data;
 	i32 allocated;

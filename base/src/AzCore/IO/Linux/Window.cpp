@@ -7,6 +7,7 @@
 #include "../../io.hpp"
 #include "../../keycodes.hpp"
 #include "WindowData.hpp"
+#include "../../memory.hpp"
 
 namespace AzCore {
 

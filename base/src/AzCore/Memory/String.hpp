@@ -222,10 +222,10 @@ constexpr i32 IndexHash(const String &in) {
 	return i32(hash % bounds);
 }
 
-String Join(const Array<SimpleRange<char>> &values, SimpleRange<char> joiner);
+String Join(const Array<SimpleRange<char>, 0> &values, SimpleRange<char> joiner);
 
-Array<SimpleRange<char>> SeparateByNewlines(SimpleRange<char> string, bool allowEmpty=false);
-Array<SimpleRange<char32>> SeparateByNewlines(SimpleRange<char32> string, bool allowEmpty=false);
+Array<SimpleRange<char>, 0> SeparateByNewlines(SimpleRange<char> string, bool allowEmpty=false);
+Array<SimpleRange<char32>, 0> SeparateByNewlines(SimpleRange<char32> string, bool allowEmpty=false);
 
 } // namespace AzCore
 

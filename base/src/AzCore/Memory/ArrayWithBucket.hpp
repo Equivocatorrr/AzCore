@@ -7,13 +7,22 @@
 #define AZCORE_ARRAYWITHBUCKET_HPP
 
 #include "../basictypes.hpp"
-#include "Array.hpp"
+#include "StringCommon.hpp"
 #include <stdexcept> // std::out_of_range
 #include <initializer_list>
 #include <type_traits> // std::is_trivially_copyable
 #include <cstring>     // memcpy
 
 namespace AzCore {
+
+template <typename T>
+struct Ptr;
+template <typename T>
+struct Range;
+template<typename T>
+struct SimpleRange;
+template <typename T, i32 allocTail>
+struct Array;
 
 template <typename T, i32 noAllocCount, i32 allocTail=0>
 struct ArrayWithBucket {

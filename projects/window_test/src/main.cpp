@@ -5,6 +5,8 @@
 */
 
 #include "AzCore/io.hpp"
+#include "AzCore/Thread.hpp"
+#include "AzCore/Time.hpp"
 
 using namespace AzCore;
 

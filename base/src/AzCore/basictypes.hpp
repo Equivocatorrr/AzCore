@@ -32,6 +32,10 @@ static_assert(sizeof(i64) == 8);
 static_assert(sizeof(f32) == 4);
 static_assert(sizeof(f64) == 8);
 
+namespace AzCore {
+	static constexpr i32 indexIndicatingRaw = (i32)0xFFFFFFFF; // Because MSVC is stupid
+}
+
 // Let's pretend we support compilers other than GCC for a moment.
 #if 1
 #if defined(__clang__)

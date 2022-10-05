@@ -178,7 +178,30 @@ code.
 #### Logging
 io::Log is an intuitive and efficient way to log to both a log file and console at the same time. It completely usurps the C++ stream-like logger style for a somewhat more traditional printf-style logger. Using template varargs, you don't need a format string, and instead just put the values to print in order.
 ```C++
-logger.Print("This ", integer, " is ", float_num, " less ", string, " cumbersome!");
+i32 integer = 3;
+f32 float_num = 1.0f;
+String string = "(much less)";
+io::Log logger = io::Log(
+   "filename.log",
+   /*optional bool useConsole=  */ true   /*default true*/,
+   /*optional bool useFile=     */ true   /*default false*/,
+   /*optional FILE *consoleFile=*/ stdout /*default stdout*/
+);
+logger.PrintLn("This ", integer, " is ", float_num, " less ", string, " cumbersome!").Flush();
+
+io::stdout.Print("There's also io::stdout available, ").Flush();
+io::stderr.PrintLn("as well as io::stderr.").Flush();
+// We're only using flush because we have 3 different io::Logs and actual order is only guaranteed for individual ones.
+// Just using PrintLn is almost always good enough without Flush.
+```
+Result in console:
+```console
+[filename.log]  This 3 is 1.0 less (much less) cumbersome!
+There's also io::stdout available, as well as io::stderr.
+```
+Result in `filename.log`:
+```
+This 3 is 1.0 less (much less) cumbersome!
 ```
 
 *DEPRECATED*: io::LogStream is a std::cout-like structure that logs information to both the console and a log file simultaneously.

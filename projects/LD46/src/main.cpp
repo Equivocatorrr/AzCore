@@ -12,7 +12,7 @@ using namespace AzCore;
 
 const char *title = "Torch Runner";
 
-io::Log cout("main.log");
+io::Log cout("main.log", true, true);
 
 void UpdateProc() {
 	globals->objects.Update();
@@ -20,10 +20,8 @@ void UpdateProc() {
 
 void DrawProc() {
 	if (!globals->rendering.Draw()) {
-		cout.Lock();
-		cout.PrintLn("Error in Rendering::Manager::Draw: ", Rendering::error);
+		cout.Lock().PrintLn("Error in Rendering::Manager::Draw: ", Rendering::error).Unlock();
 		globals->exit = true;
-		cout.Unlock();
 	};
 }
 

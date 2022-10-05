@@ -35,6 +35,16 @@ Log& Log::operator=(const Log &other) {
 	return *this;
 }
 
+Log& Log::Flush() {
+	if (mLogConsole) {
+		fflush(mConsoleFile);
+	}
+	if (mLogFile) {
+		fflush(mFile);
+	}
+	return *this;
+}
+
 inline void Log::_HandleFile() {
 	if (!mLogFile) return;
 	if (mOpenAttempt) return;
@@ -137,7 +147,7 @@ void Log::_Print(SimpleRange<char> out) {
 		if (written != (size_t)fileOut.size) mLogFile = false;
 	}
 	if (mLogConsole) {
-		size_t written = fwrite(consoleOut.data, sizeof(char), consoleOut.size, stdout);
+		size_t written = fwrite(consoleOut.data, sizeof(char), consoleOut.size, mConsoleFile);
 		if (written != (size_t)consoleOut.size) mLogConsole = false;
 	}
 }
@@ -145,21 +155,22 @@ void Log::_Print(SimpleRange<char> out) {
 template void Log::_Print<false>(SimpleRange<char>);
 template void Log::_Print<true>(SimpleRange<char>);
 
-void Log::PrintPlain(SimpleRange<char> out) {
-	if (!mLogConsole && !mLogFile) return;
+Log& Log::PrintPlain(SimpleRange<char> out) {
+	if (!mLogConsole && !mLogFile) return *this;
 	_HandleFile();
 	if (mFile) {
 		size_t written = fwrite(out.str, sizeof(char), out.size, mFile);
 		if (written != (size_t)out.size) mLogFile = false;
 	}
 	if (mLogConsole) {
-		size_t written = fwrite(out.str, sizeof(char), out.size, stdout);
+		size_t written = fwrite(out.str, sizeof(char), out.size, mConsoleFile);
 		if (written != (size_t)out.size) mLogConsole = false;
 	}
+	return *this;
 }
 
-void Log::PrintLnPlain(SimpleRange<char> out) {
-	if (!mLogConsole && !mLogFile) return;
+Log& Log::PrintLnPlain(SimpleRange<char> out) {
+	if (!mLogConsole && !mLogFile) return *this;
 	_HandleFile();
 	if (mFile) {
 		size_t written = fwrite(out.str, sizeof(char), out.size, mFile);
@@ -167,14 +178,15 @@ void Log::PrintLnPlain(SimpleRange<char> out) {
 		fputc('\n', mFile);
 	}
 	if (mLogConsole) {
-		size_t written = fwrite(out.str, sizeof(char), out.size, stdout);
+		size_t written = fwrite(out.str, sizeof(char), out.size, mConsoleFile);
 		if (written != (size_t)out.size) mLogConsole = false;
-		fputc('\n', stdout);
+		fputc('\n', mConsoleFile);
 	}
+	return *this;
 }
 
-void Log::Newline(i32 count) {
-	if (!mLogConsole && !mLogFile) return;
+Log& Log::Newline(i32 count) {
+	if (!mLogConsole && !mLogFile) return *this;
 	_HandleFile();
 	if (mFile) {
 		for (i32 i = 0; i < count; i++)
@@ -182,10 +194,14 @@ void Log::Newline(i32 count) {
 	}
 	if (mLogConsole) {
 		for (i32 i = 0; i < count; i++)
-			fputc('\n', stdout);
+			fputc('\n', mConsoleFile);
 	}
 	mStartOnNewline = true;
+	return *this;
 }
+
+Log stdout = Log(String());
+Log stderr = Log(String(), true, false, ::stderr);
 
 } // namespace io
 

@@ -179,10 +179,10 @@ void Manager::EventAssetAcquire() {
 	sndMoney.Create("Money Cursed.ogg");
 	sndMoney.SetGain(0.5f);
 	if (!streamSegment1.Create("Segment 1.ogg")) {
-		std::cout << "Failed to create stream for \"Segment 1.ogg\": " << Sound::error.data << std::endl;
+		io::stderr.PrintLn("Failed to create stream for \"Segment 1.ogg\": ", Sound::error);
 	}
 	if (!streamSegment2.Create("Segment 2.ogg")) {
-		std::cout << "Failed to create stream for \"Segment 2.ogg\": " << Sound::error.data << std::endl;
+		io::stderr.PrintLn("Failed to create stream for \"Segment 2.ogg\": ", Sound::error);
 	}
 }
 

@@ -12,7 +12,7 @@
 
 namespace Entities {
 
-	AzCore::io::Log cout("entities.log");
+	AzCore::io::Log cout("entities.log", true, true);
 
 template<typename T>
 inline void ApplyFriction(T &obj, f32 friction, f32 timestep) {
@@ -102,7 +102,6 @@ void Manager::EventAssetAcquire() {
 }
 
 void Manager::EventInitialize() {
-	cout.NoLogFile();
 	Array<char> levels = FileContents("data/levels.txt");
 	Array<SimpleRange<char>> lines = SeparateByNewlines(levels);
 	for (i32 i = 0; i < lines.size; i++) {

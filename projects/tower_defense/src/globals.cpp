@@ -23,7 +23,7 @@ void Globals::LoadLocale() {
 		std::setlocale(LC_ALL, "");
 		char *localeString = std::setlocale(LC_CTYPE, NULL);
 
-		std::cout << "localeString = " << localeString << std::endl;
+		io::stdout.PrintLn("localeString = ", localeString);
 
 		localeName += CharToLower(localeString[0]);
 		localeName += CharToLower(localeString[1]);

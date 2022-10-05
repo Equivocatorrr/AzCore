@@ -433,8 +433,6 @@ template<typename T>
 void DoubleBufferArray<T>::Destroy(Id id) {
 	mutex.Lock();
 	if (array[!buffer][id.index].id != id) {
-		// std::cout << "Attempt to destroy an object of the wrong generation! Expected gen = "
-		//		   << id.generation << ", actual gen = " << array[!buffer][id.index].id.generation << std::endl;
 		mutex.Unlock();
 		return;
 	}

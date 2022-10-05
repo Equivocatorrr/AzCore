@@ -8,7 +8,9 @@
 #ifndef AZCORE_IO_HPP
 #define AZCORE_IO_HPP
 
+#ifndef AZCORE_NO_LOGSTREAM
 #include "IO/LogStream.hpp"
+#endif
 #include "IO/Log.hpp"
 #include "math.hpp"
 

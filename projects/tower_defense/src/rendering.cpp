@@ -12,7 +12,7 @@
 
 namespace Rendering {
 
-io::Log cout("rendering.log");
+io::Log cout("rendering.log", true, true);
 
 String error = "No error.";
 

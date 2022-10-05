@@ -17,6 +17,7 @@ namespace io {
 /*  Use this to write any and all console output. */
 class Log {
 	FILE *mFile = nullptr;
+	FILE *mConsoleFile = stdout;
 	bool mOpenAttempt = false;
 	bool mLogFile = false;
 	bool mLogConsole = true;
@@ -25,22 +26,19 @@ class Log {
 	Mutex mMutex;
 	String mPrepend;
 	String mFilename;
+
 	inline void _HandleFile();
+
+	template<bool newline>
+	void _Print(SimpleRange<char> out);
 public:
 	i32 indent = 0;
+
 	Log() = default;
-	inline Log(String filename, bool useConsole=true, bool useFile=false) : Log() {
-		mFilename = filename;
-		u32 lastSlash = 0;
-		for (i32 i = 0; i < mFilename.size; i++) {
-			if (mFilename[i] == '\\' || mFilename[i] == '/') {
-				lastSlash = i+1;
-			}
-		}
-		mPrepend = Stringify("[", mFilename.GetRange(lastSlash, mFilename.size-lastSlash), "] ");
-		mPrepend.Resize(align(mPrepend.size, mIndentString.size), ' ');
+	inline Log(String filename, bool useConsole=true, bool useFile=false, FILE *consoleFile=stdout) : Log() {
+		mConsoleFile = consoleFile;
+		UseLogFile(useFile, filename);
 		mLogConsole = useConsole;
-		mLogFile = useFile;
 	}
 	~Log();
 
@@ -49,8 +47,20 @@ public:
 	Log(Log &&other) = default;
 	Log& operator=(Log &&other) = default;
 
-	void UseLogFile(bool useFile=true) {
+	Log& UseLogFile(bool useFile=true, SimpleRange<char> filename="") {
+		mFilename = filename;
+		u32 lastSlash = 0;
+		if (mFilename.size != 0) {
+			for (i32 i = 0; i < mFilename.size; i++) {
+				if (mFilename[i] == '\\' || mFilename[i] == '/') {
+					lastSlash = i+1;
+				}
+			}
+			mPrepend = Stringify("[", mFilename.GetRange(lastSlash, mFilename.size-lastSlash), "] ");
+			mPrepend.Resize(align(mPrepend.size, mIndentString.size), ' ');
+		}
 		mLogFile = useFile;
+		return *this;
 	}
 
 	void NoLogFile() {
@@ -62,68 +72,96 @@ public:
 		mLogFile = false;
 	}
 
-	template<bool newline>
-	void _Print(SimpleRange<char> out);
+	// Forces all buffered outputs to be flushed.
+	Log& Flush();
 
-	inline void Print(String out) {
+	inline Log& Print(String out) {
 		_Print<false>(out);
+		return *this;
 	}
-	inline void Print(const char *out) {
+	inline Log& Print(const char *out) {
 		_Print<false>(out);
+		return *this;
 	}
-	inline void Print(char *out) {
+	inline Log& Print(char *out) {
 		_Print<false>(out);
+		return *this;
 	}
-	inline void Print(SimpleRange<char> out) {
+	inline Log& Print(SimpleRange<char> out) {
 		_Print<false>(out);
+		return *this;
 	}
 
-	inline void PrintLn(String out) {
+	inline Log& PrintLn(String out) {
 		_Print<true>(out);
+		return *this;
 	}
-	inline void PrintLn(const char *out) {
+	inline Log& PrintLn(const char *out) {
 		_Print<true>(out);
+		return *this;
 	}
-	inline void PrintLn(char *out) {
+	inline Log& PrintLn(char *out) {
 		_Print<true>(out);
+		return *this;
 	}
-	inline void PrintLn(SimpleRange<char> out) {
+	inline Log& PrintLn(SimpleRange<char> out) {
 		_Print<true>(out);
+		return *this;
 	}
 
 	template <typename... Args>
-	inline void Print(Args... args) {
+	inline Log& Print(Args... args) {
 		Print(Stringify(args...));
+		return *this;
 	}
 	template <typename... Args>
-	inline void PrintLn(Args... args) {
+	inline Log& PrintLn(Args... args) {
 		PrintLn(Stringify(args...));
+		return *this;
 	}
 	// Print without indenting or prepending on newlines
-	void PrintPlain(SimpleRange<char> out);
-	void PrintLnPlain(SimpleRange<char> out);
+	Log& PrintPlain(SimpleRange<char> out);
+	// Print without indenting or prepending on newlines
+	Log& PrintLnPlain(SimpleRange<char> out);
 
-	void Newline(i32 count = 1);
+	// Outputs count newlines (default 1).
+	Log& Newline(i32 count = 1);
 
-	inline void IndentMore() {
+	// Increase indent by one
+	inline Log& IndentMore() {
 		indent++;
+		return *this;
 	}
-	inline void IndentLess() {
+	// Decrease indent by one
+	inline Log& IndentLess() {
 		indent--;
+		return *this;
 	}
-	inline void Lock() {
+	// Locks this Log's mutex, allowing thread-safe output.
+	// NOTE: All threads must call this to be thread-safe.
+	inline Log& Lock() {
 		mMutex.Lock();
+		return *this;
 	}
-	inline void Unlock() {
+	// Unlocks the mutex.
+	inline Log& Unlock() {
 		mMutex.Unlock();
+		return *this;
 	}
-	inline void IndentString(String value) {
+	// Changes the string we use for indenting. Default is 4 spaces.
+	inline Log& IndentString(SimpleRange<char> value) {
 		if (value.size == 0) value = " ";
 		mIndentString = value;
 		mPrepend.Resize(mFilename.size + 3);
 		mPrepend.Resize(align(mPrepend.size, mIndentString.size), ' ');
+		return *this;
 	}
 };
+
+// Simple output to stdout
+extern Log stdout;
+// Simple output to stderr
+extern Log stderr;
 
 } // namespace io
 

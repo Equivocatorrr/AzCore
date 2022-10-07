@@ -180,8 +180,8 @@ io::Log is an intuitive and efficient way to log to both a log file and console 
 ```C++
 i32 integer = 3;
 f32 float_num = 1.0f;
-String string = "(much less)";
-io::Log logger = io::Log(
+AzCore::String string = "(much less)";
+AzCore::io::Log logger = io::Log(
    "filename.log",
    /*optional bool useConsole=  */ true   /*default true*/,
    /*optional bool useFile=     */ true   /*default false*/,
@@ -189,9 +189,9 @@ io::Log logger = io::Log(
 );
 logger.PrintLn("This ", integer, " is ", float_num, " less ", string, " cumbersome!").Flush();
 
-io::stdout.Print("There's also io::stdout available, ").Flush();
-io::stderr.PrintLn("as well as io::stderr.").Flush();
-// We're only using flush because we have 3 different io::Logs and actual order is only guaranteed for individual ones.
+AzCore::io::stdout.Print("There's also io::stdout available, ").Flush();
+AzCore::io::stderr.PrintLn("as well as io::stderr.").Flush();
+// We're only using Flush because we have 3 different Logs and actual order is only guaranteed for individual ones.
 // Just using PrintLn is almost always good enough without Flush.
 ```
 Result in console:

@@ -70,14 +70,17 @@ struct HashSet {
 			return *this;
 		}
 
-		void Emplace(Node && node) {
+		// Returns whether the key already exists.
+		bool Emplace(Node && node) {
 			if (key != node.key) {
 				if (next) {
-					next->Emplace(std::move(node));
+					return next->Emplace(std::move(node));
 				} else {
 					next = new Node(std::move(node));
+					return false;
 				}
 			}
+			return true;
 		}
 
 		bool Exists(const Key_t& testKey) const {
@@ -155,17 +158,19 @@ struct HashSet {
 		return *this;
 	}
 
-	force_inline(void)
+	force_inline(bool)
 	Emplace(Node &&node) {
-		Emplace(node.key);
+		return Emplace(node.key);
 	}
 
-	void Emplace(Key_t key) {
+	// Returns whether the key already exists.
+	bool Emplace(Key_t key) {
 		i32 index = IndexHash<arraySize>(key);
 		if (nodes[index]) {
-			nodes[index]->Emplace(Node(key));
+			return nodes[index]->Emplace(Node(key));
 		} else {
 			nodes[index] = new Node(key);
+			return false;
 		}
 	}
 

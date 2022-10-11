@@ -189,15 +189,15 @@ AzCore::io::Log logger = io::Log(
 );
 logger.PrintLn("This ", integer, " is ", float_num, " less ", string, " cumbersome!").Flush();
 
-AzCore::io::stdout.Print("There's also io::stdout available, ").Flush();
-AzCore::io::stderr.PrintLn("as well as io::stderr.").Flush();
+AzCore::io::cout.Print("There's also io::cout available, ").Flush();
+AzCore::io::cerr.PrintLn("as well as io::cerr.").Flush();
 // We're only using Flush because we have 3 different Logs and actual order is only guaranteed for individual ones.
 // Just using PrintLn is almost always good enough without Flush.
 ```
 Result in console:
 ```console
 [filename.log]  This 3 is 1.0 less (much less) cumbersome!
-There's also io::stdout available, as well as io::stderr.
+There's also io::cout available, as well as io::cerr.
 ```
 Result in `filename.log`:
 ```

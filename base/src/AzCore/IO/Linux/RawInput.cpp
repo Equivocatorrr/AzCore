@@ -130,20 +130,20 @@ void RawInputDeviceInit(RawInputDevice *rid, i32 fd, String &&path, RawInputFeat
 	}
 	// TODO: Recognize Joysticks separately
 	rid->type = GAMEPAD;
-	cout.PrintLn("RawInputDevice from path \"", rid->data->path, "\":\n"
+	ioLog.PrintLn("RawInputDevice from path \"", rid->data->path, "\":\n"
 		 "\t   Type: ", RawInputDeviceTypeString[rid->type], "\n"
 		 "\t   Name: ", rid->data->name, "\n"
 		 "\tVersion: ", rid->data->version);
 	u8 axes, buttons;
 	if (-1 == ioctl(fd, JSIOCGAXES, &axes)) {
-		cout.PrintLn("\tFailed to get axes...");
+		ioLog.PrintLn("\tFailed to get axes...");
 	} else {
-		cout.PrintLn("\tJoystick has ",  (u32)axes,  " axes.");
+		ioLog.PrintLn("\tJoystick has ",  (u32)axes,  " axes.");
 	}
 	if (-1 == ioctl(fd, JSIOCGBUTTONS, &buttons)) {
-		cout.PrintLn("\tFailed to get buttons...");
+		ioLog.PrintLn("\tFailed to get buttons...");
 	} else {
-		cout.PrintLn("\tJoystick has ",  (u32)buttons,  " buttons.");
+		ioLog.PrintLn("\tJoystick has ",  (u32)buttons,  " buttons.");
 	}
 	rid->data->mapping.FromDevice(rid->data->fd);
 }
@@ -151,7 +151,7 @@ void RawInputDeviceInit(RawInputDevice *rid, i32 fd, String &&path, RawInputFeat
 bool GetRawInputDeviceEvent(Ptr<RawInputDevice> rid, js_event *dst) {
 	ssize_t rc = read(rid->data->fd, dst, sizeof(js_event));
 	if (rc == -1 && errno != EAGAIN) {
-		cout.PrintLn("Lost raw input device ",  rid->data->path);
+		ioLog.PrintLn("Lost raw input device ",  rid->data->path);
 		close(rid->data->fd);
 		rid->data->retryTimer = 1.0;
 		return false;
@@ -189,7 +189,7 @@ bool RawInput::Init(RawInputFeatureBits enableMask) {
 		i32 fd = open(path, O_RDONLY | O_NONBLOCK);
 		if (fd < 0) {
 			if (errno == EACCES) {
-				cout.PrintLn("Permission denied opening device with path \"",  path,  "\".");
+				ioLog.PrintLn("Permission denied opening device with path \"",  path,  "\".");
 			}
 			continue;
 		}
@@ -219,7 +219,7 @@ bool RawInput::Init(RawInputFeatureBits enableMask) {
 		}
 	}
 #ifdef IO_GAMEPAD_LOGGING_VERBOSE
-	cout.PrintLn("Total time to check 32 raw input devices: ",  FormatTime(Clock::now() - start));
+	ioLog.PrintLn("Total time to check 32 raw input devices: ",  FormatTime(Clock::now() - start));
 #endif
 	return true;
 }
@@ -283,7 +283,7 @@ void Gamepad::Update(f32 timestep, i32 index) {
 		switch (ev.type) {
 		case JS_EVENT_INIT: {
 			// Not sure what this is for... seems to not be triggered ever???
-			cout.PrintLn("JS_EVENT_INIT has number ",  (u32)ev.number,  " and value ",  ev.value);
+			ioLog.PrintLn("JS_EVENT_INIT has number ",  (u32)ev.number,  " and value ",  ev.value);
 		}
 		break;
 		case JS_EVENT_AXIS: {
@@ -378,32 +378,32 @@ void Gamepad::Update(f32 timestep, i32 index) {
 #ifdef IO_GAMEPAD_LOGGING_VERBOSE
 	for (u32 i = 0; i < IO_GAMEPAD_MAX_AXES; i++) {
 		if (axisPush[i * 2].Pressed()) {
-			cout.PrintLn("Pressed ",  KeyCodeName(i * 2 + KC_GP_AXIS_LS_RIGHT));
+			ioLog.PrintLn("Pressed ",  KeyCodeName(i * 2 + KC_GP_AXIS_LS_RIGHT));
 		}
 		if (axisPush[i * 2 + 1].Pressed()) {
-			cout.PrintLn("Pressed ",  KeyCodeName(i * 2 + 1 + KC_GP_AXIS_LS_RIGHT));
+			ioLog.PrintLn("Pressed ",  KeyCodeName(i * 2 + 1 + KC_GP_AXIS_LS_RIGHT));
 		}
 		if (axisPush[i * 2].Released()) {
-			cout.PrintLn("Released ",  KeyCodeName(i * 2 + KC_GP_AXIS_LS_RIGHT));
+			ioLog.PrintLn("Released ",  KeyCodeName(i * 2 + KC_GP_AXIS_LS_RIGHT));
 		}
 		if (axisPush[i * 2 + 1].Released()) {
-			cout.PrintLn("Released ",  KeyCodeName(i * 2 + 1 + KC_GP_AXIS_LS_RIGHT));
+			ioLog.PrintLn("Released ",  KeyCodeName(i * 2 + 1 + KC_GP_AXIS_LS_RIGHT));
 		}
 	}
 	for (u32 i = 0; i < 4; i++) {
 		if (hat[i].Pressed()) {
-			cout.PrintLn("Pressed ",  KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT));
+			ioLog.PrintLn("Pressed ",  KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT));
 		}
 		if (hat[i].Released()) {
-			cout.PrintLn("Released ",  KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT));
+			ioLog.PrintLn("Released ",  KeyCodeName(i + KC_GP_AXIS_H0_UP_RIGHT));
 		}
 	}
 	for (u32 i = 0; i < IO_GAMEPAD_MAX_BUTTONS; i++) {
 		if (button[i].Pressed()) {
-			cout.PrintLn("Pressed ",  KeyCodeName(i + KC_GP_BTN_A));
+			ioLog.PrintLn("Pressed ",  KeyCodeName(i + KC_GP_BTN_A));
 		}
 		if (button[i].Released()) {
-			cout.PrintLn("Released ",  KeyCodeName(i + KC_GP_BTN_A));
+			ioLog.PrintLn("Released ",  KeyCodeName(i + KC_GP_BTN_A));
 		}
 	}
 #endif

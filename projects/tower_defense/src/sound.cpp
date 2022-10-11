@@ -362,7 +362,7 @@ void Manager::StreamUpdateProc(Manager *theThisPointer) {
 			if (!sounds[i]->stream || !sounds[i]->active || !sounds[i]->playing) continue;
 			Stream *stream = (Stream*)sounds[i];
 			if (stream->BuffersDone() > 0) {
-				// io::stdout.PrintLn("Decode and queue");
+				// io::cout.PrintLn("Decode and queue");
 				if (!stream->Unqueue(stream->file->data.currentBuffer)) {
 					goto failure;
 				}

@@ -21,7 +21,7 @@ namespace io {
 	extern String error;
 	extern vec2 screenSize;
 
-	extern Log cout;
+	extern Log ioLog;
 
 	inline Array<SimpleRange<char>> GetArguments(i32 argc, char *argv[]) {
 		// NOTE: Do we want to omit the first one since it's just the app name on the system?

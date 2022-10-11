@@ -160,9 +160,9 @@ public:
 };
 
 // Simple output to stdout
-extern Log stdout;
+extern Log cout;
 // Simple output to stderr
-extern Log stderr;
+extern Log cerr;
 
 } // namespace io
 

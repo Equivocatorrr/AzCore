@@ -200,8 +200,8 @@ Log& Log::Newline(i32 count) {
 	return *this;
 }
 
-Log stdout = Log(String());
-Log stderr = Log(String(), true, false, ::stderr);
+Log cout = Log(String());
+Log cerr = Log(String(), true, false, stderr);
 
 } // namespace io
 

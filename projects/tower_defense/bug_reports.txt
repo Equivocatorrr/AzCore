@@ -1,0 +1,7 @@
+Sponji:
+terminate called after throwing an instance of 'std::out_of_range'
+what():  Array index is out of bounds
+AzCore::Array<short, 0>::operator[] (this=0x7f04626bfa50, index=-9364554) at AzCore/base/src/AzCore/Memory/Array.hpp:346
+Assets::Stream::Decode (this=0x5629bd2964c8, sampleCount=-4680072) at AzCore/projects/tower_defense/src/assets.cpp:256
+Sound::Manager::StreamUpdateProc (theThisPointer=0x7ffdddaff110) at AzCore/projects/tower_defense/src/sound.cpp:361
+Status: Not Reproduced and No Ideas

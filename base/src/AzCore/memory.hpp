@@ -151,6 +151,9 @@ Array<Range<T>> SeparateByStrings(Array<T, allocTail> &array,
 			i++;
 		}
 	}
+	if (rangeStart < array.size) {
+		result.Append(array.GetRange(rangeStart, array.size-rangeStart));
+	}
 	return result;
 }
 // TODO: Implement SeparateByStrings for ArrayWithBucket, Range, and raw strings.

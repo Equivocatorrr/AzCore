@@ -550,7 +550,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 				{10, 11, 14, 15},
 
 			};
-			for (u32 eye = 0; eye < (enableStereoGraphic ? 2 : 1); eye++) {
+			for (u32 eye = 0; eye < (enableStereoGraphic ? 2u : 1u); eye++) {
 				if (enableStereoGraphic) {
 					vk::CmdSetScissor(cmdBuf, window.width/2, window.height, eye * window.width / 2);
 				}
@@ -573,7 +573,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		}
 
 		pipelineLines->Bind(cmdBuf);
-		for (u32 eye = 0; eye < (enableStereoGraphic ? 2 : 1); eye++) {
+		for (u32 eye = 0; eye < (enableStereoGraphic ? 2u : 1u); eye++) {
 			if (enableStereoGraphic) {
 				vk::CmdSetScissor(cmdBuf, window.width/2, window.height, eye * window.width / 2);
 			}
@@ -595,7 +595,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		}
 		pipelineTriangleFan->Bind(cmdBuf);
 
-		for (u32 eye = 0; eye < (enableStereoGraphic ? 2 : 1); eye++) {
+		for (u32 eye = 0; eye < (enableStereoGraphic ? 2u : 1u); eye++) {
 			if (enableStereoGraphic) {
 				vk::CmdSetScissor(cmdBuf, window.width/2, window.height, eye * window.width / 2);
 			}

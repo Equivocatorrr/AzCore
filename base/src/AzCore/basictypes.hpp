@@ -102,7 +102,7 @@ namespace az = AzCore;
 		if (!condition) {
 			fprintf(stderr, "\033[96m%s\033[0m:\033[96m%s\033[0m Assert failed: \033[91m%s\033[0m\n", file, line, message);
 			PrintBacktrace(stderr);
-			exit(1);
+			abort();
 		}
 	}
 	constexpr auto* _GetFileName(const char* const path) {
@@ -114,7 +114,7 @@ namespace az = AzCore;
 	}
 	#define STRINGIFY_DAMMIT(x) #x
 	#define STRINGIFY(x) STRINGIFY_DAMMIT(x)
-	#define AzAssert(condition, message) _Assert((condition), _GetFileName(__FILE__), STRINGIFY(__LINE__), (message))
+	#define AzAssert(condition, message) if (!(condition)) {_Assert(false, _GetFileName(__FILE__), STRINGIFY(__LINE__), (message));}
 #endif
 
 #endif // AZCORE_BASICTYPES_HPP

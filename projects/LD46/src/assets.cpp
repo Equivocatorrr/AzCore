@@ -223,7 +223,7 @@ i32 Stream::Decode(i32 sampleCount) {
 	} else {
 		if (data.cursorSample + crossfadeSamples + sampleCount >= data.loopEndSample) {
 			// Don't go past the loop point
-			sampleCount = data.loopEndSample - data.cursorSample;
+			sampleCount = max(data.loopEndSample - data.cursorSample, crossfadeSamples);
 			samples.Resize(sampleCount*data.channels);
 			length =
 			stb_vorbis_get_samples_short_interleaved(vorbis, data.channels, samples.data, samples.size);

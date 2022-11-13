@@ -25,6 +25,7 @@ struct RandomNumberGenerator {
 };
 
 f32 random(f32 min, f32 max, RandomNumberGenerator *rng=nullptr);
+f64 random(f64 min, f64 max, RandomNumberGenerator *rng=nullptr);
 i32 random(i32 min, i32 max, RandomNumberGenerator *rng=nullptr);
 // Gets a unique id for shuffling.
 // Generally only call this once and store the result as a handle to use in shuffle(...)

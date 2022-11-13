@@ -39,13 +39,22 @@ RandomNumberGenerator globalRNG;
 
 f32 random(f32 min, f32 max, RandomNumberGenerator *rng) {
 	if (nullptr == rng) rng = &globalRNG;
-	u32 num = rng->Generate();
-	return (f32)(((f64)num * (f64)(max - min) / (f64)UINT32_MAX) + (f64)min);
+	u32 num = rng->Generate() & 0x7fffff;
+	return (f32)num / (f32)0x7fffff * (max - min) + min;
+}
+
+f64 random(f64 min, f64 max, RandomNumberGenerator *rng) {
+	if (nullptr == rng) rng = &globalRNG;
+	u64 num = rng->Generate() | (((u64)rng->Generate() & 0xfffff) << 32);
+	return (f64)num / (f64)0xfffffffffffff * (max - min) + min;
 }
 
 i32 random(i32 min, i32 max, RandomNumberGenerator *rng) {
 	if (nullptr == rng) rng = &globalRNG;
-	return i32(rng->Generate() % (max - min + 1)) + min;
+	AzAssert(min <= max, "random() min must be <= max");
+	u32 span = max - min + 1;
+	AzAssert(span != 0, "random() min and max are invalid!");
+	return i32(rng->Generate() % span) + min;
 }
 
 i32 genShuffleId() {

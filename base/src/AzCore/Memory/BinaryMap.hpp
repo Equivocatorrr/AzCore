@@ -23,11 +23,12 @@ struct BinaryMap {
 	struct Node {
 		Node *left = nullptr;
 		Node *right = nullptr;
+		i32 depthDiff = 0;
 		Key_t key;
 		Value_t value;
 
 		Node() = default;
-		Node(const Node &other) : key(other.key), value(other.value) {
+		Node(const Node &other) : depthDiff(other.depthDiff), key(other.key), value(other.value) {
 			if (other.left) {
 				left = new Node(*other.left);
 			}
@@ -36,7 +37,7 @@ struct BinaryMap {
 			}
 		}
 		Node(Node &&other) :
-			left(other.left), right(other.right),
+			left(other.left), right(other.right), depthDiff(other.depthDiff),
 			key(std::move(other.key)), value(std::move(other.value))
 		{
 			other.left = nullptr;
@@ -74,6 +75,7 @@ struct BinaryMap {
 					right = new Node(*other.right);
 				}
 			}
+			depthDiff = other.depthDiff;
 			return *this;
 		}
 
@@ -84,27 +86,80 @@ struct BinaryMap {
 			if (right) delete right;
 			right = other.right;
 			other.right = nullptr;
+			depthDiff = other.depthDiff;
+			other.depthDiff = 0;
 			return *this;
 		}
 
-		Value_t& Emplace(Node && node) {
+		i32 Emplace(Node && node, Value_t **dstValue) {
+			i32 depthDiffChange = 0;
 			if (key == node.key) {
-				return value = std::move(node.value);
-			} else if (key < node.key) {
-				if (right) {
-					return right->Emplace(std::move(node));
-				} else {
-					right = new Node(std::move(node));
-					return right->value;
-				}
-			} else {
+				*dstValue = &(value = std::move(node.value));
+				return 0;
+			} else if (node.key < key) {
 				if (left) {
-					return left->Emplace(std::move(node));
+					depthDiffChange = left->Emplace(std::move(node), dstValue);
+					depthDiffChange -= MaybeDoRotations(&left);
+					depthDiff -= depthDiffChange;
 				} else {
 					left = new Node(std::move(node));
-					return left->value;
+					depthDiffChange = i32(nullptr == right);
+					depthDiff--;
+					*dstValue = &left->value;
+				}
+			} else {
+				if (right) {
+					depthDiffChange = right->Emplace(std::move(node), dstValue);
+					depthDiffChange -= MaybeDoRotations(&right);
+					depthDiff += depthDiffChange;
+				} else {
+					right = new Node(std::move(node));
+					depthDiffChange = i32(nullptr == left);
+					depthDiff++;
+					*dstValue = &right->value;
 				}
 			}
+			return depthDiffChange;
+		}
+
+		// returns 1 if there was a change in depth (whether it did anything), or 0 otherwise
+		static i32 MaybeDoRotations(Node **node) {
+			if (nullptr == node) return 0;
+			if ((*node)->depthDiff == 2) {
+				if ((*node)->right->depthDiff == -1) {
+					(*node)->right->RotateRight(&(*node)->right);
+				}
+				(*node)->RotateLeft(node);
+				return 1;
+			} else if ((*node)->depthDiff == -2) {
+				if ((*node)->left->depthDiff == 1) {
+					(*node)->left->RotateLeft(&(*node)->left);
+				}
+				(*node)->RotateRight(node);
+				return 1;
+			}
+			return 0;
+		}
+
+		void RotateLeft(Node **parentNodePtr) {
+			Node *newLeft, *newTop;
+			newLeft = this;
+			newTop = right;
+			newLeft->right = right->left;
+			newTop->left = newLeft;
+			newLeft->depthDiff -= 1 + max(0, newTop->depthDiff);
+			newTop->depthDiff -= 1 - min(0, newLeft->depthDiff);
+			*parentNodePtr = newTop;
+		}
+		void RotateRight(Node **parentNodePtr) {
+			Node *newRight, *newTop;
+			newRight = this;
+			newTop = left;
+			newRight->left = left->right;
+			newTop->right = newRight;
+			newRight->depthDiff += 1 - min(0, newTop->depthDiff);
+			newTop->depthDiff += 1 + max(0, newRight->depthDiff);
+			*parentNodePtr = newTop;
 		}
 
 		bool Exists(const Key_t& testKey) const {
@@ -129,25 +184,36 @@ struct BinaryMap {
 			}
 		}
 
-		Value_t& ValueOf(const Key_t& testKey) {
-			if (key == testKey) return value;
-			if (key < testKey) {
-				if (right) {
-					return right->ValueOf(testKey);
+		i32 ValueOf(const Key_t &testKey, Value_t **dstValue) {
+			i32 depthDiffChange = 0;
+			if (key == testKey) {
+				*dstValue = &value;
+				return 0;
+			}
+			if (testKey < key) {
+				if (left) {
+					depthDiffChange = left->ValueOf(testKey, dstValue);
+					depthDiffChange -= MaybeDoRotations(&left);
+					depthDiff -= depthDiffChange;
 				} else {
-					right = new Node();
-					right->key = testKey;
-					return right->value;
+					left = new Node(testKey, Value_t());
+					depthDiffChange = i32(nullptr == right);
+					depthDiff--;
+					*dstValue = &left->value;
 				}
 			} else {
-				if (left) {
-					return left->ValueOf(testKey);
+				if (right) {
+					depthDiffChange = right->ValueOf(testKey, dstValue);
+					depthDiffChange -= MaybeDoRotations(&right);
+					depthDiff += depthDiffChange;
 				} else {
-					left = new Node();
-					left->key = testKey;
-					return left->value;
+					right = new Node(testKey, Value_t());
+					depthDiffChange = i32(nullptr == left);
+					depthDiff++;
+					*dstValue = &right->value;
 				}
 			}
+			return depthDiffChange;
 		}
 	};
 	Node *base = nullptr;
@@ -211,7 +277,10 @@ struct BinaryMap {
 	Value_t& Emplace(Node &&node) {
 		// The branch predictor should predict this correctly almost every time.
 		if (base) {
-			return base->Emplace(std::move(node));
+			Value_t *result;
+			base->Emplace(std::move(node), &result);
+			Node::MaybeDoRotations(&base);
+			return *result;
 		} else {
 			base = new Node(std::move(node));
 			return base->value;
@@ -230,7 +299,10 @@ struct BinaryMap {
 
 	Value_t& ValueOf(Key_t key) {
 		if (base) {
-			return base->ValueOf(key);
+			Value_t *result;
+			base->ValueOf(key, &result);
+			Node::MaybeDoRotations(&base);
+			return *result;
 		} else {
 			base = new Node();
 			base->key = key;

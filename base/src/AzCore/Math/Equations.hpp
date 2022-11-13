@@ -179,6 +179,16 @@ SolutionQuartic<T> SolveQuartic(T a, T b, T c, T d, T e) {
 		}
 		return solution;
 	}
+	{ // An attempt at combating floating point error accumulation.
+		T avgFactor = (abs(a) + abs(b) + abs(c) + abs(d) + abs(e)) / T(5);
+		if (avgFactor >= T(2)) {
+			a /= avgFactor;
+			b /= avgFactor;
+			c /= avgFactor;
+			d /= avgFactor;
+			e /= avgFactor;
+		}
+	}
 	T d0 = square(c) - T(3)*b*d + T(12)*a*e;
 	T d1 = T(2)*c*c*c - T(9)*b*c*d + T(27)*(b*b*e + a*d*d) - T(72)*a*c*e;
 	T d27 = d1*d1 - T(4)*d0*d0*d0;

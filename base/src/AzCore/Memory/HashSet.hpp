@@ -181,7 +181,7 @@ struct HashSet {
 	}
 
 	Node* Find(Key_t key) {
-		i32 index = IndexHash(key);
+		i32 index = IndexHash<arraySize>(key);
 		if (nodes[index] == nullptr) return nullptr;
 		return nodes[index]->Find(key);
 	}

@@ -23,7 +23,7 @@ Use this class to write any and all debugging/status text.
 Use it the same way you would std::cout.
 Ex: io::cout << "Say it ain't so!!" << std::endl;
 Entries in this class will be printed to terminal and a log file.   */
-class LogStream {
+class [[deprecated("LogStream has been replaced by Log.")]] LogStream {
 	std::ofstream fstream;
 	bool openAttempt;
 	bool logFile;

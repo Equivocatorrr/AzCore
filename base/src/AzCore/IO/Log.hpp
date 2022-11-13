@@ -64,12 +64,8 @@ public:
 		return *this;
 	}
 
+	[[deprecated("NoLogFile() is deprecated, and Log by default doesn't use a file. Switch to UseLogFile(bool)")]]
 	void NoLogFile() {
-		static bool once = false;
-		if (!once) {
-			PrintLn("NoLogFile() is deprecated, and Log by default doesn't use a file. Switch to UseLogFile(bool)");
-			once = true;
-		}
 		mLogFile = false;
 	}
 

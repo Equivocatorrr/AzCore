@@ -51,6 +51,30 @@ void QuickSort(SimpleRange<T> toSort, const LessThanFunc_t &lessThan) {
 	QuickSort(toSort.SubRange(split, toSort.size-split), lessThan);
 }
 
+template <typename T, i32 allocTail, typename LessThanFunc_t>
+inline void QuickSort(Array<T, allocTail> &toSort, const LessThanFunc_t &lessThan) {
+	QuickSort<T>(SimpleRange<T>(toSort), lessThan);
+}
+
+template <typename T, i32 noAllocCount, i32 allocTail, typename LessThanFunc_t>
+inline void QuickSort(ArrayWithBucket<T, noAllocCount, allocTail> &toSort,
+                      const LessThanFunc_t &lessThan) {
+	QuickSort<T>(SimpleRange<T>(toSort), lessThan);
+}
+
+template <typename T>
+inline void QuickSort(SimpleRange<T> toSort) {
+	QuickSort(toSort, [](T lhs, T rhs) { return lhs < rhs; });
+}
+template <typename T, i32 allocTail>
+inline void QuickSort(Array<T, allocTail> &toSort) {
+	QuickSort(toSort, [](T lhs, T rhs) { return lhs < rhs; });
+}
+template <typename T, i32 noAllocCount, i32 allocTail>
+inline void QuickSort(ArrayWithBucket<T, noAllocCount, allocTail> &toSort) {
+	QuickSort(toSort, [](T lhs, T rhs) { return lhs < rhs; });
+}
+
 } // namespace AzCore
 
 #endif // AZCORE_QUICKSORT_HPP

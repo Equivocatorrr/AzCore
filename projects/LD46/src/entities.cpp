@@ -847,7 +847,7 @@ void Droplet::Update(f32 timestep) {
 }
 
 void Droplet::Draw(Rendering::DrawingContext &context) {
-	vec4 color = vec4(0.2f, 0.6f, 1.0f, clamp(0.0f, 0.1f, lifetime * 0.1f));
+	vec4 color = vec4(0.2f, 0.6f, 1.0f, clamp01(lifetime) * 0.1f);
 	physical.Draw(context, color);
 }
 

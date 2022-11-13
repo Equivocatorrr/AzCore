@@ -1718,7 +1718,7 @@ void TextBox::CursorFromPosition(vec2 position) {
 	vec2 cursorPos = 0.0f;
 	f32 spaceScale, spaceWidth;
 	spaceWidth = globals->assets.CharacterWidth(' ', fontIndex) * fontSize;
-	const char32 *lineString = &stringFormatted[0];
+	const char32 *lineString = stringFormatted.data;
 	i32 formatNewlines = 0;
 	cursor = 0;
 	cursorPos.y += fontSize * Rendering::lineHeight + positionAbsolute.y + padding.y;

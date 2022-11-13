@@ -563,7 +563,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 						colors[ii].a = 0.25f;
 						colors[ii].rgb = hsvToRgb(vec3(
 							(f32)planes[i][index[ii]] / 16.0f,
-							clamp(1.0f/d[eye][planes[i][index[ii]]]*4.0f, 0.0f, 1.0f),
+							clamp01(1.0f/d[eye][planes[i][index[ii]]]*4.0f),
 							1.0f
 						));
 					}
@@ -583,9 +583,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
 					const f32 epsilon = 0.0001f;
 					if (a == median(a, 2.0f-epsilon, 2.0f+epsilon)) {
 						vec4 color1(0.5f);
-						color1.rgb = hsvToRgb(vec3((f32)i / 16.0f, clamp(1.0f/d[eye][i]*4.0f, 0.0f, 1.0f), 1.0f));
+						color1.rgb = hsvToRgb(vec3((f32)i / 16.0f, clamp01(1.0f/d[eye][i]*4.0f), 1.0f));
 						vec4 color2(0.5f);
-						color2.rgb = hsvToRgb(vec3((f32)ii / 16.0f, clamp(1.0f/d[eye][ii]*4.0f, 0.0f, 1.0f), 1.0f));
+						color2.rgb = hsvToRgb(vec3((f32)ii / 16.0f, clamp01(1.0f/d[eye][ii]*4.0f), 1.0f));
 						vertices[vertex++] = {color1, proj[eye][i]};
 						vertices[vertex++] = {color2, proj[eye][ii]};
 						vkCmdDraw(cmdBuf, 2, 1, vertex-2, 0);

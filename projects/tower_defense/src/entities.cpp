@@ -1121,7 +1121,7 @@ void Enemy::Update(f32 timestep) {
 }
 
 void Enemy::Draw(Rendering::DrawingContext &context) {
-	physical.Draw(context, color * vec4(vec3(1.0f), clamp(size, 0.0f, 1.0f)));
+	physical.Draw(context, color * vec4(vec3(1.0f), clamp01(size)));
 }
 
 template struct DoubleBufferArray<Enemy>;
@@ -1157,7 +1157,7 @@ void Bullet::Update(f32 timestep) {
 }
 
 void Bullet::Draw(Rendering::DrawingContext &context) {
-	vec4 color = vec4(1.0f, 1.0f, 0.5f, clamp(0.0f, 1.0f, lifetime * 8.0f));
+	vec4 color = vec4(1.0f, 1.0f, 0.5f, clamp01(lifetime * 8.0f));
 	if (explosionDamage != 0) {
 		color.rgb = vec3(1.0f, 0.25f, 0.0f);
 	}
@@ -1184,7 +1184,7 @@ void Wind::Update(f32 timestep) {
 }
 
 void Wind::Draw(Rendering::DrawingContext &context) {
-	vec4 color = vec4(1.0f, 1.0f, 1.0f, clamp(0.0f, 0.1f, lifetime * 0.1f));
+	vec4 color = vec4(1.0f, 1.0f, 1.0f, clamp01(lifetime) * 0.1f);
 	const f32 z = globals->entities.camZoom;
 	const vec2 p = (physical.pos - globals->entities.camPos) * z
 				 + vec2(globals->window.width / 2, globals->window.height / 2);

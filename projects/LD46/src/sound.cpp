@@ -97,7 +97,7 @@ bool Manager::Deinitialize() {
 	alcMakeContextCurrent(nullptr);
 	alcDestroyContext(context);
 	alcCloseDevice(device);
-	initialized = true;
+	initialized = false;
 	return true;
 }
 

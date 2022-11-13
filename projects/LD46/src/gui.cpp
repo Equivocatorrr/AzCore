@@ -669,7 +669,7 @@ void CutsceneMenu::Update() {
 		frameTimer = 0.0f;
 	} else if (frameTimer < frame.fadein) {
 		// Do the fade
-		f32 progress = clamp(frameTimer / frame.fadein, 0.0f, 1.0f);
+		f32 progress = clamp01(frameTimer / frame.fadein);
 		if (frame.useImage) {
 			image->color.a = progress;
 		} else {
@@ -686,7 +686,7 @@ void CutsceneMenu::Update() {
 		text->color.a = 1.0f;
 	} else {
 		// fade out
-		f32 progress = clamp((frameTimer - frame.fadein - frame.duration) / frame.fadeout, 0.0f, 1.0f);
+		f32 progress = clamp01((frameTimer - frame.fadein - frame.duration) / frame.fadeout);
 		if (frame.useImage) {
 			image->color.a = 1.0f - progress;
 		} else {
@@ -1865,7 +1865,7 @@ void TextBox::CursorFromPosition(vec2 position) {
 	vec2 cursorPos = 0.0f;
 	f32 spaceScale, spaceWidth;
 	spaceWidth = globals->assets.CharacterWidth(' ', fontIndex) * fontSize;
-	const char32 *lineString = &stringFormatted[0];
+	const char32 *lineString = stringFormatted.data;
 	i32 formatNewlines = 0;
 	cursor = 0;
 	cursorPos.y += fontSize * Rendering::lineHeight + positionAbsolute.y + padding.y;
@@ -1918,7 +1918,7 @@ vec2 TextBox::PositionFromCursor() const {
 	vec2 cursorPos = 0.0f;
 	f32 spaceScale, spaceWidth;
 	spaceWidth = globals->assets.CharacterWidth(' ', fontIndex) * fontSize;
-	const char32 *lineString = &stringFormatted[0];
+	const char32 *lineString = stringFormatted.data;
 	i32 lineStart = 0;
 	i32 formatNewlines = 0;
 	for (i32 i = 0; i < cursor+formatNewlines; i++) {

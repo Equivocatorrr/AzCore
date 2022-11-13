@@ -117,13 +117,13 @@ bool Globals::LoadSettings() {
 			Framerate(clamp(fr, 30.0f, 300.0f));
 		} else if (ranges[i] == "volumeMain") {
 			StringToF32(ranges[i+1], &volumeMain);
-			volumeMain = clamp(volumeMain, 0.0f, 1.0f);
+			volumeMain = clamp01(volumeMain);
 		} else if (ranges[i] == "volumeMusic") {
 			StringToF32(ranges[i+1], &volumeMusic);
-			volumeMusic = clamp(volumeMusic, 0.0f, 1.0f);
+			volumeMusic = clamp01(volumeMusic);
 		} else if (ranges[i] == "volumeEffects") {
 			StringToF32(ranges[i+1], &volumeEffects);
-			volumeEffects = clamp(volumeEffects, 0.0f, 1.0f);
+			volumeEffects = clamp01(volumeEffects);
 		} else if (ranges[i] == "localeOverride") {
 			localeOverride[0] = ranges[i+1][0];
 			localeOverride[1] = ranges[i+1][1];

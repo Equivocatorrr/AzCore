@@ -7,7 +7,7 @@
 #define AZCORE_MATH_BASIC_HPP
 
 #include "../basictypes.hpp"
-#include <math.h>
+#include <cmath>
 
 namespace AzCore {
 
@@ -37,85 +37,68 @@ enum Plane {
 	ZW = 5
 };
 
-/* math.h does this for us
-#ifdef AZCORE_MATH_F32
-	inline f32 sin(f32 a) { return sinf(a); }
-	inline f32 cos(f32 a) { return cosf(a); }
-	inline f32 tan(f32 a) { return tanf(a); }
-	inline f32 asin(f32 a) { return asinf(a); }
-	inline f32 acos(f32 a) { return acosf(a); }
-	inline f32 atan(f32 a) { return atanf(a); }
-	inline f32 atan2(f32 y, f32 x) { return atan2f(y, x); }
-	inline f32 sqrt(f32 a) { return sqrtf(a); }
-	inline f32 exp(f32 a) { return expf(a); }
-	inline f32 log(f32 a) { return logf(a); }
-	inline f32 log2(f32 a) { return log2f(a); }
-	inline f32 log10(f32 a) { return log10f(a); }
-	inline f32 pow(f32 a, f32 b) { return powf(a, b); }
-	inline f32 floor(f32 a) { return floorf(a); }
-	inline f32 round(f32 a) { return roundf(a); }
-	inline f32 ceil(f32 a) { return ceilf(a); }
-#endif
-*/
-
 } // namespace AzCore
 
 template <typename T>
-inline T square(T a) {
+constexpr T square(T a) {
 	return a * a;
 }
 
 template <typename T>
-inline T median(T a, T b, T c) {
-	if ((b >= a && a >= c) || (c >= a && a >= b))
-		return a;
-	if ((a >= b && b >= c) || (c >= b && b >= a))
-		return b;
-	if ((a >= c && c >= b) || (b >= c && c >= a))
-		return c;
-	return T();
+constexpr T median(T a, T b, T c) {
+	return max(min(a, b), min(max(a, b), c));
 }
 
 template <typename T>
-inline T min(T a, T b) {
-	return a > b ? b : a;
+constexpr T min(T a, T b) {
+	return (T)(a > b) * b + (T)(b >= a) * a;
 }
 
 template <typename T>
-inline T max(T a, T b) {
-	return a > b ? a : b;
+constexpr T max(T a, T b) {
+	return (T)(a > b) * a + (T)(b >= a) * b;
+}
+
+template <typename T, typename... Args>
+constexpr T max(T a, T b, Args... c) {
+	return max(max(a, b), c...);
 }
 
 template <typename T>
-inline T clamp(T a, T b, T c) {
-	return median(a, b, c);
+constexpr T clamp(T a, T min, T max) {
+	AzAssert(min <= max, "in clamp(): min > max. Maybe you meant to use median()?");
+	return max * T(a > max) + min * T(a < min) + a * T(a <= max && a >= min);
 }
 
 template <typename T>
-inline T abs(T a) {
-	return a >= 0 ? a : -a;
+constexpr T clamp01(T a) {
+	return a * T(a > T(0) && a < T(1)) + T(a >= T(1));
 }
 
 template <typename T>
-inline T sign(T a) {
-	return a >= T(0) ? T(1) : T(-1);
+constexpr T sign(T a) {
+	return T(a >= T(0)) - T(a < T(0));
+}
+
+template <typename T>
+constexpr T abs(T a) {
+	return a * sign(a);
 }
 
 template <typename T, typename F>
-inline T lerp(T a, T b, F factor) {
-	factor = clamp(factor, F(0), F(1));
-	return a + (b - a) * factor;
+constexpr T lerp(T a, T b, F factor) {
+	return a + (b - a) * clamp01(factor);
 }
 
 template <typename T, typename F>
-inline T cosInterp(T a, T b, F factor) {
-	factor = F(0.5) - cos(F(AzCore::pi64)*clamp(factor, F(0), F(1))) * F(0.5);
+constexpr T cosInterp(T a, T b, F factor) {
+	factor = F(0.5) - cos(F(AzCore::pi64) * clamp01(factor)) * F(0.5);
 	return a + (b - a) * factor;
 }
 
 template <u32 order, typename T, typename F>
-inline T ease(T a, T b, F factor) {
-	factor = clamp(factor, F(0), F(1));
+constexpr T ease(T a, T b, F factor) {
+	factor = clamp01(factor);
 	F factorP = F(1);
 	F factorD = F(1);
 	for (u32 i = 0; i < order; i++) {
@@ -126,27 +109,24 @@ inline T ease(T a, T b, F factor) {
 }
 
 template <typename T, typename F>
-T decay(T a, T b, F halfLife, F timestep) {
-	F fac = exp(-timestep / halfLife);
-	if (fac > F(1.0))
-		fac = F(1.0);
-	else if (fac < F(0.0))
-		fac = F(0.0);
+constexpr T decay(T a, T b, F halfLife, F timestep) {
+	F fac = clamp01(pow(2, -timestep / halfLife));
 	return b * (F(1.0) - fac) + a * fac;
 }
 
 template <typename T>
-inline T map(T in, T minFrom, T maxFrom, T minTo, T maxTo) {
+constexpr T map(T in, T minFrom, T maxFrom, T minTo, T maxTo) {
 	return (in - minFrom) * (maxTo - minTo) / (maxFrom - minFrom) + minTo;
 }
 
 template <typename T>
-inline T cubert(T a) {
-	return a >= T(0.0) ? pow(a, T(1.0 / 3.0)) : -pow(-a, T(1.0 / 3.0));
+constexpr T cubert(T a) {
+	return sign(a) * pow(abs(a), T(1.0 / 3.0));
 }
 
 template <typename T>
-inline T wrap(T a, T max) {
+constexpr T wrap(T a, T max) {
+	AzAssert(max > 0, "wrap() with max <= 0 would hang or overflow >:P");
 	while (a > max) {
 		a -= max;
 	}

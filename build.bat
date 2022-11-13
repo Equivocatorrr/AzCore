@@ -75,7 +75,7 @@ goto Arg
 	goto Done
 :Arg
 :Arg%arg%
-	echo "Usage: build.sh [clean]? [verbose]? [trace]? [install]? (VULKAN_SDK path_to_sdk)? [All|Debug|Release]? ([run|run_debug] project_name)?"
+	echo "Usage: build.bat [clean]? [verbose]? [trace]? [install]? (VULKAN_SDK path_to_sdk)? [All|Debug|Release]? ([run|run_debug] project_name)?"
 	goto EndOfScript
 :Done
 set /a argIndex+=1
@@ -133,6 +133,10 @@ if %run_debug% == 1 (
 	cd projects\%run_target%
 	%~dp0projects\%run_target%\bin\Debug\%run_target%_debug.exe
 	cd ..\..
+)
+if %errorlevel% NEQ 0 (
+	echo "Failed with code " %errorlevel%
+	goto EndOfScript
 )
 
 echo "All builds complete!"

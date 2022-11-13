@@ -22,7 +22,7 @@ struct FPError {
 	// Also updates our stats.
 	// magnitude represents the scale of our operations.
 	// For example, when operating with unit vectors, magnitude would be 1.0
-	void Compare(FP lhs, FP rhs, FP magnitude, i32 line, az::SimpleRange<char> info = "", FP maxErrorWeak = FP(2), FP maxErrorFail = FP(100));
+	void Compare(FP lhs, FP rhs, FP magnitude, i32 line, az::String info = az::String(), FP maxErrorWeak = FP(2), FP maxErrorFail = FP(100));
 
 	// Reports our stats as Infos
 	void Report(i32 line);

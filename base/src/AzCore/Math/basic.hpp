@@ -7,7 +7,8 @@
 #define AZCORE_MATH_BASIC_HPP
 
 #include "../basictypes.hpp"
-#include <cmath>
+// Use math.h because it puts the overloads in global namespace.
+#include <math.h>
 
 namespace AzCore {
 
@@ -45,11 +46,6 @@ constexpr T square(T a) {
 }
 
 template <typename T>
-constexpr T median(T a, T b, T c) {
-	return max(min(a, b), min(max(a, b), c));
-}
-
-template <typename T>
 constexpr T min(T a, T b) {
 	return (T)(a > b) * b + (T)(b >= a) * a;
 }
@@ -57,6 +53,11 @@ constexpr T min(T a, T b) {
 template <typename T>
 constexpr T max(T a, T b) {
 	return (T)(a > b) * a + (T)(b >= a) * b;
+}
+
+template <typename T>
+constexpr T median(T a, T b, T c) {
+	return max(min(a, b), min(max(a, b), c));
 }
 
 template <typename T, typename... Args>

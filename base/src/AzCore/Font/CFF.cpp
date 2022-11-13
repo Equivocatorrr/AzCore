@@ -4,6 +4,7 @@
 */
 
 #include "CFF.hpp"
+#include "../math.hpp"
 #include "../font.hpp"
 
 namespace AzCore {

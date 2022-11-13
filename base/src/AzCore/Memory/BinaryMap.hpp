@@ -9,6 +9,7 @@
 #define AZCORE_BINARY_MAP_HPP
 
 #include "../basictypes.hpp"
+#include "../math.hpp"
 #include "Array.hpp"
 #include <utility>
 #include <initializer_list>

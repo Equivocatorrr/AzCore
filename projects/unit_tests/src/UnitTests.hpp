@@ -58,20 +58,20 @@ inline void ReportInfo(i32 line, Args... what) {
 // Use Assert if something must be true for the test to continue.
 #define UTAssert(condition, ...) \
 	if (!(condition)) { \
-		UT::ReportProblem(__LINE__, "Assertion failed, aborting test: `", #condition, "`: \"", __VA_ARGS__, "\""); \
+		UT::ReportProblem(__LINE__, "Assertion failed, aborting test: `", #condition, "`: ", ##__VA_ARGS__); \
 		UT::currentTestInfo->result = UT::Result::FAILURE; \
 		return; \
 	}
 
 // Use ExpectWeak if something can be wrong without completely failing the test.
-#define UTExpectWeak(condition, ...) _UTExpect(condition, WEAK, __VA_ARGS__)
+#define UTExpectWeak(condition, ...) _UTExpect(condition, WEAK, ##__VA_ARGS__)
 // Use Expect if something doesn't ruin the rest of the test.
-#define UTExpect(condition, ...) _UTExpect(condition, FAILURE, __VA_ARGS__)
-#define UTExpectEquals(lhs, rhs, ...) _UTExpect((lhs) == (rhs), FAILURE, "Expected ", #lhs, " to equal ", (rhs), ", but it was ", (lhs), __VA_ARGS__)
-#define UTExpectEqualsWeak(lhs, rhs, ...) _UTExpect((lhs) == (rhs), WEAK, "Expected ", #lhs, " to equal ", (rhs), ", but it was ", (lhs), __VA_ARGS__)
+#define UTExpect(condition, ...) _UTExpect(condition, FAILURE, ##__VA_ARGS__)
+#define UTExpectEquals(lhs, rhs, ...) _UTExpect((lhs) == (rhs), FAILURE, "Expected ", #lhs, " to equal ", (rhs), ", but it was ", (lhs), ##__VA_ARGS__)
+#define UTExpectEqualsWeak(lhs, rhs, ...) _UTExpect((lhs) == (rhs), WEAK, "Expected ", #lhs, " to equal ", (rhs), ", but it was ", (lhs), ##__VA_ARGS__)
 #define _UTExpect(condition, RESULT, ...) \
 	if (!(condition)) { \
-		UT::ReportProblem(__LINE__, "Expectation not met: `", #condition, "`: \"", __VA_ARGS__, "\""); \
+		UT::ReportProblem(__LINE__, "Expectation not met: `", #condition, "`: ", ##__VA_ARGS__); \
 		if (UT::currentTestInfo->result != UT::Result::FAILURE) \
 			UT::currentTestInfo->result = UT::Result::RESULT; \
 	}

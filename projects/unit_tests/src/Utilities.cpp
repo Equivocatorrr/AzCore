@@ -6,7 +6,7 @@
 #include "AzCore/QuickSort.hpp"
 
 template <typename FP>
-void FPError<FP>::Compare(FP lhs, FP rhs, FP magnitude, i32 line, az::SimpleRange<char> info, FP maxErrorWeak, FP maxErrorFail) {
+void FPError<FP>::Compare(FP lhs, FP rhs, FP magnitude, i32 line, az::String info, FP maxErrorWeak, FP maxErrorFail) {
 	FP error = abs(rhs - lhs) / (nextafter(magnitude, FP(HUGE_VAL)) - magnitude);
 	errors.Append(error);
 	numTests++;

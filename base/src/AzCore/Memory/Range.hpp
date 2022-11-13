@@ -305,7 +305,7 @@ struct SimpleRange {
 		} else if (range.PointsToRaw()) {
 			str = (T*)range.ptr;
 		} else {
-			_Assert(false, "Error converting Range to SimpleRange: SimpleRange doesn't work on Lists");
+			AzAssert(false, "Error converting Range to SimpleRange: SimpleRange doesn't work on Lists");
 		}
 	}
 

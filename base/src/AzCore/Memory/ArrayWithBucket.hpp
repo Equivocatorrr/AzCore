@@ -607,6 +607,12 @@ struct ArrayWithBucket {
 		return Insert(index, std::move(val));
 	}
 
+	force_inline(Range<T>)
+	Insert(i32 index, const T *string) {
+		ArrayWithBucket<T, noAllocCount, allocTail> array(string);
+		return Insert(index, std::move(array));
+	}
+
 	T& Insert(i32 index, T &&value) {
 		AzAssert(index >= 0 && index <= size, "ArrayWithBucket::Insert index is out of bounds");
 		if (size+allocTail >= allocated && size+allocTail >= noAllocCount) {
@@ -654,7 +660,7 @@ struct ArrayWithBucket {
 		return Insert(index, std::move(array));
 	}
 
-	Range<T> Insert(i32 index, ArrayWithBucket &&other) {
+	Range<T> Insert(i32 index, ArrayWithBucket<T, noAllocCount, allocTail> &&other) {
 		AzAssert(index >= 0 && index <= size, "ArrayWithBucket::Insert index is out of bounds");
 		if (size == 0) {
 			*this = std::move(other);

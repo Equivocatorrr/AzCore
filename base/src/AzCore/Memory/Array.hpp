@@ -542,11 +542,7 @@ struct Array {
 	}
 
 	T &Insert(i32 index, T &&value) {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index > size) {
-			throw std::out_of_range("Array::Insert index is out of bounds");
-		}
-#endif
+		AzAssert(index >= 0 && index <= size, "Array::Insert index is out of bounds");
 		if (size >= allocated) {
 			const bool doDelete = allocated != 0;
 			allocated += (allocated >> 1) + 2;
@@ -592,11 +588,7 @@ struct Array {
 	}
 
 	Range<T> Insert(const i32 index, Array &&other) {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index > size) {
-			throw std::out_of_range("Array::Insert index is out of bounds");
-		}
-#endif
+		AzAssert(index >= 0 && index <= size, "Array::Insert index is out of bounds");
 		if (size == 0) {
 			*this = std::move(other);
 			return GetRange(0, size);
@@ -650,11 +642,7 @@ struct Array {
 	}
 
 	void Erase(const i32 index, const i32 count=1) {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index+count > size && index >= 0) {
-			throw std::out_of_range("Array::Erase index is out of bounds");
-		}
-#endif
+		AzAssert(index >= 0 && index+count <= size, "Array::Erase index is out of bounds");
 		size -= count;
 		if constexpr (std::is_trivially_copyable<T>::value) {
 			if (size > index) {
@@ -678,12 +666,6 @@ struct Array {
 		return *this;
 	}
 
-	// ArrayIterator<T> begin() const {
-	//	 return ArrayIterator<T>(data);
-	// }
-	// ArrayIterator<T> end() const {
-	//	 return ArrayIterator<T>(data + size);
-	// }
 	inline T* begin() {
 		return data;
 	}
@@ -724,11 +706,7 @@ struct Array {
 	}
 
 	Ptr<T> GetPtr(i32 index, bool fromBack = false) {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index >= (size + (i32)fromBack)) {
-			throw std::out_of_range("Array::GetPtr index is out of bounds");
-		}
-#endif
+		AzAssert(index >= 0 && index < (size + (i32)fromBack), "Array::GetPtr index is out of bounds");
 		if (fromBack) {
 			return Ptr<T>(this, index - size);
 		} else {
@@ -737,11 +715,7 @@ struct Array {
 	}
 
 	Range<T> GetRange(i32 index, i32 _size) {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index + _size > size && index >= 0) {
-			throw std::out_of_range("Array::Range index + size is out of bounds");
-		}
-#endif
+		AzAssert(index >= 0 && (index + _size) <= size, "Array::GetPtr index is out of bounds");
 		return Range<T>(this, index, _size);
 	}
 };

@@ -349,20 +349,12 @@ struct ArrayWithBucket {
 	}
 
 	const T &operator[](i32 index) const {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index >= size || index < 0) {
-			throw std::out_of_range("ArrayWithBucket index is out of bounds");
-		}
-#endif
+		AzAssert(index < size && index >= 0, "ArrayWithBucket index is out of bounds");
 		return data[index];
 	}
 
 	T &operator[](i32 index) {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index >= size || index < 0) {
-			throw std::out_of_range("ArrayWithBucket index is out of bounds");
-		}
-#endif
+		AzAssert(index < size && index >= 0, "ArrayWithBucket index is out of bounds");
 		return data[index];
 	}
 
@@ -616,11 +608,7 @@ struct ArrayWithBucket {
 	}
 
 	T& Insert(i32 index, T &&value) {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index > size) {
-			throw std::out_of_range("ArrayWithBucket::Insert index is out of bounds");
-		}
-#endif
+		AzAssert(index >= 0 && index <= size, "ArrayWithBucket::Insert index is out of bounds");
 		if (size+allocTail >= allocated && size+allocTail >= noAllocCount) {
 			const bool doDelete = allocated != 0;
 			allocated += (allocated >> 1) + 2;
@@ -667,11 +655,7 @@ struct ArrayWithBucket {
 	}
 
 	Range<T> Insert(i32 index, ArrayWithBucket &&other) {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index > size) {
-			throw std::out_of_range("ArrayWithBucket::Insert index is out of bounds");
-		}
-#endif
+		AzAssert(index >= 0 && index <= size, "ArrayWithBucket::Insert index is out of bounds");
 		if (size == 0) {
 			*this = std::move(other);
 			return GetRange(0, size);
@@ -725,11 +709,7 @@ struct ArrayWithBucket {
 	}
 
 	void Erase(i32 index, const i32 count=1) {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index+count > size && index >= 0) {
-			throw std::out_of_range("ArrayWithBucket::Erase index is out of bounds");
-		}
-#endif
+		AzAssert(index >= 0 && index+count <= size, "ArrayWithBucket::Erase index is out of bounds");
 		size -= count;
 		if constexpr (std::is_trivially_copyable<T>::value) {
 			if (size > index) {
@@ -792,11 +772,7 @@ struct ArrayWithBucket {
 	}
 
 	Ptr<T> GetPtr(i32 index, bool fromBack = false) {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index >= (size + (i32)fromBack)) {
-			throw std::out_of_range("ArrayWithBucket::GetPtr index is out of bounds");
-		}
-#endif
+		AzAssert(index >= 0 && index < (size + (i32)fromBack), "ArrayWithBucket::GetPtr index is out of bounds");
 		if (fromBack) {
 			return Ptr<T>((Array<T,0>*)this, index - size);
 		} else {
@@ -805,11 +781,7 @@ struct ArrayWithBucket {
 	}
 
 	Range<T> GetRange(i32 index, i32 _size) {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index + _size > size && index >= 0) {
-			throw std::out_of_range("ArrayWithBucket::Range index + size is out of bounds");
-		}
-#endif
+		AzAssert(index >= 0 && index + _size <= size, "ArrayWithBucket::GetRange index is out of bounds");
 		return Range<T>((Array<T,0>*)this, index, _size);
 	}
 };

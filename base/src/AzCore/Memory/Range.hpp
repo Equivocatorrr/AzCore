@@ -120,11 +120,7 @@ struct Range {
 		size = s;
 	}
 	Ptr<T> GetPtr(i32 i) {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (i >= size || i < 0) {
-			throw std::out_of_range("Range index is out of bounds");
-		}
-#endif
+		AzAssert(i >= 0 && i < size, "Range::GetPtr index is out of bounds");
 		if (index >= 0) {
 			return Ptr<T>((Array<T,0> *)ptr, index + i);
 		} else if (index == indexIndicatingRaw) {
@@ -139,11 +135,7 @@ struct Range {
 		}
 	}
 	Range<T> SubRange(i32 _index, i32 _size) {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (_index + _size > size && _index >= 0) {
-			throw std::out_of_range("Range::SubRange index + size is out of bounds");
-		}
-#endif
+		AzAssert(_index >= 0 && _index + _size <= size, "Range::SubRange index + size is out of bounds");
 		if (index >= 0) {
 			return Range<T>((Array<T,0> *)ptr, index + _index, _size);
 		} else if (index == indexIndicatingRaw) {
@@ -165,11 +157,7 @@ struct Range {
 		return ptr != nullptr;
 	}
 	T &operator[](i32 i) {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (i >= size || i < 0) {
-			throw std::out_of_range("Range index is out of bounds");
-		}
-#endif
+		AzAssert(i >= 0 && i < size, "Range index is out of bounds");
 		if (index >= 0) {
 			return (*((Array<T,0> *)ptr))[i + index];
 		} else if (index == indexIndicatingRaw) {
@@ -184,11 +172,7 @@ struct Range {
 		}
 	}
 	const T &operator[](i32 i) const {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (i >= size || i < 0) {
-			throw std::out_of_range("Range index is out of bounds");
-		}
-#endif
+		AzAssert(i >= 0 && i < size, "Range index is out of bounds");
 		if (index >= 0) {
 			return (*((Array<T,0> *)ptr))[i + index];
 		} else if (index == indexIndicatingRaw) {
@@ -321,16 +305,12 @@ struct SimpleRange {
 		} else if (range.PointsToRaw()) {
 			str = (T*)range.ptr;
 		} else {
-			throw std::runtime_error("SimpleRange doesn't work on Lists");
+			_Assert(false, "Error converting Range to SimpleRange: SimpleRange doesn't work on Lists");
 		}
 	}
 
 	SimpleRange<T> SubRange(i64 index, i64 _size) {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index + _size > size && index >= 0) {
-			throw std::out_of_range("SimpleRange::SubRange index + size is out of bounds");
-		}
-#endif
+		AzAssert(index >= 0 && index + _size <= size, "SimpleRange::SubRange index + size is out of bounds");
 		return SimpleRange<T>(str + index, _size);
 	}
 
@@ -348,19 +328,11 @@ struct SimpleRange {
 	}
 
 	inline T& operator[](i64 i) {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (i >= size || i < 0) {
-			throw std::out_of_range("Range index is out of bounds");
-		}
-#endif
+		AzAssert(i >= 0 && i < size, "SimpleRange index is out of bounds");
 		return str[i];
 	}
 	inline const T& operator[](i64 i) const {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (i >= size || i < 0) {
-			throw std::out_of_range("Range index is out of bounds");
-		}
-#endif
+		AzAssert(i >= 0 && i < size, "SimpleRange index is out of bounds");
 		return str[i];
 	}
 

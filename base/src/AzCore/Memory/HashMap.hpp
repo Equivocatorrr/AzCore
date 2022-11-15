@@ -246,7 +246,7 @@ struct HashMap {
 
 	HashMapIterator<Node, arraySize> begin() {
 		i32 firstIndex = 0;
-		while (nodes[firstIndex] == nullptr && firstIndex < arraySize) {
+		while (firstIndex < arraySize && nodes[firstIndex] == nullptr) {
 			firstIndex++;
 		}
 		if (firstIndex == arraySize) {
@@ -260,7 +260,7 @@ struct HashMap {
 	}
 	HashMapIterator<const Node, arraySize> begin() const {
 		i32 firstIndex = 0;
-		while (nodes[firstIndex] == nullptr && firstIndex < arraySize) {
+		while (firstIndex < arraySize && nodes[firstIndex] == nullptr) {
 			firstIndex++;
 		}
 		if (firstIndex == arraySize) {

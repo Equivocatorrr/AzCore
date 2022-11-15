@@ -274,8 +274,11 @@ struct Range {
 			if (!(myIterator != myIteratorEnd)) {
 				return true;
 			}
-			if (*myIterator <= *otherIterator) {
-				return *myIterator != *otherIterator;
+			if (*myIterator < *otherIterator) {
+				return true;
+			}
+			if (*myIterator > *otherIterator) {
+				return false;
 			}
 			++myIterator;
 			++otherIterator;

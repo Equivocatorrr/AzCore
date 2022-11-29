@@ -28,7 +28,7 @@ struct BinarySet {
 		Key_t key;
 
 		Node() = default;
-		Node(const Node &other) : key(other.key), depthDiff(other.depthDiff) {
+		Node(const Node &other) : depthDiff(other.depthDiff), key(other.key) {
 			if (other.left) {
 				left = new Node(*other.left);
 			}

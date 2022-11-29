@@ -72,7 +72,9 @@ struct HashSet {
 
 		// Returns whether the key already exists.
 		bool Emplace(Node && node) {
-			if (key != node.key) {
+			if (key == node.key) {
+				return true;
+			} else {
 				if (next) {
 					return next->Emplace(std::move(node));
 				} else {
@@ -80,7 +82,6 @@ struct HashSet {
 					return false;
 				}
 			}
-			return true;
 		}
 
 		bool Exists(const Key_t& testKey) const {
@@ -188,7 +189,7 @@ struct HashSet {
 
 	HashSetIterator<Node, arraySize> begin() {
 		i32 firstIndex = 0;
-		while (nodes[firstIndex] == nullptr && firstIndex < arraySize) {
+		while (firstIndex < arraySize && nodes[firstIndex] == nullptr) {
 			firstIndex++;
 		}
 		if (firstIndex == arraySize) {
@@ -202,7 +203,7 @@ struct HashSet {
 	}
 	HashSetIterator<const Node, arraySize> begin() const {
 		i32 firstIndex = 0;
-		while (nodes[firstIndex] == nullptr && firstIndex < arraySize) {
+		while (firstIndex < arraySize && nodes[firstIndex] == nullptr) {
 			firstIndex++;
 		}
 		if (firstIndex == arraySize) {
@@ -244,7 +245,8 @@ public:
 			}
 		}
 	}
-	force_inline(typename Node_t::KeyType&)
+	// Double parens here make sure the const is passed along since it's an lvalue expression.
+	force_inline(decltype((node->key))&)
 	operator*() {
 		return node->key;
 	}

@@ -38,8 +38,6 @@ i32 Depth(Node *node, i32 maxDepth=100) {
 	}
 
 void BinarySetTest() {
-	UT::TestInfo &test = *UT::currentTestInfo;
-
 	az::BinarySet<i32> set;
 	UTExpect(nullptr == set.base, "A newly-constructed set should have no nodes.");
 

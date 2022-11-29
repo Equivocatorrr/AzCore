@@ -48,8 +48,6 @@ i32 Depth(Node *node, i32 maxDepth=100) {
 	map2.ValueOf(key) = value;
 
 void BinaryMapTest() {
-	UT::TestInfo &test = *UT::currentTestInfo;
-
 	az::BinaryMap<i32, i32> map1, map2;
 	UTExpect(nullptr == map1.base, "A newly-constructed map should have no nodes.");
 	UTExpect(nullptr == map2.base, "A newly-constructed map should have no nodes.");

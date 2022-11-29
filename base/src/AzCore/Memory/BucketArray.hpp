@@ -260,6 +260,12 @@ struct BucketArray {
 	}
 
 	inline T &Back() {
+		AzAssert(size > 0, "BucketArray::Back() called on empty array!");
+		return data[size - 1];
+	}
+
+	inline const T &Back() const {
+		AzAssert(size > 0, "BucketArray::Back() called on empty array!");
 		return data[size - 1];
 	}
 };

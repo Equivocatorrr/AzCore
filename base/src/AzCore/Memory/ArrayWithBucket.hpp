@@ -755,6 +755,13 @@ struct ArrayWithBucket {
 
 	force_inline(T&)
 	Back() {
+		AzAssert(size > 0, "ArrayWithBucket::Back() called on empty array");
+		return data[size - 1];
+	}
+
+	force_inline(const T&)
+	Back() const {
+		AzAssert(size > 0, "ArrayWithBucket::Back() called on empty array");
 		return data[size - 1];
 	}
 

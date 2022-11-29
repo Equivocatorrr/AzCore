@@ -680,9 +680,11 @@ struct Array {
 	}
 
 	inline T &Back() {
+		AzAssert(size > 0, "Array::Back() called on empty array");
 		return data[size - 1];
 	}
 	inline const T &Back() const {
+		AzAssert(size > 0, "Array::Back() called on empty array");
 		return data[size - 1];
 	}
 

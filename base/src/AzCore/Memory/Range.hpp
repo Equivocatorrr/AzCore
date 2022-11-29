@@ -299,10 +299,10 @@ struct SimpleRange {
 	SimpleRange(T *string, i64 length) : str(string), size(length) {}
 	SimpleRange(const T *string) : str((T*)string), size(StringLength(string)) {}
 	template<i32 allocTail>
-	SimpleRange(Array<T, allocTail> &array) : str(array.data), size(array.size) {}
+	SimpleRange(const Array<T, allocTail> &array) : str(array.data), size(array.size) {}
 	template<i32 bucketSize, i32 allocTail>
-	SimpleRange(ArrayWithBucket<T, bucketSize, allocTail> &array) : str(array.data), size(array.size) {}
-	SimpleRange(Range<T> &range) : size(range.size) {
+	SimpleRange(const ArrayWithBucket<T, bucketSize, allocTail> &array) : str(array.data), size(array.size) {}
+	SimpleRange(const Range<T> &range) : size(range.size) {
 		if (range.PointsToArray()) {
 			str = (*((Array<T,0> *)range.ptr))[0];
 		} else if (range.PointsToRaw()) {

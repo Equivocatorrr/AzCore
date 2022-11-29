@@ -8,6 +8,12 @@ namespace AzCore {
 
 namespace io {
 
+#ifdef __GNUG__ // Make sure other compilers don't give unknown pragma warnings.
+// Dumb hack because GCC gives us deprecation warnings for daring to implement methods of a deprecated class >:(
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 LogStream::LogStream() :
 fstream(), openAttempt(false), logFile(true), logConsole(true),
 flushed(true), prepend(""), filename("log.log") {}
@@ -111,6 +117,10 @@ void LogStream::MutexLock() {
 void LogStream::MutexUnlock() {
 	mutex.Unlock();
 }
+
+#ifdef __GNUG__
+#pragma GCC diagnostic pop
+#endif
 
 } // namespace io
 

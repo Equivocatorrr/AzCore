@@ -50,7 +50,7 @@ void RunTests() {
 				io::cout.PrintLn("Test \"", test.name, "\" doesn't have a valid result!");
 			} break;
 		}
-		QuickSort(SimpleRange<Report>(test.problems.data, test.problems.size), [](Report lhs, Report rhs) { return lhs.line < rhs.line; });
+		QuickSort(test.problems, [](Report lhs, Report rhs) { return lhs.line < rhs.line; });
 		i32 curLine = 0;
 		i32 countLine = 0;
 		i32 skipCount = 0;

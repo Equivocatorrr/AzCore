@@ -499,9 +499,20 @@ struct Array {
 		_SetTerminator();
 		return data[size - 1] = std::move(value);
 	}
-
+	/*
 	Array<T, allocTail> &Append(const T *string) {
 		i32 newSize = size + StringLength(string);
+		Reserve(newSize);
+		for (i32 i = size; i < newSize; i++) {
+			data[i] = string[i - size];
+		}
+		size = newSize;
+		_SetTerminator();
+		return *this;
+	}
+	*/
+	Array<T, allocTail> &Append(const SimpleRange<T> string) {
+		i32 newSize = size + string.size;
 		Reserve(newSize);
 		for (i32 i = size; i < newSize; i++) {
 			data[i] = string[i - size];

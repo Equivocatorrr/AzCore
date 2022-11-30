@@ -185,7 +185,7 @@ struct BinaryMap {
 			}
 		}
 
-		i32 ValueOf(const Key_t &testKey, Value_t **dstValue) {
+		i32 ValueOf(const Key_t &testKey, Value_t **dstValue, Value_t valueDefault) {
 			i32 depthDiffChange = 0;
 			if (key == testKey) {
 				*dstValue = &value;
@@ -193,22 +193,22 @@ struct BinaryMap {
 			}
 			if (testKey < key) {
 				if (left) {
-					depthDiffChange = left->ValueOf(testKey, dstValue);
+					depthDiffChange = left->ValueOf(testKey, dstValue, valueDefault);
 					depthDiffChange -= MaybeDoRotations(&left);
 					depthDiff -= depthDiffChange;
 				} else {
-					left = new Node(testKey, Value_t());
+					left = new Node(testKey, valueDefault);
 					depthDiffChange = i32(nullptr == right);
 					depthDiff--;
 					*dstValue = &left->value;
 				}
 			} else {
 				if (right) {
-					depthDiffChange = right->ValueOf(testKey, dstValue);
+					depthDiffChange = right->ValueOf(testKey, dstValue, valueDefault);
 					depthDiffChange -= MaybeDoRotations(&right);
 					depthDiff += depthDiffChange;
 				} else {
-					right = new Node(testKey, Value_t());
+					right = new Node(testKey, valueDefault);
 					depthDiffChange = i32(nullptr == left);
 					depthDiff++;
 					*dstValue = &right->value;
@@ -298,15 +298,14 @@ struct BinaryMap {
 		return base->Find(key);
 	}
 
-	Value_t& ValueOf(Key_t key) {
+	Value_t& ValueOf(Key_t key, Value_t valueDefault=Value_t()) {
 		if (base) {
 			Value_t *result;
-			base->ValueOf(key, &result);
+			base->ValueOf(key, &result, valueDefault);
 			Node::MaybeDoRotations(&base);
 			return *result;
 		} else {
-			base = new Node();
-			base->key = key;
+			base = new Node(key, valueDefault);
 			return base->value;
 		}
 	}

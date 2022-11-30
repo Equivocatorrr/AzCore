@@ -113,13 +113,12 @@ struct HashMap {
 			}
 		}
 
-		Value_t& ValueOf(const Key_t& testKey) {
+		Value_t& ValueOf(const Key_t& testKey, Value_t valueDefault=Value_t()) {
 			if (key == testKey) return value;
 			if (next) {
-				return next->ValueOf(testKey);
+				return next->ValueOf(testKey, valueDefault);
 			} else {
-				next = new Node();
-				next->key = testKey;
+				next = new Node(testKey, valueDefault);
 				return next->value;
 			}
 		}
@@ -214,13 +213,12 @@ struct HashMap {
 		return nodes[index]->Find(key);
 	}
 
-	Value_t& ValueOf(Key_t key) {
+	Value_t& ValueOf(Key_t key, Value_t valueDefault=Value_t()) {
 		i32 index = IndexHash<arraySize>(key);
 		if (nodes[index]) {
-			return nodes[index]->ValueOf(key);
+			return nodes[index]->ValueOf(key, valueDefault);
 		} else {
-			nodes[index] = new Node();
-			nodes[index]->key = key;
+			nodes[index] = new Node(key, valueDefault);
 			return nodes[index]->value;
 		}
 	}

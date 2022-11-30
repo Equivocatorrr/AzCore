@@ -10,6 +10,7 @@ add_executable(unit_tests
 	src/tests/BasicMath.cpp
 	src/tests/Quaternion.cpp
 	src/tests/String.cpp
+	src/tests/StringArena.cpp
 	src/tests/Shuffle.cpp
 	src/tests/RayTriangleIntersect.cpp
 	src/tests/RandomNumberGenerator.cpp

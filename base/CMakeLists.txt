@@ -82,6 +82,8 @@ add_library(AzCore STATIC
 		src/AzCore/Memory/Range.hpp
 		src/AzCore/Memory/String.cpp
 		src/AzCore/Memory/String.hpp
+		src/AzCore/Memory/StringArena.cpp
+		src/AzCore/Memory/StringArena.hpp
 		src/AzCore/Memory/StringCommon.hpp
 		src/AzCore/Memory/UniquePtr.hpp
 	src/AzCore/QuickSort.hpp

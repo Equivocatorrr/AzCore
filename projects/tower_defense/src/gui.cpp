@@ -1519,9 +1519,12 @@ void Button::Update(vec2 pos, bool selected) {
 		if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
 			state.Press();
 		}
-		if (globals->objects.Released(KC_MOUSE_LEFT)) {
+		if (globals->objects.Released(KC_MOUSE_LEFT) && state.Down()) {
 			state.Release();
 		}
+	} else {
+		// Mouse leave should prevent clicking
+		state.Set(false, false, false);
 	}
 	if (globals->gui.controlDepth == depth) {
 		if (selected) {

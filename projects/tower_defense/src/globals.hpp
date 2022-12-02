@@ -31,8 +31,10 @@ struct Globals {
 	bool exit = false;
 	AzCore::Nanoseconds frameDuration = AzCore::Nanoseconds(1000000000/60);
 	AzCore::BinaryMap<AzCore::String, AzCore::WString> locale;
+	AzCore::FrametimeCounter frametimes;
 	// Settings
 	bool fullscreen = false;
+	bool vsync = true;
 	bool debugInfo = false;
 	f32 framerate = 60.0f;
 	f32 volumeMain = 1.0f;

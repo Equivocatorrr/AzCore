@@ -430,6 +430,8 @@ struct MainMenu {
 struct SettingsMenu {
 	Screen screen;
 	Checkbox *checkFullscreen;
+	Checkbox *checkVSync;
+	Hideable *framerateHideable;
 	TextBox *textboxFramerate;
 	Slider *sliderVolumes[3];
 	TextBox *textboxVolumes[3];

@@ -41,6 +41,13 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	}
 
 	cout.PrintLn("Starting with layers ", (enableLayers ? "enabled" : "disabled"));
+	
+	if (enableLayers) {
+		Array<const char*> layers = {
+			"VK_LAYER_KHRONOS_validation"
+		};
+		globals->rendering.data.instance.AddLayers(layers);
+	}
 
 	if (!globals->LoadSettings()) {
 		cout.PrintLn("No settings to load. Using defaults.");
@@ -116,6 +123,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	frameNext = Clock::now();
 
 	while (globals->window.Update() && !globals->exit) {
+		globals->frametimes.Update();
+		if (globals->vsync) {
+			globals->Framerate(1000.0f / globals->frametimes.Average());
+		}
 		if (abs(Nanoseconds(frameNext - Clock::now()).count()) >= 10000000) {
 			// Something must have hung the program. Start fresh.
 			frameStart = Clock::now();
@@ -141,9 +152,11 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			return false;
 		}
 		globals->input.Tick(globals->objects.timestep);
-		Nanoseconds frameSleep = frameNext - Clock::now() - Nanoseconds(1000000);
-		if (frameSleep.count() >= 1000000) {
-			Thread::Sleep(frameSleep);
+		if (!globals->vsync) {
+			Nanoseconds frameSleep = frameNext - Clock::now() - Nanoseconds(1000000);
+			if (frameSleep.count() >= 1000000) {
+				Thread::Sleep(frameSleep);
+			}
 		}
 	}
 	if (!globals->SaveSettings()) {

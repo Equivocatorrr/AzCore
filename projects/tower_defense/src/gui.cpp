@@ -328,6 +328,9 @@ void SettingsMenu::Initialize() {
 
 	checkFullscreen = new Checkbox();
 	checkFullscreen->checked = globals->fullscreen;
+	
+	checkVSync = new Checkbox();
+	checkVSync->checked = globals->vsync;
 
 	TextBox *textboxTemplate = new TextBox();
 	textboxTemplate->fontIndex = globals->gui.fontIndex;
@@ -367,6 +370,7 @@ void SettingsMenu::Initialize() {
 
 	Array<Widget*> settingListItems = {
 		checkFullscreen, nullptr,
+		checkVSync, nullptr,
 		textboxFramerate, nullptr,
 		nullptr, nullptr,
 		sliderVolumes[0], textboxVolumes[0],
@@ -375,6 +379,7 @@ void SettingsMenu::Initialize() {
 	};
 	const char *settingListNames[] = {
 		"Fullscreen",
+		"VSync",
 		"Framerate",
 		"Volume",
 		"Main",
@@ -399,7 +404,14 @@ void SettingsMenu::Initialize() {
 				AddWidget(settingList, settingListItems[i+1]);
 			}
 
-			AddWidget(actualList, settingList);
+			if (i == 4) {
+				// Hideable Framerate
+				framerateHideable = new Hideable(settingList);
+				framerateHideable->hidden = globals->vsync;
+				AddWidget(actualList, framerateHideable);
+			} else {
+				AddWidget(actualList, settingList);
+			}
 		}
 	}
 
@@ -462,10 +474,12 @@ u64 WStringToU64(WString str) {
 }
 
 void SettingsMenu::Update() {
+	framerateHideable->hidden = checkVSync->checked;
 	screen.Update(vec2(0.0f), true);
 	if (buttonApply->state.Released()) {
 		globals->window.Fullscreen(checkFullscreen->checked);
 		globals->fullscreen = checkFullscreen->checked;
+		globals->vsync = checkVSync->checked;
 		u64 framerate = 60;
 		if (textboxFramerate->textValidate(textboxFramerate->string)) {
 			framerate = clamp(WStringToU64(textboxFramerate->string), (u64)30, (u64)300);

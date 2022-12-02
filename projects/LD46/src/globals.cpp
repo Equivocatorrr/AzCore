@@ -109,6 +109,8 @@ bool Globals::LoadSettings() {
 	for (i32 i = 0; i < ranges.size-1; i++) {
 		if (ranges[i] == "fullscreen") {
 			fullscreen = ReadBool(ranges[i+1], false);
+		} else if (ranges[i] == "vsync") {
+			vsync = ReadBool(ranges[i+1], true);
 		} else if (ranges[i] == "debugInfo") {
 			debugInfo = ReadBool(ranges[i+1], false);
 		} else if (ranges[i] == "framerate") {
@@ -146,9 +148,10 @@ bool Globals::SaveSettings() {
 	}
 	String output;
 	WriteBool(output, "fullscreen", fullscreen);
+	WriteBool(output, "vsync", vsync);
 	WriteBool(output, "debugInfo", debugInfo);
 	fwrite(output.data, 1, output.size, file);
-	output = "framerate " + ToString((i32)framerate) + '\n';
+	output = "framerate " + ToString((i32)round(framerate)) + '\n';
 	fwrite(output.data, 1, output.size, file);
 	output = "volumeMain " + ToString(volumeMain, 10, 3) + '\n';
 	fwrite(output.data, 1, output.size, file);

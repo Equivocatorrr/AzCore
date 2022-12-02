@@ -165,8 +165,6 @@ struct Manager {
 	f32 aspectRatio; // height/width
 	vec3 backgroundHSV = vec3(215.0f/360.0f, 0.7f, 0.5f);
 	vec3 backgroundRGB; // Derivative of HSV
-	FrametimeCounter frametimeCounter;
-
 
 	inline void AddRenderCallback(fpRenderCallback_t callback, void* userdata) {
 		data.renderCallbacks.Append({callback, userdata});

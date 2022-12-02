@@ -58,7 +58,7 @@ bool Manager::Init() {
 	data.queuePresent = data.device->AddQueue();
 	data.queuePresent->queueType = vk::QueueType::PRESENT;
 	data.swapchain = data.device->AddSwapchain();
-	data.swapchain->vsync = true;
+	data.swapchain->vsync = globals->vsync;
 	data.swapchain->window = data.instance.AddWindowForSurface(&globals->window);
 	data.framebuffer = data.device->AddFramebuffer();
 	data.framebuffer->swapchain = data.swapchain;
@@ -461,6 +461,14 @@ bool Manager::Draw() {
 		}
 		data.resized = false;
 	}
+	if (globals->vsync != data.swapchain->vsync) {
+		vk::DeviceWaitIdle(data.device);
+		data.swapchain->vsync = globals->vsync;
+		if (!data.swapchain->Reconfigure()) {
+			error = "Failed to set VSync: " + vk::error;
+			return false;
+		}
+	}
 
 	bool updateFontMemory = false;
 	for (i32 i = 0; i < globals->assets.fonts.size; i++) {
@@ -525,10 +533,9 @@ bool Manager::Draw() {
 
 	{ // Debug info
 		if (globals->debugInfo) {
-			frametimeCounter.Update();
-			f32 msAvg = frametimeCounter.Average();
-			f32 msMax = frametimeCounter.Max();
-			f32 msMin = frametimeCounter.Min();
+			f32 msAvg = globals->frametimes.Average();
+			f32 msMax = globals->frametimes.Max();
+			f32 msMin = globals->frametimes.Min();
 			f32 msDiff = msMax - msMin;
 			f32 fps = 1000.0f / msAvg;
 			WString string = ToWString(Stringify("fps: ", FormatFloat(fps, 10, 1), "\navg: ", FormatFloat(msAvg, 10, 1), "ms\nmax: ", FormatFloat(msMax, 10, 1), "ms\nmin: ", FormatFloat(msMin, 10, 1), "ms\ndiff: ", FormatFloat(msDiff, 10, 1), "ms"));

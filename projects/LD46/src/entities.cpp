@@ -125,7 +125,6 @@ void Manager::Reset() {
 	droplets.Clear();
 	flames.Clear();
 	updateChunks.Clear();
-	camZoom = 1.0;
 	mouse = 0.0;
 	gas = 15.0f;
 	flame = 1.0f;
@@ -137,7 +136,6 @@ void Manager::Reset() {
 	goalPos = 0.0f;
 	nextLevelTimer = 0.0f;
 	if (globals->gui.currentMenu != Int::MENU_EDITOR) {
-		camZoom = 1.5;
 		for (i32 y = 0; y < world.size.y; y++) {
 			for (i32 x = 0; x < world.size.x; x++) {
 				vec2i pos = vec2i(x, y);
@@ -223,6 +221,7 @@ inline bool Manager::CursorVisible() const {
 }
 
 void Manager::EventSync() {
+	camZoom = (f32)globals->window.height / 1080.0f * 1.5f;
 	if (globals->gui.mainMenu.buttonContinue->state.Released()) {
 		globals->gui.mainMenu.buttonContinue->state.Set(false, false, false);
 	}
@@ -375,6 +374,9 @@ void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 		} else {
 			successText.Draw(contexts.Back());
 		}
+	}
+	if (globals->gui.currentMenu == Int::MENU_EDITOR) {
+		globals->rendering.DrawQuad(contexts.Back(), Rendering::texBlank, vec4(vec3(1.0f), 0.2f), globals->entities.WorldPosToScreen(vec2(vec2i(mouse)/32)*32.0f), vec2(32.0f), vec2(1.0f));
 	}
 }
 

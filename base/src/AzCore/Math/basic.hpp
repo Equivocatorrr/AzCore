@@ -38,6 +38,12 @@ enum Plane {
 	ZW = 5
 };
 
+// Returns the value of numerator/denominator rounded up instead of down
+template<typename Int>
+Int intDivCeil(Int numerator, Int denominator) {
+	return (numerator + denominator - 1) / denominator;
+}
+
 } // namespace AzCore
 
 template <typename T>

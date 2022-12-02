@@ -228,12 +228,16 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 		break;
 	}
 	case WM_MOVE: {
-		if (!thisWindow->fullscreen) {
-			thisWindow->windowedX = LOWORD(lParam);
-			thisWindow->windowedY = HIWORD(lParam);
+		if (!thisWindow->data->moveHack) {
+			if (!thisWindow->fullscreen) {
+				thisWindow->windowedX = LOWORD(lParam);
+				thisWindow->windowedY = HIWORD(lParam);
+			}
+			thisWindow->x = LOWORD(lParam);
+			thisWindow->y = HIWORD(lParam);
+		} else {
+			thisWindow->data->moveHack = false;
 		}
-		thisWindow->x = LOWORD(lParam);
-		thisWindow->y = HIWORD(lParam);
 		break;
 	}
 	case WM_SIZE: {
@@ -302,6 +306,9 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 }
 
 bool Window::Open() {
+	data->resizeHack = false;
+	data->moveHack = false;
+	
 	data->instance = GetModuleHandle(NULL);
 	data->windowIcon = LoadIcon(data->instance, "icon.ico");
 	data->windowIconSmall = data->windowIcon;
@@ -377,6 +384,7 @@ bool Window::Fullscreen(bool fs) {
 
 	fullscreen = fs;
 	resized = true;
+	data->moveHack = true; // Prevent WM_MOVE from lying to us
 	data->resizeHack = true; // Prevent WM_SIZE from lying to us, the ungrateful bastard
 
 	if (fullscreen) {

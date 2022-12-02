@@ -23,6 +23,7 @@ struct WindowData {
 	HICON windowIcon, windowIconSmall;
 	String windowClassName;
 	bool resizeHack;
+	bool moveHack;
 };
 
 } // namespace io

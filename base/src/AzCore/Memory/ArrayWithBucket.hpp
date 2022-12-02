@@ -616,8 +616,14 @@ struct ArrayWithBucket {
 	T& Insert(i32 index, T &&value) {
 		AzAssert(index >= 0 && index <= size, "ArrayWithBucket::Insert index is out of bounds");
 		if (size+allocTail >= allocated && size+allocTail >= noAllocCount) {
-			const bool doDelete = allocated != 0;
-			allocated += (allocated >> 1) + 2;
+			bool doDelete;
+			if (allocated != 0) {
+				doDelete = true;
+			} else {
+				doDelete = false;
+				allocated = size + allocTail + 1;
+			}
+			allocated += (allocated >> 1) + 4;
 			T *temp = new T[allocated + allocTail];
 			if constexpr (std::is_trivially_copyable<T>::value) {
 				if (index > 0) {

@@ -228,14 +228,12 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 		break;
 	}
 	case WM_MOVE: {
-		if (!thisWindow->resized) {
-			if (!thisWindow->fullscreen) {
-				thisWindow->windowedX = LOWORD(lParam);
-				thisWindow->windowedY = HIWORD(lParam);
-			}
-			thisWindow->x = LOWORD(lParam);
-			thisWindow->y = HIWORD(lParam);
+		if (!thisWindow->fullscreen) {
+			thisWindow->windowedX = LOWORD(lParam);
+			thisWindow->windowedY = HIWORD(lParam);
 		}
+		thisWindow->x = LOWORD(lParam);
+		thisWindow->y = HIWORD(lParam);
 		break;
 	}
 	case WM_SIZE: {
@@ -397,20 +395,20 @@ bool Window::Fullscreen(bool fs) {
 			//	 Sys::cout << "Fullscreened on a non-primary monitor." << std::endl;
 		}
 		SetWindowLongPtr(data->window, GWL_STYLE, WS_FULLSCREEN);
-		MoveWindow(data->window, x, y, width, height, TRUE);
+		SetWindowPos(data->window, nullptr, x, y, width, height, SWP_NOZORDER);
 	} else {
 		width = windowedWidth;
 		height = windowedHeight;
 		RECT rect;
-		rect.left = 0;
-		rect.top = 0;
-		rect.right = width;
-		rect.bottom = height;
+		rect.left = windowedX;
+		rect.top = windowedY;
+		rect.right = windowedX + width;
+		rect.bottom = windowedY + height;
 		SetWindowLongPtr(data->window, GWL_STYLE, WS_WINDOWED);
-		AdjustWindowRect(&rect, WS_WINDOWED, FALSE);
-		MoveWindow(data->window, windowedX, windowedY, rect.right - rect.left, rect.bottom - rect.top, TRUE);
-		x = windowedX;
-		y = windowedY;
+		AdjustWindowRectExForDpi(&rect, WS_WINDOWED, FALSE, 0, dpi);
+		SetWindowPos(data->window, nullptr, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOZORDER);
+		x = rect.left;
+		y = rect.top;
 	}
 
 	return true;

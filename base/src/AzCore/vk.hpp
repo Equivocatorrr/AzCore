@@ -529,6 +529,7 @@ namespace vk {
 		bool Create();
 		void Destroy();
 		bool Deinit();
+		bool Recreate();
 	};
 
 	/*  struct: Semaphore

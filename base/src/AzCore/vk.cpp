@@ -2452,6 +2452,19 @@ failure:
 		data.initted = false;
 		return true;
 	}
+	
+	bool Framebuffer::Recreate() {
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
+		if (!data.created) {
+			error = "Framebuffer::Recreate() called when framebuffer hasn't been created yet.";
+			return false;
+		}
+#endif
+		if (!Deinit()) return false;
+		if (!Init(data.device, data.debugMarker)) return false;
+		if (!Create()) return false;
+		return true;
+	}
 
 	bool Shader::Init(Device *device, String debugMarker) {
 #ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
@@ -2475,11 +2488,7 @@ failure:
 		}
 
 		size_t fileSize = (size_t) file.tellg();
-		if (fileSize % 4 != 0) {
-			data.code.Resize(fileSize/4+1, 0);
-		} else {
-			data.code.Resize(fileSize/4);
-		}
+		data.code.Resize(intDivCeil(fileSize, (size_t)4));
 
 		file.seekg(0);
 		file.read((char*)data.code.data, fileSize);
@@ -3115,15 +3124,7 @@ failure:
 		}
 		for (Ptr<Framebuffer> framebuffer : data.framebuffers) {
 			if (framebuffer->data.created) {
-				if (!framebuffer->Deinit()) {
-					return false;
-				}
-				if (!framebuffer->Init(data.device)) {
-					return false;
-				}
-				if (!framebuffer->Create()) {
-					return false;
-				}
+				if (!framebuffer->Recreate()) return false;
 			}
 		}
 		return true;
@@ -3265,7 +3266,7 @@ failure:
 			}
 		}
 		// Now we gotta find our extent
-		if (data.surfaceCapabilities.currentExtent.width != std::numeric_limits<u32>::max()) {
+		if (data.surfaceCapabilities.currentExtent.width != UINT32_MAX) {
 			data.extent = data.surfaceCapabilities.currentExtent;
 		} else {
 			data.extent = {(u32)window->surfaceWindow->width, (u32)window->surfaceWindow->height};
@@ -3391,6 +3392,11 @@ failure:
 		if (data.initted) {
 			if (!Create())
 				return false;
+		}
+		for (Ptr<Framebuffer> framebuffer : data.framebuffers) {
+			if (framebuffer->data.created) {
+				if (!framebuffer->Recreate()) return false;
+			}
 		}
 		return true;
 	}

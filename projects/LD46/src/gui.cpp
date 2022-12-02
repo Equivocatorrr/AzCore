@@ -482,9 +482,9 @@ void SettingsMenu::Initialize() {
 				framerateHideable->hidden = globals->vsync;
 				AddWidget(actualList, framerateHideable);
 			} else {
-			AddWidget(actualList, settingList);
+				AddWidget(actualList, settingList);
+			}
 		}
-	}
 	}
 
 	ListH *buttonList = new ListH();
@@ -844,13 +844,17 @@ void EditorMenu::Initialize() {
 	listMiddle->fractionHeight = false;
 	listMiddle->fractionWidth = true;
 	listMiddle->margin = 0.0f;
+	listMiddle->padding = 0.0f;
 	listMiddle->color = 0.0f;
 	listMiddle->highlight = 0.0f;
 	listMiddle->size = vec2(1.0f, 0.0f);
+	listMiddle->occludes = false;
 	AddWidget(screenListV, listMiddle);
 
 	spacer = new Widget();
 	spacer->size.x = 0.5f;
+	spacer->size.y = 0.0f;
+	spacer->margin = 0.0f;
 	AddWidget(listMiddle, spacer);
 
 	ListV *listDialogs = new ListV();
@@ -858,6 +862,8 @@ void EditorMenu::Initialize() {
 	listDialogs->fractionHeight = false;
 	listDialogs->size = vec2(480.0f, 0.0f);
 	listDialogs->color = 0.0f;
+	listDialogs->margin = 0.0f;
+	listDialogs->padding = 0.0f;
 	listDialogs->highlight = 0.0f;
 	listDialogs->occludes = false;
 	AddWidget(listMiddle, listDialogs);
@@ -915,6 +921,8 @@ void EditorMenu::Initialize() {
 		ListV *dialog = new ListV();
 		dialog->fractionHeight = false;
 		dialog->size.y = 0.0f;
+		dialog->margin = 0.0f;
+		dialog->padding = 0.0f;
 
 		Text *header = new Text();
 		header->bold = true;
@@ -983,6 +991,8 @@ void EditorMenu::Initialize() {
 		ListV *dialog = new ListV();
 		dialog->fractionHeight = false;
 		dialog->size.y = 0.0f;
+		dialog->margin = 0.0f;
+		dialog->padding = 0.0f;
 
 		Text *header = new Text();
 		header->bold = true;
@@ -1026,6 +1036,8 @@ void EditorMenu::Initialize() {
 		ListV *dialog = new ListV();
 		dialog->fractionHeight = false;
 		dialog->size.y = 0.0f;
+		dialog->margin = 0.0f;
+		dialog->padding = 0.0f;
 
 		Text *header = new Text();
 		header->bold = true;

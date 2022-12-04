@@ -57,11 +57,19 @@ class ArenaString {
 	i32 id;
 public:
 	constexpr ArenaString() : id(0) {}
-	constexpr ArenaString(const SimpleRange<char> other) : id(arena->GetID(other)) {}
+	constexpr ArenaString(SimpleRange<char> other) : id(arena->GetID(other)) {}
+	constexpr ArenaString(const char *other) : id(arena->GetID(other)) {}
+	constexpr ArenaString(const String &other) : id(arena->GetID(other)) {}
 	constexpr bool operator==(ArenaString other) {
 		return id == other.id;
 	}
 	constexpr bool operator==(SimpleRange<char> other) {
+		return GetString() == other;
+	}
+	constexpr bool operator==(const char *other) {
+		return GetString() == other;
+	}
+	constexpr bool operator==(const String &other) {
 		return GetString() == other;
 	}
 	constexpr bool operator!=(ArenaString other) {
@@ -75,9 +83,16 @@ public:
 		id = other.id;
 		return *this;
 	}
-	constexpr ArenaString& operator=(String other) {
+	constexpr ArenaString& operator=(SimpleRange<char> other) {
 		id = arena->GetID(other);
 		return *this;
+	}
+	constexpr ArenaString& operator=(const String &other) {
+		id = arena->GetID(other);
+		return *this;
+	}
+	constexpr ArenaString& operator=(const char *string) {
+		return operator=(SimpleRange<char>(string));
 	}
 	constexpr operator const SimpleRange<char>() {
 		return GetString();

@@ -28,7 +28,7 @@ template <typename FP>
 void FPError<FP>::Report(i32 line) {
 	az::QuickSort(errors);
 	f32 medianError = errors[errors.size/2];
-	if ((errors.size % 2) == 1) {
+	if ((errors.size % 2) == 0) {
 		medianError += errors[errors.size/2 + 1];
 		medianError /= FP(2);
 	}

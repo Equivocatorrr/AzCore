@@ -187,6 +187,143 @@ void AppendToString(String &string, i128 value, i32 base) {
 }
 #endif
 
+char DigitToChar(i32 digit) {
+	return digit >= 10 ? (digit + 'A' - 10) : (digit + '0');
+}
+char IncrementedDigit(char digit) {
+	if (digit == '9') return 'A';
+	return digit + 1;
+}
+
+template<typename Float, i32 MAX_SIGNIFICANT_DIGITS>
+void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) {
+	const i32 MAX_SIGNIFICANT_DIGITS_BASED = ceil((f32)MAX_SIGNIFICANT_DIGITS/log2((f32)base));
+	i32 startSize = string.size;
+	string.Reserve(startSize + MAX_SIGNIFICANT_DIGITS_BASED + 4);
+	i32 basisExponent = 0;
+	Float remaining = value;
+	if (remaining < 0.0f) {
+		remaining = -remaining;
+		string += '-';
+	}
+	i32 newExponent = 0;
+	// Whether our string has the '.' in it already
+	bool point = false;
+	Float basis;
+	
+	// Find a basis that's the smallest power of base greater than the number
+	if (remaining >= 1.0f) {
+		while (true) {
+			i32 newBasis = basisExponent+1;
+			basis = pow((Float)base, (Float)newBasis);
+			if (basis > remaining) {
+				break;
+			} else {
+				newExponent++;
+				basisExponent = newBasis;
+			}
+		}
+	} else {
+		while (true) {
+			basisExponent--;
+			newExponent--;
+			basis = pow((Float)base, (Float)basisExponent);
+			if (basis <= remaining) {
+				break;
+			}
+		}
+	}
+	// The value near which we place our '.'
+	Float crossover;
+	i32 count = 1 + MAX_SIGNIFICANT_DIGITS_BASED;
+	i32 dot = -1;
+	constexpr i32 EXPONENT_LOW_BOUNDS = -3;
+	const i32 EXPONENT_HIGH_BOUNDS = MAX_SIGNIFICANT_DIGITS_BASED;
+	if (newExponent >= EXPONENT_HIGH_BOUNDS || newExponent <= EXPONENT_LOW_BOUNDS) {
+		// For scientific notation, set our crossover to where the output will be around 1.0
+		crossover = pow((Float)base, (Float)(basisExponent-1));
+	} else {
+		// Regular decimal notation
+		if (remaining < 1.0f) {
+			string += "0.";
+			dot = string.size-1;
+			point = true;
+			if (precision != -1)
+				count = precision+1;
+			for (i32 i = 2; i <= -newExponent; i++) {
+				string += '0';
+			}
+		}
+		// No special crossover
+		crossover = 1.0f / base;
+	}
+	char lastDigit = base <= 10 ? '0'+base-1 : 'A'+base-11;
+	// Whether we need to round up
+	bool roundUp = false;
+	basis = pow((Float)base, (Float)basisExponent);
+	for (; count > 0; count--) {
+		i32 digit = i32(remaining / basis);
+		string += DigitToChar(digit);
+		remaining -= basis * (Float)digit;
+		if (remaining < 0.0f)
+			remaining = 0.0f;
+		basisExponent--;
+		basis = pow((Float)base, (Float)basisExponent);
+		if (point && count == 1) {
+			if (i32(remaining / basis) >= intDivCeil(base, 2)) {
+				roundUp = true;
+			}
+		}
+		if (!point && basis <= crossover) {
+			dot = string.size;
+			string += '.';
+			point = true;
+			if (precision != -1)
+				count = precision+1;
+		}
+	}
+	// Do the actual rounding
+	if (roundUp) {
+		if (precision == -1) precision = string.size - dot - 1;
+		string[dot+precision] = IncrementedDigit(string[dot+precision]);
+		for (i32 i = dot+precision; i >= startSize;) {
+			i32 nextI = i-1;
+			if (nextI == dot) nextI--;
+			if (string[i] > lastDigit) {
+				if (i > dot+1) {
+					string.Resize(i);
+				} else {
+					string[i] = '0';
+				}
+				if (nextI == startSize-1) {
+					string.Insert(startSize, '1');
+					dot++;
+					break;
+				}
+				string[nextI] = IncrementedDigit(string[nextI]);
+			} else {
+				break;
+			}
+			i = nextI;
+		}
+	}
+	i32 i = string.size - 1;
+	for (; string[i] == '0'; i--) {
+	}
+	if (string[i] == '.') {
+		i++; // Leave 1 trailing zero
+	}
+	string.Resize(i + 1);
+	if (newExponent >= EXPONENT_HIGH_BOUNDS) {
+		AppendToString(string, "e+");
+		AppendToString(string, newExponent, base);
+	}
+	else if (newExponent <= EXPONENT_LOW_BOUNDS) {
+		AppendToString(string, "e-");
+		AppendToString(string, -newExponent, base);
+	}
+}
+
 void AppendToString(String &string, f32 value, i32 base, i32 precision) {
 	u32 byteCode;
 	memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
@@ -214,110 +351,7 @@ void AppendToString(String &string, f32 value, i32 base, i32 precision) {
 		string.Append(".0");
 		return;
 	}
-	i32 startSize = string.size;
-	string.Reserve(startSize + 12);
-	f32 basis = 1.0f;
-	f32 remaining = value;
-	if (remaining < 0.0f) {
-		remaining = -remaining;
-		string += '-';
-	}
-	i32 newExponent = 0;
-	bool point = false;
-	if (remaining >= 1.0f) {
-		while (true) {
-			f32 newBasis = basis * base;
-			if (newBasis > remaining) {
-				break;
-			} else {
-				newExponent++;
-				basis = newBasis;
-			}
-		}
-	} else {
-		while (true) {
-			basis /= base;
-			newExponent--;
-			if (basis <= remaining) {
-				break;
-			}
-		}
-	}
-	f32 crossover;
-	i32 count = 8;
-	i32 dot = -1;
-	if (newExponent > 7 || newExponent < -1) {
-		crossover = basis / base;
-	} else {
-		if (remaining < 1.0f) {
-			string += "0.";
-			dot = string.size-1;
-			point = true;
-			if (precision != -1)
-				count = precision+1;
-			for (i32 i = 2; i < newExponent; i++) {
-				string += '0';
-			}
-		}
-		crossover = 1.0f / base;
-	}
-	bool roundUp = false;
-	for (; count > 0; count--) {
-		i32 digit = i32(remaining / basis);
-		string += digit >= 10 ? (digit + 'A' - 10) : (digit + '0');
-		remaining -= basis * (f32)digit;
-		if (remaining < 0.0f)
-			remaining = 0.0f;
-		basis /= base;
-		if (point && count == 1) {
-			if (i32(remaining / basis) >= base / 2) {
-				roundUp = true;
-			}
-		}
-		if (!point && basis <= crossover) {
-			dot = string.size;
-			string += '.';
-			point = true;
-			if (precision != -1)
-				count = precision+1;
-		}
-	}
-	if (roundUp && precision != -1 && point) {
-		string[dot+precision]++;
-		for (i32 i = dot+precision; i >= startSize;) {
-			i32 nextI = i-1;
-			if (nextI == dot) nextI--;
-			if (string[i] > '9') {
-				if (i > dot+1) {
-					string.Resize(i);
-				} else {
-					string[i] = '0';
-				}
-				if (nextI == startSize-1) {
-					string.Insert(startSize, '1');
-					dot++;
-					break;
-				}
-				string[nextI]++;
-			} else {
-				break;
-			}
-			i = nextI;
-		}
-	}
-	i32 i = string.size - 1;
-	for (; string[i] == '0'; i--) {
-	}
-	if (string[i] == '.') {
-		i++; // Leave 1 trailing zero
-	}
-	string.Resize(i + 1);
-	if (newExponent > 7) {
-		string += "e+" + ToString(newExponent, base);
-	}
-	else if (newExponent < -1) {
-		string += "e-" + ToString(-newExponent, base);
-	}
+	_AppendFloatToString<f32, 24>(string, value, base, precision);
 }
 
 void AppendToString(String &string, f64 value, i32 base, i32 precision) {
@@ -347,110 +381,7 @@ void AppendToString(String &string, f64 value, i32 base, i32 precision) {
 		string.Append(".0");
 		return;
 	}
-	i32 startSize = string.size;
-	string.Reserve(startSize + 24);
-	f64 basis = 1.0;
-	f64 remaining = value;
-	if (remaining < 0.0) {
-		remaining = -remaining;
-		string += '-';
-	}
-	i32 newExponent = 0;
-	bool point = false;
-	if (remaining >= 1.0) {
-		while (true) {
-			f64 newBasis = basis * base;
-			if (newBasis > remaining) {
-				break;
-			} else {
-				newExponent++;
-				basis = newBasis;
-			}
-		}
-	} else {
-		while (true) {
-			basis /= base;
-			newExponent--;
-			if (basis <= remaining) {
-				break;
-			}
-		}
-	}
-	f64 crossover;
-	i32 count = 16;
-	i32 dot = -1;
-	if (newExponent > 15 || newExponent < -1) {
-		crossover = basis / base;
-	} else {
-		if (remaining < 1.0) {
-			string += "0.";
-			dot = startSize+1;
-			point = true;
-			if (precision != -1)
-				count = precision + 1;
-			for (i32 i = 2; i < newExponent; i++) {
-				string += '0';
-			}
-		}
-		crossover = 1.0 / base;
-	}
-	bool roundUp = false;
-	for (; count > 0; count--) {
-		i32 digit = i32(remaining / basis);
-		string += digit >= 10 ? (digit + 'A' - 10) : (digit + '0');
-		remaining -= basis * (f64)digit;
-		if (remaining < 0.0)
-			remaining = 0.0;
-		basis /= base;
-		if (point && count == 1) {
-			if (i32(remaining / basis) >= base / 2) {
-				roundUp = true;
-			}
-		}
-		if (!point && basis <= crossover) {
-			dot = string.size;
-			string += '.';
-			point = true;
-			if (precision != -1)
-				count = precision + 1;
-		}
-	}
-	if (roundUp && precision != -1 && point) {
-		string[dot+precision]++;
-		for (i32 i = dot+precision; i >= startSize;) {
-			i32 nextI = i-1;
-			if (nextI == dot) nextI--;
-			if (string[i] > '9') {
-				if (i > dot+1) {
-					string.Resize(i);
-				} else {
-					string[i] = '0';
-				}
-				if (nextI == startSize-1) {
-					string.Insert(startSize, '1');
-					dot++;
-					break;
-				}
-				string[nextI]++;
-			} else {
-				break;
-			}
-			i = nextI;
-		}
-	}
-	i32 i = string.size - 1;
-	for (; string[i] == '0'; i--) {
-	}
-	if (string[i] == '.') {
-		i++; // Leave 1 trailing zero
-	}
-	string.Resize(i + 1);
-	if (newExponent > 15) {
-		string += "e+" + ToString(newExponent, base);
-	}
-	else if (newExponent < -1) {
-		string += "e-" + ToString(-newExponent, base);
-	}
+	_AppendFloatToString<f64, 53>(string, value, base, precision);
 }
 
 #if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
@@ -482,111 +413,7 @@ void AppendToString(String &string, f128 value, i32 base, i32 precision) {
 		string.Append(".0");
 		return;
 	}
-	i32 startSize = string.size;
-	string.Reserve(startSize + 40);
-
-	f128 basis = 1.0;
-	f128 remaining = value;
-	if (remaining < 0.0) {
-		remaining = -remaining;
-		string += '-';
-	}
-	i32 newExponent = 0;
-	bool point = false;
-	if (remaining >= 1.0) {
-		while (true) {
-			f128 newBasis = basis * base;
-			if (newBasis > remaining) {
-				break;
-			} else {
-				newExponent++;
-				basis = newBasis;
-			}
-		}
-	} else {
-		while (true) {
-			basis /= base;
-			newExponent--;
-			if (basis <= remaining) {
-				break;
-			}
-		}
-	}
-	f128 crossover;
-	i32 count = 34;
-	i32 dot = -1;
-	if (newExponent > 33 || newExponent < -1) {
-		crossover = basis / base;
-	} else {
-		if (remaining < 1.0) {
-			string += "0.";
-			dot = startSize+1;
-			point = true;
-			if (precision != -1)
-				count = precision + 1;
-			for (i32 i = 2; i < newExponent; i++) {
-				string += '0';
-			}
-		}
-		crossover = 1.0 / base;
-	}
-	bool roundUp = false;
-	for (; count > 0; count--) {
-		i32 digit = i32(remaining / basis);
-		string += digit >= 10 ? (digit + 'A' - 10) : (digit + '0');
-		remaining -= basis * (f128)digit;
-		if (remaining < 0.0)
-			remaining = 0.0;
-		basis /= base;
-		if (point && count == 1) {
-			if (i32(remaining / basis) >= base / 2) {
-				roundUp = true;
-			}
-		}
-		if (!point && basis <= crossover) {
-			dot = string.size;
-			string += '.';
-			point = true;
-			if (precision != -1)
-				count = precision + 1;
-		}
-	}
-	if (roundUp && precision != -1 && point) {
-		string[dot+precision]++;
-		for (i32 i = dot+precision; i >= startSize;) {
-			i32 nextI = i-1;
-			if (nextI == dot) nextI--;
-			if (string[i] > '9') {
-				if (i > dot+1) {
-					string.Resize(i);
-				} else {
-					string[i] = '0';
-				}
-				if (nextI == startSize-1) {
-					string.Insert(startSize, '1');
-					dot++;
-					break;
-				}
-				string[nextI]++;
-			} else {
-				break;
-			}
-			i = nextI;
-		}
-	}
-	i32 i = string.size - 1;
-	for (; string[i] == '0'; i--) {
-	}
-	if (string[i] == '.') {
-		i++; // Leave 1 trailing zero
-	}
-	string.Resize(i + 1);
-	if (newExponent > 33) {
-		string += "e+" + ToString(newExponent, base);
-	}
-	else if (newExponent < -1) {
-		string += "e-" + ToString(-newExponent, base);
-	}
+	_AppendFloatToString<f128, 113>(string, value, base, precision);
 }
 #endif
 
@@ -629,12 +456,13 @@ bool _StringToInt(SimpleRange<Char> string, Int *dst, i32 base) {
 template<typename Float, typename Char>
 bool _StringToFloat(StringBase<Char> string, Float *dst, i32 base) {
 	Float out = Float(0);
-	Float multiplier = Float(1);
+	Float sign = Float(1);
+	i32 exponent = 0;
 	Float baseF = base;
 	i32 dot = -1;
 	i32 start;
 	if (string[0] == '-') {
-		multiplier = Float(-1);
+		sign = Float(-1);
 		string.Erase(0);
 	}
 	for (i32 i = 0; i < string.size; i++) {
@@ -648,6 +476,8 @@ bool _StringToFloat(StringBase<Char> string, Float *dst, i32 base) {
 		if (string[i] == 'e' && (string[i+1] == '+' || string[i+1] == '-')) {
 			i32 exp;
 			if (!_StringToInt<i32, Char>(SimpleRange<Char>(&string[i+1], string.size-i-1), &exp, base)) return false;
+			exponent = exp;
+			/*
 			if (exp > 0) {
 				while (0 != exp--) {
 					multiplier *= baseF;
@@ -657,6 +487,7 @@ bool _StringToFloat(StringBase<Char> string, Float *dst, i32 base) {
 					multiplier /= baseF;
 				}
 			}
+			*/
 			string.Resize(i);
 			break;
 		}
@@ -665,7 +496,8 @@ bool _StringToFloat(StringBase<Char> string, Float *dst, i32 base) {
 	if (dot == -1)
 		dot = string.size;
 	for (; dot <= start; dot++) {
-		multiplier /= baseF;
+		exponent--;
+		// multiplier /= baseF;
 	}
 	for (i32 i = start; i >= 0; i--) {
 		Float value = baseF;
@@ -684,9 +516,11 @@ bool _StringToFloat(StringBase<Char> string, Float *dst, i32 base) {
 			return false;
 		}
 		AzAssert(value < baseF, "StringToFloat machine broke :(");
-		out += value * multiplier;
-		multiplier *= baseF;
+		out += value * pow(baseF, Float(exponent));
+		exponent++;
+		// multiplier *= baseF;
 	}
+	out *= sign;
 	*dst = out;
 	return true;
 }

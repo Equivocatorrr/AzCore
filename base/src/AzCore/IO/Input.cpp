@@ -29,7 +29,8 @@ void Input::Press(u8 keyCode) {
 		AnyMB.Press();
 		codeAnyMB = keyCode;
 	}
-	inputs[keyCode].Press();
+	if (!inputs[keyCode].Down()) // De-duplicate
+		inputs[keyCode].Press();
 }
 
 void Input::Release(u8 keyCode) {

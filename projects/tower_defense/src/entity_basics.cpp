@@ -129,15 +129,15 @@ bool CollisionSegmentBox(const Physical &a, const Physical &b) {
 }
 
 bool CollisionCircleCircle(const Physical &a, const Physical &b) {
-	return absSqr(a.actual.circle.c - b.actual.circle.c) <= square(a.actual.circle.r + b.actual.circle.r);
+	return normSqr(a.actual.circle.c - b.actual.circle.c) <= square(a.actual.circle.r + b.actual.circle.r);
 }
 
 bool CollisionCircleBox(const Physical &a, const Physical &b) {
 	const f32 rSquared = square(a.actual.circle.r);
-	if (absSqr(a.actual.circle.c - b.actual.box.a) <= rSquared) return true;
-	if (absSqr(a.actual.circle.c - b.actual.box.b) <= rSquared) return true;
-	if (absSqr(a.actual.circle.c - b.actual.box.c) <= rSquared) return true;
-	if (absSqr(a.actual.circle.c - b.actual.box.d) <= rSquared) return true;
+	if (normSqr(a.actual.circle.c - b.actual.box.a) <= rSquared) return true;
+	if (normSqr(a.actual.circle.c - b.actual.box.b) <= rSquared) return true;
+	if (normSqr(a.actual.circle.c - b.actual.box.c) <= rSquared) return true;
+	if (normSqr(a.actual.circle.c - b.actual.box.d) <= rSquared) return true;
 
 	const mat2 rotation = mat2::Rotation(-b.angle.value());
 	const vec2 C = (a.actual.circle.c - b.pos) * rotation;
@@ -258,7 +258,7 @@ bool Physical::MouseOver() const {
 		return distSqrToLine<true>(actual.segment.a, actual.segment.b, mouse) < 16.0f;
 	}
 	case CIRCLE: {
-		return absSqr(actual.circle.c-mouse) <= square(actual.circle.r);
+		return normSqr(actual.circle.c-mouse) <= square(actual.circle.r);
 	}
 	case BOX: {
 		const mat2 rotation = mat2::Rotation(-angle.value());

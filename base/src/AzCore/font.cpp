@@ -237,8 +237,8 @@ i32 Curve::Intersection(const vec2 &point) const {
 f32 Curve::DistanceLess(const vec2 &point, f32 distSquared) const {
 	// Try to do an early out if we can
 	{
-		f32 maxPointDistSquared = max(max(absSqr(p1-p2), absSqr(p2-p3)), absSqr(p3-p1));
-		f32 minDistSquared = min(min(absSqr(p1-point), absSqr(p2-point)), absSqr(p3-point));
+		f32 maxPointDistSquared = max(max(normSqr(p1-p2), normSqr(p2-p3)), normSqr(p3-p1));
+		f32 minDistSquared = min(min(normSqr(p1-point), normSqr(p2-point)), normSqr(p3-point));
 		if (minDistSquared > distSquared + maxPointDistSquared * 0.25f) {
 			// NOTE: Should this be maxPointDist*square(sin(pi/4)) ???
 			return distSquared;
@@ -260,20 +260,20 @@ f32 Curve::DistanceLess(const vec2 &point, f32 distSquared) const {
 	const vec2 n = p3 - p2 - m;
 	const vec2 o = p1 - point;
 
-	const f32 a = absSqr(n);
+	const f32 a = normSqr(n);
 	const f32 b = dot(m, n) * 3.0f;
-	const f32 c = absSqr(m) * 2.0f + dot(o, n);
+	const f32 c = normSqr(m) * 2.0f + dot(o, n);
 	const f32 d = dot(o, m);
 	SolutionCubic<f32> solution = SolveCubic<f32>(a, b, c, d);
 	// We're guaranteed at least 1 solution.
 	for (i32 i = 0; i < solution.nReal; i++) {
 		f32 dist;
 		if (solution.root[i] < 0.0f) {
-			dist = absSqr(p1-point);
+			dist = normSqr(p1-point);
 		} else if (solution.root[i] > 1.0f) {
-			dist = absSqr(p3-point);
+			dist = normSqr(p3-point);
 		} else {
-			dist = absSqr(Point(solution.root[i])-point);
+			dist = normSqr(Point(solution.root[i])-point);
 		}
 		if (dist < distSquared) {
 			distSquared = dist;
@@ -375,14 +375,14 @@ f32 Curve2::DistanceLess(const vec2 &point, f32 distSquared) const {
 	{
 		// NOTE: This could probably be refined
 		f32 maxPointDistSquared = max(
-			max(max(absSqr(p1-p2), absSqr(p1-p3)), absSqr(p1-p4)),
-			max(max(absSqr(p2-p3), absSqr(p2-p4)), absSqr(p3-p4))
+			max(max(normSqr(p1-p2), normSqr(p1-p3)), normSqr(p1-p4)),
+			max(max(normSqr(p2-p3), normSqr(p2-p4)), normSqr(p3-p4))
 		);
 		f32 minDistSquared = min(
 			min(
-				min(absSqr(p1-point), absSqr(p2-point)),
-				absSqr(p3-point)
-			), absSqr(p4-point)
+				min(normSqr(p1-point), normSqr(p2-point)),
+				normSqr(p3-point)
+			), normSqr(p4-point)
 		);
 		if (minDistSquared > distSquared + maxPointDistSquared * 0.25f) {
 			return distSquared;
@@ -413,11 +413,11 @@ f32 Curve2::DistanceLess(const vec2 &point, f32 distSquared) const {
 	const vec2 n = p3 - p2 - m; // Equates to p3 - 2*p2 + p1, but is faster
 	const vec2 o = p4 + (p2 - p3) * 3.0f - p1;
 
-	const f32 a = 3.0f * absSqr(o);
+	const f32 a = 3.0f * normSqr(o);
 	const f32 b = 15.0f * dot(o, n);
-	const f32 c = 12.0f * dot(o, m) + 18.0f * absSqr(n);
+	const f32 c = 12.0f * dot(o, m) + 18.0f * normSqr(n);
 	const f32 d = 27.0f * dot(n, m) + 3.0f * dot(p1, o) - 3.0f * dot(point, o);
-	const f32 e = 9.0f * absSqr(m) + 6.0f * dot(p1, n) - 6.0f * dot(point, n);
+	const f32 e = 9.0f * normSqr(m) + 6.0f * dot(p1, n) - 6.0f * dot(point, n);
 	const f32 f = 3.0f * dot(p1, m) - 3.0f * dot(point, m);
 	SolutionQuintic<f32> solution = SolveQuintic<f32>(a, b, c, d, e, f);
 	// We're guaranteed at least 1 solution.
@@ -427,11 +427,11 @@ f32 Curve2::DistanceLess(const vec2 &point, f32 distSquared) const {
 		}
 		f32 dist;
 		if (solution.root[i] <= 0.0f) {
-			dist = absSqr(p1-point);
+			dist = normSqr(p1-point);
 		} else if (solution.root[i] >= 1.0f) {
-			dist = absSqr(p4-point);
+			dist = normSqr(p4-point);
 		} else {
-			dist = absSqr(Point(solution.root[i])-point);
+			dist = normSqr(Point(solution.root[i])-point);
 		}
 		if (dist < distSquared) {
 			distSquared = dist;
@@ -447,14 +447,14 @@ f32 Curve2::DistanceLess(const vec2 &point, f32 distSquared) const {
 	{
 		// NOTE: This could probably be refined
 		f32 maxPointDistSquared = max(
-			max(max(absSqr(p1-p2), absSqr(p1-p3)), absSqr(p1-p4)),
-			max(max(absSqr(p2-p3), absSqr(p2-p4)), absSqr(p3-p4))
+			max(max(normSqr(p1-p2), normSqr(p1-p3)), normSqr(p1-p4)),
+			max(max(normSqr(p2-p3), normSqr(p2-p4)), normSqr(p3-p4))
 		);
 		f32 minDistSquared = min(
 			min(
-				min(absSqr(p1-point), absSqr(p2-point)),
-				absSqr(p3-point)
-			), absSqr(p4-point)
+				min(normSqr(p1-point), normSqr(p2-point)),
+				normSqr(p3-point)
+			), normSqr(p4-point)
 		);
 		if (minDistSquared > distSquared + maxPointDistSquared * 0.25f) {
 			return distSquared;
@@ -465,8 +465,8 @@ f32 Curve2::DistanceLess(const vec2 &point, f32 distSquared) const {
 	Curve2 curve = *this;
 	curve.Offset(-point);
 	// Thanks to Freya Holmér for this algorithm
-	f32 sqDistStart = absSqr(curve.p1);
-	f32 sqDistEnd = absSqr(curve.p4);
+	f32 sqDistStart = normSqr(curve.p1);
+	f32 sqDistEnd = normSqr(curve.p4);
 	if (sqDistStart < distSquared) {
 		distSquared = sqDistStart;
 	}
@@ -477,7 +477,7 @@ f32 Curve2::DistanceLess(const vec2 &point, f32 distSquared) const {
 	BucketArray<f32, 4> pits;
 	for (i32 i = 0; i <= accuracy; i++) {
 		f32 t = (f32)i / (f32)accuracy;
-		samples[i+1] = absSqr(curve.Point(t));
+		samples[i+1] = normSqr(curve.Point(t));
 	}
 	samples[0] = samples[1];
 	samples.Back() = samples[samples.size-2];
@@ -491,10 +491,10 @@ f32 Curve2::DistanceLess(const vec2 &point, f32 distSquared) const {
 			vec2 f, fp, fpp;
 			f = curve.Point(t, fp, fpp);
 			f32 distDerivative = dot(f, fp);
-			t -= distDerivative / (dot(f, fpp) + absSqr(fp));
+			t -= distDerivative / (dot(f, fpp) + normSqr(fp));
 		}
 		t = clamp(t, 0.0f, 1.0f);
-		f32 dist = absSqr(curve.Point(t));
+		f32 dist = normSqr(curve.Point(t));
 		if (dist < distSquared) {
 			distSquared = dist;
 		}
@@ -1135,7 +1135,7 @@ void InsertCorner(Array<vec2> &array, vec2 toInsert) {
 	for (i32 i = 0; i < array.size; i++) {
 		float dist2 = max(array[i].x, array[i].y);
 		if (dist == dist2) {
-			if (absSqr(toInsert) > absSqr(array[i]))
+			if (normSqr(toInsert) > normSqr(array[i]))
 				continue;
 		}
 		if (dist <= dist2) {

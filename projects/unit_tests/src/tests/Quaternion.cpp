@@ -67,7 +67,7 @@ void QuaternionTest() {
 	vec3 yBasis = vec3(0.0f, 1.0f, 0.0f);
 	vec3 zBasis = vec3(0.0f, 0.0f, 1.0f);
 	vec3 allBasis = vec3(1.0f, 1.0f, 1.0f);
-	f32 allBasisMag = abs(allBasis);
+	f32 allBasisMag = norm(allBasis);
 	for (Degrees32 deg = -360.0f; deg <= 360.0f; deg += 5.0f) {
 		Radians32 rad = deg;
 

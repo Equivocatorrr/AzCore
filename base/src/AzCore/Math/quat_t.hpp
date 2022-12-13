@@ -164,7 +164,7 @@ AzCore::quat_t<T> slerp(AzCore::quat_t<T> a, AzCore::quat_t<T> b, T factor) {
 
 template <typename T>
 AzCore::quat_t<T> exp(AzCore::quat_t<T> a) {
-	T theta = abs(a.vector);
+	T theta = norm(a.vector);
 	return AzCore::quat_t<T>(cos(theta), theta > T(0.0000001) ? (a.vector * sin(theta) / theta) : AzCore::vec3_t<T>(0)) * exp(a.scalar);
 }
 
@@ -173,7 +173,7 @@ AzCore::quat_t<T> log(AzCore::quat_t<T> a) {
 	// if (a.scalar < 0)
 	//	 a *= -1;
 	T len = log(a.Norm());
-	T vLen = abs(a.vector);
+	T vLen = norm(a.vector);
 	T theta = atan2(vLen, a.scalar);
 	return AzCore::quat_t<T>(len, vLen > T(0.0000001) ? (a.vector / vLen * theta) : AzCore::vec3_t<T>(theta, 0, 0));
 }

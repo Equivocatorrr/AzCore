@@ -241,7 +241,7 @@ inline void Manager::HandleGamepadCamera() {
 	vec2 screenBorder = (vec2(globals->window.width, globals->window.height) - vec2(50.0f * globals->gui.scale)) / 2.0f / camZoom;
 	if (CursorVisible() || placeMode) {
 		vec2 mouseMove = globals->gamepad->axis.vec.RS;
-		f32 mag = abs(mouseMove);
+		f32 mag = norm(mouseMove);
 		mouseMove *= sqrt(mag);
 		mouseMove *= globals->objects.timestep * 800.0f / camZoom;
 		mouse += mouseMove;
@@ -257,7 +257,7 @@ inline void Manager::HandleGamepadCamera() {
 
 	if (!focusMenu && selectedTower == -1) {
 		vec2 camMove = globals->gamepad->axis.vec.LS;
-		f32 mag = abs(camMove);
+		f32 mag = norm(camMove);
 		camMove *= sqrt(mag);
 		camMove *= globals->objects.timestep * 800.0f / camZoom;
 		camPos += camMove;
@@ -769,7 +769,7 @@ void Tower::Update(f32 timestep) {
 					for (i32 i = 0; i < globals->entities.enemies.size; i++) {
 						const Enemy& other = globals->entities.enemies[i];
 						if (other.id.generation < 0 || other.hitpoints == 0) continue;
-						f32 dist = abs(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
+						f32 dist = norm(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
 						if (dist < targetDist) {
 							targetDist = dist;
 							target = other.id;
@@ -781,7 +781,7 @@ void Tower::Update(f32 timestep) {
 					for (i32 i = 0; i < globals->entities.enemies.size; i++) {
 						const Enemy& other = globals->entities.enemies[i];
 						if (other.id.generation < 0 || other.hitpoints == 0) continue;
-						f32 dist = abs(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
+						f32 dist = norm(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
 						if (dist < range && dist > targetDist) {
 							targetDist = dist;
 							target = other.id;
@@ -793,7 +793,7 @@ void Tower::Update(f32 timestep) {
 					for (i32 i = 0; i < globals->entities.enemies.size; i++) {
 						const Enemy& other = globals->entities.enemies[i];
 						if (other.id.generation < 0 || other.hitpoints == 0) continue;
-						f32 dist = abs(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
+						f32 dist = norm(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
 						if (dist < range && other.hitpoints < lowestHP) {
 							lowestHP = other.hitpoints;
 							targetDist = dist;
@@ -806,7 +806,7 @@ void Tower::Update(f32 timestep) {
 					for (i32 i = 0; i < globals->entities.enemies.size; i++) {
 						const Enemy& other = globals->entities.enemies[i];
 						if (other.id.generation < 0 || other.hitpoints == 0) continue;
-						f32 dist = abs(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
+						f32 dist = norm(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
 						if (dist < range && other.hitpoints > highestHP) {
 							highestHP = other.hitpoints;
 							targetDist = dist;
@@ -819,7 +819,7 @@ void Tower::Update(f32 timestep) {
 					for (i32 i = 0; i < globals->entities.enemies.size; i++) {
 						const Enemy& other = globals->entities.enemies[i];
 						if (other.id.generation < 0 || other.hitpoints == 0) continue;
-						f32 dist = abs(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
+						f32 dist = norm(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
 						if (dist < range && other.age < youngest) {
 							youngest = other.age;
 							targetDist = dist;
@@ -832,7 +832,7 @@ void Tower::Update(f32 timestep) {
 					for (i32 i = 0; i < globals->entities.enemies.size; i++) {
 						const Enemy& other = globals->entities.enemies[i];
 						if (other.id.generation < 0 || other.hitpoints == 0) continue;
-						f32 dist = abs(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
+						f32 dist = norm(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
 						if (dist < range && other.age > oldest) {
 							oldest = other.age;
 							targetDist = dist;
@@ -853,7 +853,7 @@ void Tower::Update(f32 timestep) {
 				vec2 deltaP;
 				for (i32 i = 0; i < 2; i++) {
 					deltaP = other.physical.pos - physical.pos + other.physical.vel * dist / bulletSpeed;
-					dist = abs(deltaP);
+					dist = norm(deltaP);
 				}
 				deltaP = other.physical.pos - physical.pos + other.physical.vel * dist / bulletSpeed;
 				Angle32 idealAngle = atan2(-deltaP.y, deltaP.x);
@@ -1057,7 +1057,7 @@ void Enemy::Update(f32 timestep) {
 		if (physical.Collides(other.field)) {
 			vec2 deltaP = physical.pos - other.physical.pos;
 			physical.Impulse(normalize(deltaP)
-				* max((other.range + physical.basis.circle.r - abs(deltaP)), 0.0f)
+				* max((other.range + physical.basis.circle.r - norm(deltaP)), 0.0f)
 				* (type == HONKER? 0.1f : 5.0f), timestep);
 			if (other.damage != 0) {
 				i32 hits = DamageOverTime(other.damage, timestep);
@@ -1074,7 +1074,7 @@ void Enemy::Update(f32 timestep) {
 		if (other.id.generation < 0) continue;
 		if (physical.Collides(other.physical)) {
 			vec2 deltaP = physical.pos - other.physical.pos;
-			physical.Impulse(normalize(deltaP) * max((other.size + physical.basis.circle.r - abs(deltaP)), 0.0f) * 500.0f / pow(size, 1.5f), timestep);
+			physical.Impulse(normalize(deltaP) * max((other.size + physical.basis.circle.r - norm(deltaP)), 0.0f) * 500.0f / pow(size, 1.5f), timestep);
 			if (other.damage != 0) {
 				i32 hits = DamageOverTime(other.damage, timestep);
 				if (hits) {
@@ -1102,20 +1102,20 @@ void Enemy::Update(f32 timestep) {
 			}
 		}
 	}
-	vec2 norm = normalize(-physical.pos);
-	f32 velocity = abs(physical.vel);
-	f32 forward = dot(norm, physical.vel/velocity);
+	vec2 normal = normalize(-physical.pos);
+	f32 velocity = norm(physical.vel);
+	f32 forward = dot(normal, physical.vel/velocity);
 	const f32 outerMost = cos(Radians32(Degrees32(72.0f)).value());
 	if (forward < outerMost) {
-		physical.vel += norm * (outerMost - forward) * velocity;
+		physical.vel += normal * (outerMost - forward) * velocity;
 	}
 	if (type == ORBITER) {
 		const f32 innerMost = cos(Radians32(Degrees32(62.0f)).value());
 		if (forward > innerMost) {
-			physical.vel += norm * (innerMost - forward) * velocity;
+			physical.vel += normal * (innerMost - forward) * velocity;
 		}
 	} else {
-		physical.Impulse(norm * targetSpeed, timestep);
+		physical.Impulse(normal * targetSpeed, timestep);
 	}
 	physical.vel = normalize(physical.vel) * targetSpeed;
 }
@@ -1127,7 +1127,7 @@ void Enemy::Draw(Rendering::DrawingContext &context) {
 template struct DoubleBufferArray<Enemy>;
 
 void Bullet::EventCreate() {
-	f32 length = abs(physical.vel) * 0.5f / 30.0f;
+	f32 length = norm(physical.vel) * 0.5f / 30.0f;
 	physical.type = SEGMENT;
 	physical.basis.segment.a = vec2(-length, -1.0f);
 	physical.basis.segment.b = vec2(length, 1.0f);

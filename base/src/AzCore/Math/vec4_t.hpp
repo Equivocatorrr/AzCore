@@ -113,19 +113,19 @@ inline T dot(AzCore::vec4_t<T> a, AzCore::vec4_t<T> b) {
 }
 
 template <typename T>
-inline T absSqr(AzCore::vec4_t<T> a) {
+inline T normSqr(AzCore::vec4_t<T> a) {
 	return a.x * a.x + a.y * a.y + a.z * a.z + a.w * a.w;
 }
 
 template <typename T>
-inline T abs(AzCore::vec4_t<T> a) {
+inline T norm(AzCore::vec4_t<T> a) {
 	return sqrt(a.x * a.x + a.y * a.y + a.z * a.z + a.w * a.w);
 }
 
 template <bool isSegment, typename T>
 T distSqrToLine(AzCore::vec4_t<T> segA, AzCore::vec4_t<T> segB, AzCore::vec4_t<T> point) {
 	const AzCore::vec4_t<T> diff = segA - segB;
-	const T lengthSquared = absSqr(diff);
+	const T lengthSquared = normSqr(diff);
 	const T t = dot(diff, segA - point) / lengthSquared;
 	AzCore::vec4_t<T> projection;
 	if constexpr (isSegment) {
@@ -139,7 +139,13 @@ T distSqrToLine(AzCore::vec4_t<T> segA, AzCore::vec4_t<T> segB, AzCore::vec4_t<T
 	} else {
 		projection = segA - diff * t;
 	}
-	return absSqr(point - projection);
+	return normSqr(point - projection);
+}
+
+template <typename T>
+inline AzCore::vec4_t<T> normalize(AzCore::vec4_t<T> a, T epsilon=T(1.0e-12), AzCore::vec4_t<T> def={T(1), T(0), T(0), T(0)}) {
+	T mag = norm(a);
+	return mag < epsilon ? def : a / mag;
 }
 
 #endif // AZCORE_MATH_VEC4_HPP

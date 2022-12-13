@@ -579,7 +579,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			}
 			for (u32 i = 0; i < 16; i++) {
 				for (u32 ii = i+1; ii < 16; ii++) {
-					f32 a = abs(points[i]-points[ii]);
+					f32 a = norm(points[i]-points[ii]);
 					const f32 epsilon = 0.0001f;
 					if (a == median(a, 2.0f-epsilon, 2.0f+epsilon)) {
 						vec4 color1(0.5f);

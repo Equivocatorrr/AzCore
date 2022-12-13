@@ -92,6 +92,14 @@ constexpr T abs(T a) {
 	return a * sign(a);
 }
 
+constexpr f32 norm(f32 a) {
+	return abs<f32>(a);
+}
+
+constexpr f64 norm(f64 a) {
+	return abs<f64>(a);
+}
+
 template <typename T, typename F>
 constexpr T lerp(T a, T b, F factor) {
 	return a + (b - a) * clamp01(factor);
@@ -142,8 +150,5 @@ constexpr T wrap(T a, T max) {
 	}
 	return a;
 }
-
-template <typename T>
-T normalize(T);
 
 #endif // AZCORE_MATH_BASIC_HPP

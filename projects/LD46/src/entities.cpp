@@ -16,7 +16,7 @@ namespace Entities {
 
 template<typename T>
 inline void ApplyFriction(T &obj, f32 friction, f32 timestep) {
-	f32 mag = abs(obj);
+	f32 mag = norm(obj);
 	if (mag > friction * timestep) {
 		obj -= obj * (friction * timestep / mag);
 	} else {
@@ -582,7 +582,7 @@ void Lantern::Update(f32 timestep) {
 	deltaVel = vec2(0.0f, 50.0f) - deltaVel;
 
 	Angle32 impulseAngle = atan2(-deltaVel.y, deltaVel.x);
-	rot -= (impulseAngle-angle) * timestep * cos(pi / 4.0f * (1.0f-dot(normalize(deltaVel), v))) * abs(deltaVel);
+	rot -= (impulseAngle-angle) * timestep * cos(pi / 4.0f * (1.0f-dot(normalize(deltaVel), v))) * norm(deltaVel);
 
 	ApplyFriction(rot.value(), pi * 2.0f, timestep);
 	angle += rot * timestep;
@@ -767,7 +767,7 @@ void Player::Update(f32 timestep) {
 	{ // Lantern pos
 		vec2 delta = globals->entities.mouse - (physical.pos+vec2(16.0f, 0.0f));
 		delta /= 10.0f;
-		f32 mag = abs(delta);
+		f32 mag = norm(delta);
 		if (mag > 22.0f) {
 			delta *= 22.0f / mag;
 		}

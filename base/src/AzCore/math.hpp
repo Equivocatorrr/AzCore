@@ -97,12 +97,6 @@
 	#include "Math/Equations.hpp"
 #endif // AZCORE_MATH_EQUATIONS
 
-template <typename T>
-inline T normalize(T a)
-{
-	return a / abs(a);
-}
-
 // Typedefs for nice naming conventions
 
 namespace AzCore {

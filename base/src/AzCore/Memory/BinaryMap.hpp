@@ -44,8 +44,10 @@ struct BinaryMap {
 			other.left = nullptr;
 			other.right = nullptr;
 		}
-		Node(Key_t newKey, Value_t newValue) :
+		Node(const Key_t &newKey, const Value_t &newValue) :
 			key(newKey), value(newValue) {}
+		Node(const Key_t &newKey, Value_t &&newValue) :
+			key(newKey), value(std::move(newValue)) {}
 		~Node() {
 			if (left) delete left;
 			if (right) delete right;
@@ -185,7 +187,7 @@ struct BinaryMap {
 			}
 		}
 
-		i32 ValueOf(const Key_t &testKey, Value_t **dstValue, Value_t valueDefault) {
+		i32 ValueOf(const Key_t &testKey, Value_t **dstValue, const Value_t &valueDefault) {
 			i32 depthDiffChange = 0;
 			if (key == testKey) {
 				*dstValue = &value;
@@ -227,7 +229,6 @@ struct BinaryMap {
 	}
 	BinaryMap(BinaryMap &&other) : base(other.base) {other.base = nullptr;};
 	BinaryMap(const std::initializer_list<Node> &init) {
-		// TODO: Maybe sort and recursively bisect before emplacing?
 		for (const Node &node : init) {
 			Node newNode = node;
 			Emplace(std::move(newNode));
@@ -270,9 +271,14 @@ struct BinaryMap {
 		return *this;
 	}
 
-	force_inline()
-	Value_t& Emplace(Key_t key, Value_t value) {
-		return Emplace(Node(key, value));
+	force_inline(Value_t&)
+	Emplace(Key_t key, Value_t &&value) {
+		return Emplace(Node(key, std::move(value)));
+	}
+
+	force_inline(Value_t&)
+	Emplace(Key_t key, const Value_t &value) {
+		return Emplace(Node(key, newValue));
 	}
 
 	Value_t& Emplace(Node &&node) {
@@ -288,17 +294,17 @@ struct BinaryMap {
 		}
 	}
 
-	bool Exists(Key_t key) const {
+	bool Exists(const Key_t &key) const {
 		if (!base) return false;
 		return base->Exists(key);
 	}
 
-	Node* Find(Key_t key) {
+	Node* Find(const Key_t &key) {
 		if (!base) return nullptr;
 		return base->Find(key);
 	}
 
-	Value_t& ValueOf(Key_t key, Value_t valueDefault=Value_t()) {
+	Value_t& ValueOf(const Key_t &key, const Value_t &valueDefault=Value_t()) {
 		if (base) {
 			Value_t *result;
 			base->ValueOf(key, &result, valueDefault);
@@ -310,8 +316,8 @@ struct BinaryMap {
 		}
 	}
 
-	force_inline()
-	Value_t& operator[](Key_t key) {
+	force_inline(Value_t&)
+	operator[](const Key_t &key) {
 		return ValueOf(key);
 	}
 

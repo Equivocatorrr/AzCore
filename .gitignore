@@ -23,3 +23,4 @@ obj
 *.conf
 .vscode
 projects/fractal_explorer/*.png
+projects/*/data/Az2D

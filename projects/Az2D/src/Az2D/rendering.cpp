@@ -211,10 +211,10 @@ bool Manager::Init() {
 	}
 
 	Range<vk::Shader> shaders = data.device->AddShaders(4);
-	shaders[0].filename = "data/shaders/Basic2DTextured.vert.spv";
-	shaders[1].filename = "data/shaders/Basic2DTextured.frag.spv";
-	shaders[2].filename = "data/shaders/Font2D.frag.spv";
-	shaders[3].filename = "data/shaders/Circle2DTextured.frag.spv";
+	shaders[0].filename = "data/Az2D/shaders/Basic2DTextured.vert.spv";
+	shaders[1].filename = "data/Az2D/shaders/Basic2DTextured.frag.spv";
+	shaders[2].filename = "data/Az2D/shaders/Font2D.frag.spv";
+	shaders[3].filename = "data/Az2D/shaders/Circle2DTextured.frag.spv";
 
 	vk::ShaderRef shaderRefs[4] = {
 		vk::ShaderRef(shaders.GetPtr(0), VK_SHADER_STAGE_VERTEX_BIT),

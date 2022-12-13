@@ -94,11 +94,15 @@ Type FilenameToType(String filename) {
 }
 
 bool Texture::Load(String filename) {
-	filename = "data/textures/" + filename;
-	pixels.data = stbi_load(filename.data, &width, &height, &channels, 4);
+	String path = Stringify("data/textures/", filename);
+	pixels.data = stbi_load(path.data, &width, &height, &channels, 4);
 	if (pixels.data == nullptr) {
-		error = "Failed to load Texture file: \"" + filename + "\"";
-		return false;
+		path = Stringify("data/Az2D/textures/", filename);
+		pixels.data = stbi_load(path.data, &width, &height, &channels, 4);
+		if (pixels.data == nullptr) {
+			error = "Failed to load Texture file: \"" + filename + "\"";
+			return false;
+		}
 	}
 	channels = 4;
 	pixels.allocated = width * height* channels;
@@ -109,8 +113,11 @@ bool Texture::Load(String filename) {
 bool Font::Load(String filename) {
 	font.filename = "data/fonts/" + filename;
 	if (!font.Load()) {
-		error = "Failed to load font: " + font::error;
-		return false;
+		font.filename = "data/Az2D/fonts/" + filename;
+		if (!font.Load()) {
+			error = "Failed to load font: " + font::error;
+			return false;
+		}
 	}
 	fontBuilder.font = &font;
 	fontBuilder.AddRange(0, 128);
@@ -122,7 +129,7 @@ bool Font::Load(String filename) {
 }
 
 bool Sound::Load(String filename) {
-	filename = "data/sound/" + filename;
+	String path = Stringify("data/sound/", filename);
 	if (!buffer.Create()) {
 		error = "Sound::Load: Failed to create buffer: " + Az2D::Sound::error;
 		return false;
@@ -130,10 +137,14 @@ bool Sound::Load(String filename) {
 	valid = true;
 	i16 *decoded;
 	i32 channels, samplerate, length;
-	length = stb_vorbis_decode_filename(filename.data, &channels, &samplerate, &decoded);
+	length = stb_vorbis_decode_filename(path.data, &channels, &samplerate, &decoded);
 	if (length <= 0) {
-		error = "Failed to decode sound file (" + filename + ")";
-		return false;
+		path = Stringify("data/Az2D/sound/", filename);
+		length = stb_vorbis_decode_filename(path.data, &channels, &samplerate, &decoded);
+		if (length <= 0) {
+			error = "Failed to decode sound file (" + filename + ")";
+			return false;
+		}
 	}
 	if (!decoded) {
 		error = "Decoded is nullptr!";
@@ -164,7 +175,7 @@ Sound::~Sound() {
 }
 
 bool Stream::Open(String filename) {
-	filename = "data/sound/" + filename;
+	String path = Stringify("data/sound/", filename);
 	for (i32 i = 0; i < numStreamBuffers; i++) {
 		if (!buffers[i].Create()) {
 			error = "Stream::Open: Failed to create buffer: " + Az2D::Sound::error;
@@ -172,10 +183,14 @@ bool Stream::Open(String filename) {
 		}
 	}
 	i32 iError = 0;
-	vorbis = stb_vorbis_open_filename(filename.data, &iError, nullptr);
+	vorbis = stb_vorbis_open_filename(path.data, &iError, nullptr);
 	if (!vorbis) {
-		error = "Stream::Open: Failed to open \"" + filename + "\", error code " + ToString(iError);
-		return false;
+		path = Stringify("data/Az2D/sound/", filename);
+		vorbis = stb_vorbis_open_filename(path.data, &iError, nullptr);
+		if (!vorbis) {
+			error = "Stream::Open: Failed to open \"" + filename + "\", error code " + ToString(iError);
+			return false;
+		}
 	}
 	data.totalSamples = stb_vorbis_stream_length_in_samples(vorbis);
 	stb_vorbis_info info = stb_vorbis_get_info(vorbis);

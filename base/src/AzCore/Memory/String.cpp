@@ -195,6 +195,34 @@ char IncrementedDigit(char digit) {
 	return digit + 1;
 }
 
+// This is necessary for 128-bit floats because math.h pow doesn't support it.
+// Might not be a bad idea anyway, but it hasn't been profiled.
+// NOTE: This probably breaks perfect reproducibility because small
+//       conversion errors accumulate into sizeable ones for some numbers.
+template<typename Float>
+Float intPow(i32 base, i32 exponent) {
+	Float result = 1;
+	while (exponent > 0) {
+		result *= base;
+		exponent--;
+	}
+	while (exponent < 0) {
+		result /= base;
+		exponent++;
+	}
+	return result;
+}
+
+// Specialize to use pow since that's more accurate.
+template<>
+f32 intPow(i32 base, i32 exponent) {
+	return pow((f32)base, (f32)exponent);
+}
+template<>
+f64 intPow(i32 base, i32 exponent) {
+	return pow((f64)base, (f64)exponent);
+}
+
 template<typename Float, i32 MAX_SIGNIFICANT_DIGITS>
 void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) {
 	const i32 MAX_SIGNIFICANT_DIGITS_BASED = ceil((f32)MAX_SIGNIFICANT_DIGITS/log2((f32)base));
@@ -215,7 +243,7 @@ void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) 
 	if (remaining >= 1.0f) {
 		while (true) {
 			i32 newBasis = basisExponent+1;
-			basis = pow((Float)base, (Float)newBasis);
+			basis = intPow<Float>(base, newBasis);
 			if (basis > remaining) {
 				break;
 			} else {
@@ -227,7 +255,7 @@ void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) 
 		while (true) {
 			basisExponent--;
 			newExponent--;
-			basis = pow((Float)base, (Float)basisExponent);
+			basis = intPow<Float>(base, basisExponent);
 			if (basis <= remaining) {
 				break;
 			}
@@ -241,7 +269,7 @@ void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) 
 	const i32 EXPONENT_HIGH_BOUNDS = MAX_SIGNIFICANT_DIGITS_BASED;
 	if (newExponent >= EXPONENT_HIGH_BOUNDS || newExponent <= EXPONENT_LOW_BOUNDS) {
 		// For scientific notation, set our crossover to where the output will be around 1.0
-		crossover = pow((Float)base, (Float)(basisExponent-1));
+		crossover = intPow<Float>(base, basisExponent-1);
 	} else {
 		// Regular decimal notation
 		if (remaining < 1.0f) {
@@ -260,7 +288,7 @@ void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) 
 	char lastDigit = base <= 10 ? '0'+base-1 : 'A'+base-11;
 	// Whether we need to round up
 	bool roundUp = false;
-	basis = pow((Float)base, (Float)basisExponent);
+	basis = intPow<Float>(base, basisExponent);
 	for (; count > 0; count--) {
 		i32 digit = i32(remaining / basis);
 		string += DigitToChar(digit);
@@ -268,7 +296,7 @@ void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) 
 		if (remaining < 0.0f)
 			remaining = 0.0f;
 		basisExponent--;
-		basis = pow((Float)base, (Float)basisExponent);
+		basis = intPow<Float>(base, basisExponent);
 		if (point && count == 1) {
 			if (i32(remaining / basis) >= intDivCeil(base, 2)) {
 				roundUp = true;
@@ -516,7 +544,7 @@ bool _StringToFloat(StringBase<Char> string, Float *dst, i32 base) {
 			return false;
 		}
 		AzAssert(value < baseF, "StringToFloat machine broke :(");
-		out += value * pow(baseF, Float(exponent));
+		out += value * intPow<Float>(base, exponent);
 		exponent++;
 		// multiplier *= baseF;
 	}

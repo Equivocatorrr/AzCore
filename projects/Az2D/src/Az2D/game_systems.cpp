@@ -169,11 +169,11 @@ bool Manager::Init() {
 }
 
 void Manager::Deinit() {
-	window.Close();
-	Settings::Save();
 	if (!rendering.Deinit()) {
 		io::cerr.PrintLn("Error deinitializing Rendering: ", Rendering::error);
 	}
+	window.Close();
+	Settings::Save();
 	if (!sound.DeleteSources()) {
 		io::cerr.PrintLn("Failed to delete sound sources: ", Sound::error);
 	}

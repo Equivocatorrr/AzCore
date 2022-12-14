@@ -165,7 +165,7 @@ bool Load() {
 }
 
 bool Save() {
-	FILE *file = fopen("settings.conf", "w+");
+	FILE *file = fopen("settings.conf", "w");
 	if (!file) {
 		io::cerr.PrintLn("Failed to open settings.conf for writing");
 		return false;
@@ -196,7 +196,7 @@ bool Save() {
 		}
 		output.Append('\n');
 	}
-	fprintf(file, "%s", output.data);
+	fwrite(output.data, 1, output.size, file);
 	fclose(file);
 	return true;
 }

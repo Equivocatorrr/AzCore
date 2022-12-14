@@ -52,7 +52,7 @@ void Manager::Reset() {
 	players.Clear();
 	Player player;
 	player.physical.pos = vec2(0.0f);
-	IdGeneric targetId = players.Create(player)->idGeneric;
+	players.Create(player);
 	tails.Clear();
 	AABB bounds = CamBounds();
 	Array<Ptr<Tail>> allTails;

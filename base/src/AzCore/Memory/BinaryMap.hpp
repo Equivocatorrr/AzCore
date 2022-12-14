@@ -278,7 +278,7 @@ struct BinaryMap {
 
 	force_inline(Value_t&)
 	Emplace(Key_t key, const Value_t &value) {
-		return Emplace(Node(key, newValue));
+		return Emplace(Node(key, value));
 	}
 
 	Value_t& Emplace(Node &&node) {

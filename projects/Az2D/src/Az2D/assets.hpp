@@ -49,6 +49,7 @@ struct Texture {
 	i32 width, height, channels;
 
 	bool Load(String filename);
+	~Texture();
 };
 
 struct Font {

@@ -17,6 +17,7 @@
 namespace Az2D::Entities {
 
 using namespace AzCore;
+using GameSystems::sys;
 
 extern struct ManagerBasic *entitiesBasic;
 
@@ -142,11 +143,7 @@ struct Id {
 typedef u64 TypeID;
 
 extern Array<void*> _DoubleBufferArrays;
-static TypeID GenTypeId(void *ptr) {
-	TypeID result = _DoubleBufferArrays.size;
-	_DoubleBufferArrays.Append(ptr);
-	return result;
-}
+TypeID GenTypeId(void *ptr);
 
 
 /*  struct: IdGeneric */
@@ -253,25 +250,7 @@ struct DoubleBufferArray {
 		return ArrayMut()[id.index];
 	}
 	
-	static void Update(void *theThisPointer, i32 threadIndex, i32 concurrency) {
-		DoubleBufferArray<T> *theActualThisPointer = (DoubleBufferArray<T>*)theThisPointer;
-		i32 g = theActualThisPointer->granularity;
-		bool doTwice = entitiesBasic->timestep <= 1.0f/30.0f;
-		f32 timestep = entitiesBasic->timestep;
-		if (doTwice) timestep /= 2.0f;
-		for (i32 i = threadIndex*g; i < theActualThisPointer->array[theActualThisPointer->buffer].size; i += g*concurrency) {
-			for (i32 j = 0; j < g; j++) {
-				if (i+j >= theActualThisPointer->array[theActualThisPointer->buffer].size) break;
-				T &obj = theActualThisPointer->array[theActualThisPointer->buffer][i+j];
-				if (obj.id.generation > 0) {
-					obj.Update(timestep);
-					if (doTwice) {
-						obj.Update(timestep);
-					}
-				}
-			}
-		}
-	}
+	static void Update(void *theThisPointer, i32 threadIndex, i32 concurrency);
 	static void Draw(void *theThisPointer, Rendering::DrawingContext *context, i32 threadIndex, i32 concurrency) {
 		DoubleBufferArray<T> *theActualThisPointer = (DoubleBufferArray<T>*)theThisPointer;
 		i32 g = theActualThisPointer->granularity;
@@ -397,6 +376,27 @@ struct ManagerBasic : public GameSystems::System {
 	inline void HandleGamepadUI();
 	inline void HandleMouseUI();
 };
+
+template<typename T>
+void DoubleBufferArray<T>::Update(void *theThisPointer, i32 threadIndex, i32 concurrency) {
+	DoubleBufferArray<T> *theActualThisPointer = (DoubleBufferArray<T>*)theThisPointer;
+	i32 g = theActualThisPointer->granularity;
+	bool doTwice = entitiesBasic->timestep <= 1.0f/30.0f;
+	f32 timestep = entitiesBasic->timestep;
+	if (doTwice) timestep /= 2.0f;
+	for (i32 i = threadIndex*g; i < theActualThisPointer->array[theActualThisPointer->buffer].size; i += g*concurrency) {
+		for (i32 j = 0; j < g; j++) {
+			if (i+j >= theActualThisPointer->array[theActualThisPointer->buffer].size) break;
+			T &obj = theActualThisPointer->array[theActualThisPointer->buffer][i+j];
+			if (obj.id.generation > 0) {
+				obj.Update(timestep);
+				if (doTwice) {
+					obj.Update(timestep);
+				}
+			}
+		}
+	}
+}
 
 } // namespace Az2D::Entities
 

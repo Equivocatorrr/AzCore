@@ -110,6 +110,15 @@ bool Texture::Load(String filename) {
 	return true;
 }
 
+Texture::~Texture() {
+	if (pixels.data) {
+		stbi_image_free(pixels.data);
+		pixels.data = nullptr;
+		pixels.allocated = 0;
+		pixels.size = 0;
+	}
+}
+
 bool Font::Load(String filename) {
 	font.filename = "data/fonts/" + filename;
 	if (!font.Load()) {

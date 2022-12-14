@@ -126,7 +126,7 @@ void GuiBasic::EventSync() {
 }
 
 
-Widget::Widget() : children(), margin(8.0f), size(1.0f), fractionWidth(true), fractionHeight(true), minSize(0.0f), maxSize(-1.0f), position(0.0f), sizeAbsolute(0.0f), positionAbsolute(0.0f), depth(0), selectable(false), highlighted(false), occludes(false) {}
+Widget::Widget() : children(), margin(8.0f), size(1.0f), fractionWidth(true), fractionHeight(true), minSize(0.0f), maxSize(-1.0f), position(0.0f), sizeAbsolute(0.0f), positionAbsolute(0.0f), depth(0), selectable(false), highlighted(false), occludes(false), mouseover(false) {}
 
 void Widget::UpdateSize(vec2 container) {
 	sizeAbsolute = vec2(0.0f);
@@ -586,7 +586,7 @@ void Switch::Update(vec2 pos, bool selected) {
 		if (sys->Pressed(KC_MOUSE_LEFT) && MouseOver()) {
 			open = true;
 		}
-		if (selected && sys->Released(KC_GP_BTN_A) || sys->Released(KC_KEY_ENTER)) {
+		if (selected && (sys->Released(KC_GP_BTN_A) || sys->Released(KC_KEY_ENTER))) {
 			open = true;
 		}
 		if (open) {
@@ -1166,7 +1166,7 @@ void TextBox::Update(vec2 pos, bool selected) {
 	}
 	if (guiBasic->controlDepth == depth) {
 		if (selected) {
-			if (sys->Released(KC_GP_BTN_A) || sys->Released(KC_KEY_ENTER) && !stoppedEntry) {
+			if ((sys->Released(KC_GP_BTN_A) || sys->Released(KC_KEY_ENTER)) && !stoppedEntry) {
 				entry = true;
 				guiBasic->controlDepth++;
 			} else {

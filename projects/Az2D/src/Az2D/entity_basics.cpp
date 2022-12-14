@@ -12,6 +12,12 @@ using GameSystems::sys;
 
 Array<void*> _DoubleBufferArrays;
 
+TypeID GenTypeId(void *ptr) {
+	TypeID result = _DoubleBufferArrays.size;
+	_DoubleBufferArrays.Append(ptr);
+	return result;
+}
+
 const Entity& IdGeneric::GetConst() const {
 	AzAssert(type != UINT64_MAX, "IdGeneric not initialized correctly!");
 	void *ptr = _DoubleBufferArrays[type];

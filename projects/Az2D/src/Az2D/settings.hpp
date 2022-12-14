@@ -40,10 +40,10 @@ public:
 	} type;
 	static const char *typeStrings[5];
 	inline Setting() : type(Type::NONE) {}
-	inline Setting(bool val) : type(Type::BOOL), val_bool(val) {}
-	inline Setting(i64 val, i64 val_min, i64 val_max) : type(Type::INT), val_int{val, val_min, val_max} {}
-	inline Setting(f64 val, f64 val_min, f64 val_max) : type(Type::REAL), val_real{val, val_min, val_max} {}
-	inline Setting(az::String val) : type(Type::STRING), val_string(val) {}
+	inline Setting(bool val) : val_bool(val), type(Type::BOOL) {}
+	inline Setting(i64 val, i64 val_min, i64 val_max) : val_int{val, val_min, val_max}, type(Type::INT) {}
+	inline Setting(f64 val, f64 val_min, f64 val_max) : val_real{val, val_min, val_max}, type(Type::REAL) {}
+	inline Setting(az::String val) : val_string(val), type(Type::STRING) {}
 	inline ~Setting() {
 		if (type == Type::STRING) {
 			val_string.az::String::~String();

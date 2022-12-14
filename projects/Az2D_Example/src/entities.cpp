@@ -118,12 +118,13 @@ void Manager::EventSync() {
 		}
 		*/
 	}
-	players.Synchronize();
-	tails.Synchronize();
-
+	
 	for (Tail &tail : tails.ArrayMut()) {
 		tail.UpdateSync(timestep);
 	}
+
+	players.Synchronize();
+	tails.Synchronize();
 
 	ManagerBasic::EventSync();
 
@@ -253,16 +254,24 @@ void Tail::Update(f32 timestep) {
 void Tail::UpdateSync(f32 timestep) {
 	Entity &targetEntity = target.GetMut();
 	vec2 targetPos = TargetPos(physical.pos, targetEntity.physical.pos, 25.0f);
-	vec2 velDiff = (targetPos - physical.pos) / max(timestep, 0.01f);
-	if (target.type == 0) {
-		physical.vel += velDiff * 9.0f / 10.0f;
-		targetEntity.physical.vel -= velDiff / 10.0f;
-	} else {
-		physical.vel += velDiff / 2.0f;
-		targetEntity.physical.vel -= velDiff / 2.0f;
-	}
+	vec2 velDiff = (targetPos - physical.pos) / max(timestep, 0.005f);
 	physical.vel = normalize(physical.vel) * clamp(norm(physical.vel), 0.0f, 10000.0f);
 	physical.pos = targetPos;
+	if (target.type == 0) {
+		vec2 v1 = velDiff * 0.1f;
+		vec2 v2 = v1 * 0.5f * square(timestep);
+		physical.vel += v1 * 9.0f;
+		physical.pos += v2 * 9.0f;;
+		targetEntity.physical.vel -= v1;
+		targetEntity.physical.pos -= v2;
+	} else {
+		vec2 v1 = velDiff * 0.5f;
+		vec2 v2 = v1 * 0.5f * square(timestep);
+		physical.vel += v1;
+		physical.pos += v2;
+		targetEntity.physical.vel -= v1;
+		targetEntity.physical.vel -= v2;
+	}
 }
 
 void Tail::Draw(Rendering::DrawingContext &context) {

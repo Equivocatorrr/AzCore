@@ -154,6 +154,9 @@ struct IdGeneric {
 	const struct Entity& GetConst() const;
 	struct Entity& GetMut() const;
 	inline bool Valid() const;
+	inline bool operator==(IdGeneric other) const {
+		return id == other.id && type == other.type;
+	}
 };
 
 

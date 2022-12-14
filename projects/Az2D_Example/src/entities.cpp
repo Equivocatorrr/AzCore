@@ -56,7 +56,7 @@ void Manager::Reset() {
 	tails.Clear();
 	AABB bounds = CamBounds();
 	Array<Ptr<Tail>> allTails;
-	for (i32 i = 0; i < 25; i++) {
+	for (i32 i = 0; i < 50; i++) {
 		Tail tail;
 		tail.physical.pos = vec2(random(bounds.minPos.x, bounds.maxPos.x), random(bounds.minPos.y, bounds.maxPos.y));
 		Ptr<Tail> ptr = tails.Create(tail);
@@ -251,9 +251,25 @@ void Tail::Update(f32 timestep) {
 	physical.UpdateActual();
 }
 
+void Collide(Entity &me, Entity &other, f32 timestep) {
+	if (me.physical.Collides(other.physical)) {
+		vec2 posDiff = me.physical.pos-other.physical.pos;
+		vec2 dir = normalize(posDiff);
+		f32 dist = norm(posDiff);
+		f32 vel = dot(dir, me.physical.vel-other.physical.vel);
+		vec2 velDiff = dir * vel * 0.6f;
+		me.physical.vel -= velDiff;
+		other.physical.vel += velDiff;
+		vec2 impulse = dir * 1000.0f * (16.0f / dist + 1.0f);
+		me.physical.Impulse(impulse, timestep);
+		other.physical.Impulse(-impulse, timestep);
+	}
+}
+
 void Tail::UpdateSync(f32 timestep) {
+	// /*
 	Entity &targetEntity = target.GetMut();
-	vec2 targetPos = TargetPos(physical.pos, targetEntity.physical.pos, 25.0f);
+	vec2 targetPos = TargetPos(physical.pos, targetEntity.physical.pos, 16.0f);
 	vec2 velDiff = (targetPos - physical.pos) / max(timestep, 0.0025f);
 	physical.vel = normalize(physical.vel) * clamp(norm(physical.vel), 0.0f, 10000.0f);
 	physical.pos = targetPos;
@@ -271,6 +287,16 @@ void Tail::UpdateSync(f32 timestep) {
 		physical.pos += v2;
 		targetEntity.physical.vel -= v1;
 		targetEntity.physical.pos -= v2;
+	}
+	// */
+	for (Tail &tail : entities->tails.ArrayMut()) {
+		if (tail.idGeneric == target) continue;
+		if (tail.id.index >= id.index) break;
+		Collide(*this, tail, timestep);
+	}
+	for (Player &player : entities->players.ArrayMut()) {
+		if (player.idGeneric == target) continue;
+		Collide(*this, player, timestep);
 	}
 }
 

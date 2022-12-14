@@ -28,6 +28,8 @@
 	#include <timeapi.h>
 #endif
 
+#include <cstdio>
+
 namespace AzCore {
 
 namespace ThreadStuff {
@@ -152,6 +154,38 @@ public:
 		AZ_MSVC_ONLY(timeBeginPeriod(1));
 		::Sleep((DWORD)std::chrono::duration_cast<std::chrono::milliseconds>(duration).count());
 		AZ_MSVC_ONLY(timeEndPeriod(1));
+	}
+
+	template<class Rep, class Period>
+	static void SleepPrecise(const std::chrono::duration<Rep,Period>& duration) {
+		static bool failedOnce = false;
+		static ::HANDLE timer;
+		static bool madeTimer = false;
+		
+		if (failedOnce) goto failure;
+		
+		if (!madeTimer) {
+			if (!(timer = ::CreateWaitableTimer(NULL, TRUE, NULL))) goto failure;
+			// We don't need to close the handle because it will be closed automatically on process shutdown
+			madeTimer = true;
+		}
+		
+		::LARGE_INTEGER time;
+		time.QuadPart = -std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count()/100;
+		if (!SetWaitableTimer(timer, &time, 0, NULL, NULL, FALSE)) {
+			goto failure;
+		}
+		AZ_MSVC_ONLY(timeBeginPeriod(1));
+		DWORD result = WaitForSingleObject(timer, INFINITE);
+		AZ_MSVC_ONLY(timeEndPeriod(1));
+		if (result == WAIT_FAILED) goto failure;
+		return;
+	failure:
+		if (!failedOnce) {
+			fprintf(stderr, "SleepPrecise failed! Falling back to Sleep");
+		}
+		failedOnce = true;
+		Sleep(duration);
 	}
 
 	#ifdef Yield

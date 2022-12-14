@@ -46,14 +46,14 @@ void UpdateLoop() {
 	frameNext = Clock::now();
 	bool soundProblem = false;
 
-	f32 exitDelay = 0.2f;
+	f32 exitDelay = 0.5f;
 	bool exit = false;
 	i32 frame = 0;
 
 	while (exitDelay > 0.0f) {
 		if ((!sys->window.Update() || sys->exit) && !exit) {
 			exit = true;
-			sys->sound.FadeoutAll(0.1f);
+			sys->sound.FadeoutAll(0.2f);
 		}
 		if (exit) {
 			exitDelay -= sys->timestep;

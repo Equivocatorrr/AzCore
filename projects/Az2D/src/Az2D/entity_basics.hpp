@@ -381,18 +381,12 @@ template<typename T>
 void DoubleBufferArray<T>::Update(void *theThisPointer, i32 threadIndex, i32 concurrency) {
 	DoubleBufferArray<T> *theActualThisPointer = (DoubleBufferArray<T>*)theThisPointer;
 	i32 g = theActualThisPointer->granularity;
-	bool doTwice = entitiesBasic->timestep <= 1.0f/30.0f;
-	f32 timestep = entitiesBasic->timestep;
-	if (doTwice) timestep /= 2.0f;
 	for (i32 i = threadIndex*g; i < theActualThisPointer->array[theActualThisPointer->buffer].size; i += g*concurrency) {
 		for (i32 j = 0; j < g; j++) {
 			if (i+j >= theActualThisPointer->array[theActualThisPointer->buffer].size) break;
 			T &obj = theActualThisPointer->array[theActualThisPointer->buffer][i+j];
 			if (obj.id.generation > 0) {
-				obj.Update(timestep);
-				if (doTwice) {
-					obj.Update(timestep);
-				}
+				obj.Update(entitiesBasic->timestep);
 			}
 		}
 	}

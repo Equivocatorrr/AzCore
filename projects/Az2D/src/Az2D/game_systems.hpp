@@ -59,9 +59,10 @@ struct Manager {
 	Array<System*> systems;
 	bool buffer = false;
 	f32 timestep = 1.0f/60.0f;
+	i32 updateIterations = 1;
 	f32 simulationRate = 1.0f;
 	Nanoseconds frameDuration = Nanoseconds(1000000000/60);
-	void SetFramerate(f32 framerate);
+	void SetFramerate(f32 framerate, bool tryCatchup=false);
 	FrametimeCounter frametimes;
 	bool paused = false;
 	bool exit = false;

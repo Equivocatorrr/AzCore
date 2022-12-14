@@ -46,8 +46,9 @@ void UpdateLoop() {
 	frameNext = Clock::now();
 	bool soundProblem = false;
 
-	f32 exitDelay = 0.1f;
+	f32 exitDelay = 0.2f;
 	bool exit = false;
+	i32 frame = 0;
 
 	while (exitDelay > 0.0f) {
 		if ((!sys->window.Update() || sys->exit) && !exit) {
@@ -58,9 +59,11 @@ void UpdateLoop() {
 			exitDelay -= sys->timestep;
 		}
 		bool vsync = Settings::ReadBool(Settings::sVSync);
-		sys->frametimes.Update();
-		if (vsync) {
-			sys->SetFramerate(clamp(1000.0f / sys->frametimes.Average(), 30.0f, 300.0f));
+		if (frame == 0) {
+			sys->frametimes.Update();
+			if (vsync) {
+				sys->SetFramerate(clamp(1000.0f / sys->frametimes.Average(), 30.0f, 300.0f), true);
+			}
 		}
 		if (abs(Nanoseconds(frameNext - Clock::now()).count()) >= 10000000) {
 			// Something must have hung the program. Start fresh.
@@ -79,7 +82,9 @@ void UpdateLoop() {
 		// TODO: Use persistent threads
 		Thread threads[2];
 		threads[0] = Thread(UpdateProc);
-		threads[1] = Thread(DrawProc);
+		if (frame == 0) {
+			threads[1] = Thread(DrawProc);
+		}
 		for (i32 i = 0; i < 2; i++) {
 			if (threads[i].Joinable()) threads[i].Join();
 		}
@@ -94,12 +99,13 @@ void UpdateLoop() {
 			}
 		}
 		sys->input.Tick(sys->timestep);
-		if (!vsync) {
+		if (!vsync || frame != 0) {
 			Nanoseconds frameSleep = frameNext - Clock::now() - Nanoseconds(1000000);
 			if (frameSleep.count() >= 1000000) {
 				Thread::Sleep(frameSleep);
 			}
 		}
+		frame = (frame + 1) % sys->updateIterations;
 	}
 	
 	for (System* system : sys->systems) {
@@ -117,6 +123,9 @@ bool Manager::Init() {
 	rawInput.window = &window;
 	LoadLocale();
 	Settings::Load();
+	if (!Settings::ReadBool(Settings::sVSync)) {
+		SetFramerate(Settings::ReadReal(Settings::sFramerate));
+	}
 	if (!rawInput.Init(io::RAW_INPUT_ENABLE_GAMEPAD_BIT)) {
 		error = Stringify("Failed to initialize RawInput: ", io::error);
 		return false;
@@ -257,8 +266,16 @@ void Manager::LoadLocale() {
 	}
 }
 
-void Manager::SetFramerate(f32 framerate) {
+void Manager::SetFramerate(f32 framerate, bool tryCatchup) {
 	timestep = 1.0f / framerate;
+	updateIterations = ceil(100.0f * timestep);
+	timestep /= updateIterations;
+	if (tryCatchup && updateIterations > 1) {
+		framerate *= updateIterations+1;
+	} else {
+		framerate *= updateIterations;
+	}
+	// frameDuration affects in-between frametimes even with vsync
 	frameDuration = AzCore::Nanoseconds(1000000000/(i32)framerate);
 }
 

@@ -8,6 +8,7 @@
 
 namespace Az2D::Gui {
 
+using namespace AzCore;
 using GameSystems::sys;
 
 GuiBasic *guiBasic = nullptr;
@@ -70,7 +71,7 @@ GuiBasic::~GuiBasic() {
 	}
 }
 
-void GuiBasic::EventAssetInit() {
+void GuiBasic::EventAssetsQueue() {
 	sys->assets.QueueFile(defaultFontFilename);
 	for (SoundDef& def : sndClickInDefs) {
 		sys->assets.QueueFile(def.filename);
@@ -104,7 +105,7 @@ void AcquireSound(GuiBasic::SoundDef &def, Sound::Source &source) {
 	source.SetPitch(def.pitch);
 }
 
-void GuiBasic::EventAssetAcquire() {
+void GuiBasic::EventAssetsAcquire() {
 	fontIndex = sys->assets.FindFont(defaultFontFilename);
 	AcquireSounds(sndClickInDefs, sndClickInSources, sndClickIn);
 	AcquireSounds(sndClickOutDefs, sndClickOutSources, sndClickOut);
@@ -119,9 +120,16 @@ void GuiBasic::EventSync() {
 	mouseoverDepth = -1;
 	if (sys->input.cursor != sys->input.cursorPrevious) {
 		usingMouse = true;
-	}
-	if (sys->rawInput.AnyGP.Pressed() || sys->Pressed(KC_KEY_UP) || sys->Pressed(KC_KEY_DOWN) || sys->Pressed(KC_KEY_LEFT) || sys->Pressed(KC_KEY_RIGHT)) {
+		usingGamepad = false;
+		usingArrows = false;
+	} else if (sys->rawInput.AnyGP.Pressed()) {
+		usingGamepad = true;
 		usingMouse = false;
+		usingArrows = false;
+	} else if (sys->Pressed(KC_KEY_UP) || sys->Pressed(KC_KEY_DOWN) || sys->Pressed(KC_KEY_LEFT) || sys->Pressed(KC_KEY_RIGHT)) {
+		usingMouse = false;
+		usingGamepad = false;
+		usingArrows = true;
 	}
 }
 

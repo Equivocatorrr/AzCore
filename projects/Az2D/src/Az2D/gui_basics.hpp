@@ -14,8 +14,7 @@
 
 namespace Az2D::Gui {
 
-using namespace AzCore;
-
+using az::vec2, az::vec3, az::vec4;
 struct Widget;
 
 extern const vec3 colorBack;
@@ -27,23 +26,23 @@ struct GuiBasic : public GameSystems::System {
 	// configuration
 	const char *defaultFontFilename = "DroidSans.ttf";
 	struct SoundDef {
-		SimpleRange<char> filename;
+		az::SimpleRange<char> filename;
 		f32 gain;
 		f32 pitch;
 	};
-	Array<SoundDef> sndClickInDefs = {
+	az::Array<SoundDef> sndClickInDefs = {
 		{"click in 1.ogg", 0.15f, 1.2f},
 		{"click in 2.ogg", 0.15f, 1.2f},
 		{"click in 3.ogg", 0.15f, 1.2f},
 		{"click in 4.ogg", 0.15f, 1.2f},
 	};
-	Array<SoundDef> sndClickOutDefs = {
+	az::Array<SoundDef> sndClickOutDefs = {
 		{"click out 1.ogg", 0.15f, 1.2f},
 		{"click out 2.ogg", 0.15f, 1.2f},
 		{"click out 3.ogg", 0.15f, 1.2f},
 		{"click out 4.ogg", 0.15f, 1.2f},
 	};
-	Array<SoundDef> sndClickSoftDefs = {
+	az::Array<SoundDef> sndClickSoftDefs = {
 		{"click soft 1.ogg", 0.01f, 1.2f},
 		{"click soft 2.ogg", 0.01f, 1.2f},
 	};
@@ -52,9 +51,9 @@ struct GuiBasic : public GameSystems::System {
 
 	// assets
 	Assets::FontIndex fontIndex;
-	Array<Sound::Source> sndClickInSources;
-	Array<Sound::Source> sndClickOutSources;
-	Array<Sound::Source> sndClickSoftSources;
+	az::Array<Sound::Source> sndClickInSources;
+	az::Array<Sound::Source> sndClickOutSources;
+	az::Array<Sound::Source> sndClickSoftSources;
 	Sound::Source sndCheckboxOn, sndCheckboxOff;
 	Sound::MultiSource sndClickIn;
 	Sound::MultiSource sndClickOut;
@@ -63,22 +62,23 @@ struct GuiBasic : public GameSystems::System {
 
 	i32 controlDepth = 0;
 	f32 scale = 2.0f;
-	// false for gamepad, true for mouse
 	bool usingMouse = true;
+	bool usingArrows = false;
+	bool usingGamepad = false;
 	// Used to make sure the mouse can only interact with top-most widgets.
 	// Also provides an easy test to see if the mouse can interact with items below it.
 	Widget *mouseoverWidget;
 	i32 mouseoverDepth;
 
-	HashSet<Widget*> allWidgets; // So we can delete them at the end of the program.
+	az::HashSet<Widget*> allWidgets; // So we can delete them at the end of the program.
 
 	GuiBasic();
 	~GuiBasic();
 
-	void EventAssetInit();
-	void EventAssetAcquire();
+	void EventAssetsQueue() override;
+	void EventAssetsAcquire() override;
 	// When deriving, call this first, do your own sync, and then set readyForDraw to true at the end.
-	void EventSync();
+	void EventSync() override;
 };
 
 // global accessor to our basic gui, should be derived from, created in main, and passed into GameSystems::Init
@@ -86,7 +86,7 @@ extern GuiBasic *guiBasic;
 
 // Base polymorphic interface, also usable as a blank spacer.
 struct Widget {
-	Array<Widget*> children;
+	az::Array<Widget*> children;
 	/*  Space surrounding the widget.
 		Defaults:
 		Widget: {8.0, 8.0}, Screen: {0.0, 0.0}, Hideable: {0.0, 0.0} */
@@ -178,7 +178,7 @@ struct List : public Widget {
 	List();
 	~List() = default;
 	// returns whether or not to update the selection based on the mouse position
-	bool UpdateSelection(bool selected, BucketArray<u8, 4> keyCodeSelect, BucketArray<u8, 4> keyCodeBack, BucketArray<u8, 4> keyCodeIncrement, BucketArray<u8, 4> keyCodeDecrement);
+	bool UpdateSelection(bool selected, az::BucketArray<u8, 4> keyCodeSelect, az::BucketArray<u8, 4> keyCodeBack, az::BucketArray<u8, 4> keyCodeIncrement, az::BucketArray<u8, 4> keyCodeDecrement);
 	void Draw(Rendering::DrawingContext &context) const;
 };
 
@@ -216,10 +216,10 @@ struct Switch : public ListV {
 
 struct Text : public Widget {
 private:
-	WString stringFormatted;
+	az::WString stringFormatted;
 public:
 	// The unformatted text to be displayed
-	WString string;
+	az::WString string;
 	/*  Either the pixel size or EM size surrounding the text.
 		Default: {0.1, 0.1} */
 	vec2 padding;
@@ -277,7 +277,7 @@ struct Image : public Widget {
 
 struct Button : public Widget {
 	//  Text label for the button.
-	WString string;
+	az::WString string;
 	/*  Color of the button when not highlighted.
 		Default: {vec3(0.15), 0.9} */
 	vec4 colorBG;
@@ -297,9 +297,9 @@ struct Button : public Widget {
 	Default: 28.0 */
 	f32 fontSize;
 	//  The pressed, down, and released state of this button.
-	io::ButtonState state;
+	az::io::ButtonState state;
 	// Any input keycodes that can affect state without the widget being selected.
-	Array<u8> keycodeActivators;
+	az::Array<u8> keycodeActivators;
 	Button();
 	~Button() = default;
 	void Update(vec2 pos, bool selected);
@@ -335,7 +335,7 @@ struct Checkbox : public Widget {
 // Returns whether a character is acceptable in a TextBox
 typedef bool (*fpTextFilter)(char32);
 // Returns whether a string is valid in a TextBox
-typedef bool (*fpTextValidate)(const WString&);
+typedef bool (*fpTextValidate)(const az::WString&);
 
 // Some premade filters
 bool TextFilterBasic(char32 c);
@@ -346,19 +346,19 @@ bool TextFilterDecimalsPositive(char32 c);
 bool TextFilterIntegers(char32 c);
 bool TextFilterDigits(char32 c);
 
-bool TextValidateAll(const WString &string); // Only returns true
-bool TextValidateNonempty(const WString &string); // String size must not be zero
-bool TextValidateDecimals(const WString &string); // Confirms the format of -123.456
-bool TextValidateDecimalsPositive(const WString &string); // Confirms the format of 123.456
-bool TextValidateIntegers(const WString &string); // Confirms the format of -123456
+bool TextValidateAll(const az::WString &string); // Only returns true
+bool TextValidateNonempty(const az::WString &string); // String size must not be zero
+bool TextValidateDecimals(const az::WString &string); // Confirms the format of -123.456
+bool TextValidateDecimalsPositive(const az::WString &string); // Confirms the format of 123.456
+bool TextValidateIntegers(const az::WString &string); // Confirms the format of -123456
 // Digits validation would be the same as TextFilterDigits + TextValidateAll
 
 // Text entry with filters
 struct TextBox : public Widget {
 	// The currently entered text unformatted.
-	WString string;
+	az::WString string;
 	// The formatted text for drawing.
-	WString stringFormatted;
+	az::WString stringFormatted;
 	/*  The color of the background when not highlighted and text validation passed.
 		Default: {vec3(0.15), 0.9} */
 	vec4 colorBG;
@@ -445,9 +445,9 @@ struct Slider : public Widget {
 		Default: false */
 	bool grabbed;
 	//  Pressed() is whether the value should move left by an increment.
-	io::ButtonState left;
+	az::io::ButtonState left;
 	//  Pressed() is whether the value should move right by an increment.
-	io::ButtonState right;
+	az::io::ButtonState right;
 	Slider();
 	~Slider() = default;
 	void Update(vec2 pos, bool selected);

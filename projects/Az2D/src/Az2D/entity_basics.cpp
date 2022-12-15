@@ -8,6 +8,7 @@
 
 namespace Az2D::Entities {
 
+using namespace AzCore;
 using GameSystems::sys;
 
 Array<void*> _DoubleBufferArrays;
@@ -412,11 +413,11 @@ void ManagerBasic::EventSync() {
 
 void ManagerBasic::EventUpdate() {
 	if (timestep != 0.0f) {
-		const i32 concurrency = 2;
+		const i32 concurrency = 4;
 		Array<Thread> threads(concurrency);
 		for (i32 i = 0; i < workChunks.size; i++) {
+			WorkChunk &chunk = workChunks[i];
 			for (i32 j = 0; j < concurrency; j++) {
-				WorkChunk &chunk = workChunks[i];
 				// TODO: Use persistent threads
 				threads[j] = Thread(chunk.updateCallback, chunk.theThisPointer, j, concurrency);
 			}
@@ -430,7 +431,6 @@ void ManagerBasic::EventUpdate() {
 }
 
 void ManagerBasic::EventDraw(Array<Rendering::DrawingContext> &contexts) {
-	// if (Int::gui->currentMenu != Int::Gui::Menu::PLAY) return;
 	const i32 concurrency = contexts.size;
 	Array<Thread> threads(concurrency);
 	for (i32 i = 0; i < workChunks.size; i++) {

@@ -58,9 +58,9 @@ struct Gui : public GuiBasic {
 	Gui();
 	~Gui() = default;
 
-	void EventInitialize();
-	void EventSync();
-	void EventDraw(Array<Rendering::DrawingContext> &contexts);
+	void EventInitialize() override;
+	void EventSync() override;
+	void EventDraw(az::Array<Rendering::DrawingContext> &contexts) override;
 };
 
 extern Gui *gui;

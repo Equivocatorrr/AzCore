@@ -14,8 +14,6 @@
 
 namespace Az2D::Entities {
 
-using namespace AzCore;
-
 struct Player : public Entity {
 	f32 screamTimer;
 	f32 facing;
@@ -50,10 +48,10 @@ struct Manager : public ManagerBasic {
 
 	Manager();
 
-	void EventAssetInit();
-	void EventAssetAcquire();
-	void EventSync();
-	void EventClose();
+	void EventAssetsQueue() override;
+	void EventAssetsAcquire() override;
+	void EventSync() override;
+	void EventClose() override;
 
 	void Reset();
 
@@ -62,6 +60,6 @@ struct Manager : public ManagerBasic {
 
 extern Manager *entities;
 
-} // namespace Entities
+} // namespace Az2D::Entities
 
 #endif // ENTITIES_HPP

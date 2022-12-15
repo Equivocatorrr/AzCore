@@ -19,9 +19,7 @@ namespace Az2D::Rendering {
 
 namespace Az2D::Assets {
 
-using namespace AzCore;
-
-extern String error;
+extern az::String error;
 
 typedef i32 TexIndex;
 typedef i32 FontIndex;
@@ -45,18 +43,18 @@ struct Mapping {
 };
 
 struct Texture {
-	Array<u8> pixels;
+	az::Array<u8> pixels;
 	i32 width, height, channels;
 
-	bool Load(String filename);
+	bool Load(az::String filename);
 	~Texture();
 };
 
 struct Font {
-	font::Font font;
-	font::FontBuilder fontBuilder;
+	az::font::Font font;
+	az::font::FontBuilder fontBuilder;
 
-	bool Load(String filename);
+	bool Load(az::String filename);
 };
 
 struct Sound {
@@ -78,7 +76,7 @@ struct Sound {
 		return *this;
 	}
 
-	bool Load(String filename);
+	bool Load(az::String filename);
 };
 
 constexpr i8 numStreamBuffers = 2;
@@ -141,7 +139,7 @@ struct Stream {
 		return *this;
 	}
 
-	bool Open(String filename);
+	bool Open(az::String filename);
 	// Returns the number of samples decoded or -1 on error
 	i32 Decode(i32 sampleCount);
 	void SeekStart();
@@ -157,43 +155,43 @@ constexpr i32 textureIndexBlank = 1;
 
 struct Manager {
 	struct FileToLoad {
-		String filename;
+		az::String filename;
 		Type type;
 		inline FileToLoad() : filename(), type(Type::NONE) {}
-		inline FileToLoad(String fn) : filename(fn), type(Type::NONE) {}
-		inline FileToLoad(String fn, Type t) : filename(fn), type(t) {}
+		inline FileToLoad(az::String fn) : filename(fn), type(Type::NONE) {}
+		inline FileToLoad(az::String fn, Type t) : filename(fn), type(t) {}
 	};
 	// Everything we want to actually load.
-	Array<FileToLoad> filesToLoad{
+	az::Array<FileToLoad> filesToLoad{
 		FileToLoad("TextureMissing.png"),
 		FileToLoad("blank.bmp"),
 		FileToLoad("DroidSansFallback.ttf")
 	};
-	HashMap<SimpleRange<char>, Mapping> mappings;
-	Array<Texture> textures;
-	Array<Font> fonts;
-	Array<Sound> sounds;
-	Array<Stream> streams;
+	az::HashMap<az::SimpleRange<char>, Mapping> mappings;
+	az::Array<Texture> textures;
+	az::Array<Font> fonts;
+	az::Array<Sound> sounds;
+	az::Array<Stream> streams;
 
-	inline void QueueFile(String filename) {
+	inline void QueueFile(az::String filename) {
 		filesToLoad.Append(FileToLoad(filename));
 	}
-	inline void QueueFile(String filename, Type type) {
+	inline void QueueFile(az::String filename, Type type) {
 		filesToLoad.Append({filename, type});
 	}
 
 	bool LoadAll();
-	i32 FindMapping(SimpleRange<char> filename, Type type);
-	inline TexIndex FindTexture(SimpleRange<char> filename) {
+	i32 FindMapping(az::SimpleRange<char> filename, Type type);
+	inline TexIndex FindTexture(az::SimpleRange<char> filename) {
 		return (TexIndex)FindMapping(filename, Type::TEXTURE);
 	}
-	inline FontIndex FindFont(SimpleRange<char> filename) {
+	inline FontIndex FindFont(az::SimpleRange<char> filename) {
 		return (FontIndex)FindMapping(filename, Type::FONT);
 	}
-	inline SoundIndex FindSound(SimpleRange<char> filename) {
+	inline SoundIndex FindSound(az::SimpleRange<char> filename) {
 		return (SoundIndex)FindMapping(filename, Type::SOUND);
 	}
-	inline StreamIndex FindStream(SimpleRange<char> filename) {
+	inline StreamIndex FindStream(az::SimpleRange<char> filename) {
 		return (StreamIndex)FindMapping(filename, Type::STREAM);
 	}
 	f32 CharacterWidth(char32 c, i32 fontIndex) const;

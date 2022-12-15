@@ -14,6 +14,8 @@
 
 namespace Az2D::Assets {
 
+using namespace AzCore;
+
 io::Log cout("assets.log");
 
 String error = "No error.";

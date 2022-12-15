@@ -10,8 +10,12 @@
 
 namespace Az2D::GameSystems {
 
+using namespace AzCore;
+
 Manager *sys = nullptr;
 
+void System::EventAssetsQueue() {}
+void System::EventAssetsAcquire() {}
 void System::EventSync() {}
 void System::EventUpdate() {}
 void System::EventDraw(Array<Rendering::DrawingContext> &contexts) {}
@@ -62,7 +66,7 @@ void UpdateLoop() {
 		if (frame == 0) {
 			sys->frametimes.Update();
 			if (vsync) {
-				sys->SetFramerate(clamp(1000.0f / sys->frametimes.Average(), 30.0f, 300.0f), true);
+				sys->SetFramerate(clamp(1000.0f / sys->frametimes.AverageWithoutOutliers(), 30.0f, 300.0f), true);
 			}
 		}
 		if (abs(Nanoseconds(frameNext - Clock::now()).count()) >= 10000000) {
@@ -289,13 +293,13 @@ void Manager::RegisterDrawing() {
 
 void Manager::GetAssets() {
 	for (System* system : systems) {
-		system->EventAssetInit();
+		system->EventAssetsQueue();
 	}
 }
 
 void Manager::UseAssets() {
 	for (System* system : systems) {
-		system->EventAssetAcquire();
+		system->EventAssetsAcquire();
 	}
 }
 

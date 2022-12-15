@@ -16,7 +16,7 @@
 
 namespace Az2D::Entities {
 
-using namespace AzCore;
+using az::vec2, az::vec3, az::vec4;
 using GameSystems::sys;
 
 extern struct ManagerBasic *entitiesBasic;
@@ -77,13 +77,13 @@ union PhysicalAbs {
 struct Physical {
 	mutable AABB aabb;
 	CollisionType type;
-	Angle32 angle = 0.0f;
+	az::Angle32 angle = 0.0f;
 	PhysicalBasis basis; // What you set to define the collider
 	mutable PhysicalAbs actual; // Will be updated at most once a frame (only when collision checking is happening)
 	mutable bool updated = false;
 	vec2 pos;
 	vec2 vel = vec2(0.0f);
-	Radians32 rot = 0.0f;
+	az::Radians32 rot = 0.0f;
 
 	bool Collides(const Physical &other) const;
 	bool MouseOver(vec2 mouse) const;
@@ -142,7 +142,7 @@ struct Id {
 
 typedef u64 TypeID;
 
-extern Array<void*> _DoubleBufferArrays;
+extern az::Array<void*> _DoubleBufferArrays;
 TypeID GenTypeId(void *ptr);
 
 
@@ -211,17 +211,17 @@ struct DoubleBufferArray {
 	// Our IdGeneric assumes we have Entity subclasses
 	static_assert(std::is_base_of<Entity, T>::value == true);
 	// Data is stored in the balls.
-	Array<T> array[2];
+	az::Array<T> array[2];
 	// New objects created every frame, added during Synchronize.
-	Array<T> created;
+	az::Array<T> created;
 	// Indices of array that can be refilled
-	Array<i32> empty;
+	az::Array<i32> empty;
 	// Indices of array that must be destroyed during Synchronize.
-	Array<i32> destroyed;
+	az::Array<i32> destroyed;
 	// Used to synchronize access to created and destroyed
 	size_t typeStride = sizeof(T);
 	TypeID typeId = GenTypeId(this);
-	Mutex mutex;
+	az::Mutex mutex;
 	i32 size = 0;
 	i32 count = 0;
 	i32 claimedEmpty = 0;
@@ -234,10 +234,10 @@ struct DoubleBufferArray {
 	DoubleBufferArray(const DoubleBufferArray&) = delete;
 	DoubleBufferArray(DoubleBufferArray&&) = delete;
 	
-	inline Array<T>& ArrayConst() {
+	inline az::Array<T>& ArrayConst() {
 		return array[!buffer];
 	}
-	inline Array<T>& ArrayMut() {
+	inline az::Array<T>& ArrayMut() {
 		return array[buffer];
 	}
 	inline T& EntityConst(i32 index) {
@@ -270,6 +270,7 @@ struct DoubleBufferArray {
 	void Synchronize() {
 		buffer = sys->buffer;
 
+		empty.Erase(0, claimedEmpty);
 		for (i32 index : destroyed) {
 			// array[!buffer][index].EventDestroy();
 			array[!buffer][index].id.generation = -EntityConst(index).id.generation-1;
@@ -290,7 +291,7 @@ struct DoubleBufferArray {
 		array[buffer] = array[!buffer];
 		size = array[0].size;
 	}
-	void GetWorkChunks(Array<WorkChunk> &dstWorkChunks) {
+	void GetWorkChunks(az::Array<WorkChunk> &dstWorkChunks) {
 		if (count == 0) return;
 		WorkChunk chunk;
 		chunk.updateCallback = DoubleBufferArray<T>::Update;
@@ -298,7 +299,7 @@ struct DoubleBufferArray {
 		chunk.theThisPointer = this;
 		dstWorkChunks.Append(chunk);
 	}
-	Ptr<T> Create(T &obj) {
+	az::Ptr<T> Create(T &obj) {
 		mutex.Lock();
 		if (empty.size > claimedEmpty) {
 			obj.id.index = empty[claimedEmpty];
@@ -356,7 +357,7 @@ struct DoubleBufferArray {
 };
 
 struct ManagerBasic : public GameSystems::System {
-	Array<WorkChunk> workChunks{};
+	az::Array<WorkChunk> workChunks{};
 	// Our version integrates simulationRate
 	f32 timestep;
 	f32 camZoom = 0.00001f;
@@ -369,15 +370,9 @@ struct ManagerBasic : public GameSystems::System {
 
 	ManagerBasic();
 
-	void EventSync();
-	void EventUpdate();
-	void EventDraw(Array<Rendering::DrawingContext> &contexts);
-
-	void Reset();
-
-	inline void HandleUI();
-	inline void HandleGamepadUI();
-	inline void HandleMouseUI();
+	void EventSync() override;
+	void EventUpdate() override;
+	void EventDraw(az::Array<Rendering::DrawingContext> &contexts) override;
 };
 
 template<typename T>

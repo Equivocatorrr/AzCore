@@ -6,6 +6,8 @@
 
 namespace Az2D::Gui {
 
+using namespace AzCore;
+
 using GameSystems::sys;
 
 Gui *gui = nullptr;

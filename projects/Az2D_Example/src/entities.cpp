@@ -11,6 +11,8 @@
 
 namespace Az2D::Entities {
 
+using namespace AzCore;
+
 constexpr bool DEBUG_COLLISIONS = false;
 
 Manager *entities = nullptr;
@@ -31,14 +33,14 @@ inline void ApplyFriction(T &obj, f32 friction, f32 timestep) {
 	}
 }
 
-void Manager::EventAssetInit() {
+void Manager::EventAssetsQueue() {
 	sys->assets.QueueFile("Player.tga");
 	sys->assets.QueueFile("PlayerScream.tga");
 	sys->assets.QueueFile("scream.ogg");
 	sys->assets.QueueFile("music.ogg", Assets::Type::STREAM);
 }
 
-void Manager::EventAssetAcquire() {
+void Manager::EventAssetsAcquire() {
 	texPlayer = sys->assets.FindTexture("Player.tga");
 	texPlayerScream = sys->assets.FindTexture("PlayerScream.tga");
 	

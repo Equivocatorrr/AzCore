@@ -25,15 +25,13 @@ struct Manager;
 
 namespace Az2D::GameSystems {
 
-using namespace AzCore;
-
 struct Manager;
 struct System;
 
 extern Manager *sys;
 
 // Initializes the engine
-bool Init(SimpleRange<char> windowTitle, Array<System*> systemsToRegister, bool enableVulkanValidation);
+bool Init(az::SimpleRange<char> windowTitle, az::Array<System*> systemsToRegister, bool enableVulkanValidation);
 // Does the loop internally
 void UpdateLoop();
 // Cleans up and saves stuff
@@ -44,35 +42,38 @@ struct System {
 	std::atomic<bool> readyForDraw = false;
 	virtual ~System() = default;
 
-	virtual void EventAssetInit() = 0;
-	virtual void EventAssetAcquire() = 0;
+	// Queue all asset files in this event
+	virtual void EventAssetsQueue();
+	// Get all your asset mappings in this event
+	virtual void EventAssetsAcquire();
 	virtual void EventInitialize();
+	// Called once per frame synchronously
 	virtual void EventSync();
 	virtual void EventUpdate();
-	virtual void EventDraw(Array<Rendering::DrawingContext> &contexts);
+	virtual void EventDraw(az::Array<Rendering::DrawingContext> &contexts);
 	// Called on application shutdown.
 	virtual void EventClose();
 };
 
 struct Manager {
 	// buffer swaps every frame. Used for lockless multithreading.
-	Array<System*> systems;
+	az::Array<System*> systems;
 	bool buffer = false;
 	f32 timestep = 1.0f/60.0f;
 	i32 updateIterations = 1;
 	f32 simulationRate = 1.0f;
-	Nanoseconds frameDuration = Nanoseconds(1000000000/60);
+	az::Nanoseconds frameDuration = az::Nanoseconds(1000000000/60);
 	void SetFramerate(f32 framerate, bool tryCatchup=false);
-	FrametimeCounter frametimes;
+	az::FrametimeCounter frametimes;
 	bool paused = false;
 	bool exit = false;
-	String error;
+	az::String error;
 	
-	AzCore::BinaryMap<String, WString> locale;
+	az::BinaryMap<az::String, az::WString> locale;
 	void LoadLocale();
-	inline WString ReadLocale(SimpleRange<char> name) {
+	inline az::WString ReadLocale(az::SimpleRange<char> name) {
 		if (!locale.Exists(name))
-			return AzCore::ToWString(name);
+			return az::ToWString(name);
 		else
 			return locale[name];
 	}
@@ -90,7 +91,7 @@ struct Manager {
 	bool Init();
 	void Deinit();
 	
-	static void RenderCallback(void *userdata, Rendering::Manager *rendering, Array<Rendering::DrawingContext>& drawingContexts);
+	static void RenderCallback(void *userdata, Rendering::Manager *rendering, az::Array<Rendering::DrawingContext>& drawingContexts);
 
 	// Registers the rendering callbacks
 	void RegisterDrawing();
@@ -105,13 +106,13 @@ struct Manager {
 	// Calls different Update events.
 	void Update();
 	// Calls different Draw events.
-	void Draw(Array<Rendering::DrawingContext>& drawingContexts);
+	void Draw(az::Array<Rendering::DrawingContext>& drawingContexts);
 
 	// Input queries that support gamepads and regular input inline
 	bool Pressed(u8 keyCode);
 	bool Down(u8 keyCode);
 	bool Released(u8 keyCode);
-	io::ButtonState* GetButtonState(u8 keyCode);
+	az::io::ButtonState* GetButtonState(u8 keyCode);
 	void ConsumeInput(u8 keyCode);
 };
 

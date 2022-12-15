@@ -28,7 +28,7 @@ String FormatTime(Nanoseconds time);
 // times are measured in milliseconds
 struct FrametimeCounter {
 	static constexpr i32 totalFrames = 30;
-	BucketArray<f32, totalFrames> frametimes = BucketArray<f32, totalFrames>(totalFrames, 0.016f);
+	BucketArray<f32, totalFrames> frametimes = BucketArray<f32, totalFrames>(totalFrames, 16.6666f);
 	i32 frame = 0;
 	ClockTime lastTime = Clock::now();
 	inline void Update() {
@@ -45,6 +45,18 @@ struct FrametimeCounter {
 			total += time;
 		}
 		return total / (f32)totalFrames;
+	}
+	inline f32 AverageWithoutOutliers() const {
+		f32 total = 0.0f;
+		i32 count = 0;
+		for (f32 time : frametimes) {
+			if (time < 1000.0f / 15.0f) {
+				total += time;
+				count++;
+			}
+		}
+		if (count == 0) return Average();
+		return total / (f32)count;
 	}
 	inline f32 Max() const {
 		f32 max = 0.0f;

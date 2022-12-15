@@ -158,6 +158,7 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 			else
 				keyCode = KC_MOUSE_SCROLLDOWN;
 			press = true;
+			thisWindow->input->inputs[keyCode].Set(false, false, false);
 		}
 		break;
 	}
@@ -169,6 +170,7 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 			else
 				keyCode = KC_MOUSE_SCROLLLEFT;
 			press = true;
+			thisWindow->input->inputs[keyCode].Set(false, false, false);
 		}
 		break;
 	}

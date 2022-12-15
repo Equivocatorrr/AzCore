@@ -24,17 +24,6 @@ vulkan_shaders(tower_defense "src/shaders" "${OUTPUT_DIR}/data/shaders")
 
 target_link_libraries(tower_defense PRIVATE Az2D)
 
-if (CMAKE_SYSTEM MATCHES Windows)
-	add_library(OpenAL32 SHARED IMPORTED)
-	set_target_properties(OpenAL32 PROPERTIES
-		IMPORTED_LOCATION "${OUTPUT_DIR}/lib/OpenAL32.dll"
-		IMPORTED_IMPLIB "${OUTPUT_DIR}/lib/OpenAL32.lib"
-	)
-	target_link_libraries(tower_defense PRIVATE OpenAL32)
-elseif (CMAKE_SYSTEM MATCHES Linux)
-	target_link_libraries(tower_defense PRIVATE openal)
-endif()
-
 set_target_properties(tower_defense PROPERTIES
 	DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}
 	RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_DIR}/bin"

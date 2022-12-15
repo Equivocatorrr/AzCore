@@ -7,16 +7,12 @@
 #ifndef ENTITIES_HPP
 #define ENTITIES_HPP
 
-#include "objects.hpp"
+#include "Az2D/game_systems.hpp"
 #include "AzCore/math.hpp"
-#include "rendering.hpp"
-#include "sound.hpp"
 
-#include "entity_basics.hpp"
+#include "Az2D/entity_basics.hpp"
 
-namespace Entities {
-
-using namespace AzCore;
+namespace Az2D::Entities {
 
 enum TowerType {
 	TOWER_GUN=0,
@@ -38,85 +34,6 @@ extern const bool towerHasPriority[TOWER_MAX_RANGE+1];
 extern const TowerUpgradeables towerUpgradeables[TOWER_MAX_RANGE+1];
 extern const char* towerDescriptions[TOWER_MAX_RANGE+1];
 
-struct Tower;
-struct Enemy;
-struct Bullet;
-struct Wind;
-struct Explosion;
-
-struct FailureText {
-	vec2 position;
-	f32 angle;
-	f32 size;
-	vec2 velocity;
-	f32 rotation;
-	f32 scaleSpeed;
-	vec2 targetPosition;
-	f32 targetAngle;
-	f32 targetSize;
-	WString text;
-
-	void Reset();
-	void Update(f32 timestep);
-	void Draw(Rendering::DrawingContext &context);
-};
-
-struct Manager : public Objects::Object {
-	DoubleBufferArray<Tower> towers{};
-	DoubleBufferArray<Enemy> enemies{};
-	DoubleBufferArray<Bullet> bullets{};
-	DoubleBufferArray<Wind> winds{};
-	DoubleBufferArray<Explosion> explosions{};
-	Array<UpdateChunk> updateChunks{};
-	Sound::Source sndMoney;
-	Sound::Stream streamSegment1;
-	Sound::Stream streamSegment2;
-	Id selectedTower = -1;
-	bool focusMenu = false;
-	bool placeMode = false;
-	TowerType towerType = TOWER_GUN;
-	Angle32 placingAngle = 0.0f;
-	bool canPlace = false;
-	f32 enemyTimer = 0.0;
-	i32 wave = 0;
-	i64 hitpointsLeft = 0;
-	f64 hitpointsPerSecond = 200.0;
-	i64 lives = 1000;
-	i64 money= 5000;
-	f32 timestep;
-	bool waveActive = true;
-	bool failed = false;
-	f32 camZoom = 0.00001f;
-	f32 backgroundTransition = -1.0;
-	vec3 backgroundFrom;
-	vec3 backgroundTo;
-	vec2 camPos = vec2(0.0f);
-	vec2 mouse = 0.0f;
-	FailureText failureText;
-	Physical basePhysical{};
-	Array<Physical> enemySpawns{};
-	void EventAssetInit();
-	void EventAssetAcquire();
-	void EventInitialize();
-	void EventSync();
-	void EventUpdate();
-	void EventDraw(Array<Rendering::DrawingContext> &contexts);
-	void CreateSpawn();
-	vec2 WorldPosToScreen(vec2 in) const;
-	vec2 ScreenPosToWorld(vec2 in) const;
-
-	void Reset();
-
-	inline void HandleUI();
-	inline void HandleGamepadUI();
-	inline void HandleMouseUI();
-	inline void HandleGamepadCamera();
-	inline void HandleMouseCamera();
-	inline void HandleTowerPlacement(u8 keycodePlace);
-	inline void HandleMusicLoops(i32 w);
-	inline bool CursorVisible() const;
-};
-
 struct Tower : public Entity {
 	TowerType type;
 	// field is for AOE effects, and is only used by certain types of towers
@@ -127,7 +44,7 @@ struct Tower : public Entity {
 	f32 range;
 	f32 shootTimer;
 	f32 shootInterval;
-	Degrees32 bulletSpread;
+	az::Degrees32 bulletSpread;
 	i32 bulletCount;
 	i32 damage;
 	f32 bulletSpeed;
@@ -152,7 +69,7 @@ struct Tower : public Entity {
 	Tower() = default;
 	inline Tower(CollisionType collisionType, PhysicalBasis physicalBasis,
 			CollisionType fieldCollisionType, PhysicalBasis fieldPhysicalBasis, TowerType _type,
-			f32 _range, f32 _shootInterval, Degrees32 _bulletSpread, i32 _bulletCount,
+			f32 _range, f32 _shootInterval, az::Degrees32 _bulletSpread, i32 _bulletCount,
 			i32 _damage, f32 _bulletSpeed, f32 _bulletSpeedVariability, i32 _bulletExplosionDamage, f32 _bulletExplosionRange, vec4 _color) :
 			type(_type), range(_range), shootInterval(_shootInterval), bulletSpread(_bulletSpread),
 			bulletCount(_bulletCount), damage(_damage), bulletSpeed(_bulletSpeed),
@@ -183,7 +100,7 @@ struct Enemy : public Entity {
 	f32 spawnTimer;
 	vec4 color;
 	i32 value;
-	BinarySet<Id> damageContributors;
+	az::BinarySet<Id> damageContributors;
 	f32 age;
 	bool child = false;
 	void EventCreate();
@@ -224,6 +141,79 @@ struct Explosion : public Entity {
 };
 extern template struct DoubleBufferArray<Explosion>;
 
-} // namespace Entities
+struct FailureText {
+	vec2 position;
+	f32 angle;
+	f32 size;
+	vec2 velocity;
+	f32 rotation;
+	f32 scaleSpeed;
+	vec2 targetPosition;
+	f32 targetAngle;
+	f32 targetSize;
+	az::WString text;
+
+	void Reset();
+	void Update(f32 timestep);
+	void Draw(Rendering::DrawingContext &context);
+};
+
+struct Manager : public ManagerBasic {
+	DoubleBufferArray<Tower> towers{};
+	DoubleBufferArray<Enemy> enemies{};
+	DoubleBufferArray<Bullet> bullets{};
+	DoubleBufferArray<Wind> winds{};
+	DoubleBufferArray<Explosion> explosions{};
+	
+	Sound::Source sndMoney;
+	Sound::Stream streamSegment1;
+	Sound::Stream streamSegment2;
+	Id selectedTower = -1;
+	bool focusMenu = false;
+	bool placeMode = false;
+	TowerType towerType = TOWER_GUN;
+	az::Angle32 placingAngle = 0.0f;
+	bool canPlace = false;
+	f32 enemyTimer = 0.0;
+	i32 wave = 0;
+	i64 hitpointsLeft = 0;
+	f64 hitpointsPerSecond = 200.0;
+	i64 lives = 1000;
+	i64 money = 5000;
+	f32 timestep;
+	bool waveActive = true;
+	bool failed = false;
+	f32 backgroundTransition = -1.0;
+	vec3 backgroundFrom;
+	vec3 backgroundTo;
+	vec2 mouse = 0.0f;
+	FailureText failureText;
+	Physical basePhysical{};
+	az::Array<Physical> enemySpawns{};
+	
+	Manager();
+	
+	void EventAssetsQueue() override;
+	void EventAssetsAcquire() override;
+	void EventInitialize() override;
+	void EventSync() override;
+	void EventDraw(az::Array<Rendering::DrawingContext> &contexts) override;
+	
+	void CreateSpawn();
+	void Reset();
+
+	inline void HandleUI();
+	inline void HandleGamepadUI();
+	inline void HandleMouseUI();
+	inline void HandleGamepadCamera();
+	inline void HandleMouseCamera();
+	inline void HandleTowerPlacement(u8 keycodePlace);
+	inline void HandleMusicLoops(i32 w);
+	inline bool CursorVisible() const;
+};
+
+extern Manager *entities;
+
+} // namespace Az2D::Entities
 
 #endif // ENTITIES_HPP

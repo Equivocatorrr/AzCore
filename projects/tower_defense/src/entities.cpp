@@ -3,13 +3,20 @@
 	Author: Philip Haynes
 */
 
-#include "entities.hpp"
-#include "globals.hpp"
 #include "AzCore/Thread.hpp"
+#include "AzCore/IO/Log.hpp"
+#include "entities.hpp"
+#include "gui.hpp"
 
-#include "entity_basics.cpp"
+namespace Az2D::Entities {
 
-namespace Entities {
+using namespace AzCore;
+
+Manager *entities = nullptr;
+
+Manager::Manager() {
+	entities = this;
+}
 
 const char* towerStrings[TOWER_MAX_RANGE+1] = {
 	"Gun",
@@ -169,13 +176,13 @@ const Tower towerFlakTemplate = Tower(
 	vec4(1.0f, 0.0f, 0.8f, 1.0f)                // color
 );
 
-void Manager::EventAssetInit() {
-	globals->assets.QueueFile("Money Cursed.ogg");
-	globals->assets.QueueFile("Segment 1.ogg", Assets::STREAM);
-	globals->assets.QueueFile("Segment 2.ogg", Assets::STREAM);
+void Manager::EventAssetsQueue() {
+	sys->assets.QueueFile("Money Cursed.ogg");
+	sys->assets.QueueFile("Segment 1.ogg", Assets::Type::STREAM);
+	sys->assets.QueueFile("Segment 2.ogg", Assets::Type::STREAM);
 }
 
-void Manager::EventAssetAcquire() {
+void Manager::EventAssetsAcquire() {
 	sndMoney.Create("Money Cursed.ogg");
 	sndMoney.SetGain(0.5f);
 	if (!streamSegment1.Create("Segment 1.ogg")) {
@@ -192,7 +199,8 @@ void Manager::EventInitialize() {
 	bullets.granularity = 50;
 	winds.granularity = 50;
 	explosions.granularity = 10;
-	// Reset();
+	sys->rendering.backgroundHSV = vec3(215.0f/360.0f, 0.7f, 0.5f);
+	sys->rendering.UpdateBackground();
 }
 
 void Manager::Reset() {
@@ -201,7 +209,6 @@ void Manager::Reset() {
 	bullets.Clear();
 	winds.Clear();
 	explosions.Clear();
-	updateChunks.Clear();
 	selectedTower = -1;
 	focusMenu = false;
 	placeMode = false;
@@ -211,7 +218,7 @@ void Manager::Reset() {
 	enemyTimer = 0.0;
 	wave = 0;
 	hitpointsLeft = 0;
-	hitpointsPerSecond = 200.0;
+	hitpointsPerSecond = 100.0;
 	lives = 1000;
 	money = 5000;
 	waveActive = true;
@@ -230,20 +237,22 @@ void Manager::Reset() {
 	enemySpawns.Clear();
 	CreateSpawn();
 	camPos = enemySpawns[0].pos * 0.5f;
-	camZoom = min(globals->rendering.screenSize.x, globals->rendering.screenSize.y) / 1500.0f;
+	camZoom = min(sys->rendering.screenSize.x, sys->rendering.screenSize.y) / 1500.0f;
 	HandleMusicLoops(1);
 	streamSegment1.Play();
-	globals->rendering.backgroundHSV = backgroundFrom;
-	globals->rendering.UpdateBackground();
+	sys->rendering.backgroundHSV = backgroundFrom;
+	sys->rendering.UpdateBackground();
 }
 
 inline void Manager::HandleGamepadCamera() {
-	vec2 screenBorder = (vec2(globals->window.width, globals->window.height) - vec2(50.0f * globals->gui.scale)) / 2.0f / camZoom;
+	vec2 screenBorder = (vec2(sys->window.width, sys->window.height) - vec2(50.0f * Gui::gui->scale)) / 2.0f / camZoom;
 	if (CursorVisible() || placeMode) {
-		vec2 mouseMove = globals->gamepad->axis.vec.RS;
+		vec2 mouseMove;
+		if (sys->gamepad) mouseMove = sys->gamepad->axis.vec.RS;
+		else mouseMove = 0.0f;
 		f32 mag = norm(mouseMove);
 		mouseMove *= sqrt(mag);
-		mouseMove *= globals->objects.timestep * 800.0f / camZoom;
+		mouseMove *= sys->timestep * 800.0f / camZoom;
 		mouse += mouseMove;
 		if (mouseMove != vec2(0.0f)) {
 			if (mouse.x < camPos.x-screenBorder.x || mouse.x > camPos.x+screenBorder.x) {
@@ -256,10 +265,12 @@ inline void Manager::HandleGamepadCamera() {
 	}
 
 	if (!focusMenu && selectedTower == -1) {
-		vec2 camMove = globals->gamepad->axis.vec.LS;
+		vec2 camMove;
+		if (sys->gamepad) camMove = sys->gamepad->axis.vec.LS;
+		else camMove = 0.0f;
 		f32 mag = norm(camMove);
 		camMove *= sqrt(mag);
-		camMove *= globals->objects.timestep * 800.0f / camZoom;
+		camMove *= sys->timestep * 800.0f / camZoom;
 		camPos += camMove;
 		if (camMove != vec2(0.0f)) {
 			if (mouse.x < camPos.x-screenBorder.x || mouse.x > camPos.x+screenBorder.x) {
@@ -270,8 +281,10 @@ inline void Manager::HandleGamepadCamera() {
 			}
 		}
 	}
-	f32 zoomMove = globals->gamepad->axis.vec.RT - globals->gamepad->axis.vec.LT;
-	zoomMove *= globals->objects.timestep;
+	f32 zoomMove;
+	if (sys->gamepad) zoomMove = sys->gamepad->axis.vec.RT - sys->gamepad->axis.vec.LT;
+	else zoomMove = 0.0f;
+	zoomMove *= sys->timestep;
 	if (zoomMove > 0) {
 		screenBorder *= camZoom;
 		camZoom *= 1.0f + zoomMove;
@@ -288,43 +301,43 @@ inline void Manager::HandleGamepadCamera() {
 }
 
 inline void Manager::HandleMouseCamera() {
-	if (globals->gui.mouseoverDepth > 0) {
+	if (Gui::gui->mouseoverDepth > 0) {
 		return;
 	}
 	bool changed = false;
-	if (globals->objects.Pressed(KC_MOUSE_SCROLLUP)) {
+	if (sys->Pressed(KC_MOUSE_SCROLLUP)) {
 		camZoom *= 1.1f;
 		changed = true;
-	} else if (globals->objects.Pressed(KC_MOUSE_SCROLLDOWN)) {
+	} else if (sys->Pressed(KC_MOUSE_SCROLLDOWN)) {
 		camZoom /= 1.1f;
 		changed = true;
 	}
 	if (changed) {
-		mouse = ScreenPosToWorld(globals->input.cursor);
+		mouse = ScreenPosToWorld(sys->input.cursor);
 	}
-	if (globals->objects.Down(KC_MOUSE_LEFT)) {
-		vec2 move = vec2(globals->input.cursor - globals->input.cursorPrevious) / camZoom;
+	if (sys->Down(KC_MOUSE_LEFT)) {
+		vec2 move = vec2(sys->input.cursor - sys->input.cursorPrevious) / camZoom;
 		camPos -= move;
 	}
 }
 
 bool TypedCode(String code) {
-	if (code.size > globals->input.typingString.size) return false;
-	Range<char> end = globals->input.typingString.GetRange(globals->input.typingString.size-code.size, code.size);
+	if (code.size > sys->input.typingString.size) return false;
+	Range<char> end = sys->input.typingString.GetRange(sys->input.typingString.size-code.size, code.size);
 	if (code == end) {
-		globals->input.typingString.Clear();
+		sys->input.typingString.Clear();
 		return true;
 	}
 	return false;
 }
 
 inline void Manager::HandleUI() {
-	if (globals->gui.usingMouse) {
-		HandleMouseCamera();
-		HandleMouseUI();
-	} else {
+	if (Gui::gui->usingGamepad) {
 		HandleGamepadCamera();
 		HandleGamepadUI();
+	} else {
+		HandleMouseCamera();
+		HandleMouseUI();
 	}
 	if (TypedCode("money")) {
 		money += 50000;
@@ -336,8 +349,8 @@ inline void Manager::HandleUI() {
 	if (backgroundTransition >= 0.0f) {
 		backgroundTransition += timestep / 30.0f;
 		if (backgroundTransition > 1.0f) backgroundTransition = 1.0f;
-		globals->rendering.backgroundHSV = lerp(backgroundFrom, backgroundTo, backgroundTransition);
-		globals->rendering.UpdateBackground();
+		sys->rendering.backgroundHSV = lerp(backgroundFrom, backgroundTo, backgroundTransition);
+		sys->rendering.UpdateBackground();
 		if (backgroundTransition == 1.0f) {
 			backgroundTransition = -1.0f;
 		}
@@ -354,72 +367,72 @@ inline void Manager::HandleUI() {
 	}
 	if (failed) {
 		failureText.Update(timestep);
-		globals->objects.paused = false;
+		sys->paused = false;
 		return;
 	}
 	for (i32 i = 0; i <= TOWER_MAX_RANGE; i++) {
-		if (globals->gui.playMenu.towerButtons[i]->state.Released()) {
+		if (Gui::gui->menuPlay.towerButtons[i]->state.Released()) {
 			placeMode = true;
 			focusMenu = false;
 			selectedTower = -1;
 			towerType = TowerType(i);
 		}
 	}
-	if (globals->gui.playMenu.buttonStartWave->state.Released()) {
+	if (Gui::gui->menuPlay.buttonStartWave->state.Released()) {
 		if (!waveActive) {
 			if (wave == 11) {
 				backgroundTransition = 0.0f;
 			}
-			globals->objects.paused = false;
+			sys->paused = false;
 			waveActive = true;
-			globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Pause");
+			Gui::gui->menuPlay.buttonStartWave->string = sys->ReadLocale("Pause");
 		} else {
-			if (globals->objects.paused) {
-				globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Pause");
+			if (sys->paused) {
+				Gui::gui->menuPlay.buttonStartWave->string = sys->ReadLocale("Pause");
 			} else {
-				globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Resume");
+				Gui::gui->menuPlay.buttonStartWave->string = sys->ReadLocale("Resume");
 			}
-			globals->objects.paused = !globals->objects.paused;
+			sys->paused = !sys->paused;
 		}
 	}
 }
 
 inline void Manager::HandleGamepadUI() {
-	if (globals->objects.Pressed(KC_GP_BTN_X) && globals->gui.controlDepth == globals->gui.playMenu.list->depth) {
+	if (sys->Pressed(KC_GP_BTN_X) && Gui::gui->controlDepth == Gui::gui->menuPlay.list->depth) {
 		focusMenu = !focusMenu;
 		placeMode = false;
 	}
 	if (!placeMode) {
-		if (globals->objects.Released(KC_GP_BTN_A) && !focusMenu && selectedTower == -1) {
+		if (sys->Released(KC_GP_BTN_A) && !focusMenu && selectedTower == -1) {
 			for (i32 i = 0; i < towers.size; i++) {
 				if (towers[i].id.generation < 0) continue;
-				if (towers[i].physical.MouseOver()) {
-					io::ButtonState *state = globals->objects.GetButtonState(KC_GP_BTN_A);
+				if (towers[i].physical.MouseOver(mouse)) {
+					io::ButtonState *state = sys->GetButtonState(KC_GP_BTN_A);
 					if (state) state->state = 0;
 					selectedTower = towers[i].id;
-					globals->gui.playMenu.upgradesMenu.towerPriority->choice = (i32)towers[i].priority;
+					Gui::gui->menuPlay.upgradesMenu.towerPriority->choice = (i32)towers[i].priority;
 					break;
 				}
 			}
 		}
-		if (selectedTower != -1 && globals->objects.Pressed(KC_GP_BTN_B)) {
+		if (selectedTower != -1 && sys->Pressed(KC_GP_BTN_B)) {
 			selectedTower = -1;
 		}
 	} else { // placeMode == true
-		if (globals->objects.Pressed(KC_GP_BTN_B)) {
+		if (sys->Pressed(KC_GP_BTN_B)) {
 			placeMode = false;
 			focusMenu = true;
 		}
 		const Degrees32 increment30(30.0f);
 		const Degrees32 increment5(5.0f);
-		if (globals->objects.Pressed(KC_GP_AXIS_H0_LEFT)) {
+		if (sys->Pressed(KC_GP_AXIS_H0_LEFT)) {
 			placingAngle += increment5;
-		} else if (globals->objects.Pressed(KC_GP_AXIS_H0_RIGHT)) {
+		} else if (sys->Pressed(KC_GP_AXIS_H0_RIGHT)) {
 			placingAngle += -increment5;
 		}
-		if (globals->objects.Pressed(KC_GP_BTN_TL)) {
+		if (sys->Pressed(KC_GP_BTN_TL)) {
 			placingAngle += increment30;
-		} else if (globals->objects.Pressed(KC_GP_BTN_TR)) {
+		} else if (sys->Pressed(KC_GP_BTN_TR)) {
 			placingAngle += -increment30;
 		}
 		HandleTowerPlacement(KC_GP_BTN_A);
@@ -427,26 +440,26 @@ inline void Manager::HandleGamepadUI() {
 }
 
 inline void Manager::HandleMouseUI() {
-	if (globals->gui.playMenu.list->MouseOver()) {
+	if (Gui::gui->menuPlay.list->MouseOver()) {
 		focusMenu = true;
-		if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
+		if (sys->Pressed(KC_MOUSE_LEFT)) {
 			placeMode = false;
 			selectedTower = -1;
 		}
 	} else {
 		focusMenu = false;
 	}
-	if (globals->gui.mouseoverDepth > 0) {
+	if (Gui::gui->mouseoverDepth > 0) {
 		return;
 	}
 	if (!placeMode) {
-		if (globals->objects.Pressed(KC_MOUSE_LEFT)) {
+		if (sys->Pressed(KC_MOUSE_LEFT)) {
 			selectedTower = -1;
 			for (i32 i = 0; i < towers.size; i++) {
 				if (towers[i].id.generation < 0) continue;
-				if (towers[i].physical.MouseOver()) {
+				if (towers[i].physical.MouseOver(mouse)) {
 					selectedTower = towers[i].id;
-					globals->gui.playMenu.upgradesMenu.towerPriority->choice = (i32)towers[i].priority;
+					Gui::gui->menuPlay.upgradesMenu.towerPriority->choice = (i32)towers[i].priority;
 					break;
 				}
 			}
@@ -455,12 +468,12 @@ inline void Manager::HandleMouseUI() {
 		const Degrees32 increment30(30.0f);
 		const Degrees32 increment5(5.0f);
 		Degrees32 increment = increment30;
-		if (globals->objects.Down(KC_KEY_LEFTSHIFT) || globals->objects.Down(KC_KEY_RIGHTSHIFT)) {
+		if (sys->Down(KC_KEY_LEFTSHIFT) || sys->Down(KC_KEY_RIGHTSHIFT)) {
 			increment = increment5;
 		}
-		if (globals->objects.Pressed(KC_KEY_LEFT)) {
+		if (sys->Pressed(KC_KEY_LEFT)) {
 			placingAngle += increment;
-		} else if (globals->objects.Pressed(KC_KEY_RIGHT)) {
+		} else if (sys->Pressed(KC_KEY_RIGHT)) {
 			placingAngle += -increment;
 		}
 		HandleTowerPlacement(KC_MOUSE_LEFT);
@@ -484,7 +497,7 @@ inline void Manager::HandleTowerPlacement(u8 keycodePlace) {
 			}
 		}
 	}
-	if (globals->objects.Pressed(keycodePlace)) {
+	if (sys->Pressed(keycodePlace)) {
 		if (canPlace) {
 			tower.sunkCost = towerCosts[towerType];
 			towers.Create(tower);
@@ -500,7 +513,7 @@ inline void Manager::HandleMusicLoops(i32 w) {
 		streamSegment1.SetLoopRange(w*section+preLoop, (w+1)*section);
 	} else if (w >= 11 && w <= 20) {
 		if (w == 11) {
-			streamSegment1.SetLoopRange(0, -1);
+			streamSegment1.SetLoopRange(0, -2);
 		}
 		i32 section = 192*4410;
 		i32 preLoop = 0;
@@ -508,33 +521,33 @@ inline void Manager::HandleMusicLoops(i32 w) {
 		streamSegment2.SetLoopRange(w*section+preLoop, (w+1)*section);
 	} else if (w >= 21 && w <= 30) {
 		if (w == 21) {
-			streamSegment2.SetLoopRange(0, -1);
+			streamSegment2.SetLoopRange(0, -2);
 		}
 	}
 }
 
 inline bool Manager::CursorVisible() const {
-	return globals->gui.currentMenu == Int::MENU_PLAY && !globals->gui.usingMouse && !placeMode && !focusMenu && selectedTower == -1;
+	return Gui::gui->currentMenu == Gui::Gui::Menu::PLAY && Gui::gui->usingGamepad && !placeMode && !focusMenu && selectedTower == -1 && sys->gamepad != nullptr;
 }
 
 void Manager::EventSync() {
-	if (globals->gui.mainMenu.buttonNewGame->state.Released()) {
-		globals->gui.mainMenu.buttonNewGame->state.Set(false, false, false);
+	if (Gui::gui->menuMain.buttonNewGame->state.Released()) {
+		Gui::gui->menuMain.buttonNewGame->state.Set(false, false, false);
 		Reset();
 	}
-	timestep = globals->objects.timestep * globals->objects.simulationRate;
-	if (globals->input.Down(KC_KEY_F)) timestep *= 2.0f;
-	if (globals->input.cursorPrevious != globals->input.cursor) {
-		mouse = ScreenPosToWorld(globals->input.cursor);
+	timestep = sys->timestep * sys->simulationRate;
+	if (sys->input.Down(KC_KEY_F)) timestep *= 2.0f;
+	if (sys->input.cursorPrevious != sys->input.cursor) {
+		mouse = ScreenPosToWorld(sys->input.cursor);
 	}
-	if (globals->gui.currentMenu == Int::MENU_PLAY) {
+	if (Gui::gui->currentMenu == Gui::Gui::Menu::PLAY) {
 		HandleUI();
 	} else {
 		placeMode = false;
 		focusMenu = false;
 		selectedTower = -1;
 	}
-	if (globals->input.Pressed(KC_KEY_R)) {
+	if (sys->input.Pressed(KC_KEY_R)) {
 		failureText.Reset();
 	}
 	towers.Synchronize();
@@ -543,13 +556,13 @@ void Manager::EventSync() {
 	winds.Synchronize();
 	explosions.Synchronize();
 
-	updateChunks.size = 0;
+	ManagerBasic::EventSync();
 
-	towers.GetUpdateChunks(updateChunks);
-	enemies.GetUpdateChunks(updateChunks);
-	bullets.GetUpdateChunks(updateChunks);
-	winds.GetUpdateChunks(updateChunks);
-	explosions.GetUpdateChunks(updateChunks);
+	towers.GetWorkChunks(workChunks);
+	enemies.GetWorkChunks(workChunks);
+	bullets.GetWorkChunks(workChunks);
+	winds.GetWorkChunks(workChunks);
+	explosions.GetWorkChunks(workChunks);
 
 	if (timestep != 0.0f && hitpointsLeft > 0 && waveActive) {
 		enemyTimer -= timestep;
@@ -559,23 +572,23 @@ void Manager::EventSync() {
 		while (enemyTimer <= 0.0f && hitpointsLeft > 0) {
 			Enemy enemy;
 			for (i32 i = 0; i < 3; i++) {
-				enemy.type = (Enemy::Type)random(0, 3, &globals->rng);
+				enemy.type = (Enemy::Type)random(0, 3);
 				if (enemy.type != Enemy::HONKER) break;
 			}
 			enemies.Create(enemy); // Enemy::EventCreate() increases enemyTimer based on HP
 		}
 	}
 	if (hitpointsLeft == 0 && waveActive && enemies.count == 0
-	 && !globals->gui.playMenu.buttonStartWave->state.Released()) {
+	 && !Gui::gui->menuPlay.buttonStartWave->state.Released()) {
 		waveActive = false;
 		wave++;
 		HandleMusicLoops(wave);
 		f64 factor = pow((f64)1.2, (f64)(wave+3));
-		hitpointsPerSecond = (f64)((i64)(factor * 5.0) * 100);
+		hitpointsPerSecond = (f64)((i64)(factor * 5.0) * 80);
 		hitpointsLeft += (i64)hitpointsPerSecond;
 		// Average wave length is wave+7 seconds
 		hitpointsPerSecond /= wave+7;
-		globals->gui.playMenu.buttonStartWave->string = globals->ReadLocale("Start Wave");
+		Gui::gui->menuPlay.buttonStartWave->string = sys->ReadLocale("Start Wave");
 	}
 	if (wave >= 11 && wave < 20) {
 		if (!streamSegment1.playing && !streamSegment2.playing) {
@@ -585,41 +598,11 @@ void Manager::EventSync() {
 	readyForDraw = true;
 }
 
-void Manager::EventUpdate() {
-	if (timestep != 0.0f) {
-		const i32 concurrency = 4;
-		Array<Thread> threads(concurrency);
-		for (i32 i = 0; i < updateChunks.size; i++) {
-			for (i32 j = 0; j < concurrency; j++) {
-				UpdateChunk &chunk = updateChunks[i];
-				threads[j] = Thread(chunk.updateCallback, chunk.theThisPointer, j, concurrency);
-			}
-			for (i32 j = 0; j < concurrency; j++) {
-				if (threads[j].Joinable()) {
-					threads[j].Join();
-				}
-			}
-		}
-	}
-}
-
 void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
-	// if (globals->gui.currentMenu != Int::MENU_PLAY) return;
+	// if (Gui::gui->currentMenu != Gui::Menu::PLAY) return;
 
-	const i32 concurrency = contexts.size;
-	Array<Thread> threads(concurrency);
-	for (i32 i = 0; i < updateChunks.size; i++) {
-		for (i32 j = 0; j < concurrency; j++) {
-			UpdateChunk &chunk = updateChunks[i];
-			threads[j] = Thread(chunk.drawCallback, chunk.theThisPointer, &contexts[j], j, concurrency);
-		}
-		for (i32 j = 0; j < concurrency; j++) {
-			if (threads[j].Joinable()) {
-				threads[j].Join();
-			}
-		}
-	}
-
+	ManagerBasic::EventDraw(contexts);
+	
 	if (placeMode) {
 		Tower tower(towerType);
 		tower.physical.pos = mouse;
@@ -639,7 +622,7 @@ void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 	}
 	if (CursorVisible()) {
 		vec2 cursor = WorldPosToScreen(mouse);
-		globals->rendering.DrawQuad(contexts.Back(), globals->gui.cursorIndex, vec4(1.0f), cursor, vec2(32.0f * globals->gui.scale), vec2(1.0f), vec2(0.5f));
+		sys->rendering.DrawQuad(contexts.Back(), Gui::gui->texCursor, vec4(1.0f), cursor, vec2(32.0f * Gui::gui->scale), vec2(1.0f), vec2(0.5f));
 	}
 	if (lives == 0) {
 		failureText.Draw(contexts.Back());
@@ -647,7 +630,7 @@ void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 }
 
 void Manager::CreateSpawn() {
-	f32 angle = random(0.0f, tau, &globals->rng);
+	f32 angle = random(0.0f, tau);
 	vec2 place(sin(angle), cos(angle));
 	place *= 1500.0f;
 	Physical newSpawn;
@@ -659,26 +642,17 @@ void Manager::CreateSpawn() {
 	enemySpawns.Append(newSpawn);
 }
 
-vec2 Manager::WorldPosToScreen(vec2 in) const {
-	vec2 out = (in - camPos) * camZoom + vec2(globals->window.width, globals->window.height) / 2.0f;
-	return out;
-}
-vec2 Manager::ScreenPosToWorld(vec2 in) const {
-	vec2 out = vec2(in - vec2(globals->window.width, globals->window.height) / 2.0f) / camZoom + camPos;
-	return out;
-}
-
 void FailureText::Reset() {
-	angle = Radians32(Degrees32(random(-180.0f, 180.0f, &globals->rng))).value();
+	angle = Radians32(Degrees32(random(-180.0f, 180.0f))).value();
 	position = vec2(cos(angle), sin(angle)) * 0.5;
 	size = 0.001f;
 	velocity = -position * 15.0;
 	rotation = 0.0f;
 	scaleSpeed = 1.0f;
-	targetPosition = vec2(random(-0.25f, 0.25f, &globals->rng), random(-0.25f, 0.25f, &globals->rng));
-	targetAngle = Radians32(Degrees32(random(-30.0f, 30.0f, &globals->rng))).value();
+	targetPosition = vec2(random(-0.25f, 0.25f), random(-0.25f, 0.25f));
+	targetAngle = Radians32(Degrees32(random(-30.0f, 30.0f))).value();
 	targetSize = 0.3f;
-	text = globals->ReadLocale("Game Over");
+	text = sys->ReadLocale("Game Over");
 }
 
 void FailureText::Update(f32 timestep) {
@@ -696,8 +670,8 @@ void FailureText::Update(f32 timestep) {
 }
 
 void FailureText::Draw(Rendering::DrawingContext &context) {
-	globals->rendering.DrawTextSS(context, text, globals->gui.fontIndex, vec4(vec3(0.0f), 1.0f), position, size, Rendering::CENTER, Rendering::CENTER, 0.0f, 0.5f, 0.325f, angle);
-	globals->rendering.DrawTextSS(context, text, globals->gui.fontIndex, vec4(1.0f, 0.0f, 0.0f, 1.0f), position, size, Rendering::CENTER, Rendering::CENTER, 0.0f, 0.5f, 0.525f, angle);
+	sys->rendering.DrawTextSS(context, text, Gui::gui->fontIndex, vec4(vec3(0.0f), 1.0f), position, size, Rendering::CENTER, Rendering::CENTER, 0.0f, 0.5f, 0.325f, angle);
+	sys->rendering.DrawTextSS(context, text, Gui::gui->fontIndex, vec4(1.0f, 0.0f, 0.0f, 1.0f), position, size, Rendering::CENTER, Rendering::CENTER, 0.0f, 0.5f, 0.525f, angle);
 }
 
 Tower::Tower(TowerType _type) {
@@ -747,10 +721,10 @@ void Tower::EventCreate() {
 
 void Tower::Update(f32 timestep) {
 	physical.Update(timestep);
-	selected = globals->entities.selectedTower == id;
+	selected = entities->selectedTower == id;
 	// if (shootTimer <= 0.0f) disabled = false;
-	// for (i32 i = 0; i < globals->entities.enemies.size; i++) {
-	//	 const Enemy& other = globals->entities.enemies[i];
+	// for (i32 i = 0; i < entities->enemies.size; i++) {
+	//	 const Enemy& other = entities->enemies[i];
 	//	 if (other.id.generation < 0 || other.hitpoints <= 2000) continue;
 	//	 if (physical.Collides(other.physical)) {
 	//		 disabled = true;
@@ -766,8 +740,8 @@ void Tower::Update(f32 timestep) {
 			f32 targetDist = range;
 			switch (priority) {
 				case PRIORITY_NEAREST: {
-					for (i32 i = 0; i < globals->entities.enemies.size; i++) {
-						const Enemy& other = globals->entities.enemies[i];
+					for (i32 i = 0; i < entities->enemies.size; i++) {
+						const Enemy& other = entities->enemies[i];
 						if (other.id.generation < 0 || other.hitpoints == 0) continue;
 						f32 dist = norm(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
 						if (dist < targetDist) {
@@ -778,8 +752,8 @@ void Tower::Update(f32 timestep) {
 				} break;
 				case PRIORITY_FURTHEST: {
 					targetDist = 0.0f;
-					for (i32 i = 0; i < globals->entities.enemies.size; i++) {
-						const Enemy& other = globals->entities.enemies[i];
+					for (i32 i = 0; i < entities->enemies.size; i++) {
+						const Enemy& other = entities->enemies[i];
 						if (other.id.generation < 0 || other.hitpoints == 0) continue;
 						f32 dist = norm(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
 						if (dist < range && dist > targetDist) {
@@ -790,8 +764,8 @@ void Tower::Update(f32 timestep) {
 				} break;
 				case PRIORITY_WEAKEST: {
 					i32 lowestHP = INT32_MAX;
-					for (i32 i = 0; i < globals->entities.enemies.size; i++) {
-						const Enemy& other = globals->entities.enemies[i];
+					for (i32 i = 0; i < entities->enemies.size; i++) {
+						const Enemy& other = entities->enemies[i];
 						if (other.id.generation < 0 || other.hitpoints == 0) continue;
 						f32 dist = norm(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
 						if (dist < range && other.hitpoints < lowestHP) {
@@ -803,8 +777,8 @@ void Tower::Update(f32 timestep) {
 				} break;
 				case PRIORITY_STRONGEST: {
 					i32 highestHP = 0;
-					for (i32 i = 0; i < globals->entities.enemies.size; i++) {
-						const Enemy& other = globals->entities.enemies[i];
+					for (i32 i = 0; i < entities->enemies.size; i++) {
+						const Enemy& other = entities->enemies[i];
 						if (other.id.generation < 0 || other.hitpoints == 0) continue;
 						f32 dist = norm(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
 						if (dist < range && other.hitpoints > highestHP) {
@@ -816,8 +790,8 @@ void Tower::Update(f32 timestep) {
 				} break;
 				case PRIORITY_NEWEST: {
 					f32 youngest = 1000000.0f;
-					for (i32 i = 0; i < globals->entities.enemies.size; i++) {
-						const Enemy& other = globals->entities.enemies[i];
+					for (i32 i = 0; i < entities->enemies.size; i++) {
+						const Enemy& other = entities->enemies[i];
 						if (other.id.generation < 0 || other.hitpoints == 0) continue;
 						f32 dist = norm(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
 						if (dist < range && other.age < youngest) {
@@ -829,8 +803,8 @@ void Tower::Update(f32 timestep) {
 				} break;
 				case PRIORITY_OLDEST: {
 					f32 oldest = 0.0f;
-					for (i32 i = 0; i < globals->entities.enemies.size; i++) {
-						const Enemy& other = globals->entities.enemies[i];
+					for (i32 i = 0; i < entities->enemies.size; i++) {
+						const Enemy& other = entities->enemies[i];
 						if (other.id.generation < 0 || other.hitpoints == 0) continue;
 						f32 dist = norm(other.physical.pos - physical.pos) - other.physical.basis.circle.r;
 						if (dist < range && other.age > oldest) {
@@ -843,7 +817,7 @@ void Tower::Update(f32 timestep) {
 			}
 
 			if (target != -1) {
-				const Enemy& other = globals->entities.enemies[target];
+				const Enemy& other = entities->enemies[target];
 				Bullet bullet;
 				bullet.lifetime = range / (bulletSpeed * 0.9f);
 				bullet.explosionDamage = bulletExplosionDamage;
@@ -858,20 +832,20 @@ void Tower::Update(f32 timestep) {
 				deltaP = other.physical.pos - physical.pos + other.physical.vel * dist / bulletSpeed;
 				Angle32 idealAngle = atan2(-deltaP.y, deltaP.x);
 				for (i32 i = 0; i < bulletCount; i++) {
-					Angle32 angle = idealAngle + Degrees32(random(-bulletSpread.value(), bulletSpread.value(), &globals->rng));
+					Angle32 angle = idealAngle + Degrees32(random(-bulletSpread.value(), bulletSpread.value()));
 					bullet.physical.vel.x = cos(angle);
 					bullet.physical.vel.y = -sin(angle);
-					bullet.physical.vel *= bulletSpeed + random(-bulletSpeedVariability, bulletSpeedVariability, &globals->rng);
+					bullet.physical.vel *= bulletSpeed + random(-bulletSpeedVariability, bulletSpeedVariability);
 					bullet.physical.pos = physical.pos + bullet.physical.vel * timestep;
 					bullet.damage = damage;
-					globals->entities.bullets.Create(bullet);
+					entities->bullets.Create(bullet);
 				}
 				shootTimer += shootInterval;
 			}
 		} else if (type == TOWER_SHOCKWAVE) {
 			bool shoot = false;
-			for (i32 i = 0; i < globals->entities.enemies.size; i++) {
-				const Enemy& other = globals->entities.enemies[i];
+			for (i32 i = 0; i < entities->enemies.size; i++) {
+				const Enemy& other = entities->enemies[i];
 				if (other.id.generation < 0 || other.hitpoints == 0) continue;
 				if (field.Collides(other.physical)) {
 					shoot = true;
@@ -885,23 +859,23 @@ void Tower::Update(f32 timestep) {
 				explosion.damage = damage;
 				explosion.physical.pos = physical.pos;
 				explosion.owner = id;
-				globals->entities.explosions.Create(explosion);
+				entities->explosions.Create(explosion);
 				shootTimer += shootInterval;
 			}
 		} else if (type == TOWER_FAN) {
 			Wind wind;
 			wind.physical.pos = physical.pos;
 			wind.lifetime = range / bulletSpeed;
-			f32 randomPos = random(-20.0f, 20.0f, &globals->rng);
+			f32 randomPos = random(-20.0f, 20.0f);
 			wind.physical.pos.x += cos(physical.angle.value() + pi * 0.5f) * randomPos;
 			wind.physical.pos.y -= sin(physical.angle.value() + pi * 0.5f) * randomPos;
 			for (i32 i = 0; i < bulletCount; i++) {
-				Angle32 angle = physical.angle + Degrees32(random(-bulletSpread.value(), bulletSpread.value(), &globals->rng));
+				Angle32 angle = physical.angle + Degrees32(random(-bulletSpread.value(), bulletSpread.value()));
 				wind.physical.vel.x = cos(angle);
 				wind.physical.vel.y = -sin(angle);
-				wind.physical.vel *= bulletSpeed + random(-bulletSpeedVariability, bulletSpeedVariability, &globals->rng);
+				wind.physical.vel *= bulletSpeed + random(-bulletSpeedVariability, bulletSpeedVariability);
 				wind.physical.pos += wind.physical.vel * 0.03f;
-				globals->entities.winds.Create(wind);
+				entities->winds.Create(wind);
 			}
 		}
 	}
@@ -925,16 +899,16 @@ template struct DoubleBufferArray<Tower>;
 const f32 honkerSpawnInterval = 2.0f;
 
 vec2 GetSpawnLocation() {
-	i32 spawnPoint = random(0, globals->entities.enemySpawns.size-1, &globals->rng);
+	i32 spawnPoint = random(0, entities->enemySpawns.size-1);
 	f32 s, c;
-	s = sin(globals->entities.enemySpawns[spawnPoint].angle);
-	c = cos(globals->entities.enemySpawns[spawnPoint].angle);
+	s = sin(entities->enemySpawns[spawnPoint].angle);
+	c = cos(entities->enemySpawns[spawnPoint].angle);
 	vec2 x, y;
-	x = vec2(c, -s) * globals->entities.enemySpawns[spawnPoint].basis.box.b.x
-	  * random(-1.0f, 1.0f, &globals->rng);
-	y = vec2(s, c) * globals->entities.enemySpawns[spawnPoint].basis.box.b.y
-	  * random(-1.0f, 1.0f, &globals->rng);
-	return globals->entities.enemySpawns[spawnPoint].pos + x + y;
+	x = vec2(c, -s) * entities->enemySpawns[spawnPoint].basis.box.b.x
+	  * random(-1.0f, 1.0f);
+	y = vec2(s, c) * entities->enemySpawns[spawnPoint].basis.box.b.y
+	  * random(-1.0f, 1.0f);
+	return entities->enemySpawns[spawnPoint].pos + x + y;
 }
 
 void Enemy::EventCreate() {
@@ -944,14 +918,14 @@ void Enemy::EventCreate() {
 	i32 multiplier = 1;
 	if (!child) {
 		physical.pos = GetSpawnLocation();
-		physical.vel = vec2(random(-2.0f, 2.0f, &globals->rng), random(-2.0f, 2.0f, &globals->rng));
+		physical.vel = vec2(random(-2.0f, 2.0f), random(-2.0f, 2.0f));
 		switch (type) {
 			case BASIC:
 			case STUNNER:
-				multiplier = random(1, 3, &globals->rng);
+				multiplier = random(1, 3);
 				break;
 			case HONKER: {
-				f32 honker = random(0.0f, 100.0f, &globals->rng);
+				f32 honker = random(0.0f, 100.0f);
 				if (honker < 1.0f) {
 					multiplier = 1000;
 				} else if (honker < 10.0f) {
@@ -961,25 +935,25 @@ void Enemy::EventCreate() {
 				}
 			} break;
 			case ORBITER:
-				multiplier = random(1, 2, &globals->rng);
+				multiplier = random(1, 2);
 				break;
 		}
-		hitpoints = multiplier * (i32)floor(80.0f * pow(1.16f, (f32)(globals->entities.wave + 3))) / (globals->entities.wave+7);
+		hitpoints = multiplier * (i32)floor(80.0f * pow(1.16f, (f32)(entities->wave + 3))) / (entities->wave+7);
 		age = 0.0f;
 	}
 	spawnTimer = honkerSpawnInterval;
 	if (!child) {
 		i64 limit = median(
-			globals->entities.hitpointsLeft / 2,
+			entities->hitpointsLeft / 2,
 			(i64)500,
-			globals->entities.hitpointsLeft
+			entities->hitpointsLeft
 		);
 		if (hitpoints > limit) {
 			hitpoints = limit;
 		}
-		globals->entities.hitpointsLeft -= hitpoints;
+		entities->hitpointsLeft -= hitpoints;
 		color = vec4(hsvToRgb(vec3(
-			sqrt((f32)hitpoints)/(tau*16.0f) + (f32)globals->entities.wave / 9.0f,
+			sqrt((f32)hitpoints)/(tau*16.0f) + (f32)entities->wave / 9.0f,
 			min((f32)hitpoints / 100.0f, 1.0f),
 			1.0f
 		)), 0.7f);
@@ -992,15 +966,15 @@ void Enemy::EventCreate() {
 	}
 	size = 0.0f;
 	if (!child) {
-		globals->entities.enemyTimer += f32((f64)hitpoints / globals->entities.hitpointsPerSecond / speedDivisor);
+		entities->enemyTimer += f32((f64)hitpoints / entities->hitpointsPerSecond / speedDivisor);
 	}
 }
 
 void Enemy::EventDestroy() {
 	if (hitpoints <= 0) {
-		globals->entities.money += value;
+		entities->money += value;
 		for (const Id &damager : damageContributors) {
-			globals->entities.towers.GetMutable(damager).kills++;
+			entities->towers.GetMutable(damager).kills++;
 		}
 	}
 }
@@ -1009,7 +983,7 @@ inline i32 DamageOverTime(i32 dps, f32 timestep) {
 	f32 prob = (f32)dps*timestep;
 	i32 hits = (i32)prob;
 	prob -= (f32)hits;
-	if (random(0.0f, 1.0f, &globals->rng) <= prob) {
+	if (random(0.0f, 1.0f) <= prob) {
 		hits++;
 	}
 	return hits;
@@ -1025,11 +999,11 @@ void Enemy::Update(f32 timestep) {
 	physical.basis.circle.r = sqrt(size) + 2.0f;
 	physical.Update(timestep);
 	physical.UpdateActual();
-	if (physical.Collides(globals->entities.basePhysical) || (hitpoints <= 0 && size < 0.01f)) {
+	if (physical.Collides(entities->basePhysical) || (hitpoints <= 0 && size < 0.01f)) {
 		if (hitpoints > 0) {
-			globals->entities.lives = max(globals->entities.lives-hitpoints, (i64)0);
+			entities->lives = max(entities->lives-hitpoints, (i64)0);
 		}
-		globals->entities.enemies.Destroy(id);
+		entities->enemies.Destroy(id);
 	}
 	if (hitpoints == 0) return;
 	if (type == HONKER) {
@@ -1038,21 +1012,21 @@ void Enemy::Update(f32 timestep) {
 			newEnemy.type = ORBITER;
 			newEnemy.child = true;
 			newEnemy.age = age;
-			Angle32 spawnAngle = random(0.0f, tau, &globals->rng);
-			vec2 spawnVector = vec2(cos(spawnAngle), -sin(spawnAngle)) * sqrt(random(0.0f, 1.0f, &globals->rng));
+			Angle32 spawnAngle = random(0.0f, tau);
+			vec2 spawnVector = vec2(cos(spawnAngle), -sin(spawnAngle)) * sqrt(random(0.0f, 1.0f));
 			newEnemy.physical.pos = physical.pos + spawnVector * physical.basis.circle.r;
 			newEnemy.physical.vel = physical.vel + spawnVector * 100.0f;
 			newEnemy.color = color;
 			newEnemy.hitpoints = hitpoints/20;
 			hitpoints -= newEnemy.hitpoints;
-			globals->entities.enemies.Create(newEnemy);
+			entities->enemies.Create(newEnemy);
 			spawnTimer += honkerSpawnInterval;
 		} else {
 			spawnTimer -= timestep;
 		}
 	}
-	for (i32 i = 0; i < globals->entities.towers.size; i++) {
-		Tower &other = globals->entities.towers.GetMutable(i);
+	for (i32 i = 0; i < entities->towers.size; i++) {
+		Tower &other = entities->towers.GetMutable(i);
 		if (other.id.generation < 0 || other.type != TOWER_FAN || other.disabled) continue;
 		if (physical.Collides(other.field)) {
 			vec2 deltaP = physical.pos - other.physical.pos;
@@ -1069,8 +1043,8 @@ void Enemy::Update(f32 timestep) {
 			}
 		}
 	}
-	for (i32 i = 0; i < globals->entities.explosions.size; i++) {
-		const Explosion &other = globals->entities.explosions[i];
+	for (i32 i = 0; i < entities->explosions.size; i++) {
+		const Explosion &other = entities->explosions[i];
 		if (other.id.generation < 0) continue;
 		if (physical.Collides(other.physical)) {
 			vec2 deltaP = physical.pos - other.physical.pos;
@@ -1079,25 +1053,25 @@ void Enemy::Update(f32 timestep) {
 				i32 hits = DamageOverTime(other.damage, timestep);
 				if (hits) {
 					damageContributors.Emplace(other.owner);
-					globals->entities.towers.GetMutable(other.owner).damageDone += hits;
+					entities->towers.GetMutable(other.owner).damageDone += hits;
 					hitpoints -= hits;
 				}
 			}
 		}
 	}
-	for (i32 i = 0; i < globals->entities.bullets.size; i++) {
-		Bullet &other = globals->entities.bullets.GetMutable(i);
+	for (i32 i = 0; i < entities->bullets.size; i++) {
+		Bullet &other = entities->bullets.GetMutable(i);
 		if (other.id.generation < 0) continue;
 		if (physical.Collides(other.physical)) {
 			damageContributors.Emplace(other.owner);
 			if (other.damage > hitpoints) {
 				other.damage -= hitpoints;
-				globals->entities.towers.GetMutable(other.owner).damageDone += hitpoints;
+				entities->towers.GetMutable(other.owner).damageDone += hitpoints;
 				hitpoints = 0;
 			} else {
-				globals->entities.bullets.Destroy(other.id);
+				entities->bullets.Destroy(other.id);
 				hitpoints -= other.damage;
-				globals->entities.towers.GetMutable(other.owner).damageDone += other.damage;
+				entities->towers.GetMutable(other.owner).damageDone += other.damage;
 				physical.vel += normalize(other.physical.vel) * 100.0f / size;
 			}
 		}
@@ -1143,7 +1117,7 @@ void Bullet::EventDestroy() {
 		explosion.physical.pos = physical.pos;
 		explosion.physical.vel = physical.vel;
 		explosion.owner = owner;
-		globals->entities.explosions.Create(explosion);
+		entities->explosions.Create(explosion);
 	}
 }
 
@@ -1152,7 +1126,7 @@ void Bullet::Update(f32 timestep) {
 	physical.UpdateActual();
 	lifetime -= timestep;
 	if (lifetime <= 0.0f) {
-		globals->entities.bullets.Destroy(id);
+		entities->bullets.Destroy(id);
 	}
 }
 
@@ -1168,10 +1142,10 @@ template struct DoubleBufferArray<Bullet>;
 
 void Wind::EventCreate() {
 	physical.type = CIRCLE;
-	physical.basis.circle.c = vec2(random(-8.0f, 8.0f, &globals->rng), random(-8.0f, 8.0f, &globals->rng));
-	physical.basis.circle.r = random(16.0f, 32.0f, &globals->rng);
-	physical.angle = random(0.0f, tau, &globals->rng);
-	physical.rot = random(-tau, tau, &globals->rng);
+	physical.basis.circle.c = vec2(random(-8.0f, 8.0f), random(-8.0f, 8.0f));
+	physical.basis.circle.r = random(16.0f, 32.0f);
+	physical.angle = random(0.0f, tau);
+	physical.rot = random(-tau, tau);
 }
 
 void Wind::Update(f32 timestep) {
@@ -1179,17 +1153,17 @@ void Wind::Update(f32 timestep) {
 	physical.UpdateActual();
 	lifetime -= timestep;
 	if (lifetime <= 0.0f) {
-		globals->entities.winds.Destroy(id);
+		entities->winds.Destroy(id);
 	}
 }
 
 void Wind::Draw(Rendering::DrawingContext &context) {
 	vec4 color = vec4(1.0f, 1.0f, 1.0f, clamp01(lifetime) * 0.1f);
-	const f32 z = globals->entities.camZoom;
-	const vec2 p = (physical.pos - globals->entities.camPos) * z
-				 + vec2(globals->window.width / 2, globals->window.height / 2);
+	const f32 z = entities->camZoom;
+	const vec2 p = (physical.pos - entities->camPos) * z
+				 + vec2(sys->window.width / 2, sys->window.height / 2);
 	const vec2 scale = physical.basis.circle.r * 2.0f;
-	globals->rendering.DrawCircle(context, Rendering::texBlank, color, p, scale * 0.1f, vec2(10.0f * z), -physical.basis.circle.c / scale + vec2(0.5f), physical.angle);
+	sys->rendering.DrawCircle(context, Rendering::texBlank, color, p, scale * 0.1f, vec2(10.0f * z), -physical.basis.circle.c / scale + vec2(0.5f), physical.angle);
 }
 
 template struct DoubleBufferArray<Wind>;
@@ -1210,7 +1184,7 @@ void Explosion::Update(f32 timestep) {
 	// shockwaves last 1 second
 	// bullet explosions last 5/8th seconds
 	if (physical.basis.circle.r >= size * 0.9375f) {
-		globals->entities.explosions.Destroy(id);
+		entities->explosions.Destroy(id);
 	}
 }
 
@@ -1224,11 +1198,11 @@ void Explosion::Draw(Rendering::DrawingContext &context) {
 		)),
 		clamp((1.0f - prog) * 5.0f, 0.0f, 0.8f)
 	);
-	const f32 z = globals->entities.camZoom;
-	const vec2 p = (physical.pos - globals->entities.camPos) * z
-				 + vec2(globals->window.width / 2, globals->window.height / 2);
+	const f32 z = entities->camZoom;
+	const vec2 p = (physical.pos - entities->camPos) * z
+				 + vec2(sys->window.width / 2, sys->window.height / 2);
 	const vec2 scale = physical.basis.circle.r * 2.0f;
-	globals->rendering.DrawCircle(context, Rendering::texBlank, color, p, scale * 0.05f, vec2(20.0f * z), -physical.basis.circle.c / scale + vec2(0.5f), physical.angle);
+	sys->rendering.DrawCircle(context, Rendering::texBlank, color, p, scale * 0.05f, vec2(20.0f * z), -physical.basis.circle.c / scale + vec2(0.5f), physical.angle);
 }
 
 template struct DoubleBufferArray<Explosion>;

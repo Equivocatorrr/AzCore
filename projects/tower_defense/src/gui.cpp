@@ -27,12 +27,12 @@ Gui::Gui() {
 
 void Gui::EventAssetsQueue() {
 	GuiBasic::EventAssetsQueue();
-	sys->assets.QueueFile("cursor.png");
+	sys->assets.QueueFile("Cursor.png");
 }
 
 void Gui::EventAssetsAcquire() {
 	GuiBasic::EventAssetsAcquire();
-	texCursor = sys->assets.FindTexture("cursor.png");
+	texCursor = sys->assets.FindTexture("Cursor.png");
 }
 
 void Gui::EventInitialize() {

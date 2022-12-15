@@ -40,6 +40,7 @@ struct Manager : public ManagerBasic {
 	// sprites
 	Assets::TexIndex texPlayer;
 	Assets::TexIndex texPlayerScream;
+	Assets::TexIndex texGuy;
 
 	// sounds
 	Sound::Source sndScream;

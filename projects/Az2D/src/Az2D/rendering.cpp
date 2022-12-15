@@ -212,17 +212,19 @@ bool Manager::Init() {
 		return false;
 	}
 
-	Range<vk::Shader> shaders = data.device->AddShaders(4);
+	Range<vk::Shader> shaders = data.device->AddShaders(5);
 	shaders[0].filename = "data/Az2D/shaders/Basic2DTextured.vert.spv";
 	shaders[1].filename = "data/Az2D/shaders/Basic2DTextured.frag.spv";
 	shaders[2].filename = "data/Az2D/shaders/Font2D.frag.spv";
 	shaders[3].filename = "data/Az2D/shaders/Circle2DTextured.frag.spv";
+	shaders[4].filename = "data/Az2D/shaders/Basic2DPixel.frag.spv";
 
-	vk::ShaderRef shaderRefs[4] = {
+	vk::ShaderRef shaderRefs[5] = {
 		vk::ShaderRef(shaders.GetPtr(0), VK_SHADER_STAGE_VERTEX_BIT),
 		vk::ShaderRef(shaders.GetPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT),
 		vk::ShaderRef(shaders.GetPtr(2), VK_SHADER_STAGE_FRAGMENT_BIT),
-		vk::ShaderRef(shaders.GetPtr(3), VK_SHADER_STAGE_FRAGMENT_BIT)
+		vk::ShaderRef(shaders.GetPtr(3), VK_SHADER_STAGE_FRAGMENT_BIT),
+		vk::ShaderRef(shaders.GetPtr(4), VK_SHADER_STAGE_FRAGMENT_BIT),
 	};
 
 	data.pipeline2D = data.device->AddPipeline();
@@ -235,6 +237,20 @@ bool Manager::Init() {
 	data.pipeline2D->descriptorLayouts.Append(descriptorLayoutTexture);
 
 	data.pipeline2D->dynamicStates = {
+		VK_DYNAMIC_STATE_VIEWPORT,
+		VK_DYNAMIC_STATE_SCISSOR
+	};
+
+	data.pipeline2DPixel = data.device->AddPipeline();
+	data.pipeline2DPixel->renderPass = data.renderPass;
+	data.pipeline2DPixel->subpass = 0;
+	data.pipeline2DPixel->shaders.Append(shaderRefs[0]);
+	data.pipeline2DPixel->shaders.Append(shaderRefs[4]);
+	data.pipeline2DPixel->rasterizer.cullMode = VK_CULL_MODE_NONE;
+
+	data.pipeline2DPixel->descriptorLayouts.Append(descriptorLayoutTexture);
+
+	data.pipeline2DPixel->dynamicStates = {
 		VK_DYNAMIC_STATE_VIEWPORT,
 		VK_DYNAMIC_STATE_SCISSOR
 	};
@@ -293,10 +309,15 @@ bool Manager::Init() {
 	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
 
 	data.pipeline2D->colorBlendAttachments.Append(colorBlendAttachment);
+	data.pipeline2DPixel->colorBlendAttachments.Append(colorBlendAttachment);
 	data.pipelineFont->colorBlendAttachments.Append(colorBlendAttachment);
 	data.pipelineCircle->colorBlendAttachments.Append(colorBlendAttachment);
 
 	data.pipeline2D->pushConstantRanges = {
+		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
+		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 20}
+	};
+	data.pipeline2DPixel->pushConstantRanges = {
 		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
 		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 20}
 	};
@@ -599,6 +620,14 @@ void Manager::BindPipeline2D(DrawingContext &context) const {
 	data.pipeline2D->Bind(context.commandBuffer);
 	vk::CmdBindVertexBuffer(context.commandBuffer, 0, data.vertexBuffer);
 	vkCmdBindDescriptorSets(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipeline2D->data.layout,
+			0, 1, &data.descriptorSet2D->data.set, 0, nullptr);
+}
+
+void Manager::BindPipeline2DPixel(DrawingContext &context) const {
+	context.currentPipeline = PIPELINE_BASIC_2D_PIXEL;
+	data.pipeline2DPixel->Bind(context.commandBuffer);
+	vk::CmdBindVertexBuffer(context.commandBuffer, 0, data.vertexBuffer);
+	vkCmdBindDescriptorSets(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipeline2DPixel->data.layout,
 			0, 1, &data.descriptorSet2D->data.set, 0, nullptr);
 }
 
@@ -921,6 +950,22 @@ void Manager::DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2
 	vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, 0, 0);
 }
 
+void Manager::DrawQuadPixelSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {
+	Rendering::PushConstants pc = Rendering::PushConstants();
+	if (context.currentPipeline != PIPELINE_BASIC_2D_PIXEL) BindPipeline2DPixel(context);
+	pc.frag.color = color;
+	pc.frag.texIndex = texIndex;
+	pc.vert.position = position;
+	pc.vert.transform = mat2::Scaler(scalePre);
+	if (rotation != 0.0f) {
+		pc.vert.transform = pc.vert.transform * mat2::Rotation(rotation.value());
+	}
+	pc.vert.transform = pc.vert.transform * mat2::Scaler(scalePost);
+	pc.vert.origin = origin;
+	pc.Push2D(context.commandBuffer, this);
+	vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, 0, 0);
+}
+
 void Manager::DrawCircleSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, f32 edge, vec2 origin, Radians32 rotation) const {
 	Rendering::PushConstants pc = Rendering::PushConstants();
 	if (context.currentPipeline != PIPELINE_CIRCLE_2D_TEXTURED) BindPipelineCircle(context);
@@ -953,6 +998,11 @@ void Manager::DrawText(DrawingContext &context, WString text, i32 fontIndex, vec
 void Manager::DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {
 	const vec2 screenSizeFactor = vec2(2.0f) / screenSize;
 	DrawQuadSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0f), scalePre, scalePost * screenSizeFactor, origin, rotation);
+}
+
+void Manager::DrawQuadPixel(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {
+	const vec2 screenSizeFactor = vec2(2.0f) / screenSize;
+	DrawQuadPixelSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0f), scalePre, scalePost * screenSizeFactor, origin, rotation);
 }
 
 void Manager::DrawCircle(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {

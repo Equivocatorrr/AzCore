@@ -82,6 +82,7 @@ extern String error;
 enum PipelineEnum {
 	PIPELINE_NONE=0,
 	PIPELINE_BASIC_2D_TEXTURED,
+	PIPELINE_BASIC_2D_PIXEL,
 	PIPELINE_FONT_2D,
 	PIPELINE_CIRCLE_2D_TEXTURED,
 };
@@ -150,6 +151,7 @@ struct Manager {
 		Range<vk::Image> fontImages;
 
 		Ptr<vk::Pipeline> pipeline2D;
+		Ptr<vk::Pipeline> pipeline2DPixel;
 		Ptr<vk::Pipeline> pipelineFont;
 		Ptr<vk::Pipeline> pipelineCircle;
 		Ptr<vk::Descriptors> descriptors;
@@ -177,6 +179,7 @@ struct Manager {
 	bool Draw();
 
 	void BindPipeline2D(DrawingContext &context) const;
+	void BindPipeline2DPixel(DrawingContext &context) const;
 	void BindPipelineFont(DrawingContext &context) const;
 	void BindPipelineCircle(DrawingContext &context) const;
 
@@ -202,11 +205,13 @@ struct Manager {
 					i32 fontIndex, vec4 color, vec2 position, vec2 scale,
 					FontAlign alignH = LEFT, FontAlign alignV = TOP, f32 maxWidth = 0.0f, f32 edge = 0.5f, f32 bounds = 0.5f, Radians32 rotation = 0.0f);
 	void DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
+	void DrawQuadPixelSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
 	void DrawCircleSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, f32 edge, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
 	// Units are in pixel space
 	void DrawChar(DrawingContext &context, char32 character, i32 fontIndex, vec4 color, vec2 position, vec2 scale);
 	void DrawText(DrawingContext &context, WString text, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH = LEFT, FontAlign alignV = BOTTOM, f32 maxWidth = 0.0f, f32 edge = 0.0f, f32 bounds = 0.5f);
 	void DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
+	void DrawQuadPixel(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
 	void DrawCircle(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
 };
 

@@ -36,6 +36,7 @@ inline void ApplyFriction(T &obj, f32 friction, f32 timestep) {
 void Manager::EventAssetsQueue() {
 	sys->assets.QueueFile("Player.tga");
 	sys->assets.QueueFile("PlayerScream.tga");
+	sys->assets.QueueFile("guy.tga");
 	sys->assets.QueueFile("scream.ogg");
 	sys->assets.QueueFile("music.ogg", Assets::Type::STREAM);
 }
@@ -43,6 +44,7 @@ void Manager::EventAssetsQueue() {
 void Manager::EventAssetsAcquire() {
 	texPlayer = sys->assets.FindTexture("Player.tga");
 	texPlayerScream = sys->assets.FindTexture("PlayerScream.tga");
+	texGuy = sys->assets.FindTexture("guy.tga");
 	
 	sndScream.Create("scream.ogg");
 
@@ -56,6 +58,7 @@ void Manager::Reset() {
 	player.physical.pos = vec2(0.0f);
 	players.Create(player);
 	tails.Clear();
+	/*
 	AABB bounds = CamBounds();
 	Array<Ptr<Tail>> allTails;
 	for (i32 i = 0; i < 50; i++) {
@@ -70,6 +73,7 @@ void Manager::Reset() {
 		Tail &tail = *allTails[i];
 		tail.target = head.idGeneric;
 	}
+	*/
 	pitch = 1.0f;
 	sndMusic.SetPitch(1.0f);
 	sndScream.Stop();
@@ -140,46 +144,51 @@ void Manager::EventClose() {
 
 
 void Player::EventCreate() {
-	physical.type = CIRCLE;
-	physical.basis.circle.c = vec2(0.0f, 0.0f);
-	physical.basis.circle.r = 8.0f;
+	// physical.type = CIRCLE;
+	// physical.basis.circle.c = vec2(0.0f, 0.0f);
+	// physical.basis.circle.r = 8.0f;
+	// physical.angle = 0.0f;
+	physical.type = BOX;
+	physical.basis.box.a = vec2(-6.0f, -7.0f);
+	physical.basis.box.b = vec2(5.0f, 7.0f);
 	physical.angle = 0.0f;
+	physical.rot = pi/8.0f;
 	screamTimer = 0.0f;
 	facing = 1.0f;
 	hue = 0.0f;
 }
 
 void Player::Update(f32 timestep) {
-	physical.ImpulseY(1000.0f, timestep);
-	ApplyFriction(physical.vel, 250.0f, timestep);
+	physical.ImpulseY(10.0f, timestep);
+	ApplyFriction(physical.vel, 2.0f, timestep);
 	bool buttonUp = sys->Down(KC_KEY_UP) || sys->Down(KC_KEY_W);
 	bool buttonLeft = sys->Down(KC_KEY_LEFT) || sys->Down(KC_KEY_A);
 	bool buttonRight = sys->Down(KC_KEY_RIGHT) || sys->Down(KC_KEY_D);
 	bool buttonDown = sys->Down(KC_KEY_DOWN) || sys->Down(KC_KEY_S);
 	if (buttonRight) {
-		physical.ImpulseX(2000.0f, timestep);
+		physical.ImpulseX(20.0f, timestep);
 		facing = 1.0f;
 	}
 	if (buttonLeft) {
-		physical.ImpulseX(-2000.0f, timestep);
+		physical.ImpulseX(-20.0f, timestep);
 		facing = -1.0f;
 	}
 	if (buttonUp) {
-		physical.ImpulseY(-4000.0f, timestep);
+		physical.ImpulseY(-40.0f, timestep);
 	}
 	if (buttonDown) {
-		physical.ImpulseY(2000.0f, timestep);
+		physical.ImpulseY(20.0f, timestep);
 	}
 	
 	vec2 nextPos = physical.pos + physical.vel * timestep;
 	vec2 topLeft = entities->CamTopLeft();
 	vec2 bottomRight = entities->CamBottomRight();
 	if (nextPos.x < topLeft.x || nextPos.x > bottomRight.x) {
-		physical.vel.x *= -1.0f;
+		physical.vel.x *= -0.5f;
 		physical.pos.x = clamp(physical.pos.x, topLeft.x, bottomRight.x);
 	}
 	if (nextPos.y < topLeft.y || nextPos.y > bottomRight.y) {
-		physical.vel.y *= -1.0f;
+		physical.vel.y *= -0.5f;
 		physical.pos.y = clamp(physical.pos.y, topLeft.y, bottomRight.y);
 	}
 	
@@ -208,12 +217,15 @@ void Player::Update(f32 timestep) {
 
 void Player::Draw(Rendering::DrawingContext &context) {
 	Assets::TexIndex tex;
-	if (screamTimer > 0.0f) tex = entities->texPlayerScream;
-	else tex = entities->texPlayer;
+	// if (screamTimer > 0.0f) tex = entities->texPlayerScream;
+	// else tex = entities->texPlayer;
+	tex = entities->texGuy;
 	vec2 pos = entities->WorldPosToScreen(physical.pos);
-	vec2 scale = vec2(16.0f * entities->camZoom);
+	vec2 scale = vec2(11.0f, 16.0f) * entities->camZoom * 5.0f;
 	scale.x *= facing;
-	sys->rendering.DrawQuad(context, tex, vec4(hsvToRgb(vec3(hue, 0.5f, 1.0f)), 1.0f), pos, vec2(1.0f), scale, vec2(0.5f));
+	// vec4 color = vec4(hsvToRgb(vec3(hue, 0.5f, 1.0f)), 1.0f);
+	vec4 color = 1.0f;
+	sys->rendering.DrawQuadPixel(context, tex, color, pos, scale, vec2(1.0f), vec2(0.5f), physical.angle);
 	
 	if constexpr (DEBUG_COLLISIONS) {
 		physical.Draw(context, vec4(0.5));

@@ -280,12 +280,14 @@ bool Manager::Init() {
 	vertexInputAttributeDescription.location = 0;
 	vertexInputAttributeDescription.offset = offsetof(Vertex, pos);
 	vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
+	data.pipeline2DPixel->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
 	data.pipeline2D->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
 	data.pipelineFont->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
 	data.pipelineCircle->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
 	vertexInputAttributeDescription.location = 1;
 	vertexInputAttributeDescription.offset = offsetof(Vertex, tex);
 	vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
+	data.pipeline2DPixel->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
 	data.pipeline2D->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
 	data.pipelineFont->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
 	data.pipelineCircle->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
@@ -293,6 +295,7 @@ bool Manager::Init() {
 	vertexInputBindingDescription.binding = 0;
 	vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 	vertexInputBindingDescription.stride = sizeof(Vertex);
+	data.pipeline2DPixel->inputBindingDescriptions.Append(vertexInputBindingDescription);
 	data.pipeline2D->inputBindingDescriptions.Append(vertexInputBindingDescription);
 	data.pipelineFont->inputBindingDescriptions.Append(vertexInputBindingDescription);
 	data.pipelineCircle->inputBindingDescriptions.Append(vertexInputBindingDescription);

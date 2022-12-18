@@ -128,7 +128,7 @@ abort_if_failed()
 
 if [ $clean -ne 0 ]; then
 	echo "Cleaning..."
-	( set -x; rm -rf projects/*/bin projects/*/*.log projects/*/settings.conf buildDebugL buildReleaseL buildDebugW buildReleaseW )
+	( set -x; rm -rf projects/*/bin projects/*/Exports projects/*/*.log projects/*/settings.conf projects/*/data/Az2D build buildDebugL buildReleaseL buildDebugW buildReleaseW )
 fi
 
 if [ $BuildDebugL -eq 1 ]

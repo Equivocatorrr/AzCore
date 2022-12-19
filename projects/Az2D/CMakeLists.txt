@@ -24,6 +24,16 @@ set(OUTPUT_DIR "${PROJECT_SOURCE_DIR}/projects/Az2D")
 
 vulkan_shaders(Az2D "src/Az2D/shaders" "${OUTPUT_DIR}/data/shaders")
 
+function(AZ2D_COPY_SHADERS output_target)
+	add_custom_command(TARGET Az2D_Shaders POST_BUILD
+		COMMAND echo "Copying Az2D data/shaders to ${output_target}"
+		COMMAND ${CMAKE_COMMAND} -E copy_directory "${OUTPUT_DIR}/data/shaders" "${PROJECT_SOURCE_DIR}/projects/${output_target}/data/Az2D/shaders"
+	)
+endfunction()
+
+AZ2D_COPY_SHADERS(Az2D_Example)
+AZ2D_COPY_SHADERS(tower_defense)
+
 target_link_libraries(Az2D PRIVATE AzCore_Vulkan)
 
 if (CMAKE_SYSTEM MATCHES Windows)

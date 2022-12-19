@@ -18,9 +18,8 @@ target_include_directories(tower_defense PUBLIC "${PROJECT_SOURCE_DIR}/external/
 set(OUTPUT_DIR "${PROJECT_SOURCE_DIR}/projects/tower_defense")
 
 # we may want to be smarter about this by using a custom target and adding the files as a dependency
-file(GLOB AZ2D_DATA CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/projects/Az2D/data/*")
-file(COPY ${AZ2D_DATA} DESTINATION "${OUTPUT_DIR}/data/Az2D")
-vulkan_shaders(tower_defense "src/shaders" "${OUTPUT_DIR}/data/shaders")
+AZ2D_DATA_COPY(tower_defense ${OUTPUT_DIR})
+# vulkan_shaders(tower_defense "src/shaders" "${OUTPUT_DIR}/data/shaders")
 
 target_link_libraries(tower_defense PRIVATE Az2D)
 

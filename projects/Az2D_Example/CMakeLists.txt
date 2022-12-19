@@ -19,10 +19,8 @@ set(OUTPUT_DIR "${PROJECT_SOURCE_DIR}/projects/Az2D_Example")
 
 target_link_libraries(Az2D_Example PRIVATE Az2D)
 
-# we may want to be smarter about this by using a custom target and adding the files as a dependency
-file(GLOB AZ2D_DATA CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/projects/Az2D/data/*")
-file(COPY ${AZ2D_DATA} DESTINATION "${OUTPUT_DIR}/data/Az2D")
-vulkan_shaders(Az2D_Example "src/shaders" "${OUTPUT_DIR}/data/shaders")
+AZ2D_DATA_COPY(Az2D_Example ${OUTPUT_DIR})
+# vulkan_shaders(Az2D_Example "src/shaders" "${OUTPUT_DIR}/data/shaders")
 
 set_target_properties(Az2D_Example PROPERTIES
 	DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}

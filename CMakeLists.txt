@@ -85,7 +85,7 @@ function(VULKAN_SHADERS target SHADER_SOURCE_DIR SHADER_OUT_DIR)
 	  set(SPIRV "${SHADER_OUT_DIR}/${FILENAME}.spv")
 	  add_custom_command(
 		  OUTPUT "${SPIRV}"
-		  COMMAND echo "Running custom command: \"${GLSL_VALIDATOR} -V ${SHADER} -o ${SPIRV}\""
+		#   COMMAND echo "Running custom command: \"${GLSL_VALIDATOR} -V ${SHADER} -o ${SPIRV}\""
 		  COMMAND ${CMAKE_COMMAND} -E make_directory "${SHADER_OUT_DIR}/"
 		  COMMAND "${GLSL_VALIDATOR}" -V ${SHADER} -o ${SPIRV}
 		  DEPENDS ${SHADER}
@@ -94,9 +94,28 @@ function(VULKAN_SHADERS target SHADER_SOURCE_DIR SHADER_OUT_DIR)
 	endforeach(SHADER)
 
 	set_source_files_properties(${SHADER_BINARIES} PROPERTIES GENERATED TRUE)
-	# add_custom_target(${target}_shaders DEPENDS ${SHADER_BINARIES})
-	# add_dependencies(${target} ${target}_shaders)
-	target_sources(${target} PRIVATE ${SHADER_BINARIES})
+	add_custom_target("${target}_Shaders" DEPENDS ${SHADER_BINARIES})
+	add_dependencies(${target} "${target}_Shaders")
+	# target_sources(${target} PRIVATE ${SHADER_BINARIES})
+endfunction()
+
+function(AZ2D_DATA_COPY target OUTPUT_DIR)
+	file(GLOB_RECURSE AZ2D_DATA_FILES
+		LIST_DIRECTORIES true
+		RELATIVE "${PROJECT_SOURCE_DIR}/projects/Az2D/data"
+		CONFIGURE_DEPENDS
+		"${PROJECT_SOURCE_DIR}/projects/Az2D/data/*"
+	)
+	# message( STATUS "AZ2D_DATA_FILES: ${AZ2D_DATA_FILES}" )
+	foreach(AZ2D_DATA_FILE ${AZ2D_DATA_FILES})
+		# message( STATUS "AZ2D_DATA_FILE: ${AZ2D_DATA_FILE}" )
+		add_custom_command(OUTPUT "${OUTPUT_DIR}/data/Az2D/${AZ2D_DATA_FILE}"
+			COMMAND echo "Copying Az2D data/${AZ2D_DATA_FILE} to ${target}"
+			COMMAND ${CMAKE_COMMAND} -E copy "${PROJECT_SOURCE_DIR}/projects/Az2D/data/${AZ2D_DATA_FILE}" "${OUTPUT_DIR}/data/Az2D/${AZ2D_DATA_FILE}"
+			DEPENDS "${PROJECT_SOURCE_DIR}/projects/Az2D/data/${AZ2D_DATA_FILE}"
+		)
+		target_sources(${target} PRIVATE "${OUTPUT_DIR}/data/Az2D/${AZ2D_DATA_FILE}")
+	endforeach(AZ2D_DATA_FILE)
 endfunction()
 
 add_subdirectory(external/Vulkan-Headers EXCLUDE_FROM_ALL)

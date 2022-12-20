@@ -22,22 +22,22 @@ io::Log cout("rendering.log");
 String error = "No error.";
 
 void PushConstants::vert_t::Push(VkCommandBuffer commandBuffer, const Manager *rendering) const {
-	vkCmdPushConstants(commandBuffer, rendering->data.pipeline2D->data.layout,
+	vkCmdPushConstants(commandBuffer, rendering->data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->data.layout,
 			VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(vert_t), this);
 }
 
 void PushConstants::frag_t::Push(VkCommandBuffer commandBuffer, const Manager *rendering) const {
-	vkCmdPushConstants(commandBuffer, rendering->data.pipeline2D->data.layout,
+	vkCmdPushConstants(commandBuffer, rendering->data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->data.layout,
 			VK_SHADER_STAGE_FRAGMENT_BIT, offsetof(PushConstants, frag), sizeof(frag_t), this);
 }
 
 void PushConstants::font_circle_t::font_t::Push(VkCommandBuffer commandBuffer, const Manager *rendering) const {
-	vkCmdPushConstants(commandBuffer, rendering->data.pipelineFont->data.layout,
+	vkCmdPushConstants(commandBuffer, rendering->data.pipelines[PIPELINE_FONT_2D]->data.layout,
 			VK_SHADER_STAGE_FRAGMENT_BIT, offsetof(PushConstants, frag), sizeof(frag_t) + sizeof(font_t), (char*)this - sizeof(frag_t));
 }
 
 void PushConstants::font_circle_t::circle_t::Push(VkCommandBuffer commandBuffer, const Manager *rendering) const {
-	vkCmdPushConstants(commandBuffer, rendering->data.pipelineFont->data.layout,
+	vkCmdPushConstants(commandBuffer, rendering->data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->data.layout,
 			VK_SHADER_STAGE_FRAGMENT_BIT, offsetof(PushConstants, frag), sizeof(frag_t) + sizeof(circle_t), (char*)this - sizeof(frag_t));
 }
 
@@ -227,78 +227,85 @@ bool Manager::Init() {
 		vk::ShaderRef(shaders.GetPtr(4), VK_SHADER_STAGE_FRAGMENT_BIT),
 	};
 
-	data.pipeline2D = data.device->AddPipeline();
-	data.pipeline2D->renderPass = data.renderPass;
-	data.pipeline2D->subpass = 0;
-	data.pipeline2D->shaders.Append(shaderRefs[0]);
-	data.pipeline2D->shaders.Append(shaderRefs[1]);
-	data.pipeline2D->rasterizer.cullMode = VK_CULL_MODE_NONE;
+	data.pipelines.Resize(PIPELINE_COUNT);
+	data.pipelineDescriptorSets.Resize(PIPELINE_COUNT);
+	data.pipelineDescriptorSets[PIPELINE_BASIC_2D_TEXTURED] = data.descriptorSet2D;
+	data.pipelineDescriptorSets[PIPELINE_BASIC_2D_PIXEL] = data.descriptorSet2D;
+	data.pipelineDescriptorSets[PIPELINE_FONT_2D] = data.descriptorSetFont;
+	data.pipelineDescriptorSets[PIPELINE_CIRCLE_2D_TEXTURED] = data.descriptorSet2D;
+	
+	data.pipelines[PIPELINE_BASIC_2D_TEXTURED] = data.device->AddPipeline();
+	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->renderPass = data.renderPass;
+	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->subpass = 0;
+	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->shaders.Append(shaderRefs[0]);
+	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->shaders.Append(shaderRefs[1]);
+	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->rasterizer.cullMode = VK_CULL_MODE_NONE;
 
-	data.pipeline2D->descriptorLayouts.Append(descriptorLayoutTexture);
+	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->descriptorLayouts.Append(descriptorLayoutTexture);
 
-	data.pipeline2D->dynamicStates = {
+	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->dynamicStates = {
 		VK_DYNAMIC_STATE_VIEWPORT,
 		VK_DYNAMIC_STATE_SCISSOR
 	};
 
-	data.pipeline2DPixel = data.device->AddPipeline();
-	data.pipeline2DPixel->renderPass = data.renderPass;
-	data.pipeline2DPixel->subpass = 0;
-	data.pipeline2DPixel->shaders.Append(shaderRefs[0]);
-	data.pipeline2DPixel->shaders.Append(shaderRefs[4]);
-	data.pipeline2DPixel->rasterizer.cullMode = VK_CULL_MODE_NONE;
+	data.pipelines[PIPELINE_BASIC_2D_PIXEL] = data.device->AddPipeline();
+	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->renderPass = data.renderPass;
+	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->subpass = 0;
+	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->shaders.Append(shaderRefs[0]);
+	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->shaders.Append(shaderRefs[4]);
+	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->rasterizer.cullMode = VK_CULL_MODE_NONE;
 
-	data.pipeline2DPixel->descriptorLayouts.Append(descriptorLayoutTexture);
+	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->descriptorLayouts.Append(descriptorLayoutTexture);
 
-	data.pipeline2DPixel->dynamicStates = {
+	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->dynamicStates = {
 		VK_DYNAMIC_STATE_VIEWPORT,
 		VK_DYNAMIC_STATE_SCISSOR
 	};
 
-	data.pipelineFont = data.device->AddPipeline();
-	data.pipelineFont->renderPass = data.renderPass;
-	data.pipelineFont->subpass = 0;
-	data.pipelineFont->shaders.Append(shaderRefs[0]);
-	data.pipelineFont->shaders.Append(shaderRefs[2]);
+	data.pipelines[PIPELINE_FONT_2D] = data.device->AddPipeline();
+	data.pipelines[PIPELINE_FONT_2D]->renderPass = data.renderPass;
+	data.pipelines[PIPELINE_FONT_2D]->subpass = 0;
+	data.pipelines[PIPELINE_FONT_2D]->shaders.Append(shaderRefs[0]);
+	data.pipelines[PIPELINE_FONT_2D]->shaders.Append(shaderRefs[2]);
 
-	data.pipelineFont->descriptorLayouts.Append(descriptorLayoutFont);
+	data.pipelines[PIPELINE_FONT_2D]->descriptorLayouts.Append(descriptorLayoutFont);
 
-	data.pipelineFont->dynamicStates = data.pipeline2D->dynamicStates;
+	data.pipelines[PIPELINE_FONT_2D]->dynamicStates = data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->dynamicStates;
 
-	data.pipelineCircle = data.device->AddPipeline();
-	data.pipelineCircle->renderPass = data.renderPass;
-	data.pipelineCircle->subpass = 0;
-	data.pipelineCircle->shaders.Append(shaderRefs[0]);
-	data.pipelineCircle->shaders.Append(shaderRefs[3]);
+	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED] = data.device->AddPipeline();
+	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->renderPass = data.renderPass;
+	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->subpass = 0;
+	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->shaders.Append(shaderRefs[0]);
+	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->shaders.Append(shaderRefs[3]);
 
-	data.pipelineCircle->descriptorLayouts.Append(descriptorLayoutTexture);
+	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->descriptorLayouts.Append(descriptorLayoutTexture);
 
-	data.pipelineCircle->dynamicStates = data.pipeline2D->dynamicStates;
+	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->dynamicStates = data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->dynamicStates;
 
 	VkVertexInputAttributeDescription vertexInputAttributeDescription = {};
 	vertexInputAttributeDescription.binding = 0;
 	vertexInputAttributeDescription.location = 0;
 	vertexInputAttributeDescription.offset = offsetof(Vertex, pos);
 	vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
-	data.pipeline2DPixel->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-	data.pipeline2D->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-	data.pipelineFont->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-	data.pipelineCircle->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+	data.pipelines[PIPELINE_FONT_2D]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
 	vertexInputAttributeDescription.location = 1;
 	vertexInputAttributeDescription.offset = offsetof(Vertex, tex);
 	vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
-	data.pipeline2DPixel->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-	data.pipeline2D->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-	data.pipelineFont->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-	data.pipelineCircle->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+	data.pipelines[PIPELINE_FONT_2D]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
 	VkVertexInputBindingDescription vertexInputBindingDescription = {};
 	vertexInputBindingDescription.binding = 0;
 	vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 	vertexInputBindingDescription.stride = sizeof(Vertex);
-	data.pipeline2DPixel->inputBindingDescriptions.Append(vertexInputBindingDescription);
-	data.pipeline2D->inputBindingDescriptions.Append(vertexInputBindingDescription);
-	data.pipelineFont->inputBindingDescriptions.Append(vertexInputBindingDescription);
-	data.pipelineCircle->inputBindingDescriptions.Append(vertexInputBindingDescription);
+	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->inputBindingDescriptions.Append(vertexInputBindingDescription);
+	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->inputBindingDescriptions.Append(vertexInputBindingDescription);
+	data.pipelines[PIPELINE_FONT_2D]->inputBindingDescriptions.Append(vertexInputBindingDescription);
+	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->inputBindingDescriptions.Append(vertexInputBindingDescription);
 
 	VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
 	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
@@ -311,24 +318,24 @@ bool Manager::Init() {
 	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
 
-	data.pipeline2D->colorBlendAttachments.Append(colorBlendAttachment);
-	data.pipeline2DPixel->colorBlendAttachments.Append(colorBlendAttachment);
-	data.pipelineFont->colorBlendAttachments.Append(colorBlendAttachment);
-	data.pipelineCircle->colorBlendAttachments.Append(colorBlendAttachment);
+	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->colorBlendAttachments.Append(colorBlendAttachment);
+	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->colorBlendAttachments.Append(colorBlendAttachment);
+	data.pipelines[PIPELINE_FONT_2D]->colorBlendAttachments.Append(colorBlendAttachment);
+	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->colorBlendAttachments.Append(colorBlendAttachment);
 
-	data.pipeline2D->pushConstantRanges = {
+	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->pushConstantRanges = {
 		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
 		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 20}
 	};
-	data.pipeline2DPixel->pushConstantRanges = {
+	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->pushConstantRanges = {
 		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
 		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 20}
 	};
-	data.pipelineFont->pushConstantRanges = {
+	data.pipelines[PIPELINE_FONT_2D]->pushConstantRanges = {
 		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
 		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 28}
 	};
-	data.pipelineCircle->pushConstantRanges = {
+	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->pushConstantRanges = {
 		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
 		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 24}
 	};
@@ -618,36 +625,13 @@ bool Manager::Draw() {
 	return true;
 }
 
-void Manager::BindPipeline2D(DrawingContext &context) const {
-	context.currentPipeline = PIPELINE_BASIC_2D_TEXTURED;
-	data.pipeline2D->Bind(context.commandBuffer);
-	vk::CmdBindVertexBuffer(context.commandBuffer, 0, data.vertexBuffer);
-	vkCmdBindDescriptorSets(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipeline2D->data.layout,
-			0, 1, &data.descriptorSet2D->data.set, 0, nullptr);
-}
-
-void Manager::BindPipeline2DPixel(DrawingContext &context) const {
-	context.currentPipeline = PIPELINE_BASIC_2D_PIXEL;
-	data.pipeline2DPixel->Bind(context.commandBuffer);
-	vk::CmdBindVertexBuffer(context.commandBuffer, 0, data.vertexBuffer);
-	vkCmdBindDescriptorSets(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipeline2DPixel->data.layout,
-			0, 1, &data.descriptorSet2D->data.set, 0, nullptr);
-}
-
-void Manager::BindPipelineFont(DrawingContext &context) const {
-	context.currentPipeline = PIPELINE_FONT_2D;
-	data.pipelineFont->Bind(context.commandBuffer);
-	vk::CmdBindVertexBuffer(context.commandBuffer, 0, data.fontVertexBuffer);
-	vkCmdBindDescriptorSets(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipelineFont->data.layout,
-			0, 1, &data.descriptorSetFont->data.set, 0, nullptr);
-}
-
-void Manager::BindPipelineCircle(DrawingContext &context) const {
-	context.currentPipeline = PIPELINE_CIRCLE_2D_TEXTURED;
-	data.pipelineCircle->Bind(context.commandBuffer);
-	vk::CmdBindVertexBuffer(context.commandBuffer, 0, data.vertexBuffer);
-	vkCmdBindDescriptorSets(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipelineCircle->data.layout,
-			0, 1, &data.descriptorSet2D->data.set, 0, nullptr);
+void Manager::BindPipeline(DrawingContext &context, PipelineIndex pipeline) const {
+	if (context.currentPipeline == pipeline) return;
+	context.currentPipeline = pipeline;
+	data.pipelines[pipeline]->Bind(context.commandBuffer);
+	vk::CmdBindVertexBuffer(context.commandBuffer, 0, pipeline == PIPELINE_FONT_2D ? data.fontVertexBuffer : data.vertexBuffer);
+	vkCmdBindDescriptorSets(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipelines[pipeline]->data.layout,
+			0, 1, &data.pipelineDescriptorSets[pipeline]->data.set, 0, nullptr);
 }
 
 void Manager::PushScissor(DrawingContext &context, vec2i min, vec2i max) {
@@ -799,7 +783,7 @@ void Manager::DrawCharSS(DrawingContext &context, char32 character,
 	Assets::Font *fontFallback = &sys->assets.fonts[0];
 	Assets::Font *font = fontDesired;
 	Rendering::PushConstants pc = Rendering::PushConstants();
-	if (context.currentPipeline != PIPELINE_FONT_2D) BindPipelineFont(context);
+	BindPipeline(context, PIPELINE_FONT_2D);
 	pc.frag.color = color;
 	i32 actualFontIndex = fontIndex;
 	i32 glyphIndex = fontDesired->font.GetGlyphIndex(character);
@@ -845,7 +829,7 @@ void Manager::DrawTextSS(DrawingContext &context, WString string,
 	// scale.x *= aspectRatio;
 	position.x /= aspectRatio;
 	Rendering::PushConstants pc = Rendering::PushConstants();
-	if (context.currentPipeline != PIPELINE_FONT_2D) BindPipelineFont(context);
+	BindPipeline(context, PIPELINE_FONT_2D);
 	pc.frag.color = color;
 	// position.y += scale.y * lineHeight;
 	position.y += scale.y * (lineHeight + 1.0f) * 0.5f;
@@ -937,25 +921,9 @@ void Manager::DrawTextSS(DrawingContext &context, WString string,
 	}
 }
 
-void Manager::DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {
+void Manager::DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline) const {
 	Rendering::PushConstants pc = Rendering::PushConstants();
-	if (context.currentPipeline != PIPELINE_BASIC_2D_TEXTURED) BindPipeline2D(context);
-	pc.frag.color = color;
-	pc.frag.texIndex = texIndex;
-	pc.vert.position = position;
-	pc.vert.transform = mat2::Scaler(scalePre);
-	if (rotation != 0.0f) {
-		pc.vert.transform = pc.vert.transform * mat2::Rotation(rotation.value());
-	}
-	pc.vert.transform = pc.vert.transform * mat2::Scaler(scalePost);
-	pc.vert.origin = origin;
-	pc.Push2D(context.commandBuffer, this);
-	vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, 0, 0);
-}
-
-void Manager::DrawQuadPixelSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {
-	Rendering::PushConstants pc = Rendering::PushConstants();
-	if (context.currentPipeline != PIPELINE_BASIC_2D_PIXEL) BindPipeline2DPixel(context);
+	BindPipeline(context, pipeline);
 	pc.frag.color = color;
 	pc.frag.texIndex = texIndex;
 	pc.vert.position = position;
@@ -971,7 +939,7 @@ void Manager::DrawQuadPixelSS(DrawingContext &context, i32 texIndex, vec4 color,
 
 void Manager::DrawCircleSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, f32 edge, vec2 origin, Radians32 rotation) const {
 	Rendering::PushConstants pc = Rendering::PushConstants();
-	if (context.currentPipeline != PIPELINE_CIRCLE_2D_TEXTURED) BindPipelineCircle(context);
+	BindPipeline(context, PIPELINE_CIRCLE_2D_TEXTURED);
 	pc.frag.color = color;
 	pc.frag.texIndex = texIndex;
 	pc.vert.position = position;
@@ -998,14 +966,9 @@ void Manager::DrawText(DrawingContext &context, WString text, i32 fontIndex, vec
 	DrawTextSS(context, text, fontIndex, color, position * screenSizeFactor + vec2(-1.0f), scale * screenSizeFactor.y, alignH, alignV, maxWidth * screenSizeFactor.x, edge, bounds);
 }
 
-void Manager::DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {
+void Manager::DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline) const {
 	const vec2 screenSizeFactor = vec2(2.0f) / screenSize;
-	DrawQuadSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0f), scalePre, scalePost * screenSizeFactor, origin, rotation);
-}
-
-void Manager::DrawQuadPixel(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {
-	const vec2 screenSizeFactor = vec2(2.0f) / screenSize;
-	DrawQuadPixelSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0f), scalePre, scalePost * screenSizeFactor, origin, rotation);
+	DrawQuadSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0f), scalePre, scalePost * screenSizeFactor, origin, rotation, pipeline);
 }
 
 void Manager::DrawCircle(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {

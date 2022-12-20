@@ -86,6 +86,9 @@ enum PipelineEnum {
 	PIPELINE_FONT_2D,
 	PIPELINE_CIRCLE_2D_TEXTURED,
 };
+constexpr i32 PIPELINE_COUNT = PIPELINE_CIRCLE_2D_TEXTURED+1;
+
+typedef u32 PipelineIndex;
 
 struct ScissorState {
 	vec2i min;
@@ -94,7 +97,7 @@ struct ScissorState {
 
 struct DrawingContext {
 	VkCommandBuffer commandBuffer;
-	PipelineEnum currentPipeline;
+	PipelineIndex currentPipeline;
 	Array<ScissorState> scissorStack;
 };
 
@@ -150,10 +153,8 @@ struct Manager {
 		Ptr<vk::Buffer> fontVertexBuffer;
 		Range<vk::Image> fontImages;
 
-		Ptr<vk::Pipeline> pipeline2D;
-		Ptr<vk::Pipeline> pipeline2DPixel;
-		Ptr<vk::Pipeline> pipelineFont;
-		Ptr<vk::Pipeline> pipelineCircle;
+		Array<Ptr<vk::Pipeline>> pipelines;
+		Array<Ptr<vk::DescriptorSet>> pipelineDescriptorSets;
 		Ptr<vk::Descriptors> descriptors;
 		Ptr<vk::DescriptorSet> descriptorSet2D;
 		Ptr<vk::DescriptorSet> descriptorSetFont;
@@ -178,10 +179,7 @@ struct Manager {
 	bool UpdateFonts();
 	bool Draw();
 
-	void BindPipeline2D(DrawingContext &context) const;
-	void BindPipeline2DPixel(DrawingContext &context) const;
-	void BindPipelineFont(DrawingContext &context) const;
-	void BindPipelineCircle(DrawingContext &context) const;
+	void BindPipeline(DrawingContext &context, PipelineIndex pipeline) const;
 
 	void PushScissor(DrawingContext &context, vec2i min, vec2i max);
 	void PopScissor(DrawingContext &context);
@@ -204,14 +202,12 @@ struct Manager {
 	void DrawTextSS(DrawingContext &context, WString string,
 					i32 fontIndex, vec4 color, vec2 position, vec2 scale,
 					FontAlign alignH = LEFT, FontAlign alignV = TOP, f32 maxWidth = 0.0f, f32 edge = 0.5f, f32 bounds = 0.5f, Radians32 rotation = 0.0f);
-	void DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
-	void DrawQuadPixelSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
+	void DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f, PipelineIndex pipeline=PIPELINE_BASIC_2D_TEXTURED) const;
 	void DrawCircleSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, f32 edge, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
 	// Units are in pixel space
 	void DrawChar(DrawingContext &context, char32 character, i32 fontIndex, vec4 color, vec2 position, vec2 scale);
 	void DrawText(DrawingContext &context, WString text, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH = LEFT, FontAlign alignV = BOTTOM, f32 maxWidth = 0.0f, f32 edge = 0.0f, f32 bounds = 0.5f);
-	void DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
-	void DrawQuadPixel(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
+	void DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f, PipelineIndex pipeline=PIPELINE_BASIC_2D_TEXTURED) const;
 	void DrawCircle(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
 };
 

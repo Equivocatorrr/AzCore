@@ -13,7 +13,7 @@ namespace Az2D::Entities {
 
 using namespace AzCore;
 
-constexpr bool DEBUG_COLLISIONS = false;
+constexpr bool DEBUG_COLLISIONS = true;
 
 Manager *entities = nullptr;
 
@@ -58,10 +58,10 @@ void Manager::Reset() {
 	player.physical.pos = vec2(0.0f);
 	players.Create(player);
 	tails.Clear();
-	/*
+	// /*
 	AABB bounds = CamBounds();
 	Array<Ptr<Tail>> allTails;
-	for (i32 i = 0; i < 50; i++) {
+	for (i32 i = 0; i < 20; i++) {
 		Tail tail;
 		tail.physical.pos = vec2(random(bounds.minPos.x, bounds.maxPos.x), random(bounds.minPos.y, bounds.maxPos.y));
 		Ptr<Tail> ptr = tails.Create(tail);
@@ -73,7 +73,7 @@ void Manager::Reset() {
 		Tail &tail = *allTails[i];
 		tail.target = head.idGeneric;
 	}
-	*/
+	// */
 	pitch = 1.0f;
 	sndMusic.SetPitch(1.0f);
 	sndScream.Stop();
@@ -159,25 +159,25 @@ void Player::EventCreate() {
 }
 
 void Player::Update(f32 timestep) {
-	physical.ImpulseY(10.0f, timestep);
-	ApplyFriction(physical.vel, 2.0f, timestep);
+	physical.ImpulseY(1000.0f, timestep);
+	ApplyFriction(physical.vel, 250.0f, timestep);
 	bool buttonUp = sys->Down(KC_KEY_UP) || sys->Down(KC_KEY_W);
 	bool buttonLeft = sys->Down(KC_KEY_LEFT) || sys->Down(KC_KEY_A);
 	bool buttonRight = sys->Down(KC_KEY_RIGHT) || sys->Down(KC_KEY_D);
 	bool buttonDown = sys->Down(KC_KEY_DOWN) || sys->Down(KC_KEY_S);
 	if (buttonRight) {
-		physical.ImpulseX(20.0f, timestep);
+		physical.ImpulseX(2000.0f, timestep);
 		facing = 1.0f;
 	}
 	if (buttonLeft) {
-		physical.ImpulseX(-20.0f, timestep);
+		physical.ImpulseX(-2000.0f, timestep);
 		facing = -1.0f;
 	}
 	if (buttonUp) {
-		physical.ImpulseY(-40.0f, timestep);
+		physical.ImpulseY(-4000.0f, timestep);
 	}
 	if (buttonDown) {
-		physical.ImpulseY(20.0f, timestep);
+		physical.ImpulseY(2000.0f, timestep);
 	}
 	
 	vec2 nextPos = physical.pos + physical.vel * timestep;
@@ -225,7 +225,7 @@ void Player::Draw(Rendering::DrawingContext &context) {
 	scale.x *= facing;
 	// vec4 color = vec4(hsvToRgb(vec3(hue, 0.5f, 1.0f)), 1.0f);
 	vec4 color = 1.0f;
-	sys->rendering.DrawQuadPixel(context, tex, color, pos, scale, vec2(1.0f), vec2(0.5f), physical.angle);
+	sys->rendering.DrawQuad(context, tex, color, pos, scale, vec2(1.0f), vec2(0.5f), physical.angle, Rendering::PIPELINE_BASIC_2D_PIXEL);
 	
 	if constexpr (DEBUG_COLLISIONS) {
 		physical.Draw(context, vec4(0.5));

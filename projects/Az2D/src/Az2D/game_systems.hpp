@@ -39,7 +39,6 @@ void Deinit();
 
 // The basis for any object registered with Manager
 struct System {
-	std::atomic<bool> readyForDraw = false;
 	virtual ~System() = default;
 
 	// Queue all asset files in this event
@@ -62,6 +61,7 @@ struct Manager {
 	f32 timestep = 1.0f/60.0f;
 	i32 updateIterations = 1;
 	f32 simulationRate = 1.0f;
+	f32 minUpdateFrequency = 59.99f;
 	az::Nanoseconds frameDuration = az::Nanoseconds(1000000000/60);
 	void SetFramerate(f32 framerate, bool tryCatchup=false);
 	az::FrametimeCounter frametimes;

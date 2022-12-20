@@ -7,16 +7,14 @@
 #ifndef ENTITIES_HPP
 #define ENTITIES_HPP
 
-#include "objects.hpp"
+#include "Az2D/game_systems.hpp"
 #include "AzCore/math.hpp"
-#include "rendering.hpp"
-#include "sound.hpp"
 
-#include "entity_basics.hpp"
+#include "Az2D/entity_basics.hpp"
 
-namespace Entities {
+namespace Az2D::Entities {
 
-using namespace AzCore;
+using az::vec2, az::vec3, az::vec4;
 
 struct MessageText {
 	vec2 position;
@@ -29,114 +27,11 @@ struct MessageText {
 	f32 targetAngle;
 	f32 targetSize;
 	vec4 color;
-	WString text;
+	az::WString text;
 
 	void Reset();
 	void Update(f32 timestep);
 	void Draw(Rendering::DrawingContext &context);
-};
-
-struct Player;
-struct Sprinkler;
-struct Droplet;
-struct Flame;
-
-struct World {
-	enum Block {
-		BLOCK_AIR = 0,
-		BLOCK_PLAYER,
-		BLOCK_WALL,
-		BLOCK_WATER_FULL,
-		BLOCK_WATER_TOP,
-		BLOCK_GOAL,
-		BLOCK_SPRINKLER,
-		BLOCK_TYPE_COUNT
-	};
-	vec2i size = 0;
-	Array<u8> data{};
-	inline void Resize(vec2i newSize) {
-		data.Resize(newSize.x * newSize.y, BLOCK_AIR);
-		size = newSize;
-		for (i32 i = 0; i < data.size; i++) {
-			if (i < size.x || i >= data.size-size.x || i % size.x == 0 || (i+1) % size.x == 0) {
-				data[i] = BLOCK_WALL;
-			} else {
-				data[i] = BLOCK_AIR;
-			}
-		}
-	}
-	void Draw(Rendering::DrawingContext &context, bool playing, bool under);
-	inline u8& operator[](vec2i pos) {
-		return data[pos.y*size.x + pos.x];
-	}
-	bool Solid(AABB aabb);
-	bool Water(AABB aabb);
-	bool Goal(AABB aabb);
-	bool Save(String filename);
-	bool Load(String filename);
-};
-
-struct Manager : public Objects::Object {
-	DoubleBufferArray<Player> players{};
-	DoubleBufferArray<Sprinkler> sprinklers{};
-	DoubleBufferArray<Droplet> droplets{};
-	DoubleBufferArray<Flame> flames{};
-	Array<UpdateChunk> updateChunks{};
-	Array<String> levelNames{};
-	i32 level = 0;
-
-	// sprites
-	i32 playerJump;
-	i32 playerFloat;
-	i32 playerStand;
-	i32 playerRun;
-	i32 playerWallTouch;
-	i32 playerWallBack;
-	i32 lantern;
-	i32 beacon;
-	i32 sprinkler;
-
-	// sounds
-	Sound::Source jump1Sources[4];
-	Sound::MultiSource jump1;
-	Sound::Source jump2Sources[3];
-	Sound::MultiSource jump2;
-	Sound::Source stepSources[8];
-	Sound::MultiSource step;
-	Sound::MultiSource *jump = &jump2;
-	Sound::Stream music;
-
-	f32 timestep = 1.0f/60.0f;
-	f32 camZoom = 0.00001f;
-	vec2 camPos = vec2(0.0f);
-	vec2 mouse = 0.0f;
-	f32 gas = 15.0f;
-	f32 flame = 1.0f;
-	f32 goalFlame = 0.0f;
-	f32 flameTimer = 0.0f;
-	vec2 goalPos;
-	vec2 lanternPos = 0.0f;
-	f32 nextLevelTimer = 0.0f;
-	World::Block toPlace = World::BLOCK_WALL;
-	MessageText failureText;
-	MessageText successText;
-	MessageText winText;
-	World world;
-	void EventAssetInit();
-	void EventAssetAcquire();
-	void EventInitialize();
-	void EventSync();
-	void EventUpdate();
-	void EventDraw(Array<Rendering::DrawingContext> &contexts);
-	vec2 WorldPosToScreen(vec2 in) const;
-	vec2 ScreenPosToWorld(vec2 in) const;
-
-	void Reset();
-
-	inline void HandleUI();
-	inline void HandleGamepadUI();
-	inline void HandleMouseUI();
-	inline bool CursorVisible() const;
 };
 
 struct Lantern {
@@ -144,8 +39,8 @@ struct Lantern {
 	vec2 posPrev = 0.0f;
 	vec2 vel = 0.0f;
 	vec2 velPrev = 0.0f;
-	Angle32 angle = 0.0f;
-	Radians32 rot = 0.0f;
+	az::Angle32 angle = 0.0f;
+	az::Radians32 rot = 0.0f;
 	f32 particleTimer = 0.0f;
 
 	void Update(f32 timestep);
@@ -170,8 +65,8 @@ struct Player : public Entity {
 extern template struct DoubleBufferArray<Player>;
 
 struct Sprinkler : public Entity {
-	Angle32 angle = pi/2.0f;
-	Radians32 rot = pi/2.0f;
+	az::Angle32 angle = az::pi/2.0f;
+	az::Radians32 rot = az::pi/2.0f;
 	f32 shootTimer = 0.0f;
 	void EventCreate();
 	void Update(f32 timestep);
@@ -194,6 +89,99 @@ struct Flame : public Entity {
 	void Draw(Rendering::DrawingContext &context);
 };
 extern template struct DoubleBufferArray<Flame>;
+
+struct World {
+	enum Block {
+		BLOCK_AIR = 0,
+		BLOCK_PLAYER,
+		BLOCK_WALL,
+		BLOCK_WATER_FULL,
+		BLOCK_WATER_TOP,
+		BLOCK_GOAL,
+		BLOCK_SPRINKLER,
+		BLOCK_TYPE_COUNT
+	};
+	az::vec2i size = 0;
+	az::Array<u8> data{};
+	inline void Resize(az::vec2i newSize) {
+		data.Resize(newSize.x * newSize.y, BLOCK_AIR);
+		size = newSize;
+		for (i32 i = 0; i < data.size; i++) {
+			if (i < size.x || i >= data.size-size.x || i % size.x == 0 || (i+1) % size.x == 0) {
+				data[i] = BLOCK_WALL;
+			} else {
+				data[i] = BLOCK_AIR;
+			}
+		}
+	}
+	void Draw(Rendering::DrawingContext &context, bool playing, bool under);
+	inline u8& operator[](az::vec2i pos) {
+		return data[pos.y*size.x + pos.x];
+	}
+	bool Solid(AABB aabb);
+	bool Water(AABB aabb);
+	bool Goal(AABB aabb);
+	bool Save(az::String filename);
+	bool Load(az::String filename);
+};
+
+struct Manager : public ManagerBasic {
+	DoubleBufferArray<Player> players{};
+	DoubleBufferArray<Sprinkler> sprinklers{};
+	DoubleBufferArray<Droplet> droplets{};
+	DoubleBufferArray<Flame> flames{};
+	az::Array<az::String> levelNames;
+	i32 level = 0;
+
+	// sprites
+	Assets::TexIndex texPlayerJump;
+	Assets::TexIndex texPlayerFloat;
+	Assets::TexIndex texPlayerStand;
+	Assets::TexIndex texPlayerRun;
+	Assets::TexIndex texPlayerWallTouch;
+	Assets::TexIndex texPlayerWallBack;
+	Assets::TexIndex texLantern;
+	Assets::TexIndex texBeacon;
+	Assets::TexIndex texSprinkler;
+
+	// sounds
+	Sound::Source jump1Sources[4];
+	Sound::MultiSource jump1;
+	Sound::Source jump2Sources[3];
+	Sound::MultiSource jump2;
+	Sound::Source stepSources[8];
+	Sound::MultiSource step;
+	Sound::MultiSource *jump = &jump2;
+	Sound::Stream music;
+
+	vec2 mouse = 0.0f;
+	f32 gas = 15.0f;
+	f32 flame = 1.0f;
+	f32 goalFlame = 0.0f;
+	f32 flameTimer = 0.0f;
+	vec2 goalPos;
+	vec2 lanternPos = 0.0f;
+	f32 nextLevelTimer = 0.0f;
+	World::Block toPlace = World::BLOCK_WALL;
+	MessageText failureText;
+	MessageText successText;
+	MessageText winText;
+	World world;
+
+	Manager();
+
+	void EventAssetsQueue() override;
+	void EventAssetsAcquire() override;
+	void EventInitialize() override;
+	void EventSync() override;
+	void EventDraw(az::Array<Rendering::DrawingContext> &contexts) override;
+
+	void Reset();
+
+	inline void HandleUI();
+};
+
+extern Manager *entities;
 
 } // namespace Entities
 

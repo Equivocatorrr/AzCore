@@ -1,3 +1,11 @@
+/*
+	File: gui.hpp
+	Author: Philip Haynes
+*/
+
+#ifndef GUI_HPP
+#define GUI_HPP
+
 #include "Az2D/gui_basics.hpp"
 
 namespace Az2D::Gui {
@@ -66,3 +74,5 @@ struct Gui : public GuiBasic {
 extern Gui *gui;
 
 } // namespace Az2D::Gui
+
+#endif // GUI_HPP

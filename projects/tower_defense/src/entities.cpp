@@ -595,7 +595,6 @@ void Manager::EventSync() {
 			streamSegment2.Play();
 		}
 	}
-	readyForDraw = true;
 }
 
 void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {

@@ -272,7 +272,7 @@ void Manager::LoadLocale() {
 
 void Manager::SetFramerate(f32 framerate, bool tryCatchup) {
 	timestep = 1.0f / framerate;
-	updateIterations = ceil(100.0f * timestep);
+	updateIterations = ceil(minUpdateFrequency * timestep);
 	timestep /= updateIterations;
 	if (tryCatchup && updateIterations > 1) {
 		framerate *= updateIterations+1;
@@ -320,9 +320,7 @@ void Manager::Sync() {
 		gamepad = &rawInput.gamepads[rawInput.AnyGPIndex];
 	}
 	for (System* system : systems) {
-		system->readyForDraw = false;
 		system->EventSync();
-		system->readyForDraw = true;
 	}
 }
 
@@ -338,7 +336,6 @@ void Manager::Update() {
 
 void Manager::Draw(Array<Rendering::DrawingContext>& contexts) {
 	for (System *system : systems) {
-		while (!system->readyForDraw) { Thread::Sleep(Nanoseconds(1000)); }
 		system->EventDraw(contexts);
 	}
 }

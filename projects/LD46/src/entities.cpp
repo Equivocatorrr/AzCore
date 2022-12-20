@@ -3,16 +3,23 @@
 	Author: Philip Haynes
 */
 
-#include "entities.hpp"
-#include "globals.hpp"
 #include "AzCore/Thread.hpp"
 #include "AzCore/IO/Log.hpp"
 
-#include "entity_basics.cpp"
+#include "entities.hpp"
+#include "gui.hpp"
 
-namespace Entities {
+namespace Az2D::Entities {
 
-	AzCore::io::Log cout("entities.log", true, true);
+using namespace AzCore;
+
+Manager *entities = nullptr;
+
+Manager::Manager() {
+	entities = this;
+}
+
+using GameSystems::sys;
 
 template<typename T>
 inline void ApplyFriction(T &obj, f32 friction, f32 timestep) {
@@ -24,48 +31,48 @@ inline void ApplyFriction(T &obj, f32 friction, f32 timestep) {
 	}
 }
 
-void Manager::EventAssetInit() {
-	globals->assets.QueueFile("Jump.png");
-	globals->assets.QueueFile("Float.png");
-	globals->assets.QueueFile("Run1.png");
-	globals->assets.QueueFile("Run2.png");
-	globals->assets.QueueFile("Wall_Touch.png");
-	globals->assets.QueueFile("Wall_Back.png");
-	globals->assets.QueueFile("Lantern.png");
-	globals->assets.QueueFile("beacon.png");
-	globals->assets.QueueFile("sprinkler.png");
+void Manager::EventAssetsQueue() {
+	sys->assets.QueueFile("Jump.png");
+	sys->assets.QueueFile("Float.png");
+	sys->assets.QueueFile("Run1.png");
+	sys->assets.QueueFile("Run2.png");
+	sys->assets.QueueFile("Wall_Touch.png");
+	sys->assets.QueueFile("Wall_Back.png");
+	sys->assets.QueueFile("Lantern.png");
+	sys->assets.QueueFile("beacon.png");
+	sys->assets.QueueFile("sprinkler.png");
 
-	globals->assets.QueueFile("step-01.ogg");
-	globals->assets.QueueFile("step-02.ogg");
-	globals->assets.QueueFile("step-03.ogg");
-	globals->assets.QueueFile("step-04.ogg");
-	globals->assets.QueueFile("step-05.ogg");
-	globals->assets.QueueFile("step-06.ogg");
-	globals->assets.QueueFile("step-07.ogg");
-	globals->assets.QueueFile("step-08.ogg");
+	sys->assets.QueueFile("step-01.ogg");
+	sys->assets.QueueFile("step-02.ogg");
+	sys->assets.QueueFile("step-03.ogg");
+	sys->assets.QueueFile("step-04.ogg");
+	sys->assets.QueueFile("step-05.ogg");
+	sys->assets.QueueFile("step-06.ogg");
+	sys->assets.QueueFile("step-07.ogg");
+	sys->assets.QueueFile("step-08.ogg");
 
-	globals->assets.QueueFile("jump-01.ogg");
-	globals->assets.QueueFile("jump-02.ogg");
-	globals->assets.QueueFile("jump-03.ogg");
-	globals->assets.QueueFile("jump-04.ogg");
+	sys->assets.QueueFile("jump-01.ogg");
+	sys->assets.QueueFile("jump-02.ogg");
+	sys->assets.QueueFile("jump-03.ogg");
+	sys->assets.QueueFile("jump-04.ogg");
 
-	globals->assets.QueueFile("jump2-01.ogg");
-	globals->assets.QueueFile("jump2-02.ogg");
-	globals->assets.QueueFile("jump2-03.ogg");
+	sys->assets.QueueFile("jump2-01.ogg");
+	sys->assets.QueueFile("jump2-02.ogg");
+	sys->assets.QueueFile("jump2-03.ogg");
 
-	globals->assets.QueueFile("music.ogg", Assets::STREAM);
+	sys->assets.QueueFile("music.ogg", Assets::Type::STREAM);
 }
 
-void Manager::EventAssetAcquire() {
-	playerJump = globals->assets.FindMapping("Jump.png");
-	playerFloat = globals->assets.FindMapping("Float.png");
-	playerStand = globals->assets.FindMapping("Run1.png");
-	playerRun = globals->assets.FindMapping("Run2.png");
-	playerWallTouch = globals->assets.FindMapping("Wall_Touch.png");
-	playerWallBack = globals->assets.FindMapping("Wall_Back.png");
-	lantern = globals->assets.FindMapping("Lantern.png");
-	beacon = globals->assets.FindMapping("beacon.png");
-	sprinkler = globals->assets.FindMapping("sprinkler.png");
+void Manager::EventAssetsAcquire() {
+	texPlayerJump = sys->assets.FindTexture("Jump.png");
+	texPlayerFloat = sys->assets.FindTexture("Float.png");
+	texPlayerStand = sys->assets.FindTexture("Run1.png");
+	texPlayerRun = sys->assets.FindTexture("Run2.png");
+	texPlayerWallTouch = sys->assets.FindTexture("Wall_Touch.png");
+	texPlayerWallBack = sys->assets.FindTexture("Wall_Back.png");
+	texLantern = sys->assets.FindTexture("Lantern.png");
+	texBeacon = sys->assets.FindTexture("beacon.png");
+	texSprinkler = sys->assets.FindTexture("sprinkler.png");
 
 	stepSources[0].Create("step-01.ogg");
 	stepSources[1].Create("step-02.ogg");
@@ -108,15 +115,15 @@ void Manager::EventInitialize() {
 		if (lines[i].size == 0) continue;
 		if (lines[i][0] == '#') continue;
 		levelNames += lines[i];
-		cout.PrintLn("Added level \"", lines[i], "\"");
+		az::io::cout.PrintLn("Added level \"", lines[i], "\"");
 	}
 
 	failureText.color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
-	failureText.text = globals->ReadLocale("Flameout!");
+	failureText.text = sys->ReadLocale("Flameout!");
 	successText.color = vec4(1.0f, 0.25f, 0.0f, 1.0f);
-	successText.text = globals->ReadLocale("Beacon Lit!");
+	successText.text = sys->ReadLocale("Beacon Lit!");
 	winText.color = vec4(0.0f, 1.0f, 1.0f, 1.0f);
-	winText.text = globals->ReadLocale("Message Received!");
+	winText.text = sys->ReadLocale("Message Received!");
 }
 
 void Manager::Reset() {
@@ -124,8 +131,6 @@ void Manager::Reset() {
 	sprinklers.Clear();
 	droplets.Clear();
 	flames.Clear();
-	updateChunks.Clear();
-	mouse = 0.0;
 	gas = 15.0f;
 	flame = 1.0f;
 	goalFlame = 0.0f;
@@ -135,7 +140,7 @@ void Manager::Reset() {
 	camPos = vec2(world.size)*16.0f;
 	goalPos = 0.0f;
 	nextLevelTimer = 0.0f;
-	if (globals->gui.currentMenu != Int::MENU_EDITOR) {
+	if (Gui::gui->menuCurrent != Gui::Gui::Menu::EDITOR) {
 		for (i32 y = 0; y < world.size.y; y++) {
 			for (i32 x = 0; x < world.size.x; x++) {
 				vec2i pos = vec2i(x, y);
@@ -157,24 +162,19 @@ void Manager::Reset() {
 }
 
 bool TypedCode(String code) {
-	if (code.size > globals->input.typingString.size) return false;
-	Range<char> end = globals->input.typingString.GetRange(globals->input.typingString.size-code.size, code.size);
+	if (code.size > sys->input.typingString.size) return false;
+	Range<char> end = sys->input.typingString.GetRange(sys->input.typingString.size-code.size, code.size);
 	if (code == end) {
-		globals->input.typingString.Clear();
+		sys->input.typingString.Clear();
 		return true;
 	}
 	return false;
 }
 
 inline void Manager::HandleUI() {
-	if (globals->gui.usingMouse) {
-		HandleMouseUI();
-	} else {
-		HandleGamepadUI();
-	}
 	if (flame <= 0.0f) {
 		failureText.Update(timestep);
-		globals->objects.paused = false;
+		sys->paused = false;
 	}
 	if (goalFlame > 0.5f) {
 		if (level == levelNames.size-1) {
@@ -183,13 +183,13 @@ inline void Manager::HandleUI() {
 			successText.Update(timestep);
 		}
 		nextLevelTimer += timestep;
-		globals->objects.paused = false;
+		sys->paused = false;
 	}
 	if (nextLevelTimer >= 3.0f) {
 		if (level < levelNames.size-1) {
 			level++;
 			world.Load(levelNames[level]);
-			if (random(0, 1, &globals->rng) == 1) {
+			if (random(0, 1) == 1) {
 				jump = &jump1;
 			} else {
 				jump = &jump2;
@@ -197,36 +197,24 @@ inline void Manager::HandleUI() {
 			Reset();
 		} else {
 			// Start the ending cutscene
-			globals->gui.mainMenu.continueHideable->hidden = true;
-			globals->gui.nextMenu = Int::MENU_OUTTRO;
-			globals->gui.cutsceneMenu.Begin();
+			Gui::gui->menuMain.continueHideable->hidden = true;
+			Gui::gui->menuNext = Gui::Gui::Menu::OUTTRO;
+			Gui::gui->menuCutscene.Begin();
 			music.Stop(2.0f);
 		}
 	}
-	if (globals->gui.playMenu.buttonReset->state.Released()) {
+	if (Gui::gui->menuPlay.buttonReset->state.Released()) {
 		Reset();
 	}
 }
 
-inline void Manager::HandleGamepadUI() {
-
-}
-
-inline void Manager::HandleMouseUI() {
-
-}
-
-inline bool Manager::CursorVisible() const {
-	return globals->gui.currentMenu == Int::MENU_PLAY;
-}
-
 void Manager::EventSync() {
-	camZoom = (f32)globals->window.height / 1080.0f * 1.5f;
-	if (globals->gui.mainMenu.buttonContinue->state.Released()) {
-		globals->gui.mainMenu.buttonContinue->state.Set(false, false, false);
+	camZoom = (f32)sys->window.height / 1080.0f * 1.5f;
+	if (Gui::gui->menuMain.buttonContinue->state.Released()) {
+		Gui::gui->menuMain.buttonContinue->state.Set(false, false, false);
 	}
-	if (globals->gui.mainMenu.buttonNewGame->state.Released()) {
-		globals->gui.mainMenu.buttonNewGame->state.Set(false, false, false);
+	if (Gui::gui->menuMain.buttonNewGame->state.Released()) {
+		Gui::gui->menuMain.buttonNewGame->state.Set(false, false, false);
 		level = 0;
 		if (level == 0) {
 			music.Play();
@@ -234,51 +222,51 @@ void Manager::EventSync() {
 		world.Load(levelNames[level]);
 		Reset();
 	}
-	if (globals->gui.mainMenu.buttonLevelEditor->state.Released() && globals->gui.currentMenu == Int::MENU_EDITOR) {
-		globals->gui.mainMenu.buttonLevelEditor->state.Set(false, false, false);
+	if (Gui::gui->menuMain.buttonLevelEditor->state.Released() && Gui::gui->menuCurrent == Gui::Gui::Menu::EDITOR) {
+		Gui::gui->menuMain.buttonLevelEditor->state.Set(false, false, false);
 		Reset();
 	}
-	timestep = globals->objects.timestep * globals->objects.simulationRate;
-	mouse = ScreenPosToWorld(globals->input.cursor);
-	if (globals->gui.currentMenu == Int::MENU_PLAY) {
+	timestep = sys->timestep * sys->simulationRate;
+	mouse = ScreenPosToWorld(sys->input.cursor);
+	if (Gui::gui->menuCurrent == Gui::Gui::Menu::PLAY) {
 		HandleUI();
 		if (goalFlame > 0.0f) {
 			goalFlame = min(1.0f, goalFlame + timestep * 0.5f);
 			if (flameTimer > 0.0f) flameTimer -= timestep;
 			while (flameTimer <= 0.0f) {
 				Flame flame;
-				vec2 offset = vec2(random(-12.0f, 12.0f, &globals->rng), random(-8.0f, 16.0f, &globals->rng));
+				vec2 offset = vec2(random(-12.0f, 12.0f), random(-8.0f, 16.0f));
 				flame.physical.pos = goalPos + offset;
 				flame.physical.vel = 0.0f;
 				flame.size = goalFlame;
-				globals->entities.flames.Create(flame);
+				entities->flames.Create(flame);
 				flameTimer += 0.002f;
 			}
 		}
 		if (players.count > 0) {
 			vec2 targetPos = players[0].physical.pos;
-			targetPos.x += (players[0].facingRight ? 1.0f : -1.0f) * globals->rendering.screenSize.x / 8.0f / camZoom;
+			targetPos.x += (players[0].facingRight ? 1.0f : -1.0f) * sys->rendering.screenSize.x / 8.0f / camZoom;
 			camPos = decay(camPos, targetPos, 0.5f, timestep);
 		}
-	} else if (globals->gui.currentMenu == Int::MENU_EDITOR) {
+	} else if (Gui::gui->menuCurrent == Gui::Gui::Menu::EDITOR) {
 		// Camera
-		if (globals->objects.Down(KC_KEY_UP)) {
-			camPos.y -= 1000.0f * globals->objects.timestep;
+		if (sys->Down(KC_KEY_UP)) {
+			camPos.y -= 1000.0f * sys->timestep;
 		}
-		if (globals->objects.Down(KC_KEY_DOWN)) {
-			camPos.y += 1000.0f * globals->objects.timestep;
+		if (sys->Down(KC_KEY_DOWN)) {
+			camPos.y += 1000.0f * sys->timestep;
 		}
-		if (globals->objects.Down(KC_KEY_LEFT)) {
-			camPos.x -= 1000.0f * globals->objects.timestep;
+		if (sys->Down(KC_KEY_LEFT)) {
+			camPos.x -= 1000.0f * sys->timestep;
 		}
-		if (globals->objects.Down(KC_KEY_RIGHT)) {
-			camPos.x += 1000.0f * globals->objects.timestep;
+		if (sys->Down(KC_KEY_RIGHT)) {
+			camPos.x += 1000.0f * sys->timestep;
 		}
 		// Placing of blocks
-		if (globals->gui.mouseoverWidget == nullptr) {
-			toPlace = (World::Block)Int::EditorMenu::blockTypes[globals->gui.editorMenu.switchBlock->choice];
+		if (Gui::gui->mouseoverWidget == nullptr) {
+			toPlace = (World::Block)Gui::EditorMenu::blockTypes[Gui::gui->menuEditor.switchBlock->choice];
 			vec2i pos = vec2i(mouse)/32;
-			if (globals->objects.Down(KC_MOUSE_LEFT)) {
+			if (sys->Down(KC_MOUSE_LEFT)) {
 				if (pos.x >= 0 && pos.y >= 0 && pos.x < world.size.x && pos.y < world.size.y) {
 					world[pos] = toPlace;
 				}
@@ -291,7 +279,7 @@ void Manager::EventSync() {
 					}
 				}
 			}
-			if (globals->objects.Down(KC_MOUSE_RIGHT)) {
+			if (sys->Down(KC_MOUSE_RIGHT)) {
 				if (pos.x >= 0 && pos.y >= 0 && pos.x < world.size.x && pos.y < world.size.y) {
 					world[pos] = World::BLOCK_AIR;
 				}
@@ -309,62 +297,31 @@ void Manager::EventSync() {
 	droplets.Synchronize();
 	flames.Synchronize();
 
-	updateChunks.size = 0;
+	ManagerBasic::EventSync();
 
-	players.GetUpdateChunks(updateChunks);
-	sprinklers.GetUpdateChunks(updateChunks);
-	droplets.GetUpdateChunks(updateChunks);
-	flames.GetUpdateChunks(updateChunks);
-
-	readyForDraw = true;
-}
-
-void Manager::EventUpdate() {
-	if (timestep != 0.0f) {
-		const i32 concurrency = 2;
-		Array<Thread> threads(concurrency);
-		for (i32 i = 0; i < updateChunks.size; i++) {
-			for (i32 j = 0; j < concurrency; j++) {
-				UpdateChunk &chunk = updateChunks[i];
-				threads[j] = Thread(chunk.updateCallback, chunk.theThisPointer, j, concurrency);
-			}
-			for (i32 j = 0; j < concurrency; j++) {
-				if (threads[j].Joinable()) {
-					threads[j].Join();
-				}
-			}
-		}
-	}
+	players.GetWorkChunks(workChunks);
+	sprinklers.GetWorkChunks(workChunks);
+	droplets.GetWorkChunks(workChunks);
+	flames.GetWorkChunks(workChunks);
 }
 
 void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
-	// if (globals->gui.currentMenu != Int::MENU_PLAY) return;
+	// if (gui->currentMenu != Int::MENU_PLAY) return;
 	if (flame > 0.0f) {
 		vec4 color = vec4(1.0f, 1.0f, 0.5f, flame*0.5f);
 		f32 scale = flame * 400.0f;
-		globals->rendering.DrawCircle(contexts[0], Rendering::texBlank, color, WorldPosToScreen(lanternPos), vec2(2.1f), vec2(scale), vec2(0.5f));
+		sys->rendering.DrawCircle(contexts[0], Rendering::texBlank, color, WorldPosToScreen(lanternPos), vec2(2.1f), vec2(scale), vec2(0.5f));
 	}
 	if (goalFlame > 0.0f) {
 		vec4 color = vec4(1.0f, 1.0f, 0.5f, goalFlame*0.5f);
 		f32 scale = goalFlame * 600.0f;
-		globals->rendering.DrawCircle(contexts[0], Rendering::texBlank, color, WorldPosToScreen(goalPos), vec2(2.1f), vec2(scale), vec2(0.5f));
+		sys->rendering.DrawCircle(contexts[0], Rendering::texBlank, color, WorldPosToScreen(goalPos), vec2(2.1f), vec2(scale), vec2(0.5f));
 	}
-	world.Draw(contexts[0], globals->gui.currentMenu != Int::MENU_EDITOR, true);
-	const i32 concurrency = contexts.size;
-	Array<Thread> threads(concurrency);
-	for (i32 i = 0; i < updateChunks.size; i++) {
-		for (i32 j = 0; j < concurrency; j++) {
-			UpdateChunk &chunk = updateChunks[i];
-			threads[j] = Thread(chunk.drawCallback, chunk.theThisPointer, &contexts[j], j, concurrency);
-		}
-		for (i32 j = 0; j < concurrency; j++) {
-			if (threads[j].Joinable()) {
-				threads[j].Join();
-			}
-		}
-	}
+	world.Draw(contexts[0], Gui::gui->menuCurrent != Gui::Gui::Menu::EDITOR, true);
+	
+	ManagerBasic::EventDraw(contexts);
 
-	world.Draw(contexts.Back(), globals->gui.currentMenu != Int::MENU_EDITOR, false);
+	world.Draw(contexts.Back(), Gui::gui->menuCurrent != Gui::Gui::Menu::EDITOR, false);
 	if (flame <= 0.0f) {
 		failureText.Draw(contexts.Back());
 	}
@@ -375,29 +332,17 @@ void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 			successText.Draw(contexts.Back());
 		}
 	}
-	if (globals->gui.currentMenu == Int::MENU_EDITOR) {
-		globals->rendering.DrawQuad(contexts.Back(), Rendering::texBlank, vec4(vec3(1.0f), 0.2f), globals->entities.WorldPosToScreen(vec2(vec2i(mouse)/32)*32.0f), vec2(32.0f), vec2(1.0f));
-	}
-}
-
-vec2 Manager::WorldPosToScreen(vec2 in) const {
-	vec2 out = (in - camPos) * camZoom + vec2(globals->window.width, globals->window.height) / 2.0f;
-	return out;
-}
-vec2 Manager::ScreenPosToWorld(vec2 in) const {
-	vec2 out = (in - vec2(vec2i(globals->window.width, globals->window.height) / 2)) / camZoom + camPos;
-	return out;
 }
 
 void MessageText::Reset() {
-	angle = Radians32(Degrees32(random(-180.0f, 180.0f, &globals->rng))).value();
+	angle = Radians32(Degrees32(random(-180.0f, 180.0f))).value();
 	position = vec2(cos(angle), sin(angle)) * 0.5;
 	size = 0.001f;
 	velocity = -position * 15.0;
 	rotation = 0.0f;
 	scaleSpeed = 1.0f;
-	targetPosition = vec2(random(-0.25f, 0.25f, &globals->rng), random(-0.25f, 0.25f, &globals->rng));
-	targetAngle = Radians32(Degrees32(random(-30.0f, 30.0f, &globals->rng))).value();
+	targetPosition = vec2(random(-0.25f, 0.25f), random(-0.25f, 0.25f));
+	targetAngle = Radians32(Degrees32(random(-30.0f, 30.0f))).value();
 	targetSize = 0.3f;
 }
 
@@ -416,73 +361,90 @@ void MessageText::Update(f32 timestep) {
 }
 
 void MessageText::Draw(Rendering::DrawingContext &context) {
-	globals->rendering.DrawTextSS(context, text, globals->gui.fontIndex, vec4(vec3(0.0f), 1.0f), position, size, Rendering::CENTER, Rendering::CENTER, 0.0f, 0.5f, 0.225f, angle);
-	globals->rendering.DrawTextSS(context, text, globals->gui.fontIndex, color, position, size, Rendering::CENTER, Rendering::CENTER, 0.0f, 0.5f, 0.425f, angle);
+	sys->rendering.DrawTextSS(context, text, Gui::gui->fontIndex, vec4(vec3(0.0f), 1.0f), position, size, Rendering::CENTER, Rendering::CENTER, 0.0f, 0.5f, 0.225f, angle);
+	sys->rendering.DrawTextSS(context, text, Gui::gui->fontIndex, color, position, size, Rendering::CENTER, Rendering::CENTER, 0.0f, 0.5f, 0.425f, angle);
 }
 
 void World::Draw(Rendering::DrawingContext &context, bool playing, bool under) {
-	for (i32 y = 0; y < size.y; y++) {
-		for (i32 x = 0; x < size.x; x++) {
-			bool draw = false;
-			vec4 color;
-			vec2 pos;
-			vec2 scale;
-			i32 tex = Rendering::texBlank;
+	vec4 color;
+	vec2 pos;
+	vec2 scale;
+	i32 tex;
+	AABB bounds = entities->CamBounds();
+	vec2i topLeft = vec2i(
+		max((i32)floor(bounds.minPos.x/32.0f), 0),
+		max((i32)floor(bounds.minPos.y/32.0f), 0)
+	);
+	vec2i bottomRight = vec2i(
+		min((i32)ceil(bounds.maxPos.x/32.0f), size.x),
+		min((i32)ceil(bounds.maxPos.y/32.0f), size.y)
+	);
+	for (i32 y = topLeft.y; y < bottomRight.y; y++) {
+		for (i32 x = topLeft.x; x < bottomRight.x; x++) {
 			switch (operator[](vec2i(x, y))) {
 				case BLOCK_PLAYER:
 					if (under && !playing) {
-						pos = globals->entities.WorldPosToScreen(vec2(f32(x*32), f32(y*32)) + vec2(2.0f));
+						pos = entities->WorldPosToScreen(vec2(f32(x*32), f32(y*32)) + vec2(2.0f));
 						color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
 						scale = vec2(28.0f);
-						draw = true;
+						tex = Rendering::texBlank;
+					} else {
+						continue;
 					}
 					break;
 				case BLOCK_WALL:
 					if (under) {
-						pos = globals->entities.WorldPosToScreen(vec2(f32(x*32), f32(y*32)));
+						pos = entities->WorldPosToScreen(vec2(f32(x*32), f32(y*32)));
 						color = vec4(vec3(0.0f), 1.0f);
 						scale = vec2(32.0f);
-						draw = true;
+						tex = Rendering::texBlank;
+					} else {
+						continue;
 					}
 					break;
 				case BLOCK_WATER_FULL:
 					if (!under) {
-						pos = globals->entities.WorldPosToScreen(vec2(f32(x*32), f32(y*32)));
+						pos = entities->WorldPosToScreen(vec2(f32(x*32), f32(y*32)));
 						color = vec4(vec3(0.0f, 0.2f, 1.0f), 0.7f);
 						scale = vec2(32.0f);
-						draw = true;
+						tex = Rendering::texBlank;
+					} else {
+						continue;
 					}
 					break;
 				case BLOCK_WATER_TOP:
 					if (!under) {
-						pos = globals->entities.WorldPosToScreen(vec2(f32(x*32), f32(y*32)+8.0f));
+						pos = entities->WorldPosToScreen(vec2(f32(x*32), f32(y*32)+8.0f));
 						color = vec4(vec3(0.0f, 0.2f, 1.0f), 0.7f);
 						scale = vec2(32.0f, 24.0f);
-						draw = true;
+						tex = Rendering::texBlank;
+					} else {
+						continue;
 					}
 					break;
 				case BLOCK_GOAL:
 					if (under) {
-						pos = globals->entities.WorldPosToScreen(vec2(f32(x*32)+0.5f, f32(y*32)+12.5f));
+						pos = entities->WorldPosToScreen(vec2(f32(x*32)+0.5f, f32(y*32)+12.5f));
 						color = vec4(1.0f);
 						scale = vec2(31.0f, 19.5f);
-						tex = globals->entities.beacon;
-						draw = true;
+						tex = entities->texBeacon;
+					} else {
+						continue;
 					}
 					break;
 				case BLOCK_SPRINKLER:
 					if (under && !playing) {
-						pos = globals->entities.WorldPosToScreen(vec2(f32(x*32)+3.5f, f32(y*32)+19.0f));
+						pos = entities->WorldPosToScreen(vec2(f32(x*32)+3.5f, f32(y*32)+19.0f));
 						color = vec4(1.0f);
 						scale = vec2(25.0f, 13.0f);
-						tex = globals->entities.sprinkler;
-						draw = true;
+						tex = entities->texSprinkler;
+					} else {
+						continue;
 					}
 					break;
+				default: continue;
 			}
-			if (draw) {
-				globals->rendering.DrawQuad(context, tex, color, pos, scale * globals->entities.camZoom, vec2(1.0f));
-			}
+			sys->rendering.DrawQuad(context, tex, color, pos, scale * entities->camZoom, vec2(1.0f));
 		}
 	}
 }
@@ -546,7 +508,7 @@ bool World::Save(String filename) {
 
 bool World::Load(String filename) {
 	filename = "data/levels/" + filename + ".world";
-	cout.PrintLn("Loading '", filename, "'");
+	io::cout.PrintLn("Loading '", filename, "'");
 	FILE *file = fopen(filename.data, "rb");
 	if (!file) return false;
 	if (fread(&size, 4, 2, file) != 2) {
@@ -565,15 +527,15 @@ void Lantern::Update(f32 timestep) {
 	if (particleTimer > 0.0f) {
 		particleTimer -= timestep;
 	}
-	if (globals->entities.flame > 0.0f) {
+	if (entities->flame > 0.0f) {
 		if (particleTimer <= 0.0f) {
 			Flame flame;
-			f32 a = random(-pi, pi, &globals->rng);
-			vec2 offset = vec2(cos(a), sin(a)) * random(0.0f, 4.0f, &globals->rng);
+			f32 a = random(-pi, pi);
+			vec2 offset = vec2(cos(a), sin(a)) * random(0.0f, 4.0f);
 			flame.physical.pos = pos + offset + v * 14.0f;
 			flame.physical.vel = vel * 0.5f;
-			flame.size = globals->entities.flame;
-			globals->entities.flames.Create(flame);
+			flame.size = entities->flame;
+			entities->flames.Create(flame);
 			particleTimer += 0.02f;
 		}
 	}
@@ -587,12 +549,12 @@ void Lantern::Update(f32 timestep) {
 	ApplyFriction(rot.value(), pi * 2.0f, timestep);
 	angle += rot * timestep;
 	posPrev = pos;
-	globals->entities.lanternPos = pos;
+	entities->lanternPos = pos;
 	velPrev = vel;
 }
 
 void Lantern::Draw(Rendering::DrawingContext &context) {
-	globals->rendering.DrawQuad(context, globals->entities.lantern, vec4(1.0f), globals->entities.WorldPosToScreen(pos), vec2(41.0f, 66.0f) * 0.4f * globals->entities.camZoom, vec2(1.0f), vec2(0.5f, 0.05f), angle.value() + pi / 2.0f);
+	sys->rendering.DrawQuad(context, entities->texLantern, vec4(1.0f), entities->WorldPosToScreen(pos), vec2(41.0f, 66.0f) * 0.4f * entities->camZoom, vec2(1.0f), vec2(0.5f, 0.05f), angle.value() + pi / 2.0f);
 }
 
 void Player::EventCreate() {
@@ -607,9 +569,9 @@ void Player::EventCreate() {
 void Player::Update(f32 timestep) {
 	physical.Update(timestep);
 	physical.UpdateActual();
-	bool buttonJump = globals->objects.Down(KC_KEY_UP) || globals->objects.Down(KC_KEY_W);
-	bool buttonLeft = globals->objects.Down(KC_KEY_LEFT) || globals->objects.Down(KC_KEY_A);
-	bool buttonRight = globals->objects.Down(KC_KEY_RIGHT) || globals->objects.Down(KC_KEY_D);
+	bool buttonJump = sys->Down(KC_KEY_UP) || sys->Down(KC_KEY_W);
+	bool buttonLeft = sys->Down(KC_KEY_LEFT) || sys->Down(KC_KEY_A);
+	bool buttonRight = sys->Down(KC_KEY_RIGHT) || sys->Down(KC_KEY_D);
 	bool grounded = false;
 	bool sliding = false;
 	vec2 step = physical.vel * timestep;
@@ -619,7 +581,7 @@ void Player::Update(f32 timestep) {
 	below.maxPos.x -= 1.0f + step.x;
 	below.minPos.y += 1.0f;
 	below.maxPos.y += 1.0f + step.y;
-	if (globals->entities.world.Solid(below)) {
+	if (entities->world.Solid(below)) {
 		grounded = true;
 	}
 	if (physical.vel.y > 0.0f) {
@@ -637,7 +599,7 @@ void Player::Update(f32 timestep) {
 	right.maxPos.y -= 1.0f + step.y;
 	right.minPos.x += 1.0f;
 	right.maxPos.x += 1.0f + step.x;
-	if (globals->entities.world.Solid(right)) {
+	if (entities->world.Solid(right)) {
 		if (physical.vel.x > 0.0f) {
 			physical.pos.x = 32.0f * round(physical.pos.x/32.0f);
 			physical.vel.x = 0.0f;
@@ -664,7 +626,7 @@ void Player::Update(f32 timestep) {
 	left.maxPos.y -= 1.0f + step.y;
 	left.minPos.x -= 1.0f - step.x;
 	left.maxPos.x -= 1.0f;
-	if (globals->entities.world.Solid(left)) {
+	if (entities->world.Solid(left)) {
 		if (physical.vel.x < 0.0f) {
 			physical.pos.x = 32.0f * round(physical.pos.x/32.0f);
 			physical.vel.x = 0.0f;
@@ -706,7 +668,7 @@ void Player::Update(f32 timestep) {
 		}
 	} else {
 		if (physical.vel.y > 0.0f) {
-			globals->entities.step.Play(min(physical.vel.y / 2000.0f, 1.0f), 1.0f);
+			entities->step.Play(min(physical.vel.y / 2000.0f, 1.0f), 1.0f);
 		}
 		physical.pos.y = 32.0f * round(physical.pos.y/32.0f);
 		physical.vel.y = 0.0f;
@@ -723,7 +685,7 @@ void Player::Update(f32 timestep) {
 				animTime += abs(physical.vel.x)*timestep/100.0f;
 				if (animTime > 1.0f) {
 					animTime -= 1.0f;
-					globals->entities.step.Play(0.5f, 1.0f);
+					entities->step.Play(0.5f, 1.0f);
 				}
 			}
 		}
@@ -734,7 +696,7 @@ void Player::Update(f32 timestep) {
 	above.maxPos.x -= 1.0f + step.x;
 	above.minPos.y -= 1.0f - step.y;
 	above.maxPos.y -= 2.0f;
-	if (globals->entities.world.Solid(above)) {
+	if (entities->world.Solid(above)) {
 		physical.pos.y = 32.0f * round(physical.pos.y/32.0f) + 1.0f;
 		physical.vel.y = 0.0f;
 	}
@@ -742,30 +704,30 @@ void Player::Update(f32 timestep) {
 	AABB smaller = physical.aabb;
 	smaller.minPos += 2.0f;
 	smaller.maxPos -= 2.0f;
-	if (globals->entities.flame > 0.0f) {
-		if (globals->entities.world.Water(smaller)) {
-			globals->entities.flame -= 12.0f * timestep;
+	if (entities->flame > 0.0f) {
+		if (entities->world.Water(smaller)) {
+			entities->flame -= 12.0f * timestep;
 		} else {
-			globals->entities.flame = min(min(1.0f, globals->entities.gas), globals->entities.flame + timestep * 0.25f);
+			entities->flame = min(min(1.0f, entities->gas), entities->flame + timestep * 0.25f);
 		}
-		if (globals->entities.world.Goal(smaller)) {
-			globals->entities.goalFlame += 0.1f * timestep;
+		if (entities->world.Goal(smaller)) {
+			entities->goalFlame += 0.1f * timestep;
 		}
 
-		for (i32 i = 0; i < globals->entities.droplets.size; i++) {
-			const Droplet &drop = globals->entities.droplets[i];
+		for (i32 i = 0; i < entities->droplets.size; i++) {
+			const Droplet &drop = entities->droplets[i];
 			if (drop.id.generation < 0) continue;
 			if (physical.Collides(drop.physical)) {
-				globals->entities.flame -= 8.0f * timestep;
+				entities->flame -= 8.0f * timestep;
 				break;
 			}
 		}
 	}
 	if (jumped) {
-		globals->entities.jump->Play(0.5f, random(0.90f, 1.1f, &globals->rng));
+		entities->jump->Play(0.5f, random(0.90f, 1.1f));
 	}
 	{ // Lantern pos
-		vec2 delta = globals->entities.mouse - (physical.pos+vec2(16.0f, 0.0f));
+		vec2 delta = entities->mouse - (physical.pos+vec2(16.0f, 0.0f));
 		delta /= 10.0f;
 		f32 mag = norm(delta);
 		if (mag > 22.0f) {
@@ -777,27 +739,27 @@ void Player::Update(f32 timestep) {
 }
 
 void Player::Draw(Rendering::DrawingContext &context) {
-	vec2 pos = globals->entities.WorldPosToScreen(physical.pos+vec2(facingRight ? 44.0f : -9.0f, -11.0f));
-	vec2 scale = vec2(facingRight? -53.0f : 53.0f, 57.0f) * globals->entities.camZoom;
+	vec2 pos = entities->WorldPosToScreen(physical.pos+vec2(facingRight ? 44.0f : -9.0f, -11.0f));
+	vec2 scale = vec2(facingRight? -53.0f : 53.0f, 57.0f) * entities->camZoom;
 	i32 tex = 0;
 	switch (anim) {
 		case RUN:
-			tex = animTime < 0.5f ? globals->entities.playerStand : globals->entities.playerRun;
+			tex = animTime < 0.5f ? entities->texPlayerStand : entities->texPlayerRun;
 			break;
 		case JUMP:
-			tex = globals->entities.playerJump;
+			tex = entities->texPlayerJump;
 			break;
 		case FLOAT:
-			tex = globals->entities.playerFloat;
+			tex = entities->texPlayerFloat;
 			break;
 		case WALL_TOUCH:
-			tex = globals->entities.playerWallTouch;
+			tex = entities->texPlayerWallTouch;
 			break;
 		case WALL_JUMP:
-			tex = globals->entities.playerWallBack;
+			tex = entities->texPlayerWallBack;
 			break;
 	}
-	globals->rendering.DrawQuad(context, tex, vec4(1.0f), pos, scale, vec2(1.0f));
+	sys->rendering.DrawQuad(context, tex, vec4(1.0f), pos, scale, vec2(1.0f));
 	lantern.Draw(context);
 }
 
@@ -817,15 +779,15 @@ void Sprinkler::Update(f32 timestep) {
 		Droplet drop;
 		drop.physical.pos = physical.pos;
 		drop.physical.vel = vec2(cos(angle), -sin(angle)) * 600.0f;
-		globals->entities.droplets.Create(drop);
+		entities->droplets.Create(drop);
 		shootTimer += 0.02f;
 	}
 }
 
 void Sprinkler::Draw(Rendering::DrawingContext &context) {
-	const vec2 scale = vec2(25.0f, 13.0f) * globals->entities.camZoom;
-	const vec2 p = globals->entities.WorldPosToScreen(physical.pos) - vec2(scale.x * 0.5f, 0.0f);
-	globals->rendering.DrawQuad(context, globals->entities.sprinkler, vec4(1.0f), p, scale, vec2(1.0f));
+	const vec2 scale = vec2(25.0f, 13.0f) * entities->camZoom;
+	const vec2 p = entities->WorldPosToScreen(physical.pos) - vec2(scale.x * 0.5f, 0.0f);
+	sys->rendering.DrawQuad(context, entities->texSprinkler, vec4(1.0f), p, scale, vec2(1.0f));
 }
 
 template struct DoubleBufferArray<Sprinkler>;
@@ -841,8 +803,8 @@ void Droplet::Update(f32 timestep) {
 	physical.Update(timestep);
 	physical.UpdateActual();
 	lifetime -= timestep;
-	if (lifetime <= 0.0f || globals->entities.world.Solid(physical.aabb)) {
-		globals->entities.droplets.Destroy(id);
+	if (lifetime <= 0.0f || entities->world.Solid(physical.aabb)) {
+		entities->droplets.Destroy(id);
 	}
 	physical.ImpulseY(2000.0f, timestep);
 	physical.angle = atan2(-physical.vel.y, physical.vel.x);
@@ -868,7 +830,7 @@ void Flame::Update(f32 timestep) {
 	ApplyFriction(physical.vel, 1000.0f, timestep);
 	physical.ImpulseY(-1500.0f, timestep);
 	if (physical.basis.circle.r < 0.5f) {
-		globals->entities.flames.Destroy(id);
+		entities->flames.Destroy(id);
 	}
 }
 
@@ -883,10 +845,10 @@ void Flame::Draw(Rendering::DrawingContext &context) {
 		)),
 		clamp(1.0f - prog, 0.0f, 0.25f)
 	);
-	const f32 z = globals->entities.camZoom;
-	const vec2 p = globals->entities.WorldPosToScreen(physical.pos);
+	const f32 z = entities->camZoom;
+	const vec2 p = entities->WorldPosToScreen(physical.pos);
 	const vec2 scale = physical.basis.circle.r * 2.0f;
-	globals->rendering.DrawCircle(context, Rendering::texBlank, color, p, scale * 0.5f, vec2(2.0f * z), -physical.basis.circle.c / scale + vec2(0.5f), physical.angle);
+	sys->rendering.DrawCircle(context, Rendering::texBlank, color, p, scale * 0.5f, vec2(2.0f * z), -physical.basis.circle.c / scale + vec2(0.5f), physical.angle);
 }
 
 template struct DoubleBufferArray<Flame>;

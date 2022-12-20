@@ -165,7 +165,7 @@ struct IdGeneric {
 	Baseline entity. Anything in a DoubleBufferArray must be inherited from this.    */
 struct Entity {
 	union {
-		Id id; // Occupies the same place as IdGeneric, so just a nice accessor
+		Id id; // Occupies the same place as IdGeneric::id, so just a nice accessor
 		IdGeneric idGeneric;
 	};
 	Physical physical;
@@ -187,6 +187,7 @@ struct Entity {
 	// void Draw(Rendering::DrawingContext &context);
 	void EventDestroy() {};
 };
+static_assert(offsetof(Entity, id) == offsetof(Entity, idGeneric) && offsetof(IdGeneric, IdGeneric::id) == 0);
 
 inline bool IdGeneric::Valid() const {
 	if (type == UINT64_MAX) return false;
@@ -350,6 +351,8 @@ struct DoubleBufferArray {
 		created.Clear();
 		empty.Clear();
 		destroyed.Clear();
+		claimedEmpty = 0;
+		claimedNew = 0;
 		size = 0;
 		count = 0;
 		buffer = false;

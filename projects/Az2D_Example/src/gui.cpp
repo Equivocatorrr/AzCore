@@ -1,3 +1,8 @@
+/*
+	File: gui.cpp
+	Author: Philip Haynes
+*/
+
 #include "gui.hpp"
 #include "entities.hpp"
 

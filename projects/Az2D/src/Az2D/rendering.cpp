@@ -342,7 +342,7 @@ bool Manager::Init() {
 	bufferStagingBuffers[0].CopyData(vertices.data);
 	bufferStagingBuffers[1].CopyData(indices.data);
 	for (i32 i = 0; i < texStagingBuffers.size; i++) {
-		texStagingBuffers[i].CopyData(sys->assets.textures[i].pixels.data);
+		texStagingBuffers[i].CopyData(sys->assets.textures[i].pixels);
 	}
 
 	VkCommandBuffer cmdBufCopy = data.commandBufferPrimary[0]->Begin();

@@ -97,27 +97,42 @@ Type FilenameToType(String filename) {
 
 bool Texture::Load(String filename) {
 	String path = Stringify("data/textures/", filename);
-	pixels.data = stbi_load(path.data, &width, &height, &channels, 4);
-	if (pixels.data == nullptr) {
+	pixels = stbi_load(path.data, &width, &height, &channels, 4);
+	if (pixels == nullptr) {
 		path = Stringify("data/Az2D/textures/", filename);
-		pixels.data = stbi_load(path.data, &width, &height, &channels, 4);
-		if (pixels.data == nullptr) {
+		pixels = stbi_load(path.data, &width, &height, &channels, 4);
+		if (pixels == nullptr) {
 			error = "Failed to load Texture file: \"" + filename + "\"";
 			return false;
 		}
 	}
 	channels = 4;
-	pixels.allocated = width * height* channels;
-	pixels.size = pixels.allocated;
 	return true;
 }
 
+Texture::Texture(Texture &&other) : pixels(other.pixels), width(other.width), height(other.height), channels(other.channels) {
+	other.pixels = nullptr;
+	other.width = 0;
+	other.height = 0;
+	other.channels = 0;
+}
+
+Texture& Texture::operator=(Texture &&other) {
+	if (pixels) stbi_image_free(pixels);
+	pixels = other.pixels;
+	width = other.width;
+	height = other.height;
+	channels = other.channels;
+	other.pixels = nullptr;
+	other.width = 0;
+	other.height = 0;
+	other.channels = 0;
+	return *this;
+}
+
 Texture::~Texture() {
-	if (pixels.data) {
-		stbi_image_free(pixels.data);
-		pixels.data = nullptr;
-		pixels.allocated = 0;
-		pixels.size = 0;
+	if (pixels) {
+		stbi_image_free(pixels);
 	}
 }
 
@@ -351,6 +366,7 @@ bool Manager::LoadAll() {
 		Mapping mapping;
 		mapping.type = type;
 		switch (type) {
+		default:
 		case Type::NONE:
 			cout.PrintLn("Unknown file type.");
 			continue;

@@ -43,10 +43,15 @@ struct Mapping {
 };
 
 struct Texture {
-	az::Array<u8> pixels;
-	i32 width, height, channels;
+	u8 *pixels = nullptr;
+	i32 width = 0, height = 0, channels = 0;
 
 	bool Load(az::String filename);
+	Texture() = default;
+	Texture(const Texture &other) = delete;
+	Texture(Texture &&other);
+	Texture& operator=(Texture &&other);
+	Texture& operator=(const Texture &other) = delete;
 	~Texture();
 };
 

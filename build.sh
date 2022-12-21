@@ -10,6 +10,7 @@ run_arg=0
 run=0
 run_debug=0
 run_target=""
+run_args=""
 clean=0
 install=0
 trace=""
@@ -28,15 +29,17 @@ fi
 
 usage()
 {
-	echo "Usage: build.sh [clean]? [verbose]? [trace]? [install]? (WIN32_VULKAN_SDK path_to_sdk)? (LINUX_VULKAN_SDK path_to_sdk)? [All|Debug|Release|Linux|Win32|DebugL|ReleaseL|DebugW|ReleaseW]? ([run|run_debug] project_name)?"
+	echo "Usage: build.sh [clean]? [verbose]? [trace]? [install]? (WIN32_VULKAN_SDK path_to_sdk)? (LINUX_VULKAN_SDK path_to_sdk)? [All|Debug|Release|Linux|Win32|DebugL|ReleaseL|DebugW|ReleaseW]? ([run|run_debug] project_name (<arguments>)?)?"
 	exit 1
 }
 
 for arg in "$@"; do
 	has_args=1
-	if [ $run_arg -ne 0 ]; then
+	if [ $run_arg -eq 1 ]; then
 		run_target="$arg"
-		run_arg=0
+		run_arg=2
+	elif [ $run_arg -eq 2 ]; then
+		run_args="$run_args $arg"
 	elif [ $vulkan_sdk_linux_arg -ne 0 ]; then
 		vulkan_sdk_linux="-DVULKAN_SDK=$arg"
 		vulkan_sdk_linux_arg=0
@@ -194,11 +197,11 @@ fi
 echo "All builds complete!"
 
 if [ $run -ne 0 ]; then
-	echo "Running $run_target"
+	echo "Running \"$ $run_target $run_args\""
 	cd "projects/$run_target"
-	bin/$run_target
+	bin/$run_target $run_args
 elif [ $run_debug -ne 0 ]; then
-	echo "Running $run_target in debug mode"
+	echo "Running \"\$ $run_target $run_args\" in debug mode"
 	cd "projects/$run_target"
-	bin/${run_target}_debug
+	bin/${run_target}_debug $run_args
 fi

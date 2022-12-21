@@ -15,7 +15,7 @@ layout(push_constant) uniform pushConstants {
 void main() {
 	vec2 size = textureSize(texSampler[pc.texId], 0);
 	vec2 pixelPos = texCoord*size;
-	vec2 pixel = floor(pixelPos) + 0.5;
+	vec2 pixel = floor(pixelPos) - 0.5;
 	vec2 subPixel = fract(pixelPos);
 	vec2 sharpTexCoord = (pixel + clamp(subPixel / fwidth(pixelPos), 0.0, 1.0)) / size;
 	outColor = texture(texSampler[pc.texId], sharpTexCoord) * pc.color;

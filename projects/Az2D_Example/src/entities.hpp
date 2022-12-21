@@ -8,6 +8,7 @@
 #define ENTITIES_HPP
 
 #include "Az2D/game_systems.hpp"
+#include "Az2D/sprite.hpp"
 #include "AzCore/math.hpp"
 
 #include "Az2D/entity_basics.hpp"
@@ -15,6 +16,7 @@
 namespace Az2D::Entities {
 
 struct Player : public Entity {
+	Sprite sprite;
 	f32 screamTimer;
 	f32 facing;
 	f32 hue;
@@ -41,6 +43,7 @@ struct Manager : public ManagerBasic {
 	Assets::TexIndex texPlayer;
 	Assets::TexIndex texPlayerScream;
 	Assets::TexIndex texGuy;
+	Sprite sprGuy;
 
 	// sounds
 	Sound::Source sndScream;

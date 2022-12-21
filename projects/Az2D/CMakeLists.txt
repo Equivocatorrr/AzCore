@@ -13,6 +13,8 @@ add_library(Az2D STATIC
 	src/Az2D/rendering.hpp
 	src/Az2D/sound.cpp
 	src/Az2D/sound.hpp
+	src/Az2D/sprite.cpp
+	src/Az2D/sprite.hpp
 )
 
 target_include_directories(Az2D PUBLIC "${PROJECT_SOURCE_DIR}/base/src/")

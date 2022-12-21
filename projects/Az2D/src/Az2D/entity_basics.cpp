@@ -5,6 +5,7 @@
 
 #include "entity_basics.hpp"
 #include "game_systems.hpp"
+#include "sprite.hpp"
 
 namespace Az2D::Entities {
 
@@ -225,6 +226,12 @@ bool CollisionBoxBoxPart(const Physical &a, const Physical &b) {
 bool CollisionBoxBox(const Physical &a, const Physical &b) {
 	// have to go both ways otherwise you can fit a smaller one inside a bigger one
 	return CollisionBoxBoxPart(a, b) || CollisionBoxBoxPart(b, a);
+}
+
+void Physical::FromSpriteAABB(const Sprite &sprite, vec2 scale, vec2 shrinkTopLeft, vec2 shrinkBottomRight) {
+	type = BOX;
+	basis.box.a = (-sprite.origin + shrinkTopLeft) * scale;
+	basis.box.b = (sprite.Size() - sprite.origin - shrinkBottomRight) * scale;
 }
 
 bool Physical::Collides(const Physical &other) const {

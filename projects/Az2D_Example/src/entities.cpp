@@ -45,6 +45,8 @@ void Manager::EventAssetsAcquire() {
 	texPlayer = sys->assets.FindTexture("Player.tga");
 	texPlayerScream = sys->assets.FindTexture("PlayerScream.tga");
 	texGuy = sys->assets.FindTexture("guy.tga");
+	sprGuy.texture = texGuy;
+	sprGuy.origin = vec2(6.5f, 7.5f);
 	
 	sndScream.Create("scream.ogg");
 
@@ -107,22 +109,6 @@ void Manager::EventSync() {
 	}
 	if (Gui::gui->currentMenu == Gui::Gui::Menu::PLAY) {
 		HandleUI();
-		/*
-		if (sys->Down(KC_KEY_E)) {
-			pitch *= (1.0f + 0.1f * timestep);
-			pitch = min(pitch, 4.0f);
-			sndMusic.SetPitch(pitch);
-		}
-		if (sys->Down(KC_KEY_Q)) {
-			pitch /= (1.0f + 0.1f * timestep);
-			pitch = max(pitch, 0.25f);
-			sndMusic.SetPitch(pitch);
-		}
-		if (sys->Down(KC_KEY_F)) {
-			pitch = 1.0f;
-			sndMusic.SetPitch(pitch);
-		}
-		*/
 	}
 	
 	for (Tail &tail : tails.ArrayMut()) {
@@ -144,13 +130,8 @@ void Manager::EventClose() {
 
 
 void Player::EventCreate() {
-	// physical.type = CIRCLE;
-	// physical.basis.circle.c = vec2(0.0f, 0.0f);
-	// physical.basis.circle.r = 8.0f;
-	// physical.angle = 0.0f;
-	physical.type = BOX;
-	physical.basis.box.a = vec2(-6.0f, -7.0f);
-	physical.basis.box.b = vec2(5.0f, 7.0f);
+	sprite = entities->sprGuy;
+	physical.FromSpriteAABB(sprite, 4.0f, vec2(4.0f, 2.0f), vec2(3.0f, 1.0f));
 	physical.angle = 0.0f;
 	physical.rot = pi/8.0f;
 	screamTimer = 0.0f;
@@ -204,8 +185,6 @@ void Player::Update(f32 timestep) {
 		entities->sndScream.Stop(0.05f);
 		screamTimer = min(screamTimer, 0.025f);
 	}
-	// f32 speed = norm(physical.vel);
-	// entities->sndMusic.SetPitch(pow(2.0f, speed / 10000.0f));
 	hue += 0.3f * timestep;
 	if (hue > 1.0f) hue -= 1.0f;
 	if (sys->Down(KC_MOUSE_LEFT) && Gui::gui->mouseoverWidget == nullptr) {
@@ -216,17 +195,7 @@ void Player::Update(f32 timestep) {
 }
 
 void Player::Draw(Rendering::DrawingContext &context) {
-	Assets::TexIndex tex;
-	// if (screamTimer > 0.0f) tex = entities->texPlayerScream;
-	// else tex = entities->texPlayer;
-	tex = entities->texGuy;
-	vec2 pos = entities->WorldPosToScreen(physical.pos);
-	vec2 scale = vec2(11.0f, 16.0f) * entities->camZoom * 5.0f;
-	scale.x *= facing;
-	// vec4 color = vec4(hsvToRgb(vec3(hue, 0.5f, 1.0f)), 1.0f);
-	vec4 color = 1.0f;
-	sys->rendering.DrawQuad(context, tex, color, pos, scale, vec2(1.0f), vec2(0.5f), physical.angle, Rendering::PIPELINE_BASIC_2D_PIXEL);
-	
+	sprite.Draw(context, physical.pos, 4.0f, 1.0f, physical.angle, Rendering::PIPELINE_BASIC_2D_PIXEL);
 	if constexpr (DEBUG_COLLISIONS) {
 		physical.Draw(context, vec4(0.5));
 	}

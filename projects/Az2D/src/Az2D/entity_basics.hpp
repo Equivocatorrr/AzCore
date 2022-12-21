@@ -14,6 +14,10 @@
 #include "rendering.hpp"
 #include <type_traits> // is_base_of
 
+namespace Az2D {
+	struct Sprite;
+}
+
 namespace Az2D::Entities {
 
 using az::vec2, az::vec3, az::vec4;
@@ -85,6 +89,7 @@ struct Physical {
 	vec2 vel = vec2(0.0f);
 	az::Radians32 rot = 0.0f;
 
+	void FromSpriteAABB(const Sprite &sprite, vec2 scale = 1.0f, vec2 shrinkTopLeft = 0.0f, vec2 shrinkBottomRight = 0.0f);
 	bool Collides(const Physical &other) const;
 	bool MouseOver(vec2 mouse) const;
 	void Update(f32 timestep);

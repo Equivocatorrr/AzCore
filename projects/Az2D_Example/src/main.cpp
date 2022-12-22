@@ -25,6 +25,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	for (i32 i = 0; i < argumentCount; i++) {
 		az::io::cout.PrintLn(i, ": ", argumentValues[i]);
 		if (az::equals(argumentValues[i], "--validation")) {
+			az::io::cout.PrintLn("Enabling validation layers");
 			enableLayers = true;
 		} else if (az::equals(argumentValues[i], "--profiling")) {
 			az::io::cout.PrintLn("Enabling profiling");
@@ -32,8 +33,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		}
 	}
 
-	az::io::cout.PrintLn("Starting with layers ", (enableLayers ? "enabled" : "disabled"));
-	
 	if (!Az2D::GameSystems::Init("Az2D Example", {&entities, &gui}, enableLayers)) {
 		az::io::cerr.PrintLn("Failed to Init: ", Az2D::GameSystems::sys->error);
 		return 1;

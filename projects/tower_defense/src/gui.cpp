@@ -8,6 +8,7 @@
 
 #include "Az2D/game_systems.hpp"
 #include "Az2D/settings.hpp"
+#include "Az2D/profiling.hpp"
 
 namespace Az2D::Gui {
 
@@ -42,6 +43,7 @@ void Gui::EventInitialize() {
 }
 
 void Gui::EventSync() {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Gui::EventSync)
 	GuiBasic::EventSync();
 	currentMenu = nextMenu;
 	switch (currentMenu) {
@@ -58,6 +60,7 @@ void Gui::EventSync() {
 }
 
 void Gui::EventDraw(Array<Rendering::DrawingContext> &contexts) {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Gui::EventDraw)
 	switch (currentMenu) {
 	case Menu::MAIN:
 		menuMain.Draw(contexts.Back());

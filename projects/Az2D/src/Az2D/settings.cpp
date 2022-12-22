@@ -37,7 +37,7 @@ AStringMap<Setting> settings = {
 	{sFullscreen, Setting(false)},
 	{sVSync, Setting(true)},
 	{sDebugInfo, Setting(false)},
-	{sFramerate, Setting(60.0, 30.0, 300.0)},
+	{sFramerate, Setting(60.0, 30.0, 600.0)},
 	{sVolumeMain, Setting(1.0, 0.0, 1.0)},
 	{sVolumeMusic, Setting(1.0, 0.0, 1.0)},
 	{sVolumeEffects, Setting(1.0, 0.0, 1.0)},

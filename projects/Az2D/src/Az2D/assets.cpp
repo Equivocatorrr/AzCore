@@ -5,6 +5,7 @@
 
 #include "assets.hpp"
 #include "game_systems.hpp"
+#include "profiling.hpp"
 
 #include "AzCore/IO/Log.hpp"
 
@@ -96,6 +97,7 @@ Type FilenameToType(String filename) {
 }
 
 bool Texture::Load(String filename) {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Assets::Texture::Load)
 	String path = Stringify("data/textures/", filename);
 	pixels = stbi_load(path.data, &width, &height, &channels, 4);
 	if (pixels == nullptr) {
@@ -137,6 +139,7 @@ Texture::~Texture() {
 }
 
 bool Font::Load(String filename) {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Assets::Font::Load)
 	font.filename = "data/fonts/" + filename;
 	if (!font.Load()) {
 		font.filename = "data/Az2D/fonts/" + filename;
@@ -155,6 +158,7 @@ bool Font::Load(String filename) {
 }
 
 bool Sound::Load(String filename) {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Assets::Sound::Load)
 	String path = Stringify("data/sound/", filename);
 	if (!buffer.Create()) {
 		error = "Sound::Load: Failed to create buffer: " + Az2D::Sound::error;
@@ -201,6 +205,7 @@ Sound::~Sound() {
 }
 
 bool Stream::Open(String filename) {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Assets::Stream::Open)
 	String path = Stringify("data/sound/", filename);
 	for (i32 i = 0; i < numStreamBuffers; i++) {
 		if (!buffers[i].Create()) {
@@ -235,6 +240,7 @@ bool Stream::Open(String filename) {
 constexpr i32 crossfadeSamples = 2205;
 
 i32 Stream::Decode(i32 sampleCount) {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Assets::Stream::Decode)
 	if (!valid) {
 		error = "Stream::Decode: Stream not valid!";
 		return -1;
@@ -351,6 +357,7 @@ Stream::~Stream() {
 }
 
 bool Manager::LoadAll() {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Assets::Manager::LoadAll)
 	for (i32 i = 0; i < filesToLoad.size; i++) {
 		cout.Print("Loading asset \"", filesToLoad[i].filename, "\": ");
 		Type type;
@@ -410,6 +417,7 @@ bool Manager::LoadAll() {
 }
 
 i32 Manager::FindMapping(SimpleRange<char> filename, Type type) {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Assets::Manager::FindMapping)
 	auto *node = mappings.Find(filename);
 	if (node == nullptr) {
 		cout.PrintLn("No mapping found for \"", filename, "\"");

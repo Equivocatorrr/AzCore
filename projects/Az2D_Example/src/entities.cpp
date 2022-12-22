@@ -3,11 +3,13 @@
 	Author: Philip Haynes
 */
 
-#include "AzCore/Thread.hpp"
-#include "AzCore/IO/Log.hpp"
-
 #include "entities.hpp"
 #include "gui.hpp"
+
+#include "Az2D/profiling.hpp"
+
+#include "AzCore/Thread.hpp"
+#include "AzCore/IO/Log.hpp"
 
 namespace Az2D::Entities {
 
@@ -98,6 +100,7 @@ void Manager::HandleUI() {
 }
 
 void Manager::EventSync() {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Manager::EventSync)
 	camZoom = (f32)sys->window.height / 720.0f;
 	if (Gui::gui->menuMain.buttonContinue->state.Released()) {
 		Gui::gui->menuMain.buttonContinue->state.Set(false, false, false);
@@ -140,6 +143,7 @@ void Player::EventCreate() {
 }
 
 void Player::Update(f32 timestep) {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Player::Update)
 	physical.ImpulseY(1000.0f, timestep);
 	ApplyFriction(physical.vel, 250.0f, timestep);
 	bool buttonUp = sys->Down(KC_KEY_UP) || sys->Down(KC_KEY_W);
@@ -195,6 +199,7 @@ void Player::Update(f32 timestep) {
 }
 
 void Player::Draw(Rendering::DrawingContext &context) {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Player::Draw)
 	sprite.Draw(context, physical.pos, 4.0f, 1.0f, physical.angle, Rendering::PIPELINE_BASIC_2D_PIXEL);
 	if constexpr (DEBUG_COLLISIONS) {
 		physical.Draw(context, vec4(0.5));
@@ -217,6 +222,7 @@ vec2 TargetPos(vec2 pos, vec2 target, f32 distance) {
 }
 
 void Tail::Update(f32 timestep) {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Tail::Update)
 	ApplyFriction(physical.vel, max(250.0f, 0.25f * norm(physical.vel)), timestep);
 	physical.ImpulseY(1000.0f, timestep);
 	vec2 nextPos = physical.pos + physical.vel * timestep;
@@ -250,6 +256,7 @@ void Collide(Entity &me, Entity &other, f32 timestep) {
 }
 
 void Tail::UpdateSync(f32 timestep) {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Tail::UpdateSync)
 	// /*
 	Entity &targetEntity = target.GetMut();
 	vec2 targetPos = TargetPos(physical.pos, targetEntity.physical.pos, 16.0f);
@@ -284,6 +291,7 @@ void Tail::UpdateSync(f32 timestep) {
 }
 
 void Tail::Draw(Rendering::DrawingContext &context) {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Tail::Draw)
 	vec2 pos = entities->WorldPosToScreen(physical.pos);
 	vec2 scale = vec2(16.0f * entities->camZoom);
 	sys->rendering.DrawQuad(context, entities->texPlayer, vec4(1.0f), pos, vec2(1.0f), scale, vec2(0.5f)/*, atan2(physical.vel.y, physical.vel.x)*/);

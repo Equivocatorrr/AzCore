@@ -8,6 +8,7 @@
 
 #include "Az2D/game_systems.hpp"
 #include "Az2D/settings.hpp"
+#include "Az2D/profiling.hpp"
 
 namespace Az2D::Gui {
 
@@ -27,12 +28,14 @@ const vec3 colorHighlightMedium = {0.4f, 0.9f, 1.0f};
 const vec3 colorHighlightHigh = {0.9f, 0.98f, 1.0f};
 
 void Gui::EventInitialize() {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Gui::EventInitialize)
 	menuMain.Initialize();
 	menuSettings.Initialize();
 	menuPlay.Initialize();
 }
 
 void Gui::EventSync() {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Gui::EventSync)
 	GuiBasic::EventSync();
 	currentMenu = nextMenu;
 	switch (currentMenu) {
@@ -49,6 +52,7 @@ void Gui::EventSync() {
 }
 
 void Gui::EventDraw(Array<Rendering::DrawingContext> &contexts) {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Gui::EventDraw)
 	switch (currentMenu) {
 	case Menu::MAIN:
 		menuMain.Draw(contexts.Back());
@@ -357,7 +361,7 @@ void SettingsMenu::Update() {
 		Settings::SetBool(Settings::sVSync, checkVSync->checked);
 		u64 framerate = 60;
 		if (textboxFramerate->textValidate(textboxFramerate->string)) {
-			framerate = clamp(WStringToU64(textboxFramerate->string), (u64)30, (u64)300);
+			framerate = clamp(WStringToU64(textboxFramerate->string), (u64)30, (u64)600);
 			sys->SetFramerate((f32)framerate);
 		}
 		Settings::SetReal(Settings::sFramerate, (f64)framerate);

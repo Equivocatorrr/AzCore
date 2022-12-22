@@ -8,6 +8,7 @@
 #include "settings.hpp"
 #include "assets.hpp"
 #include "gui_basics.hpp"
+#include "profiling.hpp"
 
 #include "AzCore/IO/Log.hpp"
 #include "AzCore/io.hpp"
@@ -57,6 +58,7 @@ void PushConstants::PushCircle(VkCommandBuffer commandBuffer, const Manager *ren
 }
 
 bool Manager::Init() {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Init)
 	data.device = data.instance.AddDevice();
 	data.queueGraphics = data.device->AddQueue();
 	data.queueGraphics->queueType = vk::QueueType::GRAPHICS;
@@ -389,6 +391,7 @@ bool Manager::Deinit() {
 }
 
 bool Manager::UpdateFonts() {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::UpdateFonts)
 	// Will be done on-the-fly
 	if (data.fontStagingMemory->data.initted) {
 		data.fontStagingMemory->Deinit();
@@ -492,8 +495,11 @@ bool Manager::UpdateFonts() {
 }
 
 bool Manager::Draw() {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Draw)
 	if (sys->window.resized || data.resized) {
+		AZ2D_PROFILING_EXCEPTION_START();
 		vk::DeviceWaitIdle(data.device);
+		AZ2D_PROFILING_EXCEPTION_END();
 		if (!data.swapchain->Resize()) {
 			error = "Failed to resize swapchain: " + vk::error;
 			return false;
@@ -501,7 +507,9 @@ bool Manager::Draw() {
 		data.resized = false;
 	}
 	if (Settings::ReadBool(Settings::sVSync) != data.swapchain->vsync) {
+		AZ2D_PROFILING_EXCEPTION_START();
 		vk::DeviceWaitIdle(data.device);
+		AZ2D_PROFILING_EXCEPTION_END();
 		data.swapchain->vsync = Settings::ReadBool(Settings::sVSync);
 		if (!data.swapchain->Reconfigure()) {
 			error = "Failed to set VSync: " + vk::error;
@@ -518,13 +526,17 @@ bool Manager::Draw() {
 		}
 	}
 	if (updateFontMemory) {
+		AZ2D_PROFILING_EXCEPTION_START();
 		vk::DeviceWaitIdle(data.device);
+		AZ2D_PROFILING_EXCEPTION_END();
 		if (!UpdateFonts()) {
 			return false;
 		}
 	}
 
+	AZ2D_PROFILING_EXCEPTION_START();
 	VkResult acquisitionResult = data.swapchain->AcquireNextImage();
+	AZ2D_PROFILING_EXCEPTION_END();
 
 	if (acquisitionResult == VK_ERROR_OUT_OF_DATE_KHR || acquisitionResult == VK_NOT_READY) {
 		cout.PrintLn("Skipping a frame because acquisition returned: ", vk::ErrorString(acquisitionResult));
@@ -609,7 +621,9 @@ bool Manager::Draw() {
 		return false;
 	}
 
+	AZ2D_PROFILING_EXCEPTION_START();
 	vk::DeviceWaitIdle(data.device);
+	AZ2D_PROFILING_EXCEPTION_END();
 
 	// Submit to queue
 	if (!data.device->SubmitCommandBuffers(data.queueGraphics, {data.queueSubmission[data.buffer]})) {
@@ -617,10 +631,12 @@ bool Manager::Draw() {
 		return false;
 	}
 
+	AZ2D_PROFILING_EXCEPTION_START();
 	if (!data.swapchain->Present(data.queuePresent, {data.semaphoreRenderComplete->semaphore})) {
 		error = "Failed to present: " + vk::error;
 		return false;
 	}
+	AZ2D_PROFILING_EXCEPTION_END();
 
 	return true;
 }

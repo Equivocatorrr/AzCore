@@ -5,6 +5,7 @@
 
 #include "gui_basics.hpp"
 #include "game_systems.hpp"
+#include "profiling.hpp"
 
 namespace Az2D::Gui {
 
@@ -243,6 +244,7 @@ Screen::Screen() {
 }
 
 void Screen::Update(vec2 pos, bool selected) {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Screen::Update)
 	UpdateSize(sys->rendering.screenSize / guiBasic->scale);
 	Widget::Update(pos + position, selected);
 	// if (selected) {
@@ -251,6 +253,7 @@ void Screen::Update(vec2 pos, bool selected) {
 }
 
 void Screen::UpdateSize(vec2 container) {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Screen::UpdateSize)
 	sizeAbsolute = container - margin * 2.0f;
 	for (Widget* child : children) {
 		child->UpdateSize(sizeAbsolute);
@@ -631,7 +634,7 @@ void Switch::OnHide() {
 }
 
 Text::Text() : stringFormatted(), string(), padding(0.1f), fontSize(32.0f), fontIndex(1), bold(false), paddingEM(true), alignH(Rendering::LEFT), alignV(Rendering::TOP), color(vec3(1.0f), 1.0f), colorOutline(vec3(0.0f), 1.0f), highlight(vec3(0.0f), 1.0f), highlightOutline(vec3(1.0f), 1.0f), outline(false) {
-	size.y = 0.0f;
+	size.y = 0.0f;AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Screen::Update)
 }
 
 void Text::UpdateSize(vec2 container) {

@@ -37,6 +37,7 @@ endfunction()
 
 AZ2D_COPY_SHADERS(Az2D_Example)
 AZ2D_COPY_SHADERS(tower_defense)
+AZ2D_COPY_SHADERS(LD46)
 
 target_link_libraries(Az2D PRIVATE AzCore_Vulkan)
 

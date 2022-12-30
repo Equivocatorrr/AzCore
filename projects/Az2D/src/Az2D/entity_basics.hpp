@@ -28,6 +28,14 @@ extern struct ManagerBasic *entitiesBasic;
 struct AABB {
 	vec2 minPos, maxPos;
 
+	// Extend this AABB to encapsulate point
+	inline void Extend(vec2 point) {
+		if (point.x > maxPos.x) maxPos.x = point.x;
+		if (point.y > maxPos.y) maxPos.y = point.y;
+		if (point.x < minPos.x) minPos.x = point.x;
+		if (point.y < minPos.y) minPos.y = point.y;
+	}
+
 	bool Collides(const AABB &other) const;
 	void Update(const struct Physical &physical);
 };

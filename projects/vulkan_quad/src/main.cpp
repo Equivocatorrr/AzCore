@@ -153,9 +153,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
 	Ptr<vk::Descriptors> vkDescriptors = vkDevice->AddDescriptors();
 	Ptr<vk::DescriptorLayout> vkDescriptorLayoutTexture = vkDescriptors->AddLayout();
-	vkDescriptorLayoutTexture->type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	vkDescriptorLayoutTexture->stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 	vkDescriptorLayoutTexture->bindings.Resize(1);
+	vkDescriptorLayoutTexture->bindings[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	vkDescriptorLayoutTexture->bindings[0].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 	vkDescriptorLayoutTexture->bindings[0].binding = 0;
 	vkDescriptorLayoutTexture->bindings[0].count = 1;
 	Ptr<vk::DescriptorSet> vkDescriptorSetTexture = vkDescriptors->AddSet(vkDescriptorLayoutTexture);

@@ -181,6 +181,19 @@ inline Radians<T> angleDir(Angle<T> from, Angle<T> to) {
 	return sign(angleDiff(from, to));
 }
 
+template <typename T>
+bool arcContains(Angle<T> arcStart, Angle<T> arcEnd, Angle<T> test) {
+	T a = (arcEnd-arcStart).value();
+	T b;
+	if (a < 0.0f) {
+		a = -a;
+		b = (test - arcEnd).value();
+	} else {
+		b = (test - arcStart).value();
+	}
+	return b >= 0.0f && b <= a;
+}
+
 } // namespace AzCore
 
 template <typename T>

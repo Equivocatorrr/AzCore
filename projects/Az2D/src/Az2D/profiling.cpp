@@ -12,10 +12,10 @@ namespace Az2D::Profiling {
 
 AZCORE_CREATE_STRING_ARENA_CPP()
 
-bool enabled = false;
-AStringMap<az::Nanoseconds> totalTimes;
-az::Mutex mutex;
-az::ClockTime programStart = az::Clock::now();
+static bool enabled = false;
+static AStringMap<az::Nanoseconds> totalTimes;
+static az::Mutex mutex;
+static az::ClockTime programStart = az::Clock::now();
 
 void Enable() {
 	enabled = true;
@@ -46,15 +46,26 @@ void Exception(AString scopeName, az::Nanoseconds time) {
 	mutex.Unlock();
 }
 
-ScopedTimer::ScopedTimer(AString scopeName) : scope(scopeName), start(az::Clock::now()) {}
+Timer::Timer(AString scopeName) : scope(scopeName) {}
+
+void Timer::Start() {
+	start = az::Clock::now();
+}
+
+void Timer::End() {
+	if (!enabled) return;
+	az::Nanoseconds time = az::Clock::now() - start;
+	mutex.Lock();
+	totalTimes[scope] += time;
+	mutex.Unlock();
+}
+
+ScopedTimer::ScopedTimer(AString scopeName) : Timer(scopeName) {
+	Start();
+}
 
 ScopedTimer::~ScopedTimer() {
-	if (!enabled) return;
-	az::ClockTime end = az::Clock::now();
-	mutex.Lock();
-	az::Nanoseconds &ns = totalTimes[scope];
-	ns += az::Nanoseconds(end-start);
-	mutex.Unlock();
+	End();
 }
 
 } // namespace Az2D::Profiling

@@ -22,9 +22,17 @@ void Report();
 
 void Exception(AString scopeName, az::Nanoseconds time);
 
-class ScopedTimer {
+class Timer {
+protected:
 	AString scope;
 	az::ClockTime start;
+public:
+	Timer(AString scopeName);
+	void Start();
+	void End();
+};
+
+class ScopedTimer : Timer {
 public:
 	ScopedTimer(AString scopeName);
 	~ScopedTimer();

@@ -34,6 +34,7 @@ namespace AzCore {
 namespace vk {
 
 	String error = "No Error";
+	bool hadValidationError = false;
 
 #ifndef AZCORE_VK_LOGGING_NO_CONSOLE
 	io::Log cout("vk.log", true, true);
@@ -229,6 +230,7 @@ namespace vk {
 
 		const VkDebugUtilsMessengerCallbackDataEXT& data = *pCallbackData;
 
+		hadValidationError = true;
 		cout.Lock();
 
 		PrintDashed("Validation Message Begin");
@@ -401,6 +403,18 @@ namespace vk {
 #endif
 
 #endif // AZCORE_IO_FOR_VULKAN
+
+	static void SetDebugMarker(Device *device, const String &debugMarker, VkObjectType objectType, u64 objectHandle) {
+		if (debugMarker.size != 0) {
+			VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+			nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+			nameInfo.objectType = objectType;
+			nameInfo.objectHandle = objectHandle;
+			nameInfo.pObjectName = debugMarker.data;
+			device->data.instance->data.fpSetDebugUtilsObjectNameEXT(device->data.device, &nameInfo);
+		}
+	}
+
 	bool PhysicalDevice::Init(VkInstance instance) {
 		vkGetPhysicalDeviceProperties(physicalDevice, &properties);
 		vkGetPhysicalDeviceFeatures(physicalDevice, &features);
@@ -520,14 +534,7 @@ namespace vk {
 			return false;
 		}
 
-		if (data.debugMarker[0].size != 0) {
-			VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-			nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-			nameInfo.objectType = VK_OBJECT_TYPE_IMAGE;
-			nameInfo.objectHandle = (u64)data.image;
-			nameInfo.pObjectName = data.debugMarker[0].data;
-			data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
-		}
+		SetDebugMarker(data.device, data.debugMarker[0], VK_OBJECT_TYPE_IMAGE, (u64)data.image);
 
 		data.imageExists = true;
 		return true;
@@ -561,14 +568,7 @@ namespace vk {
 			return false;
 		}
 
-		if (data.debugMarker[1].size != 0) {
-			VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-			nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-			nameInfo.objectType = VK_OBJECT_TYPE_IMAGE_VIEW;
-			nameInfo.objectHandle = (u64)data.imageView;
-			nameInfo.pObjectName = data.debugMarker[1].data;
-			data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
-		}
+		SetDebugMarker(data.device, data.debugMarker[1], VK_OBJECT_TYPE_IMAGE_VIEW, (u64)data.imageView);
 
 		data.imageViewExists = true;
 		return true;
@@ -791,14 +791,7 @@ namespace vk {
 			return false;
 		}
 
-		if (data.debugMarker.size != 0) {
-			VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-			nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-			nameInfo.objectType = VK_OBJECT_TYPE_BUFFER;
-			nameInfo.objectHandle = (u64)data.buffer;
-			nameInfo.pObjectName = data.debugMarker.data;
-			data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
-		}
+		SetDebugMarker(data.device, data.debugMarker, VK_OBJECT_TYPE_BUFFER, (u64)data.buffer);
 
 		data.exists = true;
 		return true;
@@ -1284,14 +1277,7 @@ failure:
 			return false;
 		}
 
-		if (data.debugMarker.size != 0) {
-			VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-			nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-			nameInfo.objectType = VK_OBJECT_TYPE_SAMPLER;
-			nameInfo.objectHandle = (u64)data.sampler;
-			nameInfo.pObjectName = data.debugMarker.data;
-			data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
-		}
+		SetDebugMarker(data.device, data.debugMarker, VK_OBJECT_TYPE_SAMPLER, (u64)data.sampler);
 
 		data.exists = true;
 		return true;
@@ -1324,8 +1310,8 @@ failure:
 		for (i32 i = 0; i < bindingInfo.size; i++) {
 			bindingInfo[i].binding = bindings[i].binding;
 			bindingInfo[i].descriptorCount = bindings[i].count;
-			bindingInfo[i].descriptorType = type;
-			bindingInfo[i].stageFlags = stage;
+			bindingInfo[i].descriptorType = bindings[i].type;
+			bindingInfo[i].stageFlags = bindings[i].stage;
 			bindingInfo[i].pImmutableSamplers = nullptr; // TODO: Use these
 		}
 		VkDescriptorSetLayoutCreateInfo createInfo = {};
@@ -1340,14 +1326,7 @@ failure:
 			return false;
 		}
 
-		if (data.debugMarker.size != 0) {
-			VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-			nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-			nameInfo.objectType = VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT;
-			nameInfo.objectHandle = (u64)data.layout;
-			nameInfo.pObjectName = data.debugMarker.data;
-			data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
-		}
+		SetDebugMarker(data.device, data.debugMarker, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, (u64)data.layout);
 
 		data.exists = true;
 		return true;
@@ -1362,12 +1341,14 @@ failure:
 
 	bool DescriptorSet::AddDescriptor(Range<Buffer> buffers, i32 binding) {
 		// TODO: Support other types of descriptors
-		if (data.layout->type != VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
-			error = "AddDescriptor failed because layout type is not for uniform buffers!";
-			return false;
-		}
 		for (i32 i = 0; i < data.layout->bindings.size; i++) {
 			if (data.layout->bindings[i].binding == binding) {
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
+				if (data.layout->bindings[i].type != VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+					error = "AddDescriptor failed because binding type is not for uniform buffers!";
+					return false;
+				}
+#endif
 				if (data.layout->bindings[i].count != buffers.size) {
 					error = "AddDescriptor failed because input size is wrong("
 						  + ToString(buffers.size) + ") for binding "
@@ -1385,14 +1366,14 @@ failure:
 
 	bool DescriptorSet::AddDescriptor(Range<Image> images, Ptr<Sampler> sampler, i32 binding) {
 		// TODO: Support other types of descriptors
-#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
-		if (data.layout->type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
-			error = "AddDescriptor failed because layout type is not for combined image samplers!";
-			return false;
-		}
-#endif
 		for (i32 i = 0; i < data.layout->bindings.size; i++) {
 			if (data.layout->bindings[i].binding == binding) {
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
+				if (data.layout->bindings[i].type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+					error = "AddDescriptor failed because binding type is not for combined image samplers!";
+					return false;
+				}
+#endif
 				if (data.layout->bindings[i].count != images.size) {
 					error = "AddDescriptor failed because input size is wrong("
 						  + ToString(images.size) + ") for binding "
@@ -1445,7 +1426,8 @@ failure:
 			return false;
 		}
 #endif
-		Array<VkDescriptorPoolSize> poolSizes(data.layouts.size);
+		Array<VkDescriptorPoolSize> poolSizes;
+		poolSizes.Reserve(data.layouts.size);
 		for (i32 i = 0; i < data.layouts.size; i++) {
 			data.layouts[i].Init(data.device);
 			if (!data.layouts[i].Create()) {
@@ -1453,10 +1435,11 @@ failure:
 				Clean();
 				return false;
 			}
-			poolSizes[i].type = data.layouts[i].type;
-			poolSizes[i].descriptorCount = 0;
 			for (i32 j = 0; j < data.layouts[i].bindings.size; j++) {
-				poolSizes[i].descriptorCount += data.layouts[i].bindings[j].count;
+				VkDescriptorPoolSize poolSize;
+				poolSize.type = data.layouts[i].bindings[j].type;
+				poolSize.descriptorCount = data.layouts[i].bindings[j].count;
+				poolSizes.Append(poolSize);
 			}
 		}
 
@@ -1473,14 +1456,7 @@ failure:
 			return false;
 		}
 
-		if (data.debugMarker.size != 0) {
-			VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-			nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-			nameInfo.objectType = VK_OBJECT_TYPE_DESCRIPTOR_POOL;
-			nameInfo.objectHandle = (u64)data.pool;
-			nameInfo.pObjectName = data.debugMarker.data;
-			data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
-		}
+		SetDebugMarker(data.device, data.debugMarker, VK_OBJECT_TYPE_DESCRIPTOR_POOL, (u64)data.pool);
 
 		data.exists = true;
 		cout.PrintLn("Allocating ", data.sets.size, " Descriptor Sets.");
@@ -1505,17 +1481,7 @@ failure:
 		for (i32 i = 0; i < data.sets.size; i++) {
 			data.sets[i].data.set = setsTemp[i];
 			data.sets[i].data.exists = true;
-
-			if (data.debugMarker.size != 0) {
-				data.sets[i].data.debugMarker = data.debugMarker + ".sets[" + ToString(i) + "]";
-				VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-				nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-				nameInfo.objectType = VK_OBJECT_TYPE_DESCRIPTOR_SET;
-				nameInfo.objectHandle = (u64)data.sets[i].data.set;
-				nameInfo.pObjectName = data.sets[i].data.debugMarker.data;
-				data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
-			}
-
+			SetDebugMarker(data.device, data.sets[i].data.debugMarker.data, VK_OBJECT_TYPE_DESCRIPTOR_SET, (u64)data.sets[i].data.set);
 		}
 
 		return true;
@@ -1550,8 +1516,8 @@ failure:
 			write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			write.dstSet = data.sets[i].data.set;
 			write.dstArrayElement = 0;
-			write.descriptorType = data.sets[i].data.layout->type;
 			for (i32 j = 0; j < data.sets[i].data.bindings.size; j++) {
+				write.descriptorType = data.sets[i].data.bindings[j].type;
 				write.dstBinding = data.sets[i].data.bindings[j].binding;
 				write.descriptorCount = data.sets[i].data.bindings[j].count;
 
@@ -2051,6 +2017,7 @@ failure:
 			// dep.srcSubpass = i-1;
 			// dep.dstSubpass = i;
 			// TODO: Finish inter-subpass dependencies
+			AzAssert(false, "Unimplemented for multiple subpasses");
 		}
 		if (finalTransition) {
 			VkSubpassDependency dep;
@@ -2112,14 +2079,7 @@ failure:
 			return false;
 		}
 
-		if (data.debugMarker.size != 0) {
-			VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-			nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-			nameInfo.objectType = VK_OBJECT_TYPE_RENDER_PASS;
-			nameInfo.objectHandle = (u64)data.renderPass;
-			nameInfo.pObjectName = data.debugMarker.data;
-			data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
-		}
+		SetDebugMarker(data.device, data.debugMarker, VK_OBJECT_TYPE_RENDER_PASS, (u64)data.renderPass);
 
 		data.initted = true;
 		return true;
@@ -2404,12 +2364,7 @@ failure:
 			}
 			if (data.debugMarker.size != 0) {
 				data.debugMarkers[fb] = data.debugMarker + ".framebuffers[" + ToString(fb) + "]";
-				VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-				nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-				nameInfo.objectType = VK_OBJECT_TYPE_FRAMEBUFFER;
-				nameInfo.objectHandle = (u64)data.framebuffers[fb];
-				nameInfo.pObjectName = data.debugMarkers[fb].data;
-				data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
+				SetDebugMarker(data.device, data.debugMarkers[fb], VK_OBJECT_TYPE_FRAMEBUFFER, (u64)data.framebuffers[fb]);
 			}
 		}
 		data.created = true;
@@ -2466,6 +2421,68 @@ failure:
 		return true;
 	}
 
+	bool Fence::Create(Device *dev, String debugMarker) {
+		PrintDashed("Creating Fence");
+#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
+		if (data.created) {
+			error = "Fence already exists!";
+			return false;
+		}
+#endif
+		data.device = dev;
+		data.debugMarker = debugMarker;
+		
+		VkFenceCreateInfo info = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+		if (startSignaled) {
+			info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+		}
+		VkResult result = vkCreateFence(data.device->data.device, &info, nullptr, &data.fence);
+		if (result != VK_SUCCESS) {
+			error = "Failed to create Fence: " + ErrorString(result);
+			return false;
+		}
+		SetDebugMarker(data.device, data.debugMarker, VK_OBJECT_TYPE_FENCE, (u64)data.fence);
+		data.created = true;
+		return true;
+	}
+
+	VkResult Fence::GetStatus() {
+		return vkGetFenceStatus(data.device->data.device, data.fence);
+	}
+
+	bool Fence::ResetSignaled() {
+		if (GetStatus() == VK_NOT_READY) {
+			return true;
+		}
+		VkResult result = vkResetFences(data.device->data.device, 1, &data.fence);
+		if (result != VK_SUCCESS) {
+			error = "vkResetFences failed with " + ErrorString(result);
+			return false;
+		}
+		return true;
+	}
+
+	bool Fence::WaitForSignal(u64 timeout, bool *dstWasTimeout) {
+		VkResult result = vkWaitForFences(data.device->data.device, 1, &data.fence, VK_TRUE, timeout);
+		bool wasTimeout;
+		if (result == VK_SUCCESS) {
+			wasTimeout = false;
+		} else if (result == VK_TIMEOUT) {
+			wasTimeout = true;
+		} else {
+			error = "vkWaitForFences failed with " + ErrorString(result);
+			return false;
+		}
+		if (dstWasTimeout) *dstWasTimeout = wasTimeout;
+		return true;
+	}
+
+	void Fence::Destroy() {
+		PrintDashed("Destroying Fence");
+		vkDestroyFence(data.device->data.device, data.fence, nullptr);
+		data.created = false;
+	}
+
 	bool Shader::Init(Device *device, String debugMarker) {
 #ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
 		if (data.initted) {
@@ -2502,14 +2519,7 @@ failure:
 
 		VkResult result = vkCreateShaderModule(data.device->data.device, &createInfo, nullptr, &data.module);
 
-		if (data.debugMarker.size != 0) {
-			VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-			nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-			nameInfo.objectType = VK_OBJECT_TYPE_SHADER_MODULE;
-			nameInfo.objectHandle = (u64)data.module;
-			nameInfo.pObjectName = data.debugMarker.data;
-			data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
-		}
+		SetDebugMarker(data.device, data.debugMarker, VK_OBJECT_TYPE_SHADER_MODULE, (u64)data.module);
 
 		if (result != VK_SUCCESS) {
 			error = "Failed to create shader module: " + ErrorString(result);
@@ -2752,14 +2762,7 @@ failure:
 			return false;
 		}
 
-		if (data.debugMarker.size != 0) {
-			VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-			nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-			nameInfo.objectType = VK_OBJECT_TYPE_PIPELINE;
-			nameInfo.objectHandle = (u64)data.pipeline;
-			nameInfo.pObjectName = data.debugMarker.data;
-			data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
-		}
+		SetDebugMarker(data.device.RawPtr(), data.debugMarker, VK_OBJECT_TYPE_PIPELINE, (u64)data.pipeline);
 
 		data.initted = true;
 		return true;
@@ -2979,14 +2982,7 @@ failure:
 			return false;
 		}
 
-		if (data.debugMarker.size != 0) {
-			VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-			nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-			nameInfo.objectType = VK_OBJECT_TYPE_COMMAND_POOL;
-			nameInfo.objectHandle = (u64)data.commandPool;
-			nameInfo.pObjectName = data.debugMarker.data;
-			data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
-		}
+		SetDebugMarker(data.device, data.debugMarker, VK_OBJECT_TYPE_COMMAND_POOL, (u64)data.commandPool);
 
 		// Now the command buffers
 		u32 p = 0, s = 0;
@@ -3039,13 +3035,8 @@ failure:
 			buffer.data.pool = this;
 			if (data.debugMarker.size != 0) {
 				buffer.data.debugMarker = data.debugMarker + ".commandBuffer[" + ToString(index) + "]";
-				VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-				nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-				nameInfo.objectType = VK_OBJECT_TYPE_COMMAND_BUFFER;
-				nameInfo.objectHandle = (u64)buffer.data.commandBuffer;
-				nameInfo.pObjectName = buffer.data.debugMarker.data;
-				data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
 			}
+			SetDebugMarker(data.device, buffer.data.debugMarker, VK_OBJECT_TYPE_COMMAND_BUFFER, (u64)buffer.data.commandBuffer);
 		}
 		data.initted = true;
 		return true;
@@ -3071,8 +3062,17 @@ failure:
 		}
 #endif
 		data.buffer = !data.buffer;
-		VkResult result = vkAcquireNextImageKHR(data.device->data.device, data.swapchain, timeout,
-											data.semaphores[data.buffer]->semaphore, VK_NULL_HANDLE, &data.currentImage);
+		VkFence fence;
+		if (data.fences[data.buffer].Valid()) {
+			if (!data.fences[data.buffer]->ResetSignaled()) {
+				// return the only error code that can be sent by vkResetFences
+				return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+			}
+			fence = data.fences[data.buffer]->data.fence;
+		} else {
+			fence = VK_NULL_HANDLE;
+		}
+		VkResult result = vkAcquireNextImageKHR(data.device->data.device, data.swapchain, timeout, data.semaphores[data.buffer]->semaphore, fence, &data.currentImage);
 		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_TIMEOUT || result == VK_NOT_READY) {
 			// Don't update framebuffers
 			data.buffer = !data.buffer;
@@ -3089,6 +3089,10 @@ failure:
 
 	Ptr<Semaphore> Swapchain::SemaphoreImageAvailable() {
 		return data.semaphores[data.buffer];
+	}
+
+	Ptr<Fence> Swapchain::FenceImageAvailable() {
+		return data.fences[data.buffer];
 	}
 
 	bool Swapchain::Present(Ptr<Queue> queue, Array<VkSemaphore> waitSemaphores) {
@@ -3155,11 +3159,17 @@ failure:
 		}
 #endif
 		data.device = device;
-		if (!data.semaphores[0].Valid()) {
-			data.semaphores[0] = data.device->AddSemaphore();
+		for (i32 i = 0; i < 2; i++) {
+			if (!data.semaphores[i].Valid()) {
+				data.semaphores[i] = data.device->AddSemaphore();
+			}
 		}
-		if (!data.semaphores[1].Valid()) {
-			data.semaphores[1] = data.device->AddSemaphore();
+		if (useFences) {
+			for (i32 i = 0; i < 2; i++) {
+				if (!data.fences[i].Valid()) {
+					data.fences[i] = data.device->AddFence();
+				}
+			}
 		}
 		data.surface = window->surface;
 		data.debugMarker = std::move(debugMarker);
@@ -3338,14 +3348,7 @@ failure:
 		}
 		data.swapchain = newSwapchain;
 
-		if (data.debugMarker.size != 0) {
-			VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-			nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-			nameInfo.objectType = VK_OBJECT_TYPE_SWAPCHAIN_KHR;
-			nameInfo.objectHandle = (u64)data.swapchain;
-			nameInfo.pObjectName = data.debugMarker.data;
-			data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
-		}
+		SetDebugMarker(data.device, data.debugMarker, VK_OBJECT_TYPE_SWAPCHAIN_KHR, (u64)data.swapchain);
 
 		cout.PrintLn("Acquiring images and creating image views...");
 
@@ -3370,14 +3373,7 @@ failure:
 			data.images[i].aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 			data.images[i].usage = usage;
 
-			if (data.debugMarker.size != 0) {
-				VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-				nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-				nameInfo.objectType = VK_OBJECT_TYPE_IMAGE;
-				nameInfo.objectHandle = (u64)data.images[i].data.image;
-				nameInfo.pObjectName = data.images[i].data.debugMarker[0].data;
-				data.device->data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device->data.device, &nameInfo);
-			}
+			SetDebugMarker(data.device, data.images[i].data.debugMarker[0], VK_OBJECT_TYPE_IMAGE, (u64)data.images[i].data.image);
 
 			if (!data.images[i].CreateImageView()) {
 				return false;
@@ -3539,6 +3535,11 @@ failure:
 	Ptr<Semaphore> Device::AddSemaphore() {
 		data.semaphores.Append(Semaphore());
 		return Ptr<Semaphore>(&data.semaphores, data.semaphores.size-1);
+	}
+	
+	Ptr<Fence> Device::AddFence() {
+		data.fences.Append(Fence());
+		return Ptr<Fence>(&data.fences, data.fences.size-1);
 	}
 
 	Ptr<QueueSubmission> Device::AddQueueSubmission() {
@@ -3804,14 +3805,7 @@ failure:
 			return false;
 		}
 
-		if (data.debugMarker.size != 0) {
-			VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-			nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-			nameInfo.objectType = VK_OBJECT_TYPE_DEVICE;
-			nameInfo.objectHandle = (u64)data.device;
-			nameInfo.pObjectName = data.debugMarker.data;
-			data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device, &nameInfo);
-		}
+		SetDebugMarker(this, data.debugMarker, VK_OBJECT_TYPE_DEVICE, (u64)data.device);
 
 		// Get our queues
 		i32 index = 0;
@@ -3829,18 +3823,14 @@ failure:
 					vkGetDeviceQueue(data.device, i, queueIndex, &queue.queue);
 					if (data.debugMarker.size != 0) {
 						queue.debugMarker = data.debugMarker + ".queues[" + ToString(index) + "]";
-						VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-						nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-						nameInfo.objectType = VK_OBJECT_TYPE_QUEUE;
-						nameInfo.objectHandle = (u64)queue.queue;
-						nameInfo.pObjectName = queue.debugMarker.data;
-						data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device, &nameInfo);
+						SetDebugMarker(this, queue.debugMarker, VK_OBJECT_TYPE_QUEUE, (u64)queue.queue);
 						index++;
 					}
 				}
 			}
 		}
 		// Swapchains
+		index = 0;
 		for (auto& swapchainIndex : data.swapchains) {
 			Swapchain &swapchain = swapchainIndex.value;
 			if (data.debugMarker.size == 0) {
@@ -3870,8 +3860,14 @@ failure:
 			}
 		}
 		// Framebuffer init phase, may allocate Memory objects with Images
+		index = 0;
 		for (auto& framebuffer : data.framebuffers) {
-			if (!framebuffer.value.Init(this)) {
+			String debugMarker;
+			if (data.debugMarker.size != 0) {
+				debugMarker = Stringify(data.debugMarker, ".framebuffer[", index, ']');
+				index++;
+			}
+			if (!framebuffer.value.Init(this, debugMarker)) {
 				goto failed;
 			}
 		}
@@ -3982,12 +3978,17 @@ failure:
 			}
 			if (data.debugMarker.size != 0) {
 				data.semaphores[i].debugMarker = data.debugMarker + ".semaphores[" + ToString(i) + "]";
-				VkDebugUtilsObjectNameInfoEXT nameInfo = {};
-				nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
-				nameInfo.objectType = VK_OBJECT_TYPE_SEMAPHORE;
-				nameInfo.objectHandle = (u64)data.semaphores[i].semaphore;
-				nameInfo.pObjectName = data.semaphores[i].debugMarker.data;
-				data.instance->data.fpSetDebugUtilsObjectNameEXT(data.device, &nameInfo);
+				SetDebugMarker(this, data.semaphores[i].debugMarker, VK_OBJECT_TYPE_SEMAPHORE, (u64)data.semaphores[i].semaphore);
+			}
+		}
+		// Fences
+		cout.PrintLn("Creating ", data.fences.size, " fences...");
+		for (i32 i = 0; i < data.fences.size; i++) {
+			Fence &fence = data.fences[i];
+			String debugMarker;
+			if (data.debugMarker.size != 0) debugMarker = Stringify(data.debugMarker, ".fences[", i, ']');
+			if (!fence.Create(this, debugMarker)) {
+				goto failed;
 			}
 		}
 		// Queue Submissions
@@ -4106,6 +4107,10 @@ failed:
 				vkDestroySemaphore(data.device, data.semaphores[i].semaphore, nullptr);
 				data.semaphores[i].semaphore = VK_NULL_HANDLE;
 			}
+		}
+		for (i32 i = 0; i < data.fences.size; i++) {
+			Fence &fence = data.fences[i];
+			fence.Destroy();
 		}
 		// Destroy everything allocated from the device here
 		vkDestroyDevice(data.device, nullptr);

@@ -62,6 +62,7 @@ namespace vk {
 	String ErrorString(VkResult);
 
 	extern String error;
+	extern bool hadValidationError;
 
 	struct Window;
 	struct PhysicalDevice;
@@ -77,6 +78,7 @@ namespace vk {
 	struct RenderPass;
 	struct Framebuffer;
 	struct Semaphore;
+	struct Fence;
 	struct Shader;
 	struct ShaderRef;
 	struct Pipeline;
@@ -276,6 +278,8 @@ namespace vk {
 	};
 
 	struct DescriptorBinding {
+		VkDescriptorType type;
+		VkShaderStageFlags stage;
 		i32 binding; // Which descriptor we're describing
 		i32 count; // How many indices in this descriptor array
 	};
@@ -291,8 +295,6 @@ namespace vk {
 			String debugMarker{};
 		} data;
 		// Configuration
-		VkDescriptorType type;
-		VkShaderStageFlags stage;
 		Array<DescriptorBinding> bindings{};
 
 		~DescriptorLayout();
@@ -539,6 +541,32 @@ namespace vk {
 		VkSemaphore semaphore = VK_NULL_HANDLE;
 		String debugMarker{};
 	};
+	
+	/*  struct: Fence
+		Author: Philip Haynes */
+	struct Fence {
+		struct {
+			bool created = false;
+			Device *device = nullptr;
+			VkFence fence = VK_NULL_HANDLE;
+			String debugMarker{};
+		} data;
+
+		bool startSignaled = false;
+
+		bool Create(Device *dev, String debugMarker = String());
+		// VK_SUCCESS indicates it's signaled
+		// VK_NOT_READY indicates it's not signaled
+		// VK_ERROR_DEVICE_LOST may also be returned.
+		VkResult GetStatus();
+		// Sets fence state to not signaled
+		// returns whether operation succeeded
+		bool ResetSignaled();
+		// returns whether successful
+		// dstWasTimout will be set to whether the signal timed out
+		bool WaitForSignal(u64 timeout = UINT64_MAX, bool *dstWasTimeout=nullptr);
+		void Destroy();
+	};
 
 	/*  struct: Shader
 		Author: Philip Haynes
@@ -729,8 +757,10 @@ namespace vk {
 			u32 imageCount = 2;
 			u32 currentImage = 0;
 			bool buffer = true; // Which semaphore are we going to signal?
-			// We need semaphores to synchronize image acquisition
+			// We need semaphores to synchronize image acquisition with queues
 			Ptr<Semaphore> semaphores[2] = {{}};
+			// We need fences to synchronize image acquisition with the host
+			Ptr<Fence> fences[2];
 			// Keep pointers to all the Framebuffers that use our images so we can make sure they're using the right image.
 			Array<Ptr<Framebuffer>> framebuffers{};
 
@@ -747,9 +777,11 @@ namespace vk {
 		Ptr<Window> window{};
 		// How long we will wait for an image before timing out in nanoseconds
 		u64 timeout = UINT64_MAX;
+		bool useFences = false;
 
 		VkResult AcquireNextImage();
 		Ptr<Semaphore> SemaphoreImageAvailable();
+		Ptr<Fence> FenceImageAvailable();
 		bool Present(Ptr<Queue> queue, Array<VkSemaphore> waitSemaphores);
 
 		bool Resize();
@@ -816,6 +848,7 @@ namespace vk {
 			List<CommandPool> commandPools{};
 			List<Framebuffer> framebuffers{};
 			Array<Semaphore> semaphores{};
+			Array<Fence> fences{};
 			List<QueueSubmission> queueSubmissions{};
 
 			Array<const char*> extensionsRequired{};
@@ -838,6 +871,7 @@ namespace vk {
 		Ptr<CommandPool> AddCommandPool(Ptr<Queue> queue);
 		Ptr<Framebuffer> AddFramebuffer();
 		Ptr<Semaphore> AddSemaphore();
+		Ptr<Fence> AddFence();
 		Ptr<QueueSubmission> AddQueueSubmission();
 
 		// TODO: Add Fence support to this

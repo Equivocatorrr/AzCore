@@ -30,7 +30,7 @@ struct Sprite {
 	// Update just progresses the animation if there is one
 	void Update(f32 timestep);
 	// TODO: Support spritesheet-based animation
-	void Draw(Rendering::DrawingContext &context, vec2 pos, vec2 scalePreRot = 1.0f, vec2 scalePostRot = 1.0f, az::Radians32 rotation = 0.0f, Rendering::PipelineIndex pipeline = Rendering::PIPELINE_BASIC_2D_TEXTURED);
+	void Draw(Rendering::DrawingContext &context, vec2 pos, vec2 scalePreRot = 1.0f, vec2 scalePostRot = 1.0f, az::Radians32 rotation = 0.0f, Rendering::PipelineIndex pipeline = Rendering::PIPELINE_BASIC_2D);
 	vec2 Size() const;
 };
 

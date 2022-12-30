@@ -81,12 +81,13 @@ extern String error;
 
 enum PipelineEnum {
 	PIPELINE_NONE=0,
-	PIPELINE_BASIC_2D_TEXTURED,
+	PIPELINE_BASIC_2D,
 	PIPELINE_BASIC_2D_PIXEL,
 	PIPELINE_FONT_2D,
-	PIPELINE_CIRCLE_2D_TEXTURED,
+	PIPELINE_CIRCLE_2D,
+	PIPELINE_SHADED_2D,
 };
-constexpr i32 PIPELINE_COUNT = PIPELINE_CIRCLE_2D_TEXTURED+1;
+constexpr i32 PIPELINE_COUNT = PIPELINE_SHADED_2D+1;
 
 typedef u32 PipelineIndex;
 
@@ -108,6 +109,40 @@ struct RenderCallback {
 	void *userdata;
 };
 
+constexpr i32 MAX_LIGHTS = 128;
+constexpr i32 MAX_LIGHTS_PER_BIN = 8;
+constexpr i32 LIGHT_BIN_COUNT_X = 16;
+constexpr i32 LIGHT_BIN_COUNT_Y = 9;
+constexpr i32 LIGHT_BIN_COUNT = LIGHT_BIN_COUNT_X * LIGHT_BIN_COUNT_Y;
+
+struct Light {
+	// pixel-space position
+	alignas(16) vec3 position;
+	alignas(16) vec3 color;
+	// How much light reaches the surface at a 90-degree angle of incidence in the range of 0.0 to 1.0
+	f32 attenuation;
+	// A normalized vector
+	alignas(16) vec3 direction;
+	// angular falloff in cos(radians) where < min is 100% brightness, between min and max blends, and > max is 0% brightness
+	f32 angleMin;
+	f32 angleMax;
+	// distance-based falloff in pixel-space where < min is 100% brightness, between min and max blends, and > max is 0% brightness
+	f32 distMin;
+	f32 distMax;
+};
+
+struct LightBin {
+	u32 lightIndices[MAX_LIGHTS_PER_BIN];
+};
+
+struct UniformBuffer {
+	vec2i screenSize;
+	alignas(16) vec3 ambientLight;
+	alignas(16) LightBin lightBins[LIGHT_BIN_COUNT];
+	// lights[0] is always a zero-brightness light
+	alignas(16) Light lights[MAX_LIGHTS];
+};
+
 // I fucking hate Microsoft and every decision they've ever made
 // This should never be fucking necessary
 #ifdef DrawText
@@ -123,17 +158,23 @@ struct Manager {
 		Ptr<vk::Framebuffer> framebuffer;
 		Ptr<vk::RenderPass> renderPass;
 		Ptr<vk::Queue> queueGraphics;
+		Ptr<vk::Queue> queueTransfer;
 		Ptr<vk::Queue> queuePresent;
 		i32 concurrency = 1;
 		Array<Ptr<vk::CommandPool>> commandPools;
 		bool buffer = false; // Which primary command buffer we're on. Switches every frame.
 		Ptr<vk::CommandBuffer> commandBufferPrimary[2]; // One for each buffer
+		Ptr<vk::CommandBuffer> commandBufferGraphicsTransfer;
 		Array<Ptr<vk::CommandBuffer>> commandBuffersSecondary[2];
+		Ptr<vk::CommandPool> commandPoolTransfer;
+		Ptr<vk::CommandBuffer> commandBufferTransfer;
 
-		Ptr<vk::Semaphore> semaphoreImageAvailable;
 		Ptr<vk::Semaphore> semaphoreRenderComplete;
 		Ptr<vk::QueueSubmission> queueSubmission[2]; // One for each buffer
+		// This can be used only for transfer. Generating mipmaps needs a GRAPHICS queue.
 		Ptr<vk::QueueSubmission> queueSubmissionTransfer;
+		// Use GraphicsTransfer if you're transferring images and generating mipmaps.
+		Ptr<vk::QueueSubmission> queueSubmissionGraphicsTransfer;
 
 		Ptr<vk::Sampler> textureSampler;
 
@@ -141,6 +182,8 @@ struct Manager {
 		Ptr<vk::Memory> bufferMemory; // Uniform buffers, vertex buffers, index buffers
 		Ptr<vk::Memory> textureMemory;
 
+		Ptr<vk::Buffer> uniformStagingBuffer;
+		Ptr<vk::Buffer> uniformBuffer;
 		Ptr<vk::Buffer> vertexBuffer;
 		Ptr<vk::Buffer> indexBuffer;
 
@@ -154,8 +197,9 @@ struct Manager {
 		Range<vk::Image> fontImages;
 
 		Array<Ptr<vk::Pipeline>> pipelines;
-		Array<Ptr<vk::DescriptorSet>> pipelineDescriptorSets;
+		Array<BucketArray<Ptr<vk::DescriptorSet>, 4>> pipelineDescriptorSets;
 		Ptr<vk::Descriptors> descriptors;
+		Ptr<vk::DescriptorSet> descriptorSetUniforms;
 		Ptr<vk::DescriptorSet> descriptorSet2D;
 		Ptr<vk::DescriptorSet> descriptorSetFont;
 
@@ -169,6 +213,9 @@ struct Manager {
 	vec3 backgroundHSV = vec3(215.0f/360.0f, 0.7f, 0.125f);
 	vec3 backgroundRGB; // Derivative of HSV
 	bool msaa = true;
+	// Emptied at the beginning of every frame
+	Array<Light> lights;
+	UniformBuffer uniforms;
 
 	inline void AddRenderCallback(fpRenderCallback_t callback, void* userdata) {
 		data.renderCallbacks.Append({callback, userdata});
@@ -176,8 +223,11 @@ struct Manager {
 
 	bool Init();
 	bool Deinit();
+	void UpdateLights();
 	bool UpdateFonts();
+	bool UpdateUniforms();
 	bool Draw();
+	bool Present();
 
 	void BindPipeline(DrawingContext &context, PipelineIndex pipeline) const;
 
@@ -202,12 +252,12 @@ struct Manager {
 	void DrawTextSS(DrawingContext &context, WString string,
 					i32 fontIndex, vec4 color, vec2 position, vec2 scale,
 					FontAlign alignH = LEFT, FontAlign alignV = TOP, f32 maxWidth = 0.0f, f32 edge = 0.5f, f32 bounds = 0.5f, Radians32 rotation = 0.0f);
-	void DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f, PipelineIndex pipeline=PIPELINE_BASIC_2D_TEXTURED) const;
+	void DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f, PipelineIndex pipeline=PIPELINE_BASIC_2D) const;
 	void DrawCircleSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, f32 edge, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
 	// Units are in pixel space
 	void DrawChar(DrawingContext &context, char32 character, i32 fontIndex, vec4 color, vec2 position, vec2 scale);
 	void DrawText(DrawingContext &context, WString text, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH = LEFT, FontAlign alignV = BOTTOM, f32 maxWidth = 0.0f, f32 edge = 0.0f, f32 bounds = 0.5f);
-	void DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f, PipelineIndex pipeline=PIPELINE_BASIC_2D_TEXTURED) const;
+	void DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f, PipelineIndex pipeline=PIPELINE_BASIC_2D) const;
 	void DrawCircle(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
 };
 

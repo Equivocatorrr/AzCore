@@ -9,6 +9,7 @@
 #include "assets.hpp"
 #include "gui_basics.hpp"
 #include "profiling.hpp"
+#include "entity_basics.hpp"
 
 #include "AzCore/IO/Log.hpp"
 #include "AzCore/io.hpp"
@@ -23,12 +24,12 @@ io::Log cout("rendering.log");
 String error = "No error.";
 
 void PushConstants::vert_t::Push(VkCommandBuffer commandBuffer, const Manager *rendering) const {
-	vkCmdPushConstants(commandBuffer, rendering->data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->data.layout,
+	vkCmdPushConstants(commandBuffer, rendering->data.pipelines[PIPELINE_BASIC_2D]->data.layout,
 			VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(vert_t), this);
 }
 
 void PushConstants::frag_t::Push(VkCommandBuffer commandBuffer, const Manager *rendering) const {
-	vkCmdPushConstants(commandBuffer, rendering->data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->data.layout,
+	vkCmdPushConstants(commandBuffer, rendering->data.pipelines[PIPELINE_BASIC_2D]->data.layout,
 			VK_SHADER_STAGE_FRAGMENT_BIT, offsetof(PushConstants, frag), sizeof(frag_t), this);
 }
 
@@ -38,7 +39,7 @@ void PushConstants::font_circle_t::font_t::Push(VkCommandBuffer commandBuffer, c
 }
 
 void PushConstants::font_circle_t::circle_t::Push(VkCommandBuffer commandBuffer, const Manager *rendering) const {
-	vkCmdPushConstants(commandBuffer, rendering->data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->data.layout,
+	vkCmdPushConstants(commandBuffer, rendering->data.pipelines[PIPELINE_CIRCLE_2D]->data.layout,
 			VK_SHADER_STAGE_FRAGMENT_BIT, offsetof(PushConstants, frag), sizeof(frag_t) + sizeof(circle_t), (char*)this - sizeof(frag_t));
 }
 
@@ -60,15 +61,23 @@ void PushConstants::PushCircle(VkCommandBuffer commandBuffer, const Manager *ren
 bool Manager::Init() {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Init)
 	data.device = data.instance.AddDevice();
+
 	data.queueGraphics = data.device->AddQueue();
 	data.queueGraphics->queueType = vk::QueueType::GRAPHICS;
+	data.queueTransfer = data.device->AddQueue();
+	data.queueTransfer->queueType = vk::QueueType::TRANSFER;
 	data.queuePresent = data.device->AddQueue();
 	data.queuePresent->queueType = vk::QueueType::PRESENT;
+
 	data.swapchain = data.device->AddSwapchain();
 	data.swapchain->vsync = Settings::ReadBool(Settings::sVSync);
 	data.swapchain->window = data.instance.AddWindowForSurface(&sys->window);
+	// data.swapchain->useFences = true;
+	// data.swapchain->imageCountPreferred = 3;
+
 	data.framebuffer = data.device->AddFramebuffer();
 	data.framebuffer->swapchain = data.swapchain;
+
 	data.renderPass = data.device->AddRenderPass();
 	auto attachment = data.renderPass->AddAttachment(data.swapchain);
 	if (msaa) {
@@ -104,7 +113,6 @@ bool Manager::Init() {
 		}
 	}
 
-	data.semaphoreImageAvailable = data.device->AddSemaphore();
 	data.semaphoreRenderComplete = data.device->AddSemaphore();
 
 	for (i32 i = 0; i < 2; i++) {
@@ -115,9 +123,17 @@ bool Manager::Init() {
 		data.queueSubmission[i]->waitSemaphores = {vk::SemaphoreWait(data.swapchain, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)};
 		data.queueSubmission[i]->noAutoConfig = true;
 	}
+	data.commandBufferGraphicsTransfer = data.commandPools[0]->AddCommandBuffer();
+
+	data.commandPoolTransfer = data.device->AddCommandPool(data.queueTransfer);
+	data.commandPoolTransfer->resettable = true;
+	data.commandBufferTransfer = data.commandPoolTransfer->AddCommandBuffer();
 
 	data.queueSubmissionTransfer = data.device->AddQueueSubmission();
-	data.queueSubmissionTransfer->commandBuffers = {data.commandBufferPrimary[0]};
+	data.queueSubmissionTransfer->commandBuffers = {data.commandBufferTransfer};
+
+	data.queueSubmissionGraphicsTransfer = data.device->AddQueueSubmission();
+	data.queueSubmissionGraphicsTransfer->commandBuffers = {data.commandBufferGraphicsTransfer};
 
 	data.textureSampler = data.device->AddSampler();
 	data.textureSampler->anisotropy = 4;
@@ -128,7 +144,7 @@ bool Manager::Init() {
 	data.stagingMemory->deviceLocal = false;
 	data.bufferMemory = data.device->AddMemory();
 	data.textureMemory = data.device->AddMemory();
-
+	
 	data.fontStagingMemory = data.device->AddMemory();
 	data.fontStagingMemory->deviceLocal = false;
 	data.fontBufferMemory = data.device->AddMemory();
@@ -147,15 +163,20 @@ bool Manager::Init() {
 	baseBuffer.size = 1;
 	baseBuffer.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
-	Range<vk::Buffer> bufferStagingBuffers = data.stagingMemory->AddBuffers(2, baseBuffer);
+	Range<vk::Buffer> bufferStagingBuffers = data.stagingMemory->AddBuffers(3, baseBuffer);
 	bufferStagingBuffers[0].size = vertices.size * sizeof(Vertex);
 	bufferStagingBuffers[1].size = indices.size * sizeof(u32);
+	data.uniformStagingBuffer = bufferStagingBuffers.GetPtr(2);
+	data.uniformStagingBuffer->size = sizeof(UniformBuffer);
 
+	data.uniformBuffer = data.bufferMemory->AddBuffer();
 	data.vertexBuffer = data.bufferMemory->AddBuffer();
 	data.indexBuffer = data.bufferMemory->AddBuffer();
+	data.uniformBuffer->size = data.uniformStagingBuffer->size;
+	data.uniformBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 	data.vertexBuffer->size = bufferStagingBuffers[0].size;
-	data.indexBuffer->size = bufferStagingBuffers[1].size;
 	data.vertexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	data.indexBuffer->size = bufferStagingBuffers[1].size;
 	data.indexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
 	auto texStagingBuffers = data.stagingMemory->AddBuffers(sys->assets.textures.size, baseBuffer);
@@ -179,7 +200,7 @@ bool Manager::Init() {
 	for (i32 i = 0; i < texImages.size; i++) {
 		const i32 channels = sys->assets.textures[i].channels;
 		if (channels != 4) {
-			error = "Invalid channel count (" + ToString(channels) + ") in textures[" + ToString(i) + "]";
+			error = Stringify("Invalid channel count (", channels, ") in textures[", i, "]");
 			return false;
 		}
 		texImages[i].width = sys->assets.textures[i].width;
@@ -190,21 +211,29 @@ bool Manager::Init() {
 	}
 
 	data.descriptors = data.device->AddDescriptors();
-	Ptr<vk::DescriptorLayout> descriptorLayoutTexture = data.descriptors->AddLayout();
-	descriptorLayoutTexture->type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	descriptorLayoutTexture->stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	descriptorLayoutTexture->bindings.Resize(1);
-	descriptorLayoutTexture->bindings[0].binding = 0;
-	descriptorLayoutTexture->bindings[0].count = sys->assets.textures.size;
+	Ptr<vk::DescriptorLayout> descriptorLayout2D = data.descriptors->AddLayout();
+	descriptorLayout2D->bindings.Resize(2);
+	descriptorLayout2D->bindings[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorLayout2D->bindings[0].stage = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT;
+	descriptorLayout2D->bindings[0].binding = 0;
+	descriptorLayout2D->bindings[0].count = 1;
+	descriptorLayout2D->bindings[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	descriptorLayout2D->bindings[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	descriptorLayout2D->bindings[1].binding = 1;
+	descriptorLayout2D->bindings[1].count = sys->assets.textures.size;
 	Ptr<vk::DescriptorLayout> descriptorLayoutFont = data.descriptors->AddLayout();
-	descriptorLayoutFont->type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	descriptorLayoutFont->stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 	descriptorLayoutFont->bindings.Resize(1);
+	descriptorLayoutFont->bindings[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	descriptorLayoutFont->bindings[0].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 	descriptorLayoutFont->bindings[0].binding = 0;
 	descriptorLayoutFont->bindings[0].count = sys->assets.fonts.size;
 
-	data.descriptorSet2D = data.descriptors->AddSet(descriptorLayoutTexture);
-	if (!data.descriptorSet2D->AddDescriptor(texImages, data.textureSampler, 0)) {
+	data.descriptorSet2D = data.descriptors->AddSet(descriptorLayout2D);
+	if (!data.descriptorSet2D->AddDescriptor(data.uniformBuffer, 0)) {
+		error = "Failed to add Uniform Buffer Descriptor: " + vk::error;
+		return false;
+	}
+	if (!data.descriptorSet2D->AddDescriptor(texImages, data.textureSampler, 1)) {
 		error = "Failed to add Texture Descriptor: " + vk::error;
 		return false;
 	}
@@ -214,38 +243,41 @@ bool Manager::Init() {
 		return false;
 	}
 
-	Range<vk::Shader> shaders = data.device->AddShaders(5);
-	shaders[0].filename = "data/Az2D/shaders/Basic2DTextured.vert.spv";
-	shaders[1].filename = "data/Az2D/shaders/Basic2DTextured.frag.spv";
+	Range<vk::Shader> shaders = data.device->AddShaders(7);
+	shaders[0].filename = "data/Az2D/shaders/Basic2D.vert.spv";
+	shaders[1].filename = "data/Az2D/shaders/Basic2D.frag.spv";
 	shaders[2].filename = "data/Az2D/shaders/Font2D.frag.spv";
-	shaders[3].filename = "data/Az2D/shaders/Circle2DTextured.frag.spv";
+	shaders[3].filename = "data/Az2D/shaders/Circle2D.frag.spv";
 	shaders[4].filename = "data/Az2D/shaders/Basic2DPixel.frag.spv";
+	shaders[5].filename = "data/Az2D/shaders/Shaded2D.vert.spv";
+	shaders[6].filename = "data/Az2D/shaders/Shaded2D.frag.spv";
 
-	vk::ShaderRef shaderRefs[5] = {
-		vk::ShaderRef(shaders.GetPtr(0), VK_SHADER_STAGE_VERTEX_BIT),
-		vk::ShaderRef(shaders.GetPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT),
-		vk::ShaderRef(shaders.GetPtr(2), VK_SHADER_STAGE_FRAGMENT_BIT),
-		vk::ShaderRef(shaders.GetPtr(3), VK_SHADER_STAGE_FRAGMENT_BIT),
-		vk::ShaderRef(shaders.GetPtr(4), VK_SHADER_STAGE_FRAGMENT_BIT),
-	};
+	vk::ShaderRef shaderRefVert = vk::ShaderRef(shaders.GetPtr(0), VK_SHADER_STAGE_VERTEX_BIT);
+	vk::ShaderRef shaderRefBasic2D = vk::ShaderRef(shaders.GetPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT);
+	vk::ShaderRef shaderRefFont2D = vk::ShaderRef(shaders.GetPtr(2), VK_SHADER_STAGE_FRAGMENT_BIT);
+	vk::ShaderRef shaderRefCircle2D = vk::ShaderRef(shaders.GetPtr(3), VK_SHADER_STAGE_FRAGMENT_BIT);
+	vk::ShaderRef shaderRefBasic2DPixel = vk::ShaderRef(shaders.GetPtr(4), VK_SHADER_STAGE_FRAGMENT_BIT);
+	vk::ShaderRef shaderRefShaded2DVert = vk::ShaderRef(shaders.GetPtr(5), VK_SHADER_STAGE_VERTEX_BIT);
+	vk::ShaderRef shaderRefShaded2D = vk::ShaderRef(shaders.GetPtr(6), VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	data.pipelines.Resize(PIPELINE_COUNT);
 	data.pipelineDescriptorSets.Resize(PIPELINE_COUNT);
-	data.pipelineDescriptorSets[PIPELINE_BASIC_2D_TEXTURED] = data.descriptorSet2D;
-	data.pipelineDescriptorSets[PIPELINE_BASIC_2D_PIXEL] = data.descriptorSet2D;
-	data.pipelineDescriptorSets[PIPELINE_FONT_2D] = data.descriptorSetFont;
-	data.pipelineDescriptorSets[PIPELINE_CIRCLE_2D_TEXTURED] = data.descriptorSet2D;
+	data.pipelineDescriptorSets[PIPELINE_BASIC_2D] = {data.descriptorSet2D};
+	data.pipelineDescriptorSets[PIPELINE_BASIC_2D_PIXEL] = {data.descriptorSet2D};
+	data.pipelineDescriptorSets[PIPELINE_FONT_2D] = {data.descriptorSetFont};
+	data.pipelineDescriptorSets[PIPELINE_CIRCLE_2D] = {data.descriptorSet2D};
+	data.pipelineDescriptorSets[PIPELINE_SHADED_2D] = {data.descriptorSet2D};
 	
-	data.pipelines[PIPELINE_BASIC_2D_TEXTURED] = data.device->AddPipeline();
-	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->renderPass = data.renderPass;
-	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->subpass = 0;
-	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->shaders.Append(shaderRefs[0]);
-	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->shaders.Append(shaderRefs[1]);
-	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->rasterizer.cullMode = VK_CULL_MODE_NONE;
+	data.pipelines[PIPELINE_BASIC_2D] = data.device->AddPipeline();
+	data.pipelines[PIPELINE_BASIC_2D]->renderPass = data.renderPass;
+	data.pipelines[PIPELINE_BASIC_2D]->subpass = 0;
+	data.pipelines[PIPELINE_BASIC_2D]->shaders.Append(shaderRefVert);
+	data.pipelines[PIPELINE_BASIC_2D]->shaders.Append(shaderRefBasic2D);
+	data.pipelines[PIPELINE_BASIC_2D]->rasterizer.cullMode = VK_CULL_MODE_NONE;
 
-	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->descriptorLayouts.Append(descriptorLayoutTexture);
+	data.pipelines[PIPELINE_BASIC_2D]->descriptorLayouts.Append(descriptorLayout2D);
 
-	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->dynamicStates = {
+	data.pipelines[PIPELINE_BASIC_2D]->dynamicStates = {
 		VK_DYNAMIC_STATE_VIEWPORT,
 		VK_DYNAMIC_STATE_SCISSOR
 	};
@@ -253,61 +285,66 @@ bool Manager::Init() {
 	data.pipelines[PIPELINE_BASIC_2D_PIXEL] = data.device->AddPipeline();
 	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->renderPass = data.renderPass;
 	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->subpass = 0;
-	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->shaders.Append(shaderRefs[0]);
-	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->shaders.Append(shaderRefs[4]);
+	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->shaders.Append(shaderRefVert);
+	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->shaders.Append(shaderRefBasic2DPixel);
 	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->rasterizer.cullMode = VK_CULL_MODE_NONE;
 
-	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->descriptorLayouts.Append(descriptorLayoutTexture);
+	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->descriptorLayouts.Append(descriptorLayout2D);
 
-	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->dynamicStates = {
-		VK_DYNAMIC_STATE_VIEWPORT,
-		VK_DYNAMIC_STATE_SCISSOR
-	};
+	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->dynamicStates = data.pipelines[PIPELINE_BASIC_2D]->dynamicStates;
 
 	data.pipelines[PIPELINE_FONT_2D] = data.device->AddPipeline();
 	data.pipelines[PIPELINE_FONT_2D]->renderPass = data.renderPass;
 	data.pipelines[PIPELINE_FONT_2D]->subpass = 0;
-	data.pipelines[PIPELINE_FONT_2D]->shaders.Append(shaderRefs[0]);
-	data.pipelines[PIPELINE_FONT_2D]->shaders.Append(shaderRefs[2]);
+	data.pipelines[PIPELINE_FONT_2D]->shaders.Append(shaderRefVert);
+	data.pipelines[PIPELINE_FONT_2D]->shaders.Append(shaderRefFont2D);
 
 	data.pipelines[PIPELINE_FONT_2D]->descriptorLayouts.Append(descriptorLayoutFont);
 
-	data.pipelines[PIPELINE_FONT_2D]->dynamicStates = data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->dynamicStates;
+	data.pipelines[PIPELINE_FONT_2D]->dynamicStates = data.pipelines[PIPELINE_BASIC_2D]->dynamicStates;
 
-	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED] = data.device->AddPipeline();
-	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->renderPass = data.renderPass;
-	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->subpass = 0;
-	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->shaders.Append(shaderRefs[0]);
-	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->shaders.Append(shaderRefs[3]);
+	data.pipelines[PIPELINE_CIRCLE_2D] = data.device->AddPipeline();
+	data.pipelines[PIPELINE_CIRCLE_2D]->renderPass = data.renderPass;
+	data.pipelines[PIPELINE_CIRCLE_2D]->subpass = 0;
+	data.pipelines[PIPELINE_CIRCLE_2D]->shaders.Append(shaderRefVert);
+	data.pipelines[PIPELINE_CIRCLE_2D]->shaders.Append(shaderRefCircle2D);
 
-	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->descriptorLayouts.Append(descriptorLayoutTexture);
+	data.pipelines[PIPELINE_CIRCLE_2D]->descriptorLayouts.Append(descriptorLayout2D);
 
-	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->dynamicStates = data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->dynamicStates;
+	data.pipelines[PIPELINE_CIRCLE_2D]->dynamicStates = data.pipelines[PIPELINE_BASIC_2D]->dynamicStates;
+
+	data.pipelines[PIPELINE_SHADED_2D] = data.device->AddPipeline();
+	data.pipelines[PIPELINE_SHADED_2D]->renderPass = data.renderPass;
+	data.pipelines[PIPELINE_SHADED_2D]->subpass = 0;
+	data.pipelines[PIPELINE_SHADED_2D]->shaders.Append(shaderRefShaded2DVert);
+	data.pipelines[PIPELINE_SHADED_2D]->shaders.Append(shaderRefShaded2D);
+	data.pipelines[PIPELINE_SHADED_2D]->rasterizer.cullMode = VK_CULL_MODE_NONE;
+
+	data.pipelines[PIPELINE_SHADED_2D]->descriptorLayouts.Append(descriptorLayout2D);
+
+	data.pipelines[PIPELINE_SHADED_2D]->dynamicStates = data.pipelines[PIPELINE_BASIC_2D]->dynamicStates;
 
 	VkVertexInputAttributeDescription vertexInputAttributeDescription = {};
 	vertexInputAttributeDescription.binding = 0;
 	vertexInputAttributeDescription.location = 0;
 	vertexInputAttributeDescription.offset = offsetof(Vertex, pos);
 	vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
-	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-	data.pipelines[PIPELINE_FONT_2D]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+	for (i32 i = 1; i < data.pipelines.size; i++) {
+		data.pipelines[i]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+	}
 	vertexInputAttributeDescription.location = 1;
 	vertexInputAttributeDescription.offset = offsetof(Vertex, tex);
 	vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
-	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-	data.pipelines[PIPELINE_FONT_2D]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+	for (i32 i = 1; i < data.pipelines.size; i++) {
+		data.pipelines[i]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+	}
 	VkVertexInputBindingDescription vertexInputBindingDescription = {};
 	vertexInputBindingDescription.binding = 0;
 	vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 	vertexInputBindingDescription.stride = sizeof(Vertex);
-	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->inputBindingDescriptions.Append(vertexInputBindingDescription);
-	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->inputBindingDescriptions.Append(vertexInputBindingDescription);
-	data.pipelines[PIPELINE_FONT_2D]->inputBindingDescriptions.Append(vertexInputBindingDescription);
-	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->inputBindingDescriptions.Append(vertexInputBindingDescription);
+	for (i32 i = 1; i < data.pipelines.size; i++) {
+		data.pipelines[i]->inputBindingDescriptions.Append(vertexInputBindingDescription);
+	}
 
 	VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
 	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
@@ -320,24 +357,24 @@ bool Manager::Init() {
 	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
 
-	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->colorBlendAttachments.Append(colorBlendAttachment);
-	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->colorBlendAttachments.Append(colorBlendAttachment);
-	data.pipelines[PIPELINE_FONT_2D]->colorBlendAttachments.Append(colorBlendAttachment);
-	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->colorBlendAttachments.Append(colorBlendAttachment);
+	for (i32 i = 1; i < data.pipelines.size; i++) {
+		data.pipelines[i]->colorBlendAttachments.Append(colorBlendAttachment);
+	}
 
-	data.pipelines[PIPELINE_BASIC_2D_TEXTURED]->pushConstantRanges = {
+	data.pipelines[PIPELINE_BASIC_2D]->pushConstantRanges = {
 		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
 		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 20}
 	};
-	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->pushConstantRanges = {
-		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
-		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 20}
-	};
+	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->pushConstantRanges = data.pipelines[PIPELINE_BASIC_2D]->pushConstantRanges;
 	data.pipelines[PIPELINE_FONT_2D]->pushConstantRanges = {
 		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
 		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 28}
 	};
-	data.pipelines[PIPELINE_CIRCLE_2D_TEXTURED]->pushConstantRanges = {
+	data.pipelines[PIPELINE_CIRCLE_2D]->pushConstantRanges = {
+		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
+		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 24}
+	};
+	data.pipelines[PIPELINE_SHADED_2D]->pushConstantRanges = {
 		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
 		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 24}
 	};
@@ -346,15 +383,23 @@ bool Manager::Init() {
 		error = "Failed to init vk::instance: " + vk::error;
 		return false;
 	}
+	
+	uniforms.lights[0].position = vec3(0.0f);
+	uniforms.lights[0].color = vec3(0.0f);
+	uniforms.lights[0].attenuation = 0.0f;
+	uniforms.lights[0].direction = vec3(0.0f, 0.0f, 1.0f);
+	uniforms.lights[0].angleMin = 0.0f;
+	uniforms.lights[0].angleMax = 0.0f;
+	uniforms.lights[0].distMin = 0.0f;
+	uniforms.lights[0].distMax = 0.0f;
 
-	// Everybody do the transfer!
 	bufferStagingBuffers[0].CopyData(vertices.data);
 	bufferStagingBuffers[1].CopyData(indices.data);
 	for (i32 i = 0; i < texStagingBuffers.size; i++) {
 		texStagingBuffers[i].CopyData(sys->assets.textures[i].pixels);
 	}
 
-	VkCommandBuffer cmdBufCopy = data.commandBufferPrimary[0]->Begin();
+	VkCommandBuffer cmdBufCopy = data.commandBufferGraphicsTransfer->Begin();
 	data.vertexBuffer->Copy(cmdBufCopy, bufferStagingBuffers.GetPtr(0));
 	data.indexBuffer->Copy(cmdBufCopy, bufferStagingBuffers.GetPtr(1));
 
@@ -363,11 +408,11 @@ bool Manager::Init() {
 		texImages[i].Copy(cmdBufCopy, texStagingBuffers.GetPtr(i));
 		texImages[i].GenerateMipMaps(cmdBufCopy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	}
-	if (!data.commandBufferPrimary[0]->End()) {
+	if (!data.commandBufferGraphicsTransfer->End()) {
 		error = "Failed to copy from staging buffers: " + vk::error;
 		return false;
 	}
-	if (!data.device->SubmitCommandBuffers(data.queueGraphics, {data.queueSubmissionTransfer})) {
+	if (!data.device->SubmitCommandBuffers(data.queueGraphics, {data.queueSubmissionGraphicsTransfer})) {
 		error = "Failed to submit transfer command buffers: " + vk::error;
 		return false;
 	}
@@ -388,6 +433,86 @@ bool Manager::Deinit() {
 		return false;
 	}
 	return true;
+}
+
+using Entities::AABB;
+AABB GetAABB(const Light &light) {
+	AABB result;
+	vec2 center = {light.position.x, light.position.y};
+	
+	result.minPos = center;
+	result.maxPos = center;
+	
+	Angle32 dir = atan2(light.direction.y, light.direction.x);
+	Angle32 dirMin = dir - light.angleMax;
+	Angle32 dirMax = dir + light.angleMax;
+	f32 dist = light.distMax * sqrt(1.0f - square(light.direction.z));
+	result.Extend(center + vec2(cos(dirMin), sin(dirMin)) * dist);
+	result.Extend(center + vec2(cos(dirMax), sin(dirMax)) * dist);
+	Angle32 cardinalDirs[4] = {0.0f, halfpi, pi, halfpi * 3.0f};
+	vec2 cardinalVecs[4] = {
+		{dist, 0.0f},
+		{0.0f, dist},
+		{-dist, 0.0f},
+		{0.0f, -dist},
+	};
+	for (i32 i = 0; i < 4; i++) {
+		if (abs(cardinalDirs[i] - dir) < light.angleMax) {
+			result.Extend(center + cardinalVecs[i]);
+		}
+	}
+	return result;
+}
+
+vec2i MinLightBin(vec2 point, vec2 screenSize) {
+	vec2i result;
+	result.x = (point.x) / screenSize.x * LIGHT_BIN_COUNT_X;
+	result.y = (point.y) / screenSize.y * LIGHT_BIN_COUNT_Y;
+	result.x = clamp(result.x, 0, LIGHT_BIN_COUNT_X-1);
+	result.y = clamp(result.y, 0, LIGHT_BIN_COUNT_Y-1);
+	return result;
+}
+
+vec2i MaxLightBin(vec2 point, vec2 screenSize) {
+	vec2i result;
+	result.x = ceil((point.x) / screenSize.x * LIGHT_BIN_COUNT_X);
+	result.y = ceil((point.y) / screenSize.y * LIGHT_BIN_COUNT_Y);
+	result.x = clamp(result.x, 0, LIGHT_BIN_COUNT_X-1);
+	result.y = clamp(result.y, 0, LIGHT_BIN_COUNT_Y-1);
+	return result;
+}
+
+i32 LightBinIndex(vec2i bin) {
+	return bin.y * LIGHT_BIN_COUNT_X + bin.x;
+}
+
+void Manager::UpdateLights() {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::UpdateLights)
+	i32 lightCounts[LIGHT_BIN_COUNT] = {0};
+	i32 totalLights = 1;
+	// By default, they all point to the default light which has no light at all
+	memset(uniforms.lightBins, 0, sizeof(uniforms.lightBins));
+	for (const Light &light : lights) {
+		if (totalLights >= MAX_LIGHTS) break;
+		AABB lightAABB = GetAABB(light);
+		vec2i binMin = MinLightBin(lightAABB.minPos, screenSize);
+		vec2i binMax = MaxLightBin(lightAABB.maxPos, screenSize);
+		i32 lightIndex = totalLights;
+		uniforms.lights[lightIndex] = light;
+		bool atLeastOne = false;
+		for (i32 y = binMin.y; y <= binMax.y; y++) {
+			for (i32 x = binMin.x; x <= binMax.x; x++) {
+				i32 i = LightBinIndex({x, y});
+				if (lightCounts[i] >= MAX_LIGHTS_PER_BIN) continue;
+				atLeastOne = true;
+				uniforms.lightBins[i].lightIndices[lightCounts[i]] = lightIndex;
+				lightCounts[i]++;
+			}
+		}
+		if (atLeastOne) {
+			totalLights++;
+		}
+	}
 }
 
 bool Manager::UpdateFonts() {
@@ -471,7 +596,7 @@ bool Manager::UpdateFonts() {
 		data.fontStagingImageBuffers[i].CopyData(sys->assets.fonts[i].fontBuilder.pixels.data);
 	}
 
-	VkCommandBuffer cmdBufCopy = data.commandBufferPrimary[0]->Begin();
+	VkCommandBuffer cmdBufCopy = data.commandBufferGraphicsTransfer->Begin();
 
 	data.fontVertexBuffer->Copy(cmdBufCopy, data.fontStagingVertexBuffer);
 
@@ -481,12 +606,12 @@ bool Manager::UpdateFonts() {
 		data.fontImages[i].GenerateMipMaps(cmdBufCopy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	}
 
-	if (!data.commandBufferPrimary[0]->End()) {
-		error = "Failed to copy from staging buffers: " + vk::error;
+	if (!data.commandBufferGraphicsTransfer->End()) {
+		error = "Failed to copy from font staging buffers: " + vk::error;
 		return false;
 	}
-	if (!data.device->SubmitCommandBuffers(data.queueGraphics, {data.queueSubmissionTransfer})) {
-		error = "Failed to submit transfer command buffers: " + vk::error;
+	if (!data.device->SubmitCommandBuffers(data.queueGraphics, {data.queueSubmissionGraphicsTransfer})) {
+		error = "Failed to submit transfer command buffer for fonts: " + vk::error;
 		return false;
 	}
 	vk::QueueWaitIdle(data.queueGraphics);
@@ -494,8 +619,32 @@ bool Manager::UpdateFonts() {
 	return true;
 }
 
+bool Manager::UpdateUniforms() {
+	UpdateLights();
+	
+	data.uniformStagingBuffer->CopyData(&uniforms);
+	VkCommandBuffer cmdBuf = data.commandBufferTransfer->Begin();
+	data.uniformBuffer->Copy(cmdBuf, data.uniformStagingBuffer);
+	if (!data.commandBufferTransfer->End()) {
+		error = "Failed to copy from uniform staging buffer: " + vk::error;
+		return false;
+	}
+	if (!data.device->SubmitCommandBuffers(data.queueTransfer, {data.queueSubmissionTransfer})) {
+		error = "Failed to submit transer command buffer for uniforms: " + vk::error;
+		return false;
+	}
+	// TODO: Synchronize this with the graphics queue using a semaphore
+	vk::QueueWaitIdle(data.queueTransfer);
+
+	return true;
+}
+
 bool Manager::Draw() {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Draw)
+	if (vk::hadValidationError) {
+		error = "Quitting due to vulkan validation error.";
+		return false;
+	}
 	if (sys->window.resized || data.resized) {
 		AZ2D_PROFILING_EXCEPTION_START();
 		vk::DeviceWaitIdle(data.device);
@@ -534,8 +683,12 @@ bool Manager::Draw() {
 		}
 	}
 
+	static Az2D::Profiling::AString sAcquisition("Swapchain::AcquireNextImage");
+	Az2D::Profiling::Timer timerAcquisition(sAcquisition);
+	timerAcquisition.Start();
 	AZ2D_PROFILING_EXCEPTION_START();
 	VkResult acquisitionResult = data.swapchain->AcquireNextImage();
+	timerAcquisition.End();
 	AZ2D_PROFILING_EXCEPTION_END();
 
 	if (acquisitionResult == VK_ERROR_OUT_OF_DATE_KHR || acquisitionResult == VK_NOT_READY) {
@@ -580,6 +733,8 @@ bool Manager::Draw() {
 			sys->window.height
 		);
 	}
+	// Clear lights so we get new ones this frame
+	lights.size = 0;
 
 	for (auto& renderCallback : data.renderCallbacks) {
 		renderCallback.callback(renderCallback.userdata, this, commandBuffersSecondary);
@@ -592,7 +747,14 @@ bool Manager::Draw() {
 			f32 msMin = sys->frametimes.Min();
 			f32 msDiff = msMax - msMin;
 			f32 fps = 1000.0f / msAvg;
-			WString string = ToWString(Stringify("fps: ", FormatFloat(fps, 10, 1), "\navg: ", FormatFloat(msAvg, 10, 1), "ms\nmax: ", FormatFloat(msMax, 10, 1), "ms\nmin: ", FormatFloat(msMin, 10, 1), "ms\ndiff: ", FormatFloat(msDiff, 10, 1), "ms"));
+			WString string = ToWString(Stringify(
+				"fps: ", FormatFloat(fps, 10, 1),
+				"\navg: ", FormatFloat(msAvg, 10, 1), "ms\n"
+				"max: ", FormatFloat(msMax, 10, 1), "ms\n"
+				"min: ", FormatFloat(msMin, 10, 1), "ms\n"
+				"diff: ", FormatFloat(msDiff, 10, 1), "ms\n",
+				"timestep: ", FormatFloat(sys->timestep * 1000.0f, 10, 1), "ms"
+			));
 			DrawText(commandBuffersSecondary.Back(), string, 0, vec4(1.0f), vec2(8.0f), vec2(16.0f * Gui::guiBasic->scale), LEFT, TOP);
 		}
 	}
@@ -601,6 +763,17 @@ bool Manager::Draw() {
 	for (auto& commandBuffer : data.commandBuffersSecondary[data.buffer]) {
 		commandBuffer->End();
 	}
+
+	static Az2D::Profiling::AString sWaitIdle("vk::DeviceWaitIdle()");
+	Az2D::Profiling::Timer timerWaitIdle(sWaitIdle);
+	timerWaitIdle.Start();
+	AZ2D_PROFILING_EXCEPTION_START();
+	vk::DeviceWaitIdle(data.device);
+	AZ2D_PROFILING_EXCEPTION_END();
+	timerWaitIdle.End();
+	
+	uniforms.screenSize = screenSize;
+	if (!UpdateUniforms()) return false;
 
 	VkCommandBuffer cmdBuf = data.commandBufferPrimary[data.buffer]->Begin();
 	if (cmdBuf == VK_NULL_HANDLE) {
@@ -621,23 +794,20 @@ bool Manager::Draw() {
 		return false;
 	}
 
-	AZ2D_PROFILING_EXCEPTION_START();
-	vk::DeviceWaitIdle(data.device);
-	AZ2D_PROFILING_EXCEPTION_END();
-
 	// Submit to queue
 	if (!data.device->SubmitCommandBuffers(data.queueGraphics, {data.queueSubmission[data.buffer]})) {
 		error = "Failed to SubmitCommandBuffers: " + vk::error;
 		return false;
 	}
+	return true;
+}
 
-	AZ2D_PROFILING_EXCEPTION_START();
+bool Manager::Present() {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Present)
 	if (!data.swapchain->Present(data.queuePresent, {data.semaphoreRenderComplete->semaphore})) {
 		error = "Failed to present: " + vk::error;
 		return false;
 	}
-	AZ2D_PROFILING_EXCEPTION_END();
-
 	return true;
 }
 
@@ -646,8 +816,13 @@ void Manager::BindPipeline(DrawingContext &context, PipelineIndex pipeline) cons
 	context.currentPipeline = pipeline;
 	data.pipelines[pipeline]->Bind(context.commandBuffer);
 	vk::CmdBindVertexBuffer(context.commandBuffer, 0, pipeline == PIPELINE_FONT_2D ? data.fontVertexBuffer : data.vertexBuffer);
-	vkCmdBindDescriptorSets(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipelines[pipeline]->data.layout,
-			0, 1, &data.pipelineDescriptorSets[pipeline]->data.set, 0, nullptr);
+	BucketArray<VkDescriptorSet, 4> sets;
+	for (const Ptr<vk::DescriptorSet> &set : data.pipelineDescriptorSets[pipeline]) {
+		sets.Append(set->data.set);
+	}
+	if (sets.size != 0) {
+		vkCmdBindDescriptorSets(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipelines[pipeline]->data.layout, 0, sets.size, sets.data, 0, nullptr);
+	}
 }
 
 void Manager::PushScissor(DrawingContext &context, vec2i min, vec2i max) {
@@ -955,7 +1130,7 @@ void Manager::DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2
 
 void Manager::DrawCircleSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, f32 edge, vec2 origin, Radians32 rotation) const {
 	Rendering::PushConstants pc = Rendering::PushConstants();
-	BindPipeline(context, PIPELINE_CIRCLE_2D_TEXTURED);
+	BindPipeline(context, PIPELINE_CIRCLE_2D);
 	pc.frag.color = color;
 	pc.frag.texIndex = texIndex;
 	pc.vert.position = position;

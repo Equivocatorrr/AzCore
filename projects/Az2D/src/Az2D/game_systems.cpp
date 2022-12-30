@@ -41,9 +41,10 @@ void UpdateProc() {
 }
 
 void DrawProc() {
-	if (!sys->rendering.Draw()) {
-		io::cerr.Lock().PrintLn("Error in Rendering::Manager::Draw: ", Rendering::error).Unlock();
-		sys->exit = true;
+	if (!sys->rendering.Draw() || !sys->rendering.Present()) {
+		io::cerr.Lock().PrintLn("Error in Rendering::Manager::Draw or Present: ", Rendering::error).Unlock();
+		sys->abort = true;
+		return;
 	};
 }
 
@@ -56,7 +57,7 @@ void UpdateLoop() {
 	bool exit = false;
 	i32 frame = 0;
 
-	while (exitDelay > 0.0f) {
+	while (exitDelay > 0.0f && !sys->abort) {
 		if ((!sys->window.Update() || sys->exit) && !exit) {
 			exit = true;
 			sys->sound.FadeoutAll(0.2f);
@@ -68,6 +69,7 @@ void UpdateLoop() {
 		if (frame == 0) {
 			sys->frametimes.Update();
 			if (vsync) {
+				// TODO: switch to polling current monitor refresh rate
 				sys->SetFramerate(clamp(1000.0f / sys->frametimes.AverageWithoutOutliers(), 30.0f, 300.0f), true);
 			}
 		}
@@ -94,6 +96,7 @@ void UpdateLoop() {
 		for (i32 i = 0; i < 2; i++) {
 			if (threads[i].Joinable()) threads[i].Join();
 		}
+		if (sys->abort) break;
 		if (!soundProblem) {
 			if (!sys->sound.Update(sys->timestep)) {
 				io::cerr.PrintLn(Sound::error);

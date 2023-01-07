@@ -6,12 +6,7 @@ These are the guidelines which contributors are meant to follow within reason. T
 ## File Structure
 C++ headers are all named with the `.hpp` extension to avoid any ambiguity with C headers. Any `.hpp` or `.cpp` that would look and behave the same way in both C and C++ may use the C extensions `.h` and `.c`.
 
-One thing to consider when creating new files is that this project prefers to keep the number of object files low. This means that new `.cpp` files should be included into one of the main `.cpp` files from which object files are already being generated.
-If a new feature is large-enough to merit a separate object file, one may be added, but must be reflected in the makefiles.
-Also, any new `.hpp` or `.cpp` file that doesn't directly generate an object file must be added to the `AzCore/base/makefile _DEPS_*SOMETHING*` dependencies, as well as the `AzCore/projects/base_project_makefile _AZCORE_DEPS_*SOMETHING*` dependencies.
-Any new `.cpp` that generates an object file must be reflected in the `AzCore/base/makefile _OBJ` variable, and `AzCore/projects/*project_name*/makefile _AZCORE_OBJ` variable if that project uses that functionality.
-
-This is kind of a hassle, so I may be looking into better build systems or just better handling of makefiles, but for now this is how it has to be done.
+This project uses CMake for building, so any additional source and header files can be added to the appropriate `CMakeLists.txt`
 
 ## Projects
 The best place to test new features is by implementing them in some of the projects. As such, features that have no associated project code will be less likely to be accepted into the codebase. In the very least, a unit test must be provided, but a more practical application of that feature is preferable. Sure, you're more likely to write buggy code by implementing it for a specific project rather than unit_tests, but you're also more likely to write code that's easier to use.
@@ -20,7 +15,7 @@ These projects tend to call
 ```C++
 using namespace AzCore;
 ```
-But keep in mind that the end-user might not want to do this.
+But keep in mind that the end-user might not want to do this, and this should never be done in a header.
 
 ## C Preprocessor Defines
 `ALL_CAPS_WITH_WORDS_SEPARATED_BY_UNDERSCORES`

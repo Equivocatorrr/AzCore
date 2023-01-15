@@ -72,6 +72,14 @@ namespace AzCore {
 #define AZ_MSVC_ONLY(a)
 #endif
 
+// NOTE: Because of how mingw64 works, basictypes.hpp must be included before any system headers
+#ifdef WIN32
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#define WINVER 0x0A00
+#define _WIN32_WINNT 0x0A00
+#endif // WIN32
+
 namespace AzCore {}
 namespace az = AzCore;
 

@@ -3,6 +3,7 @@
 	Author: Philip Haynes
 */
 
+#include "basictypes.hpp"
 // #define pow(v, e) pow((double)v, (double)e)
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>

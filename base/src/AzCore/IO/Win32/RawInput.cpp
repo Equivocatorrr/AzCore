@@ -3,17 +3,12 @@
 	Author: Philip Haynes
 */
 
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
+#include "../../basictypes.hpp"
+
 #include <windows.h>
 #include <dinput.h>
 #include "../RawInput.hpp"
 #include "../../io.hpp"
-#include "../../basictypes.hpp"
 #include "../../keycodes.hpp"
 #include "../../Memory/String.hpp"
 

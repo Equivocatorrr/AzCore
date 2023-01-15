@@ -6,6 +6,7 @@
 #ifndef AZCORE_TIME_HPP
 #define AZCORE_TIME_HPP
 
+#include "basictypes.hpp"
 #include <chrono>
 #include "Memory/String.hpp"
 #include "Memory/BucketArray.hpp"

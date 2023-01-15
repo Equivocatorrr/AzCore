@@ -4,12 +4,8 @@
 	For anyone who needs to know about WindowData
 */
 
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
+#include "../../basictypes.hpp"
+
 #include <windows.h>
 
 namespace AzCore {

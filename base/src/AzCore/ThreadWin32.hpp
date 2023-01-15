@@ -161,6 +161,7 @@ public:
 		static bool failedOnce = false;
 		static ::HANDLE timer;
 		static bool madeTimer = false;
+		DWORD result;
 		
 		if (failedOnce) goto failure;
 		
@@ -176,7 +177,7 @@ public:
 			goto failure;
 		}
 		AZ_MSVC_ONLY(timeBeginPeriod(1));
-		DWORD result = WaitForSingleObject(timer, INFINITE);
+		result = WaitForSingleObject(timer, INFINITE);
 		AZ_MSVC_ONLY(timeEndPeriod(1));
 		if (result == WAIT_FAILED) goto failure;
 		return;

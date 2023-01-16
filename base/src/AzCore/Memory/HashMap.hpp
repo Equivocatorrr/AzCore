@@ -39,8 +39,10 @@ struct HashMap {
 		{
 			other.next = nullptr;
 		}
-		Node(Key_t newKey, Value_t newValue) :
+		Node(Key_t newKey, const Value_t &newValue) :
 			key(newKey), value(newValue) {}
+		Node(Key_t newKey, Value_t &&newValue) :
+			key(newKey), value(std::move(newValue)) {}
 		Node(Key_t newKey) : key(newKey), value() {}
 		~Node() {
 			if (next) delete next;
@@ -113,12 +115,22 @@ struct HashMap {
 			}
 		}
 
-		Value_t& ValueOf(const Key_t& testKey, Value_t valueDefault=Value_t()) {
+		Value_t& ValueOf(const Key_t& testKey, const Value_t &valueDefault=Value_t()) {
 			if (key == testKey) return value;
 			if (next) {
 				return next->ValueOf(testKey, valueDefault);
 			} else {
 				next = new Node(testKey, valueDefault);
+				return next->value;
+			}
+		}
+
+		Value_t& ValueOf(const Key_t& testKey, Value_t &&valueDefault) {
+			if (key == testKey) return value;
+			if (next) {
+				return next->ValueOf(testKey, std::move(valueDefault));
+			} else {
+				next = new Node(testKey, std::move(valueDefault));
 				return next->value;
 			}
 		}
@@ -213,12 +225,22 @@ struct HashMap {
 		return nodes[index]->Find(key);
 	}
 
-	Value_t& ValueOf(Key_t key, Value_t valueDefault=Value_t()) {
+	Value_t& ValueOf(Key_t key, const Value_t &valueDefault) {
 		i32 index = IndexHash<arraySize>(key);
 		if (nodes[index]) {
 			return nodes[index]->ValueOf(key, valueDefault);
 		} else {
 			nodes[index] = new Node(key, valueDefault);
+			return nodes[index]->value;
+		}
+	}
+
+	Value_t& ValueOf(Key_t key, Value_t &&valueDefault=Value_t()) {
+		i32 index = IndexHash<arraySize>(key);
+		if (nodes[index]) {
+			return nodes[index]->ValueOf(key, std::move(valueDefault));
+		} else {
+			nodes[index] = new Node(key, std::move(valueDefault));
 			return nodes[index]->value;
 		}
 	}

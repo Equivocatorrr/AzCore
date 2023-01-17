@@ -882,7 +882,7 @@ i32 GetWindowDpiX11(Window *window) {
 
 	// This could be sped up, but the vast majority of our time is spent above.
 	i32 dpi = 0;
-	Array<Range<char>> ranges = SeparateByValues(resources, {'\n', ' ', ':', '\t'});
+	Array<SimpleRange<char>> ranges = SeparateByValues(resources, {'\n', ' ', ':', '\t'});
 	for (i32 i = 0; i < ranges.size-1; i++) {
 		if (ranges[i] == "Xft.dpi") {
 			if (!StringToI32(ranges[i+1], &dpi)) {

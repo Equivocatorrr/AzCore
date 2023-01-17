@@ -83,7 +83,7 @@ i32 createAnonymousFile(i32 size) {
 	i32 tries = 0;
 	i32 fd;
 	do {
-		shmName = Stringify(path, "/wayland-shm-", random(100000, 999999, rng));
+		shmName = Stringify(path, "/wayland-shm-", random(100000, 999999, &rng));
 		fd = memfd_create(shmName.data, MFD_CLOEXEC);
 		if (fd >= 0) {
 			unlink(shmName.data);

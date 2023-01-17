@@ -374,9 +374,10 @@ namespace vk {
 			error = "CreateVkSurface was called before the window was created!";
 			return false;
 		}
+		// TODO: Wayland
 		VkXcbSurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
-		createInfo.connection = surfaceWindow->data->connection;
-		createInfo.window = surfaceWindow->data->window;
+		createInfo.connection = surfaceWindow->data->x11.connection;
+		createInfo.window = surfaceWindow->data->x11.window;
 		VkResult result = vkCreateXcbSurfaceKHR(instance->data.instance, &createInfo, nullptr, &surface);
 		if (result != VK_SUCCESS) {
 			error = "Failed to create XCB surface!";

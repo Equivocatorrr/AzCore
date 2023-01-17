@@ -70,7 +70,7 @@ struct WindowData {
 			wl_display *display;
 			// These come from global registry
 			wl_compositor *compositor;
-			xdg_wm_base *xdg_base;
+			xdg_wm_base *wmBase;
 			wl_seat *seat;
 			wl_shm *shm;
 			// These we created, in order

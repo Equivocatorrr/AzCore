@@ -7,3 +7,6 @@
 [submodule "external/openal-soft"]
 	path = external/openal-soft
 	url = https://github.com/kcat/openal-soft.git
+[submodule "external/wayland-protocols"]
+	path = external/wayland-protocols
+	url = https://gitlab.freedesktop.org/wayland/wayland-protocols.git

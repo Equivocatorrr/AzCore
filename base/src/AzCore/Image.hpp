@@ -46,11 +46,13 @@ struct Image {
 		if (this == &other) return *this;
 		Dealloc();
 		_Copy(other);
+		return *this;
 	}
 	inline Image& operator=(Image &&other) {
 		if (this == &other) return *this;
 		Dealloc();
 		_Acquire(std::move(other));
+		return *this;
 	}
 	// width, height, channels, stride(defaults to width*channels)
 	void Alloc(i32 w, i32 h, i32 c, i32 s=0);

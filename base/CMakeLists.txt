@@ -103,6 +103,18 @@ add_library(AzCore STATIC
 	src/AzCore/vk.hpp
 )
 
+if (CMAKE_SYSTEM MATCHES Linux)
+	target_sources(AzCore PRIVATE
+		src/AzCore/IO/Linux/Wayland.cpp
+		src/AzCore/IO/Linux/Wayland/xdg-shell.c
+		src/AzCore/IO/Linux/Wayland/xdg-shell.h
+	)
+	set_source_files_properties(
+		src/AzCore/IO/Linux/Wayland.cpp
+		PROPERTIES HEADER_FILE_ONLY TRUE
+	)
+endif()
+
 target_include_directories(AzCore PRIVATE "${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include")
 target_include_directories(AzCore PRIVATE "${PROJECT_SOURCE_DIR}/external/stb")
 

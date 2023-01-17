@@ -19,21 +19,51 @@ namespace AzCore {
 
 namespace io {
 
-static void shell_surface_ping(void *data, wl_shell_surface *shell_surface, u32 serial) {
-	wl_shell_surface_pong(shell_surface, serial);
-	cout.PrintLn("Ponged yer Ping, bitch");
+static void xdg_wm_base_ping(void *data, xdg_wm_base *xdg_base, u32 serial) {
+	xdg_wm_base_pong(xdg_base, serial);
 }
 
-static void shell_surface_configure(void *data, wl_shell_surface *shell_surface, u32 edges, i32 width, i32 height) {
+static const xdg_wm_base_listener xdg_base_listener = {
+	xdg_wm_base_ping
+};
+
+static void xdg_surface_configure(void *data, xdg_surface *xdgSurface, u32 serial) {
+	xdg_surface_ack_configure(xdgSurface, serial);
+}
+
+static const xdg_surface_listener xdgSurface_listener = {
+	xdg_surface_configure
+};
+
+static void xdg_toplevel_configure(void *data, xdg_toplevel *xdgToplevel, i32 width, i32 height, wl_array *states) {
 	Window *window = (Window*)data;
-	window->width = width;
-	window->height = height;
-	window->resized = true;
+	cout.PrintLn("configure with width ", width, " and height ", height);
+	if (width != 0 && height != 0) {
+		window->width = width;
+		window->height = height;
+		window->resized = true;
+	}
 }
 
-static const wl_shell_surface_listener shell_surface_listener = {
-	shell_surface_ping,
-	shell_surface_configure
+static void xdg_toplevel_close(void *data, xdg_toplevel *xdgToplevel) {
+	Window *window = (Window*)data;
+	window->quit = true;
+}
+
+static void xdg_toplevel_configure_bounds(void *data, xdg_toplevel *xdgToplevel, i32 width, i32 height) {
+	// Window *window = (Window*)data;
+	cout.PrintLn("Max window bounds: ", width, ", ", height);
+}
+
+static void xdg_toplevel_wm_capabilities(void *data, xdg_toplevel *xdgToplevel, wl_array *capabilities) {
+	// Do something
+}
+
+static const xdg_toplevel_listener xdgToplevel_listener = {
+	.configure = xdg_toplevel_configure,
+	.close = xdg_toplevel_close,
+	.configure_bounds = xdg_toplevel_configure_bounds,
+	.wm_capabilities = xdg_toplevel_wm_capabilities
 };
 
 static void seat_handle_capabilities(void *data, wl_seat *seat, u32 caps) {
@@ -55,14 +85,14 @@ static const wl_seat_listener seat_listener = {
 static void global_registry_add(void *data, wl_registry *registry, u32 id, const char *interface, u32 version) {
 	Window *window = (Window*)data;
 	cout.PrintLn("Got a registry add event for ", interface, " id ", id);
-	if (equals(interface, "wl_compositor")) {
+	if (equals(interface, wl_compositor_interface.name)) {
 		window->data->wayland.compositor = (wl_compositor*)wl_registry_bind(registry, id, &wl_compositor_interface, 1);
-	} else if (equals(interface, "wl_shell")) {
-		window->data->wayland.shell = (wl_shell*)wl_registry_bind(registry, id, &wl_shell_interface, 1);
-	} else if (equals(interface, "wl_seat")) {
+	} else if (equals(interface, xdg_wm_base_interface.name)) {
+		window->data->wayland.xdg_base = (xdg_wm_base*)wl_registry_bind(registry, id, &xdg_wm_base_interface, 1);
+	} else if (equals(interface, wl_seat_interface.name)) {
 		window->data->wayland.seat = (wl_seat*)wl_registry_bind(registry, id, &wl_seat_interface, 1);
 		wl_seat_add_listener(window->data->wayland.seat, &seat_listener, nullptr);
-	} else if (equals(interface, "wl_shm")) {
+	} else if (equals(interface, wl_shm_interface.name)) {
 		window->data->wayland.shm = (wl_shm*)wl_registry_bind(registry, id, &wl_shm_interface, 1);
 	}
 }
@@ -134,21 +164,30 @@ bool windowOpenWayland(Window *window) {
 		error = "Can't create surface";
 		return false;
 	}
+	
 
-	if (data->wayland.shell == nullptr) {
-		error = "We don't have a Wayland shell";
+	if (data->wayland.xdg_base == nullptr) {
+		error = "We don't have an xdg_wm_base";
 		return false;
 	}
+	
+	xdg_wm_base_add_listener(data->wayland.xdg_base, &xdg_base_listener, nullptr);
 
-	if (nullptr == (data->wayland.shell_surface = wl_shell_get_shell_surface(data->wayland.shell, data->wayland.surface))) {
-		error = "Can't create a shell surface";
+	if (nullptr == (data->wayland.xdgSurface = xdg_wm_base_get_xdg_surface(data->wayland.xdg_base, data->wayland.surface))) {
+		error = "Can't create an xdg_surface";
+		return false;
+	}
+	
+	xdg_surface_add_listener(data->wayland.xdgSurface, &xdgSurface_listener, window);
+	
+	if (nullptr == (data->wayland.xdgToplevel = xdg_surface_get_toplevel(data->wayland.xdgSurface))) {
+		error = "Can't create an xdg_toplevel";
 		return false;
 	}
 	String windowClass = "WindowClass" + name;
-	wl_shell_surface_set_class(data->wayland.shell_surface, windowClass.data);
-	wl_shell_surface_set_title(data->wayland.shell_surface, name.data);
-	wl_shell_surface_set_toplevel(data->wayland.shell_surface);
-	wl_shell_surface_add_listener(data->wayland.shell_surface, &shell_surface_listener, window);
+	xdg_toplevel_set_app_id(data->wayland.xdgToplevel, windowClass.data);
+	xdg_toplevel_set_title(data->wayland.xdgToplevel, name.data);
+	xdg_toplevel_add_listener(data->wayland.xdgToplevel, &xdgToplevel_listener, window);
 
 	if (data->wayland.seat == nullptr) {
 		error = "We don't have a Wayland seat";
@@ -170,7 +209,7 @@ bool windowOpenWayland(Window *window) {
 		return false;
 	}
 	for (i32 i = 0; i < width*height; i++) {
-		shm_data[i] = 0xff000000;
+		shm_data[i] = 0xff000080;
 	}
 
 	pool = wl_shm_create_pool(data->wayland.shm, fd, size);
@@ -205,7 +244,7 @@ bool windowUpdateWayland(Window *window, bool &changeFullscreen) {
 	// bool &resized = window->resized;
 	// bool &focused = window->focused;
 	if (wl_display_dispatch(data->wayland.display) < 0) return false;
-	return true;
+	return !window->quit;
 }
 
 } // namespace io

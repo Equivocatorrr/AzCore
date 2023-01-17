@@ -31,6 +31,7 @@
 #undef explicit
 
 #include <wayland-client.h>
+#include "Wayland/xdg-shell.h"
 
 namespace AzCore {
 
@@ -69,12 +70,13 @@ struct WindowData {
 			wl_display *display;
 			// These come from global registry
 			wl_compositor *compositor;
-			wl_shell *shell;
+			xdg_wm_base *xdg_base;
 			wl_seat *seat;
 			wl_shm *shm;
 			// These we created, in order
 			wl_surface *surface;
-			wl_shell_surface *shell_surface;
+			xdg_surface *xdgSurface;
+			xdg_toplevel *xdgToplevel;
 			wl_buffer *buffer;
 			wl_region *region;
 		} wayland;

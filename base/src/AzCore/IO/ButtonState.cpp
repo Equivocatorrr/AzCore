@@ -21,18 +21,18 @@ void ButtonState::Set(bool pressed, bool down, bool released) {
 		state |= BUTTON_RELEASED_BIT;
 }
 
-void ButtonState::Tick(f32 timestep) {
+void ButtonState::Tick(f32 timestep, f32 charRepeatsPerSecond, f32 charRepeatDelay) {
 	state &= BUTTON_DOWN_BIT;
 	if (state && canRepeat) {
 		if (repeatTimer > 0.0f) {
 			repeatTimer -= timestep;
 			if (repeatTimer <= 0.0f) {
 				state |= BUTTON_PRESSED_BIT;
-				repeatTimer += 1.0f / 15.0f;
+				repeatTimer += 1.0f / charRepeatsPerSecond;
 			}
 		}
 	} else {
-		repeatTimer = 0.4f;
+		repeatTimer = charRepeatDelay;
 	}
 }
 

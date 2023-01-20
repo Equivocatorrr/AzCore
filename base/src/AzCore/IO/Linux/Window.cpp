@@ -103,7 +103,7 @@ String xkbGetInputName(xkb_keyboard *xkb, u8 hid) {
 	}
 }
 
-void xkbCleanup(xkb_keyboard *xkb) {
+void xkbCleanupX11(xkb_keyboard *xkb) {
 	if (xkb->keymap) {
 		xkb_keymap_unref(xkb->keymap);
 		xkb->keymap = nullptr;
@@ -122,7 +122,7 @@ void xkbCleanup(xkb_keyboard *xkb) {
 	}
 }
 
-bool xkbUpdateKeymap(xkb_keyboard *xkb) {
+bool xkbUpdateKeymapX11(xkb_keyboard *xkb) {
 	// Cleanup first
 	if (xkb->keymap) {
 		xkb_keymap_unref(xkb->keymap);
@@ -162,7 +162,7 @@ bool xkbUpdateKeymap(xkb_keyboard *xkb) {
 	return true;
 }
 
-bool xkbSetupKeyboard(xkb_keyboard *xkb, xcb_connection_t *connection) {
+bool xkbSetupKeyboardX11(xkb_keyboard *xkb, xcb_connection_t *connection) {
 	xkb->connection = connection;
 	if (!xkb_x11_setup_xkb_extension(xkb->connection,
 									 XKB_X11_MIN_MAJOR_XKB_VERSION,
@@ -187,7 +187,7 @@ bool xkbSetupKeyboard(xkb_keyboard *xkb, xcb_connection_t *connection) {
 		return false;
 	}
 
-	return xkbUpdateKeymap(xkb);
+	return xkbUpdateKeymapX11(xkb);
 }
 
 struct xkb_generic_event_t {
@@ -208,14 +208,14 @@ bool xkbProcessEvent(xkb_keyboard *xkb, xkb_generic_event_t *event) {
 		// cout << "XCB_XKB_NEW_KEYBOARD_NOTIFY" << std::endl;
 		xcb_xkb_new_keyboard_notify_event_t *ev = (xcb_xkb_new_keyboard_notify_event_t *)event;
 		if (ev->changed) {
-			if (!xkbUpdateKeymap(xkb))
+			if (!xkbUpdateKeymapX11(xkb))
 				return false;
 		}
 		break;
 	}
 	case XCB_XKB_MAP_NOTIFY: {
 		// cout << "XCB_XKB_MAP_NOTIFY" << std::endl;
-		if (!xkbUpdateKeymap(xkb))
+		if (!xkbUpdateKeymapX11(xkb))
 			return false;
 		break;
 	}
@@ -425,7 +425,7 @@ bool windowOpenX11(Window *window) {
 		return false;
 	}
 
-	if (!xkbSetupKeyboard(&data->xkb, data->x11.connection)) {
+	if (!xkbSetupKeyboardX11(&data->xkb, data->x11.connection)) {
 		xcb_destroy_window(data->x11.connection, data->x11.window);
 		CLOSE_CONNECTION(data);
 		return false;
@@ -527,7 +527,7 @@ bool Window::Close() {
 	if (data->useWayland) {
 		wl_display_disconnect(data->wayland.display);
 	} else {
-		xkbCleanup(&data->xkb);
+		xkbCleanupX11(&data->xkb);
 		xcb_free_cursor(data->x11.connection, data->x11.cursorHidden);
 		xcb_destroy_window(data->x11.connection, data->x11.window);
 		CLOSE_CONNECTION(data);
@@ -882,7 +882,7 @@ i32 GetWindowDpiX11(Window *window) {
 
 	// This could be sped up, but the vast majority of our time is spent above.
 	i32 dpi = 0;
-	Array<SimpleRange<char>> ranges = SeparateByValues(resources, {'\n', ' ', ':', '\t'});
+	Array<Range<char>> ranges = SeparateByValues(resources, {'\n', ' ', ':', '\t'});
 	for (i32 i = 0; i < ranges.size-1; i++) {
 		if (ranges[i] == "Xft.dpi") {
 			if (!StringToI32(ranges[i+1], &dpi)) {

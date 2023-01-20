@@ -26,6 +26,8 @@ struct Input {
 	ButtonState inputsChar[128];
 	vec2i cursor, cursorPrevious;
 	vec2 scroll;
+	f32 charRepeatsPerSecond = 15.0f;
+	f32 charRepeatDelay = 0.4f;
 	Input();
 	void Press(u8 keyCode);
 	void Release(u8 keyCode);

@@ -136,7 +136,7 @@ struct SWData {
 	xcb_gcontext_t gc;
 };
 
-bool QueryShm(xcb_connection_t *connection) {
+bool QueryShmXCB(xcb_connection_t *connection) {
 	xcb_shm_query_version_cookie_t cookie;
 	xcb_shm_query_version_reply_t *reply;
 	cookie = xcb_shm_query_version(connection);
@@ -148,7 +148,7 @@ bool QueryShm(xcb_connection_t *connection) {
 	return false;
 }
 
-bool CreateShmImage(SoftwareRenderer &swr, io::Window *window) {
+bool CreateShmImageXCB(SoftwareRenderer &swr, io::Window *window) {
 	xcb_connection_t *connection = window->data->x11.connection;
 	swr.data->image = xcb_image_create_native(window->data->x11.connection, window->width, window->height, XCB_IMAGE_FORMAT_Z_PIXMAP, window->data->x11.windowDepth, 0, 0xffffffff, 0);
 
@@ -171,7 +171,7 @@ bool CreateShmImage(SoftwareRenderer &swr, io::Window *window) {
 	return true;
 }
 
-void DestroyShmImage(SWData *data, io::Window *window) {
+void DestroyShmImageXCB(SWData *data, io::Window *window) {
 	xcb_shm_detach(window->data->x11.connection, data->shmseg);
 	xcb_image_destroy(data->image);
 	shmdt(data->segInfo.shmaddr);
@@ -182,13 +182,19 @@ bool SoftwareRenderer::Init() {
 	if (!window->open) return false;
 	width = window->width;
 	height = window->height;
-	xcb_connection_t *connection = window->data->x11.connection;
-	if (!QueryShm(connection)) return false;
+	if (window->data->useWayland) {
+		stride = width * 4;
+		depth = 4;
+		framebuffer = (u8*)window->data->wayland.image.shmData;
+	} else {
+		xcb_connection_t *connection = window->data->x11.connection;
+		if (!QueryShmXCB(connection)) return false;
 
-	data->gc = xcb_generate_id(connection);
-	xcb_create_gc(connection, data->gc, window->data->x11.window, 0, 0);
+		data->gc = xcb_generate_id(connection);
+		xcb_create_gc(connection, data->gc, window->data->x11.window, 0, 0);
 
-	if (!CreateShmImage(*this, window)) return false;
+		if (!CreateShmImageXCB(*this, window)) return false;
+	}
 
 	initted = true;
 	return true;
@@ -196,23 +202,37 @@ bool SoftwareRenderer::Init() {
 
 bool SoftwareRenderer::Update() {
 	if (window->width != width || window->height != height) {
-		DestroyShmImage(data, window);
 		width = window->width;
 		height = window->height;
-		if (!CreateShmImage(*this, window)) return false;
+		if (window->data->useWayland) {
+			stride = width * 4;
+			framebuffer = (u8*)window->data->wayland.image.shmData;
+		} else {
+			DestroyShmImageXCB(data, window);
+			if (!CreateShmImageXCB(*this, window)) return false;
+		}
 	}
 	return true;
 }
 bool SoftwareRenderer::Present() {
-	xcb_connection_t *connection = window->data->x11.connection;
-	xcb_image_shm_put(connection, window->data->x11.window, data->gc, data->image, data->segInfo, 0, 0, 0, 0, width, height, false);
-	xcb_flush(connection);
+	if (window->data->useWayland) {
+		wl_surface_damage_buffer(window->data->wayland.surface, 0, 0, width, height);
+		wl_surface_commit(window->data->wayland.surface);
+	} else {
+		xcb_connection_t *connection = window->data->x11.connection;
+		xcb_image_shm_put(connection, window->data->x11.window, data->gc, data->image, data->segInfo, 0, 0, 0, 0, width, height, false);
+		xcb_flush(connection);
+	}
 	return true;
 }
 bool SoftwareRenderer::Deinit() {
-	xcb_connection_t *connection = window->data->x11.connection;
-	DestroyShmImage(data, window);
-	xcb_free_gc(connection, data->gc);
+	if (window->data->useWayland) {
+		
+	} else {
+		xcb_connection_t *connection = window->data->x11.connection;
+		DestroyShmImageXCB(data, window);
+		xcb_free_gc(connection, data->gc);
+	}
 	initted = false;
 	return true;
 }

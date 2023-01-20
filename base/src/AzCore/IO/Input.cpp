@@ -84,15 +84,15 @@ void Input::ReleaseAll() {
 }
 
 void Input::Tick(f32 timestep) {
-	Any.Tick(timestep);
-	AnyKey.Tick(timestep);
-	AnyMB.Tick(timestep);
+	Any.Tick(timestep, charRepeatsPerSecond, charRepeatDelay);
+	AnyKey.Tick(timestep, charRepeatsPerSecond, charRepeatDelay);
+	AnyMB.Tick(timestep, charRepeatsPerSecond, charRepeatDelay);
 	scroll = vec2(0.0);
 	for (u16 i = 0; i < 256; i++) {
-		inputs[i].Tick(timestep);
+		inputs[i].Tick(timestep, charRepeatsPerSecond, charRepeatDelay);
 	}
 	for (u16 i = 0; i < 128; i++) {
-		inputsChar[i].Tick(timestep);
+		inputsChar[i].Tick(timestep, charRepeatsPerSecond, charRepeatDelay);
 	}
 	cursorPrevious = cursor;
 }

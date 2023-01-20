@@ -13,6 +13,7 @@
 #endif
 
 #include "../../basictypes.hpp"
+#include "../../memory.hpp"
 #include "../../Thread.hpp"
 
 #include <xcb/xcb.h>
@@ -31,7 +32,7 @@
 #undef explicit
 
 #include <wayland-client.h>
-#include "Wayland/xdg-shell.h"
+#include "WaylandProtocols/xdg-shell.h"
 
 namespace AzCore {
 
@@ -46,6 +47,17 @@ struct xkb_keyboard {
 	i32 deviceId;
 	struct xkb_state *state{nullptr};
 	struct xkb_state *stateNone{nullptr};
+};
+
+struct wlOutputInfo {
+	wlOutputInfo *pNext = nullptr;
+	i32 x=-1, y=-1; // position in global compositor space
+	i32 width=-1, height=-1; // pixel dimensions
+	i32 refresh=-1; // refresh rate in mHz
+	i32 phys_w=-1, phys_h=-1; // physical dimensions in mm
+	i32 scale = 1;
+	const char *make="make N/A", *model="model N/A";
+	const char *name="name N/A", *description="description N/A";
 };
 
 struct WindowData {
@@ -70,6 +82,7 @@ struct WindowData {
 			wl_display *display;
 			// These come from global registry
 			wl_compositor *compositor;
+			BinaryMap<wl_output*, wlOutputInfo> outputs;
 			xdg_wm_base *wmBase;
 			wl_seat *seat;
 			wl_shm *shm;
@@ -77,8 +90,21 @@ struct WindowData {
 			wl_surface *surface;
 			xdg_surface *xdgSurface;
 			xdg_toplevel *xdgToplevel;
-			wl_buffer *buffer;
+			wl_pointer *pointer;
+			wl_keyboard *keyboard;
+			wl_touch *touch;
 			wl_region *region;
+			struct {
+				wl_buffer *buffer;
+				i32 fd;
+				i32 size;
+				u32 *shmData;
+			} image;
+			bool changeFullscreen;
+			u32 fullscreenSerial;
+			bool hadError;
+			i32 widthMax;
+			i32 heightMax;
 		} wayland;
 	};
 	xkb_keyboard xkb;
@@ -86,6 +112,13 @@ struct WindowData {
 	Thread dpiThread;
 	WindowData(bool _useWayland) : useWayland(_useWayland) {
 		xkb.useWayland = useWayland;
+		if (useWayland) {
+			AzPlacementNew(wayland.outputs);
+			wayland = {0};
+		}
+	}
+	~WindowData() {
+		if (useWayland) wayland.outputs.~BinaryMap();
 	}
 }; // struct WindowData
 

@@ -25,7 +25,7 @@ struct ButtonState {
 	f32 repeatTimer;
 	ButtonState();
 	void Set(bool pressed, bool down, bool released);
-	void Tick(f32 timestep); // Resets pressed and released, leaving down
+	void Tick(f32 timestep, f32 charRepeatsPerSecond = 15.0f, f32 charRepeatDelay = 0.4f); // Resets pressed and released, leaving down
 	void Press();            // Sets pressed and down, leaving released
 	void Release();          // Sets released and down, leaving pressed
 	bool Pressed() const;

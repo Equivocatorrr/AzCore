@@ -125,6 +125,8 @@ namespace az = AzCore;
 	#define AzAssert(condition, message) if (!(condition)) {_Assert(false, _GetFileName(__FILE__), STRINGIFY(__LINE__), (message));}
 #endif
 
+#define AzPlacementNew(value, ...) new(&(value)) decltype(value)(__VA_ARGS__)
+
 #endif // AZCORE_BASICTYPES_HPP
 
 // Do this so if basictypes is included without AZCORE_DEFINE_ASSERT,

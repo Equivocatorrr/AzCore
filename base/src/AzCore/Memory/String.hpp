@@ -227,9 +227,6 @@ String Join(const Array<SimpleRange<char>, 0> &values, SimpleRange<char> joiner)
 Array<SimpleRange<char>, 0> SeparateByNewlines(SimpleRange<char> string, bool allowEmpty=false);
 Array<SimpleRange<char32>, 0> SeparateByNewlines(SimpleRange<char32> string, bool allowEmpty=false);
 
-Array<SimpleRange<char>, 0> SeparateByValues(SimpleRange<char> string, ArrayWithBucket<char, 16> separators, bool allowEmpty=false);
-Array<SimpleRange<char32>, 0> SeparateByValues(SimpleRange<char32> string, ArrayWithBucket<char32, 16> separators, bool allowEmpty=false);
-
 } // namespace AzCore
 
 #ifndef NDEBUG

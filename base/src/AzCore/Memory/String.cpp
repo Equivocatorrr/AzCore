@@ -699,31 +699,4 @@ Array<SimpleRange<char32>> SeparateByNewlines(SimpleRange<char32> string, bool a
 	return _SeparateByNewlines<char32>(string, allowEmpty);
 }
 
-template<typename char_t>
-Array<SimpleRange<char_t>> _SeparateByValues(SimpleRange<char_t> string, ArrayWithBucket<char_t, 16> separators, bool allowEmpty) {
-	Array<SimpleRange<char_t>> result;
-	i64 rangeStart = 0;
-	for (i64 i = 0; i < string.size; i++) {
-		char_t c = string[i];
-		if (separators.Contains(c)) {
-			if (allowEmpty || i-rangeStart > 0) {
-				result.Append(SimpleRange(&string[rangeStart], i-rangeStart));
-			}
-			rangeStart = i+1;
-		}
-	}
-	if (rangeStart < string.size) {
-		result.Append(SimpleRange(&string[rangeStart], string.size-rangeStart));
-	}
-	return result;
-}
-
-Array<SimpleRange<char>, 0> SeparateByValues(SimpleRange<char> string, ArrayWithBucket<char, 16> separators, bool allowEmpty) {
-	return _SeparateByValues<char>(string, separators, allowEmpty);
-}
-
-Array<SimpleRange<char32>, 0> SeparateByValues(SimpleRange<char32> string, ArrayWithBucket<char32, 16> separators, bool allowEmpty) {
-	return _SeparateByValues<char32>(string, separators, allowEmpty);
-}
-
 } // namespace AzCore

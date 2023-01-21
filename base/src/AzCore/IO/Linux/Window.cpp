@@ -597,7 +597,7 @@ bool Window::Resize(u32 w, u32 h) {
 	windowedWidth = w;
 	windowedHeight = h;
 	if (data->useWayland) {
-		windowResizeWayland(this);
+		windowResizeWayland(this, w, h);
 	} else {
 		windowResizeX11(this);
 	}
@@ -606,7 +606,7 @@ bool Window::Resize(u32 w, u32 h) {
 
 void UpdateWindowDpi(Window *window) {
 	if (window->data->useWayland) {
-
+		
 	} else {
 		window->dpi = GetWindowDpiX11(window);
 	}

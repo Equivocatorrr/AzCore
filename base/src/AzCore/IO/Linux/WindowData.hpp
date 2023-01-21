@@ -83,6 +83,7 @@ struct WindowData {
 			// These come from global registry
 			wl_compositor *compositor;
 			BinaryMap<wl_output*, wlOutputInfo> outputs;
+			Array<wl_output*> outputsWeTouch;
 			xdg_wm_base *wmBase;
 			wl_seat *seat;
 			wl_shm *shm;
@@ -94,6 +95,7 @@ struct WindowData {
 			wl_keyboard *keyboard;
 			wl_touch *touch;
 			wl_region *region;
+			i32 scale;
 			struct {
 				wl_buffer *buffer;
 				i32 fd;
@@ -101,8 +103,9 @@ struct WindowData {
 				u32 *shmData;
 			} image;
 			bool changeFullscreen;
-			u32 fullscreenSerial;
 			bool hadError;
+			bool incomplete;
+			u32 fullscreenSerial;
 			i32 widthMax;
 			i32 heightMax;
 		} wayland;
@@ -114,11 +117,15 @@ struct WindowData {
 		xkb.useWayland = useWayland;
 		if (useWayland) {
 			AzPlacementNew(wayland.outputs);
+			AzPlacementNew(wayland.outputsWeTouch);
 			wayland = {0};
 		}
 	}
 	~WindowData() {
-		if (useWayland) wayland.outputs.~BinaryMap();
+		if (useWayland) {
+			wayland.outputs.~BinaryMap();
+			wayland.outputsWeTouch.~Array();
+		}
 	}
 }; // struct WindowData
 

@@ -24,6 +24,12 @@
 namespace AzCore {
 
 namespace io {
+	
+void windowResizeWayland(Window *window, i32 width, i32 height) {
+	window->width = width;
+	window->height = height;
+	window->resized = true;
+}
 
 // Do this instead of wl_display_dispatch to avoid waiting for events
 bool waylandDispatch(Window *window) {
@@ -110,6 +116,28 @@ void DestroyShmImageWayland(i32 fd, u32 *shmData, i32 size, wl_buffer *buffer) {
 
 namespace wl::events {
 
+static void surfaceEnter(void *data, wl_surface *surface, wl_output *output) {
+	Window *window = (Window*)data;
+	window->data->wayland.outputsWeTouch.Append(output);
+	DEBUG_PRINTLN("surfaceEnter");
+}
+
+static void surfaceLeave(void *data, wl_surface *surface, wl_output *output) {
+	Window *window = (Window*)data;
+	for (i32 i = 0; i < window->data->wayland.outputsWeTouch.size; i++) {
+		if (window->data->wayland.outputsWeTouch[i] == output) {
+			window->data->wayland.outputsWeTouch.Erase(i);
+			break;
+		}
+	}
+	DEBUG_PRINTLN("surfaceLeave");
+}
+
+static const wl_surface_listener surfaceListener = {
+	.enter = surfaceEnter,
+	.leave = surfaceLeave,
+};
+
 static void xdgWMBasePing(void *data, xdg_wm_base *xdgWMBase, u32 serial) {
 	xdg_wm_base_pong(xdgWMBase, serial);
 }
@@ -121,24 +149,12 @@ static const xdg_wm_base_listener xdgWMBaseListener = {
 static void xdgSurfaceConfigure(void *data, xdg_surface *xdgSurface, u32 serial) {
 	Window *window = (Window*)data;
 	DEBUG_PRINTLN("xdgSurfaceConfigure");
-	i32 width = window->width;
-	i32 height = window->height;
-	AzAssert(width != 0 && height != 0, "window size is invalid");
-	if (window->data->wayland.image.buffer) {
-		DestroyShmImageWayland(window->data->wayland.image.fd, window->data->wayland.image.shmData, window->data->wayland.image.size, window->data->wayland.image.buffer);
-	}
-	if (!CreateShmImageWayland(width, height, &window->data->wayland.image.fd, &window->data->wayland.image.shmData, &window->data->wayland.image.size, &window->data->wayland.image.buffer, error, window)) {
-		window->data->wayland.hadError = true;
-		return;
-	}
-	if (window->data->wayland.region) {
-		wl_region_destroy(window->data->wayland.region);
-	}
-	window->data->wayland.region = wl_compositor_create_region(window->data->wayland.compositor);
-	wl_region_add(window->data->wayland.region, 0, 0, width, height);
-	wl_surface_set_opaque_region(window->data->wayland.surface, window->data->wayland.region);
 	xdg_surface_ack_configure(xdgSurface, serial);
-	wl_surface_commit(window->data->wayland.surface);
+	// Don't do the actual resize here.
+	// Instead, wait until we've received all the configure events and then do it.
+	// This is done in windowUpdateWayland
+	// windowResizeWayland(window);
+	window->data->wayland.incomplete = false;
 }
 
 static const xdg_surface_listener xdgSurfaceListener = {
@@ -152,9 +168,7 @@ static void xdgToplevelConfigure(void *data, xdg_toplevel *xdgToplevel, i32 widt
 	Window *window = (Window*)data;
 	DEBUG_PRINTLN("xdgToplevelConfigure with width ", width, " and height ", height);
 	if (width != 0 && height != 0) {
-		window->width = width;
-		window->height = height;
-		window->resized = true;
+		windowResizeWayland(window, width * window->data->wayland.scale, height * window->data->wayland.scale);
 		xdg_toplevel_state *state;
 		bool fullscreened = false;
 		wl_array_for_each(state, states, xdg_toplevel_state) {
@@ -170,6 +184,7 @@ static void xdgToplevelConfigure(void *data, xdg_toplevel *xdgToplevel, i32 widt
 			window->windowedWidth = window->width;
 			window->windowedHeight = window->height;
 		}
+		window->data->wayland.incomplete = true;
 	}
 }
 
@@ -219,7 +234,7 @@ static void pointerLeave(void *data, wl_pointer *wl_pointer, u32 serial, wl_surf
 static void pointerMotion(void *data, wl_pointer *wl_pointer, u32 time, wl_fixed_t surface_x, wl_fixed_t surface_y) {
 	Window *window = (Window*)data;
 	if (window->input) {
-		window->input->cursor = vec2i(wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y));
+		window->input->cursor = vec2i(wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y)) * window->data->wayland.scale;
 	}
 	// this is spammy af
 	// DEBUG_PRINTLN("pointerMotion x = ", wl_fixed_to_float(surface_x), ", y = ", wl_fixed_to_float(surface_y));
@@ -589,6 +604,7 @@ bool windowOpenWayland(Window *window) {
 		error = "Can't create surface";
 		return false;
 	}
+	wl_surface_add_listener(data->wayland.surface, &wl::events::surfaceListener, window);
 	
 
 	if (data->wayland.wmBase == nullptr) {
@@ -632,26 +648,63 @@ bool windowOpenWayland(Window *window) {
 
 void windowFullscreenWayland(Window *window) {
 	if (window->fullscreen) {
-		xdg_toplevel_set_min_size(window->data->wayland.xdgToplevel, 0, 0);
 		xdg_toplevel_set_max_size(window->data->wayland.xdgToplevel, 0, 0);
 		wl_surface_commit(window->data->wayland.surface);
 		xdg_toplevel_set_fullscreen(window->data->wayland.xdgToplevel, nullptr);
 	} else {
-		xdg_toplevel_set_min_size(window->data->wayland.xdgToplevel, window->windowedWidth, window->windowedHeight);
 		xdg_toplevel_set_max_size(window->data->wayland.xdgToplevel, window->data->wayland.widthMax, window->data->wayland.heightMax);
 		wl_surface_commit(window->data->wayland.surface);
 		xdg_toplevel_unset_fullscreen(window->data->wayland.xdgToplevel);
 	}
 }
 
-void windowResizeWayland(Window *window) {
-	// TODO: implement this
+void windowResizeWaylandShm(Window *window) {
+	i32 width = window->width;
+	i32 height = window->height;
+	AzAssert(width != 0 && height != 0, "window size is invalid");
+	if (window->data->wayland.image.buffer) {
+		DestroyShmImageWayland(window->data->wayland.image.fd, window->data->wayland.image.shmData, window->data->wayland.image.size, window->data->wayland.image.buffer);
+	}
+	if (!CreateShmImageWayland(width, height, &window->data->wayland.image.fd, &window->data->wayland.image.shmData, &window->data->wayland.image.size, &window->data->wayland.image.buffer, error, window)) {
+		window->data->wayland.hadError = true;
+		return;
+	}
+	if (window->data->wayland.region) {
+		wl_region_destroy(window->data->wayland.region);
+	}
+	window->data->wayland.region = wl_compositor_create_region(window->data->wayland.compositor);
+	wl_region_add(window->data->wayland.region, 0, 0, width, height);
+	wl_surface_set_opaque_region(window->data->wayland.surface, window->data->wayland.region);
+	wl_surface_set_buffer_scale(window->data->wayland.surface, window->data->wayland.scale);
+	wl_surface_commit(window->data->wayland.surface);
+}
+
+i32 GetWindowScaleWayland(Window *window) {
+	i32 maxScale = 1;
+	for (wl_output *output : window->data->wayland.outputsWeTouch) {
+		wlOutputInfo &info = window->data->wayland.outputs[output];
+		if (info.scale > maxScale) maxScale = info.scale;
+	}
+	window->data->wayland.scale = maxScale;
+	return maxScale;
 }
 
 bool windowUpdateWayland(Window *window, bool &changeFullscreen) {
 	WindowData *data = window->data;
 	window->data->wayland.changeFullscreen = false;
 	if (!waylandDispatch(window)) return false;
+	while (window->data->wayland.incomplete) {
+		// Do the blocking one until we get all the events we needed
+		if (wl_display_dispatch(window->data->wayland.display) < 0) return false;
+	}
+	u16 newDpi = GetWindowScaleWayland(window) * 96;
+	if (window->dpi != newDpi) {
+		windowResizeWayland(window, window->width * newDpi / window->dpi, window->height * newDpi / window->dpi);
+		window->dpi = newDpi;
+	}
+	if (window->resized) {
+		windowResizeWaylandShm(window);
+	}
 	changeFullscreen = data->wayland.changeFullscreen;
 	return !window->quit && !window->data->wayland.hadError;
 }

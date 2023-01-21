@@ -374,14 +374,24 @@ namespace vk {
 			error = "CreateVkSurface was called before the window was created!";
 			return false;
 		}
-		// TODO: Wayland
-		VkXcbSurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
-		createInfo.connection = surfaceWindow->data->x11.connection;
-		createInfo.window = surfaceWindow->data->x11.window;
-		VkResult result = vkCreateXcbSurfaceKHR(instance->data.instance, &createInfo, nullptr, &surface);
-		if (result != VK_SUCCESS) {
-			error = "Failed to create XCB surface!";
-			return false;
+		if (surfaceWindow->data->useWayland) {
+			VkWaylandSurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR};
+			createInfo.display = surfaceWindow->data->wayland.display;
+			createInfo.surface = surfaceWindow->data->wayland.surface;
+			VkResult result = vkCreateWaylandSurfaceKHR(instance->data.instance, &createInfo, nullptr, &surface);
+			if (result != VK_SUCCESS) {
+				error = "Failed to create Vulkan Wayland surface: " + ErrorString(result);
+				return false;
+			}
+		} else {
+			VkXcbSurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
+			createInfo.connection = surfaceWindow->data->x11.connection;
+			createInfo.window = surfaceWindow->data->x11.window;
+			VkResult result = vkCreateXcbSurfaceKHR(instance->data.instance, &createInfo, nullptr, &surface);
+			if (result != VK_SUCCESS) {
+				error = "Failed to create Vulkan XCB surface!";
+				return false;
+			}
 		}
 		return true;
 	}
@@ -4208,7 +4218,11 @@ failed:
 		if (data.windows.size > 0) {
 			extensionsAll.Append("VK_KHR_surface");
 #ifdef __unix
-			extensionsAll.Append("VK_KHR_xcb_surface");
+			if (data.windows[0].surfaceWindow->data->useWayland) {
+				extensionsAll.Append("VK_KHR_wayland_surface");
+			} else {
+				extensionsAll.Append("VK_KHR_xcb_surface");
+			}
 #elif defined(_WIN32)
 			extensionsAll.Append("VK_KHR_win32_surface");
 #endif

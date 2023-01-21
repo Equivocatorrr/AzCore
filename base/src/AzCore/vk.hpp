@@ -45,6 +45,7 @@
 #ifdef AZCORE_IO_FOR_VULKAN
 	#ifdef __unix
 		#define VK_USE_PLATFORM_XCB_KHR
+		#define VK_USE_PLATFORM_WAYLAND_KHR
 	#elif defined(_WIN32)
 		#define VK_USE_PLATFORM_WIN32_KHR
 	#endif

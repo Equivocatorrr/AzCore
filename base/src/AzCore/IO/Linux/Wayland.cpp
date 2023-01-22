@@ -27,9 +27,11 @@ namespace AzCore {
 namespace io {
 	
 void windowResizeWayland(Window *window, i32 width, i32 height) {
-	window->width = width;
-	window->height = height;
-	window->resized = true;
+	if (window->width != width || window->height != height) {
+		window->width = width;
+		window->height = height;
+		window->resized = true;
+	}
 }
 
 // Do this instead of wl_display_dispatch to avoid waiting for events
@@ -614,73 +616,90 @@ void xkbSetupKeyboardWayland(xkb_keyboard *xkb) {
 	xkb->context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 }
 
+i32 GetWindowScaleWayland(Window *window) {
+	i32 maxScale = 1;
+	for (wl_output *output : window->data->wayland.outputsWeTouch) {
+		wlOutputInfo &info = window->data->wayland.outputs[output];
+		if (info.scale > maxScale) maxScale = info.scale;
+	}
+	window->data->wayland.scale = maxScale;
+	return maxScale;
+}
+
 bool windowOpenWayland(Window *window) {
-	WindowData *data = window->data;
-	u16 &width = window->width;
-	u16 &height = window->height;
-	String &name = window->name;
-	bool &open = window->open;
 	window->data->wayland.scale = 1;
-	// u16 &dpi = window->dpi;
 	// Connect to the display named by $WAYLAND_DISPLAY if it's defined
 	// Or "wayland-0" if $WAYLAND_DISPLAY is not defined
-	if (nullptr == (data->wayland.display = wl_display_connect(nullptr))) {
+	if (nullptr == (window->data->wayland.display = wl_display_connect(nullptr))) {
 		error = "Failed to open Wayland display";
 		return false;
 	}
-	data->wayland.displayFD = wl_display_get_fd(data->wayland.display);
-	wl_registry *registry = wl_display_get_registry(data->wayland.display);
+	window->data->wayland.displayFD = wl_display_get_fd(window->data->wayland.display);
+	wl_registry *registry = wl_display_get_registry(window->data->wayland.display);
 	wl_registry_add_listener(registry, &wl::events::registryListener, (void*)window);
-	wl_display_roundtrip(data->wayland.display);
+	wl_display_roundtrip(window->data->wayland.display);
 
-	if (data->wayland.compositor == nullptr) {
+	if (window->data->wayland.compositor == nullptr) {
 		error = "Can't find compositor";
 		return false;
 	}
 
-	if (nullptr == (data->wayland.surface = wl_compositor_create_surface(data->wayland.compositor))) {
+	if (nullptr == (window->data->wayland.surface = wl_compositor_create_surface(window->data->wayland.compositor))) {
 		error = "Can't create surface";
 		return false;
 	}
-	wl_surface_add_listener(data->wayland.surface, &wl::events::surfaceListener, window);
+	wl_surface_add_listener(window->data->wayland.surface, &wl::events::surfaceListener, window);
 	
 
-	if (data->wayland.wmBase == nullptr) {
+	if (window->data->wayland.wmBase == nullptr) {
 		error = "We don't have an xdg_wm_base";
 		return false;
 	}
 
-	if (nullptr == (data->wayland.xdgSurface = xdg_wm_base_get_xdg_surface(data->wayland.wmBase, data->wayland.surface))) {
+	if (nullptr == (window->data->wayland.xdgSurface = xdg_wm_base_get_xdg_surface(window->data->wayland.wmBase, window->data->wayland.surface))) {
 		error = "Can't create an xdg_surface";
 		return false;
 	}
 	
-	xdg_surface_add_listener(data->wayland.xdgSurface, &wl::events::xdgSurfaceListener, window);
+	xdg_surface_add_listener(window->data->wayland.xdgSurface, &wl::events::xdgSurfaceListener, window);
 	
-	if (nullptr == (data->wayland.xdgToplevel = xdg_surface_get_toplevel(data->wayland.xdgSurface))) {
+	if (nullptr == (window->data->wayland.xdgToplevel = xdg_surface_get_toplevel(window->data->wayland.xdgSurface))) {
 		error = "Can't create an xdg_toplevel";
 		return false;
 	}
 	
-	xdg_toplevel_set_app_id(data->wayland.xdgToplevel, name.data);
-	xdg_toplevel_set_title(data->wayland.xdgToplevel, name.data);
-	xdg_toplevel_add_listener(data->wayland.xdgToplevel, &wl::events::xdgToplevelListener, window);
+	xdg_toplevel_set_app_id(window->data->wayland.xdgToplevel, window->name.data);
+	xdg_toplevel_set_title(window->data->wayland.xdgToplevel, window->name.data);
+	xdg_toplevel_add_listener(window->data->wayland.xdgToplevel, &wl::events::xdgToplevelListener, window);
 
-	if (data->wayland.seat == nullptr) {
+	if (window->data->wayland.seat == nullptr) {
 		error = "We don't have a Wayland seat";
 		return false;
 	}
-	if (!CreateShmImageWayland(width, height, &window->data->wayland.image.fd, &window->data->wayland.image.shmData, &window->data->wayland.image.size, &window->data->wayland.image.buffer, error, window)) return false;
+	if (!CreateShmImageWayland(window->width, window->height, &window->data->wayland.image.fd, &window->data->wayland.image.shmData, &window->data->wayland.image.size, &window->data->wayland.image.buffer, error, window)) return false;
 
 	window->data->wayland.region = wl_compositor_create_region(window->data->wayland.compositor);
-	wl_region_add(window->data->wayland.region, 0, 0, width, height);
+	wl_region_add(window->data->wayland.region, 0, 0, window->width, window->height);
 	wl_surface_set_opaque_region(window->data->wayland.surface, window->data->wayland.region);
 	wl_surface_commit(window->data->wayland.surface);
 
-	xkbSetupKeyboardWayland(&data->xkb);
+	xkbSetupKeyboardWayland(&window->data->xkb);
+	
+	// We need to know which surface we're on to get the DPI
+	i32 tries = 0;
+	while (window->data->wayland.outputsWeTouch.size == 0) {
+		wl_display_dispatch(window->data->wayland.display);
+		tries++;
+		if (tries > 10) break; // This shouldn't happen but you never know
+	}
+
+	u16 newDpi = GetWindowScaleWayland(window) * 96;
+	if (window->dpi != newDpi) {
+		window->dpi = newDpi;
+	}
 
 	window->data->wayland.hadError = false;
-	open = true;
+	window->open = true;
 	return true;
 }
 
@@ -717,18 +736,7 @@ void windowResizeWaylandShm(Window *window) {
 	wl_surface_commit(window->data->wayland.surface);
 }
 
-i32 GetWindowScaleWayland(Window *window) {
-	i32 maxScale = 1;
-	for (wl_output *output : window->data->wayland.outputsWeTouch) {
-		wlOutputInfo &info = window->data->wayland.outputs[output];
-		if (info.scale > maxScale) maxScale = info.scale;
-	}
-	window->data->wayland.scale = maxScale;
-	return maxScale;
-}
-
 bool windowUpdateWayland(Window *window, bool &changeFullscreen) {
-	WindowData *data = window->data;
 	window->data->wayland.changeFullscreen = false;
 	if (!waylandDispatch(window)) return false;
 	while (window->data->wayland.incomplete) {
@@ -743,7 +751,7 @@ bool windowUpdateWayland(Window *window, bool &changeFullscreen) {
 	if (window->resized) {
 		windowResizeWaylandShm(window);
 	}
-	changeFullscreen = data->wayland.changeFullscreen;
+	changeFullscreen = window->data->wayland.changeFullscreen;
 	return !window->quit && !window->data->wayland.hadError;
 }
 

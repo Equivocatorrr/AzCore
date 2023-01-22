@@ -611,6 +611,7 @@ bool Window::Resize(u32 w, u32 h) {
 	windowedHeight = h;
 	if (data->useWayland) {
 		windowResizeWayland(this, w, h);
+		windowResizeWaylandShm(this);
 	} else {
 		windowResizeX11(this);
 	}

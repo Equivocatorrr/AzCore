@@ -80,6 +80,7 @@ struct WindowData {
 		} x11;
 		struct { // wayland
 			wl_display *display;
+			i32 displayFD;
 			// These come from global registry
 			wl_compositor *compositor;
 			BinaryMap<wl_output*, wlOutputInfo> outputs;

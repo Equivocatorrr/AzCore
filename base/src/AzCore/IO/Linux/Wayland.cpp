@@ -13,6 +13,7 @@
 #include "WindowData.hpp"
 #include <sys/mman.h>
 // #include <fcntl.h>
+#include <poll.h>
 #include <unistd.h>
 
 #if defined(NDEBUG) && 1
@@ -33,20 +34,37 @@ void windowResizeWayland(Window *window, i32 width, i32 height) {
 
 // Do this instead of wl_display_dispatch to avoid waiting for events
 bool waylandDispatch(Window *window) {
-	if (wl_display_flush(window->data->wayland.display) < 0) {
-		error = "failed to flush display";
+	wl_display *display = window->data->wayland.display;
+	pollfd fd = {
+		.fd = window->data->wayland.displayFD,
+		.events = POLLIN,
+		.revents = 0,
+	};
+	if (wl_display_flush(display) < 0) {
+		cerr.PrintLn("failed to flush display");
 		return false;
 	}
-	if (wl_display_prepare_read(window->data->wayland.display) < 0) {
-		error = "failed to prepare read";
+	while (wl_display_prepare_read(display) != 0) {
+		if (wl_display_dispatch_pending(display) < 0) {
+			cerr.PrintLn("wl_display_dispatch_pending failed when preparing for read");
+			return false;
+		}
+	}
+	i32 ready = poll(&fd, 1, 0);
+	if (ready < 0) {
+		cerr.PrintLn("poll failed: ", strerror(errno));
 		return false;
 	}
-	if (wl_display_read_events(window->data->wayland.display) < 0) {
-		error = "failed to read events";
-		return false;
+	if (ready > 0) {
+		if (wl_display_read_events(display) < 0) {
+			cerr.PrintLn("wl_display_read_events failed");
+			return false;
+		}
+	} else {
+		wl_display_cancel_read(display);
 	}
-	if (wl_display_dispatch_pending(window->data->wayland.display) < 0) {
-		error = "failed to dispatch pending";
+	if (wl_display_dispatch_pending(display) < 0) {
+		cerr.PrintLn("wl_display_dispatch_pending failed post read");
 		return false;
 	}
 	return true;
@@ -227,7 +245,6 @@ static void pointerEnter(void *data, wl_pointer *wl_pointer, u32 serial, wl_surf
 }
 
 static void pointerLeave(void *data, wl_pointer *wl_pointer, u32 serial, wl_surface *surface) {
-	Window *window = (Window*)data;
 	DEBUG_PRINTLN("pointerLeave");
 }
 
@@ -246,6 +263,11 @@ void HandleKCState(Input *input, u8 keycode, u32 state) {
 }
 
 void HandleCharState(Input *input, char character, u32 state) {
+	if (state)
+		input->typingString += character;
+	if (character >= 'a' && character <= 'z') {
+		character += 'A' - 'a';
+	}
 	if (state) input->PressChar(character);
 	else input->ReleaseChar(character);
 }
@@ -299,9 +321,23 @@ static void pointerAxis(void *data, wl_pointer *pointer, u32 time, u32 axis, wl_
 		switch (axis) {
 			case WL_POINTER_AXIS_VERTICAL_SCROLL: {
 				input->scroll.y -= scroll / magicScrollValue;
+				if (scroll > 0.0f) {
+					HandleKCState(input, KC_MOUSE_SCROLLDOWN, 1);
+					HandleKCState(input, KC_MOUSE_SCROLLDOWN, 0);
+				} else {
+					HandleKCState(input, KC_MOUSE_SCROLLUP, 1);
+					HandleKCState(input, KC_MOUSE_SCROLLUP, 0);
+				}
 			} break;
 			case WL_POINTER_AXIS_HORIZONTAL_SCROLL: {
 				input->scroll.x += scroll / magicScrollValue;
+				if (scroll > 0.0f) {
+					HandleKCState(input, KC_MOUSE_SCROLLRIGHT, 1);
+					HandleKCState(input, KC_MOUSE_SCROLLRIGHT, 0);
+				} else {
+					HandleKCState(input, KC_MOUSE_SCROLLLEFT, 1);
+					HandleKCState(input, KC_MOUSE_SCROLLLEFT, 0);
+				}
 			} break;
 		}
 	}
@@ -364,6 +400,9 @@ static void keyboardEnter(void *data, wl_keyboard *wl_keyboard, u32 serial, wl_s
 static void keyboardLeave(void *data, wl_keyboard *wl_keyboard, u32 serial, wl_surface *surface) {
 	Window *window = (Window*)data;
 	window->focused = false;
+	if (window->input != nullptr) {
+		window->input->ReleaseAll();
+	}
 	DEBUG_PRINTLN("keyboardLeave");
 }
 
@@ -577,12 +616,11 @@ void xkbSetupKeyboardWayland(xkb_keyboard *xkb) {
 
 bool windowOpenWayland(Window *window) {
 	WindowData *data = window->data;
-	i16 &x = window->x;
-	i16 &y = window->y;
 	u16 &width = window->width;
 	u16 &height = window->height;
 	String &name = window->name;
 	bool &open = window->open;
+	window->data->wayland.scale = 1;
 	// u16 &dpi = window->dpi;
 	// Connect to the display named by $WAYLAND_DISPLAY if it's defined
 	// Or "wayland-0" if $WAYLAND_DISPLAY is not defined
@@ -590,9 +628,9 @@ bool windowOpenWayland(Window *window) {
 		error = "Failed to open Wayland display";
 		return false;
 	}
+	data->wayland.displayFD = wl_display_get_fd(data->wayland.display);
 	wl_registry *registry = wl_display_get_registry(data->wayland.display);
 	wl_registry_add_listener(registry, &wl::events::registryListener, (void*)window);
-	wl_display_dispatch(data->wayland.display);
 	wl_display_roundtrip(data->wayland.display);
 
 	if (data->wayland.compositor == nullptr) {

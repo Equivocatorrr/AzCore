@@ -605,13 +605,13 @@ bool Window::Resize(u32 w, u32 h) {
 		error = "Fullscreen windows can't be resized";
 		return false;
 	}
+	if (w == width && h == height) return true;
 	width = w;
 	height = h;
 	windowedWidth = w;
 	windowedHeight = h;
 	if (data->useWayland) {
-		windowResizeWayland(this, w, h);
-		windowResizeWaylandShm(this);
+		windowResizeWayland(this);
 	} else {
 		windowResizeX11(this);
 	}

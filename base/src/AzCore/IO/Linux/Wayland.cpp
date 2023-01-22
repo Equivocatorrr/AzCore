@@ -25,8 +25,10 @@
 namespace AzCore {
 
 namespace io {
-	
-void windowResizeWayland(Window *window, i32 width, i32 height) {
+
+// Sets width, height, and resized so the buffer will be resized at the end of an update
+// Rather than updating the buffer here, since we can get many xdgToplevelConfigure events in one frame.
+static void windowResizeLater(Window *window, i32 width, i32 height) {
 	if (window->width != width || window->height != height) {
 		window->width = width;
 		window->height = height;
@@ -34,11 +36,10 @@ void windowResizeWayland(Window *window, i32 width, i32 height) {
 	}
 }
 
-// Do this instead of wl_display_dispatch to avoid waiting for events
-bool waylandDispatch(Window *window) {
-	wl_display *display = window->data->wayland.display;
+// Do this instead of wl_display_dispatch to avoid waiting for events if there are none
+static bool wlDisplayDispatchNonblocking(wl_display *display, i32 displayFD) {
 	pollfd fd = {
-		.fd = window->data->wayland.displayFD,
+		.fd = displayFD,
 		.events = POLLIN,
 		.revents = 0,
 	};
@@ -72,9 +73,9 @@ bool waylandDispatch(Window *window) {
 	return true;
 }
 
-i32 createAnonymousFile(i32 size) {
+static i32 CreateAnonymousFile(i32 size) {
 	RandomNumberGenerator rng;
-	String path = getenv("XDG_RUNTIME_DIR");
+	const char *path = getenv("XDG_RUNTIME_DIR");
 	String shmName;
 	i32 tries = 0;
 	i32 fd;
@@ -101,11 +102,11 @@ i32 createAnonymousFile(i32 size) {
 	return fd;
 }
 
-bool CreateShmImageWayland(i32 width, i32 height, i32 *dstFD, u32 **dstShmData, i32 *dstSize, wl_buffer **dstBuffer, String &dstError, io::Window *window) {
+static bool CreateShmImageWayland(i32 width, i32 height, i32 *dstFD, u32 **dstShmData, i32 *dstSize, wl_buffer **dstBuffer, String &dstError, io::Window *window) {
 	wl_shm_pool *pool;
 	i32 stride = width * 4;
 	*dstSize = stride * height;
-	*dstFD = createAnonymousFile(*dstSize);
+	*dstFD = CreateAnonymousFile(*dstSize);
 	if (*dstFD < 0) {
 		dstError = "Failed to create fd for shm";
 		return false;
@@ -128,7 +129,7 @@ bool CreateShmImageWayland(i32 width, i32 height, i32 *dstFD, u32 **dstShmData, 
 	return true;
 }
 
-void DestroyShmImageWayland(i32 fd, u32 *shmData, i32 size, wl_buffer *buffer) {
+static void DestroyShmImageWayland(i32 fd, u32 *shmData, i32 size, wl_buffer *buffer) {
 	munmap(shmData, size);
 	close(fd);
 	wl_buffer_destroy(buffer);
@@ -172,8 +173,6 @@ static void xdgSurfaceConfigure(void *data, xdg_surface *xdgSurface, u32 serial)
 	xdg_surface_ack_configure(xdgSurface, serial);
 	// Don't do the actual resize here.
 	// Instead, wait until we've received all the configure events and then do it.
-	// This is done in windowUpdateWayland
-	// windowResizeWayland(window);
 	window->data->wayland.incomplete = false;
 }
 
@@ -181,6 +180,7 @@ static const xdg_surface_listener xdgSurfaceListener = {
 	.configure = xdgSurfaceConfigure
 };
 
+// wl_array_for_each breaks aliasing rules, so modify it a bit
 #undef wl_array_for_each
 #define wl_array_for_each(pos,array,type) for (pos = (type*)(array)->data; (const char *) pos < ((const char *) (array)->data + (array)->size); (pos)++)
 
@@ -188,7 +188,7 @@ static void xdgToplevelConfigure(void *data, xdg_toplevel *xdgToplevel, i32 widt
 	Window *window = (Window*)data;
 	DEBUG_PRINTLN("xdgToplevelConfigure with width ", width, " and height ", height);
 	if (width != 0 && height != 0) {
-		windowResizeWayland(window, width * window->data->wayland.scale, height * window->data->wayland.scale);
+		windowResizeLater(window, width * window->data->wayland.scale, height * window->data->wayland.scale);
 		xdg_toplevel_state *state;
 		bool fullscreened = false;
 		wl_array_for_each(state, states, xdg_toplevel_state) {
@@ -259,12 +259,12 @@ static void pointerMotion(void *data, wl_pointer *wl_pointer, u32 time, wl_fixed
 	// DEBUG_PRINTLN("pointerMotion x = ", wl_fixed_to_float(surface_x), ", y = ", wl_fixed_to_float(surface_y));
 }
 
-void HandleKCState(Input *input, u8 keycode, u32 state) {
+static void HandleKCState(Input *input, u8 keycode, u32 state) {
 	if (state) input->Press(keycode);
 	else input->Release(keycode);
 }
 
-void HandleCharState(Input *input, char character, u32 state) {
+static void HandleCharState(Input *input, char character, u32 state) {
 	if (state)
 		input->typingString += character;
 	if (character >= 'a' && character <= 'z') {
@@ -365,8 +365,6 @@ static void pointerAxisDiscrete(void *data, wl_pointer *pointer, u32 axis, i32 d
 	DEBUG_PRINTLN("pointerAxisDiscrete axis = ", axis, ", discrete = ", discrete);
 }
 
-// Can someone explain to me why we need 9 SEPARATE EVENTS!!!
-// Especially when you're supposed to COMBINE THEM ANYWAY???
 static const wl_pointer_listener pointerListener = {
 	.enter = pointerEnter,
 	.leave = pointerLeave,
@@ -612,11 +610,11 @@ static const wl_registry_listener registryListener = {
 
 } // namespace wl::events
 
-void xkbSetupKeyboardWayland(xkb_keyboard *xkb) {
+static void xkbSetupKeyboardWayland(xkb_keyboard *xkb) {
 	xkb->context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 }
 
-i32 GetWindowScaleWayland(Window *window) {
+static i32 GetWindowScaleWayland(Window *window) {
 	i32 maxScale = 1;
 	for (wl_output *output : window->data->wayland.outputsWeTouch) {
 		wlOutputInfo &info = window->data->wayland.outputs[output];
@@ -715,7 +713,9 @@ void windowFullscreenWayland(Window *window) {
 	}
 }
 
-void windowResizeWaylandShm(Window *window) {
+// Resizes the actual buffer
+void windowResizeWayland(Window *window) {
+	window->resized = true;
 	i32 width = window->width;
 	i32 height = window->height;
 	AzAssert(width != 0 && height != 0, "window size is invalid");
@@ -738,18 +738,18 @@ void windowResizeWaylandShm(Window *window) {
 
 bool windowUpdateWayland(Window *window, bool &changeFullscreen) {
 	window->data->wayland.changeFullscreen = false;
-	if (!waylandDispatch(window)) return false;
+	if (!wlDisplayDispatchNonblocking(window->data->wayland.display, window->data->wayland.displayFD)) return false;
 	while (window->data->wayland.incomplete) {
 		// Do the blocking one until we get all the events we needed
 		if (wl_display_dispatch(window->data->wayland.display) < 0) return false;
 	}
 	u16 newDpi = GetWindowScaleWayland(window) * 96;
 	if (window->dpi != newDpi) {
-		windowResizeWayland(window, window->width * newDpi / window->dpi, window->height * newDpi / window->dpi);
+		windowResizeLater(window, window->width * newDpi / window->dpi, window->height * newDpi / window->dpi);
 		window->dpi = newDpi;
 	}
 	if (window->resized) {
-		windowResizeWaylandShm(window);
+		windowResizeWayland(window);
 	}
 	changeFullscreen = window->data->wayland.changeFullscreen;
 	return !window->quit && !window->data->wayland.hadError;

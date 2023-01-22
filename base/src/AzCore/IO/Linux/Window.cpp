@@ -294,8 +294,21 @@ bool xkbSelectEventsForDevice(xkb_keyboard *xkb) {
 }
 
 Window::Window() {
-	char *wayland = getenv("WAYLAND_DISPLAY");
-	data = new WindowData(wayland != nullptr);
+	bool useWayland = false;
+
+	char *waylandDisplay = getenv("WAYLAND_DISPLAY");
+	if (waylandDisplay) useWayland = true;
+
+	char *azEnableWayland = getenv("AZCORE_ENABLE_WAYLAND");
+	if (azEnableWayland) {
+		if (equals(azEnableWayland, "1")) {
+			useWayland = true;
+		} else if (equals(azEnableWayland, "0")) {
+			useWayland = false;
+		}
+	}
+
+	data = new WindowData(useWayland);
 	if (!data->useWayland) {
 		data->x11.windowDepth = 24;
 	}

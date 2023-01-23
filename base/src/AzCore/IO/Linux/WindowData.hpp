@@ -68,6 +68,8 @@ struct wlCursor {
 	wl_surface *surface;
 };
 
+constexpr i32 TOUCH_ID_NONE = -1;
+
 struct WindowData {
 	bool useWayland;
 	union {
@@ -108,6 +110,7 @@ struct WindowData {
 			wl_touch *touch;
 			wl_region *region;
 			i32 scale;
+			i32 touchId;
 			struct {
 				wl_buffer *buffer;
 				i32 fd;

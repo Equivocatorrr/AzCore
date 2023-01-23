@@ -429,6 +429,84 @@ static const wl_pointer_listener pointerListener = {
 	.axis_discrete = pointerAxisDiscrete
 };
 
+// NOTE: I don't actually have a touch device to test this on so fingers crossed I'm not doing something dum.
+// In any case, making any attempt at touch support is better than none I think
+
+static void touchDown(void *data, wl_touch *touch, u32 serial, u32 time, wl_surface *surface, i32 id, wl_fixed_t x, wl_fixed_t y) {
+	// And the crowd goes wild!
+	Window *window = (Window*)data;
+	Input *input = window->input;
+	// Support exactly one touch point
+	if (input && window->data->wayland.touchId == TOUCH_ID_NONE) {
+		// Only use this event if we don't already have an active id
+		HandleKCState(input, KC_MOUSE_LEFT, 1);
+		input->cursor = vec2i(x, y) * window->data->wayland.scale / 256;
+		window->data->wayland.touchId = id;
+	}
+	DEBUG_PRINTLN("touchDown id = ", id);
+}
+
+static void touchUp(void *data, wl_touch *toutche, u32 serial, u32 time, i32 id) {
+	Window *window = (Window*)data;
+	Input *input = window->input;
+	if (input && window->data->wayland.touchId == id) {
+		// Ignore events not pertaining to the first id we got
+		HandleKCState(input, KC_MOUSE_LEFT, 0);
+		window->data->wayland.touchId = TOUCH_ID_NONE;
+	}
+	DEBUG_PRINTLN("touchUp id = ", id);
+}
+
+static void touchMotion(void *data, wl_touch *touch, u32 time, i32 id, wl_fixed_t x, wl_fixed_t y) {
+	Window *window = (Window*)data;
+	Input *input = window->input;
+	if (input && window->data->wayland.touchId == id) {
+		// Ignore events not pertaining to the first id we got
+		input->cursor = vec2i(x, y) * window->data->wayland.scale / 256;
+	}
+	DEBUG_PRINTLN("touchMotion id = ", id);
+}
+
+static void touchFrame(void *data, wl_touch *touch) {
+	// We're supposed to accumulate the above events and commit here but I'm not bovered
+	DEBUG_PRINTLN("touchFrame");
+}
+
+static void touchCancel(void *data, wl_touch *touch) {
+	// I guess we can get events and then bail
+	Window *window = (Window*)data;
+	Input *input = window->input;
+	if (input && window->data->wayland.touchId != TOUCH_ID_NONE) {
+		// If we have an active touch point, stop it, get help
+		// Release without setting release because the press event wasn't meant for us
+		input->inputs[KC_MOUSE_LEFT].Set(false, false, false);
+		if (input->codeAny == KC_MOUSE_LEFT) input->Any.Set(false, false, false);
+		if (input->codeAnyMB == KC_MOUSE_LEFT) input->AnyMB.Set(false, false, false);
+		window->data->wayland.touchId = TOUCH_ID_NONE;
+	}
+	DEBUG_PRINTLN("touchCancel");
+}
+
+// I don't think we need these with seat version 5, but just in case, I'd rather not segfault
+
+static void touchShape(void *data, wl_touch *touch, i32 id, wl_fixed_t major, wl_fixed_t minor) {
+	DEBUG_PRINTLN("touchShape id = ", id);
+}
+
+static void touchOrientation(void *data, wl_touch *touch, i32 id, wl_fixed_t orientation) {
+	DEBUG_PRINTLN("touchOrientation id = ", id);
+}
+
+static const wl_touch_listener touchListener = {
+	.down = touchDown,
+	.up = touchUp,
+	.motion = touchMotion,
+	.frame = touchFrame,
+	.cancel = touchCancel,
+	.shape = touchShape,
+	.orientation = touchOrientation,
+};
+
 static void keyboardKeymap(void *data, wl_keyboard *wl_keyboard, u32 format, i32 fd, u32 size) {
 	Window *window = (Window*)data;
 	AzAssert(format == WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1, "Unsupported wayland keymap");
@@ -543,7 +621,7 @@ static void seatCapabilities(void *data, wl_seat *seat, u32 caps) {
 	}
 	if (caps & WL_SEAT_CAPABILITY_TOUCH) {
 		window->data->wayland.touch = wl_seat_get_touch(window->data->wayland.seat);
-		// TODO: Listen to touch stuff
+		wl_touch_add_listener(window->data->wayland.touch, &touchListener, window);
 		DEBUG_PRINTLN("Display has a touch screen.");
 	} else {
 		window->data->wayland.touch = nullptr;
@@ -749,6 +827,7 @@ bool windowOpenWayland(Window *window) {
 		window->dpi = newDpi;
 	}
 
+	window->data->wayland.touchId = TOUCH_ID_NONE;
 	window->data->wayland.hadError = false;
 	window->open = true;
 	return true;

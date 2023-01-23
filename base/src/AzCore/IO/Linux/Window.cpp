@@ -523,7 +523,7 @@ bool Window::Show() {
 		return false;
 	}
 	if (data->useWayland) {
-		// TODO: Implement this
+		// We show in Open because otherwise we can't get DPI
 	} else {
 		xcb_map_window(data->x11.connection, data->x11.window);
 		xcb_flush(data->x11.connection);
@@ -848,7 +848,7 @@ bool Window::Update() {
 void Window::HideCursor(bool hide) {
 	cursorHidden = hide;
 	if (data->useWayland) {
-		// TODO: Implement this
+		SetCursorWayland(this);
 	} else {
 		if (hide) {
 			u32 value = data->x11.cursorHidden;

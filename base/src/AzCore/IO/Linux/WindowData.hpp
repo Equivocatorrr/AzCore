@@ -32,6 +32,7 @@
 #undef explicit
 
 #include <wayland-client.h>
+#include <wayland-cursor.h>
 #include "WaylandProtocols/xdg-shell.h"
 
 namespace AzCore {
@@ -58,6 +59,13 @@ struct wlOutputInfo {
 	i32 scale = 1;
 	const char *make="make N/A", *model="model N/A";
 	const char *name="name N/A", *description="description N/A";
+};
+
+struct wlCursor {
+	wl_cursor_theme *theme;
+	wl_cursor *cursor;
+	wl_buffer *buffer;
+	wl_surface *surface;
 };
 
 struct WindowData {
@@ -89,6 +97,7 @@ struct WindowData {
 			wl_seat *seat;
 			wl_shm *shm;
 			// These we created, in order
+			BinaryMap<i32, wlCursor> cursors;
 			wl_surface *surface;
 			xdg_surface *xdgSurface;
 			xdg_toplevel *xdgToplevel;
@@ -106,7 +115,9 @@ struct WindowData {
 			bool changeFullscreen;
 			bool hadError;
 			bool incomplete;
+			bool pointerFocus;
 			u32 fullscreenSerial;
+			u32 pointerEnterSerial;
 			i32 widthMax;
 			i32 heightMax;
 		} wayland;
@@ -119,6 +130,7 @@ struct WindowData {
 		if (useWayland) {
 			AzPlacementNew(wayland.outputs);
 			AzPlacementNew(wayland.outputsWeTouch);
+			AzPlacementNew(wayland.cursors);
 			wayland = {0};
 		}
 	}
@@ -126,6 +138,7 @@ struct WindowData {
 		if (useWayland) {
 			wayland.outputs.~BinaryMap();
 			wayland.outputsWeTouch.~Array();
+			wayland.cursors.~BinaryMap();
 		}
 	}
 }; // struct WindowData

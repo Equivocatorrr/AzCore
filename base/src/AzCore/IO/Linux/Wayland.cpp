@@ -16,15 +16,64 @@
 #include <poll.h>
 #include <unistd.h>
 
-#if defined(NDEBUG) && 1
-#define DEBUG_PRINTLN(...)
+#ifndef NDEBUG
+	#define AZCORE_WAYLAND_VERBOSE 0
 #else
+	#define AZCORE_WAYLAND_VERBOSE 0
+#endif
+
+#if AZCORE_WAYLAND_VERBOSE
 #define DEBUG_PRINTLN(...) az::io::cout.PrintLn(__VA_ARGS__)
+#else
+#define DEBUG_PRINTLN(...)
 #endif
 
 namespace AzCore {
 
 namespace io {
+
+static wlCursor* GetSystemCursorWayland(Window *window, i32 scale) {
+	i32 cursorSize = 0;
+	// Try to read theme from XCURSOR_THEME
+	// This might not work 100%, but even if themeName is null, we get a valid theme
+	// TODO: use dbus to read system configuration
+	const char *themeName = getenv("XCURSOR_THEME");
+	const char *xCursorSize = getenv("XCURSOR_SIZE");
+	DEBUG_PRINTLN("XCURSOR_THEME=", themeName ? themeName : "NULL", "\nXCURSOR_SIZE=", xCursorSize ? xCursorSize : "NULL");
+	if (xCursorSize) {
+		StringToI32(xCursorSize, &cursorSize);
+	}
+	if (cursorSize <= 0) cursorSize = 24;
+	cursorSize *= scale;
+
+	if (auto *node = window->data->wayland.cursors.Find(cursorSize)) {
+		return &node->value;
+	}
+	wlCursor cursors;
+	cursors.theme = wl_cursor_theme_load(themeName, cursorSize, window->data->wayland.shm);
+	// TODO: Different cursors for different contexts
+	cursors.cursor = wl_cursor_theme_get_cursor(cursors.theme, "left_ptr");
+	DEBUG_PRINTLN("Getting new cursor with hotspot_x = ", cursors.cursor->images[0]->hotspot_x, ", hotspot_y = ", cursors.cursor->images[0]->hotspot_y);
+	// TODO: Animated cursors
+	cursors.buffer = wl_cursor_image_get_buffer(cursors.cursor->images[0]);
+	cursors.surface = wl_compositor_create_surface(window->data->wayland.compositor);
+	wl_surface_attach(cursors.surface, cursors.buffer, 0, 0);
+	wl_surface_set_buffer_scale(cursors.surface, scale);
+	wl_surface_commit(cursors.surface);
+	return &window->data->wayland.cursors.Emplace(cursorSize, cursors);
+}
+
+void SetCursorWayland(Window *window) {
+	if (!window->data->wayland.pointerFocus) return;
+	if (window->cursorHidden) {
+		wl_pointer_set_cursor(window->data->wayland.pointer, window->data->wayland.pointerEnterSerial, nullptr, 0, 0);
+	} else {
+		int scale = window->data->wayland.scale;
+		wlCursor *cursor = GetSystemCursorWayland(window, scale);
+		wl_cursor_image *image = cursor->cursor->images[0];
+		wl_pointer_set_cursor(window->data->wayland.pointer, window->data->wayland.pointerEnterSerial, cursor->surface, image->hotspot_x / scale, image->hotspot_y / scale);
+	}
+}
 
 // Sets width, height, and resized so the buffer will be resized at the end of an update
 // Rather than updating the buffer here, since we can get many xdgToplevelConfigure events in one frame.
@@ -237,20 +286,24 @@ float wl_fixed_to_float(wl_fixed_t fixed) {
 	return result;
 }
 
-static void pointerEnter(void *data, wl_pointer *wl_pointer, u32 serial, wl_surface *surface, wl_fixed_t surface_x, wl_fixed_t surface_y) {
-	// TODO: Use serial to change pointer image
+static void pointerEnter(void *data, wl_pointer *pointer, u32 serial, wl_surface *surface, wl_fixed_t surface_x, wl_fixed_t surface_y) {
 	Window *window = (Window*)data;
+	window->data->wayland.pointerEnterSerial = serial;
+	window->data->wayland.pointerFocus = true;
 	if (window->input) {
 		window->input->cursor = vec2i(wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y));
 	}
+	SetCursorWayland(window);
 	DEBUG_PRINTLN("pointerEnter x = ", wl_fixed_to_float(surface_x), ", y = ", wl_fixed_to_float(surface_y));
 }
 
-static void pointerLeave(void *data, wl_pointer *wl_pointer, u32 serial, wl_surface *surface) {
+static void pointerLeave(void *data, wl_pointer *pointer, u32 serial, wl_surface *surface) {
+	Window *window = (Window*)data;
+	window->data->wayland.pointerFocus = false;
 	DEBUG_PRINTLN("pointerLeave");
 }
 
-static void pointerMotion(void *data, wl_pointer *wl_pointer, u32 time, wl_fixed_t surface_x, wl_fixed_t surface_y) {
+static void pointerMotion(void *data, wl_pointer *pointer, u32 time, wl_fixed_t surface_x, wl_fixed_t surface_y) {
 	Window *window = (Window*)data;
 	if (window->input) {
 		window->input->cursor = vec2i(wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y)) * window->data->wayland.scale;
@@ -274,7 +327,7 @@ static void HandleCharState(Input *input, char character, u32 state) {
 	else input->ReleaseChar(character);
 }
 
-static void pointerButton(void *data, wl_pointer *wl_pointer, u32 serial, u32 time, u32 button, u32 state) {
+static void pointerButton(void *data, wl_pointer *pointer, u32 serial, u32 time, u32 button, u32 state) {
 	Window *window = (Window*)data;
 	if (window->input) {
 		switch (button) {
@@ -531,13 +584,14 @@ static void outputMode(void *data, wl_output *output, u32 flags, i32 width, i32 
 }
 
 static void outputDone(void *data, wl_output *output) {
+#if AZCORE_WAYLAND_VERBOSE
 	Window *window = (Window*)data;
 	AzAssert(window->data->wayland.outputs.Exists(output), "got an invalid wl_output");
 	wlOutputInfo &info = window->data->wayland.outputs[output];
-	// Commit some changes I guess
 	i32 dpiX = info.width * 254 / 10 / info.phys_w;
 	i32 dpiY = info.height * 254 / 10 / info.phys_h;
-	DEBUG_PRINTLN("outputDone dpi = ", dpiX, ", ", dpiY);
+	cout.PrintLn("outputDone dpi = ", dpiX, ", ", dpiY);
+#endif
 }
 
 static void outputScale(void *data, wl_output *output, i32 factor) {

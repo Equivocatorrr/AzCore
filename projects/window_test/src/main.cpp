@@ -44,6 +44,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
 				cout.PrintLn("Released  HID 0x", FormatInt(i, 16), "\t", window.InputName(i));
 			}
 		}
+		if (input.Pressed(KC_KEY_H)) {
+			cout.PrintLn("Toggling cursor visibility");
+			window.HideCursor(!window.cursorHidden);
+		}
 		Thread::Sleep(Milliseconds(16));
 		input.Tick(1.0f/60.0f);
 	} while (window.Update());

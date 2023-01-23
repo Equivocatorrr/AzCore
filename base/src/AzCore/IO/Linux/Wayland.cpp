@@ -12,7 +12,6 @@
 #include "../../keycodes.hpp"
 #include "WindowData.hpp"
 #include <sys/mman.h>
-// #include <fcntl.h>
 #include <poll.h>
 #include <unistd.h>
 
@@ -807,6 +806,10 @@ bool windowUpdateWayland(Window *window, bool &changeFullscreen) {
 	}
 	changeFullscreen = window->data->wayland.changeFullscreen;
 	return !window->quit && !window->data->wayland.hadError;
+}
+
+void windowCloseWayland(Window *window) {
+	wl_display_disconnect(window->data->wayland.display);
 }
 
 } // namespace io

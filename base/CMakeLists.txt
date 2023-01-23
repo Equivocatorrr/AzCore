@@ -105,12 +105,14 @@ add_library(AzCore STATIC
 
 if (CMAKE_SYSTEM MATCHES Linux)
 	target_sources(AzCore PRIVATE
+		src/AzCore/IO/Linux/XCB.cpp
 		src/AzCore/IO/Linux/Wayland.cpp
 		src/AzCore/IO/Linux/WaylandProtocols/xdg-shell.c
 		src/AzCore/IO/Linux/WaylandProtocols/xdg-shell.h
 	)
 	set_source_files_properties(
 		src/AzCore/IO/Linux/Wayland.cpp
+		src/AzCore/IO/Linux/XCB.cpp
 		PROPERTIES HEADER_FILE_ONLY TRUE
 	)
 endif()

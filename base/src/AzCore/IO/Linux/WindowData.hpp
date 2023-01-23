@@ -82,6 +82,8 @@ struct WindowData {
 			xcb_cursor_t cursorHidden;
 			xcb_cursor_t cursorVisible;
 			i32 windowDepth;
+			i32 frameCount;
+			Thread dpiThread;
 		#ifndef AZCORE_IO_NO_XLIB
 			Display *display;
 		#endif
@@ -123,8 +125,6 @@ struct WindowData {
 		} wayland;
 	};
 	xkb_keyboard xkb;
-	i32 frameCount;
-	Thread dpiThread;
 	WindowData(bool _useWayland) : useWayland(_useWayland) {
 		xkb.useWayland = useWayland;
 		if (useWayland) {
@@ -132,6 +132,10 @@ struct WindowData {
 			AzPlacementNew(wayland.outputsWeTouch);
 			AzPlacementNew(wayland.cursors);
 			wayland = {0};
+		} else {
+			AzPlacementNew(x11.dpiThread);
+			x11 = {0};
+			x11.windowDepth = 24;
 		}
 	}
 	~WindowData() {
@@ -139,6 +143,8 @@ struct WindowData {
 			wayland.outputs.~BinaryMap();
 			wayland.outputsWeTouch.~Array();
 			wayland.cursors.~BinaryMap();
+		} else {
+			x11.dpiThread.~Thread();
 		}
 	}
 }; // struct WindowData

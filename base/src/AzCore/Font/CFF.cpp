@@ -806,7 +806,7 @@ i32 ResolveType2Operator(u8 *data, Type2ParsingInfo &info, Glyph &out) {
 				case 22:
 				case 4:
 					// odd arguments = no width
-					if (!info.stack.data.size & 1 && info.stack.data.size > 0) {
+					if (!(info.stack.data.size & 1) && info.stack.data.size > 0) {
 						info.stack.data.Erase(0);
 					}
 					break;

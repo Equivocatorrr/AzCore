@@ -37,7 +37,7 @@ void Swap(T &a, T &b) {
 	b = std::move(c);
 }
 
-inline bool IsPowerOfTwo(size_t value) {
+constexpr bool IsPowerOfTwo(size_t value) {
 	return (value & (value-1)) == 0;
 }
 size_t align(size_t size, size_t alignment);

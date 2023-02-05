@@ -119,6 +119,10 @@ endif()
 
 target_include_directories(AzCore PRIVATE "${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include")
 target_include_directories(AzCore PRIVATE "${PROJECT_SOURCE_DIR}/external/stb")
+target_include_directories(AzCore PUBLIC
+	$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/base/src>
+	$<INSTALL_INTERFACE:include>
+)
 
 set_target_properties(AzCore PROPERTIES DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX})
 
@@ -171,8 +175,13 @@ endif()
 
 install(TARGETS AzCore AzCore_Net AzCore_IO AzCore_Vulkan AzCore_SoftwareRenderer
 	EXPORT AzCore
-	CONFIGURATIONS Release
 	ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}/AzCore"
+	INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/AzCore"
+)
+install(EXPORT AzCore
+	FILE AzCore.cmake
+	NAMESPACE AzCore::
+	DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/AzCore"
 )
 if (NOT Vulkan_FOUND)
 	install(TARGETS Vulkan
@@ -180,7 +189,7 @@ if (NOT Vulkan_FOUND)
 		CONFIGURATIONS Release
 	)
 endif()
-install(FILES AzCoreConfig.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/AzCore")
+install(FILES AzCoreConfig.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/AzCore")
 install(DIRECTORY "src/AzCore"
 	DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 	FILES_MATCHING PATTERN "*.hpp"

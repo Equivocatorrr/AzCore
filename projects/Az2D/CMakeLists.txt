@@ -19,10 +19,13 @@ add_library(Az2D STATIC
 	src/Az2D/sprite.hpp
 )
 
-target_include_directories(Az2D PUBLIC "${PROJECT_SOURCE_DIR}/base/src/")
 target_include_directories(Az2D PRIVATE "${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include")
 target_include_directories(Az2D PRIVATE "${PROJECT_SOURCE_DIR}/external/openal-soft/include")
 target_include_directories(Az2D PRIVATE "${PROJECT_SOURCE_DIR}/external/stb")
+target_include_directories(Az2D PUBLIC
+	$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/projects/Az2D/src>
+	$<INSTALL_INTERFACE:include>
+)
 
 set(OUTPUT_DIR "${PROJECT_SOURCE_DIR}/projects/Az2D")
 
@@ -39,21 +42,30 @@ AZ2D_COPY_SHADERS(Az2D_Example)
 AZ2D_COPY_SHADERS(tower_defense)
 AZ2D_COPY_SHADERS(LD46)
 
-target_link_libraries(Az2D PRIVATE AzCore_Vulkan)
+target_link_libraries(Az2D PUBLIC AzCore_Vulkan)
 
-if (CMAKE_SYSTEM MATCHES Windows)
-	add_library(OpenAL32 SHARED IMPORTED)
-	set_target_properties(OpenAL32 PROPERTIES
-		IMPORTED_LOCATION "${OUTPUT_DIR}/lib/OpenAL32.dll"
-		IMPORTED_IMPLIB "${OUTPUT_DIR}/lib/OpenAL32.lib"
-	)
-	target_link_libraries(Az2D PRIVATE OpenAL32)
-elseif (CMAKE_SYSTEM MATCHES Linux)
-	target_link_libraries(Az2D PRIVATE openal)
-endif()
+target_link_libraries(Az2D PUBLIC OpenAL)
 
 set_target_properties(Az2D PROPERTIES
 	DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}
 	RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_DIR}/lib"
 	VS_DEBUGGER_WORKING_DIRECTORY "${OUTPUT_DIR}"
+)
+install(TARGETS Az2D
+	EXPORT Az2D
+	ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}/Az2D"
+	INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/Az2D"
+)
+install(EXPORT Az2D
+	FILE Az2D.cmake
+	NAMESPACE Az2D::
+	DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/Az2D"
+)
+install(FILES Az2DConfig.cmake Az2DDataCopy.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/Az2D")
+install(DIRECTORY "src/Az2D"
+	DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+	FILES_MATCHING PATTERN "*.hpp"
+)
+install(DIRECTORY "data"
+	DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/Az2D"
 )

@@ -1,11 +1,17 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.25)
 
 set(CMAKE_DEBUG_POSTFIX _debug)
 
 project(AzCore)
 
+include(GNUInstallDirs)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+if (NOT ${CMAKE_INSTALL_PREFIX})
+	set(CMAKE_INSTALL_PREFIX $ENV{CMAKE_INSTALL_PREFIX})
+endif()
 
 if (MSVC)
 	add_compile_options(/W3 /arch:AVX2 -DAZCORE_IO_FOR_VULKAN)
@@ -20,7 +26,7 @@ if (MSVC)
 	# Disable generating a manifest in Visual Studio since we provide our own
 	add_link_options(/MANIFEST:NO)
 else()
-	add_compile_options(-Wall -mavx2 -DAZCORE_IO_FOR_VULKAN)
+	add_compile_options(-Wall -mavx2 -DAZCORE_IO_FOR_VULKAN -g)
 	if (CMAKE_SYSTEM MATCHES Windows)
 		add_compile_options(-D_GLIBCXX_USE_NANOSLEEP)
 		add_link_options(-static-libgcc -static-libstdc++ -static -Llibwinpthread-1.dll)
@@ -118,13 +124,13 @@ function(AZ2D_DATA_COPY target OUTPUT_DIR)
 	endforeach(AZ2D_DATA_FILE)
 endfunction()
 
-add_subdirectory(external/Vulkan-Headers EXCLUDE_FROM_ALL)
-add_subdirectory(external/openal-soft EXCLUDE_FROM_ALL)
+add_subdirectory(external/Vulkan-Headers)
+if(NOT TARGET OpenAL::OpenAL)
+	add_subdirectory(external/openal-soft)
+endif()
 
 # Actual library
 add_subdirectory(base)
 
 # Projects meta-list
 add_subdirectory(projects)
-
-install(EXPORT AzCore DESTINATION "${CMAKE_INSTALL_LIBDIR}/AzCore")

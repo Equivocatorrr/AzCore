@@ -174,6 +174,8 @@ public:
 	ArenaStringMap() = default;
 	ArenaStringMap(const ArenaStringMap&) = default;
 	ArenaStringMap(ArenaStringMap&&) = default;
+	ArenaStringMap& operator=(const ArenaStringMap&) = default;
+	ArenaStringMap& operator=(ArenaStringMap&&) = default;
 	ArenaStringMap(std::initializer_list<std::pair<AString_t, T>> init) {
 		i32 maxIndex = 0;
 		for (const auto &it : init) {

@@ -175,6 +175,7 @@ endif()
 
 install(TARGETS AzCore AzCore_Net AzCore_IO AzCore_Vulkan AzCore_SoftwareRenderer
 	EXPORT AzCore
+	CONFIGURATIONS Debug Release
 	ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}/AzCore"
 	INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/AzCore"
 )
@@ -186,7 +187,7 @@ install(EXPORT AzCore
 if (NOT Vulkan_FOUND)
 	install(TARGETS Vulkan
 		EXPORT AzCore
-		CONFIGURATIONS Release
+		CONFIGURATIONS Debug Release
 	)
 endif()
 install(FILES AzCoreConfig.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/AzCore")

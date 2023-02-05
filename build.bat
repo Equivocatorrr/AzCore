@@ -100,6 +100,9 @@ if %BuildDebug% == 1 (
 		echo "CMake build failed! Aborting..."
 		goto EndOfScript
 	)
+	if %install% == 1 (
+		cmake --install . %verbose% --config Debug
+	)
 	cd ..
 )
 
@@ -118,7 +121,7 @@ if %BuildRelease% == 1 (
 		goto EndOfScript
 	)
 	if %install% == 1 (
-		cmake --install . %verbose%
+		cmake --install . %verbose% --config Release
 	)
 	cd ..
 )

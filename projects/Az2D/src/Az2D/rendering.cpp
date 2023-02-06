@@ -968,8 +968,7 @@ void Manager::LineCursorStartAndSpaceScale(f32 &dstCursor, f32 &dstSpaceScale, f
 	}
 }
 
-void Manager::DrawCharSS(DrawingContext &context, char32 character,
-						 i32 fontIndex, vec4 color, vec2 position, vec2 scale) {
+void Manager::DrawCharSS(DrawingContext &context, char32 character, i32 fontIndex, vec4 color, vec2 position, vec2 scale) {
 	Assets::Font *fontDesired = &sys->assets.fonts[fontIndex];
 	Assets::Font *fontFallback = &sys->assets.fonts[0];
 	Assets::Font *font = fontDesired;
@@ -1011,10 +1010,8 @@ void Manager::DrawCharSS(DrawingContext &context, char32 character,
 	}
 }
 
-void Manager::DrawTextSS(DrawingContext &context, WString string,
-						 i32 fontIndex, vec4 color, vec2 position, vec2 scale,
-						 FontAlign alignH, FontAlign alignV, f32 maxWidth,
-						 f32 edge, f32 bounds, Radians32 rotation) {
+void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH, FontAlign alignV, f32 maxWidth, f32 edge, f32 bounds, Radians32 rotation) {
+	if (string.size == 0) return;
 	Assets::Font *fontDesired = &sys->assets.fonts[fontIndex];
 	Assets::Font *fontFallback = &sys->assets.fonts[0];
 	// scale.x *= aspectRatio;
@@ -1035,20 +1032,17 @@ void Manager::DrawTextSS(DrawingContext &context, WString string,
 	vec2 cursor = position;
 	f32 spaceScale = 1.0f;
 	f32 spaceWidth = CharacterWidth((char32)' ', fontDesired, fontFallback) * scale.x;
+	LineCursorStartAndSpaceScale(cursor.x, spaceScale, scale.x, spaceWidth, fontIndex, &string[0], maxWidth, alignH);
+	cursor.x += position.x;
 	for (i32 i = 0; i < string.size; i++) {
 		char32 character = string[i];
-		if (character == '\n' || i == 0) {
-			if (character != '\n') {
-				i--;
-			}
-			LineCursorStartAndSpaceScale(cursor.x, spaceScale, scale.x, spaceWidth, fontIndex, &string[i+1], maxWidth, alignH);
-			cursor.x += position.x;
-			if (i == -1) {
-				i++;
-			} else {
+		if (character == '\n') {
+			if (i+1 < string.size) {
+				LineCursorStartAndSpaceScale(cursor.x, spaceScale, scale.x, spaceWidth, fontIndex, &string[i+1], maxWidth, alignH);
+				cursor.x += position.x;
 				cursor.y += scale.y * lineHeight;
-				continue;
 			}
+			continue;
 		}
 		pc.frag.texIndex = fontIndex;
 		Assets::Font *font = fontDesired;

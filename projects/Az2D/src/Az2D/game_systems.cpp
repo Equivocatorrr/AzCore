@@ -369,6 +369,12 @@ io::ButtonState* Manager::GetButtonState(u8 keyCode) {
 	}
 }
 
+bool Manager::Repeated(u8 keyCode) {
+	io::ButtonState* state = GetButtonState(keyCode);
+	if (!state) return false;
+	return state->Repeated();
+}
+
 bool Manager::Pressed(u8 keyCode) {
 	io::ButtonState* state = GetButtonState(keyCode);
 	if (!state) return false;

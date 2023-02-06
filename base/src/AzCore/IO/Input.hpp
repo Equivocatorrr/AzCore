@@ -36,10 +36,20 @@ struct Input {
 	void ReleaseAll();
 	void Tick(f32 timestep);
 	// These are keyboard-layout agnostic.
-	bool Pressed(u8 keyCode) const;
-	bool Down(u8 keyCode) const;
-	bool Released(u8 keyCode) const;
+	inline bool Repeated(u8 keyCode) const {
+		return inputs[keyCode].Repeated();
+	}
+	inline bool Pressed(u8 keyCode) const {
+		return inputs[keyCode].Pressed();
+	}
+	inline bool Down(u8 keyCode) const {
+		return inputs[keyCode].Down();
+	}
+	inline bool Released(u8 keyCode) const {
+		return inputs[keyCode].Released();
+	}
 	// These are keyboard-layout dependent.
+	bool RepeatedChar(char character) const;
 	bool PressedChar(char character) const;
 	bool DownChar(char character) const;
 	bool ReleasedChar(char character) const;

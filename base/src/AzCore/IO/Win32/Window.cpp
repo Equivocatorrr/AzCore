@@ -66,6 +66,20 @@ Window::~Window() {
 
 i32 GetWindowDpi(Window *window);
 
+static void GetInputRepeatInfo(Input *input) {
+	if (input) {
+		// Supposedly this comes in with values between 0 and 3 inclusive where 0 is 250ms and 3 is 1s
+		i32 keyboardDelay;
+		SystemParametersInfo(SPI_GETKEYBOARDDELAY, 0, &keyboardDelay, 0);
+		input->charRepeatDelay = f32(1 + keyboardDelay) / 4.0f;
+		// Supposedly this comes in between 0 and 31 where 0 means 2.5 repeats per sec and 31 means 30
+		DWORD keyboardSpeed;
+		SystemParametersInfo(SPI_GETKEYBOARDSPEED, 0, &keyboardSpeed, 0);
+		input->charRepeatsPerSecond = 2.5f + f32(keyboardSpeed) * 27.5f / 31.0f;
+		// Apparently the actual values that these translate to are hardware-dependent so that's fun...
+	}
+}
+
 LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	Window *thisWindow = focusedWindow;
 	if (focusedWindow == nullptr) {
@@ -82,6 +96,10 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 	}
 	case WM_INPUTLANGCHANGEREQUEST: {
 		//cout.PrintLn("WM_INPUTLANGCHANGEREQUEST");
+		return DefWindowProc(hWnd, uMsg, wParam, lParam);
+	}
+	case WM_SETTINGCHANGE: {
+		GetInputRepeatInfo(thisWindow->input);
 		return DefWindowProc(hWnd, uMsg, wParam, lParam);
 	}
 	// Dealing with the close button
@@ -351,6 +369,7 @@ bool Window::Open() {
 	}
 	open = true;
 	dpi = GetWindowDpi(this);
+	GetInputRepeatInfo(input);
 	return true;
 }
 

@@ -10,15 +10,6 @@ namespace AzCore {
 
 namespace io {
 
-Gamepad::Gamepad() {
-	for (u32 i = 0; i < IO_GAMEPAD_MAX_AXES * 2; i++) {
-		axisPush[i].canRepeat = true;
-	}
-	for (u32 i = 0; i < 4; i++) {
-		hat[i].canRepeat = true;
-	}
-}
-
 ButtonState* Gamepad::GetButtonState(u8 keyCode) {
 	if (keyCode >= KC_GP_AXIS_LS_RIGHT && keyCode <= KC_GP_AXIS_H0_UP) {
 		return &axisPush[keyCode - KC_GP_AXIS_LS_RIGHT];
@@ -30,6 +21,15 @@ ButtonState* Gamepad::GetButtonState(u8 keyCode) {
 		return &hat[keyCode - KC_GP_AXIS_H0_UP_RIGHT];
 	} else {
 		return nullptr;
+	}
+}
+
+bool Gamepad::Repeated(u8 keyCode) {
+	ButtonState* state = GetButtonState(keyCode);
+	if (state) {
+		return state->Repeated();
+	} else {
+		return false;
 	}
 }
 

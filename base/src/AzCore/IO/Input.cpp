@@ -97,16 +97,11 @@ void Input::Tick(f32 timestep) {
 	cursorPrevious = cursor;
 }
 
-bool Input::Pressed(u8 keyCode) const {
-	return inputs[keyCode].Pressed();
-}
-
-bool Input::Down(u8 keyCode) const {
-	return inputs[keyCode].Down();
-}
-
-bool Input::Released(u8 keyCode) const {
-	return inputs[keyCode].Released();
+bool Input::RepeatedChar(char character) const {
+	if (character & 0x80) {
+		return false;
+	}
+	return inputsChar[(u8)character].Repeated();
 }
 
 bool Input::PressedChar(char character) const {

@@ -61,9 +61,10 @@ struct Gamepad {
 		f32 array[IO_GAMEPAD_MAX_AXES];
 	} axis;
 
-	Gamepad();
+	Gamepad() = default;
 	void Update(f32 timestep, i32 index);
 	ButtonState* GetButtonState(u8 keyCode);
+	bool Repeated(u8 keyCode);
 	bool Pressed(u8 keyCode);
 	bool Down(u8 keyCode);
 	bool Released(u8 keyCode);

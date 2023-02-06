@@ -280,11 +280,11 @@ bool List::UpdateSelection(bool selected, BucketArray<u8, 4> keyCodeSelect, Buck
 		}
 		bool increment = false;
 		for (u8 kc : keyCodeIncrement) {
-			if (sys->Pressed(kc)) increment = true;
+			if (sys->Repeated(kc)) increment = true;
 		}
 		bool decrement = false;
 		for (u8 kc : keyCodeDecrement) {
-			if (sys->Pressed(kc)) decrement = true;
+			if (sys->Repeated(kc)) decrement = true;
 		}
 		if (guiBasic->controlDepth == depth) {
 			if (selection >= 0 && selection < children.size && select) {
@@ -692,7 +692,6 @@ void Image::Draw(Rendering::DrawingContext &context) const {
 }
 
 Button::Button() : string(), colorBG(vec3(0.15f), 0.9f), highlightBG(colorHighlightMedium, 0.9f), colorText(vec3(1.0f), 1.0f), highlightText(vec3(0.0f), 1.0f), fontIndex(1), fontSize(28.0f), state(), keycodeActivators() {
-	state.canRepeat = false;
 	selectable = true;
 	occludes = true;
 }
@@ -1037,14 +1036,14 @@ void TextBox::Update(vec2 pos, bool selected) {
 			}
 		}
 		sys->input.typingString.Clear();
-		if (sys->input.Pressed(KC_KEY_BACKSPACE)) {
+		if (sys->input.Repeated(KC_KEY_BACKSPACE)) {
 			if (cursor <= string.size && cursor > 0) {
 				string.Erase(cursor-1);
 				cursorBlinkTimer = 0.0f;
 				cursor--;
 			}
 		}
-		if (sys->input.Pressed(KC_KEY_DELETE)) {
+		if (sys->input.Repeated(KC_KEY_DELETE)) {
 			if (cursor < string.size) {
 				string.Erase(cursor);
 				cursorBlinkTimer = 0.0f;
@@ -1072,25 +1071,25 @@ void TextBox::Update(vec2 pos, bool selected) {
 			cursorBlinkTimer = 0.0f;
 		}
 		if (multiline) {
-			if (sys->input.Pressed(KC_KEY_ENTER)) {
+			if (sys->input.Repeated(KC_KEY_ENTER)) {
 				string.Insert(cursor, '\n');
 				cursor++;
 				cursorBlinkTimer = 0.0f;
 			}
-			if (sys->input.Pressed(KC_KEY_UP)) {
+			if (sys->input.Repeated(KC_KEY_UP)) {
 				vec2 cursorPos = PositionFromCursor();
 				cursorPos.y -= fontSize * guiBasic->scale * Rendering::lineHeight * 0.5f;
 				CursorFromPosition(cursorPos);
 				cursorBlinkTimer = 0.0f;
 			}
-			if (sys->input.Pressed(KC_KEY_DOWN)) {
+			if (sys->input.Repeated(KC_KEY_DOWN)) {
 				vec2 cursorPos = PositionFromCursor();
 				cursorPos.y += fontSize * guiBasic->scale * Rendering::lineHeight * 1.5f;
 				CursorFromPosition(cursorPos);
 				cursorBlinkTimer = 0.0f;
 			}
 		}
-		if (sys->input.Pressed(KC_KEY_LEFT)) {
+		if (sys->input.Repeated(KC_KEY_LEFT)) {
 			cursorBlinkTimer = 0.0f;
 			if (sys->input.Down(KC_KEY_LEFTCTRL) || sys->input.Down(KC_KEY_RIGHTCTRL)) {
 				if (IsWhitespace(string[--cursor])) {
@@ -1115,7 +1114,7 @@ void TextBox::Update(vec2 pos, bool selected) {
 				cursor = max(0, cursor-1);
 			}
 		}
-		if (sys->input.Pressed(KC_KEY_RIGHT)) {
+		if (sys->input.Repeated(KC_KEY_RIGHT)) {
 			cursorBlinkTimer = 0.0f;
 			if (sys->input.Down(KC_KEY_LEFTCTRL) || sys->input.Down(KC_KEY_RIGHTCTRL)) {
 				if (IsWhitespace(string[cursor])) {
@@ -1235,8 +1234,6 @@ grabbed(false), left(), right()
 {
 	occludes = true;
 	selectable = true;
-	left.canRepeat = true;
-	right.canRepeat = true;
 }
 
 void Slider::Update(vec2 pos, bool selected) {
@@ -1291,11 +1288,11 @@ void Slider::Update(vec2 pos, bool selected) {
 	if (!sys->Down(KC_KEY_LEFTSHIFT)) {
 		scale *= 10.0f;
 	}
-	if (right.Pressed()) {
+	if (right.Repeated()) {
 		value = clamp(value + scale, valueMin, valueMax);
 		updated = true;
 	}
-	if (left.Pressed()) {
+	if (left.Repeated()) {
 		value = clamp(value - scale, valueMin, valueMax);
 		updated = true;
 	}

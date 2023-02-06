@@ -13,5 +13,7 @@ layout(push_constant) uniform pushConstants {
 } pc;
 
 void main() {
-	outColor = texture(texSampler[pc.texId], texCoord) * pc.color;
+	vec4 texColor = texture(texSampler[pc.texId], texCoord);
+	outColor = texColor * pc.color;
+	outColor.rgb *= pc.color.a;
 }

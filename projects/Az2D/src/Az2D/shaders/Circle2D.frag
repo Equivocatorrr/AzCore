@@ -18,7 +18,9 @@ float square(float x) {
 }
 
 void main() {
-	outColor = texture(texSampler[pc.texId], texCoord) * pc.color;
+	vec4 texColor = texture(texSampler[pc.texId], texCoord);
+	outColor = texColor * pc.color;
 	float edge = square(texCoord.x-0.5) + square(texCoord.y-0.5);
-	outColor.a *= smoothstep(0.25, 0.25 - pc.edge, edge);
+	outColor *= smoothstep(0.25, 0.25 - pc.edge, edge);
+	outColor.rgb *= pc.color.a;
 }

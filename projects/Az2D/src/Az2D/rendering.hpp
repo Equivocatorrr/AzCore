@@ -25,6 +25,8 @@ namespace Az2D::Rendering {
 
 using namespace AzCore;
 
+vec3 sRGBToLinear(vec3 sRGB);
+
 constexpr f32 lineHeight = 1.3f;
 
 struct Manager;

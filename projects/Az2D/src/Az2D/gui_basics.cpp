@@ -911,8 +911,9 @@ bool TextValidateIntegers(const WString &string) {
 
 void TextBox::CursorFromPosition(vec2 position) {
 	vec2 cursorPos = 0.0f;
-	f32 spaceScale, spaceWidth;
+	f32 spaceScale, spaceWidth, tabWidth;
 	spaceWidth = sys->assets.CharacterWidth(' ', fontIndex) * fontSize;
+	tabWidth = sys->assets.CharacterWidth((char32)'_', fontIndex) * fontSize * 4.0f;
 	const char32 *lineString = stringFormatted.data;
 	i32 formatNewlines = 0;
 	cursor = 0;
@@ -921,7 +922,7 @@ void TextBox::CursorFromPosition(vec2 position) {
 		for (; cursor < stringFormatted.size; cursor++) {
 			const char32 &c = stringFormatted[cursor];
 			if (c == '\n') {
-				if (string[cursor-formatNewlines] != '\n' && string[cursor-formatNewlines] != ' ') {
+				if (string[cursor-formatNewlines] != '\n' && string[cursor-formatNewlines] != ' ' && string[cursor-formatNewlines] != '\t') {
 					formatNewlines++;
 				}
 				lineString = &c+1;
@@ -947,8 +948,9 @@ void TextBox::CursorFromPosition(vec2 position) {
 		const char32 &c = stringFormatted[cursor];
 		if (c == '\n') {
 			break;
-		}
-		if (c == ' ') {
+		} else if (c == '\t') {
+			advanceCarry = (ceil((cursorPos.x-positionAbsolute.x)/tabWidth+0.05f) * tabWidth - (cursorPos.x-positionAbsolute.x)) * 0.5f;
+		} else if (c == ' ') {
 			advanceCarry = spaceWidth * 0.5f;
 		} else {
 			advanceCarry = sys->assets.CharacterWidth(c, fontIndex) * fontSize * guiBasic->scale * 0.5f;
@@ -964,15 +966,16 @@ void TextBox::CursorFromPosition(vec2 position) {
 
 vec2 TextBox::PositionFromCursor() const {
 	vec2 cursorPos = 0.0f;
-	f32 spaceScale, spaceWidth;
+	f32 spaceScale, spaceWidth, tabWidth;
 	spaceWidth = sys->assets.CharacterWidth(' ', fontIndex) * fontSize;
+	tabWidth = sys->assets.CharacterWidth((char32)'_', fontIndex) * fontSize * 4.0f;
 	const char32 *lineString = stringFormatted.data;
 	i32 lineStart = 0;
 	i32 formatNewlines = 0;
 	for (i32 i = 0; i < cursor+formatNewlines; i++) {
 		const char32 &c = stringFormatted[i];
 		if (c == '\n') {
-			if (string[i-formatNewlines] != '\n' && string[i-formatNewlines] != ' ') {
+			if (string[i-formatNewlines] != '\n' && string[i-formatNewlines] != ' ' && string[i-formatNewlines] != '\t') {
 				formatNewlines++;
 			}
 			cursorPos.y += fontSize * Rendering::lineHeight;
@@ -986,6 +989,9 @@ vec2 TextBox::PositionFromCursor() const {
 		const char32 &c = stringFormatted[i];
 		if (c == '\n') {
 			break;
+		} if (c == '\t') {
+			cursorPos.x = ceil((cursorPos.x)/tabWidth+0.05f) * tabWidth;
+			continue;
 		}
 		if (c == ' ') {
 			cursorPos.x += spaceWidth;
@@ -1068,6 +1074,11 @@ void TextBox::Update(vec2 pos, bool selected) {
 					if (string[cursor] == '\n') break;
 				}
 			}
+			cursorBlinkTimer = 0.0f;
+		}
+		if (sys->input.Repeated(KC_KEY_TAB)) {
+			string.Insert(cursor, '\t');
+			cursor++;
 			cursorBlinkTimer = 0.0f;
 		}
 		if (multiline) {
@@ -1219,8 +1230,8 @@ void TextBox::Draw(Rendering::DrawingContext &context) const {
 	sys->rendering.DrawText(context, stringFormatted, fontIndex, text, drawPosText, scale, alignH, Rendering::TOP, textArea.x);
 	if (cursorBlinkTimer < 0.5f && entry) {
 		vec2 cursorPos = PositionFromCursor();
-		cursorPos.y -= fontSize * guiBasic->scale * 0.1f;
-		sys->rendering.DrawQuad(context, Rendering::texBlank, text, cursorPos, vec2(1.0f), vec2(1.0f, fontSize * guiBasic->scale * Rendering::lineHeight));
+		cursorPos.y += fontSize * guiBasic->scale * 0.6f;
+		sys->rendering.DrawQuad(context, Rendering::texBlank, text, cursorPos, vec2(ceil(guiBasic->scale), guiBasic->scale), vec2(1.0f, fontSize * Rendering::lineHeight * 0.9f), 0.5f);
 	}
 	PopScissor(context);
 }

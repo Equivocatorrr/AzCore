@@ -17,6 +17,31 @@
 
 namespace Az2D::Rendering {
 
+vec3i lessThan(vec3 lhs, vec3 rhs) {
+	vec3i result;
+	result.x = lhs.x < rhs.x;
+	result.y = lhs.y < rhs.y;
+	result.z = lhs.z < rhs.z;
+	return result;
+}
+vec3 pow(vec3 a, f32 b) {
+	vec3 result;
+	result.x = ::pow(a.x, b);
+	result.y = ::pow(a.y, b);
+	result.z = ::pow(a.z, b);
+	return result;
+}
+vec3 mix(vec3 a, vec3 b, vec3 t) {
+	return a + (b - a) * t;
+}
+
+vec3 sRGBToLinear(vec3 sRGB) {
+	vec3i cutoff = lessThan(sRGB, vec3(0.04045f));
+	vec3 higher = pow((sRGB + vec3(0.055f))/vec3(1.055f), 2.4f);
+	vec3 lower = sRGB/vec3(12.92f);
+	return mix(higher, lower, cutoff);
+}
+
 using GameSystems::sys;
 
 io::Log cout("rendering.log");
@@ -72,6 +97,8 @@ bool Manager::Init() {
 	data.swapchain = data.device->AddSwapchain();
 	data.swapchain->vsync = Settings::ReadBool(Settings::sVSync);
 	data.swapchain->window = data.instance.AddWindowForSurface(&sys->window);
+	data.swapchain->formatPreferred.format = VK_FORMAT_B8G8R8A8_SRGB;
+	data.swapchain->formatPreferred.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 	// data.swapchain->useFences = true;
 	// data.swapchain->imageCountPreferred = 3;
 
@@ -189,7 +216,7 @@ bool Manager::Init() {
 
 	vk::Image baseImage = vk::Image();
 	baseImage.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-	baseImage.format = VK_FORMAT_R8G8B8A8_UNORM;
+	baseImage.format = VK_FORMAT_R8G8B8A8_SRGB;
 	auto texImages = data.textureMemory->AddImages(sys->assets.textures.size, baseImage);
 
 	baseImage.format = VK_FORMAT_R8_UNORM;
@@ -350,7 +377,7 @@ bool Manager::Init() {
 	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
 										| VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 	colorBlendAttachment.blendEnable = VK_TRUE;
-	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
 	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
 	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
@@ -728,7 +755,7 @@ bool Manager::Draw() {
 		vk::CmdClearColorAttachment(
 			commandBuffersSecondary[0].commandBuffer,
 			data.renderPass->data.subpasses[0].data.referencesColor[0].attachment,
-			vec4(backgroundRGB, 1.0f),
+			vec4(sRGBToLinear(backgroundRGB), 1.0f),
 			sys->window.width,
 			sys->window.height
 		);
@@ -747,15 +774,19 @@ bool Manager::Draw() {
 			f32 msMin = sys->frametimes.Min();
 			f32 msDiff = msMax - msMin;
 			f32 fps = 1000.0f / msAvg;
-			WString string = ToWString(Stringify(
-				"fps: ", FormatFloat(fps, 10, 1),
-				"\navg: ", FormatFloat(msAvg, 10, 1), "ms\n"
-				"max: ", FormatFloat(msMax, 10, 1), "ms\n"
-				"min: ", FormatFloat(msMin, 10, 1), "ms\n"
-				"diff: ", FormatFloat(msDiff, 10, 1), "ms\n",
-				"timestep: ", FormatFloat(sys->timestep * 1000.0f, 10, 1), "ms"
-			));
-			DrawText(commandBuffersSecondary.Back(), string, 0, vec4(1.0f), vec2(8.0f), vec2(16.0f * Gui::guiBasic->scale), LEFT, TOP);
+			DrawQuad(commandBuffersSecondary.Back(), texBlank, vec4(vec3(0.0f), 0.5f), 0.0f, vec2(500.0f, 20.0f) * Gui::guiBasic->scale, 1.0f);
+			WString strings[] = {
+				ToWString(Stringify("fps: ", FormatFloat(fps, 10, 1))),
+				ToWString(Stringify("avg: ", FormatFloat(msAvg, 10, 1), "ms")),
+				ToWString(Stringify("max: ", FormatFloat(msMax, 10, 1), "ms")),
+				ToWString(Stringify("min: ", FormatFloat(msMin, 10, 1), "ms")),
+				ToWString(Stringify("diff: ", FormatFloat(msDiff, 10, 1), "ms")),
+				ToWString(Stringify("timestep: ", FormatFloat(sys->timestep * 1000.0f, 10, 1), "ms")),
+			};
+			for (i32 i = 0; i < sizeof(strings)/sizeof(WString); i++) {
+				vec2 pos = vec2(4.0f + f32(i*80), 4.0f) * Gui::guiBasic->scale;
+				DrawText(commandBuffersSecondary.Back(), strings[i], 0, vec4(1.0f), pos, vec2(12.0f * Gui::guiBasic->scale), LEFT, TOP);
+			}
 		}
 	}
 
@@ -912,6 +943,7 @@ WString Manager::StringAddNewlines(WString string, i32 fontIndex, f32 maxWidth) 
 	}
 	const Assets::Font *fontDesired = &sys->assets.fonts[fontIndex];
 	const Assets::Font *fontFallback = &sys->assets.fonts[0];
+	f32 tabWidth = CharacterWidth((char32)'_', fontDesired, fontFallback) * 4.0f;
 	f32 lineSize = 0.0f;
 	i32 lastSpace = -1;
 	i32 charsThisLine = 0;
@@ -921,10 +953,13 @@ WString Manager::StringAddNewlines(WString string, i32 fontIndex, f32 maxWidth) 
 			lastSpace = -1;
 			charsThisLine = 0;
 			continue;
+		} else if (string[i] == '\t') {
+			lineSize = ceil(lineSize/tabWidth+0.05f) * tabWidth;
+		} else {
+			lineSize += CharacterWidth(string[i], fontDesired, fontFallback);
 		}
-		lineSize += CharacterWidth(string[i], fontDesired, fontFallback);
 		charsThisLine++;
-		if (string[i] == ' ') {
+		if (string[i] == ' ' || string[i] == '\t') {
 			lastSpace = i;
 		}
 		if (lineSize >= maxWidth && charsThisLine > 1) {
@@ -974,6 +1009,7 @@ void Manager::DrawCharSS(DrawingContext &context, char32 character, i32 fontInde
 	Assets::Font *font = fontDesired;
 	Rendering::PushConstants pc = Rendering::PushConstants();
 	BindPipeline(context, PIPELINE_FONT_2D);
+	color.rgb = sRGBToLinear(color.rgb);
 	pc.frag.color = color;
 	i32 actualFontIndex = fontIndex;
 	i32 glyphIndex = fontDesired->font.GetGlyphIndex(character);
@@ -1018,6 +1054,7 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 	position.x /= aspectRatio;
 	Rendering::PushConstants pc = Rendering::PushConstants();
 	BindPipeline(context, PIPELINE_FONT_2D);
+	color.rgb = sRGBToLinear(color.rgb);
 	pc.frag.color = color;
 	// position.y += scale.y * lineHeight;
 	position.y += scale.y * (lineHeight + 1.0f) * 0.5f;
@@ -1033,6 +1070,7 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 	f32 spaceScale = 1.0f;
 	f32 spaceWidth = CharacterWidth((char32)' ', fontDesired, fontFallback) * scale.x;
 	LineCursorStartAndSpaceScale(cursor.x, spaceScale, scale.x, spaceWidth, fontIndex, &string[0], maxWidth, alignH);
+	f32 tabWidth = CharacterWidth((char32)'_', fontDesired, fontFallback) * scale.x * 4.0f;
 	cursor.x += position.x;
 	for (i32 i = 0; i < string.size; i++) {
 		char32 character = string[i];
@@ -1042,6 +1080,10 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 				cursor.x += position.x;
 				cursor.y += scale.y * lineHeight;
 			}
+			continue;
+		}
+		if (character == '\t') {
+			cursor.x = ceil((cursor.x - position.x)/tabWidth+0.05f) * tabWidth + position.x;
 			continue;
 		}
 		pc.frag.texIndex = fontIndex;
@@ -1109,6 +1151,7 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 void Manager::DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline) const {
 	Rendering::PushConstants pc = Rendering::PushConstants();
 	BindPipeline(context, pipeline);
+	color.rgb = sRGBToLinear(color.rgb);
 	pc.frag.color = color;
 	pc.frag.texIndex = texIndex;
 	pc.vert.position = position;
@@ -1125,6 +1168,7 @@ void Manager::DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2
 void Manager::DrawCircleSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, f32 edge, vec2 origin, Radians32 rotation) const {
 	Rendering::PushConstants pc = Rendering::PushConstants();
 	BindPipeline(context, PIPELINE_CIRCLE_2D);
+	color.rgb = sRGBToLinear(color.rgb);
 	pc.frag.color = color;
 	pc.frag.texIndex = texIndex;
 	pc.vert.position = position;

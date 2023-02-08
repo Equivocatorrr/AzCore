@@ -45,6 +45,7 @@ layout(push_constant) uniform pushConstants {
 	layout(offset = 32) vec4 color;
 	layout(offset = 48) int texAlbedo;
 	layout(offset = 52) int texNormal;
+	layout(offset = 56) float normalAttenuation;
 } pc;
 
 float map(float a, float min1, float max1, float min2, float max2) {
@@ -86,6 +87,7 @@ vec3 DoLighting(vec3 normal) {
 void main() {
 	vec3 normal = texture(texSampler[pc.texNormal], inTexCoord).rgb * 2.0 - vec3(1.0);
 	normal.xy = inTransform * normal.xy;
+	normal = mix(vec3(0.0, 0.0, 1.0), normal, pc.normalAttenuation);
 
 	outColor = texture(texSampler[pc.texAlbedo], inTexCoord) * pc.color;
 	outColor.rgb *= DoLighting(normal);

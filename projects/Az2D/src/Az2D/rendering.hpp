@@ -63,6 +63,7 @@ struct PushConstants {
 		vec4 color = vec4(1.0f);
 		int texIndex = 0;
 		int texNormal = 1;
+		f32 normalAttenuation = 1.0f;
 		void Push(VkCommandBuffer commandBuffer, const Manager *rendering) const;
 	} frag;
 	union font_circle_t {
@@ -223,6 +224,7 @@ struct Manager {
 	// Emptied at the beginning of every frame
 	Array<Light> lights;
 	UniformBuffer uniforms;
+	Mutex lightsMutex;
 
 	inline void AddRenderCallback(fpRenderCallback_t callback, void* userdata) {
 		data.renderCallbacks.Append({callback, userdata});
@@ -259,12 +261,12 @@ struct Manager {
 	void DrawTextSS(DrawingContext &context, WString string,
 					i32 fontIndex, vec4 color, vec2 position, vec2 scale,
 					FontAlign alignH = LEFT, FontAlign alignV = TOP, f32 maxWidth = 0.0f, f32 edge = 0.5f, f32 bounds = 0.5f, Radians32 rotation = 0.0f);
-	void DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f, PipelineIndex pipeline=PIPELINE_BASIC_2D, i32 texNormal=2) const;
+	void DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f, PipelineIndex pipeline=PIPELINE_BASIC_2D, i32 texNormal=2, f32 normalAttenuation=1.0f) const;
 	void DrawCircleSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, f32 edge, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
 	// Units are in pixel space
 	void DrawChar(DrawingContext &context, char32 character, i32 fontIndex, vec4 color, vec2 position, vec2 scale);
 	void DrawText(DrawingContext &context, WString text, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH = LEFT, FontAlign alignV = BOTTOM, f32 maxWidth = 0.0f, f32 edge = 0.0f, f32 bounds = 0.5f);
-	void DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f, PipelineIndex pipeline=PIPELINE_BASIC_2D, i32 texNormal=2) const;
+	void DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f, PipelineIndex pipeline=PIPELINE_BASIC_2D, i32 texNormal=2, f32 normalAttenuation=1.0f) const;
 	void DrawCircle(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
 };
 

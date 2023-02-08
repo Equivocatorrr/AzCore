@@ -45,6 +45,7 @@ layout(push_constant) uniform pushConstants {
 	layout(offset = 32) vec4 color;
 	layout(offset = 48) int texAlbedo;
 	layout(offset = 52) int texNormal;
+	layout(offset = 56) float normalAttenuation;
 } pc;
 
 float map(float a, float min1, float max1, float min2, float max2) {
@@ -76,22 +77,25 @@ vec3 DoLighting(vec3 normal) {
 		float factor = smoothout(square(mapClamped(dist, light.distMax, light.distMin, 0.0, 1.0)));
 		float angle = acos(dot(light.direction, dPos));
 		factor *= smoothout(square(mapClamped(angle, light.angleMax, light.angleMin, 0.0, 1.0)));
-		float incidence = square(clamp(dot(normal, -dPos), 0.0, 1.0));
+		float incidence = clamp(dot(normal, -dPos), 0.0, 1.0);
 		factor *= mix(light.attenuation, 1.0, incidence);
 		lighting += light.color * factor;
 	}
 	return lighting;
 }
 
-void main() {
-	vec2 size = textureSize(texSampler[pc.texAlbedo], 0);
+vec2 SharpTexCoord(uint tex) {
+	vec2 size = textureSize(texSampler[tex], 0);
 	vec2 pixelPos = inTexCoord*size;
 	vec2 pixel = floor(pixelPos - 0.5) + 1.0;
 	vec2 subPixel = fract(pixelPos - 0.5) - 0.5;
-	vec2 sharpTexCoord = (pixel + clamp(subPixel / fwidth(pixelPos), -0.5, 0.5)) / size;
+	return (pixel + clamp(subPixel / fwidth(pixelPos), -0.5, 0.5)) / size;
+}
 
-	vec3 normal = texture(texSampler[pc.texNormal], sharpTexCoord).rgb * 2.0 - 1.0;
+void main() {
+	vec3 normal = texture(texSampler[pc.texNormal], SharpTexCoord(pc.texNormal)).rgb * 2.0 - vec3(1.0);
 	normal.xy = inTransform * normal.xy;
-	outColor = texture(texSampler[pc.texAlbedo], sharpTexCoord) * pc.color;
+	normal = mix(vec3(0.0, 0.0, 1.0), normal, pc.normalAttenuation);
+	outColor = texture(texSampler[pc.texAlbedo], SharpTexCoord(pc.texAlbedo)) * pc.color;
 	outColor.rgb *= DoLighting(normal);
 }

@@ -61,7 +61,9 @@ void AddPointLight(vec3 pos, vec3 color, f32 distMin, f32 distMax, f32 attenuati
 	light.direction = vec3(0.0f, 0.0f, -1.0f);
 	light.angleMin = pi;
 	light.angleMax = tau;
+	sys->rendering.lightsMutex.Lock();
 	sys->rendering.lights.Append(light);
+	sys->rendering.lightsMutex.Unlock();
 }
 
 void AddLight(vec3 pos, vec3 color, vec3 direction, f32 angleMin, f32 angleMax, f32 distMin, f32 distMax, f32 attenuation) {
@@ -76,7 +78,9 @@ void AddLight(vec3 pos, vec3 color, vec3 direction, f32 angleMin, f32 angleMax, 
 	light.distMin = distMin;
 	light.distMax = distMax;
 	light.attenuation = attenuation;
+	sys->rendering.lightsMutex.Lock();
 	sys->rendering.lights.Append(light);
+	sys->rendering.lightsMutex.Unlock();
 }
 
 void PushConstants::vert_t::Push(VkCommandBuffer commandBuffer, const Manager *rendering) const {
@@ -445,7 +449,7 @@ bool Manager::Init() {
 	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->pushConstantRanges = data.pipelines[PIPELINE_BASIC_2D]->pushConstantRanges;
 	data.pipelines[PIPELINE_FONT_2D]->pushConstantRanges = {
 		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
-		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 32}
+		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 36}
 	};
 	data.pipelines[PIPELINE_CIRCLE_2D]->pushConstantRanges = {
 		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
@@ -453,11 +457,11 @@ bool Manager::Init() {
 	};
 	data.pipelines[PIPELINE_SHADED_2D]->pushConstantRanges = {
 		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
-		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 24}
+		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 28}
 	};
 	data.pipelines[PIPELINE_SHADED_2D_PIXEL]->pushConstantRanges = {
 		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
-		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 24}
+		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 28}
 	};
 
 	if (!data.instance.Init()) {
@@ -1210,13 +1214,14 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 	}
 }
 
-void Manager::DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline, i32 texNormal) const {
+void Manager::DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline, i32 texNormal, f32 normalAttenuation) const {
 	Rendering::PushConstants pc = Rendering::PushConstants();
 	BindPipeline(context, pipeline);
 	color.rgb = sRGBToLinear(color.rgb);
 	pc.frag.color = color;
 	pc.frag.texIndex = texIndex;
 	pc.frag.texNormal = texNormal;
+	pc.frag.normalAttenuation = normalAttenuation;
 	pc.vert.position = position;
 	pc.vert.transform = mat2::Scaler(scalePre);
 	if (rotation != 0.0f) {
@@ -1258,9 +1263,9 @@ void Manager::DrawText(DrawingContext &context, WString text, i32 fontIndex, vec
 	DrawTextSS(context, text, fontIndex, color, position * screenSizeFactor + vec2(-1.0f), scale * screenSizeFactor.y, alignH, alignV, maxWidth * screenSizeFactor.x, edge, bounds);
 }
 
-void Manager::DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline, i32 texNormal) const {
+void Manager::DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline, i32 texNormal, f32 normalAttenuation) const {
 	const vec2 screenSizeFactor = vec2(2.0f) / screenSize;
-	DrawQuadSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0f), scalePre, scalePost * screenSizeFactor, origin, rotation, pipeline, texNormal);
+	DrawQuadSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0f), scalePre, scalePost * screenSizeFactor, origin, rotation, pipeline, texNormal, normalAttenuation);
 }
 
 void Manager::DrawCircle(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {

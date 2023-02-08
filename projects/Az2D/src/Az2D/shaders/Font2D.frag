@@ -11,8 +11,9 @@ layout(push_constant) uniform pushConstants {
 	layout(offset = 32) vec4 color;
 	layout(offset = 48) int texId;
 	layout(offset = 52) int texNormal;
-	layout(offset = 56) float edge;
-	layout(offset = 60) float bounds;
+	layout(offset = 56) float normalAttenuation;
+	layout(offset = 60) float edge;
+	layout(offset = 64) float bounds;
 } pc;
 
 void main() {

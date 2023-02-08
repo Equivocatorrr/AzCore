@@ -44,7 +44,7 @@ AZ2D_COPY_SHADERS(LD46)
 
 target_link_libraries(Az2D PUBLIC AzCore_Vulkan)
 
-target_link_libraries(Az2D PUBLIC OpenAL)
+target_link_libraries(Az2D PUBLIC OpenAL::OpenAL)
 
 set_target_properties(Az2D PROPERTIES
 	DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX}

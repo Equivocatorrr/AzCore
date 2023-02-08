@@ -125,6 +125,7 @@ function(AZ2D_DATA_COPY target OUTPUT_DIR)
 endfunction()
 
 add_subdirectory(external/Vulkan-Headers)
+find_package(OpenAL)
 if(NOT TARGET OpenAL::OpenAL)
 	add_subdirectory(external/openal-soft)
 endif()

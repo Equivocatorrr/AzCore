@@ -18,6 +18,7 @@ using az::vec2, az::vec3, az::vec4;
 
 struct Sprite {
 	Assets::TexIndex texture = 0;
+	Assets::TexIndex textureNormal = 2;
 	f32 framerate = 10.0f;
 	i32 nFrames = 1;
 	vec2 origin = 0.0f;

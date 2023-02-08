@@ -45,6 +45,8 @@ struct Mapping {
 struct Texture {
 	u8 *pixels = nullptr;
 	i32 width = 0, height = 0, channels = 0;
+	// if this is false, then the image is sRGB
+	bool linear = false;
 
 	bool Load(az::String filename);
 	Texture() = default;
@@ -162,14 +164,17 @@ struct Manager {
 	struct FileToLoad {
 		az::String filename;
 		Type type;
+		bool isLinearTexture = false;
 		inline FileToLoad() : filename(), type(Type::NONE) {}
-		inline FileToLoad(az::String fn) : filename(fn), type(Type::NONE) {}
+		explicit inline FileToLoad(az::String fn) : filename(fn), type(Type::NONE) {}
 		inline FileToLoad(az::String fn, Type t) : filename(fn), type(t) {}
+		inline FileToLoad(az::String fn, bool linTexture) : filename(fn), type(Type::TEXTURE), isLinearTexture(linTexture) {}
 	};
 	// Everything we want to actually load.
 	az::Array<FileToLoad> filesToLoad{
 		FileToLoad("TextureMissing.png"),
 		FileToLoad("blank.bmp"),
+		FileToLoad("blank_normal.bmp", true),
 		FileToLoad("DroidSansFallback.ttf")
 	};
 	az::HashMap<az::SimpleRange<char>, Mapping> mappings;
@@ -182,7 +187,10 @@ struct Manager {
 		filesToLoad.Append(FileToLoad(filename));
 	}
 	inline void QueueFile(az::String filename, Type type) {
-		filesToLoad.Append({filename, type});
+		filesToLoad.Append(FileToLoad(filename, type));
+	}
+	inline void QueueLinearTexture(az::String filename) {
+		filesToLoad.Append(FileToLoad(filename, true));
 	}
 
 	bool LoadAll();

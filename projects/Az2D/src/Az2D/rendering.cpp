@@ -44,9 +44,40 @@ vec3 sRGBToLinear(vec3 sRGB) {
 
 using GameSystems::sys;
 
+
 io::Log cout("rendering.log");
 
 String error = "No error.";
+
+void AddPointLight(vec3 pos, vec3 color, f32 distMin, f32 distMax, f32 attenuation) {
+	AzAssert(distMin < distMax, "distMin must be < distMax, else shit breaks");
+	Light light;
+	light.position = pos;
+	light.color = color;
+	light.distMin = distMin;
+	light.distMax = distMax;
+	light.attenuation = attenuation;
+
+	light.direction = vec3(0.0f, 0.0f, -1.0f);
+	light.angleMin = pi;
+	light.angleMax = tau;
+	sys->rendering.lights.Append(light);
+}
+
+void AddLight(vec3 pos, vec3 color, vec3 direction, f32 angleMin, f32 angleMax, f32 distMin, f32 distMax, f32 attenuation) {
+	AzAssert(angleMin < angleMax, "angleMin must be < angleMax, else shit breaks");
+	AzAssert(distMin < distMax, "distMin must be < distMax, else shit breaks");
+	Light light;
+	light.position = pos;
+	light.color = color;
+	light.direction = direction;
+	light.angleMin = angleMin;
+	light.angleMax = angleMax;
+	light.distMin = distMin;
+	light.distMax = distMax;
+	light.attenuation = attenuation;
+	sys->rendering.lights.Append(light);
+}
 
 void PushConstants::vert_t::Push(VkCommandBuffer commandBuffer, const Manager *rendering) const {
 	vkCmdPushConstants(commandBuffer, rendering->data.pipelines[PIPELINE_BASIC_2D]->data.layout,
@@ -218,6 +249,11 @@ bool Manager::Init() {
 	baseImage.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	baseImage.format = VK_FORMAT_R8G8B8A8_SRGB;
 	auto texImages = data.textureMemory->AddImages(sys->assets.textures.size, baseImage);
+	for (i32 i = 0; i < sys->assets.textures.size; i++) {
+		if (sys->assets.textures[i].linear) {
+			data.textureMemory->data.images[i].format = VK_FORMAT_R8G8B8A8_UNORM;
+		}
+	}
 
 	baseImage.format = VK_FORMAT_R8_UNORM;
 	baseImage.width = 1;
@@ -270,7 +306,7 @@ bool Manager::Init() {
 		return false;
 	}
 
-	Range<vk::Shader> shaders = data.device->AddShaders(7);
+	Range<vk::Shader> shaders = data.device->AddShaders(8);
 	shaders[0].filename = "data/Az2D/shaders/Basic2D.vert.spv";
 	shaders[1].filename = "data/Az2D/shaders/Basic2D.frag.spv";
 	shaders[2].filename = "data/Az2D/shaders/Font2D.frag.spv";
@@ -278,6 +314,7 @@ bool Manager::Init() {
 	shaders[4].filename = "data/Az2D/shaders/Basic2DPixel.frag.spv";
 	shaders[5].filename = "data/Az2D/shaders/Shaded2D.vert.spv";
 	shaders[6].filename = "data/Az2D/shaders/Shaded2D.frag.spv";
+	shaders[7].filename = "data/Az2D/shaders/Shaded2DPixel.frag.spv";
 
 	vk::ShaderRef shaderRefVert = vk::ShaderRef(shaders.GetPtr(0), VK_SHADER_STAGE_VERTEX_BIT);
 	vk::ShaderRef shaderRefBasic2D = vk::ShaderRef(shaders.GetPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -286,6 +323,7 @@ bool Manager::Init() {
 	vk::ShaderRef shaderRefBasic2DPixel = vk::ShaderRef(shaders.GetPtr(4), VK_SHADER_STAGE_FRAGMENT_BIT);
 	vk::ShaderRef shaderRefShaded2DVert = vk::ShaderRef(shaders.GetPtr(5), VK_SHADER_STAGE_VERTEX_BIT);
 	vk::ShaderRef shaderRefShaded2D = vk::ShaderRef(shaders.GetPtr(6), VK_SHADER_STAGE_FRAGMENT_BIT);
+	vk::ShaderRef shaderRefShaded2DPixel = vk::ShaderRef(shaders.GetPtr(7), VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	data.pipelines.Resize(PIPELINE_COUNT);
 	data.pipelineDescriptorSets.Resize(PIPELINE_COUNT);
@@ -294,6 +332,7 @@ bool Manager::Init() {
 	data.pipelineDescriptorSets[PIPELINE_FONT_2D] = {data.descriptorSetFont};
 	data.pipelineDescriptorSets[PIPELINE_CIRCLE_2D] = {data.descriptorSet2D};
 	data.pipelineDescriptorSets[PIPELINE_SHADED_2D] = {data.descriptorSet2D};
+	data.pipelineDescriptorSets[PIPELINE_SHADED_2D_PIXEL] = {data.descriptorSet2D};
 	
 	data.pipelines[PIPELINE_BASIC_2D] = data.device->AddPipeline();
 	data.pipelines[PIPELINE_BASIC_2D]->renderPass = data.renderPass;
@@ -351,6 +390,17 @@ bool Manager::Init() {
 
 	data.pipelines[PIPELINE_SHADED_2D]->dynamicStates = data.pipelines[PIPELINE_BASIC_2D]->dynamicStates;
 
+	data.pipelines[PIPELINE_SHADED_2D_PIXEL] = data.device->AddPipeline();
+	data.pipelines[PIPELINE_SHADED_2D_PIXEL]->renderPass = data.renderPass;
+	data.pipelines[PIPELINE_SHADED_2D_PIXEL]->subpass = 0;
+	data.pipelines[PIPELINE_SHADED_2D_PIXEL]->shaders.Append(shaderRefShaded2DVert);
+	data.pipelines[PIPELINE_SHADED_2D_PIXEL]->shaders.Append(shaderRefShaded2DPixel);
+	data.pipelines[PIPELINE_SHADED_2D_PIXEL]->rasterizer.cullMode = VK_CULL_MODE_NONE;
+
+	data.pipelines[PIPELINE_SHADED_2D_PIXEL]->descriptorLayouts.Append(descriptorLayout2D);
+
+	data.pipelines[PIPELINE_SHADED_2D_PIXEL]->dynamicStates = data.pipelines[PIPELINE_BASIC_2D]->dynamicStates;
+
 	VkVertexInputAttributeDescription vertexInputAttributeDescription = {};
 	vertexInputAttributeDescription.binding = 0;
 	vertexInputAttributeDescription.location = 0;
@@ -395,13 +445,17 @@ bool Manager::Init() {
 	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->pushConstantRanges = data.pipelines[PIPELINE_BASIC_2D]->pushConstantRanges;
 	data.pipelines[PIPELINE_FONT_2D]->pushConstantRanges = {
 		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
-		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 28}
+		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 32}
 	};
 	data.pipelines[PIPELINE_CIRCLE_2D]->pushConstantRanges = {
 		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
 		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 24}
 	};
 	data.pipelines[PIPELINE_SHADED_2D]->pushConstantRanges = {
+		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
+		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 24}
+	};
+	data.pipelines[PIPELINE_SHADED_2D_PIXEL]->pushConstantRanges = {
 		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
 		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 24}
 	};
@@ -470,12 +524,7 @@ AABB GetAABB(const Light &light) {
 	result.minPos = center;
 	result.maxPos = center;
 	
-	Angle32 dir = atan2(light.direction.y, light.direction.x);
-	Angle32 dirMin = dir - light.angleMax;
-	Angle32 dirMax = dir + light.angleMax;
-	f32 dist = light.distMax * sqrt(1.0f - square(light.direction.z));
-	result.Extend(center + vec2(cos(dirMin), sin(dirMin)) * dist);
-	result.Extend(center + vec2(cos(dirMax), sin(dirMax)) * dist);
+	f32 dist = light.distMax;// * sqrt(1.0f - square(light.direction.z));
 	Angle32 cardinalDirs[4] = {0.0f, halfpi, pi, halfpi * 3.0f};
 	vec2 cardinalVecs[4] = {
 		{dist, 0.0f},
@@ -483,27 +532,29 @@ AABB GetAABB(const Light &light) {
 		{-dist, 0.0f},
 		{0.0f, -dist},
 	};
-	for (i32 i = 0; i < 4; i++) {
-		if (abs(cardinalDirs[i] - dir) < light.angleMax) {
+	if (light.direction.x != 0.0f || light.direction.y != 0.0f) {
+		Angle32 dir = atan2(light.direction.y, light.direction.x);
+		Angle32 dirMin = dir + -light.angleMax;
+		Angle32 dirMax = dir + light.angleMax;
+		result.Extend(center + vec2(cos(dirMin), sin(dirMin)) * dist);
+		result.Extend(center + vec2(cos(dirMax), sin(dirMax)) * dist);
+		for (i32 i = 0; i < 4; i++) {
+			if (abs(cardinalDirs[i] - dir) < light.angleMax) {
+				result.Extend(center + cardinalVecs[i]);
+			}
+		}
+	} else {
+		for (i32 i = 0; i < 4; i++) {
 			result.Extend(center + cardinalVecs[i]);
 		}
 	}
 	return result;
 }
 
-vec2i MinLightBin(vec2 point, vec2 screenSize) {
+vec2i GetLightBin(vec2 point, vec2 screenSize) {
 	vec2i result;
 	result.x = (point.x) / screenSize.x * LIGHT_BIN_COUNT_X;
 	result.y = (point.y) / screenSize.y * LIGHT_BIN_COUNT_Y;
-	result.x = clamp(result.x, 0, LIGHT_BIN_COUNT_X-1);
-	result.y = clamp(result.y, 0, LIGHT_BIN_COUNT_Y-1);
-	return result;
-}
-
-vec2i MaxLightBin(vec2 point, vec2 screenSize) {
-	vec2i result;
-	result.x = ceil((point.x) / screenSize.x * LIGHT_BIN_COUNT_X);
-	result.y = ceil((point.y) / screenSize.y * LIGHT_BIN_COUNT_Y);
 	result.x = clamp(result.x, 0, LIGHT_BIN_COUNT_X-1);
 	result.y = clamp(result.y, 0, LIGHT_BIN_COUNT_Y-1);
 	return result;
@@ -515,15 +566,20 @@ i32 LightBinIndex(vec2i bin) {
 
 void Manager::UpdateLights() {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::UpdateLights)
+	uniforms.ambientLight = vec3(0.001f);
 	i32 lightCounts[LIGHT_BIN_COUNT] = {0};
 	i32 totalLights = 1;
+	if (sys->Pressed(KC_KEY_L)) {
+		cout.PrintLn("lights.size = ", lights.size);
+	}
 	// By default, they all point to the default light which has no light at all
 	memset(uniforms.lightBins, 0, sizeof(uniforms.lightBins));
+#if 1
 	for (const Light &light : lights) {
 		if (totalLights >= MAX_LIGHTS) break;
 		AABB lightAABB = GetAABB(light);
-		vec2i binMin = MinLightBin(lightAABB.minPos, screenSize);
-		vec2i binMax = MaxLightBin(lightAABB.maxPos, screenSize);
+		vec2i binMin = GetLightBin(lightAABB.minPos, screenSize);
+		vec2i binMax = GetLightBin(lightAABB.maxPos, screenSize);
 		i32 lightIndex = totalLights;
 		uniforms.lights[lightIndex] = light;
 		bool atLeastOne = false;
@@ -540,6 +596,12 @@ void Manager::UpdateLights() {
 			totalLights++;
 		}
 	}
+#else
+	for (i32 i = 0; i < LIGHT_BIN_COUNT; i++) {
+		// for (i32 l = 0; l < MAX_LIGHTS_PER_BIN; l++)
+			uniforms.lightBins[i].lightIndices[0] = i;
+	}
+#endif
 }
 
 bool Manager::UpdateFonts() {
@@ -1148,12 +1210,13 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 	}
 }
 
-void Manager::DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline) const {
+void Manager::DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline, i32 texNormal) const {
 	Rendering::PushConstants pc = Rendering::PushConstants();
 	BindPipeline(context, pipeline);
 	color.rgb = sRGBToLinear(color.rgb);
 	pc.frag.color = color;
 	pc.frag.texIndex = texIndex;
+	pc.frag.texNormal = texNormal;
 	pc.vert.position = position;
 	pc.vert.transform = mat2::Scaler(scalePre);
 	if (rotation != 0.0f) {
@@ -1195,9 +1258,9 @@ void Manager::DrawText(DrawingContext &context, WString text, i32 fontIndex, vec
 	DrawTextSS(context, text, fontIndex, color, position * screenSizeFactor + vec2(-1.0f), scale * screenSizeFactor.y, alignH, alignV, maxWidth * screenSizeFactor.x, edge, bounds);
 }
 
-void Manager::DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline) const {
+void Manager::DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline, i32 texNormal) const {
 	const vec2 screenSizeFactor = vec2(2.0f) / screenSize;
-	DrawQuadSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0f), scalePre, scalePost * screenSizeFactor, origin, rotation, pipeline);
+	DrawQuadSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0f), scalePre, scalePost * screenSizeFactor, origin, rotation, pipeline, texNormal);
 }
 
 void Manager::DrawCircle(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {

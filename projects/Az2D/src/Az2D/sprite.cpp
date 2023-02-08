@@ -25,7 +25,7 @@ void Sprite::Draw(Rendering::DrawingContext &context, vec2 pos, vec2 scalePreRot
 	vec2 size = Size();
 	scalePreRot *= size * entitiesBasic->camZoom;
 	vec2 actualOrigin = origin/size;
-	sys->rendering.DrawQuad(context, texture, vec4(1.0f), pos, scalePreRot, scalePostRot, actualOrigin, rotation, pipeline);
+	sys->rendering.DrawQuad(context, texture, vec4(1.0f), pos, scalePreRot, scalePostRot, actualOrigin, rotation, pipeline, textureNormal);
 	
 }
 

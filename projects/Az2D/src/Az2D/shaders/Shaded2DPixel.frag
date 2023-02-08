@@ -83,8 +83,13 @@ vec3 DoLighting(vec3 normal) {
 }
 
 void main() {
-	vec3 normal = texture(texSampler[pc.texNormal], inTexCoord).rgb * 2.0 - vec3(1.0);
+	vec2 size = textureSize(texSampler[pc.texAlbedo], 0);
+	vec2 pixelPos = inTexCoord*size;
+	vec2 pixel = floor(pixelPos - 0.5) + 1.0;
+	vec2 subPixel = fract(pixelPos - 0.5) - 0.5;
+	vec2 sharpTexCoord = (pixel + clamp(subPixel / fwidth(pixelPos), -0.5, 0.5)) / size;
 
-	outColor = texture(texSampler[pc.texAlbedo], inTexCoord) * pc.color;
+	vec3 normal = texture(texSampler[pc.texNormal], sharpTexCoord).rgb * 2.0 - 1.0;
+	outColor = texture(texSampler[pc.texAlbedo], sharpTexCoord) * pc.color;
 	outColor.rgb *= DoLighting(normal);
 }

@@ -25,6 +25,9 @@ namespace Az2D::Rendering {
 
 using namespace AzCore;
 
+void AddPointLight(vec3 pos, vec3 color, f32 distMin, f32 distMax, f32 attenuation=0.0f);
+void AddLight(vec3 pos, vec3 color, vec3 direction, f32 angleMin, f32 angleMax, f32 distMin, f32 distMax, f32 attenuation=0.0f);
+
 vec3 sRGBToLinear(vec3 sRGB);
 
 constexpr f32 lineHeight = 1.3f;
@@ -59,6 +62,7 @@ struct PushConstants {
 	struct frag_t {
 		vec4 color = vec4(1.0f);
 		int texIndex = 0;
+		int texNormal = 1;
 		void Push(VkCommandBuffer commandBuffer, const Manager *rendering) const;
 	} frag;
 	union font_circle_t {
@@ -88,8 +92,9 @@ enum PipelineEnum {
 	PIPELINE_FONT_2D,
 	PIPELINE_CIRCLE_2D,
 	PIPELINE_SHADED_2D,
+	PIPELINE_SHADED_2D_PIXEL,
 };
-constexpr i32 PIPELINE_COUNT = PIPELINE_SHADED_2D+1;
+constexpr i32 PIPELINE_COUNT = PIPELINE_SHADED_2D_PIXEL+1;
 
 typedef u32 PipelineIndex;
 
@@ -138,11 +143,11 @@ struct LightBin {
 };
 
 struct UniformBuffer {
-	vec2i screenSize;
+	vec2 screenSize;
 	alignas(16) vec3 ambientLight;
-	alignas(16) LightBin lightBins[LIGHT_BIN_COUNT];
+	LightBin lightBins[LIGHT_BIN_COUNT];
 	// lights[0] is always a zero-brightness light
-	alignas(16) Light lights[MAX_LIGHTS];
+	Light lights[MAX_LIGHTS];
 };
 
 // I fucking hate Microsoft and every decision they've ever made
@@ -254,12 +259,12 @@ struct Manager {
 	void DrawTextSS(DrawingContext &context, WString string,
 					i32 fontIndex, vec4 color, vec2 position, vec2 scale,
 					FontAlign alignH = LEFT, FontAlign alignV = TOP, f32 maxWidth = 0.0f, f32 edge = 0.5f, f32 bounds = 0.5f, Radians32 rotation = 0.0f);
-	void DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f, PipelineIndex pipeline=PIPELINE_BASIC_2D) const;
+	void DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f, PipelineIndex pipeline=PIPELINE_BASIC_2D, i32 texNormal=2) const;
 	void DrawCircleSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, f32 edge, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
 	// Units are in pixel space
 	void DrawChar(DrawingContext &context, char32 character, i32 fontIndex, vec4 color, vec2 position, vec2 scale);
 	void DrawText(DrawingContext &context, WString text, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH = LEFT, FontAlign alignV = BOTTOM, f32 maxWidth = 0.0f, f32 edge = 0.0f, f32 bounds = 0.5f);
-	void DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f, PipelineIndex pipeline=PIPELINE_BASIC_2D) const;
+	void DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f, PipelineIndex pipeline=PIPELINE_BASIC_2D, i32 texNormal=2) const;
 	void DrawCircle(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin = vec2(0.0f), Radians32 rotation = 0.0f) const;
 };
 

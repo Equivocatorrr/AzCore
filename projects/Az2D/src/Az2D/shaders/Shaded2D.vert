@@ -1,5 +1,8 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
+// This extension allows us to use std430 for our uniform buffer
+// Without it, the arrays of scalars would have a stride of 16 bytes
+#extension GL_EXT_scalar_block_layout : enable
 
 layout(location=0) in vec2 inPosition;
 layout(location=1) in vec2 inTexCoord;
@@ -13,7 +16,7 @@ layout(push_constant) uniform pushConstants {
 	layout(offset = 24) vec2 position;
 } pc;
 
-layout(set=0, binding=0) uniform UniformBuffer {
+layout(std430, set=0, binding=0) uniform UniformBuffer {
 	vec2 screenSize;
 } ub;
 
@@ -29,5 +32,5 @@ void main() {
 	vec2 pos = pc.transform * (inPosition-pc.origin) + pc.position;
 	gl_Position = vec4(pos, 0.0, 1.0);
 	outTexCoord = inTexCoord;
-	outScreenPos = (pos - 1.0) * 0.5 * ub.screenSize;
+	outScreenPos = (pos + 1.0) * 0.5 * ub.screenSize;
 }

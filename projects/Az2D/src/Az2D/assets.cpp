@@ -8,6 +8,7 @@
 #include "profiling.hpp"
 
 #include "AzCore/IO/Log.hpp"
+#include "AzCore/Simd.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -96,6 +97,69 @@ Type FilenameToType(String filename) {
 	return Type::NONE;
 }
 
+void PremultiplyAlpha(u8 *pixels, i32 width, i32 height, i32 channels) {
+	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Assets::PremultiplyAlpha)
+	i32 i = 0;
+	static __m256i alphaMask = _mm256_set_epi16(
+		0xff, 0, 0, 0,
+		0xff, 0, 0, 0,
+		0xff, 0, 0, 0,
+		0xff, 0, 0, 0
+	);
+	AzAssert(((u64)pixels & 15) == 0, "We're expecting the pixel array to be aligned on a 16-byte boundary");
+	// Premultiply alpha
+#if 1
+	for (; i <= width*height-4; i+=4) {
+		u8 *pixel = &pixels[i*channels];
+		__m128i &rgba8 = *(__m128i*)pixel;
+		__m256i RGBA = _mm256_cvtepu8_epi16(rgba8);
+		// Shuffle our alpha channel into all the rgb channels
+		__m256i AAA1 = _mm256_shufflelo_epi16(
+			_mm256_shufflehi_epi16(RGBA, _MM_SHUFFLE(3,3,3,3)),
+			_MM_SHUFFLE(3,3,3,3)
+		);
+		// RGBA = _mm256_set1_epi16(0xff);
+		// Set our alpha to 1.0 so it doesn't get squared
+		AAA1 = _mm256_or_si256(AAA1, alphaMask);
+		// Multiply RGBA by AAA1
+		RGBA = _mm256_mullo_epi16(RGBA, AAA1);
+		// now divide by 255 by multiplying by a magic number and shifting
+		{
+			// NOTE: MSVC gives the warning "C4309: 'initializing': truncation of constant value"
+			//       I would assume that truncation means it's losing data, but the static_assert
+			//       passes so that means this code is valid.
+			constexpr short test = 0x8081;
+			static_assert((unsigned short)test == (unsigned short)0x8081);
+		}
+		RGBA = _mm256_srli_epi16(
+			_mm256_mulhi_epu16(RGBA, _mm256_set1_epi16(0x8081)),
+			7
+		);
+		// Pack 16-bit integers into 8-bit integers using unsigned saturation
+		// Shuffle 64-bit integers to get the parts we want in the lower 128 bits
+		// cast to __m128i so we just have the parts we want.
+		__m256i packed = _mm256_packus_epi16(RGBA, RGBA);
+		rgba8 = _mm256_castsi256_si128(
+			_mm256_permute4x64_epi64(packed, _MM_SHUFFLE(2, 0, 2, 0))
+		);
+	}
+#endif
+	for (; i < width*height; i++) {
+		u32 &pixel = *((u32*)&pixels[i*channels]);
+		u16 r = (pixel >> 8*0) & 0xff;
+		u16 g = (pixel >> 8*1) & 0xff;
+		u16 b = (pixel >> 8*2) & 0xff;
+		u16 a = (pixel >> 8*3) & 0xff;
+		r = (r * a) / 0xff;
+		g = (g * a) / 0xff;
+		b = (b * a) / 0xff;
+		pixel = (u32)a << 8*3;
+		pixel |= (u32)r << 8*0;
+		pixel |= (u32)g << 8*1;
+		pixel |= (u32)b << 8*2;
+	}
+}
+
 bool Texture::Load(String filename) {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Assets::Texture::Load)
 	String path = Stringify("data/textures/", filename);
@@ -108,11 +172,15 @@ bool Texture::Load(String filename) {
 			return false;
 		}
 	}
+	if (channels == 4) {
+		// Only multiply alpha if we actually had an alpha channel in the first place
+		PremultiplyAlpha(pixels, width, height, 4);
+	}
 	channels = 4;
 	return true;
 }
 
-Texture::Texture(Texture &&other) : pixels(other.pixels), width(other.width), height(other.height), channels(other.channels) {
+Texture::Texture(Texture &&other) : pixels(other.pixels), width(other.width), height(other.height), channels(other.channels), linear(other.linear) {
 	other.pixels = nullptr;
 	other.width = 0;
 	other.height = 0;
@@ -125,6 +193,7 @@ Texture& Texture::operator=(Texture &&other) {
 	width = other.width;
 	height = other.height;
 	channels = other.channels;
+	linear = other.linear;
 	other.pixels = nullptr;
 	other.width = 0;
 	other.height = 0;
@@ -392,6 +461,7 @@ bool Manager::LoadAll() {
 			if (!textures[nextTexIndex].Load(filesToLoad[i].filename)) {
 				return false;
 			}
+			textures.Back().linear = filesToLoad[i].isLinearTexture;
 			mapping.index = nextTexIndex;
 			break;
 		case Type::SOUND:

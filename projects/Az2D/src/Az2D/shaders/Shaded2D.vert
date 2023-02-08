@@ -9,6 +9,7 @@ layout(location=1) in vec2 inTexCoord;
 
 layout(location=0) out vec2 outTexCoord;
 layout(location=1) out vec2 outScreenPos;
+layout(location=2) out mat2 outTransform;
 
 layout(push_constant) uniform pushConstants {
 	layout(offset = 0) mat2 transform;
@@ -33,4 +34,14 @@ void main() {
 	gl_Position = vec4(pos, 0.0, 1.0);
 	outTexCoord = inTexCoord;
 	outScreenPos = (pos + 1.0) * 0.5 * ub.screenSize;
+	// vec2 basisX = normalize(vec2(pc.transform[0][0], pc.transform[1][0]));
+	// vec2 basisY = normalize(vec2(pc.transform[0][1], pc.transform[1][1]));
+	// outTransform = mat2(
+	// 	basisX.x, basisY.x,
+	// 	basisX.y, basisY.y
+	// );
+	outTransform = mat2(
+		normalize(pc.transform[0]),
+		normalize(pc.transform[1])
+	);
 }

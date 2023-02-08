@@ -6,6 +6,7 @@
 
 layout (location = 0) in vec2 inTexCoord;
 layout (location = 1) in vec2 inScreenPos;
+layout (location = 2) in mat2 inTransform;
 
 layout (location = 0) out vec4 outColor;
 
@@ -90,6 +91,7 @@ void main() {
 	vec2 sharpTexCoord = (pixel + clamp(subPixel / fwidth(pixelPos), -0.5, 0.5)) / size;
 
 	vec3 normal = texture(texSampler[pc.texNormal], sharpTexCoord).rgb * 2.0 - 1.0;
+	normal.xy = inTransform * normal.xy;
 	outColor = texture(texSampler[pc.texAlbedo], sharpTexCoord) * pc.color;
 	outColor.rgb *= DoLighting(normal);
 }

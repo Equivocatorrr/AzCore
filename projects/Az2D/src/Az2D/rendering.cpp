@@ -121,6 +121,7 @@ void PushConstants::PushCircle(VkCommandBuffer commandBuffer, const Manager *ren
 bool Manager::Init() {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Init)
 	data.device = data.instance.AddDevice();
+	uniforms.ambientLight = vec3(0.001f);
 
 	data.queueGraphics = data.device->AddQueue();
 	data.queueGraphics->queueType = vk::QueueType::GRAPHICS;
@@ -198,6 +199,8 @@ bool Manager::Init() {
 	data.queueSubmissionGraphicsTransfer->commandBuffers = {data.commandBufferGraphicsTransfer};
 
 	data.textureSampler = data.device->AddSampler();
+	data.textureSampler->addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	data.textureSampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	data.textureSampler->anisotropy = 4;
 	data.textureSampler->mipLodBias = -1.0f; // Crisp!!!
 	data.textureSampler->maxLod = 1000000000000.0f; // Just, like, BIG
@@ -559,8 +562,6 @@ vec2i GetLightBin(vec2 point, vec2 screenSize) {
 	vec2i result;
 	result.x = (point.x) / screenSize.x * LIGHT_BIN_COUNT_X;
 	result.y = (point.y) / screenSize.y * LIGHT_BIN_COUNT_Y;
-	result.x = clamp(result.x, 0, LIGHT_BIN_COUNT_X-1);
-	result.y = clamp(result.y, 0, LIGHT_BIN_COUNT_Y-1);
 	return result;
 }
 
@@ -570,7 +571,6 @@ i32 LightBinIndex(vec2i bin) {
 
 void Manager::UpdateLights() {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::UpdateLights)
-	uniforms.ambientLight = vec3(0.001f);
 	i32 lightCounts[LIGHT_BIN_COUNT] = {0};
 	i32 totalLights = 1;
 	if (sys->Pressed(KC_KEY_L)) {
@@ -583,7 +583,13 @@ void Manager::UpdateLights() {
 		if (totalLights >= MAX_LIGHTS) break;
 		AABB lightAABB = GetAABB(light);
 		vec2i binMin = GetLightBin(lightAABB.minPos, screenSize);
+		if (binMin.x >= LIGHT_BIN_COUNT_X || binMin.y >= LIGHT_BIN_COUNT_Y) continue;
 		vec2i binMax = GetLightBin(lightAABB.maxPos, screenSize);
+		if (binMax.x < 0 || binMax.y < 0) continue;
+		binMin.x = max(binMin.x, 0);
+		binMin.y = max(binMin.y, 0);
+		binMax.x = min(binMax.x, LIGHT_BIN_COUNT_X-1);
+		binMax.y = min(binMax.y, LIGHT_BIN_COUNT_Y-1);
 		i32 lightIndex = totalLights;
 		uniforms.lights[lightIndex] = light;
 		bool atLeastOne = false;
@@ -1214,14 +1220,14 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 	}
 }
 
-void Manager::DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline, i32 texNormal, f32 normalAttenuation) const {
+void Manager::DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline, i32 texNormal, f32 normalDepth) const {
 	Rendering::PushConstants pc = Rendering::PushConstants();
 	BindPipeline(context, pipeline);
 	color.rgb = sRGBToLinear(color.rgb);
 	pc.frag.color = color;
 	pc.frag.texIndex = texIndex;
 	pc.frag.texNormal = texNormal;
-	pc.frag.normalAttenuation = normalAttenuation;
+	pc.frag.normalDepth = normalDepth;
 	pc.vert.position = position;
 	pc.vert.transform = mat2::Scaler(scalePre);
 	if (rotation != 0.0f) {
@@ -1263,9 +1269,9 @@ void Manager::DrawText(DrawingContext &context, WString text, i32 fontIndex, vec
 	DrawTextSS(context, text, fontIndex, color, position * screenSizeFactor + vec2(-1.0f), scale * screenSizeFactor.y, alignH, alignV, maxWidth * screenSizeFactor.x, edge, bounds);
 }
 
-void Manager::DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline, i32 texNormal, f32 normalAttenuation) const {
+void Manager::DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline, i32 texNormal, f32 normalDepth) const {
 	const vec2 screenSizeFactor = vec2(2.0f) / screenSize;
-	DrawQuadSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0f), scalePre, scalePost * screenSizeFactor, origin, rotation, pipeline, texNormal, normalAttenuation);
+	DrawQuadSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0f), scalePre, scalePost * screenSizeFactor, origin, rotation, pipeline, texNormal, normalDepth);
 }
 
 void Manager::DrawCircle(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {

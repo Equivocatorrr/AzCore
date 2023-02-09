@@ -21,6 +21,8 @@ namespace Az2D::Assets {
 
 extern az::String error;
 
+extern bool warnFileNotFound;
+
 typedef i32 TexIndex;
 typedef i32 FontIndex;
 typedef i32 SoundIndex;

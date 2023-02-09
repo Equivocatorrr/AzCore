@@ -18,9 +18,15 @@ namespace Az2D::Assets {
 
 using namespace AzCore;
 
+bool warnFileNotFound = false;
+
 io::Log cout("assets.log");
 
 String error = "No error.";
+
+#define FILE_NOT_FOUND(...) if (warnFileNotFound) {\
+	cout.PrintLn(__VA_ARGS__);\
+}
 
 const char *typeStrings[5] = {
 	"None",
@@ -168,7 +174,7 @@ bool Texture::Load(String filename) {
 		path = Stringify("data/Az2D/textures/", filename);
 		pixels = stbi_load(path.data, &width, &height, &channels, 4);
 		if (pixels == nullptr) {
-			error = "Failed to load Texture file: \"" + filename + "\"";
+			FILE_NOT_FOUND("Failed to load Texture file: \"", filename, "\"");
 			return false;
 		}
 	}
@@ -241,7 +247,7 @@ bool Sound::Load(String filename) {
 		path = Stringify("data/Az2D/sound/", filename);
 		length = stb_vorbis_decode_filename(path.data, &channels, &samplerate, &decoded);
 		if (length <= 0) {
-			error = "Failed to decode sound file (" + filename + ")";
+			FILE_NOT_FOUND("Failed to decode sound file (", filename, ")");
 			return false;
 		}
 	}
@@ -288,7 +294,7 @@ bool Stream::Open(String filename) {
 		path = Stringify("data/Az2D/sound/", filename);
 		vorbis = stb_vorbis_open_filename(path.data, &iError, nullptr);
 		if (!vorbis) {
-			error = "Stream::Open: Failed to open \"" + filename + "\", error code " + ToString(iError);
+			FILE_NOT_FOUND("Stream::Open: Failed to open \"", filename, "\", error code ", iError);
 			return false;
 		}
 	}
@@ -459,7 +465,8 @@ bool Manager::LoadAll() {
 			cout.PrintLn("as texture.");
 			textures.Append(Texture());
 			if (!textures[nextTexIndex].Load(filesToLoad[i].filename)) {
-				return false;
+				textures.size--;
+				continue;
 			}
 			textures.Back().linear = filesToLoad[i].isLinearTexture;
 			mapping.index = nextTexIndex;
@@ -468,7 +475,8 @@ bool Manager::LoadAll() {
 			cout.PrintLn("as sound.");
 			sounds.Append(Sound());
 			if (!sounds[nextSoundIndex].Load(filesToLoad[i].filename)) {
-				return false;
+				sounds.size--;
+				continue;
 			}
 			mapping.index = nextSoundIndex;
 			break;
@@ -476,7 +484,8 @@ bool Manager::LoadAll() {
 			cout.PrintLn("as stream.");
 			streams.Append(Stream());
 			if (!streams[nextStreamIndex].Open(filesToLoad[i].filename)) {
-				return false;
+				streams.size--;
+				continue;
 			}
 			mapping.index = nextStreamIndex;
 			break;
@@ -490,7 +499,7 @@ i32 Manager::FindMapping(SimpleRange<char> filename, Type type) {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Assets::Manager::FindMapping)
 	auto *node = mappings.Find(filename);
 	if (node == nullptr) {
-		cout.PrintLn("No mapping found for \"", filename, "\"");
+		FILE_NOT_FOUND("No mapping found for \"", filename, "\"");
 		return 0;
 	}
 	Mapping &mapping = node->value;

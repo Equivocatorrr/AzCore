@@ -102,24 +102,20 @@ float bilerp(float a, float b,
 void main() {
 	vec2 texSizeNormal = textureSize(texSampler[pc.texNormal], 0);
 	vec2 pixelPosNormal = inTexCoord*texSizeNormal;
-	vec2 pixelNormal = floor(pixelPosNormal + 0.5);
-	vec2 subPixelNormal = clamp((pixelPosNormal - pixelNormal) / fwidth(pixelPosNormal) + 0.5, vec2(0.0), vec2(1.0));
+	vec2 pixelNormal = floor(pixelPosNormal - 0.5);
+	vec2 subPixelNormal = clamp((pixelPosNormal - pixelNormal - 1.0) / fwidth(pixelPosNormal) + 0.5, 0.0, 1.0);
 	pixelNormal /= texSizeNormal;
 	vec2 rSize = 1.0 / texSizeNormal;
 	vec3 normal[4];
-	normal[0] = GetNormal(pixelNormal + vec2(0.0,     0.0));
-	normal[1] = GetNormal(pixelNormal + vec2(rSize.x, 0.0));
-	normal[2] = GetNormal(pixelNormal + vec2(rSize.x, rSize.y));
-	normal[3] = GetNormal(pixelNormal + vec2(0.0,     rSize.y));
+	normal[0] = GetNormal(pixelNormal + rSize * 0.5 + vec2(0.0,     0.0));
+	normal[1] = GetNormal(pixelNormal + rSize * 0.5 + vec2(rSize.x, 0.0));
+	normal[2] = GetNormal(pixelNormal + rSize * 0.5 + vec2(rSize.x, rSize.y));
+	normal[3] = GetNormal(pixelNormal + rSize * 0.5 + vec2(0.0,     rSize.y));
 	float normalFac[4];
-	normalFac[0] = bilerp(1.0, 0.0,
-	                      0.0, 0.0, subPixelNormal);
-	normalFac[1] = bilerp(0.0, 1.0,
-	                      0.0, 0.0, subPixelNormal);
-	normalFac[2] = bilerp(0.0, 0.0,
-	                      0.0, 1.0, subPixelNormal);
-	normalFac[3] = bilerp(0.0, 0.0,
-	                      1.0, 0.0, subPixelNormal);
+	normalFac[0] = (1.0 - subPixelNormal.x) * (1.0 - subPixelNormal.y);
+	normalFac[1] = subPixelNormal.x * (1.0 - subPixelNormal.y);
+	normalFac[2] = subPixelNormal.x * subPixelNormal.y;
+	normalFac[3] = (1.0 - subPixelNormal.x) * subPixelNormal.y;
 	float specularity = 0.0;
 	for (int i = 0; i < 4; i++) {
 		specularity += mix(0.05, 0.5, 1.0 - normal[i].z) * normalFac[i];

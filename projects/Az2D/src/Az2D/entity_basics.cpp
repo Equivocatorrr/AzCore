@@ -41,6 +41,15 @@ Entity& IdGeneric::GetMut() const {
 	return *result;
 }
 
+bool IdGeneric::Valid() const {
+	if (type == UINT64_MAX) return false;
+	void *ptr = _DoubleBufferArrays[type];
+	i32 size = *(i32*)((char*)ptr + offsetof(DoubleBufferArray<Entity>, size));
+	if (id.index >= size) return false;
+	const Entity &entity = GetConst();
+	return entity.id.generation > 0;
+}
+
 ManagerBasic *entitiesBasic = nullptr;
 
 ManagerBasic::ManagerBasic() {
@@ -396,17 +405,17 @@ vec2 ManagerBasic::WorldPosToScreen(vec2 in) const {
 	return out;
 }
 vec2 ManagerBasic::ScreenPosToWorld(vec2 in) const {
-	vec2 out = (in - vec2(vec2i(sys->window.width, sys->window.height) / 2)) / camZoom + camPos;
+	vec2 out = (in - vec2(sys->window.width, sys->window.height) / 2.0f) / camZoom + camPos;
 	return out;
 }
 
 vec2 ManagerBasic::CamTopLeft() const {
-	vec2 out = camPos - vec2(vec2i(sys->window.width, sys->window.height) / 2) / camZoom;
+	vec2 out = camPos - vec2(sys->window.width, sys->window.height) / 2.0f / camZoom;
 	return out;
 }
 
 vec2 ManagerBasic::CamBottomRight() const {
-	vec2 out = camPos + vec2(vec2i(sys->window.width, sys->window.height) / 2) / camZoom;
+	vec2 out = camPos + vec2(sys->window.width, sys->window.height) / 2.0f / camZoom;
 	return out;
 }
 

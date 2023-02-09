@@ -35,6 +35,20 @@ struct AABB {
 		if (point.x < minPos.x) minPos.x = point.x;
 		if (point.y < minPos.y) minPos.y = point.y;
 	}
+	// Extend this AABB amount in each direction (positive values are outward)
+	inline void Grow(f32 up, f32 down, f32 left, f32 right) {
+		minPos.x -= left;
+		minPos.y -= up;
+		maxPos.x += right;
+		maxPos.y += down;
+	}
+	// Extend this AABB amount in all directions (positive values are outward)
+	inline void Grow(f32 out) {
+		minPos.x -= out;
+		minPos.y -= out;
+		maxPos.x += out;
+		maxPos.y += out;
+	}
 
 	bool Collides(const AABB &other) const;
 	void Update(const struct Physical &physical);
@@ -166,7 +180,7 @@ struct IdGeneric {
 	
 	const struct Entity& GetConst() const;
 	struct Entity& GetMut() const;
-	inline bool Valid() const;
+	bool Valid() const;
 	inline bool operator==(IdGeneric other) const {
 		return id == other.id && type == other.type;
 	}
@@ -201,12 +215,6 @@ struct Entity {
 	void EventDestroy() {};
 };
 static_assert(offsetof(Entity, id) == offsetof(Entity, idGeneric) && offsetof(IdGeneric, IdGeneric::id) == 0);
-
-inline bool IdGeneric::Valid() const {
-	if (type == UINT64_MAX) return false;
-	const Entity &entity = GetConst();
-	return entity.id.generation > 0;
-}
 
 typedef void (*fpUpdateCallback)(void*,i32,i32);
 typedef void (*fpDrawCallback)(void*,Rendering::DrawingContext*,i32,i32);

@@ -10,7 +10,10 @@ layout (location = 2) in mat2 inTransform;
 
 layout (location = 0) out vec4 outColor;
 
-const int MAX_LIGHTS = 128;
+const int MAX_LIGHTS = 1024;
+const int MAX_LIGHTS_PER_BIN = 16;
+const int LIGHT_BIN_COUNT_X = 32;
+const int LIGHT_BIN_COUNT_Y = 18;
 
 struct Light {
 	// pixel-space position
@@ -29,13 +32,13 @@ struct Light {
 };
 
 struct LightBin {
-	uint lightIndices[8];
+	uint lightIndices[MAX_LIGHTS_PER_BIN];
 };
 
 layout(std430, set=0, binding=0) uniform UniformBuffer {
 	vec2 screenSize;
 	vec3 ambientLight;
-	LightBin lightBins[16*9];
+	LightBin lightBins[LIGHT_BIN_COUNT_X*LIGHT_BIN_COUNT_Y];
 	Light lights[MAX_LIGHTS];
 } ub;
 
@@ -64,11 +67,11 @@ float smoothout(float a) {
 }
 
 vec3 DoLighting(vec3 normal) {
-	int binX = clamp(int(inScreenPos.x * 16.0 / ub.screenSize.x), 0, 15);
-	int binY = clamp(int(inScreenPos.y * 9.0 / ub.screenSize.y), 0, 8);
-	int bindex = binY * 16 + binX;
+	int binX = clamp(int(inScreenPos.x * float(LIGHT_BIN_COUNT_X) / ub.screenSize.x), 0, LIGHT_BIN_COUNT_X-1);
+	int binY = clamp(int(inScreenPos.y * float(LIGHT_BIN_COUNT_Y) / ub.screenSize.y), 0, LIGHT_BIN_COUNT_Y-1);
+	int bindex = binY * LIGHT_BIN_COUNT_X + binX;
 	vec3 lighting = ub.ambientLight;
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < MAX_LIGHTS_PER_BIN; i++) {
 		uint lightIndex = ub.lightBins[bindex].lightIndices[i];
 		Light light = ub.lights[lightIndex];
 		vec3 dPos = vec3(inScreenPos, 0.0) - light.position;
@@ -88,6 +91,9 @@ void main() {
 	vec3 normal = texture(texSampler[pc.texNormal], inTexCoord).rgb * 2.0 - vec3(1.0);
 	normal.xy = inTransform * normal.xy;
 	normal = mix(vec3(0.0, 0.0, 1.0), normal, pc.normalAttenuation);
+	// Conditional normalize
+	float len = length(normal);
+	if (len > 0.1) normal /= len;
 
 	outColor = texture(texSampler[pc.texAlbedo], inTexCoord) * pc.color;
 	outColor.rgb *= DoLighting(normal);

@@ -3,14 +3,16 @@
 // This extension allows us to use std430 for our uniform buffer
 // Without it, the arrays of scalars would have a stride of 16 bytes
 #extension GL_EXT_scalar_block_layout : enable
+// So we can have a smaller uniform buffer
+#extension GL_EXT_shader_8bit_storage : enable
 
 layout (location = 0) in vec2 inTexCoord;
-layout (location = 1) in vec2 inScreenPos;
+layout (location = 1) in vec3 inScreenPos;
 layout (location = 2) in mat2 inTransform;
 
 layout (location = 0) out vec4 outColor;
 
-const int MAX_LIGHTS = 1024;
+const int MAX_LIGHTS = 256;
 const int MAX_LIGHTS_PER_BIN = 16;
 const int LIGHT_BIN_COUNT_X = 32;
 const int LIGHT_BIN_COUNT_Y = 18;
@@ -32,7 +34,7 @@ struct Light {
 };
 
 struct LightBin {
-	uint lightIndices[MAX_LIGHTS_PER_BIN];
+	uint8_t lightIndices[MAX_LIGHTS_PER_BIN];
 };
 
 layout(std430, set=0, binding=0) uniform UniformBuffer {
@@ -45,10 +47,10 @@ layout(std430, set=0, binding=0) uniform UniformBuffer {
 layout(set=0, binding=1) uniform sampler2D texSampler[1];
 
 layout(push_constant) uniform pushConstants {
-	layout(offset = 32) vec4 color;
-	layout(offset = 48) int texAlbedo;
-	layout(offset = 52) int texNormal;
-	layout(offset = 56) float normalAttenuation;
+	layout(offset = 48) vec4 color;
+	layout(offset = 64) int texAlbedo;
+	layout(offset = 68) int texNormal;
+	layout(offset = 72) float normalAttenuation;
 } pc;
 
 float map(float a, float min1, float max1, float min2, float max2) {
@@ -72,9 +74,9 @@ vec3 DoLighting(vec3 normal) {
 	int bindex = binY * LIGHT_BIN_COUNT_X + binX;
 	vec3 lighting = ub.ambientLight;
 	for (int i = 0; i < MAX_LIGHTS_PER_BIN; i++) {
-		uint lightIndex = ub.lightBins[bindex].lightIndices[i];
+		uint lightIndex = uint(ub.lightBins[bindex].lightIndices[i]);
 		Light light = ub.lights[lightIndex];
-		vec3 dPos = vec3(inScreenPos, 0.0) - light.position;
+		vec3 dPos = inScreenPos - light.position;
 		float dist = length(dPos);
 		dPos /= dist;
 		float factor = smoothout(square(mapClamped(dist, light.distMax, light.distMin, 0.0, 1.0)));

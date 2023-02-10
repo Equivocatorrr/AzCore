@@ -121,6 +121,8 @@ void PushConstants::PushCircle(VkCommandBuffer commandBuffer, const Manager *ren
 bool Manager::Init() {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Init)
 	data.device = data.instance.AddDevice();
+	data.device->data.vk12FeaturesRequired.scalarBlockLayout = VK_TRUE;
+	data.device->data.vk12FeaturesRequired.uniformAndStorageBuffer8BitAccess = VK_TRUE;
 	uniforms.ambientLight = vec3(0.001f);
 
 	data.queueGraphics = data.device->AddQueue();
@@ -446,25 +448,25 @@ bool Manager::Init() {
 	}
 
 	data.pipelines[PIPELINE_BASIC_2D]->pushConstantRanges = {
-		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
-		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 20}
+		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 40},
+		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 48, /* size */ 28}
 	};
 	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->pushConstantRanges = data.pipelines[PIPELINE_BASIC_2D]->pushConstantRanges;
 	data.pipelines[PIPELINE_FONT_2D]->pushConstantRanges = {
-		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
-		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 36}
+		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 40},
+		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 48, /* size */ 36}
 	};
 	data.pipelines[PIPELINE_CIRCLE_2D]->pushConstantRanges = {
-		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
-		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 24}
+		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 40},
+		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 48, /* size */ 28}
 	};
 	data.pipelines[PIPELINE_SHADED_2D]->pushConstantRanges = {
-		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
-		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 28}
+		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 40},
+		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 48, /* size */ 28}
 	};
 	data.pipelines[PIPELINE_SHADED_2D_PIXEL]->pushConstantRanges = {
-		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 32},
-		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 32, /* size */ 28}
+		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 40},
+		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 48, /* size */ 28}
 	};
 
 	if (!data.instance.Init()) {
@@ -596,9 +598,10 @@ void Manager::UpdateLights() {
 		for (i32 y = binMin.y; y <= binMax.y; y++) {
 			for (i32 x = binMin.x; x <= binMax.x; x++) {
 				i32 i = LightBinIndex({x, y});
+				LightBin &bin = uniforms.lightBins[i];
 				if (lightCounts[i] >= MAX_LIGHTS_PER_BIN) continue;
 				atLeastOne = true;
-				uniforms.lightBins[i].lightIndices[lightCounts[i]] = lightIndex;
+				bin.lightIndices[lightCounts[i]] = lightIndex;
 				lightCounts[i]++;
 			}
 		}
@@ -744,10 +747,17 @@ bool Manager::Draw() {
 		error = "Quitting due to vulkan validation error.";
 		return false;
 	}
-	if (sys->window.resized || data.resized) {
+	if (sys->window.resized || data.resized || data.zeroExtent) {
 		AZ2D_PROFILING_EXCEPTION_START();
 		vk::DeviceWaitIdle(data.device);
 		AZ2D_PROFILING_EXCEPTION_END();
+		data.swapchain->UpdateSurfaceCapabilities();
+		VkExtent2D extent = data.swapchain->data.surfaceCapabilities.currentExtent;
+		if (extent.width == 0 || extent.height == 0) {
+			data.zeroExtent = true;
+			return true;
+		}
+		data.zeroExtent = false;
 		if (!data.swapchain->Resize()) {
 			error = "Failed to resize swapchain: " + vk::error;
 			return false;
@@ -906,6 +916,10 @@ bool Manager::Draw() {
 }
 
 bool Manager::Present() {
+	if (data.zeroExtent) {
+		Thread::Sleep(Milliseconds(clamp((i32)sys->frametimes.AverageWithoutOutliers(), 5, 50)));
+		return true;
+	}
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Present)
 	if (!data.swapchain->Present(data.queuePresent, {data.semaphoreRenderComplete->semaphore})) {
 		error = "Failed to present: " + vk::error;

@@ -57,8 +57,11 @@ struct PushConstants {
 		mat2 transform = mat2(1.0f);
 		vec2 origin = vec2(0.0f);
 		vec2 position = vec2(0.0f);
+		f32 z = 0.0f;
+		f32 zShear = 0.0f;
 		void Push(VkCommandBuffer commandBuffer, const Manager *rendering) const;
 	} vert;
+	int pad[2];
 	struct frag_t {
 		vec4 color = vec4(1.0f);
 		int texIndex = 0;
@@ -117,7 +120,7 @@ struct RenderCallback {
 	void *userdata;
 };
 
-constexpr i32 MAX_LIGHTS = 1024;
+constexpr i32 MAX_LIGHTS = 256;
 constexpr i32 MAX_LIGHTS_PER_BIN = 16;
 constexpr i32 LIGHT_BIN_COUNT_X = 32;
 constexpr i32 LIGHT_BIN_COUNT_Y = 18;
@@ -140,7 +143,7 @@ struct Light {
 };
 
 struct LightBin {
-	u32 lightIndices[MAX_LIGHTS_PER_BIN];
+	u8 lightIndices[MAX_LIGHTS_PER_BIN];
 };
 
 struct UniformBuffer {
@@ -163,6 +166,8 @@ struct Manager {
 		Ptr<vk::Device> device;
 		Ptr<vk::Swapchain> swapchain;
 		bool resized = false;
+		// Indicates we've been told our extent is invalid, so wait until a resize
+		bool zeroExtent = false;
 		Ptr<vk::Framebuffer> framebuffer;
 		Ptr<vk::RenderPass> renderPass;
 		Ptr<vk::Queue> queueGraphics;

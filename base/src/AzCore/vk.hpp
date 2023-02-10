@@ -109,11 +109,12 @@ namespace vk {
 	struct PhysicalDevice {
 		i32 score; // How the device rates for desirability (to choose a logical default)
 		VkPhysicalDevice physicalDevice;
-		VkPhysicalDeviceProperties properties;
-		VkPhysicalDeviceFeatures features;
+		VkPhysicalDeviceProperties2 properties;
+		VkPhysicalDeviceFeatures2 features;
+		VkPhysicalDeviceScalarBlockLayoutFeatures scalarBlockLayoutFeatures;
 		Array<VkExtensionProperties> extensionsAvailable{};
-		Array<VkQueueFamilyProperties> queueFamiliesAvailable{};
-		VkPhysicalDeviceMemoryProperties memoryProperties;
+		Array<VkQueueFamilyProperties2> queueFamiliesAvailable{};
+		VkPhysicalDeviceMemoryProperties2 memoryProperties;
 		bool Init(VkInstance instance);
 		void PrintInfo(Array<Window> windows, bool checkSurface=false);
 	};
@@ -785,6 +786,7 @@ namespace vk {
 		Ptr<Fence> FenceImageAvailable();
 		bool Present(Ptr<Queue> queue, Array<VkSemaphore> waitSemaphores);
 
+		void UpdateSurfaceCapabilities();
 		bool Resize();
 
 		~Swapchain();
@@ -853,8 +855,10 @@ namespace vk {
 			List<QueueSubmission> queueSubmissions{};
 
 			Array<const char*> extensionsRequired{};
-			VkPhysicalDeviceFeatures deviceFeaturesRequired{};
-			VkPhysicalDeviceFeatures deviceFeaturesOptional{};
+			VkPhysicalDeviceFeatures2 deviceFeaturesRequired{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+			VkPhysicalDeviceFeatures2 deviceFeaturesOptional{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+			VkPhysicalDeviceVulkan11Features vk11FeaturesRequired {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
+			VkPhysicalDeviceVulkan12Features vk12FeaturesRequired {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
 		} data;
 
 		Device();
@@ -908,7 +912,7 @@ namespace vk {
 				/*.applicationVersion = */ 1,
 				/*.pEngineName = */ "AzCore",
 				/*.engineVersion = */ VK_MAKE_API_VERSION(0, 0, 1, 0),
-				/*.apiVersion = */ VK_API_VERSION_1_1,
+				/*.apiVersion = */ VK_API_VERSION_1_2,
 			};
 			Array<VkExtensionProperties> extensionsAvailable;
 			Array<const char*> extensionsRequired{};

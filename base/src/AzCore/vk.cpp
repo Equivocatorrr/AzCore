@@ -427,8 +427,12 @@ namespace vk {
 	}
 
 	bool PhysicalDevice::Init(VkInstance instance) {
-		vkGetPhysicalDeviceProperties(physicalDevice, &properties);
-		vkGetPhysicalDeviceFeatures(physicalDevice, &features);
+		properties = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+		vkGetPhysicalDeviceProperties2(physicalDevice, &properties);
+		features = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+		features.pNext = &scalarBlockLayoutFeatures;
+		scalarBlockLayoutFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES};
+		vkGetPhysicalDeviceFeatures2(physicalDevice, &features);
 
 		u32 extensionCount = 0;
 		vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
@@ -436,37 +440,39 @@ namespace vk {
 		vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, extensionsAvailable.data);
 
 		u32 queueFamiliesCount = 0;
-		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamiliesCount, nullptr);
-		queueFamiliesAvailable.Resize(queueFamiliesCount);
-		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamiliesCount, queueFamiliesAvailable.data);
+		vkGetPhysicalDeviceQueueFamilyProperties2(physicalDevice, &queueFamiliesCount, nullptr);
+		queueFamiliesAvailable.Resize(queueFamiliesCount, {VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2});
+		vkGetPhysicalDeviceQueueFamilyProperties2(physicalDevice, &queueFamiliesCount, queueFamiliesAvailable.data);
 
-		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
+		memoryProperties = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2};
+		vkGetPhysicalDeviceMemoryProperties2(physicalDevice, &memoryProperties);
 
 		score = 0;
 
-		if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+		if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
 			score += 1000;
 		}
 
-		score += properties.limits.maxImageDimension2D;
+		score += properties.properties.limits.maxImageDimension2D;
 		return true;
 	}
 
 	void PhysicalDevice::PrintInfo(Array<Window> windows, bool checkSurface) {
 		// Basic info
-		cout.PrintLn("Name: ", properties.deviceName, "\nVulkan: ", VK_VERSION_MAJOR(properties.apiVersion), ".", VK_VERSION_MINOR(properties.apiVersion), ".", VK_VERSION_PATCH(properties.apiVersion));
+		cout.PrintLn("Name: ", properties.properties.deviceName, "\nVulkan: ", VK_VERSION_MAJOR(properties.properties.apiVersion), ".", VK_VERSION_MINOR(properties.properties.apiVersion), ".", VK_VERSION_PATCH(properties.properties.apiVersion));
 		// Memory
 		u64 deviceLocalMemory = 0;
-		for (u32 i = 0; i < memoryProperties.memoryHeapCount; i++) {
-			if (memoryProperties.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
-				deviceLocalMemory += memoryProperties.memoryHeaps[i].size;
+		for (u32 i = 0; i < memoryProperties.memoryProperties.memoryHeapCount; i++) {
+			if (memoryProperties.memoryProperties.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
+				deviceLocalMemory += memoryProperties.memoryProperties.memoryHeaps[i].size;
 		}
 		cout.PrintLn("Memory: ", FormatSize(deviceLocalMemory));
 		// Queue families
 		cout.Print("Queue Families:");
 		for (i32 i = 0; i < queueFamiliesAvailable.size; i++) {
-			const VkQueueFamilyProperties &props = queueFamiliesAvailable[i];
-			cout.Print("\n\tFamily[", i, "] Queue count: ", props.queueCount, "\tSupports: ", ((props.queueFlags & VK_QUEUE_COMPUTE_BIT) ? "COMPUTE " : ""), ((props.queueFlags & VK_QUEUE_GRAPHICS_BIT) ? "GRAPHICS " : ""), ((props.queueFlags & VK_QUEUE_TRANSFER_BIT) ? "TRANSFER " : ""));
+			const VkQueueFamilyProperties2 &props = queueFamiliesAvailable[i];
+			VkQueueFlags queueFlags = props.queueFamilyProperties.queueFlags;
+			cout.Print("\n\tFamily[", i, "] Queue count: ", props.queueFamilyProperties.queueCount, "\tSupports: ", ((queueFlags & VK_QUEUE_COMPUTE_BIT) ? "COMPUTE " : ""), ((queueFlags & VK_QUEUE_GRAPHICS_BIT) ? "GRAPHICS " : ""), ((queueFlags & VK_QUEUE_TRANSFER_BIT) ? "TRANSFER " : ""));
 			if (checkSurface) {
 				String presentString = "PRESENT on windows {";
 				VkBool32 presentSupport = false;
@@ -1099,14 +1105,14 @@ failure:
 	}
 
 	i32 Memory::FindMemoryType() {
-		VkPhysicalDeviceMemoryProperties memProps = data.physicalDevice->memoryProperties;
-		for (u32 i = 0; i < memProps.memoryTypeCount; i++) {
-			if ((data.memoryTypeBits & (1 << i)) && (memProps.memoryTypes[i].propertyFlags & data.memoryProperties) == data.memoryProperties) {
+		VkPhysicalDeviceMemoryProperties2 memProps = data.physicalDevice->memoryProperties;
+		for (u32 i = 0; i < memProps.memoryProperties.memoryTypeCount; i++) {
+			if ((data.memoryTypeBits & (1 << i)) && (memProps.memoryProperties.memoryTypes[i].propertyFlags & data.memoryProperties) == data.memoryProperties) {
 				return i;
 			}
 		}
-		for (u32 i = 0; i < memProps.memoryTypeCount; i++) {
-			if ((data.memoryTypeBits & (1 << i)) && (memProps.memoryTypes[i].propertyFlags & data.memoryPropertiesDeferred) == data.memoryPropertiesDeferred) {
+		for (u32 i = 0; i < memProps.memoryProperties.memoryTypeCount; i++) {
+			if ((data.memoryTypeBits & (1 << i)) && (memProps.memoryProperties.memoryTypes[i].propertyFlags & data.memoryPropertiesDeferred) == data.memoryPropertiesDeferred) {
 				return i;
 			}
 		}
@@ -3124,14 +3130,18 @@ failure:
 		}
 		return true;
 	}
+	
+	void Swapchain:: UpdateSurfaceCapabilities() {
+		vkDeviceWaitIdle(data.device->data.device);
+		VkPhysicalDevice physicalDevice = data.device->data.physicalDevice.physicalDevice;
+		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, data.surface, &data.surfaceCapabilities);
+	}
 
 	bool Swapchain::Resize() {
 		cout.Newline(2);
 		PrintDashed("Resizing Swapchain");
 		cout.Newline();
-		vkDeviceWaitIdle(data.device->data.device);
-		VkPhysicalDevice physicalDevice = data.device->data.physicalDevice.physicalDevice;
-		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, data.surface, &data.surfaceCapabilities);
+		UpdateSurfaceCapabilities();
 		if (data.created) {
 			if (!Create()) {
 				return false;
@@ -3605,6 +3615,10 @@ failure:
 		// TODO: Right now we just choose the first in the pre-sorted list. We should instead select
 		//	   them based on whether they have our desired features.
 		data.physicalDevice = data.instance->data.physicalDevices[0];
+		
+		// for (i32 i = 0; i < data.physicalDevice.extensionsAvailable.size; i++) {
+		// 	cout.PrintLn(data.physicalDevice.extensionsAvailable[i].extensionName);
+		// }
 
 		// Put together all our needed extensions
 		Array<const char*> extensionsAll(data.extensionsRequired);
@@ -3634,7 +3648,7 @@ failure:
 			return false;
 		}
 
-		VkPhysicalDeviceFeatures deviceFeatures;
+		VkPhysicalDeviceFeatures2 deviceFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
 		{
 			// What features to we want?
 			bool anisotropy = false;
@@ -3646,7 +3660,7 @@ failure:
 			}
 			if (anisotropy) {
 				cout.PrintLn("Enabling samplerAnisotropy optional device feature");
-				data.deviceFeaturesOptional.samplerAnisotropy = VK_TRUE;
+				data.deviceFeaturesOptional.features.samplerAnisotropy = VK_TRUE;
 			}
 			bool independentBlending = false;
 			bool wideLines = false;
@@ -3672,21 +3686,21 @@ failure:
 			}
 			if (independentBlending) {
 				cout.PrintLn("Enabling independentBlend device feature");
-				data.deviceFeaturesRequired.independentBlend = VK_TRUE;
+				data.deviceFeaturesRequired.features.independentBlend = VK_TRUE;
 			}
 			if (wideLines) {
 				cout.PrintLn("Enabling wideLines device feature");
-				data.deviceFeaturesRequired.wideLines = VK_TRUE;
+				data.deviceFeaturesRequired.features.wideLines = VK_TRUE;
 			}
 			// Which ones are available?
-			for (u32 i = 0; i < sizeof(VkPhysicalDeviceFeatures)/4; i++) {
+			for (u32 i = 0; i < sizeof(VkPhysicalDeviceFeatures2::features)/4; i++) {
 				// I'm not sure why these aren't bit-masked values,
 				// but I'm treating it like that anyway.
-				*(((u32*)&deviceFeatures + i)) = *(((u32*)&data.deviceFeaturesRequired + i))
-				|| (*(((u32*)&data.physicalDevice.features + i)) && *(((u32*)&data.deviceFeaturesOptional + i)));
+				*(((u32*)&deviceFeatures.features + i)) = *(((u32*)&data.deviceFeaturesRequired.features + i))
+				|| (*(((u32*)&data.physicalDevice.features.features + i)) && *(((u32*)&data.deviceFeaturesOptional.features + i)));
 			}
 			// Which ones don't we have that we wanted?
-			if (anisotropy && deviceFeatures.samplerAnisotropy == VK_FALSE) {
+			if (anisotropy && deviceFeatures.features.samplerAnisotropy == VK_FALSE) {
 				cout.PrintLn("Sampler Anisotropy desired, but unavailable...disabling.");
 				for (auto& sampler : data.samplers) {
 					sampler.anisotropy = 1;
@@ -3704,7 +3718,7 @@ failure:
 		i32 queueFamilies = data.physicalDevice.queueFamiliesAvailable.size;
 		Array<i32> queuesPerFamily(queueFamilies);
 		for (i32 i = 0; i < queueFamilies; i++) {
-			queuesPerFamily[i] = data.physicalDevice.queueFamiliesAvailable[i].queueCount;
+			queuesPerFamily[i] = data.physicalDevice.queueFamiliesAvailable[i].queueFamilyProperties.queueCount;
 		}
 
 		for (auto &queueIndex : data.queues) {
@@ -3712,8 +3726,8 @@ failure:
 			for (i32 j = 0; j < queueFamilies; j++) {
 				if (queuesPerFamily[j] == 0)
 					continue; // This family has been exhausted of queues, try the next.
-				VkQueueFamilyProperties& props = data.physicalDevice.queueFamiliesAvailable[j];
-				if (props.queueCount == 0)
+				VkQueueFamilyProperties2& props = data.physicalDevice.queueFamiliesAvailable[j];
+				if (props.queueFamilyProperties.queueCount == 0)
 					continue;
 				VkBool32 presentSupport = VK_FALSE;
 				for (const Window& w : data.instance->data.windows) {
@@ -3724,19 +3738,19 @@ failure:
 				}
 				switch(queue.queueType) {
 					case COMPUTE: {
-						if (props.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+						if (props.queueFamilyProperties.queueFlags & VK_QUEUE_COMPUTE_BIT) {
 							queue.queueFamilyIndex = j;
 						}
 						break;
 					}
 					case GRAPHICS: {
-						if (props.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+						if (props.queueFamilyProperties.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
 							queue.queueFamilyIndex = j;
 						}
 						break;
 					}
 					case TRANSFER: {
-						if (props.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+						if (props.queueFamilyProperties.queueFlags & VK_QUEUE_TRANSFER_BIT) {
 							queue.queueFamilyIndex = j;
 						}
 						break;
@@ -3792,13 +3806,17 @@ failure:
 			}
 		}
 
+		data.vk11FeaturesRequired.pNext = &data.vk12FeaturesRequired;
+		deviceFeatures.pNext = &data.vk11FeaturesRequired;
 
 		VkDeviceCreateInfo createInfo = {};
-		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		createInfo = {VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
 		createInfo.pQueueCreateInfos = queueCreateInfos.data;
 		createInfo.queueCreateInfoCount = queueCreateInfos.size;
 
-		createInfo.pEnabledFeatures = &deviceFeatures;
+		// To use VkPhysicalDeviceFeatures2 we pass it to pNext and null to pEnabledFeatures
+		createInfo.pNext = &deviceFeatures;
+		// createInfo.pEnabledFeatures = &deviceFeatures.features;
 		createInfo.enabledExtensionCount = extensionsAll.size;
 		createInfo.ppEnabledExtensionNames = extensionsAll.data;
 

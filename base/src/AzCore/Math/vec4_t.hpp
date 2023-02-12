@@ -25,10 +25,28 @@ struct vec4_t {
 			T h, s, v;
 		};
 		struct {
+			vec2_t<T> xy, zw;
+		};
+		struct {
+			T __x; vec2_t<T> yz;
+		};
+		struct {
+			vec2_t<T> rg, ba;
+		};
+		struct {
+			T __r; vec2_t<T> gb;
+		};
+		struct {
 			vec3_t<T> xyz;
 		};
 		struct {
+			T ___x; vec3_t<T> yzw;
+		};
+		struct {
 			vec3_t<T> rgb;
+		};
+		struct {
+			T ___r; vec3_t<T> gba;
 		};
 		struct {
 			vec3_t<T> hsv;
@@ -39,13 +57,16 @@ struct vec4_t {
 	};
 
 	vec4_t() = default;
-	inline vec4_t(T vec) : x(vec), y(vec), z(vec), w(vec) {}
-	inline vec4_t(T v1, T v2, T v3, T v4) : x(v1), y(v2), z(v3), w(v4) {}
-	inline vec4_t(vec3_t<T> vec, T v1) : r(vec.r), g(vec.g), b(vec.b), a(v1) {
-	}
+	inline vec4_t(T a) : x(a), y(a), z(a), w(a) {}
+	inline vec4_t(T _x, T _y, T _z, T _w) : x(_x), y(_y), z(_z), w(_w) {}
+	inline vec4_t(vec3_t<T> _xyz, T _w) : xyz(_xyz), w(_w) {}
+	inline vec4_t(T _x, vec3_t<T> _yzw) : x(_x), yzw(_yzw) {}
+	inline vec4_t(vec2_t<T> _xy, vec2_t<T> _zw) : xy(_xy), zw(_zw) {}
+	inline vec4_t(vec2_t<T> _xy, T _z, T _w) : xy(_xy), z(_z), w(_w) {}
+	inline vec4_t(T _x, vec2_t<T> _yz, T _w) : x(_x), yz(_yz), w(_w) {}
+	inline vec4_t(T _x, T _y, vec2_t<T> _zw) : x(_x), y(_y), zw(_zw) {}
 	template <typename I>
-	vec4_t(vec4_t<I> a) : x((T)a.x), y((T)a.y), z((T)a.z), w((T)a.w) {
-	}
+	vec4_t(vec4_t<I> a) : x((T)a.x), y((T)a.y), z((T)a.z), w((T)a.w) {}
 	inline vec4_t<T> operator+(vec4_t<T> vec) const { return vec4_t<T>(x + vec.x, y + vec.y, z + vec.z, w + vec.w); }
 	inline vec4_t<T> operator-(vec4_t<T> vec) const { return vec4_t<T>(x - vec.x, y - vec.y, z - vec.z, w - vec.w); }
 	inline vec4_t<T> operator-() const { return vec4_t<T>(-x, -y, -z, -w); }

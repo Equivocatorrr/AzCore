@@ -9,6 +9,7 @@
 layout (location = 0) in vec2 inTexCoord;
 layout (location = 1) in vec3 inScreenPos;
 layout (location = 2) in mat2 inTransform;
+layout (location = 4) in float inZShear;
 
 layout (location = 0) out vec4 outColor;
 
@@ -46,11 +47,21 @@ layout(std430, set=0, binding=0) uniform UniformBuffer {
 
 layout(set=0, binding=1) uniform sampler2D texSampler[1];
 
+struct Material {
+	vec4 color;
+	float emitStrength;
+	float normalDepth;
+};
+
+struct TexIndices {
+	int albedo;
+	int normal;
+	int emit;
+};
+
 layout(push_constant) uniform pushConstants {
-	layout(offset = 48) vec4 color;
-	layout(offset = 64) int texAlbedo;
-	layout(offset = 68) int texNormal;
-	layout(offset = 72) float normalDepth;
+	layout(offset = 48) Material mat;
+	layout(offset = 72) TexIndices tex;
 } pc;
 
 float map(float a, float min1, float max1, float min2, float max2) {
@@ -84,9 +95,10 @@ vec2 NearestTexCoord(uint tex) {
 }
 
 vec3 GetNormal(vec2 pixel) {
-	vec3 normal = texture(texSampler[pc.texNormal], pixel).rgb * 2.0 - vec3(1.0);
+	vec3 normal = texture(texSampler[pc.tex.normal], pixel).rgb * 2.0 - vec3(1.0);
 	normal.xy = inTransform * normal.xy;
-	normal = mix(vec3(0.0, 0.0, 1.0), normal, pc.normalDepth);
+	normal = mix(vec3(0.0, 0.0, 1.0), normal, pc.mat.normalDepth);
+	normal.y -= normal.z * inZShear;
 	// Conditional normalize
 	float len = length(normal);
 	if (len > 0.1) normal /= len;
@@ -102,7 +114,10 @@ float bilerp(float a, float b,
 }
 
 void main() {
-	vec2 texSizeNormal = textureSize(texSampler[pc.texNormal], 0);
+	vec4 albedo = texture(texSampler[pc.tex.albedo], SharpTexCoord(pc.tex.albedo)) * pc.mat.color;
+	vec3 emit = texture(texSampler[pc.tex.emit], SharpTexCoord(pc.tex.emit)).rgb * pc.mat.color.rgb * pc.mat.color.a;
+	
+	vec2 texSizeNormal = textureSize(texSampler[pc.tex.normal], 0);
 	vec2 pixelPosNormal = inTexCoord*texSizeNormal;
 	vec2 pixelNormal = floor(pixelPosNormal - 0.5);
 	vec2 subPixelNormal = clamp((pixelPosNormal - pixelNormal - 1.0) / fwidth(pixelPosNormal) + 0.5, 0.0, 1.0);
@@ -135,9 +150,6 @@ void main() {
 		float dist = length(dPos);
 		dPos /= dist;
 		float factor = smoothout(square(mapClamped(dist, light.distMax, light.distMin, 0.0, 1.0)));
-		// outColor.rgb = vec3(factor);
-		// outColor.a = 1.0;
-		// return;
 		float angle = acos(dot(light.direction, dPos));
 		factor *= smoothout(square(mapClamped(angle, light.angleMax, light.angleMin, 0.0, 1.0)));
 		float incidence = 0.0;
@@ -154,12 +166,7 @@ void main() {
 		}
 	}
 	
-	vec4 albedo = texture(texSampler[pc.texAlbedo], SharpTexCoord(pc.texAlbedo)) * pc.color;
 	specular = mix(specular, albedo.rgb * specular, 0.5);
-	outColor.rgb = mix(diffuse * albedo.rgb, specular * albedo.a, specularity) + albedo.rgb * ub.ambientLight;
+	outColor.rgb = mix(diffuse * albedo.rgb, specular * albedo.a, specularity) + albedo.rgb * ub.ambientLight + emit * pc.mat.emitStrength;
 	outColor.a = albedo.a;
-	// outColor.r = subPixelNormal.x * outColor.a;
-	// outColor.g = subPixelNormal.y * outColor.a;
-	// outColor.b = 0.0;
-	// outColor.rgb = (normal[3] * 0.5 + 0.5) * outColor.a;
 }

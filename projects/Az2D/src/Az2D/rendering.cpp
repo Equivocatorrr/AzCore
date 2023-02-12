@@ -448,25 +448,65 @@ bool Manager::Init() {
 	}
 
 	data.pipelines[PIPELINE_BASIC_2D]->pushConstantRanges = {
-		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 40},
-		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 48, /* size */ 28}
+		{
+			/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT,
+			/* offset */ 0,
+			/* size */ sizeof(PushConstants::vert_t)
+		},
+		{
+			/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT,
+			/* offset */ 48,
+			/* size */ sizeof(Material) + 4
+		}
 	};
 	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->pushConstantRanges = data.pipelines[PIPELINE_BASIC_2D]->pushConstantRanges;
 	data.pipelines[PIPELINE_FONT_2D]->pushConstantRanges = {
-		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 40},
-		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 48, /* size */ 36}
+		{
+			/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT,
+			/* offset */ 0,
+			/* size */ sizeof(PushConstants::vert_t)
+		},
+		{
+			/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT,
+			/* offset */ offsetof(PushConstants, frag),
+			/* size */ sizeof(PushConstants::frag_t) + sizeof(PushConstants::font_circle_t::font_t)
+		}
 	};
 	data.pipelines[PIPELINE_CIRCLE_2D]->pushConstantRanges = {
-		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 40},
-		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 48, /* size */ 28}
+		{
+			/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT,
+			/* offset */ 0,
+			/* size */ sizeof(PushConstants::vert_t)
+		},
+		{
+			/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT,
+			/* offset */ offsetof(PushConstants, frag),
+			/* size */ sizeof(PushConstants::frag_t) + sizeof(PushConstants::font_circle_t::circle_t)
+		}
 	};
 	data.pipelines[PIPELINE_SHADED_2D]->pushConstantRanges = {
-		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 40},
-		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 48, /* size */ 28}
+		{
+			/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT,
+			/* offset */ 0,
+			/* size */ sizeof(PushConstants::vert_t)
+		},
+		{
+			/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT,
+			/* offset */ offsetof(PushConstants, frag),
+			/* size */ sizeof(PushConstants::frag_t)
+		}
 	};
 	data.pipelines[PIPELINE_SHADED_2D_PIXEL]->pushConstantRanges = {
-		{/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT, /* offset */ 0, /* size */ 40},
-		{/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT, /* offset */ 48, /* size */ 28}
+		{
+			/* stage flags */ VK_SHADER_STAGE_VERTEX_BIT,
+			/* offset */ 0,
+			/* size */ sizeof(PushConstants::vert_t)
+		},
+		{
+			/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT,
+			/* offset */ offsetof(PushConstants, frag),
+			/* size */ sizeof(PushConstants::frag_t)
+		}
 	};
 
 	if (!data.instance.Init()) {
@@ -856,7 +896,7 @@ bool Manager::Draw() {
 			f32 msMin = sys->frametimes.Min();
 			f32 msDiff = msMax - msMin;
 			f32 fps = 1000.0f / msAvg;
-			DrawQuad(commandBuffersSecondary.Back(), texBlank, vec4(vec3(0.0f), 0.5f), 0.0f, vec2(500.0f, 20.0f) * Gui::guiBasic->scale, 1.0f);
+			DrawQuad(commandBuffersSecondary.Back(), 0.0f, vec2(500.0f, 20.0f) * Gui::guiBasic->scale, 1.0f, 0.0f, 0.0f, PIPELINE_BASIC_2D, vec4(vec3(0.0f), 0.5f));
 			WString strings[] = {
 				ToWString(Stringify("fps: ", FormatFloat(fps, 10, 1))),
 				ToWString(Stringify("avg: ", FormatFloat(msAvg, 10, 1), "ms")),
@@ -1096,7 +1136,7 @@ void Manager::DrawCharSS(DrawingContext &context, char32 character, i32 fontInde
 	Rendering::PushConstants pc = Rendering::PushConstants();
 	BindPipeline(context, PIPELINE_FONT_2D);
 	color.rgb = sRGBToLinear(color.rgb);
-	pc.frag.color = color;
+	pc.frag.mat.color = color;
 	i32 actualFontIndex = fontIndex;
 	i32 glyphIndex = fontDesired->font.GetGlyphIndex(character);
 	if (glyphIndex == 0) {
@@ -1113,7 +1153,7 @@ void Manager::DrawCharSS(DrawingContext &context, char32 character, i32 fontInde
 		font->fontBuilder.AddRange(character, character);
 	}
 	font::Glyph& glyph = font->fontBuilder.glyphs[glyphId];
-	pc.frag.texIndex = actualFontIndex;
+	pc.frag.tex.albedo = actualFontIndex;
 	if (glyph.components.size != 0) {
 		for (const font::Component& component : glyph.components) {
 			i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
@@ -1141,7 +1181,7 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 	Rendering::PushConstants pc = Rendering::PushConstants();
 	BindPipeline(context, PIPELINE_FONT_2D);
 	color.rgb = sRGBToLinear(color.rgb);
-	pc.frag.color = color;
+	pc.frag.mat.color = color;
 	// position.y += scale.y * lineHeight;
 	position.y += scale.y * (lineHeight + 1.0f) * 0.5f;
 	if (alignV != TOP) {
@@ -1172,7 +1212,7 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 			cursor.x = ceil((cursor.x - position.x)/tabWidth+0.05f) * tabWidth + position.x;
 			continue;
 		}
-		pc.frag.texIndex = fontIndex;
+		pc.frag.tex.albedo = fontIndex;
 		Assets::Font *font = fontDesired;
 		i32 actualFontIndex = fontIndex;
 		i32 glyphIndex = fontDesired->font.GetGlyphIndex(character);
@@ -1181,7 +1221,7 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 			if (glyphFallback != 0) {
 				glyphIndex = glyphFallback;
 				font = fontFallback;
-				pc.frag.texIndex = 0;
+				pc.frag.tex.albedo = 0;
 				actualFontIndex = 0;
 			}
 		}
@@ -1191,7 +1231,7 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 		}
 		font::Glyph& glyph = font->fontBuilder.glyphs[glyphId];
 
-		pc.frag.texIndex = actualFontIndex;
+		pc.frag.tex.albedo = actualFontIndex;
 		pc.font_circle.font.edge = edge / (font::sdfDistance * screenSize.y * scale.y);
 		pc.font_circle.font.bounds = bounds;
 		pc.vert.transform = mat2::Scaler(scale * vec2(aspectRatio, 1.0f));
@@ -1234,15 +1274,15 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 	}
 }
 
-void Manager::DrawQuadSS(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline, i32 texNormal, f32 normalDepth) const {
+void Manager::DrawQuadSS(DrawingContext &context, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline, Material material, TexIndices texture, f32 zShear, f32 zPos) const {
 	Rendering::PushConstants pc = Rendering::PushConstants();
 	BindPipeline(context, pipeline);
-	color.rgb = sRGBToLinear(color.rgb);
-	pc.frag.color = color;
-	pc.frag.texIndex = texIndex;
-	pc.frag.texNormal = texNormal;
-	pc.frag.normalDepth = normalDepth;
+	material.color.rgb = sRGBToLinear(material.color.rgb);
+	pc.frag.tex = texture;
+	pc.frag.mat = material;
 	pc.vert.position = position;
+	pc.vert.zShear = zShear;
+	pc.vert.z = zPos;
 	pc.vert.transform = mat2::Scaler(scalePre);
 	if (rotation != 0.0f) {
 		pc.vert.transform = pc.vert.transform * mat2::Rotation(rotation.value());
@@ -1257,8 +1297,8 @@ void Manager::DrawCircleSS(DrawingContext &context, i32 texIndex, vec4 color, ve
 	Rendering::PushConstants pc = Rendering::PushConstants();
 	BindPipeline(context, PIPELINE_CIRCLE_2D);
 	color.rgb = sRGBToLinear(color.rgb);
-	pc.frag.color = color;
-	pc.frag.texIndex = texIndex;
+	pc.frag.mat = Material(color);
+	pc.frag.tex = TexIndices(texIndex);
 	pc.vert.position = position;
 	pc.vert.transform = mat2::Scaler(scalePre);
 	if (rotation != 0.0f) {
@@ -1283,9 +1323,9 @@ void Manager::DrawText(DrawingContext &context, WString text, i32 fontIndex, vec
 	DrawTextSS(context, text, fontIndex, color, position * screenSizeFactor + vec2(-1.0f), scale * screenSizeFactor.y, alignH, alignV, maxWidth * screenSizeFactor.x, edge, bounds);
 }
 
-void Manager::DrawQuad(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline, i32 texNormal, f32 normalDepth) const {
+void Manager::DrawQuad(DrawingContext &context, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline, Material material, TexIndices texture, f32 zShear, f32 zPos) const {
 	const vec2 screenSizeFactor = vec2(2.0f) / screenSize;
-	DrawQuadSS(context, texIndex, color, position * screenSizeFactor + vec2(-1.0f), scalePre, scalePost * screenSizeFactor, origin, rotation, pipeline, texNormal, normalDepth);
+	DrawQuadSS(context, position * screenSizeFactor + vec2(-1.0f), scalePre, scalePost * screenSizeFactor, origin, rotation, pipeline, material, texture, zShear, zPos*screenSizeFactor.y - 1.0f);
 }
 
 void Manager::DrawCircle(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {

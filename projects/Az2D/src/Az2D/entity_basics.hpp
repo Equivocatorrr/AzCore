@@ -386,6 +386,7 @@ struct ManagerBasic : public GameSystems::System {
 	f32 timestep;
 	f32 camZoom = 0.00001f;
 	vec2 camPos = vec2(0.0f);
+	vec3 WorldPosToScreen3D(vec3 in) const;
 	vec2 WorldPosToScreen(vec2 in) const;
 	vec2 ScreenPosToWorld(vec2 in) const;
 	AABB CamBounds() const;

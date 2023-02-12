@@ -73,7 +73,7 @@ void Gui::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 		break;
 	}
 	if (usingMouse) {
-		sys->rendering.DrawQuad(contexts.Back(), texCursor, vec4(1.0f), sys->input.cursor, vec2(32.0f * scale), vec2(1.0f), vec2(0.5f));
+		sys->rendering.DrawQuad(contexts.Back(), sys->input.cursor, vec2(32.0f * scale), vec2(1.0f), vec2(0.5f), 0.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), texCursor);
 	}
 }
 

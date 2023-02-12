@@ -626,7 +626,7 @@ void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 	}
 	if (CursorVisible()) {
 		vec2 cursor = WorldPosToScreen(mouse);
-		sys->rendering.DrawQuad(contexts.Back(), Gui::gui->texCursor, vec4(1.0f), cursor, vec2(32.0f * Gui::gui->scale), vec2(1.0f), vec2(0.5f));
+		sys->rendering.DrawQuad(contexts.Back(), cursor, vec2(32.0f * Gui::gui->scale), vec2(1.0f), vec2(0.5f), 0.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), Gui::gui->texCursor);
 	}
 	if (lives == 0) {
 		failureText.Draw(contexts.Back());

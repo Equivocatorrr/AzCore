@@ -354,12 +354,12 @@ bool List::UpdateSelection(bool selected, BucketArray<u8, 4> keyCodeSelect, Buck
 
 void List::Draw(Rendering::DrawingContext &context) const {
 	if ((highlighted ? highlight.a : color.a) > 0.0f) {
-		sys->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlight : color, positionAbsolute * guiBasic->scale, vec2(1.0f), sizeAbsolute * guiBasic->scale);
+		sys->rendering.DrawQuad(context, positionAbsolute * guiBasic->scale, sizeAbsolute * guiBasic->scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, highlighted ? highlight : color);
 	}
 	if (selection >= 0 && select.a > 0.0f) {
 		vec2 selectionPos = children[selection]->positionAbsolute;
 		vec2 selectionSize = children[selection]->sizeAbsolute;
-		sys->rendering.DrawQuad(context, Rendering::texBlank, select, selectionPos * guiBasic->scale, vec2(1.0f), selectionSize * guiBasic->scale);
+		sys->rendering.DrawQuad(context, selectionPos * guiBasic->scale, selectionSize * guiBasic->scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, select);
 	}
 	PushScissor(context);
 	Widget::Draw(context);
@@ -610,7 +610,7 @@ void Switch::Update(vec2 pos, bool selected) {
 
 void Switch::Draw(Rendering::DrawingContext &context) const {
 	if (color.a > 0.0f) {
-		sys->rendering.DrawQuad(context, Rendering::texBlank, (highlighted && !open) ? highlight : color, positionAbsolute * guiBasic->scale, vec2(1.0f), sizeAbsolute * guiBasic->scale);
+		sys->rendering.DrawQuad(context, positionAbsolute * guiBasic->scale, sizeAbsolute * guiBasic->scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, (highlighted && !open) ? highlight : color);
 	}
 	PushScissor(context);
 	if (open) {
@@ -618,7 +618,7 @@ void Switch::Draw(Rendering::DrawingContext &context) const {
 			Widget *child = children[selection];
 			vec2 selectionPos = child->positionAbsolute - child->margin;
 			vec2 selectionSize = child->sizeAbsolute + child->margin * 2.0f;
-			sys->rendering.DrawQuad(context, Rendering::texBlank, select, selectionPos * guiBasic->scale, vec2(1.0f), selectionSize * guiBasic->scale);
+			sys->rendering.DrawQuad(context, selectionPos * guiBasic->scale, selectionSize * guiBasic->scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, select);
 		}
 		Widget::Draw(context);
 	} else {
@@ -688,7 +688,7 @@ void Text::Draw(Rendering::DrawingContext &context) const {
 Image::Image() : texIndex(0), color(vec4(1.0f)) { occludes = true; }
 
 void Image::Draw(Rendering::DrawingContext &context) const {
-	sys->rendering.DrawQuad(context, texIndex, color, positionAbsolute * guiBasic->scale, vec2(1.0f), sizeAbsolute * guiBasic->scale);
+	sys->rendering.DrawQuad(context, positionAbsolute * guiBasic->scale, sizeAbsolute * guiBasic->scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, color, texIndex);
 }
 
 Button::Button() : string(), colorBG(vec3(0.15f), 0.9f), highlightBG(colorHighlightMedium, 0.9f), colorText(vec3(1.0f), 1.0f), highlightText(vec3(0.0f), 1.0f), fontIndex(1), fontSize(28.0f), state(), keycodeActivators() {
@@ -755,7 +755,7 @@ void Button::Draw(Rendering::DrawingContext &context) const {
 	}
 	scale *= guiBasic->scale;
 	vec2 drawPos = (positionAbsolute + sizeAbsolute * 0.5f) * guiBasic->scale;
-	sys->rendering.DrawQuad(context, Rendering::texBlank, highlighted ? highlightBG : colorBG, drawPos, vec2(1.0f), sizeAbsolute * scale, vec2(0.5f));
+	sys->rendering.DrawQuad(context, drawPos, vec2(1.0f), sizeAbsolute * scale, vec2(0.5f), 0.0f, Rendering::PIPELINE_BASIC_2D, highlighted ? highlightBG : colorBG);
 	sys->rendering.DrawText(context, string, fontIndex,  highlighted ? highlightText : colorText, drawPos, vec2(fontSize * scale), Rendering::CENTER, Rendering::CENTER, sizeAbsolute.x * guiBasic->scale);
 	PopScissor(context);
 }
@@ -808,9 +808,9 @@ void Checkbox::Draw(Rendering::DrawingContext &context) const {
 	const vec4 &colorOnActual = highlighted ? highlightOn : colorOn;
 	const vec4 &colorOffActual = highlighted ? highlightOff : colorOff;
 	vec4 colorActual = lerp(colorOffActual, colorOnActual, transition);
-	vec2 switchPos = (positionAbsolute + sizeAbsolute * vec2(lerp(0.0625f, 0.5625f, transition), 0.125f)) * guiBasic->scale;
-	sys->rendering.DrawQuad(context, Rendering::texBlank, colorActual, positionAbsolute * guiBasic->scale, vec2(1.0f), sizeAbsolute * guiBasic->scale);
-	sys->rendering.DrawQuad(context, Rendering::texBlank, vec4(vec3(0.0f), 0.8f), switchPos, vec2(1.0f), (sizeAbsolute * vec2(0.375f, 0.75f)) * guiBasic->scale);
+	vec2 switchPos = (positionAbsolute + sizeAbsolute * vec2(lerp(0.25f, 0.75f, transition), 0.5f)) * guiBasic->scale;
+	sys->rendering.DrawQuad(context, positionAbsolute * guiBasic->scale, sizeAbsolute * guiBasic->scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, colorActual);
+	sys->rendering.DrawQuad(context, switchPos, (sizeAbsolute * vec2(0.375f, 0.75f)) * guiBasic->scale, 1.0f, 0.5f, -halfpi * transition, Rendering::PIPELINE_BASIC_2D, vec4(vec3(0.0f), 0.8f));
 }
 
 TextBox::TextBox() : string(), colorBG(vec3(0.15f), 0.9f), highlightBG(vec3(0.2f), 0.9f), errorBG(0.1f, 0.0f, 0.0f, 0.9f), colorText(vec3(1.0f), 1.0f), highlightText(vec3(1.0f), 1.0f), errorText(1.0f, 0.5f, 0.5f, 1.0f), padding(2.0f), cursor(0), fontIndex(1), fontSize(17.39f), cursorBlinkTimer(0.0f), alignH(Rendering::LEFT), textFilter(TextFilterBasic), textValidate(TextValidateAll), entry(false), multiline(false) {
@@ -1226,12 +1226,12 @@ void TextBox::Draw(Rendering::DrawingContext &context) const {
 		drawPosText.x += textArea.x;
 	}
 	vec2 drawPos = positionAbsolute * guiBasic->scale;
-	sys->rendering.DrawQuad(context, Rendering::texBlank, bg, drawPos, vec2(1.0f), sizeAbsolute * guiBasic->scale);
+	sys->rendering.DrawQuad(context, drawPos, sizeAbsolute * guiBasic->scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, bg);
 	sys->rendering.DrawText(context, stringFormatted, fontIndex, text, drawPosText, scale, alignH, Rendering::TOP, textArea.x);
 	if (cursorBlinkTimer < 0.5f && entry) {
 		vec2 cursorPos = PositionFromCursor();
 		cursorPos.y += fontSize * guiBasic->scale * 0.6f;
-		sys->rendering.DrawQuad(context, Rendering::texBlank, text, cursorPos, vec2(ceil(guiBasic->scale), guiBasic->scale), vec2(1.0f, fontSize * Rendering::lineHeight * 0.9f), 0.5f);
+		sys->rendering.DrawQuad(context, cursorPos, vec2(ceil(guiBasic->scale), guiBasic->scale), vec2(1.0f, fontSize * Rendering::lineHeight * 0.9f), 0.5f, 0.0f, Rendering::PIPELINE_BASIC_2D, text);
 	}
 	PopScissor(context);
 }
@@ -1344,10 +1344,10 @@ void Slider::Draw(Rendering::DrawingContext &context) const {
 	vec4 bg = highlighted ? highlightBG : colorBG;
 	vec4 slider = highlighted ? highlightSlider : colorSlider;
 	vec2 drawPos = positionAbsolute * guiBasic->scale;
-	sys->rendering.DrawQuad(context, Rendering::texBlank, bg, drawPos, vec2(1.0f), sizeAbsolute * guiBasic->scale);
+	sys->rendering.DrawQuad(context, drawPos, sizeAbsolute * guiBasic->scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, bg);
 	drawPos.x += map(value, valueMin, valueMax, 2.0f, sizeAbsolute.x - 16.0f) * guiBasic->scale;
 	drawPos.y += 2.0f * guiBasic->scale;
-	sys->rendering.DrawQuad(context, Rendering::texBlank, slider, drawPos, vec2(1.0f), vec2(12.0f, sizeAbsolute.y - 4.0f) * guiBasic->scale);
+	sys->rendering.DrawQuad(context, drawPos, vec2(12.0f, sizeAbsolute.y - 4.0f) * guiBasic->scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, slider);
 }
 
 Hideable::Hideable(Widget *child) : hidden(false), hiddenPrev(false) {

@@ -440,7 +440,7 @@ void World::Draw(Rendering::DrawingContext &context, bool playing, bool under) {
 					break;
 				default: continue;
 			}
-			sys->rendering.DrawQuad(context, tex, color, pos, scale * entities->camZoom, vec2(1.0f));
+			sys->rendering.DrawQuad(context, pos, scale * entities->camZoom, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, color, tex);
 		}
 	}
 }
@@ -552,7 +552,7 @@ void Lantern::Update(f32 timestep) {
 
 void Lantern::Draw(Rendering::DrawingContext &context) {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Lantern::Draw)
-	sys->rendering.DrawQuad(context, entities->texLantern, vec4(1.0f), entities->WorldPosToScreen(pos), vec2(41.0f, 66.0f) * 0.4f * entities->camZoom, vec2(1.0f), vec2(0.5f, 0.05f), angle.value() + pi / 2.0f);
+	sys->rendering.DrawQuad(context, entities->WorldPosToScreen(pos), vec2(41.0f, 66.0f) * 0.4f * entities->camZoom, 1.0f, vec2(0.5f, 0.05f), angle.value() + pi / 2.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), entities->texLantern);
 }
 
 void Player::EventCreate() {
@@ -759,7 +759,7 @@ void Player::Draw(Rendering::DrawingContext &context) {
 			tex = entities->texPlayerWallBack;
 			break;
 	}
-	sys->rendering.DrawQuad(context, tex, vec4(1.0f), pos, scale, vec2(1.0f));
+	sys->rendering.DrawQuad(context, pos, scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), tex);
 	lantern.Draw(context);
 }
 
@@ -789,7 +789,7 @@ void Sprinkler::Draw(Rendering::DrawingContext &context) {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Sprinkler::Draw)
 	const vec2 scale = vec2(25.0f, 13.0f) * entities->camZoom;
 	const vec2 p = entities->WorldPosToScreen(physical.pos) - vec2(scale.x * 0.5f, 0.0f);
-	sys->rendering.DrawQuad(context, entities->texSprinkler, vec4(1.0f), p, scale, vec2(1.0f));
+	sys->rendering.DrawQuad(context, p, scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), entities->texSprinkler);
 }
 
 template struct DoubleBufferArray<Sprinkler>;

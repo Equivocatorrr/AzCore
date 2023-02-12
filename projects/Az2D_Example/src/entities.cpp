@@ -38,16 +38,15 @@ inline void ApplyFriction(T &obj, f32 friction, f32 timestep) {
 void Manager::EventAssetsQueue() {
 	sys->assets.QueueFile("Player.tga");
 	sys->assets.QueueFile("PlayerScream.tga");
-	sys->assets.QueueFile("guy.tga");
 	sys->assets.QueueFile("scream.ogg");
 	sys->assets.QueueFile("music.ogg", Assets::Type::STREAM);
+	sprGuy.AssetsQueue("guy");
 }
 
 void Manager::EventAssetsAcquire() {
 	texPlayer = sys->assets.FindTexture("Player.tga");
 	texPlayerScream = sys->assets.FindTexture("PlayerScream.tga");
-	texGuy = sys->assets.FindTexture("guy.tga");
-	sprGuy.texture = texGuy;
+	sprGuy.AssetsAcquire();
 	sprGuy.origin = vec2(6.5f, 7.5f);
 	
 	sndScream.Create("scream.ogg");
@@ -294,7 +293,7 @@ void Tail::Draw(Rendering::DrawingContext &context) {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Tail::Draw)
 	vec2 pos = entities->WorldPosToScreen(physical.pos);
 	vec2 scale = vec2(16.0f * entities->camZoom);
-	sys->rendering.DrawQuad(context, entities->texPlayer, vec4(1.0f), pos, vec2(1.0f), scale, vec2(0.5f)/*, atan2(physical.vel.y, physical.vel.x)*/);
+	sys->rendering.DrawQuad(context, pos, vec2(1.0f), scale, vec2(0.5f), 0.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), entities->texPlayer);
 	
 	if constexpr (DEBUG_COLLISIONS) {
 		physical.Draw(context, vec4(0.5));

@@ -46,11 +46,21 @@ layout(std430, set=0, binding=0) uniform UniformBuffer {
 
 layout(set=0, binding=1) uniform sampler2D texSampler[1];
 
+struct Material {
+	vec4 color;
+	float emitStrength;
+	float normalDepth;
+};
+
+struct TexIndices {
+	int albedo;
+	int normal;
+	int emit;
+};
+
 layout(push_constant) uniform pushConstants {
-	layout(offset = 48) vec4 color;
-	layout(offset = 64) int texAlbedo;
-	layout(offset = 68) int texNormal;
-	layout(offset = 72) float normalAttenuation;
+	layout(offset = 48) Material mat;
+	layout(offset = 72) TexIndices tex;
 } pc;
 
 float map(float a, float min1, float max1, float min2, float max2) {
@@ -68,11 +78,23 @@ float smoothout(float a) {
 	return smoothstep(0.0, 1.0, a);
 }
 
-vec3 DoLighting(vec3 normal) {
+void main() {
+	vec4 albedo = texture(texSampler[pc.tex.albedo], inTexCoord) * pc.mat.color;
+	vec3 normal = texture(texSampler[pc.tex.normal], inTexCoord).rgb * 2.0 - vec3(1.0);
+	vec3 emit = texture(texSampler[pc.tex.emit], inTexCoord).rgb * pc.mat.color.rgb * pc.mat.color.a;
+	normal.xy = inTransform * normal.xy;
+	normal = mix(vec3(0.0, 0.0, 1.0), normal, pc.mat.normalDepth);
+	// Conditional normalize
+	float len = length(normal);
+	if (len > 0.1) normal /= len;
+	
+	float specularity = mix(0.05, 0.5, 1.0 - normal.z);
+	
+	vec3 diffuse = vec3(0.0);
+	vec3 specular = vec3(0.0);
 	int binX = clamp(int(inScreenPos.x * float(LIGHT_BIN_COUNT_X) / ub.screenSize.x), 0, LIGHT_BIN_COUNT_X-1);
 	int binY = clamp(int(inScreenPos.y * float(LIGHT_BIN_COUNT_Y) / ub.screenSize.y), 0, LIGHT_BIN_COUNT_Y-1);
 	int bindex = binY * LIGHT_BIN_COUNT_X + binX;
-	vec3 lighting = ub.ambientLight;
 	for (int i = 0; i < MAX_LIGHTS_PER_BIN; i++) {
 		uint lightIndex = uint(ub.lightBins[bindex].lightIndices[i]);
 		Light light = ub.lights[lightIndex];
@@ -82,21 +104,16 @@ vec3 DoLighting(vec3 normal) {
 		float factor = smoothout(square(mapClamped(dist, light.distMax, light.distMin, 0.0, 1.0)));
 		float angle = acos(dot(light.direction, dPos));
 		factor *= smoothout(square(mapClamped(angle, light.angleMax, light.angleMin, 0.0, 1.0)));
-		float incidence = square(clamp(dot(normal, -dPos), 0.0, 1.0));
-		factor *= mix(light.attenuation, 1.0, incidence);
-		lighting += light.color * factor;
+		float incidence = clamp(dot(normal, -dPos), 0.0, 1.0);
+		// diffuse
+		float scattered = factor * mix(light.attenuation, 1.0, incidence);
+		diffuse += light.color * scattered;
+		// specular
+		float reflected = factor * clamp(reflect(dPos, normal).z, 0.0, 1.0);
+		specular += light.color * reflected;
 	}
-	return lighting;
-}
-
-void main() {
-	vec3 normal = texture(texSampler[pc.texNormal], inTexCoord).rgb * 2.0 - vec3(1.0);
-	normal.xy = inTransform * normal.xy;
-	normal = mix(vec3(0.0, 0.0, 1.0), normal, pc.normalAttenuation);
-	// Conditional normalize
-	float len = length(normal);
-	if (len > 0.1) normal /= len;
-
-	outColor = texture(texSampler[pc.texAlbedo], inTexCoord) * pc.color;
-	outColor.rgb *= DoLighting(normal);
+	
+	specular = mix(specular, albedo.rgb * specular, 0.5);
+	outColor.rgb = mix(diffuse * albedo.rgb, specular * albedo.a, specularity) + albedo.rgb * ub.ambientLight + emit * pc.mat.emitStrength;
+	outColor.a = albedo.a;
 }

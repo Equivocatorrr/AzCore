@@ -175,8 +175,9 @@ struct Manager {
 	// Everything we want to actually load.
 	az::Array<FileToLoad> filesToLoad{
 		FileToLoad("TextureMissing.png"),
-		FileToLoad("blank.bmp"),
-		FileToLoad("blank_normal.bmp", true),
+		FileToLoad("blank.tga"),
+		FileToLoad("blank_n.tga", true),
+		FileToLoad("blank_e.tga"),
 		FileToLoad("DroidSansFallback.ttf")
 	};
 	az::HashMap<az::SimpleRange<char>, Mapping> mappings;

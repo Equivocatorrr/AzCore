@@ -19,8 +19,8 @@ using az::vec2, az::vec3, az::vec4;
 struct Sprite {
 	az::String nameAlbedo;
 	az::String nameNormal;
-	Assets::TexIndex texAlbedo = 1;
-	Assets::TexIndex texNormal = 2;
+	az::String nameEmit;
+	Rendering::TexIndices tex = Rendering::TexIndices(1);
 	f32 framerate = 10.0f;
 	i32 nFrames = 1;
 	vec2 origin = 0.0f;
@@ -35,7 +35,7 @@ struct Sprite {
 	// Update just progresses the animation if there is one
 	void Update(f32 timestep);
 	// TODO: Support spritesheet-based animation
-	void Draw(Rendering::DrawingContext &context, vec2 pos, vec2 scalePreRot = 1.0f, vec2 scalePostRot = 1.0f, az::Radians32 rotation = 0.0f, Rendering::PipelineIndex pipeline = Rendering::PIPELINE_BASIC_2D, vec4 color = 1.0f, f32 normalDepth=1.0f);
+	void Draw(Rendering::DrawingContext &context, vec2 pos, vec2 scalePreRot = 1.0f, vec2 scalePostRot = 1.0f, az::Radians32 rotation = 0.0f, Rendering::PipelineIndex pipeline = Rendering::PIPELINE_BASIC_2D, Rendering::Material material=Rendering::Material(1.0f), f32 zShear=0.0f, f32 zPos=0.0f);
 	vec2 Size() const;
 };
 

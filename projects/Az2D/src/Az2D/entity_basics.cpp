@@ -384,22 +384,25 @@ void Physical::UpdateActual() const {
 
 void Physical::Draw(Rendering::DrawingContext &context, vec4 color) const {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Physical::Draw)
-	vec2 camPos = entitiesBasic->camPos;
 	vec2 camZoom = entitiesBasic->camZoom;
-	vec2 p = (pos - camPos) * camZoom + vec2(sys->window.width / 2, sys->window.height / 2);
+	vec2 p = entitiesBasic->WorldPosToScreen(pos);
 	if (type == BOX) {
 		const vec2 scale = basis.box.b - basis.box.a;
-		sys->rendering.DrawQuad(context, Rendering::texBlank, color, p, scale * camZoom, vec2(1.0f), -basis.box.a / scale, angle);
+		sys->rendering.DrawQuad(context, p, scale * camZoom, 1.0f, -basis.box.a / scale, angle, Rendering::PIPELINE_BASIC_2D, color);
 	} else if (type == SEGMENT) {
 		vec2 scale = basis.segment.b - basis.segment.a;
 		scale.y = max(scale.y, 2.0f);
-		sys->rendering.DrawQuad(context, Rendering::texBlank, color, p, scale * camZoom, vec2(1.0f), -basis.segment.a / scale, angle);
+		sys->rendering.DrawQuad(context, p, scale * camZoom, 1.0f, -basis.segment.a / scale, angle, Rendering::PIPELINE_BASIC_2D, color);
 	} else {
 		const vec2 scale = basis.circle.r * 2.0f;
 		sys->rendering.DrawCircle(context, Rendering::texBlank, color, p, scale * camZoom + 2.0f, vec2(1.0f), -basis.circle.c / (scale + 2.0f) + vec2(0.5f), angle);
 	}
 }
 
+vec3 ManagerBasic::WorldPosToScreen3D(vec3 in) const {
+	vec3 out = (in - vec3(camPos.x, camPos.y,	0.0f)) * camZoom + vec3(sys->window.width, sys->window.height, sys->window.height) / 2.0f;
+	return out;
+}
 vec2 ManagerBasic::WorldPosToScreen(vec2 in) const {
 	vec2 out = (in - camPos) * camZoom + vec2(sys->window.width, sys->window.height) / 2.0f;
 	return out;

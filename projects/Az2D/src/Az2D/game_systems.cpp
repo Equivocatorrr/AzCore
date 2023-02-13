@@ -58,9 +58,13 @@ void UpdateLoop() {
 	i32 frame = 0;
 
 	while (exitDelay > 0.0f && !sys->abort) {
+		sys->window.Fullscreen(Settings::ReadBool(Settings::sFullscreen));
 		if ((!sys->window.Update() || sys->exit) && !exit) {
 			exit = true;
 			sys->sound.FadeoutAll(0.2f);
+		}
+		if (sys->input.Pressed(KC_KEY_F11)) {
+			Settings::SetBool(Settings::sFullscreen, !Settings::ReadBool(Settings::sFullscreen));
 		}
 		if (exit) {
 			exitDelay -= sys->timestep;

@@ -383,7 +383,7 @@ struct DoubleBufferArray {
 struct ManagerBasic : public GameSystems::System {
 	az::Array<WorkChunk> workChunks{};
 	// Our version integrates simulationRate
-	f32 timestep;
+	f32 timestep = 0.0f;
 	f32 camZoom = 0.00001f;
 	vec2 camPos = vec2(0.0f);
 	vec3 WorldPosToScreen3D(vec3 in) const;

@@ -627,6 +627,35 @@ WString ToWString(const char *string) {
 	return out;
 }
 
+String FromWString(WString string) {
+	String out;
+	for (i32 i = 0; i < string.size; i++) {
+		char32 chr = string[i];
+		if (chr <= 0x7f) {
+			out += (char)chr;
+			continue;
+		}
+		if (chr <= 0x7ff) {
+			out += 0b11000000 | (chr >> 6);
+			out += 0b10000000 | (chr & 0b111111);
+			continue;
+		}
+		if (chr <= 0xffff) {
+			out += 0b11100000 | (chr >> 12);
+			out += 0b10000000 | ((chr >> 6) & 0b111111);
+			out += 0b10000000 | (chr & 0b111111);
+			continue;
+		}
+		if (chr <= 0x10ffff) {
+			out += 0b11110000 | (chr >> 18);
+			out += 0b10000000 | ((chr >> 12) & 0b111111);
+			out += 0b10000000 | ((chr >> 6) & 0b111111);
+			out += 0b10000000 | (chr & 0b111111);
+		}
+	}
+	return out;
+}
+
 i32 CharLen(const char chr) {
 	if (!(chr & 0x80)) {
 		return 1;

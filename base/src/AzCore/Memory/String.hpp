@@ -150,6 +150,8 @@ bool equals(const char *a, const char *b);
 WString ToWString(const char *string);
 // Converts a UTF-8 string to Unicode string
 WString ToWString(String string);
+// Converts a Unicode string to UTF-8
+String FromWString(WString string);
 // Returns how many bytes long a single UTF-8 character is based on the first.
 i32 CharLen(const char chr);
 inline char CharToUpper(char c) {

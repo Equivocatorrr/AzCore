@@ -694,7 +694,8 @@ String Join(const Array<SimpleRange<char>> &values, SimpleRange<char> joiner) {
 			output.Append(joiner);
 		}
 	}
-	output.size -= joiner.size;
+	if (output.size > joiner.size)
+		output.size -= joiner.size;
 	return output;
 }
 

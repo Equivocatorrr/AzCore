@@ -137,15 +137,17 @@ void GuiBasic::EventSync() {
 
 Widget::Widget() : children(), margin(8.0f), size(1.0f), fractionWidth(true), fractionHeight(true), minSize(0.0f), maxSize(-1.0f), position(0.0f), sizeAbsolute(0.0f), positionAbsolute(0.0f), depth(0), selectable(false), highlighted(false), occludes(false), mouseover(false) {}
 
-void Widget::UpdateSize(vec2 container) {
+void Widget::UpdateSize(vec2 container, f32 _scale) {
+	scale = _scale;
 	sizeAbsolute = vec2(0.0f);
+	vec2 totalMargin = margin * 2.0f * scale;
 	if (size.x > 0.0f) {
-		sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0f) : size.x;
+		sizeAbsolute.x = fractionWidth ? (container.x * size.x - totalMargin.x) : size.x * scale;
 	} else {
 		sizeAbsolute.x = 0.0f;
 	}
 	if (size.y > 0.0f) {
-		sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0f) : size.y;
+		sizeAbsolute.y = fractionHeight ? (container.y * size.y - totalMargin.y) : size.y * scale;
 	} else {
 		sizeAbsolute.y = 0.0f;
 	}
@@ -154,14 +156,14 @@ void Widget::UpdateSize(vec2 container) {
 
 void Widget::LimitSize() {
 	if (maxSize.x >= 0.0f) {
-		sizeAbsolute.x = median(minSize.x, sizeAbsolute.x, maxSize.x);
+		sizeAbsolute.x = median(minSize.x * scale, sizeAbsolute.x, maxSize.x * scale);
 	} else {
-		sizeAbsolute.x = max(minSize.x, sizeAbsolute.x);
+		sizeAbsolute.x = max(minSize.x * scale, sizeAbsolute.x);
 	}
 	if (maxSize.y >= 0.0f) {
-		sizeAbsolute.y = median(minSize.y, sizeAbsolute.y, maxSize.y);
+		sizeAbsolute.y = median(minSize.y * scale, sizeAbsolute.y, maxSize.y * scale);
 	} else {
-		sizeAbsolute.y = max(minSize.y, sizeAbsolute.y);
+		sizeAbsolute.y = max(minSize.y * scale, sizeAbsolute.y);
 	}
 }
 
@@ -186,7 +188,7 @@ void Widget::PopScissor(Rendering::DrawingContext &context) const {
 }
 
 void Widget::Update(vec2 pos, bool selected) {
-	pos += margin + position;
+	pos += (margin + position) * scale;
 	positionAbsolute = pos;
 	highlighted = selected;
 	for (Widget* child : children) {
@@ -215,11 +217,7 @@ bool Widget::MouseOver() const {
 	if (guiBasic->usingMouse) {
 		mouse = vec2(sys->input.cursor) / guiBasic->scale;
 	} else {
-		// if (guiBasic->currentMenu == MENU_PLAY) {
-		//	 mouse = sys->entities.WorldPosToScreen(sys->entities.mouse);
-		// } else {
-			mouse = -1.0f;
-		// }
+		mouse = -1.0f;
 	}
 	return mouse.x == median(positionAbsolute.x, mouse.x, positionAbsolute.x + sizeAbsolute.x)
 		&& mouse.y == median(positionAbsolute.y, mouse.y, positionAbsolute.y + sizeAbsolute.y);
@@ -245,18 +243,19 @@ Screen::Screen() {
 
 void Screen::Update(vec2 pos, bool selected) {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Screen::Update)
-	UpdateSize(sys->rendering.screenSize / guiBasic->scale);
-	Widget::Update(pos + position, selected);
+	UpdateSize(sys->rendering.screenSize / guiBasic->scale, 1.0f);
+	Widget::Update(pos, selected);
 	// if (selected) {
 		FindMouseoverDepth(0);
 	// }
 }
 
-void Screen::UpdateSize(vec2 container) {
+void Screen::UpdateSize(vec2 container, f32 _scale) {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Screen::UpdateSize)
-	sizeAbsolute = container - margin * 2.0f;
+	scale = _scale;
+	sizeAbsolute = container - margin * 2.0f * scale;
 	for (Widget* child : children) {
-		child->UpdateSize(sizeAbsolute);
+		child->UpdateSize(sizeAbsolute, scale);
 	}
 }
 
@@ -338,16 +337,16 @@ bool List::UpdateSelection(bool selected, BucketArray<u8, 4> keyCodeSelect, Buck
 		selection = -2;
 	}
 	if (guiBasic->controlDepth == depth && selected) {
-		bool reselect = false;
-		if (guiBasic->usingMouse && sys->input.cursor != sys->input.cursorPrevious) {
+		bool mouseSelect = false;
+		if (guiBasic->usingMouse /* && sys->input.cursor != sys->input.cursorPrevious */) {
 			if (MouseOver()) {
-				reselect = true;
+				mouseSelect = true;
 			}
 			selection = -1;
-		} else if (selection == -1 && !guiBasic->usingMouse && sys->rawInput.AnyGP.state != 0) {
-			selection = -2;
+		} else if (selection < 0 && !guiBasic->usingMouse && (sys->rawInput.AnyGP.state != 0 || sys->input.AnyKey.state != 0)) {
+			selection = selectionDefault;
 		}
-		return reselect;
+		return mouseSelect;
 	}
 	return false;
 }
@@ -366,43 +365,46 @@ void List::Draw(Rendering::DrawingContext &context) const {
 	PopScissor(context);
 }
 
-void ListV::UpdateSize(vec2 container) {
+void ListV::UpdateSize(vec2 container, f32 _scale) {
+	scale = _scale;
 	sizeAbsolute = vec2(0.0f);
+	vec2 totalMargin = margin * 2.0f * scale;
+	vec2 totalPadding = padding * 2.0f * scale;
 	if (size.x > 0.0f) {
-		sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0f) : size.x;
+		sizeAbsolute.x = fractionWidth ? (container.x * size.x - totalMargin.x) : size.x * scale;
 	} else {
-		sizeAbsolute.x = padding.x * 2.0f;
+		sizeAbsolute.x = totalPadding.x;
 	}
 	if (size.y > 0.0f) {
-		sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0f) : size.y;
+		sizeAbsolute.y = fractionHeight ? (container.y * size.y - totalMargin.y) : size.y * scale;
 	} else {
-		sizeAbsolute.y = padding.y * 2.0f;
+		sizeAbsolute.y = totalPadding.y;
 	}
 	LimitSize();
-	vec2 sizeForInheritance = sizeAbsolute - padding * 2.0f;
+	vec2 sizeForInheritance = sizeAbsolute - totalPadding;
 	if (size.x == 0.0f) {
 		for (Widget* child : children) {
-			child->UpdateSize(sizeForInheritance);
+			child->UpdateSize(sizeForInheritance, scale);
 			vec2 childSize = child->GetSize();
-			sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + padding.x * 2.0f);
+			sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + totalPadding.x);
 		}
 	}
-	sizeForInheritance = sizeAbsolute - padding * 2.0f;
+	sizeForInheritance = sizeAbsolute - totalPadding;
 	for (Widget* child : children) {
 		if (child->size.y == 0.0f) {
-			child->UpdateSize(sizeForInheritance);
+			child->UpdateSize(sizeForInheritance, scale);
 			sizeForInheritance.y -= child->GetSize().y;
 		} else {
 			if (!child->fractionHeight) {
-				sizeForInheritance.y -= child->size.y + child->margin.y * 2.0f;
+				sizeForInheritance.y -= (child->size.y + child->margin.y * 2.0f) * child->scale;
 			}
 		}
 	}
 	for (Widget* child : children) {
-		child->UpdateSize(sizeForInheritance);
+		child->UpdateSize(sizeForInheritance, scale);
 		vec2 childSize = child->GetSize();
 		if (size.x == 0.0f) {
-			sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + padding.x * 2.0f);
+			sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + totalPadding.x);
 		}
 		if (size.y == 0.0f) {
 			sizeAbsolute.y += childSize.y;
@@ -412,10 +414,10 @@ void ListV::UpdateSize(vec2 container) {
 }
 
 void ListV::Update(vec2 pos, bool selected) {
-	pos += margin + position;
+	pos += (margin + position) * scale;
 	positionAbsolute = pos;
 	const bool mouseSelect = UpdateSelection(selected, {KC_GP_BTN_A, KC_KEY_ENTER}, {KC_GP_BTN_B, KC_KEY_ESC}, {KC_GP_AXIS_LS_DOWN, KC_KEY_DOWN}, {KC_GP_AXIS_LS_UP, KC_KEY_UP});
-	pos += padding;
+	pos += padding * scale;
 	if (mouseSelect) {
 		f32 childY = pos.y;
 		for (selection = 0; selection < children.size; selection++) {
@@ -424,8 +426,8 @@ void ListV::Update(vec2 pos, bool selected) {
 				childY += child->GetSize().y;
 				continue;
 			}
-			child->positionAbsolute.x = pos.x + child->margin.x;
-			child->positionAbsolute.y = childY + child->margin.y;
+			child->positionAbsolute.x = pos.x + child->margin.x * child->scale;
+			child->positionAbsolute.y = childY + child->margin.y * child->scale;
 			if (child->MouseOver()) {
 				break;
 			}
@@ -448,63 +450,66 @@ ListH::ListH() {
 	occludes = true;
 }
 
-void ListH::UpdateSize(vec2 container) {
+void ListH::UpdateSize(vec2 container, f32 _scale) {
+	scale = _scale;
 	sizeAbsolute = vec2(0.0f);
+	vec2 totalMargin = margin * 2.0f * scale;
+	vec2 totalPadding = padding * 2.0f * scale;
 	if (size.x > 0.0f) {
-		sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0f) : size.x;
+		sizeAbsolute.x = fractionWidth ? (container.x * size.x - totalMargin.x) : size.x * scale;
 	} else {
-		sizeAbsolute.x = padding.x * 2.0f;
+		sizeAbsolute.x = totalPadding.x;
 	}
 	if (size.y > 0.0f) {
-		sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0f) : size.y;
+		sizeAbsolute.y = fractionHeight ? (container.y * size.y - totalMargin.y) : size.y * scale;
 	} else {
-		sizeAbsolute.y = padding.y * 2.0f;
+		sizeAbsolute.y = totalPadding.y;
 	}
 	LimitSize();
-	vec2 sizeForInheritance = sizeAbsolute - padding * 2.0f;
+	vec2 sizeForInheritance = sizeAbsolute - totalPadding;
 	if (size.y == 0.0f) {
 		for (Widget* child : children) {
-			child->UpdateSize(sizeForInheritance);
+			child->UpdateSize(sizeForInheritance, scale);
 			vec2 childSize = child->GetSize();
-			sizeAbsolute.y = max(sizeAbsolute.y, childSize.y + padding.y * 2.0f);
+			sizeAbsolute.y = max(sizeAbsolute.y, childSize.y + totalPadding.y);
 		}
-		sizeForInheritance = sizeAbsolute - padding * 2.0f;
+		sizeForInheritance = sizeAbsolute - totalPadding;
 	}
 	for (Widget* child : children) {
 		if (child->size.x == 0.0f) {
-			child->UpdateSize(sizeForInheritance);
+			child->UpdateSize(sizeForInheritance, scale);
 			sizeForInheritance.x -= child->GetSize().x;
 		} else {
 			if (!child->fractionWidth) {
-				sizeForInheritance.x -= child->size.x + child->margin.x * 2.0f;
+				sizeForInheritance.x -= (child->size.x + child->margin.x * 2.0f) * child->scale;
 			}
 		}
 	}
 	for (Widget* child : children) {
-		child->UpdateSize(sizeForInheritance);
+		child->UpdateSize(sizeForInheritance, scale);
 		vec2 childSize = child->GetSize();
 		if (size.x == 0.0f) {
 			sizeAbsolute.x += childSize.x;
 		}
 		if (size.y == 0.0f) {
-			sizeAbsolute.y = max(sizeAbsolute.y, childSize.y + padding.y * 2.0f);
+			sizeAbsolute.y = max(sizeAbsolute.y, childSize.y + totalPadding.y);
 		}
 	}
 	LimitSize();
 }
 
 void ListH::Update(vec2 pos, bool selected) {
-	pos += margin + position;
+	pos += (margin + position) * scale;
 	positionAbsolute = pos;
 	const bool mouseSelect = UpdateSelection(selected, {KC_GP_BTN_A, KC_KEY_ENTER}, {KC_GP_BTN_B, KC_KEY_ESC}, {KC_GP_AXIS_LS_RIGHT, KC_KEY_RIGHT}, {KC_GP_AXIS_LS_LEFT, KC_KEY_LEFT});
-	pos += padding;
+	pos += padding * scale;
 	if (mouseSelect) {
 		f32 childX = pos.x;
 		for (selection = 0; selection < children.size; selection++) {
 			Widget *child = children[selection];
 			if (child->Selectable()) {
-				child->positionAbsolute.x = childX + child->margin.x;
-				child->positionAbsolute.y = pos.y + child->margin.y;
+				child->positionAbsolute.x = childX + child->margin.x * child->scale;
+				child->positionAbsolute.y = pos.y + child->margin.y * child->scale;
 				if (child->MouseOver()) {
 					break;
 				}
@@ -530,42 +535,45 @@ Switch::Switch() : choice(0), open(false), changed(false) {
 	select = vec4(colorHighlightMedium, 0.9f);
 }
 
-void Switch::UpdateSize(vec2 container) {
+void Switch::UpdateSize(vec2 container, f32 _scale) {
+	scale = _scale;
 	if (open) {
-		ListV::UpdateSize(container);
+		ListV::UpdateSize(container, scale);
 	} else {
 		sizeAbsolute = vec2(0.0f);
+		vec2 totalMargin = margin * 2.0f * scale;
+		vec2 totalPadding = padding * 2.0f * scale;
 		if (size.x > 0.0f) {
-			sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0f) : size.x;
+			sizeAbsolute.x = fractionWidth ? (container.x * size.x - totalMargin.x) : size.x * scale;
 		} else {
-			sizeAbsolute.x = padding.x * 2.0f;
+			sizeAbsolute.x = totalPadding.x;
 		}
 		if (size.y > 0.0f) {
-			sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0f) : size.y;
+			sizeAbsolute.y = fractionHeight ? (container.y * size.y - totalMargin.y) : size.y * scale;
 		} else {
-			sizeAbsolute.y = padding.y * 2.0f;
+			sizeAbsolute.y = totalPadding.y;
 		}
 		LimitSize();
 		Widget *child = children[choice];
-		vec2 sizeForInheritance = sizeAbsolute - padding * 2.0f;
+		vec2 sizeForInheritance = sizeAbsolute - totalPadding;
 		if (size.x == 0.0f) {
-			child->UpdateSize(sizeForInheritance);
+			child->UpdateSize(sizeForInheritance, scale);
 			vec2 childSize = child->GetSize();
-			sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + padding.x * 2.0f);
+			sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + totalPadding.x);
 		}
-		sizeForInheritance = sizeAbsolute - padding * 2.0f;
+		sizeForInheritance = sizeAbsolute - totalPadding;
 		if (child->size.y == 0.0f) {
-			child->UpdateSize(sizeForInheritance);
+			child->UpdateSize(sizeForInheritance, scale);
 			sizeForInheritance.y -= child->GetSize().y;
 		} else {
 			if (!child->fractionHeight) {
-				sizeForInheritance.y -= child->size.y + child->margin.y * 2.0f;
+				sizeForInheritance.y -= child->size.y + child->margin.y * 2.0f * child->scale;
 			}
 		}
-		child->UpdateSize(sizeForInheritance);
+		child->UpdateSize(sizeForInheritance, scale);
 		vec2 childSize = child->GetSize();
 		if (size.x == 0.0f) {
-			sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + padding.x * 2.0f);
+			sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + totalPadding.x);
 		}
 		if (size.y == 0.0f) {
 			sizeAbsolute.y += childSize.y;
@@ -592,8 +600,10 @@ void Switch::Update(vec2 pos, bool selected) {
 			guiBasic->controlDepth = parentDepth;
 		}
 	} else {
+		pos += (margin + position) * scale;
 		highlighted = selected;
-		positionAbsolute = pos + margin;
+		positionAbsolute = pos;
+		pos += padding * scale;
 		if (sys->Pressed(KC_MOUSE_LEFT) && MouseOver()) {
 			open = true;
 		}
@@ -604,7 +614,7 @@ void Switch::Update(vec2 pos, bool selected) {
 			guiBasic->controlDepth = depth;
 			selection = choice;
 		}
-		children[choice]->Update(pos + padding + margin + position, selected);
+		children[choice]->Update(pos, selected);
 	}
 }
 
@@ -634,19 +644,22 @@ void Switch::OnHide() {
 }
 
 Text::Text() : stringFormatted(), string(), padding(0.1f), fontSize(32.0f), fontIndex(1), bold(false), paddingEM(true), alignH(Rendering::LEFT), alignV(Rendering::TOP), color(vec3(1.0f), 1.0f), colorOutline(vec3(0.0f), 1.0f), highlight(vec3(0.0f), 1.0f), highlightOutline(vec3(1.0f), 1.0f), outline(false) {
-	size.y = 0.0f;AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Screen::Update)
+	size.y = 0.0f;
 }
 
-void Text::UpdateSize(vec2 container) {
+void Text::UpdateSize(vec2 container, f32 _scale) {
+	scale = _scale;
+	vec2 totalMargin = margin * 2.0f * scale;
+	vec2 totalPadding = padding * 2.0f * scale;
 	if (size.x > 0.0f) {
-		sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0f) : size.x;
+		sizeAbsolute.x = fractionWidth ? (container.x * size.x - totalMargin.x) : size.x * scale;
 	} else {
-		sizeAbsolute.x = sys->rendering.StringWidth(stringFormatted, fontIndex) * fontSize + padding.x * (paddingEM ? fontSize * 2.0f : 2.0f);
+		sizeAbsolute.x = sys->rendering.StringWidth(stringFormatted, fontIndex) * fontSize + totalPadding.x * (paddingEM ? fontSize : 1.0f);
 	}
 	if (size.y > 0.0f) {
-		sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0f) : size.y;
+		sizeAbsolute.y = fractionHeight ? (container.y * size.y - totalMargin.y) : size.y;
 	} else {
-		sizeAbsolute.y = Rendering::StringHeight(stringFormatted) * fontSize + padding.y * (paddingEM ? fontSize * 2.0f : 2.0f);
+		sizeAbsolute.y = Rendering::StringHeight(stringFormatted) * fontSize + totalPadding.y * (paddingEM ? fontSize : 1.0f);
 	}
 	LimitSize();
 }
@@ -665,7 +678,7 @@ void Text::Draw(Rendering::DrawingContext &context) const {
 	vec2 paddingAbsolute = padding;
 	if (paddingEM) paddingAbsolute *= fontSize;
 	vec2 drawPos = (positionAbsolute + paddingAbsolute) * guiBasic->scale;
-	vec2 scale = vec2(fontSize) * guiBasic->scale;
+	vec2 textScale = vec2(fontSize) * guiBasic->scale * scale;
 	vec2 textArea = (sizeAbsolute - paddingAbsolute * 2.0f) * guiBasic->scale;
 	if (alignH == Rendering::CENTER) {
 		drawPos.x += textArea.x * 0.5f;
@@ -679,9 +692,9 @@ void Text::Draw(Rendering::DrawingContext &context) const {
 	}
 	f32 bounds = bold ? 0.425f : 0.525f;
 	if (outline) {
-		sys->rendering.DrawText(context, stringFormatted, fontIndex, highlighted? highlightOutline : colorOutline, drawPos, scale, alignH, alignV, textArea.x, 0.1f, bounds - 0.2f);
+		sys->rendering.DrawText(context, stringFormatted, fontIndex, highlighted? highlightOutline : colorOutline, drawPos, textScale, alignH, alignV, textArea.x, 0.1f, bounds - 0.2f);
 	}
-	sys->rendering.DrawText(context, stringFormatted, fontIndex, highlighted? highlight : color, drawPos, scale, alignH, alignV, textArea.x, 0.0f, bounds);
+	sys->rendering.DrawText(context, stringFormatted, fontIndex, highlighted? highlight : color, drawPos, textScale, alignH, alignV, textArea.x, 0.0f, bounds);
 	PopScissor(context);
 }
 
@@ -691,13 +704,71 @@ void Image::Draw(Rendering::DrawingContext &context) const {
 	sys->rendering.DrawQuad(context, positionAbsolute * guiBasic->scale, sizeAbsolute * guiBasic->scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, color, texIndex);
 }
 
-Button::Button() : string(), colorBG(vec3(0.15f), 0.9f), highlightBG(colorHighlightMedium, 0.9f), colorText(vec3(1.0f), 1.0f), highlightText(vec3(0.0f), 1.0f), fontIndex(1), fontSize(28.0f), state(), keycodeActivators() {
+Text* Button::AddDefaultText(WString string) {
+	AzAssert(children.size == 0, "Buttons can only have 1 child");
+	Text *buttonText = new Text();
+	buttonText->alignH = Rendering::FontAlign::CENTER;
+	buttonText->alignV = Rendering::FontAlign::CENTER;
+	buttonText->fontIndex = guiBasic->fontIndex;
+	buttonText->fontSize = 28.0f;
+	buttonText->color = vec4(vec3(1.0f), 1.0f);
+	buttonText->highlight = vec4(vec3(0.0f), 1.0f);
+	buttonText->size.y = 1.0f;
+	buttonText->fractionHeight = true;
+	buttonText->padding = 0.0f;
+	buttonText->margin = 0.0f;
+	buttonText->string = string;
+	AddWidget(this, buttonText);
+	return buttonText;
+}
+
+Button::Button() : padding(0.0f), colorBG(vec3(0.15f), 0.9f), highlightBG(colorHighlightMedium, 0.9f), state(), keycodeActivators() {
 	selectable = true;
 	occludes = true;
 }
 
+void Button::UpdateSize(vec2 container, f32 _scale) {
+	scale = _scale;
+	sizeAbsolute = vec2(0.0f);
+	f32 childScale = state.Down() ? 0.9f : 1.0f;
+	vec2 totalMargin = margin * 2.0f * scale;
+	vec2 totalPadding = padding * 2.0f * scale;
+	if (size.x > 0.0f) {
+		sizeAbsolute.x = fractionWidth ? (container.x * size.x - totalMargin.x) : size.x * scale;
+	} else {
+		sizeAbsolute.x = totalPadding.x;
+	}
+	if (size.y > 0.0f) {
+		sizeAbsolute.y = fractionHeight ? (container.y * size.y - totalMargin.y) : size.y * scale;
+	} else {
+		sizeAbsolute.y = totalPadding.y;
+	}
+	LimitSize();
+	if (children.size) {
+		Widget *child = children[0];
+		vec2 sizeForInheritance = sizeAbsolute - totalPadding;
+		if (size.x == 0.0f || size.y == 0.0f) {
+			child->UpdateSize(sizeForInheritance * childScale, childScale * scale);
+			vec2 childSize = child->GetSize();
+			if (size.x == 0.0f) {
+				sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + totalPadding.x);
+			}
+			if (size.y == 0.0f) {
+				sizeAbsolute.y = max(sizeAbsolute.y, childSize.y + totalPadding.y);
+			}
+			sizeForInheritance = sizeAbsolute - totalPadding;
+		}
+		child->UpdateSize(sizeForInheritance * childScale, childScale * scale);
+		LimitSize();
+	}
+}
+
 void Button::Update(vec2 pos, bool selected) {
-	Widget::Update(pos, selected);
+	pos += (margin + position) * scale;
+	f32 childScale = state.Down() ? 0.9f : 1.0f;
+	positionAbsolute = pos;
+	pos += padding * scale;
+	highlighted = selected;
 	{
 		bool mouseoverNew = MouseOver();
 		if (mouseoverNew && !mouseover) {
@@ -708,6 +779,10 @@ void Button::Update(vec2 pos, bool selected) {
 			state.Set(false, false, false);
 		}
 		mouseover = mouseoverNew;
+	}
+	if (children.size) {
+		Widget *child = children[0];
+		child->Update(pos + (1.0f - childScale) * sizeAbsolute * 0.5f, selected || mouseover || state.Down());
 	}
 	state.Tick(0.0f);
 	if (mouseover) {
@@ -747,16 +822,13 @@ void Button::Update(vec2 pos, bool selected) {
 
 void Button::Draw(Rendering::DrawingContext &context) const {
 	PushScissor(context);
-	f32 scale;
-	if (state.Down()) {
-		scale = 0.9f;
-	} else {
-		scale = 1.0f;
+	f32 childScale = state.Down() ? 0.9f : 1.0f;
+	sys->rendering.DrawQuad(context, positionAbsolute * guiBasic->scale + sizeAbsolute * guiBasic->scale * 0.5f, vec2(1.0f), sizeAbsolute * guiBasic->scale * childScale, vec2(0.5f), 0.0f, Rendering::PIPELINE_BASIC_2D, highlighted ? highlightBG : colorBG);
+	if (children.size) {
+		Widget *child = children[0];
+		child->Draw(context);
 	}
-	scale *= guiBasic->scale;
-	vec2 drawPos = (positionAbsolute + sizeAbsolute * 0.5f) * guiBasic->scale;
-	sys->rendering.DrawQuad(context, drawPos, vec2(1.0f), sizeAbsolute * scale, vec2(0.5f), 0.0f, Rendering::PIPELINE_BASIC_2D, highlighted ? highlightBG : colorBG);
-	sys->rendering.DrawText(context, string, fontIndex,  highlighted ? highlightText : colorText, drawPos, vec2(fontSize * scale), Rendering::CENTER, Rendering::CENTER, sizeAbsolute.x * guiBasic->scale);
+	// sys->rendering.DrawText(context, string, fontIndex,  highlighted ? highlightText : colorText, drawPos, vec2(fontSize * scale), Rendering::CENTER, Rendering::CENTER, sizeAbsolute.x * guiBasic->scale);
 	PopScissor(context);
 }
 
@@ -912,12 +984,12 @@ bool TextValidateIntegers(const WString &string) {
 void TextBox::CursorFromPosition(vec2 position) {
 	vec2 cursorPos = 0.0f;
 	f32 spaceScale, spaceWidth, tabWidth;
-	spaceWidth = sys->assets.CharacterWidth(' ', fontIndex) * fontSize;
-	tabWidth = sys->assets.CharacterWidth((char32)'_', fontIndex) * fontSize * 4.0f;
+	spaceWidth = sys->assets.CharacterWidth(' ', fontIndex) * fontSize * scale;
+	tabWidth = sys->assets.CharacterWidth((char32)'_', fontIndex) * fontSize * scale * 4.0f;
 	const char32 *lineString = stringFormatted.data;
 	i32 formatNewlines = 0;
 	cursor = 0;
-	cursorPos.y += fontSize * Rendering::lineHeight + positionAbsolute.y + padding.y;
+	cursorPos.y += fontSize * Rendering::lineHeight * scale + positionAbsolute.y + padding.y * scale;
 	if (cursorPos.y <= position.y / guiBasic->scale) {
 		for (; cursor < stringFormatted.size; cursor++) {
 			const char32 &c = stringFormatted[cursor];
@@ -926,7 +998,7 @@ void TextBox::CursorFromPosition(vec2 position) {
 					formatNewlines++;
 				}
 				lineString = &c+1;
-				cursorPos.y += fontSize * Rendering::lineHeight;
+				cursorPos.y += fontSize * Rendering::lineHeight * scale;
 				if (cursorPos.y > position.y / guiBasic->scale) {
 					cursor++;
 					break;
@@ -934,12 +1006,12 @@ void TextBox::CursorFromPosition(vec2 position) {
 			}
 		}
 	}
-	sys->rendering.LineCursorStartAndSpaceScale(cursorPos.x, spaceScale, fontSize, spaceWidth, fontIndex, lineString, sizeAbsolute.x - padding.x * 2.0f, alignH);
+	sys->rendering.LineCursorStartAndSpaceScale(cursorPos.x, spaceScale, fontSize * scale, spaceWidth, fontIndex, lineString, sizeAbsolute.x - padding.x * 2.0f * scale, alignH);
 	cursorPos.x += positionAbsolute.x + padding.x;
 	if (alignH == Rendering::CENTER) {
-		cursorPos.x += sizeAbsolute.x * 0.5f - padding.x;
+		cursorPos.x += sizeAbsolute.x * 0.5f - padding.x * scale;
 	} else if (alignH == Rendering::RIGHT) {
-		cursorPos.x += sizeAbsolute.x - padding.x * 2.0f;
+		cursorPos.x += sizeAbsolute.x - padding.x * 2.0f * scale;
 	}
 	cursorPos *= guiBasic->scale;
 	spaceWidth *= spaceScale * guiBasic->scale;
@@ -953,7 +1025,7 @@ void TextBox::CursorFromPosition(vec2 position) {
 		} else if (c == ' ') {
 			advanceCarry = spaceWidth * 0.5f;
 		} else {
-			advanceCarry = sys->assets.CharacterWidth(c, fontIndex) * fontSize * guiBasic->scale * 0.5f;
+			advanceCarry = sys->assets.CharacterWidth(c, fontIndex) * fontSize * scale * guiBasic->scale * 0.5f;
 		}
 		cursorPos.x += advanceCarry;
 		if (cursorPos.x > position.x) {
@@ -967,8 +1039,8 @@ void TextBox::CursorFromPosition(vec2 position) {
 vec2 TextBox::PositionFromCursor() const {
 	vec2 cursorPos = 0.0f;
 	f32 spaceScale, spaceWidth, tabWidth;
-	spaceWidth = sys->assets.CharacterWidth(' ', fontIndex) * fontSize;
-	tabWidth = sys->assets.CharacterWidth((char32)'_', fontIndex) * fontSize * 4.0f;
+	spaceWidth = sys->assets.CharacterWidth(' ', fontIndex) * fontSize * scale;
+	tabWidth = sys->assets.CharacterWidth((char32)'_', fontIndex) * fontSize * scale * 4.0f;
 	const char32 *lineString = stringFormatted.data;
 	i32 lineStart = 0;
 	i32 formatNewlines = 0;
@@ -978,12 +1050,12 @@ vec2 TextBox::PositionFromCursor() const {
 			if (string[i-formatNewlines] != '\n' && string[i-formatNewlines] != ' ' && string[i-formatNewlines] != '\t') {
 				formatNewlines++;
 			}
-			cursorPos.y += fontSize * Rendering::lineHeight;
+			cursorPos.y += fontSize * Rendering::lineHeight * scale;
 			lineString = &c+1;
 			lineStart = i+1;
 		}
 	}
-	sys->rendering.LineCursorStartAndSpaceScale(cursorPos.x, spaceScale, fontSize, spaceWidth, fontIndex, lineString, sizeAbsolute.x - padding.x * 2.0f, alignH);
+	sys->rendering.LineCursorStartAndSpaceScale(cursorPos.x, spaceScale, fontSize * scale, spaceWidth, fontIndex, lineString, sizeAbsolute.x - padding.x * 2.0f * scale, alignH);
 	spaceWidth *= spaceScale;
 	for (i32 i = lineStart; i < cursor+formatNewlines; i++) {
 		const char32 &c = stringFormatted[i];
@@ -996,29 +1068,32 @@ vec2 TextBox::PositionFromCursor() const {
 		if (c == ' ') {
 			cursorPos.x += spaceWidth;
 		} else {
-			cursorPos.x += sys->assets.CharacterWidth(c, fontIndex) * fontSize;
+			cursorPos.x += sys->assets.CharacterWidth(c, fontIndex) * fontSize * scale;
 		}
 	}
 	if (alignH == Rendering::CENTER) {
-		cursorPos.x += sizeAbsolute.x * 0.5f - padding.x;
+		cursorPos.x += sizeAbsolute.x * 0.5f - padding.x * scale;
 	} else if (alignH == Rendering::RIGHT) {
-		cursorPos.x += sizeAbsolute.x - padding.x * 2.0f;
+		cursorPos.x += sizeAbsolute.x - padding.x * scale * 2.0f;
 	}
-	cursorPos += positionAbsolute + padding;
+	cursorPos += positionAbsolute + padding * scale;
 	cursorPos *= guiBasic->scale;
 	return cursorPos;
 }
 
-void TextBox::UpdateSize(vec2 container) {
+void TextBox::UpdateSize(vec2 container, f32 _scale) {
+	scale = _scale;
+	vec2 totalMargin = margin * 2.0f * scale;
+	vec2 totalPadding = padding * 2.0f * scale;
 	if (size.x > 0.0f) {
-		sizeAbsolute.x = fractionWidth ? (container.x * size.x - margin.x * 2.0f) : size.x;
+		sizeAbsolute.x = fractionWidth ? (container.x * size.x - totalMargin.x) : size.x * scale;
 	} else {
-		sizeAbsolute.x = sys->rendering.StringWidth(stringFormatted, fontIndex) * fontSize + padding.x * 2.0f;
+		sizeAbsolute.x = sys->rendering.StringWidth(stringFormatted, fontIndex) * fontSize * scale + totalPadding.x;
 	}
 	if (size.y > 0.0f) {
-		sizeAbsolute.y = fractionHeight ? (container.y * size.y - margin.y * 2.0f) : size.y;
+		sizeAbsolute.y = fractionHeight ? (container.y * size.y - totalMargin.y) : size.y * scale;
 	} else {
-		sizeAbsolute.y = Rendering::StringHeight(stringFormatted) * fontSize + padding.y * 2.0f;
+		sizeAbsolute.y = Rendering::StringHeight(stringFormatted) * fontSize * scale + totalPadding.y;
 	}
 	LimitSize();
 }
@@ -1157,7 +1232,7 @@ void TextBox::Update(vec2 pos, bool selected) {
 		}
 	}
 	if (size.x != 0.0f && multiline) {
-		stringFormatted = sys->rendering.StringAddNewlines(string, fontIndex, (sizeAbsolute.x - padding.x * 2.0f) / fontSize);
+		stringFormatted = sys->rendering.StringAddNewlines(string, fontIndex, (sizeAbsolute.x - padding.x * 2.0f * scale) / fontSize);
 	} else {
 		stringFormatted = string;
 	}
@@ -1217,9 +1292,9 @@ void TextBox::Draw(Rendering::DrawingContext &context) const {
 		text = highlighted ? highlightText : colorText;
 	}
 	PushScissor(context);
-	vec2 drawPosText = (positionAbsolute + padding) * guiBasic->scale;
-	vec2 scale = vec2(fontSize * guiBasic->scale);
-	vec2 textArea = (sizeAbsolute - padding * 2.0f) * guiBasic->scale;
+	vec2 drawPosText = (positionAbsolute + padding * scale) * guiBasic->scale;
+	vec2 textScale = vec2(fontSize * guiBasic->scale) * scale;
+	vec2 textArea = (sizeAbsolute - padding * 2.0f * scale) * guiBasic->scale;
 	if (alignH == Rendering::CENTER) {
 		drawPosText.x += textArea.x * 0.5f;
 	} else if (alignH == Rendering::RIGHT) {
@@ -1227,11 +1302,11 @@ void TextBox::Draw(Rendering::DrawingContext &context) const {
 	}
 	vec2 drawPos = positionAbsolute * guiBasic->scale;
 	sys->rendering.DrawQuad(context, drawPos, sizeAbsolute * guiBasic->scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, bg);
-	sys->rendering.DrawText(context, stringFormatted, fontIndex, text, drawPosText, scale, alignH, Rendering::TOP, textArea.x);
+	sys->rendering.DrawText(context, stringFormatted, fontIndex, text, drawPosText, textScale, alignH, Rendering::TOP, textArea.x);
 	if (cursorBlinkTimer < 0.5f && entry) {
 		vec2 cursorPos = PositionFromCursor();
-		cursorPos.y += fontSize * guiBasic->scale * 0.6f;
-		sys->rendering.DrawQuad(context, cursorPos, vec2(ceil(guiBasic->scale), guiBasic->scale), vec2(1.0f, fontSize * Rendering::lineHeight * 0.9f), 0.5f, 0.0f, Rendering::PIPELINE_BASIC_2D, text);
+		cursorPos.y += fontSize * guiBasic->scale * 0.6f * scale;
+		sys->rendering.DrawQuad(context, cursorPos, vec2(ceil(guiBasic->scale), guiBasic->scale), vec2(1.0f, fontSize * Rendering::lineHeight * 0.9f * scale), 0.5f, 0.0f, Rendering::PIPELINE_BASIC_2D, text);
 	}
 	PopScissor(context);
 }
@@ -1250,9 +1325,10 @@ grabbed(false), left(), right()
 void Slider::Update(vec2 pos, bool selected) {
 	Widget::Update(pos, selected);
 	mouseover = MouseOver();
+	f32 knobSize = 16.0f * scale;
 	left.Tick(sys->timestep);
 	right.Tick(sys->timestep);
-	if (selected) {
+	if (selected && guiBasic->controlDepth == depth) {
 		bool held = sys->Down(KC_MOUSE_LEFT);
 		bool leftHeld = held || sys->Down(KC_GP_AXIS_LS_LEFT) || sys->Down(KC_KEY_LEFT);
 		bool rightHeld = held || sys->Down(KC_GP_AXIS_LS_RIGHT) || sys->Down(KC_KEY_RIGHT);
@@ -1270,10 +1346,10 @@ void Slider::Update(vec2 pos, bool selected) {
 	if (mouseover && !grabbed) {
 		i32 mousePos = 0;
 		f32 mouseX = (f32)sys->input.cursor.x / guiBasic->scale - positionAbsolute.x;
-		f32 sliderX = map(value, valueMin, valueMax, 0.0f, sizeAbsolute.x - 16.0f);
+		f32 sliderX = map(value, valueMin, valueMax, 0.0f, sizeAbsolute.x - knobSize);
 		if (mouseX < sliderX) {
 			mousePos = -1;
-		} else if (mouseX > sliderX+16.0f) {
+		} else if (mouseX > sliderX+knobSize) {
 			mousePos = 1;
 		}
 		if (sys->Pressed(KC_MOUSE_LEFT)) {
@@ -1287,7 +1363,7 @@ void Slider::Update(vec2 pos, bool selected) {
 		}
 	}
 	bool updated = false;
-	f32 scale = (valueMax - valueMin) / (sizeAbsolute.x - 16.0f);
+	f32 scale = (valueMax - valueMin) / (sizeAbsolute.x - knobSize);
 	if (grabbed) {
 		f32 moved = f32(sys->input.cursor.x - sys->input.cursorPrevious.x) / guiBasic->scale * scale;
 		if (sys->Down(KC_KEY_LEFTSHIFT)) {
@@ -1317,7 +1393,6 @@ void Slider::Update(vec2 pos, bool selected) {
 		}
 	}
 	if (mirror != nullptr) {
-		mirror->selectable = false;
 		if (updated) {
 			mirror->string = ToWString(ToString(value, 10, 1));
 			i32 dot = -1;
@@ -1341,13 +1416,14 @@ void Slider::Update(vec2 pos, bool selected) {
 }
 
 void Slider::Draw(Rendering::DrawingContext &context) const {
+	f32 knobSize = 16.0f * scale;
 	vec4 bg = highlighted ? highlightBG : colorBG;
 	vec4 slider = highlighted ? highlightSlider : colorSlider;
 	vec2 drawPos = positionAbsolute * guiBasic->scale;
 	sys->rendering.DrawQuad(context, drawPos, sizeAbsolute * guiBasic->scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, bg);
-	drawPos.x += map(value, valueMin, valueMax, 2.0f, sizeAbsolute.x - 16.0f) * guiBasic->scale;
-	drawPos.y += 2.0f * guiBasic->scale;
-	sys->rendering.DrawQuad(context, drawPos, vec2(12.0f, sizeAbsolute.y - 4.0f) * guiBasic->scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, slider);
+	drawPos.x += map(value, valueMin, valueMax, 2.0f * scale, sizeAbsolute.x - knobSize) * guiBasic->scale;
+	drawPos.y += 2.0f * guiBasic->scale * scale;
+	sys->rendering.DrawQuad(context, drawPos, vec2(12.0f * scale, sizeAbsolute.y - 4.0f * scale) * guiBasic->scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, slider);
 }
 
 Hideable::Hideable(Widget *child) : hidden(false), hiddenPrev(false) {
@@ -1360,18 +1436,20 @@ Hideable::Hideable(Widget *child) : hidden(false), hiddenPrev(false) {
 	selectable = child->selectable;
 }
 
-void Hideable::UpdateSize(vec2 container) {
+void Hideable::UpdateSize(vec2 container, f32 _scale) {
+	scale = _scale;
 	if (hidden) {
 		sizeAbsolute = 0.0f;
 	} else {
-		children[0]->UpdateSize(container);
+		children[0]->UpdateSize(container, scale);
+		scale = children[0]->scale;
 		sizeAbsolute = children[0]->GetSize();
 	}
 }
 
 void Hideable::Update(vec2 pos, bool selected) {
 	if (!hidden) {
-		children[0]->Update(pos + position, selected);
+		children[0]->Update(pos + position * scale, selected);
 		positionAbsolute = children[0]->positionAbsolute;
 		selectable = children[0]->selectable;
 	}

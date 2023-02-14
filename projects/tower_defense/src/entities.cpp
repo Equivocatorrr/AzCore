@@ -388,12 +388,12 @@ inline void Manager::HandleUI() {
 			}
 			sys->paused = false;
 			waveActive = true;
-			Gui::gui->menuPlay.buttonStartWave->string = sys->ReadLocale("Pause");
+			Gui::gui->menuPlay.buttonTextStartWave->string = sys->ReadLocale("Pause");
 		} else {
 			if (sys->paused) {
-				Gui::gui->menuPlay.buttonStartWave->string = sys->ReadLocale("Pause");
+				Gui::gui->menuPlay.buttonTextStartWave->string = sys->ReadLocale("Pause");
 			} else {
-				Gui::gui->menuPlay.buttonStartWave->string = sys->ReadLocale("Resume");
+				Gui::gui->menuPlay.buttonTextStartWave->string = sys->ReadLocale("Resume");
 			}
 			sys->paused = !sys->paused;
 		}
@@ -592,7 +592,7 @@ void Manager::EventSync() {
 		hitpointsLeft += (i64)hitpointsPerSecond;
 		// Average wave length is wave+7 seconds
 		hitpointsPerSecond /= wave+7;
-		Gui::gui->menuPlay.buttonStartWave->string = sys->ReadLocale("Start Wave");
+		Gui::gui->menuPlay.buttonTextStartWave->string = sys->ReadLocale("Start Wave");
 	}
 	if (wave >= 11 && wave < 20) {
 		if (!streamSegment1.playing && !streamSegment2.playing) {

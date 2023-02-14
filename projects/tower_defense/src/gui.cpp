@@ -107,36 +107,36 @@ void MainMenu::Initialize() {
 	buttonList->padding = vec2(16.0f);
 
 	buttonContinue = new Button();
-	buttonContinue->string = sys->ReadLocale("Continue");
+	buttonContinue->AddDefaultText(sys->ReadLocale("Continue"));
 	buttonContinue->size.y = 64.0f;
 	buttonContinue->fractionHeight = false;
 	buttonContinue->margin = vec2(16.0f);
+	buttonContinue->keycodeActivators = {KC_KEY_ESC};
 
 	continueHideable = new Hideable(buttonContinue);
 	continueHideable->hidden = true;
 	AddWidget(buttonList, continueHideable);
 
 	buttonNewGame = new Button();
-	buttonNewGame->string = sys->ReadLocale("New Game");
+	buttonNewGame->AddDefaultText(sys->ReadLocale("New Game"));
 	buttonNewGame->size.y = 64.0f;
 	buttonNewGame->fractionHeight = false;
 	buttonNewGame->margin = vec2(16.0f);
 	AddWidget(buttonList, buttonNewGame);
 
 	buttonSettings = new Button();
-	buttonSettings->string = sys->ReadLocale("Settings");
+	buttonSettings->AddDefaultText(sys->ReadLocale("Settings"));
 	buttonSettings->size.y = 64.0f;
 	buttonSettings->fractionHeight = false;
 	buttonSettings->margin = vec2(16.0f);
 	AddWidget(buttonList, buttonSettings);
 
 	buttonExit = new Button();
-	buttonExit->string = sys->ReadLocale("Exit");
+	buttonExit->AddDefaultText(sys->ReadLocale("Exit"));
 	buttonExit->size.y = 64.0f;
 	buttonExit->fractionHeight = false;
 	buttonExit->margin = vec2(16.0f);
 	buttonExit->highlightBG = vec4(colorBack, 0.9f);
-	buttonExit->keycodeActivators = {KC_KEY_ESC};
 	AddWidget(buttonList, buttonExit);
 
 	ListH *spacingList = new ListH();
@@ -291,6 +291,8 @@ void SettingsMenu::Initialize() {
 			AddWidget(settingList, settingText);
 			AddWidgetAsDefault(settingList, settingListItems[i]);
 			if (settingListItems[i+1] != nullptr) {
+				// So we can control the slider with the keyboard and gamepad
+				settingListItems[i+1]->selectable = false;
 				AddWidget(settingList, settingListItems[i+1]);
 			}
 
@@ -313,7 +315,7 @@ void SettingsMenu::Initialize() {
 	buttonList->highlight = vec4(0.0f);
 
 	buttonBack = new Button();
-	buttonBack->string = sys->ReadLocale("Back");
+	buttonBack->AddDefaultText(sys->ReadLocale("Back"));
 	buttonBack->size.x = 1.0f / 2.0f;
 	buttonBack->size.y = 64.0f;
 	buttonBack->fractionHeight = false;
@@ -323,7 +325,7 @@ void SettingsMenu::Initialize() {
 	AddWidget(buttonList, buttonBack);
 
 	buttonApply = new Button();
-	buttonApply->string = sys->ReadLocale("Apply");
+	buttonApply->AddDefaultText(sys->ReadLocale("Apply"));
 	buttonApply->size.x = 1.0f / 2.0f;
 	buttonApply->size.y = 64.0f;
 	buttonApply->fractionHeight = false;
@@ -556,9 +558,9 @@ void UpgradesMenu::Initialize() {
 		upgradeButton[i]->size.x = 0.25f;
 		upgradeButton[i]->size.y = 1.0f;
 		upgradeButton[i]->margin *= 0.5f;
-		upgradeButton[i]->fontIndex = gui->fontIndex;
-		upgradeButton[i]->fontSize = 18.0f;
-		upgradeButton[i]->string = sys->ReadLocale("Buy");
+		Text *buttonText = upgradeButton[i]->AddDefaultText(sys->ReadLocale("Buy"));
+		buttonText->fontIndex = gui->fontIndex;
+		buttonText->fontSize = 18.0f;
 		AddWidgetAsDefault(listH, upgradeButton[i]);
 
 		AddWidgetAsDefault(listV, listH);
@@ -735,8 +737,6 @@ void PlayMenu::Initialize() {
 	halfWidth->size.x = 0.5f;
 	halfWidth->fractionHeight = false;
 	halfWidth->size.y = 32.0f;
-	halfWidth->fontIndex = gui->fontIndex;
-	halfWidth->fontSize = 20.0f;
 
 	towerButtons.Resize(Entities::TOWER_MAX_RANGE + 1);
 	for (i32 i = 0; i < towerButtons.size; i+=2) {
@@ -745,7 +745,8 @@ void PlayMenu::Initialize() {
 			i32 index = i+j;
 			if (index > towerButtons.size) break;
 			towerButtons[index] = new Button(*halfWidth);
-			towerButtons[index]->string = sys->ReadLocale(Entities::towerStrings[index]);
+			Text *buttonText = towerButtons[index]->AddDefaultText(sys->ReadLocale(Entities::towerStrings[index]));
+			buttonText->fontSize = 20.0f;
 			towerButtons[index]->highlightBG = Entities::Tower(Entities::TowerType(index)).color;
 			AddWidget(grid, towerButtons[index]);
 		}
@@ -771,7 +772,6 @@ void PlayMenu::Initialize() {
 	fullWidth->size.x = 1.0f;
 	fullWidth->fractionHeight = false;
 	fullWidth->size.y = 32.0f;
-	fullWidth->fontIndex = gui->fontIndex;
 
 	ListH *waveList = new ListH(*gridBase);
 
@@ -790,7 +790,8 @@ void PlayMenu::Initialize() {
 	waveTitle->string = ToWString("Nothing");
 	AddWidget(waveList, waveTitle);
 	buttonStartWave = new Button(*halfWidth);
-	buttonStartWave->string = sys->ReadLocale("Start Wave");
+	buttonTextStartWave = buttonStartWave->AddDefaultText(sys->ReadLocale("Start Wave"));
+	buttonTextStartWave->fontSize = 20.0f;
 	buttonStartWave->size.y = 32.0f;
 	buttonStartWave->keycodeActivators = {KC_GP_BTN_START, KC_KEY_SPACE};
 	AddWidgetAsDefault(waveList, buttonStartWave);
@@ -806,7 +807,7 @@ void PlayMenu::Initialize() {
 	AddWidget(list, waveInfo);
 
 	buttonMenu = new Button(*fullWidth);
-	buttonMenu->string = sys->ReadLocale("Menu");
+	buttonMenu->AddDefaultText(sys->ReadLocale("Menu"));
 	buttonMenu->keycodeActivators = {KC_GP_BTN_SELECT, KC_KEY_ESC};
 	AddWidget(list, buttonMenu);
 
@@ -857,7 +858,7 @@ void PlayMenu::Update() {
 		gui->nextMenu = Gui::Menu::MAIN;
 		sys->paused = true;
 		if (entities->waveActive) {
-			buttonStartWave->string = sys->ReadLocale("Resume");
+			buttonTextStartWave->string = sys->ReadLocale("Resume");
 		}
 	}
 }

@@ -96,36 +96,37 @@ void MainMenu::Initialize() {
 	buttonList->padding = vec2(16.0f);
 
 	buttonContinue = new Button();
-	buttonContinue->string = sys->ReadLocale("Continue");
 	buttonContinue->size.y = 64.0f;
 	buttonContinue->fractionHeight = false;
 	buttonContinue->margin = vec2(16.0f);
+	buttonContinue->AddDefaultText(sys->ReadLocale("Continue"));
+	buttonContinue->keycodeActivators = {KC_KEY_ESC};
 
 	continueHideable = new Hideable(buttonContinue);
 	continueHideable->hidden = true;
 	AddWidget(buttonList, continueHideable);
 
 	buttonNewGame = new Button();
-	buttonNewGame->string = sys->ReadLocale("New Game");
 	buttonNewGame->size.y = 64.0f;
 	buttonNewGame->fractionHeight = false;
 	buttonNewGame->margin = vec2(16.0f);
+	buttonNewGame->AddDefaultText(sys->ReadLocale("New Game"));
 	AddWidget(buttonList, buttonNewGame);
 
 	buttonSettings = new Button();
-	buttonSettings->string = sys->ReadLocale("Settings");
 	buttonSettings->size.y = 64.0f;
 	buttonSettings->fractionHeight = false;
 	buttonSettings->margin = vec2(16.0f);
+	buttonSettings->AddDefaultText(sys->ReadLocale("Settings"));
 	AddWidget(buttonList, buttonSettings);
 
 	buttonExit = new Button();
-	buttonExit->string = sys->ReadLocale("Exit");
 	buttonExit->size.y = 64.0f;
 	buttonExit->fractionHeight = false;
 	buttonExit->margin = vec2(16.0f);
 	buttonExit->highlightBG = vec4(colorBack, 0.9f);
-	buttonExit->keycodeActivators = {KC_KEY_ESC};
+	buttonExit->AddDefaultText(sys->ReadLocale("Exit"));
+
 	AddWidget(buttonList, buttonExit);
 
 	ListH *spacingList = new ListH();
@@ -280,6 +281,7 @@ void SettingsMenu::Initialize() {
 			AddWidget(settingList, settingText);
 			AddWidgetAsDefault(settingList, settingListItems[i]);
 			if (settingListItems[i+1] != nullptr) {
+				settingListItems[i+1]->selectable = false;
 				AddWidget(settingList, settingListItems[i+1]);
 			}
 
@@ -302,21 +304,21 @@ void SettingsMenu::Initialize() {
 	buttonList->highlight = vec4(0.0f);
 
 	buttonBack = new Button();
-	buttonBack->string = sys->ReadLocale("Back");
 	buttonBack->size.x = 1.0f / 2.0f;
 	buttonBack->size.y = 64.0f;
 	buttonBack->fractionHeight = false;
 	buttonBack->margin = vec2(8.0f);
 	buttonBack->highlightBG = vec4(colorBack, 0.9f);
 	buttonBack->keycodeActivators = {KC_GP_BTN_B, KC_KEY_ESC};
+	buttonBack->AddDefaultText(sys->ReadLocale("Back"));
 	AddWidget(buttonList, buttonBack);
 
 	buttonApply = new Button();
-	buttonApply->string = sys->ReadLocale("Apply");
 	buttonApply->size.x = 1.0f / 2.0f;
 	buttonApply->size.y = 64.0f;
 	buttonApply->fractionHeight = false;
 	buttonApply->margin = vec2(8.0f);
+	buttonApply->AddDefaultText(sys->ReadLocale("Apply"));
 	AddWidgetAsDefault(buttonList, buttonApply);
 
 	AddWidget(actualList, buttonList);
@@ -418,11 +420,10 @@ void PlayMenu::Initialize() {
 	AddWidgetAsDefault(screenListV, listBottom);
 
 	buttonMenu = new Button();
-	buttonMenu->fontIndex = gui->fontIndex;
 	buttonMenu->fractionWidth = false;
 	buttonMenu->size.x = 120.0f;
-	buttonMenu->string = sys->ReadLocale("Menu");
 	buttonMenu->keycodeActivators = {KC_GP_BTN_START, KC_KEY_ESC};
+	buttonMenu->AddDefaultText(sys->ReadLocale("Menu"));
 	AddWidgetAsDefault(listBottom, buttonMenu);
 
 	spacer = new Widget();
@@ -431,8 +432,9 @@ void PlayMenu::Initialize() {
 	AddWidget(listBottom, spacer);
 
 	buttonReset = new Button(*buttonMenu);
-	buttonReset->string = sys->ReadLocale("Reset");
+	buttonReset->children.Clear();
 	buttonReset->keycodeActivators = {KC_GP_BTN_SELECT, KC_KEY_R};
+	buttonReset->AddDefaultText(sys->ReadLocale("Reset"));
 	AddWidget(listBottom, buttonReset);
 }
 

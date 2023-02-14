@@ -73,6 +73,7 @@ struct PlayMenu {
 	Array<Button*> towerButtons;
 	Button *buttonMenu;
 	Button *buttonStartWave;
+	Text *buttonTextStartWave;
 
 	UpgradesMenu upgradesMenu;
 

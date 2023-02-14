@@ -128,13 +128,16 @@ struct Widget {
 		Useful for menus to block interaction with game objects that fall beneath them. */
 	bool occludes;
 	bool mouseover;
+	/*  Scaling factor that affects everything. This will be set internally.
+		Default: 1.0f */
+	f32 scale = 1.0f;
 	Widget();
 	virtual ~Widget() = default;
-	virtual void UpdateSize(vec2 container);
+	virtual void UpdateSize(vec2 container, f32 _scale);
 	void LimitSize();
 	void PushScissor(Rendering::DrawingContext &context) const;
 	void PopScissor(Rendering::DrawingContext &context) const;
-	inline vec2 GetSize() const { return sizeAbsolute + margin * 2.0f; }
+	inline vec2 GetSize() const { return sizeAbsolute + margin * 2.0f * scale; }
 	virtual void Update(vec2 pos, bool selected);
 	virtual void Draw(Rendering::DrawingContext &context) const;
 
@@ -150,8 +153,8 @@ struct Widget {
 struct Screen : public Widget {
 	Screen();
 	~Screen() = default;
-	void Update(vec2 pos, bool selected);
-	void UpdateSize(vec2 container);
+	void Update(vec2 pos, bool selected) override;
+	void UpdateSize(vec2 container, f32 _scale) override;
 };
 
 struct List : public Widget {
@@ -179,20 +182,20 @@ struct List : public Widget {
 	~List() = default;
 	// returns whether or not to update the selection based on the mouse position
 	bool UpdateSelection(bool selected, az::BucketArray<u8, 4> keyCodeSelect, az::BucketArray<u8, 4> keyCodeBack, az::BucketArray<u8, 4> keyCodeIncrement, az::BucketArray<u8, 4> keyCodeDecrement);
-	void Draw(Rendering::DrawingContext &context) const;
+	void Draw(Rendering::DrawingContext &context) const override;
 };
 
 // A vertical list of items.
 struct ListV : public List {
-	void UpdateSize(vec2 container);
-	void Update(vec2 pos, bool selected);
+	void UpdateSize(vec2 container, f32 _scale) override;
+	void Update(vec2 pos, bool selected) override;
 };
 
 // A horizontal list of items.
 struct ListH : public List {
 	ListH();
-	void UpdateSize(vec2 container);
-	void Update(vec2 pos, bool selected);
+	void UpdateSize(vec2 container, f32 _scale) override;
+	void Update(vec2 pos, bool selected) override;
 };
 
 // Allows the user to choose from a selection of widgets (usually Text).
@@ -207,9 +210,9 @@ struct Switch : public ListV {
 	bool changed;
 	Switch();
 	~Switch() = default;
-	void UpdateSize(vec2 container);
-	void Update(vec2 pos, bool selected);
-	void Draw(Rendering::DrawingContext &context) const;
+	void UpdateSize(vec2 container, f32 _scale) override;
+	void Update(vec2 pos, bool selected) override;
+	void Draw(Rendering::DrawingContext &context) const override;
 
 	void OnHide();
 };
@@ -258,9 +261,9 @@ public:
 	bool outline;
 	Text();
 	~Text() = default;
-	void UpdateSize(vec2 container);
-	void Update(vec2 pos, bool selected);
-	void Draw(Rendering::DrawingContext &context) const;
+	void UpdateSize(vec2 container, f32 _scale) override;
+	void Update(vec2 pos, bool selected) override;
+	void Draw(Rendering::DrawingContext &context) const override;
 };
 
 struct Image : public Widget {
@@ -272,38 +275,31 @@ struct Image : public Widget {
 	vec4 color;
 	Image();
 	~Image() = default;
-	void Draw(Rendering::DrawingContext &context) const;
+	void Draw(Rendering::DrawingContext &context) const override;
 };
 
 struct Button : public Widget {
-	//  Text label for the button.
-	az::WString string;
+	/*  Space surrounding the contained Widget.
+		Default: {0.0, 0.0} */
+	vec2 padding;
 	/*  Color of the button when not highlighted.
 		Default: {vec3(0.15), 0.9} */
 	vec4 colorBG;
 	/*  Color of the button when highlighted.
 		Default: {colorHighlightMedium, 0.9} */
 	vec4 highlightBG;
-	/*  Color of the label text when not highlighted.
-		Default: {vec3(1.0), 1.0} */
-	vec4 colorText;
-	/*  Color of the label text when highlighted.
-		Default: {vec3(0.0), 1.0} */
-	vec4 highlightText;
-	/*  Which font is used for drawing the text.
-		Default: 1 */
-	i32 fontIndex;
-	/*  Pixel dimensions of the font's EM square.
-	Default: 28.0 */
-	f32 fontSize;
 	//  The pressed, down, and released state of this button.
 	az::io::ButtonState state;
 	// Any input keycodes that can affect state without the widget being selected.
 	az::Array<u8> keycodeActivators;
+	// Adds a single child Text widget with default settings
+	// Returns said Text widget
+	Text* AddDefaultText(az::WString string);
 	Button();
 	~Button() = default;
-	void Update(vec2 pos, bool selected);
-	void Draw(Rendering::DrawingContext &context) const;
+	void UpdateSize(vec2 container, f32 _scale) override;
+	void Update(vec2 pos, bool selected) override;
+	void Draw(Rendering::DrawingContext &context) const override;
 };
 
 // Boolean widget.
@@ -328,8 +324,8 @@ struct Checkbox : public Widget {
 	bool checked;
 	Checkbox();
 	~Checkbox() = default;
-	void Update(vec2 pos, bool selected);
-	void Draw(Rendering::DrawingContext &context) const;
+	void Update(vec2 pos, bool selected) override;
+	void Draw(Rendering::DrawingContext &context) const override;
 };
 
 // Returns whether a character is acceptable in a TextBox
@@ -410,9 +406,9 @@ struct TextBox : public Widget {
 	~TextBox() = default;
 	void CursorFromPosition(vec2 position);
 	vec2 PositionFromCursor() const;
-	void UpdateSize(vec2 container);
-	void Update(vec2 pos, bool selected);
-	void Draw(Rendering::DrawingContext &context) const;
+	void UpdateSize(vec2 container, f32 _scale) override;
+	void Update(vec2 pos, bool selected) override;
+	void Draw(Rendering::DrawingContext &context) const override;
 };
 
 // A scalar within a range.
@@ -450,8 +446,8 @@ struct Slider : public Widget {
 	az::io::ButtonState right;
 	Slider();
 	~Slider() = default;
-	void Update(vec2 pos, bool selected);
-	void Draw(Rendering::DrawingContext &context) const;
+	void Update(vec2 pos, bool selected) override;
+	void Draw(Rendering::DrawingContext &context) const override;
 };
 
 // Must have exactly one child or else!
@@ -464,10 +460,10 @@ struct Hideable : public Widget {
 
 	Hideable(Widget *child);
 	~Hideable() = default;
-	void UpdateSize(vec2 container);
-	void Update(vec2 pos, bool selected);
-	void Draw(Rendering::DrawingContext &context) const;
-	bool Selectable() const;
+	void UpdateSize(vec2 container, f32 _scale) override;
+	void Update(vec2 pos, bool selected) override;
+	void Draw(Rendering::DrawingContext &context) const override;
+	bool Selectable() const override;
 };
 
 void AddWidget(Widget *parent, Widget *newWidget, bool deeper = false);

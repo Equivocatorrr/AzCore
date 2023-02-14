@@ -647,6 +647,20 @@ Text::Text() : stringFormatted(), string(), padding(0.1f), fontSize(32.0f), font
 	size.y = 0.0f;
 }
 
+void Text::PushScissor(Rendering::DrawingContext &context) const {
+	if (sizeAbsolute.x != 0.0f && sizeAbsolute.y != 0.0f) {
+		vec2i topLeft = vec2i(
+			i32((positionAbsolute.x - margin.x * scale) * guiBasic->scale),
+			i32((positionAbsolute.y - margin.y * scale) * guiBasic->scale)
+		);
+		vec2i botRight = vec2i(
+			(i32)ceil((positionAbsolute.x + margin.x * scale + sizeAbsolute.x) * guiBasic->scale),
+			(i32)ceil((positionAbsolute.y + margin.y * scale + sizeAbsolute.y) * guiBasic->scale)
+		);
+		sys->rendering.PushScissor(context, topLeft, botRight);
+	}
+}
+
 void Text::UpdateSize(vec2 container, f32 _scale) {
 	scale = _scale;
 	vec2 totalMargin = margin * 2.0f * scale;
@@ -692,9 +706,12 @@ void Text::Draw(Rendering::DrawingContext &context) const {
 	}
 	f32 bounds = bold ? 0.425f : 0.525f;
 	if (outline) {
-		sys->rendering.DrawText(context, stringFormatted, fontIndex, highlighted? highlightOutline : colorOutline, drawPos, textScale, alignH, alignV, textArea.x, 0.1f, bounds - 0.2f);
+		vec4 bg = highlighted? highlightOutline : colorOutline;
+		sys->rendering.DrawText(context, stringFormatted, fontIndex, bg, drawPos, textScale, alignH, alignV, textArea.x, 0.05f, bounds - 0.325f - clamp((1.0f - (bg.r + bg.g + bg.b) / 3.0f) * 2.0f, 0.0f, 2.0f)/textScale.y);
 	}
-	sys->rendering.DrawText(context, stringFormatted, fontIndex, highlighted? highlight : color, drawPos, textScale, alignH, alignV, textArea.x, 0.0f, bounds);
+	vec4 fg = highlighted? highlight : color;
+	bounds -= clamp((1.0f - (fg.r + fg.g + fg.b) / 3.0f) * 2.0f, 0.0f, 2.0f) / textScale.y;
+	sys->rendering.DrawText(context, stringFormatted, fontIndex, fg, drawPos, textScale, alignH, alignV, textArea.x, 0.0f, bounds);
 	PopScissor(context);
 }
 

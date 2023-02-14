@@ -27,7 +27,8 @@ layout(push_constant) uniform pushConstants {
 } pc;
 
 void main() {
+	float alpha = smoothstep(pc.bounds-pc.edge, pc.bounds+pc.edge, texture(texSampler[pc.tex.albedo],texCoord).r);
 	outColor = pc.mat.color;
-	outColor *= smoothstep(pc.bounds-pc.edge, pc.bounds+pc.edge, texture(texSampler[pc.tex.albedo],texCoord).r);
-	outColor.rgb *= pc.mat.color.a;
+	outColor.a *= alpha;
+	outColor.rgb *= outColor.a;
 }

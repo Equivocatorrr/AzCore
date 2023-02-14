@@ -135,7 +135,7 @@ struct Widget {
 	virtual ~Widget() = default;
 	virtual void UpdateSize(vec2 container, f32 _scale);
 	void LimitSize();
-	void PushScissor(Rendering::DrawingContext &context) const;
+	virtual void PushScissor(Rendering::DrawingContext &context) const;
 	void PopScissor(Rendering::DrawingContext &context) const;
 	inline vec2 GetSize() const { return sizeAbsolute + margin * 2.0f * scale; }
 	virtual void Update(vec2 pos, bool selected);
@@ -261,6 +261,7 @@ public:
 	bool outline;
 	Text();
 	~Text() = default;
+	void PushScissor(Rendering::DrawingContext &context) const override;
 	void UpdateSize(vec2 container, f32 _scale) override;
 	void Update(vec2 pos, bool selected) override;
 	void Draw(Rendering::DrawingContext &context) const override;

@@ -698,10 +698,10 @@ void Text::Draw(Rendering::DrawingContext &context) const {
 	PopScissor(context);
 }
 
-Image::Image() : texIndex(0), color(vec4(1.0f)) { occludes = true; }
+Image::Image() : texIndex(0), pipeline(Rendering::PIPELINE_BASIC_2D), color(vec4(1.0f)) { occludes = true; }
 
 void Image::Draw(Rendering::DrawingContext &context) const {
-	sys->rendering.DrawQuad(context, positionAbsolute * guiBasic->scale, sizeAbsolute * guiBasic->scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, color, texIndex);
+	sys->rendering.DrawQuad(context, positionAbsolute * guiBasic->scale, sizeAbsolute * guiBasic->scale, 1.0f, 0.0f, 0.0f, pipeline, color, texIndex);
 }
 
 Text* Button::AddDefaultText(WString string) {
@@ -748,7 +748,7 @@ void Button::UpdateSize(vec2 container, f32 _scale) {
 		Widget *child = children[0];
 		vec2 sizeForInheritance = sizeAbsolute - totalPadding;
 		if (size.x == 0.0f || size.y == 0.0f) {
-			child->UpdateSize(sizeForInheritance * childScale, childScale * scale);
+			child->UpdateSize(sizeForInheritance, scale);
 			vec2 childSize = child->GetSize();
 			if (size.x == 0.0f) {
 				sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + totalPadding.x);

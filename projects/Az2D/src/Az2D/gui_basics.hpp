@@ -270,6 +270,9 @@ struct Image : public Widget {
 	/*  Which image to draw.
 		Default: 0 */
 	i32 texIndex;
+	/*  Which shader to use when drawing the image
+		Default: PIPELINE_BASIC_2D */
+	Rendering::PipelineIndex pipeline;
 	/*  Color multiplier to draw the image with.
 		Default: vec4(1.0f) */
 	vec4 color;

@@ -45,6 +45,11 @@ public:
 	static az::ClockTime _exceptionStart;\
 	Az2D::Profiling::ScopedTimer _scopedTimer(_scopedTimerString);
 
+#define AZ2D_PROFILING_FUNC_TIMER()\
+	static Az2D::Profiling::AString _funcTimerString(__FUNCTION__);\
+	static az::ClockTime _exceptionStart;\
+	Az2D::Profiling::ScopedTimer _funcTimer(_funcTimerString);
+
 #define AZ2D_PROFILING_EXCEPTION_START()\
 	_exceptionStart = az::Clock::now();
 

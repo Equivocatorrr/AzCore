@@ -49,7 +49,7 @@ using SharedPtr = std::shared_ptr<T>;
 template<typename T>
 using WeakPtr = std::weak_ptr<T>;
 
-Array<char> FileContents(String filename);
+Array<char> FileContents(String filename, bool binary=true);
 
 template<typename T, i32 allocTail>
 Array<Range<T>> SeparateByValues(Array<T, allocTail> &array, const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values, bool allowEmpty=false) {

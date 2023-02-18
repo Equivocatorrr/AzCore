@@ -69,7 +69,7 @@ struct Range {
 	void *ptr = nullptr;
 	i32 index = 0;
 	i32 size = 0;
-	Range() {}
+	Range() = default;
 	template<i32 allocTail>
 	Range(Array<T, allocTail> *a, i32 i, i32 s) {
 		ptr = (void*)a;

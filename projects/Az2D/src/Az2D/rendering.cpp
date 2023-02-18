@@ -1318,8 +1318,8 @@ void Manager::DrawChar(DrawingContext &context, char32 character, i32 fontIndex,
 
 void Manager::DrawText(DrawingContext &context, WString text, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH, FontAlign alignV, f32 maxWidth, f32 edge, f32 bounds) {
 	const vec2 screenSizeFactor = vec2(2.0f) / screenSize;
-	edge += 0.35f + min(0.15f, max(0.0f, (scale.y - 12.0f) / 12.0f));
-	bounds -= min(0.05f, max(0.0f, (16.0f - scale.y) * 0.01f));
+	edge += 0.35f + clamp((scale.y - 12.0f) / 12.0f, 0.0f, 0.15f);
+	bounds -= clamp((16.0f - scale.y) * 0.01f, 0.0f, 0.05f);
 	DrawTextSS(context, text, fontIndex, color, position * screenSizeFactor + vec2(-1.0f), scale * screenSizeFactor.y, alignH, alignV, maxWidth * screenSizeFactor.x, edge, bounds);
 }
 

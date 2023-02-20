@@ -123,9 +123,15 @@ struct ArrayWithBucket {
 			_SetTerminator();
 		}
 	}
+	// Deallocates
 	void Clear() {
 		_Deinitialize();
 		_Drop();
+		_SetTerminator();
+	}
+	// Doesn't deallocate
+	void ClearSoft() {
+		size = 0;
 		_SetTerminator();
 	}
 

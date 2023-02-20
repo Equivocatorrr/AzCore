@@ -123,9 +123,15 @@ struct Array {
 		size = other.size;
 		data = other.data;
 	}
+	// Deallocates
 	void Clear() {
 		_Deinitialize();
 		_Drop();
+		_SetTerminator();
+	}
+	// Doesn't deallocate
+	void ClearSoft() {
+		size = 0;
 		_SetTerminator();
 	}
 

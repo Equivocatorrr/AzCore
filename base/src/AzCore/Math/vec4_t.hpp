@@ -59,12 +59,12 @@ struct vec4_t {
 	vec4_t() = default;
 	inline vec4_t(T a) : x(a), y(a), z(a), w(a) {}
 	inline vec4_t(T _x, T _y, T _z, T _w) : x(_x), y(_y), z(_z), w(_w) {}
-	inline vec4_t(vec3_t<T> _xyz, T _w) : xyz(_xyz), w(_w) {}
-	inline vec4_t(T _x, vec3_t<T> _yzw) : x(_x), yzw(_yzw) {}
+	inline vec4_t(vec3_t<T> _xyz, T _w) : x(_xyz.x), y(_xyz.y), z(_xyz.z), w(_w) {}
+	inline vec4_t(T _x, vec3_t<T> _yzw) : x(_x), y(_yzw.x), z(_yzw.y), w(_yzw.z) {}
 	inline vec4_t(vec2_t<T> _xy, vec2_t<T> _zw) : xy(_xy), zw(_zw) {}
-	inline vec4_t(vec2_t<T> _xy, T _z, T _w) : xy(_xy), z(_z), w(_w) {}
-	inline vec4_t(T _x, vec2_t<T> _yz, T _w) : x(_x), yz(_yz), w(_w) {}
-	inline vec4_t(T _x, T _y, vec2_t<T> _zw) : x(_x), y(_y), zw(_zw) {}
+	inline vec4_t(vec2_t<T> _xy, T _z, T _w) : x(_xy.x), y(_xy.y), z(_z), w(_w) {}
+	inline vec4_t(T _x, vec2_t<T> _yz, T _w) : x(_x), y(_yz.x), z(_yz.y), w(_w) {}
+	inline vec4_t(T _x, T _y, vec2_t<T> _zw) : x(_x), y(_y), z(_zw.x), w(_zw.y) {}
 	template <typename I>
 	vec4_t(vec4_t<I> a) : x((T)a.x), y((T)a.y), z((T)a.z), w((T)a.w) {}
 	inline vec4_t<T> operator+(vec4_t<T> vec) const { return vec4_t<T>(x + vec.x, y + vec.y, z + vec.z, w + vec.w); }

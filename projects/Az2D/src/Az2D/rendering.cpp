@@ -905,7 +905,7 @@ bool Manager::Draw() {
 				ToWString(Stringify("diff: ", FormatFloat(msDiff, 10, 1), "ms")),
 				ToWString(Stringify("timestep: ", FormatFloat(sys->timestep * 1000.0f, 10, 1), "ms")),
 			};
-			for (i32 i = 0; i < sizeof(strings)/sizeof(WString); i++) {
+			for (i32 i = 0; i < (i32)(sizeof(strings)/sizeof(WString)); i++) {
 				vec2 pos = vec2(4.0f + f32(i*80), 4.0f) * Gui::guiBasic->scale;
 				DrawText(commandBuffersSecondary.Back(), strings[i], 0, vec4(1.0f), pos, vec2(12.0f * Gui::guiBasic->scale), LEFT, TOP);
 			}

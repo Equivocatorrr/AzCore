@@ -43,8 +43,8 @@ struct vec3_t {
 
 	vec3_t() = default;
 	inline vec3_t(T a) : x(a), y(a), z(a) {}
-	inline vec3_t(vec2_t<T> _xy, T _z) : xy(_xy), z(_z) {}
-	inline vec3_t(T _x, vec2_t<T> _yz) : x(_x), yz(_yz) {}
+	inline vec3_t(vec2_t<T> _xy, T _z) : x(_xy.x), y(_xy.y), z(_z) {}
+	inline vec3_t(T _x, vec2_t<T> _yz) : x(_x), y(_yz.x), z(_yz.y) {}
 	inline vec3_t(T v1, T v2, T v3) : x(v1), y(v2), z(v3) {}
 	template <typename I>
 	inline vec3_t(vec3_t<I> a) : x((T)a.x), y((T)a.y), z((T)a.z) {}

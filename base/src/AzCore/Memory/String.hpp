@@ -7,6 +7,7 @@
 #define AZCORE_STRING_HPP
 
 #include "ArrayWithBucket.hpp"
+#include "Range.hpp"
 
 namespace AzCore {
 
@@ -53,76 +54,126 @@ struct FormatInt {
 	inline FormatInt(T in, i32 base) : value(in), _base(base) {}
 };
 
-void AppendToString(String &string, u32 value, i32 base = 10);
-void AppendToString(String &string, u64 value, i32 base = 10);
-void AppendToString(String &string, i32 value, i32 base = 10);
-void AppendToString(String &string, i64 value, i32 base = 10);
-void AppendToString(String &string, f32 value, i32 base = 10, i32 precision = -1);
-void AppendToString(String &string, f64 value, i32 base = 10, i32 precision = -1);
+void AppendToStringWithBase(String &string, u32 value, i32 base);
+void AppendToStringWithBase(String &string, u64 value, i32 base);
+void AppendToStringWithBase(String &string, i32 value, i32 base);
+void AppendToStringWithBase(String &string, i64 value, i32 base);
+void AppendToStringWithBase(String &string, f32 value, i32 base, i32 precision = -1);
+void AppendToStringWithBase(String &string, f64 value, i32 base, i32 precision = -1);
+
+inline void AppendToString(String &string, u32 value) {
+	AppendToStringWithBase(string, value, 10);
+}
+inline void AppendToString(String &string, u64 value) {
+	AppendToStringWithBase(string, value, 10);
+}
+inline void AppendToString(String &string, i32 value) {
+	AppendToStringWithBase(string, value, 10);
+}
+inline void AppendToString(String &string, i64 value) {
+	AppendToStringWithBase(string, value, 10);
+}
+inline void AppendToString(String &string, f32 value) {
+	AppendToStringWithBase(string, value, 10);
+}
+inline void AppendToString(String &string, f64 value) {
+	AppendToStringWithBase(string, value, 10);
+}
 
 #if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
-void AppendToString(String &string, u128 value, i32 base = 10);
-void AppendToString(String &string, i128 value, i32 base = 10);
-void AppendToString(String &string, f128 value, i32 base = 10, i32 precision = -1);
+void AppendToStringWithBase(String &string, u128 value, i32 base);
+void AppendToStringWithBase(String &string, i128 value, i32 base);
+void AppendToStringWithBase(String &string, f128 value, i32 base, i32 precision = -1);
+
+inline void AppendToString(String &string, u128 value) {
+	AppendToStringWithBase(string, value, 10);
+}
+inline void AppendToString(String &string, i128 value) {
+	AppendToStringWithBase(string, value, 10);
+}
+inline void AppendToString(String &string, f128 value) {
+	AppendToStringWithBase(string, value, 10);
+}
 #endif
 
 template<typename T>
 force_inline(void) AppendToString(String &string, FormatFloat<T> fmt) {
-	AppendToString(string, fmt.value, fmt._base, fmt._precision);
+	AppendToStringWithBase(string, fmt.value, fmt._base, fmt._precision);
 }
 
 template<typename T>
 force_inline(void) AppendToString(String &string, FormatInt<T> fmt) {
-	AppendToString(string, fmt.value, fmt._base);
+	AppendToStringWithBase(string, fmt.value, fmt._base);
 }
 
-inline void AppendToString(String &string, u16 value, i32 base = 10) {
-	AppendToString(string, (u32)value, base);
+inline void AppendToStringWithBase(String &string, u16 value, i32 base) {
+	AppendToStringWithBase(string, (u32)value, base);
 }
-inline void AppendToString(String &string, i16 value, i32 base = 10) {
-	AppendToString(string, (i32)value, base);
+inline void AppendToStringWithBase(String &string, i16 value, i32 base) {
+	AppendToStringWithBase(string, (i32)value, base);
+}
+inline void AppendToString(String &string, u16 value) {
+	AppendToString(string, (u32)value);
+}
+inline void AppendToString(String &string, i16 value) {
+	AppendToString(string, (i32)value);
 }
 
 inline void AppendToString(String &string, AlignText alignment) {
 	string.Resize(alignNonPowerOfTwo(string.size, alignment.value), alignment.fill);
 }
 
-template<typename T>
-inline void AppendToString(String &string, T value) {
+inline void AppendToString(String &string, char value) {
 	string.Append(value);
 }
 
-template<typename T, typename... Args>
-inline void AppendToString(String &string, T value, Args... args) {
-	AppendToString(string, value);
-	AppendToString(string, args...);
+inline void AppendToString(String &string, const char *value) {
+	string.Append(value);
+}
+
+inline void AppendToString(String &string, SimpleRange<char> value) {
+	string.Append(value);
+}
+
+inline void AppendToString(String &string, Range<char> value) {
+	string.Append(value);
+}
+
+inline void AppendToString(String &string, String &&value) {
+	string.Append(std::forward<String>(value));
 }
 
 template<typename... Args>
-inline String Stringify(Args... args) {
+inline void AppendMultipleToString(String &string, Args&&... args) {
+	static_assert(sizeof...(Args) > 0);
+	(AppendToString(string, std::forward<Args>(args)), ...);
+}
+
+template<typename... Args>
+inline String Stringify(Args&&... args) {
 	String out;
-	AppendToString(out, args...);
+	AppendMultipleToString(out, std::forward<Args>(args)...);
 	return out;
 }
 
 template<typename T>
-inline String ToString(T value) {
+inline String ToString(T &&value) {
 	String out;
-	AppendToString(out, value);
+	AppendToString(out, std::forward<T>(value));
 	return out;
 }
 
 template<typename T>
-inline String ToString(T value, i32 base) {
+inline String ToString(T &&value, i32 base) {
 	String out;
-	AppendToString(out, value, base);
+	AppendToStringWithBase(out, std::forward<T>(value), base);
 	return out;
 }
 
 template<typename T>
-inline String ToString(T value, i32 base, i32 precision) {
+inline String ToString(T &&value, i32 base, i32 precision) {
 	String out;
-	AppendToString(out, value, base, precision);
+	AppendToStringWithBase(out, std::forward<T>(value), base, precision);
 	return out;
 }
 

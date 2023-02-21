@@ -701,11 +701,13 @@ BigInt BigInt::Trimmed() const {
 	return trimmed;
 }
 
-String ToString(const BigInt& value, const i32 base) {
+void AppendToStringWithBase(String &string, const BigInt& value, i32 base) {
 	String tmp, out;
 	if (value.words.size == 0) {
-		return "0";
+		AppendToString(string, '0');
+		return;
 	}
+	bool negative = value.negative;
 	BigInt remaining(value);
 	while (remaining != 0u) {
 		u64 remainder;
@@ -716,15 +718,15 @@ String ToString(const BigInt& value, const i32 base) {
 			tmp += char(remainder+'0');
 		}
 	}
-	out.Resize(tmp.size + (value.negative ? 1 : 0));
+	out.Resize(tmp.size + (negative ? 1 : 0));
 	u32 i = 0;
-	if (value.negative) {
+	if (negative) {
 		out[i++] = '-';
 	}
 	for (i32 j = tmp.size-1; j >= 0; j--, i++) {
 		out[i] = tmp[j];
 	}
-	return out;
+	AppendToString(string, std::move(out));
 }
 
 String BigInt::Digits(const i32 base) const {

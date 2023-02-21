@@ -72,8 +72,8 @@ public:
 	// Forces all buffered outputs to be flushed.
 	Log& Flush();
 
-	inline Log& Print(String out) {
-		_Print<false>(out);
+	inline Log& Print(String &&out) {
+		_Print<false>(std::forward<String>(out));
 		return *this;
 	}
 	inline Log& Print(const char *out) {
@@ -89,8 +89,8 @@ public:
 		return *this;
 	}
 
-	inline Log& PrintLn(String out) {
-		_Print<true>(out);
+	inline Log& PrintLn(String &&out) {
+		_Print<true>(std::forward<String>(out));
 		return *this;
 	}
 	inline Log& PrintLn(const char *out) {
@@ -107,13 +107,13 @@ public:
 	}
 
 	template <typename... Args>
-	inline Log& Print(Args... args) {
-		Print(Stringify(args...));
+	inline Log& Print(Args&&... args) {
+		Print(Stringify(std::forward<Args>(args)...));
 		return *this;
 	}
 	template <typename... Args>
-	inline Log& PrintLn(Args... args) {
-		PrintLn(Stringify(args...));
+	inline Log& PrintLn(Args&&... args) {
+		PrintLn(Stringify(std::forward<Args>(args)...));
 		return *this;
 	}
 	// Print without indenting or prepending on newlines

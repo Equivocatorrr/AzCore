@@ -471,10 +471,10 @@ void CheckHighPersistenceNumbersForSingleDigitFactorability() {
 			}
 		}
 		if (permutationCount.words.size > 2) {
-			cout.PrintLn("Number ", allPersistenceElevenNumbers[i], " has too many permutations: ", ToString(permutationCount));
+			cout.PrintLn("Number ", allPersistenceElevenNumbers[i], " has too many permutations: ", ToString(permutationCount, 10));
 			return;
 		}
-		cout.PrintLn("Number ", allPersistenceElevenNumbers[i], " has ", ToString(permutationCount), " permutations.");
+		cout.PrintLn("Number ", allPersistenceElevenNumbers[i], " has ", ToString(permutationCount, 10), " permutations.");
 		remainingRearrangementChecks += permutationCount.words[0];
 		if (permutationCount.words.size == 2) {
 			remainingRearrangementChecks += (u64)permutationCount.words[1] << 32;

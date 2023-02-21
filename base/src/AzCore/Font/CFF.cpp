@@ -655,7 +655,7 @@ i32 DictOperatorResolution(u8 *data, OperandStack &stack, String &out) {
 						out += "FontName = " + ToString((SID)stack.Pop().ToI32());
 					} break;
 					default: {
-						cout.PrintLn("Operator Error (12 ", op2, ")");
+						cout.PrintLn("Operator Error (12 ", (u16)op2, ")");
 					}
 				}
 				return 2;
@@ -1511,7 +1511,7 @@ i32 dict::ResolveOperator(u8 *data, OperandStack &stack) {
 						FontName = (SID)stack.Pop().ToI32();
 					} break;
 					default: {
-						cout.PrintLn("Operator Error (12 ", op2, ")");
+						cout.PrintLn("Operator Error (12 ", (u16)op2, ")");
 					}
 				}
 				return 2;

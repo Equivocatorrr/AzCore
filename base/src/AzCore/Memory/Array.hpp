@@ -747,6 +747,16 @@ operator+(Array<T, allocTail> &&lhs, Array<T, allocTail> &&rhs) {
 	return out;
 }
 
+template<typename T2, i32 allocTail2, typename T1, i32 allocTail1>
+Array<T2, allocTail2> ConvertArrayTo(const Array<T1, allocTail1> &array) {
+	Array<T2, allocTail2> result(array.size);
+	for (i32 i = 0; i < array.size; i++) {
+		const T1 &val = array[i];
+		result[i] = val;
+	}
+	return result;
+}
+
 } // namespace AzCore
 
 #endif // AZCORE_ARRAY_HPP

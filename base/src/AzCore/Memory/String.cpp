@@ -45,7 +45,7 @@ void Reverse(SimpleRange<T> range) {
 	}
 }
 
-void AppendToString(String &string, u32 value, i32 base) {
+void AppendToStringWithBase(String &string, u32 value, i32 base) {
 	if (value == 0) {
 		string.Append("0");
 		return;
@@ -66,7 +66,7 @@ void AppendToString(String &string, u32 value, i32 base) {
 	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
 }
 
-void AppendToString(String &string, u64 value, i32 base) {
+void AppendToStringWithBase(String &string, u64 value, i32 base) {
 	if (value == 0) {
 		string.Append("0");
 		return;
@@ -88,7 +88,7 @@ void AppendToString(String &string, u64 value, i32 base) {
 }
 
 #if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
-void AppendToString(String &string, u128 value, i32 base) {
+void AppendToStringWithBase(String &string, u128 value, i32 base) {
 	if (value == 0) {
 		string.Append("0");
 		return;
@@ -110,7 +110,7 @@ void AppendToString(String &string, u128 value, i32 base) {
 }
 #endif
 
-void AppendToString(String &string, i32 value, i32 base) {
+void AppendToStringWithBase(String &string, i32 value, i32 base) {
 	if (value == 0) {
 		string.Append("0");
 		return;
@@ -135,7 +135,7 @@ void AppendToString(String &string, i32 value, i32 base) {
 	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
 }
 
-void AppendToString(String &string, i64 value, i32 base) {
+void AppendToStringWithBase(String &string, i64 value, i32 base) {
 	if (value == 0) {
 		string.Append("0");
 		return;
@@ -161,7 +161,7 @@ void AppendToString(String &string, i64 value, i32 base) {
 }
 
 #if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
-void AppendToString(String &string, i128 value, i32 base) {
+void AppendToStringWithBase(String &string, i128 value, i32 base) {
 	if (value == 0) {
 		string.Append("0");
 		return;
@@ -344,15 +344,15 @@ void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) 
 	string.Resize(i + 1);
 	if (newExponent >= EXPONENT_HIGH_BOUNDS) {
 		AppendToString(string, "e+");
-		AppendToString(string, newExponent, base);
+		AppendToStringWithBase(string, newExponent, base);
 	}
 	else if (newExponent <= EXPONENT_LOW_BOUNDS) {
 		AppendToString(string, "e-");
-		AppendToString(string, -newExponent, base);
+		AppendToStringWithBase(string, -newExponent, base);
 	}
 }
 
-void AppendToString(String &string, f32 value, i32 base, i32 precision) {
+void AppendToStringWithBase(String &string, f32 value, i32 base, i32 precision) {
 	u32 byteCode;
 	memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
 	const bool negative = (byteCode & 0x80000000) != 0;
@@ -375,14 +375,14 @@ void AppendToString(String &string, f32 value, i32 base, i32 precision) {
 		return;
 	}
 	if (exponent == 150) {
-		AppendToString(string, negative ? -(i32)significand : (i32)significand, base);
+		AppendToStringWithBase(string, negative ? -(i32)significand : (i32)significand, base);
 		string.Append(".0");
 		return;
 	}
 	_AppendFloatToString<f32, 24>(string, value, base, precision);
 }
 
-void AppendToString(String &string, f64 value, i32 base, i32 precision) {
+void AppendToStringWithBase(String &string, f64 value, i32 base, i32 precision) {
 	u64 byteCode;
 	memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
 	const bool negative = (byteCode & 0x8000000000000000) != 0;
@@ -405,7 +405,7 @@ void AppendToString(String &string, f64 value, i32 base, i32 precision) {
 		return;
 	}
 	if (exponent == 1075) {
-		AppendToString(string, negative ? -(i64)significand : (i64)significand, base);
+		AppendToStringWithBase(string, negative ? -(i64)significand : (i64)significand, base);
 		string.Append(".0");
 		return;
 	}
@@ -413,7 +413,7 @@ void AppendToString(String &string, f64 value, i32 base, i32 precision) {
 }
 
 #if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
-void AppendToString(String &string, f128 value, i32 base, i32 precision) {
+void AppendToStringWithBase(String &string, f128 value, i32 base, i32 precision) {
 	u128 byteCode;
 	memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
 	const bool negative = (byteCode >> 127) != 0;
@@ -437,7 +437,7 @@ void AppendToString(String &string, f128 value, i32 base, i32 precision) {
 	}
 	exponent -= 16383;
 	if (exponent == 112) {
-		AppendToString(string, (negative ? -(i128)significand : (i128)significand) >> (112 - exponent), base);
+		AppendToStringWithBase(string, (negative ? -(i128)significand : (i128)significand) >> (112 - exponent), base);
 		string.Append(".0");
 		return;
 	}

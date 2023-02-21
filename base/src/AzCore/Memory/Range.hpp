@@ -304,7 +304,7 @@ struct SimpleRange {
 	SimpleRange(const ArrayWithBucket<T, bucketSize, allocTail> &array) : str(array.data), size(array.size) {}
 	SimpleRange(const Range<T> &range) : size(range.size) {
 		if (range.PointsToArray()) {
-			str = (*((Array<T,0> *)range.ptr))[0];
+			str = &(*((Array<T,0> *)range.ptr))[range.index];
 		} else if (range.PointsToRaw()) {
 			str = (T*)range.ptr;
 		} else {

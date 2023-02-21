@@ -297,7 +297,7 @@ void Gamepad::Update(f32 timestep, i32 index) {
 			ioLog.PrintLn("DIERR_INPUTLOST");
 			result = rawInputDevice->data->device->Acquire();
 		}
-		ioLog.PrintLn("Poll failed: ", result);
+		ioLog.PrintLn("Poll failed: ", (long)result);
 		return;
 	}
 

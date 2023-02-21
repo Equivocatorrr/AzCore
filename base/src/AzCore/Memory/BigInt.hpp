@@ -201,7 +201,10 @@ public:
 
 static_assert(sizeof(BigInt) == 128);
 
-String ToString(const BigInt& value, const i32 base=10);
+void AppendToStringWithBase(String &string, const BigInt& value, i32 base);
+inline void AppendToString(String &string, const BigInt& value) {
+	AppendToStringWithBase(string, value, 10);
+}
 
 template<typename T>
 inline bool operator>(const T& a, const BigInt& b) {

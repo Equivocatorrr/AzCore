@@ -190,7 +190,6 @@ bool RawInput::Init(RawInputFeatureBits enableMask) {
 			error = "Failed to DirectInput8Create: " + ToString((u32)GetLastError());
 			return false;
 		}
-		ioLog.PrintLn("Created DirectInput8!");
 		{
 			// Enumerate DirectInput devices
 			if (data->directInput->EnumDevices(DI8DEVCLASS_GAMECTRL,

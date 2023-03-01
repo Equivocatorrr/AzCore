@@ -49,10 +49,10 @@ using SharedPtr = std::shared_ptr<T>;
 template<typename T>
 using WeakPtr = std::weak_ptr<T>;
 
-Array<char> FileContents(String filename, bool binary=true);
+[[nodiscard]] Array<char> FileContents(String filename, bool binary=true);
 
 template<typename T, i32 allocTail>
-Array<Range<T>> SeparateByValues(Array<T, allocTail> &array, const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values, bool allowEmpty=false) {
+[[nodiscard]] Array<Range<T>> SeparateByValues(Array<T, allocTail> &array, const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values, bool allowEmpty=false) {
 	Array<Range<T>> result;
 	i32 rangeStart = 0;
 	for (i32 i = 0; i < array.size; i++) {
@@ -70,7 +70,7 @@ Array<Range<T>> SeparateByValues(Array<T, allocTail> &array, const ArrayWithBuck
 }
 
 template<typename T, i32 allocTail, i32 noAllocCount>
-Array<Range<T>> SeparateByValues(ArrayWithBucket<T, noAllocCount, allocTail> &array,
+[[nodiscard]] Array<Range<T>> SeparateByValues(ArrayWithBucket<T, noAllocCount, allocTail> &array,
 		const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values, bool allowEmpty=false) {
 	Array<Range<T>> result;
 	i32 rangeStart = 0;
@@ -89,7 +89,7 @@ Array<Range<T>> SeparateByValues(ArrayWithBucket<T, noAllocCount, allocTail> &ar
 }
 
 template<typename T, i32 allocTail=0>
-Array<Range<T>> SeparateByValues(Range<T> &range,
+[[nodiscard]] Array<Range<T>> SeparateByValues(Range<T> &range,
 		const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values, bool allowEmpty=false) {
 	Array<Range<T>> result;
 	i32 rangeStart = 0;
@@ -108,7 +108,7 @@ Array<Range<T>> SeparateByValues(Range<T> &range,
 }
 
 template<typename T, i32 allocTail=0>
-Array<Range<T>> SeparateByValues(T *array,
+[[nodiscard]] Array<Range<T>> SeparateByValues(T *array,
 		const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values, bool allowEmpty=false) {
 	Array<Range<T>> result;
 	i32 rangeStart = 0;
@@ -127,7 +127,7 @@ Array<Range<T>> SeparateByValues(T *array,
 }
 
 template<typename T, i32 allocTail=0>
-Array<Range<T>> SeparateByStrings(Array<T, allocTail> &array,
+[[nodiscard]] Array<Range<T>> SeparateByStrings(Array<T, allocTail> &array,
 		const ArrayWithBucket<SimpleRange<T>, 16/sizeof(SimpleRange<T>), 0> &strings, bool allowEmpty=false) {
 	Array<Range<T>> result;
 	i32 rangeStart = 0;

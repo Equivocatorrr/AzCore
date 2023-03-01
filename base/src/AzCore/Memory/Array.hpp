@@ -740,7 +740,7 @@ struct Array {
 };
 
 template<typename T, i32 allocTail>
-force_inline(Array<T, allocTail>)
+[[nodiscard]] force_inline(Array<T, allocTail>)
 operator+(Array<T, allocTail> &&lhs, Array<T, allocTail> &&rhs) {
 	Array<T, allocTail> out(std::move(lhs));
 	out.Append(std::move(rhs));
@@ -748,7 +748,7 @@ operator+(Array<T, allocTail> &&lhs, Array<T, allocTail> &&rhs) {
 }
 
 template<typename T2, i32 allocTail2, typename T1, i32 allocTail1>
-Array<T2, allocTail2> ConvertArrayTo(const Array<T1, allocTail1> &array) {
+[[nodiscard]] Array<T2, allocTail2> ConvertArrayTo(const Array<T1, allocTail1> &array) {
 	Array<T2, allocTail2> result(array.size);
 	for (i32 i = 0; i < array.size; i++) {
 		const T1 &val = array[i];

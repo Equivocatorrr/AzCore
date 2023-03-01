@@ -11,7 +11,10 @@
 
 namespace AzCore {
 
+// You can use Str in place of String as long as you're aware of the lifetime of the memory it points to since it has no storage of its own.
+// Also useful for making a common interface for both const char literals and String lvalues.
 using Str = SimpleRange<char>;
+using Str32 = SimpleRange<char32>;
 
 size_t align(size_t size, size_t alignment);
 size_t alignNonPowerOfTwo(size_t size, size_t alignment);
@@ -277,10 +280,13 @@ constexpr i32 IndexHash(const String &in) {
 	return i32(hash % bounds);
 }
 
-String Join(const Array<SimpleRange<char>, 0> &values, SimpleRange<char> joiner);
+String Join(const Array<Str, 0> &values, Str joiner);
 
-Array<SimpleRange<char>, 0> SeparateByNewlines(SimpleRange<char> string, bool allowEmpty=false);
-Array<SimpleRange<char32>, 0> SeparateByNewlines(SimpleRange<char32> string, bool allowEmpty=false);
+Array<Str, 0> SeparateByNewlines(Str string, bool allowEmpty=false);
+Array<Str32, 0> SeparateByNewlines(Str32 string, bool allowEmpty=false);
+
+void StrToLower(Str str);
+void StrToUpper(Str str);
 
 } // namespace AzCore
 

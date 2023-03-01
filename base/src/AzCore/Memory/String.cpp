@@ -721,12 +721,24 @@ Array<SimpleRange<char_t>> _SeparateByNewlines(SimpleRange<char_t> string, bool 
 	return result;
 }
 
-Array<SimpleRange<char>> SeparateByNewlines(SimpleRange<char> string, bool allowEmpty) {
+Array<Str> SeparateByNewlines(Str string, bool allowEmpty) {
 	return _SeparateByNewlines<char>(string, allowEmpty);
 }
 
-Array<SimpleRange<char32>> SeparateByNewlines(SimpleRange<char32> string, bool allowEmpty) {
+Array<Str32> SeparateByNewlines(Str32 string, bool allowEmpty) {
 	return _SeparateByNewlines<char32>(string, allowEmpty);
+}
+
+void StrToLower(Str str) {
+	for (i32 i = 0; i < str.size; i++) {
+		str[i] = CharToLower(str[i]);
+	}
+}
+
+void StrToUpper(Str str) {
+	for (i32 i = 0; i < str.size; i++) {
+		str[i] = CharToUpper(str[i]);
+	}
 }
 
 } // namespace AzCore

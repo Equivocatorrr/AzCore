@@ -37,7 +37,7 @@ struct UniquePtr {
 		if (ptr) delete ptr;
 	}
 	// Let go of the pointer, leaving the responsibility of cleaning it up to someone else.
-	T* Release() {
+	[[nodiscard]] T* Release() {
 		T* out = ptr;
 		ptr = nullptr;
 		return out;

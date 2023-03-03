@@ -32,6 +32,9 @@ void Sprite::AssetsAcquire() {
 	if (tex.emit == 0) {
 		tex.emit = 3;
 	}
+	if (framesEnd == vec2i(-1)) {
+		framesEnd = SpriteSheetSize();
+	}
 }
 
 void Sprite::Update(f32 timestep) {
@@ -45,18 +48,26 @@ void Sprite::Update(f32 timestep) {
 void Sprite::Draw(Rendering::DrawingContext &context, vec2 pos, vec2 scalePreRot, vec2 scalePostRot, az::Radians32 rotation, Rendering::PipelineIndex pipeline, Rendering::Material material, f32 zShear, f32 zPos) {
 	pos = entitiesBasic->WorldPosToScreen(pos);
 	zPos = zPos * entitiesBasic->camZoom + (f32)sys->window.height / 2.0f;
+	vec2 size = vec2(Size());
 	// Add a lil tiny extra bit to prevent holes in tiled sprites from floating point precision errors
-	vec2 size = Size() * 1.0000001f;
-	scalePreRot *= size * entitiesBasic->camZoom;
+	scalePreRot *= size * entitiesBasic->camZoom * 1.0000001f;
 	vec2 actualOrigin = origin/size;
-	sys->rendering.DrawQuad(context, pos, scalePreRot, scalePostRot, actualOrigin, rotation, pipeline, material, tex, zShear, zPos);
+	vec2 fullSize = vec2(SpriteSheetSize());
+	vec2 texCoordScale = size / fullSize;
+	sys->rendering.DrawQuad(context, pos, scalePreRot, scalePostRot, actualOrigin, rotation, pipeline, material, tex, zShear, zPos, texCoordScale, vec2(f32(framesStart.x)/fullSize.x + texCoordScale.x*floor(frame), f32(framesStart.y)/fullSize.y));
 	
 }
 
-vec2 Sprite::Size() const {
+vec2i Sprite::Size() const {
+	vec2i result = framesEnd-framesStart;
+	result.x /= nFrames;
+	return result;
+}
+
+vec2i Sprite::SpriteSheetSize() const {
 	i32 texChoice = tex.albedo != 0 ? tex.albedo : tex.normal;
 	const Assets::Texture &texture = sys->assets.textures[texChoice];
-	vec2 result = vec2(texture.width / nFrames, texture.height);
+	vec2i result = vec2i(texture.width, texture.height);
 	return result;
 }
 

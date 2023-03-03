@@ -59,8 +59,8 @@ struct TexIndices {
 };
 
 layout(push_constant) uniform pushConstants {
-	layout(offset = 48) Material mat;
-	layout(offset = 72) TexIndices tex;
+	layout(offset = 64) Material mat;
+	layout(offset = 88) TexIndices tex;
 } pc;
 
 float map(float a, float min1, float max1, float min2, float max2) {

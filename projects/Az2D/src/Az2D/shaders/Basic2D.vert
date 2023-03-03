@@ -10,9 +10,11 @@ layout(push_constant) uniform pushConstants {
 	layout(offset = 0) mat2 transform;
 	layout(offset = 16) vec2 origin;
 	layout(offset = 24) vec2 position;
+	layout(offset = 32) vec2 texScale;
+	layout(offset = 40) vec2 texOffset;
 } pc;
 
 void main() {
 	gl_Position = vec4(pc.transform * (inPosition - pc.origin) + pc.position, 0.0, 1.0);
-	outTexCoord = inTexCoord;
+	outTexCoord = inTexCoord * pc.texScale + pc.texOffset;
 }

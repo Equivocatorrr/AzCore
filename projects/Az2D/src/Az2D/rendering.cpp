@@ -615,9 +615,6 @@ void Manager::UpdateLights() {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::UpdateLights)
 	i32 lightCounts[LIGHT_BIN_COUNT] = {0};
 	i32 totalLights = 1;
-	if (sys->Pressed(KC_KEY_L)) {
-		cout.PrintLn("lights.size = ", lights.size);
-	}
 	// By default, they all point to the default light which has no light at all
 	memset(uniforms.lightBins, 0, sizeof(uniforms.lightBins));
 #if 1
@@ -1274,7 +1271,7 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 	}
 }
 
-void Manager::DrawQuadSS(DrawingContext &context, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline, Material material, TexIndices texture, f32 zShear, f32 zPos) const {
+void Manager::DrawQuadSS(DrawingContext &context, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline, Material material, TexIndices texture, f32 zShear, f32 zPos, vec2 texScale, vec2 texOffset) const {
 	Rendering::PushConstants pc = Rendering::PushConstants();
 	BindPipeline(context, pipeline);
 	material.color.rgb = sRGBToLinear(material.color.rgb);
@@ -1284,6 +1281,8 @@ void Manager::DrawQuadSS(DrawingContext &context, vec2 position, vec2 scalePre, 
 	pc.vert.zShear = zShear;
 	pc.vert.z = zPos;
 	pc.vert.transform = mat2::Scaler(scalePre);
+	pc.vert.texScale = texScale;
+	pc.vert.texOffset = texOffset;
 	if (rotation != 0.0f) {
 		pc.vert.transform = pc.vert.transform * mat2::Rotation(rotation.value());
 	}
@@ -1323,9 +1322,9 @@ void Manager::DrawText(DrawingContext &context, WString text, i32 fontIndex, vec
 	DrawTextSS(context, text, fontIndex, color, position * screenSizeFactor + vec2(-1.0f), scale * screenSizeFactor.y, alignH, alignV, maxWidth * screenSizeFactor.x, edge, bounds);
 }
 
-void Manager::DrawQuad(DrawingContext &context, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline, Material material, TexIndices texture, f32 zShear, f32 zPos) const {
+void Manager::DrawQuad(DrawingContext &context, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation, PipelineIndex pipeline, Material material, TexIndices texture, f32 zShear, f32 zPos, vec2 texScale, vec2 texOffset) const {
 	const vec2 screenSizeFactor = vec2(2.0f) / screenSize;
-	DrawQuadSS(context, position * screenSizeFactor + vec2(-1.0f), scalePre, scalePost * screenSizeFactor, origin, rotation, pipeline, material, texture, zShear, zPos*screenSizeFactor.y - 1.0f);
+	DrawQuadSS(context, position * screenSizeFactor + vec2(-1.0f), scalePre, scalePost * screenSizeFactor, origin, rotation, pipeline, material, texture, zShear, zPos*screenSizeFactor.y - 1.0f, texScale, texOffset);
 }
 
 void Manager::DrawCircle(DrawingContext &context, i32 texIndex, vec4 color, vec2 position, vec2 scalePre, vec2 scalePost, vec2 origin, Radians32 rotation) const {

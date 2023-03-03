@@ -20,10 +20,10 @@ struct TexIndices {
 };
 
 layout(push_constant) uniform pushConstants {
-	layout(offset = 48) Material mat;
-	layout(offset = 72) TexIndices tex;
-	layout(offset = 84) float edge;
-	layout(offset = 88) float bounds;
+	layout(offset = 64) Material mat;
+	layout(offset = 88) TexIndices tex;
+	layout(offset = 100) float edge;
+	layout(offset = 104) float bounds;
 } pc;
 
 void main() {

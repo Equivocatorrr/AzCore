@@ -16,8 +16,10 @@ layout(push_constant) uniform pushConstants {
 	layout(offset = 0) mat2 transform;
 	layout(offset = 16) vec2 origin;
 	layout(offset = 24) vec2 position;
-	layout(offset = 32) float z;
-	layout(offset = 36) float zShear;
+	layout(offset = 32) vec2 texScale;
+	layout(offset = 40) vec2 texOffset;
+	layout(offset = 48) float z;
+	layout(offset = 52) float zShear;
 } pc;
 
 layout(std430, set=0, binding=0) uniform UniformBuffer {
@@ -37,7 +39,7 @@ void main() {
 	vec2 pos = localPos + pc.position;
 	float z = pc.z + pc.zShear * localPos.y;
 	gl_Position = vec4(pos, 0.0, 1.0);
-	outTexCoord = inTexCoord;
+	outTexCoord = inTexCoord * pc.texScale + pc.texOffset;
 	outScreenPos = (vec3(pos, z) + 1.0) * 0.5 * vec3(ub.screenSize, ub.screenSize.y);
 	// vec2 basisX = normalize(vec2(pc.transform[0][0], pc.transform[1][0]));
 	// vec2 basisY = normalize(vec2(pc.transform[0][1], pc.transform[1][1]));

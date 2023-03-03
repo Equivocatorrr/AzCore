@@ -14,8 +14,8 @@ struct Material {
 };
 
 layout(push_constant) uniform pushConstants {
-	layout(offset = 48) Material mat;
-	layout(offset = 72) int texId;
+	layout(offset = 64) Material mat;
+	layout(offset = 88) int texId;
 } pc;
 
 void main() {

@@ -13,10 +13,10 @@ using namespace AzCore;
 using GameSystems::sys;
 using Entities::entitiesBasic;
 
-void Sprite::AssetsQueue(az::SimpleRange<char> name) {
-	nameAlbedo = Stringify(name, ".tga");
-	nameNormal = Stringify(name, "_n.tga");
-	nameEmit = Stringify(name, "_e.tga");
+void Sprite::AssetsQueue(Str name, Str fileExtension) {
+	nameAlbedo = Stringify(name, '.', fileExtension);
+	nameNormal = Stringify(name, "_n.", fileExtension);
+	nameEmit = Stringify(name, "_e.", fileExtension);
 	sys->assets.QueueFile(nameAlbedo);
 	sys->assets.QueueLinearTexture(nameNormal);
 	sys->assets.QueueFile(nameEmit);

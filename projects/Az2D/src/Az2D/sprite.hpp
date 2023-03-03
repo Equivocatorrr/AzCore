@@ -32,7 +32,7 @@ struct Sprite {
 	inline void Reset() {
 		frame = 0.0f;
 	}
-	void AssetsQueue(az::SimpleRange<char> name);
+	void AssetsQueue(az::Str name, az::Str fileExtension="tga");
 	void AssetsAcquire();
 	// Update just progresses the animation if there is one
 	void Update(f32 timestep);

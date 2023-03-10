@@ -39,10 +39,7 @@ void Sprite::AssetsAcquire() {
 
 void Sprite::Update(f32 timestep) {
 	if (nFrames <= 1) return;
-	frame += timestep * framerate;
-	while ((i32)frame >= nFrames) {
-		frame -= (f32)nFrames;
-	}
+	frame = fmod(frame + timestep * framerate, (f32)nFrames);
 }
 
 void Sprite::Draw(Rendering::DrawingContext &context, vec2 pos, vec2 scalePreRot, vec2 scalePostRot, az::Radians32 rotation, Rendering::PipelineIndex pipeline, Rendering::Material material, f32 zShear, f32 zPos) {

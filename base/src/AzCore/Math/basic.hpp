@@ -10,6 +10,8 @@
 // Use math.h because it puts the overloads in global namespace.
 #include <math.h>
 
+#include <emmintrin.h>
+
 namespace AzCore {
 
 const f64 halfpi64 = 1.5707963267948966;
@@ -44,6 +46,28 @@ Int intDivCeil(Int numerator, Int denominator) {
 	return (numerator + denominator - 1) / denominator;
 }
 
+// Takes a positive amplitude (the root-power quantity) factor and returns decibels
+template<typename F>
+F ampToDecibels(F amp) {
+	AzAssert(amp >= F(0), "val must be positive");
+	
+	F result;
+	if (amp == F(0)) {
+		result = F(-INFINITY);
+	} else {
+		result = F(20) * log10(amp);
+	}
+	return result;
+}
+
+// Takes the value in decibels and returns the amplitude (the root-power quantity)
+template<typename F>
+F decibelsToAmp(F db) {
+	F result;
+	result = pow(F(10), db / F(20));
+	return result;
+}
+
 } // namespace AzCore
 
 template <typename T>
@@ -61,6 +85,26 @@ constexpr T max(T a, T b) {
 	return (T)(a > b) * a + (T)(b >= a) * b;
 }
 
+inline f32 min(f32 a, f32 b) {
+	_mm_store_ss(&a, _mm_min_ss(_mm_set_ss(a), _mm_set_ss(b)));
+	return a;
+}
+
+inline f32 max(f32 a, f32 b) {
+	_mm_store_ss(&a, _mm_max_ss(_mm_set_ss(a), _mm_set_ss(b)));
+	return a;
+}
+
+inline f64 min(f64 a, f64 b) {
+	_mm_store_sd(&a, _mm_min_sd(_mm_set_sd(a), _mm_set_sd(b)));
+	return a;
+}
+
+inline f64 max(f64 a, f64 b) {
+	_mm_store_sd(&a, _mm_max_sd(_mm_set_sd(a), _mm_set_sd(b)));
+	return a;
+}
+
 template <typename T>
 constexpr T median(T a, T b, T c) {
 	return max(min(a, b), min(max(a, b), c));
@@ -75,6 +119,16 @@ template <typename T>
 constexpr T clamp(T a, T min, T max) {
 	AzAssert(min <= max, "in clamp(): min > max. Maybe you meant to use median()?");
 	return max * T(a > max) + min * T(a < min) + a * T(a <= max && a >= min);
+}
+
+inline f32 clamp(f32 a, f32 min, f32 max) {
+	AzAssert(min <= max, "in clamp(): min > max. Maybe you meant to use median()?");
+	return ::min(::max(a, min), max);
+}
+
+inline f64 clamp(f64 a, f64 min, f64 max) {
+	AzAssert(min <= max, "in clamp(): min > max. Maybe you meant to use median()?");
+	return ::min(::max(a, min), max);
 }
 
 template <typename T>

@@ -349,6 +349,8 @@ bool TextFilterDigits(char32 c);
 bool TextValidateAll(const az::WString &string); // Only returns true
 bool TextValidateNonempty(const az::WString &string); // String size must not be zero
 bool TextValidateDecimals(const az::WString &string); // Confirms the format of -123.456
+bool TextValidateDecimalsNegative(const az::WString &string); // Confirms the format of -123.456 with enforced negative
+bool TextValidateDecimalsNegativeAndInfinity(const az::WString &string); // Confirms the format of -123.456 with enforced negative and allowing -infinity
 bool TextValidateDecimalsPositive(const az::WString &string); // Confirms the format of 123.456
 bool TextValidateIntegers(const az::WString &string); // Confirms the format of -123456
 // Digits validation would be the same as TextFilterDigits + TextValidateAll
@@ -359,6 +361,9 @@ struct TextBox : public Widget {
 	az::WString string;
 	// The formatted text for drawing.
 	az::WString stringFormatted;
+	/* Suffix drawn in the textbox that can't be interacted with
+		Default: "" */
+	az::WString stringSuffix;
 	/*  The color of the background when not highlighted and text validation passed.
 		Default: {vec3(0.15), 0.9} */
 	vec4 colorBG;
@@ -426,6 +431,18 @@ struct Slider : public Widget {
 	/*  Maximum bounds for value.
 		Default: 1.0 */
 	f32 valueMax;
+	/*  Whether to override the minimum slider value when it's in the minimum position.
+		Default: false */
+	bool minOverride;
+	/*  The value used when overriding the minimum value.
+		Default: 0.0f */
+	f32 minOverrideValue;
+	/*  Whether to override the maximum slider value when it's in the maximum position.
+		Default: false */
+	bool maxOverride;
+	/*  The value used when overriding the maximum value.
+		Default: 1.0f */
+	f32 maxOverrideValue;
 	/*  Any TextBox that should reflect the value of the slider in text, and which can likewise affect our value.
 		Default: nullptr */
 	TextBox *mirror;
@@ -452,6 +469,10 @@ struct Slider : public Widget {
 	~Slider() = default;
 	void Update(vec2 pos, bool selected) override;
 	void Draw(Rendering::DrawingContext &context) const override;
+	
+	void SetValue(f32 newValue);
+	f32 GetActualValue();
+	void UpdateMirror();
 };
 
 // Must have exactly one child or else!

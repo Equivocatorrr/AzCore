@@ -902,7 +902,7 @@ void Checkbox::Draw(Rendering::DrawingContext &context) const {
 	sys->rendering.DrawQuad(context, switchPos, (sizeAbsolute * vec2(0.375f, 0.75f)) * guiBasic->scale, 1.0f, 0.5f, -halfpi * transition, Rendering::PIPELINE_BASIC_2D, vec4(vec3(0.0f), 0.8f));
 }
 
-TextBox::TextBox() : string(), colorBG(vec3(0.15f), 0.9f), highlightBG(vec3(0.2f), 0.9f), errorBG(0.1f, 0.0f, 0.0f, 0.9f), colorText(vec3(1.0f), 1.0f), highlightText(vec3(1.0f), 1.0f), errorText(1.0f, 0.5f, 0.5f, 1.0f), padding(2.0f), cursor(0), fontIndex(1), fontSize(17.39f), cursorBlinkTimer(0.0f), alignH(Rendering::LEFT), textFilter(TextFilterBasic), textValidate(TextValidateAll), entry(false), multiline(false) {
+TextBox::TextBox() : string(), stringFormatted(), stringSuffix(), colorBG(vec3(0.15f), 0.9f), highlightBG(vec3(0.2f), 0.9f), errorBG(0.1f, 0.0f, 0.0f, 0.9f), colorText(vec3(1.0f), 1.0f), highlightText(vec3(1.0f), 1.0f), errorText(1.0f, 0.5f, 0.5f, 1.0f), padding(2.0f), cursor(0), fontIndex(1), fontSize(17.39f), cursorBlinkTimer(0.0f), alignH(Rendering::LEFT), textFilter(TextFilterBasic), textValidate(TextValidateAll), entry(false), multiline(false) {
 	selectable = true;
 	occludes = true;
 	fractionWidth = false;
@@ -971,6 +971,46 @@ bool TextValidateDecimals(const WString &string) {
 	return true;
 }
 
+bool TextValidateDecimalsNegative(const WString &string) {
+	if (string.size == 0) return false;
+	if (string[0] != '-') return false;
+	if (string.size == 1 && (string[0] == '.' || string[0] == '-')) return false;
+	if (string.size == 2 && (string[0] == '-' && string[1] == '.')) return false;
+	i32 cur = 1;
+	bool point = false;
+	for (; cur < string.size; cur++) {
+		const char32 &c = string[cur];
+		if (c == '.') {
+			if (point) return false;
+			point = true;
+			continue;
+		}
+		if (!TextFilterDigits(c)) return false;
+	}
+	return true;
+}
+
+bool TextValidateDecimalsNegativeAndInfinity(const WString &string) {
+	static WString negInfinity = ToWString("-Infinity");
+	if (string == negInfinity) return true;
+	if (string.size == 0) return false;
+	if (string[0] != '-') return false;
+	if (string.size == 1 && (string[0] == '.' || string[0] == '-')) return false;
+	if (string.size == 2 && (string[0] == '-' && string[1] == '.')) return false;
+	i32 cur = 1;
+	bool point = false;
+	for (; cur < string.size; cur++) {
+		const char32 &c = string[cur];
+		if (c == '.') {
+			if (point) return false;
+			point = true;
+			continue;
+		}
+		if (!TextFilterDigits(c)) return false;
+	}
+	return true;
+}
+
 bool TextValidateDecimalsPositive(const WString &string) {
 	if (string.size == 0) return false;
 	if (string.size == 1 && string[0] == '.') return false;
@@ -1008,7 +1048,7 @@ void TextBox::CursorFromPosition(vec2 position) {
 	cursor = 0;
 	cursorPos.y += fontSize * Rendering::lineHeight * scale + positionAbsolute.y + padding.y * scale;
 	if (cursorPos.y <= position.y / guiBasic->scale) {
-		for (; cursor < stringFormatted.size; cursor++) {
+		for (; cursor < stringFormatted.size-stringSuffix.size; cursor++) {
 			const char32 &c = stringFormatted[cursor];
 			if (c == '\n') {
 				if (string[cursor-formatNewlines] != '\n' && string[cursor-formatNewlines] != ' ' && string[cursor-formatNewlines] != '\t') {
@@ -1033,7 +1073,7 @@ void TextBox::CursorFromPosition(vec2 position) {
 	cursorPos *= guiBasic->scale;
 	spaceWidth *= spaceScale * guiBasic->scale;
 	f32 advanceCarry;
-	for (; cursor < stringFormatted.size; cursor++) {
+	for (; cursor < stringFormatted.size-stringSuffix.size; cursor++) {
 		const char32 &c = stringFormatted[cursor];
 		if (c == '\n') {
 			break;
@@ -1249,9 +1289,9 @@ void TextBox::Update(vec2 pos, bool selected) {
 		}
 	}
 	if (size.x != 0.0f && multiline) {
-		stringFormatted = sys->rendering.StringAddNewlines(string, fontIndex, (sizeAbsolute.x - padding.x * 2.0f * scale) / fontSize);
+		stringFormatted = sys->rendering.StringAddNewlines(string + stringSuffix, fontIndex, (sizeAbsolute.x - padding.x * 2.0f * scale) / fontSize);
 	} else {
-		stringFormatted = string;
+		stringFormatted = string + stringSuffix;
 	}
 	Widget::Update(pos, selected);
 	bool mouseover = MouseOver();
@@ -1331,6 +1371,8 @@ void TextBox::Draw(Rendering::DrawingContext &context) const {
 Slider::Slider() :
 value(1.0f),                    valueMin(0.0f),
 valueMax(1.0f),                 mirror(nullptr),
+minOverride(false),             minOverrideValue(0.0f),
+maxOverride(false),             maxOverrideValue(1.0f),
 colorBG(vec3(0.15f), 0.9f),     colorSlider(colorHighlightMedium, 1.0f),
 highlightBG(vec3(0.2f), 0.9f),  highlightSlider(colorHighlightHigh, 1.0f),
 grabbed(false), left(), right()
@@ -1411,18 +1453,7 @@ void Slider::Update(vec2 pos, bool selected) {
 	}
 	if (mirror != nullptr) {
 		if (updated) {
-			mirror->string = ToWString(ToString(value, 10, 1));
-			i32 dot = -1;
-			for (i32 i = 0; i < mirror->string.size; i++) {
-				char32 &c = mirror->string[i];
-				if (c == '.') {
-					dot = i;
-					break;
-				}
-			}
-			if (dot != -1) {
-				mirror->string.Resize(dot+2);
-			}
+			UpdateMirror();
 		} else if (mirror->entry) {
 			if (mirror->textValidate(mirror->string)) {
 				WStringToF32(mirror->string, &value);
@@ -1441,6 +1472,38 @@ void Slider::Draw(Rendering::DrawingContext &context) const {
 	drawPos.x += map(value, valueMin, valueMax, 2.0f * scale, sizeAbsolute.x - knobSize) * guiBasic->scale;
 	drawPos.y += 2.0f * guiBasic->scale * scale;
 	sys->rendering.DrawQuad(context, drawPos, vec2(12.0f * scale, sizeAbsolute.y - 4.0f * scale) * guiBasic->scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, slider);
+}
+
+void Slider::SetValue(f32 newValue) {
+	value = clamp(newValue, valueMin, valueMax);
+}
+
+f32 Slider::GetActualValue() {
+	f32 actualValue;
+	if (minOverride && value == valueMin) {
+		actualValue = minOverrideValue;
+	} else if (maxOverride && value == valueMax) {
+		actualValue = maxOverrideValue;
+	} else {
+		actualValue = value;
+	}
+	return actualValue;
+}
+
+void Slider::UpdateMirror() {
+	f32 actualValue = GetActualValue();
+	mirror->string = ToWString(ToString(actualValue, 10, 1));
+	i32 dot = -1;
+	for (i32 i = 0; i < mirror->string.size; i++) {
+		char32 &c = mirror->string[i];
+		if (c == '.') {
+			dot = i;
+			break;
+		}
+	}
+	if (dot != -1) {
+		mirror->string.Resize(dot+2);
+	}
 }
 
 Hideable::Hideable(Widget *child) : hidden(false), hiddenPrev(false) {

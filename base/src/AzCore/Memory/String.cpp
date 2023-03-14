@@ -554,10 +554,36 @@ bool _StringToFloat(StringBase<Char> string, Float *dst, i32 base) {
 }
 
 bool StringToF32(String string, f32 *dst, i32 base) {
+	if (string == "Infinity") {
+		*dst = INFINITY;
+		return true;
+	} else if (string == "-Infinity") {
+		*dst = -INFINITY;
+		return true;
+	} else if (string == "NaN") {
+		*dst = NAN;
+		return true;
+	} else if (string == "-NaN") {
+		*dst = -NAN;
+		return true;
+	}
 	return _StringToFloat<f32>(string, dst, base);
 }
 
 bool StringToF64(String string, f64 *dst, i32 base) {
+	if (string == "Infinity") {
+		*dst = INFINITY;
+		return true;
+	} else if (string == "-Infinity") {
+		*dst = -INFINITY;
+		return true;
+	} else if (string == "NaN") {
+		*dst = NAN;
+		return true;
+	} else if (string == "-NaN") {
+		*dst = -NAN;
+		return true;
+	}
 	return _StringToFloat<f64>(string, dst, base);
 }
 
@@ -567,7 +593,25 @@ bool StringToF128(String string, f128 *dst, i32 base) {
 }
 #endif
 
+static WString wInfinity = ToWString("Infinity");
+static WString wNInfinity = ToWString("-Infinity");
+static WString wNaN = ToWString("NaN");
+static WString wNNaN = ToWString("-NaN");
+
 bool WStringToF32(WString string, f32 *dst, i32 base) {
+	if (string == wInfinity) {
+		*dst = INFINITY;
+		return true;
+	} else if (string == wNInfinity) {
+		*dst = -INFINITY;
+		return true;
+	} else if (string == wNaN) {
+		*dst = NAN;
+		return true;
+	} else if (string == wNNaN) {
+		*dst = -NAN;
+		return true;
+	}
 	return _StringToFloat<f32>(string, dst, base);
 }
 

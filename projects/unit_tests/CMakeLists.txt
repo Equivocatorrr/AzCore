@@ -8,6 +8,7 @@ add_executable(unit_tests
 	src/tests/BinarySet.cpp
 	src/tests/BinaryMap.cpp
 	src/tests/BasicMath.cpp
+	src/tests/Angle.cpp
 	src/tests/Quaternion.cpp
 	src/tests/String.cpp
 	src/tests/StringArena.cpp

@@ -17,7 +17,7 @@ equally, and which makes as many guarantees as possible.
 ## Methodology
 The guiding principles behind development of this toolset are cyclical and non-feature-exhaustive.
 
-In short, the desired features are determined by work on the various [projects](https://github.com/SingularityAzure/AzCore/tree/master/projects), and implemented alongside those projects.
+In short, the desired features are determined by work on the various [projects](projects), and implemented alongside those projects.
 
 Features are implemented on an as-needed basis such that any feature has a known use-case and a way to test it. This prevents
 the developer from writing code they think *might* be useful, and instead focus on code that is definitely useful.
@@ -28,7 +28,7 @@ This, of course, also has downsides, namely the need to occasionally touch up th
 Such occurrences are becoming rarer as the tools age, but note that any new features are subject to change rapidly.
 
 ## Contributing
-**_Be sure to read the [Contribution Guidelines](https://github.com/SingularityAzure/AzCore/blob/master/CONTRIBUTING.md)_**
+**_Be sure to read the [Contribution Guidelines](CONTRIBUTING.md)_**
 
 Any and all contributions are appreciated so long as they're in line with the **Goals** of this project.
 If you have any questions regarding a specific feature, you may ask me a question via email at singularity.haynes@gmail.com.
@@ -49,18 +49,14 @@ $ cd AzCore
 ```
 ### Linux
 #### Dependencies
-AzCore uses Vulkan as its primary graphics API, and xcb for window IO, so make sure to set up a build environment for Vulkan, xcb, xkbcommon, and openal for the example projects.
-On a Debian-based system (such as Ubuntu) the you can get all the dependencies with:
-```console
-$ sudo apt-get install libvulkan-dev libxcb1-dev libxcb-image0-dev libxcb-shm0-dev libxkbcommon-dev libxkbcommon-x11-dev libopenal-dev
-```
-Alternatively, you can grab the Vulkan SDK from [LunarG.](https://www.lunarg.com/vulkan-sdk/)
+AzCore uses Vulkan as its primary graphics API, and xcb and Wayland for window IO, so make sure to set up a build environment for Vulkan, xcb, wayland, xkbcommon, and openal for the example projects.
+You can use your distribution's Vulkan dev package, or you can grab the Vulkan SDK from [LunarG.](https://www.lunarg.com/vulkan-sdk/)
 *Note that using the Vulkan SDK requires setting the environment variable `LINUX_VULKAN_SDK` to the path of the SDK's root folder, or specifying the path when calling `build.sh`. Likewise, the environment variable `WIN32_VULKAN_SDK` can be set for cross-compiling to Windows.*
 
 Also note that you only need the development package from your distribution *OR* the SDK and **not both.** *When using the development packages, you don't need to set any environment variables.*
 
 #### Building
-This project is built using CMake, but to keep things simple and easy, I've written a script to handle everything cleanly. Just calling: `$ ./build.sh` should tell you what the script can do for you.
+This project is built using CMake (3.25 or newer), but to keep things simple and easy, I've written a script to handle everything cleanly. Just calling: `$ ./build.sh` should tell you what the script can do for you.
 
 To build the Release configuration and install it in one go, it's as simple as calling
 ```console
@@ -87,7 +83,7 @@ $ ./build.sh ReleaseW install WIN32_VULKAN_SDK /path/to/win32_sdk
 
 ### Windows
 #### Dependencies
-You'll need a development environment set up with MSVC, [CMake](https://cmake.org/download/), and Vulkan. Since AzCore uses Vulkan as its primary graphics API, you'll need to grab the Vulkan SDK from [LunarG.](https://www.lunarg.com/vulkan-sdk/) Once you have that you can set the environment variable `VULKAN_SDK` to the path you installed the SDK into (`C:\VulkanSDK\<version>` by default).
+You'll need a development environment set up with MSVC, [CMake 3.25 or newer](https://cmake.org/download/), and Vulkan. Since AzCore uses Vulkan as its primary graphics API, you'll need to grab the Vulkan SDK from [LunarG.](https://www.lunarg.com/vulkan-sdk/) Once you have that you can set the environment variable `VULKAN_SDK` to the path you installed the SDK into (`C:\VulkanSDK\<version>` by default).
 
 #### Building
 This project is built using CMake, but to keep things simple and easy, I've written a script to handle everything cleanly. Just calling: `> build.bat` should tell you what the script can do for you.
@@ -111,7 +107,9 @@ Included are several projects that demonstrate the usage of AzCore. In lieu of p
 - **fractal_explorer** An example of using *SIMD,* the *Software Renderer,* and *Window IO* to explore the mandelbrot set.
 - **font_test** An old way of testing the generation of *font* atlases.
 - **persistence** Uses *BigInt* to determine how many iterations it takes for any number to resolve to zero by repeatedly multiplying its base-10 digits together.
-- **unit_tests** A small suite of tests to verify the implementations of some basic containers and maths. More tests are always needed.
+- **unit_tests** A small suite of tests to verify the correctness of the library. More tests are always needed.
+- **Az2D** A 2D game engine in development which is used by LD46 and tower_defense.
+- **Az2D_Example** Example project for an Az2D game.
 
 #### Linux
 The build script allows you to run these from the root of the project like so:
@@ -153,7 +151,7 @@ target_link_libraries(your_target PUBLIC AzCore_Vulkan)
 # For using the Software Renderer with Window IO
 target_link_libraries(your_target PUBLIC AzCore_SoftwareRenderer)
 ```
-Since AzCore is exported a static library, if you don't use CMake, then you'll probably have to link all of the libraries yourself. This allows for a single library that doesn't require you to link to features you don't use. To keep maintenance simpler, I'll refrain from listing the library dependencies here, and instead refer you to [base/CMakeLists.txt](https://github.com/SingularityAzure/AzCore/blob/cmake/base/CMakeLists.txt)
+Since AzCore is exported a static library, if you don't use CMake, then you'll probably have to link all of the libraries yourself. This allows for a single library that doesn't require you to link to features you don't use. To keep maintenance simpler, I'll refrain from listing the library dependencies here, and instead refer you to [base/CMakeLists.txt](base/CMakeLists.txt)
 
 ## Features
 #### Window System I/O
@@ -204,10 +202,10 @@ Result in `filename.log`:
 This 3 is 1.0 less (much less) cumbersome!
 ```
 
-*DEPRECATED*: io::LogStream is a std::cout-like structure that logs information to both the console and a log file simultaneously.
-
 #### Math
 - Vector, Matrix, Complex, and Quaternion data types.
+- Angle types with implicit modular arithmetic.
+- Polynomial solvers (root finding) orders 1 through 5.
 - BigInt, a fast, 128-byte integer data type that uses up to 15 u64's to represent values approximately spanning -10^289 to 10^289.
 
 #### Memory Primitives

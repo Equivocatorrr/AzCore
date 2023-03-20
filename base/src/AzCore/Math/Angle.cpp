@@ -7,29 +7,30 @@
 
 namespace AzCore {
 
-#ifdef AZCORE_MATH_F32
 Radians32 angleDiff(Angle32 from, Angle32 to) {
 	Radians32 diff = Radians32(to) - Radians32(from);
-	while (diff >= pi) {
-		diff -= tau;
-	}
-	while (diff < -pi) {
-		diff += tau;
-	}
-	return diff;
+	return wrap(diff.value() + pi, tau) - pi;
 }
-#endif
-#ifdef AZCORE_MATH_F64
+
+template<> Degrees<f32>::Degrees(Radians<f32> a) {
+	_value = a.value() / tau * 360.0f;
+}
+
+template<> Radians<f32>::Radians(Degrees<f32> a) {
+	_value = a.value() * tau / 360.0f;
+}
+
 Radians64 angleDiff(Angle64 from, Angle64 to) {
 	Radians64 diff = Radians64(to) - Radians64(from);
-	while (diff >= pi64) {
-		diff -= tau64;
-	}
-	while (diff < -pi64) {
-		diff += tau64;
-	}
-	return diff;
+	return wrap(diff.value() + pi64, tau64) - pi64;
 }
-#endif
+
+template<> Degrees<f64>::Degrees(Radians<f64> a) {
+	_value = a.value() / tau64 * 360.0;
+}
+
+template<> Radians<f64>::Radians(Degrees<f64> a) {
+	_value = a.value() * tau64 / 360.0;
+}
 
 } // namespace AzCore

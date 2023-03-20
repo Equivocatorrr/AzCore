@@ -14,13 +14,32 @@
 
 namespace AzCore {
 
-const f64 halfpi64 = 1.5707963267948966;
-const f64 pi64 = 3.1415926535897932;
-const f64 tau64 = 6.2831853071795865;
+constexpr f64 halfpi64 = 1.5707963267948966;
+constexpr f64 pi64 = 3.1415926535897932;
+constexpr f64 tau64 = 6.2831853071795865;
+constexpr f64 invPi64 = 1.0 / pi64;
+constexpr f64 invTau64 = 1.0 / tau64;
 
-const f32 halfpi = (f32)halfpi64;
-const f32 pi = (f32)pi64;
-const f32 tau = (f32)tau64;
+constexpr f32 halfpi = (f32)halfpi64;
+constexpr f32 pi = (f32)pi64;
+constexpr f32 tau = (f32)tau64;
+constexpr f32 invPi = (f32)invPi64;
+constexpr f32 invTau = (f32)invTau64;
+
+template<typename T> struct Pi;
+template<> struct Pi<f32> {
+	static constexpr f32 value = pi;
+};
+template<> struct Pi<f64> {
+	static constexpr f64 value = pi64;
+};
+template<typename T> struct Tau;
+template<> struct Tau<f32> {
+	static constexpr f32 value = tau;
+};
+template<> struct Tau<f64> {
+	static constexpr f64 value = tau64;
+};
 
 enum Axis {
 	X = 0,
@@ -133,7 +152,7 @@ inline f64 clamp(f64 a, f64 min, f64 max) {
 
 template <typename T>
 constexpr T clamp01(T a) {
-	return a * T(a > T(0) && a < T(1)) + T(a >= T(1));
+	return clamp(a, T(0), T(1));
 }
 
 template <typename T>
@@ -195,14 +214,7 @@ constexpr T cubert(T a) {
 
 template <typename T>
 constexpr T wrap(T a, T max) {
-	AzAssert(max > 0, "wrap() with max <= 0 would hang or overflow >:P");
-	while (a > max) {
-		a -= max;
-	}
-	while (a < 0) {
-		a += max;
-	}
-	return a;
+	return fmod(a, max) + max * T(a < T(0));
 }
 
 #endif // AZCORE_MATH_BASIC_HPP

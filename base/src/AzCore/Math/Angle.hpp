@@ -25,14 +25,7 @@ class Degrees {
 public:
 	Degrees() = default;
 	Degrees(T a) : _value(a) {}
-	// Degrees(Degrees<T> a) : _value(a._value) {}
-	Degrees(Radians<T> a) {
-		if constexpr (std::is_same<T, f32>()) {
-			_value = a.value() / tau * 360.0f;
-		} else {
-			_value = a.value() / tau64 * 360.0;
-		}
-	}
+	Degrees(Radians<T> a);
 	Degrees<T> &operator+=(Degrees<T> other) {
 		_value += other._value;
 		return *this;
@@ -74,19 +67,8 @@ class Radians {
 public:
 	Radians() = default;
 	Radians(T a) : _value(a) {}
-	// Radians(Radians<T> a) : _value(a._value) {}
 	Radians(Angle<T> a) : _value(a.value()) {}
-	Radians(Degrees<T> a) {
-		if constexpr (std::is_same<T, f32>()) {
-			_value = a.value() * tau / 360.0f;
-		} else {
-			_value = a.value() * tau64 / 360.0;
-		}
-	}
-	// Radians<T>& operator=(const Radians<T>& other) {
-	//	 _value = other._value;
-	//	 return *this;
-	// }
+	Radians(Degrees<T> a);
 	Radians<T> &operator+=(Radians<T> other) {
 		_value += other._value;
 		return *this;
@@ -127,29 +109,13 @@ class Angle {
 
 public:
 	Angle() = default;
-	// Angle(Angle<T> other) : _value(other._value) {}
 	Angle(const T &other) : _value(Radians<T>(other)) {}
 	Angle(Degrees<T> other) : _value(Radians<T>(other)) {}
-	Angle(Radians<T> other) {
-		_value = other;
-		if constexpr (std::is_same<T, f32>()) {
-			while (_value > tau) {
-				_value -= tau;
-			}
-			while (_value < 0.0f) {
-				_value += tau;
-			}
-		} else {
-			while (_value > tau64) {
-				_value -= tau64;
-			}
-			while (_value < 0.0) {
-				_value += tau64;
-			}
-		}
-	}
+	Angle(Radians<T> other) : _value(wrap(other.value(), Tau<T>::value)) {}
 	Angle<T> &operator+=(Radians<T> other) { return *this = _value + other; }
 	Angle<T> operator+(Radians<T> other) const { return Angle<T>(_value + other); }
+	Angle<T> operator-(Radians<T> other) const { return Angle<T>(_value - other); }
+	Angle<T> operator-(T other) const { return Angle<T>(_value - other); }
 	Radians<T> operator-(Angle<T> other) const;
 	bool operator==(Angle<T> other) const { return _value == other._value; }
 	bool operator!=(Angle<T> other) const { return _value != other._value; }
@@ -157,19 +123,21 @@ public:
 	T& value() { return _value.value(); }
 };
 
-// Finds the shortest distance from one angle to another.
-#ifdef AZCORE_MATH_F32
+template<> Degrees<f32>::Degrees(Radians<f32> a);
+template<> Radians<f32>::Radians(Degrees<f32> a);
 typedef Degrees<f32> Degrees32;
 typedef Radians<f32> Radians32;
 typedef Angle<f32> Angle32;
+// Finds the shortest distance from one angle to another.
 Radians32 angleDiff(Angle32 from, Angle32 to);
-#endif
-#ifdef AZCORE_MATH_F64
+
+template<> Degrees<f64>::Degrees(Radians<f64> a);
+template<> Radians<f64>::Radians(Degrees<f64> a);
 typedef Degrees<f64> Degrees64;
 typedef Radians<f64> Radians64;
 typedef Angle<f64> Angle64;
+// Finds the shortest distance from one angle to another.
 Radians64 angleDiff(Angle64 from, Angle64 to);
-#endif
 
 template <typename T>
 Radians<T> Angle<T>::operator-(Angle<T> to) const {

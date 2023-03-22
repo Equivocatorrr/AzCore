@@ -57,6 +57,8 @@ add_library(AzCore STATIC
 		src/AzCore/Math/quat_t.hpp
 		src/AzCore/Math/RandomNumberGenerator.cpp
 		src/AzCore/Math/RandomNumberGenerator.hpp
+		src/AzCore/Math/Noise.cpp
+		src/AzCore/Math/Noise.hpp
 		src/AzCore/Math/vec2_t.hpp
 		src/AzCore/Math/vec3_t.hpp
 		src/AzCore/Math/vec4_t.hpp

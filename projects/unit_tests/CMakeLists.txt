@@ -15,6 +15,7 @@ add_executable(unit_tests
 	src/tests/Shuffle.cpp
 	src/tests/RayTriangleIntersect.cpp
 	src/tests/RandomNumberGenerator.cpp
+	src/tests/Noise.cpp
 	src/tests/Equations.cpp
 )
 

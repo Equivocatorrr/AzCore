@@ -28,8 +28,6 @@ using namespace AzCore;
 void AddPointLight(vec3 pos, vec3 color, f32 distMin, f32 distMax, f32 attenuation=0.0f);
 void AddLight(vec3 pos, vec3 color, vec3 direction, f32 angleMin, f32 angleMax, f32 distMin, f32 distMax, f32 attenuation=0.0f);
 
-vec3 sRGBToLinear(vec3 sRGB);
-
 constexpr f32 lineHeight = 1.3f;
 
 struct Manager;
@@ -265,9 +263,7 @@ struct Manager {
 	void PushScissor(DrawingContext &context, vec2i min, vec2i max);
 	void PopScissor(DrawingContext &context);
 
-	inline void UpdateBackground() {
-		backgroundRGB = hsvToRgb(backgroundHSV);
-	}
+	void UpdateBackground();
 
 	f32 CharacterWidth(char32 character, const Assets::Font *fontDesired, const Assets::Font *fontFallback) const;
 	f32 LineWidth(const char32 *string, i32 fontIndex) const;

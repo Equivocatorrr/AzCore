@@ -23,11 +23,11 @@ void NoiseTest() {
 	f64 mean = 0.0;
 	f64 variance = 0.0;
 	for (i64 i = 0; i < NUM; i++) {
-		mean += Noise::Float32::whiteNoise(i);
+		mean += Noise::whiteNoise<f32>(i);
 	}
 	mean /= NUM;
 	for (i64 i = 0; i < NUM; i++) {
-		variance += square(Noise::Float32::whiteNoise(i) - mean);
+		variance += square(Noise::whiteNoise<f32>(i) - mean);
 	}
 	variance /= NUM;
 	UT::ReportInfo(__LINE__, "mean: ", FormatFloat(mean, 10, 3), ", variance: ", FormatFloat(variance, 10, 3));
@@ -36,11 +36,11 @@ void NoiseTest() {
 	mean = 0.0;
 	variance = 0.0;
 	for (i64 i = 0; i < NUM; i++) {
-		mean += Noise::Float64::whiteNoise(i);
+		mean += Noise::whiteNoise<f64>(i);
 	}
 	mean /= NUM;
 	for (i64 i = 0; i < NUM; i++) {
-		variance += square(Noise::Float64::whiteNoise(i) - mean);
+		variance += square(Noise::whiteNoise<f64>(i) - mean);
 	}
 	variance /= NUM;
 	UT::ReportInfo(__LINE__, "mean: ", FormatFloat(mean, 10, 3), ", variance: ", FormatFloat(variance, 10, 3));

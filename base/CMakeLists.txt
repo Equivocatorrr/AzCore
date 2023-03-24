@@ -42,12 +42,13 @@ add_library(AzCore STATIC
 		src/AzCore/IO/Window.hpp
 	src/AzCore/keycodes.cpp
 	src/AzCore/keycodes.hpp
-	src/AzCore/math.cpp
 	src/AzCore/math.hpp
 		src/AzCore/Math/Angle.cpp
 		src/AzCore/Math/Angle.hpp
 		src/AzCore/Math/basic.cpp
 		src/AzCore/Math/basic.hpp
+		src/AzCore/Math/Color.cpp
+		src/AzCore/Math/Color.hpp
 		src/AzCore/Math/complex_t.hpp
 		src/AzCore/Math/Equations.hpp
 		src/AzCore/Math/mat2_t.hpp
@@ -140,8 +141,6 @@ set_source_files_properties(
 	src/AzCore/IO/${TARGET_PLATFORM_NAME}/RawInput.cpp
 	src/AzCore/IO/${TARGET_PLATFORM_NAME}/Window.cpp
 	src/AzCore/Net/${TARGET_PLATFORM_NAME}/Sockets.cpp
-	src/AzCore/Math/Angle.cpp
-	src/AzCore/Math/RandomNumberGenerator.cpp
 	src/AzCore/Memory/Endian.cpp
 	src/AzCore/Memory/String.cpp
 	PROPERTIES HEADER_FILE_ONLY TRUE

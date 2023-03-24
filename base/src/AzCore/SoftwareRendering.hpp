@@ -11,17 +11,16 @@
 #include "math.hpp"
 #include "Image.hpp"
 #include "memory.hpp"
+#include "Math/Color.hpp"
 
 namespace AzCore {
-
-typedef vec4_t<u8> Color;
 
 struct Pixel {
 	struct {
 		u8 r, g, b, a;
 	};
 	Pixel(u32 in) : r(in), g(in>>8), b(in>>16), a(in>>24) {}
-	Pixel(Color color) : r(color.r), g(color.g), b(color.b), a(color.a) {}
+	Pixel(Color<u8> color) : r(color.r), g(color.g), b(color.b), a(color.a) {}
 };
 
 struct SoftwareRenderer {
@@ -53,10 +52,10 @@ struct SoftwareRenderer {
 
 	bool FramebufferToImage(Image *dst);
 
-	void ColorPixel(i32 x, i32 y, Color in);
+	void ColorPixel(i32 x, i32 y, Color<u8> in);
 	void DarkenBox(vec2i p1, vec2i p2, u8 amount);
-	void DrawBox(vec2i p1, vec2i p2, Color color);
-	void DrawBoxBlended(vec2i p1, vec2i p2, Color color);
+	void DrawBox(vec2i p1, vec2i p2, Color<u8> color);
+	void DrawBoxBlended(vec2i p1, vec2i p2, Color<u8> color);
 	void DrawImage(vec2i p1, Image *image);
 	void DrawImageBlended(vec2i p1, Image *image);
 };

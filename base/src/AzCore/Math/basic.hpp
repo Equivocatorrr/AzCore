@@ -134,6 +134,11 @@ constexpr T max(T a, T b, Args... c) {
 	return max(max(a, b), c...);
 }
 
+template <typename T, typename... Args>
+constexpr T min(T a, T b, Args... c) {
+	return min(min(a, b), c...);
+}
+
 template <typename T>
 constexpr T clamp(T a, T min, T max) {
 	AzAssert(min <= max, "in clamp(): min > max. Maybe you meant to use median()?");
@@ -182,6 +187,21 @@ template <typename T, typename F>
 constexpr T cosInterp(T a, T b, F factor) {
 	factor = F(0.5) - cos(F(AzCore::pi64) * clamp01(factor)) * F(0.5);
 	return a + (b - a) * factor;
+}
+
+template <typename T, typename F>
+constexpr T cubicInterp(T a_0, T a, T b, T b_1, F factor) {
+	factor = clamp01(factor);
+	F f2 = square(factor);
+	F f3 = f2 * factor;
+	// This formula chooses tangents that average the lines at each vertex
+	// NOTE: We could probably improve this to pick a tangent that keeps the output range between 0 and 1.
+	// Currently the output can go from -0.125 to 1.125
+	// Alternatively we could conditionally move the inputs to limit the range
+	return a_0*(F(-0.5)*f3 + f2 + F(-0.5)*factor)
+	     + a*(F(1.5)*f3 - F(2.5)*f2 + F(1))
+	     + b*(F(-1.5)*f3 + F(2)*f2 + F(0.5)*factor)
+	     + b_1*(F(0.5)*(f3 - f2));
 }
 
 template <u32 order, typename T, typename F>

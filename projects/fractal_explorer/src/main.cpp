@@ -206,7 +206,7 @@ void Render(SoftwareRenderer &renderer, vec2_t<Float> pos, bool julia, Complex j
 				color = hsvToRgb(vec3(hue, sat, val)) * 255.0f;
 				vec2i p1(x, y + i*stride.y);
 				p1 += offset;
-				renderer.DrawBox(p1, p1+scale, Color((u8)color.r, (u8)color.g, (u8)color.b, 255));
+				renderer.DrawBox(p1, p1+scale, Color<u8>((u8)color.r, (u8)color.g, (u8)color.b, 255));
 			}
 		}
 	}

@@ -131,6 +131,9 @@ struct mat3_t {
 	}
 };
 
+typedef mat3_t<f32> mat3;
+typedef mat3_t<f64> mat3d;
+
 } // namespace AzCore
 
 template <typename T>

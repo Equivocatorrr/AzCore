@@ -79,6 +79,9 @@ struct mat2_t {
 	}
 };
 
+typedef mat2_t<f32> mat2;
+typedef mat2_t<f64> mat2d;
+
 } // namespace AzCore
 
 template <typename T>

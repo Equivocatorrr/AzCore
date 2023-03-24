@@ -87,6 +87,10 @@ struct vec5_t {
 	}
 };
 
+typedef vec5_t<f32> vec5;
+typedef vec5_t<f64> vec5d;
+typedef vec5_t<i32> vec5i;
+
 } // namespace AzCore
 
 template <typename T>

@@ -106,6 +106,9 @@ struct complex_t {
 	}
 };
 
+typedef complex_t<f32> complex;
+typedef complex_t<f64> complexd;
+
 } // namespace AzCore
 
 template <typename T>

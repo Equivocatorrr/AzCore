@@ -19,70 +19,76 @@ u64 hash(u64 x, u64 y);
 u64 hash(u64 x, u64 y, u64 z);
 u64 hash(u64 x, u64 y, u64 z, u64 w);
 
-// Converts the hash x to a f32 between 0 and 1
-f32 hashedToF32(u64 x);
-// Converts the hash x to a f64 between 0 and 1
-f64 hashedToF64(u64 x);
+// Converts the hash x to a float between 0 and 1
+template <typename F>
+F hashedToFloat(u64 x);
 
-// Meant for use with the following line:
-// using namespace AzCore::Noise::Float32;
-namespace Float32 {
+template<>
+f32 hashedToFloat<f32>(u64 x);
 
-inline f32 whiteNoise(u64 x) {
-	return hashedToF32(hash(x));
+template<>
+f64 hashedToFloat<f64>(u64 x);
+
+template <typename F>
+inline F whiteNoise(u64 x) {
+	return hashedToFloat<F>(hash(x));
 }
 
-inline f32 whiteNoise(u64 x, u64 seed) {
-	return hashedToF32(hash(x, seed));
+template <typename F>
+inline F whiteNoise(u64 x, u64 seed) {
+	return hashedToFloat<F>(hash(x, seed));
 }
 
-inline f32 whiteNoise(vec2i pos, u64 seed) {
+template <typename F>
+inline F whiteNoise(vec2i pos, u64 seed) {
 	static_assert(sizeof(pos) == sizeof(u64));
-	return hashedToF32(hash(*((u64*)&pos), seed));
+	return hashedToFloat<F>(hash(*((u64*)&pos), seed));
 }
 
-inline f32 whiteNoise(vec3i pos, u64 seed) {
+template <typename F>
+inline F whiteNoise(vec3i pos, u64 seed) {
 	static_assert(sizeof(pos.xy) == sizeof(u64));
-	return hashedToF32(hash(*((u64*)&pos.xy), (u64)pos.z, seed));
+	return hashedToFloat<F>(hash(*((u64*)&pos.xy), (u64)pos.z, seed));
 }
 
-inline f32 whiteNoise(vec4i pos, u64 seed) {
+template <typename F>
+inline F whiteNoise(vec4i pos, u64 seed) {
 	static_assert(sizeof(pos.xy) == sizeof(u64));
 	static_assert(sizeof(pos.zw) == sizeof(u64));
-	return hashedToF32(hash(*((u64*)&pos.xy), *((u64*)&pos.zw), seed));
+	return hashedToFloat<F>(hash(*((u64*)&pos.xy), *((u64*)&pos.zw), seed));
 }
 
-} // namespace Float32
+template <typename F>
+F linearNoise(f64 x, u64 seed);
 
-// Meant for use with the following line:
-// using namespace AzCore::Noise::Float64;
-namespace Float64 {
+extern template
+f32 linearNoise<f32>(f64 x, u64 seed);
+extern template
+f64 linearNoise<f64>(f64 x, u64 seed);
 
-inline f64 whiteNoise(u64 x) {
-	return hashedToF64(hash(x));
-}
+template <typename F>
+F linearNoise(vec2d pos, u64 seed);
 
-inline f64 whiteNoise(u64 x, u64 seed) {
-	return hashedToF64(hash(x, seed));
-}
+extern template
+f32 linearNoise<f32>(vec2d x, u64 seed);
+extern template
+f64 linearNoise<f64>(vec2d x, u64 seed);
 
-inline f64 whiteNoise(vec2i pos, u64 seed) {
-	static_assert(sizeof(pos) == sizeof(u64));
-	return hashedToF64(hash(*((u64*)&pos), seed));
-}
+template <typename F>
+F cosineNoise(vec2d pos, u64 seed);
 
-inline f64 whiteNoise(vec3i pos, u64 seed) {
-	static_assert(sizeof(pos.xy) == sizeof(u64));
-	return hashedToF64(hash(*((u64*)&pos.xy), (u64)pos.z, seed));
-}
+extern template
+f32 cosineNoise<f32>(vec2d x, u64 seed);
+extern template
+f64 cosineNoise<f64>(vec2d x, u64 seed);
 
-inline f64 whiteNoise(vec4i pos, u64 seed) {
-	static_assert(sizeof(pos.xy) == sizeof(u64));
-	static_assert(sizeof(pos.zw) == sizeof(u64));
-	return hashedToF64(hash(*((u64*)&pos.xy), *((u64*)&pos.zw), seed));
-}
+template <typename F>
+F cubicNoise(vec2d pos, u64 seed);
 
-} // namespace Float64
+extern template
+f32 cubicNoise<f32>(vec2d x, u64 seed);
+extern template
+f64 cubicNoise<f64>(vec2d x, u64 seed);
 
 } // namespace Noise
 

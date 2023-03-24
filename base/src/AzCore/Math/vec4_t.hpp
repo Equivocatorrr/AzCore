@@ -121,6 +121,10 @@ struct vec4_t {
 	}
 };
 
+typedef vec4_t<f32> vec4;
+typedef vec4_t<f64> vec4d;
+typedef vec4_t<i32> vec4i;
+
 } // namespace AzCore
 
 template <typename T>

@@ -229,6 +229,9 @@ struct mat5_t {
 	}
 };
 
+typedef mat5_t<f32> mat5;
+typedef mat5_t<f64> mat5d;
+
 } // namespace AzCore
 
 template <typename T>

@@ -18,17 +18,54 @@ constexpr i32 fpsLimit = 60;
 
 using Real = f64;
 
-void Render(SoftwareRenderer &renderer, vec2_t<Real> pos, Real zoom, Real aspect, u64 seed=0) {
+enum class NoiseType {
+	WHITE,
+	LINEAR,
+	COSINE,
+	CUBIC,
+};
+constexpr i32 NoiseTypeCount = 4;
+
+void RenderWhiteNoise(SoftwareRenderer &renderer, vec2_t<Real> pos, Real zoom, Real aspect, u64 seed=0) {
 	for (i32 y = 0; y < renderer.height; y++) {
 		i32 pointY = round(((Real)y - 0.5 * (Real)renderer.height) * zoom + pos.y * (Real)renderer.height);
 		for (i32 x = 0; x < renderer.width; x++) {
 			i32 pointX = round(((Real)x - 0.5 * (Real)renderer.width) * zoom + pos.x * (Real)renderer.width);
-			f32 value = Noise::Float32::whiteNoise(vec2i(pointX, pointY), seed);
-			if (pointX == 0 || pointY == 0) {
-				renderer.ColorPixel(x, y, Color(255, 0, 0, 255));
-			} else {
-				renderer.ColorPixel(x, y, Color(vec3_t<u8>(255.0f*value), 255));
-			}
+			f32 value = Noise::whiteNoise<f32>(vec2i(pointX, pointY), seed);
+			renderer.ColorPixel(x, y, Color<u8>(vec3_t<u8>(255.0f*linearTosRGB(value)), 255));
+		}
+	}
+}
+
+void RenderLinearNoise(SoftwareRenderer &renderer, vec2_t<Real> pos, Real zoom, Real aspect, u64 seed=0) {
+	for (i32 y = 0; y < renderer.height; y++) {
+		Real pointY = ((Real)y - 0.5 * (Real)renderer.height) * zoom + pos.y * (Real)renderer.height;
+		for (i32 x = 0; x < renderer.width; x++) {
+			Real pointX = ((Real)x - 0.5 * (Real)renderer.width) * zoom + pos.x * (Real)renderer.width;
+			f32 value = Noise::linearNoise<f32>(vec2d(pointX, pointY), seed);
+			renderer.ColorPixel(x, y, Color<u8>(vec3_t<u8>(255.0f*linearTosRGB(value)), 255));
+		}
+	}
+}
+
+void RenderCosineNoise(SoftwareRenderer &renderer, vec2_t<Real> pos, Real zoom, Real aspect, u64 seed=0) {
+	for (i32 y = 0; y < renderer.height; y++) {
+		Real pointY = ((Real)y - 0.5 * (Real)renderer.height) * zoom + pos.y * (Real)renderer.height;
+		for (i32 x = 0; x < renderer.width; x++) {
+			Real pointX = ((Real)x - 0.5 * (Real)renderer.width) * zoom + pos.x * (Real)renderer.width;
+			f32 value = Noise::cosineNoise<f32>(vec2d(pointX, pointY), seed);
+			renderer.ColorPixel(x, y, Color<u8>(vec3_t<u8>(255.0f*linearTosRGB(value)), 255));
+		}
+	}
+}
+
+void RenderCubicNoise(SoftwareRenderer &renderer, vec2_t<Real> pos, Real zoom, Real aspect, u64 seed=0) {
+	for (i32 y = 0; y < renderer.height; y++) {
+		Real pointY = ((Real)y - 0.5 * (Real)renderer.height) * zoom + pos.y * (Real)renderer.height;
+		for (i32 x = 0; x < renderer.width; x++) {
+			Real pointX = ((Real)x - 0.5 * (Real)renderer.width) * zoom + pos.x * (Real)renderer.width;
+			f32 value = Noise::cubicNoise<f32>(vec2d(pointX, pointY), seed);
+			renderer.ColorPixel(x, y, Color<u8>(vec3_t<u8>(255.0f*linearTosRGB(value)), 255));
 		}
 	}
 }
@@ -62,6 +99,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	bool updated = true;
 	bool skippedPresent = false;
 	Real zoom = 1.0f;
+	i32 noiseType = 0;
 	u64 seed = 0;
 	vec2_t<Real> pos = 0.0f;
 	do {
@@ -109,16 +147,38 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			}
 			pos -= delta;
 		}
-		if (input.Repeated(KC_KEY_KPPLUS)) {
-			seed += 1;
+		if (input.Pressed(KC_KEY_KPPLUS)) {
+			if (input.Down(KC_KEY_LEFTSHIFT) || input.Down(KC_KEY_RIGHTSHIFT)) {
+				noiseType = (noiseType+1) % NoiseTypeCount;
+			} else {
+				seed += 1;
+			}
 			updated = true;
 		}
-		if (input.Repeated(KC_KEY_KPMINUS)) {
-			seed -= 1;
+		if (input.Pressed(KC_KEY_KPMINUS)) {
+			if (input.Down(KC_KEY_LEFTSHIFT) || input.Down(KC_KEY_RIGHTSHIFT)) {
+				noiseType--;
+				if (noiseType < 0) noiseType = NoiseTypeCount-1;
+			} else {
+				seed -= 1;
+			}
 			updated = true;
 		}
 		if (updated) {
-			Render(renderer, pos, zoom, aspect, seed);
+			switch ((NoiseType)noiseType) {
+				case NoiseType::WHITE:
+					RenderWhiteNoise(renderer, pos, zoom, aspect, seed);
+					break;
+				case NoiseType::LINEAR:
+					RenderLinearNoise(renderer, pos, zoom, aspect, seed);
+					break;
+				case NoiseType::COSINE:
+					RenderCosineNoise(renderer, pos, zoom, aspect, seed);
+					break;
+				case NoiseType::CUBIC:
+					RenderCubicNoise(renderer, pos, zoom, aspect, seed);
+					break;
+			}
 			updated = false;
 		}
 		input.Tick(1.0f/(f32)fpsLimit);
@@ -143,7 +203,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		cout.PrintLn("Failed to close Window: ", io::error);
 		return 1;
 	}
-	cout.PrintLn("Last io::error was \"", io::error, "\"");
 
 	return 0;
 }

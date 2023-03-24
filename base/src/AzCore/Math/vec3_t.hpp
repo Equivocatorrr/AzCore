@@ -96,12 +96,9 @@ struct vec3_t {
 	}
 };
 
-
-template <typename T>
-vec3_t<T> hsvToRgb(vec3_t<T> hsv);
-
-template <typename T>
-vec3_t<T> rgbToHsv(vec3_t<T> rgb);
+typedef vec3_t<f32> vec3;
+typedef vec3_t<f64> vec3d;
+typedef vec3_t<i32> vec3i;
 
 } // namespace AzCore
 

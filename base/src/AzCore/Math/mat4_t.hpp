@@ -193,6 +193,9 @@ struct mat4_t {
 	}
 };
 
+typedef mat4_t<f32> mat4;
+typedef mat4_t<f64> mat4d;
+
 } // namespace AzCore
 
 template <typename T>

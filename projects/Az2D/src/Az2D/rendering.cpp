@@ -17,33 +17,7 @@
 
 namespace Az2D::Rendering {
 
-vec3i lessThan(vec3 lhs, vec3 rhs) {
-	vec3i result;
-	result.x = lhs.x < rhs.x;
-	result.y = lhs.y < rhs.y;
-	result.z = lhs.z < rhs.z;
-	return result;
-}
-vec3 pow(vec3 a, f32 b) {
-	vec3 result;
-	result.x = ::pow(a.x, b);
-	result.y = ::pow(a.y, b);
-	result.z = ::pow(a.z, b);
-	return result;
-}
-vec3 mix(vec3 a, vec3 b, vec3 t) {
-	return a + (b - a) * t;
-}
-
-vec3 sRGBToLinear(vec3 sRGB) {
-	vec3i cutoff = lessThan(sRGB, vec3(0.04045f));
-	vec3 higher = pow((sRGB + vec3(0.055f))/vec3(1.055f), 2.4f);
-	vec3 lower = sRGB/vec3(12.92f);
-	return mix(higher, lower, cutoff);
-}
-
 using GameSystems::sys;
-
 
 io::Log cout("rendering.log");
 
@@ -994,6 +968,10 @@ void Manager::PopScissor(DrawingContext &context) {
 	context.scissorStack.Erase(context.scissorStack.size-1);
 	const ScissorState &state = context.scissorStack.Back();
 	vk::CmdSetScissor(context.commandBuffer, (u32)(state.max.x-state.min.x), (u32)(state.max.y-state.min.y), state.min.x, state.min.y);
+}
+
+void Manager::UpdateBackground() {
+	backgroundRGB = hsvToRgb(backgroundHSV);
 }
 
 f32 Manager::CharacterWidth(char32 character, const Assets::Font *fontDesired, const Assets::Font *fontFallback) const {

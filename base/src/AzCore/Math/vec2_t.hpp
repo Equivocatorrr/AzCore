@@ -89,6 +89,10 @@ struct vec2_t {
 	}
 };
 
+typedef vec2_t<f32> vec2;
+typedef vec2_t<f64> vec2d;
+typedef vec2_t<i32> vec2i;
+
 } // namespace AzCore
 
 template <typename T>

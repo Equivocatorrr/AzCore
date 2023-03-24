@@ -28,13 +28,13 @@ inline void blend(u8 &dst, u8 src, u8 alpha) {
 	u16 tempSrc = (u16)src * (u16)alpha;
 	dst = (tempDst + tempSrc) >> 8;
 }
-inline void ColorPixelBlended(u8* buffer, Color in) {
+inline void ColorPixelBlended(u8* buffer, Color<u8> in) {
 	blend(buffer[0], in.b, in.a);
 	blend(buffer[1], in.g, in.a);
 	blend(buffer[2], in.r, in.a);
 	buffer[3] = 255;
 }
-inline void ColorPixel(u8 *buffer, Color in) {
+inline void ColorPixel(u8 *buffer, Color<u8> in) {
 	buffer[0] = in.b;
 	buffer[1] = in.g;
 	buffer[2] = in.r;
@@ -61,7 +61,7 @@ bool CheckBounds(vec2i &p1, vec2i &p2, i32 width, i32 height) {
 	return true;
 }
 
-void SoftwareRenderer::ColorPixel(i32 x, i32 y, Color color) {
+void SoftwareRenderer::ColorPixel(i32 x, i32 y, Color<u8> color) {
 	u8 *pixel = &framebuffer[y*stride + x*depth];
 	AzCore::ColorPixel(pixel, color);
 }
@@ -75,7 +75,7 @@ void SoftwareRenderer::DarkenBox(vec2i p1, vec2i p2, u8 amount) {
 		}
 	}
 }
-void SoftwareRenderer::DrawBox(vec2i p1, vec2i p2, Color color) {
+void SoftwareRenderer::DrawBox(vec2i p1, vec2i p2, Color<u8> color) {
 	if (!CheckBounds(p1, p2, width, height)) return;
 	for (i32 y = p1.y; y <= p2.y; y++) {
 		u8 *line = &framebuffer[y*stride];
@@ -84,7 +84,7 @@ void SoftwareRenderer::DrawBox(vec2i p1, vec2i p2, Color color) {
 		}
 	}
 }
-void SoftwareRenderer::DrawBoxBlended(vec2i p1, vec2i p2, Color color) {
+void SoftwareRenderer::DrawBoxBlended(vec2i p1, vec2i p2, Color<u8> color) {
 	if (!CheckBounds(p1, p2, width, height)) return;
 	for (i32 y = p1.y; y <= p2.y; y++) {
 		u8 *line = &framebuffer[y*stride];
@@ -103,7 +103,7 @@ void SoftwareRenderer::DrawImage(vec2i p1, Image *image) {
 		u8 *line = &framebuffer[y*stride];
 		u8 *imgLine = &image->pixels[imgY * image->stride];
 		for (i32 x = p1.x; x <= p2.x; x++) {
-			Color color = *((Color*)&imgLine[imgX*image->channels]);
+			Color<u8> color = *((Color<u8>*)&imgLine[imgX*image->channels]);
 			AzCore::ColorPixel(line + x*depth, color);
 			imgX++;
 		}
@@ -119,7 +119,7 @@ void SoftwareRenderer::DrawImageBlended(vec2i p1, Image *image) {
 		u8 *line = &framebuffer[y*stride];
 		u8 *imgLine = &image->pixels[imgY * image->stride];
 		for (i32 x = p1.x; x <= p2.x; x++) {
-			Color color = *((Color*)&imgLine[imgX*image->channels]);
+			Color<u8> color = *((Color<u8>*)&imgLine[imgX*image->channels]);
 			ColorPixelBlended(line + x*depth, color);
 			imgX++;
 		}

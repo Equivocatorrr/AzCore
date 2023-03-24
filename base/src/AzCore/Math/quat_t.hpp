@@ -136,6 +136,9 @@ struct quat_t {
 	}
 };
 
+typedef quat_t<f32> quat;
+typedef quat_t<f64> quatd;
+
 } // namespace AzCore
 
 template <typename T>

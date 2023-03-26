@@ -67,12 +67,37 @@ extern template
 f64 linearNoise<f64>(f64 x, u64 seed);
 
 template <typename F>
+F perlinNoise(f64 x, u64 seed);
+
+extern template
+f32 perlinNoise<f32>(f64 x, u64 seed);
+extern template
+f64 perlinNoise<f64>(f64 x, u64 seed);
+
+template <typename F>
+F perlinNoise(vec2d pos, u64 seed);
+
+extern template
+f32 perlinNoise<f32>(vec2d pos, u64 seed);
+extern template
+f64 perlinNoise<f64>(vec2d pos, u64 seed);
+
+
+template <typename F>
 F linearNoise(vec2d pos, u64 seed);
 
 extern template
 f32 linearNoise<f32>(vec2d x, u64 seed);
 extern template
 f64 linearNoise<f64>(vec2d x, u64 seed);
+
+template <typename F>
+F simplexNoise(vec2d pos, u64 seed);
+
+extern template
+f32 simplexNoise<f32>(vec2d x, u64 seed);
+extern template
+f64 simplexNoise<f64>(vec2d x, u64 seed);
 
 template <typename F>
 F cosineNoise(vec2d pos, u64 seed);

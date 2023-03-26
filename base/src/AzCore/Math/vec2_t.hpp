@@ -87,6 +87,13 @@ struct vec2_t {
 		y *= a;
 		return *this;
 	}
+	// Angle points in the +x direction at 0 and +y direction at tau/4
+	static inline vec2_t<T> UnitVecFromAngle(T angle) {
+		vec2_t<T> result;
+		result.x = cos(angle);
+		result.y = sin(angle);
+		return result;
+	}
 };
 
 typedef vec2_t<f32> vec2;
@@ -139,6 +146,24 @@ template <typename T>
 inline AzCore::vec2_t<T> normalize(AzCore::vec2_t<T> a, T epsilon=T(1.0e-12), AzCore::vec2_t<T> def={T(1), T(0)}) {
 	T mag = norm(a);
 	return mag < epsilon ? def : a / mag;
+}
+
+template <typename T>
+constexpr void barycentricCoords(az::vec2_t<T> a, az::vec2_t<T> b, az::vec2_t<T> c, az::vec2_t<T> p, T &dstU, T &dstV, T &dstW) {
+	T denom = (b.y-c.y)*(a.x-c.x) + (c.x-b.x)*(a.y-c.y);
+	dstU = ((b.y-c.y)*(p.x-c.x) + (c.x-b.x)*(p.y-c.y)) / denom;
+	dstV = ((c.y-a.y)*(p.x-c.x) + (a.x-c.x)*(p.y-c.y)) / denom;
+	dstW = T(1) - dstU - dstV;
+}
+
+// Interpolates a triangle defined by a, b, c, with barycentric coordinates u, v, w
+// Note that this only works if u+v+w = 1
+template <typename T, typename F>
+constexpr F barycentricInterp(az::vec2_t<F> a, az::vec2_t<F> b, az::vec2_t<F> c, az::vec2_t<F> p, T a_val, T b_val, T c_val) {
+	F u, v, w;
+	barycentricCoords(a, b, c, p, u, v, w);
+	// AzAssert(abs(u + v + w - F(1)) < F(0.0001), "Barycentric coordinates invalid");
+	return a_val * u + b_val * v + c_val * w;
 }
 
 #endif // AZCORE_MATH_VEC2_HPP

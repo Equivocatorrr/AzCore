@@ -179,29 +179,74 @@ constexpr f64 norm(f64 a) {
 }
 
 template <typename T, typename F>
-constexpr T lerp(T a, T b, F factor) {
-	return a + (b - a) * clamp01(factor);
+constexpr T lerpUnclamped(T a, T b, F factor) {
+	return a * (F(1) - factor) + b * factor;
 }
 
 template <typename T, typename F>
-constexpr T cosInterp(T a, T b, F factor) {
-	factor = F(0.5) - cos(F(AzCore::pi64) * clamp01(factor)) * F(0.5);
-	return a + (b - a) * factor;
+constexpr T lerp(T a, T b, F factor) {
+	factor = clamp01(factor);
+	return lerpUnclamped(a, b, factor);
 }
 
+// Uses the cosine function to make an S-curve
+template <typename T, typename F>
+constexpr T cosInterp(T a, T b, F factor) {
+	factor = clamp01(factor);
+	factor = F(0.5) - cos(az::Pi<F>::value * factor) * F(0.5);
+	return lerpUnclamped(a, b, factor);
+}
+
+// This formula chooses tangents that average the lines at each vertex
+// NOTE: We could probably improve this to pick a tangent that keeps the output range between 0 and 1.
+// Currently the output can go from -0.125 to 1.125
+// Alternatively we could conditionally move the inputs to limit the range
 template <typename T, typename F>
 constexpr T cubicInterp(T a_0, T a, T b, T b_1, F factor) {
 	factor = clamp01(factor);
 	F f2 = square(factor);
 	F f3 = f2 * factor;
-	// This formula chooses tangents that average the lines at each vertex
-	// NOTE: We could probably improve this to pick a tangent that keeps the output range between 0 and 1.
-	// Currently the output can go from -0.125 to 1.125
-	// Alternatively we could conditionally move the inputs to limit the range
 	return a_0*(F(-0.5)*f3 + f2 + F(-0.5)*factor)
 	     + a*(F(1.5)*f3 - F(2.5)*f2 + F(1))
 	     + b*(F(-1.5)*f3 + F(2)*f2 + F(0.5)*factor)
 	     + b_1*(F(0.5)*(f3 - f2));
+}
+
+// Behaves similarly to smoothInterp, but with the given tangents (1st derivatives) at the endpoints
+template <typename T, typename F>
+constexpr T hermiteInterp(T a, T a_tangent, T b, T b_tangent, F factor) {
+	factor = clamp01(factor);
+	F f2 = square(factor);
+	F f3 = f2 * factor;
+	F endpointBasis = F(2)*f3 - F(3)*f2;
+	return lerpUnclamped(a, b, endpointBasis)
+	     + (f3 - F(2)*f2 + factor) * a_tangent + (f3 - f2) * b_tangent;
+}
+
+template <typename F>
+constexpr F smoothFactor(F x) {
+	return x * x * (F(3) - F(2) * x);
+}
+
+template <typename F>
+constexpr F smootherFactor(F x) {
+	return x * x * x * (F(10) + x * (F(-15) + F(6) * x));
+}
+
+// 1st derivative at endpoints is zero
+template <typename T, typename F>
+constexpr T smoothInterp(T a, T b, F factor) {
+	factor = clamp01(factor);
+	factor = smoothFactor(factor);
+	return lerpUnclamped(a, b, factor);
+}
+
+// 1st and 2nd derivatives at endpoints are zero
+template <typename T, typename F>
+constexpr T smootherInterp(T a, T b, F factor) {
+	factor = clamp01(factor);
+	factor = smootherFactor(factor);
+	return lerpUnclamped(a, b, factor);
 }
 
 template <u32 order, typename T, typename F>
@@ -213,7 +258,8 @@ constexpr T ease(T a, T b, F factor) {
 		factorP *= factor;
 		factorD *= F(1) - factor;
 	}
-	return a + (b - a) * factorP / (factorP + factorD);
+	factor = factorP / (factorP + factorD);
+	return lerpUnclamped(a, b, factor);
 }
 
 template <typename T, typename F>

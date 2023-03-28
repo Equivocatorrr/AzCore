@@ -153,6 +153,30 @@ template
 f64 perlinNoise<f64>(vec2d pos, u64 seed);
 
 template <typename F>
+F perlinNoise(vec2d pos, u64 seed, i32 nOctaves, F detail) {
+	AzAssert(nOctaves >= 1, "Cannot have < 1 octaves");
+	detail = clamp01(detail);
+	F totalMag = F(0);
+	F result = F(0);
+	F scaleMul = F(1);
+	F magMul = F(1);
+	for (i32 i = 0; i < nOctaves; i++) {
+		F mag = F(1)/magMul;
+		totalMag += mag;
+		result += (perlinNoise<F>(pos * (f64)scaleMul, seed+i)-F(0.5))*F(2) * mag;
+		scaleMul *= F(2);
+		magMul *= F(2)-detail;
+	}
+	result /= totalMag;
+	return clamp01(result * F(0.5) + F(0.5));
+}
+
+template
+f32 perlinNoise<f32>(vec2d pos, u64 seed, i32 nOctaves, f32 detail);
+template
+f64 perlinNoise<f64>(vec2d pos, u64 seed, i32 nOctaves, f64 detail);
+
+template <typename F>
 F linearNoise(vec2d pos, u64 seed) {
 	vec2d wholef = vec2d(floor(pos.x), floor(pos.y));
 	vec2i whole = wholef;
@@ -192,12 +216,8 @@ F simplexNoise(vec2d pos, u64 seed) {
 	vec2_t<F> wholef = wholed;
 	wholef -= vec2_t<F>((wholef.x + wholef.y) * skewFactorInv);
 	vec2_t<F> middleOffsetf = middleOffset;
-	vec2_t<F> endOffsetf = vec2_t<F>(F(1)-F(2)*skewFactorInv);
 	middleOffsetf -= vec2_t<F>(skewFactorInv);
-	// a, b, c are the points of the actual equilateral triangle
-	vec2_t<F> a = wholef;
-	vec2_t<F> b = wholef + middleOffsetf;
-	vec2_t<F> c = wholef + endOffsetf;
+	vec2_t<F> endOffsetf = vec2_t<F>(F(1)-F(2)*skewFactorInv);
 	// vectors from points to pos
 	vec2_t<F> ap = posf;
 	vec2_t<F> bp = posf - middleOffsetf;
@@ -223,14 +243,38 @@ template
 f64 simplexNoise<f64>(vec2d pos, u64 seed);
 
 template <typename F>
+F simplexNoise(vec2d pos, u64 seed, i32 nOctaves, F detail) {
+	AzAssert(nOctaves >= 1, "Cannot have < 1 octaves");
+	detail = clamp01(detail);
+	F totalMag = F(0);
+	F result = F(0);
+	F scaleMul = F(1);
+	F magMul = F(1);
+	for (i32 i = 0; i < nOctaves; i++) {
+		F mag = F(1)/magMul;
+		totalMag += mag;
+		result += (simplexNoise<F>(pos * (f64)scaleMul, seed+i)-F(0.5))*F(2) * mag;
+		scaleMul *= F(2);
+		magMul *= F(2)-detail;
+	}
+	result /= totalMag;
+	return clamp01(result * F(0.5) + F(0.5));
+}
+
+template
+f32 simplexNoise<f32>(vec2d pos, u64 seed, i32 nOctaves, f32 detail);
+template
+f64 simplexNoise<f64>(vec2d pos, u64 seed, i32 nOctaves, f64 detail);
+
+template <typename F>
 F cosineNoise(vec2d pos, u64 seed) {
 	vec2d wholef = vec2d(floor(pos.x), floor(pos.y));
 	vec2i whole = wholef;
 	pos -= wholef;
 	F p1 = whiteNoise<F>(whole, seed);
-	F p2 = whiteNoise<F>(vec2i(whole.x+2, whole.y), seed);
-	F p3 = whiteNoise<F>(vec2i(whole.x, whole.y+2), seed);
-	F p4 = whiteNoise<F>(vec2i(whole.x+2, whole.y+1), seed);
+	F p2 = whiteNoise<F>(vec2i(whole.x+1, whole.y), seed);
+	F p3 = whiteNoise<F>(vec2i(whole.x, whole.y+1), seed);
+	F p4 = whiteNoise<F>(vec2i(whole.x+1, whole.y+1), seed);
 	return cosInterp(
 		cosInterp(p1, p2, pos.x),
 		cosInterp(p3, p4, pos.x),

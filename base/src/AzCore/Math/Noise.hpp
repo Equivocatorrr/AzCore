@@ -9,6 +9,7 @@
 
 #include "../basictypes.hpp"
 #include "../math.hpp"
+#include "../Memory/ArrayWithBucket.hpp"
 
 namespace AzCore {
 
@@ -82,6 +83,14 @@ f32 perlinNoise<f32>(vec2d pos, u64 seed);
 extern template
 f64 perlinNoise<f64>(vec2d pos, u64 seed);
 
+template <typename F>
+F perlinNoise(vec2d pos, u64 seed, i32 nOctaves, F detail);
+
+extern template
+f32 perlinNoise<f32>(vec2d pos, u64 seed, i32 nOctaves, f32 detail);
+extern template
+f64 perlinNoise<f64>(vec2d pos, u64 seed, i32 nOctaves, f64 detail);
+
 
 template <typename F>
 F linearNoise(vec2d pos, u64 seed);
@@ -98,6 +107,14 @@ extern template
 f32 simplexNoise<f32>(vec2d x, u64 seed);
 extern template
 f64 simplexNoise<f64>(vec2d x, u64 seed);
+
+template <typename F>
+F simplexNoise(vec2d pos, u64 seed, i32 nOctaves, F detail);
+
+extern template
+f32 simplexNoise<f32>(vec2d pos, u64 seed, i32 nOctaves, f32 detail);
+extern template
+f64 simplexNoise<f64>(vec2d pos, u64 seed, i32 nOctaves, f64 detail);
 
 template <typename F>
 F cosineNoise(vec2d pos, u64 seed);

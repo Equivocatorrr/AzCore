@@ -25,6 +25,8 @@ enum class NoiseType {
 	CUBIC,
 	PERLIN,
 	SIMPLEX,
+	PERLIN_LAYERED,
+	SIMPLEX_LAYERED,
 	ENUM_COUNT
 };
 u64 calls = 0;
@@ -105,6 +107,21 @@ void RenderPerlinNoise(SoftwareRenderer &renderer, vec2_t<Real> pos, Real zoom, 
 	calls += renderer.height * renderer.width;
 }
 
+void RenderPerlinLayeredNoise(SoftwareRenderer &renderer, vec2_t<Real> pos, Real zoom, Real aspect, i32 nOctaves, f32 detail, u64 seed=0) {
+	for (i32 y = 0; y < renderer.height; y++) {
+		Real pointY = ((Real)y - 0.5 * (Real)renderer.height) * zoom + pos.y * (Real)renderer.height;
+		for (i32 x = 0; x < renderer.width; x++) {
+			Real pointX = ((Real)x - 0.5 * (Real)renderer.width) * zoom + pos.x * (Real)renderer.width;
+			ClockTime noiseStart = Clock::now();
+			f32 value = Noise::perlinNoise<f32>(vec2d(pointX, pointY), seed, nOctaves, detail);
+			noiseTime += Clock::now() - noiseStart;
+			//renderer.ColorPixel(x, y, Color<u8>(vec3_t<u8>(255.0f*value), 255));
+			renderer.ColorPixel(x, y, Color<u8>(vec3_t<u8>(255.0f*linearTosRGB(value)), 255));
+		}
+	}
+	calls += renderer.height * renderer.width;
+}
+
 void RenderSimplexNoise(SoftwareRenderer &renderer, vec2_t<Real> pos, Real zoom, Real aspect, u64 seed=0) {
 	for (i32 y = 0; y < renderer.height; y++) {
 		Real pointY = ((Real)y - 0.5 * (Real)renderer.height) * zoom + pos.y * (Real)renderer.height;
@@ -112,6 +129,21 @@ void RenderSimplexNoise(SoftwareRenderer &renderer, vec2_t<Real> pos, Real zoom,
 			Real pointX = ((Real)x - 0.5 * (Real)renderer.width) * zoom + pos.x * (Real)renderer.width;
 			ClockTime noiseStart = Clock::now();
 			f32 value = Noise::simplexNoise<f32>(vec2d(pointX, pointY), seed);
+			noiseTime += Clock::now() - noiseStart;
+			//renderer.ColorPixel(x, y, Color<u8>(vec3_t<u8>(255.0f*value), 255));
+			renderer.ColorPixel(x, y, Color<u8>(vec3_t<u8>(255.0f*linearTosRGB(value)), 255));
+		}
+	}
+	calls += renderer.height * renderer.width;
+}
+
+void RenderSimplexLayeredNoise(SoftwareRenderer &renderer, vec2_t<Real> pos, Real zoom, Real aspect, i32 nOctaves, f32 detail, u64 seed=0) {
+	for (i32 y = 0; y < renderer.height; y++) {
+		Real pointY = ((Real)y - 0.5 * (Real)renderer.height) * zoom + pos.y * (Real)renderer.height;
+		for (i32 x = 0; x < renderer.width; x++) {
+			Real pointX = ((Real)x - 0.5 * (Real)renderer.width) * zoom + pos.x * (Real)renderer.width;
+			ClockTime noiseStart = Clock::now();
+			f32 value = Noise::simplexNoise<f32>(vec2d(pointX, pointY), seed, nOctaves, detail);
 			noiseTime += Clock::now() - noiseStart;
 			//renderer.ColorPixel(x, y, Color<u8>(vec3_t<u8>(255.0f*value), 255));
 			renderer.ColorPixel(x, y, Color<u8>(vec3_t<u8>(255.0f*linearTosRGB(value)), 255));
@@ -150,6 +182,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	bool skippedPresent = false;
 	Real zoom = 1.0f;
 	i32 noiseType = 0;
+	i32 nOctaves = 4;
+	f32 detail = 0.5f;
 	u64 seed = 0;
 	vec2_t<Real> pos = 0.0f;
 	do {
@@ -182,13 +216,21 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		delta *= zoom;
 		delta.y *= aspect;
 		if (input.scroll.y != 0.0f) {
-			f32 factor = pow(1.1f, input.scroll.y);
-			pos += mouse - mouse / factor;
-			// if (input.scroll.y > 0.0f) {
-			// 	// Slight tendency to scroll towards center of screen on zoom in
-			// 	pos += mouse * (factor-1) / 8;
-			// }
-			zoom /= factor;
+			if (input.Down(KC_KEY_LEFTCTRL) || input.Down(KC_KEY_RIGHTCTRL)) {
+				detail += sign(input.scroll.y) * 0.1;
+				cout.PrintLn("Detail: ", detail);
+			} else if (input.Down(KC_KEY_LEFTSHIFT) || input.Down(KC_KEY_RIGHTSHIFT)) {
+				nOctaves += (i32)sign(input.scroll.y);
+				cout.PrintLn(nOctaves, " octaves");
+			} else {
+				f32 factor = pow(1.1f, input.scroll.y);
+				pos += mouse - mouse / factor;
+				// if (input.scroll.y > 0.0f) {
+				// 	// Slight tendency to scroll towards center of screen on zoom in
+				// 	pos += mouse * (factor-1) / 8;
+				// }
+				zoom /= factor;
+			}
 			updated = true;
 		}
 		if (input.Down(KC_MOUSE_LEFT) && !input.Pressed(KC_MOUSE_LEFT)) {
@@ -235,6 +277,12 @@ i32 main(i32 argumentCount, char** argumentValues) {
 					break;
 				case NoiseType::SIMPLEX:
 					RenderSimplexNoise(renderer, pos, zoom, aspect, seed);
+					break;
+				case NoiseType::PERLIN_LAYERED:
+					RenderPerlinLayeredNoise(renderer, pos, zoom, aspect, nOctaves, detail, seed);
+					break;
+				case NoiseType::SIMPLEX_LAYERED:
+					RenderSimplexLayeredNoise(renderer, pos, zoom, aspect, nOctaves, detail, seed);
 					break;
 			}
 			cout.PrintLn("Took ", FormatTime(noiseTime), " for ", calls, " calls. (", (1000000000 * calls / noiseTime.count()), " calls per second)");

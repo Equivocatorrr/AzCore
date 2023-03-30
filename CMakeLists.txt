@@ -107,7 +107,6 @@ endfunction()
 
 function(AZ2D_DATA_COPY target OUTPUT_DIR)
 	file(GLOB_RECURSE AZ2D_DATA_FILES
-		LIST_DIRECTORIES true
 		RELATIVE "${PROJECT_SOURCE_DIR}/projects/Az2D/data"
 		CONFIGURE_DEPENDS
 		"${PROJECT_SOURCE_DIR}/projects/Az2D/data/*"

@@ -51,6 +51,7 @@ add_library(AzCore STATIC
 		src/AzCore/Math/Color.hpp
 		src/AzCore/Math/complex_t.hpp
 		src/AzCore/Math/Equations.hpp
+		src/AzCore/Math/FastApprox.hpp
 		src/AzCore/Math/mat2_t.hpp
 		src/AzCore/Math/mat3_t.hpp
 		src/AzCore/Math/mat4_t.hpp

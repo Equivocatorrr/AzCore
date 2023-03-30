@@ -280,6 +280,18 @@ constexpr i32 IndexHash(const String &in) {
 	return i32(hash % bounds);
 }
 
+template <typename T>
+String Join(const Array<T> &values, SimpleRange<char> joiner) {
+	String output;
+	for (const T &value : values) {
+		AppendToString(output, value);
+		AppendToString(output, joiner);
+	}
+	if (output.size > joiner.size)
+		output.size -= joiner.size;
+	return output;
+}
+
 String Join(const Array<Str, 0> &values, Str joiner);
 
 Array<Str, 0> SeparateByNewlines(Str string, bool allowEmpty=false);

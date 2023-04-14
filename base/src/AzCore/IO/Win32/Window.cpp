@@ -29,6 +29,8 @@ namespace AzCore {
 
 namespace io {
 
+HCURSOR basicCursor = LoadCursor(NULL, IDC_ARROW);
+
 u32 windowClassNum = 0;
 
 String winGetInputName(u8 hid) {
@@ -275,6 +277,18 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 		}
 		break;
 	}
+	case WM_SETCURSOR: {
+		if (LOWORD(lParam) == HTCLIENT) {
+			if (focusedWindow->cursorHidden) {
+				SetCursor(NULL);
+			} else {
+				SetCursor(basicCursor);
+			}
+			return TRUE;
+		} else {
+			return DefWindowProc(hWnd, uMsg, wParam, lParam);
+		}
+	} break;
 	case WM_SETFOCUS: {
 		thisWindow->focused = true;
 		break;
@@ -493,10 +507,20 @@ bool Window::Update() {
 void Window::HideCursor(bool hide) {
 	cursorHidden = hide;
 	if (hide) {
-		ShowCursor(false);
+		SetCursor(NULL);
 	} else {
-		ShowCursor(true);
+		SetCursor(basicCursor);
 	}
+}
+
+void Window::MoveCursor(i32 x, i32 y) {
+	RECT rect;
+	POINT point;
+	GetClientRect(data->window, &rect);
+	point.x = rect.left;
+	point.y = rect.top;
+	ClientToScreen(data->window, &point);
+	SetCursorPos(point.x + x, point.y + y);
 }
 
 String Window::InputName(u8 keyCode) const {

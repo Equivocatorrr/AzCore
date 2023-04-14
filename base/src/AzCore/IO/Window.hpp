@@ -55,6 +55,8 @@ struct Window {
 	bool Update();
 	bool Close();
 	void HideCursor(bool hide = true);
+	// Moves the cursor to a point relative to the top left of the window
+	void MoveCursor(i32 x, i32 y);
 	String InputName(u8 keyCode) const;
 	u8 KeyCodeFromChar(char character) const;
 

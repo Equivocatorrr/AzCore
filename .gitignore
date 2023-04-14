@@ -24,3 +24,4 @@ obj
 .vscode
 projects/fractal_explorer/*.png
 projects/*/data/Az2D
+projects/*/data/Az3D

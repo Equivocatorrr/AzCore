@@ -111,9 +111,7 @@ function(AZ2D_DATA_COPY target OUTPUT_DIR)
 		CONFIGURE_DEPENDS
 		"${PROJECT_SOURCE_DIR}/projects/Az2D/data/*"
 	)
-	# message( STATUS "AZ2D_DATA_FILES: ${AZ2D_DATA_FILES}" )
 	foreach(AZ2D_DATA_FILE ${AZ2D_DATA_FILES})
-		# message( STATUS "AZ2D_DATA_FILE: ${AZ2D_DATA_FILE}" )
 		add_custom_command(OUTPUT "${OUTPUT_DIR}/data/Az2D/${AZ2D_DATA_FILE}"
 			COMMAND echo "Copying Az2D data/${AZ2D_DATA_FILE} to ${target}"
 			COMMAND ${CMAKE_COMMAND} -E copy "${PROJECT_SOURCE_DIR}/projects/Az2D/data/${AZ2D_DATA_FILE}" "${OUTPUT_DIR}/data/Az2D/${AZ2D_DATA_FILE}"
@@ -121,6 +119,22 @@ function(AZ2D_DATA_COPY target OUTPUT_DIR)
 		)
 		target_sources(${target} PRIVATE "${OUTPUT_DIR}/data/Az2D/${AZ2D_DATA_FILE}")
 	endforeach(AZ2D_DATA_FILE)
+endfunction()
+
+function(AZ3D_DATA_COPY target OUTPUT_DIR)
+	file(GLOB_RECURSE AZ3D_DATA_FILES
+		RELATIVE "${PROJECT_SOURCE_DIR}/projects/Az3D/data"
+		CONFIGURE_DEPENDS
+		"${PROJECT_SOURCE_DIR}/projects/Az3D/data/*"
+	)
+	foreach(AZ3D_DATA_FILE ${AZ3D_DATA_FILES})
+		add_custom_command(OUTPUT "${OUTPUT_DIR}/data/Az3D/${AZ3D_DATA_FILE}"
+			COMMAND echo "Copying Az3D data/${AZ3D_DATA_FILE} to ${target}"
+			COMMAND ${CMAKE_COMMAND} -E copy "${PROJECT_SOURCE_DIR}/projects/Az3D/data/${AZ3D_DATA_FILE}" "${OUTPUT_DIR}/data/Az3D/${AZ3D_DATA_FILE}"
+			DEPENDS "${PROJECT_SOURCE_DIR}/projects/Az3D/data/${AZ3D_DATA_FILE}"
+		)
+		target_sources(${target} PRIVATE "${OUTPUT_DIR}/data/Az3D/${AZ3D_DATA_FILE}")
+	endforeach(AZ3D_DATA_FILE)
 endfunction()
 
 add_subdirectory(external/Vulkan-Headers)

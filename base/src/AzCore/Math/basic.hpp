@@ -262,10 +262,15 @@ constexpr T ease(T a, T b, F factor) {
 	return lerpUnclamped(a, b, factor);
 }
 
+template <typename F>
+constexpr F decayFactor(F halfLife, F timestep) {
+	return 1 - clamp01(pow(2, -timestep / halfLife));
+}
+
 template <typename T, typename F>
 constexpr T decay(T a, T b, F halfLife, F timestep) {
-	F fac = clamp01(pow(2, -timestep / halfLife));
-	return b * (F(1.0) - fac) + a * fac;
+	F factor = decayFactor(halfLife, timestep);
+	return lerpUnclamped(a, b, factor);
 }
 
 template <typename T>

@@ -1065,15 +1065,7 @@ failure:
 		}
 		data.memoryTypeBits = memReqs.memoryTypeBits;
 
-		// NOTE: Images can have different alignment values, and must begin at an aligned offset
 		data.offsets.Back() = align(data.offsets.Back(), memReqs.alignment);
-
-		// u32 alignedOffset;
-		// if (memReqs.size % memReqs.alignment == 0) {
-		//	 alignedOffset = memReqs.size;
-		// } else {
-		//	 alignedOffset = (memReqs.size/memReqs.alignment+1)*memReqs.alignment;
-		// }
 
 		data.offsets.Append(data.offsets.Back() + memReqs.size);
 		return index;
@@ -1088,15 +1080,10 @@ failure:
 			return -1;
 		}
 		data.memoryTypeBits = memReqs.memoryTypeBits;
+		
+		data.offsets.Back() = align(data.offsets.Back(), memReqs.alignment);
 
-		u32 alignedOffset;
-		if (memReqs.size % memReqs.alignment == 0) {
-			alignedOffset = memReqs.size;
-		} else {
-			alignedOffset = (memReqs.size/memReqs.alignment+1)*memReqs.alignment;
-		}
-
-		data.offsets.Append(data.offsets.Back() + alignedOffset);
+		data.offsets.Append(data.offsets.Back() + memReqs.size);
 		return index;
 	}
 
@@ -1357,20 +1344,10 @@ failure:
 	}
 
 	bool DescriptorSet::AddDescriptor(Range<Buffer> buffers, i32 binding) {
-		// TODO: Support other types of descriptors
 		for (i32 i = 0; i < data.layout->bindings.size; i++) {
 			if (data.layout->bindings[i].binding == binding) {
-#ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
-				if (data.layout->bindings[i].type != VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
-					error = "AddDescriptor failed because binding type is not for uniform buffers!";
-					return false;
-				}
-#endif
 				if (data.layout->bindings[i].count != buffers.size) {
-					error = "AddDescriptor failed because input size is wrong("
-						  + ToString(buffers.size) + ") for binding "
-						  + ToString(binding) + " which expects "
-						  + ToString(data.layout->bindings[i].count) + " buffers.";
+					error = Stringify("AddDescriptor failed because input size is wrong(", buffers.size, ") for binding ", binding, " which expects ", data.layout->bindings[i].count, " buffers.");
 					return false;
 				}
 				data.bindings.Append(data.layout->bindings[i]);
@@ -1540,6 +1517,7 @@ failure:
 
 				switch(write.descriptorType) {
 				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
 					for (i32 x = 0; x < data.sets[i].data.bindings[j].count; x++) {
 						VkDescriptorBufferInfo bufferInfo = {};
 						Buffer &buffer = data.sets[i].data.bufferDescriptors[setBufferDescriptor].buffers[x];

@@ -29,6 +29,8 @@ void Image::_Copy(const Image &other) {
 	height = other.height;
 	channels = other.channels;
 	stride = other.stride;
+	format = other.format;
+	colorSpace = other.colorSpace;
 }
 
 Image::Image(const char *filename, i32 channelsDesired) :
@@ -97,7 +99,15 @@ void Image::Dealloc() {
 
 bool Image::Load(const char *filename, i32 channelsDesired) {
 	pixels = stbi_load(filename, &width, &height, &channels, channelsDesired);
-	channels = channelsDesired;
+	if (channelsDesired != 0) channels = channelsDesired;
+	stride = width * channels;
+	format = RGBA;
+	return pixels != nullptr;
+}
+
+bool Image::LoadFromBuffer(Str buffer, i32 channelsDesired) {
+	pixels = stbi_load_from_memory((const stbi_uc*)buffer.str, buffer.size, &width, &height, &channels, channelsDesired);
+	if (channelsDesired != 0) channels = channelsDesired;
 	stride = width * channels;
 	format = RGBA;
 	return pixels != nullptr;
@@ -113,6 +123,22 @@ void Image::Reformat(Image::Format newFormat) {
 			Swap(buf[0], buf[2]);
 		}
 	}
+}
+
+void Image::SetChannels(i32 newChannels) {
+	if (newChannels == channels) return;
+	AzAssert(newChannels <= 4 && newChannels >= 1, "Invalid channel count");
+	u8 *newPixels = (u8*)calloc(width * height, newChannels);
+	for (i64 i = 0; i < width * height; i++) {
+		memcpy(newPixels + newChannels * i, pixels + channels * i, min(channels, newChannels));
+		if (newChannels == 4) {
+			newPixels[i*4+3] = 255;
+		}
+	}
+	free(pixels);
+	pixels = newPixels;
+	channels = newChannels;
+	stride = newChannels;
 }
 
 bool Image::SavePNG(const char *filename) {

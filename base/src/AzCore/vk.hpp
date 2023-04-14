@@ -991,8 +991,7 @@ namespace vk {
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 	}
 
-	inline void CmdSetViewportAndScissor(VkCommandBuffer commandBuffer, f32 width, f32 height,
-										 f32 minDepth=0.0f, f32 maxDepth=0.0f, f32 x=0.0f, f32 y=0.0f) {
+	inline void CmdSetViewportAndScissor(VkCommandBuffer commandBuffer, f32 width, f32 height, f32 minDepth=0.0f, f32 maxDepth=1.0f, f32 x=0.0f, f32 y=0.0f) {
 		CmdSetViewport(commandBuffer, width, height, minDepth, maxDepth, x, y);
 		CmdSetScissor(commandBuffer, static_cast<u32>(width), static_cast<u32>(height),
 					  static_cast<i32>(x), static_cast<i32>(y));

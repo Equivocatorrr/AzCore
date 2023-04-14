@@ -156,4 +156,10 @@ inline AzCore::vec3_t<T> normalize(AzCore::vec3_t<T> a, T epsilon=T(1.0e-12), Az
 	return mag < epsilon ? def : a / mag;
 }
 
+// Returns a adjusted to be orthogonal to ref and normalized
+template <typename T>
+inline AzCore::vec3_t<T> orthogonalize(AzCore::vec3_t<T> a, AzCore::vec3_t<T> ref) {
+	return normalize(a - ref * dot(a, ref));
+}
+
 #endif // AZCORE_MATH_VEC3_HPP

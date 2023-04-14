@@ -35,7 +35,7 @@ float sqr(float a) {
 }
 
 void main() {
-	vec2 localPos = pc.transform * (inPosition-pc.origin);
+	vec2 localPos = (inPosition-pc.origin) * pc.transform;
 	vec2 pos = localPos + pc.position;
 	float z = pc.z + pc.zShear * localPos.y;
 	gl_Position = vec4(pos, 0.0, 1.0);

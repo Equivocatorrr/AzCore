@@ -562,7 +562,7 @@ AABB GetAABB(const Light &light) {
 		result.Extend(center + vec2(cos(dirMin), sin(dirMin)) * dist);
 		result.Extend(center + vec2(cos(dirMax), sin(dirMax)) * dist);
 		for (i32 i = 0; i < 4; i++) {
-			if (abs(cardinalDirs[i] - dir) < light.angleMax) {
+			if (abs((cardinalDirs[i] - dir).value()) < light.angleMax) {
 				result.Extend(center + cardinalVecs[i]);
 			}
 		}

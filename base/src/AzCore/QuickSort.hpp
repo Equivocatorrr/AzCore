@@ -39,13 +39,14 @@ void QuickSort(SimpleRange<T> toSort, const LessThanFunc_t &lessThan) {
 	while (true) {
 		do {
 			left++;
-		} while (lessThan(toSort[left], pivot));
+		} while (left < toSort.size && lessThan(toSort[left], pivot));
 		do {
 			right--;
-		} while (lessThan(pivot, toSort[right]));
+		} while (right >= 0 && lessThan(pivot, toSort[right]));
 		if (left >= right) break;
 		Swap(toSort[left], toSort[right]);
 	}
+	if (right == -1 || left == toSort.size) return;
 	i64 split = right+1;
 	QuickSort(toSort.SubRange(0, split), lessThan);
 	QuickSort(toSort.SubRange(split, toSort.size-split), lessThan);

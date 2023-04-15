@@ -61,6 +61,7 @@ struct Test : public GameSystems::System {
 				facingDir.Conjugate().RotatePoint(camRight)
 			);
 			facingDir *= zRot * xRot;
+			facingDir = normalize(facingDir);
 		}
 		if (sys->Down(KC_MOUSE_RIGHT)) {
 			// vec3 right = objectOrientation.RotatePoint(vec3(1.0f, 0.0f, 0.0f));
@@ -74,6 +75,7 @@ struct Test : public GameSystems::System {
 				objectOrientation.Conjugate().RotatePoint(camRight)
 			);
 			objectOrientation *= zRot * xRot;
+			objectOrientation = normalize(objectOrientation);
 		}
 		camera.forward = facingDir.RotatePoint(vec3(0.0f, 1.0f, 0.0f));
 		camera.up = facingDir.RotatePoint(vec3(0.0f, 0.0f, 1.0f));

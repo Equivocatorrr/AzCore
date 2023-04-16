@@ -105,7 +105,7 @@ bool Manager::Init() {
 	auto attachment = data.renderPass->AddAttachment(data.swapchain);
 	attachment->bufferDepthStencil = true;
 	if (msaa) {
-		attachment->sampleCount = VK_SAMPLE_COUNT_4_BIT;
+		attachment->sampleCount = VK_SAMPLE_COUNT_8_BIT;
 		attachment->resolveColor = true;
 	}
 	auto subpass = data.renderPass->AddSubpass();
@@ -339,6 +339,7 @@ bool Manager::Init() {
 	data.pipelines[PIPELINE_BASIC_3D] = data.device->AddPipeline();
 	data.pipelines[PIPELINE_BASIC_3D]->renderPass = data.renderPass;
 	data.pipelines[PIPELINE_BASIC_3D]->subpass = 0;
+	data.pipelines[PIPELINE_BASIC_3D]->multisampleShading = true;
 	data.pipelines[PIPELINE_BASIC_3D]->shaders.Append(shaderRefVert);
 	data.pipelines[PIPELINE_BASIC_3D]->shaders.Append(shaderRefBasic3D);
 	data.pipelines[PIPELINE_BASIC_3D]->rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
@@ -694,6 +695,7 @@ bool Manager::UpdateUniforms() {
 	uniforms.view = mat4::Camera(camera.pos, camera.forward, camera.up);
 	uniforms.proj = mat4::Perspective(camera.fov, screenSize.x / screenSize.y, camera.nearClip, camera.farClip);
 	uniforms.viewProj = uniforms.view * uniforms.proj;
+	uniforms.eyePos = camera.pos;
 	// UpdateLights();
 	
 	data.uniformStagingBuffer->CopyData(&uniforms);

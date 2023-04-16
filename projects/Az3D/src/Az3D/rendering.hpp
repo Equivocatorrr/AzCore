@@ -133,6 +133,7 @@ struct UniformBuffer {
 	mat4 proj;
 	mat4 view;
 	mat4 viewProj;
+	vec3 eyePos;
 	alignas(16) vec3 ambientLight;
 	LightBin lightBins[LIGHT_BIN_COUNT];
 	// lights[0] is always a zero-brightness light

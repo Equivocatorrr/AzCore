@@ -8,12 +8,13 @@ layout(location=2) in vec2 inTexCoord;
 layout(location=0) out vec2 outTexCoord;
 layout(location=1) out vec3 outNormal;
 layout(location=2) out int outBaseInstance;
-layout(location=3) out vec3 outViewNormal;
+layout(location=3) out vec3 outWorldPos;
 
 layout(set=0, binding=0) uniform WorldInfo {
 	mat4 proj;
 	mat4 view;
 	mat4 viewProj;
+	vec3 eyePos;
 } worldInfo;
 
 struct Material {
@@ -41,17 +42,16 @@ layout(std140, set=0, binding=1) readonly buffer ObjectBuffer {
 } objectBuffer;
 
 void main() {
-	mat4 finalTransformation = objectBuffer.objects[gl_BaseInstance].model * worldInfo.viewProj;
-	mat4 modelView = objectBuffer.objects[gl_BaseInstance].model * worldInfo.view;
-	// mat4 finalTransformation = objectBuffer.objects[gl_BaseInstance].model * worldInfo.view * worldInfo.proj;
-	mat3 rotationScale = mat3(
-		modelView[0].xyz,
-		modelView[1].xyz,
-		modelView[2].xyz
+	mat4 model = objectBuffer.objects[gl_BaseInstance].model;
+	mat3 modelRotationScale = mat3(
+		model[0].xyz,
+		model[1].xyz,
+		model[2].xyz
 	);
-	gl_Position = vec4(inPosition, 1.0) * finalTransformation;
+	vec4 worldPos = vec4(inPosition, 1.0) * model;
+	gl_Position = worldPos * worldInfo.viewProj;
 	outTexCoord = inTexCoord;
-	outNormal = -inNormal * rotationScale;
+	outNormal = inNormal * modelRotationScale;
 	outBaseInstance = gl_BaseInstance;
-	outViewNormal = normalize((vec4(inPosition, 1.0) * modelView).xyz);
+	outWorldPos = worldPos.xyz;
 }

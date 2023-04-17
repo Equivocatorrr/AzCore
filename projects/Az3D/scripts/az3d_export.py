@@ -17,10 +17,15 @@ import struct
 def align(s):
 	return ((s+3)//4)*4
 
-def write_padded(file, b):
-	file.write(b)
+def write_padded(out, b):
+	out.write(b)
 	leftover = align(len(b)) - len(b)
-	file.write(b'\0' * leftover)
+	out.write(b'\0' * leftover)
+
+def write_padded_buffer(buffer, b):
+	buffer += b
+	leftover = align(len(b)) - len(b)
+	buffer += b'\0' * leftover
 
 def get_node_group_output_node(nodes):
 	for node in nodes:
@@ -90,6 +95,8 @@ def get_default_from_node_input(node_input, group_stack=[]):
 		link = node_input.links[0]
 		value = follow_links_to_find_default(link, True, None, group_stack)
 		return value
+	else:
+		return node_input.default_value
 
 def get_filepath_from_image(image):
 	return os.path.normpath(bpy.path.abspath(image.filepath, library=image.library))
@@ -142,6 +149,9 @@ def get_material_props(obj):
 			if node.type == 'BSDF_PRINCIPLED':
 				material = {}
 				material["albedoFile"], material["albedoColor"] = get_color_from_node_input(node.inputs[0])
+				material["subsurfFactor"] = get_default_from_node_input(node.inputs[1])
+				material["subsurfRadius"] = get_default_from_node_input(node.inputs[2])
+				material["subsurfFile"], material["subsurfColor"] = get_color_from_node_input(node.inputs[3])
 				material["emissionFile"], material["emissionColor"] = get_color_from_node_input(node.inputs[19])
 				material["normalFile"], material["normalDepth"] = get_normal_from_node_input(node.inputs[22])
 				material["emissionColor"].pop() # we don't want alpha
@@ -152,14 +162,10 @@ def get_material_props(obj):
 
 versionMajor = 1
 versionMinor = 0
-# how many bytes wide is a single element of a vertex array
-vertexStride = 8*4
-# how many bytes wide is a single element of an index array
-indexStride = 4
 
 def write_header(out):
 	out.write(b'Az3DObj\0')
-	out.write(struct.pack('<HHHH', versionMajor, versionMinor, vertexStride, indexStride))
+	out.write(struct.pack('<HH', versionMajor, versionMinor))
 
 # ident must be 4 bytes
 # lengthInBytes doesn't include this header on the way in, but the written value does
@@ -168,29 +174,72 @@ def write_section_header(out, ident, lengthInBytes):
 	out.write(ident)
 	out.write(struct.pack('<I', lengthInBytes + 8))
 
-def write_name(out, name):
-	out.write(b'Name' + struct.pack('<I', len(name)))
-	write_padded(out, bytes(name, 'utf-8'))
+def write_name(buffer, name):
+	buffer += b'Name' + struct.pack('<I', len(name))
+	write_padded_buffer(buffer, bytes(name, 'utf-8'))
 
 def get_name_byte_len(name):
 	return 4*2 + align(len(bytes(name, 'utf-8')))
 
 # mat0 is the first version of material data
-def write_mat0(out, material, tex_indices):
+def write_mat0(buffer, material, tex_indices):
 	def get_tex_index(filename, linear):
 		return tex_indices.setdefault(filename, [len(tex_indices), linear])[0]
-	c = material["albedoColor"]
+	# Format tags have 2 chars for identification and 2 chars for type.
+	# The first char in a type is the base type and the second is the count.
+	# `F` means Float32, `I` means uint32
+	# Example: ACF4 stands for Albedo Color Float x 4
+	a = material["albedoColor"]
+	sssF = material["subsurfFactor"]
+	sssR = material["subsurfRadius"]
+	sssC = material["subsurfColor"]
 	e = material["emissionColor"]
 	n = material["normalDepth"]
 	m = material["metalnessFactor"]
 	r = material["roughnessFactor"]
 	albedo    = get_tex_index(material["albedoFile"], False)
+	subsurf   = get_tex_index(material["subsurfFile"], False)
 	emission  = get_tex_index(material["emissionFile"], False)
 	normal    = get_tex_index(material["normalFile"], True)
 	metalness = get_tex_index(material["metalnessFile"], True)
 	roughness = get_tex_index(material["roughnessFile"], True)
+	
+	data = bytearray()
+	# A_ is for Albedo
+	# E_ is for Emission
+	# N_ is for Normal
+	# M_ is for Metalness
+	# R_ is for Roughness
+	# S_ is for Subsurface Scattering
+	# _C is for Color
+	# _F is for Factor
+	# _T is for Texture
+	# _R is for Radius
+	data += b'ACF\004' + struct.pack('<ffff', a[0], a[1], a[2], a[3])
+	data += b'ECF\003' + struct.pack('<fff', e[0], e[1], e[2])
+	data += b'MFF\001' + struct.pack('<f', m)
+	data += b'RFF\001' + struct.pack('<f', r)
+	if albedo != 0:
+		data += b'ATI\001' + struct.pack('<I', albedo)
+	if emission != 0:
+		data += b'ETI\001' + struct.pack('<I', emission)
+	if normal != 0:
+		data += b'NDF\001' + struct.pack('<f', n)
+		data += b'NTI\001' + struct.pack('<I', normal)
+	if metalness != 0:
+		data += b'MTI\001' + struct.pack('<I', metalness)
+	if roughness != 0:
+		data += b'RTI\001' + struct.pack('<I', roughness)
+	if sssF != 0:
+		data += b'SFF\001' + struct.pack('<f', sssF)
+		if sssC != [1, 1, 1]:
+			data += b'SCF\003' + struct.pack('<fff', sssC[0], sssC[1], sssC[2])
+		data += b'SRF\003' + struct.pack('<fff', sssR[0], sssR[1], sssR[2])
+		if subsurf != 0:
+			data += b'STI\001' + struct.pack('<I', subsurf)
 	print(material)
-	out.write(b'Mat0' + struct.pack('<ffffffffffIIIII', c[0], c[1], c[2], c[3], e[0], e[1], e[2], n, m, r, albedo, emission, normal, metalness, roughness))
+	buffer += b'Mat0' + struct.pack('<I', len(data))
+	buffer += data
 
 def prepare_mesh(mesh, transform):
 	bm = bmesh.new()
@@ -203,6 +252,28 @@ def prepare_mesh(mesh, transform):
 	bmesh.ops.triangulate(bm, faces=bm.faces[:])
 	bm.to_mesh(mesh)
 	bm.free()
+	if mesh.uv_layers:
+		mesh.calc_tangents()
+	else:
+		mesh.calc_normals_split()
+
+class MeshData:
+	def __init__(self, hasUVs, hasNormalMap):
+		self.dedup = dict()
+		self.vertices = bytearray()
+		self.indices = []
+		self.nextVertIndex = 0
+		self.indexStride = 4
+		if not hasUVs:
+			self.vertexStride = 6*4
+			self.vertexFormat = b'PoF\003NoF\003'
+		else:
+			if hasNormalMap:
+				self.vertexStride = 11*4
+				self.vertexFormat = b'PoF\003NoF\003TaF\003UVF\002'
+			else:
+				self.vertexStride = 8*4
+				self.vertexFormat = b'PoF\003NoF\003UVF\002'
 
 # tex_indices should be a dict that maps from texture filenames to [index, isLinear]
 def write_mesh(context, props, out, object, tex_indices):
@@ -212,63 +283,80 @@ def write_mesh(context, props, out, object, tex_indices):
 	prepare_mesh(mesh, object_eval.matrix_world.copy())
 	s = props.scale
 	materials = get_material_props(object)
+	hasUVs = bool(mesh.uv_layers)
 	uv_layer = mesh.uv_layers.active
-	class MeshData:
-		def __init__(self):
-			self.dedup = dict()
-			self.vertices = bytearray()
-			self.indices = bytearray()
-			self.nextVertIndex = 0
 	mesh_datas = {}
 	uvIndex = 0
 	for face in mesh.polygons:
 		material_index = face.material_index
 		assert(material_index < len(materials))
-		mesh_data = mesh_datas.setdefault(material_index, MeshData())
-		normal = face.normal
-		for index in face.vertices:
-			vertUV = uv_layer.data[uvIndex].uv
-			vert = mesh.vertices[index]
+		mesh_data = mesh_datas.setdefault(material_index, MeshData(hasUVs, materials[material_index]["normalFile"] != ''))
+		# normal = face.normal
+		# if not face.use_smooth:
+			# tangent = sum([mesh.loops[i].tangent for i in face.loop_indices]).normalized()
+		for vert in [mesh.loops[i] for i in face.loop_indices]:
+			vertUV = uv_layer.data[uvIndex].uv if hasUVs else None
+			pos = mesh.vertices[vert.vertex_index].co
 			if face.use_smooth:
 				normal = vert.normal
-			vertex = struct.pack('<ffffffff', s*vert.co.x, s*vert.co.y, s*vert.co.z, normal.x, normal.y, normal.z, vertUV.x, 1-vertUV.y)
+				tangent = vert.tangent
+			match mesh_data.vertexStride:
+				case 24:
+					vertex = struct.pack('<ffffff', s*pos.x, s*pos.y, s*pos.z, normal.x, normal.y, normal.z)
+				case 32:
+					vertex = struct.pack('<ffffffff', s*pos.x, s*pos.y, s*pos.z, normal.x, normal.y, normal.z, vertUV.x, 1-vertUV.y)
+				case 44:
+					vertex = struct.pack('<fffffffffff', s*pos.x, s*pos.y, s*pos.z, normal.x, normal.y, normal.z, tangent.x, tangent.y, tangent.z, vertUV.x, 1-vertUV.y)
 			vertIndex = mesh_data.dedup.setdefault(vertex, mesh_data.nextVertIndex)
 			if vertIndex == mesh_data.nextVertIndex:
 				mesh_data.vertices += vertex
 				mesh_data.nextVertIndex += 1
-			mesh_data.indices += struct.pack('<I', vertIndex)
+			mesh_data.indices.append(vertIndex)
 			uvIndex += 1
 	
-	# figure out how big we are
-	total_bytes = get_name_byte_len(object.name)
 	for mesh_data in mesh_datas.values():
-		# Vert and Indx headers and data
-		total_bytes += 4*4 + len(mesh_data.vertices) + len(mesh_data.indices)
-		# Mat0 data
-		total_bytes += 4*16
+		if len(mesh_data.indices) < 256:
+			mesh_data.indexStride = 1
+		elif len(mesh_data.indices) < 65536:
+			mesh_data.indexStride = 2
 	
-	# do the writing
-	write_section_header(out, b'Mesh', total_bytes)
-	write_name(out, object.name)
+	data = bytearray()
+	write_name(data, object.name)
 	
 	for i, mesh_data in mesh_datas.items():
-		out.write(b'Vert' + struct.pack('<I', len(mesh_data.vertices) // vertexStride))
-		out.write(mesh_data.vertices)
+		data += b'Vert' + struct.pack('<IHH', len(mesh_data.vertices) // mesh_data.vertexStride, mesh_data.vertexStride, len(mesh_data.vertexFormat) // 4) + mesh_data.vertexFormat
+		data += mesh_data.vertices
 		
-		out.write(b'Indx' + struct.pack('<I', len(mesh_data.indices) // indexStride))
-		out.write(mesh_data.indices)
+		# indexStride isn't explicitly written, but instead depends on how many vertices we have
+		data += b'Indx' + struct.pack('<I', len(mesh_data.indices))
+		fmt = ''
+		match mesh_data.indexStride:
+			case 1:
+				fmt = '<B'
+			case 2:
+				fmt = '<H'
+			case 4:
+				fmt = '<I'
+		for index in mesh_data.indices:
+			data += struct.pack(fmt, index)
+		data += b'\0' * (align(len(data)) - len(data))
 		
-		write_mat0(out, materials[i], tex_indices)
+		write_mat0(data, materials[i], tex_indices)
 		
-		print("Mesh Part: " + str(len(mesh_data.vertices) // vertexStride) + " vertices and " + str(len(mesh_data.indices) // indexStride) + " indices, material " + str(i))
+		print("Mesh Part: " + str(len(mesh_data.vertices) // mesh_data.vertexStride) + " vertices and " + str(len(mesh_data.indices)) + " indices, material " + str(i))
+	
+	# do the writing
+	write_section_header(out, b'Mesh', len(data))
+	out.write(data)
 
 def write_empty(props, out, object):
-	total_bytes = get_name_byte_len(object.name) + 4*6
-	write_section_header(out, b'Empt', total_bytes)
-	write_name(out, object.name)
+	data = bytearray()
 	loc = object.location * props.scale
 	vec = object.rotation_euler
-	out.write(struct.pack('<ffffff', loc.x, loc.y, loc.z, vec.x, vec.y, vec.z))
+	write_name(data, object.name)
+	data += struct.pack('<ffffff', loc.x, loc.y, loc.z, vec.x, vec.y, vec.z)
+	write_section_header(out, b'Empt', len(data))
+	out.write(data)
 
 def write_textures(out, tex_indices):
 	class FileInfo:
@@ -294,7 +382,9 @@ def write_textures(out, tex_indices):
 	write_section_header(out, b'Imgs', total_bytes)
 	out.write(struct.pack('<I', len(file_infos)))
 	for file_info in file_infos:
-		write_name(out, file_info.name)
+		name = bytearray()
+		write_name(name, file_info.name)
+		out.write(name)
 		assert(len(file_info.data) <= 0xffffffff)
 		out.write(struct.pack('<II', len(file_info.data), file_info.linear))
 		write_padded(out, file_info.data)

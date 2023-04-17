@@ -33,12 +33,10 @@ constexpr Str AZ3D_MAGIC = Str("Az3DObj\0", 8);
 namespace Headers {
 	// Header that must exist at the start of the file
 	struct File {
-		static constexpr i64 SIZE = 16;
+		static constexpr i64 SIZE = 12;
 		char magic[8];
 		u16 versionMajor;
 		u16 versionMinor;
-		u16 vertexStride;
-		u16 indexStride;
 		bool FromBuffer(Str buffer, i64 &cur) {
 			EXPECT_SPACE_IN_BUFFER(SIZE);
 			EXPECT_TAG_IN_BUFFER(AZ3D_MAGIC.str, 8);
@@ -87,30 +85,82 @@ namespace Types {
 	};
 	
 	struct Vert {
-		static constexpr i64 SIZE = 8;
+		static constexpr i64 SIZE = 12;
 		char ident[4];
 		u32 count;
-		// Vertex vertices[count];
+		u16 stride;
+		// componentCount determines how many components are in the format string
+		u16 componentCount;
+		// format describes each component's purpose, type, and size in 4 bytes each
+		// u8 format[componentCount*4];
+		Str format;
+		// u8 vertexBuffer[count*stride];
 		Array<Vertex> vertices;
-		bool FromBuffer(Str buffer, i64 &cur, u32 vertexStride) {
+		bool FromBuffer(Str buffer, i64 &cur) {
 			EXPECT_SPACE_IN_BUFFER(SIZE);
 			EXPECT_TAG_IN_BUFFER("Vert", 4);
 			memcpy(this, &buffer[cur], SIZE);
 			cur += SIZE;
-			i64 length = count * vertexStride;
+			EXPECT_SPACE_IN_BUFFER(componentCount*4);
+			format = Str(&buffer[cur], componentCount*4);
+			cur += componentCount*4;
+			// This is a map
+			Array<i32> offsets;
+			if (!ParseFormat(format, stride, offsets)) return false;
+			i64 length = count * stride;
 			EXPECT_SPACE_IN_BUFFER(length);
 			vertices.Resize(count);
-			if (vertexStride == sizeof(Vertex)) {
-				memcpy(vertices.data, &buffer[cur], length);
-			} else if (vertexStride < 32) {
-				return false;
-			} else {
-				for (i64 i = 0; i < count; i++) {
-					vertices[i] = *(Vertex*)&buffer[cur + i*vertexStride];
+			for (i64 i = 0; i < (i64)count; i++) {
+				vertices[i] = GetVertex(&buffer[cur], offsets);
+				cur += stride;
+			}
+			return true;
+		}
+		// Fills an array of offsets into our Vertex struct for each 4-byte chunk of data
+		// The index into this array increases by one for every 4 bytes in the input buffer
+		bool ParseFormat(Str format, u32 stride, Array<i32> &dst) {
+			for (i32 i = 0; i < format.size; i+=4) {
+				Str tag = format.SubRange(i, 4);
+				if (tag == "PoF\003") {
+					dst.Append(0);
+					dst.Append(1);
+					dst.Append(2);
+				} else if (tag == "NoF\003") {
+					dst.Append(3);
+					dst.Append(4);
+					dst.Append(5);
+				} else if (tag == "UVF\002") {
+					dst.Append(6);
+					dst.Append(7);
+				} else {
+					u32 count = (u32)tag[3];
+					if (count == 0) {
+						io::cerr.PrintLn("Unused Vert Format tag \"", tag, "\" has invalid count ", count);
+						return false;
+					}
+					for (i64 j = 0; j < (i64)count; j++) {
+						dst.Append(-1);
+					}
 				}
 			}
-			cur += align(length, 4);
+			if (dst.size * 4 != stride) {
+				io::cerr.PrintLn("Vert Format string describes a Vertex with a stride of ", dst.size*4, " when it was supposed to have a stride of ", stride);
+				return false;
+			}
 			return true;
+		}
+		
+		Vertex GetVertex(char *buffer, Array<i32> offsets) {
+			Vertex result;
+			u32 *dst = (u32*)&result;
+			u32 *src = (u32*)buffer;
+			for (i32 offset : offsets) {
+				if (offset >= 0) {
+					dst[offset] = *src;
+				}
+				src++;
+			}
+			return result;
 		}
 	};
 	
@@ -118,32 +168,40 @@ namespace Types {
 		static constexpr i64 SIZE = 8;
 		char ident[4];
 		u32 count;
-		// u32 indices[count];
+		// u8 indices[count]; when count < 256
+		// u16 indices[count]; when count < 65536
+		// u32 indices[count]; otherwise
+		// implicit from count
+		u32 stride;
 		Array<u32> indices;
-		bool FromBuffer(Str buffer, i64 &cur, u32 indexStride) {
+		bool FromBuffer(Str buffer, i64 &cur) {
 			EXPECT_SPACE_IN_BUFFER(SIZE);
 			EXPECT_TAG_IN_BUFFER("Indx", 4);
 			memcpy(this, &buffer[cur], SIZE);
 			cur += SIZE;
-			i64 length = count * indexStride;
+			if (count < 0x100) {
+				stride = 1;
+			} else if (count < 0x10000) {
+				stride = 2;
+			} else {
+				stride = 4;
+			}
+			i64 length = count * stride;
 			EXPECT_SPACE_IN_BUFFER(length);
 			indices.Resize(count);
 			// Support indexStrides other than 4 just for funsies
-			switch (indexStride) {
+			switch (stride) {
 			case 1:
 				for (i64 i = 0; i < count; i++) {
-					indices[i] = *(u8*)&buffer[cur + i*indexStride];
+					indices[i] = *(u8*)&buffer[cur + i*stride];
 				} break;
 			case 2:
 				for (i64 i = 0; i < count; i++) {
-					indices[i] = *(u16*)&buffer[cur + i*indexStride];
+					indices[i] = *(u16*)&buffer[cur + i*stride];
 				} break;
 			case 4:
 				memcpy(indices.data, &buffer[cur], length);
 				break;
-			default:
-				io::cerr.PrintLn("Invalid indexStride: ", indexStride);
-				return false;
 			}
 			cur += align(length, 4);
 			return true;
@@ -152,27 +210,66 @@ namespace Types {
 
 	// Describes a material
 	struct Mat0 {
-		static constexpr i64 SIZE = 64;
+		static constexpr i64 SIZE = 8;
 		char ident[4];
-		vec4 albedoColor;
-		vec3 emissionColor;
+		u32 length;
+		vec4 albedoColor = vec4(1.0f);
+		vec3 emissionColor = vec3(0.0f);
 		static_assert(sizeof(az::vec4) == 4*4);
 		static_assert(sizeof(az::vec3) == 4*3);
-		f32 normalDepth;
-		f32 metalnessFactor;
-		f32 roughnessFactor;
+		f32 normalDepth = 1.0f;
+		f32 metalnessFactor = 0.0f;
+		f32 roughnessFactor = 0.5f;
 		// Texture indices are valid within the file
 		// 0 indicates no texture
-		u32 albedoIndex;
-		u32 emissionIndex;
-		u32 normalIndex;
-		u32 metalnessIndex;
-		u32 roughnessIndex;
+		u32 albedoIndex = 0;
+		u32 emissionIndex = 0;
+		u32 normalIndex = 0;
+		u32 metalnessIndex = 0;
+		u32 roughnessIndex = 0;
 		bool FromBuffer(Str buffer, i64 &cur) {
 			EXPECT_SPACE_IN_BUFFER(SIZE);
 			EXPECT_TAG_IN_BUFFER("Mat0", 4);
 			memcpy(this, &buffer[cur], SIZE);
 			cur += SIZE;
+			EXPECT_SPACE_IN_BUFFER(length);
+			i64 endCur = cur + length;
+			while (cur < endCur) {
+				Str tag = Str(&buffer[cur], 4);
+				cur += 4;
+				u32 count = (u32)tag[3];
+				if (count == 0) {
+					io::cerr.PrintLn("Mat0 tag \"", tag, "\" has invalid count ", count);
+					return false;
+				}
+				EXPECT_SPACE_IN_BUFFER(4*count);
+				if (tag == "ACF\004") {
+					albedoColor = *(vec4*)&buffer[cur];
+				} else if (tag == "ECF\003") {
+					emissionColor = *(vec3*)&buffer[cur];
+				} else if (tag == "NDF\001") {
+					normalDepth = *(f32*)&buffer[cur];
+				} else if (tag == "MFF\001") {
+					metalnessFactor = *(f32*)&buffer[cur];
+				} else if (tag == "RFF\001") {
+					roughnessFactor = *(f32*)&buffer[cur];
+				} else if (tag == "ATI\001") {
+					albedoIndex = *(u32*)&buffer[cur];
+				} else if (tag == "ETI\001") {
+					emissionIndex = *(u32*)&buffer[cur];
+				} else if (tag == "NTI\001") {
+					normalIndex = *(u32*)&buffer[cur];
+				} else if (tag == "MTI\001") {
+					metalnessIndex = *(u32*)&buffer[cur];
+				} else if (tag == "RTI\001") {
+					roughnessIndex = *(u32*)&buffer[cur];
+				}
+				cur += 4*count;
+			}
+			if (cur != endCur) {
+				io::cerr.PrintLn("Mat0 data is misaligned somehow (cur is ", cur, " but expected ", endCur, ")");
+				return false;
+			}
 			return true;
 		}
 	};
@@ -207,7 +304,7 @@ namespace Tables {
 		Types::Indx indx;
 		Types::Mat0 mat0;
 		// Expects header to already be set and cur to be immediately after
-		bool FromBuffer(Str buffer, i64 &cur, u32 vertexStride, u32 indexStride) {
+		bool FromBuffer(Str buffer, i64 &cur) {
 			if (strncmp(header.ident, "Mesh", 4) != 0) {
 				PRINT_ERROR("Parsing a \"", Str(header.ident, 4), "\" as though it's a \"Mesh\"");
 				return false;
@@ -226,10 +323,10 @@ namespace Tables {
 					if (!name.FromBuffer(buffer, cur)) return false;
 					hasName = true;
 				} else if (tag == "Vert") {
-					if (!vert.FromBuffer(buffer, cur, vertexStride)) return false;
+					if (!vert.FromBuffer(buffer, cur)) return false;
 					hasVert = true;
 				} else if (tag == "Indx") {
-					if (!indx.FromBuffer(buffer, cur, indexStride)) return false;
+					if (!indx.FromBuffer(buffer, cur)) return false;
 					hasIndx = true;
 				} else if (tag == "Mat0") {
 					if (!mat0.FromBuffer(buffer, cur)) return false;
@@ -353,7 +450,7 @@ bool File::LoadFromBuffer(Str buffer) {
 		if (tag == "Mesh") {
 			Tables::Mesh meshData;
 			meshData.header = table;
-			if (!meshData.FromBuffer(buffer, cur, header.vertexStride, header.indexStride)) return false;
+			if (!meshData.FromBuffer(buffer, cur)) return false;
 			Mesh &mesh = meshes.Append(Mesh());
 			mesh.name = meshData.name.name;
 			mesh.vertices = std::move(meshData.vert.vertices);

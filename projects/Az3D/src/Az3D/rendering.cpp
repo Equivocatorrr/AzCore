@@ -193,10 +193,10 @@ bool Manager::Init() {
 	data.meshPartUnitSquare = new Assets::MeshPart;
 	sys->assets.meshParts.Append(data.meshPartUnitSquare);
 	data.meshPartUnitSquare->vertices = {
-		{vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec2(0.0f, 0.0f)},
-		{vec3(1.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec2(1.0f, 0.0f)},
-		{vec3(0.0f, 1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec2(0.0f, 1.0f)},
-		{vec3(1.0f, 1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec2(1.0f, 1.0f)},
+		{vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f), vec2(0.0f, 0.0f)},
+		{vec3(1.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f), vec2(1.0f, 0.0f)},
+		{vec3(0.0f, 1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f), vec2(0.0f, 1.0f)},
+		{vec3(1.0f, 1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f), vec2(1.0f, 1.0f)},
 	};
 	data.meshPartUnitSquare->indices = {0, 1, 2, 1, 3, 2};
 	data.meshPartUnitSquare->material = Material::Blank();
@@ -389,6 +389,12 @@ bool Manager::Init() {
 		data.pipelines[i]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
 	}
 	vertexInputAttributeDescription.location = 2;
+	vertexInputAttributeDescription.offset = offsetof(Vertex, tangent);
+	vertexInputAttributeDescription.format = VK_FORMAT_R32G32B32_SFLOAT;
+	for (i32 i = PIPELINE_3D_RANGE_START; i < PIPELINE_3D_RANGE_END; i++) {
+		data.pipelines[i]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+	}
+	vertexInputAttributeDescription.location = 3;
 	vertexInputAttributeDescription.offset = offsetof(Vertex, tex);
 	vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
 	for (i32 i = PIPELINE_3D_RANGE_START; i < PIPELINE_3D_RANGE_END; i++) {

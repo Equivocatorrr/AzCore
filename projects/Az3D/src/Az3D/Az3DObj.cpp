@@ -129,9 +129,13 @@ namespace Types {
 					dst.Append(3);
 					dst.Append(4);
 					dst.Append(5);
-				} else if (tag == "UVF\002") {
+				} else if (tag == "TaF\003") {
 					dst.Append(6);
 					dst.Append(7);
+					dst.Append(8);
+				} else if (tag == "UVF\002") {
+					dst.Append(9);
+					dst.Append(10);
 				} else {
 					u32 count = (u32)tag[3];
 					if (count == 0) {
@@ -152,6 +156,8 @@ namespace Types {
 		
 		Vertex GetVertex(char *buffer, Array<i32> offsets) {
 			Vertex result;
+			// Default value because tangents aren't always included
+			result.tangent = vec3(1.0f, 0.0f, 0.0f);
 			u32 *dst = (u32*)&result;
 			u32 *src = (u32*)buffer;
 			for (i32 offset : offsets) {
@@ -160,6 +166,8 @@ namespace Types {
 				}
 				src++;
 			}
+			// This is mostly to fix our default value not relating to anything in particular, but if for whatever reason the file's tangent isn't orthogonal to the normal, we still ensure that.
+			result.tangent = orthogonalize(result.tangent, result.normal);
 			return result;
 		}
 	};
@@ -189,7 +197,6 @@ namespace Types {
 			i64 length = count * stride;
 			EXPECT_SPACE_IN_BUFFER(length);
 			indices.Resize(count);
-			// Support indexStrides other than 4 just for funsies
 			switch (stride) {
 			case 1:
 				for (i64 i = 0; i < count; i++) {
@@ -220,6 +227,13 @@ namespace Types {
 		f32 normalDepth = 1.0f;
 		f32 metalnessFactor = 0.0f;
 		f32 roughnessFactor = 0.5f;
+		// SubSurface Scattering
+		f32 sssFactor = 0.0f;
+		// Tints the entire subsurf lighting component evenly
+		vec3 sssColor = vec3(1.0f);
+		// sssRadius has one radius per primary color
+		// Tints the subsurf lighting component depending on distance
+		vec3 sssRadius = vec3(0.1f);
 		// Texture indices are valid within the file
 		// 0 indicates no texture
 		u32 albedoIndex = 0;
@@ -227,6 +241,8 @@ namespace Types {
 		u32 normalIndex = 0;
 		u32 metalnessIndex = 0;
 		u32 roughnessIndex = 0;
+		// Texture that describes subsurface color. Probably won't really be used since you could just have separate materials for subsurf vs not, even in the same Mesh.
+		u32 sssIndex = 0;
 		bool FromBuffer(Str buffer, i64 &cur) {
 			EXPECT_SPACE_IN_BUFFER(SIZE);
 			EXPECT_TAG_IN_BUFFER("Mat0", 4);
@@ -253,6 +269,12 @@ namespace Types {
 					metalnessFactor = *(f32*)&buffer[cur];
 				} else if (tag == "RFF\001") {
 					roughnessFactor = *(f32*)&buffer[cur];
+				} else if (tag == "SFF\001") {
+					sssFactor = *(f32*)&buffer[cur];
+				} else if (tag == "SCF\003") {
+					sssColor = *(vec3*)&buffer[cur];
+				} else if (tag == "SRF\003") {
+					sssRadius = *(vec3*)&buffer[cur];
 				} else if (tag == "ATI\001") {
 					albedoIndex = *(u32*)&buffer[cur];
 				} else if (tag == "ETI\001") {
@@ -263,6 +285,8 @@ namespace Types {
 					metalnessIndex = *(u32*)&buffer[cur];
 				} else if (tag == "RTI\001") {
 					roughnessIndex = *(u32*)&buffer[cur];
+				} else if (tag == "STI\001") {
+					sssIndex = *(u32*)&buffer[cur];
 				}
 				cur += 4*count;
 			}

@@ -15,6 +15,7 @@ namespace Az3D::Az3DObj {
 struct Vertex {
 	az::vec3 pos;
 	az::vec3 normal;
+	az::vec3 tangent;
 	az::vec2 tex;
 };
 

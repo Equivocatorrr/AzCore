@@ -3,8 +3,10 @@
 
 layout(location=0) in vec2 texCoord;
 layout(location=1) in vec3 inNormal;
-layout(location=2) flat in int baseInstance;
-layout(location=3) in vec3 inWorldPos;
+layout(location=2) in vec3 inTangent;
+layout(location=3) in vec3 inBitangent;
+layout(location=4) flat in int baseInstance;
+layout(location=5) in vec3 inWorldPos;
 
 layout (location = 0) out vec4 outColor;
 
@@ -78,17 +80,22 @@ void main() {
 	
 	vec4 albedo = texture(texSampler[info.material.texAlbedo], texCoord) * info.material.color;
 	vec3 emit = texture(texSampler[info.material.texEmit], texCoord).rgb * info.material.emit;
-	vec3 normal = texture(texSampler[info.material.texNormal], texCoord).xyz * info.material.normal;
+	vec3 normal = texture(texSampler[info.material.texNormal], texCoord).xyz * 2.0 - 1.0;
 	float metalness = texture(texSampler[info.material.texMetalness], texCoord).x * info.material.metalness;
 	float roughness = texture(texSampler[info.material.texRoughness], texCoord).x * info.material.roughness;
 	roughness = sqr(roughness);
 	
-	vec3 actualNormal = normalize(inNormal);
+	vec3 surfaceNormal = normalize(inNormal);
+	vec3 surfaceTangent = normalize(inTangent);
+	vec3 surfaceBitangent = normalize(inBitangent);
+	mat3 invTBN = transpose(mat3(surfaceTangent, surfaceBitangent, surfaceNormal));
+	normal = normalize(mix(surfaceNormal, normal * invTBN, info.material.normal));
+	
 	vec3 viewNormal = normalize(worldInfo.eyePos - inWorldPos);
 	vec3 halfNormal = normalize(viewNormal + lightNormal);
-	float cosThetaView = max(dot(actualNormal, viewNormal), 0.0);
-	float cosThetaLight = dot(actualNormal, lightNormal);
-	float cosThetaViewHalfNormal = max(dot(actualNormal, halfNormal), 0.0);
+	float cosThetaView = max(dot(normal, viewNormal), 0.0);
+	float cosThetaLight = dot(normal, lightNormal);
+	float cosThetaViewHalfNormal = max(dot(normal, halfNormal), 0.0);
 	// Roughness remapping for direct lighting
 	float k = sqr(roughness+1.0)/8.0;
 	
@@ -108,8 +115,9 @@ void main() {
 	
 	vec3 specular = lightColor * DistributionGGX(cosThetaViewHalfNormal, roughness) * attenuationLight;
 	
+	// outColor.rgb = normal * 0.5 + 0.5;
 	// outColor.rgb = diffuse;
-	// outColor.rgb = FresnelSchlick(actualNormal, viewNormal, baseReflectivity);
+	// outColor.rgb = FresnelSchlick(surfaceNormal, viewNormal, baseReflectivity);
 	outColor.rgb = 1.0 / PI * mix(diffuse * (1.0 - metalness), specular, fresnel) * attenuationGeometry;
 	outColor.a = albedo.a;
 	outColor.rgb += emit;

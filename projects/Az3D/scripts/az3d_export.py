@@ -249,7 +249,6 @@ def prepare_mesh(mesh, transform):
 	transform[1][3] = 0
 	transform[2][3] = 0
 	bm.transform(transform)
-	bmesh.ops.triangulate(bm, faces=bm.faces[:])
 	bm.to_mesh(mesh)
 	bm.free()
 	if mesh.uv_layers:
@@ -286,33 +285,37 @@ def write_mesh(context, props, out, object, tex_indices):
 	hasUVs = bool(mesh.uv_layers)
 	uv_layer = mesh.uv_layers.active
 	mesh_datas = {}
-	uvIndex = 0
 	for face in mesh.polygons:
 		material_index = face.material_index
 		assert(material_index < len(materials))
 		mesh_data = mesh_datas.setdefault(material_index, MeshData(hasUVs, materials[material_index]["normalFile"] != ''))
-		# normal = face.normal
-		# if not face.use_smooth:
-			# tangent = sum([mesh.loops[i].tangent for i in face.loop_indices]).normalized()
-		for vert in [mesh.loops[i] for i in face.loop_indices]:
-			vertUV = uv_layer.data[uvIndex].uv if hasUVs else None
-			pos = mesh.vertices[vert.vertex_index].co
-			if face.use_smooth:
+		def add_vert(vertInfo):
+			if vertInfo[0] >= mesh_data.nextVertIndex:
+				vert = mesh.loops[vertInfo[1]]
+				vertUV = uv_layer.data[vertInfo[1]].uv if hasUVs else None
+				pos = s*mesh.vertices[vert.vertex_index].co
 				normal = vert.normal
 				tangent = vert.tangent
-			match mesh_data.vertexStride:
-				case 24:
-					vertex = struct.pack('<ffffff', s*pos.x, s*pos.y, s*pos.z, normal.x, normal.y, normal.z)
-				case 32:
-					vertex = struct.pack('<ffffffff', s*pos.x, s*pos.y, s*pos.z, normal.x, normal.y, normal.z, vertUV.x, 1-vertUV.y)
-				case 44:
-					vertex = struct.pack('<fffffffffff', s*pos.x, s*pos.y, s*pos.z, normal.x, normal.y, normal.z, tangent.x, tangent.y, tangent.z, vertUV.x, 1-vertUV.y)
-			vertIndex = mesh_data.dedup.setdefault(vertex, mesh_data.nextVertIndex)
-			if vertIndex == mesh_data.nextVertIndex:
-				mesh_data.vertices += vertex
-				mesh_data.nextVertIndex += 1
-			mesh_data.indices.append(vertIndex)
-			uvIndex += 1
+				match mesh_data.vertexStride:
+					case 24:
+						vertex = struct.pack('<ffffff', pos.x, pos.y, pos.z, normal.x, normal.y, normal.z)
+					case 32:
+						vertex = struct.pack('<ffffffff', pos.x, pos.y, pos.z, normal.x, normal.y, normal.z, vertUV.x, 1-vertUV.y)
+					case 44:
+						vertex = struct.pack('<fffffffffff', pos.x, pos.y, pos.z, normal.x, normal.y, normal.z, tangent.x, tangent.y, tangent.z, vertUV.x, 1-vertUV.y)
+				vertInfo[0] = mesh_data.dedup.setdefault(vertex, mesh_data.nextVertIndex)
+				if vertInfo[0] == mesh_data.nextVertIndex:
+					mesh_data.vertices += vertex
+					mesh_data.nextVertIndex += 1
+			mesh_data.indices.append(vertInfo[0])
+		v1 = [mesh_data.nextVertIndex, face.loop_indices[0]]
+		vPrev = [mesh_data.nextVertIndex+1,face.loop_indices[1]]
+		for vert in face.loop_indices[2:]:
+			add_vert(v1)
+			add_vert(vPrev)
+			newVert = [mesh_data.nextVertIndex, vert]
+			add_vert(newVert)
+			vPrev = newVert
 	
 	for mesh_data in mesh_datas.values():
 		if len(mesh_data.indices) < 256:

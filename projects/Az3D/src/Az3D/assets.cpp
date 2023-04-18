@@ -439,6 +439,9 @@ bool Mesh::Load(String filename) {
 		meshPart->material.normal = meshData.material.normal;
 		meshPart->material.metalness = meshData.material.metalness;
 		meshPart->material.roughness = meshData.material.roughness;
+		meshPart->material.sssFactor = meshData.material.sssFactor;
+		meshPart->material.sssColor = meshData.material.sssColor;
+		meshPart->material.sssRadius = meshData.material.sssRadius;
 		for (i32 i = 0; i < 5; i++) {
 			if (meshData.material.tex[i] == 0) {
 				meshPart->material.tex[i] = i == 2 ? texIndexBlankNormal : texIndexBlank;

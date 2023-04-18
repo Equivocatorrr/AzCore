@@ -26,8 +26,11 @@ struct Material {
 	vec4 color;
 	vec3 emit;
 	float normal;
+	vec3 sssColor;
 	float metalness;
+	vec3 sssRadius;
 	float roughness;
+	float sssFactor;
 	// Texture indices
 	uint texAlbedo;
 	uint texEmit;
@@ -46,9 +49,13 @@ layout(std140, set=0, binding=1) readonly buffer ObjectBuffer {
 } objectBuffer;
 
 const vec3 lightNormal = vec3(0.0, -0.707, 0.707);
-const vec3 lightColor = vec3(1.0, 0.7, 0.4);
+const vec3 lightColor = vec3(1.0, 0.8, 0.6) * 2.0;
 
 float sqr(float a) {
+	return a * a;
+}
+
+vec3 sqr(vec3 a) {
 	return a * a;
 }
 
@@ -71,10 +78,6 @@ vec3 FresnelSchlick(float cosThetaView, vec3 baseReflectivity) {
 	return baseReflectivity + (1.0 - baseReflectivity) * pow(1.0 - cosThetaView, 5.0);
 }
 
-const float sssWrap = 0.6;
-// TODO: Make this a material property
-const float sssAmount = 0.25;
-
 void main() {
 	ObjectInfo info = objectBuffer.objects[baseInstance];
 	
@@ -84,6 +87,7 @@ void main() {
 	float metalness = texture(texSampler[info.material.texMetalness], texCoord).x * info.material.metalness;
 	float roughness = texture(texSampler[info.material.texRoughness], texCoord).x * info.material.roughness;
 	roughness = sqr(roughness);
+	float sssFactor = info.material.sssFactor;
 	
 	vec3 surfaceNormal = normalize(inNormal);
 	vec3 surfaceTangent = normalize(inTangent);
@@ -91,7 +95,8 @@ void main() {
 	mat3 invTBN = transpose(mat3(surfaceTangent, surfaceBitangent, surfaceNormal));
 	normal = normalize(mix(surfaceNormal, normal * invTBN, info.material.normal));
 	
-	vec3 viewNormal = normalize(worldInfo.eyePos - inWorldPos);
+	vec3 viewDelta = worldInfo.eyePos - inWorldPos;
+	vec3 viewNormal = normalize(viewDelta);
 	vec3 halfNormal = normalize(viewNormal + lightNormal);
 	float cosThetaView = max(dot(normal, viewNormal), 0.0);
 	float cosThetaLight = dot(normal, lightNormal);
@@ -102,23 +107,31 @@ void main() {
 	vec3 baseReflectivity = mix(vec3(0.04), albedo.rgb, metalness);
 	float attenuationGeometry = GeometrySchlickGGX(cosThetaView, k);
 	float attenuationLight = GeometrySchlickGGX(max(cosThetaLight, 0.0), k);
-	float attenuationWrap = GeometrySchlickGGX(cosThetaLight, k);
+	// Linear attenuation looks nicer because it's softer. 
+	float attenuationWrap = cosThetaLight; //GeometrySchlickGGX(cosThetaLight, k);
 	vec3 fresnel = FresnelSchlick(cosThetaView, baseReflectivity);
 	
 	// This is a way to determine the "pointiness" of the surface to make sharper edges diffuse the subsurface lighting more, but it's flat along the triangle
-	// float sssWrap = clamp(fwidth(cosThetaLight) / length(fwidth(viewNormal)) / 5.0, 0.5, 1.0);
+	// The increased accuracy we get from this is nice, but gets outweighed by making the triangles obvious with sharp edges.
+	// float sssSharpness = clamp(fwidth(cosThetaLight) / length(fwidth(viewDelta)) * 0.3, 0.0, 1.0);
 	
-	float wrapFac = clamp((attenuationWrap + sssWrap) / (1.0 + sssWrap), 0.0, 1.0);
-	vec3 diffuse = albedo.rgb * attenuationLight;
-	vec3 subsurface = albedo.rgb * wrapFac * mix(vec3(1.0), vec3(1.0, 0.05, 0.025), clamp((wrapFac-attenuationWrap)/sssWrap, 0.0, 1.0));
-	diffuse = mix(diffuse, subsurface, sssAmount);
+	// TODO: Use Radius and shadow maps to calculate back-facing lighting
+	// This current method only looks convincing on rotund surfaces where scattering all the way through the object wouldn't be expected
+	// For things like foliage, this is very unconvincing.
+	vec3 sssWrap = tanh(info.material.sssRadius);
+	
+	// Squaring the denominator makes our output more physically accurate since otherwise we're generating more light than we absorb.
+	vec3 wrapFac = clamp((vec3(attenuationWrap) + sssWrap) / sqr(1.0 + sssWrap), 0.0, 1.0);
+	vec3 diffuse = albedo.rgb * attenuationLight * (1.0 - sssFactor) * lightColor;
+	vec3 subsurface = wrapFac * info.material.sssColor * sssFactor * lightColor;
 	
 	vec3 specular = lightColor * DistributionGGX(cosThetaViewHalfNormal, roughness) * attenuationLight;
 	
 	// outColor.rgb = normal * 0.5 + 0.5;
-	// outColor.rgb = diffuse;
+	// outColor.rgb = vec3(sssSharpness);
+	// outColor.rgb = subsurface;
 	// outColor.rgb = FresnelSchlick(surfaceNormal, viewNormal, baseReflectivity);
-	outColor.rgb = 1.0 / PI * mix(diffuse * (1.0 - metalness), specular, fresnel) * attenuationGeometry;
+	outColor.rgb = 1.0 / PI * (mix(diffuse * (1.0 - metalness), specular, fresnel) * attenuationGeometry + subsurface);
 	outColor.a = albedo.a;
 	outColor.rgb += emit;
 }

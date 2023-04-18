@@ -63,8 +63,11 @@ struct Material alignas(16) {
 	vec4 color;
 	vec3 emit;
 	f32 normal;
+	vec3 sssColor;
 	f32 metalness;
+	vec3 sssRadius;
 	f32 roughness;
+	f32 sssFactor;
 	// Texture indices
 	union {
 		struct {

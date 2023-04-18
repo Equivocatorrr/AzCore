@@ -484,6 +484,9 @@ bool File::LoadFromBuffer(Str buffer) {
 			mesh.material.normal = meshData.mat0.normalDepth;
 			mesh.material.metalness = meshData.mat0.metalnessFactor;
 			mesh.material.roughness = meshData.mat0.roughnessFactor;
+			mesh.material.sssFactor = meshData.mat0.sssFactor;
+			mesh.material.sssColor = meshData.mat0.sssColor;
+			mesh.material.sssRadius = meshData.mat0.sssRadius;
 			mesh.material.texAlbedo = meshData.mat0.albedoIndex;
 			mesh.material.texEmit = meshData.mat0.emissionIndex;
 			mesh.material.texNormal = meshData.mat0.normalIndex;
@@ -529,6 +532,7 @@ bool File::LoadFromBuffer(Str buffer) {
 		io::cerr.PrintLn("Materials expected ", numTexturesExpected, " textures, but we actually had ", numTexturesActual);
 		return false;
 	}
+	io::cout.PrintLn("Had ", meshes.size, " meshes, ", empties.size, " empties, ", images.size, " images.");
 	return true;
 }
 

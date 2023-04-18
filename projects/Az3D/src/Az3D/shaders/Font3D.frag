@@ -17,8 +17,11 @@ struct Material {
 	vec4 color;
 	vec3 emit;
 	float normal;
+	vec3 sssColor;
 	float metalness;
+	vec3 sssRadius;
 	float roughness;
+	float sssFactor;
 	// Texture indices
 	uint texAlbedo;
 	uint texEmit;

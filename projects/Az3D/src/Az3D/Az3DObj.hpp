@@ -26,6 +26,9 @@ struct Material {
 	f32 normal;
 	f32 metalness;
 	f32 roughness;
+	f32 sssFactor;
+	az::vec3 sssColor;
+	az::vec3 sssRadius;
 	// Texture indices are relative to the file
 	// 0 indicates no texture
 	union {

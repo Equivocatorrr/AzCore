@@ -323,10 +323,9 @@ def write_mesh(context, props, out, object, tex_indices):
 		elif len(mesh_data.indices) < 65536:
 			mesh_data.indexStride = 2
 	
-	data = bytearray()
-	write_name(data, object.name)
-	
 	for i, mesh_data in mesh_datas.items():
+		data = bytearray()
+		write_name(data, object.name)
 		data += b'Vert' + struct.pack('<IHH', len(mesh_data.vertices) // mesh_data.vertexStride, mesh_data.vertexStride, len(mesh_data.vertexFormat) // 4) + mesh_data.vertexFormat
 		data += mesh_data.vertices
 		
@@ -345,12 +344,10 @@ def write_mesh(context, props, out, object, tex_indices):
 		data += b'\0' * (align(len(data)) - len(data))
 		
 		write_mat0(data, materials[i], tex_indices)
+		write_section_header(out, b'Mesh', len(data))
+		out.write(data)
 		
 		print("Mesh Part: " + str(len(mesh_data.vertices) // mesh_data.vertexStride) + " vertices and " + str(len(mesh_data.indices)) + " indices, material " + str(i))
-	
-	# do the writing
-	write_section_header(out, b'Mesh', len(data))
-	out.write(data)
 
 def write_empty(props, out, object):
 	data = bytearray()

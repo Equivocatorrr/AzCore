@@ -30,6 +30,7 @@ struct Material {
 	vec3 sssRadius;
 	float roughness;
 	float sssFactor;
+	uint isFoliage;
 	// Texture indices
 	uint texAlbedo;
 	uint texEmit;

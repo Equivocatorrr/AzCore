@@ -68,6 +68,7 @@ struct Material alignas(16) {
 	vec3 sssRadius;
 	f32 roughness;
 	f32 sssFactor;
+	u32 isFoliage;
 	// Texture indices
 	union {
 		struct {
@@ -87,6 +88,7 @@ struct Material alignas(16) {
 			1.0f,
 			0.0f,
 			0.5f,
+			0,
 			1, 1, 1, 1, 1};
 	}
 };
@@ -99,6 +101,8 @@ enum PipelineEnum {
 	PIPELINE_NONE=0,
 	PIPELINE_DEBUG_LINES,
 	PIPELINE_BASIC_3D,
+	// Special pipeline that renders backfaces
+	PIPELINE_FOLIAGE_3D,
 	PIPELINE_FONT_3D,
 	PIPELINE_COUNT,
 	// Range of pipelines that use Basic3D.vert

@@ -243,6 +243,7 @@ namespace Types {
 		u32 roughnessIndex = 0;
 		// Texture that describes subsurface color. Probably won't really be used since you could just have separate materials for subsurf vs not, even in the same Mesh.
 		u32 sssIndex = 0;
+		bool isFoliage = false;
 		bool FromBuffer(Str buffer, i64 &cur) {
 			EXPECT_SPACE_IN_BUFFER(SIZE);
 			EXPECT_TAG_IN_BUFFER("Mat0", 4);
@@ -254,10 +255,6 @@ namespace Types {
 				Str tag = Str(&buffer[cur], 4);
 				cur += 4;
 				u32 count = (u32)tag[3];
-				if (count == 0) {
-					io::cerr.PrintLn("Mat0 tag \"", tag, "\" has invalid count ", count);
-					return false;
-				}
 				EXPECT_SPACE_IN_BUFFER(4*count);
 				if (tag == "ACF\004") {
 					albedoColor = *(vec4*)&buffer[cur];
@@ -287,6 +284,8 @@ namespace Types {
 					roughnessIndex = *(u32*)&buffer[cur];
 				} else if (tag == "STI\001") {
 					sssIndex = *(u32*)&buffer[cur];
+				} else if (tag == "Fol\0") {
+					isFoliage = true;
 				}
 				cur += 4*count;
 			}
@@ -492,6 +491,7 @@ bool File::LoadFromBuffer(Str buffer) {
 			mesh.material.texNormal = meshData.mat0.normalIndex;
 			mesh.material.texMetalness = meshData.mat0.metalnessIndex;
 			mesh.material.texRoughness = meshData.mat0.roughnessIndex;
+			mesh.material.isFoliage = meshData.mat0.isFoliage;
 			for (i32 i = 0; i < 5; i++) {
 				if (mesh.material.tex[i] > numTexturesExpected) numTexturesExpected = mesh.material.tex[i];
 			}

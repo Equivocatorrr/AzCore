@@ -65,7 +65,8 @@ void BindPipeline(VkCommandBuffer cmdBuf, PipelineIndex pipeline) {
 		case PIPELINE_DEBUG_LINES: {
 			vk::CmdBindVertexBuffer(cmdBuf, 0, r.data.debugVertexBuffer);
 		} break;
-		case PIPELINE_BASIC_3D: {
+		case PIPELINE_BASIC_3D:
+		case PIPELINE_FOLIAGE_3D: {
 			vk::CmdBindVertexBuffer(cmdBuf, 0, r.data.vertexBuffer);
 		} break;
 		case PIPELINE_FONT_3D: {
@@ -126,7 +127,7 @@ bool Manager::Init() {
 	data.debugVertices.Resize(MAX_DEBUG_VERTICES);
 	// Allow up to 10000 objects at once
 	// TODO: Make this resizeable
-	data.objectShaderInfos.Resize(10000);
+	data.objectShaderInfos.Resize(1000000);
 	data.commandPoolGraphics = data.device->AddCommandPool(data.queueGraphics);
 	data.commandPoolGraphics->resettable = true;
 
@@ -156,7 +157,6 @@ bool Manager::Init() {
 	data.textureSampler->addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	data.textureSampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	data.textureSampler->anisotropy = 4;
-	data.textureSampler->mipLodBias = -1.0f; // Crisp!!!
 	data.textureSampler->maxLod = 1000000000000.0f; // Just, like, BIG
 
 	data.stagingMemory = data.device->AddMemory();
@@ -353,6 +353,10 @@ bool Manager::Init() {
 		VK_DYNAMIC_STATE_VIEWPORT,
 		VK_DYNAMIC_STATE_SCISSOR
 	};
+	
+	data.pipelines[PIPELINE_FOLIAGE_3D] = data.device->AddPipeline();
+	*data.pipelines[PIPELINE_FOLIAGE_3D] = *data.pipelines[PIPELINE_BASIC_3D];
+	data.pipelines[PIPELINE_FOLIAGE_3D]->rasterizer.cullMode = VK_CULL_MODE_NONE;
 	data.pipelines[PIPELINE_DEBUG_LINES]->dynamicStates = data.pipelines[PIPELINE_BASIC_3D]->dynamicStates;
 
 	data.pipelines[PIPELINE_FONT_3D] = data.device->AddPipeline();
@@ -722,7 +726,7 @@ bool Manager::UpdateUniforms() {
 }
 
 bool Manager::UpdateObjects() {
-	data.objectStagingBuffer->CopyData(data.objectShaderInfos.data, min(data.objectShaderInfos.size, 10000) * sizeof(ObjectShaderInfo));
+	data.objectStagingBuffer->CopyData(data.objectShaderInfos.data, min(data.objectShaderInfos.size, 1000000) * sizeof(ObjectShaderInfo));
 	VkCommandBuffer cmdBuf = data.commandBufferTransfer->Begin();
 	data.objectBuffer->Copy(cmdBuf, data.objectStagingBuffer);
 	if (!data.commandBufferTransfer->End()) {
@@ -1120,7 +1124,7 @@ void DrawMeshPart(DrawingContext &context, Assets::MeshPart *meshPart, const mat
 	draw.indexCount = meshPart->indices.size;
 	draw.instanceCount = 1;
 	draw.material = meshPart->material;
-	draw.pipeline = PIPELINE_BASIC_3D;
+	draw.pipeline = meshPart->material.isFoliage ? PIPELINE_FOLIAGE_3D : PIPELINE_BASIC_3D;
 	draw.opaque = opaque;
 	draw.castsShadows = castsShadows;
 	draw.culled = false;

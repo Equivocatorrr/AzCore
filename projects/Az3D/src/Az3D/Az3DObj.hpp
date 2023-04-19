@@ -41,6 +41,7 @@ struct Material {
 		};
 		u32 tex[5];
 	};
+	bool isFoliage;
 };
 
 struct Mesh {

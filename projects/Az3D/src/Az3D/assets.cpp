@@ -442,6 +442,7 @@ bool Mesh::Load(String filename) {
 		meshPart->material.sssFactor = meshData.material.sssFactor;
 		meshPart->material.sssColor = meshData.material.sssColor;
 		meshPart->material.sssRadius = meshData.material.sssRadius;
+		meshPart->material.isFoliage = meshData.material.isFoliage;
 		for (i32 i = 0; i < 5; i++) {
 			if (meshData.material.tex[i] == 0) {
 				meshPart->material.tex[i] = i == 2 ? texIndexBlankNormal : texIndexBlank;

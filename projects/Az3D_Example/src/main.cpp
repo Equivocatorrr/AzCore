@@ -19,15 +19,19 @@ struct Test : public GameSystems::System {
 	vec2 facingDiff = 0.0f;
 	Degrees32 targetFOV = 120.0f;
 	bool mouseLook = false;
-	Assets::MeshIndex meshes[2];
+	Assets::MeshIndex meshes[4];
 	i32 currentMesh = 0;
 	virtual void EventAssetsQueue() override {
 		sys->assets.QueueFile("suzanne.az3d");
 		sys->assets.QueueFile("F-232 Eagle.az3d");
+		sys->assets.QueueFile("Tree.az3d");
+		sys->assets.QueueFile("Grass_Blade.az3d");
 	}
 	virtual void EventAssetsAcquire() override {
 		meshes[0] = sys->assets.FindMesh("suzanne.az3d");
 		meshes[1] = sys->assets.FindMesh("F-232 Eagle.az3d");
+		meshes[2] = sys->assets.FindMesh("Tree.az3d");
+		meshes[3] = sys->assets.FindMesh("Grass_Blade.az3d");
 	}
 	virtual void EventUpdate() override {
 		f32 speed = sys->Down(KC_KEY_LEFTSHIFT) ? 8.0f : 2.0f;
@@ -108,6 +112,8 @@ struct Test : public GameSystems::System {
 		}
 		if (sys->Pressed(KC_KEY_1)) currentMesh = 0;
 		if (sys->Pressed(KC_KEY_2)) currentMesh = 1;
+		if (sys->Pressed(KC_KEY_3)) currentMesh = 2;
+		if (sys->Pressed(KC_KEY_4)) currentMesh = 3;
 		targetFOV = clamp(targetFOV.value() - sys->input.scroll.y*5.0f, 5.0f, 150.0f);
 		camera.fov = decay(camera.fov.value(), targetFOV.value(), 0.5f, sys->timestep);
 	}
@@ -125,6 +131,13 @@ struct Test : public GameSystems::System {
 				{vec3(-10.0f, p, 0.0f), vec4(0.0f, f, 0.5f, 0.5f)},
 				{vec3( 10.0f, p, 0.0f), vec4(1.0f, f, 0.5f, 0.5f)}
 			);
+		}
+		RandomNumberGenerator rng(69420);
+		for (i32 i = 0; i < 50000; i++) {
+			mat4 transform = mat4::RotationBasic(random(0.0f, tau, &rng), Axis::Z);
+			transform.h.w1 = random(-4.0f, 4.0f, &rng);
+			transform.h.w2 = random(-4.0f, 4.0f, &rng);
+			Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshes[3]], transform, true, false);
 		}
 	}
 };

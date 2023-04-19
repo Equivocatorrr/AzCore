@@ -31,6 +31,7 @@ struct Material {
 	vec3 sssRadius;
 	float roughness;
 	float sssFactor;
+	uint isFoliage;
 	// Texture indices
 	uint texAlbedo;
 	uint texEmit;
@@ -49,7 +50,7 @@ layout(std140, set=0, binding=1) readonly buffer ObjectBuffer {
 } objectBuffer;
 
 const vec3 lightNormal = vec3(0.0, -0.707, 0.707);
-const vec3 lightColor = vec3(1.0, 0.8, 0.6) * 2.0;
+const vec3 lightColor = vec3(1.0, 0.9, 0.8) * 2.0;
 
 float sqr(float a) {
 	return a * a;
@@ -78,6 +79,10 @@ vec3 FresnelSchlick(float cosThetaView, vec3 baseReflectivity) {
 	return baseReflectivity + (1.0 - baseReflectivity) * pow(1.0 - cosThetaView, 5.0);
 }
 
+vec3 wrap(float attenuation, vec3 wrapFac) {
+	return clamp((vec3(attenuation) + wrapFac) / sqr(1.0 + wrapFac), 0.0, 1.0);
+}
+
 void main() {
 	ObjectInfo info = objectBuffer.objects[baseInstance];
 	
@@ -92,12 +97,14 @@ void main() {
 	vec3 surfaceNormal = normalize(inNormal);
 	vec3 surfaceTangent = normalize(inTangent);
 	vec3 surfaceBitangent = normalize(inBitangent);
-	mat3 invTBN = transpose(mat3(surfaceTangent, surfaceBitangent, surfaceNormal));
-	normal = normalize(mix(surfaceNormal, normal * invTBN, info.material.normal));
 	
 	vec3 viewDelta = worldInfo.eyePos - inWorldPos;
 	vec3 viewNormal = normalize(viewDelta);
 	vec3 halfNormal = normalize(viewNormal + lightNormal);
+	
+	surfaceNormal *= sign(dot(surfaceNormal, viewNormal));
+	mat3 invTBN = transpose(mat3(surfaceTangent, surfaceBitangent, surfaceNormal));
+	normal = normalize(mix(surfaceNormal, normal * invTBN, info.material.normal));
 	float cosThetaView = max(dot(normal, viewNormal), 0.0);
 	float cosThetaLight = dot(normal, lightNormal);
 	float cosThetaViewHalfNormal = max(dot(normal, halfNormal), 0.0);
@@ -115,15 +122,18 @@ void main() {
 	// The increased accuracy we get from this is nice, but gets outweighed by making the triangles obvious with sharp edges.
 	// float sssSharpness = clamp(fwidth(cosThetaLight) / length(fwidth(viewDelta)) * 0.3, 0.0, 1.0);
 	
+	float isFoliage = float(info.material.isFoliage);
 	// TODO: Use Radius and shadow maps to calculate back-facing lighting
 	// This current method only looks convincing on rotund surfaces where scattering all the way through the object wouldn't be expected
 	// For things like foliage, this is very unconvincing.
 	vec3 sssWrap = tanh(info.material.sssRadius);
 	
 	// Squaring the denominator makes our output more physically accurate since otherwise we're generating more light than we absorb.
-	vec3 wrapFac = clamp((vec3(attenuationWrap) + sssWrap) / sqr(1.0 + sssWrap), 0.0, 1.0);
+	vec3 wrapFac = wrap(attenuationWrap, sssWrap);
+	vec3 invWrapFac = wrap(-attenuationWrap, sssWrap);
 	vec3 diffuse = albedo.rgb * attenuationLight * (1.0 - sssFactor) * lightColor;
-	vec3 subsurface = wrapFac * info.material.sssColor * sssFactor * lightColor;
+	// TODO: Maybe eliminate the 0.75 magic constant since it doesn't really come from anything. I just thought it looked nice.
+	vec3 subsurface = mix(wrapFac, wrapFac + invWrapFac * info.material.sssColor * 0.75, isFoliage) * info.material.sssColor * sssFactor * lightColor;
 	
 	vec3 specular = lightColor * DistributionGGX(cosThetaViewHalfNormal, roughness) * attenuationLight;
 	
@@ -132,6 +142,7 @@ void main() {
 	// outColor.rgb = subsurface;
 	// outColor.rgb = FresnelSchlick(surfaceNormal, viewNormal, baseReflectivity);
 	outColor.rgb = 1.0 / PI * (mix(diffuse * (1.0 - metalness), specular, fresnel) * attenuationGeometry + subsurface);
+	// outColor.rg = texCoord;
 	outColor.a = albedo.a;
 	outColor.rgb += emit;
 }

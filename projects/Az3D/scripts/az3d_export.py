@@ -157,6 +157,7 @@ def get_material_props(obj):
 				material["emissionColor"].pop() # we don't want alpha
 				material["metalnessFile"], material["metalnessFactor"] = get_factor_from_node_input(node.inputs[6])
 				material["roughnessFile"], material["roughnessFactor"] = get_factor_from_node_input(node.inputs[9])
+				material["isFoliage"] = "#foliage" in mat.name
 				materials.append(material)
 	return materials
 
@@ -237,6 +238,8 @@ def write_mat0(buffer, material, tex_indices):
 		data += b'SRF\003' + struct.pack('<fff', sssR[0], sssR[1], sssR[2])
 		if subsurf != 0:
 			data += b'STI\001' + struct.pack('<I', subsurf)
+	if material["isFoliage"]:
+		data += b'Fol\0'
 	print(material)
 	buffer += b'Mat0' + struct.pack('<I', len(data))
 	buffer += data
@@ -249,6 +252,8 @@ def prepare_mesh(mesh, transform):
 	transform[1][3] = 0
 	transform[2][3] = 0
 	bm.transform(transform)
+	# n-gons where n > 4 break calc_tangents and calc_normals_split
+	bmesh.ops.triangulate(bm, faces=[face for face in bm.faces if len(face.verts) > 4])
 	bm.to_mesh(mesh)
 	bm.free()
 	if mesh.uv_layers:

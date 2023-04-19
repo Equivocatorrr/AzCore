@@ -48,6 +48,7 @@ void QuickSort(SimpleRange<T> toSort, const LessThanFunc_t &lessThan) {
 	}
 	if (right == -1 || left == toSort.size) return;
 	i64 split = right+1;
+	if (split == toSort.size) return;
 	QuickSort(toSort.SubRange(0, split), lessThan);
 	QuickSort(toSort.SubRange(split, toSort.size-split), lessThan);
 }

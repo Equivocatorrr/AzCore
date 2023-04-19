@@ -2730,6 +2730,7 @@ failure:
 		}
 
 		// Pipeline time!
+		data.multisampling.sampleShadingEnable = multisampleShading;
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		pipelineInfo.stageCount = shaderStages.size;

@@ -130,9 +130,9 @@ struct quat_t {
 				jj = y * y, jk = y * z,
 				kk = z * z;
 		return mat3_t<T>(
-			1 - 2 * (jj + kk), 2 * (ij - kr), 2 * (ik + jr),
-			2 * (ij + kr), 1 - 2 * (ii + kk), 2 * (jk - ir),
-			2 * (ik - jr), 2 * (jk + ir), 1 - 2 * (ii + jj));
+			1 - 2 * (jj + kk), 2 * (ij + kr), 2 * (ik - jr),
+			2 * (ij - kr), 1 - 2 * (ii + kk), 2 * (jk + ir),
+			2 * (ik + jr), 2 * (jk - ir), 1 - 2 * (ii + jj));
 	}
 };
 

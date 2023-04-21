@@ -156,9 +156,9 @@ struct mat4_t {
 		T xx = square(a.x), yy = square(a.y), zz = square(a.z),
 		  xy = a.x * a.y, xz = a.x * a.z, yz = a.y * a.z;
 		return mat4_t<T>(
-			c + xx * ic,         xy * ic - a.z * s,   xz * ic + a.y * s,   0,
-			xy * ic + a.z * s,   c + yy * ic,         yz * ic - a.x * s,   0,
-			xz * ic - a.y * s,   yz * ic + a.x * s,   c + zz * ic,         0,
+			c + xx * ic,         xy * ic + a.z * s,   xz * ic - a.y * s,   0,
+			xy * ic - a.z * s,   c + yy * ic,         yz * ic + a.x * s,   0,
+			xz * ic + a.y * s,   yz * ic - a.x * s,   c + zz * ic,         0,
 			0,                   0,                   0,                   1
 		);
 	}

@@ -104,9 +104,9 @@ struct mat3_t {
 		T xx = square(a.x), yy = square(a.y), zz = square(a.z),
 		  xy = a.x * a.y, xz = a.x * a.z, yz = a.y * a.z;
 		return mat3_t<T>(
-			c + xx * ic,         xy * ic - a.z * s,   xz * ic + a.y * s,
-			xy * ic + a.z * s,   c + yy * ic,         yz * ic - a.x * s,
-			xz * ic - a.y * s,   yz * ic + a.x * s,   c + zz * ic
+			c + xx * ic,         xy * ic + a.z * s,   xz * ic - a.y * s,
+			xy * ic - a.z * s,   c + yy * ic,         yz * ic + a.x * s,
+			xz * ic + a.y * s,   yz * ic - a.x * s,   c + zz * ic
 		);
 	}
 	static mat3_t<T> Scaler(vec3_t<T> scale) {

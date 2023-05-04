@@ -14,6 +14,8 @@ layout(set=0, binding=0) uniform WorldInfo {
 	mat4 proj;
 	mat4 view;
 	mat4 viewProj;
+	mat4 sun;
+	vec3 sunDir;
 	vec3 eyePos;
 } worldInfo;
 
@@ -49,7 +51,6 @@ layout(std140, set=0, binding=1) readonly buffer ObjectBuffer {
 	ObjectInfo objects[];
 } objectBuffer;
 
-const vec3 lightNormal = vec3(0.0, -0.707, 0.707);
 const vec3 lightColor = vec3(1.0, 0.9, 0.8) * 2.0;
 
 float sqr(float a) {
@@ -98,9 +99,12 @@ void main() {
 	vec3 surfaceTangent = normalize(inTangent);
 	vec3 surfaceBitangent = normalize(inBitangent);
 	
+	vec3 lightNormal = worldInfo.sunDir;
+	
 	vec3 viewDelta = worldInfo.eyePos - inWorldPos;
 	vec3 viewNormal = normalize(viewDelta);
 	vec3 halfNormal = normalize(viewNormal + lightNormal);
+	
 	
 	surfaceNormal *= sign(dot(surfaceNormal, viewNormal));
 	mat3 invTBN = transpose(mat3(surfaceTangent, surfaceBitangent, surfaceNormal));

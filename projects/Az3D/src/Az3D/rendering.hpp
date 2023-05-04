@@ -58,7 +58,7 @@ struct DebugVertex {
 	vec4 color;
 };
 
-struct Material alignas(16) {
+struct alignas(16) Material {
 	// The following multiply with any texture bound (with default textures having a value of 1)
 	vec4 color;
 	vec3 emit;
@@ -140,7 +140,9 @@ struct UniformBuffer {
 	mat4 proj;
 	mat4 view;
 	mat4 viewProj;
-	vec3 eyePos;
+	mat4 sun;
+	alignas(16) vec3 sunDir;
+	alignas(16) vec3 eyePos;
 	alignas(16) vec3 ambientLight;
 	LightBin lightBins[LIGHT_BIN_COUNT];
 	// lights[0] is always a zero-brightness light
@@ -187,7 +189,7 @@ struct DrawCallInfo {
 	bool culled;
 };
 
-struct ObjectShaderInfo alignas(16) {
+struct alignas(16) ObjectShaderInfo {
 	mat4 model;
 	Material material;
 };
@@ -240,6 +242,14 @@ struct Manager {
 		Ptr<vk::Buffer> indexStagingBuffer;
 		Ptr<vk::Buffer> indexBuffer;
 		
+		Ptr<vk::Memory> shadowMapMemory;
+		Ptr<vk::Image> shadowMapImage;
+		Ptr<vk::Framebuffer> framebufferShadowMaps;
+		Ptr<vk::RenderPass> renderPassShadowMaps;
+		Ptr<vk::Semaphore> semaphoreShadowMapsComplete;
+		Ptr<vk::QueueSubmission> queueSubmissionShadowMaps;
+		Ptr<vk::Pipeline> pipelineShadowMaps;
+		
 		// For debug lines
 		Ptr<vk::Buffer> debugVertexStagingBuffer;
 		Ptr<vk::Buffer> debugVertexBuffer;
@@ -280,7 +290,7 @@ struct Manager {
 
 	bool Init();
 	bool Deinit();
-	// void UpdateLights();
+	void UpdateLights();
 	bool UpdateFonts();
 	bool UpdateUniforms();
 	bool UpdateObjects();

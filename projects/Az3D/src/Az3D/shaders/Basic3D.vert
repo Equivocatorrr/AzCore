@@ -17,6 +17,8 @@ layout(set=0, binding=0) uniform WorldInfo {
 	mat4 proj;
 	mat4 view;
 	mat4 viewProj;
+	mat4 sun;
+	vec3 sunDir;
 	vec3 eyePos;
 } worldInfo;
 

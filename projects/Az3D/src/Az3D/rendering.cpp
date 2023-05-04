@@ -616,8 +616,36 @@ bool Manager::Deinit() {
 // 	return bin.y * LIGHT_BIN_COUNT_X + bin.x;
 // }
 
-// void Manager::UpdateLights() {
-// 	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::UpdateLights)
+void Manager::UpdateLights() {
+	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::UpdateLights)
+	const f32 minClip = camera.nearClip;
+	const f32 maxClip = camera.farClip;
+	mat4 invView = uniforms.view.Inverse();
+	// frustum corners
+	vec3 corners[8] = {
+		(vec4(-1.0f, -1.0f, minClip, 1.0f) * invView).xyz,
+		(vec4( 1.0f, -1.0f, minClip, 1.0f) * invView).xyz,
+		(vec4(-1.0f,  1.0f, minClip, 1.0f) * invView).xyz,
+		(vec4( 1.0f,  1.0f, minClip, 1.0f) * invView).xyz,
+		(vec4(-1.0f, -1.0f, maxClip, 1.0f) * invView).xyz,
+		(vec4( 1.0f, -1.0f, maxClip, 1.0f) * invView).xyz,
+		(vec4(-1.0f,  1.0f, maxClip, 1.0f) * invView).xyz,
+		(vec4( 1.0f,  1.0f, maxClip, 1.0f) * invView).xyz
+	};
+	vec3 center = (vec4(0.0f, 0.0f, (minClip+maxClip) * 0.5, 1.0f) * invView).xyz;
+	vec3 boundsMin(100000000.0f), boundsMax(-100000000.0f);
+	uniforms.sun = mat4::Camera(center + uniforms.sunDir*100.0f, -uniforms.sunDir, camera.up);
+	for (i32 i = 0; i < 8; i++) {
+		corners[i] = (vec4(corners[i], 1.0f) * uniforms.sun).xyz;
+		boundsMin.x = min(boundsMin.x, corners[i].x);
+		boundsMin.y = min(boundsMin.y, corners[i].y);
+		boundsMin.z = min(boundsMin.z, corners[i].z);
+		boundsMax.x = max(boundsMax.x, corners[i].x);
+		boundsMax.y = max(boundsMax.y, corners[i].y);
+		boundsMax.z = max(boundsMax.z, corners[i].z);
+	}
+	vec3 dimensions = boundsMax - boundsMin;
+	uniforms.sun = mat4::Scaler(vec4(dimensions, 1.0f)) * uniforms.sun;
 // 	i32 lightCounts[LIGHT_BIN_COUNT] = {0};
 // 	i32 totalLights = 1;
 // 	// By default, they all point to the default light which has no light at all
@@ -657,7 +685,7 @@ bool Manager::Deinit() {
 // 			uniforms.lightBins[i].lightIndices[0] = i;
 // 	}
 // #endif
-// }
+}
 
 bool Manager::UpdateFonts() {
 	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::UpdateFonts)
@@ -789,7 +817,7 @@ bool Manager::UpdateUniforms() {
 	uniforms.proj = mat4::Perspective(camera.fov, screenSize.x / screenSize.y, camera.nearClip, camera.farClip);
 	uniforms.viewProj = uniforms.view * uniforms.proj;
 	uniforms.eyePos = camera.pos;
-	// UpdateLights();
+	UpdateLights();
 	
 	data.uniformStagingBuffer->CopyData(&uniforms);
 	VkCommandBuffer cmdBuf = data.commandBufferTransfer->Begin();
@@ -809,9 +837,10 @@ bool Manager::UpdateUniforms() {
 }
 
 bool Manager::UpdateObjects() {
-	data.objectStagingBuffer->CopyData(data.objectShaderInfos.data, min(data.objectShaderInfos.size, 1000000) * sizeof(ObjectShaderInfo));
+	i64 copySize = min(data.objectShaderInfos.size, 1000000) * sizeof(ObjectShaderInfo);
+	data.objectStagingBuffer->CopyData(data.objectShaderInfos.data, copySize);
 	VkCommandBuffer cmdBuf = data.commandBufferTransfer->Begin();
-	data.objectBuffer->Copy(cmdBuf, data.objectStagingBuffer);
+	data.objectBuffer->Copy(cmdBuf, data.objectStagingBuffer, copySize);
 	if (!data.commandBufferTransfer->End()) {
 		error = "Failed to copy from objects staging buffer: " + vk::error;
 		return false;

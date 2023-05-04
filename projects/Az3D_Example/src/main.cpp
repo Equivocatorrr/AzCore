@@ -18,7 +18,9 @@ struct Test : public GameSystems::System {
 	quat objectOrientation = quat(1.0f);
 	vec2 facingDiff = 0.0f;
 	Degrees32 targetFOV = 120.0f;
+	Angle32 sunAngle = Degrees32(45.0f);
 	bool mouseLook = false;
+	bool sunTurning = false;
 	Assets::MeshIndex meshes[4];
 	i32 currentMesh = 0;
 	virtual void EventAssetsQueue() override {
@@ -36,6 +38,10 @@ struct Test : public GameSystems::System {
 	virtual void EventUpdate() override {
 		f32 speed = sys->Down(KC_KEY_LEFTSHIFT) ? 8.0f : 2.0f;
 		if (sys->Pressed(KC_KEY_ESC)) sys->exit = true;
+		if (sys->Pressed(KC_KEY_S)) sunTurning = !sunTurning;
+		if (sunTurning) {
+			sunAngle += Radians32(halfpi * 0.1f * sys->timestep);
+		}
 		Rendering::Camera &camera = sys->rendering.camera;
 		vec3 camRight = normalize(cross(camera.forward, camera.up));
 		vec3 camUp = normalize(cross(camera.forward, camRight));
@@ -133,12 +139,13 @@ struct Test : public GameSystems::System {
 			);
 		}
 		RandomNumberGenerator rng(69420);
-		for (i32 i = 0; i < 50000; i++) {
+		for (i32 i = 0; i < 10000; i++) {
 			mat4 transform = mat4::RotationBasic(random(0.0f, tau, &rng), Axis::Z);
-			transform.h.w1 = random(-4.0f, 4.0f, &rng);
-			transform.h.w2 = random(-4.0f, 4.0f, &rng);
+			transform.h.w1 = random(-10.0f, 10.0f, &rng);
+			transform.h.w2 = random(-10.0f, 10.0f, &rng);
 			Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshes[3]], transform, true, false);
 		}
+		sys->rendering.uniforms.sunDir = vec3(0.0f, vec2::UnitVecFromAngle(sunAngle.value()));
 	}
 };
 

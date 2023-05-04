@@ -78,358 +78,441 @@ void BindPipeline(VkCommandBuffer cmdBuf, PipelineIndex pipeline) {
 
 bool Manager::Init() {
 	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::Init)
-	data.device = data.instance.AddDevice();
-	data.device->data.vk12FeaturesRequired.scalarBlockLayout = VK_TRUE;
-	data.device->data.vk12FeaturesRequired.uniformAndStorageBuffer8BitAccess = VK_TRUE;
-	data.device->data.vk11FeaturesRequired.shaderDrawParameters = VK_TRUE; // For gl_BaseInstance
-	uniforms.ambientLight = vec3(0.001f);
-
-	data.queueGraphics = data.device->AddQueue();
-	data.queueGraphics->queueType = vk::QueueType::GRAPHICS;
-	data.queueTransfer = data.device->AddQueue();
-	data.queueTransfer->queueType = vk::QueueType::TRANSFER;
-	data.queuePresent = data.device->AddQueue();
-	data.queuePresent->queueType = vk::QueueType::PRESENT;
-
-	data.swapchain = data.device->AddSwapchain();
-	data.swapchain->vsync = Settings::ReadBool(Settings::sVSync);
-	data.swapchain->window = data.instance.AddWindowForSurface(&sys->window);
-	data.swapchain->formatPreferred.format = VK_FORMAT_B8G8R8A8_SRGB;
-	data.swapchain->formatPreferred.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-	// data.swapchain->useFences = true;
-	// data.swapchain->imageCountPreferred = 3;
-
-	data.framebuffer = data.device->AddFramebuffer();
-	data.framebuffer->swapchain = data.swapchain;
-
-	data.renderPass = data.device->AddRenderPass();
-	auto attachment = data.renderPass->AddAttachment(data.swapchain);
-	attachment->bufferDepthStencil = true;
-	if (msaa) {
-		attachment->sampleCount = VK_SAMPLE_COUNT_8_BIT;
-		attachment->resolveColor = true;
-	}
-	auto subpass = data.renderPass->AddSubpass();
-	subpass->UseAttachment(attachment, vk::AttachmentType::ATTACHMENT_ALL,
-			VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-	data.framebuffer->renderPass = data.renderPass;
-	// attachment->initialLayoutColor = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	// attachment->loadColor = true;
-	// attachment->clearColor = true;
-	attachment->clearDepth = true;
-	attachment->clearDepthStencilValue = {0.0f, 0};
-	// attachment->clearColorValue = {1.0, 1.0, 1.0, 1.0};
-	// attachment->clearColorValue = {0.0f, 0.1f, 0.2f, 1.0f}; // AzCore blue
-	if (data.concurrency < 1) {
-		data.concurrency = 1;
-	}
-	data.drawingContexts.Resize(data.concurrency);
-	data.debugVertices.Resize(MAX_DEBUG_VERTICES);
-	// Allow up to 10000 objects at once
-	// TODO: Make this resizeable
-	data.objectShaderInfos.Resize(1000000);
-	data.commandPoolGraphics = data.device->AddCommandPool(data.queueGraphics);
-	data.commandPoolGraphics->resettable = true;
-
-	data.semaphoreRenderComplete = data.device->AddSemaphore();
-
-	for (i32 i = 0; i < 2; i++) {
-		data.commandBufferGraphics[i] = data.commandPoolGraphics->AddCommandBuffer();
-		data.queueSubmission[i] = data.device->AddQueueSubmission();
-		data.queueSubmission[i]->commandBuffers = {data.commandBufferGraphics[i]};
-		data.queueSubmission[i]->signalSemaphores = {data.semaphoreRenderComplete};
-		data.queueSubmission[i]->waitSemaphores = {vk::SemaphoreWait(data.swapchain, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)};
-		data.queueSubmission[i]->noAutoConfig = true;
-	}
-	data.commandBufferGraphicsTransfer = data.commandPoolGraphics->AddCommandBuffer();
-
-	data.commandPoolTransfer = data.device->AddCommandPool(data.queueTransfer);
-	data.commandPoolTransfer->resettable = true;
-	data.commandBufferTransfer = data.commandPoolTransfer->AddCommandBuffer();
-
-	data.queueSubmissionTransfer = data.device->AddQueueSubmission();
-	data.queueSubmissionTransfer->commandBuffers = {data.commandBufferTransfer};
-
-	data.queueSubmissionGraphicsTransfer = data.device->AddQueueSubmission();
-	data.queueSubmissionGraphicsTransfer->commandBuffers = {data.commandBufferGraphicsTransfer};
-
-	data.textureSampler = data.device->AddSampler();
-	data.textureSampler->addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	data.textureSampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	data.textureSampler->anisotropy = 4;
-	data.textureSampler->maxLod = 1000000000000.0f; // Just, like, BIG
-
-	data.stagingMemory = data.device->AddMemory();
-	data.stagingMemory->deviceLocal = false;
-	data.bufferMemory = data.device->AddMemory();
-	data.textureMemory = data.device->AddMemory();
 	
-	data.fontStagingMemory = data.device->AddMemory();
-	data.fontStagingMemory->deviceLocal = false;
-	data.fontBufferMemory = data.device->AddMemory();
-	data.fontImageMemory = data.device->AddMemory();
+	{ // Device
+		data.device = data.instance.AddDevice();
+		data.device->data.vk12FeaturesRequired.scalarBlockLayout = VK_TRUE;
+		data.device->data.vk12FeaturesRequired.uniformAndStorageBuffer8BitAccess = VK_TRUE;
+		data.device->data.vk11FeaturesRequired.shaderDrawParameters = VK_TRUE; // For gl_BaseInstance
+		data.device->data.deviceFeaturesRequired.features.sampleRateShading = VK_TRUE;
+	}
+	{ // Queues
+		data.queueGraphics = data.device->AddQueue();
+		data.queueGraphics->queueType = vk::QueueType::GRAPHICS;
+		data.queueTransfer = data.device->AddQueue();
+		data.queueTransfer->queueType = vk::QueueType::TRANSFER;
+		data.queuePresent = data.device->AddQueue();
+		data.queuePresent->queueType = vk::QueueType::PRESENT;
+	}
+	{ // Swapchain
+		data.swapchain = data.device->AddSwapchain();
+		data.swapchain->vsync = Settings::ReadBool(Settings::sVSync);
+		data.swapchain->window = data.instance.AddWindowForSurface(&sys->window);
+		data.swapchain->formatPreferred.format = VK_FORMAT_B8G8R8A8_SRGB;
+		data.swapchain->formatPreferred.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+		// data.swapchain->useFences = true;
+		// data.swapchain->imageCountPreferred = 3;
+	}
+	{ // Framebuffer
+		data.framebuffer = data.device->AddFramebuffer();
+		data.framebuffer->swapchain = data.swapchain;
+	}
+	{ // RenderPass, Attachment, Subpass
+		data.renderPass = data.device->AddRenderPass();
+		auto attachment = data.renderPass->AddAttachment(data.swapchain);
+		attachment->bufferDepthStencil = true;
+		if (msaa) {
+			attachment->sampleCount = VK_SAMPLE_COUNT_4_BIT;
+			attachment->resolveColor = true;
+		}
+		auto subpass = data.renderPass->AddSubpass();
+		subpass->UseAttachment(attachment, vk::AttachmentType::ATTACHMENT_ALL,
+				VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+		data.framebuffer->renderPass = data.renderPass;
+		// attachment->initialLayoutColor = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		// attachment->loadColor = true;
+		// attachment->clearColor = true;
+		attachment->clearDepth = true;
+		attachment->clearDepthStencilValue = {0.0f, 0};
+		// attachment->clearColorValue = {1.0, 1.0, 1.0, 1.0};
+		// attachment->clearColorValue = {0.0f, 0.1f, 0.2f, 1.0f}; // AzCore blue
+	}
+	{ // Concurrency, runtime CPU data pools
+		uniforms.ambientLight = vec3(0.001f);
+		if (data.concurrency < 1) {
+			data.concurrency = 1;
+		}
+		data.drawingContexts.Resize(data.concurrency);
+		data.debugVertices.Resize(MAX_DEBUG_VERTICES);
+		// Allow up to 10000 objects at once
+		// TODO: Make this resizeable
+		data.objectShaderInfos.Resize(1000000);
+	}
+	{ // Command Pools
+		data.commandPoolGraphics = data.device->AddCommandPool(data.queueGraphics);
+		data.commandPoolGraphics->resettable = true;
+		data.commandPoolTransfer = data.device->AddCommandPool(data.queueTransfer);
+		data.commandPoolTransfer->resettable = true;
+	}
+	{ // Semaphores
+		data.semaphoreRenderComplete = data.device->AddSemaphore();
+	}
+	{ // Command Buffers
+		for (i32 i = 0; i < 2; i++) {
+			data.commandBufferGraphics[i] = data.commandPoolGraphics->AddCommandBuffer();
+			data.queueSubmission[i] = data.device->AddQueueSubmission();
+			data.queueSubmission[i]->commandBuffers = {data.commandBufferGraphics[i]};
+			data.queueSubmission[i]->signalSemaphores = {data.semaphoreRenderComplete};
+			data.queueSubmission[i]->waitSemaphores = {vk::SemaphoreWait(data.swapchain, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)};
+			data.queueSubmission[i]->noAutoConfig = true;
+		}
+		data.commandBufferGraphicsTransfer = data.commandPoolGraphics->AddCommandBuffer();
 
+		data.commandBufferTransfer = data.commandPoolTransfer->AddCommandBuffer();
+	}
+	{ // Queue Submissions
+		data.queueSubmissionTransfer = data.device->AddQueueSubmission();
+		data.queueSubmissionTransfer->commandBuffers = {data.commandBufferTransfer};
+
+		data.queueSubmissionGraphicsTransfer = data.device->AddQueueSubmission();
+		data.queueSubmissionGraphicsTransfer->commandBuffers = {data.commandBufferGraphicsTransfer};
+	}
+	{ // Texture Samplers
+		data.textureSampler = data.device->AddSampler();
+		data.textureSampler->addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		data.textureSampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		data.textureSampler->anisotropy = 4;
+		data.textureSampler->maxLod = 1000000000000.0f; // Just, like, BIG
+	}
+	{ // Memory
+		data.stagingMemory = data.device->AddMemory();
+		data.stagingMemory->deviceLocal = false;
+		data.bufferMemory = data.device->AddMemory();
+		data.textureMemory = data.device->AddMemory();
+		
+		data.fontStagingMemory = data.device->AddMemory();
+		data.fontStagingMemory->deviceLocal = false;
+		data.fontBufferMemory = data.device->AddMemory();
+		data.fontImageMemory = data.device->AddMemory();
+	}
+	{ // Unit square mesh
+		data.meshPartUnitSquare = new Assets::MeshPart;
+		sys->assets.meshParts.Append(data.meshPartUnitSquare);
+		data.meshPartUnitSquare->vertices = {
+			{vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f), vec2(0.0f, 0.0f)},
+			{vec3(1.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f), vec2(1.0f, 0.0f)},
+			{vec3(0.0f, 1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f), vec2(0.0f, 1.0f)},
+			{vec3(1.0f, 1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f), vec2(1.0f, 1.0f)},
+		};
+		data.meshPartUnitSquare->indices = {0, 1, 2, 1, 3, 2};
+		data.meshPartUnitSquare->material = Material::Blank();
+	}
 	vk::Buffer baseStagingBuffer = vk::Buffer();
 	baseStagingBuffer.size = 1;
 	baseStagingBuffer.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	vk::Buffer baseBuffer = vk::Buffer();
 	baseBuffer.size = 1;
 	baseBuffer.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-	data.uniformStagingBuffer = data.stagingMemory->AddBuffer(baseStagingBuffer);
-	data.uniformStagingBuffer->size = sizeof(UniformBuffer);
-	data.uniformBuffer = data.bufferMemory->AddBuffer(baseBuffer);
-	data.uniformBuffer->usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-	data.uniformBuffer->size = data.uniformStagingBuffer->size;
-	
-	// TODO: Make the following buffers resizable
-
-	data.objectStagingBuffer = data.stagingMemory->AddBuffer(baseStagingBuffer);
-	data.objectStagingBuffer->size = data.objectShaderInfos.size * sizeof(ObjectShaderInfo);
-	data.objectBuffer = data.bufferMemory->AddBuffer(baseBuffer);
-	data.objectBuffer->usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-	data.objectBuffer->size = data.objectStagingBuffer->size;
-
-	data.meshPartUnitSquare = new Assets::MeshPart;
-	sys->assets.meshParts.Append(data.meshPartUnitSquare);
-	data.meshPartUnitSquare->vertices = {
-		{vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f), vec2(0.0f, 0.0f)},
-		{vec3(1.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f), vec2(1.0f, 0.0f)},
-		{vec3(0.0f, 1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f), vec2(0.0f, 1.0f)},
-		{vec3(1.0f, 1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f), vec2(1.0f, 1.0f)},
-	};
-	data.meshPartUnitSquare->indices = {0, 1, 2, 1, 3, 2};
-	data.meshPartUnitSquare->material = Material::Blank();
-
 	Array<Vertex> vertices;
 	Array<u32> indices;
-	for (auto &part : sys->assets.meshParts) {
-		part->indexStart = indices.size;
-		indices.Reserve(indices.size+part->indices.size);
-		for (i32 i = 0; i < part->indices.size; i++) {
-			indices.Append(part->indices[i] + vertices.size);
+	{ // Load 3D assets and make Vertex/Index buffers
+		for (auto &part : sys->assets.meshParts) {
+			part->indexStart = indices.size;
+			indices.Reserve(indices.size+part->indices.size);
+			for (i32 i = 0; i < part->indices.size; i++) {
+				indices.Append(part->indices[i] + vertices.size);
+			}
+			vertices.Append(part->vertices);
 		}
-		vertices.Append(part->vertices);
+		data.vertexStagingBuffer = data.stagingMemory->AddBuffer(baseStagingBuffer);
+		data.vertexStagingBuffer->size = vertices.size * sizeof(Vertex);
+		data.indexStagingBuffer = data.stagingMemory->AddBuffer(baseStagingBuffer);
+		data.indexStagingBuffer->size = indices.size * sizeof(u32);
+
+		data.debugVertexStagingBuffer = data.stagingMemory->AddBuffer(baseStagingBuffer);
+		data.debugVertexStagingBuffer->size = data.debugVertices.size * sizeof(DebugVertex);
+
+		data.vertexBuffer = data.bufferMemory->AddBuffer(baseBuffer);
+		data.indexBuffer = data.bufferMemory->AddBuffer(baseBuffer);
+		data.vertexBuffer->usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		data.vertexBuffer->size = data.vertexStagingBuffer->size;
+		data.indexBuffer->usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+		data.indexBuffer->size = data.indexStagingBuffer->size;
+
+		data.debugVertexBuffer = data.bufferMemory->AddBuffer(baseBuffer);
+		data.debugVertexBuffer->usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		data.debugVertexBuffer->size = data.debugVertexStagingBuffer->size;
 	}
-	data.vertexStagingBuffer = data.stagingMemory->AddBuffer(baseStagingBuffer);
-	data.vertexStagingBuffer->size = vertices.size * sizeof(Vertex);
-	data.indexStagingBuffer = data.stagingMemory->AddBuffer(baseStagingBuffer);
-	data.indexStagingBuffer->size = indices.size * sizeof(u32);
+	Range<vk::Buffer> texStagingBuffers;
+	Range<vk::Image> texImages;
+	{ // Load textures/buffers
+		data.uniformStagingBuffer = data.stagingMemory->AddBuffer(baseStagingBuffer);
+		data.uniformStagingBuffer->size = sizeof(UniformBuffer);
+		data.uniformBuffer = data.bufferMemory->AddBuffer(baseBuffer);
+		data.uniformBuffer->usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+		data.uniformBuffer->size = data.uniformStagingBuffer->size;
+	
+		// TODO: Make the following buffers resizable
 
-	data.debugVertexStagingBuffer = data.stagingMemory->AddBuffer(baseStagingBuffer);
-	data.debugVertexStagingBuffer->size = data.debugVertices.size * sizeof(DebugVertex);
+		data.objectStagingBuffer = data.stagingMemory->AddBuffer(baseStagingBuffer);
+		data.objectStagingBuffer->size = data.objectShaderInfos.size * sizeof(ObjectShaderInfo);
+		data.objectBuffer = data.bufferMemory->AddBuffer(baseBuffer);
+		data.objectBuffer->usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		data.objectBuffer->size = data.objectStagingBuffer->size;
+		
+		texStagingBuffers = data.stagingMemory->AddBuffers(sys->assets.textures.size, baseStagingBuffer);
 
-	data.vertexBuffer = data.bufferMemory->AddBuffer(baseBuffer);
-	data.indexBuffer = data.bufferMemory->AddBuffer(baseBuffer);
-	data.vertexBuffer->usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-	data.vertexBuffer->size = data.vertexStagingBuffer->size;
-	data.indexBuffer->usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-	data.indexBuffer->size = data.indexStagingBuffer->size;
+		data.fontStagingVertexBuffer = data.fontStagingMemory->AddBuffer(baseStagingBuffer);
+		data.fontStagingImageBuffers = data.fontStagingMemory->AddBuffers(sys->assets.fonts.size, baseStagingBuffer);
 
-	data.debugVertexBuffer = data.bufferMemory->AddBuffer(baseBuffer);
-	data.debugVertexBuffer->usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-	data.debugVertexBuffer->size = data.debugVertexStagingBuffer->size;
+		data.fontVertexBuffer = data.fontBufferMemory->AddBuffer(baseBuffer);
+		data.fontVertexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
-	auto texStagingBuffers = data.stagingMemory->AddBuffers(sys->assets.textures.size, baseStagingBuffer);
+		vk::Image baseImage = vk::Image();
+		baseImage.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		baseImage.format = VK_FORMAT_R8G8B8A8_SRGB;
+		texImages = data.textureMemory->AddImages(sys->assets.textures.size, baseImage);
+		for (i32 i = 0; i < sys->assets.textures.size; i++) {
+			Image &image = sys->assets.textures[i].image;
+			switch (image.channels) {
+			case 1:
+				data.textureMemory->data.images[i].format = image.colorSpace == Image::LINEAR ? VK_FORMAT_R8_UNORM : VK_FORMAT_R8_SRGB;
+				break;
+			case 2:
+				data.textureMemory->data.images[i].format = image.colorSpace == Image::LINEAR ? VK_FORMAT_R8G8_UNORM : VK_FORMAT_R8G8_SRGB;
+				break;
+			case 3:
+				data.textureMemory->data.images[i].format = image.colorSpace == Image::LINEAR ? VK_FORMAT_R8G8B8_UNORM : VK_FORMAT_R8G8B8_SRGB;
+				break;
+			case 4:
+				data.textureMemory->data.images[i].format = image.colorSpace == Image::LINEAR ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
+				break;
+			default:
+				error = Stringify("Texture image ", i, " has invalid channel count (", image.channels, ")");
+				return false;
+			}
+		}
 
-	data.fontStagingVertexBuffer = data.fontStagingMemory->AddBuffer(baseStagingBuffer);
-	data.fontStagingImageBuffers = data.fontStagingMemory->AddBuffers(sys->assets.fonts.size, baseStagingBuffer);
+		baseImage.format = VK_FORMAT_R8_UNORM;
+		baseImage.width = 1;
+		baseImage.height = 1;
+		data.fontImages = data.fontImageMemory->AddImages(sys->assets.fonts.size, baseImage);
 
-	data.fontVertexBuffer = data.fontBufferMemory->AddBuffer(baseBuffer);
-	data.fontVertexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		for (i32 i = 0; i < texImages.size; i++) {
+			const i32 channels = sys->assets.textures[i].image.channels;
+			texImages[i].width = sys->assets.textures[i].image.width;
+			texImages[i].height = sys->assets.textures[i].image.height;
+			texImages[i].mipLevels = (u32)floor(log2((f32)max(texImages[i].width, texImages[i].height))) + 1;
 
-	vk::Image baseImage = vk::Image();
-	baseImage.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-	baseImage.format = VK_FORMAT_R8G8B8A8_SRGB;
-	auto texImages = data.textureMemory->AddImages(sys->assets.textures.size, baseImage);
-	for (i32 i = 0; i < sys->assets.textures.size; i++) {
-		Image &image = sys->assets.textures[i].image;
-		switch (image.channels) {
-		case 1:
-			data.textureMemory->data.images[i].format = image.colorSpace == Image::LINEAR ? VK_FORMAT_R8_UNORM : VK_FORMAT_R8_SRGB;
-			break;
-		case 2:
-			data.textureMemory->data.images[i].format = image.colorSpace == Image::LINEAR ? VK_FORMAT_R8G8_UNORM : VK_FORMAT_R8G8_SRGB;
-			break;
-		case 3:
-			data.textureMemory->data.images[i].format = image.colorSpace == Image::LINEAR ? VK_FORMAT_R8G8B8_UNORM : VK_FORMAT_R8G8B8_SRGB;
-			break;
-		case 4:
-			data.textureMemory->data.images[i].format = image.colorSpace == Image::LINEAR ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
-			break;
-		default:
-			error = Stringify("Texture image ", i, " has invalid channel count (", image.channels, ")");
+			texStagingBuffers[i].size = channels * texImages[i].width * texImages[i].height;
+		}
+	}
+	Ptr<vk::DescriptorLayout> descriptorLayout;
+	Ptr<vk::DescriptorLayout> descriptorLayoutShadowed;
+	{ // Make descriptors
+		data.descriptors = data.device->AddDescriptors();
+		descriptorLayout = data.descriptors->AddLayout();
+		descriptorLayout->bindings.Resize(3);
+		// Binding 0 is WorldInfo
+		descriptorLayout->bindings[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		descriptorLayout->bindings[0].stage = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT;
+		descriptorLayout->bindings[0].binding = 0;
+		descriptorLayout->bindings[0].count = 1;
+		// Binding 1 is ObjectInfo
+		descriptorLayout->bindings[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		descriptorLayout->bindings[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT;
+		descriptorLayout->bindings[1].binding = 1;
+		descriptorLayout->bindings[1].count = 1;
+		// Binding 2 is textures
+		descriptorLayout->bindings[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		descriptorLayout->bindings[2].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+		descriptorLayout->bindings[2].binding = 2;
+		descriptorLayout->bindings[2].count = sys->assets.textures.size;
+		
+		// Descriptors just for shadow map images
+		descriptorLayoutShadowed = data.descriptors->AddLayout();
+		descriptorLayoutShadowed->bindings.Resize(1);
+		descriptorLayoutShadowed->bindings[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		descriptorLayoutShadowed->bindings[0].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+		descriptorLayoutShadowed->bindings[0].binding = 0;
+		// TODO: Cascaded shadow maps, cube map shadows, etc.
+		descriptorLayoutShadowed->bindings[0].count = 1;
+
+		data.descriptorSet = data.descriptors->AddSet(descriptorLayout);
+		if (!data.descriptorSet->AddDescriptor(data.uniformBuffer, 0)) {
+			error = "Failed to add Uniform Buffer Descriptor: " + vk::error;
+			return false;
+		}
+		if (!data.descriptorSet->AddDescriptor(data.objectBuffer, 1)) {
+			error = "Failed to add Storage Buffer Descriptor: " + vk::error;
+			return false;
+		}
+		if (!data.descriptorSet->AddDescriptor(texImages, data.textureSampler, 2)) {
+			error = "Failed to add Texture Descriptor: " + vk::error;
 			return false;
 		}
 	}
+	{ // Pipelines
+		Range<vk::Shader> shaders = data.device->AddShaders(5);
+		shaders[0].filename = "data/Az3D/shaders/DebugLines.vert.spv";
+		shaders[1].filename = "data/Az3D/shaders/DebugLines.frag.spv";
+		shaders[2].filename = "data/Az3D/shaders/Basic3D.vert.spv";
+		shaders[3].filename = "data/Az3D/shaders/Basic3D.frag.spv";
+		shaders[4].filename = "data/Az3D/shaders/Font3D.frag.spv";
 
-	baseImage.format = VK_FORMAT_R8_UNORM;
-	baseImage.width = 1;
-	baseImage.height = 1;
-	data.fontImages = data.fontImageMemory->AddImages(sys->assets.fonts.size, baseImage);
+		vk::ShaderRef shaderRefDebugLinesVert = vk::ShaderRef(shaders.GetPtr(0), VK_SHADER_STAGE_VERTEX_BIT);
+		vk::ShaderRef shaderRefDebugLinesFrag = vk::ShaderRef(shaders.GetPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT);
+		vk::ShaderRef shaderRefVert = vk::ShaderRef(shaders.GetPtr(2), VK_SHADER_STAGE_VERTEX_BIT);
+		vk::ShaderRef shaderRefBasic3D = vk::ShaderRef(shaders.GetPtr(3), VK_SHADER_STAGE_FRAGMENT_BIT);
+		vk::ShaderRef shaderRefFont3D = vk::ShaderRef(shaders.GetPtr(4), VK_SHADER_STAGE_FRAGMENT_BIT);
 
-	for (i32 i = 0; i < texImages.size; i++) {
-		const i32 channels = sys->assets.textures[i].image.channels;
-		texImages[i].width = sys->assets.textures[i].image.width;
-		texImages[i].height = sys->assets.textures[i].image.height;
-		texImages[i].mipLevels = (u32)floor(log2((f32)max(texImages[i].width, texImages[i].height))) + 1;
+		data.pipelines.Resize(PIPELINE_COUNT);
+		
+		data.pipelines[PIPELINE_DEBUG_LINES] = data.device->AddPipeline();
+		data.pipelines[PIPELINE_DEBUG_LINES]->renderPass = data.renderPass;
+		data.pipelines[PIPELINE_DEBUG_LINES]->subpass = 0;
+		data.pipelines[PIPELINE_DEBUG_LINES]->shaders.Append(shaderRefDebugLinesVert);
+		data.pipelines[PIPELINE_DEBUG_LINES]->shaders.Append(shaderRefDebugLinesFrag);
+		data.pipelines[PIPELINE_DEBUG_LINES]->inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+		data.pipelines[PIPELINE_DEBUG_LINES]->rasterizer.lineWidth = 2.0f;
+		data.pipelines[PIPELINE_DEBUG_LINES]->depthStencil.depthTestEnable = VK_TRUE;
+		data.pipelines[PIPELINE_DEBUG_LINES]->depthStencil.depthCompareOp = VK_COMPARE_OP_GREATER;
+		data.pipelines[PIPELINE_DEBUG_LINES]->descriptorLayouts.Append(descriptorLayout);
+		
+		data.pipelines[PIPELINE_BASIC_3D] = data.device->AddPipeline();
+		data.pipelines[PIPELINE_BASIC_3D]->renderPass = data.renderPass;
+		data.pipelines[PIPELINE_BASIC_3D]->subpass = 0;
+		data.pipelines[PIPELINE_BASIC_3D]->multisampleShading = true;
+		data.pipelines[PIPELINE_BASIC_3D]->shaders.Append(shaderRefVert);
+		data.pipelines[PIPELINE_BASIC_3D]->shaders.Append(shaderRefBasic3D);
+		data.pipelines[PIPELINE_BASIC_3D]->rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+		// data.pipelines[PIPELINE_BASIC_3D]->rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+		data.pipelines[PIPELINE_BASIC_3D]->depthStencil.depthTestEnable = VK_TRUE;
+		data.pipelines[PIPELINE_BASIC_3D]->depthStencil.depthWriteEnable = VK_TRUE;
+		data.pipelines[PIPELINE_BASIC_3D]->depthStencil.depthCompareOp = VK_COMPARE_OP_GREATER;
+		data.pipelines[PIPELINE_BASIC_3D]->descriptorLayouts = {descriptorLayout, descriptorLayoutShadowed};
 
-		texStagingBuffers[i].size = channels * texImages[i].width * texImages[i].height;
+		data.pipelines[PIPELINE_BASIC_3D]->dynamicStates = {
+			VK_DYNAMIC_STATE_VIEWPORT,
+			VK_DYNAMIC_STATE_SCISSOR
+		};
+		
+		data.pipelines[PIPELINE_FOLIAGE_3D] = data.device->AddPipeline();
+		*data.pipelines[PIPELINE_FOLIAGE_3D] = *data.pipelines[PIPELINE_BASIC_3D];
+		data.pipelines[PIPELINE_FOLIAGE_3D]->rasterizer.cullMode = VK_CULL_MODE_NONE;
+		data.pipelines[PIPELINE_DEBUG_LINES]->dynamicStates = data.pipelines[PIPELINE_BASIC_3D]->dynamicStates;
+
+		data.pipelines[PIPELINE_FONT_3D] = data.device->AddPipeline();
+		data.pipelines[PIPELINE_FONT_3D]->renderPass = data.renderPass;
+		data.pipelines[PIPELINE_FONT_3D]->subpass = 0;
+		data.pipelines[PIPELINE_FONT_3D]->shaders.Append(shaderRefVert);
+		data.pipelines[PIPELINE_FONT_3D]->shaders.Append(shaderRefFont3D);
+		data.pipelines[PIPELINE_FONT_3D]->descriptorLayouts.Append(descriptorLayout);
+
+		data.pipelines[PIPELINE_FONT_3D]->dynamicStates = data.pipelines[PIPELINE_BASIC_3D]->dynamicStates;
+
+		VkVertexInputAttributeDescription vertexInputAttributeDescription = {};
+		vertexInputAttributeDescription.binding = 0;
+		vertexInputAttributeDescription.location = 0;
+		vertexInputAttributeDescription.offset = offsetof(DebugVertex, pos);
+		vertexInputAttributeDescription.format = VK_FORMAT_R32G32B32_SFLOAT;
+		data.pipelines[PIPELINE_DEBUG_LINES]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+		vertexInputAttributeDescription.location = 1;
+		vertexInputAttributeDescription.offset = offsetof(DebugVertex, color);
+		vertexInputAttributeDescription.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+		data.pipelines[PIPELINE_DEBUG_LINES]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+		
+		vertexInputAttributeDescription.binding = 0;
+		vertexInputAttributeDescription.location = 0;
+		vertexInputAttributeDescription.offset = offsetof(Vertex, pos);
+		vertexInputAttributeDescription.format = VK_FORMAT_R32G32B32_SFLOAT;
+		for (i32 i = PIPELINE_3D_RANGE_START; i < PIPELINE_3D_RANGE_END; i++) {
+			data.pipelines[i]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+		}
+		vertexInputAttributeDescription.location = 1;
+		vertexInputAttributeDescription.offset = offsetof(Vertex, normal);
+		vertexInputAttributeDescription.format = VK_FORMAT_R32G32B32_SFLOAT;
+		for (i32 i = PIPELINE_3D_RANGE_START; i < PIPELINE_3D_RANGE_END; i++) {
+			data.pipelines[i]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+		}
+		vertexInputAttributeDescription.location = 2;
+		vertexInputAttributeDescription.offset = offsetof(Vertex, tangent);
+		vertexInputAttributeDescription.format = VK_FORMAT_R32G32B32_SFLOAT;
+		for (i32 i = PIPELINE_3D_RANGE_START; i < PIPELINE_3D_RANGE_END; i++) {
+			data.pipelines[i]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+		}
+		vertexInputAttributeDescription.location = 3;
+		vertexInputAttributeDescription.offset = offsetof(Vertex, tex);
+		vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
+		for (i32 i = PIPELINE_3D_RANGE_START; i < PIPELINE_3D_RANGE_END; i++) {
+			data.pipelines[i]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
+		}
+		VkVertexInputBindingDescription vertexInputBindingDescription = {};
+		vertexInputBindingDescription.binding = 0;
+		vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		vertexInputBindingDescription.stride = sizeof(DebugVertex);
+		data.pipelines[PIPELINE_DEBUG_LINES]->inputBindingDescriptions.Append(vertexInputBindingDescription);
+		
+		vertexInputBindingDescription.binding = 0;
+		vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		vertexInputBindingDescription.stride = sizeof(Vertex);
+		for (i32 i = PIPELINE_3D_RANGE_START; i < PIPELINE_3D_RANGE_END; i++) {
+			data.pipelines[i]->inputBindingDescriptions.Append(vertexInputBindingDescription);
+		}
+
+		VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
+		colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
+											| VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		colorBlendAttachment.blendEnable = VK_TRUE;
+		colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+		colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+		colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+		colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+		colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+		colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
+		for (i32 i = 1; i < PIPELINE_COUNT; i++) {
+			data.pipelines[i]->colorBlendAttachments.Append(colorBlendAttachment);
+		}
 	}
-
-	data.descriptors = data.device->AddDescriptors();
-	Ptr<vk::DescriptorLayout> descriptorLayout = data.descriptors->AddLayout();
-	descriptorLayout->bindings.Resize(3);
-	// Binding 0 is WorldInfo
-	descriptorLayout->bindings[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	descriptorLayout->bindings[0].stage = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT;
-	descriptorLayout->bindings[0].binding = 0;
-	descriptorLayout->bindings[0].count = 1;
-	// Binding 1 is ObjectInfo
-	descriptorLayout->bindings[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	descriptorLayout->bindings[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT;
-	descriptorLayout->bindings[1].binding = 1;
-	descriptorLayout->bindings[1].count = 1;
-	// Binding 2 is textures
-	descriptorLayout->bindings[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	descriptorLayout->bindings[2].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	descriptorLayout->bindings[2].binding = 2;
-	descriptorLayout->bindings[2].count = sys->assets.textures.size;
-
-	data.descriptorSet = data.descriptors->AddSet(descriptorLayout);
-	if (!data.descriptorSet->AddDescriptor(data.uniformBuffer, 0)) {
-		error = "Failed to add Uniform Buffer Descriptor: " + vk::error;
-		return false;
-	}
-	if (!data.descriptorSet->AddDescriptor(data.objectBuffer, 1)) {
-		error = "Failed to add Storage Buffer Descriptor: " + vk::error;
-		return false;
-	}
-	if (!data.descriptorSet->AddDescriptor(texImages, data.textureSampler, 2)) {
-		error = "Failed to add Texture Descriptor: " + vk::error;
-		return false;
-	}
-
-	Range<vk::Shader> shaders = data.device->AddShaders(5);
-	shaders[0].filename = "data/Az3D/shaders/DebugLines.vert.spv";
-	shaders[1].filename = "data/Az3D/shaders/DebugLines.frag.spv";
-	shaders[2].filename = "data/Az3D/shaders/Basic3D.vert.spv";
-	shaders[3].filename = "data/Az3D/shaders/Basic3D.frag.spv";
-	shaders[4].filename = "data/Az3D/shaders/Font3D.frag.spv";
-
-	vk::ShaderRef shaderRefDebugLinesVert = vk::ShaderRef(shaders.GetPtr(0), VK_SHADER_STAGE_VERTEX_BIT);
-	vk::ShaderRef shaderRefDebugLinesFrag = vk::ShaderRef(shaders.GetPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT);
-	vk::ShaderRef shaderRefVert = vk::ShaderRef(shaders.GetPtr(2), VK_SHADER_STAGE_VERTEX_BIT);
-	vk::ShaderRef shaderRefBasic3D = vk::ShaderRef(shaders.GetPtr(3), VK_SHADER_STAGE_FRAGMENT_BIT);
-	vk::ShaderRef shaderRefFont3D = vk::ShaderRef(shaders.GetPtr(4), VK_SHADER_STAGE_FRAGMENT_BIT);
-
-	data.pipelines.Resize(PIPELINE_COUNT);
-	
-	data.pipelines[PIPELINE_DEBUG_LINES] = data.device->AddPipeline();
-	data.pipelines[PIPELINE_DEBUG_LINES]->renderPass = data.renderPass;
-	data.pipelines[PIPELINE_DEBUG_LINES]->subpass = 0;
-	data.pipelines[PIPELINE_DEBUG_LINES]->shaders.Append(shaderRefDebugLinesVert);
-	data.pipelines[PIPELINE_DEBUG_LINES]->shaders.Append(shaderRefDebugLinesFrag);
-	data.pipelines[PIPELINE_DEBUG_LINES]->inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-	data.pipelines[PIPELINE_DEBUG_LINES]->rasterizer.lineWidth = 2.0f;
-	data.pipelines[PIPELINE_DEBUG_LINES]->depthStencil.depthTestEnable = VK_TRUE;
-	data.pipelines[PIPELINE_DEBUG_LINES]->depthStencil.depthCompareOp = VK_COMPARE_OP_GREATER;
-	data.pipelines[PIPELINE_DEBUG_LINES]->descriptorLayouts.Append(descriptorLayout);
-	
-	data.pipelines[PIPELINE_BASIC_3D] = data.device->AddPipeline();
-	data.pipelines[PIPELINE_BASIC_3D]->renderPass = data.renderPass;
-	data.pipelines[PIPELINE_BASIC_3D]->subpass = 0;
-	data.pipelines[PIPELINE_BASIC_3D]->multisampleShading = true;
-	data.pipelines[PIPELINE_BASIC_3D]->shaders.Append(shaderRefVert);
-	data.pipelines[PIPELINE_BASIC_3D]->shaders.Append(shaderRefBasic3D);
-	data.pipelines[PIPELINE_BASIC_3D]->rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-	// data.pipelines[PIPELINE_BASIC_3D]->rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
-	data.pipelines[PIPELINE_BASIC_3D]->depthStencil.depthTestEnable = VK_TRUE;
-	data.pipelines[PIPELINE_BASIC_3D]->depthStencil.depthWriteEnable = VK_TRUE;
-	data.pipelines[PIPELINE_BASIC_3D]->depthStencil.depthCompareOp = VK_COMPARE_OP_GREATER;
-	data.pipelines[PIPELINE_BASIC_3D]->descriptorLayouts.Append(descriptorLayout);
-
-	data.pipelines[PIPELINE_BASIC_3D]->dynamicStates = {
-		VK_DYNAMIC_STATE_VIEWPORT,
-		VK_DYNAMIC_STATE_SCISSOR
-	};
-	
-	data.pipelines[PIPELINE_FOLIAGE_3D] = data.device->AddPipeline();
-	*data.pipelines[PIPELINE_FOLIAGE_3D] = *data.pipelines[PIPELINE_BASIC_3D];
-	data.pipelines[PIPELINE_FOLIAGE_3D]->rasterizer.cullMode = VK_CULL_MODE_NONE;
-	data.pipelines[PIPELINE_DEBUG_LINES]->dynamicStates = data.pipelines[PIPELINE_BASIC_3D]->dynamicStates;
-
-	data.pipelines[PIPELINE_FONT_3D] = data.device->AddPipeline();
-	data.pipelines[PIPELINE_FONT_3D]->renderPass = data.renderPass;
-	data.pipelines[PIPELINE_FONT_3D]->subpass = 0;
-	data.pipelines[PIPELINE_FONT_3D]->shaders.Append(shaderRefVert);
-	data.pipelines[PIPELINE_FONT_3D]->shaders.Append(shaderRefFont3D);
-	data.pipelines[PIPELINE_FONT_3D]->descriptorLayouts.Append(descriptorLayout);
-
-	data.pipelines[PIPELINE_FONT_3D]->dynamicStates = data.pipelines[PIPELINE_BASIC_3D]->dynamicStates;
-
-	VkVertexInputAttributeDescription vertexInputAttributeDescription = {};
-	vertexInputAttributeDescription.binding = 0;
-	vertexInputAttributeDescription.location = 0;
-	vertexInputAttributeDescription.offset = offsetof(DebugVertex, pos);
-	vertexInputAttributeDescription.format = VK_FORMAT_R32G32B32_SFLOAT;
-	data.pipelines[PIPELINE_DEBUG_LINES]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-	vertexInputAttributeDescription.location = 1;
-	vertexInputAttributeDescription.offset = offsetof(DebugVertex, color);
-	vertexInputAttributeDescription.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-	data.pipelines[PIPELINE_DEBUG_LINES]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-	
-	vertexInputAttributeDescription.binding = 0;
-	vertexInputAttributeDescription.location = 0;
-	vertexInputAttributeDescription.offset = offsetof(Vertex, pos);
-	vertexInputAttributeDescription.format = VK_FORMAT_R32G32B32_SFLOAT;
-	for (i32 i = PIPELINE_3D_RANGE_START; i < PIPELINE_3D_RANGE_END; i++) {
-		data.pipelines[i]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-	}
-	vertexInputAttributeDescription.location = 1;
-	vertexInputAttributeDescription.offset = offsetof(Vertex, normal);
-	vertexInputAttributeDescription.format = VK_FORMAT_R32G32B32_SFLOAT;
-	for (i32 i = PIPELINE_3D_RANGE_START; i < PIPELINE_3D_RANGE_END; i++) {
-		data.pipelines[i]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-	}
-	vertexInputAttributeDescription.location = 2;
-	vertexInputAttributeDescription.offset = offsetof(Vertex, tangent);
-	vertexInputAttributeDescription.format = VK_FORMAT_R32G32B32_SFLOAT;
-	for (i32 i = PIPELINE_3D_RANGE_START; i < PIPELINE_3D_RANGE_END; i++) {
-		data.pipelines[i]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-	}
-	vertexInputAttributeDescription.location = 3;
-	vertexInputAttributeDescription.offset = offsetof(Vertex, tex);
-	vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
-	for (i32 i = PIPELINE_3D_RANGE_START; i < PIPELINE_3D_RANGE_END; i++) {
-		data.pipelines[i]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-	}
-	VkVertexInputBindingDescription vertexInputBindingDescription = {};
-	vertexInputBindingDescription.binding = 0;
-	vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-	vertexInputBindingDescription.stride = sizeof(DebugVertex);
-	data.pipelines[PIPELINE_DEBUG_LINES]->inputBindingDescriptions.Append(vertexInputBindingDescription);
-	
-	vertexInputBindingDescription.binding = 0;
-	vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-	vertexInputBindingDescription.stride = sizeof(Vertex);
-	for (i32 i = PIPELINE_3D_RANGE_START; i < PIPELINE_3D_RANGE_END; i++) {
-		data.pipelines[i]->inputBindingDescriptions.Append(vertexInputBindingDescription);
-	}
-
-	VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
-	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
-										| VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-	colorBlendAttachment.blendEnable = VK_TRUE;
-	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-
-	for (i32 i = 1; i < PIPELINE_COUNT; i++) {
-		data.pipelines[i]->colorBlendAttachments.Append(colorBlendAttachment);
+	{ // Shadow maps
+		data.shadowMapMemory = data.device->AddMemory();
+		data.shadowMapImage = data.shadowMapMemory->AddImage();
+		data.shadowMapImage->aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+		data.shadowMapImage->format = VK_FORMAT_D32_SFLOAT;
+		data.shadowMapImage->usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		data.shadowMapImage->width = data.shadowMapImage->height = 2048;
+		data.renderPassShadowMaps = data.device->AddRenderPass();
+		data.renderPassShadowMaps->initialAccessStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		data.renderPassShadowMaps->finalAccessStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		auto attachment = data.renderPassShadowMaps->AddAttachment();
+		attachment->bufferDepthStencil = true;
+		attachment->clearDepth = true;
+		attachment->clearDepthStencilValue.depth = 0.0f;
+		attachment->formatDepthStencil = data.shadowMapImage->format;
+		attachment->keepDepth = true;
+		auto subpass = data.renderPassShadowMaps->AddSubpass();
+		subpass->UseAttachment(attachment, vk::ATTACHMENT_DEPTH_STENCIL, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+		data.framebufferShadowMaps = data.device->AddFramebuffer();
+		data.framebufferShadowMaps->renderPass = data.renderPassShadowMaps;
+		data.framebufferShadowMaps->attachmentImages = {{data.shadowMapImage}};
+		data.framebufferShadowMaps->ownMemory = false;
+		data.framebufferShadowMaps->ownImages = false;
+		data.framebufferShadowMaps->depthMemory = data.shadowMapMemory.RawPtr();
+		data.framebufferShadowMaps->width = data.shadowMapImage->width;
+		data.framebufferShadowMaps->height = data.shadowMapImage->height;
+		data.semaphoreShadowMapsComplete = data.device->AddSemaphore();
+		data.queueSubmissionShadowMaps = data.device->AddQueueSubmission();
+		data.pipelineShadowMaps = data.device->AddPipeline();
+		data.pipelineShadowMaps->renderPass = data.renderPassShadowMaps;
+		data.pipelineShadowMaps->subpass = 0;
+		data.pipelineShadowMaps->inputAssembly = data.pipelines[PIPELINE_BASIC_3D]->inputAssembly;
+		data.pipelineShadowMaps->inputAttributeDescriptions = data.pipelines[PIPELINE_BASIC_3D]->inputAttributeDescriptions;
+		data.pipelineShadowMaps->inputBindingDescriptions = data.pipelines[PIPELINE_BASIC_3D]->inputBindingDescriptions;
+		data.pipelineShadowMaps->rasterizer = data.pipelines[PIPELINE_BASIC_3D]->rasterizer;
+		data.pipelineShadowMaps->rasterizer.rasterizerDiscardEnable = VK_TRUE;
+		
+		auto shadersShadow = data.device->AddShaders(2);
+		shadersShadow[0].filename = "data/Az3D/shaders/ShadowMap.vert.spv";
+		shadersShadow[1].filename = "data/Az3D/shaders/ShadowMap.frag.spv";
+		vk::ShaderRef vertShadow = vk::ShaderRef(shadersShadow.GetPtr(0), VK_SHADER_STAGE_VERTEX_BIT);
+		vk::ShaderRef fragShadow = vk::ShaderRef(shadersShadow.GetPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT);
+		
+		data.pipelineShadowMaps->shaders = {vertShadow, fragShadow};
+		data.pipelineShadowMaps->depthStencil.depthTestEnable = VK_TRUE;
+		data.pipelineShadowMaps->depthStencil.depthWriteEnable = VK_TRUE;
+		data.pipelineShadowMaps->depthStencil.depthCompareOp = VK_COMPARE_OP_GREATER;
+		data.pipelineShadowMaps->descriptorLayouts = {descriptorLayout};
 	}
 
 	if (!data.instance.Init()) {

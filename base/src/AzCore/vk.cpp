@@ -2100,11 +2100,13 @@ failure:
 				cout.PrintLn("Failed to clean up vk::Framebuffer: ", error);
 			}
 		}
-		if (depthMemory != nullptr) {
-			delete depthMemory;
-		}
-		if (colorMemory != nullptr) {
-			delete colorMemory;
+		if (ownMemory) {
+			if (depthMemory != nullptr) {
+				delete depthMemory;
+			}
+			if (colorMemory != nullptr) {
+				delete colorMemory;
+			}
 		}
 	}
 

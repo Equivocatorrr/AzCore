@@ -20,6 +20,8 @@ add_library(AzCore STATIC
 		src/AzCore/Font/font_cff_std_data.c
 		src/AzCore/Font/FontTables.cpp
 		src/AzCore/Font/FontTables.hpp
+	src/AzCore/gpu.cpp
+	src/AzCore/gpu.hpp
 	src/AzCore/Image.cpp
 	src/AzCore/Image.hpp
 	src/AzCore/io.cpp

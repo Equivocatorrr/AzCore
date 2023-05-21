@@ -9,8 +9,16 @@ namespace AzCore {
 
 namespace io {
 
+#ifndef NDEBUG
+LogLevel logLevel = LogLevel::DEBUG;
+#else
+LogLevel logLevel = LogLevel::RELEASE;
+#endif
+
 Log::~Log() {
-	if (mFile) fclose(mFile);
+	if (mFile) {
+		fclose(mFile);
+	}
 }
 
 Log::Log(const Log &other) {
@@ -200,8 +208,8 @@ Log& Log::Newline(i32 count) {
 	return *this;
 }
 
-Log cout = Log(String());
-Log cerr = Log(String(), true, false, stderr);
+Log cout = Log(Str());
+Log cerr = Log("stderr.log", true, true, stderr);
 
 } // namespace io
 

@@ -135,7 +135,7 @@ bool GetKeyValuePair(SimpleRange<char> line, SimpleRange<char> &outKey, SimpleRa
 bool Load() {
 	Array<char> buffer = FileContents("settings.conf");
 	if (buffer.size == 0) {
-		az::io::cerr.PrintLn("Failed to load settings.conf");
+		az::io::cout.PrintLn("Failed to load settings.conf, using defaults");
 		return false;
 	}
 	Array<SimpleRange<char>> lines = SeparateByNewlines(buffer);

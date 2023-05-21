@@ -78,11 +78,11 @@ struct Test : public GameSystems::System {
 			// vec3 up = objectOrientation.RotatePoint(vec3(0.0f, 0.0f, 1.0f));
 			quat zRot = quat::Rotation(
 				-f32(sys->input.cursor.x - sys->input.cursorPrevious.x) * 4.0f / sys->rendering.screenSize.x,
-				objectOrientation.Conjugate().RotatePoint(camUp)
+				camUp
 			);
 			quat xRot = quat::Rotation(
 				f32(sys->input.cursor.y - sys->input.cursorPrevious.y) * 4.0f / sys->rendering.screenSize.x,
-				objectOrientation.Conjugate().RotatePoint(camRight)
+				camRight
 			);
 			objectOrientation *= zRot * xRot;
 			objectOrientation = normalize(objectOrientation);

@@ -431,6 +431,12 @@ struct Slider : public Widget {
 	/*  Maximum bounds for value.
 		Default: 1.0 */
 	f32 valueMax;
+	/*  How much the value changes when clicked on either side of the knob or moved by a controller or arrow key input. Negative values indicate a factor of the total allowed range.
+		Default: -0.1f */
+	f32 valueTick;
+	/*  Multiplier for valueTick when SHIFT is held by the user.
+		Default: 0.1f */
+	f32 valueTickShiftMult;
 	/*  Whether to override the minimum slider value when it's in the minimum position.
 		Default: false */
 	bool minOverride;

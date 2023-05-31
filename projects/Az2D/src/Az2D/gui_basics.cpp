@@ -1369,10 +1369,12 @@ void TextBox::Draw(Rendering::DrawingContext &context) const {
 }
 
 Slider::Slider() :
-value(1.0f),                    valueMin(0.0f),
-valueMax(1.0f),                 mirror(nullptr),
+value(1.0f),
+valueMin(0.0f),                 valueMax(1.0f),
+valueTick(-0.1f),               valueTickShiftMult(0.1f),
 minOverride(false),             minOverrideValue(0.0f),
 maxOverride(false),             maxOverrideValue(1.0f),
+mirror(nullptr),
 colorBG(vec3(0.15f), 0.9f),     colorSlider(colorHighlightMedium, 1.0f),
 highlightBG(vec3(0.2f), 0.9f),  highlightSlider(colorHighlightHigh, 1.0f),
 grabbed(false), left(), right()
@@ -1431,8 +1433,9 @@ void Slider::Update(vec2 pos, bool selected) {
 		if (moved != 0.0f) updated = true;
 		value = clamp(value + moved, valueMin, valueMax);
 	}
-	if (!sys->Down(KC_KEY_LEFTSHIFT)) {
-		scale *= 10.0f;
+	scale = valueTick >= 0.0f ? valueTick : (valueMax - valueMin) * -valueTick;
+	if (sys->Down(KC_KEY_LEFTSHIFT)) {
+		scale *= valueTickShiftMult;
 	}
 	if (right.Repeated()) {
 		value = clamp(value + scale, valueMin, valueMax);

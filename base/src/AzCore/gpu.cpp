@@ -168,6 +168,14 @@ String FormatSize(u64 size) {
 	return str;
 }
 
+#define CHECK_INIT(obj) AzAssert((obj)->initted == false, "Trying to init a " #obj " that's already initted")
+#define CHECK_DEINIT(obj) AzAssert((obj)->initted == true, "Trying to deinit a " #obj " that's not initted")
+#define TRACE_INIT(obj) io::cout.PrintLnTrace("Initializing " #obj " \"", (obj)->tag, "\"");
+#define TRACE_DEINIT(obj) io::cout.PrintLnTrace("Deinitializing " #obj " \"", (obj)->tag, "\"");
+
+#define INIT_HEAD(obj) CHECK_INIT(obj); TRACE_INIT(obj)
+#define DEINIT_HEAD(obj) CHECK_DEINIT(obj); TRACE_DEINIT(obj)
+
 #endif
 
 #ifndef Command_Recording
@@ -240,8 +248,13 @@ struct Window {
 	
 	io::Window *window;
 	
+	VkSurfaceKHR vkSurface;
+	VkSwapchainKHR vkSwapchain;
+	
+	Device *device;
 	Str tag;
-	VkSurfaceKHR surface;
+	bool initted = false;
+	
 	Window() = default;
 	Window(io::Window *_window, Str _tag) : window(_window), tag(_tag) {}
 };
@@ -502,6 +515,37 @@ Instance instance;
 List<Device> devices;
 List<Window> windows;
 
+
+[[nodiscard]] Result<VoidResult_t, String> WindowSurfaceInit(Window *window);
+void WindowSurfaceDeinit(Window *window);
+
+[[nodiscard]] Result<VoidResult_t, String> WindowInit(Window *window);
+void WindowDeinit(Window *window);
+
+
+[[nodiscard]] Result<VoidResult_t, String> DeviceInit(Device *device);
+void DeviceDeinit(Device *device);
+
+
+[[nodiscard]] Result<u64, String> MemoryAllocate(Memory *memory, u32 size);
+void MemoryFree(Memory *memory, u64 allocation);
+
+
+[[nodiscard]] Result<VoidResult_t, String> ContextInit(Context *context);
+void ContextDeinit(Context *context);
+
+
+[[nodiscard]] Result<VoidResult_t, String> BufferInit(Buffer *buffer);
+void BufferDeinit(Buffer *buffer);
+[[nodiscard]] Result<VoidResult_t, String> BufferHostInit(Buffer *buffer);
+void BufferHostDeinit(Buffer *buffer);
+
+
+[[nodiscard]] Result<VoidResult_t, String> ImageInit(Image *image);
+void ImageDeinit(Image *image);
+[[nodiscard]] Result<VoidResult_t, String> ImageHostInit(Image *image);
+void ImageHostDeinit(Image *image);
+
 #endif
 
 #ifndef Global_settings
@@ -683,7 +727,7 @@ Result<VoidResult_t, String> WindowSurfaceInit(Window *window) {
 		VkXcbSurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
 		createInfo.connection = window->window->data->x11.connection;
 		createInfo.window = window->window->data->x11.window;
-		VkResult result = vkCreateXcbSurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->surface);
+		VkResult result = vkCreateXcbSurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->vkSurface);
 		if (result != VK_SUCCESS) {
 			return Stringify("Failed to create Vulkan XCB surface: ", ErrorString(result));
 		}
@@ -692,7 +736,7 @@ Result<VoidResult_t, String> WindowSurfaceInit(Window *window) {
 	VkWin32SurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
 	createInfo.hinstance = window->window->data->instance;
 	createInfo.hwnd = window->window->data->window;
-	VkResult result = vkCreateWin32SurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->surface);
+	VkResult result = vkCreateWin32SurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->vkSurface);
 	if (result != VK_SUCCESS) {
 		return Stringify("Failed to create Win32 Surface: ", ErrorString(result));
 	}
@@ -700,9 +744,22 @@ Result<VoidResult_t, String> WindowSurfaceInit(Window *window) {
 	return VoidResult_t();
 }
 
+
+
 void WindowSurfaceDeinit(Window *window) {
-	vkDestroySurfaceKHR(instance.vkInstance, window->surface, nullptr);
+	vkDestroySurfaceKHR(instance.vkInstance, window->vkSurface, nullptr);
 }
+
+Result<VoidResult_t, String> WindowInit(Window *window) {
+	INIT_HEAD(window);
+	return "Unimplemented";
+}
+
+void WindowDeinit(Window *window) {
+	DEINIT_HEAD(window);
+	AzAssert(false, "Unimplemented");
+}
+
 
 Result<VoidResult_t, String> WindowUpdate(Window *window) {
 	return String("Unimplemented");
@@ -842,7 +899,7 @@ void PrintPhysicalDeviceInfo(PhysicalDevice *physicalDevice) {
 		VkBool32 presentSupport = false;
 		bool first = true;
 		for (i32 j = 0; j < windows.size; j++) {
-			vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice->vkPhysicalDevice, i, windows[j]->surface, &presentSupport);
+			vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice->vkPhysicalDevice, i, windows[j]->vkSurface, &presentSupport);
 			if (presentSupport) {
 				if (!first)
 					presentString += ", ";
@@ -1017,7 +1074,7 @@ Result<Allocation, String> AllocateImage(Device *device, VkImage image, VkMemory
 #ifndef Device
 
 Result<VoidResult_t, String> DeviceInit(Device *device) {
-	AzAssert(device->initted == false, "Trying to Init a Device that's already initted");
+	INIT_HEAD(device);
 	io::cout.PrintLnTrace("Initializing Device \"", device->tag, "\"");
 
 	bool needsPresent = false;
@@ -1099,7 +1156,7 @@ Result<VoidResult_t, String> DeviceInit(Device *device) {
 			VkBool32 supportsPresent = VK_FALSE;
 			for (auto &framebuffer : device->framebuffers) {
 				if (framebuffer->window) {
-					vkGetPhysicalDeviceSurfaceSupportKHR(device->physicalDevice->vkPhysicalDevice, i, framebuffer->window->surface, &supportsPresent);
+					vkGetPhysicalDeviceSurfaceSupportKHR(device->physicalDevice->vkPhysicalDevice, i, framebuffer->window->vkSurface, &supportsPresent);
 					if (!supportsPresent) break;
 				}
 			}
@@ -1138,6 +1195,9 @@ Result<VoidResult_t, String> DeviceInit(Device *device) {
 
 	vkGetDeviceQueue(device->vkDevice, device->queueFamilyIndex, 0, &device->vkQueue);
 
+	for (auto &framebuffer : device->framebuffers) {
+		
+	}
 	for (auto &context : device->contexts) {
 		if (auto result = ContextInit(context.RawPtr()); result.isError) {
 			return result.error;
@@ -1178,7 +1238,7 @@ void DeviceDeinit(Device *device) {
 #ifndef Resources
 
 Result<VoidResult_t, String> BufferInit(Buffer *buffer) {
-	AzAssert(buffer->initted == false, "trying to init a buffer that's already initted");
+	INIT_HEAD(buffer);
 	VkBufferCreateInfo createInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
 	createInfo.size = buffer->size;
 	createInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -1212,7 +1272,7 @@ Result<VoidResult_t, String> BufferInit(Buffer *buffer) {
 }
 
 void BufferDeinit(Buffer *buffer) {
-	AzAssert(buffer->initted == true, "Trying to deinit a buffer that's not initted");
+	DEINIT_HEAD(buffer);
 	vkDestroyBuffer(buffer->device->vkDevice, buffer->vkBuffer, nullptr);
 	if (buffer->hostVisible) {
 		vkDestroyBuffer(buffer->device->vkDevice, buffer->vkBufferHostVisible, nullptr);
@@ -1224,6 +1284,7 @@ void BufferDeinit(Buffer *buffer) {
 Result<VoidResult_t, String> BufferHostInit(Buffer *buffer) {
 	AzAssert(buffer->initted == true, "Trying to init staging buffer for buffer that's not initted");
 	AzAssert(buffer->hostVisible == false, "Trying to init staging buffer that's already initted");
+	TRACE_INIT(buffer);
 	VkBufferCreateInfo createInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
 	createInfo.size = buffer->size;
 	createInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
@@ -1242,6 +1303,7 @@ Result<VoidResult_t, String> BufferHostInit(Buffer *buffer) {
 void BufferHostDeinit(Buffer *buffer) {
 	AzAssert(buffer->initted == true, "Trying to deinit staging buffer for buffer that's not initted");
 	AzAssert(buffer->hostVisible == true, "Trying to deinit staging buffer that's not initted");
+	TRACE_DEINIT(buffer);
 	vkDestroyBuffer(buffer->device->vkDevice, buffer->vkBufferHostVisible, nullptr);
 	buffer->hostVisible = false;
 }
@@ -1256,7 +1318,7 @@ Result<VoidResult_t, String> BufferSetSize(Buffer *buffer, i64 sizeBytes) {
 }
 
 Result<VoidResult_t, String> ImageInit(Image *image) {
-	AzAssert(image->initted == false, "trying to init an image that's already initted");
+	INIT_HEAD(image);
 	VkImageCreateInfo createInfo = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
 	createInfo.imageType = VK_IMAGE_TYPE_2D;
 	createInfo.format = image->vkFormat;
@@ -1302,7 +1364,7 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 }
 
 void ImageDeinit(Image *image) {
-	AzAssert(image->initted == true, "Trying to deinit an image that's not initted");
+	DEINIT_HEAD(image);
 	vkDestroyImageView(image->device->vkDevice, image->vkImageView, nullptr);
 	vkDestroyImage(image->device->vkDevice, image->vkImage, nullptr);
 	if (image->hostVisible) {
@@ -1315,6 +1377,7 @@ void ImageDeinit(Image *image) {
 Result<VoidResult_t, String> ImageHostInit(Image *image) {
 	AzAssert(image->initted == true, "Trying to init image staging buffer that's not initted");
 	AzAssert(image->hostVisible == false, "Trying to init image staging buffer that's already initted");
+	TRACE_INIT(image);
 	VkBufferCreateInfo createInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
 	createInfo.size = image->width * image->height * image->channels * intDivCeil(image->bitsPerChannel, 8);
 	createInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
@@ -1334,6 +1397,7 @@ Result<VoidResult_t, String> ImageHostInit(Image *image) {
 void ImageHostDeinit(Image *image) {
 	AzAssert(image->initted == true, "Trying to deinit image staging buffer that's not initted");
 	AzAssert(image->hostVisible == true, "Trying to deinit image staging buffer that's not initted");
+	TRACE_DEINIT(image);
 	vkDestroyBuffer(image->device->vkDevice, image->vkBufferHostVisible, nullptr);
 	image->hostVisible = false;
 }
@@ -1516,7 +1580,7 @@ void PipelineSetBlendMode(Pipeline *pipeline, BlendMode blendMode) {
 #ifndef Context
 
 Result<VoidResult_t, String> ContextInit(Context *context) {
-	AzAssert(!context->initted, "Trying to init a context that's already initted");
+	INIT_HEAD(context);
 	VkCommandPoolCreateInfo poolCreateInfo = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
 	poolCreateInfo.queueFamilyIndex = context->device->queueFamilyIndex;
 	if (VkResult result = vkCreateCommandPool(context->device->vkDevice, &poolCreateInfo, nullptr, &context->vkCommandPool); result != VK_SUCCESS) {
@@ -1534,7 +1598,7 @@ Result<VoidResult_t, String> ContextInit(Context *context) {
 }
 
 void ContextDeinit(Context *context) {
-	AzAssert(context->initted, "Trying to deinit a context that's not initted");
+	DEINIT_HEAD(context);
 	vkDestroyCommandPool(context->device->vkDevice, context->vkCommandPool, nullptr);
 	vkDestroyFence(context->device->vkDevice, context->vkFence, nullptr);
 	context->initted = false;

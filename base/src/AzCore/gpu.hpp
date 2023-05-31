@@ -104,9 +104,6 @@ void FramebufferAddWindow(Framebuffer *framebuffer, Window *window);
 
 void SetVSync(Window *window, bool enable);
 
-[[nodiscard]] Result<VoidResult_t, String> WindowSurfaceInit(Window *window);
-void WindowSurfaceDeinit(Window *window);
-
 [[nodiscard]] Result<VoidResult_t, String> WindowUpdate(Window *window);
 [[nodiscard]] Result<VoidResult_t, String> WindowPresent(Window *window);
 
@@ -130,34 +127,8 @@ void WindowSurfaceDeinit(Window *window);
 [[nodiscard]] Framebuffer* NewFramebuffer(Device *device, Str tag = Str());
 
 
-// Memory
-
-
-Result<u64, String> MemoryAllocate(Memory *memory, u32 size);
-void MemoryFree(Memory *memory, u64 allocation);
-
-
-// Device
-
-
-[[nodiscard]] Result<VoidResult_t, String> DeviceInit(Device *device);
-void DeviceDeinit(Device *device);
-
-
 // Buffer, Image
 
-
-[[nodiscard]] Result<VoidResult_t, String> BufferInit(Buffer *buffer);
-void BufferDeinit(Buffer *buffer);
-[[nodiscard]] Result<VoidResult_t, String> BufferHostInit(Buffer *buffer);
-void BufferHostDeinit(Buffer *buffer);
-
-[[nodiscard]] Result<VoidResult_t, String> BufferSetSize(Buffer *buffer, i64 sizeBytes);
-
-[[nodiscard]] Result<VoidResult_t, String> ImageInit(Image *image);
-void ImageDeinit(Image *image);
-[[nodiscard]] Result<VoidResult_t, String> ImageHostInit(Image *image);
-void ImageHostDeinit(Image *image);
 
 [[nodiscard]] Result<VoidResult_t, String> ImageSetFormat(Image *image, i32 channels, i32 bitsPerChannel, ImageComponentType componentType);
 [[nodiscard]] Result<VoidResult_t, String> ImageSetSize(Image *image, i32 width, i32 height);
@@ -167,6 +138,7 @@ void ImageSetMipmapping(Image *image, bool enableMipmapping, i32 anisotropy = 1)
 void ImageSetUsageSampled(Image *image, u32 shaderStages);
 
 
+[[nodiscard]] Result<VoidResult_t, String> BufferSetSize(Buffer *buffer, i64 sizeBytes);
 
 // Pipeline
 
@@ -182,9 +154,6 @@ void PipelineSetBlendMode(Pipeline *pipeline, BlendMode blendMode);
 
 // Context, Commands
 
-
-[[nodiscard]] Result<VoidResult_t, String> ContextInit(Context *context);
-void ContextDeinit(Context *context);
 
 [[nodiscard]] Result<VoidResult_t, String> ContextBeginRecording(Context *context);
 [[nodiscard]] Result<VoidResult_t, String> ContextBeginRecordingSecondary(Context *context, Framebuffer *framebuffer, i32 subpass);

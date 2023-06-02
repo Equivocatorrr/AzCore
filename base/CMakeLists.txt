@@ -101,10 +101,16 @@ add_library(AzCore STATIC
 	src/AzCore/SoftwareRendering.cpp
 	src/AzCore/SoftwareRendering.hpp
 	src/AzCore/Thread.hpp
-	src/AzCore/Thread${TARGET_PLATFORM_NAME}.hpp
+	src/AzCore/Thread.cpp
+	src/AzCore/Thread${TARGET_PLATFORM_NAME}.cpp
 	src/AzCore/Time.hpp
 	src/AzCore/vk.cpp
 	src/AzCore/vk.hpp
+)
+
+set_source_files_properties(
+	src/AzCore/Thread${TARGET_PLATFORM_NAME}.cpp
+	PROPERTIES HEADER_FILE_ONLY TRUE
 )
 
 if (CMAKE_SYSTEM MATCHES Linux)

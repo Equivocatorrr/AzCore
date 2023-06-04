@@ -22,12 +22,12 @@ ThreadData& GetThreadData(char *data) {
 	return *(ThreadData*)data;
 }
 
-void Thread::_Launch(void* (*proc)(void*), void *call) {
+void Thread::_Launch(void* (*proc)(void*), void *call, void (*cleanup)(void*)) {
 	ThreadData &threadData = GetThreadData(data);
 	int errnum = pthread_create(&threadData.threadHandle, nullptr, proc, call);
 	if (errnum != 0) {
 		threadData.threadHandle = 0;
-		delete call;
+		cleanup(call);
 		throw std::system_error(errnum, std::generic_category());
 	}
 }
@@ -37,7 +37,7 @@ Thread::Thread() {
 	threadData.threadHandle = 0;
 }
 
-Thread::Thread(Thread&& other) : threadHandle(other.threadHandle) {
+Thread::Thread(Thread&& other) {
 	ThreadData &threadData = GetThreadData(data);
 	ThreadData &otherThreadData = GetThreadData(other.data);
 	threadData.threadHandle = otherThreadData.threadHandle;
@@ -77,11 +77,11 @@ Thread& Thread::operator=(Thread&& other) {
 	return *this;
 }
 
-static unsigned Thread::HardwareConcurrency() {
+unsigned Thread::HardwareConcurrency() {
 	return get_nprocs();
 }
 
-static void Thread::_Sleep(i64 nanoseconds) {
+void Thread::_Sleep(i64 nanoseconds) {
 	struct timespec remaining = {
 		(time_t)(nanoseconds / 1000000000),
 		(long)(nanoseconds % 1000000000)
@@ -89,11 +89,11 @@ static void Thread::_Sleep(i64 nanoseconds) {
 	while (nanosleep(&remaining, &remaining) == -1 && errno == EINTR) {}
 }
 
-static void Thread::_SleepPrecise(i64 nanoseconds) {
+void Thread::_SleepPrecise(i64 nanoseconds) {
 	_Sleep(nanoseconds);
 }
 
-static void Thread::Yield() {
+void Thread::Yield() {
 	sched_yield();
 }
 

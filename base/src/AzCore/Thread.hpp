@@ -12,6 +12,8 @@
 #include <functional>
 #include <chrono>
 
+void exit_thread_safe(int code);
+
 namespace AzCore {
 
 namespace ThreadStuff {
@@ -55,7 +57,7 @@ class Thread {
 		return nullptr;
 	}
 	
-	void _Launch(void* (*proc)(void*), void *call);
+	void _Launch(void* (*proc)(void*), void *call, void (*cleanup)(void*));
 #elif defined(_WIN32)
 	template<class Call>
 	static unsigned __stdcall threadProc(void *ptr) {
@@ -75,7 +77,7 @@ public:
 		static_assert(std::is_invocable<typename std::decay<Function>::type, typename std::decay<Arguments>::type...>::value);
 		typedef ThreadStuff::FunctionCaller<Function, Arguments...> Call;
 		auto call = new Call(std::forward<Function>(function), std::forward<Arguments>(arguments)...);
-		_Launch(threadProc<Call>, (void*)call);
+		_Launch(threadProc<Call>, (void*)call, [](void *ptr) { delete (Call*)ptr; });
 	}
 
 	Thread();
@@ -93,7 +95,7 @@ public:
 	inline ~Thread() {
 		if (Joinable()) {
 			fprintf(stderr, "Tried to destruct a thread that's still joinable!\n");
-			std::terminate();
+			exit_thread_safe(1);
 		}
 	}
 

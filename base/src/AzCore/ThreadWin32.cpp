@@ -38,13 +38,13 @@ ThreadData& GetThreadData(char *data) {
 	return *(ThreadData*)data;
 }
 
-void Thread::_Launch(unsigned (__stdcall *proc)(void*), void *call) {
+void Thread::_Launch(unsigned (__stdcall *proc)(void*), void *call, void (*cleanup)(void*)) {
 	ThreadData &threadData = GetThreadData(data);
 	auto handle = _beginthreadex(NULL, 0, proc, call, 0, (unsigned*)&threadData.id);
 	if (handle == 0) {
 		threadData.threadHandle = 0;
 		int errnum = errno;
-		delete call;
+		cleanup(call);
 		throw std::system_error(errnum, std::generic_category());
 	} else {
 		threadData.threadHandle = reinterpret_cast<HANDLE>(handle);

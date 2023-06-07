@@ -67,7 +67,7 @@ class Thread {
 		return 0;
 	}
 	
-	void _Launch(unsigned (__stdcall *proc)(void*), void *call);
+	void _Launch(unsigned (__stdcall *proc)(void*), void *call, void (*cleanup)(void*));
 #endif
 
 public:

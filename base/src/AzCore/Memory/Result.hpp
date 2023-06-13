@@ -7,7 +7,7 @@
 #ifndef AZCORE_RESULT_HPP
 #define AZCORE_RESULT_HPP
 
-#include "IO/Log.hpp"
+#include "../IO/Log.hpp"
 
 namespace AzCore {
 

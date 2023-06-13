@@ -49,7 +49,7 @@ constexpr VkFormat ShaderValueFormats[] = {
 	/* VEC4 */  VK_FORMAT_R32G32B32A32_SFLOAT,
 };
 
-extern Str imageComponentTypeStrings[6] = {
+Str imageComponentTypeStrings[6] = {
 	"SRGB",
 	"UNORM",
 	"SNORM",
@@ -344,7 +344,7 @@ struct Memory {
 	Str tag;
 	
 	Memory() = default;
-	Memory(Device *_device, u32 _memoryTypeIndex, Str _tag=Str()) : device(_device), memoryTypeIndex(_memoryTypeIndex), tag(_tag) {}
+	Memory(Device *_device, u32 _memoryTypeIndex, Str _tag=Str()) : memoryTypeIndex(_memoryTypeIndex), device(_device), tag(_tag) {}
 };
 
 struct Device {
@@ -426,7 +426,7 @@ struct Pipeline {
 	bool initted = false;
 
 	Pipeline() = default;
-	Pipeline(Device *_device, Kind _kind, Str _tag) : device(_device), kind(_kind), tag(_tag) {}
+	Pipeline(Device *_device, Kind _kind, Str _tag) : kind(_kind), device(_device), tag(_tag) {}
 };
 
 struct Buffer {
@@ -576,7 +576,7 @@ Result<VoidResult_t, String> Initialize() {
 		if (windows.size) {
 			extensions.Append("VK_KHR_surface");
 	#ifdef __unix
-			if (windows[0]->data->useWayland) {
+			if (windows[0]->window->data->useWayland) {
 				extensions.Append("VK_KHR_wayland_surface");
 			} else {
 				extensions.Append("VK_KHR_xcb_surface");
@@ -719,7 +719,7 @@ Result<VoidResult_t, String> WindowSurfaceInit(Window *window) {
 		VkWaylandSurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR};
 		createInfo.display = window->window->data->wayland.display;
 		createInfo.surface = window->window->data->wayland.surface;
-		VkResult result = vkCreateWaylandSurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->surface);
+		VkResult result = vkCreateWaylandSurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->vkSurface);
 		if (result != VK_SUCCESS) {
 			return Stringify("Failed to create Vulkan Wayland surface: ", ErrorString(result));
 		}
@@ -752,7 +752,7 @@ void WindowSurfaceDeinit(Window *window) {
 
 Result<VoidResult_t, String> WindowInit(Window *window) {
 	INIT_HEAD(window);
-	return "Unimplemented";
+	return String("Unimplemented");
 }
 
 void WindowDeinit(Window *window) {
@@ -829,8 +829,9 @@ i32 RatePhysicalDevice(PhysicalDevice *device) {
 		case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
 			score += 500;
 			break;
-		case VK_PHYSICAL_DEVICE_TYPE_CPU:
-		case VK_PHYSICAL_DEVICE_TYPE_OTHER:
+		default:
+		// case VK_PHYSICAL_DEVICE_TYPE_CPU:
+		// case VK_PHYSICAL_DEVICE_TYPE_OTHER:
 			break;
 	}
 	score += device->properties.properties.limits.maxImageDimension2D;
@@ -935,7 +936,7 @@ Result<u32, String> FindMemoryType(u32 memoryTypeBits, VkMemoryPropertyFlags pro
 			return i;
 		}
 	}
-	return "Failed to find a suitable memory type!";
+	return String("Failed to find a suitable memory type!");
 }
 
 Result<VoidResult_t, String> MemoryAddPage(Memory *memory, u32 minSize) {

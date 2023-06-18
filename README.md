@@ -218,7 +218,7 @@ nicely together with `char*` and `char32*` strings.
 - Converters from most basic data types to `String`, including 128-bit wide integers and floats.
 - Converters from `String` and `WString` to `f32`.
 - `String Stringify(args...)` returns a String that concatenates all the args together, converting any types into characters that have `void AppendToString(String &string, T value)` defined for them. This is done without allocating more than one String.
-- `BucketArray<typename T, i32 count>`, a stack-allocated constant-storage-sized array with a variable effective size.
+- `StaticArray<typename T, i32 count>`, a constant-storage-sized array with a variable effective size.
 - Tools to identify and convert endianness.
 - `List<typename T>`, a singly-linked list.
 - `Ptr<typename T>`, polymorphs into either a raw `T *pointer` or an index of an `Array<T, 0>`. Helps in the case of Array data

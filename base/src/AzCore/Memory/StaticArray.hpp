@@ -1,10 +1,10 @@
 /*
-	File: BucketArray.hpp
+	File: StaticArray.hpp
 	Author: Philip Haynes
 */
 
-#ifndef AZCORE_BUCKETARRAY_HPP
-#define AZCORE_BUCKETARRAY_HPP
+#ifndef AZCORE_STATICARRAY_HPP
+#define AZCORE_STATICARRAY_HPP
 
 #include "../basictypes.hpp"
 #include "Array.hpp"
@@ -18,35 +18,35 @@ namespace AzCore {
 // NOTE: This is so BigInt can fit in a single cache line.
 #pragma pack(1)
 
-/*  struct: BucketArray
+/*  struct: StaticArray
 	Author: Philip Haynes
-	An array with a fixed-sized memory pool that behaves similarly to Array.    */
+	An array with a fixed-sized memory pool and an associated dynamic size. */
 template <typename T, i32 count>
-struct BucketArray {
+struct StaticArray {
 	T data[count];
 	i32 size;
 
-	BucketArray() : size(0) {}
-	BucketArray(i32 newSize) : size(newSize) {
-		AzAssert(size <= count, "BucketArray initialized with a size bigger than count");
+	StaticArray() : size(0) {}
+	StaticArray(i32 newSize) : size(newSize) {
+		AzAssert(size <= count, "StaticArray initialized with a size bigger than count");
 	}
-	BucketArray(i32 newSize, const T &value) : size(newSize) {
-		AzAssert(size <= count, "BucketArray initialized with a size bigger than count");
+	StaticArray(i32 newSize, const T &value) : size(newSize) {
+		AzAssert(size <= count, "StaticArray initialized with a size bigger than count");
 		for (i32 i = 0; i < size; i++) {
 			data[i] = value;
 		}
 	}
-	BucketArray(u32 newSize) : BucketArray((i32)newSize) {}
-	BucketArray(u32 newSize, const T &value) : BucketArray((i32)newSize, value) {}
-	BucketArray(const std::initializer_list<T> &init) : size(init.size()) {
-		AzAssert(size <= count, "BucketArray initialized with a size bigger than count");
+	StaticArray(u32 newSize) : StaticArray((i32)newSize) {}
+	StaticArray(u32 newSize, const T &value) : StaticArray((i32)newSize, value) {}
+	StaticArray(const std::initializer_list<T> &init) : size(init.size()) {
+		AzAssert(size <= count, "StaticArray initialized with a size bigger than count");
 		i32 i = 0;
 		for (const T &val : init) {
 			data[i++] = val;
 		}
 	}
-	BucketArray(const T *string) : size(StringLength(string)) {
-		AzAssert(size <= count, "BucketArray initialized with a size bigger than count");
+	StaticArray(const T *string) : size(StringLength(string)) {
+		AzAssert(size <= count, "StaticArray initialized with a size bigger than count");
 		if constexpr (std::is_trivially_copyable<T>::value) {
 			memcpy((void *)data, (void *)string, sizeof(T) * size);
 		} else {
@@ -56,9 +56,9 @@ struct BucketArray {
 		}
 	}
 
-	BucketArray<T, count> &operator=(const std::initializer_list<T> &init) {
+	StaticArray<T, count> &operator=(const std::initializer_list<T> &init) {
 		size = init.size();
-		AzAssert(size <= count, "BucketArray assigned with a size bigger than count");
+		AzAssert(size <= count, "StaticArray assigned with a size bigger than count");
 		if (size == 0) {
 			return *this;
 		}
@@ -69,9 +69,9 @@ struct BucketArray {
 		return *this;
 	}
 
-	BucketArray<T, count> &operator=(const T *string) {
+	StaticArray<T, count> &operator=(const T *string) {
 		size = StringLength(string);
-		AzAssert(size <= count, "BucketArray assigned with a size bigger than count");
+		AzAssert(size <= count, "StaticArray assigned with a size bigger than count");
 		if constexpr (std::is_trivially_copyable<T>::value) {
 			memcpy((void *)data, (void *)string, sizeof(T) * size);
 		} else {
@@ -82,7 +82,7 @@ struct BucketArray {
 		return *this;
 	}
 
-	bool operator==(const BucketArray<T, count> &other) const {
+	bool operator==(const StaticArray<T, count> &other) const {
 		if (size != other.size) {
 			return false;
 		}
@@ -115,29 +115,29 @@ struct BucketArray {
 	}
 
 	inline const T &operator[](i32 index) const {
-		AzAssert(index < size && index >= 0, "BucketArray index is out of bounds");
+		AzAssert(index < size && index >= 0, "StaticArray index is out of bounds");
 		return data[index];
 	}
 
 	inline T &operator[](i32 index) {
-		AzAssert(index < size && index >= 0, "BucketArray index is out of bounds");
+		AzAssert(index < size && index >= 0, "StaticArray index is out of bounds");
 		return data[index];
 	}
 
-	BucketArray<T, count> operator+(const T &other) const {
-		BucketArray<T, count> result(*this);
+	StaticArray<T, count> operator+(const T &other) const {
+		StaticArray<T, count> result(*this);
 		result.Append(other);
 		return result;
 	}
 
-	BucketArray<T, count> operator+(const T *string) const {
-		BucketArray<T, count> result(*this);
+	StaticArray<T, count> operator+(const T *string) const {
+		StaticArray<T, count> result(*this);
 		result.Append(string);
 		return result;
 	}
 
-	BucketArray<T, count> operator+(const BucketArray<T, count> &other) const {
-		BucketArray<T, count> result(*this);
+	StaticArray<T, count> operator+(const StaticArray<T, count> &other) const {
+		StaticArray<T, count> result(*this);
 		result.Append(other);
 		return result;
 	}
@@ -150,16 +150,16 @@ struct BucketArray {
 		return Append(std::move(value));
 	}
 
-	inline BucketArray<T, count> &operator+=(const BucketArray<T, count> &other) {
+	inline StaticArray<T, count> &operator+=(const StaticArray<T, count> &other) {
 		return Append(other);
 	}
 
-	inline BucketArray<T, count> &operator+=(const T *string) {
+	inline StaticArray<T, count> &operator+=(const T *string) {
 		return Append(string);
 	}
 
 	inline void Resize(i32 newSize, const T &value) {
-		AzAssert(newSize <= count, "BucketArray Resized bigger than count");
+		AzAssert(newSize <= count, "StaticArray Resized bigger than count");
 		for (i32 i = size; i < newSize; i++) {
 			data[i] = value;
 		}
@@ -167,23 +167,23 @@ struct BucketArray {
 	}
 
 	inline void Resize(i32 newSize) {
-		AzAssert(newSize <= count, "BucketArray Resized bigger than count");
+		AzAssert(newSize <= count, "StaticArray Resized bigger than count");
 		size = newSize;
 	}
 
 	inline T &Append(const T &value) {
-		AzAssert(size < count, "BucketArray Single-Append would overfill");
+		AzAssert(size < count, "StaticArray Single-Append would overfill");
 		return data[size++] = value;
 	}
 
 	inline T &Append(T &&value) {
-		AzAssert(size < count, "BucketArray Single-Append would overfill");
+		AzAssert(size < count, "StaticArray Single-Append would overfill");
 		return data[size++] = std::move(value);
 	}
 
-	BucketArray<T, count> &Append(const T *string) {
+	StaticArray<T, count> &Append(const T *string) {
 		i32 newSize = size + StringLength(string);
-		AzAssert(newSize <= count, "BucketArray C-string Append would overfill");
+		AzAssert(newSize <= count, "StaticArray C-string Append would overfill");
 		for (i32 i = size; i < newSize; i++) {
 			data[i] = string[i - size];
 		}
@@ -191,10 +191,10 @@ struct BucketArray {
 		return *this;
 	}
 
-	BucketArray<T, count> &Append(const BucketArray<T, count> &other) {
+	StaticArray<T, count> &Append(const StaticArray<T, count> &other) {
 		i32 copyStart = size;
 		size += other.size;
-		AzAssert(size <= count, "BucketArray Append would overfill");
+		AzAssert(size <= count, "StaticArray Append would overfill");
 		if constexpr (std::is_trivially_copyable<T>::value) {
 			memcpy((void *)(data + copyStart), (void *)other.data, sizeof(T) * other.size);
 		} else {
@@ -211,8 +211,8 @@ struct BucketArray {
 	}
 
 	T &Insert(i32 index, T &&value) {
-		AzAssert(index <= size && index >= 0, "BucketArray::Insert index is out of bounds");
-		AzAssert(size < count, "BucketArray::Insert would overfill");
+		AzAssert(index <= size && index >= 0, "StaticArray::Insert index is out of bounds");
+		AzAssert(size < count, "StaticArray::Insert would overfill");
 		for (i32 i = size++; i > index; i--) {
 			data[i] = std::move(data[i - 1]);
 		}
@@ -220,7 +220,7 @@ struct BucketArray {
 	}
 
 	void Erase(i32 index) {
-		AzAssert(index < size && index >= 0, "BucketArray::Erase index is out of bounds");
+		AzAssert(index < size && index >= 0, "StaticArray::Erase index is out of bounds");
 		size--;
 		if constexpr (std::is_trivially_copyable<T>::value) {
 			if (size > index) {
@@ -237,7 +237,7 @@ struct BucketArray {
 		size = 0;
 	}
 
-	BucketArray<T, count> &Reverse() {
+	StaticArray<T, count> &Reverse() {
 		for (i32 i = 0; i < size / 2; i++) {
 			T buf = std::move(data[i]);
 			data[i] = std::move(data[size - i - 1]);
@@ -260,12 +260,12 @@ struct BucketArray {
 	}
 
 	inline T &Back() {
-		AzAssert(size > 0, "BucketArray::Back() called on empty array!");
+		AzAssert(size > 0, "StaticArray::Back() called on empty array!");
 		return data[size - 1];
 	}
 
 	inline const T &Back() const {
-		AzAssert(size > 0, "BucketArray::Back() called on empty array!");
+		AzAssert(size > 0, "StaticArray::Back() called on empty array!");
 		return data[size - 1];
 	}
 };
@@ -274,4 +274,4 @@ struct BucketArray {
 
 } // namespace AzCore
 
-#endif // AZCORE_BUCKETARRAY_HPP
+#endif // AZCORE_STATICARRAY_HPP

@@ -70,7 +70,7 @@ add_library(AzCore STATIC
 		src/AzCore/Memory/BigInt.hpp
 		src/AzCore/Memory/BinaryMap.hpp
 		src/AzCore/Memory/BinarySet.hpp
-		src/AzCore/Memory/BucketArray.hpp
+		src/AzCore/Memory/StaticArray.hpp
 		src/AzCore/Memory/Endian.cpp
 		src/AzCore/Memory/Endian.hpp
 		src/AzCore/Memory/HashMap.hpp

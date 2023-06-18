@@ -181,7 +181,7 @@ struct List : public Widget {
 	List();
 	~List() = default;
 	// returns whether or not to update the selection based on the mouse position
-	bool UpdateSelection(bool selected, az::BucketArray<u8, 4> keyCodeSelect, az::BucketArray<u8, 4> keyCodeBack, az::BucketArray<u8, 4> keyCodeIncrement, az::BucketArray<u8, 4> keyCodeDecrement);
+	bool UpdateSelection(bool selected, az::StaticArray<u8, 4> keyCodeSelect, az::StaticArray<u8, 4> keyCodeBack, az::StaticArray<u8, 4> keyCodeIncrement, az::StaticArray<u8, 4> keyCodeDecrement);
 	void Draw(Rendering::DrawingContext &context) const override;
 };
 

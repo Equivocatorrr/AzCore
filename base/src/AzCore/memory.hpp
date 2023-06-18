@@ -18,7 +18,7 @@
 #include "Memory/ArrayList.hpp"
 #include "Memory/Ptr.hpp"
 #include "Memory/Range.hpp"
-#include "Memory/BucketArray.hpp"
+#include "Memory/StaticArray.hpp"
 #include "Memory/UniquePtr.hpp"
 #include "Memory/BinaryMap.hpp"
 #include "Memory/HashMap.hpp"

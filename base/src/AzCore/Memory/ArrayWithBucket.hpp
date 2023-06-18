@@ -1,7 +1,7 @@
 /*
 	File: ArrayWithBucket.hpp
 	Author: Philip Haynes
-	A variation on ArrayWithBucket that has some static storage space for small Arrays.
+	A variation on Array that has some static storage space for small Arrays.
 */
 #ifndef AZCORE_ARRAYWITHBUCKET_HPP
 #define AZCORE_ARRAYWITHBUCKET_HPP

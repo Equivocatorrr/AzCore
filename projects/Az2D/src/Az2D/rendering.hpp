@@ -227,7 +227,7 @@ struct Manager {
 		Range<vk::Image> fontImages;
 
 		Array<Ptr<vk::Pipeline>> pipelines;
-		Array<BucketArray<Ptr<vk::DescriptorSet>, 4>> pipelineDescriptorSets;
+		Array<StaticArray<Ptr<vk::DescriptorSet>, 4>> pipelineDescriptorSets;
 		Ptr<vk::Descriptors> descriptors;
 		Ptr<vk::DescriptorSet> descriptorSetUniforms;
 		Ptr<vk::DescriptorSet> descriptorSet2D;

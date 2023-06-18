@@ -473,8 +473,8 @@ f32 Curve2::DistanceLess(const vec2 &point, f32 distSquared) const {
 	if (sqDistEnd < distSquared) {
 		distSquared = sqDistEnd;
 	}
-	BucketArray<f32, accuracy+3> samples(accuracy+3);
-	BucketArray<f32, 4> pits;
+	StaticArray<f32, accuracy+3> samples(accuracy+3);
+	StaticArray<f32, 4> pits;
 	for (i32 i = 0; i <= accuracy; i++) {
 		f32 t = (f32)i / (f32)accuracy;
 		samples[i+1] = normSqr(curve.Point(t));

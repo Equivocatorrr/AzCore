@@ -11,7 +11,7 @@
 #define BIGINT_BUCKET_SIZE 15
 #endif
 
-#include "BucketArray.hpp"
+#include "StaticArray.hpp"
 #include "String.hpp"
 
 namespace AzCore {
@@ -20,7 +20,7 @@ namespace AzCore {
 
 class BigInt {
 public:
-	BucketArray<u64, BIGINT_BUCKET_SIZE> words;
+	StaticArray<u64, BIGINT_BUCKET_SIZE> words;
 	static_assert(sizeof(words) == 124);
 	u32 negative;
 	inline BigInt() : words(1, 0), negative(false) {}
@@ -32,7 +32,7 @@ public:
 	explicit inline BigInt(u32 a, bool neg=false) { *this = a; negative = neg; }
 	explicit inline BigInt(i64 a) { *this = a; }
 	explicit inline BigInt(i32 a) { *this = a; }
-	explicit inline BigInt(const BucketArray<u64, BIGINT_BUCKET_SIZE>& init, bool neg=false) : words(init), negative(neg) {}
+	explicit inline BigInt(const StaticArray<u64, BIGINT_BUCKET_SIZE>& init, bool neg=false) : words(init), negative(neg) {}
 	explicit BigInt(const String& string, bool neg=false, const u32 base=10);
 	inline BigInt& operator=(const BigInt& a) {
 		words = a.words;

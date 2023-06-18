@@ -261,7 +261,7 @@ void Screen::UpdateSize(vec2 container, f32 _scale) {
 
 List::List() : padding(8.0f), color(0.05f, 0.05f, 0.05f, 0.9f), highlight(0.05f, 0.05f, 0.05f, 0.9f), select(0.2f, 0.2f, 0.2f, 0.0f), selection(-2), selectionDefault(-1) { occludes = true; }
 
-bool List::UpdateSelection(bool selected, BucketArray<u8, 4> keyCodeSelect, BucketArray<u8, 4> keyCodeBack, BucketArray<u8, 4> keyCodeIncrement, BucketArray<u8, 4> keyCodeDecrement) {
+bool List::UpdateSelection(bool selected, StaticArray<u8, 4> keyCodeSelect, StaticArray<u8, 4> keyCodeBack, StaticArray<u8, 4> keyCodeIncrement, StaticArray<u8, 4> keyCodeDecrement) {
 	highlighted = selected;
 	if (selected) {
 		bool select = false;

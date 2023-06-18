@@ -45,15 +45,6 @@ enum class ImageComponentType : u16 {
 };
 extern Str imageComponentTypeStrings[6];
 
-// More WinAPI bullshit
-// TODO: Get rid of ALL Win32 headers in AzCore headers
-#ifdef OPAQUE
-#undef OPAQUE
-#endif
-#ifdef TRANSPARENT
-#undef TRANSPARENT
-#endif
-
 enum class BlendMode {
 	OPAQUE,
 	TRANSPARENT,

@@ -123,7 +123,7 @@ public:
 	T& ValueOrAssert() {
 		return *(T*)&std::as_const(*this).ValueOrAssert();
 	}
-	// This throws std:bad_optional_access if the value doesn't exist.
+	// This throws a std:runtime_error if the value doesn't exist.
 	const T& ValueOrThrow() const {
 		if (!exists) throw std::runtime_error("Optional value does not exist.");
 		return _Value();

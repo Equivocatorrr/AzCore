@@ -787,4 +787,22 @@ void StrToUpper(Str str) {
 	}
 }
 
+Array<char> FileContents(String filename, bool binary) {
+	Array<char> result;
+	FILE *file = fopen(filename.data, binary ? "rb" : "r");
+	if (!file) {
+		return result;
+	}
+	fseek(file, 0, SEEK_END);
+	result.Resize(ftell(file));
+	fseek(file, 0, SEEK_SET);
+	i32 finalSize = (i32)fread(result.data, 1, result.size, file);
+	if (finalSize == 0) return {};
+	if (finalSize < result.size) {
+		result.size = finalSize;
+	}
+	fclose(file);
+	return result;
+}
+
 } // namespace AzCore

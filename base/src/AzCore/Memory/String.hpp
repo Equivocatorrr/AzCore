@@ -16,9 +16,6 @@ namespace AzCore {
 using Str = SimpleRange<char>;
 using Str32 = SimpleRange<char32>;
 
-size_t align(size_t size, size_t alignment);
-size_t alignNonPowerOfTwo(size_t size, size_t alignment);
-
 #define AZCORE_STRING_WITH_BUCKET
 #ifdef AZCORE_STRING_WITH_BUCKET
 	template<typename T>
@@ -178,7 +175,7 @@ inline void AppendToString(String &string, char value) {
 
 inline void AppendToString(String &string, const char *value) {
 	if (_indentState.string.size == 0) {
-	string.Append(value);
+		string.Append(value);
 	} else {
 		for (i32 i = 0; value[i] != 0; i++) {
 			string.Append(value[i]);
@@ -191,7 +188,7 @@ inline void AppendToString(String &string, const char *value) {
 
 inline void AppendToString(String &string, SimpleRange<char> value) {
 	if (_indentState.string.size == 0) {
-	string.Append(value);
+		string.Append(value);
 	} else {
 		for (i32 i = 0; i < value.size; i++) {
 			string.Append(value[i]);
@@ -208,7 +205,7 @@ inline void AppendToString(String &string, Range<char> value) {
 
 inline void AppendToString(String &string, String &&value) {
 	if (_indentState.string.size == 0) {
-	string.Append(std::forward<String>(value));
+		string.Append(std::forward<String>(value));
 	} else {
 		for (i32 i = 0; i < value.size; i++) {
 			string.Append(value[i]);
@@ -372,6 +369,115 @@ Array<Str32, 0> SeparateByNewlines(Str32 string, bool allowEmpty=false);
 
 void StrToLower(Str str);
 void StrToUpper(Str str);
+
+[[nodiscard]] Array<char> FileContents(String filename, bool binary=true);
+
+template<typename T, i32 allocTail>
+[[nodiscard]] Array<Range<T>, 0> SeparateByValues(Array<T, allocTail> &array, const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values, bool allowEmpty=false) {
+	Array<Range<T>, 0> result;
+	i32 rangeStart = 0;
+	for (i32 i = 0; i < array.size; i++) {
+		if (values.Contains(array.data[i])) {
+			if (allowEmpty || i-rangeStart > 0) {
+				result.Append(array.GetRange(rangeStart, i-rangeStart));
+			}
+			rangeStart = i+1;
+		}
+	}
+	if (rangeStart < array.size) {
+		result.Append(array.GetRange(rangeStart, array.size-rangeStart));
+	}
+	return result;
+}
+
+template<typename T, i32 allocTail, i32 noAllocCount>
+[[nodiscard]] Array<Range<T>, 0> SeparateByValues(ArrayWithBucket<T, noAllocCount, allocTail> &array,
+		const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values, bool allowEmpty=false) {
+	Array<Range<T>, 0> result;
+	i32 rangeStart = 0;
+	for (i32 i = 0; i < array.size; i++) {
+		if (values.Contains(array.data[i])) {
+			if (allowEmpty || i-rangeStart > 0) {
+				result.Append(array.GetRange(rangeStart, i-rangeStart));
+			}
+			rangeStart = i+1;
+		}
+	}
+	if (rangeStart < array.size) {
+		result.Append(array.GetRange(rangeStart, array.size-rangeStart));
+	}
+	return result;
+}
+
+template<typename T, i32 allocTail=0>
+[[nodiscard]] Array<Range<T>, 0> SeparateByValues(Range<T> &range,
+		const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values, bool allowEmpty=false) {
+	Array<Range<T>, 0> result;
+	i32 rangeStart = 0;
+	for (i32 i = 0; i < range.size; i++) {
+		if (values.Contains(range[i])) {
+			if (allowEmpty || i-rangeStart > 0) {
+				result.Append(range.SubRange(rangeStart, i-rangeStart));
+			}
+			rangeStart = i+1;
+		}
+	}
+	if (rangeStart < range.size) {
+		result.Append(range.SubRange(rangeStart, range.size-rangeStart));
+	}
+	return result;
+}
+
+template<typename T, i32 allocTail=0>
+[[nodiscard]] Array<Range<T>, 0> SeparateByValues(T *array,
+		const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values, bool allowEmpty=false) {
+	Array<Range<T>, 0> result;
+	i32 rangeStart = 0;
+	for (i32 i = 0; array[i] != StringTerminators<T>::value; i++) {
+		if (values.Contains(array[i])) {
+			if (allowEmpty || i-rangeStart > 0) {
+				result.Append(Range<T>(&array[rangeStart], i-rangeStart));
+			}
+			rangeStart = i+1;
+		}
+	}
+	if (array[rangeStart] != StringTerminators<T>::value) {
+		result.Append(Range<T>(&array[rangeStart], StringLength(array+rangeStart)));
+	}
+	return result;
+}
+
+template<typename T, i32 allocTail=0>
+[[nodiscard]] Array<Range<T>, 0> SeparateByStrings(Array<T, allocTail> &array,
+		const ArrayWithBucket<SimpleRange<T>, 16/sizeof(SimpleRange<T>), 0> &strings, bool allowEmpty=false) {
+	Array<Range<T>, 0> result;
+	i32 rangeStart = 0;
+	for (i32 i = 0; i < array.size;) {
+		i32 foundLen = 0;
+		for (const SimpleRange<T> &r : strings) {
+			i32 len = 0;
+			while (len < r.size && i+len < array.size && r[len] == array[i+len]) {
+				len++;
+			}
+			if (len == r.size && len > foundLen)
+				foundLen = len;
+		}
+		if (foundLen > 0) {
+			if (allowEmpty || i-rangeStart > 0) {
+				result.Append(array.GetRange(rangeStart, i-rangeStart));
+			}
+			i += foundLen;
+			rangeStart = i;
+		} else {
+			i++;
+		}
+	}
+	if (rangeStart < array.size) {
+		result.Append(array.GetRange(rangeStart, array.size-rangeStart));
+	}
+	return result;
+}
+// TODO: Implement SeparateByStrings for ArrayWithBucket, Range, and raw strings.
 
 } // namespace AzCore
 

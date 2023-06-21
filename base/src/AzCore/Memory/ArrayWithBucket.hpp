@@ -6,8 +6,8 @@
 #ifndef AZCORE_ARRAYWITHBUCKET_HPP
 #define AZCORE_ARRAYWITHBUCKET_HPP
 
-#include "../basictypes.hpp"
 #include "StringCommon.hpp"
+#include "Util.hpp"
 #include <stdexcept> // std::out_of_range
 #include <initializer_list>
 #include <type_traits> // std::is_trivially_copyable
@@ -470,7 +470,7 @@ struct ArrayWithBucket {
 	force_inline(void)
 	_Grow(i32 minSize) {
 		if (minSize > allocated && minSize > noAllocCount-allocTail) {
-			i32 growth = minSize + (minSize >> 1) + 4;
+			i32 growth = align((minSize + (minSize >> 1) + 4) * sizeof(T), 128) / sizeof(T);
 			Reserve(growth);
 		}
 	}

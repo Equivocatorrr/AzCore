@@ -65,7 +65,6 @@ add_library(AzCore STATIC
 		src/AzCore/Math/vec3_t.hpp
 		src/AzCore/Math/vec4_t.hpp
 		src/AzCore/Math/vec5_t.hpp
-	src/AzCore/memory.cpp
 	src/AzCore/memory.hpp
 		src/AzCore/Memory/Array.hpp
 		src/AzCore/Memory/ArrayList.hpp
@@ -90,6 +89,8 @@ add_library(AzCore STATIC
 		src/AzCore/Memory/StringArena.hpp
 		src/AzCore/Memory/StringCommon.hpp
 		src/AzCore/Memory/UniquePtr.hpp
+		src/AzCore/Memory/Util.cpp
+		src/AzCore/Memory/Util.hpp
 	src/AzCore/QuickSort.hpp
 	src/AzCore/Simd.hpp
 		src/AzCore/SIMD/SimdAVX.hpp
@@ -103,6 +104,7 @@ add_library(AzCore STATIC
 	src/AzCore/Thread.hpp
 	src/AzCore/Thread.cpp
 	src/AzCore/Thread${TARGET_PLATFORM_NAME}.cpp
+	src/AzCore/Time.cpp
 	src/AzCore/Time.hpp
 	src/AzCore/vk.cpp
 	src/AzCore/vk.hpp
@@ -148,8 +150,6 @@ set_source_files_properties(
 	src/AzCore/IO/${TARGET_PLATFORM_NAME}/RawInput.cpp
 	src/AzCore/IO/${TARGET_PLATFORM_NAME}/Window.cpp
 	src/AzCore/Net/${TARGET_PLATFORM_NAME}/Sockets.cpp
-	src/AzCore/Memory/Endian.cpp
-	src/AzCore/Memory/String.cpp
 	PROPERTIES HEADER_FILE_ONLY TRUE
 )
 

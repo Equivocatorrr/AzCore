@@ -153,7 +153,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		input.Tick(1.0f/60.0f);
 
 		if (auto result = GPU::WindowUpdate(gpuWindow); result.isError) {
-			io::cerr.PrintLn("UpdateWindow error: ", result.error);
+			io::cerr.PrintLn("Failed to update Window: ", result.error);
 			return 1;
 		}
 

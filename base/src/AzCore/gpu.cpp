@@ -182,6 +182,9 @@ String FormatSize(u64 size) {
 #define TRACE_INIT(obj) io::cout.PrintLnTrace("Initializing " #obj " \"", (obj)->tag, "\"");
 #define TRACE_DEINIT(obj) io::cout.PrintLnTrace("Deinitializing " #obj " \"", (obj)->tag, "\"");
 
+#define ERROR_RESULT(obj, ...) Stringify(#obj " \"", (obj)->tag, "\" error in ", __FUNCTION__, ":", Indent(), "\n", __VA_ARGS__)
+#define WARNING(obj, ...) io::cout.PrintLn(#obj " \"", (obj)->tag, "\" warning in ", __FUNCTION__, ": ", __VA_ARGS__)
+
 #define INIT_HEAD(obj) CHECK_INIT(obj); TRACE_INIT(obj)
 #define DEINIT_HEAD(obj) CHECK_DEINIT(obj); TRACE_DEINIT(obj)
 
@@ -256,6 +259,21 @@ struct Window {
 	bool vsync = false;
 	
 	io::Window *window;
+	
+	Framebuffer *framebuffer = nullptr;
+	
+	VkSurfaceCapabilitiesKHR surfaceCaps;
+	Array<VkSurfaceFormatKHR> surfaceFormatsAvailable;
+	Array<VkPresentModeKHR> presentModesAvailable;
+	VkSurfaceFormatKHR surfaceFormat;
+	VkPresentModeKHR presentMode;
+	VkExtent2D extent;
+	u32 numImages;
+	struct SwapchainImage {
+		VkImage image;
+		VkImageView imageView;
+	};
+	Array<SwapchainImage> swapchainImages;
 	
 	VkSurfaceKHR vkSurface;
 	VkSwapchainKHR vkSwapchain;
@@ -536,8 +554,8 @@ void WindowDeinit(Window *window);
 void DeviceDeinit(Device *device);
 
 
-[[nodiscard]] Result<u64, String> MemoryAllocate(Memory *memory, u32 size);
-void MemoryFree(Memory *memory, u64 allocation);
+[[nodiscard]] Result<Allocation, String> MemoryAllocate(Memory *memory, u32 size, u32 alignment);
+void MemoryFree(Allocation allocation);
 
 
 [[nodiscard]] Result<VoidResult_t, String> ContextInit(Context *context);
@@ -760,22 +778,161 @@ void WindowSurfaceDeinit(Window *window) {
 }
 
 Result<VoidResult_t, String> WindowInit(Window *window) {
-	INIT_HEAD(window);
-	return String("Unimplemented");
+	TRACE_INIT(window);
+	{ // Query surface capabilities
+		VkPhysicalDevice vkPhysicalDevice = window->device->physicalDevice->vkPhysicalDevice;
+		VkSurfaceKHR vkSurface = window->vkSurface;
+		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vkPhysicalDevice, vkSurface, &window->surfaceCaps);
+		u32 count;
+		vkGetPhysicalDeviceSurfaceFormatsKHR(vkPhysicalDevice, vkSurface, &count, nullptr);
+		AzAssertRel(count > 0, "Vulkan Spec violation: vkGetPhysicalDeviceSurfaceFormatsKHR must support >= 1 surface formats.");
+		window->surfaceFormatsAvailable.Resize(count);
+		vkGetPhysicalDeviceSurfaceFormatsKHR(vkPhysicalDevice, vkSurface, &count, window->surfaceFormatsAvailable.data);
+		vkGetPhysicalDeviceSurfacePresentModesKHR(vkPhysicalDevice, vkSurface, &count, nullptr);
+		AzAssertRel(count > 0, "Vulkan Spec violation: vkGetPhysicalDeviceSurfacePresentModesKHR must support >= 1 present modes.");
+		window->presentModesAvailable.Resize(count);
+		vkGetPhysicalDeviceSurfacePresentModesKHR(vkPhysicalDevice, vkSurface, &count, window->presentModesAvailable.data);
+	}
+	{ // Choose surface format
+		bool found = false;
+		for (const VkSurfaceFormatKHR& fmt : window->surfaceFormatsAvailable) {
+			if (fmt.format == VK_FORMAT_B8G8R8A8_UNORM && fmt.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+				window->surfaceFormat = fmt;
+				found = true;
+			}
+		}
+		if (!found) {
+			WARNING(window, "Desired Window surface format unavailable, falling back to what is.");
+			window->surfaceFormat = window->surfaceFormatsAvailable[0];
+		}
+	}
+	// NOTE: Defaulting to double-buffering for most present modes helps keep latency low, but may result in underutilization of the hardware. Is it possible to automatically choose a number that works for all situations? Maybe make it a setting like most games do.
+	u32 imageCountPreferred = 2;
+	{ // Choose present mode
+		bool found = false;
+		if (window->vsync) {
+			// The Vulkan Spec requires this present mode to exist
+			window->presentMode = VK_PRESENT_MODE_FIFO_KHR;
+			found = true;
+		} else {
+			for (const VkPresentModeKHR& mode : window->presentModesAvailable) {
+				if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+					window->presentMode = mode;
+					found = true;
+					imageCountPreferred = 3;
+					break; // Ideal choice, don't keep looking
+				} else if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+					window->presentMode = mode;
+					found = true;
+					// Acceptable choice, but keep looking
+				}
+			}
+		}
+		if (!found) {
+			WARNING(window, "Defaulting to FIFO present mode since we don't have a choice.");
+			window->presentMode = VK_PRESENT_MODE_FIFO_KHR;
+		} else {
+			io::cout.PrintDebug("Present Mode: ");
+			switch(window->presentMode) {
+				case VK_PRESENT_MODE_FIFO_KHR:
+					io::cout.PrintLnDebug("VK_PRESENT_MODE_FIFO_KHR");
+					break;
+				case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
+					io::cout.PrintLnDebug("VK_PRESENT_MODE_FIFO_RELAXED_KHR");
+					break;
+				case VK_PRESENT_MODE_MAILBOX_KHR:
+					io::cout.PrintLnDebug("VK_PRESENT_MODE_MAILBOX_KHR");
+					break;
+				case VK_PRESENT_MODE_IMMEDIATE_KHR:
+					io::cout.PrintLnDebug("VK_PRESENT_MODE_IMMEDIATE_KHR");
+					break;
+				default:
+					io::cout.PrintLnDebug("Unknown present mode 0x", FormatInt((u32)window->presentMode, 16));
+					break;
+			}
+		}
+	}
+	if (window->surfaceCaps.currentExtent.width != UINT32_MAX) {
+		window->extent = window->surfaceCaps.currentExtent;
+	} else {
+		window->extent.width = clamp((u32)window->window->width, window->surfaceCaps.minImageExtent.width, window->surfaceCaps.maxImageExtent.width);
+		window->extent.height = clamp((u32)window->window->height, window->surfaceCaps.minImageExtent.height, window->surfaceCaps.maxImageExtent.height);
+	}
+	io::cout.PrintLnDebug("Extent: ", window->extent.width, "x", window->extent.height);
+	window->numImages = clamp(imageCountPreferred, window->surfaceCaps.minImageCount, window->surfaceCaps.maxImageCount);
+	io::cout.PrintLnDebug("Number of images: ", window->numImages);
+	{ // Create the swapchain
+		VkSwapchainCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
+		createInfo.surface = window->vkSurface;
+		createInfo.minImageCount = window->numImages;
+		createInfo.imageFormat = window->surfaceFormat.format;
+		createInfo.imageColorSpace = window->surfaceFormat.colorSpace;
+		createInfo.imageExtent = window->extent;
+		createInfo.imageArrayLayers = 1;
+		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		// TODO: If we need to use multiple queues, we need to be smarter about this.
+		createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		createInfo.preTransform = window->surfaceCaps.currentTransform;
+		// TODO: Maybe support transparent windows
+		createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+		createInfo.presentMode = window->presentMode;
+		// TODO: This may not play nicely with window capture software?
+		createInfo.clipped = VK_TRUE;
+		if (window->initted) {
+			createInfo.oldSwapchain = window->vkSwapchain;
+		}
+		VkSwapchainKHR newSwapchain;
+		if (VkResult result = vkCreateSwapchainKHR(window->device->vkDevice, &createInfo, nullptr, &newSwapchain); result != VK_SUCCESS) {
+			window->initted = false;
+			return ERROR_RESULT(window, "Failed to create swapchain: ", ErrorString(result));
+		}
+		if (window->initted) {
+			vkDestroySwapchainKHR(window->device->vkDevice, window->vkSwapchain, nullptr);
+		}
+		window->vkSwapchain = newSwapchain;
+	}
+	{ // Get Images and create Image Views
+		Array<VkImage> images;
+		vkGetSwapchainImagesKHR(window->device->vkDevice, window->vkSwapchain, &window->numImages, nullptr);
+		images.Resize(window->numImages);
+		vkGetSwapchainImagesKHR(window->device->vkDevice, window->vkSwapchain, &window->numImages, images.data);
+		window->swapchainImages.Resize(images.size);
+		VkImageViewCreateInfo createInfo = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		createInfo.format = window->surfaceFormat.format;
+		createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		createInfo.subresourceRange.levelCount = 1;
+		createInfo.subresourceRange.layerCount = 1;
+		for (i32 i = 0; i < images.size; i++) {
+			window->swapchainImages[i].image = images[i];
+			createInfo.image = images[i];
+			
+			if (VkResult result = vkCreateImageView(window->device->vkDevice, &createInfo, nullptr, &window->swapchainImages[i].imageView); result != VK_SUCCESS) {
+				return ERROR_RESULT(window, "Failed to create Image View for Swapchain image ", i, ":", ErrorString(result));
+			}
+		}
+	}
+	{ // TODO: Update Framebuffer
+		if (window->initted && window->framebuffer) {
+			return ERROR_RESULT(window, "Live framebuffer updates are not implemented");
+		}
+	}
+	window->initted = true;
+	return VoidResult_t();
 }
 
 void WindowDeinit(Window *window) {
 	DEINIT_HEAD(window);
-	AzAssert(false, "Unimplemented");
+	AzAssertRel(false, "Unimplemented");
 }
 
 
 Result<VoidResult_t, String> WindowUpdate(Window *window) {
-	return String("Unimplemented");
+	return ERROR_RESULT(window, "Unimplemented");
 }
 
 Result<VoidResult_t, String> WindowPresent(Window *window) {
-	return String("Unimplemented");
+	return ERROR_RESULT(window, "Unimplemented");
 }
 
 #endif
@@ -1016,8 +1173,8 @@ Result<Allocation, String> MemoryAllocate(Memory *memory, u32 size, u32 alignmen
 	return PageAllocInSegment(memory, page, segment, size);
 }
 
-void MemoryFree(Memory *memory, Allocation allocation) {
-	Memory::Page &page = memory->pages[allocation.page];
+void MemoryFree(Allocation allocation) {
+	Memory::Page &page = allocation.memory->pages[allocation.page];
 	i32 segment = -1;
 	for (i32 i = 0; i < page.segments.size; i++) {
 		if (page.segments[i].begin == allocation.offset) {
@@ -1085,7 +1242,6 @@ Result<Allocation, String> AllocateImage(Device *device, VkImage image, VkMemory
 
 Result<VoidResult_t, String> DeviceInit(Device *device) {
 	INIT_HEAD(device);
-	io::cout.PrintLnTrace("Initializing Device \"", device->tag, "\"");
 
 	bool needsPresent = false;
 	bool needsGraphics = false;
@@ -1113,6 +1269,9 @@ Result<VoidResult_t, String> DeviceInit(Device *device) {
 		auto physicalDevice = FindBestPhysicalDeviceWithExtensions(extensions);
 		if (physicalDevice.isError) return physicalDevice.error;
 		device->physicalDevice = physicalDevice.value;
+		if (device->tag.size == 0) {
+			device->tag = device->physicalDevice->properties.properties.deviceName;
+		}
 	}
 	VkPhysicalDeviceFeatures2 featuresAvailable = device->physicalDevice->features;
 	VkPhysicalDeviceFeatures2 featuresEnabled = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
@@ -1121,7 +1280,7 @@ Result<VoidResult_t, String> DeviceInit(Device *device) {
 		if (!anisotropyAvailable) {
 			for (auto &image : device->images) {
 				if (image->anisotropy != 1) {
-					io::cout.PrintLn("Warning: samplerAnisotropy unavailable, so image \"", image->tag, "\" anisotropy is being reset to 1");
+					WARNING(image, "samplerAnisotropy unavailable, so anisotropy is being reset to 1");
 					image->anisotropy = 1;
 				}
 			}
@@ -1137,7 +1296,7 @@ Result<VoidResult_t, String> DeviceInit(Device *device) {
 		if (!wideLinesAvailable) {
 			for (auto &pipeline : device->pipelines) {
 				if (pipeline->lineWidth != 1.0f) {
-					io::cout.PrintLn("Warning: wide lines unavailable, so pipeline \"", pipeline->tag, "\" lineWidth is being reset to 1.0f");
+					WARNING(pipeline, "Wide lines unavailable, so lineWidth is being reset to 1.0f");
 					pipeline->lineWidth = 1.0f;
 				}
 			}
@@ -1205,22 +1364,28 @@ Result<VoidResult_t, String> DeviceInit(Device *device) {
 
 	vkGetDeviceQueue(device->vkDevice, device->queueFamilyIndex, 0, &device->vkQueue);
 
+	for (auto &window : windows) {
+		window->device = device;
+		if (auto result = WindowInit(window.RawPtr()); result.isError) {
+			return ERROR_RESULT(device, result.error);
+		}
+	}
 	for (auto &framebuffer : device->framebuffers) {
 		
 	}
 	for (auto &context : device->contexts) {
 		if (auto result = ContextInit(context.RawPtr()); result.isError) {
-			return result.error;
+			return ERROR_RESULT(device, result.error);
 		}
 	}
 	for (auto &buffer : device->buffers) {
 		if (auto result = BufferInit(buffer.RawPtr()); result.isError) {
-			return result.error;
+			return ERROR_RESULT(device, result.error);
 		}
 	}
 	for (auto &image : device->images) {
 		if (auto result = ImageInit(image.RawPtr()); result.isError) {
-			return result.error;
+			return ERROR_RESULT(device, result.error);
 		}
 	}
 	// TODO: Init everything else
@@ -1231,6 +1396,9 @@ Result<VoidResult_t, String> DeviceInit(Device *device) {
 void DeviceDeinit(Device *device) {
 	AzAssert(device->initted, "Trying to Deinit a Device that isn't initted");
 	io::cout.PrintLnTrace("Deinitializing Device \"", device->tag, "\"");
+	for (auto &window : windows) {
+		WindowDeinit(window.RawPtr());
+	}
 	for (auto &context : device->contexts) {
 		ContextDeinit(context.RawPtr());
 	}
@@ -1284,8 +1452,10 @@ Result<VoidResult_t, String> BufferInit(Buffer *buffer) {
 void BufferDeinit(Buffer *buffer) {
 	DEINIT_HEAD(buffer);
 	vkDestroyBuffer(buffer->device->vkDevice, buffer->vkBuffer, nullptr);
+	MemoryFree(buffer->alloc);
 	if (buffer->hostVisible) {
 		vkDestroyBuffer(buffer->device->vkDevice, buffer->vkBufferHostVisible, nullptr);
+		MemoryFree(buffer->allocHostVisible);
 		buffer->hostVisible = false;
 	}
 	buffer->initted = false;
@@ -1315,6 +1485,7 @@ void BufferHostDeinit(Buffer *buffer) {
 	AzAssert(buffer->hostVisible == true, "Trying to deinit staging buffer that's not initted");
 	TRACE_DEINIT(buffer);
 	vkDestroyBuffer(buffer->device->vkDevice, buffer->vkBufferHostVisible, nullptr);
+	MemoryFree(buffer->allocHostVisible);
 	buffer->hostVisible = false;
 }
 
@@ -1323,6 +1494,7 @@ Result<VoidResult_t, String> BufferSetSize(Buffer *buffer, i64 sizeBytes) {
 	buffer->size = sizeBytes;
 	if (initted) {
 		// Reinit
+		AzAssertRel(false, "Unimplemented");
 	}
 	return VoidResult_t();
 }
@@ -1377,8 +1549,10 @@ void ImageDeinit(Image *image) {
 	DEINIT_HEAD(image);
 	vkDestroyImageView(image->device->vkDevice, image->vkImageView, nullptr);
 	vkDestroyImage(image->device->vkDevice, image->vkImage, nullptr);
+	MemoryFree(image->alloc);
 	if (image->hostVisible) {
 		vkDestroyBuffer(image->device->vkDevice, image->vkBufferHostVisible, nullptr);
+		MemoryFree(image->allocHostVisible);
 		image->hostVisible = false;
 	}
 	image->initted = false;
@@ -1409,6 +1583,7 @@ void ImageHostDeinit(Image *image) {
 	AzAssert(image->hostVisible == true, "Trying to deinit image staging buffer that's not initted");
 	TRACE_DEINIT(image);
 	vkDestroyBuffer(image->device->vkDevice, image->vkBufferHostVisible, nullptr);
+	MemoryFree(image->allocHostVisible);
 	image->hostVisible = false;
 }
 

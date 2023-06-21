@@ -12,6 +12,8 @@ AZCORE_STRING_TERMINATOR(char32, 0u);
 
 namespace AzCore {
 
+thread_local IndentState _indentState;
+
 String operator+(const char *cString, const String &string) {
 	String value(string);
 	return cString + std::move(value);

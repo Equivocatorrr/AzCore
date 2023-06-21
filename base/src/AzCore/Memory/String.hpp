@@ -128,30 +128,103 @@ inline void AppendToString(String &string, AlignText alignment) {
 	string.Resize(alignNonPowerOfTwo(string.size, alignment.value), alignment.fill);
 }
 
+struct IndentState {
+	String string;
+	Array<i32> layers;
+};
+
+extern thread_local IndentState _indentState;
+
+// Used to indent all future lines in this call to Stringify
+struct Indent {
+	char character;
+	i32 count;
+	inline Indent(char _character='\t', i32 _count=1) : character(_character), count(_count) {
+		AzAssert(count >= 0, "Indent cannot be negative");
+	}
+};
+
+// Used to undo the last Indent in this call to Stringify
+struct IndentLess {};
+// Used to clear all indenting in this call to Stringify
+struct IndentClear {};
+
+inline void AppendToString(String &string, Indent indent) {
+	_indentState.layers.Append(_indentState.string.size);
+	for (i32 i = 0; i < indent.count; i++) {
+		_indentState.string.Append(indent.character);
+	}
+}
+
+inline void AppendToString(String &string, IndentLess sup) {
+	(void)sup;
+	AzAssert(_indentState.layers.size > 0, "Cannot IndentLess, we're already at no indent!");
+	_indentState.string.size = _indentState.layers.Back();
+	_indentState.layers.size--;
+}
+
+inline void AppendToString(String &string, IndentClear yo) {
+	(void)yo;
+	_indentState.layers.ClearSoft();
+	_indentState.string.ClearSoft();
+}
+
 inline void AppendToString(String &string, char value) {
 	string.Append(value);
+	if (value == '\n' && _indentState.string.size != 0) {
+		string.Append(_indentState.string);
+	}
 }
 
 inline void AppendToString(String &string, const char *value) {
+	if (_indentState.string.size == 0) {
 	string.Append(value);
+	} else {
+		for (i32 i = 0; value[i] != 0; i++) {
+			string.Append(value[i]);
+			if (value[i] == '\n') {
+				string.Append(_indentState.string);
+			}
+		}
+	}
 }
 
 inline void AppendToString(String &string, SimpleRange<char> value) {
+	if (_indentState.string.size == 0) {
 	string.Append(value);
+	} else {
+		for (i32 i = 0; i < value.size; i++) {
+			string.Append(value[i]);
+			if (value[i] == '\n') {
+				string.Append(_indentState.string);
+			}
+		}
+	}
 }
 
 inline void AppendToString(String &string, Range<char> value) {
-	string.Append(value);
+	AppendToString(string, SimpleRange(value));
 }
 
 inline void AppendToString(String &string, String &&value) {
+	if (_indentState.string.size == 0) {
 	string.Append(std::forward<String>(value));
+	} else {
+		for (i32 i = 0; i < value.size; i++) {
+			string.Append(value[i]);
+			if (value[i] == '\n') {
+				string.Append(_indentState.string);
+			}
+		}
+	}
 }
 
 template<typename... Args>
 inline void AppendMultipleToString(String &string, Args&&... args) {
 	static_assert(sizeof...(Args) > 0);
 	(AppendToString(string, std::forward<Args>(args)), ...);
+	_indentState.layers.ClearSoft();
+	_indentState.string.ClearSoft();
 }
 
 template<typename... Args>

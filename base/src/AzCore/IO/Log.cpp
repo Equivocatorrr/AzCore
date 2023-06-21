@@ -4,6 +4,7 @@
 */
 
 #include "Log.hpp"
+#include "../Environment.hpp"
 
 namespace AzCore {
 
@@ -43,6 +44,26 @@ Log& Log::operator=(const Log &other) {
 	return *this;
 }
 
+Log& Log::UseLogFile(bool useFile, Str filename) {
+	mFilename = filename;
+	u32 lastSlash = 0;
+	if (filename.size != 0) {
+		for (i32 i = 0; i < filename.size; i++) {
+			if (filename[i] == '\\' || filename[i] == '/') {
+				lastSlash = i+1;
+			}
+		}
+		Str prepend = filename.SubRange(lastSlash, filename.size-lastSlash);
+		if (filename.size > 4 && filename.SubRange(filename.size-4, 4) == ".log") {
+			prepend = prepend.SubRange(0, prepend.size-4);
+		}
+		mPrepend = Stringify("[", prepend, "] ");
+		mPrepend.Resize(alignNonPowerOfTwo(mPrepend.size, mIndentString.size), ' ');
+	}
+	mLogFile = useFile;
+	return *this;
+}
+
 Log& Log::Flush() {
 	if (mLogConsole) {
 		fflush(mConsoleFile);
@@ -65,7 +86,7 @@ inline void Log::_HandleFile() {
 	mOpenAttempt = true;
 }
 
-inline void Indent(String &str, i32 indent, String mIndentString) {
+inline void StringIndent(String &str, i32 indent, String mIndentString) {
 	if (str.size && indent) {
 		for (i32 i = 0; i < indent; i++) {
 			str.Append(mIndentString);
@@ -98,10 +119,10 @@ void Log::_Print(SimpleRange<char> out) {
 	if (mStartOnNewline && out.size && out[0] != '\n' && out[0] != '\r') {
 		if (mLogConsole) {
 			consoleOut = mPrepend;
-			Indent(consoleOut, indent, mIndentString);
+			StringIndent(consoleOut, indent, mIndentString);
 		}
 		if (mLogFile) {
-			Indent(fileOut, indent, mIndentString);
+			StringIndent(fileOut, indent, mIndentString);
 		}
 	}
 	i32 i = 0;
@@ -114,13 +135,13 @@ void Log::_Print(SimpleRange<char> out) {
 				consoleOut += range;
 				if (i < out.size-1) {
 					consoleOut += mPrepend;
-					Indent(consoleOut, indent, mIndentString);
+					StringIndent(consoleOut, indent, mIndentString);
 				}
 			}
 			if (mLogFile) {
 				fileOut += range;
 				if (i < out.size-1) {
-					Indent(fileOut, indent, mIndentString);
+					StringIndent(fileOut, indent, mIndentString);
 				}
 			}
 			last = i+1;

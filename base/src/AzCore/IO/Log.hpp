@@ -31,7 +31,7 @@ class Log {
 	bool mLogFile = false;
 	bool mLogConsole = true;
 	bool mStartOnNewline = true;
-	String mIndentString = "    ";
+	String mIndentString = "\t";
 	Mutex mMutex;
 	String mPrepend;
 	String mFilename;
@@ -56,21 +56,7 @@ public:
 	Log(Log &&other) = default;
 	Log& operator=(Log &&other) = default;
 
-	Log& UseLogFile(bool useFile=true, Str filename="") {
-		mFilename = filename;
-		u32 lastSlash = 0;
-		if (mFilename.size != 0) {
-			for (i32 i = 0; i < mFilename.size; i++) {
-				if (mFilename[i] == '\\' || mFilename[i] == '/') {
-					lastSlash = i+1;
-				}
-			}
-			mPrepend = Stringify("[", mFilename.GetRange(lastSlash, mFilename.size-lastSlash), "] ");
-			mPrepend.Resize(align(mPrepend.size, mIndentString.size), ' ');
-		}
-		mLogFile = useFile;
-		return *this;
-	}
+	Log& UseLogFile(bool useFile=true, Str filename="");
 
 	[[deprecated("NoLogFile() is deprecated, and Log by default doesn't use a file. Switch to UseLogFile(bool)")]]
 	void NoLogFile() {

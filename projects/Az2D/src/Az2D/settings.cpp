@@ -31,6 +31,7 @@ Name sFramerate = "framerate";
 Name sVolumeMain = "volumeMain";
 Name sVolumeMusic = "volumeMusic";
 Name sVolumeEffects = "volumeEffects";
+Name sGuiScale = "guiScale";
 Name sLocaleOverride = "localeOverride";
 
 AStringMap<Setting> settings = {
@@ -41,6 +42,7 @@ AStringMap<Setting> settings = {
 	{sVolumeMain, Setting(1.0, 0.0, 1.0)},
 	{sVolumeMusic, Setting(1.0, 0.0, 1.0)},
 	{sVolumeEffects, Setting(1.0, 0.0, 1.0)},
+	{sGuiScale, Setting(1.0f, 0.5f, 3.0f)},
 	{sLocaleOverride, Setting(String())},
 };
 

@@ -189,6 +189,7 @@ extern Name sFramerate;
 extern Name sVolumeMain;
 extern Name sVolumeMusic;
 extern Name sVolumeEffects;
+extern Name sGuiScale;
 extern Name sLocaleOverride;
 
 void Add(Name name, Setting &&defaultValue);

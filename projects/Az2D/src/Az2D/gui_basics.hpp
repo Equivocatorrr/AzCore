@@ -387,6 +387,7 @@ typedef bool (*fpTextFilter)(char32);
 typedef bool (*fpTextValidate)(const az::WString&);
 
 // Some premade filters
+
 bool TextFilterBasic(char32 c);
 bool TextFilterWordSingle(char32 c);
 bool TextFilterWordMultiple(char32 c);
@@ -480,6 +481,9 @@ struct Slider : public Widget {
 	/*  Maximum bounds for value.
 		Default: 1.0 */
 	f32 valueMax;
+	/*  Forces values to be quantized to multiples of valueStep relative to valueMin. A value of 0 disables this behavior.
+		Default: 0.0f */
+	f32 valueStep;
 	/*  How much the value changes when clicked on either side of the knob or moved by a controller or arrow key input. Negative values indicate a factor of the total allowed range.
 		Default: -0.1f */
 	f32 valueTick;
@@ -501,6 +505,9 @@ struct Slider : public Widget {
 	/*  Any TextBox that should reflect the value of the slider in text, and which can likewise affect our value.
 		Default: nullptr */
 	TextBox *mirror;
+	/*  How many digits after the decimal point do we put into the mirror?
+		Default: 1 */
+	i32 mirrorPrecision;
 	/*  Color of the background when not highlighted.
 		Default: {vec3(0.15), 1.0} */
 	vec4 colorBG;

@@ -346,12 +346,6 @@ struct Instance {
 	}
 };
 
-struct Allocation {
-	Memory *memory;
-	i32 page;
-	u32 offset;
-};
-
 struct Memory {
 	struct Page {
 		VkDeviceMemory vkMemory;
@@ -372,6 +366,12 @@ struct Memory {
 	
 	Memory() = default;
 	Memory(Device *_device, u32 _memoryTypeIndex, Str _tag=Str()) : memoryTypeIndex(_memoryTypeIndex), device(_device), tag(_tag) {}
+};
+
+struct Allocation {
+	Memory *memory;
+	i32 page;
+	u32 offset;
 };
 
 struct Device {
@@ -1732,6 +1732,7 @@ void ImageSetMipmapping(Image *image, bool enableMipmapping, i32 anisotropy) {
 		image->mipLevels = 1;
 	}
 }
+
 void ImageSetUsageSampled(Image *image, u32 shaderStages) {
 	image->sampledStages = shaderStages;
 }
@@ -1953,7 +1954,7 @@ struct AccessAndStage {
 	VkPipelineStageFlags stageFlags;
 };
 
-AccessAndStage AccessAndStageFromImageLayout(VkImageLayout layout) {
+static AccessAndStage AccessAndStageFromImageLayout(VkImageLayout layout) {
 	AccessAndStage result;
 	result.accessFlags = VK_ACCESS_HOST_WRITE_BIT;
 	result.stageFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -2000,7 +2001,7 @@ AccessAndStage AccessAndStageFromImageLayout(VkImageLayout layout) {
 	return result;
 }
 
-void CmdImageTransitionLayout(Context *context, Image *image, VkImageLayout from, VkImageLayout to, VkImageSubresourceRange subresourceRange) {
+static void CmdImageTransitionLayout(Context *context, Image *image, VkImageLayout from, VkImageLayout to, VkImageSubresourceRange subresourceRange) {
 	AccessAndStage srcAccessAndStage = AccessAndStageFromImageLayout(from);
 	AccessAndStage dstAccessAndStage = AccessAndStageFromImageLayout(to);
 	VkImageMemoryBarrier barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
@@ -2015,7 +2016,7 @@ void CmdImageTransitionLayout(Context *context, Image *image, VkImageLayout from
 	vkCmdPipelineBarrier(context->vkCommandBuffer, srcAccessAndStage.stageFlags, dstAccessAndStage.stageFlags, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 
-void CmdImageTransitionLayout(Context *context, Image *image, VkImageLayout from, VkImageLayout to, u32 baseMipLevel=0, u32 mipLevelCount=1) {
+static void CmdImageTransitionLayout(Context *context, Image *image, VkImageLayout from, VkImageLayout to, u32 baseMipLevel=0, u32 mipLevelCount=1) {
 	VkImageSubresourceRange subresourceRange = {};
 	subresourceRange.aspectMask = image->vkImageAspect;
 	subresourceRange.baseArrayLayer = 0;
@@ -2026,7 +2027,7 @@ void CmdImageTransitionLayout(Context *context, Image *image, VkImageLayout from
 	CmdImageTransitionLayout(context, image, from, to, subresourceRange);
 }
 
-void CmdImageGenerateMipmaps(Context *context, Image *image, VkImageLayout startingLayout, VkImageLayout finalLayout) {
+static void CmdImageGenerateMipmaps(Context *context, Image *image, VkImageLayout startingLayout, VkImageLayout finalLayout) {
 	AzAssert(image->mipLevels > 1, "Calling CmdImageGenerateMipmaps on an image without mipmaps");
 	if (startingLayout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
 		CmdImageTransitionLayout(context, image, startingLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);

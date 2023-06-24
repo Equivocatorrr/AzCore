@@ -147,6 +147,55 @@ struct Widget {
 	virtual bool Selectable() const;
 	bool MouseOver() const;
 	void FindMouseoverDepth(i32 actualDepth);
+	
+	// Helpers to make it easier to read and edit GUI definitions
+	
+	inline void SetWidthPixel(f32 width) {
+		AzAssert(width > 0.0f, "Pixel width must be > 0");
+		size.x = width;
+		fractionWidth = false;
+	}
+	inline void SetWidthFraction(f32 width) {
+		AzAssert(width <= 1.0f && width > 0.0f, "Fractional width must be > 0 and <= 1");
+		size.x = width;
+		fractionWidth = true;
+	}
+	
+	inline void SetWidthContents() {
+		size.x = 0.0f;
+	}
+	inline void SetHeightPixel(f32 height) {
+		AzAssert(height > 0.0f, "Pixel height must be > 0");
+		size.y = height;
+		fractionHeight = false;
+	}
+	inline void SetHeightFraction(f32 height) {
+		AzAssert(height <= 1.0f && height > 0.0f, "Fractional height must be > 0 and <= 1");
+		size.y = height;
+		fractionHeight = true;
+	}
+	
+	inline void SetHeightContents() {
+		size.y = 0.0f;
+	}
+	inline void SetSizePixel(vec2 _size) {
+		AzAssert(_size.x > 0.0f, "Pixel width must be > 0");
+		AzAssert(_size.y > 0.0f, "Pixel height must be > 0");
+		size = _size;
+		fractionWidth = false;
+		fractionHeight = false;
+	}
+	inline void SetSizeFraction(vec2 _size) {
+		AzAssert(_size.x <= 1.0f && _size.x > 0.0f, "Fractional width must be > 0 and <= 1");
+		AzAssert(_size.y <= 1.0f && _size.y > 0.0f, "Fractional height must be > 0 and <= 1");
+		size = _size;
+		fractionWidth = true;
+		fractionHeight = true;
+	}
+	
+	inline void SetSizeContents() {
+		size = 0.0f;
+	}
 };
 
 // Lowest level widget, used for input for game objects.

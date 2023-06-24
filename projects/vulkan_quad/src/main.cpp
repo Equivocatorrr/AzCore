@@ -32,20 +32,20 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
 	GPU::Device* device = GPU::NewDevice();
 
-	io::Window window;
+	io::Window ioWindow;
 	io::Input input;
-	window.input = &input;
-	window.width = 480;
-	window.height = 480;
-	if (!window.Open()) {
+	ioWindow.input = &input;
+	ioWindow.width = 480;
+	ioWindow.height = 480;
+	if (!ioWindow.Open()) {
 		io::cerr.PrintLn("Failed to open Window: ", io::error);
 		return 1;
 	}
 
-	scale = (f32)window.GetDPI() / 96.0f;
-	window.Resize(u32((f32)window.width * scale), u32((u32)window.height * scale));
+	scale = (f32)ioWindow.GetDPI() / 96.0f;
+	ioWindow.Resize(u32((f32)ioWindow.width * scale), u32((u32)ioWindow.height * scale));
 
-	GPU::Window *gpuWindow = GPU::AddWindow(&window, "main").Unwrap();
+	GPU::Window *gpuWindow = GPU::AddWindow(&ioWindow, "main").Unwrap();
 	GPU::SetVSync(gpuWindow, false);
 	
 	GPU::Framebuffer *framebuffer = GPU::NewFramebuffer(device, "main");
@@ -135,7 +135,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		return 1;
 	}
 
-	if(!window.Show()) {
+	if(!ioWindow.Show()) {
 		io::cerr.PrintLn("Failed to show Window: ", io::error);
 		return 1;
 	}
@@ -144,10 +144,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	do {
 		for (i32 i = 0; i < 256; i++) {
 			if (input.inputs[i].Pressed()) {
-				io::cout.PrintLn("Pressed   HID 0x", FormatInt(i, 16), "\t", window.InputName(i));
+				io::cout.PrintLn("Pressed   HID 0x", FormatInt(i, 16), "\t", ioWindow.InputName(i));
 			}
 			if (input.inputs[i].Released()) {
-				io::cout.PrintLn("Released  HID 0x", FormatInt(i, 16), "\t", window.InputName(i));
+				io::cout.PrintLn("Released  HID 0x", FormatInt(i, 16), "\t", ioWindow.InputName(i));
 			}
 		}
 		input.Tick(1.0f/60.0f);
@@ -190,10 +190,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			io::cerr.PrintLn("Failed to present window surface: ", result.error);
 			return 1;
 		}
-	} while (window.Update());
+	} while (ioWindow.Update());
 	// This should be all you need to call to clean everything up
 	GPU::Deinitialize();
-	if (!window.Close()) {
+	if (!ioWindow.Close()) {
 		io::cout.PrintLn("Failed to close Window: ", io::error);
 		return 1;
 	}

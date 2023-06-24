@@ -31,9 +31,9 @@ void Image::_Copy(const Image &other) {
 	stride = other.stride;
 }
 
-Image::Image(const char *filename, i32 channelsDesired) :
-pixels(stbi_load(filename, &width, &height, &channels, channelsDesired))
+Image::Image(const char *filename, i32 channelsDesired)
 {
+	pixels = stbi_load(filename, &width, &height, &channels, channelsDesired);
 	channels = channelsDesired;
 	stride = width * channels;
 }

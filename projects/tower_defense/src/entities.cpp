@@ -308,11 +308,8 @@ inline void Manager::HandleMouseCamera() {
 		return;
 	}
 	bool changed = false;
-	if (sys->Pressed(KC_MOUSE_SCROLLUP)) {
-		camZoom *= 1.1f;
-		changed = true;
-	} else if (sys->Pressed(KC_MOUSE_SCROLLDOWN)) {
-		camZoom /= 1.1f;
+	if (sys->input.scroll.y != 0.0f) {
+		camZoom *= pow(1.1f, sys->input.scroll.y);
 		changed = true;
 	}
 	if (changed) {

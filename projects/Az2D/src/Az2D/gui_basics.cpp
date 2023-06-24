@@ -386,18 +386,14 @@ void ListV::UpdateSize(vec2 container, f32 _scale) {
 		for (Widget* child : children) {
 			child->UpdateSize(sizeForInheritance, scale);
 			vec2 childSize = child->GetSize();
-			sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + totalPadding.x);
+			sizeAbsolute.x = max(sizeAbsolute.x, max(childSize.x + child->position.x, 0.0f) + totalPadding.x);
 		}
 	}
 	sizeForInheritance = sizeAbsolute - totalPadding;
 	for (Widget* child : children) {
-		if (child->size.y == 0.0f) {
+		if (child->size.y == 0.0f || !child->fractionHeight) {
 			child->UpdateSize(sizeForInheritance, scale);
 			sizeForInheritance.y -= child->GetSize().y;
-		} else {
-			if (!child->fractionHeight) {
-				sizeForInheritance.y -= (child->size.y + child->margin.y * 2.0f) * child->scale;
-			}
 		}
 	}
 	for (Widget* child : children) {
@@ -471,18 +467,14 @@ void ListH::UpdateSize(vec2 container, f32 _scale) {
 		for (Widget* child : children) {
 			child->UpdateSize(sizeForInheritance, scale);
 			vec2 childSize = child->GetSize();
-			sizeAbsolute.y = max(sizeAbsolute.y, childSize.y + totalPadding.y);
+			sizeAbsolute.y = max(sizeAbsolute.y, max(childSize.y + child->position.y, 0.0f) + totalPadding.y);
 		}
 		sizeForInheritance = sizeAbsolute - totalPadding;
 	}
 	for (Widget* child : children) {
-		if (child->size.x == 0.0f) {
+		if (child->size.x == 0.0f || !child->fractionWidth) {
 			child->UpdateSize(sizeForInheritance, scale);
 			sizeForInheritance.x -= child->GetSize().x;
-		} else {
-			if (!child->fractionWidth) {
-				sizeForInheritance.x -= (child->size.x + child->margin.x * 2.0f) * child->scale;
-			}
 		}
 	}
 	for (Widget* child : children) {
@@ -991,7 +983,7 @@ bool TextValidateDecimalsNegative(const WString &string) {
 }
 
 bool TextValidateDecimalsNegativeAndInfinity(const WString &string) {
-	static WString negInfinity = ToWString("-Infinity");
+	static WString negInfinity = ToWString("-Inf");
 	if (string == negInfinity) return true;
 	if (string.size == 0) return false;
 	if (string[0] != '-') return false;
@@ -1371,10 +1363,11 @@ void TextBox::Draw(Rendering::DrawingContext &context) const {
 Slider::Slider() :
 value(1.0f),
 valueMin(0.0f),                 valueMax(1.0f),
+valueStep(0.0f),
 valueTick(-0.1f),               valueTickShiftMult(0.1f),
 minOverride(false),             minOverrideValue(0.0f),
 maxOverride(false),             maxOverrideValue(1.0f),
-mirror(nullptr),
+mirror(nullptr),                mirrorPrecision(1),
 colorBG(vec3(0.15f), 0.9f),     colorSlider(colorHighlightMedium, 1.0f),
 highlightBG(vec3(0.2f), 0.9f),  highlightSlider(colorHighlightHigh, 1.0f),
 grabbed(false), left(), right()
@@ -1483,19 +1476,22 @@ void Slider::SetValue(f32 newValue) {
 
 f32 Slider::GetActualValue() {
 	f32 actualValue;
-	if (minOverride && value == valueMin) {
-		actualValue = minOverrideValue;
-	} else if (maxOverride && value == valueMax) {
-		actualValue = maxOverrideValue;
+	if (valueStep != 0.0f) {
+		actualValue = valueMin + round((value - valueMin) / valueStep) * valueStep;
 	} else {
 		actualValue = value;
+	}
+	if (minOverride && abs(actualValue - valueMin) < 0.000001f) {
+		actualValue = minOverrideValue;
+	} else if (maxOverride && abs(actualValue - valueMax) < 0.000001f) {
+		actualValue = maxOverrideValue;
 	}
 	return actualValue;
 }
 
 void Slider::UpdateMirror() {
 	f32 actualValue = GetActualValue();
-	mirror->string = ToWString(ToString(actualValue, 10, 1));
+	mirror->string = ToWString(ToString(actualValue, 10, mirrorPrecision));
 	i32 dot = -1;
 	for (i32 i = 0; i < mirror->string.size; i++) {
 		char32 &c = mirror->string[i];
@@ -1510,9 +1506,9 @@ void Slider::UpdateMirror() {
 }
 
 Hideable::Hideable(Widget *child) : hidden(false), hiddenPrev(false) {
+	size = 0.0f;
 	margin = 0.0f;
 	AddWidget(this, child);
-	size = child->size; // We need to inherit this for Lists to work properly
 	fractionWidth = child->fractionWidth;
 	fractionHeight = child->fractionHeight;
 	occludes = child->occludes;
@@ -1525,7 +1521,6 @@ void Hideable::UpdateSize(vec2 container, f32 _scale) {
 		sizeAbsolute = 0.0f;
 	} else {
 		children[0]->UpdateSize(container, scale);
-		scale = children[0]->scale;
 		sizeAbsolute = children[0]->GetSize();
 	}
 }

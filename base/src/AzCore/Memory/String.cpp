@@ -362,7 +362,11 @@ void AppendToStringWithBase(String &string, f32 value, i32 base, i32 precision) 
 	u32 significand = (byteCode & 0x007fffff) | (0x00800000); // Get our implicit bit in there.
 	if (exponent == 0x00) {
 		if (significand == 0x00800000) {
-			string.Append(negative ? "-0.0" : "0.0");
+			if (precision == 0) {
+				string.Append(negative ? "-0" : "0");
+			} else {
+				string.Append(negative ? "-0.0" : "0.0");
+			}
 			return;
 		} else {
 			significand &= 0x007fffff; // Get that implicit bit out of here!
@@ -370,10 +374,14 @@ void AppendToStringWithBase(String &string, f32 value, i32 base, i32 precision) 
 	}
 	if (exponent == 0xff) {
 		if (significand == 0x00800000) {
-			string.Append(negative ? "-Infinity" : "Infinity");
+			string.Append(negative ? "-Inf" : "Inf");
 		} else {
 			string.Append(negative ? "-NaN" : "NaN");
 		}
+		return;
+	}
+	if (precision == 0) {
+		AppendToStringWithBase(string, (i64)round(value), base);
 		return;
 	}
 	if (exponent == 150) {
@@ -392,7 +400,11 @@ void AppendToStringWithBase(String &string, f64 value, i32 base, i32 precision) 
 	u64 significand = (byteCode & 0x000fffffffffffff) | (0x0010000000000000); // Get our implicit bit in there.
 	if (exponent == 0x0) {
 		if (significand == 0x0010000000000000) {
-			string.Append(negative ? "-0.0" : "0.0");
+			if (precision == 0) {
+				string.Append(negative ? "-0" : "0");
+			} else {
+				string.Append(negative ? "-0.0" : "0.0");
+			}
 			return;
 		} else {
 			significand &= 0x000fffffffffffff; // Get that implicit bit out of here!
@@ -400,10 +412,14 @@ void AppendToStringWithBase(String &string, f64 value, i32 base, i32 precision) 
 	}
 	if (exponent == 0x7ff) {
 		if (significand == 0x0010000000000000) {
-			string.Append(negative ? "-Infinity" : "Infinity");
+			string.Append(negative ? "-Inf" : "Inf");
 		} else {
 			string.Append(negative ? "-NaN" : "NaN");
 		}
+		return;
+	}
+	if (precision == 0) {
+		AppendToStringWithBase(string, (i64)round(value), base);
 		return;
 	}
 	if (exponent == 1075) {
@@ -423,7 +439,11 @@ void AppendToStringWithBase(String &string, f128 value, i32 base, i32 precision)
 	u128 significand = (byteCode << 16) >> 16 | ((u128)1 << 112); // Get our implicit bit in there.
 	if (exponent == 0x0) {
 		if (significand == (u128)1 << 112) {
-			string.Append(negative ? "-0.0" : "0.0");
+			if (precision == 0) {
+				string.Append(negative ? "-0" : "0");
+			} else {
+				string.Append(negative ? "-0.0" : "0.0");
+			}
 			return;
 		} else {
 			significand = (byteCode << 16) >> 16; // Get that implicit bit out of here!
@@ -431,10 +451,14 @@ void AppendToStringWithBase(String &string, f128 value, i32 base, i32 precision)
 	}
 	if (exponent == 0x7fff) {
 		if (significand == (u128)1 << 112) {
-			string.Append(negative ? "-Infinity" : "Infinity");
+			string.Append(negative ? "-Inf" : "Inf");
 		} else {
 			string.Append(negative ? "-NaN" : "NaN");
 		}
+		return;
+	}
+	if (precision == 0) {
+		AppendToStringWithBase(string, (i128)roundf128(value), base);
 		return;
 	}
 	exponent -= 16383;
@@ -556,10 +580,10 @@ bool _StringToFloat(StringBase<Char> string, Float *dst, i32 base) {
 }
 
 bool StringToF32(String string, f32 *dst, i32 base) {
-	if (string == "Infinity") {
+	if (string == "Inf") {
 		*dst = INFINITY;
 		return true;
-	} else if (string == "-Infinity") {
+	} else if (string == "-Inf") {
 		*dst = -INFINITY;
 		return true;
 	} else if (string == "NaN") {
@@ -573,10 +597,10 @@ bool StringToF32(String string, f32 *dst, i32 base) {
 }
 
 bool StringToF64(String string, f64 *dst, i32 base) {
-	if (string == "Infinity") {
+	if (string == "Inf") {
 		*dst = INFINITY;
 		return true;
-	} else if (string == "-Infinity") {
+	} else if (string == "-Inf") {
 		*dst = -INFINITY;
 		return true;
 	} else if (string == "NaN") {
@@ -595,8 +619,8 @@ bool StringToF128(String string, f128 *dst, i32 base) {
 }
 #endif
 
-static WString wInfinity = ToWString("Infinity");
-static WString wNInfinity = ToWString("-Infinity");
+static WString wInfinity = ToWString("Inf");
+static WString wNInfinity = ToWString("-Inf");
 static WString wNaN = ToWString("NaN");
 static WString wNNaN = ToWString("-NaN");
 

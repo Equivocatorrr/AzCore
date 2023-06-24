@@ -147,6 +147,55 @@ struct Widget {
 	virtual bool Selectable() const;
 	bool MouseOver() const;
 	void FindMouseoverDepth(i32 actualDepth);
+	
+	// Helpers to make it easier to read and edit GUI definitions
+	
+	inline void SetWidthPixel(f32 width) {
+		AzAssert(width > 0.0f, "Pixel width must be > 0");
+		size.x = width;
+		fractionWidth = false;
+	}
+	inline void SetWidthFraction(f32 width) {
+		AzAssert(width <= 1.0f && width > 0.0f, "Fractional width must be > 0 and <= 1");
+		size.x = width;
+		fractionWidth = true;
+	}
+	
+	inline void SetWidthContents() {
+		size.x = 0.0f;
+	}
+	inline void SetHeightPixel(f32 height) {
+		AzAssert(height > 0.0f, "Pixel height must be > 0");
+		size.y = height;
+		fractionHeight = false;
+	}
+	inline void SetHeightFraction(f32 height) {
+		AzAssert(height <= 1.0f && height > 0.0f, "Fractional height must be > 0 and <= 1");
+		size.y = height;
+		fractionHeight = true;
+	}
+	
+	inline void SetHeightContents() {
+		size.y = 0.0f;
+	}
+	inline void SetSizePixel(vec2 _size) {
+		AzAssert(_size.x > 0.0f, "Pixel width must be > 0");
+		AzAssert(_size.y > 0.0f, "Pixel height must be > 0");
+		size = _size;
+		fractionWidth = false;
+		fractionHeight = false;
+	}
+	inline void SetSizeFraction(vec2 _size) {
+		AzAssert(_size.x <= 1.0f && _size.x > 0.0f, "Fractional width must be > 0 and <= 1");
+		AzAssert(_size.y <= 1.0f && _size.y > 0.0f, "Fractional height must be > 0 and <= 1");
+		size = _size;
+		fractionWidth = true;
+		fractionHeight = true;
+	}
+	
+	inline void SetSizeContents() {
+		size = 0.0f;
+	}
 };
 
 // Lowest level widget, used for input for game objects.
@@ -338,6 +387,7 @@ typedef bool (*fpTextFilter)(char32);
 typedef bool (*fpTextValidate)(const az::WString&);
 
 // Some premade filters
+
 bool TextFilterBasic(char32 c);
 bool TextFilterWordSingle(char32 c);
 bool TextFilterWordMultiple(char32 c);
@@ -431,6 +481,9 @@ struct Slider : public Widget {
 	/*  Maximum bounds for value.
 		Default: 1.0 */
 	f32 valueMax;
+	/*  Forces values to be quantized to multiples of valueStep relative to valueMin. A value of 0 disables this behavior.
+		Default: 0.0f */
+	f32 valueStep;
 	/*  How much the value changes when clicked on either side of the knob or moved by a controller or arrow key input. Negative values indicate a factor of the total allowed range.
 		Default: -0.1f */
 	f32 valueTick;
@@ -452,6 +505,9 @@ struct Slider : public Widget {
 	/*  Any TextBox that should reflect the value of the slider in text, and which can likewise affect our value.
 		Default: nullptr */
 	TextBox *mirror;
+	/*  How many digits after the decimal point do we put into the mirror?
+		Default: 1 */
+	i32 mirrorPrecision;
 	/*  Color of the background when not highlighted.
 		Default: {vec3(0.15), 1.0} */
 	vec4 colorBG;

@@ -37,9 +37,12 @@ struct SettingsMenu {
 	TextBox *textboxFramerate;
 	Slider *sliderVolumes[3];
 	TextBox *textboxVolumes[3];
+	Slider *sliderGuiScale;
+	TextBox *textboxGuiScale;
 	Button *buttonApply;
 	Button *buttonBack;
 
+	void Reset();
 	void Initialize();
 	void Update();
 	void Draw(Rendering::DrawingContext &context);
@@ -48,6 +51,7 @@ struct SettingsMenu {
 struct UpgradesMenu {
 	Screen screen;
 	Hideable *hideable;
+	Text *towerName;
 	// Information about the currently selected tower
 	Text *selectedTowerStats;
 	Hideable *towerPriorityHideable;

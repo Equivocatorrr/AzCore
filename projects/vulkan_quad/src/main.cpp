@@ -7,6 +7,7 @@
 #include "AzCore/io.hpp"
 #include "AzCore/gpu.hpp"
 #include "AzCore/Image.hpp"
+#include "AzCore/Math/Color.hpp"
 
 using namespace AzCore;
 

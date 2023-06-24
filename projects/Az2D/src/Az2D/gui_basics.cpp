@@ -386,18 +386,14 @@ void ListV::UpdateSize(vec2 container, f32 _scale) {
 		for (Widget* child : children) {
 			child->UpdateSize(sizeForInheritance, scale);
 			vec2 childSize = child->GetSize();
-			sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + totalPadding.x);
+			sizeAbsolute.x = max(sizeAbsolute.x, max(childSize.x + child->position.x, 0.0f) + totalPadding.x);
 		}
 	}
 	sizeForInheritance = sizeAbsolute - totalPadding;
 	for (Widget* child : children) {
-		if (child->size.y == 0.0f) {
+		if (child->size.y == 0.0f || !child->fractionHeight) {
 			child->UpdateSize(sizeForInheritance, scale);
 			sizeForInheritance.y -= child->GetSize().y;
-		} else {
-			if (!child->fractionHeight) {
-				sizeForInheritance.y -= (child->size.y + child->margin.y * 2.0f) * child->scale;
-			}
 		}
 	}
 	for (Widget* child : children) {
@@ -471,18 +467,14 @@ void ListH::UpdateSize(vec2 container, f32 _scale) {
 		for (Widget* child : children) {
 			child->UpdateSize(sizeForInheritance, scale);
 			vec2 childSize = child->GetSize();
-			sizeAbsolute.y = max(sizeAbsolute.y, childSize.y + totalPadding.y);
+			sizeAbsolute.y = max(sizeAbsolute.y, max(childSize.y + child->position.y, 0.0f) + totalPadding.y);
 		}
 		sizeForInheritance = sizeAbsolute - totalPadding;
 	}
 	for (Widget* child : children) {
-		if (child->size.x == 0.0f) {
+		if (child->size.x == 0.0f || !child->fractionWidth) {
 			child->UpdateSize(sizeForInheritance, scale);
 			sizeForInheritance.x -= child->GetSize().x;
-		} else {
-			if (!child->fractionWidth) {
-				sizeForInheritance.x -= (child->size.x + child->margin.x * 2.0f) * child->scale;
-			}
 		}
 	}
 	for (Widget* child : children) {

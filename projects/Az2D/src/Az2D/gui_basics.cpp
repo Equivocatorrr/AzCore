@@ -991,7 +991,7 @@ bool TextValidateDecimalsNegative(const WString &string) {
 }
 
 bool TextValidateDecimalsNegativeAndInfinity(const WString &string) {
-	static WString negInfinity = ToWString("-Infinity");
+	static WString negInfinity = ToWString("-Inf");
 	if (string == negInfinity) return true;
 	if (string.size == 0) return false;
 	if (string[0] != '-') return false;

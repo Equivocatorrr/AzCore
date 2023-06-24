@@ -6,6 +6,7 @@
 
 #include "AzCore/io.hpp"
 #include "AzCore/vk.hpp"
+#include "AzCore/Math/Color.hpp"
 
 using namespace AzCore;
 
@@ -129,7 +130,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	Ptr<vk::RenderPass> vkRenderPass = device->AddRenderPass();
 	Ptr<vk::Attachment> vkAttachment = vkRenderPass->AddAttachment(vkSwapchain);
 	vkAttachment->clearColor = true;
-	vkAttachment->clearColorValue = {0.0f, 0.1f, 0.2f, 1.0f};
+	vec3 clearColor = sRGBToLinear(vec3(0.0f, 0.1f, 0.2f));
+	vkAttachment->clearColorValue = {clearColor.r, clearColor.g, clearColor.b, 1.0f};
 	// vkAttachment->bufferDepthStencil = true;
 	// vkAttachment->clearDepth = true;
 	// vkAttachment->clearDepthStencilValue.depth = 1000.0;

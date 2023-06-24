@@ -6,11 +6,10 @@
 
 #include "AzCore/io.hpp"
 #include "AzCore/vk.hpp"
+#include "AzCore/Image.hpp"
+#include "AzCore/Math/Color.hpp"
 
 using namespace AzCore;
-
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
 
 io::Log cout("test.log", true, true);
 
@@ -30,18 +29,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		}
 	}
 
-	struct Image {
-		u8* pixels;
-		i32 width;
-		i32 height;
-		i32 channels;
-		Image(const char *filename) : pixels(stbi_load(filename, &width, &height, &channels, 4)) {
-			channels = 4;
-		}
-		~Image() {
-			stbi_image_free(pixels);
-		}
-	};
 	Image image("data/icon.png");
 	if (image.pixels == nullptr) {
 		cout.PrintLn("Failed to load image!");
@@ -97,7 +84,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
 	Ptr<vk::Attachment> attachment = vkRenderPass->AddAttachment(vkSwapchain);
 	attachment->clearColor = true;
-	attachment->clearColorValue = {0.0f, 0.05f, 0.1f, 1.0f};
+	const vec3 clearColor = sRGBToLinear(vec3(0.0f, 0.05f, 0.1f));
+	attachment->clearColorValue = {clearColor.r, clearColor.g, clearColor.b, 1.0f};
 	// attachment->sampleCount = VK_SAMPLE_COUNT_4_BIT;
 	// attachment->resolveColor = true;
 
@@ -140,7 +128,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	vkIndexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
 	Ptr<vk::Image> vkTextureImage = vkImageMemory->AddImage();
-	vkTextureImage->format = VK_FORMAT_R8G8B8A8_UNORM;
+	vkTextureImage->format = VK_FORMAT_R8G8B8A8_SRGB;
 	vkTextureImage->width = image.width;
 	vkTextureImage->height = image.height;
 	vkTextureImage->mipLevels = (u32)floor(log2(max(image.width, image.height))) + 1;

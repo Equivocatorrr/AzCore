@@ -772,7 +772,7 @@ namespace vk {
 		} data;
 
 		// Configuration
-		VkSurfaceFormatKHR formatPreferred = {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR}; // You probably won't need to change this
+		VkSurfaceFormatKHR formatPreferred = {VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
 		bool vsync = true; // To determine the ideal present mode
 		VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		u32 imageCountPreferred = 2;

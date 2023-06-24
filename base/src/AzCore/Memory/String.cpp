@@ -370,7 +370,7 @@ void AppendToStringWithBase(String &string, f32 value, i32 base, i32 precision) 
 	}
 	if (exponent == 0xff) {
 		if (significand == 0x00800000) {
-			string.Append(negative ? "-Infinity" : "Infinity");
+			string.Append(negative ? "-Inf" : "Inf");
 		} else {
 			string.Append(negative ? "-NaN" : "NaN");
 		}
@@ -400,7 +400,7 @@ void AppendToStringWithBase(String &string, f64 value, i32 base, i32 precision) 
 	}
 	if (exponent == 0x7ff) {
 		if (significand == 0x0010000000000000) {
-			string.Append(negative ? "-Infinity" : "Infinity");
+			string.Append(negative ? "-Inf" : "Inf");
 		} else {
 			string.Append(negative ? "-NaN" : "NaN");
 		}
@@ -431,7 +431,7 @@ void AppendToStringWithBase(String &string, f128 value, i32 base, i32 precision)
 	}
 	if (exponent == 0x7fff) {
 		if (significand == (u128)1 << 112) {
-			string.Append(negative ? "-Infinity" : "Infinity");
+			string.Append(negative ? "-Inf" : "Inf");
 		} else {
 			string.Append(negative ? "-NaN" : "NaN");
 		}
@@ -556,10 +556,10 @@ bool _StringToFloat(StringBase<Char> string, Float *dst, i32 base) {
 }
 
 bool StringToF32(String string, f32 *dst, i32 base) {
-	if (string == "Infinity") {
+	if (string == "Inf") {
 		*dst = INFINITY;
 		return true;
-	} else if (string == "-Infinity") {
+	} else if (string == "-Inf") {
 		*dst = -INFINITY;
 		return true;
 	} else if (string == "NaN") {
@@ -573,10 +573,10 @@ bool StringToF32(String string, f32 *dst, i32 base) {
 }
 
 bool StringToF64(String string, f64 *dst, i32 base) {
-	if (string == "Infinity") {
+	if (string == "Inf") {
 		*dst = INFINITY;
 		return true;
-	} else if (string == "-Infinity") {
+	} else if (string == "-Inf") {
 		*dst = -INFINITY;
 		return true;
 	} else if (string == "NaN") {
@@ -595,8 +595,8 @@ bool StringToF128(String string, f128 *dst, i32 base) {
 }
 #endif
 
-static WString wInfinity = ToWString("Infinity");
-static WString wNInfinity = ToWString("-Infinity");
+static WString wInfinity = ToWString("Inf");
+static WString wNInfinity = ToWString("-Inf");
 static WString wNaN = ToWString("NaN");
 static WString wNNaN = ToWString("-NaN");
 

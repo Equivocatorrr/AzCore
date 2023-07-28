@@ -107,7 +107,7 @@ public:
 	inline bool Exists() const {
 		return exists;
 	}
-	// This makes sure the value exists. If you need to check, use Exists().
+	// This creates the value if it doesn't exist. If you need to check, use Exists().
 	T& Value() {
 		if (!exists) {
 			new(bytes) T();

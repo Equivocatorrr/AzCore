@@ -515,6 +515,10 @@ struct Array {
 		_SetTerminator();
 		return *this;
 	}
+	
+	inline Array<T, allocTail>& Append(const T *string) {
+		return Append(SimpleRange<T>(string));
+	}
 
 	Array<T, allocTail>&
 	Append(const Array &other) {

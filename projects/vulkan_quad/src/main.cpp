@@ -79,7 +79,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	}
 	
 	GPU::Image *gpuImage = GPU::NewImage(device, "tex");
-	if (auto result = GPU::ImageSetFormat(gpuImage, image.channels, 8, GPU::ImageComponentType::SRGB); result.isError) {
+	if (auto result = GPU::ImageSetFormat(gpuImage, GPU::ImageBits::R8G8B8A8, GPU::ImageComponentType::SRGB); result.isError) {
 		io::cerr.PrintLn("Failed to set image format: ", result.error);
 		return 1;
 	}

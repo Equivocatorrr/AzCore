@@ -58,16 +58,50 @@ constexpr VkFormat ShaderValueFormats[] = {
 	/* VEC4 */  VK_FORMAT_R32G32B32A32_SFLOAT,
 };
 
-Str imageComponentTypeStrings[6] = {
+Str imageComponentTypeStrings[9] = {
 	"SRGB",
 	"UNORM",
 	"SNORM",
+	"USCALED",
+	"SSCALED",
 	"UINT",
 	"SINT",
+	"UFLOAT",
 	"SFLOAT",
 };
 
-String ErrorString(VkResult errorCode) {
+Str imageBitsStrings[23] = {
+	"R8",
+	"R8G8",
+	"R8G8B8",
+	"R8G8B8A8",
+	
+	"R16",
+	"R16G16",
+	"R16G16B16",
+	"R16G16B16A16",
+	
+	"R32",
+	"R32G32",
+	"R32G32B32",
+	"R32G32B32A32",
+	
+	"R64",
+	"R64G64",
+	"R64G64B64",
+	"R64G64B64A64",
+	
+	"R4G4",
+	"R4G4B4A4",
+	"R5G6B5",
+	"R5G5B5A1",
+	
+	"A2R10G10B10",
+	"B10G11R11",
+	"E5B9G9R9",
+};
+
+String VkResultString(VkResult errorCode) {
 	switch (errorCode) {
 #define STR(r) case VK_ ##r: return #r
 		STR(SUCCESS);
@@ -141,6 +175,271 @@ String ErrorString(VkResult errorCode) {
 #undef STR
 	default:
 		return Stringify("UNKNOWN_ERROR 0x", FormatInt((i64)errorCode, 16));
+	}
+}
+
+String VkFormatString(VkFormat format) {
+	switch (format) {
+#define STR(r) case VK_FORMAT_ ##r: return #r
+		STR(UNDEFINED);
+		STR(R4G4_UNORM_PACK8);
+		STR(R4G4B4A4_UNORM_PACK16);
+		STR(B4G4R4A4_UNORM_PACK16);
+		STR(R5G6B5_UNORM_PACK16);
+		STR(B5G6R5_UNORM_PACK16);
+		STR(R5G5B5A1_UNORM_PACK16);
+		STR(B5G5R5A1_UNORM_PACK16);
+		STR(A1R5G5B5_UNORM_PACK16);
+		STR(R8_UNORM);
+		STR(R8_SNORM);
+		STR(R8_USCALED);
+		STR(R8_SSCALED);
+		STR(R8_UINT);
+		STR(R8_SINT);
+		STR(R8_SRGB);
+		STR(R8G8_UNORM);
+		STR(R8G8_SNORM);
+		STR(R8G8_USCALED);
+		STR(R8G8_SSCALED);
+		STR(R8G8_UINT);
+		STR(R8G8_SINT);
+		STR(R8G8_SRGB);
+		STR(R8G8B8_UNORM);
+		STR(R8G8B8_SNORM);
+		STR(R8G8B8_USCALED);
+		STR(R8G8B8_SSCALED);
+		STR(R8G8B8_UINT);
+		STR(R8G8B8_SINT);
+		STR(R8G8B8_SRGB);
+		STR(B8G8R8_UNORM);
+		STR(B8G8R8_SNORM);
+		STR(B8G8R8_USCALED);
+		STR(B8G8R8_SSCALED);
+		STR(B8G8R8_UINT);
+		STR(B8G8R8_SINT);
+		STR(B8G8R8_SRGB);
+		STR(R8G8B8A8_UNORM);
+		STR(R8G8B8A8_SNORM);
+		STR(R8G8B8A8_USCALED);
+		STR(R8G8B8A8_SSCALED);
+		STR(R8G8B8A8_UINT);
+		STR(R8G8B8A8_SINT);
+		STR(R8G8B8A8_SRGB);
+		STR(B8G8R8A8_UNORM);
+		STR(B8G8R8A8_SNORM);
+		STR(B8G8R8A8_USCALED);
+		STR(B8G8R8A8_SSCALED);
+		STR(B8G8R8A8_UINT);
+		STR(B8G8R8A8_SINT);
+		STR(B8G8R8A8_SRGB);
+		STR(A8B8G8R8_UNORM_PACK32);
+		STR(A8B8G8R8_SNORM_PACK32);
+		STR(A8B8G8R8_USCALED_PACK32);
+		STR(A8B8G8R8_SSCALED_PACK32);
+		STR(A8B8G8R8_UINT_PACK32);
+		STR(A8B8G8R8_SINT_PACK32);
+		STR(A8B8G8R8_SRGB_PACK32);
+		STR(A2R10G10B10_UNORM_PACK32);
+		STR(A2R10G10B10_SNORM_PACK32);
+		STR(A2R10G10B10_USCALED_PACK32);
+		STR(A2R10G10B10_SSCALED_PACK32);
+		STR(A2R10G10B10_UINT_PACK32);
+		STR(A2R10G10B10_SINT_PACK32);
+		STR(A2B10G10R10_UNORM_PACK32);
+		STR(A2B10G10R10_SNORM_PACK32);
+		STR(A2B10G10R10_USCALED_PACK32);
+		STR(A2B10G10R10_SSCALED_PACK32);
+		STR(A2B10G10R10_UINT_PACK32);
+		STR(A2B10G10R10_SINT_PACK32);
+		STR(R16_UNORM);
+		STR(R16_SNORM);
+		STR(R16_USCALED);
+		STR(R16_SSCALED);
+		STR(R16_UINT);
+		STR(R16_SINT);
+		STR(R16_SFLOAT);
+		STR(R16G16_UNORM);
+		STR(R16G16_SNORM);
+		STR(R16G16_USCALED);
+		STR(R16G16_SSCALED);
+		STR(R16G16_UINT);
+		STR(R16G16_SINT);
+		STR(R16G16_SFLOAT);
+		STR(R16G16B16_UNORM);
+		STR(R16G16B16_SNORM);
+		STR(R16G16B16_USCALED);
+		STR(R16G16B16_SSCALED);
+		STR(R16G16B16_UINT);
+		STR(R16G16B16_SINT);
+		STR(R16G16B16_SFLOAT);
+		STR(R16G16B16A16_UNORM);
+		STR(R16G16B16A16_SNORM);
+		STR(R16G16B16A16_USCALED);
+		STR(R16G16B16A16_SSCALED);
+		STR(R16G16B16A16_UINT);
+		STR(R16G16B16A16_SINT);
+		STR(R16G16B16A16_SFLOAT);
+		STR(R32_UINT);
+		STR(R32_SINT);
+		STR(R32_SFLOAT);
+		STR(R32G32_UINT);
+		STR(R32G32_SINT);
+		STR(R32G32_SFLOAT);
+		STR(R32G32B32_UINT);
+		STR(R32G32B32_SINT);
+		STR(R32G32B32_SFLOAT);
+		STR(R32G32B32A32_UINT);
+		STR(R32G32B32A32_SINT);
+		STR(R32G32B32A32_SFLOAT);
+		STR(R64_UINT);
+		STR(R64_SINT);
+		STR(R64_SFLOAT);
+		STR(R64G64_UINT);
+		STR(R64G64_SINT);
+		STR(R64G64_SFLOAT);
+		STR(R64G64B64_UINT);
+		STR(R64G64B64_SINT);
+		STR(R64G64B64_SFLOAT);
+		STR(R64G64B64A64_UINT);
+		STR(R64G64B64A64_SINT);
+		STR(R64G64B64A64_SFLOAT);
+		STR(B10G11R11_UFLOAT_PACK32);
+		STR(E5B9G9R9_UFLOAT_PACK32);
+		STR(D16_UNORM);
+		STR(X8_D24_UNORM_PACK32);
+		STR(D32_SFLOAT);
+		STR(S8_UINT);
+		STR(D16_UNORM_S8_UINT);
+		STR(D24_UNORM_S8_UINT);
+		STR(D32_SFLOAT_S8_UINT);
+		STR(BC1_RGB_UNORM_BLOCK);
+		STR(BC1_RGB_SRGB_BLOCK);
+		STR(BC1_RGBA_UNORM_BLOCK);
+		STR(BC1_RGBA_SRGB_BLOCK);
+		STR(BC2_UNORM_BLOCK);
+		STR(BC2_SRGB_BLOCK);
+		STR(BC3_UNORM_BLOCK);
+		STR(BC3_SRGB_BLOCK);
+		STR(BC4_UNORM_BLOCK);
+		STR(BC4_SNORM_BLOCK);
+		STR(BC5_UNORM_BLOCK);
+		STR(BC5_SNORM_BLOCK);
+		STR(BC6H_UFLOAT_BLOCK);
+		STR(BC6H_SFLOAT_BLOCK);
+		STR(BC7_UNORM_BLOCK);
+		STR(BC7_SRGB_BLOCK);
+		STR(ETC2_R8G8B8_UNORM_BLOCK);
+		STR(ETC2_R8G8B8_SRGB_BLOCK);
+		STR(ETC2_R8G8B8A1_UNORM_BLOCK);
+		STR(ETC2_R8G8B8A1_SRGB_BLOCK);
+		STR(ETC2_R8G8B8A8_UNORM_BLOCK);
+		STR(ETC2_R8G8B8A8_SRGB_BLOCK);
+		STR(EAC_R11_UNORM_BLOCK);
+		STR(EAC_R11_SNORM_BLOCK);
+		STR(EAC_R11G11_UNORM_BLOCK);
+		STR(EAC_R11G11_SNORM_BLOCK);
+		STR(ASTC_4x4_UNORM_BLOCK);
+		STR(ASTC_4x4_SRGB_BLOCK);
+		STR(ASTC_5x4_UNORM_BLOCK);
+		STR(ASTC_5x4_SRGB_BLOCK);
+		STR(ASTC_5x5_UNORM_BLOCK);
+		STR(ASTC_5x5_SRGB_BLOCK);
+		STR(ASTC_6x5_UNORM_BLOCK);
+		STR(ASTC_6x5_SRGB_BLOCK);
+		STR(ASTC_6x6_UNORM_BLOCK);
+		STR(ASTC_6x6_SRGB_BLOCK);
+		STR(ASTC_8x5_UNORM_BLOCK);
+		STR(ASTC_8x5_SRGB_BLOCK);
+		STR(ASTC_8x6_UNORM_BLOCK);
+		STR(ASTC_8x6_SRGB_BLOCK);
+		STR(ASTC_8x8_UNORM_BLOCK);
+		STR(ASTC_8x8_SRGB_BLOCK);
+		STR(ASTC_10x5_UNORM_BLOCK);
+		STR(ASTC_10x5_SRGB_BLOCK);
+		STR(ASTC_10x6_UNORM_BLOCK);
+		STR(ASTC_10x6_SRGB_BLOCK);
+		STR(ASTC_10x8_UNORM_BLOCK);
+		STR(ASTC_10x8_SRGB_BLOCK);
+		STR(ASTC_10x10_UNORM_BLOCK);
+		STR(ASTC_10x10_SRGB_BLOCK);
+		STR(ASTC_12x10_UNORM_BLOCK);
+		STR(ASTC_12x10_SRGB_BLOCK);
+		STR(ASTC_12x12_UNORM_BLOCK);
+		STR(ASTC_12x12_SRGB_BLOCK);
+	#if VK_VERSION_1_1
+		STR(G8B8G8R8_422_UNORM);
+		STR(B8G8R8G8_422_UNORM);
+		STR(G8_B8_R8_3PLANE_420_UNORM);
+		STR(G8_B8R8_2PLANE_420_UNORM);
+		STR(G8_B8_R8_3PLANE_422_UNORM);
+		STR(G8_B8R8_2PLANE_422_UNORM);
+		STR(G8_B8_R8_3PLANE_444_UNORM);
+		STR(R10X6_UNORM_PACK16);
+		STR(R10X6G10X6_UNORM_2PACK16);
+		STR(R10X6G10X6B10X6A10X6_UNORM_4PACK16);
+		STR(G10X6B10X6G10X6R10X6_422_UNORM_4PACK16);
+		STR(B10X6G10X6R10X6G10X6_422_UNORM_4PACK16);
+		STR(G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16);
+		STR(G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16);
+		STR(G10X6_B10X6_R10X6_3PLANE_422_UNORM_3PACK16);
+		STR(G10X6_B10X6R10X6_2PLANE_422_UNORM_3PACK16);
+		STR(G10X6_B10X6_R10X6_3PLANE_444_UNORM_3PACK16);
+		STR(R12X4_UNORM_PACK16);
+		STR(R12X4G12X4_UNORM_2PACK16);
+		STR(R12X4G12X4B12X4A12X4_UNORM_4PACK16);
+		STR(G12X4B12X4G12X4R12X4_422_UNORM_4PACK16);
+		STR(B12X4G12X4R12X4G12X4_422_UNORM_4PACK16);
+		STR(G12X4_B12X4_R12X4_3PLANE_420_UNORM_3PACK16);
+		STR(G12X4_B12X4R12X4_2PLANE_420_UNORM_3PACK16);
+		STR(G12X4_B12X4_R12X4_3PLANE_422_UNORM_3PACK16);
+		STR(G12X4_B12X4R12X4_2PLANE_422_UNORM_3PACK16);
+		STR(G12X4_B12X4_R12X4_3PLANE_444_UNORM_3PACK16);
+		STR(G16B16G16R16_422_UNORM);
+		STR(B16G16R16G16_422_UNORM);
+		STR(G16_B16_R16_3PLANE_420_UNORM);
+		STR(G16_B16R16_2PLANE_420_UNORM);
+		STR(G16_B16_R16_3PLANE_422_UNORM);
+		STR(G16_B16R16_2PLANE_422_UNORM);
+		STR(G16_B16_R16_3PLANE_444_UNORM);
+	#endif
+	#if VK_VERSION_1_3
+		STR(G8_B8R8_2PLANE_444_UNORM);
+		STR(G10X6_B10X6R10X6_2PLANE_444_UNORM_3PACK16);
+		STR(G12X4_B12X4R12X4_2PLANE_444_UNORM_3PACK16);
+		STR(G16_B16R16_2PLANE_444_UNORM);
+		STR(A4R4G4B4_UNORM_PACK16);
+		STR(A4B4G4R4_UNORM_PACK16);
+		STR(ASTC_4x4_SFLOAT_BLOCK);
+		STR(ASTC_5x4_SFLOAT_BLOCK);
+		STR(ASTC_5x5_SFLOAT_BLOCK);
+		STR(ASTC_6x5_SFLOAT_BLOCK);
+		STR(ASTC_6x6_SFLOAT_BLOCK);
+		STR(ASTC_8x5_SFLOAT_BLOCK);
+		STR(ASTC_8x6_SFLOAT_BLOCK);
+		STR(ASTC_8x8_SFLOAT_BLOCK);
+		STR(ASTC_10x5_SFLOAT_BLOCK);
+		STR(ASTC_10x6_SFLOAT_BLOCK);
+		STR(ASTC_10x8_SFLOAT_BLOCK);
+		STR(ASTC_10x10_SFLOAT_BLOCK);
+		STR(ASTC_12x10_SFLOAT_BLOCK);
+		STR(ASTC_12x12_SFLOAT_BLOCK);
+	#endif
+	#if VK_IMG_format_pvrtc
+		STR(PVRTC1_2BPP_UNORM_BLOCK_IMG);
+		STR(PVRTC1_4BPP_UNORM_BLOCK_IMG);
+		STR(PVRTC2_2BPP_UNORM_BLOCK_IMG);
+		STR(PVRTC2_4BPP_UNORM_BLOCK_IMG);
+		STR(PVRTC1_2BPP_SRGB_BLOCK_IMG);
+		STR(PVRTC1_4BPP_SRGB_BLOCK_IMG);
+		STR(PVRTC2_2BPP_SRGB_BLOCK_IMG);
+		STR(PVRTC2_4BPP_SRGB_BLOCK_IMG);
+	#endif
+	#if VK_NV_optical_flow
+		STR(R16G16_S10_5_NV);
+	#endif
+#undef STR
+	default:
+		return Stringify("UNKNOWN_FORMAT 0x", FormatInt((i64)format, 16));
 	}
 }
 
@@ -498,7 +797,7 @@ struct Image {
 	} state = PREINITIALIZED;
 
 	i32 width=-1, height=-1;
-	i32 channels=-1, bitsPerChannel=-1;
+	i32 bytesPerPixel=-1;
 
 	i32 anisotropy = 1;
 	u32 mipLevels = 1;
@@ -668,7 +967,7 @@ Result<VoidResult_t, String> Initialize() {
 
 	VkResult vkResult = vkCreateInstance(&createInfo, nullptr, &instance.vkInstance);
 	if (vkResult != VK_SUCCESS) {
-		return Stringify("vkCreateInstance failed with ", ErrorString(vkResult));
+		return Stringify("vkCreateInstance failed with ", VkResultString(vkResult));
 	}
 	instance.initted = true;
 
@@ -748,7 +1047,7 @@ Result<VoidResult_t, String> WindowSurfaceInit(Window *window) {
 		createInfo.surface = window->window->data->wayland.surface;
 		VkResult result = vkCreateWaylandSurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->vkSurface);
 		if (result != VK_SUCCESS) {
-			return Stringify("Failed to create Vulkan Wayland surface: ", ErrorString(result));
+			return Stringify("Failed to create Vulkan Wayland surface: ", VkResultString(result));
 		}
 	} else {
 		VkXcbSurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
@@ -756,7 +1055,7 @@ Result<VoidResult_t, String> WindowSurfaceInit(Window *window) {
 		createInfo.window = window->window->data->x11.window;
 		VkResult result = vkCreateXcbSurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->vkSurface);
 		if (result != VK_SUCCESS) {
-			return Stringify("Failed to create Vulkan XCB surface: ", ErrorString(result));
+			return Stringify("Failed to create Vulkan XCB surface: ", VkResultString(result));
 		}
 	}
 #elif defined(_WIN32)
@@ -765,7 +1064,7 @@ Result<VoidResult_t, String> WindowSurfaceInit(Window *window) {
 	createInfo.hwnd = window->window->data->window;
 	VkResult result = vkCreateWin32SurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->vkSurface);
 	if (result != VK_SUCCESS) {
-		return Stringify("Failed to create Win32 Surface: ", ErrorString(result));
+		return Stringify("Failed to create Win32 Surface: ", VkResultString(result));
 	}
 #endif
 	return VoidResult_t();
@@ -884,7 +1183,7 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 		VkSwapchainKHR newSwapchain;
 		if (VkResult result = vkCreateSwapchainKHR(window->device->vkDevice, &createInfo, nullptr, &newSwapchain); result != VK_SUCCESS) {
 			window->initted = false;
-			return ERROR_RESULT(window, "Failed to create swapchain: ", ErrorString(result));
+			return ERROR_RESULT(window, "Failed to create swapchain: ", VkResultString(result));
 		}
 		if (window->initted) {
 			vkDestroySwapchainKHR(window->device->vkDevice, window->vkSwapchain, nullptr);
@@ -908,7 +1207,7 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 			createInfo.image = images[i];
 			
 			if (VkResult result = vkCreateImageView(window->device->vkDevice, &createInfo, nullptr, &window->swapchainImages[i].imageView); result != VK_SUCCESS) {
-				return ERROR_RESULT(window, "Failed to create Image View for Swapchain image ", i, ":", ErrorString(result));
+				return ERROR_RESULT(window, "Failed to create Image View for Swapchain image ", i, ":", VkResultString(result));
 			}
 		}
 	}
@@ -1113,7 +1412,7 @@ Result<VoidResult_t, String> MemoryAddPage(Memory *memory, u32 minSize) {
 	allocInfo.memoryTypeIndex = memory->memoryTypeIndex;
 	allocInfo.allocationSize = minSize;
 	if (VkResult result = vkAllocateMemory(memory->device->vkDevice, &allocInfo, nullptr, &newPage.vkMemory); result != VK_SUCCESS) {
-		return Stringify("Memory \"", memory->tag, "\" error: Failed to allocate a new page: ", ErrorString(result));
+		return Stringify("Memory \"", memory->tag, "\" error: Failed to allocate a new page: ", VkResultString(result));
 	}
 	newPage.segments.Append(Memory::Page::Segment{0, minSize, false});
 	return VoidResult_t();
@@ -1211,7 +1510,7 @@ Result<Allocation, String> AllocateBuffer(Device *device, VkBuffer buffer, VkMem
 		alloc = result.value;
 	}
 	if (VkResult result = vkBindBufferMemory(device->vkDevice, buffer, memory->pages[alloc.page].vkMemory, align(alloc.offset, memoryRequirements.alignment)); result != VK_SUCCESS) {
-		return Stringify("Memory \"", memory->tag, "\" error: Failed to bind Buffer to Memory: ", ErrorString(result));
+		return Stringify("Memory \"", memory->tag, "\" error: Failed to bind Buffer to Memory: ", VkResultString(result));
 	}
 	return alloc;
 }
@@ -1231,7 +1530,7 @@ Result<Allocation, String> AllocateImage(Device *device, VkImage image, VkMemory
 		alloc = result.value;
 	}
 	if (VkResult result = vkBindImageMemory(device->vkDevice, image, memory->pages[alloc.page].vkMemory, align(alloc.offset, memoryRequirements.alignment)); result != VK_SUCCESS) {
-		return Stringify("Memory \"", memory->tag, "\" error: Failed to bind Image to Memory: ", ErrorString(result));
+		return Stringify("Memory \"", memory->tag, "\" error: Failed to bind Image to Memory: ", VkResultString(result));
 	}
 	return alloc;
 }
@@ -1357,7 +1656,7 @@ Result<VoidResult_t, String> DeviceInit(Device *device) {
 
 	VkResult result = vkCreateDevice(device->physicalDevice->vkPhysicalDevice, &createInfo, nullptr, &device->vkDevice);
 	if (result != VK_SUCCESS) {
-		return Stringify("Failed to create Device: ", ErrorString(result));
+		return Stringify("Failed to create Device: ", VkResultString(result));
 	}
 
 	device->initted = true;
@@ -1437,7 +1736,7 @@ Result<VoidResult_t, String> BufferInit(Buffer *buffer) {
 			return Stringify("Buffer \"", buffer->tag, "\" error: Cannot initialize buffer with undefined Kind");
 	}
 	if (VkResult result = vkCreateBuffer(buffer->device->vkDevice, &createInfo, nullptr, &buffer->vkBuffer); result != VK_SUCCESS) {
-		return Stringify("Buffer \"", buffer->tag, "\" error: Failed to create buffer: ", ErrorString(result));
+		return Stringify("Buffer \"", buffer->tag, "\" error: Failed to create buffer: ", VkResultString(result));
 	}
 	vkGetBufferMemoryRequirements(buffer->device->vkDevice, buffer->vkBuffer, &buffer->memoryRequirements);
 	if (auto result = AllocateBuffer(buffer->device, buffer->vkBuffer, buffer->memoryRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT); result.isError) {
@@ -1469,7 +1768,7 @@ Result<VoidResult_t, String> BufferHostInit(Buffer *buffer) {
 	createInfo.size = buffer->size;
 	createInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	if (VkResult result = vkCreateBuffer(buffer->device->vkDevice, &createInfo, nullptr, &buffer->vkBufferHostVisible); result != VK_SUCCESS) {
-		return Stringify("Buffer \"", buffer->tag, "\" error: Failed to create staging buffer: ", ErrorString(result));
+		return Stringify("Buffer \"", buffer->tag, "\" error: Failed to create staging buffer: ", VkResultString(result));
 	}
 	if (auto result = AllocateBuffer(buffer->device, buffer->vkBufferHostVisible, buffer->memoryRequirements, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT); result.isError) {
 		return result.error;
@@ -1522,7 +1821,7 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 	createInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
 	
 	if (VkResult result = vkCreateImage(image->device->vkDevice, &createInfo, nullptr, &image->vkImage); result != VK_SUCCESS) {
-		return Stringify("Image \"", image->tag, "\" error: Failed to create image: ", ErrorString(result));
+		return Stringify("Image \"", image->tag, "\" error: Failed to create image: ", VkResultString(result));
 	}
 	VkImageViewCreateInfo viewCreateInfo = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
 	viewCreateInfo.image = image->vkImage;
@@ -1533,7 +1832,7 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 	viewCreateInfo.subresourceRange.layerCount = 1;
 	
 	if (VkResult result = vkCreateImageView(image->device->vkDevice, &viewCreateInfo, nullptr, &image->vkImageView); result != VK_SUCCESS) {
-		return Stringify("Image \"", image->tag, "\" error: Failed to create image view: ", ErrorString(result));
+		return Stringify("Image \"", image->tag, "\" error: Failed to create image view: ", VkResultString(result));
 	}
 	vkGetImageMemoryRequirements(image->device->vkDevice, image->vkImage, &image->memoryRequirements);
 	if (auto result = AllocateImage(image->device, image->vkImage, image->memoryRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT); result.isError) {
@@ -1563,10 +1862,10 @@ Result<VoidResult_t, String> ImageHostInit(Image *image) {
 	AzAssert(image->hostVisible == false, "Trying to init image staging buffer that's already initted");
 	TRACE_INIT(image);
 	VkBufferCreateInfo createInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-	createInfo.size = image->width * image->height * image->channels * intDivCeil(image->bitsPerChannel, 8);
+	createInfo.size = image->width * image->height * image->bytesPerPixel;
 	createInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	if (VkResult result = vkCreateBuffer(image->device->vkDevice, &createInfo, nullptr, &image->vkBufferHostVisible); result != VK_SUCCESS) {
-		return Stringify("Buffer \"", image->tag, "\" error: Failed to create image staging buffer: ", ErrorString(result));
+		return Stringify("Buffer \"", image->tag, "\" error: Failed to create image staging buffer: ", VkResultString(result));
 	}
 	vkGetBufferMemoryRequirements(image->device->vkDevice, image->vkBufferHostVisible, &image->bufferMemoryRequirements);
 	if (auto result = AllocateBuffer(image->device, image->vkBufferHostVisible, image->bufferMemoryRequirements, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT); result.isError) {
@@ -1587,131 +1886,243 @@ void ImageHostDeinit(Image *image) {
 	image->hostVisible = false;
 }
 
-Result<VoidResult_t, String> ImageSetFormat(Image *image, i32 channels, i32 bitsPerChannel, ImageComponentType componentType) {
-	image->channels = channels;
-	image->bitsPerChannel = bitsPerChannel;
-	switch (bitsPerChannel) {
-		case 8:
+Result<VoidResult_t, String> ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType componentType) {
+	switch (imageBits) {
+		case ImageBits::R8:
 			switch (componentType) {
-				case ImageComponentType::SRGB: {
-					switch (channels) {
-						case 1: image->vkFormat = VK_FORMAT_R8_SRGB; break;
-						case 2: image->vkFormat = VK_FORMAT_R8G8_SRGB; break;
-						case 3: image->vkFormat = VK_FORMAT_R8G8B8_SRGB; break;
-						case 4: image->vkFormat = VK_FORMAT_R8G8B8A8_SRGB; break;
-					}
-				} break;
-				case ImageComponentType::UNORM: {
-					switch (channels) {
-						case 1: image->vkFormat = VK_FORMAT_R8_UNORM; break;
-						case 2: image->vkFormat = VK_FORMAT_R8G8_UNORM; break;
-						case 3: image->vkFormat = VK_FORMAT_R8G8B8_UNORM; break;
-						case 4: image->vkFormat = VK_FORMAT_R8G8B8A8_UNORM; break;
-					}
-				} break;
-				case ImageComponentType::SNORM: {
-					switch (channels) {
-						case 1: image->vkFormat = VK_FORMAT_R8_SNORM; break;
-						case 2: image->vkFormat = VK_FORMAT_R8G8_SNORM; break;
-						case 3: image->vkFormat = VK_FORMAT_R8G8B8_SNORM; break;
-						case 4: image->vkFormat = VK_FORMAT_R8G8B8A8_SNORM; break;
-					}
-				} break;
-				case ImageComponentType::UINT: {
-					switch (channels) {
-						case 1: image->vkFormat = VK_FORMAT_R8_UINT; break;
-						case 2: image->vkFormat = VK_FORMAT_R8G8_UINT; break;
-						case 3: image->vkFormat = VK_FORMAT_R8G8B8_UINT; break;
-						case 4: image->vkFormat = VK_FORMAT_R8G8B8A8_UINT; break;
-					}
-				} break;
-				case ImageComponentType::SINT: {
-					switch (channels) {
-						case 1: image->vkFormat = VK_FORMAT_R8_SINT; break;
-						case 2: image->vkFormat = VK_FORMAT_R8G8_SINT; break;
-						case 3: image->vkFormat = VK_FORMAT_R8G8B8_SINT; break;
-						case 4: image->vkFormat = VK_FORMAT_R8G8B8A8_SINT; break;
-					}
-				} break;
+				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_R8_UNORM;   break;
+				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_R8_SNORM;   break;
+				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_R8_USCALED; break;
+				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_R8_SSCALED; break;
+				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_R8_UINT;    break;
+				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_R8_SINT;    break;
+				case ImageComponentType::SRGB:    image->vkFormat = VK_FORMAT_R8_SRGB;    break;
 				default: goto bad_format;
-			} break;
-		case 16:
+			}
+			image->bytesPerPixel = 1;
+			break;
+		case ImageBits::R8G8:
 			switch (componentType) {
-				case ImageComponentType::UNORM: {
-					switch (channels) {
-						case 1: image->vkFormat = VK_FORMAT_R16_UNORM; break;
-						case 2: image->vkFormat = VK_FORMAT_R16G16_UNORM; break;
-						case 3: image->vkFormat = VK_FORMAT_R16G16B16_UNORM; break;
-						case 4: image->vkFormat = VK_FORMAT_R16G16B16A16_UNORM; break;
-					}
-				} break;
-				case ImageComponentType::SNORM: {
-					switch (channels) {
-						case 1: image->vkFormat = VK_FORMAT_R16_SNORM; break;
-						case 2: image->vkFormat = VK_FORMAT_R16G16_SNORM; break;
-						case 3: image->vkFormat = VK_FORMAT_R16G16B16_SNORM; break;
-						case 4: image->vkFormat = VK_FORMAT_R16G16B16A16_SNORM; break;
-					}
-				} break;
-				case ImageComponentType::UINT: {
-					switch (channels) {
-						case 1: image->vkFormat = VK_FORMAT_R16_UINT; break;
-						case 2: image->vkFormat = VK_FORMAT_R16G16_UINT; break;
-						case 3: image->vkFormat = VK_FORMAT_R16G16B16_UINT; break;
-						case 4: image->vkFormat = VK_FORMAT_R16G16B16A16_UINT; break;
-					}
-				} break;
-				case ImageComponentType::SINT: {
-					switch (channels) {
-						case 1: image->vkFormat = VK_FORMAT_R16_SINT; break;
-						case 2: image->vkFormat = VK_FORMAT_R16G16_SINT; break;
-						case 3: image->vkFormat = VK_FORMAT_R16G16B16_SINT; break;
-						case 4: image->vkFormat = VK_FORMAT_R16G16B16A16_SINT; break;
-					}
-				} break;
-				case ImageComponentType::SFLOAT: {
-					switch (channels) {
-						case 1: image->vkFormat = VK_FORMAT_R16_SFLOAT; break;
-						case 2: image->vkFormat = VK_FORMAT_R16G16_SFLOAT; break;
-						case 3: image->vkFormat = VK_FORMAT_R16G16B16_SFLOAT; break;
-						case 4: image->vkFormat = VK_FORMAT_R16G16B16A16_SFLOAT; break;
-					}
-				} break;
+				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_R8G8_UNORM;   break;
+				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_R8G8_SNORM;   break;
+				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_R8G8_USCALED; break;
+				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_R8G8_SSCALED; break;
+				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_R8G8_UINT;    break;
+				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_R8G8_SINT;    break;
+				case ImageComponentType::SRGB:    image->vkFormat = VK_FORMAT_R8G8_SRGB;    break;
 				default: goto bad_format;
-			} break;
-		case 32:
+			}
+			image->bytesPerPixel = 2;
+			break;
+		case ImageBits::R8G8B8:
 			switch (componentType) {
-				case ImageComponentType::UINT: {
-					switch (channels) {
-						case 1: image->vkFormat = VK_FORMAT_R32_UINT; break;
-						case 2: image->vkFormat = VK_FORMAT_R32G32_UINT; break;
-						case 3: image->vkFormat = VK_FORMAT_R32G32B32_UINT; break;
-						case 4: image->vkFormat = VK_FORMAT_R32G32B32A32_UINT; break;
-					}
-				} break;
-				case ImageComponentType::SINT: {
-					switch (channels) {
-						case 1: image->vkFormat = VK_FORMAT_R32_SINT; break;
-						case 2: image->vkFormat = VK_FORMAT_R32G32_SINT; break;
-						case 3: image->vkFormat = VK_FORMAT_R32G32B32_SINT; break;
-						case 4: image->vkFormat = VK_FORMAT_R32G32B32A32_SINT; break;
-					}
-				} break;
-				case ImageComponentType::SFLOAT: {
-					switch (channels) {
-						case 1: image->vkFormat = VK_FORMAT_R32_SFLOAT; break;
-						case 2: image->vkFormat = VK_FORMAT_R32G32_SFLOAT; break;
-						case 3: image->vkFormat = VK_FORMAT_R32G32B32_SFLOAT; break;
-						case 4: image->vkFormat = VK_FORMAT_R32G32B32A32_SFLOAT; break;
-					}
-				} break;
+				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_R8G8B8_UNORM;   break;
+				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_R8G8B8_SNORM;   break;
+				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_R8G8B8_USCALED; break;
+				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_R8G8B8_SSCALED; break;
+				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_R8G8B8_UINT;    break;
+				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_R8G8B8_SINT;    break;
+				case ImageComponentType::SRGB:    image->vkFormat = VK_FORMAT_R8G8B8_SRGB;    break;
 				default: goto bad_format;
-			} break;
+			}
+			image->bytesPerPixel = 3;
+			break;
+		case ImageBits::R8G8B8A8:
+			switch (componentType) {
+				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_R8G8B8A8_UNORM;   break;
+				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_R8G8B8A8_SNORM;   break;
+				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_R8G8B8A8_USCALED; break;
+				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_R8G8B8A8_SSCALED; break;
+				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_R8G8B8A8_UINT;    break;
+				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_R8G8B8A8_SINT;    break;
+				case ImageComponentType::SRGB:    image->vkFormat = VK_FORMAT_R8G8B8A8_SRGB;    break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 4;
+			break;
+		case ImageBits::R16:
+			switch (componentType) {
+				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_R16_UNORM;   break;
+				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_R16_SNORM;   break;
+				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_R16_USCALED; break;
+				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_R16_SSCALED; break;
+				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_R16_UINT;    break;
+				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_R16_SINT;    break;
+				case ImageComponentType::SFLOAT:  image->vkFormat = VK_FORMAT_R16_SFLOAT;  break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 2;
+			break;
+		case ImageBits::R16G16:
+			switch (componentType) {
+				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_R16G16_UNORM;   break;
+				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_R16G16_SNORM;   break;
+				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_R16G16_USCALED; break;
+				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_R16G16_SSCALED; break;
+				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_R16G16_UINT;    break;
+				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_R16G16_SINT;    break;
+				case ImageComponentType::SFLOAT:  image->vkFormat = VK_FORMAT_R16G16_SFLOAT;  break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 4;
+			break;
+		case ImageBits::R16G16B16:
+			switch (componentType) {
+				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_R16G16B16_UNORM;   break;
+				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_R16G16B16_SNORM;   break;
+				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_R16G16B16_USCALED; break;
+				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_R16G16B16_SSCALED; break;
+				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_R16G16B16_UINT;    break;
+				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_R16G16B16_SINT;    break;
+				case ImageComponentType::SFLOAT:  image->vkFormat = VK_FORMAT_R16G16B16_SFLOAT;  break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 6;
+			break;
+		case ImageBits::R16G16B16A16:
+			switch (componentType) {
+				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_R16G16B16A16_UNORM;   break;
+				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_R16G16B16A16_SNORM;   break;
+				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_R16G16B16A16_USCALED; break;
+				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_R16G16B16A16_SSCALED; break;
+				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_R16G16B16A16_UINT;    break;
+				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_R16G16B16A16_SINT;    break;
+				case ImageComponentType::SFLOAT:  image->vkFormat = VK_FORMAT_R16G16B16A16_SFLOAT;  break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 8;
+			break;
+		case ImageBits::R32:
+			switch (componentType) {
+				case ImageComponentType::UINT:   image->vkFormat = VK_FORMAT_R32_UINT;   break;
+				case ImageComponentType::SINT:   image->vkFormat = VK_FORMAT_R32_SINT;   break;
+				case ImageComponentType::SFLOAT: image->vkFormat = VK_FORMAT_R32_SFLOAT; break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 4;
+			break;
+		case ImageBits::R32G32:
+			switch (componentType) {
+				case ImageComponentType::UINT:   image->vkFormat = VK_FORMAT_R32G32_UINT;   break;
+				case ImageComponentType::SINT:   image->vkFormat = VK_FORMAT_R32G32_SINT;   break;
+				case ImageComponentType::SFLOAT: image->vkFormat = VK_FORMAT_R32G32_SFLOAT; break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 8;
+			break;
+		case ImageBits::R32G32B32:
+			switch (componentType) {
+				case ImageComponentType::UINT:   image->vkFormat = VK_FORMAT_R32G32B32_UINT;   break;
+				case ImageComponentType::SINT:   image->vkFormat = VK_FORMAT_R32G32B32_SINT;   break;
+				case ImageComponentType::SFLOAT: image->vkFormat = VK_FORMAT_R32G32B32_SFLOAT; break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 12;
+			break;
+		case ImageBits::R32G32B32A32:
+			switch (componentType) {
+				case ImageComponentType::UINT:   image->vkFormat = VK_FORMAT_R32G32B32A32_UINT;   break;
+				case ImageComponentType::SINT:   image->vkFormat = VK_FORMAT_R32G32B32A32_SINT;   break;
+				case ImageComponentType::SFLOAT: image->vkFormat = VK_FORMAT_R32G32B32A32_SFLOAT; break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 16;
+			break;
+		case ImageBits::R64:
+			switch (componentType) {
+				case ImageComponentType::UINT:   image->vkFormat = VK_FORMAT_R64_UINT;   break;
+				case ImageComponentType::SINT:   image->vkFormat = VK_FORMAT_R64_SINT;   break;
+				case ImageComponentType::SFLOAT: image->vkFormat = VK_FORMAT_R64_SFLOAT; break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 8;
+			break;
+		case ImageBits::R64G64:
+			switch (componentType) {
+				case ImageComponentType::UINT:   image->vkFormat = VK_FORMAT_R64G64_UINT;   break;
+				case ImageComponentType::SINT:   image->vkFormat = VK_FORMAT_R64G64_SINT;   break;
+				case ImageComponentType::SFLOAT: image->vkFormat = VK_FORMAT_R64G64_SFLOAT; break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 16;
+			break;
+		case ImageBits::R64G64B64:
+			switch (componentType) {
+				case ImageComponentType::UINT:   image->vkFormat = VK_FORMAT_R64G64B64_UINT;   break;
+				case ImageComponentType::SINT:   image->vkFormat = VK_FORMAT_R64G64B64_SINT;   break;
+				case ImageComponentType::SFLOAT: image->vkFormat = VK_FORMAT_R64G64B64_SFLOAT; break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 24;
+			break;
+		case ImageBits::R64G64B64A64:
+			switch (componentType) {
+				case ImageComponentType::UINT:   image->vkFormat = VK_FORMAT_R64G64B64A64_UINT;   break;
+				case ImageComponentType::SINT:   image->vkFormat = VK_FORMAT_R64G64B64A64_SINT;   break;
+				case ImageComponentType::SFLOAT: image->vkFormat = VK_FORMAT_R64G64B64A64_SFLOAT; break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 32;
+			break;
+		case ImageBits::R4G4:
+			switch (componentType) {
+				case ImageComponentType::UNORM: image->vkFormat = VK_FORMAT_R4G4_UNORM_PACK8; break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 1;
+			break;
+		case ImageBits::R4G4B4A4:
+			switch (componentType) {
+				case ImageComponentType::UNORM: image->vkFormat = VK_FORMAT_R4G4B4A4_UNORM_PACK16; break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 2;
+			break;
+		case ImageBits::R5G6B5:
+			switch (componentType) {
+				case ImageComponentType::UNORM: image->vkFormat = VK_FORMAT_R5G6B5_UNORM_PACK16; break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 2;
+			break;
+		case ImageBits::R5G5B5A1:
+			switch (componentType) {
+				case ImageComponentType::UNORM: image->vkFormat = VK_FORMAT_R5G5B5A1_UNORM_PACK16; break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 2;
+			break;
+		case ImageBits::A2R10G10B10:
+			switch (componentType) {
+				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_A2R10G10B10_UNORM_PACK32;   break;
+				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_A2R10G10B10_SNORM_PACK32;   break;
+				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_A2R10G10B10_USCALED_PACK32; break;
+				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_A2R10G10B10_SSCALED_PACK32; break;
+				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_A2R10G10B10_UINT_PACK32;    break;
+				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_A2R10G10B10_SINT_PACK32;    break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 4;
+			break;
+		case ImageBits::B10G11R11:
+			switch (componentType) {
+				case ImageComponentType::UFLOAT: image->vkFormat = VK_FORMAT_B10G11R11_UFLOAT_PACK32; break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 4;
+			break;
+		case ImageBits::E5B9G9R9:
+			switch (componentType) {
+				case ImageComponentType::UFLOAT: image->vkFormat = VK_FORMAT_E5B9G9R9_UFLOAT_PACK32; break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 4;
+			break;
 		default: goto bad_format;
 	}
 	return VoidResult_t();
 bad_format:
-	return Stringify("Cannot match ", bitsPerChannel, " bpc, ", channels, " channels, and component type ", componentType);
+	return Stringify("Cannot match ", imageBits, " bit layout and component type ", componentType);
 }
 
 Result<VoidResult_t, String> ImageSetSize(Image *image, i32 width, i32 height) {
@@ -1770,14 +2181,14 @@ Result<VoidResult_t, String> ContextInit(Context *context) {
 	VkCommandPoolCreateInfo poolCreateInfo = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
 	poolCreateInfo.queueFamilyIndex = context->device->queueFamilyIndex;
 	if (VkResult result = vkCreateCommandPool(context->device->vkDevice, &poolCreateInfo, nullptr, &context->vkCommandPool); result != VK_SUCCESS) {
-		return Stringify("Context \"", context->tag, "\": Failed to create command pool: ", ErrorString(result));
+		return Stringify("Context \"", context->tag, "\": Failed to create command pool: ", VkResultString(result));
 	}
 	VkFenceCreateInfo fenceInfo = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
 	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 	// We'll use signaled to mean not executing
 	if (VkResult result = vkCreateFence(context->device->vkDevice, &fenceInfo, nullptr, &context->vkFence); result != VK_SUCCESS) {
 		vkDestroyCommandPool(context->device->vkDevice, context->vkCommandPool, nullptr);
-		return Stringify("Context \"", context->tag, "\": Failed to create fence: ", ErrorString(result));
+		return Stringify("Context \"", context->tag, "\": Failed to create fence: ", VkResultString(result));
 	}
 	context->initted = true;
 	return VoidResult_t();
@@ -1816,11 +2227,11 @@ Result<VoidResult_t, String> ContextBeginRecording(Context *context) {
 	bufferAllocInfo.commandBufferCount = 1;
 	bufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	if (VkResult result = vkAllocateCommandBuffers(context->device->vkDevice, &bufferAllocInfo, &context->vkCommandBuffer); result != VK_SUCCESS) {
-		return Stringify("Context \"", context->tag, "\" error: Failed to allocate primary command buffer: ", ErrorString(result));
+		return Stringify("Context \"", context->tag, "\" error: Failed to allocate primary command buffer: ", VkResultString(result));
 	}
 	VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
 	if (VkResult result = vkBeginCommandBuffer(context->vkCommandBuffer, &beginInfo); result != VK_SUCCESS) {
-		return Stringify("Context \"", context->tag, "\" error: Failed to begin primary command buffer: ", ErrorString(result));
+		return Stringify("Context \"", context->tag, "\" error: Failed to begin primary command buffer: ", VkResultString(result));
 	}
 	context->state = Context::State::RECORDING_PRIMARY;
 	return VoidResult_t();
@@ -1842,7 +2253,7 @@ Result<VoidResult_t, String> ContextBeginRecordingSecondary(Context *context, Fr
 	bufferAllocInfo.commandBufferCount = 1;
 	bufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
 	if (VkResult result = vkAllocateCommandBuffers(context->device->vkDevice, &bufferAllocInfo, &context->vkCommandBuffer); result != VK_SUCCESS) {
-		return Stringify("Context \"", context->tag, "\" error: Failed to allocate secondary command buffer: ", ErrorString(result));
+		return Stringify("Context \"", context->tag, "\" error: Failed to allocate secondary command buffer: ", VkResultString(result));
 	}
 	VkCommandBufferInheritanceInfo inheritanceInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO};
 	if (framebuffer != nullptr) {
@@ -1855,7 +2266,7 @@ Result<VoidResult_t, String> ContextBeginRecordingSecondary(Context *context, Fr
 	beginInfo.flags = framebuffer != nullptr ? VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT : 0;
 	beginInfo.pInheritanceInfo = &inheritanceInfo;
 	if (VkResult result = vkBeginCommandBuffer(context->vkCommandBuffer, &beginInfo); result != VK_SUCCESS) {
-		return Stringify("Context \"", context->tag, "\" error: Failed to begin secondary command buffer: ", ErrorString(result));
+		return Stringify("Context \"", context->tag, "\" error: Failed to begin secondary command buffer: ", VkResultString(result));
 	}
 	context->state = Context::State::RECORDING_SECONDARY;
 	return VoidResult_t();
@@ -1867,7 +2278,7 @@ Result<VoidResult_t, String> ContextEndRecording(Context *context) {
 		return Stringify("Context \"", context->tag, "\" error: Trying to End Recording but we haven't started recording.");
 	}
 	if (VkResult result = vkEndCommandBuffer(context->vkCommandBuffer); result != VK_SUCCESS) {
-		return Stringify("Context \"", context->tag, "\" error: Failed to End Recording: ", ErrorString(result));
+		return Stringify("Context \"", context->tag, "\" error: Failed to End Recording: ", VkResultString(result));
 	}
 	context->state = Context::State::DONE_RECORDING;
 	return VoidResult_t();
@@ -1881,7 +2292,7 @@ Result<VoidResult_t, String> SubmitCommands(Context *context) {
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &context->vkCommandBuffer;
 	if (VkResult result = vkQueueSubmit(context->device->vkQueue, 1, &submitInfo, context->vkFence); result != VK_SUCCESS) {
-		return Stringify("Context \"", context->tag, "\" error: Failed to submit to queue: ", ErrorString(result));
+		return Stringify("Context \"", context->tag, "\" error: Failed to submit to queue: ", VkResultString(result));
 	}
 	return VoidResult_t();
 }
@@ -1897,7 +2308,7 @@ Result<bool, String> ContextIsExecuting(Context *context) {
 		case VK_ERROR_DEVICE_LOST:
 			return Stringify("Device \"", context->device->tag, "\" error: Device Lost");
 		default:
-			return Stringify("Context \"", context->tag, "\" error: IsExecuting returned ", ErrorString(result));
+			return Stringify("Context \"", context->tag, "\" error: IsExecuting returned ", VkResultString(result));
 	}
 }
 
@@ -1913,7 +2324,7 @@ Result<bool, String> ContextWaitUntilFinished(Context *context, Nanoseconds time
 		case VK_ERROR_DEVICE_LOST:
 			return Stringify("Device \"", context->device->tag, "\" error: Device Lost");
 		default:
-			return Stringify("Context \"", context->tag, "\" error: WaitUntilFinished returned ", ErrorString(result));
+			return Stringify("Context \"", context->tag, "\" error: WaitUntilFinished returned ", VkResultString(result));
 	}
 }
 
@@ -1937,7 +2348,7 @@ Result<VoidResult_t, String> CmdCopyDataToBuffer(Context *context, Buffer *dst, 
 	VkDeviceMemory vkMemory = alloc.memory->pages[alloc.page].vkMemory;
 	void *dstMapped;
 	if (VkResult result = vkMapMemory(dst->device->vkDevice, vkMemory, align(alloc.offset, dst->memoryRequirements.alignment)+dstOffset, size, 0, &dstMapped); result != VK_SUCCESS) {
-		return Stringify("Buffer \"", dst->tag, "\" error: Failed to map memory: ", ErrorString(result));
+		return Stringify("Buffer \"", dst->tag, "\" error: Failed to map memory: ", VkResultString(result));
 	}
 	memcpy(dstMapped, src, size);
 	vkUnmapMemory(dst->device->vkDevice, vkMemory);
@@ -2067,9 +2478,9 @@ Result<VoidResult_t, String> CmdCopyDataToImage(Context *context, Image *dst, vo
 	VkDeviceMemory vkMemory = alloc.memory->pages[alloc.page].vkMemory;
 	void *dstMapped;
 	if (VkResult result = vkMapMemory(dst->device->vkDevice, vkMemory, align(alloc.offset, dst->memoryRequirements.alignment), dst->memoryRequirements.size, 0, &dstMapped); result != VK_SUCCESS) {
-		return Stringify("Image \"", dst->tag, "\" error: Failed to map memory: ", ErrorString(result));
+		return Stringify("Image \"", dst->tag, "\" error: Failed to map memory: ", VkResultString(result));
 	}
-	memcpy(dstMapped, src, dst->memoryRequirements.size);
+	memcpy(dstMapped, src, dst->width * dst->height * dst->bytesPerPixel);
 	vkUnmapMemory(dst->device->vkDevice, vkMemory);
 	VkBufferImageCopy vkCopy = {};
 	vkCopy.imageSubresource.aspectMask = dst->vkImageAspect;

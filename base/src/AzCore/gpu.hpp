@@ -36,14 +36,51 @@ enum class ShaderValueType : u16 {
 };
 
 enum class ImageComponentType : u16 {
-	SRGB=0,
-	UNORM,
-	SNORM,
-	UINT,
-	SINT,
-	SFLOAT,
+	SRGB=0, // A UNORM in the sRGB color space (alpha channel is regular UNORM)
+	UNORM,  // An unsigned integer representing values between 0 and 1 inclusive
+	SNORM,  // A signed integer representing values between -1 and 1 inclusive (NOTE: the minimum int value, e.g. -128, is out of bounds and will be clamped to -1.0)
+	USCALED,// An unsigned integer value that's converted to float by the sampler (i.e. 255 will be converted to 255.0f)
+	SSCALED,// A signed integer value that's converted to float by the sampler (i.e. -128 will be converted to -128.0f)
+	UINT,   // An unsigned integer
+	SINT,   // A signed integer
+	UFLOAT, // An unsigned floating point number
+	SFLOAT, // A signed floating point number
 };
-extern Str imageComponentTypeStrings[6];
+extern Str imageComponentTypeStrings[9];
+
+// TODO: Support more oddball bit layouts
+enum class ImageBits : u16 {
+	// Can be UNORM, SNORM, USCALED, SSCALED, UINT, SINT, SRGB
+	R8,
+	R8G8,
+	R8G8B8,
+	R8G8B8A8, // For SRGB, A is just regular UNORM
+	// Can be UNORM, SNORM, USCALED, SSCALED, UINT, SINT, SFLOAT
+	R16,
+	R16G16,
+	R16G16B16,
+	R16G16B16A16,
+	// Can be UINT, SINT, SFLOAT
+	R32,
+	R32G32,
+	R32G32B32,
+	R32G32B32A32,
+	R64,
+	R64G64,
+	R64G64B64,
+	R64G64B64A64,
+	// Special UNORM-only
+	R4G4,
+	R4G4B4A4,
+	R5G6B5,
+	R5G5B5A1,
+	// Special other
+	A2R10G10B10, // Can be UNORM, SNORM, USCALED, SSCALED, UINT, SINT
+	B10G11R11, // Can only be UFLOAT
+	E5B9G9R9, // Can only be UFLOAT (E represents a shared exponent)
+	// TODO: Compressed formats
+};
+extern Str imageBitsStrings[23];
 
 enum class BlendMode {
 	OPAQUE,
@@ -137,7 +174,7 @@ void SetVSync(Window *window, bool enable);
 // Buffer, Image
 
 
-[[nodiscard]] Result<VoidResult_t, String> ImageSetFormat(Image *image, i32 channels, i32 bitsPerChannel, ImageComponentType componentType);
+[[nodiscard]] Result<VoidResult_t, String> ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType componentType);
 
 [[nodiscard]] Result<VoidResult_t, String> ImageSetSize(Image *image, i32 width, i32 height);
 
@@ -213,6 +250,10 @@ namespace AzCore {
 
 inline void AppendToString(String &string, GPU::ImageComponentType imageComponentType) {
 	AppendToString(string, GPU::imageComponentTypeStrings[(u32)imageComponentType]);
+}
+
+inline void AppendToString(String &string, GPU::ImageBits imageBits) {
+	AppendToString(string, GPU::imageBitsStrings[(u32)imageBits]);
 }
 
 };

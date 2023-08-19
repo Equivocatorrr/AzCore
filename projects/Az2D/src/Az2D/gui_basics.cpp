@@ -190,6 +190,9 @@ void Widget::PopScissor(Rendering::DrawingContext &context) const {
 void Widget::Update(vec2 pos, bool selected) {
 	pos += (margin + position) * scale;
 	positionAbsolute = pos;
+	if (selected && selectable) {
+		guiBasic->selectedCenter = positionAbsolute + sizeAbsolute * 0.5f;
+	}
 	highlighted = selected;
 	for (Widget* child : children) {
 		child->Update(pos, selected);
@@ -259,7 +262,7 @@ void Screen::UpdateSize(vec2 container, f32 _scale) {
 	}
 }
 
-List::List() : padding(8.0f), color(0.05f, 0.05f, 0.05f, 0.9f), highlight(0.05f, 0.05f, 0.05f, 0.9f), select(0.2f, 0.2f, 0.2f, 0.0f), selection(-2), selectionDefault(-1) { occludes = true; }
+List::List() : padding(8.0f), color(0.05f, 0.05f, 0.05f, 0.9f), highlight(0.05f, 0.05f, 0.05f, 0.9f), select(0.2f, 0.2f, 0.2f, 0.0f), selection(-2), selectionDefault(-1), scroll(0.0f), sizeContents(vec2(0.0f)), scrollableX(false), scrollableY(true) { occludes = true; }
 
 bool List::UpdateSelection(bool selected, StaticArray<u8, 4> keyCodeSelect, StaticArray<u8, 4> keyCodeBack, StaticArray<u8, 4> keyCodeIncrement, StaticArray<u8, 4> keyCodeDecrement) {
 	highlighted = selected;
@@ -396,9 +399,12 @@ void ListV::UpdateSize(vec2 container, f32 _scale) {
 			sizeForInheritance.y -= child->GetSize().y;
 		}
 	}
+	sizeContents = vec2(0.0f);
 	for (Widget* child : children) {
 		child->UpdateSize(sizeForInheritance, scale);
 		vec2 childSize = child->GetSize();
+		sizeContents.x = max(sizeContents.x, childSize.x);
+		sizeContents.y += childSize.y;
 		if (size.x == 0.0f) {
 			sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + totalPadding.x);
 		}
@@ -412,8 +418,19 @@ void ListV::UpdateSize(vec2 container, f32 _scale) {
 void ListV::Update(vec2 pos, bool selected) {
 	pos += (margin + position) * scale;
 	positionAbsolute = pos;
+	if (selected && selectable) {
+		guiBasic->selectedCenter = positionAbsolute + sizeAbsolute * 0.5f;
+	}
 	const bool mouseSelect = UpdateSelection(selected, {KC_GP_BTN_A, KC_KEY_ENTER}, {KC_GP_BTN_B, KC_KEY_ESC}, {KC_GP_AXIS_LS_DOWN, KC_KEY_DOWN}, {KC_GP_AXIS_LS_UP, KC_KEY_UP});
 	pos += padding * scale;
+	// Scrolling
+	vec2 sizeAvailable = sizeAbsolute - padding * 2.0f * scale;
+	vec2 scrollable = sizeContents - sizeAvailable;
+	scrollable.x = max(0.0f, scrollable.x);
+	scrollable.y = max(0.0f, scrollable.y);
+	if (!scrollableX) scrollable.x = 0.0f;
+	if (!scrollableY) scrollable.y = 0.0f;
+	pos -= scrollable * scroll;
 	if (mouseSelect) {
 		f32 childY = pos.y;
 		for (selection = 0; selection < children.size; selection++) {
@@ -438,12 +455,27 @@ void ListV::Update(vec2 pos, bool selected) {
 		child->Update(pos, selected && i == selection);
 		pos.y += child->GetSize().y;
 	}
+	{ // Scrolling
+		vec2 mouse = vec2(sys->input.cursor) / guiBasic->scale;
+		vec2 scrollTarget = vec2(0.0f);
+		if (guiBasic->usingMouse) {
+			scrollTarget = (mouse - positionAbsolute) / sizeAbsolute;
+		} else if (selection >= 0 && selection < children.size) {
+			scrollTarget = (guiBasic->selectedCenter - positionAbsolute) / sizeAbsolute;
+		}
+		scrollTarget = (scrollTarget - 0.5f) * 2.0f + 0.5f;
+		scrollTarget.x = clamp01(scrollTarget.x);
+		scrollTarget.y = clamp01(scrollTarget.y);
+		scroll = decay(scroll, scrollTarget, 0.1f, sys->timestep);
+	}
 }
 
 ListH::ListH() {
 	color = vec4(0.0f, 0.0f, 0.0f, 0.9f);
 	highlight = vec4(0.1f, 0.1f, 0.1f, 0.9f);
 	occludes = true;
+	scrollableX = true;
+	scrollableY = false;
 }
 
 void ListH::UpdateSize(vec2 container, f32 _scale) {
@@ -477,9 +509,12 @@ void ListH::UpdateSize(vec2 container, f32 _scale) {
 			sizeForInheritance.x -= child->GetSize().x;
 		}
 	}
+	sizeContents = vec2(0.0f);
 	for (Widget* child : children) {
 		child->UpdateSize(sizeForInheritance, scale);
 		vec2 childSize = child->GetSize();
+		sizeContents.x += childSize.x;
+		sizeContents.y = max(sizeContents.y, childSize.y);
 		if (size.x == 0.0f) {
 			sizeAbsolute.x += childSize.x;
 		}
@@ -493,8 +528,19 @@ void ListH::UpdateSize(vec2 container, f32 _scale) {
 void ListH::Update(vec2 pos, bool selected) {
 	pos += (margin + position) * scale;
 	positionAbsolute = pos;
+	if (selected && selectable) {
+		guiBasic->selectedCenter = positionAbsolute + sizeAbsolute * 0.5f;
+	}
 	const bool mouseSelect = UpdateSelection(selected, {KC_GP_BTN_A, KC_KEY_ENTER}, {KC_GP_BTN_B, KC_KEY_ESC}, {KC_GP_AXIS_LS_RIGHT, KC_KEY_RIGHT}, {KC_GP_AXIS_LS_LEFT, KC_KEY_LEFT});
 	pos += padding * scale;
+	// Scrolling
+	vec2 sizeAvailable = sizeAbsolute - padding * 2.0f * scale;
+	vec2 scrollable = sizeContents - sizeAvailable;
+	scrollable.x = max(0.0f, scrollable.x);
+	scrollable.y = max(0.0f, scrollable.y);
+	if (!scrollableX) scrollable.x = 0.0f;
+	if (!scrollableY) scrollable.y = 0.0f;
+	pos -= scrollable * scroll;
 	if (mouseSelect) {
 		f32 childX = pos.x;
 		for (selection = 0; selection < children.size; selection++) {
@@ -516,6 +562,19 @@ void ListH::Update(vec2 pos, bool selected) {
 		Widget *child = children[i];
 		child->Update(pos, selected && i == selection);
 		pos.x += child->GetSize().x;
+	}
+	{ // Scrolling
+		vec2 mouse = vec2(sys->input.cursor) / guiBasic->scale;
+		vec2 scrollTarget = vec2(0.0f);
+		if (guiBasic->usingMouse) {
+			scrollTarget = (mouse - positionAbsolute) / sizeAbsolute;
+		} else if (selection >= 0 && selection < children.size) {
+			scrollTarget = (guiBasic->selectedCenter - positionAbsolute) / sizeAbsolute;
+		}
+		scrollTarget = (scrollTarget - 0.5f) * 2.0f + 0.5f;
+		scrollTarget.x = clamp01(scrollTarget.x);
+		scrollTarget.y = clamp01(scrollTarget.y);
+		scroll = decay(scroll, scrollTarget, 0.1f, sys->timestep);
 	}
 }
 
@@ -593,6 +652,9 @@ void Switch::Update(vec2 pos, bool selected) {
 		}
 	} else {
 		pos += (margin + position) * scale;
+		if (selected && selectable) {
+			guiBasic->selectedCenter = positionAbsolute + sizeAbsolute * 0.5f;
+		}
 		highlighted = selected;
 		positionAbsolute = pos;
 		pos += padding * scale;
@@ -776,6 +838,9 @@ void Button::Update(vec2 pos, bool selected) {
 	pos += (margin + position) * scale;
 	f32 childScale = state.Down() ? 0.9f : 1.0f;
 	positionAbsolute = pos;
+	if (selected && selectable) {
+		guiBasic->selectedCenter = positionAbsolute + sizeAbsolute * 0.5f;
+	}
 	pos += padding * scale;
 	highlighted = selected;
 	{

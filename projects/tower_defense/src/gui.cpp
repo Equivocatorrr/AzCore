@@ -750,12 +750,15 @@ void PlayMenu::Initialize() {
 	}
 
 	towerInfo = new Text();
-	towerInfo->SetSizeFraction(1.0f);
+	towerInfo->SetHeightPixel(96.0f);
+	towerInfo->SetWidthFraction(1.0f);
 	towerInfo->color = vec4(1.0f);
 	towerInfo->fontIndex = gui->fontIndex;
 	towerInfo->fontSize = 18.0f;
 	towerInfo->string = ToWString("$MONEY");
 	AddWidget(list, towerInfo);
+	
+	AddWidget(list, new Widget());
 
 	Button fullWidth;
 	fullWidth.SetWidthFraction(1.0f);

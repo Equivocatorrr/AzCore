@@ -199,6 +199,10 @@ inline void AppendToString(String &string, SimpleRange<char> value) {
 	}
 }
 
+inline void AppendToString(String &string, const String &value) {
+	AppendToString(string, Str(value));
+}
+
 inline void AppendToString(String &string, Range<char> value) {
 	AppendToString(string, SimpleRange(value));
 }

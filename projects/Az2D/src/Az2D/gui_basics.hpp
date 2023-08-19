@@ -69,6 +69,7 @@ struct GuiBasic : public GameSystems::System {
 	// Also provides an easy test to see if the mouse can interact with items below it.
 	Widget *mouseoverWidget;
 	i32 mouseoverDepth;
+	vec2 selectedCenter;
 
 	az::HashSet<Widget*> allWidgets; // So we can delete them at the end of the program.
 
@@ -227,6 +228,18 @@ struct List : public Widget {
 		Defaults:
 		List: -1, Switch: 0 */
 	i32 selectionDefault;
+	/*  How far we've scrolled if our contents don't fit in the range 0 to 1. */
+	vec2 scroll;
+	/*  How big our contents are in absolute size. */
+	vec2 sizeContents;
+	/*  Whether we can scroll horizontally.
+		Defaults:
+		ListH: true, ListV: false */
+	bool scrollableX;
+	/*  Whether we can scroll vertically.
+		Defaults:
+		ListH: false, ListV: true */
+	bool scrollableY;
 	List();
 	~List() = default;
 	// returns whether or not to update the selection based on the mouse position

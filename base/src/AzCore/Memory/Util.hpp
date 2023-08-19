@@ -11,6 +11,11 @@
 #include "string.h"
 #include <memory>
 
+#if defined(__GNUG__)
+#elif defined(_MSC_VER)
+	#include <intrin.h>
+#endif
+
 namespace AzCore {
 
 template<typename T>
@@ -25,6 +30,23 @@ constexpr bool IsPowerOfTwo(size_t value) {
 }
 size_t align(size_t size, size_t alignment);
 size_t alignNonPowerOfTwo(size_t size, size_t alignment);
+
+inline u32 CountTrailingZeroBits(u32 value) {
+	#if defined(__GNUG__)
+		u32 result;
+		// We could use __builtin_ctz but it throws away the check we get from bsf for the cmov
+		asm (
+			"bsf %0, %1\n\t"
+			"cmovz %0, $32"
+			: "=r" (result)
+			: "r" (value)
+		);
+		return result;
+	#elif defined(_MSC_VER)
+		unsigned long result;
+		return _BitScanForward(&result, value) ? result : 32;
+	#endif
+}
 
 // Extract the base 2 exponent directly from the bits.
 #if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES

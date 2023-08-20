@@ -19,6 +19,23 @@ inline Color<u8> FloatTo8Bit(Color<f32> in) {
 	return in*255.0f;
 }
 
+constexpr vec4 ColorFromARGB(u32 code) {
+	vec4 result = vec4();
+	result.b = f32((code >> 8*0) & 0xFF) / 255.0f;
+	result.g = f32((code >> 8*1) & 0xFF) / 255.0f;
+	result.r = f32((code >> 8*2) & 0xFF) / 255.0f;
+	result.a = f32((code >> 8*3) & 0xFF) / 255.0f;
+	return result;
+}
+
+constexpr vec3 ColorFromRGB(u32 code) {
+	vec3 result = vec3();
+	result.b = f32((code >> 8*0) & 0xFF) / 255.0f;
+	result.g = f32((code >> 8*1) & 0xFF) / 255.0f;
+	result.r = f32((code >> 8*2) & 0xFF) / 255.0f;
+	return result;
+}
+
 vec3 sRGBToLinear(vec3 in);
 vec3 linearTosRGB(vec3 in);
 

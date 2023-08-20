@@ -7,6 +7,7 @@
 #include "gui_basics.hpp"
 #include "settings.hpp"
 #include "profiling.hpp"
+#include "console_commands.hpp"
 #include "AzCore/Thread.hpp"
 
 namespace Az2D::GameSystems {
@@ -33,6 +34,10 @@ bool Init(SimpleRange<char> windowTitle, Array<System*> systemsToRegister, bool 
 	sys->sound.name = windowTitle;
 	sys->rendering.data.instance.AppInfo(windowTitle.str, 1, 0, 0);
 	sys->enableVulkanValidation = enableVulkanValidation;
+	
+	Dev::AddGlobalVariable(Az2D::Settings::sVolumeMain.GetString(), "Main volume setting between 0.0 and 1.0", nullptr, Dev::defaultRealSettingsGetter, Dev::defaultRealSettingsSetter);
+	Dev::AddGlobalVariable(Az2D::Settings::sVolumeEffects.GetString(), "Effects volume setting between 0.0 and 1.0", nullptr, Dev::defaultRealSettingsGetter, Dev::defaultRealSettingsSetter);
+	Dev::AddGlobalVariable(Az2D::Settings::sVolumeMusic.GetString(), "Music volume setting between 0.0 and 1.0", nullptr, Dev::defaultRealSettingsGetter, Dev::defaultRealSettingsSetter);
 	return sys->Init();
 }
 

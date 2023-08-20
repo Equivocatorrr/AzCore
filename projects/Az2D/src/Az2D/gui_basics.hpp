@@ -22,69 +22,6 @@ extern const vec3 colorHighlightLow;
 extern const vec3 colorHighlightMedium;
 extern const vec3 colorHighlightHigh;
 
-struct GuiBasic : public GameSystems::System {
-	// configuration
-	const char *defaultFontFilename = "DroidSans.ttf";
-	struct SoundDef {
-		az::SimpleRange<char> filename;
-		f32 gain;
-		f32 pitch;
-	};
-	az::Array<SoundDef> sndClickInDefs = {
-		{"click in 1.ogg", 0.15f, 1.2f},
-		{"click in 2.ogg", 0.15f, 1.2f},
-		{"click in 3.ogg", 0.15f, 1.2f},
-		{"click in 4.ogg", 0.15f, 1.2f},
-	};
-	az::Array<SoundDef> sndClickOutDefs = {
-		{"click out 1.ogg", 0.15f, 1.2f},
-		{"click out 2.ogg", 0.15f, 1.2f},
-		{"click out 3.ogg", 0.15f, 1.2f},
-		{"click out 4.ogg", 0.15f, 1.2f},
-	};
-	az::Array<SoundDef> sndClickSoftDefs = {
-		{"click soft 1.ogg", 0.01f, 1.2f},
-		{"click soft 2.ogg", 0.01f, 1.2f},
-	};
-	SoundDef sndCheckboxOnDef = {"Pop High.ogg", 0.1f, 1.0f};
-	SoundDef sndCheckboxOffDef = {"Pop Low.ogg", 0.1f, 1.0f};
-
-	// assets
-	Assets::FontIndex fontIndex;
-	az::Array<Sound::Source> sndClickInSources;
-	az::Array<Sound::Source> sndClickOutSources;
-	az::Array<Sound::Source> sndClickSoftSources;
-	Sound::Source sndCheckboxOn, sndCheckboxOff;
-	Sound::MultiSource sndClickIn;
-	Sound::MultiSource sndClickOut;
-	Sound::MultiSource sndClickSoft;
-	Assets::Font *font;
-
-	i32 controlDepth = 0;
-	f32 scale = 2.0f;
-	bool usingMouse = true;
-	bool usingArrows = false;
-	bool usingGamepad = false;
-	// Used to make sure the mouse can only interact with top-most widgets.
-	// Also provides an easy test to see if the mouse can interact with items below it.
-	Widget *mouseoverWidget;
-	i32 mouseoverDepth;
-	vec2 selectedCenter;
-
-	az::HashSet<Widget*> allWidgets; // So we can delete them at the end of the program.
-
-	GuiBasic();
-	~GuiBasic();
-
-	void EventAssetsQueue() override;
-	void EventAssetsAcquire() override;
-	// When deriving, call this first, do your own sync, and then set readyForDraw to true at the end.
-	void EventSync() override;
-};
-
-// global accessor to our basic gui, should be derived from, created in main, and passed into GameSystems::Init
-extern GuiBasic *guiBasic;
-
 // Base polymorphic interface, also usable as a blank spacer.
 struct Widget {
 	az::Array<Widget*> children;
@@ -230,6 +167,8 @@ struct List : public Widget {
 	i32 selectionDefault;
 	/*  How far we've scrolled if our contents don't fit in the range 0 to 1. */
 	vec2 scroll;
+	/*  How far we want to scroll. scroll will decay towards this value. */
+	vec2 scrollTarget;
 	/*  How big our contents are in absolute size. */
 	vec2 sizeContents;
 	/*  Whether we can scroll horizontally.
@@ -570,6 +509,92 @@ void AddWidget(Widget *parent, Widget *newWidget, bool deeper = false);
 void AddWidget(Widget *parent, Switch *newWidget);
 void AddWidgetAsDefault(List *parent, Widget *newWidget, bool deeper = false);
 void AddWidgetAsDefault(List *parent, Switch *newWidget);
+
+constexpr u32 CONSOLE_COMMAND_HISTORY_CAP = 100;
+constexpr u32 CONSOLE_COMMAND_OUTPUT_LINES_CAP = 20;
+
+struct DevConsole {
+	Screen screen;
+	TextBox *textboxInput;
+	Text *consoleOutput;
+	az::WString previousCommands[CONSOLE_COMMAND_HISTORY_CAP];
+	i32 recentCommand = -1;
+	i32 nextCommand = 0;
+	i32 numCommandsInHistory = 0;
+	az::WString outputLines[CONSOLE_COMMAND_OUTPUT_LINES_CAP];
+	
+	void Initialize();
+	void Update();
+	void Draw(Rendering::DrawingContext &context);
+};
+
+struct GuiBasic : public GameSystems::System {
+	// configuration
+	const char *defaultFontFilename = "DroidSans.ttf";
+	struct SoundDef {
+		az::SimpleRange<char> filename;
+		f32 gain;
+		f32 pitch;
+	};
+	az::Array<SoundDef> sndClickInDefs = {
+		{"click in 1.ogg", 0.15f, 1.2f},
+		{"click in 2.ogg", 0.15f, 1.2f},
+		{"click in 3.ogg", 0.15f, 1.2f},
+		{"click in 4.ogg", 0.15f, 1.2f},
+	};
+	az::Array<SoundDef> sndClickOutDefs = {
+		{"click out 1.ogg", 0.15f, 1.2f},
+		{"click out 2.ogg", 0.15f, 1.2f},
+		{"click out 3.ogg", 0.15f, 1.2f},
+		{"click out 4.ogg", 0.15f, 1.2f},
+	};
+	az::Array<SoundDef> sndClickSoftDefs = {
+		{"click soft 1.ogg", 0.01f, 1.2f},
+		{"click soft 2.ogg", 0.01f, 1.2f},
+	};
+	SoundDef sndCheckboxOnDef = {"Pop High.ogg", 0.1f, 1.0f};
+	SoundDef sndCheckboxOffDef = {"Pop Low.ogg", 0.1f, 1.0f};
+
+	// assets
+	Assets::FontIndex fontIndex;
+	az::Array<Sound::Source> sndClickInSources;
+	az::Array<Sound::Source> sndClickOutSources;
+	az::Array<Sound::Source> sndClickSoftSources;
+	Sound::Source sndCheckboxOn, sndCheckboxOff;
+	Sound::MultiSource sndClickIn;
+	Sound::MultiSource sndClickOut;
+	Sound::MultiSource sndClickSoft;
+	Assets::Font *font;
+
+	i32 controlDepth = 0;
+	f32 scale = 2.0f;
+	bool usingMouse = true;
+	bool usingArrows = false;
+	bool usingGamepad = false;
+	// Used to make sure the mouse can only interact with top-most widgets.
+	// Also provides an easy test to see if the mouse can interact with items below it.
+	Widget *mouseoverWidget;
+	i32 mouseoverDepth;
+	vec2 selectedCenter;
+	
+	bool console = false;
+	DevConsole devConsole;
+
+	az::HashSet<Widget*> allWidgets; // So we can delete them at the end of the program.
+
+	GuiBasic();
+	~GuiBasic();
+
+	void EventAssetsQueue() override;
+	void EventAssetsAcquire() override;
+	void EventInitialize() override;
+	// When deriving, call this first, do your own sync, and then set readyForDraw to true at the end.
+	void EventSync() override;
+	void EventDraw(az::Array<Rendering::DrawingContext> &contexts) override;
+};
+
+// global accessor to our basic gui, should be derived from, created in main, and passed into GameSystems::Init
+extern GuiBasic *guiBasic;
 
 } // namespace Az2D
 

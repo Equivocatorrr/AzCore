@@ -554,8 +554,32 @@ struct Binding {
 template <typename T>
 using List = Array<UniquePtr<T>>;
 
+struct Fence {
+	VkFence vkFence;
+	
+	Device *device;
+	Str tag;
+	bool initted = false;
+	
+	Fence() = default;
+	Fence(Device *_device, Str _tag) : device(_device), tag(_tag) {}
+};
+
+struct Semaphore {
+	VkSemaphore vkSemaphore;
+	
+	Device *device;
+	Str tag;
+	bool initted = false;
+	
+	Semaphore() = default;
+	Semaphore(Device *_device, Str _tag) : device(_device), tag(_tag) {}
+};
+
 struct Window {
 	bool vsync = false;
+	
+	bool shouldReconfigure = false;
 	
 	io::Window *window;
 	
@@ -567,12 +591,18 @@ struct Window {
 	VkSurfaceFormatKHR surfaceFormat;
 	VkPresentModeKHR presentMode;
 	VkExtent2D extent;
-	u32 numImages;
+	i32 numImages;
 	struct SwapchainImage {
-		VkImage image;
-		VkImageView imageView;
+		VkImage vkImage;
+		VkImageView vkImageView;
 	};
 	Array<SwapchainImage> swapchainImages;
+	Array<Fence> acquireFences;
+	Array<Semaphore> acquireSemaphores;
+	// We get this one from vkAcquireNextImageKHR
+	i32 currentImage;
+	// We increment this one ourselves
+	i32 currentSync;
 	
 	VkSurfaceKHR vkSurface;
 	VkSwapchainKHR vkSwapchain;
@@ -842,6 +872,21 @@ List<Device> devices;
 List<Window> windows;
 
 
+[[nodiscard]] Result<VoidResult_t, String> FenceInit(Fence *fence, bool startSignaled=false);
+void FenceDeinit(Fence *fence);
+// VK_SUCCESS indicates it's signaled
+// VK_NOT_READY indicates it's not signaled
+// VK_ERROR_DEVICE_LOST may also be returned.
+[[nodiscard]] VkResult FenceGetStatus(Fence *fence);
+// Sets fence state to not signaled
+[[nodiscard]] Result<VoidResult_t, String> FenceResetSignaled(Fence *fence);
+// dstWasTimout will be set to whether the signal timed out
+[[nodiscard]] Result<VoidResult_t, String> FenceWaitForSignal(Fence *fence, u64 timeout=UINT64_MAX, bool *dstWasTimeout=nullptr);
+
+[[nodiscard]] Result<VoidResult_t, String> SemaphoreInit(Semaphore *semaphore);
+void SemaphoreDeinit(Semaphore *semaphore);
+
+
 [[nodiscard]] Result<VoidResult_t, String> WindowSurfaceInit(Window *window);
 void WindowSurfaceDeinit(Window *window);
 
@@ -1011,6 +1056,69 @@ void Deinitialize() {
 
 #endif
 
+#ifndef Synchronization_Primitives
+
+Result<VoidResult_t, String> FenceInit(Fence *fence, bool startSignaled) {
+	INIT_HEAD(fence);
+	VkFenceCreateInfo createInfo = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+	if (startSignaled) {
+		createInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+	}
+	if (VkResult result = vkCreateFence(fence->device->vkDevice, &createInfo, nullptr, &fence->vkFence); result != VK_SUCCESS) {
+		return ERROR_RESULT(fence, "Failed to create Fence: ", VkResultString(result));
+	}
+	fence->initted = true;
+	return VoidResult_t();
+}
+
+void FenceDeinit(Fence *fence) {
+	DEINIT_HEAD(fence);
+	vkDestroyFence(fence->device->vkDevice, fence->vkFence, nullptr);
+}
+
+VkResult FenceGetStatus(Fence *fence) {
+	return vkGetFenceStatus(fence->device->vkDevice, fence->vkFence);
+}
+
+Result<VoidResult_t, String> FenceResetSignaled(Fence *fence) {
+	if (VkResult result = vkResetFences(fence->device->vkDevice, 1, &fence->vkFence); result != VK_SUCCESS) {
+		return ERROR_RESULT(fence, "vkResetFences failed with ", VkResultString(result));
+	}
+	return VoidResult_t();
+}
+
+Result<VoidResult_t, String> FenceWaitForSignal(Fence *fence, u32 timeout, bool *dstWasTimeout) {
+	VkResult result = vkWaitForFences(fence->device->vkDevice, 1, &fence->vkFence, VK_TRUE, timeout);
+	bool wasTimeout;
+	if (result == VK_SUCCESS) {
+		wasTimeout = false;
+	} else if (result == VK_TIMEOUT) {
+		wasTimeout = true;
+	} else {
+		return ERROR_RESULT(fence, "vkWaitForFences failed with ", VkResultString(result));
+	}
+	if (dstWasTimeout) *dstWasTimeout = wasTimeout;
+	return VoidResult_t();
+}
+
+
+
+Result<VoidResult_t, String> SemaphoreInit(Semaphore *semaphore) {
+	INIT_HEAD(semaphore);
+	VkSemaphoreCreateInfo createInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+	if (VkResult result = vkCreateSemaphore(semaphore->device->vkDevice, &createInfo, nullptr, &semaphore->vkSemaphore); result != VK_SUCCESS) {
+		return ERROR_RESULT(semaphore, "Failed to create semaphore: ", VkResultString(result));
+	}
+	return VoidResult_t();
+}
+
+void SemaphoreDeinit(Semaphore *semaphore) {
+	DEINIT_HEAD(semaphore);
+	vkDestroySemaphore(semaphore->device->vkDevice, semaphore->vkSemaphore, nullptr);
+}
+
+#endif
+
 #ifndef Window
 
 Result<Window*, String> AddWindow(io::Window *window, Str tag) {
@@ -1033,6 +1141,9 @@ void FramebufferAddWindow(Framebuffer *framebuffer, Window *window) {
 }
 
 void SetVSync(Window *window, bool enable) {
+	if (window->initted) {
+		window->shouldReconfigure = enable != window->vsync;
+	}
 	window->vsync = enable;
 }
 
@@ -1158,8 +1269,27 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 		window->extent.height = clamp((u32)window->window->height, window->surfaceCaps.minImageExtent.height, window->surfaceCaps.maxImageExtent.height);
 	}
 	io::cout.PrintLnDebug("Extent: ", window->extent.width, "x", window->extent.height);
-	window->numImages = clamp(imageCountPreferred, window->surfaceCaps.minImageCount, window->surfaceCaps.maxImageCount);
+	window->numImages = (i32)clamp(imageCountPreferred, window->surfaceCaps.minImageCount, window->surfaceCaps.maxImageCount);
 	io::cout.PrintLnDebug("Number of images: ", window->numImages);
+	if (window->acquireFences.size > window->numImages) {
+		for (i32 i = window->acquireFences.size-1; i >= window->numImages; i--) {
+			FenceDeinit(&window->acquireFences[i]);
+			SemaphoreDeinit(&window->acquireSemaphores[i]);
+		}
+		window->acquireFences.Resize(window->numImages);
+		window->acquireSemaphores.Resize(window->numImages);
+	} else if (window->acquireFences.size < window->numImages) {
+		window->acquireFences.Resize(window->numImages, Fence(window->device, "WindowAcquireFence"));
+		window->acquireSemaphores.Resize(window->numImages, Semaphore(window->device, "WindowAcquireSemaphore"));
+		for (i32 i = 0; i < window->numImages; i++) {
+			if (auto result = FenceInit(&window->acquireFences[i]); result.isError) {
+				return ERROR_RESULT(window, result.error);
+			}
+			if (auto result = SemaphoreInit(&window->acquireSemaphores[i]); result.isError) {
+				return ERROR_RESULT(window, result.error);
+			}
+		}
+	}
 	{ // Create the swapchain
 		VkSwapchainCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
 		createInfo.surface = window->vkSurface;
@@ -1192,9 +1322,11 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 	}
 	{ // Get Images and create Image Views
 		Array<VkImage> images;
-		vkGetSwapchainImagesKHR(window->device->vkDevice, window->vkSwapchain, &window->numImages, nullptr);
+		u32 numImages;
+		vkGetSwapchainImagesKHR(window->device->vkDevice, window->vkSwapchain, &numImages, nullptr);
 		images.Resize(window->numImages);
-		vkGetSwapchainImagesKHR(window->device->vkDevice, window->vkSwapchain, &window->numImages, images.data);
+		vkGetSwapchainImagesKHR(window->device->vkDevice, window->vkSwapchain, &numImages, images.data);
+		window->numImages = (i32)numImages;
 		window->swapchainImages.Resize(images.size);
 		VkImageViewCreateInfo createInfo = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
 		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -1203,10 +1335,10 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 		createInfo.subresourceRange.levelCount = 1;
 		createInfo.subresourceRange.layerCount = 1;
 		for (i32 i = 0; i < images.size; i++) {
-			window->swapchainImages[i].image = images[i];
+			window->swapchainImages[i].vkImage = images[i];
 			createInfo.image = images[i];
 			
-			if (VkResult result = vkCreateImageView(window->device->vkDevice, &createInfo, nullptr, &window->swapchainImages[i].imageView); result != VK_SUCCESS) {
+			if (VkResult result = vkCreateImageView(window->device->vkDevice, &createInfo, nullptr, &window->swapchainImages[i].vkImageView); result != VK_SUCCESS) {
 				return ERROR_RESULT(window, "Failed to create Image View for Swapchain image ", i, ":", VkResultString(result));
 			}
 		}
@@ -1216,6 +1348,7 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 			return ERROR_RESULT(window, "Live framebuffer updates are not implemented");
 		}
 	}
+	window->currentSync = 0;
 	window->initted = true;
 	return VoidResult_t();
 }
@@ -1227,7 +1360,41 @@ void WindowDeinit(Window *window) {
 
 
 Result<VoidResult_t, String> WindowUpdate(Window *window) {
-	return ERROR_RESULT(window, "Unimplemented");
+	bool resize = false;
+	if (window->window->width != window->extent.width
+	 || window->window->height != window->extent.height) {
+		resize = true;
+	}
+	if (resize || window->shouldReconfigure) {
+reconfigure:
+		if (auto result = WindowInit(window); result.isError) {
+			return Stringify("Failed to reconfigure window: ", result.error);
+		}
+		window->shouldReconfigure = false;
+	}
+	
+	// Swapchain::AcquireNextImage
+	window->currentSync = (window->currentSync + 1) % window->numImages;
+	Fence *fence = &window->acquireFences[window->currentSync];
+	if (auto result = FenceResetSignaled(fence); result.isError) {
+		return ERROR_RESULT(window, result.error);
+	}
+	Semaphore *semaphore = &window->acquireSemaphores[window->currentSync];
+	u32 currentImage;
+	VkResult result = vkAcquireNextImageKHR(window->device->vkDevice, window->vkSwapchain, UINT64_MAX, semaphore->vkSemaphore, fence->vkFence, &currentImage);
+	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+		goto reconfigure;
+	} else if (result == VK_TIMEOUT || result == VK_NOT_READY) {
+		// This shouldn't happen with a timeout of UINT64_MAX
+		return ERROR_RESULT(window, "Unreachable");
+	} else if (result == VK_SUBOPTIMAL_KHR) {
+		// Let it go, we'll resize next time
+		window->shouldReconfigure = true;
+	} else if (result != VK_SUCCESS) {
+		return ERROR_RESULT(window, "Failed to acquire swapchain image: ", VkResultString(result));
+	}
+	window->currentImage = (i32)currentImage;
+	return VoidResult_t();
 }
 
 Result<VoidResult_t, String> WindowPresent(Window *window) {

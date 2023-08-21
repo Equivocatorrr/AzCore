@@ -79,6 +79,11 @@ void UpdateLoop() {
 			sys->frametimes.Update();
 			if (vsync) {
 				f32 targetFramerate = clamp((f32)sys->window.refreshRate / 1000.0f, 30.0f, 300.0f);
+				f32 measuredFramerate = 1000.0f / sys->frametimes.AverageWithoutOutliers();
+				if (abs(measuredFramerate - targetFramerate) / targetFramerate > 0.05f) {
+					// We're not within 5% of our refresh rate, so fallback to measured framerate
+					targetFramerate = measuredFramerate;
+				}
 				sys->SetFramerate(targetFramerate, true);
 			}
 		}

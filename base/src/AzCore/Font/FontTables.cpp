@@ -230,12 +230,14 @@ u32 cmap_format4::GetGlyphIndex(char32 glyph) {
 		if (endCode(i) >= glyph) { // Find the first endCode >= glyph
 			if (startCode(i) <= glyph) { // We're in the range
 				segment = i;
-				break;
+				goto found;
 			} else { // We're not in the range
 				return 0;
 			}
 		}
 	}
+	return 0;
+found:
 	// If we got this far, we have a mapped segment.
 	if (idRangeOffset(segment) == 0) {
 		// cout << "idDelta(" << segment << ") = " << idDelta(segment) << std::endl;

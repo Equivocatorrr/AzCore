@@ -26,6 +26,12 @@
 #ifdef TRANSPARENT
 #undef TRANSPARENT
 #endif
+#ifdef TRUE
+#undef TRUE
+#endif
+#ifdef FALSE
+#undef FALSE
+#endif
 
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 0
@@ -35,27 +41,82 @@ namespace AzCore::GPU {
 
 #ifndef Utils
 
+// Per-location stride
 constexpr i64 ShaderValueTypeStride[] = {
-	/* U32 */   4,
-	/* I32 */   4,
-	/* IVEC2 */ 8,
-	/* IVEC3 */ 16,
-	/* IVEC4 */ 16,
-	/* F32 */   4,
-	/* VEC2 */  8,
-	/* VEC3 */  16,
-	/* VEC4 */  16,
+	/* U32 */    4,
+	/* I32 */    4,
+	/* IVEC2 */  8,
+	/* IVEC3 */  16,
+	/* IVEC4 */  16,
+	/* F32 */    4,
+	/* VEC2 */   8,
+	/* VEC3 */   16,
+	/* VEC4 */   16,
+	/* MAT2 */   8,
+	/* MAT2X3 */ 16,
+	/* MAT2X4 */ 16,
+	/* MAT3X2 */ 8,
+	/* MAT3 */   16,
+	/* MAT3X4 */ 16,
+	/* MAT4X2 */ 8,
+	/* MAT4X3 */ 16,
+	/* MAT4 */   16,
+	/* F64 */    8,
+	/* DVEC2 */  16,
+	// A special exception must be made for DVEC3, as the second location's stride is half the first
+	/* DVEC3 */  16,
+	/* DVEC4 */  16,
 };
+// How many location bindings this value consumes
+constexpr i64 ShaderValueNumLocations[] = {
+	/* U32 */    1,
+	/* I32 */    1,
+	/* IVEC2 */  1,
+	/* IVEC3 */  1,
+	/* IVEC4 */  1,
+	/* F32 */    1,
+	/* VEC2 */   1,
+	/* VEC3 */   1,
+	/* VEC4 */   1,
+	/* MAT2 */   2,
+	/* MAT2X3 */ 2,
+	/* MAT2X4 */ 2,
+	/* MAT3X2 */ 3,
+	/* MAT3 */   3,
+	/* MAT3X4 */ 3,
+	/* MAT4X2 */ 4,
+	/* MAT4X3 */ 4,
+	/* MAT4 */   4,
+	/* F64 */    1,
+	/* DVEC2 */  1,
+	/* DVEC3 */  2,
+	/* DVEC4 */  2,
+};
+// Format that describes a single location (gets duplicated ShaderValueNumLocations times)
 constexpr VkFormat ShaderValueFormats[] = {
-	/* U32 */   VK_FORMAT_R32_UINT,
-	/* I32 */   VK_FORMAT_R32_SINT,
-	/* IVEC2 */ VK_FORMAT_R32G32_SINT,
-	/* IVEC3 */ VK_FORMAT_R32G32B32_SINT,
-	/* IVEC4 */ VK_FORMAT_R32G32B32A32_SINT,
-	/* F32 */   VK_FORMAT_R32_SFLOAT,
-	/* VEC2 */  VK_FORMAT_R32G32_SFLOAT,
-	/* VEC3 */  VK_FORMAT_R32G32B32_SFLOAT,
-	/* VEC4 */  VK_FORMAT_R32G32B32A32_SFLOAT,
+	/* U32 */    VK_FORMAT_R32_UINT,
+	/* I32 */    VK_FORMAT_R32_SINT,
+	/* IVEC2 */  VK_FORMAT_R32G32_SINT,
+	/* IVEC3 */  VK_FORMAT_R32G32B32_SINT,
+	/* IVEC4 */  VK_FORMAT_R32G32B32A32_SINT,
+	/* F32 */    VK_FORMAT_R32_SFLOAT,
+	/* VEC2 */   VK_FORMAT_R32G32_SFLOAT,
+	/* VEC3 */   VK_FORMAT_R32G32B32_SFLOAT,
+	/* VEC4 */   VK_FORMAT_R32G32B32A32_SFLOAT,
+	/* MAT2 */   VK_FORMAT_R32G32_SFLOAT,
+	/* MAT2X3 */ VK_FORMAT_R32G32B32_SFLOAT,
+	/* MAT2X4 */ VK_FORMAT_R32G32B32A32_SFLOAT,
+	/* MAT3X2 */ VK_FORMAT_R32G32_SFLOAT,
+	/* MAT3 */   VK_FORMAT_R32G32B32_SFLOAT,
+	/* MAT3X4 */ VK_FORMAT_R32G32B32A32_SFLOAT,
+	/* MAT4X2 */ VK_FORMAT_R32G32_SFLOAT,
+	/* MAT4X3 */ VK_FORMAT_R32G32B32_SFLOAT,
+	/* MAT4 */   VK_FORMAT_R32G32B32A32_SFLOAT,
+	/* F64 */    VK_FORMAT_R64_SFLOAT,
+	/* DVEC2 */  VK_FORMAT_R64G64_SFLOAT,
+	// A special exception must be made for DVEC3, as the second location's format is VK_FORMAT_R64_SFLOAT
+	/* DVEC3 */  VK_FORMAT_R64G64_SFLOAT,
+	/* DVEC4 */  VK_FORMAT_R64G64_SFLOAT,
 };
 
 Str imageComponentTypeStrings[9] = {
@@ -659,6 +720,7 @@ struct Instance {
 	Array<VkExtensionProperties> extensionsAvailable;
 	Array<VkLayerProperties> layersAvailable;
 
+	PFN_vkSetDebugUtilsObjectNameEXT fpSetDebugUtilsObjectNameEXT;
 	VkInstance vkInstance;
 
 	bool initted = false;
@@ -727,7 +789,9 @@ struct Device {
 struct Context {
 	VkCommandPool vkCommandPool;
 	VkCommandBuffer vkCommandBuffer;
-	VkFence vkFence;
+	Fence fence;
+	Array<VkDescriptorSetLayout> vkDescriptorSetLayouts;
+	Array<VkDescriptorSet> vkDescriptorSets;
 
 	struct {
 		Framebuffer *framebuffer = nullptr;
@@ -759,23 +823,50 @@ inline bool ContextIsRecording(Context *context) {
 }
 
 struct Pipeline {
-	f32 lineWidth = 1.0f;
 	struct Shader {
-		Str filename;
+		String filename;
 		ShaderStage stage;
+		VkShaderModule vkShaderModule;
+		bool initted = false;
 	};
 	Array<Shader> shaders;
-	Array<Buffer*> buffers;
-	Array<Image*> images;
 	ArrayWithBucket<ShaderValueType, 8> vertexInputs;
-	BlendMode blendMode = BlendMode::OPAQUE;
+	
+	Topology topology = Topology::TRIANGLE_LIST;
+	
+	CullingMode cullingMode = CullingMode::NONE;
+	Winding winding = Winding::COUNTER_CLOCKWISE;
+	// depthBias is calculated as (constant + slope*m) where m can either be sqrt(dFdx(z)^2 + dFdy(z)^2) or fwidth(z) depending on the implementation.
+	// for clampValue > 0, depthBias = min(depthBias, clampValue)
+	// for clampValue < 0, depthBias = max(depthBias, clampValue)
+	// for clampValue == 0, depthBias is unchanged
+	// The absolute bias depthBias represents depends on the depth buffer format. In general, a value of 1.0 corresponds to the minimum depth difference representable by the depth buffer.
+	// TODO: Clarify the above statement.
+	struct DepthBias {
+		bool enable = false;
+		f32 constant = 0.0f;
+		f32 slope = 0.0f;
+		f32 clampValue = 0.0f;
+	} depthBias;
+	f32 lineWidth = 1.0f;
+	
+	// DEFAULT means true if we have a depth buffer, else false
+	BoolOrDefault depthTest = BoolOrDefault::DEFAULT;
+	BoolOrDefault depthWrite = BoolOrDefault::DEFAULT;
+	CompareOp depthCompareOp = CompareOp::LESS;
+	
+	// One for each possible color attachment
+	BlendMode blendModes[8];
 
 	enum Kind {
 		GRAPHICS,
 		COMPUTE,
-	} kind;
+	} kind=GRAPHICS;
 
-	VkPipeline vkPipeline;
+	// Keep track of current layout properties so we don't have to recreate everything all the time
+	VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo{};
+	VkPipelineLayout vkPipelineLayout = VK_NULL_HANDLE;
+	VkPipeline vkPipeline = VK_NULL_HANDLE;
 
 	Device *device;
 	Str tag;
@@ -872,8 +963,12 @@ struct Attachment {
 struct Framebuffer {
 	Array<Attachment> attachments;
 
-	VkFramebuffer vkFramebuffer;
+	// If we have a WINDOW attachment, this will match the number of swapchain images, else it will just be size 1
+	Array<VkFramebuffer> vkFramebuffers;
 	VkRenderPass vkRenderPass;
+	
+	// width and height will be set automagically, just used for easy access
+	i32 width, height;
 
 	Device *device;
 	Str tag;
@@ -886,6 +981,18 @@ struct Framebuffer {
 Instance instance;
 List<Device> devices;
 List<Window> windows;
+
+
+static void SetDebugMarker(Device *device, const String &debugMarker, VkObjectType objectType, u64 objectHandle) {
+	if (instance.enableValidationLayers && debugMarker.size != 0) {
+		VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+		nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+		nameInfo.objectType = objectType;
+		nameInfo.objectHandle = objectHandle;
+		nameInfo.pObjectName = debugMarker.data;
+		instance.fpSetDebugUtilsObjectNameEXT(device->vkDevice, &nameInfo);
+	}
+}
 
 
 [[nodiscard]] Result<VoidResult_t, String> FenceInit(Fence *fence, bool startSignaled=false);
@@ -922,6 +1029,9 @@ void MemoryFree(Allocation allocation);
 void ContextDeinit(Context *context);
 
 
+[[nodiscard]] Result<VoidResult_t, String> PipelineInit(Pipeline *pipeline);
+void PipelineDeinit(Pipeline *pipeline);
+
 [[nodiscard]] Result<VoidResult_t, String> BufferInit(Buffer *buffer);
 void BufferDeinit(Buffer *buffer);
 [[nodiscard]] Result<VoidResult_t, String> BufferHostInit(Buffer *buffer);
@@ -935,6 +1045,8 @@ void ImageHostDeinit(Image *image);
 
 [[nodiscard]] Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer);
 void FramebufferDeinit(Framebuffer *framebuffer);
+[[nodiscard]] VkFramebuffer FramebufferGetCurrentVkFramebuffer(Framebuffer *framebuffer);
+[[nodiscard]] bool FramebufferHasDepthBuffer(Framebuffer *framebuffer);
 
 #endif
 
@@ -963,6 +1075,9 @@ Result<VoidResult_t, String> Initialize() {
 
 	Array<const char*> extensions;
 	{ // Add and check availability of extensions
+		if (instance.enableValidationLayers) {
+			extensions.Append(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+		}
 		if (windows.size) {
 			extensions.Append("VK_KHR_surface");
 	#ifdef __unix
@@ -998,6 +1113,7 @@ Result<VoidResult_t, String> Initialize() {
 	Array<const char*> layers;
 	{ // Add and check availablility of layers
 		if (instance.enableValidationLayers) {
+			io::cout.PrintLn("Enabling validation layers");
 			layers = {
 				"VK_LAYER_KHRONOS_validation",
 			};
@@ -1034,6 +1150,13 @@ Result<VoidResult_t, String> Initialize() {
 		return Stringify("vkCreateInstance failed with ", VkResultString(vkResult));
 	}
 	instance.initted = true;
+	
+	if (instance.enableValidationLayers) {
+		instance.fpSetDebugUtilsObjectNameEXT = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(instance.vkInstance, "vkSetDebugUtilsObjectNameEXT");
+		if (instance.fpSetDebugUtilsObjectNameEXT == nullptr) {
+			return "vkGetInstanceProcAddr failed to get vkSetDebugUtilsObjectNameEXT";
+		}
+	}
 
 	u32 physicalDeviceCount = 0;
 	vkEnumeratePhysicalDevices(instance.vkInstance, &physicalDeviceCount, nullptr);
@@ -1086,6 +1209,7 @@ Result<VoidResult_t, String> FenceInit(Fence *fence, bool startSignaled) {
 	if (VkResult result = vkCreateFence(fence->device->vkDevice, &createInfo, nullptr, &fence->vkFence); result != VK_SUCCESS) {
 		return ERROR_RESULT(fence, "Failed to create Fence: ", VkResultString(result));
 	}
+	SetDebugMarker(fence->device, fence->tag, VK_OBJECT_TYPE_FENCE, (u64)fence->vkFence);
 	fence->initted = true;
 	return VoidResult_t();
 }
@@ -1106,7 +1230,7 @@ Result<VoidResult_t, String> FenceResetSignaled(Fence *fence) {
 	return VoidResult_t();
 }
 
-Result<VoidResult_t, String> FenceWaitForSignal(Fence *fence, u32 timeout, bool *dstWasTimeout) {
+Result<VoidResult_t, String> FenceWaitForSignal(Fence *fence, u64 timeout, bool *dstWasTimeout) {
 	VkResult result = vkWaitForFences(fence->device->vkDevice, 1, &fence->vkFence, VK_TRUE, timeout);
 	bool wasTimeout;
 	if (result == VK_SUCCESS) {
@@ -1128,6 +1252,7 @@ Result<VoidResult_t, String> SemaphoreInit(Semaphore *semaphore) {
 	if (VkResult result = vkCreateSemaphore(semaphore->device->vkDevice, &createInfo, nullptr, &semaphore->vkSemaphore); result != VK_SUCCESS) {
 		return ERROR_RESULT(semaphore, "Failed to create semaphore: ", VkResultString(result));
 	}
+	SetDebugMarker(semaphore->device, semaphore->tag, VK_OBJECT_TYPE_SEMAPHORE, (u64)semaphore->vkSemaphore);
 	return VoidResult_t();
 }
 
@@ -1208,6 +1333,7 @@ void WindowSurfaceDeinit(Window *window) {
 
 Result<VoidResult_t, String> WindowInit(Window *window) {
 	TRACE_INIT(window);
+	SetDebugMarker(window->device, window->tag, VK_OBJECT_TYPE_SURFACE_KHR, (u64)window->vkSurface);
 	{ // Query surface capabilities
 		VkPhysicalDevice vkPhysicalDevice = window->device->physicalDevice->vkPhysicalDevice;
 		VkSurfaceKHR vkSurface = window->vkSurface;
@@ -1338,6 +1464,7 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 			vkDestroySwapchainKHR(window->device->vkDevice, window->vkSwapchain, nullptr);
 		}
 		window->vkSwapchain = newSwapchain;
+		SetDebugMarker(window->device, Stringify(window->tag, " swapchain"), VK_OBJECT_TYPE_SWAPCHAIN_KHR, (u64)window->vkSwapchain);
 	}
 	{ // Get Images and create Image Views
 		Array<VkImage> images;
@@ -1356,10 +1483,12 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 		for (i32 i = 0; i < images.size; i++) {
 			window->swapchainImages[i].vkImage = images[i];
 			createInfo.image = images[i];
+			SetDebugMarker(window->device, Stringify(window->tag, " swapchain image ", i), VK_OBJECT_TYPE_IMAGE, (u64)window->swapchainImages[i].vkImage);
 
 			if (VkResult result = vkCreateImageView(window->device->vkDevice, &createInfo, nullptr, &window->swapchainImages[i].vkImageView); result != VK_SUCCESS) {
 				return ERROR_RESULT(window, "Failed to create Image View for Swapchain image ", i, ":", VkResultString(result));
 			}
+			SetDebugMarker(window->device, Stringify(window->tag, " swapchain image view ", i), VK_OBJECT_TYPE_IMAGE_VIEW, (u64)window->swapchainImages[i].vkImageView);
 		}
 	}
 	{ // TODO: Update Framebuffer
@@ -1600,6 +1729,7 @@ Result<VoidResult_t, String> MemoryAddPage(Memory *memory, u32 minSize) {
 	if (VkResult result = vkAllocateMemory(memory->device->vkDevice, &allocInfo, nullptr, &newPage.vkMemory); result != VK_SUCCESS) {
 		return Stringify("Memory \"", memory->tag, "\" error: Failed to allocate a new page: ", VkResultString(result));
 	}
+	SetDebugMarker(memory->device, Stringify(memory->tag, " page ", memory->pages.size-1), VK_OBJECT_TYPE_DEVICE_MEMORY, (u64)newPage.vkMemory);
 	newPage.segments.Append(Memory::Page::Segment{0, minSize, false});
 	return VoidResult_t();
 }
@@ -1754,6 +1884,10 @@ Result<VoidResult_t, String> DeviceInit(Device *device) {
 			}
 		}
 breakout:
+		if (device->pipelines.size) {
+			// For VK_DYNAMIC_STATE_VERTEX_INPUT_EXT
+			// extensions.Append("VK_EXT_vertex_input_dynamic_state");
+		}
 		auto physicalDevice = FindBestPhysicalDeviceWithExtensions(extensions);
 		if (physicalDevice.isError) return physicalDevice.error;
 		device->physicalDevice = physicalDevice.value;
@@ -1850,7 +1984,7 @@ breakout2:
 	if (result != VK_SUCCESS) {
 		return Stringify("Failed to create Device: ", VkResultString(result));
 	}
-
+	SetDebugMarker(device, device->tag, VK_OBJECT_TYPE_DEVICE, (u64)device->vkDevice);
 	device->initted = true;
 
 	vkGetDeviceQueue(device->vkDevice, device->queueFamilyIndex, 0, &device->vkQueue);
@@ -1881,6 +2015,11 @@ breakout2:
 			return ERROR_RESULT(device, result.error);
 		}
 	}
+	for (auto &pipeline : device->pipelines) {
+		if (auto result = PipelineInit(pipeline.RawPtr()); result.isError) {
+			return ERROR_RESULT(device, result.error);
+		}
+	}
 	// TODO: Init everything else
 
 	return VoidResult_t();
@@ -1900,6 +2039,9 @@ void DeviceDeinit(Device *device) {
 	}
 	for (auto &image : device->images) {
 		ImageDeinit(image.RawPtr());
+	}
+	for (auto &pipeline : device->pipelines) {
+		PipelineDeinit(pipeline.RawPtr());
 	}
 	vkDestroyDevice(device->vkDevice, nullptr);
 }
@@ -1932,6 +2074,7 @@ Result<VoidResult_t, String> BufferInit(Buffer *buffer) {
 	if (VkResult result = vkCreateBuffer(buffer->device->vkDevice, &createInfo, nullptr, &buffer->vkBuffer); result != VK_SUCCESS) {
 		return Stringify("Buffer \"", buffer->tag, "\" error: Failed to create buffer: ", VkResultString(result));
 	}
+	SetDebugMarker(buffer->device, buffer->tag, VK_OBJECT_TYPE_BUFFER, (u64)buffer->vkBuffer);
 	vkGetBufferMemoryRequirements(buffer->device->vkDevice, buffer->vkBuffer, &buffer->memoryRequirements);
 	if (auto result = AllocateBuffer(buffer->device, buffer->vkBuffer, buffer->memoryRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT); result.isError) {
 		return result.error;
@@ -1964,6 +2107,7 @@ Result<VoidResult_t, String> BufferHostInit(Buffer *buffer) {
 	if (VkResult result = vkCreateBuffer(buffer->device->vkDevice, &createInfo, nullptr, &buffer->vkBufferHostVisible); result != VK_SUCCESS) {
 		return Stringify("Buffer \"", buffer->tag, "\" error: Failed to create staging buffer: ", VkResultString(result));
 	}
+	SetDebugMarker(buffer->device, Stringify(buffer->tag, " host-visible buffer"), VK_OBJECT_TYPE_BUFFER, (u64)buffer->vkBufferHostVisible);
 	if (auto result = AllocateBuffer(buffer->device, buffer->vkBufferHostVisible, buffer->memoryRequirements, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT); result.isError) {
 		return result.error;
 	} else {
@@ -2005,6 +2149,9 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 	createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	createInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	if (image->mipmapped) {
+		createInfo.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	}
 	if (image->sampledStages) {
 		createInfo.usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
 	}
@@ -2017,6 +2164,13 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 	if (VkResult result = vkCreateImage(image->device->vkDevice, &createInfo, nullptr, &image->vkImage); result != VK_SUCCESS) {
 		return Stringify("Image \"", image->tag, "\" error: Failed to create image: ", VkResultString(result));
 	}
+	SetDebugMarker(image->device, image->tag, VK_OBJECT_TYPE_IMAGE, (u64)image->vkImage);
+	vkGetImageMemoryRequirements(image->device->vkDevice, image->vkImage, &image->memoryRequirements);
+	if (auto result = AllocateImage(image->device, image->vkImage, image->memoryRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT); result.isError) {
+		return result.error;
+	} else {
+		image->alloc = result.value;
+	}
 	VkImageViewCreateInfo viewCreateInfo = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
 	viewCreateInfo.image = image->vkImage;
 	viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -2028,12 +2182,7 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 	if (VkResult result = vkCreateImageView(image->device->vkDevice, &viewCreateInfo, nullptr, &image->vkImageView); result != VK_SUCCESS) {
 		return Stringify("Image \"", image->tag, "\" error: Failed to create image view: ", VkResultString(result));
 	}
-	vkGetImageMemoryRequirements(image->device->vkDevice, image->vkImage, &image->memoryRequirements);
-	if (auto result = AllocateImage(image->device, image->vkImage, image->memoryRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT); result.isError) {
-		return result.error;
-	} else {
-		image->alloc = result.value;
-	}
+	SetDebugMarker(image->device, Stringify(image->tag, " image view"), VK_OBJECT_TYPE_IMAGE_VIEW, (u64)image->vkImageView);
 	image->initted = true;
 	return VoidResult_t();
 }
@@ -2061,6 +2210,7 @@ Result<VoidResult_t, String> ImageHostInit(Image *image) {
 	if (VkResult result = vkCreateBuffer(image->device->vkDevice, &createInfo, nullptr, &image->vkBufferHostVisible); result != VK_SUCCESS) {
 		return Stringify("Buffer \"", image->tag, "\" error: Failed to create image staging buffer: ", VkResultString(result));
 	}
+	SetDebugMarker(image->device, Stringify(image->tag, " host-visible buffer"), VK_OBJECT_TYPE_BUFFER, (u64)image->vkBufferHostVisible);
 	vkGetBufferMemoryRequirements(image->device->vkDevice, image->vkBufferHostVisible, &image->bufferMemoryRequirements);
 	if (auto result = AllocateBuffer(image->device, image->vkBufferHostVisible, image->bufferMemoryRequirements, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT); result.isError) {
 		return result.error;
@@ -2348,12 +2498,15 @@ void ImageSetUsageSampled(Image *image, u32 shaderStages) {
 
 Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 	INIT_HEAD(framebuffer);
+	if (framebuffer->attachments.size == 0) {
+		return ERROR_RESULT(framebuffer, "We have no attachments!");
+	}
 	{ // RenderPass
 		bool hasDepth = false;
 		bool hasColor = false;
 		Array<VkAttachmentDescription> attachments(framebuffer->attachments.size);
 		Array<VkAttachmentReference> attachmentRefsColor;
-		Array<VkAttachmentReference> attachmentRefsDepth;
+		VkAttachmentReference attachmentRefDepth;
 		Array<u32> preserveAttachments;
 		for (i32 i = 0; i < framebuffer->attachments.size; i++) {
 			Attachment &attachment = framebuffer->attachments[i];
@@ -2371,6 +2524,7 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 			VkAttachmentReference ref;
 			ref.attachment = i;
 			VkAttachmentDescription &desc = attachments[i];
+			desc = {};
 			if (attachment.kind == Attachment::WINDOW) {
 				desc.format = attachment.window->surfaceFormat.format;
 			} else {
@@ -2384,20 +2538,25 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 			}
 			switch (attachment.kind) {
 			case Attachment::WINDOW:
+				hasColor = true;
+				desc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+				ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+				attachmentRefsColor.Append(ref);
+				break;
 			case Attachment::IMAGE:
 				hasColor = true;
 				desc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-				ref.layout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+				ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				attachmentRefsColor.Append(ref);
 				break;
 			case Attachment::DEPTH_BUFFER:
+				if (hasDepth) {
+					return ERROR_RESULT(framebuffer, "Cannot have more than one depth attachment");
+				}
 				hasDepth = true;
 				desc.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 				ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-				if (attachmentRefsDepth.size) {
-					return ERROR_RESULT(framebuffer, "Cannot have more than one depth attachment");
-				}
-				attachmentRefsDepth.Append(ref);
+				attachmentRefDepth = ref;
 				break;
 			}
 			if (attachment.load) {
@@ -2415,11 +2574,11 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 			desc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		}
 		VkSubpassDescription subpass{};
-		subpass.pipelineBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpass.colorAttachmentCount = attachmentRefsColor.size;
 		subpass.pColorAttachments = attachmentRefsColor.data;
 		subpass.pResolveAttachments = nullptr;
-		subpass.pDepthStencilAttachment = attachmentRefsColor.data;
+		subpass.pDepthStencilAttachment = hasDepth ? &attachmentRefDepth : nullptr;
 		subpass.preserveAttachmentCount = preserveAttachments.size;
 		subpass.pPreserveAttachments = preserveAttachments.data;
 		subpass.inputAttachmentCount = 0;
@@ -2437,8 +2596,69 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 		if (VkResult result = vkCreateRenderPass(framebuffer->device->vkDevice, &createInfo, nullptr, &framebuffer->vkRenderPass); result != VK_SUCCESS) {
 			return ERROR_RESULT(framebuffer, "Failed to create RenderPass: ", VkResultString(result));
 		}
+		SetDebugMarker(framebuffer->device, Stringify(framebuffer->tag, " render pass"), VK_OBJECT_TYPE_RENDER_PASS, (u64)framebuffer->vkRenderPass);
 	}
-	return ERROR_RESULT(framebuffer, "Succeeded on RenderPass, unimplemented otherwise");
+	{ // Framebuffers
+		i32 numFramebuffers = 1;
+		for (i32 i = 0; i < framebuffer->attachments.size; i++) {
+			Attachment &attachment = framebuffer->attachments[i];
+			i32 ourWidth, ourHeight;
+			switch (attachment.kind) {
+			case Attachment::WINDOW:
+				numFramebuffers = attachment.window->numImages;
+				ourWidth = attachment.window->extent.width;
+				ourHeight = attachment.window->extent.height;
+				break;
+			case Attachment::IMAGE:
+				ourWidth = attachment.image->width;
+				ourHeight = attachment.image->height;
+				break;
+			case Attachment::DEPTH_BUFFER:
+				ourWidth = attachment.depthBuffer->width;
+				ourHeight = attachment.depthBuffer->height;
+				break;
+			}
+			if (i == 0) {
+				framebuffer->width = ourWidth;
+				framebuffer->height = ourHeight;
+			} else if (framebuffer->width != ourWidth || framebuffer->height != ourHeight) {
+				return ERROR_RESULT(framebuffer, "Attachment ", i, " dimensions mismatch. Expected ", framebuffer->width, "x", framebuffer->height, ", but got ", ourWidth, "x", ourHeight);
+			}
+		}
+		framebuffer->vkFramebuffers.Resize(numFramebuffers);
+		for (i32 i = 0; i < numFramebuffers; i++) {
+			VkFramebuffer &vkFramebuffer = framebuffer->vkFramebuffers[i];
+			Array<VkImageView> imageViews(framebuffer->attachments.size);
+			for (i32 j = 0; j < imageViews.size; j++) {
+				VkImageView &imageView = imageViews[j];
+				Attachment &attachment = framebuffer->attachments[j];
+				switch (attachment.kind) {
+				case Attachment::WINDOW:
+					imageView = attachment.window->swapchainImages[i].vkImageView;
+					break;
+				case Attachment::IMAGE:
+					imageView = attachment.image->vkImageView;
+					break;
+				case Attachment::DEPTH_BUFFER:
+					imageView = attachment.depthBuffer->vkImageView;
+					break;
+				}
+			}
+			VkFramebufferCreateInfo createInfo{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+			createInfo.renderPass = framebuffer->vkRenderPass;
+			createInfo.width = framebuffer->width;
+			createInfo.height = framebuffer->height;
+			createInfo.layers = 1;
+			createInfo.attachmentCount = imageViews.size;
+			createInfo.pAttachments = imageViews.data;
+			if (VkResult result = vkCreateFramebuffer(framebuffer->device->vkDevice, &createInfo, nullptr, &vkFramebuffer); result != VK_SUCCESS) {
+				return ERROR_RESULT(framebuffer, "Failed to create framebuffer ", i, "/", numFramebuffers, ": ", VkResultString(result));
+			}
+			SetDebugMarker(framebuffer->device, Stringify(framebuffer->tag, " framebuffer"), VK_OBJECT_TYPE_FRAMEBUFFER, (u64)vkFramebuffer);
+		}
+	}
+	framebuffer->initted = true;
+	return VoidResult_t();
 }
 
 void FramebufferDeinit(Framebuffer *framebuffer) {
@@ -2446,28 +2666,358 @@ void FramebufferDeinit(Framebuffer *framebuffer) {
 	vkDestroyRenderPass(framebuffer->device->vkDevice, framebuffer->vkRenderPass, nullptr);
 }
 
+VkFramebuffer FramebufferGetCurrentVkFramebuffer(Framebuffer *framebuffer) {
+	AzAssert(framebuffer->vkFramebuffers.size >= 1, "Didn't have any framebuffers???");
+	if (framebuffer->vkFramebuffers.size == 1) {
+		return framebuffer->vkFramebuffers[0];
+	} else if (framebuffer->vkFramebuffers.size > 1) {
+		i32 currentFramebuffer = -1;
+		for (i32 i = 0; i < framebuffer->attachments.size; i++) {
+			if (framebuffer->attachments[i].kind == Attachment::WINDOW) {
+				currentFramebuffer = framebuffer->attachments[i].window->currentImage;
+				break;
+			}
+		}
+		AzAssert(currentFramebuffer != -1, "Unreachable");
+		return framebuffer->vkFramebuffers[currentFramebuffer];
+	}
+	return 0; // Unnecessary, but shushes the warning
+}
+
+bool FramebufferHasDepthBuffer(Framebuffer *framebuffer) {
+	for (i32 i = 0; i < framebuffer->attachments.size; i++) {
+		Attachment &attachment = framebuffer->attachments[i];
+		if (attachment.kind == Attachment::DEPTH_BUFFER) return true;
+	}
+	return false;
+}
+
 #endif
 
 #ifndef Pipeline
 
 void PipelineAddShader(Pipeline *pipeline, Str filename, ShaderStage stage) {
-	pipeline->shaders.Append(Pipeline::Shader{filename, stage});
-}
-
-void PipelineAddBuffer(Pipeline *pipeline, Buffer *buffer) {
-	pipeline->buffers.Append(buffer);
-}
-
-void PipelineAddImage(Pipeline *pipeline, Image *image) {
-	pipeline->images.Append(image);
+	pipeline->shaders.Append(Pipeline::Shader{filename, stage, VK_NULL_HANDLE});
 }
 
 void PipelineAddVertexInputs(Pipeline *pipeline, ArrayWithBucket<ShaderValueType, 8> inputs) {
 	pipeline->vertexInputs.Append(inputs);
 }
 
-void PipelineSetBlendMode(Pipeline *pipeline, BlendMode blendMode) {
-	pipeline->blendMode = blendMode;
+void PipelineSetBlendMode(Pipeline *pipeline, BlendMode blendMode, i32 attachment) {
+	pipeline->blendModes[attachment] = blendMode;
+}
+
+bool VkPipelineLayoutCreateInfoMatches(VkPipelineLayoutCreateInfo a, VkPipelineLayoutCreateInfo b) {
+	if (a.sType != b.sType) return false;
+	if (a.flags != b.flags) return false;
+	if (a.setLayoutCount != b.setLayoutCount) return false;
+	for (i32 i = 0; i < (i32)a.setLayoutCount; i++) {
+		if (a.pSetLayouts[i] != b.pSetLayouts[i]) return false;
+	}
+	if (a.pushConstantRangeCount != b.pushConstantRangeCount) return false;
+	for (i32 i = 0; i < (i32)a.pushConstantRangeCount; i++) {
+		if (a.pPushConstantRanges[i].offset != b.pPushConstantRanges[i].offset) return false;
+		if (a.pPushConstantRanges[i].size != b.pPushConstantRanges[i].size) return false;
+		if (a.pPushConstantRanges[i].stageFlags != b.pPushConstantRanges[i].stageFlags) return false;
+	}
+	return true;
+}
+
+Result<VoidResult_t, String> PipelineInit(Pipeline *pipeline) {
+	INIT_HEAD(pipeline);
+	for (i32 i = 0; i < pipeline->shaders.size; i++) {
+		Pipeline::Shader *shader = &pipeline->shaders[i];
+		CHECK_INIT(shader);
+		Array<char> code = FileContents(shader->filename);
+		if (code.size == 0) {
+			return ERROR_RESULT(pipeline, "Failed to open shader source \"", shader->filename, "\"");
+		}
+		VkShaderModuleCreateInfo createInfo{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+		createInfo.codeSize = code.size;
+		createInfo.pCode = (u32*)code.data;
+		if (VkResult result = vkCreateShaderModule(pipeline->device->vkDevice, &createInfo, nullptr, &shader->vkShaderModule); result != VK_SUCCESS) {
+			return ERROR_RESULT(pipeline, "Failed to create shader module for \"", shader->filename, "\": ", VkResultString(result));
+		}
+		shader->initted = true;
+	}
+	// We create the actual pipeline objects in PipelineCompose
+	pipeline->initted = true;
+	return VoidResult_t();
+}
+
+void PipelineDeinit(Pipeline *pipeline) {
+	DEINIT_HEAD(pipeline);
+	for (i32 i = 0; i < pipeline->shaders.size; i++) {
+		Pipeline::Shader *shader = &pipeline->shaders[i];
+		CHECK_DEINIT(shader);
+		vkDestroyShaderModule(pipeline->device->vkDevice, shader->vkShaderModule, nullptr);
+		shader->initted = false;
+	}
+	if (pipeline->vkPipelineLayout != VK_NULL_HANDLE) {
+		vkDestroyPipelineLayout(pipeline->device->vkDevice, pipeline->vkPipelineLayout, nullptr);
+		pipeline->vkPipelineLayout = VK_NULL_HANDLE;
+	}
+	if (pipeline->vkPipeline != VK_NULL_HANDLE) {
+		vkDestroyPipeline(pipeline->device->vkDevice, pipeline->vkPipeline, nullptr);
+		pipeline->vkPipeline = VK_NULL_HANDLE;
+	}
+	pipeline->vkPipelineLayoutCreateInfo = {};
+	pipeline->initted = false;
+}
+
+Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *context) {
+	VkPipelineLayoutCreateInfo layoutCreateInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+	layoutCreateInfo.setLayoutCount = context->vkDescriptorSetLayouts.size;
+	layoutCreateInfo.pSetLayouts = context->vkDescriptorSetLayouts.data;
+	// TODO: Support push constants
+	layoutCreateInfo.pushConstantRangeCount = 0;
+	
+	bool recreate = false;
+	
+	if (!VkPipelineLayoutCreateInfoMatches(layoutCreateInfo, pipeline->vkPipelineLayoutCreateInfo)) {
+		if (pipeline->vkPipelineLayoutCreateInfo.sType) {
+			// TODO: Probably just cache it
+			vkDestroyPipelineLayout(pipeline->device->vkDevice, pipeline->vkPipelineLayout, nullptr);
+			recreate = true;
+		}
+		if (VkResult result = vkCreatePipelineLayout(pipeline->device->vkDevice, &layoutCreateInfo, nullptr, &pipeline->vkPipelineLayout); result != VK_SUCCESS) {
+			return ERROR_RESULT(pipeline, "Failed to create pipeline layout: ", VkResultString(result));
+		}
+		SetDebugMarker(pipeline->device, Stringify(pipeline->tag, " pipeline layout"), VK_OBJECT_TYPE_PIPELINE_LAYOUT, (u64)pipeline->vkPipelineLayout);
+	}
+	Array<VkPipelineShaderStageCreateInfo> shaderStages(pipeline->shaders.size);
+	io::cout.PrintLnDebug("Composing Pipeline with ", shaderStages.size, " shader", shaderStages.size != 1 ? "s:" : ":");
+	io::cout.IndentMore();
+	for (i32 i = 0; i < pipeline->shaders.size; i++) {
+		Pipeline::Shader &shader = pipeline->shaders[i];
+		VkPipelineShaderStageCreateInfo &createInfo = shaderStages[i];
+		createInfo = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+		switch (shader.stage) {
+		case ShaderStage::COMPUTE:
+			io::cout.PrintLnDebug("Compute shader \"", shader.filename, "\"");
+			createInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+			break;
+		case ShaderStage::VERTEX:
+			io::cout.PrintLnDebug("Vertex shader \"", shader.filename, "\"");
+			createInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+			break;
+		case ShaderStage::FRAGMENT:
+			io::cout.PrintLnDebug("Fragment shader \"", shader.filename, "\"");
+			createInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+			break;
+		}
+		io::cout.IndentLess();
+		createInfo.module = shader.vkShaderModule;
+		// The Vulkan API pretends we can use something other than "main", but we really can't :(
+		createInfo.pName = "main";
+	}
+	if (pipeline->kind == Pipeline::GRAPHICS) {
+		VkPipelineVertexInputStateCreateInfo vertexInputState{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+		Array<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions;
+		VkVertexInputBindingDescription vertexInputBindingDescription;
+		{ // Vertex Inputs
+			vertexInputBindingDescription.binding = 0;
+			vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+			u32 offset = 0;
+			i32 location = 0;
+			for (i32 i = 0; i < pipeline->vertexInputs.size; i++) {
+				ShaderValueType inputType = pipeline->vertexInputs[i];
+				i32 numLocations = ShaderValueNumLocations[(u16)inputType];
+				for (i32 j = 0; j < numLocations; j++) {
+					VkVertexInputAttributeDescription attributeDescription;
+					attributeDescription.binding = 0;
+					attributeDescription.location = location++;
+					i64 myStride;
+					if (inputType == ShaderValueType::DVEC3 && j == 1) {
+						// Handle our special case, as DVEC3 is the only input type that takes multiple locations with different strides/formats
+						myStride = ShaderValueTypeStride[(u16)inputType]/2;
+						attributeDescription.format = VK_FORMAT_R64_SFLOAT;
+					} else {
+						myStride = ShaderValueTypeStride[(u16)inputType];
+						attributeDescription.format = ShaderValueFormats[(u16)inputType];
+					}
+					attributeDescription.offset = align(offset, myStride);
+					offset += myStride;
+					vertexInputAttributeDescriptions.Append(attributeDescription);
+				}
+			}
+			if (pipeline->vertexInputs.size == 0) {
+				vertexInputBindingDescription.stride = 0;
+			} else {
+				vertexInputBindingDescription.stride = align(offset, ShaderValueTypeStride[(u16)pipeline->vertexInputs[0]]);
+			}
+			// TODO: It could be nice to print out the final bindings, along with alignment, as working these things out for writing shaders and packing data in our vertex buffer might be annoying.
+		}
+		// TODO: Support multiple simultaneous bindings
+		vertexInputState.vertexBindingDescriptionCount = 1;
+		vertexInputState.pVertexBindingDescriptions = &vertexInputBindingDescription;
+		vertexInputState.vertexAttributeDescriptionCount = vertexInputAttributeDescriptions.size;
+		vertexInputState.pVertexAttributeDescriptions = vertexInputAttributeDescriptions.data;
+		
+		VkPipelineInputAssemblyStateCreateInfo inputAssemblyState{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
+		// This is a 1-to-1 mapping
+		inputAssemblyState.topology = (VkPrimitiveTopology)pipeline->topology;
+		// TODO: We could use this
+		inputAssemblyState.primitiveRestartEnable = VK_FALSE;
+		
+		VkPipelineViewportStateCreateInfo viewportState={VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+		VkViewport viewport;
+		viewport.width = (f32)context->bindings.framebuffer->width;
+		viewport.height = (f32)context->bindings.framebuffer->height;
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		viewport.x = 0.0f;
+		viewport.y = 0.0f;
+		viewportState.viewportCount = 1;
+		viewportState.pViewports = &viewport;
+		VkRect2D scissor;
+		scissor.offset = {0, 0};
+		scissor.extent.width = context->bindings.framebuffer->width;
+		scissor.extent.height = context->bindings.framebuffer->height;
+		viewportState.scissorCount = 1;
+		viewportState.pScissors = &scissor;
+		
+		VkPipelineRasterizationStateCreateInfo rasterizerState{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
+		rasterizerState.depthClampEnable = VK_FALSE;
+		rasterizerState.rasterizerDiscardEnable = VK_FALSE;
+		rasterizerState.polygonMode = VK_POLYGON_MODE_FILL;
+		rasterizerState.cullMode = (VkCullModeFlagBits)pipeline->cullingMode;
+		rasterizerState.frontFace = (VkFrontFace)pipeline->winding;
+		rasterizerState.depthBiasEnable = pipeline->depthBias.enable;
+		rasterizerState.depthBiasConstantFactor = pipeline->depthBias.constant;
+		rasterizerState.depthBiasSlopeFactor = pipeline->depthBias.slope;
+		rasterizerState.depthBiasClamp = pipeline->depthBias.clampValue;
+		rasterizerState.lineWidth = pipeline->lineWidth;
+		
+		// TODO: Support multisampling (need to be able to resolve images, probably in the framebuffer)
+		VkPipelineMultisampleStateCreateInfo multisampleState{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
+		multisampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+		multisampleState.sampleShadingEnable = VK_FALSE;
+		// Controls what fraction of samples get shaded with the above turned on. No effect otherwise.
+		multisampleState.minSampleShading = 1.0f;
+		multisampleState.pSampleMask = nullptr;
+		multisampleState.alphaToCoverageEnable = VK_FALSE;
+		multisampleState.alphaToOneEnable = VK_FALSE;
+		
+		VkPipelineDepthStencilStateCreateInfo depthStencilState{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+		// depthStencilState.flags; // VkPipelineDepthStencilStateCreateFlags
+		bool framebufferHasDepthBuffer = FramebufferHasDepthBuffer(context->bindings.framebuffer);
+		if (pipeline->depthTest == BoolOrDefault::TRUE && !framebufferHasDepthBuffer) {
+			return ERROR_RESULT(pipeline, "Depth test is enabled, but framebuffer doesn't have a depth buffer");
+		}
+		depthStencilState.depthTestEnable = ResolveBoolOrDefault(pipeline->depthTest, framebufferHasDepthBuffer);
+		if (pipeline->depthWrite == BoolOrDefault::TRUE && !framebufferHasDepthBuffer) {
+			return ERROR_RESULT(pipeline, "Depth write is enabled, but framebuffer doesn't have a depth buffer");
+		}
+		depthStencilState.depthWriteEnable = ResolveBoolOrDefault(pipeline->depthWrite, framebufferHasDepthBuffer);
+		depthStencilState.depthCompareOp = (VkCompareOp)pipeline->depthCompareOp;
+		depthStencilState.depthBoundsTestEnable = VK_FALSE;
+		// TODO: Support stencil buffers
+		depthStencilState.stencilTestEnable = VK_FALSE;
+		// depthStencilState.front; // VkStencilOpState
+		// depthStencilState.back; // VkStencilOpState
+		depthStencilState.minDepthBounds = 0.0f;
+		depthStencilState.maxDepthBounds = 1.0f;
+		
+		VkPipelineColorBlendStateCreateInfo colorBlendState{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
+		colorBlendState.logicOpEnable = VK_FALSE;
+		colorBlendState.logicOp = VK_LOGIC_OP_COPY;
+		colorBlendState.blendConstants[0] = 1.0f;
+		colorBlendState.blendConstants[1] = 1.0f;
+		colorBlendState.blendConstants[2] = 1.0f;
+		colorBlendState.blendConstants[3] = 1.0f;
+		Array<VkPipelineColorBlendAttachmentState> blendModes;
+		{ // Attachment blend modes
+			for (i32 i = 0; i < context->bindings.framebuffer->attachments.size; i++) {
+				Attachment &attachment = context->bindings.framebuffer->attachments[i];
+				if (attachment.kind == Attachment::IMAGE || attachment.kind == Attachment::WINDOW) {
+					VkPipelineColorBlendAttachmentState state;
+					state.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+					state.blendEnable = VK_TRUE;
+					state.colorBlendOp = VK_BLEND_OP_ADD;
+					state.alphaBlendOp = VK_BLEND_OP_ADD;
+					BlendMode blendMode = pipeline->blendModes[blendModes.size];
+					switch (blendMode.kind) {
+					case BlendMode::OPAQUE:
+						state.blendEnable = VK_FALSE;
+						break;
+					case BlendMode::TRANSPARENT:
+						state.srcColorBlendFactor = blendMode.alphaPremult ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_SRC_ALPHA;
+						state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+						state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+						state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+						break;
+					case BlendMode::ADDITION:
+						state.srcColorBlendFactor = blendMode.alphaPremult ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_SRC_ALPHA;
+						state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+						state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+						state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+						break;
+					}
+					blendModes.Append(state);
+				}
+			}
+		}
+		// TODO: Find the real upper limit
+		if (blendModes.size > 8) {
+			return ERROR_RESULT(pipeline, "Pipelines don't support more than 8 color attachments right now (had ", blendModes.size, ")");
+		}
+		colorBlendState.attachmentCount = blendModes.size;
+		colorBlendState.pAttachments = blendModes.data;
+		
+		VkPipelineDynamicStateCreateInfo dynamicState{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+		Array<VkDynamicState> dynamicStates = {
+			VK_DYNAMIC_STATE_VIEWPORT,
+			VK_DYNAMIC_STATE_SCISSOR,
+			// VK_DYNAMIC_STATE_LINE_WIDTH,
+			// VK_DYNAMIC_STATE_DEPTH_BIAS,
+			// VK_DYNAMIC_STATE_DEPTH_BOUNDS,
+			// VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE,
+			// VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE,
+			// VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE,
+			// VK_DYNAMIC_STATE_DEPTH_COMPARE_OP,
+			// VK_DYNAMIC_STATE_CULL_MODE,
+			// VK_DYNAMIC_STATE_FRONT_FACE,
+			// VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY,
+			// // Provided by VK_EXT_vertex_input_dynamic_state
+			// VK_DYNAMIC_STATE_VERTEX_INPUT_EXT,
+		};
+		dynamicState.dynamicStateCount = dynamicStates.size;
+		dynamicState.pDynamicStates = dynamicStates.data;
+		
+		if (recreate) {
+			// TODO: Probably cache
+			vkDestroyPipeline(pipeline->device->vkDevice, pipeline->vkPipeline, nullptr);
+		}
+		VkGraphicsPipelineCreateInfo createInfo{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+		createInfo.stageCount = shaderStages.size;
+		createInfo.pStages = shaderStages.data;
+		createInfo.pVertexInputState = &vertexInputState;
+		createInfo.pInputAssemblyState = &inputAssemblyState;
+		createInfo.pViewportState = &viewportState;
+		createInfo.pRasterizationState = &rasterizerState;
+		createInfo.pMultisampleState = &multisampleState;
+		createInfo.pDepthStencilState = &depthStencilState;
+		createInfo.pColorBlendState = &colorBlendState;
+		createInfo.pDynamicState = &dynamicState;
+		createInfo.layout = pipeline->vkPipelineLayout;
+		if (context->bindings.framebuffer == nullptr) {
+			return ERROR_RESULT(pipeline, "Cannot create a graphics Pipeline with no Framebuffer bound!");
+		}
+		createInfo.renderPass = context->bindings.framebuffer->vkRenderPass;
+		createInfo.subpass = 0;
+		createInfo.basePipelineHandle = VK_NULL_HANDLE;
+		createInfo.basePipelineIndex = -1;
+		
+		if (VkResult result = vkCreateGraphicsPipelines(pipeline->device->vkDevice, VK_NULL_HANDLE, 1, &createInfo, nullptr, &pipeline->vkPipeline); result != VK_SUCCESS) {
+			return ERROR_RESULT(pipeline, "Failed to create graphics pipeline: ", VkResultString(result));
+		}
+		SetDebugMarker(pipeline->device, Stringify(pipeline->tag, " graphics pipeline"), VK_OBJECT_TYPE_PIPELINE, (u64)pipeline->vkPipeline);
+	} else {
+		return ERROR_RESULT(pipeline, "Compute pipelines are not implemented yet");
+	}
+	return VoidResult_t();
 }
 
 #endif
@@ -2481,12 +3031,12 @@ Result<VoidResult_t, String> ContextInit(Context *context) {
 	if (VkResult result = vkCreateCommandPool(context->device->vkDevice, &poolCreateInfo, nullptr, &context->vkCommandPool); result != VK_SUCCESS) {
 		return Stringify("Context \"", context->tag, "\": Failed to create command pool: ", VkResultString(result));
 	}
-	VkFenceCreateInfo fenceInfo = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+	SetDebugMarker(context->device, Stringify(context->tag, " command pool"), VK_OBJECT_TYPE_COMMAND_POOL, (u64)context->vkCommandPool);
+	context->fence.device = context->device;
+	context->fence.tag = "Context Fence";
 	// We'll use signaled to mean not executing
-	if (VkResult result = vkCreateFence(context->device->vkDevice, &fenceInfo, nullptr, &context->vkFence); result != VK_SUCCESS) {
-		vkDestroyCommandPool(context->device->vkDevice, context->vkCommandPool, nullptr);
-		return Stringify("Context \"", context->tag, "\": Failed to create fence: ", VkResultString(result));
+	if (auto result = FenceInit(&context->fence, true); result.isError) {
+		return ERROR_RESULT(context, result.error);
 	}
 	context->initted = true;
 	return VoidResult_t();
@@ -2495,7 +3045,7 @@ Result<VoidResult_t, String> ContextInit(Context *context) {
 void ContextDeinit(Context *context) {
 	DEINIT_HEAD(context);
 	vkDestroyCommandPool(context->device->vkDevice, context->vkCommandPool, nullptr);
-	vkDestroyFence(context->device->vkDevice, context->vkFence, nullptr);
+	FenceDeinit(&context->fence);
 	context->initted = false;
 }
 
@@ -2514,6 +3064,9 @@ Result<VoidResult_t, String> ContextBeginRecording(Context *context) {
 		return Stringify("Context \"", context->tag, "\" error: Cannot begin recording on a command buffer that's already recording");
 	}
 	ContextResetBindings(context);
+	if (auto result = FenceResetSignaled(&context->fence); result.isError) {
+		return ERROR_RESULT(context, result.error);
+	}
 
 	if (context->state == Context::State::DONE_RECORDING) {
 		vkFreeCommandBuffers(context->device->vkDevice, context->vkCommandPool, 1, &context->vkCommandBuffer);
@@ -2557,7 +3110,7 @@ Result<VoidResult_t, String> ContextBeginRecordingSecondary(Context *context, Fr
 		AzAssert(framebuffer->initted, "Trying to use a Framebuffer that isn't initted for recording a secondary command buffer");
 		inheritanceInfo.renderPass = framebuffer->vkRenderPass;
 		inheritanceInfo.subpass = subpass;
-		inheritanceInfo.framebuffer = framebuffer->vkFramebuffer;
+		inheritanceInfo.framebuffer = FramebufferGetCurrentVkFramebuffer(framebuffer);
 	}
 	VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
 	beginInfo.flags = framebuffer != nullptr ? VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT : 0;
@@ -2588,7 +3141,7 @@ Result<VoidResult_t, String> SubmitCommands(Context *context) {
 	VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &context->vkCommandBuffer;
-	if (VkResult result = vkQueueSubmit(context->device->vkQueue, 1, &submitInfo, context->vkFence); result != VK_SUCCESS) {
+	if (VkResult result = vkQueueSubmit(context->device->vkQueue, 1, &submitInfo, context->fence.vkFence); result != VK_SUCCESS) {
 		return Stringify("Context \"", context->tag, "\" error: Failed to submit to queue: ", VkResultString(result));
 	}
 	return VoidResult_t();
@@ -2596,7 +3149,7 @@ Result<VoidResult_t, String> SubmitCommands(Context *context) {
 
 Result<bool, String> ContextIsExecuting(Context *context) {
 	AzAssert(context->initted, "Context is not initted");
-	VkResult result = vkGetFenceStatus(context->device->vkDevice, context->vkFence);
+	VkResult result = FenceGetStatus(&context->fence);
 	switch (result) {
 		case VK_SUCCESS:
 			return false;
@@ -2612,17 +3165,11 @@ Result<bool, String> ContextIsExecuting(Context *context) {
 Result<bool, String> ContextWaitUntilFinished(Context *context, Nanoseconds timeout) {
 	AzAssert(context->initted, "Context is not initted");
 	AzAssert(timeout.count() >= 0, "Cannot have negative timeout");
-	VkResult result = vkWaitForFences(context->device->vkDevice, 1, &context->vkFence, VK_TRUE, (u64)timeout.count());
-	switch (result) {
-		case VK_SUCCESS:
-			return false;
-		case VK_TIMEOUT:
-			return true;
-		case VK_ERROR_DEVICE_LOST:
-			return Stringify("Device \"", context->device->tag, "\" error: Device Lost");
-		default:
-			return Stringify("Context \"", context->tag, "\" error: WaitUntilFinished returned ", VkResultString(result));
+	bool wasTimeout;
+	if (auto result = FenceWaitForSignal(&context->fence, (u64)timeout.count(), &wasTimeout); result.isError) {
+		return ERROR_RESULT(context, result.error);
 	}
+	return wasTimeout;
 }
 
 #endif
@@ -2636,6 +3183,10 @@ Result<VoidResult_t, String> CmdExecuteSecondary(Context *primary, Context *seco
 Result<VoidResult_t, String> CmdCopyDataToBuffer(Context *context, Buffer *dst, void *src, i64 dstOffset, i64 size) {
 	AzAssert(size+dstOffset <= (i64)dst->memoryRequirements.size, "size is bigger than our buffer");
 	AzAssert(ContextIsRecording(context), "Trying to record into a context that's not recording");
+	if (size == 0) {
+		// We do the whole size
+		size = dst->memoryRequirements.size;
+	}
 	if (!dst->hostVisible) {
 		if (auto result = BufferHostInit(dst); result.isError) {
 			return result.error;
@@ -2771,6 +3322,7 @@ Result<VoidResult_t, String> CmdCopyDataToImage(Context *context, Image *dst, vo
 			return result.error;
 		}
 	}
+	CmdImageTransitionLayout(context, dst, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	Allocation alloc = dst->allocHostVisible;
 	VkDeviceMemory vkMemory = alloc.memory->pages[alloc.page].vkMemory;
 	void *dstMapped;
@@ -2861,36 +3413,59 @@ void CmdBindImageSampler(Context *context, Image *image, i32 set, i32 binding) {
 }
 
 Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
+	Framebuffer *framebuffer = nullptr;
+	Pipeline *pipeline = nullptr;
+	Buffer *vertexBuffer = nullptr;
+	Buffer *indexBuffer = nullptr;
+	bool descriptorsChanged = false;
 	for (Binding &bind : context->bindCommands) {
 		switch (bind.kind) {
 		case Binding::FRAMEBUFFER:
-			if (context->bindings.framebuffer == bind.framebuffer.object) {
-				return ERROR_RESULT(context, "Re-binding already bound Framebuffer");
-			}
-			if (context->bindings.framebuffer) {
-				vkCmdEndRenderPass(context->vkCommandBuffer);
-			}
-			context->bindings.framebuffer = bind.framebuffer.object;
+			framebuffer = bind.framebuffer.object;
 			break;
 		case Binding::PIPELINE:
-			context->bindings.pipeline = bind.pipeline.object;
+			pipeline = bind.pipeline.object;
 			break;
 		case Binding::VERTEX_BUFFER:
-			context->bindings.vertexBuffer = bind.vertexBuffer.object;
+			vertexBuffer = bind.vertexBuffer.object;
 			break;
 		case Binding::INDEX_BUFFER:
-			context->bindings.indexBuffer = bind.indexBuffer.object;
+			indexBuffer = bind.indexBuffer.object;
 			break;
 		case Binding::UNIFORM_BUFFER:
 			context->bindings.descriptors.Emplace(bind.uniformBuffer.binding, bind);
+			descriptorsChanged = true;
 			break;
 		case Binding::STORAGE_BUFFER:
 			context->bindings.descriptors.Emplace(bind.storageBuffer.binding, bind);
+			descriptorsChanged = true;
 			break;
 		case Binding::IMAGE_SAMPLER:
 			context->bindings.descriptors.Emplace(bind.imageSampler.binding, bind);
+			descriptorsChanged = true;
 			break;
 		}
+	}
+	if (nullptr != framebuffer && context->bindings.framebuffer != framebuffer) {
+		if (context->bindings.framebuffer) {
+			vkCmdEndRenderPass(context->vkCommandBuffer);
+		}
+		context->bindings.framebuffer = framebuffer;
+		VkRenderPassBeginInfo beginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+		beginInfo.renderPass = context->bindings.framebuffer->vkRenderPass;
+		beginInfo.framebuffer = FramebufferGetCurrentVkFramebuffer(framebuffer);
+		beginInfo.renderArea.offset = {0, 0};
+		beginInfo.renderArea.extent.width = framebuffer->width;
+		beginInfo.renderArea.extent.height = framebuffer->height;
+		vkCmdBeginRenderPass(context->vkCommandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	}
+	// TODO: Vertex buffers, index buffers, descriptors, etc
+	if (nullptr != pipeline && context->bindings.pipeline != pipeline) {
+		context->bindings.pipeline = pipeline;
+		if (auto result = PipelineCompose(pipeline, context); result.isError) {
+			return ERROR_RESULT(context, "Failed to bind Pipeline: ", result.error);
+		}
+		vkCmdBindPipeline(context->vkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->vkPipeline);
 	}
 	context->bindCommands.ClearSoft();
 	return VoidResult_t();

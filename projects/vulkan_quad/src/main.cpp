@@ -16,7 +16,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	f32 scale = 1.0f;
 
 	for (i32 i = 0; i < argumentCount; i++) {
+		io::cout.PrintLn("Argument ", i, ": ", argumentValues[i]);
 		if (equals(argumentValues[i], "--enable-layers")) {
+			io::cout.PrintLn("Enabling layers");
 			GPU::EnableValidationLayers();
 		} else if (equals(argumentValues[i], "--trace")) {
 			io::logLevel = io::LogLevel::TRACE;
@@ -93,12 +95,11 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	GPU::Pipeline *pipeline = GPU::NewGraphicsPipeline(device, "test");
 	GPU::PipelineAddShader(pipeline, "data/shaders/test.vert.spv", GPU::ShaderStage::VERTEX);
 	GPU::PipelineAddShader(pipeline, "data/shaders/test.frag.spv", GPU::ShaderStage::FRAGMENT);
-	GPU::PipelineAddImage(pipeline, gpuImage);
 	GPU::PipelineAddVertexInputs(pipeline, {
 		GPU::ShaderValueType::VEC2,
 		GPU::ShaderValueType::VEC2
 	});
-	GPU::PipelineSetBlendMode(pipeline, GPU::BlendMode::TRANSPARENT);
+	GPU::PipelineSetBlendMode(pipeline, GPU::BlendMode{GPU::BlendMode::TRANSPARENT, false});
 	
 	GPU::Context* context = GPU::NewContext(device, "main");
 	

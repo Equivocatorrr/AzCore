@@ -33,6 +33,76 @@ enum class ShaderValueType : u16 {
 	VEC2,
 	VEC3,
 	VEC4,
+	MAT2,
+	MAT2X3,
+	MAT2X4,
+	MAT3X2,
+	MAT3,
+	MAT3X4,
+	MAT4X2,
+	MAT4X3,
+	MAT4,
+	F64,
+	DVEC2,
+	DVEC3,
+	DVEC4,
+};
+
+// Used to describe vertex inputs to pipelines
+enum class Topology {
+	POINT_LIST = 0,
+	LINE_LIST = 1,
+	LINE_STRIP = 2,
+	TRIANGLE_LIST = 3,
+	TRIANGLE_STRIP = 4,
+	TRIANGLE_FAN = 5,
+	LINE_LIST_WITH_ADJACENCY = 6,
+	LINE_STRIP_WITH_ADJACENCY = 7,
+	TRIANGLE_LIST_WITH_ADJACENCY = 8,
+	TRIANGLE_STRIP_WITH_ADJACENCY = 9,
+	PATCH_LIST = 10,
+};
+
+enum class CullingMode {
+	NONE  = 0,
+	FRONT = 1,
+	BACK  = 2,
+};
+
+// Used to determine triangle front faces
+enum class Winding {
+	COUNTER_CLOCKWISE = 0,
+	CLOCKWISE         = 1,
+};
+
+enum class BoolOrDefault {
+	DEFAULT,
+	TRUE,
+	FALSE,
+};
+
+inline bool ResolveBoolOrDefault(BoolOrDefault value, bool defaultValue) {
+	switch (value) {
+	case BoolOrDefault::DEFAULT:
+		return defaultValue;
+	case BoolOrDefault::TRUE:
+		return true;
+	case BoolOrDefault::FALSE:
+		return false;
+	}
+	AzAssert(false, "BoolOrDefault value is not a valid enum value");
+	return defaultValue;
+}
+
+enum class CompareOp {
+	ALWAYS_FALSE = 0,
+	LESS = 1,
+	EQUAL = 2,
+	LESS_OR_EQUAL = 3,
+	GREATER = 4,
+	NOT_EQUAL = 5,
+	GREATER_OR_EQUAL = 6,
+	ALWAYS_TRUE = 7,
 };
 
 enum class ImageComponentType : u16 {
@@ -82,13 +152,16 @@ enum class ImageBits : u16 {
 };
 extern Str imageBitsStrings[23];
 
-enum class BlendMode {
-	OPAQUE,
-	TRANSPARENT,
-	TRANSPARENT_PREMULT,
-	ADDITION,
+struct BlendMode {
+	enum Kind {
+		OPAQUE,
+		TRANSPARENT,
+		ADDITION,
+	} kind = OPAQUE;
 	// TODO: Add more common blend modes
+	bool alphaPremult = false;
 };
+// NOTE: We probably want to support more specific stuff anyway, so probably make a mechanism for that.
 
 // Base device from which everything else is allocated
 struct Device;
@@ -192,13 +265,9 @@ void ImageSetUsageSampled(Image *image, u32 shaderStages);
 
 void PipelineAddShader(Pipeline *pipeline, Str filename, ShaderStage stage);
 
-void PipelineAddBuffer(Pipeline *pipeline, Buffer *buffer);
-
-void PipelineAddImage(Pipeline *pipeline, Image *image);
-
 void PipelineAddVertexInputs(Pipeline *pipeline, ArrayWithBucket<ShaderValueType, 8> inputs);
 
-void PipelineSetBlendMode(Pipeline *pipeline, BlendMode blendMode);
+void PipelineSetBlendMode(Pipeline *pipeline, BlendMode blendMode, i32 attachment = 0);
 
 
 // Context, Commands

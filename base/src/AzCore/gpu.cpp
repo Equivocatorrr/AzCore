@@ -1161,7 +1161,7 @@ Result<VoidResult_t, String> Initialize() {
 	if (instance.enableValidationLayers) {
 		instance.fpSetDebugUtilsObjectNameEXT = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(instance.vkInstance, "vkSetDebugUtilsObjectNameEXT");
 		if (instance.fpSetDebugUtilsObjectNameEXT == nullptr) {
-			return "vkGetInstanceProcAddr failed to get vkSetDebugUtilsObjectNameEXT";
+			return String("vkGetInstanceProcAddr failed to get vkSetDebugUtilsObjectNameEXT");
 		}
 	}
 
@@ -1425,27 +1425,7 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 		window->extent.height = clamp((u32)window->window->height, window->surfaceCaps.minImageExtent.height, window->surfaceCaps.maxImageExtent.height);
 	}
 	io::cout.PrintLnDebug("Extent: ", window->extent.width, "x", window->extent.height);
-	window->numImages = (i32)clamp(imageCountPreferred, window->surfaceCaps.minImageCount, window->surfaceCaps.maxImageCount);
-	io::cout.PrintLnDebug("Number of images: ", window->numImages);
-	if (window->acquireFences.size > window->numImages) {
-		for (i32 i = window->acquireFences.size-1; i >= window->numImages; i--) {
-			FenceDeinit(&window->acquireFences[i]);
-			SemaphoreDeinit(&window->acquireSemaphores[i]);
-		}
-		window->acquireFences.Resize(window->numImages);
-		window->acquireSemaphores.Resize(window->numImages);
-	} else if (window->acquireFences.size < window->numImages) {
-		window->acquireFences.Resize(window->numImages, Fence(window->device, "WindowAcquireFence"));
-		window->acquireSemaphores.Resize(window->numImages, Semaphore(window->device, "WindowAcquireSemaphore"));
-		for (i32 i = 0; i < window->numImages; i++) {
-			if (auto result = FenceInit(&window->acquireFences[i], true); result.isError) {
-				return ERROR_RESULT(window, result.error);
-			}
-			if (auto result = SemaphoreInit(&window->acquireSemaphores[i]); result.isError) {
-				return ERROR_RESULT(window, result.error);
-			}
-		}
-	}
+	window->numImages = (i32)clamp(imageCountPreferred, window->surfaceCaps.minImageCount, window->surfaceCaps.maxImageCount != 0 ? window->surfaceCaps.maxImageCount : UINT32_MAX);
 	{ // Create the swapchain
 		VkSwapchainCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
 		createInfo.surface = window->vkSurface;
@@ -1486,7 +1466,7 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 		Array<VkImage> images;
 		u32 numImages;
 		vkGetSwapchainImagesKHR(window->device->vkDevice, window->vkSwapchain, &numImages, nullptr);
-		images.Resize(window->numImages);
+		images.Resize(numImages);
 		vkGetSwapchainImagesKHR(window->device->vkDevice, window->vkSwapchain, &numImages, images.data);
 		window->numImages = (i32)numImages;
 		window->swapchainImages.Resize(images.size);
@@ -1507,6 +1487,26 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 			SetDebugMarker(window->device, Stringify(window->tag, " swapchain image view ", i), VK_OBJECT_TYPE_IMAGE_VIEW, (u64)window->swapchainImages[i].vkImageView);
 		}
 	}
+	io::cout.PrintLnDebug("Number of images: ", window->numImages);
+	if (window->acquireFences.size > window->numImages) {
+		for (i32 i = window->acquireFences.size-1; i >= window->numImages; i--) {
+			FenceDeinit(&window->acquireFences[i]);
+			SemaphoreDeinit(&window->acquireSemaphores[i]);
+		}
+		window->acquireFences.Resize(window->numImages);
+		window->acquireSemaphores.Resize(window->numImages);
+	} else if (window->acquireFences.size < window->numImages) {
+		window->acquireFences.Resize(window->numImages, Fence(window->device, "WindowAcquireFence"));
+		window->acquireSemaphores.Resize(window->numImages, Semaphore(window->device, "WindowAcquireSemaphore"));
+		for (i32 i = 0; i < window->numImages; i++) {
+			if (auto result = FenceInit(&window->acquireFences[i], true); result.isError) {
+				return ERROR_RESULT(window, result.error);
+			}
+			if (auto result = SemaphoreInit(&window->acquireSemaphores[i]); result.isError) {
+				return ERROR_RESULT(window, result.error);
+			}
+		}
+	}
 	if (window->initted && window->framebuffer) {
 		if (auto result = FramebufferCreate(window->framebuffer); result.isError) {
 			return ERROR_RESULT(window, "Failed to recreate Framebuffer: ", result.error);
@@ -1520,7 +1520,7 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 void WindowDeinit(Window *window) {
 	DEINIT_HEAD(window);
 	for (Fence &fence : window->acquireFences) {
-		FenceWaitForSignal(&fence);
+		FenceWaitForSignal(&fence).Unwrap();
 		FenceDeinit(&fence);
 	}
 	for (Semaphore &semaphore : window->acquireSemaphores) {
@@ -1656,6 +1656,8 @@ Framebuffer* NewFramebuffer(Device *device, Str tag) {
 
 #ifndef Physical_Device
 
+void PrintPhysicalDeviceInfo(PhysicalDevice *physicalDevice);
+
 i32 RatePhysicalDevice(PhysicalDevice *device) {
 	i32 score = 0;
 	switch (device->properties.properties.deviceType) {
@@ -1673,7 +1675,7 @@ i32 RatePhysicalDevice(PhysicalDevice *device) {
 		// case VK_PHYSICAL_DEVICE_TYPE_OTHER:
 			break;
 	}
-	score += device->properties.properties.limits.maxImageDimension2D;
+	score += min(device->properties.properties.limits.maxImageDimension2D, 16384u)/10;
 	return score;
 }
 
@@ -1706,6 +1708,14 @@ Result<Ptr<PhysicalDevice>, String> FindBestPhysicalDeviceWithExtensions(Array<c
 	QuickSort(ratings, [](Rating &lhs, Rating &rhs) -> bool {
 		return rhs.rating < lhs.rating;
 	});
+	if ((u32)io::logLevel >= (u32)io::LogLevel::DEBUG) {
+		for (i32 i = 0; i < ratings.size; i++) {
+			io::cout.PrintLn("Device ", i, " with rating ", ratings[i].rating, ":");
+			io::cout.IndentMore();
+			PrintPhysicalDeviceInfo(ratings[i].dev.RawPtr());
+			io::cout.IndentLess();
+		}
+	}
 	if (ratings[0].rating < 0) {
 		String error = Stringify("All physical device candidates lacked extensions. The best one (", ratings[0].dev->properties.properties.deviceName, ") was missing:");
 		for (const char *extension : ratings[0].extensionsUnavailable) {
@@ -2575,7 +2585,6 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 	}
 	{ // RenderPass
 		bool hasDepth = false;
-		bool hasColor = false;
 		Array<VkAttachmentDescription> attachments(framebuffer->attachments.size);
 		Array<VkAttachmentReference> attachmentRefsColor;
 		VkAttachmentReference attachmentRefDepth;
@@ -2610,13 +2619,11 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 			}
 			switch (attachment.kind) {
 			case Attachment::WINDOW:
-				hasColor = true;
 				desc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 				ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				attachmentRefsColor.Append(ref);
 				break;
 			case Attachment::IMAGE:
-				hasColor = true;
 				desc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				attachmentRefsColor.Append(ref);

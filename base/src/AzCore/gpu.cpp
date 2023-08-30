@@ -539,8 +539,8 @@ String FormatSize(u64 size) {
 
 #define CHECK_INIT(obj) AzAssert((obj)->initted == false, "Trying to init a " #obj " that's already initted")
 #define CHECK_DEINIT(obj) AzAssert((obj)->initted == true, "Trying to deinit a " #obj " that's not initted")
-#define TRACE_INIT(obj) io::cout.PrintLnTrace("Initializing " #obj " \"", (obj)->tag, "\"");
-#define TRACE_DEINIT(obj) io::cout.PrintLnTrace("Deinitializing " #obj " \"", (obj)->tag, "\"");
+#define TRACE_INIT(obj) io::cout.PrintLnDebug("Initializing " #obj " \"", (obj)->tag, "\"");
+#define TRACE_DEINIT(obj) io::cout.PrintLnDebug("Deinitializing " #obj " \"", (obj)->tag, "\"");
 
 #define ERROR_RESULT(obj, ...) Stringify(#obj " \"", (obj)->tag, "\" error in ", __FUNCTION__, ":", Indent(), "\n", __VA_ARGS__)
 #define WARNING(obj, ...) io::cout.PrintLn(#obj " \"", (obj)->tag, "\" warning in ", __FUNCTION__, ": ", __VA_ARGS__)
@@ -790,6 +790,7 @@ struct Context {
 	VkCommandPool vkCommandPool;
 	VkCommandBuffer vkCommandBuffer;
 	Fence fence;
+	Semaphore semaphore;
 	Array<VkDescriptorSetLayout> vkDescriptorSetLayouts;
 	Array<VkDescriptorSet> vkDescriptorSets;
 
@@ -887,6 +888,9 @@ struct Buffer {
 
 	i64 size = -1;
 
+	// Used only for index buffers
+	VkIndexType indexType = VK_INDEX_TYPE_UINT16;
+	
 	VkBuffer vkBuffer;
 	VkBuffer vkBufferHostVisible;
 	VkMemoryRequirements memoryRequirements;
@@ -1045,8 +1049,11 @@ void ImageHostDeinit(Image *image);
 
 [[nodiscard]] Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer);
 void FramebufferDeinit(Framebuffer *framebuffer);
+[[nodiscard]] Result<VoidResult_t, String> FramebufferCreate(Framebuffer *framebuffer);
 [[nodiscard]] VkFramebuffer FramebufferGetCurrentVkFramebuffer(Framebuffer *framebuffer);
 [[nodiscard]] bool FramebufferHasDepthBuffer(Framebuffer *framebuffer);
+// Will return nullptr if there is no Window attachment.
+[[nodiscard]] Window* FramebufferGetWindowAttachment(Framebuffer *framebuffer);
 
 #endif
 
@@ -1217,6 +1224,7 @@ Result<VoidResult_t, String> FenceInit(Fence *fence, bool startSignaled) {
 void FenceDeinit(Fence *fence) {
 	DEINIT_HEAD(fence);
 	vkDestroyFence(fence->device->vkDevice, fence->vkFence, nullptr);
+	fence->initted = false;
 }
 
 VkResult FenceGetStatus(Fence *fence) {
@@ -1253,12 +1261,14 @@ Result<VoidResult_t, String> SemaphoreInit(Semaphore *semaphore) {
 		return ERROR_RESULT(semaphore, "Failed to create semaphore: ", VkResultString(result));
 	}
 	SetDebugMarker(semaphore->device, semaphore->tag, VK_OBJECT_TYPE_SEMAPHORE, (u64)semaphore->vkSemaphore);
+	semaphore->initted = true;
 	return VoidResult_t();
 }
 
 void SemaphoreDeinit(Semaphore *semaphore) {
 	DEINIT_HEAD(semaphore);
 	vkDestroySemaphore(semaphore->device->vkDevice, semaphore->vkSemaphore, nullptr);
+	semaphore->initted = false;
 }
 
 #endif
@@ -1282,6 +1292,7 @@ Result<Window*, String> AddWindow(io::Window *window, Str tag) {
 void FramebufferAddWindow(Framebuffer *framebuffer, Window *window) {
 	AzAssert(framebuffer->attachments.size == 0, "Cannot add a Window to a Framebuffer that already has an attachment.");
 	framebuffer->attachments.Append(Attachment{Attachment::WINDOW, window});
+	window->framebuffer = framebuffer;
 }
 
 void SetVSync(Window *window, bool enable) {
@@ -1427,7 +1438,7 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 		window->acquireFences.Resize(window->numImages, Fence(window->device, "WindowAcquireFence"));
 		window->acquireSemaphores.Resize(window->numImages, Semaphore(window->device, "WindowAcquireSemaphore"));
 		for (i32 i = 0; i < window->numImages; i++) {
-			if (auto result = FenceInit(&window->acquireFences[i]); result.isError) {
+			if (auto result = FenceInit(&window->acquireFences[i], true); result.isError) {
 				return ERROR_RESULT(window, result.error);
 			}
 			if (auto result = SemaphoreInit(&window->acquireSemaphores[i]); result.isError) {
@@ -1467,6 +1478,11 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 		SetDebugMarker(window->device, Stringify(window->tag, " swapchain"), VK_OBJECT_TYPE_SWAPCHAIN_KHR, (u64)window->vkSwapchain);
 	}
 	{ // Get Images and create Image Views
+		if (window->initted) {
+			for (Window::SwapchainImage &image : window->swapchainImages) {
+				vkDestroyImageView(window->device->vkDevice, image.vkImageView, nullptr);
+			}
+		}
 		Array<VkImage> images;
 		u32 numImages;
 		vkGetSwapchainImagesKHR(window->device->vkDevice, window->vkSwapchain, &numImages, nullptr);
@@ -1491,9 +1507,9 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 			SetDebugMarker(window->device, Stringify(window->tag, " swapchain image view ", i), VK_OBJECT_TYPE_IMAGE_VIEW, (u64)window->swapchainImages[i].vkImageView);
 		}
 	}
-	{ // TODO: Update Framebuffer
-		if (window->initted && window->framebuffer) {
-			return ERROR_RESULT(window, "Live framebuffer updates are not implemented");
+	if (window->initted && window->framebuffer) {
+		if (auto result = FramebufferCreate(window->framebuffer); result.isError) {
+			return ERROR_RESULT(window, "Failed to recreate Framebuffer: ", result.error);
 		}
 	}
 	window->currentSync = 0;
@@ -1503,7 +1519,18 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 
 void WindowDeinit(Window *window) {
 	DEINIT_HEAD(window);
-	AzAssertRel(false, "Unimplemented");
+	for (Fence &fence : window->acquireFences) {
+		FenceWaitForSignal(&fence);
+		FenceDeinit(&fence);
+	}
+	for (Semaphore &semaphore : window->acquireSemaphores) {
+		SemaphoreDeinit(&semaphore);
+	}
+	for (Window::SwapchainImage &image : window->swapchainImages) {
+		vkDestroyImageView(window->device->vkDevice, image.vkImageView, nullptr);
+	}
+	vkDestroySwapchainKHR(window->device->vkDevice, window->vkSwapchain, nullptr);
+	window->initted = false;
 }
 
 
@@ -1516,7 +1543,7 @@ Result<VoidResult_t, String> WindowUpdate(Window *window) {
 	if (resize || window->shouldReconfigure) {
 reconfigure:
 		if (auto result = WindowInit(window); result.isError) {
-			return Stringify("Failed to reconfigure window: ", result.error);
+			return ERROR_RESULT(window, "Failed to reconfigure window: ", result.error);
 		}
 		window->shouldReconfigure = false;
 	}
@@ -1524,6 +1551,9 @@ reconfigure:
 	// Swapchain::AcquireNextImage
 	window->currentSync = (window->currentSync + 1) % window->numImages;
 	Fence *fence = &window->acquireFences[window->currentSync];
+	if (auto result = FenceWaitForSignal(fence); result.isError) {
+		return ERROR_RESULT(window, result.error);
+	}
 	if (auto result = FenceResetSignaled(fence); result.isError) {
 		return ERROR_RESULT(window, result.error);
 	}
@@ -1545,8 +1575,25 @@ reconfigure:
 	return VoidResult_t();
 }
 
-Result<VoidResult_t, String> WindowPresent(Window *window) {
-	return ERROR_RESULT(window, "Unimplemented");
+Result<VoidResult_t, String> WindowPresent(Window *window, ArrayWithBucket<Context*, 4> waitContexts) {
+	ArrayWithBucket<VkSemaphore, 4> waitSemaphores(waitContexts.size);
+	for (i32 i = 0; i < waitContexts.size; i++) {
+		waitSemaphores[i] = waitContexts[i]->semaphore.vkSemaphore;
+	}
+	VkPresentInfoKHR presentInfo{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+	presentInfo.waitSemaphoreCount = waitSemaphores.size;
+	presentInfo.pWaitSemaphores = waitSemaphores.data;
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = &window->vkSwapchain;
+	presentInfo.pImageIndices = (u32*)&window->currentImage;
+	
+	VkResult result = vkQueuePresentKHR(window->device->vkQueue, &presentInfo);
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+		io::cout.PrintLnDebug("WindowPresent got ", VkResultString(result));
+	} else if (result != VK_SUCCESS) {
+		return ERROR_RESULT(window, "Failed to Queue Present: ", VkResultString(result));
+	}
+	return VoidResult_t();
 }
 
 #endif
@@ -1573,8 +1620,20 @@ Buffer* NewVertexBuffer(Device *device, Str tag) {
 	return device->buffers.Append(new Buffer(Buffer::VERTEX_BUFFER, device, tag)).RawPtr();
 }
 
-Buffer* NewIndexBuffer(Device *device, Str tag) {
-	return device->buffers.Append(new Buffer(Buffer::INDEX_BUFFER, device, tag)).RawPtr();
+Buffer* NewIndexBuffer(Device *device, Str tag, u32 bytesPerIndex) {
+	Buffer *result = device->buffers.Append(new Buffer(Buffer::INDEX_BUFFER, device, tag)).RawPtr();
+	switch (bytesPerIndex) {
+	// TODO: Probably support 8-bit indices
+	case 2:
+		result->indexType = VK_INDEX_TYPE_UINT16;
+		break;
+	case 4:
+		result->indexType = VK_INDEX_TYPE_UINT32;
+		break;
+	default:
+		AzAssert(false, Stringify("Can only have 2 or 4 byte indices in an index buffer (had ", bytesPerIndex, ")"));
+	}
+	return result;
 }
 
 Buffer* NewStorageBuffer(Device *device, Str tag) {
@@ -1732,6 +1791,13 @@ Result<VoidResult_t, String> MemoryAddPage(Memory *memory, u32 minSize) {
 	SetDebugMarker(memory->device, Stringify(memory->tag, " page ", memory->pages.size-1), VK_OBJECT_TYPE_DEVICE_MEMORY, (u64)newPage.vkMemory);
 	newPage.segments.Append(Memory::Page::Segment{0, minSize, false});
 	return VoidResult_t();
+}
+
+// Cleans up and destroys all memory pages
+void MemoryClear(Memory *memory) {
+	for (Memory::Page &page : memory->pages) {
+		vkFreeMemory(memory->device->vkDevice, page.vkMemory, nullptr);
+	}
 }
 
 u32 alignedSize(u32 offset, u32 size, u32 alignment) {
@@ -2027,9 +2093,13 @@ breakout2:
 
 void DeviceDeinit(Device *device) {
 	AzAssert(device->initted, "Trying to Deinit a Device that isn't initted");
+	vkDeviceWaitIdle(device->vkDevice);
 	io::cout.PrintLnTrace("Deinitializing Device \"", device->tag, "\"");
 	for (auto &window : windows) {
 		WindowDeinit(window.RawPtr());
+	}
+	for (auto &framebuffer : device->framebuffers) {
+		FramebufferDeinit(framebuffer.RawPtr());
 	}
 	for (auto &context : device->contexts) {
 		ContextDeinit(context.RawPtr());
@@ -2042,6 +2112,10 @@ void DeviceDeinit(Device *device) {
 	}
 	for (auto &pipeline : device->pipelines) {
 		PipelineDeinit(pipeline.RawPtr());
+	}
+	for (auto node : device->memory) {
+		Memory &memory = node.value;
+		MemoryClear(&memory);
 	}
 	vkDestroyDevice(device->vkDevice, nullptr);
 }
@@ -2126,14 +2200,13 @@ void BufferHostDeinit(Buffer *buffer) {
 	buffer->hostVisible = false;
 }
 
-Result<VoidResult_t, String> BufferSetSize(Buffer *buffer, i64 sizeBytes) {
+void BufferSetSize(Buffer *buffer, i64 sizeBytes) {
 	bool initted = buffer->initted;
 	buffer->size = sizeBytes;
 	if (initted) {
 		// Reinit
 		AzAssertRel(false, "Unimplemented");
 	}
-	return VoidResult_t();
 }
 
 Result<VoidResult_t, String> ImageInit(Image *image) {
@@ -2230,7 +2303,7 @@ void ImageHostDeinit(Image *image) {
 	image->hostVisible = false;
 }
 
-Result<VoidResult_t, String> ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType componentType) {
+void ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType componentType) {
 	switch (imageBits) {
 		case ImageBits::R8:
 			switch (componentType) {
@@ -2464,18 +2537,17 @@ Result<VoidResult_t, String> ImageSetFormat(Image *image, ImageBits imageBits, I
 			break;
 		default: goto bad_format;
 	}
-	return VoidResult_t();
+	return;
 bad_format:
-	return Stringify("Cannot match ", imageBits, " bit layout and component type ", componentType);
+	AzAssertRel(false, Stringify("Cannot match ", imageBits, " bit layout and component type ", componentType));
 }
 
-Result<VoidResult_t, String> ImageSetSize(Image *image, i32 width, i32 height) {
+void ImageSetSize(Image *image, i32 width, i32 height) {
 	image->width = width;
 	image->height = height;
 	if (image->mipmapped) {
 		image->mipLevels = (u32)ceil(log2((f64)max(image->width, image->height)));
 	}
-	return VoidResult_t();
 }
 
 void ImageSetMipmapping(Image *image, bool enableMipmapping, i32 anisotropy) {
@@ -2598,72 +2670,81 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 		}
 		SetDebugMarker(framebuffer->device, Stringify(framebuffer->tag, " render pass"), VK_OBJECT_TYPE_RENDER_PASS, (u64)framebuffer->vkRenderPass);
 	}
-	{ // Framebuffers
-		i32 numFramebuffers = 1;
-		for (i32 i = 0; i < framebuffer->attachments.size; i++) {
-			Attachment &attachment = framebuffer->attachments[i];
-			i32 ourWidth, ourHeight;
-			switch (attachment.kind) {
-			case Attachment::WINDOW:
-				numFramebuffers = attachment.window->numImages;
-				ourWidth = attachment.window->extent.width;
-				ourHeight = attachment.window->extent.height;
-				break;
-			case Attachment::IMAGE:
-				ourWidth = attachment.image->width;
-				ourHeight = attachment.image->height;
-				break;
-			case Attachment::DEPTH_BUFFER:
-				ourWidth = attachment.depthBuffer->width;
-				ourHeight = attachment.depthBuffer->height;
-				break;
-			}
-			if (i == 0) {
-				framebuffer->width = ourWidth;
-				framebuffer->height = ourHeight;
-			} else if (framebuffer->width != ourWidth || framebuffer->height != ourHeight) {
-				return ERROR_RESULT(framebuffer, "Attachment ", i, " dimensions mismatch. Expected ", framebuffer->width, "x", framebuffer->height, ", but got ", ourWidth, "x", ourHeight);
-			}
-		}
-		framebuffer->vkFramebuffers.Resize(numFramebuffers);
-		for (i32 i = 0; i < numFramebuffers; i++) {
-			VkFramebuffer &vkFramebuffer = framebuffer->vkFramebuffers[i];
-			Array<VkImageView> imageViews(framebuffer->attachments.size);
-			for (i32 j = 0; j < imageViews.size; j++) {
-				VkImageView &imageView = imageViews[j];
-				Attachment &attachment = framebuffer->attachments[j];
-				switch (attachment.kind) {
-				case Attachment::WINDOW:
-					imageView = attachment.window->swapchainImages[i].vkImageView;
-					break;
-				case Attachment::IMAGE:
-					imageView = attachment.image->vkImageView;
-					break;
-				case Attachment::DEPTH_BUFFER:
-					imageView = attachment.depthBuffer->vkImageView;
-					break;
-				}
-			}
-			VkFramebufferCreateInfo createInfo{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-			createInfo.renderPass = framebuffer->vkRenderPass;
-			createInfo.width = framebuffer->width;
-			createInfo.height = framebuffer->height;
-			createInfo.layers = 1;
-			createInfo.attachmentCount = imageViews.size;
-			createInfo.pAttachments = imageViews.data;
-			if (VkResult result = vkCreateFramebuffer(framebuffer->device->vkDevice, &createInfo, nullptr, &vkFramebuffer); result != VK_SUCCESS) {
-				return ERROR_RESULT(framebuffer, "Failed to create framebuffer ", i, "/", numFramebuffers, ": ", VkResultString(result));
-			}
-			SetDebugMarker(framebuffer->device, Stringify(framebuffer->tag, " framebuffer"), VK_OBJECT_TYPE_FRAMEBUFFER, (u64)vkFramebuffer);
-		}
-	}
 	framebuffer->initted = true;
-	return VoidResult_t();
+	return FramebufferCreate(framebuffer);
 }
 
 void FramebufferDeinit(Framebuffer *framebuffer) {
 	DEINIT_HEAD(framebuffer);
 	vkDestroyRenderPass(framebuffer->device->vkDevice, framebuffer->vkRenderPass, nullptr);
+	for (VkFramebuffer fb : framebuffer->vkFramebuffers) {
+		vkDestroyFramebuffer(framebuffer->device->vkDevice, fb, nullptr);
+	}
+}
+
+Result<VoidResult_t, String> FramebufferCreate(Framebuffer *framebuffer) {
+	AzAssert(framebuffer->initted, "Framebuffer is not initialized");
+	i32 numFramebuffers = 1;
+	for (i32 i = 0; i < framebuffer->attachments.size; i++) {
+		Attachment &attachment = framebuffer->attachments[i];
+		i32 ourWidth, ourHeight;
+		switch (attachment.kind) {
+		case Attachment::WINDOW:
+			numFramebuffers = attachment.window->numImages;
+			ourWidth = attachment.window->extent.width;
+			ourHeight = attachment.window->extent.height;
+			break;
+		case Attachment::IMAGE:
+			ourWidth = attachment.image->width;
+			ourHeight = attachment.image->height;
+			break;
+		case Attachment::DEPTH_BUFFER:
+			ourWidth = attachment.depthBuffer->width;
+			ourHeight = attachment.depthBuffer->height;
+			break;
+		}
+		if (i == 0) {
+			framebuffer->width = ourWidth;
+			framebuffer->height = ourHeight;
+		} else if (framebuffer->width != ourWidth || framebuffer->height != ourHeight) {
+			return ERROR_RESULT(framebuffer, "Attachment ", i, " dimensions mismatch. Expected ", framebuffer->width, "x", framebuffer->height, ", but got ", ourWidth, "x", ourHeight);
+		}
+	}
+	for (VkFramebuffer fb : framebuffer->vkFramebuffers) {
+		vkDestroyFramebuffer(framebuffer->device->vkDevice, fb, nullptr);
+	}
+	framebuffer->vkFramebuffers.Resize(numFramebuffers);
+	for (i32 i = 0; i < numFramebuffers; i++) {
+		VkFramebuffer &vkFramebuffer = framebuffer->vkFramebuffers[i];
+		Array<VkImageView> imageViews(framebuffer->attachments.size);
+		for (i32 j = 0; j < imageViews.size; j++) {
+			VkImageView &imageView = imageViews[j];
+			Attachment &attachment = framebuffer->attachments[j];
+			switch (attachment.kind) {
+			case Attachment::WINDOW:
+				imageView = attachment.window->swapchainImages[i].vkImageView;
+				break;
+			case Attachment::IMAGE:
+				imageView = attachment.image->vkImageView;
+				break;
+			case Attachment::DEPTH_BUFFER:
+				imageView = attachment.depthBuffer->vkImageView;
+				break;
+			}
+		}
+		VkFramebufferCreateInfo createInfo{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+		createInfo.renderPass = framebuffer->vkRenderPass;
+		createInfo.width = framebuffer->width;
+		createInfo.height = framebuffer->height;
+		createInfo.layers = 1;
+		createInfo.attachmentCount = imageViews.size;
+		createInfo.pAttachments = imageViews.data;
+		if (VkResult result = vkCreateFramebuffer(framebuffer->device->vkDevice, &createInfo, nullptr, &vkFramebuffer); result != VK_SUCCESS) {
+			return ERROR_RESULT(framebuffer, "Failed to create framebuffer ", i, "/", numFramebuffers, ": ", VkResultString(result));
+		}
+		SetDebugMarker(framebuffer->device, Stringify(framebuffer->tag, " framebuffer"), VK_OBJECT_TYPE_FRAMEBUFFER, (u64)vkFramebuffer);
+	}
+	return VoidResult_t();
 }
 
 VkFramebuffer FramebufferGetCurrentVkFramebuffer(Framebuffer *framebuffer) {
@@ -2685,11 +2766,17 @@ VkFramebuffer FramebufferGetCurrentVkFramebuffer(Framebuffer *framebuffer) {
 }
 
 bool FramebufferHasDepthBuffer(Framebuffer *framebuffer) {
-	for (i32 i = 0; i < framebuffer->attachments.size; i++) {
-		Attachment &attachment = framebuffer->attachments[i];
+	for (Attachment &attachment : framebuffer->attachments) {
 		if (attachment.kind == Attachment::DEPTH_BUFFER) return true;
 	}
 	return false;
+}
+
+Window* FramebufferGetWindowAttachment(Framebuffer *framebuffer) {
+	for (Attachment &attachment : framebuffer->attachments) {
+		if (attachment.kind == Attachment::WINDOW) return attachment.window;
+	}
+	return nullptr;
 }
 
 #endif
@@ -2773,249 +2860,252 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 	// TODO: Support push constants
 	layoutCreateInfo.pushConstantRangeCount = 0;
 	
-	bool recreate = false;
+	bool create = false;
 	
 	if (!VkPipelineLayoutCreateInfoMatches(layoutCreateInfo, pipeline->vkPipelineLayoutCreateInfo)) {
-		if (pipeline->vkPipelineLayoutCreateInfo.sType) {
+		pipeline->vkPipelineLayoutCreateInfo = layoutCreateInfo;
+		create = true;
+		if (pipeline->vkPipelineLayout != VK_NULL_HANDLE) {
 			// TODO: Probably just cache it
 			vkDestroyPipelineLayout(pipeline->device->vkDevice, pipeline->vkPipelineLayout, nullptr);
-			recreate = true;
 		}
 		if (VkResult result = vkCreatePipelineLayout(pipeline->device->vkDevice, &layoutCreateInfo, nullptr, &pipeline->vkPipelineLayout); result != VK_SUCCESS) {
 			return ERROR_RESULT(pipeline, "Failed to create pipeline layout: ", VkResultString(result));
 		}
 		SetDebugMarker(pipeline->device, Stringify(pipeline->tag, " pipeline layout"), VK_OBJECT_TYPE_PIPELINE_LAYOUT, (u64)pipeline->vkPipelineLayout);
 	}
-	Array<VkPipelineShaderStageCreateInfo> shaderStages(pipeline->shaders.size);
-	io::cout.PrintLnDebug("Composing Pipeline with ", shaderStages.size, " shader", shaderStages.size != 1 ? "s:" : ":");
-	io::cout.IndentMore();
-	for (i32 i = 0; i < pipeline->shaders.size; i++) {
-		Pipeline::Shader &shader = pipeline->shaders[i];
-		VkPipelineShaderStageCreateInfo &createInfo = shaderStages[i];
-		createInfo = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
-		switch (shader.stage) {
-		case ShaderStage::COMPUTE:
-			io::cout.PrintLnDebug("Compute shader \"", shader.filename, "\"");
-			createInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-			break;
-		case ShaderStage::VERTEX:
-			io::cout.PrintLnDebug("Vertex shader \"", shader.filename, "\"");
-			createInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-			break;
-		case ShaderStage::FRAGMENT:
-			io::cout.PrintLnDebug("Fragment shader \"", shader.filename, "\"");
-			createInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-			break;
+	if (create) {
+		Array<VkPipelineShaderStageCreateInfo> shaderStages(pipeline->shaders.size);
+		io::cout.PrintLnDebug("Composing Pipeline with ", shaderStages.size, " shader", shaderStages.size != 1 ? "s:" : ":");
+		io::cout.IndentMore();
+		for (i32 i = 0; i < pipeline->shaders.size; i++) {
+			Pipeline::Shader &shader = pipeline->shaders[i];
+			VkPipelineShaderStageCreateInfo &createInfo = shaderStages[i];
+			createInfo = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+			switch (shader.stage) {
+			case ShaderStage::COMPUTE:
+				io::cout.PrintLnDebug("Compute shader \"", shader.filename, "\"");
+				createInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+				break;
+			case ShaderStage::VERTEX:
+				io::cout.PrintLnDebug("Vertex shader \"", shader.filename, "\"");
+				createInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+				break;
+			case ShaderStage::FRAGMENT:
+				io::cout.PrintLnDebug("Fragment shader \"", shader.filename, "\"");
+				createInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+				break;
+			}
+			io::cout.IndentLess();
+			createInfo.module = shader.vkShaderModule;
+			// The Vulkan API pretends we can use something other than "main", but we really can't :(
+			createInfo.pName = "main";
 		}
-		io::cout.IndentLess();
-		createInfo.module = shader.vkShaderModule;
-		// The Vulkan API pretends we can use something other than "main", but we really can't :(
-		createInfo.pName = "main";
-	}
-	if (pipeline->kind == Pipeline::GRAPHICS) {
-		VkPipelineVertexInputStateCreateInfo vertexInputState{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
-		Array<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions;
-		VkVertexInputBindingDescription vertexInputBindingDescription;
-		{ // Vertex Inputs
-			vertexInputBindingDescription.binding = 0;
-			vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-			u32 offset = 0;
-			i32 location = 0;
-			for (i32 i = 0; i < pipeline->vertexInputs.size; i++) {
-				ShaderValueType inputType = pipeline->vertexInputs[i];
-				i32 numLocations = ShaderValueNumLocations[(u16)inputType];
-				for (i32 j = 0; j < numLocations; j++) {
-					VkVertexInputAttributeDescription attributeDescription;
-					attributeDescription.binding = 0;
-					attributeDescription.location = location++;
-					i64 myStride;
-					if (inputType == ShaderValueType::DVEC3 && j == 1) {
-						// Handle our special case, as DVEC3 is the only input type that takes multiple locations with different strides/formats
-						myStride = ShaderValueTypeStride[(u16)inputType]/2;
-						attributeDescription.format = VK_FORMAT_R64_SFLOAT;
-					} else {
-						myStride = ShaderValueTypeStride[(u16)inputType];
-						attributeDescription.format = ShaderValueFormats[(u16)inputType];
+		if (pipeline->kind == Pipeline::GRAPHICS) {
+			VkPipelineVertexInputStateCreateInfo vertexInputState{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+			Array<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions;
+			VkVertexInputBindingDescription vertexInputBindingDescription;
+			{ // Vertex Inputs
+				vertexInputBindingDescription.binding = 0;
+				vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+				u32 offset = 0;
+				i32 location = 0;
+				for (i32 i = 0; i < pipeline->vertexInputs.size; i++) {
+					ShaderValueType inputType = pipeline->vertexInputs[i];
+					i32 numLocations = ShaderValueNumLocations[(u16)inputType];
+					for (i32 j = 0; j < numLocations; j++) {
+						VkVertexInputAttributeDescription attributeDescription;
+						attributeDescription.binding = 0;
+						attributeDescription.location = location++;
+						i64 myStride;
+						if (inputType == ShaderValueType::DVEC3 && j == 1) {
+							// Handle our special case, as DVEC3 is the only input type that takes multiple locations with different strides/formats
+							myStride = ShaderValueTypeStride[(u16)inputType]/2;
+							attributeDescription.format = VK_FORMAT_R64_SFLOAT;
+						} else {
+							myStride = ShaderValueTypeStride[(u16)inputType];
+							attributeDescription.format = ShaderValueFormats[(u16)inputType];
+						}
+						attributeDescription.offset = align(offset, myStride);
+						offset += myStride;
+						vertexInputAttributeDescriptions.Append(attributeDescription);
 					}
-					attributeDescription.offset = align(offset, myStride);
-					offset += myStride;
-					vertexInputAttributeDescriptions.Append(attributeDescription);
+				}
+				if (pipeline->vertexInputs.size == 0) {
+					vertexInputBindingDescription.stride = 0;
+				} else {
+					vertexInputBindingDescription.stride = align(offset, ShaderValueTypeStride[(u16)pipeline->vertexInputs[0]]);
+				}
+				// TODO: It could be nice to print out the final bindings, along with alignment, as working these things out for writing shaders and packing data in our vertex buffer might be annoying.
+			}
+			// TODO: Support multiple simultaneous bindings
+			vertexInputState.vertexBindingDescriptionCount = 1;
+			vertexInputState.pVertexBindingDescriptions = &vertexInputBindingDescription;
+			vertexInputState.vertexAttributeDescriptionCount = vertexInputAttributeDescriptions.size;
+			vertexInputState.pVertexAttributeDescriptions = vertexInputAttributeDescriptions.data;
+			
+			VkPipelineInputAssemblyStateCreateInfo inputAssemblyState{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
+			// This is a 1-to-1 mapping
+			inputAssemblyState.topology = (VkPrimitiveTopology)pipeline->topology;
+			// TODO: We could use this
+			inputAssemblyState.primitiveRestartEnable = VK_FALSE;
+			
+			VkPipelineViewportStateCreateInfo viewportState={VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+			VkViewport viewport;
+			viewport.width = (f32)context->bindings.framebuffer->width;
+			viewport.height = (f32)context->bindings.framebuffer->height;
+			viewport.minDepth = 0.0f;
+			viewport.maxDepth = 1.0f;
+			viewport.x = 0.0f;
+			viewport.y = 0.0f;
+			viewportState.viewportCount = 1;
+			viewportState.pViewports = &viewport;
+			VkRect2D scissor;
+			scissor.offset = {0, 0};
+			scissor.extent.width = context->bindings.framebuffer->width;
+			scissor.extent.height = context->bindings.framebuffer->height;
+			viewportState.scissorCount = 1;
+			viewportState.pScissors = &scissor;
+			
+			VkPipelineRasterizationStateCreateInfo rasterizerState{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
+			rasterizerState.depthClampEnable = VK_FALSE;
+			rasterizerState.rasterizerDiscardEnable = VK_FALSE;
+			rasterizerState.polygonMode = VK_POLYGON_MODE_FILL;
+			rasterizerState.cullMode = (VkCullModeFlagBits)pipeline->cullingMode;
+			rasterizerState.frontFace = (VkFrontFace)pipeline->winding;
+			rasterizerState.depthBiasEnable = pipeline->depthBias.enable;
+			rasterizerState.depthBiasConstantFactor = pipeline->depthBias.constant;
+			rasterizerState.depthBiasSlopeFactor = pipeline->depthBias.slope;
+			rasterizerState.depthBiasClamp = pipeline->depthBias.clampValue;
+			rasterizerState.lineWidth = pipeline->lineWidth;
+			
+			// TODO: Support multisampling (need to be able to resolve images, probably in the framebuffer)
+			VkPipelineMultisampleStateCreateInfo multisampleState{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
+			multisampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+			multisampleState.sampleShadingEnable = VK_FALSE;
+			// Controls what fraction of samples get shaded with the above turned on. No effect otherwise.
+			multisampleState.minSampleShading = 1.0f;
+			multisampleState.pSampleMask = nullptr;
+			multisampleState.alphaToCoverageEnable = VK_FALSE;
+			multisampleState.alphaToOneEnable = VK_FALSE;
+			
+			VkPipelineDepthStencilStateCreateInfo depthStencilState{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+			// depthStencilState.flags; // VkPipelineDepthStencilStateCreateFlags
+			bool framebufferHasDepthBuffer = FramebufferHasDepthBuffer(context->bindings.framebuffer);
+			if (pipeline->depthTest == BoolOrDefault::TRUE && !framebufferHasDepthBuffer) {
+				return ERROR_RESULT(pipeline, "Depth test is enabled, but framebuffer doesn't have a depth buffer");
+			}
+			depthStencilState.depthTestEnable = ResolveBoolOrDefault(pipeline->depthTest, framebufferHasDepthBuffer);
+			if (pipeline->depthWrite == BoolOrDefault::TRUE && !framebufferHasDepthBuffer) {
+				return ERROR_RESULT(pipeline, "Depth write is enabled, but framebuffer doesn't have a depth buffer");
+			}
+			depthStencilState.depthWriteEnable = ResolveBoolOrDefault(pipeline->depthWrite, framebufferHasDepthBuffer);
+			depthStencilState.depthCompareOp = (VkCompareOp)pipeline->depthCompareOp;
+			depthStencilState.depthBoundsTestEnable = VK_FALSE;
+			// TODO: Support stencil buffers
+			depthStencilState.stencilTestEnable = VK_FALSE;
+			// depthStencilState.front; // VkStencilOpState
+			// depthStencilState.back; // VkStencilOpState
+			depthStencilState.minDepthBounds = 0.0f;
+			depthStencilState.maxDepthBounds = 1.0f;
+			
+			VkPipelineColorBlendStateCreateInfo colorBlendState{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
+			colorBlendState.logicOpEnable = VK_FALSE;
+			colorBlendState.logicOp = VK_LOGIC_OP_COPY;
+			colorBlendState.blendConstants[0] = 1.0f;
+			colorBlendState.blendConstants[1] = 1.0f;
+			colorBlendState.blendConstants[2] = 1.0f;
+			colorBlendState.blendConstants[3] = 1.0f;
+			Array<VkPipelineColorBlendAttachmentState> blendModes;
+			{ // Attachment blend modes
+				for (i32 i = 0; i < context->bindings.framebuffer->attachments.size; i++) {
+					Attachment &attachment = context->bindings.framebuffer->attachments[i];
+					if (attachment.kind == Attachment::IMAGE || attachment.kind == Attachment::WINDOW) {
+						VkPipelineColorBlendAttachmentState state;
+						state.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+						state.blendEnable = VK_TRUE;
+						state.colorBlendOp = VK_BLEND_OP_ADD;
+						state.alphaBlendOp = VK_BLEND_OP_ADD;
+						BlendMode blendMode = pipeline->blendModes[blendModes.size];
+						switch (blendMode.kind) {
+						case BlendMode::OPAQUE:
+							state.blendEnable = VK_FALSE;
+							break;
+						case BlendMode::TRANSPARENT:
+							state.srcColorBlendFactor = blendMode.alphaPremult ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_SRC_ALPHA;
+							state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+							state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+							state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+							break;
+						case BlendMode::ADDITION:
+							state.srcColorBlendFactor = blendMode.alphaPremult ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_SRC_ALPHA;
+							state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+							state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+							state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+							break;
+						}
+						blendModes.Append(state);
+					}
 				}
 			}
-			if (pipeline->vertexInputs.size == 0) {
-				vertexInputBindingDescription.stride = 0;
-			} else {
-				vertexInputBindingDescription.stride = align(offset, ShaderValueTypeStride[(u16)pipeline->vertexInputs[0]]);
+			// TODO: Find the real upper limit
+			if (blendModes.size > 8) {
+				return ERROR_RESULT(pipeline, "Pipelines don't support more than 8 color attachments right now (had ", blendModes.size, ")");
 			}
-			// TODO: It could be nice to print out the final bindings, along with alignment, as working these things out for writing shaders and packing data in our vertex buffer might be annoying.
-		}
-		// TODO: Support multiple simultaneous bindings
-		vertexInputState.vertexBindingDescriptionCount = 1;
-		vertexInputState.pVertexBindingDescriptions = &vertexInputBindingDescription;
-		vertexInputState.vertexAttributeDescriptionCount = vertexInputAttributeDescriptions.size;
-		vertexInputState.pVertexAttributeDescriptions = vertexInputAttributeDescriptions.data;
-		
-		VkPipelineInputAssemblyStateCreateInfo inputAssemblyState{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
-		// This is a 1-to-1 mapping
-		inputAssemblyState.topology = (VkPrimitiveTopology)pipeline->topology;
-		// TODO: We could use this
-		inputAssemblyState.primitiveRestartEnable = VK_FALSE;
-		
-		VkPipelineViewportStateCreateInfo viewportState={VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
-		VkViewport viewport;
-		viewport.width = (f32)context->bindings.framebuffer->width;
-		viewport.height = (f32)context->bindings.framebuffer->height;
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
-		viewport.x = 0.0f;
-		viewport.y = 0.0f;
-		viewportState.viewportCount = 1;
-		viewportState.pViewports = &viewport;
-		VkRect2D scissor;
-		scissor.offset = {0, 0};
-		scissor.extent.width = context->bindings.framebuffer->width;
-		scissor.extent.height = context->bindings.framebuffer->height;
-		viewportState.scissorCount = 1;
-		viewportState.pScissors = &scissor;
-		
-		VkPipelineRasterizationStateCreateInfo rasterizerState{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
-		rasterizerState.depthClampEnable = VK_FALSE;
-		rasterizerState.rasterizerDiscardEnable = VK_FALSE;
-		rasterizerState.polygonMode = VK_POLYGON_MODE_FILL;
-		rasterizerState.cullMode = (VkCullModeFlagBits)pipeline->cullingMode;
-		rasterizerState.frontFace = (VkFrontFace)pipeline->winding;
-		rasterizerState.depthBiasEnable = pipeline->depthBias.enable;
-		rasterizerState.depthBiasConstantFactor = pipeline->depthBias.constant;
-		rasterizerState.depthBiasSlopeFactor = pipeline->depthBias.slope;
-		rasterizerState.depthBiasClamp = pipeline->depthBias.clampValue;
-		rasterizerState.lineWidth = pipeline->lineWidth;
-		
-		// TODO: Support multisampling (need to be able to resolve images, probably in the framebuffer)
-		VkPipelineMultisampleStateCreateInfo multisampleState{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-		multisampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-		multisampleState.sampleShadingEnable = VK_FALSE;
-		// Controls what fraction of samples get shaded with the above turned on. No effect otherwise.
-		multisampleState.minSampleShading = 1.0f;
-		multisampleState.pSampleMask = nullptr;
-		multisampleState.alphaToCoverageEnable = VK_FALSE;
-		multisampleState.alphaToOneEnable = VK_FALSE;
-		
-		VkPipelineDepthStencilStateCreateInfo depthStencilState{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
-		// depthStencilState.flags; // VkPipelineDepthStencilStateCreateFlags
-		bool framebufferHasDepthBuffer = FramebufferHasDepthBuffer(context->bindings.framebuffer);
-		if (pipeline->depthTest == BoolOrDefault::TRUE && !framebufferHasDepthBuffer) {
-			return ERROR_RESULT(pipeline, "Depth test is enabled, but framebuffer doesn't have a depth buffer");
-		}
-		depthStencilState.depthTestEnable = ResolveBoolOrDefault(pipeline->depthTest, framebufferHasDepthBuffer);
-		if (pipeline->depthWrite == BoolOrDefault::TRUE && !framebufferHasDepthBuffer) {
-			return ERROR_RESULT(pipeline, "Depth write is enabled, but framebuffer doesn't have a depth buffer");
-		}
-		depthStencilState.depthWriteEnable = ResolveBoolOrDefault(pipeline->depthWrite, framebufferHasDepthBuffer);
-		depthStencilState.depthCompareOp = (VkCompareOp)pipeline->depthCompareOp;
-		depthStencilState.depthBoundsTestEnable = VK_FALSE;
-		// TODO: Support stencil buffers
-		depthStencilState.stencilTestEnable = VK_FALSE;
-		// depthStencilState.front; // VkStencilOpState
-		// depthStencilState.back; // VkStencilOpState
-		depthStencilState.minDepthBounds = 0.0f;
-		depthStencilState.maxDepthBounds = 1.0f;
-		
-		VkPipelineColorBlendStateCreateInfo colorBlendState{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
-		colorBlendState.logicOpEnable = VK_FALSE;
-		colorBlendState.logicOp = VK_LOGIC_OP_COPY;
-		colorBlendState.blendConstants[0] = 1.0f;
-		colorBlendState.blendConstants[1] = 1.0f;
-		colorBlendState.blendConstants[2] = 1.0f;
-		colorBlendState.blendConstants[3] = 1.0f;
-		Array<VkPipelineColorBlendAttachmentState> blendModes;
-		{ // Attachment blend modes
-			for (i32 i = 0; i < context->bindings.framebuffer->attachments.size; i++) {
-				Attachment &attachment = context->bindings.framebuffer->attachments[i];
-				if (attachment.kind == Attachment::IMAGE || attachment.kind == Attachment::WINDOW) {
-					VkPipelineColorBlendAttachmentState state;
-					state.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-					state.blendEnable = VK_TRUE;
-					state.colorBlendOp = VK_BLEND_OP_ADD;
-					state.alphaBlendOp = VK_BLEND_OP_ADD;
-					BlendMode blendMode = pipeline->blendModes[blendModes.size];
-					switch (blendMode.kind) {
-					case BlendMode::OPAQUE:
-						state.blendEnable = VK_FALSE;
-						break;
-					case BlendMode::TRANSPARENT:
-						state.srcColorBlendFactor = blendMode.alphaPremult ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_SRC_ALPHA;
-						state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-						state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
-						state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-						break;
-					case BlendMode::ADDITION:
-						state.srcColorBlendFactor = blendMode.alphaPremult ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_SRC_ALPHA;
-						state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-						state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
-						state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-						break;
-					}
-					blendModes.Append(state);
-				}
+			colorBlendState.attachmentCount = blendModes.size;
+			colorBlendState.pAttachments = blendModes.data;
+			
+			VkPipelineDynamicStateCreateInfo dynamicState{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+			Array<VkDynamicState> dynamicStates = {
+				VK_DYNAMIC_STATE_VIEWPORT,
+				VK_DYNAMIC_STATE_SCISSOR,
+				// VK_DYNAMIC_STATE_LINE_WIDTH,
+				// VK_DYNAMIC_STATE_DEPTH_BIAS,
+				// VK_DYNAMIC_STATE_DEPTH_BOUNDS,
+				// VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE,
+				// VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE,
+				// VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE,
+				// VK_DYNAMIC_STATE_DEPTH_COMPARE_OP,
+				// VK_DYNAMIC_STATE_CULL_MODE,
+				// VK_DYNAMIC_STATE_FRONT_FACE,
+				// VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY,
+				// // Provided by VK_EXT_vertex_input_dynamic_state
+				// VK_DYNAMIC_STATE_VERTEX_INPUT_EXT,
+			};
+			dynamicState.dynamicStateCount = dynamicStates.size;
+			dynamicState.pDynamicStates = dynamicStates.data;
+			
+			if (pipeline->vkPipeline != VK_NULL_HANDLE) {
+				// TODO: Probably cache
+				vkDestroyPipeline(pipeline->device->vkDevice, pipeline->vkPipeline, nullptr);
 			}
+			VkGraphicsPipelineCreateInfo createInfo{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+			createInfo.stageCount = shaderStages.size;
+			createInfo.pStages = shaderStages.data;
+			createInfo.pVertexInputState = &vertexInputState;
+			createInfo.pInputAssemblyState = &inputAssemblyState;
+			createInfo.pViewportState = &viewportState;
+			createInfo.pRasterizationState = &rasterizerState;
+			createInfo.pMultisampleState = &multisampleState;
+			createInfo.pDepthStencilState = &depthStencilState;
+			createInfo.pColorBlendState = &colorBlendState;
+			createInfo.pDynamicState = &dynamicState;
+			createInfo.layout = pipeline->vkPipelineLayout;
+			if (context->bindings.framebuffer == nullptr) {
+				return ERROR_RESULT(pipeline, "Cannot create a graphics Pipeline with no Framebuffer bound!");
+			}
+			createInfo.renderPass = context->bindings.framebuffer->vkRenderPass;
+			createInfo.subpass = 0;
+			createInfo.basePipelineHandle = VK_NULL_HANDLE;
+			createInfo.basePipelineIndex = -1;
+			
+			if (VkResult result = vkCreateGraphicsPipelines(pipeline->device->vkDevice, VK_NULL_HANDLE, 1, &createInfo, nullptr, &pipeline->vkPipeline); result != VK_SUCCESS) {
+				return ERROR_RESULT(pipeline, "Failed to create graphics pipeline: ", VkResultString(result));
+			}
+			SetDebugMarker(pipeline->device, Stringify(pipeline->tag, " graphics pipeline"), VK_OBJECT_TYPE_PIPELINE, (u64)pipeline->vkPipeline);
+		} else {
+			return ERROR_RESULT(pipeline, "Compute pipelines are not implemented yet");
 		}
-		// TODO: Find the real upper limit
-		if (blendModes.size > 8) {
-			return ERROR_RESULT(pipeline, "Pipelines don't support more than 8 color attachments right now (had ", blendModes.size, ")");
-		}
-		colorBlendState.attachmentCount = blendModes.size;
-		colorBlendState.pAttachments = blendModes.data;
-		
-		VkPipelineDynamicStateCreateInfo dynamicState{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
-		Array<VkDynamicState> dynamicStates = {
-			VK_DYNAMIC_STATE_VIEWPORT,
-			VK_DYNAMIC_STATE_SCISSOR,
-			// VK_DYNAMIC_STATE_LINE_WIDTH,
-			// VK_DYNAMIC_STATE_DEPTH_BIAS,
-			// VK_DYNAMIC_STATE_DEPTH_BOUNDS,
-			// VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE,
-			// VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE,
-			// VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE,
-			// VK_DYNAMIC_STATE_DEPTH_COMPARE_OP,
-			// VK_DYNAMIC_STATE_CULL_MODE,
-			// VK_DYNAMIC_STATE_FRONT_FACE,
-			// VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY,
-			// // Provided by VK_EXT_vertex_input_dynamic_state
-			// VK_DYNAMIC_STATE_VERTEX_INPUT_EXT,
-		};
-		dynamicState.dynamicStateCount = dynamicStates.size;
-		dynamicState.pDynamicStates = dynamicStates.data;
-		
-		if (recreate) {
-			// TODO: Probably cache
-			vkDestroyPipeline(pipeline->device->vkDevice, pipeline->vkPipeline, nullptr);
-		}
-		VkGraphicsPipelineCreateInfo createInfo{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
-		createInfo.stageCount = shaderStages.size;
-		createInfo.pStages = shaderStages.data;
-		createInfo.pVertexInputState = &vertexInputState;
-		createInfo.pInputAssemblyState = &inputAssemblyState;
-		createInfo.pViewportState = &viewportState;
-		createInfo.pRasterizationState = &rasterizerState;
-		createInfo.pMultisampleState = &multisampleState;
-		createInfo.pDepthStencilState = &depthStencilState;
-		createInfo.pColorBlendState = &colorBlendState;
-		createInfo.pDynamicState = &dynamicState;
-		createInfo.layout = pipeline->vkPipelineLayout;
-		if (context->bindings.framebuffer == nullptr) {
-			return ERROR_RESULT(pipeline, "Cannot create a graphics Pipeline with no Framebuffer bound!");
-		}
-		createInfo.renderPass = context->bindings.framebuffer->vkRenderPass;
-		createInfo.subpass = 0;
-		createInfo.basePipelineHandle = VK_NULL_HANDLE;
-		createInfo.basePipelineIndex = -1;
-		
-		if (VkResult result = vkCreateGraphicsPipelines(pipeline->device->vkDevice, VK_NULL_HANDLE, 1, &createInfo, nullptr, &pipeline->vkPipeline); result != VK_SUCCESS) {
-			return ERROR_RESULT(pipeline, "Failed to create graphics pipeline: ", VkResultString(result));
-		}
-		SetDebugMarker(pipeline->device, Stringify(pipeline->tag, " graphics pipeline"), VK_OBJECT_TYPE_PIPELINE, (u64)pipeline->vkPipeline);
-	} else {
-		return ERROR_RESULT(pipeline, "Compute pipelines are not implemented yet");
 	}
 	return VoidResult_t();
 }
@@ -3038,6 +3128,11 @@ Result<VoidResult_t, String> ContextInit(Context *context) {
 	if (auto result = FenceInit(&context->fence, true); result.isError) {
 		return ERROR_RESULT(context, result.error);
 	}
+	context->semaphore.device = context->device;
+	context->semaphore.tag = "Context Semaphore";
+	if (auto result = SemaphoreInit(&context->semaphore); result.isError) {
+		return ERROR_RESULT(context, result.error);
+	}
 	context->initted = true;
 	return VoidResult_t();
 }
@@ -3046,6 +3141,7 @@ void ContextDeinit(Context *context) {
 	DEINIT_HEAD(context);
 	vkDestroyCommandPool(context->device->vkDevice, context->vkCommandPool, nullptr);
 	FenceDeinit(&context->fence);
+	SemaphoreDeinit(&context->semaphore);
 	context->initted = false;
 }
 
@@ -3064,6 +3160,10 @@ Result<VoidResult_t, String> ContextBeginRecording(Context *context) {
 		return Stringify("Context \"", context->tag, "\" error: Cannot begin recording on a command buffer that's already recording");
 	}
 	ContextResetBindings(context);
+	// TODO: This prevents us from building the next command buffers while the previous ones are running. Switch to double-buffered Contexts
+	if (auto result = FenceWaitForSignal(&context->fence); result.isError) {
+		return ERROR_RESULT(context, result.error);
+	}
 	if (auto result = FenceResetSignaled(&context->fence); result.isError) {
 		return ERROR_RESULT(context, result.error);
 	}
@@ -3127,6 +3227,9 @@ Result<VoidResult_t, String> ContextEndRecording(Context *context) {
 	if (!ContextIsRecording(context)) {
 		return Stringify("Context \"", context->tag, "\" error: Trying to End Recording but we haven't started recording.");
 	}
+	if (context->bindings.framebuffer) {
+		vkCmdEndRenderPass(context->vkCommandBuffer);
+	}
 	if (VkResult result = vkEndCommandBuffer(context->vkCommandBuffer); result != VK_SUCCESS) {
 		return Stringify("Context \"", context->tag, "\" error: Failed to End Recording: ", VkResultString(result));
 	}
@@ -3134,13 +3237,32 @@ Result<VoidResult_t, String> ContextEndRecording(Context *context) {
 	return VoidResult_t();
 }
 
-Result<VoidResult_t, String> SubmitCommands(Context *context) {
+Result<VoidResult_t, String> SubmitCommands(Context *context, ArrayWithBucket<Context*, 4> waitContexts) {
 	if (context->state != Context::State::DONE_RECORDING) {
 		return Stringify("Context \"", context->tag, "\" error: Trying to SubmitCommands without anything recorded.");
+	}
+	ArrayWithBucket<VkSemaphore, 4> waitSemaphores(waitContexts.size);
+	ArrayWithBucket<VkPipelineStageFlags, 4> waitStages(waitContexts.size);
+	for (i32 i = 0; i < waitSemaphores.size; i++) {
+		waitSemaphores[i] = waitContexts[i]->semaphore.vkSemaphore;
+		// TODO: This is a safe assumption, but we could probably be more specific.
+		waitStages[i] = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+	}
+	if (context->bindings.framebuffer) {
+		Window *window = FramebufferGetWindowAttachment(context->bindings.framebuffer);
+		if (window) {
+			waitSemaphores.Append(window->acquireSemaphores[window->currentSync].vkSemaphore);
+			waitStages.Append(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+		}
 	}
 	VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &context->vkCommandBuffer;
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = &context->semaphore.vkSemaphore;
+	submitInfo.waitSemaphoreCount = waitSemaphores.size;
+	submitInfo.pWaitSemaphores = waitSemaphores.data;
+	submitInfo.pWaitDstStageMask = waitStages.data;
 	if (VkResult result = vkQueueSubmit(context->device->vkQueue, 1, &submitInfo, context->fence.vkFence); result != VK_SUCCESS) {
 		return Stringify("Context \"", context->tag, "\" error: Failed to submit to queue: ", VkResultString(result));
 	}
@@ -3459,6 +3581,16 @@ Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
 		beginInfo.renderArea.extent.height = framebuffer->height;
 		vkCmdBeginRenderPass(context->vkCommandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	}
+	if (vertexBuffer) {
+		context->bindings.vertexBuffer = vertexBuffer;
+		VkDeviceSize zero = 0;
+		// TODO: Support multiple vertex buffer bindings
+		vkCmdBindVertexBuffers(context->vkCommandBuffer, 0, 1, &vertexBuffer->vkBuffer, &zero);
+	}
+	if (indexBuffer) {
+		context->bindings.indexBuffer = indexBuffer;
+		vkCmdBindIndexBuffer(context->vkCommandBuffer, indexBuffer->vkBuffer, 0, indexBuffer->indexType);
+	}
 	// TODO: Vertex buffers, index buffers, descriptors, etc
 	if (nullptr != pipeline && context->bindings.pipeline != pipeline) {
 		context->bindings.pipeline = pipeline;
@@ -3467,13 +3599,55 @@ Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
 		}
 		vkCmdBindPipeline(context->vkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->vkPipeline);
 	}
+	CmdSetViewportAndScissor(context, (f32)context->bindings.framebuffer->width, (f32)context->bindings.framebuffer->height);
 	context->bindCommands.ClearSoft();
 	return VoidResult_t();
 }
 
+void CmdSetViewport(Context *context, f32 width, f32 height, f32 minDepth, f32 maxDepth, f32 x, f32 y) {
+	VkViewport viewport;
+	viewport.width = width;
+	viewport.height = height;
+	viewport.minDepth = minDepth;
+	viewport.maxDepth = maxDepth;
+	viewport.x = x;
+	viewport.y = y;
+	vkCmdSetViewport(context->vkCommandBuffer, 0, 1, &viewport);
+}
+
+void CmdSetScissor(Context *context, u32 width, u32 height, i32 x, i32 y) {
+	VkRect2D scissor;
+	scissor.extent.width = width;
+	scissor.extent.height = height;
+	scissor.offset.x = x;
+	scissor.offset.y = y;
+	vkCmdSetScissor(context->vkCommandBuffer, 0, 1, &scissor);
+}
+
+void CmdClearColorAttachment(Context *context, vec4 color, i32 attachment) {
+	AzAssert(context->bindings.framebuffer != nullptr, "Cannot CmdClearColorAttachment without a Framebuffer bound");
+	VkClearValue clearValue;
+	clearValue.color.float32[0] = color.r;
+	clearValue.color.float32[1] = color.g;
+	clearValue.color.float32[2] = color.b;
+	clearValue.color.float32[3] = color.a;
+	VkClearRect clearRect;
+	clearRect.baseArrayLayer = 0;
+	clearRect.layerCount = 1;
+	clearRect.rect.extent.width = (u32)context->bindings.framebuffer->width;
+	clearRect.rect.extent.height = (u32)context->bindings.framebuffer->height;
+	clearRect.rect.offset.x = 0;
+	clearRect.rect.offset.y = 0;
+	VkClearAttachment clearAttachment;
+	clearAttachment.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	clearAttachment.clearValue = clearValue;
+	clearAttachment.colorAttachment = (u32)attachment;
+	vkCmdClearAttachments(context->vkCommandBuffer, 1, &clearAttachment, 1, &clearRect);
+}
+
 void CmdDrawIndexed(Context *context, i32 count, i32 indexOffset, i32 vertexOffset, i32 instanceCount, i32 instanceOffset) {
 	AzAssert(context->bindings.indexBuffer != nullptr, "Cannot use CmdDrawIndexed without an index buffer bound");
-	AzAssert(false, "Unimplemented");
+	vkCmdDrawIndexed(context->vkCommandBuffer, count, instanceCount, indexOffset, vertexOffset, instanceOffset);
 }
 
 #endif

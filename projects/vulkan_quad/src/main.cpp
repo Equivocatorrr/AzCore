@@ -66,29 +66,17 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		{vec2( 0.5f,  0.5f), vec2(1.0f, 1.0f)},
 		{vec2( 0.5f, -0.5f), vec2(1.0f, 0.0f)}
 	};
-	Array<u32> indices = {0, 1, 2, 2, 3, 0};
+	Array<u16> indices = {0, 1, 2, 2, 3, 0};
 	
 	GPU::Buffer *vertexBuffer = GPU::NewVertexBuffer(device, "main");
-	if (auto result = GPU::BufferSetSize(vertexBuffer, vertices.size * sizeof(Vertex)); result.isError) {
-		io::cerr.PrintLn("Failed to set vertex buffer size: ", result.error);
-		return 1;
-	}
+	GPU::BufferSetSize(vertexBuffer, vertices.size * sizeof(Vertex));
 	
-	GPU::Buffer *indexBuffer = GPU::NewIndexBuffer(device, "main");
-	if (auto result = GPU::BufferSetSize(indexBuffer, indices.size * sizeof(Vertex)); result.isError) {
-		io::cerr.PrintLn("Failed to set index buffer size: ", result.error);
-		return 1;
-	}
+	GPU::Buffer *indexBuffer = GPU::NewIndexBuffer(device, "main", sizeof(indices[0]));
+	GPU::BufferSetSize(indexBuffer, indices.size * sizeof(Vertex));
 	
 	GPU::Image *gpuImage = GPU::NewImage(device, "tex");
-	if (auto result = GPU::ImageSetFormat(gpuImage, GPU::ImageBits::R8G8B8A8, GPU::ImageComponentType::SRGB); result.isError) {
-		io::cerr.PrintLn("Failed to set image format: ", result.error);
-		return 1;
-	}
-	if (auto result = GPU::ImageSetSize(gpuImage, image.width, image.height); result.isError) {
-		io::cerr.PrintLn("Failed to set image size: ", result.error);
-		return 1;
-	}
+	GPU::ImageSetFormat(gpuImage, GPU::ImageBits::R8G8B8A8, GPU::ImageComponentType::SRGB);
+	GPU::ImageSetSize(gpuImage, image.width, image.height);
 	GPU::ImageSetMipmapping(gpuImage, true, 16);
 	GPU::ImageSetUsageSampled(gpuImage, (u32)GPU::ShaderStage::FRAGMENT);
 
@@ -175,6 +163,8 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			io::cerr.PrintLn("Failed to commit bindings: ", result.error);
 			return 1;
 		}
+		
+		GPU::CmdClearColorAttachment(context, vec4(0.2f, 0.3f, 0.5f, 1.0f));
 
 		GPU::CmdDrawIndexed(context, 6, 0, 0);
 
@@ -188,7 +178,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			return 1;
 		}
 
-		if (auto result = GPU::WindowPresent(gpuWindow); result.isError) {
+		if (auto result = GPU::WindowPresent(gpuWindow, {context}); result.isError) {
 			io::cerr.PrintLn("Failed to present window surface: ", result.error);
 			return 1;
 		}

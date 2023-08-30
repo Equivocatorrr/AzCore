@@ -213,7 +213,8 @@ void SetVSync(Window *window, bool enable);
 
 [[nodiscard]] Result<VoidResult_t, String> WindowUpdate(Window *window);
 
-[[nodiscard]] Result<VoidResult_t, String> WindowPresent(Window *window);
+// waitContexts are any contexts that the window's resulting image depend on. These only need to be populated if not using external synchronization like ContextWaitUntilFinished().
+[[nodiscard]] Result<VoidResult_t, String> WindowPresent(Window *window, ArrayWithBucket<Context*, 4> waitContexts={});
 
 
 // Creating new objects
@@ -231,7 +232,8 @@ void SetVSync(Window *window, bool enable);
 [[nodiscard]] Buffer* NewVertexBuffer(Device *device, Str tag = Str());
 
 // Add a buffer that describes indices into a vertex buffer
-[[nodiscard]] Buffer* NewIndexBuffer(Device *device, Str tag = Str());
+// bytesPerIndex determines whether we use u16 or u32 indices.
+[[nodiscard]] Buffer* NewIndexBuffer(Device *device, Str tag = Str(), u32 bytesPerIndex=2);
 
 // Add a buffer that can hold a large amount of memory, and supports read, write, and atomic operations
 [[nodiscard]] Buffer* NewStorageBuffer(Device *device, Str tag = Str());
@@ -247,9 +249,9 @@ void SetVSync(Window *window, bool enable);
 // Buffer, Image
 
 
-[[nodiscard]] Result<VoidResult_t, String> ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType componentType);
+void ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType componentType);
 
-[[nodiscard]] Result<VoidResult_t, String> ImageSetSize(Image *image, i32 width, i32 height);
+void ImageSetSize(Image *image, i32 width, i32 height);
 
 // anisotropy is the number of samples taken in anisotropic filtering (only relevant with mipmapping enabled)
 void ImageSetMipmapping(Image *image, bool enableMipmapping, i32 anisotropy = 1);
@@ -258,7 +260,7 @@ void ImageSetMipmapping(Image *image, bool enableMipmapping, i32 anisotropy = 1)
 void ImageSetUsageSampled(Image *image, u32 shaderStages);
 
 
-[[nodiscard]] Result<VoidResult_t, String> BufferSetSize(Buffer *buffer, i64 sizeBytes);
+void BufferSetSize(Buffer *buffer, i64 sizeBytes);
 
 // Pipeline
 
@@ -279,7 +281,8 @@ void PipelineSetBlendMode(Pipeline *pipeline, BlendMode blendMode, i32 attachmen
 
 [[nodiscard]] Result<VoidResult_t, String> ContextEndRecording(Context *context);
 
-[[nodiscard]] Result<VoidResult_t, String> SubmitCommands(Context *context);
+// waitContexts are any contexts that need to finish executing before we can execute our current context.
+[[nodiscard]] Result<VoidResult_t, String> SubmitCommands(Context *context, ArrayWithBucket<Context*, 4> waitContexts={});
 
 // Returns true if Context is still executing
 [[nodiscard]] Result<bool, String> ContextIsExecuting(Context *context);
@@ -310,6 +313,17 @@ void CmdBindImageSampler(Context *context, Image *image, i32 set, i32 binding);
 
 // Before recording draw commands, you have to commit all your bindings at once
 [[nodiscard]] Result<VoidResult_t, String> CmdCommitBindings(Context *context);
+
+void CmdSetViewport(Context *context, f32 width, f32 height, f32 minDepth=0.0f, f32 maxDepth=1.0f, f32 x=0.0f, f32 y=0.0f);
+
+void CmdSetScissor(Context *context, u32 width, u32 height, i32 x=0, i32 y=0);
+
+inline void CmdSetViewportAndScissor(Context *context, f32 width, f32 height, f32 minDepth=0.0f, f32 maxDepth=1.0f, f32 x=0.0f, f32 y=0.0f) {
+	CmdSetViewport(context, width, height, minDepth, maxDepth, x, y);
+	CmdSetScissor(context, (u32)width, (u32)height, (i32)x, (i32)y);
+}
+
+void CmdClearColorAttachment(Context *context, vec4 color, i32 attachment=0);
 
 void CmdDrawIndexed(Context *context, i32 count, i32 indexOffset, i32 vertexOffset, i32 instanceCount=1, i32 instanceOffset=0);
 

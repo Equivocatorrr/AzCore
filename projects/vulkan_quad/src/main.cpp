@@ -79,12 +79,13 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	Ptr<vk::Swapchain> vkSwapchain = vkDevice->AddSwapchain();
 	vkSwapchain->window = vkInstance.AddWindowForSurface(&window);
 	vkSwapchain->vsync = false;
+	vkSwapchain->imageCountPreferred = 3;
 
 	Ptr<vk::RenderPass> vkRenderPass = vkDevice->AddRenderPass();
 
 	Ptr<vk::Attachment> attachment = vkRenderPass->AddAttachment(vkSwapchain);
 	attachment->clearColor = true;
-	const vec3 clearColor = sRGBToLinear(vec3(0.0f, 0.05f, 0.1f));
+	const vec3 clearColor = sRGBToLinear(vec3(0.0f, 0.1f, 0.2f));
 	attachment->clearColorValue = {clearColor.r, clearColor.g, clearColor.b, 1.0f};
 	// attachment->sampleCount = VK_SAMPLE_COUNT_4_BIT;
 	// attachment->resolveColor = true;
@@ -135,7 +136,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	vkTextureImage->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
 	Ptr<vk::Sampler> vkSampler = vkDevice->AddSampler();
-	vkSampler->maxLod = vkTextureImage->mipLevels;
 	vkSampler->anisotropy = 16;
 	vkSampler->mipLodBias = -0.5f; // Keep things crisp
 

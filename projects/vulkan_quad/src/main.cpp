@@ -131,6 +131,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	}
 	RandomNumberGenerator rng;
 	bool resize = false;
+	const vec4 clearColor = vec4(sRGBToLinear(vec3(0.0f, 0.1f, 0.2f)), 1.0f);
 	do {
 		for (i32 i = 0; i < 256; i++) {
 			if (input.inputs[i].Pressed()) {
@@ -164,7 +165,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			return 1;
 		}
 		
-		GPU::CmdClearColorAttachment(context, vec4(0.2f, 0.3f, 0.5f, 1.0f));
+		GPU::CmdClearColorAttachment(context, clearColor);
 
 		GPU::CmdDrawIndexed(context, 6, 0, 0);
 

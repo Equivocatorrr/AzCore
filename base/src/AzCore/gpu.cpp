@@ -1403,7 +1403,7 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 	{ // Choose surface format
 		bool found = false;
 		for (const VkSurfaceFormatKHR& fmt : window->surfaceFormatsAvailable) {
-			if (fmt.format == VK_FORMAT_B8G8R8A8_UNORM && fmt.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+			if (fmt.format == VK_FORMAT_B8G8R8A8_SRGB && fmt.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
 				window->surfaceFormat = fmt;
 				found = true;
 			}
@@ -2112,16 +2112,6 @@ breakout2:
 			return ERROR_RESULT(device, result.error);
 		}
 	}
-	for (auto &framebuffer : device->framebuffers) {
-		if (auto result = FramebufferInit(framebuffer.RawPtr()); result.isError) {
-			return ERROR_RESULT(device, result.error);
-		}
-	}
-	for (auto &context : device->contexts) {
-		if (auto result = ContextInit(context.RawPtr()); result.isError) {
-			return ERROR_RESULT(device, result.error);
-		}
-	}
 	for (auto &buffer : device->buffers) {
 		if (auto result = BufferInit(buffer.RawPtr()); result.isError) {
 			return ERROR_RESULT(device, result.error);
@@ -2129,6 +2119,16 @@ breakout2:
 	}
 	for (auto &image : device->images) {
 		if (auto result = ImageInit(image.RawPtr()); result.isError) {
+			return ERROR_RESULT(device, result.error);
+		}
+	}
+	for (auto &framebuffer : device->framebuffers) {
+		if (auto result = FramebufferInit(framebuffer.RawPtr()); result.isError) {
+			return ERROR_RESULT(device, result.error);
+		}
+	}
+	for (auto &context : device->contexts) {
+		if (auto result = ContextInit(context.RawPtr()); result.isError) {
 			return ERROR_RESULT(device, result.error);
 		}
 	}

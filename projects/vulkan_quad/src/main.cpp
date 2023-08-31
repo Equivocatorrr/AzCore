@@ -72,7 +72,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	GPU::BufferSetSize(vertexBuffer, vertices.size * sizeof(Vertex));
 	
 	GPU::Buffer *indexBuffer = GPU::NewIndexBuffer(device, "index buffer", sizeof(indices[0]));
-	GPU::BufferSetSize(indexBuffer, indices.size * sizeof(Vertex));
+	GPU::BufferSetSize(indexBuffer, indices.size * sizeof(indices[0]));
 	
 	GPU::Image *gpuImage = GPU::NewImage(device, "tex");
 	GPU::ImageSetFormat(gpuImage, GPU::ImageBits::R8G8B8A8, GPU::ImageComponentType::SRGB);

@@ -18,9 +18,13 @@ namespace AzCore::GPU {
 
 // Usable as an enum or as bitfields
 enum class ShaderStage : u32 {
-	VERTEX   = 0x01,
-	FRAGMENT = 0x02,
-	COMPUTE  = 0x04,
+	VERTEX          = 0x01,
+	TESS_CONTROL    = 0x02,
+	TESS_EVALUATION = 0x04,
+	GEOMETRY        = 0x08,
+	FRAGMENT        = 0x10,
+	COMPUTE         = 0x20,
+	// TODO: Support VK_KHR_ray_tracing_pipeline
 };
 
 enum class ShaderValueType : u16 {
@@ -249,6 +253,12 @@ void SetVSync(Window *window, bool enable);
 // Buffer, Image
 
 
+void BufferSetSize(Buffer *buffer, i64 sizeBytes);
+
+// shaderStages is a bitmask of ShaderStage
+void BufferSetShaderUsage(Buffer *buffer, u32 shaderStages);
+
+
 void ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType componentType);
 
 void ImageSetSize(Image *image, i32 width, i32 height);
@@ -257,10 +267,8 @@ void ImageSetSize(Image *image, i32 width, i32 height);
 void ImageSetMipmapping(Image *image, bool enableMipmapping, i32 anisotropy = 1);
 
 // shaderStages is a bitmask of ShaderStage
-void ImageSetUsageSampled(Image *image, u32 shaderStages);
+void ImageSetShaderUsage(Image *image, u32 shaderStages);
 
-
-void BufferSetSize(Buffer *buffer, i64 sizeBytes);
 
 // Pipeline
 

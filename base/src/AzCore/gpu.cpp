@@ -605,6 +605,15 @@ struct Binding {
 			Image *object;
 			DescriptorIndex binding;
 		} imageSampler;
+		// For generic descriptor access to binding
+		struct {
+			void *object;
+			DescriptorIndex binding;
+		} anyDescriptor;
+		// For generic buffer access
+		struct {
+			Buffer *object;
+		} anyBuffer;
 	};
 };
 
@@ -786,12 +795,38 @@ struct Device {
 	Device(Str _tag) : tag(_tag) {}
 };
 
+// For de-duplication purposes
+struct DescriptorSetLayout {
+	VkDescriptorSetLayoutCreateInfo createInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+	Array<VkDescriptorSetLayoutBinding> bindings;
+	VkDescriptorSetLayout vkDescriptorSetLayout = VK_NULL_HANDLE;
+	
+	// Some housekeeping, since createInfo must reference bindings, moving/copying etc would break createInfo.
+	DescriptorSetLayout() = default;
+	DescriptorSetLayout(const DescriptorSetLayout&) = delete;
+	DescriptorSetLayout(DescriptorSetLayout &&other) : bindings(std::move(other.bindings)), vkDescriptorSetLayout(other.vkDescriptorSetLayout) {
+		createInfo.bindingCount = bindings.size;
+		createInfo.pBindings = bindings.data;
+		other.vkDescriptorSetLayout = VK_NULL_HANDLE;
+	}
+	DescriptorSetLayout& operator=(const DescriptorSetLayout&) = delete;
+	DescriptorSetLayout& operator=(DescriptorSetLayout &&other) {
+		bindings = std::move(other.bindings);
+		createInfo.bindingCount = bindings.size;
+		createInfo.pBindings = bindings.data;
+		vkDescriptorSetLayout = other.vkDescriptorSetLayout;
+		other.vkDescriptorSetLayout = VK_NULL_HANDLE;
+		return *this;
+	}
+};
+
 struct Context {
 	VkCommandPool vkCommandPool;
 	VkCommandBuffer vkCommandBuffer;
 	Fence fence;
 	Semaphore semaphore;
-	Array<VkDescriptorSetLayout> vkDescriptorSetLayouts;
+	VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
+	Array<DescriptorSetLayout> descriptorSetLayouts;
 	Array<VkDescriptorSet> vkDescriptorSets;
 
 	struct {
@@ -885,6 +920,8 @@ struct Buffer {
 		STORAGE_BUFFER,
 		UNIFORM_BUFFER,
 	} kind=UNDEFINED;
+	
+	u32 shaderStages = 0;
 
 	i64 size = -1;
 
@@ -909,7 +946,7 @@ struct Buffer {
 
 struct Image {
 	// Usage flags
-	u32 sampledStages = 0;
+	u32 shaderStages = 0;
 	bool attachment = false;
 	bool mipmapped = false;
 
@@ -929,6 +966,8 @@ struct Image {
 
 	VkImage vkImage;
 	VkImageView vkImageView;
+	// TODO: Global deduplication of samplers
+	VkSampler vkSampler = VK_NULL_HANDLE;
 	VkBuffer vkBufferHostVisible;
 	VkFormat vkFormat;
 	VkImageAspectFlags vkImageAspect = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1031,6 +1070,8 @@ void MemoryFree(Allocation allocation);
 
 [[nodiscard]] Result<VoidResult_t, String> ContextInit(Context *context);
 void ContextDeinit(Context *context);
+
+[[nodiscard]] Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context);
 
 
 [[nodiscard]] Result<VoidResult_t, String> PipelineInit(Pipeline *pipeline);
@@ -2219,6 +2260,10 @@ void BufferSetSize(Buffer *buffer, i64 sizeBytes) {
 	}
 }
 
+void BufferSetShaderUsage(Buffer *buffer, u32 shaderStages) {
+	buffer->shaderStages = shaderStages;
+}
+
 Result<VoidResult_t, String> ImageInit(Image *image) {
 	INIT_HEAD(image);
 	VkImageCreateInfo createInfo = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
@@ -2235,8 +2280,30 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 	if (image->mipmapped) {
 		createInfo.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	}
-	if (image->sampledStages) {
+	if (image->shaderStages) {
 		createInfo.usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+		VkSamplerCreateInfo samplerCreateInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+		// TODO: Make controls for all of these
+		samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+		samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+		// TODO: Support trilinear filtering
+		samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+		samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+		samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+		samplerCreateInfo.mipLodBias = -0.5f;
+		samplerCreateInfo.anisotropyEnable = image->anisotropy != 1 ? VK_TRUE : VK_FALSE;
+		samplerCreateInfo.maxAnisotropy = image->anisotropy;
+		// TODO: Support shadow map compares
+		samplerCreateInfo.compareEnable = VK_FALSE;
+		samplerCreateInfo.compareOp = VK_COMPARE_OP_LESS;
+		samplerCreateInfo.minLod = 0.0f;
+		samplerCreateInfo.maxLod = VK_LOD_CLAMP_NONE;
+		samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+		samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
+		if (VkResult result = vkCreateSampler(image->device->vkDevice, &samplerCreateInfo, nullptr, &image->vkSampler); result != VK_SUCCESS) {
+			return ERROR_RESULT(image, "Failed to create sampler: ", VkResultString(result));
+		}
 	}
 	if (image->attachment) {
 		createInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
@@ -2570,8 +2637,8 @@ void ImageSetMipmapping(Image *image, bool enableMipmapping, i32 anisotropy) {
 	}
 }
 
-void ImageSetUsageSampled(Image *image, u32 shaderStages) {
-	image->sampledStages = shaderStages;
+void ImageSetShaderUsage(Image *image, u32 shaderStages) {
+	image->shaderStages = shaderStages;
 }
 
 #endif
@@ -2806,9 +2873,10 @@ bool VkPipelineLayoutCreateInfoMatches(VkPipelineLayoutCreateInfo a, VkPipelineL
 	if (a.sType != b.sType) return false;
 	if (a.flags != b.flags) return false;
 	if (a.setLayoutCount != b.setLayoutCount) return false;
-	for (i32 i = 0; i < (i32)a.setLayoutCount; i++) {
-		if (a.pSetLayouts[i] != b.pSetLayouts[i]) return false;
-	}
+	// We can't compare these because pSetLayouts is a dangling pointer
+	// for (i32 i = 0; i < (i32)a.setLayoutCount; i++) {
+	// 	if (a.pSetLayouts[i] != b.pSetLayouts[i]) return false;
+	// }
 	if (a.pushConstantRangeCount != b.pushConstantRangeCount) return false;
 	for (i32 i = 0; i < (i32)a.pushConstantRangeCount; i++) {
 		if (a.pPushConstantRanges[i].offset != b.pPushConstantRanges[i].offset) return false;
@@ -2862,8 +2930,12 @@ void PipelineDeinit(Pipeline *pipeline) {
 
 Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *context) {
 	VkPipelineLayoutCreateInfo layoutCreateInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-	layoutCreateInfo.setLayoutCount = context->vkDescriptorSetLayouts.size;
-	layoutCreateInfo.pSetLayouts = context->vkDescriptorSetLayouts.data;
+	Array<VkDescriptorSetLayout> vkDescriptorSetLayouts(context->descriptorSetLayouts.size);
+	for (i32 i = 0; i < vkDescriptorSetLayouts.size; i++) {
+		vkDescriptorSetLayouts[i] = context->descriptorSetLayouts[i].vkDescriptorSetLayout;
+	}
+	layoutCreateInfo.setLayoutCount = vkDescriptorSetLayouts.size;
+	layoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts.data;
 	// TODO: Support push constants
 	layoutCreateInfo.pushConstantRangeCount = 0;
 	
@@ -3150,6 +3222,134 @@ void ContextDeinit(Context *context) {
 	FenceDeinit(&context->fence);
 	SemaphoreDeinit(&context->semaphore);
 	context->initted = false;
+}
+
+bool DescriptorSetLayoutMatches(DescriptorSetLayout &a, DescriptorSetLayout &b) {
+	if (a.bindings.size != b.bindings.size) return false;
+	for (i32 i = 0; i < a.bindings.size; i++) {
+		AzAssert(a.bindings[i].pImmutableSamplers == nullptr && b.bindings[i].pImmutableSamplers == nullptr, "We don't currently support pImmutableSamplers in DescriptorSetLayoutMatches");
+		if (a.bindings[i].binding != b.bindings[i].binding) return false;
+		if (a.bindings[i].descriptorCount != b.bindings[i].descriptorCount) return false;
+		if (a.bindings[i].descriptorType != b.bindings[i].descriptorType) return false;
+		if (a.bindings[i].stageFlags != b.bindings[i].stageFlags) return false;
+	}
+	return true;
+}
+
+Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
+	if (context->vkDescriptorPool == VK_NULL_HANDLE) {
+		// TODO: Allow recreation of the pool to allow it to grow
+		VkDescriptorPoolCreateInfo createInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+		createInfo.maxSets = 4;
+		VkDescriptorPoolSize poolSizes[3];
+		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSizes[0].descriptorCount = 10;
+		poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		poolSizes[1].descriptorCount = 10;
+		poolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		poolSizes[2].descriptorCount = 10;
+		createInfo.poolSizeCount = 3;
+		createInfo.pPoolSizes = poolSizes;
+		createInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+		if (VkResult result = vkCreateDescriptorPool(context->device->vkDevice, &createInfo, nullptr, &context->vkDescriptorPool); result != VK_SUCCESS) {
+			return ERROR_RESULT(context, "Failed to create descriptor pool: ", VkResultString(result));
+		}
+	}
+	Array<DescriptorSetLayout> descriptorSetLayouts;
+	Array<Array<VkWriteDescriptorSet>> vkWriteDescriptorSets;
+	// NOTE: In order to update array descriptors, we'll need to switch to contiguous arrays of Buffer and Image Infos like how it's done in vk.cpp (even though vk::Descriptors::Update() is incredibly confusing, it's the optimal way to do it)
+	List<VkDescriptorBufferInfo> descriptorBufferInfos;
+	List<VkDescriptorImageInfo> descriptorImageInfos;
+	for (auto &node : context->bindings.descriptors) {
+		Binding &binding = node.value;
+		// NOTE: These are necessarily sorted by set first, then binding. This code will break if that is no longer the case.
+		if (binding.anyDescriptor.binding.set+1 > descriptorSetLayouts.size) {
+			descriptorSetLayouts.Resize(binding.anyDescriptor.binding.set+1);
+			vkWriteDescriptorSets.Resize(binding.anyDescriptor.binding.set+1);
+		}
+		VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+		VkDescriptorSetLayoutBinding bindingInfo{};
+		bindingInfo.binding = binding.anyDescriptor.binding.binding;
+		// TODO: Support arrays
+		bindingInfo.descriptorCount = 1;
+		switch (binding.kind) {
+		case Binding::UNIFORM_BUFFER:
+			bindingInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			break;
+		case Binding::STORAGE_BUFFER:
+			bindingInfo.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			break;
+		case Binding::IMAGE_SAMPLER:
+			bindingInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			break;
+		default:
+			return ERROR_RESULT(context, "Invalid descriptor binding (kind is ", (u32)binding.kind, ")");
+		}
+		switch (binding.kind) {
+		case Binding::UNIFORM_BUFFER:
+			case Binding::STORAGE_BUFFER: {
+				bindingInfo.stageFlags = (VkShaderStageFlags)binding.anyBuffer.object->shaderStages;
+				UniquePtr<VkDescriptorBufferInfo> bufferInfo;
+				bufferInfo->buffer = binding.anyBuffer.object->vkBuffer;
+				bufferInfo->offset = 0;
+				bufferInfo->range = binding.anyBuffer.object->size;
+				write.pBufferInfo = bufferInfo.RawPtr();
+				descriptorBufferInfos.Append(std::move(bufferInfo));
+			} break;
+			case Binding::IMAGE_SAMPLER: {
+				bindingInfo.stageFlags = (VkShaderStageFlags)binding.imageSampler.object->shaderStages;
+				UniquePtr<VkDescriptorImageInfo> imageInfo;
+				imageInfo->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				imageInfo->imageView = binding.imageSampler.object->vkImageView;
+				imageInfo->sampler = binding.imageSampler.object->vkSampler;
+				write.pImageInfo = imageInfo.RawPtr();
+				descriptorImageInfos.Append(std::move(imageInfo));
+			} break;
+		}
+		write.dstBinding = bindingInfo.binding;
+		write.descriptorCount = bindingInfo.descriptorCount;
+		write.descriptorType = bindingInfo.descriptorType;
+		write.dstArrayElement = 0;
+		vkWriteDescriptorSets[binding.anyDescriptor.binding.set].Append(write);
+		descriptorSetLayouts.Back().bindings.Append(bindingInfo);
+	}
+	for (i32 i = 0; i < descriptorSetLayouts.size; i++) {
+		DescriptorSetLayout &src = descriptorSetLayouts[i];
+		src.createInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+		src.createInfo.bindingCount = src.bindings.size;
+		src.createInfo.pBindings = src.bindings.data;
+		if (context->descriptorSetLayouts.size <= i) {
+			context->descriptorSetLayouts.Resize(i+1);
+			context->vkDescriptorSets.Resize(i+1, VK_NULL_HANDLE);
+		}
+		DescriptorSetLayout &dst = context->descriptorSetLayouts[i];
+		if (!DescriptorSetLayoutMatches(src, dst)) {
+			io::cout.PrintLnDebug("Recreating descriptor set ", i);
+			// We need to recreate the layout as well as the descriptor set
+			if (dst.vkDescriptorSetLayout != VK_NULL_HANDLE) {
+				vkDestroyDescriptorSetLayout(context->device->vkDevice, dst.vkDescriptorSetLayout, nullptr);
+			}
+			dst = std::move(src);
+			if (VkResult result = vkCreateDescriptorSetLayout(context->device->vkDevice, &dst.createInfo, nullptr, &dst.vkDescriptorSetLayout); result != VK_SUCCESS) {
+				return ERROR_RESULT(context, "Failed to create descriptor set layout ", i, ": ", VkResultString(result));
+			}
+			if (context->vkDescriptorSets[i] != VK_NULL_HANDLE) {
+				vkFreeDescriptorSets(context->device->vkDevice, context->vkDescriptorPool, 1, &context->vkDescriptorSets[i]);
+			}
+			VkDescriptorSetAllocateInfo allocInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+			allocInfo.descriptorPool = context->vkDescriptorPool;
+			allocInfo.descriptorSetCount = 1;
+			allocInfo.pSetLayouts = &dst.vkDescriptorSetLayout;
+			if (VkResult result = vkAllocateDescriptorSets(context->device->vkDevice, &allocInfo, &context->vkDescriptorSets[i]); result != VK_SUCCESS) {
+				return ERROR_RESULT(context, "Failed to allocate descriptor set ", i, ": ", VkResultString(result));
+			}
+			for (VkWriteDescriptorSet &write : vkWriteDescriptorSets[i]) {
+				write.dstSet = context->vkDescriptorSets[i];
+			}
+			vkUpdateDescriptorSets(context->device->vkDevice, vkWriteDescriptorSets[i].size, vkWriteDescriptorSets[i].data, 0, nullptr);
+		}
+	}
+	return VoidResult_t();
 }
 
 void ContextResetBindings(Context *context) {
@@ -3469,7 +3669,7 @@ Result<VoidResult_t, String> CmdCopyDataToImage(Context *context, Image *dst, vo
 	vkCopy.imageExtent = {(u32)dst->width, (u32)dst->height, 1};
 	vkCmdCopyBufferToImage(context->vkCommandBuffer, dst->vkBufferHostVisible, dst->vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &vkCopy);
 	VkImageLayout finalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	if (dst->sampledStages) {
+	if (dst->shaderStages) {
 		finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	} else if (dst->attachment) {
 		finalLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
@@ -3588,6 +3788,11 @@ Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
 		beginInfo.renderArea.extent.height = framebuffer->height;
 		vkCmdBeginRenderPass(context->vkCommandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	}
+	if (descriptorsChanged) {
+		if (auto result = ContextDescriptorsCompose(context); result.isError) {
+			return ERROR_RESULT(context, result.error);
+		}
+	}
 	if (vertexBuffer) {
 		context->bindings.vertexBuffer = vertexBuffer;
 		VkDeviceSize zero = 0;
@@ -3598,13 +3803,15 @@ Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
 		context->bindings.indexBuffer = indexBuffer;
 		vkCmdBindIndexBuffer(context->vkCommandBuffer, indexBuffer->vkBuffer, 0, indexBuffer->indexType);
 	}
-	// TODO: Vertex buffers, index buffers, descriptors, etc
 	if (nullptr != pipeline && context->bindings.pipeline != pipeline) {
 		context->bindings.pipeline = pipeline;
 		if (auto result = PipelineCompose(pipeline, context); result.isError) {
 			return ERROR_RESULT(context, "Failed to bind Pipeline: ", result.error);
 		}
 		vkCmdBindPipeline(context->vkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->vkPipeline);
+	}
+	if (context->bindings.pipeline != nullptr && context->vkDescriptorSets.size != 0) {
+		vkCmdBindDescriptorSets(context->vkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context->bindings.pipeline->vkPipelineLayout, 0, context->vkDescriptorSets.size, context->vkDescriptorSets.data, 0, nullptr);
 	}
 	CmdSetViewportAndScissor(context, (f32)context->bindings.framebuffer->width, (f32)context->bindings.framebuffer->height);
 	context->bindCommands.ClearSoft();

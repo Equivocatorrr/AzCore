@@ -68,17 +68,17 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	};
 	Array<u16> indices = {0, 1, 2, 2, 3, 0};
 	
-	GPU::Buffer *vertexBuffer = GPU::NewVertexBuffer(device, "main");
+	GPU::Buffer *vertexBuffer = GPU::NewVertexBuffer(device, "vertex buffer");
 	GPU::BufferSetSize(vertexBuffer, vertices.size * sizeof(Vertex));
 	
-	GPU::Buffer *indexBuffer = GPU::NewIndexBuffer(device, "main", sizeof(indices[0]));
+	GPU::Buffer *indexBuffer = GPU::NewIndexBuffer(device, "index buffer", sizeof(indices[0]));
 	GPU::BufferSetSize(indexBuffer, indices.size * sizeof(Vertex));
 	
 	GPU::Image *gpuImage = GPU::NewImage(device, "tex");
 	GPU::ImageSetFormat(gpuImage, GPU::ImageBits::R8G8B8A8, GPU::ImageComponentType::SRGB);
 	GPU::ImageSetSize(gpuImage, image.width, image.height);
 	GPU::ImageSetMipmapping(gpuImage, true, 16);
-	GPU::ImageSetUsageSampled(gpuImage, (u32)GPU::ShaderStage::FRAGMENT);
+	GPU::ImageSetShaderUsage(gpuImage, (u32)GPU::ShaderStage::FRAGMENT);
 
 	GPU::Pipeline *pipeline = GPU::NewGraphicsPipeline(device, "test");
 	GPU::PipelineAddShader(pipeline, "data/shaders/test.vert.spv", GPU::ShaderStage::VERTEX);

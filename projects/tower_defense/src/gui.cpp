@@ -40,6 +40,7 @@ void Gui::EventAssetsAcquire() {
 }
 
 void Gui::EventInitialize() {
+	GuiBasic::EventInitialize();
 	menuMain.Initialize();
 	menuSettings.Initialize();
 	menuPlay.Initialize();
@@ -48,17 +49,31 @@ void Gui::EventInitialize() {
 void Gui::EventSync() {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Gui::EventSync)
 	GuiBasic::EventSync();
-	currentMenu = nextMenu;
-	switch (currentMenu) {
-	case Menu::MAIN:
-		menuMain.Update();
-		break;
-	case Menu::SETTINGS:
-		menuSettings.Update();
-		break;
-	case Menu::PLAY:
-		menuPlay.Update();
-		break;
+	static bool wasPaused;
+	static bool once = true;
+	if (console) {
+		if (once) {
+			wasPaused = sys->paused;
+			once = false;
+		}
+		sys->paused = true;
+	} else {
+		if (!once) {
+			sys->paused = wasPaused;
+			once = true;
+		}
+		currentMenu = nextMenu;
+		switch (currentMenu) {
+		case Menu::MAIN:
+			menuMain.Update();
+			break;
+		case Menu::SETTINGS:
+			menuSettings.Update();
+			break;
+		case Menu::PLAY:
+			menuPlay.Update();
+			break;
+		}
 	}
 }
 
@@ -75,6 +90,7 @@ void Gui::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 		menuPlay.Draw(contexts.Back());
 		break;
 	}
+	GuiBasic::EventDraw(contexts);
 	if (usingMouse) {
 		sys->rendering.DrawQuad(contexts.Back(), sys->input.cursor, vec2(32.0f * scale), vec2(1.0f), vec2(0.5f), 0.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), texCursor);
 	}
@@ -152,6 +168,7 @@ void MainMenu::Update() {
 	}
 	if (buttonSettings->state.Released()) {
 		gui->nextMenu = Gui::Menu::SETTINGS;
+		gui->menuSettings.Reset();
 	}
 	if (buttonExit->state.Released()) {
 		sys->exit = true;

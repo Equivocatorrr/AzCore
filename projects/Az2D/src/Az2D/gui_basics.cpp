@@ -5,7 +5,10 @@
 
 #include "gui_basics.hpp"
 #include "game_systems.hpp"
+#include "settings.hpp"
 #include "profiling.hpp"
+#include "console_commands.hpp"
+#include "AzCore/Math/Color.hpp"
 
 namespace Az2D::Gui {
 
@@ -87,6 +90,26 @@ void GuiBasic::EventAssetsQueue() {
 	sys->assets.QueueFile(sndCheckboxOffDef.filename);
 }
 
+String FramerateSetter(void *userdata, String name, String argument) {
+	f32 real;
+	if (!StringToF32(argument, &real)) {
+		return Stringify(name, " expected a real number value");
+	}
+	real = clamp(real, 10.0f, 1000.0f);
+	Az2D::Settings::Name settingName = name;
+	Az2D::Settings::SetReal(settingName, real);
+	sys->SetFramerate(real);
+	return Stringify("set ", name, " to ", real);
+}
+
+void GuiBasic::EventInitialize() {
+	devConsole.Initialize();
+	Dev::AddGlobalVariable(Az2D::Settings::sDebugInfo.GetString(), "Whether to display frame rate and time information.", nullptr, Dev::defaultBoolSettingsGetter, Dev::defaultBoolSettingsSetter);
+	Dev::AddGlobalVariable(Az2D::Settings::sFullscreen.GetString(), "Whether the window should be fullscreen.", nullptr, Dev::defaultBoolSettingsGetter, Dev::defaultBoolSettingsSetter);
+	Dev::AddGlobalVariable(Az2D::Settings::sVSync.GetString(), "Whether to enable vertical sync.", nullptr, Dev::defaultBoolSettingsGetter, Dev::defaultBoolSettingsSetter);
+	Dev::AddGlobalVariable(Az2D::Settings::sFramerate.GetString(), "Target framerate when vsync is disabled.", nullptr, Dev::defaultRealSettingsGetter, FramerateSetter);
+}
+
 void AcquireSounds(Array<GuiBasic::SoundDef> &defs, Array<Sound::Source> &sources, Sound::MultiSource &multiSource) {
 	sources.Resize(defs.size);
 	multiSource.sources.Reserve(defs.size);
@@ -132,6 +155,131 @@ void GuiBasic::EventSync() {
 		usingGamepad = false;
 		usingArrows = true;
 	}
+	if (sys->Pressed(KC_KEY_GRAVE)) {
+		console = !console;
+		sys->input.typingString.Clear();
+		if (console) {
+			devConsole.textboxInput->entry = true;
+		}
+	}
+	if (console) {
+		devConsole.Update();
+	}
+}
+
+void GuiBasic::EventDraw(Array<Rendering::DrawingContext> &contexts) {
+	if (console) {
+		devConsole.Draw(contexts.Back());
+	}
+}
+
+void DevConsole::Initialize() {
+	ListV *listV = new ListV();
+	listV->color = ColorFromARGB(0xee0a1a1a);
+	listV->highlight = listV->color;
+	listV->SetSizeFraction(vec2(1.0f, 0.3f));
+	listV->padding = 8.0f;
+	listV->margin = 0.0f;
+	listV->scrollableY = false;
+	
+	ListV *outputListV = new ListV();
+	outputListV->color = vec4(0.0f);
+	outputListV->highlight = vec4(0.0f);
+	outputListV->SetSizeFraction(vec2(1.0f));
+	outputListV->padding = 0.0f;
+	outputListV->margin = 0.0f;
+	
+	AddWidget(listV, outputListV);
+	
+	consoleOutput = new Text();
+	consoleOutput->alignV = Rendering::BOTTOM;
+	consoleOutput->fontSize = 16.0f;
+	consoleOutput->margin = 0.0f;
+	
+	AddWidget(outputListV, consoleOutput);
+	
+	textboxInput = new TextBox();
+	textboxInput->minSize.y = 24.0f;
+	textboxInput->SetWidthFraction(1.0f);
+	textboxInput->colorBG = ColorFromARGB(0xff1a4033);
+	textboxInput->highlightBG = ColorFromARGB(0xff245947);
+	textboxInput->fontSize = 16.0f;
+	textboxInput->margin = 0.0f;
+	textboxInput->multiline = true;
+	
+	AddWidget(listV, textboxInput);
+	AddWidget(&screen, listV);
+}
+
+void DevConsole::Update() {
+	if (Az2D::Settings::ReadBool(Az2D::Settings::sDebugInfo)) {
+		screen.margin.y = 20.0f;
+	} else {
+		screen.margin.y = 0.0f;
+	}
+	if (sys->Pressed(KC_KEY_ENTER) && !(sys->Down(KC_KEY_LEFTSHIFT) || sys->Down(KC_KEY_RIGHTSHIFT))) {
+		for (i32 i = CONSOLE_COMMAND_OUTPUT_LINES_CAP-1; i > 0; i--) {
+			outputLines[i] = std::move(outputLines[i-1]);
+		}
+		recentCommand = -1;
+		// This clears the texbox string
+		outputLines[0] = ToWString(Dev::HandleCommand(FromWString(textboxInput->string)));
+		previousCommands[nextCommand] = textboxInput->string;
+		if (textboxInput->string.size != 0) {
+			nextCommand++;
+			textboxInput->string.ClearSoft();
+			textboxInput->cursor = 0;
+		}
+		sys->input.typingString.ClearSoft();
+		numCommandsInHistory++;
+		if (nextCommand == CONSOLE_COMMAND_HISTORY_CAP) {
+			nextCommand = 0;
+			numCommandsInHistory = CONSOLE_COMMAND_HISTORY_CAP;
+		}
+		consoleOutput->string.ClearSoft();
+		for (i32 i = CONSOLE_COMMAND_OUTPUT_LINES_CAP-1; i >= 0; i--) {
+			if (outputLines[i].size == 0) continue;
+			consoleOutput->string.Append(outputLines[i]);
+			consoleOutput->string.Append('\n');
+		}
+		if (consoleOutput->string.size > 0) consoleOutput->string.size--;
+	} else {
+		if (numCommandsInHistory > 0) {
+			bool changeCommand = false;
+			if ((recentCommand != -1 || textboxInput->string.size == 0) && (recentCommand == -1 || textboxInput->string == previousCommands[recentCommand])) {
+				if (sys->Pressed(KC_KEY_UP)) {
+					if (recentCommand == -1) {
+						recentCommand = nextCommand-1;
+					} else {
+						if (recentCommand == 0) {
+							recentCommand = numCommandsInHistory - 1;
+						} else {
+							recentCommand -= 1;
+						}
+					}
+					changeCommand = true;
+				} else if (sys->Pressed(KC_KEY_DOWN)) {
+					if (recentCommand >= numCommandsInHistory-1) {
+						textboxInput->string.ClearSoft();
+						textboxInput->cursor = 0;
+						recentCommand = -1;
+					} else {
+						recentCommand += 1;
+						changeCommand = true;
+					}
+				}
+			}
+			if (changeCommand) {
+				textboxInput->string = previousCommands[recentCommand];
+				textboxInput->cursor = textboxInput->string.size;
+			}
+		}
+		screen.Update(vec2(0.0f), false);
+	}
+}
+
+void DevConsole::Draw(Rendering::DrawingContext &context) {
+	screen.Draw(context);
 }
 
 
@@ -457,15 +605,19 @@ void ListV::Update(vec2 pos, bool selected) {
 	}
 	{ // Scrolling
 		vec2 mouse = vec2(sys->input.cursor) / guiBasic->scale;
-		vec2 scrollTarget = vec2(0.0f);
+		bool modifyScrollTarget = true;
 		if (guiBasic->usingMouse) {
 			scrollTarget = (mouse - positionAbsolute) / sizeAbsolute;
 		} else if (selection >= 0 && selection < children.size) {
 			scrollTarget = (guiBasic->selectedCenter - positionAbsolute) / sizeAbsolute;
+		} else {
+			modifyScrollTarget = false;
 		}
-		scrollTarget = (scrollTarget - 0.5f) * 2.0f + 0.5f;
-		scrollTarget.x = clamp01(scrollTarget.x);
-		scrollTarget.y = clamp01(scrollTarget.y);
+		if (modifyScrollTarget) {
+			scrollTarget = (scrollTarget - 0.5f) * 2.0f + 0.5f;
+			scrollTarget.x = clamp01(scrollTarget.x);
+			scrollTarget.y = clamp01(scrollTarget.y);
+		}
 		scroll = decay(scroll, scrollTarget, 0.1f, sys->timestep);
 	}
 }
@@ -1276,6 +1428,15 @@ void TextBox::Update(vec2 pos, bool selected) {
 				cursor++;
 				cursorBlinkTimer = 0.0f;
 			}
+		}
+	}
+	if (size.x != 0.0f && multiline) {
+		stringFormatted = sys->rendering.StringAddNewlines(string + stringSuffix, fontIndex, (sizeAbsolute.x - padding.x * 2.0f * scale) / fontSize);
+	} else {
+		stringFormatted = string + stringSuffix;
+	}
+	if (entry) {
+		if (multiline) {
 			if (sys->input.Repeated(KC_KEY_UP)) {
 				vec2 cursorPos = PositionFromCursor();
 				cursorPos.y -= fontSize * guiBasic->scale * Rendering::lineHeight * 0.5f;
@@ -1344,11 +1505,6 @@ void TextBox::Update(vec2 pos, bool selected) {
 				guiBasic->controlDepth = depth;
 			}
 		}
-	}
-	if (size.x != 0.0f && multiline) {
-		stringFormatted = sys->rendering.StringAddNewlines(string + stringSuffix, fontIndex, (sizeAbsolute.x - padding.x * 2.0f * scale) / fontSize);
-	} else {
-		stringFormatted = string + stringSuffix;
 	}
 	Widget::Update(pos, selected);
 	bool mouseover = MouseOver();

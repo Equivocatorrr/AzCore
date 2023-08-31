@@ -37,6 +37,7 @@ struct SettingsMenu {
 
 	void Initialize();
 	void Update();
+	void Reset();
 	void Draw(Rendering::DrawingContext &context);
 };
 

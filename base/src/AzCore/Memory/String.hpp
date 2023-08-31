@@ -485,7 +485,6 @@ template<typename T, i32 allocTail=0>
 
 } // namespace AzCore
 
-#ifndef NDEBUG
 inline void _Assert(bool condition, const char *file, const char *line, az::String message) {
 	if (!condition) {
 		fprintf(stderr, "\033[96m%s\033[0m:\033[96m%s\033[0m Assert failed: \033[91m%s\033[0m\n", file, line, message.data);
@@ -493,6 +492,5 @@ inline void _Assert(bool condition, const char *file, const char *line, az::Stri
 		exit(1);
 	}
 }
-#endif // NDEBUG
 
 #endif // AZCORE_STRING_HPP

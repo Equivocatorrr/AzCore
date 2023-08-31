@@ -78,6 +78,7 @@ void Gui::EventAssetsAcquire() {
 }
 
 void Gui::EventInitialize() {
+	GuiBasic::EventInitialize();
 	menuMain.Initialize();
 	menuSettings.Initialize();
 	menuPlay.Initialize();
@@ -89,33 +90,37 @@ void Gui::EventSync() {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Gui::EventSync)
 	GuiBasic::EventSync();
 	menuCurrent = menuNext;
-	switch (menuCurrent) {
-	case Menu::MAIN:
-		menuMain.Update();
-		break;
-	case Menu::SETTINGS:
-		menuSettings.Update();
-		break;
-	case Menu::PLAY:
-		menuPlay.Update();
-		break;
-	case Menu::EDITOR:
-		menuEditor.Update();
-		break;
-	case Menu::INTRO:
-		menuCutscene.intro = true;
-		menuCutscene.Update();
-		break;
-	case Menu::OUTTRO:
-		menuCutscene.intro = false;
-		menuCutscene.Update();
-		break;
-	}
-	if (sys->input.cursor != sys->input.cursorPrevious) {
-		usingMouse = true;
-	}
-	if (sys->rawInput.AnyGP.Pressed()) {
-		usingMouse = false;
+	if (console) {
+		sys->paused = true;
+	} else {
+		switch (menuCurrent) {
+		case Menu::MAIN:
+			sys->paused = true;
+			menuMain.Update();
+			break;
+		case Menu::SETTINGS:
+			sys->paused = true;
+			menuSettings.Update();
+			break;
+		case Menu::PLAY:
+			sys->paused = false;
+			menuPlay.Update();
+			break;
+		case Menu::EDITOR:
+			sys->paused = false;
+			menuEditor.Update();
+			break;
+		case Menu::INTRO:
+			sys->paused = false;
+			menuCutscene.intro = true;
+			menuCutscene.Update();
+			break;
+		case Menu::OUTTRO:
+			sys->paused = false;
+			menuCutscene.intro = false;
+			menuCutscene.Update();
+			break;
+		}
 	}
 }
 
@@ -139,6 +144,7 @@ void Gui::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 		menuCutscene.Draw(contexts.Back());
 		break;
 	}
+	GuiBasic::EventDraw(contexts);
 }
 
 void MainMenu::Initialize() {

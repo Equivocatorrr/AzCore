@@ -972,7 +972,7 @@ struct Image {
 	VkFormat vkFormat;
 	VkImageAspectFlags vkImageAspect = VK_IMAGE_ASPECT_COLOR_BIT;
 	VkMemoryRequirements memoryRequirements;
-	VkMemoryRequirements bufferMemoryRequirements;
+	VkMemoryRequirements memoryRequirementsHost;
 	Allocation alloc;
 	Allocation allocHostVisible;
 
@@ -1858,7 +1858,7 @@ u32 alignedSize(u32 offset, u32 size, u32 alignment) {
 i32 PageFindSegment(Memory::Page *page, u32 size, u32 alignment) {
 	for (i32 i = 0; i < page->segments.size; i++) {
 		if (page->segments[i].used) continue;
-		if (alignedSize(page->segments[i].begin, page->segments[i].size, alignment) <= size) {
+		if (alignedSize(page->segments[i].begin, page->segments[i].size, alignment) >= size) {
 			return i;
 		}
 	}
@@ -1871,7 +1871,7 @@ Allocation PageAllocInSegment(Memory *memory, i32 pageIndex, i32 segmentIndex, u
 	AzAssert(size < page.segments[segmentIndex].size, "segment is too small for alloc");
 	AzAssert(page.segments[segmentIndex].used == false, "Trying to allocate in a segment that's already in use!");
 	using Segment = Memory::Page::Segment;
-	if (page.segments[segmentIndex].size < size) {
+	if (page.segments[segmentIndex].size > size) {
 		Segment &newSegment = page.segments.Insert(segmentIndex+1, Segment());
 		Segment &lastSegment = page.segments[segmentIndex];
 		newSegment.begin = lastSegment.begin + size;
@@ -2361,8 +2361,8 @@ Result<VoidResult_t, String> ImageHostInit(Image *image) {
 		return Stringify("Buffer \"", image->tag, "\" error: Failed to create image staging buffer: ", VkResultString(result));
 	}
 	SetDebugMarker(image->device, Stringify(image->tag, " host-visible buffer"), VK_OBJECT_TYPE_BUFFER, (u64)image->vkBufferHostVisible);
-	vkGetBufferMemoryRequirements(image->device->vkDevice, image->vkBufferHostVisible, &image->bufferMemoryRequirements);
-	if (auto result = AllocateBuffer(image->device, image->vkBufferHostVisible, image->bufferMemoryRequirements, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT); result.isError) {
+	vkGetBufferMemoryRequirements(image->device->vkDevice, image->vkBufferHostVisible, &image->memoryRequirementsHost);
+	if (auto result = AllocateBuffer(image->device, image->vkBufferHostVisible, image->memoryRequirementsHost, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT); result.isError) {
 		return result.error;
 	} else {
 		image->allocHostVisible = result.value;
@@ -3655,7 +3655,7 @@ Result<VoidResult_t, String> CmdCopyDataToImage(Context *context, Image *dst, vo
 	Allocation alloc = dst->allocHostVisible;
 	VkDeviceMemory vkMemory = alloc.memory->pages[alloc.page].vkMemory;
 	void *dstMapped;
-	if (VkResult result = vkMapMemory(dst->device->vkDevice, vkMemory, align(alloc.offset, dst->memoryRequirements.alignment), dst->memoryRequirements.size, 0, &dstMapped); result != VK_SUCCESS) {
+	if (VkResult result = vkMapMemory(dst->device->vkDevice, vkMemory, align(alloc.offset, dst->memoryRequirementsHost.alignment), dst->memoryRequirementsHost.size, 0, &dstMapped); result != VK_SUCCESS) {
 		return Stringify("Image \"", dst->tag, "\" error: Failed to map memory: ", VkResultString(result));
 	}
 	memcpy(dstMapped, src, dst->width * dst->height * dst->bytesPerPixel);

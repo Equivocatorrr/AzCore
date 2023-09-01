@@ -628,22 +628,22 @@ struct Fence {
 	VkFence vkFence;
 
 	Device *device;
-	Str tag;
+	String tag;
 	bool initted = false;
 
 	Fence() = default;
-	Fence(Device *_device, Str _tag) : device(_device), tag(_tag) {}
+	Fence(Device *_device, String _tag) : device(_device), tag(_tag) {}
 };
 
 struct Semaphore {
 	VkSemaphore vkSemaphore;
 
 	Device *device;
-	Str tag;
+	String tag;
 	bool initted = false;
 
 	Semaphore() = default;
-	Semaphore(Device *_device, Str _tag) : device(_device), tag(_tag) {}
+	Semaphore(Device *_device, String _tag) : device(_device), tag(_tag) {}
 };
 
 struct Window {
@@ -678,11 +678,11 @@ struct Window {
 	VkSwapchainKHR vkSwapchain;
 
 	Device *device;
-	Str tag;
+	String tag;
 	bool initted = false;
 
 	Window() = default;
-	Window(io::Window *_window, Str _tag) : window(_window), tag(_tag) {}
+	Window(io::Window *_window, String _tag) : window(_window), tag(_tag) {}
 };
 
 struct PhysicalDevice {
@@ -762,10 +762,10 @@ struct Memory {
 
 	u32 memoryTypeIndex;
 	Device *device = nullptr;
-	Str tag;
+	String tag;
 
 	Memory() = default;
-	Memory(Device *_device, u32 _memoryTypeIndex, Str _tag=Str()) : memoryTypeIndex(_memoryTypeIndex), device(_device), tag(_tag) {}
+	Memory(Device *_device, u32 _memoryTypeIndex, String _tag=Str()) : memoryTypeIndex(_memoryTypeIndex), device(_device), tag(_tag) {}
 };
 
 struct Allocation {
@@ -788,11 +788,11 @@ struct Device {
 	VkQueue vkQueue;
 	i32 queueFamilyIndex;
 
-	Str tag;
+	String tag;
 	bool initted = false;
 
 	Device() = default;
-	Device(Str _tag) : tag(_tag) {}
+	Device(String _tag) : tag(_tag) {}
 };
 
 // For de-duplication purposes
@@ -847,11 +847,11 @@ struct Context {
 	} state = State::NOT_RECORDING;
 
 	Device *device;
-	Str tag;
+	String tag;
 	bool initted = false;
 
 	Context() = default;
-	Context(Device *_device, Str _tag) : device(_device), tag(_tag) {}
+	Context(Device *_device, String _tag) : device(_device), tag(_tag) {}
 };
 
 inline bool ContextIsRecording(Context *context) {
@@ -905,11 +905,11 @@ struct Pipeline {
 	VkPipeline vkPipeline = VK_NULL_HANDLE;
 
 	Device *device;
-	Str tag;
+	String tag;
 	bool initted = false;
 
 	Pipeline() = default;
-	Pipeline(Device *_device, Kind _kind, Str _tag) : kind(_kind), device(_device), tag(_tag) {}
+	Pipeline(Device *_device, Kind _kind, String _tag) : kind(_kind), device(_device), tag(_tag) {}
 };
 
 struct Buffer {
@@ -935,13 +935,13 @@ struct Buffer {
 	Allocation allocHostVisible;
 
 	Device *device;
-	Str tag;
+	String tag;
 	bool initted = false;
 	// Whether our host-visible buffer is active
 	bool hostVisible = false;
 
 	Buffer() = default;
-	Buffer(Kind _kind, Device *_device, Str _tag) : kind(_kind), device(_device), tag(_tag) {}
+	Buffer(Kind _kind, Device *_device, String _tag) : kind(_kind), device(_device), tag(_tag) {}
 };
 
 struct Image {
@@ -977,13 +977,13 @@ struct Image {
 	Allocation allocHostVisible;
 
 	Device *device;
-	Str tag;
+	String tag;
 	bool initted = false;
 	// Whether our host-visible buffer is active
 	bool hostVisible = false;
 
 	Image() = default;
-	Image(Device *_device, Str _tag) : device(_device), tag(_tag) {}
+	Image(Device *_device, String _tag) : device(_device), tag(_tag) {}
 };
 
 struct Attachment {
@@ -1014,11 +1014,11 @@ struct Framebuffer {
 	i32 width, height;
 
 	Device *device;
-	Str tag;
+	String tag;
 	bool initted = false;
 
 	Framebuffer() = default;
-	Framebuffer(Device *_device, Str _tag) : device(_device), tag(_tag) {}
+	Framebuffer(Device *_device, String _tag) : device(_device), tag(_tag) {}
 };
 
 Instance instance;
@@ -1316,7 +1316,7 @@ void SemaphoreDeinit(Semaphore *semaphore) {
 
 #ifndef Window
 
-Result<Window*, String> AddWindow(io::Window *window, Str tag) {
+Result<Window*, String> AddWindow(io::Window *window, String tag) {
 	Window *result = windows.Append(new Window(window, tag)).RawPtr();
 	if (windows.size == 1 && instance.initted) {
 		// To add window surface extensions
@@ -1354,7 +1354,7 @@ Result<VoidResult_t, String> WindowSurfaceInit(Window *window) {
 		createInfo.surface = window->window->data->wayland.surface;
 		VkResult result = vkCreateWaylandSurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->vkSurface);
 		if (result != VK_SUCCESS) {
-			return Stringify("Failed to create Vulkan Wayland surface: ", VkResultString(result));
+			return ERROR_RESULT(window, "Failed to create Vulkan Wayland surface: ", VkResultString(result));
 		}
 	} else {
 		VkXcbSurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
@@ -1362,7 +1362,7 @@ Result<VoidResult_t, String> WindowSurfaceInit(Window *window) {
 		createInfo.window = window->window->data->x11.window;
 		VkResult result = vkCreateXcbSurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->vkSurface);
 		if (result != VK_SUCCESS) {
-			return Stringify("Failed to create Vulkan XCB surface: ", VkResultString(result));
+			return ERROR_RESULT(window, "Failed to create Vulkan XCB surface: ", VkResultString(result));
 		}
 	}
 #elif defined(_WIN32)
@@ -1371,7 +1371,7 @@ Result<VoidResult_t, String> WindowSurfaceInit(Window *window) {
 	createInfo.hwnd = window->window->data->window;
 	VkResult result = vkCreateWin32SurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->vkSurface);
 	if (result != VK_SUCCESS) {
-		return Stringify("Failed to create Win32 Surface: ", VkResultString(result));
+		return ERROR_RESULT(window, "Failed to create Win32 Surface: ", VkResultString(result));
 	}
 #endif
 	return VoidResult_t();
@@ -1537,8 +1537,8 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 		window->acquireFences.Resize(window->numImages);
 		window->acquireSemaphores.Resize(window->numImages);
 	} else if (window->acquireFences.size < window->numImages) {
-		window->acquireFences.Resize(window->numImages, Fence(window->device, "WindowAcquireFence"));
-		window->acquireSemaphores.Resize(window->numImages, Semaphore(window->device, "WindowAcquireSemaphore"));
+		window->acquireFences.Resize(window->numImages, Fence(window->device, Stringify(window->tag, " Fence")));
+		window->acquireSemaphores.Resize(window->numImages, Semaphore(window->device, Stringify(window->tag, " Semaphore")));
 		for (i32 i = 0; i < window->numImages; i++) {
 			if (auto result = FenceInit(&window->acquireFences[i], true); result.isError) {
 				return ERROR_RESULT(window, result.error);
@@ -1641,27 +1641,27 @@ Result<VoidResult_t, String> WindowPresent(Window *window, ArrayWithBucket<Conte
 
 #ifndef Creating_new_objects
 
-Device* NewDevice(Str tag) {
+Device* NewDevice(String tag) {
 	return devices.Append(new Device(tag)).RawPtr();
 }
 
-Context* NewContext(Device *device, Str tag) {
+Context* NewContext(Device *device, String tag) {
 	return device->contexts.Append(new Context(device, tag)).RawPtr();
 }
 
-Pipeline* NewGraphicsPipeline(Device *device, Str tag) {
+Pipeline* NewGraphicsPipeline(Device *device, String tag) {
 	return device->pipelines.Append(new Pipeline(device, Pipeline::GRAPHICS, tag)).RawPtr();
 }
 
-Pipeline* NewComputePipeline(Device *device, Str tag) {
+Pipeline* NewComputePipeline(Device *device, String tag) {
 	return device->pipelines.Append(new Pipeline(device, Pipeline::COMPUTE, tag)).RawPtr();
 }
 
-Buffer* NewVertexBuffer(Device *device, Str tag) {
+Buffer* NewVertexBuffer(Device *device, String tag) {
 	return device->buffers.Append(new Buffer(Buffer::VERTEX_BUFFER, device, tag)).RawPtr();
 }
 
-Buffer* NewIndexBuffer(Device *device, Str tag, u32 bytesPerIndex) {
+Buffer* NewIndexBuffer(Device *device, String tag, u32 bytesPerIndex) {
 	Buffer *result = device->buffers.Append(new Buffer(Buffer::INDEX_BUFFER, device, tag)).RawPtr();
 	switch (bytesPerIndex) {
 	// TODO: Probably support 8-bit indices
@@ -1677,19 +1677,19 @@ Buffer* NewIndexBuffer(Device *device, Str tag, u32 bytesPerIndex) {
 	return result;
 }
 
-Buffer* NewStorageBuffer(Device *device, Str tag) {
+Buffer* NewStorageBuffer(Device *device, String tag) {
 	return device->buffers.Append(new Buffer(Buffer::STORAGE_BUFFER, device, tag)).RawPtr();
 }
 
-Buffer* NewUniformBuffer(Device *device, Str tag) {
+Buffer* NewUniformBuffer(Device *device, String tag) {
 	return device->buffers.Append(new Buffer(Buffer::UNIFORM_BUFFER, device, tag)).RawPtr();
 }
 
-Image* NewImage(Device *device, Str tag) {
+Image* NewImage(Device *device, String tag) {
 	return device->images.Append(new Image(device, tag)).RawPtr();
 }
 
-Framebuffer* NewFramebuffer(Device *device, Str tag) {
+Framebuffer* NewFramebuffer(Device *device, String tag) {
 	return device->framebuffers.Append(new Framebuffer(device, tag)).RawPtr();
 }
 
@@ -1813,7 +1813,7 @@ void PrintPhysicalDeviceInfo(PhysicalDevice *physicalDevice) {
 Memory* DeviceGetMemory(Device *device, u32 memoryType) {
 	Memory *result;
 	if (auto *node = device->memory.Find(memoryType); node == nullptr) {
-		result = &device->memory.Emplace(memoryType, Memory(device, memoryType));
+		result = &device->memory.Emplace(memoryType, Memory(device, memoryType, Stringify("Memory (type ", memoryType, ")")));
 	} else {
 		result = &node->value;
 	}
@@ -1837,7 +1837,7 @@ Result<VoidResult_t, String> MemoryAddPage(Memory *memory, u32 minSize) {
 	allocInfo.memoryTypeIndex = memory->memoryTypeIndex;
 	allocInfo.allocationSize = minSize;
 	if (VkResult result = vkAllocateMemory(memory->device->vkDevice, &allocInfo, nullptr, &newPage.vkMemory); result != VK_SUCCESS) {
-		return Stringify("Memory \"", memory->tag, "\" error: Failed to allocate a new page: ", VkResultString(result));
+		return ERROR_RESULT(memory, "Failed to allocate a new page: ", VkResultString(result));
 	}
 	SetDebugMarker(memory->device, Stringify(memory->tag, " page ", memory->pages.size-1), VK_OBJECT_TYPE_DEVICE_MEMORY, (u64)newPage.vkMemory);
 	newPage.segments.Append(Memory::Page::Segment{0, minSize, false});
@@ -1943,7 +1943,7 @@ Result<Allocation, String> AllocateBuffer(Device *device, VkBuffer buffer, VkMem
 		alloc = result.value;
 	}
 	if (VkResult result = vkBindBufferMemory(device->vkDevice, buffer, memory->pages[alloc.page].vkMemory, align(alloc.offset, memoryRequirements.alignment)); result != VK_SUCCESS) {
-		return Stringify("Memory \"", memory->tag, "\" error: Failed to bind Buffer to Memory: ", VkResultString(result));
+		return ERROR_RESULT(memory, "Failed to bind Buffer to Memory: ", VkResultString(result));
 	}
 	return alloc;
 }
@@ -1963,7 +1963,7 @@ Result<Allocation, String> AllocateImage(Device *device, VkImage image, VkMemory
 		alloc = result.value;
 	}
 	if (VkResult result = vkBindImageMemory(device->vkDevice, image, memory->pages[alloc.page].vkMemory, align(alloc.offset, memoryRequirements.alignment)); result != VK_SUCCESS) {
-		return Stringify("Memory \"", memory->tag, "\" error: Failed to bind Image to Memory: ", VkResultString(result));
+		return ERROR_RESULT(memory, "Failed to bind Image to Memory: ", VkResultString(result));
 	}
 	return alloc;
 }
@@ -2086,7 +2086,7 @@ breakout2:
 	}
 	if (!found) {
 		// NOTE: If we ever see this, we probably need to break up our single queue into multiple specialized queues.
-		return Stringify("There were no queues available that had everything we needed");
+		return ERROR_RESULT(device, "There were no queues available that had everything we needed");
 	}
 	queueInfo.queueFamilyIndex = device->queueFamilyIndex;
 
@@ -2099,7 +2099,7 @@ breakout2:
 
 	VkResult result = vkCreateDevice(device->physicalDevice->vkPhysicalDevice, &createInfo, nullptr, &device->vkDevice);
 	if (result != VK_SUCCESS) {
-		return Stringify("Failed to create Device: ", VkResultString(result));
+		return ERROR_RESULT(device, "Failed to create Device: ", VkResultString(result));
 	}
 	SetDebugMarker(device, device->tag, VK_OBJECT_TYPE_DEVICE, (u64)device->vkDevice);
 	device->initted = true;
@@ -2194,10 +2194,10 @@ Result<VoidResult_t, String> BufferInit(Buffer *buffer) {
 			createInfo.usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 			break;
 		default:
-			return Stringify("Buffer \"", buffer->tag, "\" error: Cannot initialize buffer with undefined Kind");
+			return ERROR_RESULT(buffer, "Cannot initialize buffer with undefined Kind");
 	}
 	if (VkResult result = vkCreateBuffer(buffer->device->vkDevice, &createInfo, nullptr, &buffer->vkBuffer); result != VK_SUCCESS) {
-		return Stringify("Buffer \"", buffer->tag, "\" error: Failed to create buffer: ", VkResultString(result));
+		return ERROR_RESULT(buffer, "Failed to create buffer: ", VkResultString(result));
 	}
 	SetDebugMarker(buffer->device, buffer->tag, VK_OBJECT_TYPE_BUFFER, (u64)buffer->vkBuffer);
 	vkGetBufferMemoryRequirements(buffer->device->vkDevice, buffer->vkBuffer, &buffer->memoryRequirements);
@@ -2230,7 +2230,7 @@ Result<VoidResult_t, String> BufferHostInit(Buffer *buffer) {
 	createInfo.size = buffer->size;
 	createInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	if (VkResult result = vkCreateBuffer(buffer->device->vkDevice, &createInfo, nullptr, &buffer->vkBufferHostVisible); result != VK_SUCCESS) {
-		return Stringify("Buffer \"", buffer->tag, "\" error: Failed to create staging buffer: ", VkResultString(result));
+		return ERROR_RESULT(buffer, "Failed to create staging buffer: ", VkResultString(result));
 	}
 	SetDebugMarker(buffer->device, Stringify(buffer->tag, " host-visible buffer"), VK_OBJECT_TYPE_BUFFER, (u64)buffer->vkBufferHostVisible);
 	if (auto result = AllocateBuffer(buffer->device, buffer->vkBufferHostVisible, buffer->memoryRequirements, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT); result.isError) {
@@ -2312,7 +2312,7 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 	createInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
 
 	if (VkResult result = vkCreateImage(image->device->vkDevice, &createInfo, nullptr, &image->vkImage); result != VK_SUCCESS) {
-		return Stringify("Image \"", image->tag, "\" error: Failed to create image: ", VkResultString(result));
+		return ERROR_RESULT(image, "Failed to create image: ", VkResultString(result));
 	}
 	SetDebugMarker(image->device, image->tag, VK_OBJECT_TYPE_IMAGE, (u64)image->vkImage);
 	vkGetImageMemoryRequirements(image->device->vkDevice, image->vkImage, &image->memoryRequirements);
@@ -2330,7 +2330,7 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 	viewCreateInfo.subresourceRange.layerCount = 1;
 
 	if (VkResult result = vkCreateImageView(image->device->vkDevice, &viewCreateInfo, nullptr, &image->vkImageView); result != VK_SUCCESS) {
-		return Stringify("Image \"", image->tag, "\" error: Failed to create image view: ", VkResultString(result));
+		return ERROR_RESULT(image, "Failed to create image view: ", VkResultString(result));
 	}
 	SetDebugMarker(image->device, Stringify(image->tag, " image view"), VK_OBJECT_TYPE_IMAGE_VIEW, (u64)image->vkImageView);
 	image->initted = true;
@@ -2358,7 +2358,7 @@ Result<VoidResult_t, String> ImageHostInit(Image *image) {
 	createInfo.size = image->width * image->height * image->bytesPerPixel;
 	createInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	if (VkResult result = vkCreateBuffer(image->device->vkDevice, &createInfo, nullptr, &image->vkBufferHostVisible); result != VK_SUCCESS) {
-		return Stringify("Buffer \"", image->tag, "\" error: Failed to create image staging buffer: ", VkResultString(result));
+		return ERROR_RESULT(image, "Failed to create image staging buffer: ", VkResultString(result));
 	}
 	SetDebugMarker(image->device, Stringify(image->tag, " host-visible buffer"), VK_OBJECT_TYPE_BUFFER, (u64)image->vkBufferHostVisible);
 	vkGetBufferMemoryRequirements(image->device->vkDevice, image->vkBufferHostVisible, &image->memoryRequirementsHost);
@@ -3198,7 +3198,7 @@ Result<VoidResult_t, String> ContextInit(Context *context) {
 	VkCommandPoolCreateInfo poolCreateInfo = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
 	poolCreateInfo.queueFamilyIndex = context->device->queueFamilyIndex;
 	if (VkResult result = vkCreateCommandPool(context->device->vkDevice, &poolCreateInfo, nullptr, &context->vkCommandPool); result != VK_SUCCESS) {
-		return Stringify("Context \"", context->tag, "\": Failed to create command pool: ", VkResultString(result));
+		return ERROR_RESULT(context, "Failed to create command pool: ", VkResultString(result));
 	}
 	SetDebugMarker(context->device, Stringify(context->tag, " command pool"), VK_OBJECT_TYPE_COMMAND_POOL, (u64)context->vkCommandPool);
 	context->fence.device = context->device;
@@ -3364,7 +3364,7 @@ void ContextResetBindings(Context *context) {
 Result<VoidResult_t, String> ContextBeginRecording(Context *context) {
 	AzAssert(context->initted, "Trying to record to a Context that's not initted");
 	if ((u32)context->state >= (u32)Context::State::RECORDING_PRIMARY) {
-		return Stringify("Context \"", context->tag, "\" error: Cannot begin recording on a command buffer that's already recording");
+		return ERROR_RESULT(context, "Cannot begin recording on a command buffer that's already recording");
 	}
 	ContextResetBindings(context);
 	// TODO: This prevents us from building the next command buffers while the previous ones are running. Switch to double-buffered Contexts
@@ -3384,11 +3384,11 @@ Result<VoidResult_t, String> ContextBeginRecording(Context *context) {
 	bufferAllocInfo.commandBufferCount = 1;
 	bufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	if (VkResult result = vkAllocateCommandBuffers(context->device->vkDevice, &bufferAllocInfo, &context->vkCommandBuffer); result != VK_SUCCESS) {
-		return Stringify("Context \"", context->tag, "\" error: Failed to allocate primary command buffer: ", VkResultString(result));
+		return ERROR_RESULT(context, "Failed to allocate primary command buffer: ", VkResultString(result));
 	}
 	VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
 	if (VkResult result = vkBeginCommandBuffer(context->vkCommandBuffer, &beginInfo); result != VK_SUCCESS) {
-		return Stringify("Context \"", context->tag, "\" error: Failed to begin primary command buffer: ", VkResultString(result));
+		return ERROR_RESULT(context, "Failed to begin primary command buffer: ", VkResultString(result));
 	}
 	context->state = Context::State::RECORDING_PRIMARY;
 	return VoidResult_t();
@@ -3397,7 +3397,7 @@ Result<VoidResult_t, String> ContextBeginRecording(Context *context) {
 Result<VoidResult_t, String> ContextBeginRecordingSecondary(Context *context, Framebuffer *framebuffer, i32 subpass) {
 	AzAssert(context->initted, "Trying to record to a Context that's not initted");
 	if ((u32)context->state >= (u32)Context::State::RECORDING_PRIMARY) {
-		return Stringify("Context \"", context->tag, "\" error: Cannot begin recording on a command buffer that's already recording");
+		return ERROR_RESULT(context, "Cannot begin recording on a command buffer that's already recording");
 	}
 	ContextResetBindings(context);
 
@@ -3410,7 +3410,7 @@ Result<VoidResult_t, String> ContextBeginRecordingSecondary(Context *context, Fr
 	bufferAllocInfo.commandBufferCount = 1;
 	bufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
 	if (VkResult result = vkAllocateCommandBuffers(context->device->vkDevice, &bufferAllocInfo, &context->vkCommandBuffer); result != VK_SUCCESS) {
-		return Stringify("Context \"", context->tag, "\" error: Failed to allocate secondary command buffer: ", VkResultString(result));
+		return ERROR_RESULT(context, "Failed to allocate secondary command buffer: ", VkResultString(result));
 	}
 	VkCommandBufferInheritanceInfo inheritanceInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO};
 	if (framebuffer != nullptr) {
@@ -3423,7 +3423,7 @@ Result<VoidResult_t, String> ContextBeginRecordingSecondary(Context *context, Fr
 	beginInfo.flags = framebuffer != nullptr ? VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT : 0;
 	beginInfo.pInheritanceInfo = &inheritanceInfo;
 	if (VkResult result = vkBeginCommandBuffer(context->vkCommandBuffer, &beginInfo); result != VK_SUCCESS) {
-		return Stringify("Context \"", context->tag, "\" error: Failed to begin secondary command buffer: ", VkResultString(result));
+		return ERROR_RESULT(context, "Failed to begin secondary command buffer: ", VkResultString(result));
 	}
 	context->state = Context::State::RECORDING_SECONDARY;
 	return VoidResult_t();
@@ -3432,13 +3432,13 @@ Result<VoidResult_t, String> ContextBeginRecordingSecondary(Context *context, Fr
 Result<VoidResult_t, String> ContextEndRecording(Context *context) {
 	AzAssert(context->initted, "Context not initted");
 	if (!ContextIsRecording(context)) {
-		return Stringify("Context \"", context->tag, "\" error: Trying to End Recording but we haven't started recording.");
+		return ERROR_RESULT(context, "Trying to End Recording but we haven't started recording.");
 	}
 	if (context->bindings.framebuffer) {
 		vkCmdEndRenderPass(context->vkCommandBuffer);
 	}
 	if (VkResult result = vkEndCommandBuffer(context->vkCommandBuffer); result != VK_SUCCESS) {
-		return Stringify("Context \"", context->tag, "\" error: Failed to End Recording: ", VkResultString(result));
+		return ERROR_RESULT(context, "Failed to End Recording: ", VkResultString(result));
 	}
 	context->state = Context::State::DONE_RECORDING;
 	return VoidResult_t();
@@ -3446,7 +3446,7 @@ Result<VoidResult_t, String> ContextEndRecording(Context *context) {
 
 Result<VoidResult_t, String> SubmitCommands(Context *context, ArrayWithBucket<Context*, 4> waitContexts) {
 	if (context->state != Context::State::DONE_RECORDING) {
-		return Stringify("Context \"", context->tag, "\" error: Trying to SubmitCommands without anything recorded.");
+		return ERROR_RESULT(context, "Trying to SubmitCommands without anything recorded.");
 	}
 	ArrayWithBucket<VkSemaphore, 4> waitSemaphores(waitContexts.size);
 	ArrayWithBucket<VkPipelineStageFlags, 4> waitStages(waitContexts.size);
@@ -3471,7 +3471,7 @@ Result<VoidResult_t, String> SubmitCommands(Context *context, ArrayWithBucket<Co
 	submitInfo.pWaitSemaphores = waitSemaphores.data;
 	submitInfo.pWaitDstStageMask = waitStages.data;
 	if (VkResult result = vkQueueSubmit(context->device->vkQueue, 1, &submitInfo, context->fence.vkFence); result != VK_SUCCESS) {
-		return Stringify("Context \"", context->tag, "\" error: Failed to submit to queue: ", VkResultString(result));
+		return ERROR_RESULT(context, "Failed to submit to queue: ", VkResultString(result));
 	}
 	return VoidResult_t();
 }
@@ -3487,7 +3487,7 @@ Result<bool, String> ContextIsExecuting(Context *context) {
 		case VK_ERROR_DEVICE_LOST:
 			return Stringify("Device \"", context->device->tag, "\" error: Device Lost");
 		default:
-			return Stringify("Context \"", context->tag, "\" error: IsExecuting returned ", VkResultString(result));
+			return ERROR_RESULT(context, "IsExecuting returned ", VkResultString(result));
 	}
 }
 

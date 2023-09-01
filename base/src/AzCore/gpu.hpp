@@ -209,7 +209,7 @@ void Deinitialize();
 
 // Returns the index of the window, used for making a framebuffer, or an error message in a String
 // This can only error if Initialize was called before AddWindow
-[[nodiscard]] Result<Window*, String> AddWindow(io::Window *window, Str tag = Str());
+[[nodiscard]] Result<Window*, String> AddWindow(io::Window *window, String tag = String());
 
 void FramebufferAddWindow(Framebuffer *framebuffer, Window *window);
 
@@ -224,30 +224,30 @@ void SetVSync(Window *window, bool enable);
 // Creating new objects
 
 
-[[nodiscard]] Device* NewDevice(Str tag = Str());
+[[nodiscard]] Device* NewDevice(String tag = String());
 
-[[nodiscard]] Context* NewContext(Device *device, Str tag = Str());
+[[nodiscard]] Context* NewContext(Device *device, String tag = String());
 
-[[nodiscard]] Pipeline* NewGraphicsPipeline(Device *device, Str tag = Str());
+[[nodiscard]] Pipeline* NewGraphicsPipeline(Device *device, String tag = String());
 
-[[nodiscard]] Pipeline* NewComputePipeline(Device *device, Str tag = Str());
+[[nodiscard]] Pipeline* NewComputePipeline(Device *device, String tag = String());
 
 // Add a buffer that describes vertex data
-[[nodiscard]] Buffer* NewVertexBuffer(Device *device, Str tag = Str());
+[[nodiscard]] Buffer* NewVertexBuffer(Device *device, String tag = String());
 
 // Add a buffer that describes indices into a vertex buffer
 // bytesPerIndex determines whether we use u16 or u32 indices.
-[[nodiscard]] Buffer* NewIndexBuffer(Device *device, Str tag = Str(), u32 bytesPerIndex=2);
+[[nodiscard]] Buffer* NewIndexBuffer(Device *device, String tag = String(), u32 bytesPerIndex=2);
 
 // Add a buffer that can hold a large amount of memory, and supports read, write, and atomic operations
-[[nodiscard]] Buffer* NewStorageBuffer(Device *device, Str tag = Str());
+[[nodiscard]] Buffer* NewStorageBuffer(Device *device, String tag = String());
 
 // Add a buffer that can hold a small amount of memory, and supports read operations
-[[nodiscard]] Buffer* NewUniformBuffer(Device *device, Str tag = Str());
+[[nodiscard]] Buffer* NewUniformBuffer(Device *device, String tag = String());
 
-[[nodiscard]] Image* NewImage(Device *device, Str tag = Str());
+[[nodiscard]] Image* NewImage(Device *device, String tag = String());
 
-[[nodiscard]] Framebuffer* NewFramebuffer(Device *device, Str tag = Str());
+[[nodiscard]] Framebuffer* NewFramebuffer(Device *device, String tag = String());
 
 
 // Buffer, Image

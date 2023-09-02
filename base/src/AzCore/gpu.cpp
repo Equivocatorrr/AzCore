@@ -2341,6 +2341,10 @@ void ImageDeinit(Image *image) {
 	DEINIT_HEAD(image);
 	vkDestroyImageView(image->device->vkDevice, image->vkImageView, nullptr);
 	vkDestroyImage(image->device->vkDevice, image->vkImage, nullptr);
+	if (image->vkSampler != VK_NULL_HANDLE) {
+		vkDestroySampler(image->device->vkDevice, image->vkSampler, nullptr);
+		image->vkSampler = VK_NULL_HANDLE;
+	}
 	MemoryFree(image->alloc);
 	if (image->hostVisible) {
 		vkDestroyBuffer(image->device->vkDevice, image->vkBufferHostVisible, nullptr);
@@ -2974,6 +2978,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 				io::cout.PrintLnDebug("Fragment shader \"", shader.filename, "\"");
 				createInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 				break;
+			default: return ERROR_RESULT(pipeline, "Unimplemented");
 			}
 			io::cout.IndentLess();
 			createInfo.module = shader.vkShaderModule;
@@ -3221,6 +3226,16 @@ void ContextDeinit(Context *context) {
 	vkDestroyCommandPool(context->device->vkDevice, context->vkCommandPool, nullptr);
 	FenceDeinit(&context->fence);
 	SemaphoreDeinit(&context->semaphore);
+	if (context->vkDescriptorPool != VK_NULL_HANDLE) {
+		vkDestroyDescriptorPool(context->device->vkDevice, context->vkDescriptorPool, nullptr);
+		context->vkDescriptorPool = VK_NULL_HANDLE;
+	}
+	for (DescriptorSetLayout &dsl : context->descriptorSetLayouts) {
+		if (dsl.vkDescriptorSetLayout != VK_NULL_HANDLE) {
+			vkDestroyDescriptorSetLayout(context->device->vkDevice, dsl.vkDescriptorSetLayout, nullptr);
+		}
+	}
+	context->descriptorSetLayouts.ClearSoft();
 	context->initted = false;
 }
 
@@ -3305,6 +3320,7 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 				write.pImageInfo = imageInfo.RawPtr();
 				descriptorImageInfos.Append(std::move(imageInfo));
 			} break;
+			default: break;
 		}
 		write.dstBinding = bindingInfo.binding;
 		write.descriptorCount = bindingInfo.descriptorCount;
@@ -3444,7 +3460,7 @@ Result<VoidResult_t, String> ContextEndRecording(Context *context) {
 	return VoidResult_t();
 }
 
-Result<VoidResult_t, String> SubmitCommands(Context *context, ArrayWithBucket<Context*, 4> waitContexts) {
+Result<VoidResult_t, String> SubmitCommands(Context *context, bool useSemaphore, ArrayWithBucket<Context*, 4> waitContexts) {
 	if (context->state != Context::State::DONE_RECORDING) {
 		return ERROR_RESULT(context, "Trying to SubmitCommands without anything recorded.");
 	}
@@ -3465,8 +3481,10 @@ Result<VoidResult_t, String> SubmitCommands(Context *context, ArrayWithBucket<Co
 	VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &context->vkCommandBuffer;
-	submitInfo.signalSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = &context->semaphore.vkSemaphore;
+	if (useSemaphore) {
+		submitInfo.signalSemaphoreCount = 1;
+		submitInfo.pSignalSemaphores = &context->semaphore.vkSemaphore;
+	}
 	submitInfo.waitSemaphoreCount = waitSemaphores.size;
 	submitInfo.pWaitSemaphores = waitSemaphores.data;
 	submitInfo.pWaitDstStageMask = waitStages.data;

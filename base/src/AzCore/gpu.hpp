@@ -289,8 +289,9 @@ void PipelineSetBlendMode(Pipeline *pipeline, BlendMode blendMode, i32 attachmen
 
 [[nodiscard]] Result<VoidResult_t, String> ContextEndRecording(Context *context);
 
+// useSemaphore must be true if this context is to be waited on by either another context or a window present. Forgetting to do this will hang the program.
 // waitContexts are any contexts that need to finish executing before we can execute our current context.
-[[nodiscard]] Result<VoidResult_t, String> SubmitCommands(Context *context, ArrayWithBucket<Context*, 4> waitContexts={});
+[[nodiscard]] Result<VoidResult_t, String> SubmitCommands(Context *context, bool useSemaphore=false, ArrayWithBucket<Context*, 4> waitContexts={});
 
 // Returns true if Context is still executing
 [[nodiscard]] Result<bool, String> ContextIsExecuting(Context *context);

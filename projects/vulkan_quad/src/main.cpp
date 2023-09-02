@@ -174,7 +174,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			return 1;
 		}
 
-		if (auto result = GPU::SubmitCommands(context); result.isError) {
+		if (auto result = GPU::SubmitCommands(context, true); result.isError) {
 			io::cerr.PrintLn("Failed to submit data copies: ", result.error);
 			return 1;
 		}

@@ -1810,10 +1810,16 @@ void PrintPhysicalDeviceInfo(PhysicalDevice *physicalDevice) {
 
 #ifndef Memory_Operations
 
-Memory* DeviceGetMemory(Device *device, u32 memoryType) {
+// linear=true indicates whether we're buffers and images with VK_IMAGE_TILING_LINEAR
+// linear=false is for images with VK_IMAGE_TILING_OPTIMAL
+Memory* DeviceGetMemory(Device *device, u32 memoryType, bool linear) {
 	Memory *result;
-	if (auto *node = device->memory.Find(memoryType); node == nullptr) {
-		result = &device->memory.Emplace(memoryType, Memory(device, memoryType, Stringify("Memory (type ", memoryType, ")")));
+	u32 key = memoryType;
+	if (!linear) {
+		key |= 0x10000;
+	}
+	if (auto *node = device->memory.Find(key); node == nullptr) {
+		result = &device->memory.Emplace(key, Memory(device, memoryType, Stringify("Memory (type ", memoryType, linear? " linear" : " non-linear", ")")));
 	} else {
 		result = &node->value;
 	}
@@ -1865,13 +1871,15 @@ i32 PageFindSegment(Memory::Page *page, u32 size, u32 alignment) {
 	return -1;
 }
 
-Allocation PageAllocInSegment(Memory *memory, i32 pageIndex, i32 segmentIndex, u32 size) {
+Allocation PageAllocInSegment(Memory *memory, i32 pageIndex, i32 segmentIndex, u32 size, u32 alignment) {
 	Allocation result;
 	Memory::Page &page = memory->pages[pageIndex];
 	AzAssert(size < page.segments[segmentIndex].size, "segment is too small for alloc");
 	AzAssert(page.segments[segmentIndex].used == false, "Trying to allocate in a segment that's already in use!");
 	using Segment = Memory::Page::Segment;
-	if (page.segments[segmentIndex].size > size) {
+	u32 alignedBegin = align(page.segments[segmentIndex].begin, alignment);
+	u32 availableSize = alignedSize(page.segments[segmentIndex].begin, page.segments[segmentIndex].size, alignment);
+	if (availableSize > size) {
 		Segment &newSegment = page.segments.Insert(segmentIndex+1, Segment());
 		Segment &lastSegment = page.segments[segmentIndex];
 		newSegment.begin = lastSegment.begin + size;
@@ -1882,6 +1890,16 @@ Allocation PageAllocInSegment(Memory *memory, i32 pageIndex, i32 segmentIndex, u
 	} else {
 		Segment &segment = page.segments[segmentIndex];
 		segment.used = true;
+	}
+	if (page.segments[segmentIndex].begin != alignedBegin) {
+		Segment &preSegment = page.segments.Insert(segmentIndex, Segment());
+		Segment &ourSegment = page.segments[segmentIndex+1];
+		preSegment.begin = ourSegment.begin;
+		preSegment.size = alignedBegin - ourSegment.begin;
+		preSegment.used = false;
+		ourSegment.begin = alignedBegin;
+		ourSegment.size = availableSize;
+		segmentIndex++;
 	}
 	result.memory = memory;
 	result.page = pageIndex;
@@ -1902,7 +1920,7 @@ Result<Allocation, String> MemoryAllocate(Memory *memory, u32 size, u32 alignmen
 		}
 		segment = 0;
 	}
-	return PageAllocInSegment(memory, page, segment, size);
+	return PageAllocInSegment(memory, page, segment, size, alignment);
 }
 
 void MemoryFree(Allocation allocation) {
@@ -1935,7 +1953,7 @@ Result<Allocation, String> AllocateBuffer(Device *device, VkBuffer buffer, VkMem
 	} else {
 		memoryType = result.value;
 	}
-	Memory *memory = DeviceGetMemory(device, memoryType);
+	Memory *memory = DeviceGetMemory(device, memoryType, true);
 	Allocation alloc;
 	if (auto result = MemoryAllocate(memory, memoryRequirements.size, memoryRequirements.alignment); result.isError) {
 		return result.error;
@@ -1948,14 +1966,14 @@ Result<Allocation, String> AllocateBuffer(Device *device, VkBuffer buffer, VkMem
 	return alloc;
 }
 
-Result<Allocation, String> AllocateImage(Device *device, VkImage image, VkMemoryRequirements memoryRequirements, VkMemoryPropertyFlags memoryPropertyFlags) {
+Result<Allocation, String> AllocateImage(Device *device, VkImage image, VkMemoryRequirements memoryRequirements, VkMemoryPropertyFlags memoryPropertyFlags, bool linear) {
 	u32 memoryType;
 	if (auto result = FindMemoryType(memoryRequirements.memoryTypeBits, memoryPropertyFlags, device->physicalDevice->memoryProperties.memoryProperties); result.isError) {
 		return result.error;
 	} else {
 		memoryType = result.value;
 	}
-	Memory *memory = DeviceGetMemory(device, memoryType);
+	Memory *memory = DeviceGetMemory(device, memoryType, linear);
 	Allocation alloc;
 	if (auto result = MemoryAllocate(memory, memoryRequirements.size, memoryRequirements.alignment); result.isError) {
 		return result.error;
@@ -2316,7 +2334,7 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 	}
 	SetDebugMarker(image->device, image->tag, VK_OBJECT_TYPE_IMAGE, (u64)image->vkImage);
 	vkGetImageMemoryRequirements(image->device->vkDevice, image->vkImage, &image->memoryRequirements);
-	if (auto result = AllocateImage(image->device, image->vkImage, image->memoryRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT); result.isError) {
+	if (auto result = AllocateImage(image->device, image->vkImage, image->memoryRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, false); result.isError) {
 		return result.error;
 	} else {
 		image->alloc = result.value;
@@ -3542,7 +3560,7 @@ Result<VoidResult_t, String> CmdCopyDataToBuffer(Context *context, Buffer *dst, 
 	Allocation alloc = dst->allocHostVisible;
 	VkDeviceMemory vkMemory = alloc.memory->pages[alloc.page].vkMemory;
 	void *dstMapped;
-	if (VkResult result = vkMapMemory(dst->device->vkDevice, vkMemory, align(alloc.offset, dst->memoryRequirements.alignment)+dstOffset, size, 0, &dstMapped); result != VK_SUCCESS) {
+	if (VkResult result = vkMapMemory(dst->device->vkDevice, vkMemory, alloc.offset + dstOffset, size, 0, &dstMapped); result != VK_SUCCESS) {
 		return Stringify("Buffer \"", dst->tag, "\" error: Failed to map memory: ", VkResultString(result));
 	}
 	memcpy(dstMapped, src, size);
@@ -3673,7 +3691,7 @@ Result<VoidResult_t, String> CmdCopyDataToImage(Context *context, Image *dst, vo
 	Allocation alloc = dst->allocHostVisible;
 	VkDeviceMemory vkMemory = alloc.memory->pages[alloc.page].vkMemory;
 	void *dstMapped;
-	if (VkResult result = vkMapMemory(dst->device->vkDevice, vkMemory, align(alloc.offset, dst->memoryRequirementsHost.alignment), dst->memoryRequirementsHost.size, 0, &dstMapped); result != VK_SUCCESS) {
+	if (VkResult result = vkMapMemory(dst->device->vkDevice, vkMemory, alloc.offset, dst->memoryRequirementsHost.size, 0, &dstMapped); result != VK_SUCCESS) {
 		return Stringify("Image \"", dst->tag, "\" error: Failed to map memory: ", VkResultString(result));
 	}
 	memcpy(dstMapped, src, dst->width * dst->height * dst->bytesPerPixel);

@@ -5,15 +5,10 @@
 */
 
 #include "AzCore/io.hpp"
-#include "AzCore/vk.hpp"
+#include "AzCore/gpu.hpp"
 #include "AzCore/Math/Color.hpp"
 
 using namespace AzCore;
-
-io::Log cout("main.log", true, true);
-
-// NOTE: Using an immediate-mode renderer like this isn't necessarily a good idea.
-//	   It's just an easy way to do things that would otherwise require special shaders.
 
 const u32 maxVertices = 8192;
 
@@ -24,7 +19,7 @@ struct Vertex {
 	vec2 pos;
 };
 
-void DrawCircle(VkCommandBuffer cmdBuf, Vertex *vertices, u32 *vertex, vec2 center, f32 radius, vec4 color, f32 aspectRatio) {
+void DrawCircle(GPU::Context *context, Vertex *vertices, u32 *vertex, vec2 center, f32 radius, vec4 color, f32 aspectRatio) {
 	u32 circumference = (u32)(scale * clamp(sqrt(radius*tau*1600.0f), 5.0f, 80.0f));
 	center.x *= aspectRatio;
 	vertices[(*vertex)++] = {color, center};
@@ -32,29 +27,30 @@ void DrawCircle(VkCommandBuffer cmdBuf, Vertex *vertices, u32 *vertex, vec2 cent
 		f32 angle = (f32)i * tau / (f32)circumference;
 		vertices[(*vertex)++] = {color, center + vec2(sin(angle)*radius*aspectRatio, cos(angle)*radius)};
 	}
-	vkCmdDraw(cmdBuf, circumference+2, 1, *vertex - circumference - 2, 0);
+	u32 vertCount = circumference+2;
+	GPU::CmdDraw(context, vertCount, *vertex - vertCount);
 }
 
-void DrawQuad(VkCommandBuffer cmdBuf, Vertex *vertices, u32 *vertex, vec2 points[4], vec4 colors[4]) {
+void DrawQuad(GPU::Context *context, Vertex *vertices, u32 *vertex, vec2 points[4], vec4 colors[4]) {
 	for (u32 i = 0; i < 4; i++) {
 		vertices[(*vertex)++] = {colors[i], points[i]};
 	}
-	vkCmdDraw(cmdBuf, 4, 1, *vertex - 4, 0);
+	GPU::CmdDraw(context, 4, *vertex - 4);
 }
 
-void DrawLine(VkCommandBuffer cmdBuf, Vertex *vertices, u32 *vertex, vec2 p1, vec2 p2, vec4 color) {
+void DrawLine(GPU::Context *context, Vertex *vertices, u32 *vertex, vec2 p1, vec2 p2, vec4 color) {
 	vertices[(*vertex)++] = {color, p1};
 	vertices[(*vertex)++] = {color, p2};
-	vkCmdDraw(cmdBuf, 2, 1, *vertex - 2, 0);
+	GPU::CmdDraw(context, 2, *vertex - 2);
 }
 
 i32 main(i32 argumentCount, char** argumentValues) {
 
 	bool enableLayers = false, enableCoreValidation = false;
 
-	cout.PrintLn("\nTest program received ",  argumentCount,  " arguments:");
+	io::cout.PrintLn("\nTest program received ",  argumentCount,  " arguments:");
 	for (i32 i = 0; i < argumentCount; i++) {
-		cout.PrintLn(i,  ": ",  argumentValues[i]);
+		io::cout.PrintLn(i,  ": ",  argumentValues[i]);
 		if (equals(argumentValues[i], "--enable-layers")) {
 			enableLayers = true;
 		} else if (equals(argumentValues[i], "--core-validation")) {
@@ -62,186 +58,79 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		}
 	}
 
-	cout.PrintLn("Initializing RawInput");
+	io::cout.PrintLn("Initializing RawInput");
 	io::RawInput rawInput;
 	if (!rawInput.Init(io::RAW_INPUT_ENABLE_GAMEPAD_JOYSTICK)) {
-		cout.PrintLn("Failed to Init RawInput: ",  io::error);
+		io::cout.PrintLn("Failed to Init RawInput: ",  io::error);
 	}
 
 	io::Input input;
-	io::Window window;
-	window.input = &input;
-	window.name = "AzCore Tesseract";
-	window.width = 800;
-	window.height = 800;
-	if (!window.Open()) {
-		cout.PrintLn("Failed to open window: ",  io::error);
+	io::Window ioWindow;
+	ioWindow.input = &input;
+	ioWindow.name = "AzCore Tesseract";
+	ioWindow.width = 800;
+	ioWindow.height = 800;
+	if (!ioWindow.Open()) {
+		io::cout.PrintLn("Failed to open ioWindow: ",  io::error);
 		return 1;
 	}
 
-	scale = (f32)window.GetDPI() / 96.0f;
-	window.Resize(u32((f32)window.width * scale), u32((u32)window.height * scale));
+	scale = (f32)ioWindow.GetDPI() / 96.0f;
+	ioWindow.Resize(u32((f32)ioWindow.width * scale), u32((u32)ioWindow.height * scale));
 
-	rawInput.window = &window;
-
-	vk::Instance instance;
-	instance.AppInfo("AzCore Tesseract", 1, 0, 0);
-	Ptr<vk::Window> vkWindow = instance.AddWindowForSurface(&window);
+	rawInput.window = &ioWindow;
+	
+	GPU::SetAppName("AzCore Tesseract");
+	
+	GPU::Window *gpuWindow = GPU::AddWindow(&ioWindow, "Main window").Unwrap();
 
 	if (enableLayers) {
-		cout.PrintLn("Validation layers enabled.");
-		Array<const char*> layers = {
-			"VK_LAYER_GOOGLE_threading",
-			"VK_LAYER_LUNARG_parameter_validation",
-			"VK_LAYER_LUNARG_object_tracker",
-			"VK_LAYER_GOOGLE_unique_objects"
-		};
-		if (enableCoreValidation) {
-			layers.Append("VK_LAYER_LUNARG_core_validation");
-		}
-		instance.AddLayers(layers);
+		io::cout.PrintLn("Validation layers enabled.");
+		GPU::EnableValidationLayers();
 	}
+	
+	GPU::Device *device = GPU::NewDevice();
 
-	Ptr<vk::Device> device = instance.AddDevice();
+	GPU::Buffer *vertexBuffer = GPU::NewVertexBuffer(device);
+	GPU::BufferSetSize(vertexBuffer, sizeof(Vertex) * maxVertices);
 
-	Ptr<vk::Queue> queueGraphics = device->AddQueue();
-	queueGraphics->queueType = vk::QueueType::GRAPHICS;
-	Ptr<vk::Queue> queueTransfer = device->AddQueue();
-	queueTransfer->queueType = vk::QueueType::TRANSFER;
-	Ptr<vk::Queue> queuePresent = device->AddQueue();
-	queuePresent->queueType = vk::QueueType::PRESENT;
+	GPU::Framebuffer *framebuffer = GPU::NewFramebuffer(device);
+	GPU::FramebufferAddWindow(framebuffer, gpuWindow);
+	vec4 clearColor = vec4(sRGBToLinear(vec3(0.0f, 0.1f, 0.2f)), 1.0f);
+	
+	GPU::Shader *shaderVert = GPU::NewShader(device, "data/shaders/2D.vert.spv", GPU::ShaderStage::VERTEX);
+	GPU::Shader *shaderFrag = GPU::NewShader(device, "data/shaders/2D.frag.spv", GPU::ShaderStage::FRAGMENT);
+	
 
-	Ptr<vk::Memory> vkStagingMemory = device->AddMemory();
-	vkStagingMemory->deviceLocal = false;
-	Ptr<vk::Memory> vkBufferMemory = device->AddMemory();
+	GPU::Pipeline *pipelineLines = GPU::NewGraphicsPipeline(device, "Lines pipeline");
+	GPU::PipelineAddShaders(pipelineLines, {shaderVert, shaderFrag});
+	GPU::PipelineAddVertexInputs(pipelineLines, {
+		GPU::ShaderValueType::VEC4,
+		GPU::ShaderValueType::VEC2,
+	});
+	GPU::PipelineSetBlendMode(pipelineLines, {GPU::BlendMode::ADDITION, false});
+	GPU::PipelineSetTopology(pipelineLines, GPU::Topology::LINE_LIST);
+	GPU::PipelineSetLineWidth(pipelineLines, 4.0f * scale);
+	
+	GPU::Pipeline *pipelineTriangleFan = GPU::NewGraphicsPipeline(device, "TriangleFan pipeline");
+	GPU::PipelineAddShaders(pipelineTriangleFan, {shaderVert, shaderFrag});
+	GPU::PipelineAddVertexInputs(pipelineTriangleFan, {
+		GPU::ShaderValueType::VEC4,
+		GPU::ShaderValueType::VEC2,
+	});
+	GPU::PipelineSetBlendMode(pipelineTriangleFan, {GPU::BlendMode::ADDITION, false});
+	GPU::PipelineSetTopology(pipelineTriangleFan, GPU::Topology::TRIANGLE_FAN);
+	
+	GPU::Context *contextTransfer = GPU::NewContext(device, "Transfer context");
+	GPU::Context *contextDrawing = GPU::NewContext(device, "Drawing context");
 
-	Ptr<vk::Buffer> vkStagingBuffer = vkStagingMemory->AddBuffer();
-	vkStagingBuffer->size = sizeof(Vertex) * maxVertices;
-	vkStagingBuffer->usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-
-	Ptr<vk::Buffer> vkVertexBuffer = vkBufferMemory->AddBuffer();
-	vkVertexBuffer->size = sizeof(Vertex) * maxVertices;
-	vkVertexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-
-	Ptr<vk::Swapchain> vkSwapchain = device->AddSwapchain();
-	vkSwapchain->window = vkWindow;
-	// vkSwapchain->vsync = false;
-
-	Ptr<vk::RenderPass> vkRenderPass = device->AddRenderPass();
-	Ptr<vk::Attachment> vkAttachment = vkRenderPass->AddAttachment(vkSwapchain);
-	vkAttachment->clearColor = true;
-	vec3 clearColor = sRGBToLinear(vec3(0.0f, 0.1f, 0.2f));
-	vkAttachment->clearColorValue = {clearColor.r, clearColor.g, clearColor.b, 1.0f};
-	// vkAttachment->bufferDepthStencil = true;
-	// vkAttachment->clearDepth = true;
-	// vkAttachment->clearDepthStencilValue.depth = 1000.0;
-	vkAttachment->resolveColor = true;
-	vkAttachment->sampleCount = VK_SAMPLE_COUNT_8_BIT;
-
-	Ptr<vk::Subpass> vkSubpass = vkRenderPass->AddSubpass();
-	vkSubpass->UseAttachment(vkAttachment, vk::AttachmentType::ATTACHMENT_ALL, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-
-	Range<vk::Shader> vkShaders = device->AddShaders(2);
-	vkShaders[0].filename = "data/shaders/2D.frag.spv";
-	vkShaders[1].filename = "data/shaders/2D.vert.spv";
-
-	Array<vk::ShaderRef> vkShaderRefs = {
-		vk::ShaderRef(vkShaders.GetPtr(0), VK_SHADER_STAGE_FRAGMENT_BIT),
-		vk::ShaderRef(vkShaders.GetPtr(1), VK_SHADER_STAGE_VERTEX_BIT)
-	};
-
-	VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
-	colorBlendAttachment.blendEnable = VK_TRUE;
-	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-	// colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
-										| VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-	VkVertexInputBindingDescription inputBindingDescription = {};
-	inputBindingDescription.binding = 0;
-	inputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-	inputBindingDescription.stride = sizeof(Vertex);
-	Array<VkVertexInputAttributeDescription> inputAttributeDescriptions(2);
-	inputAttributeDescriptions[0].binding = 0;
-	inputAttributeDescriptions[0].location = 0;
-	inputAttributeDescriptions[0].offset = offsetof(Vertex, color);
-	inputAttributeDescriptions[0].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-	inputAttributeDescriptions[1].binding = 0;
-	inputAttributeDescriptions[1].location = 1;
-	inputAttributeDescriptions[1].offset = offsetof(Vertex, pos);
-	inputAttributeDescriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
-
-	Ptr<vk::Pipeline> pipelineTriangleFan = device->AddPipeline();
-	pipelineTriangleFan->renderPass = vkRenderPass;
-	pipelineTriangleFan->subpass = 0;
-	pipelineTriangleFan->shaders = vkShaderRefs;
-	pipelineTriangleFan->dynamicStates = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-	pipelineTriangleFan->inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
-	pipelineTriangleFan->inputBindingDescriptions = {inputBindingDescription};
-	pipelineTriangleFan->inputAttributeDescriptions = inputAttributeDescriptions;
-	pipelineTriangleFan->colorBlendAttachments.Append(colorBlendAttachment);
-	// pipelineTriangleFan->depthStencil.depthTestEnable = VK_TRUE;
-	// pipelineTriangleFan->depthStencil.depthWriteEnable = VK_TRUE;
-	pipelineTriangleFan->rasterizer.cullMode = VK_CULL_MODE_NONE;
-
-	Ptr<vk::Pipeline> pipelineLines = device->AddPipeline();
-	pipelineLines->renderPass = vkRenderPass;
-	pipelineLines->subpass = 0;
-	pipelineLines->shaders = vkShaderRefs;
-	pipelineLines->dynamicStates = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-	pipelineLines->inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-	pipelineLines->inputBindingDescriptions = {inputBindingDescription};
-	pipelineLines->inputAttributeDescriptions = inputAttributeDescriptions;
-	pipelineLines->colorBlendAttachments.Append(colorBlendAttachment);
-	pipelineLines->rasterizer.lineWidth = 4.0f * scale;
-	// pipelineLines->depthStencil.depthTestEnable = VK_TRUE;
-	// pipelineLines->depthStencil.depthWriteEnable = VK_TRUE;
-
-	Ptr<vk::Framebuffer> vkFramebuffer = device->AddFramebuffer();
-	vkFramebuffer->renderPass = vkRenderPass;
-	vkFramebuffer->swapchain = vkSwapchain;
-
-	Ptr<vk::CommandPool> vkCommandPoolTransfer = device->AddCommandPool(queueTransfer);
-	vkCommandPoolTransfer->transient = true;
-	vkCommandPoolTransfer->resettable = true;
-	Ptr<vk::CommandBuffer> vkCommandBufferTransfer = vkCommandPoolTransfer->AddCommandBuffer();
-	vkCommandBufferTransfer->oneTimeSubmit = true;
-
-	Ptr<vk::CommandPool> vkCommandPoolAllDrawing = device->AddCommandPool(queueGraphics);
-	vkCommandPoolAllDrawing->resettable = true;
-	vkCommandPoolAllDrawing->transient = true;
-
-	Ptr<vk::CommandBuffer> vkCommandBufferAllDrawing = vkCommandPoolAllDrawing->AddCommandBuffer();
-	vkCommandBufferAllDrawing->oneTimeSubmit = true;
-
-	Ptr<vk::Semaphore> semaphoreTransferComplete = device->AddSemaphore();
-	Ptr<vk::Semaphore> semaphoreRenderFinished = device->AddSemaphore();
-
-	Ptr<vk::QueueSubmission> queueSubmissionTransfer = device->AddQueueSubmission();
-	queueSubmissionTransfer->commandBuffers = {vkCommandBufferTransfer};
-	queueSubmissionTransfer->signalSemaphores = {semaphoreTransferComplete};
-
-	Ptr<vk::QueueSubmission> queueSubmissionDraw = device->AddQueueSubmission();
-	queueSubmissionDraw->commandBuffers = {vkCommandBufferAllDrawing};
-	queueSubmissionDraw->signalSemaphores = {semaphoreRenderFinished};
-	// Since we're transferring the vertex buffer every frame
-	queueSubmissionDraw->waitSemaphores = {
-		vk::SemaphoreWait(semaphoreTransferComplete, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT),
-		vk::SemaphoreWait(vkSwapchain, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
-	};
-	queueSubmissionDraw->noAutoConfig = true;
-
-	if (!instance.Init()) {
-		cout.PrintLn("Failed to init instance: ",  vk::error);
+	if (auto result = GPU::Initialize(); result.isError) {
+		io::cout.PrintLn("Failed to initialize GPU: ", result.error);
 		return 1;
 	}
 
-	if (!window.Show()) {
-		cout.PrintLn("Failed to show window: ",  io::error);
+	if (!ioWindow.Show()) {
+		io::cout.PrintLn("Failed to show ioWindow: ",  io::error);
 		return 1;
 	}
 
@@ -273,10 +162,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			gamepadIndex = rawInput.AnyGPIndex;
 		}
 		input.Tick(1.0f/(f32)framerate);
-		if (!window.Update()) {
+		if (!ioWindow.Update()) {
 			break;
 		}
-		if (window.resized) {
+		if (ioWindow.resized) {
 			resized = true;
 		}
 		if (input.Pressed(KC_KEY_ESC)) {
@@ -344,19 +233,19 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			facingAngleZW = draggingFacingAngleOrigin[1] + vec2((f32)diff.x, (f32)diff.y) * 0.005f / pi;
 		}
 
-		f32 aspectRatio = (f32)window.height / (f32)window.width;
+		f32 aspectRatio = (f32)ioWindow.height / (f32)ioWindow.width;
 
 		if (toggleStereographic) {
 			enableStereoGraphic = !enableStereoGraphic;
 			if (enableStereoGraphic) {
 				if (aspectRatio > 0.9f) {
-					window.Resize(window.width * 2, window.height);
+					ioWindow.Resize(ioWindow.width * 2, ioWindow.height);
 					continue;
 				}
 			} else {
 				offset.x += eyeWidth/2.0f;
 				if (abs(aspectRatio - 0.5f) < 0.05f) {
-					window.Resize(window.height, window.height);
+					ioWindow.Resize(ioWindow.height, ioWindow.height);
 					continue;
 				}
 			}
@@ -371,50 +260,27 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		}
 
 		if (input.PressedChar('V')) {
-			vkSwapchain->vsync = !vkSwapchain->vsync;
-			if (!vkSwapchain->Reconfigure()) {
-				cout.PrintLn("Failed to switch VSync: ",  vk::error);
-				return 1;
-			}
+			GPU::SetVSync(gpuWindow, !GPU::GetVSyncEnabled(gpuWindow));
 		}
 
-		if (resized) {
-			if (!vkSwapchain->Resize()) {
-				cout.PrintLn("Failed to resize vkSwapchain: ",  vk::error);
-				return 1;
-			}
-			resized = false;
-		}
-
-		VkResult acquisitionResult = vkSwapchain->AcquireNextImage();
-
-		if (acquisitionResult == VK_ERROR_OUT_OF_DATE_KHR || acquisitionResult == VK_NOT_READY) {
-			cout.PrintLn("Skipping a frame because acquisition returned: ",  vk::ErrorString(acquisitionResult));
-			resized = true;
-			continue; // Don't render this frame.
-		} else if (acquisitionResult == VK_TIMEOUT) {
-			cout.PrintLn("Skipping a frame because acquisition returned: ",  vk::ErrorString(acquisitionResult));
-			continue;
-		} else if (acquisitionResult != VK_SUCCESS) {
-			cout.PrintLn(vk::error);
+		if (auto result = GPU::WindowUpdate(gpuWindow); result.isError) {
+			io::cerr.PrintLn("Failed to GPU::WindowUpdate: ", result.error);
 			return 1;
 		}
 
 		u32 vertex = 0;
 
-		VkCommandBuffer cmdBuf = vkCommandBufferAllDrawing->Begin();
-		if (cmdBuf == VK_NULL_HANDLE) {
-			cout.PrintLn("Failed to Begin recording vkCommandBufferDraw: ",  vk::error);
+		if (auto result = GPU::ContextBeginRecording(contextDrawing); result.isError) {
+			io::cout.PrintLn("Failed to Begin recording drawing context: ", result.error);
 			return 1;
 		}
-		// You can explicitly transfer ownership like this, but since we're using a semaphore, we don't have to.
-		// vkVertexBuffer->QueueOwnershipAcquire(cmdBuf, queueTransfer, queueGraphics,
-		//		 VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
-		vkRenderPass->Begin(cmdBuf, vkFramebuffer);
-
-		vk::CmdSetViewportAndScissor(cmdBuf, window.width, window.height);
-
-		vk::CmdBindVertexBuffer(cmdBuf, 0, vkVertexBuffer);
+		GPU::CmdBindFramebuffer(contextDrawing, framebuffer);
+		GPU::CmdBindVertexBuffer(contextDrawing, vertexBuffer);
+		if (auto result = GPU::CmdCommitBindings(contextDrawing); result.isError) {
+			io::cerr.PrintLn("Failed to commit bindings: ", result.error);
+			return 1;
+		}
+		GPU::CmdClearColorAttachment(contextDrawing, clearColor);
 
 		vec5 points[16] = {
 			{-1.0f, -1.0f, -1.0f, -1.0f,  1.0f},
@@ -519,7 +385,11 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			};
 		}
 		if (faceMode) {
-			pipelineTriangleFan->Bind(cmdBuf);
+			GPU::CmdBindPipeline(contextDrawing, pipelineTriangleFan);
+			if (auto result = GPU::CmdCommitBindings(contextDrawing); result.isError) {
+				io::cerr.PrintLn("Failed to commit bindings: ", result.error);
+				return 1;
+			}
 			u8 planes[24][4] = {
 				{ 0,  1,  2,  3},
 				{ 4,  5,  6,  7},
@@ -554,7 +424,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			};
 			for (u32 eye = 0; eye < (enableStereoGraphic ? 2u : 1u); eye++) {
 				if (enableStereoGraphic) {
-					vk::CmdSetScissor(cmdBuf, window.width/2, window.height, eye * window.width / 2);
+					GPU::CmdSetScissor(contextDrawing, ioWindow.width/2, ioWindow.height, eye * ioWindow.width / 2);
 				}
 				for (u32 i = 0; i < 24; i++) {
 					const u32 index[4] = {0, 1, 3, 2};
@@ -569,15 +439,19 @@ i32 main(i32 argumentCount, char** argumentValues) {
 							1.0f
 						));
 					}
-					DrawQuad(cmdBuf, vertices, &vertex, facePoints, colors);
+					DrawQuad(contextDrawing, vertices, &vertex, facePoints, colors);
 				}
 			}
 		}
 
-		pipelineLines->Bind(cmdBuf);
+		GPU::CmdBindPipeline(contextDrawing, pipelineLines);
+		if (auto result = GPU::CmdCommitBindings(contextDrawing); result.isError) {
+			io::cerr.PrintLn("Failed to commit bindings: ", result.error);
+			return 1;
+		}
 		for (u32 eye = 0; eye < (enableStereoGraphic ? 2u : 1u); eye++) {
 			if (enableStereoGraphic) {
-				vk::CmdSetScissor(cmdBuf, window.width/2, window.height, eye * window.width / 2);
+				GPU::CmdSetScissor(contextDrawing, ioWindow.width/2, ioWindow.height, eye * ioWindow.width / 2);
 			}
 			for (u32 i = 0; i < 16; i++) {
 				for (u32 ii = i+1; ii < 16; ii++) {
@@ -590,57 +464,45 @@ i32 main(i32 argumentCount, char** argumentValues) {
 						color2.rgb = hsvToRgb(vec3((f32)ii / 16.0f, clamp01(1.0f/d[eye][ii]*4.0f), 1.0f));
 						vertices[vertex++] = {color1, proj[eye][i]};
 						vertices[vertex++] = {color2, proj[eye][ii]};
-						vkCmdDraw(cmdBuf, 2, 1, vertex-2, 0);
+						GPU::CmdDraw(contextDrawing, 2, vertex-2);
 					}
 				}
 			}
 		}
-		pipelineTriangleFan->Bind(cmdBuf);
+		GPU::CmdBindPipeline(contextDrawing, pipelineTriangleFan);
+		if (auto result = GPU::CmdCommitBindings(contextDrawing); result.isError) {
+			io::cerr.PrintLn("Failed to commit bindings: ", result.error);
+			return 1;
+		}
 
 		for (u32 eye = 0; eye < (enableStereoGraphic ? 2u : 1u); eye++) {
 			if (enableStereoGraphic) {
-				vk::CmdSetScissor(cmdBuf, window.width/2, window.height, eye * window.width / 2);
+				GPU::CmdSetScissor(contextDrawing, ioWindow.width/2, ioWindow.height, eye * ioWindow.width / 2);
 			}
 			for (u32 i = 0; i < 16; i++) {
 				if (d[eye][i] > 0.001f) {
-					DrawCircle(cmdBuf, vertices, &vertex, proj[eye][i]/vec2(aspectRatio, 1.0f), 0.05f/d[eye][i], vec4(1.0f), aspectRatio);
+					DrawCircle(contextDrawing, vertices, &vertex, proj[eye][i]/vec2(aspectRatio, 1.0f), 0.05f/d[eye][i], vec4(1.0f), aspectRatio);
 				}
 			}
 		}
 
-		vkCmdEndRenderPass(cmdBuf);
-
-		// vkVertexBuffer->QueueOwnershipRelease(cmdBuf, queueGraphics, queueTransfer,
-		//		 VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT);
-		vkCommandBufferAllDrawing->End();
-
-		vkStagingBuffer->CopyData(vertices, sizeof(Vertex) * vertex);
-		cmdBuf = vkCommandBufferTransfer->Begin();
-		// if (!first) {
-		//	 vkVertexBuffer->QueueOwnershipAcquire(cmdBuf, queueGraphics, queueTransfer,
-		//			 VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-		// }
-		// first = false;
-		vkVertexBuffer->Copy(cmdBuf, vkStagingBuffer, sizeof(Vertex) * vertex);
-		// vkVertexBuffer->QueueOwnershipRelease(cmdBuf, queueTransfer, queueGraphics,
-		//		 VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-		vkCommandBufferTransfer->End();
-
-		if (!queueSubmissionDraw->Config()) {
-			cout.PrintLn("Failed to re-Config queueSubmissionDraw: ",  vk::error);
+		GPU::ContextEndRecording(contextDrawing);
+		
+		GPU::ContextBeginRecording(contextTransfer);
+		GPU::CmdCopyDataToBuffer(contextTransfer, vertexBuffer, vertices, 0, sizeof(Vertex) * vertex);
+		GPU::ContextEndRecording(contextTransfer);
+		
+		if (auto result = GPU::SubmitCommands(contextTransfer, true); result.isError) {
+			io::cerr.PrintLn("Failed to Submit Transfer Commands: ", result.error);
+			return 1;
+		}
+		if (auto result = GPU::SubmitCommands(contextDrawing, true, {contextTransfer}); result.isError) {
+			io::cerr.PrintLn("Failed to Submit Drawing Commands: ", result.error);
 			return 1;
 		}
 
-		if (!device->SubmitCommandBuffers(queueTransfer, {queueSubmissionTransfer})) {
-			cout.PrintLn("Failed to sumbit transfer command buffers to transfer queue: ",  vk::error);
-			return 1;
-		}
-		if (!device->SubmitCommandBuffers(queueGraphics, {queueSubmissionDraw})) {
-			cout.PrintLn("Failed to sumbit draw command buffers to graphics queue: ",  vk::error);
-			return 1;
-		}
-		if (!vkSwapchain->Present(queuePresent, {semaphoreRenderFinished->semaphore})) {
-			cout.PrintLn("Failed to present: ",  vk::error);
+		if (auto result = GPU::WindowPresent(gpuWindow, {contextDrawing}); result.isError) {
+			io::cout.PrintLn("Failed to present: ", result.error);
 			return 1;
 		}
 
@@ -651,14 +513,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		} else {
 			frameEnd = now + Milliseconds(1000/framerate-1);
 		}
-
-		vk::DeviceWaitIdle(device);
-
 	}
-	instance.Deinit();
-	window.Close();
-	cout.PrintLn("Last io::error was \"",  io::error,  "\"");
-	cout.PrintLn("Last vk::error was \"",  vk::error,  "\"");
+	GPU::Deinitialize();
+	ioWindow.Close();
+	io::cout.PrintLn("Last io::error was \"",  io::error,  "\"");
 
 	delete[] vertices;
 

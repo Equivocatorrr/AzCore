@@ -79,10 +79,12 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	GPU::ImageSetSize(gpuImage, image.width, image.height);
 	GPU::ImageSetMipmapping(gpuImage, true, 16);
 	GPU::ImageSetShaderUsage(gpuImage, (u32)GPU::ShaderStage::FRAGMENT);
+	
+	GPU::Shader *shaderVert = GPU::NewShader(device, "data/shaders/test.vert.spv", GPU::ShaderStage::VERTEX);
+	GPU::Shader *shaderFrag = GPU::NewShader(device, "data/shaders/test.frag.spv", GPU::ShaderStage::FRAGMENT);
 
 	GPU::Pipeline *pipeline = GPU::NewGraphicsPipeline(device, "test");
-	GPU::PipelineAddShader(pipeline, "data/shaders/test.vert.spv", GPU::ShaderStage::VERTEX);
-	GPU::PipelineAddShader(pipeline, "data/shaders/test.frag.spv", GPU::ShaderStage::FRAGMENT);
+	GPU::PipelineAddShaders(pipeline, {shaderVert, shaderFrag});
 	GPU::PipelineAddVertexInputs(pipeline, {
 		GPU::ShaderValueType::VEC2,
 		GPU::ShaderValueType::VEC2

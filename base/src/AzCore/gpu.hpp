@@ -26,6 +26,7 @@ enum class ShaderStage : u32 {
 	COMPUTE         = 0x20,
 	// TODO: Support VK_KHR_ray_tracing_pipeline
 };
+const Str ShaderStageString(ShaderStage shaderStage);
 
 enum class ShaderValueType : u16 {
 	U32=0,
@@ -173,7 +174,10 @@ struct Device;
 // Single-thread context for commands
 struct Context;
 
-// Shaders, resource bindings
+// Single shader module
+struct Shader;
+
+// Shaders, resource bindings, draw state, etc.
 struct Pipeline;
 
 // GPU-side buffer which can be memory mapped host-side and committed (transferred) on a Context
@@ -215,6 +219,8 @@ void FramebufferAddWindow(Framebuffer *framebuffer, Window *window);
 
 void SetVSync(Window *window, bool enable);
 
+bool GetVSyncEnabled(Window *window);
+
 [[nodiscard]] Result<VoidResult_t, String> WindowUpdate(Window *window);
 
 // waitContexts are any contexts that the window's resulting image depend on. These only need to be populated if not using external synchronization like ContextWaitUntilFinished().
@@ -227,6 +233,8 @@ void SetVSync(Window *window, bool enable);
 [[nodiscard]] Device* NewDevice(String tag = String());
 
 [[nodiscard]] Context* NewContext(Device *device, String tag = String());
+
+[[nodiscard]] Shader* NewShader(Device *device, String filename, ShaderStage stage, String tag = String());
 
 [[nodiscard]] Pipeline* NewGraphicsPipeline(Device *device, String tag = String());
 
@@ -273,9 +281,25 @@ void ImageSetShaderUsage(Image *image, u32 shaderStages);
 // Pipeline
 
 
-void PipelineAddShader(Pipeline *pipeline, Str filename, ShaderStage stage);
+void PipelineAddShaders(Pipeline *pipeline, ArrayWithBucket<Shader*, 4> shaders);
 
 void PipelineAddVertexInputs(Pipeline *pipeline, ArrayWithBucket<ShaderValueType, 8> inputs);
+
+void PipelineSetTopology(Pipeline *pipeline, Topology topology);
+
+void PipelineSetCullingMode(Pipeline *pipeline, CullingMode cullingMode);
+
+void PipelineSetWinding(Pipeline *pipeline, Winding winding);
+
+void PipelineSetDepthBias(Pipeline *pipeline, bool enable, f32 constant=0.0f, f32 slope=0.0f, f32 clampValue=0.0f);
+
+void PipelineSetLineWidth(Pipeline *pipeline, f32 lineWidth);
+
+void PipelineSetDepthTest(Pipeline *pipeline, bool enabled);
+
+void PipelineSetDepthWrite(Pipeline *pipeline, bool enabled);
+
+void PipelineSetDepthCompareOp(Pipeline *pipeline, CompareOp compareOp);
 
 void PipelineSetBlendMode(Pipeline *pipeline, BlendMode blendMode, i32 attachment = 0);
 
@@ -333,6 +357,8 @@ inline void CmdSetViewportAndScissor(Context *context, f32 width, f32 height, f3
 }
 
 void CmdClearColorAttachment(Context *context, vec4 color, i32 attachment=0);
+
+void CmdDraw(Context *context, i32 count, i32 vertexOffset, i32 instanceCount=1, i32 instanceOffset=0);
 
 void CmdDrawIndexed(Context *context, i32 count, i32 indexOffset, i32 vertexOffset, i32 instanceCount=1, i32 instanceOffset=0);
 

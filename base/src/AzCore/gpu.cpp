@@ -41,6 +41,29 @@ namespace AzCore::GPU {
 
 #ifndef Utils
 
+BoolOrDefault BoolOrDefaultFromBool(bool on) {
+	return on ? BoolOrDefault::TRUE : BoolOrDefault::FALSE;
+}
+
+const Str ShaderStageString(ShaderStage shaderStage) {
+	switch (shaderStage) {
+	case ShaderStage::VERTEX:
+		return "VERTEX";
+	case ShaderStage::TESS_CONTROL:
+		return "TESS_CONTROL";
+	case ShaderStage::TESS_EVALUATION:
+		return "TESS_EVALUATION";
+	case ShaderStage::GEOMETRY:
+		return "GEOMETRY";
+	case ShaderStage::FRAGMENT:
+		return "FRAGMENT";
+	case ShaderStage::COMPUTE:
+		return "COMPUTE";
+	default:
+		return "INVALID";
+	}
+}
+
 // Per-location stride
 constexpr i64 ShaderValueTypeStride[] = {
 	/* U32 */    4,
@@ -776,6 +799,7 @@ struct Allocation {
 
 struct Device {
 	List<Context> contexts;
+	List<Shader> shaders;
 	List<Pipeline> pipelines;
 	List<Buffer> buffers;
 	List<Image> images;
@@ -858,14 +882,24 @@ inline bool ContextIsRecording(Context *context) {
 	return (u32)context->state >= (u32)Context::State::RECORDING_PRIMARY;
 }
 
+struct Shader {
+	String filename;
+	ShaderStage stage;
+	
+	// TODO: Specialization constants
+	
+	VkShaderModule vkShaderModule;
+	
+	Device *device;
+	String tag; // defaults to filename if not given
+	bool initted = false;
+	
+	Shader() = default;
+	Shader(Device *_device, String _filename, ShaderStage _stage, String _tag) : filename(_filename), stage(_stage), device(_device), tag(_tag) {}
+};
+
 struct Pipeline {
-	struct Shader {
-		String filename;
-		ShaderStage stage;
-		VkShaderModule vkShaderModule;
-		bool initted = false;
-	};
-	Array<Shader> shaders;
+	Array<Shader*> shaders;
 	ArrayWithBucket<ShaderValueType, 8> vertexInputs;
 	
 	Topology topology = Topology::TRIANGLE_LIST;
@@ -1072,6 +1106,10 @@ void MemoryFree(Allocation allocation);
 void ContextDeinit(Context *context);
 
 [[nodiscard]] Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context);
+
+
+[[nodiscard]] Result<VoidResult_t, String> ShaderInit(Shader *shader);
+void ShaderDeinit(Shader *shader);
 
 
 [[nodiscard]] Result<VoidResult_t, String> PipelineInit(Pipeline *pipeline);
@@ -1341,6 +1379,10 @@ void SetVSync(Window *window, bool enable) {
 		window->shouldReconfigure = enable != window->vsync;
 	}
 	window->vsync = enable;
+}
+
+bool GetVSyncEnabled(Window *window) {
+	return window->vsync;
 }
 
 Result<VoidResult_t, String> WindowSurfaceInit(Window *window) {
@@ -1647,6 +1689,10 @@ Device* NewDevice(String tag) {
 
 Context* NewContext(Device *device, String tag) {
 	return device->contexts.Append(new Context(device, tag)).RawPtr();
+}
+
+Shader* NewShader(Device *device, String filename, ShaderStage stage, String tag) {
+	return device->shaders.Append(new Shader(device, filename, stage, tag)).RawPtr();
 }
 
 Pipeline* NewGraphicsPipeline(Device *device, String tag) {
@@ -2045,6 +2091,7 @@ breakout:
 			for (auto &image : device->images) {
 				if (image->anisotropy != 1) {
 					featuresEnabled.features.samplerAnisotropy = VK_TRUE;
+					io::cout.PrintLnDebug("Enabling samplerAnisotropy");
 					break;
 				}
 			}
@@ -2061,6 +2108,7 @@ breakout:
 			for (auto &pipeline : device->pipelines) {
 				if (pipeline->lineWidth != 1.0f) {
 					featuresEnabled.features.wideLines = VK_TRUE;
+					io::cout.PrintLnDebug("Enabling wideLines");
 					break;
 				}
 			}
@@ -2150,6 +2198,11 @@ breakout2:
 			return ERROR_RESULT(device, result.error);
 		}
 	}
+	for (auto &shader : device->shaders) {
+		if (auto result = ShaderInit(shader.RawPtr()); result.isError) {
+			return ERROR_RESULT(device, result.error);
+		}
+	}
 	for (auto &pipeline : device->pipelines) {
 		if (auto result = PipelineInit(pipeline.RawPtr()); result.isError) {
 			return ERROR_RESULT(device, result.error);
@@ -2178,6 +2231,9 @@ void DeviceDeinit(Device *device) {
 	}
 	for (auto &image : device->images) {
 		ImageDeinit(image.RawPtr());
+	}
+	for (auto &shader : device->shaders) {
+		ShaderDeinit(shader.RawPtr());
 	}
 	for (auto &pipeline : device->pipelines) {
 		PipelineDeinit(pipeline.RawPtr());
@@ -2879,8 +2935,8 @@ Window* FramebufferGetWindowAttachment(Framebuffer *framebuffer) {
 
 #ifndef Pipeline
 
-void PipelineAddShader(Pipeline *pipeline, Str filename, ShaderStage stage) {
-	pipeline->shaders.Append(Pipeline::Shader{filename, stage, VK_NULL_HANDLE});
+void PipelineAddShaders(Pipeline *pipeline, ArrayWithBucket<Shader*, 4> shaders) {
+	pipeline->shaders.Append(shaders);
 }
 
 void PipelineAddVertexInputs(Pipeline *pipeline, ArrayWithBucket<ShaderValueType, 8> inputs) {
@@ -2889,6 +2945,41 @@ void PipelineAddVertexInputs(Pipeline *pipeline, ArrayWithBucket<ShaderValueType
 
 void PipelineSetBlendMode(Pipeline *pipeline, BlendMode blendMode, i32 attachment) {
 	pipeline->blendModes[attachment] = blendMode;
+}
+
+void PipelineSetTopology(Pipeline *pipeline, Topology topology) {
+	pipeline->topology = topology;
+}
+
+void PipelineSetCullingMode(Pipeline *pipeline, CullingMode cullingMode) {
+	pipeline->cullingMode = cullingMode;
+}
+
+void PipelineSetWinding(Pipeline *pipeline, Winding winding) {
+	pipeline->winding = winding;
+}
+
+void PipelineSetDepthBias(Pipeline *pipeline, bool enable, f32 constant, f32 slope, f32 clampValue) {
+	pipeline->depthBias.enable = enable;
+	pipeline->depthBias.constant = constant;
+	pipeline->depthBias.slope = slope;
+	pipeline->depthBias.clampValue = clampValue;
+}
+
+void PipelineSetLineWidth(Pipeline *pipeline, f32 lineWidth) {
+	pipeline->lineWidth = lineWidth;
+}
+
+void PipelineSetDepthTest(Pipeline *pipeline, bool enabled) {
+	pipeline->depthTest = BoolOrDefaultFromBool(enabled);
+}
+
+void PipelineSetDepthWrite(Pipeline *pipeline, bool enabled) {
+	pipeline->depthWrite = BoolOrDefaultFromBool(enabled);
+}
+
+void PipelineSetDepthCompareOp(Pipeline *pipeline, CompareOp compareOp) {
+	pipeline->depthCompareOp = compareOp;
 }
 
 bool VkPipelineLayoutCreateInfoMatches(VkPipelineLayoutCreateInfo a, VkPipelineLayoutCreateInfo b) {
@@ -2908,36 +2999,41 @@ bool VkPipelineLayoutCreateInfoMatches(VkPipelineLayoutCreateInfo a, VkPipelineL
 	return true;
 }
 
-Result<VoidResult_t, String> PipelineInit(Pipeline *pipeline) {
-	INIT_HEAD(pipeline);
-	for (i32 i = 0; i < pipeline->shaders.size; i++) {
-		Pipeline::Shader *shader = &pipeline->shaders[i];
-		CHECK_INIT(shader);
-		Array<char> code = FileContents(shader->filename);
-		if (code.size == 0) {
-			return ERROR_RESULT(pipeline, "Failed to open shader source \"", shader->filename, "\"");
-		}
-		VkShaderModuleCreateInfo createInfo{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-		createInfo.codeSize = code.size;
-		createInfo.pCode = (u32*)code.data;
-		if (VkResult result = vkCreateShaderModule(pipeline->device->vkDevice, &createInfo, nullptr, &shader->vkShaderModule); result != VK_SUCCESS) {
-			return ERROR_RESULT(pipeline, "Failed to create shader module for \"", shader->filename, "\": ", VkResultString(result));
-		}
-		shader->initted = true;
+Result<VoidResult_t, String> ShaderInit(Shader *shader) {
+	INIT_HEAD(shader);
+	Array<char> code = FileContents(shader->filename);
+	if (code.size == 0) {
+		return ERROR_RESULT(shader, "Failed to open shader source \"", shader->filename, "\"");
 	}
-	// We create the actual pipeline objects in PipelineCompose
+	VkShaderModuleCreateInfo createInfo{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+	createInfo.codeSize = code.size;
+	createInfo.pCode = (u32*)code.data;
+	if (VkResult result = vkCreateShaderModule(shader->device->vkDevice, &createInfo, nullptr, &shader->vkShaderModule); result != VK_SUCCESS) {
+		return ERROR_RESULT(shader, "Failed to create shader module for \"", shader->filename, "\": ", VkResultString(result));
+	}
+	if (shader->tag.size == 0) {
+		shader->tag = Stringify(ShaderStageString(shader->stage), " shader \"", shader->filename, "\"");
+	}
+	SetDebugMarker(shader->device, shader->tag, VK_OBJECT_TYPE_SHADER_MODULE, (u64)shader->vkShaderModule);
+	shader->initted = true;
+	return VoidResult_t();
+}
+
+void ShaderDeinit(Shader *shader) {
+	DEINIT_HEAD(shader);
+	vkDestroyShaderModule(shader->device->vkDevice, shader->vkShaderModule, nullptr);
+	shader->initted = false;
+}
+
+Result<VoidResult_t, String> PipelineInit(Pipeline *pipeline) {
+	// TODO: Maybe just delete this
+	INIT_HEAD(pipeline);
 	pipeline->initted = true;
 	return VoidResult_t();
 }
 
 void PipelineDeinit(Pipeline *pipeline) {
 	DEINIT_HEAD(pipeline);
-	for (i32 i = 0; i < pipeline->shaders.size; i++) {
-		Pipeline::Shader *shader = &pipeline->shaders[i];
-		CHECK_DEINIT(shader);
-		vkDestroyShaderModule(pipeline->device->vkDevice, shader->vkShaderModule, nullptr);
-		shader->initted = false;
-	}
 	if (pipeline->vkPipelineLayout != VK_NULL_HANDLE) {
 		vkDestroyPipelineLayout(pipeline->device->vkDevice, pipeline->vkPipelineLayout, nullptr);
 		pipeline->vkPipelineLayout = VK_NULL_HANDLE;
@@ -2980,26 +3076,27 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 		io::cout.PrintLnDebug("Composing Pipeline with ", shaderStages.size, " shader", shaderStages.size != 1 ? "s:" : ":");
 		io::cout.IndentMore();
 		for (i32 i = 0; i < pipeline->shaders.size; i++) {
-			Pipeline::Shader &shader = pipeline->shaders[i];
+			Shader *shader = pipeline->shaders[i];
+			AzAssert(shader->initted, "Expected Shader to be initted");
 			VkPipelineShaderStageCreateInfo &createInfo = shaderStages[i];
 			createInfo = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
-			switch (shader.stage) {
+			switch (shader->stage) {
 			case ShaderStage::COMPUTE:
-				io::cout.PrintLnDebug("Compute shader \"", shader.filename, "\"");
+				io::cout.PrintLnDebug("Compute shader \"", shader->filename, "\"");
 				createInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
 				break;
 			case ShaderStage::VERTEX:
-				io::cout.PrintLnDebug("Vertex shader \"", shader.filename, "\"");
+				io::cout.PrintLnDebug("Vertex shader \"", shader->filename, "\"");
 				createInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
 				break;
 			case ShaderStage::FRAGMENT:
-				io::cout.PrintLnDebug("Fragment shader \"", shader.filename, "\"");
+				io::cout.PrintLnDebug("Fragment shader \"", shader->filename, "\"");
 				createInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 				break;
 			default: return ERROR_RESULT(pipeline, "Unimplemented");
 			}
 			io::cout.IndentLess();
-			createInfo.module = shader.vkShaderModule;
+			createInfo.module = shader->vkShaderModule;
 			// The Vulkan API pretends we can use something other than "main", but we really can't :(
 			createInfo.pName = "main";
 		}
@@ -3036,7 +3133,9 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 				if (pipeline->vertexInputs.size == 0) {
 					vertexInputBindingDescription.stride = 0;
 				} else {
-					vertexInputBindingDescription.stride = align(offset, ShaderValueTypeStride[(u16)pipeline->vertexInputs[0]]);
+					// vertexInputBindingDescription.stride = align(offset, ShaderValueTypeStride[(u16)pipeline->vertexInputs[0]]);
+					// Vertex buffers can be densely-packed I guess
+					vertexInputBindingDescription.stride = offset;
 				}
 				// TODO: It could be nice to print out the final bindings, along with alignment, as working these things out for writing shaders and packing data in our vertex buffer might be annoying.
 			}
@@ -3893,6 +3992,10 @@ void CmdClearColorAttachment(Context *context, vec4 color, i32 attachment) {
 	clearAttachment.clearValue = clearValue;
 	clearAttachment.colorAttachment = (u32)attachment;
 	vkCmdClearAttachments(context->vkCommandBuffer, 1, &clearAttachment, 1, &clearRect);
+}
+
+void CmdDraw(Context *context, i32 count, i32 vertexOffset, i32 instanceCount, i32 instanceOffset) {
+	vkCmdDraw(context->vkCommandBuffer, count, instanceCount, vertexOffset, instanceOffset);
 }
 
 void CmdDrawIndexed(Context *context, i32 count, i32 indexOffset, i32 vertexOffset, i32 instanceCount, i32 instanceOffset) {

@@ -151,6 +151,7 @@ bool Window::Resize(u32 w, u32 h) {
 	} else {
 		windowResizeX11(this);
 	}
+	resized = true;
 	return true;
 }
 

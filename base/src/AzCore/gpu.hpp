@@ -130,6 +130,8 @@ enum class ImageBits : u16 {
 	R8G8,
 	R8G8B8,
 	R8G8B8A8, // For SRGB, A is just regular UNORM
+	B8G8R8,
+	B8G8R8A8,
 	// Can be UNORM, SNORM, USCALED, SSCALED, UINT, SINT, SFLOAT
 	R16,
 	R16G16,
@@ -215,7 +217,19 @@ void Deinitialize();
 // This can only error if Initialize was called before AddWindow
 [[nodiscard]] Result<Window*, String> AddWindow(io::Window *window, String tag = String());
 
+
+void FramebufferAddImage(Framebuffer *framebuffer, Image *image);
 void FramebufferAddWindow(Framebuffer *framebuffer, Window *window);
+
+// This will resolve our image into resolveImage after rendering is done.
+// To do multiple passes before resolving, just use FramebufferAddImage and resolve manually.
+void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Image *resolveImage);
+// This will resolve our image into resolveWindow after rendering is done.
+// To do multiple passes before resolving, just use FramebufferAddImage and resolve manually.
+void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Window *resolveWindow);
+
+// If there are any changes to attachments, you must recreate the framebuffer
+[[nodiscard]] Result<VoidResult_t, String> FramebufferCreate(Framebuffer *framebuffer);
 
 void SetVSync(Window *window, bool enable);
 
@@ -276,6 +290,12 @@ void ImageSetMipmapping(Image *image, bool enableMipmapping, i32 anisotropy = 1)
 
 // shaderStages is a bitmask of ShaderStage
 void ImageSetShaderUsage(Image *image, u32 shaderStages);
+
+// sampleCount must be a power of 2
+void ImageSetSampleCount(Image *image, u32 sampleCount);
+
+// If you change formats, size, mipmapping, shader usage, or sample count after having called GPU::Initialize(), you must use this to recreate the image.
+[[nodiscard]] Result<VoidResult_t, String> ImageRecreate(Image *image);
 
 
 // Pipeline

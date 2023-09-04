@@ -671,6 +671,8 @@ struct Semaphore {
 
 struct Window {
 	bool vsync = false;
+	bool attachment = true;
+	bool transferDst = false;
 
 	bool shouldReconfigure = false;
 
@@ -937,7 +939,13 @@ struct Pipeline {
 	VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo{};
 	VkPipelineLayout vkPipelineLayout = VK_NULL_HANDLE;
 	VkPipeline vkPipeline = VK_NULL_HANDLE;
-
+	// Used only to check if framebuffer changed
+	struct {
+		u32 sampleCount = 1;
+		bool framebufferHasDepthBuffer = false;
+		i32 numColorAttachments = 0;
+	};
+	
 	Device *device;
 	String tag;
 	bool initted = false;
@@ -982,6 +990,8 @@ struct Image {
 	// Usage flags
 	u32 shaderStages = 0;
 	bool attachment = false;
+	bool transferSrc = false;
+	bool transferDst = true;
 	bool mipmapped = false;
 
 	enum State {
@@ -992,18 +1002,19 @@ struct Image {
 		READY_FOR_TRANSFER_DST,
 	} state = PREINITIALIZED;
 
-	i32 width=-1, height=-1;
-	i32 bytesPerPixel=-1;
+	i32 width=1, height=1;
+	i32 bytesPerPixel=4;
 
 	i32 anisotropy = 1;
 	u32 mipLevels = 1;
+	u32 sampleCount = 1;
 
 	VkImage vkImage;
 	VkImageView vkImageView;
 	// TODO: Global deduplication of samplers
 	VkSampler vkSampler = VK_NULL_HANDLE;
 	VkBuffer vkBufferHostVisible;
-	VkFormat vkFormat;
+	VkFormat vkFormat = VK_FORMAT_R8G8B8A8_UNORM;
 	VkImageAspectFlags vkImageAspect = VK_IMAGE_ASPECT_COLOR_BIT;
 	VkMemoryRequirements memoryRequirements;
 	VkMemoryRequirements memoryRequirementsHost;
@@ -1035,10 +1046,23 @@ struct Attachment {
 	bool load = false;
 	// Whether to keep the data after rendering (depth buffers may not want to bother storing)
 	bool store = true;
+	Attachment() = default;
+	Attachment(Window *_window) : kind(WINDOW), window(_window) {}
+	Attachment(Image *_image, bool isDepth) : kind(isDepth ? DEPTH_BUFFER : IMAGE), image(_image) {}
+};
+
+struct AttachmentRef {
+	Attachment attachment;
+	Optional<Attachment> resolveAttachment;
+	AttachmentRef() = default;
+	AttachmentRef(Attachment _attachment) : attachment(_attachment) {}
+	AttachmentRef(Attachment _attachment, Attachment _resolveAttachment) : attachment(_attachment), resolveAttachment(_resolveAttachment) {}
 };
 
 struct Framebuffer {
-	Array<Attachment> attachments;
+	Array<AttachmentRef> attachmentRefs;
+	// Used to determine whether we need to recreate renderpass
+	bool attachmentsDirty = false;
 
 	// If we have a WINDOW attachment, this will match the number of swapchain images, else it will just be size 1
 	Array<VkFramebuffer> vkFramebuffers;
@@ -1046,6 +1070,7 @@ struct Framebuffer {
 	
 	// width and height will be set automagically, just used for easy access
 	i32 width, height;
+	u32 sampleCount = 1;
 
 	Device *device;
 	String tag;
@@ -1368,10 +1393,60 @@ Result<Window*, String> AddWindow(io::Window *window, String tag) {
 	return result;
 }
 
+static bool FormatIsDepth(VkFormat format) {
+	switch (format) {
+	case VK_FORMAT_D16_UNORM:
+	case VK_FORMAT_X8_D24_UNORM_PACK32:
+	case VK_FORMAT_D32_SFLOAT:
+	case VK_FORMAT_D16_UNORM_S8_UINT:
+	case VK_FORMAT_D24_UNORM_S8_UINT:
+	case VK_FORMAT_D32_SFLOAT_S8_UINT:
+		return true;
+	default: return false;
+	}
+}
+
+void FramebufferAddImage(Framebuffer *framebuffer, Image *image) {
+	framebuffer->attachmentRefs.Append(AttachmentRef(Attachment(image, FormatIsDepth(image->vkFormat))));
+	image->attachment = true;
+	image->transferDst = false;
+	if (image->sampleCount != 1) {
+		image->transferSrc = true;
+	}
+}
+
 void FramebufferAddWindow(Framebuffer *framebuffer, Window *window) {
-	AzAssert(framebuffer->attachments.size == 0, "Cannot add a Window to a Framebuffer that already has an attachment.");
-	framebuffer->attachments.Append(Attachment{Attachment::WINDOW, window});
+	framebuffer->attachmentRefs.Append(AttachmentRef(Attachment(window)));
+	// TODO: Probably allow multiple framebuffers for the same window
+	AzAssert(window->framebuffer == nullptr, "Windows can only have 1 framebuffer assocation");
 	window->framebuffer = framebuffer;
+	window->attachment = true;
+	window->transferDst = false;
+}
+
+void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Image *resolveImage) {
+	AzAssert(image->vkFormat == resolveImage->vkFormat, "Resolving multisampled images requires both images to be the same format");
+	AzAssert(image->sampleCount != 1, "Expected image to have a sample count != 1");
+	AzAssert(resolveImage->sampleCount == 1, "Expected resolveImage to have a sample count == 1");
+	framebuffer->attachmentRefs.Append(AttachmentRef(Attachment(image, false), Attachment(resolveImage, false)));
+	image->attachment = true;
+	image->transferDst = false;
+	image->transferSrc = true;
+	resolveImage->attachment = true;
+	resolveImage->transferDst = true;
+}
+
+void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Window *resolveWindow) {
+	AzAssert(image->sampleCount != 1, "Expected image to have a sample count != 1");
+	framebuffer->attachmentRefs.Append(AttachmentRef(Attachment(image, false), Attachment(resolveWindow)));
+	// TODO: Probably allow multiple framebuffers for the same window
+	AzAssert(resolveWindow->framebuffer == nullptr, "Windows can only have 1 framebuffer assocation");
+	image->attachment = true;
+	image->transferDst = false;
+	image->transferSrc = true;
+	resolveWindow->framebuffer = framebuffer;
+	resolveWindow->attachment = true;
+	resolveWindow->transferDst = true;
 }
 
 void SetVSync(Window *window, bool enable) {
@@ -1517,7 +1592,12 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 		createInfo.imageColorSpace = window->surfaceFormat.colorSpace;
 		createInfo.imageExtent = window->extent;
 		createInfo.imageArrayLayers = 1;
-		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		if (window->attachment) {
+			createInfo.imageUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		}
+		if (window->transferDst) {
+			createInfo.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+		}
 		// TODO: If we need to use multiple queues, we need to be smarter about this.
 		createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		createInfo.preTransform = window->surfaceCaps.currentTransform;
@@ -1572,16 +1652,22 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 	}
 	io::cout.PrintLnDebug("Number of images: ", window->numImages);
 	if (window->acquireFences.size > window->numImages) {
+		// We need to wait on the queue because our previous frame might refer to one of the semaphores.
+		vkQueueWaitIdle(window->device->vkQueue);
 		for (i32 i = window->acquireFences.size-1; i >= window->numImages; i--) {
+			// Calling vkQueueWaitIdle does nothing for swapchain image acquisition, so we need to wait on the fence.
+			// This is okay to call on all of them because we only set unsignaled right before asking for the image.
+			if (auto result = FenceWaitForSignal(&window->acquireFences[i]); result.isError) return result.error;
 			FenceDeinit(&window->acquireFences[i]);
 			SemaphoreDeinit(&window->acquireSemaphores[i]);
 		}
 		window->acquireFences.Resize(window->numImages);
 		window->acquireSemaphores.Resize(window->numImages);
 	} else if (window->acquireFences.size < window->numImages) {
+		i32 previousSize = window->acquireFences.size;
 		window->acquireFences.Resize(window->numImages, Fence(window->device, Stringify(window->tag, " Fence")));
 		window->acquireSemaphores.Resize(window->numImages, Semaphore(window->device, Stringify(window->tag, " Semaphore")));
-		for (i32 i = 0; i < window->numImages; i++) {
+		for (i32 i = previousSize; i < window->numImages; i++) {
 			if (auto result = FenceInit(&window->acquireFences[i], true); result.isError) {
 				return ERROR_RESULT(window, result.error);
 			}
@@ -2055,8 +2141,8 @@ Result<VoidResult_t, String> DeviceInit(Device *device) {
 	Array<const char*> extensions;
 	{ // Add and check availability of extensions to pick a physical device
 		for (auto &fb : device->framebuffers) {
-			for (Attachment &attachment : fb->attachments) {
-				if (attachment.kind == Attachment::WINDOW) {
+			for (AttachmentRef &attachmentRef : fb->attachmentRefs) {
+				if (attachmentRef.attachment.kind == Attachment::WINDOW || (attachmentRef.resolveAttachment.Exists() && attachmentRef.resolveAttachment.ValueOrAssert().kind == Attachment::WINDOW)) {
 					// If even one framebuffer outputs to a Window, we use a Swapchain
 					extensions.Append(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 					needsPresent = true;
@@ -2129,10 +2215,17 @@ breakout:
 		if (needsPresent) {
 			VkBool32 supportsPresent = VK_FALSE;
 			for (auto &framebuffer : device->framebuffers) {
-				for (Attachment &attachment : framebuffer->attachments) {
-					if (attachment.kind == Attachment::WINDOW) {
-						vkGetPhysicalDeviceSurfaceSupportKHR(device->physicalDevice->vkPhysicalDevice, i, attachment.window->vkSurface, &supportsPresent);
+				for (AttachmentRef &attachmentRef : framebuffer->attachmentRefs) {
+					if (attachmentRef.attachment.kind == Attachment::WINDOW) {
+						vkGetPhysicalDeviceSurfaceSupportKHR(device->physicalDevice->vkPhysicalDevice, i, attachmentRef.attachment.window->vkSurface, &supportsPresent);
 						if (!supportsPresent) goto breakout2;
+					}
+					if (attachmentRef.resolveAttachment.Exists()) {
+						Attachment &attachment = attachmentRef.resolveAttachment.ValueOrAssert();
+						if (attachment.kind == Attachment::WINDOW) {
+							vkGetPhysicalDeviceSurfaceSupportKHR(device->physicalDevice->vkPhysicalDevice, i, attachment.window->vkSurface, &supportsPresent);
+							if (!supportsPresent) goto breakout2;
+						}
 					}
 				}
 			}
@@ -2348,11 +2441,16 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 	createInfo.extent.depth = 1;
 	createInfo.mipLevels = image->mipLevels;
 	createInfo.arrayLayers = 1;
-	createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	createInfo.samples = (VkSampleCountFlagBits)image->sampleCount;
 	createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-	createInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-	if (image->mipmapped) {
+	if (image->transferSrc) {
 		createInfo.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	}
+	if (image->transferDst) {
+		createInfo.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	}
+	if (image->mipmapped) {
+		createInfo.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	}
 	if (image->shaderStages) {
 		createInfo.usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -2380,7 +2478,7 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 		}
 	}
 	if (image->attachment) {
-		createInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		createInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 	}
 	createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	createInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
@@ -2426,6 +2524,13 @@ void ImageDeinit(Image *image) {
 		image->hostVisible = false;
 	}
 	image->initted = false;
+}
+
+Result<VoidResult_t, String> ImageRecreate(Image *image) {
+	AzAssert(image->initted, "Cannot Recreate an image that's not initialized");
+	vkDeviceWaitIdle(image->device->vkDevice);
+	ImageDeinit(image);
+	return ImageInit(image);
 }
 
 Result<VoidResult_t, String> ImageHostInit(Image *image) {
@@ -2508,6 +2613,32 @@ void ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_R8G8B8A8_UINT;    break;
 				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_R8G8B8A8_SINT;    break;
 				case ImageComponentType::SRGB:    image->vkFormat = VK_FORMAT_R8G8B8A8_SRGB;    break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 4;
+			break;
+		case ImageBits::B8G8R8:
+			switch (componentType) {
+				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_B8G8R8_UNORM;   break;
+				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_B8G8R8_SNORM;   break;
+				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_B8G8R8_USCALED; break;
+				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_B8G8R8_SSCALED; break;
+				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_B8G8R8_UINT;    break;
+				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_B8G8R8_SINT;    break;
+				case ImageComponentType::SRGB:    image->vkFormat = VK_FORMAT_B8G8R8_SRGB;    break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 3;
+			break;
+		case ImageBits::B8G8R8A8:
+			switch (componentType) {
+				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_B8G8R8A8_UNORM;   break;
+				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_B8G8R8A8_SNORM;   break;
+				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_B8G8R8A8_USCALED; break;
+				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_B8G8R8A8_SSCALED; break;
+				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_B8G8R8A8_UINT;    break;
+				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_B8G8R8A8_SINT;    break;
+				case ImageComponentType::SRGB:    image->vkFormat = VK_FORMAT_B8G8R8A8_SRGB;    break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 4;
@@ -2719,89 +2850,147 @@ void ImageSetShaderUsage(Image *image, u32 shaderStages) {
 	image->shaderStages = shaderStages;
 }
 
+void ImageSetSampleCount(Image *image, u32 sampleCount) {
+	AzAssert(IsPowerOfTwo(sampleCount), "sampleCount must be a power of 2");
+	AzAssert(sampleCount <= 64, "sampleCount must not be > 64");
+	AzAssert(sampleCount > 0, "sampleCount must be > 0");
+	image->sampleCount = sampleCount;
+}
+
 #endif
 
 #ifndef Framebuffer
 
+static Result<VoidResult_t, String> EnsureAttachmentIsInitted(Framebuffer *framebuffer, Attachment &attachment, bool isResolve, i32 index) {
+	switch (attachment.kind) {
+	case Attachment::WINDOW:
+		if (!attachment.window->initted) return ERROR_RESULT(framebuffer, "Cannot init Framebuffer when ", isResolve ? "resolve attachment " : "attachment ", index, " (Window) is not initialized");
+		break;
+	case Attachment::IMAGE:
+		if (!attachment.image->initted) return ERROR_RESULT(framebuffer, "Cannot init Framebuffer when ", isResolve ? "resolve attachment " : "attachment ", index, " (Image) is not initialized");
+		break;
+	case Attachment::DEPTH_BUFFER:
+		if (!attachment.depthBuffer->initted) return ERROR_RESULT(framebuffer, "Cannot init Framebuffer when ", isResolve ? "resolve attachment " : "attachment ", index, " (depth buffer Image) is not initialized");
+		break;
+	}
+	return VoidResult_t();
+}
+
+static VkAttachmentDescription GetAttachmentDescription(Attachment &attachment, bool willBeResolved) {
+	VkAttachmentDescription desc{};
+	if (attachment.kind == Attachment::WINDOW) {
+		desc.format = attachment.window->surfaceFormat.format;
+		desc.samples = VK_SAMPLE_COUNT_1_BIT;
+	} else {
+		desc.format = attachment.image->vkFormat;
+		desc.samples = (VkSampleCountFlagBits)attachment.image->sampleCount;
+	}
+	desc.storeOp = attachment.store ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	switch (attachment.kind) {
+	case Attachment::WINDOW:
+		desc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		break;
+	case Attachment::IMAGE:
+		desc.finalLayout = willBeResolved ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		break;
+	case Attachment::DEPTH_BUFFER:
+		desc.finalLayout = willBeResolved ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		break;
+	}
+	if (attachment.load) {
+		desc.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+		desc.initialLayout = attachment.kind == Attachment::DEPTH_BUFFER ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	} else {
+		desc.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		desc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	}
+	desc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	desc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	return desc;
+}
+
+static VkFormat GetAttachmentFormat(Attachment &attachment) {
+	switch (attachment.kind) {
+	case Attachment::WINDOW:
+		AzAssert(attachment.window->initted, "Cannot get format from an uninitialized Window");
+		return attachment.window->surfaceFormat.format;
+	case Attachment::IMAGE:
+	case Attachment::DEPTH_BUFFER:
+		AzAssert(attachment.image->initted, "Cannot get format from an uninitialized Image");
+		return attachment.image->vkFormat;
+	}
+}
+
 Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 	INIT_HEAD(framebuffer);
-	if (framebuffer->attachments.size == 0) {
+	if (framebuffer->attachmentRefs.size == 0) {
 		return ERROR_RESULT(framebuffer, "We have no attachments!");
 	}
 	{ // RenderPass
 		bool hasDepth = false;
-		Array<VkAttachmentDescription> attachments(framebuffer->attachments.size);
+		Array<VkAttachmentDescription> attachments;
 		Array<VkAttachmentReference> attachmentRefsColor;
+		Array<VkAttachmentReference> attachmentRefsResolve;
 		VkAttachmentReference attachmentRefDepth;
 		Array<u32> preserveAttachments;
-		for (i32 i = 0; i < framebuffer->attachments.size; i++) {
-			Attachment &attachment = framebuffer->attachments[i];
-			switch (attachment.kind) {
-			case Attachment::WINDOW:
-				if (!attachment.window->initted) return ERROR_RESULT(framebuffer, "Cannot init Framebuffer when attachment ", i, " (Window) is not initialized");
-				break;
-			case Attachment::IMAGE:
-				if (!attachment.image->initted) return ERROR_RESULT(framebuffer, "Cannot init Framebuffer when attachment ", i, " (Image) is not initialized");
-				break;
-			case Attachment::DEPTH_BUFFER:
-				if (!attachment.depthBuffer->initted) return ERROR_RESULT(framebuffer, "Cannot init Framebuffer when attachment ", i, " (depth buffer Image) is not initialized");
-				break;
+		i32 currentAttachment = 0;
+		for (i32 i = 0; i < framebuffer->attachmentRefs.size; i++) {
+			AttachmentRef &attachmentRef = framebuffer->attachmentRefs[i];
+			Attachment &attachment = attachmentRef.attachment;
+			if (auto result = EnsureAttachmentIsInitted(framebuffer, attachment, false, i); result.isError) {
+				return result.error;
 			}
+			bool hasResolve = attachmentRef.resolveAttachment.Exists();
 			VkAttachmentReference ref;
-			ref.attachment = i;
-			VkAttachmentDescription &desc = attachments[i];
-			desc = {};
-			if (attachment.kind == Attachment::WINDOW) {
-				desc.format = attachment.window->surfaceFormat.format;
-			} else {
-				desc.format = attachment.image->vkFormat;
-			}
-			desc.samples = VK_SAMPLE_COUNT_1_BIT;
-			if (attachment.store) {
-				desc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-			} else {
-				desc.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-			}
+			ref.attachment = currentAttachment++;
+			attachments.Append(GetAttachmentDescription(attachment, hasResolve));
 			switch (attachment.kind) {
 			case Attachment::WINDOW:
-				desc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 				ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				attachmentRefsColor.Append(ref);
 				break;
 			case Attachment::IMAGE:
-				desc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				attachmentRefsColor.Append(ref);
 				break;
 			case Attachment::DEPTH_BUFFER:
+				if (hasResolve) {
+					return ERROR_RESULT(framebuffer, "Cannot resolve depth attachments");
+				}
 				if (hasDepth) {
 					return ERROR_RESULT(framebuffer, "Cannot have more than one depth attachment");
 				}
 				hasDepth = true;
-				desc.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 				ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 				attachmentRefDepth = ref;
 				break;
 			}
-			if (attachment.load) {
-				desc.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-				return ERROR_RESULT(framebuffer, "Framebuffer image preserving is not implemented yet");
-				// TODO: desc.initialLayout =
-				if (attachment.store) {
-					preserveAttachments.Append(i);
-				}
-			} else {
-				desc.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-				desc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			if (attachment.load && attachment.store) {
+				preserveAttachments.Append(currentAttachment);
 			}
-			desc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-			desc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			if (hasResolve) {
+				// By god we're gonna make this happen
+				Attachment &resolveAttachment = attachmentRef.resolveAttachment.ValueOrAssert();
+				VkFormat baseFormat = GetAttachmentFormat(attachment);
+				VkFormat resolveFormat = GetAttachmentFormat(resolveAttachment);
+				if (baseFormat != resolveFormat) {
+					return ERROR_RESULT(framebuffer, "Multisampled attachment ", i, " format (", VkFormatString(baseFormat), ") doesn't match resolve format (", VkFormatString(resolveFormat), ")");
+				}
+				if (auto result = EnsureAttachmentIsInitted(framebuffer, resolveAttachment, true, i); result.isError) {
+					return result.error;
+				}
+				ref.attachment = currentAttachment++;
+				attachments.Append(GetAttachmentDescription(resolveAttachment, false));
+				ref.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+				attachmentRefsResolve.Append(ref);
+			}
 		}
+		AzAssert(attachmentRefsResolve.size == 0 || attachmentRefsColor.size == attachmentRefsResolve.size, "Either all color attachments must be resolved, or none of them.");
 		VkSubpassDescription subpass{};
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpass.colorAttachmentCount = attachmentRefsColor.size;
 		subpass.pColorAttachments = attachmentRefsColor.data;
-		subpass.pResolveAttachments = nullptr;
+		subpass.pResolveAttachments = attachmentRefsResolve.data;
 		subpass.pDepthStencilAttachment = hasDepth ? &attachmentRefDepth : nullptr;
 		subpass.preserveAttachmentCount = preserveAttachments.size;
 		subpass.pPreserveAttachments = preserveAttachments.data;
@@ -2823,6 +3012,7 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 		SetDebugMarker(framebuffer->device, Stringify(framebuffer->tag, " render pass"), VK_OBJECT_TYPE_RENDER_PASS, (u64)framebuffer->vkRenderPass);
 	}
 	framebuffer->initted = true;
+	framebuffer->attachmentsDirty = false;
 	return FramebufferCreate(framebuffer);
 }
 
@@ -2834,54 +3024,85 @@ void FramebufferDeinit(Framebuffer *framebuffer) {
 	}
 }
 
+static void GetAttachmentDimensions(Attachment &attachment, i32 &dstWidth, i32 &dstHeight, u32 &dstSampleCount, i32 &dstNumFramebuffers) {
+	switch (attachment.kind) {
+	case Attachment::WINDOW:
+		dstNumFramebuffers = attachment.window->numImages;
+		dstWidth = attachment.window->extent.width;
+		dstHeight = attachment.window->extent.height;
+		dstSampleCount = 1;
+		break;
+	case Attachment::IMAGE:
+	case Attachment::DEPTH_BUFFER:
+		dstWidth = attachment.image->width;
+		dstHeight = attachment.image->height;
+		dstSampleCount = attachment.image->sampleCount;
+		break;
+	}
+}
+
+static VkImageView GetAttachmentImageView(Attachment &attachment, i32 framebufferIndex) {
+	switch (attachment.kind) {
+	case Attachment::WINDOW:
+		return attachment.window->swapchainImages[framebufferIndex].vkImageView;
+		break;
+	case Attachment::IMAGE:
+		return attachment.image->vkImageView;
+		break;
+	case Attachment::DEPTH_BUFFER:
+		return attachment.depthBuffer->vkImageView;
+		break;
+	}
+}
+
 Result<VoidResult_t, String> FramebufferCreate(Framebuffer *framebuffer) {
 	AzAssert(framebuffer->initted, "Framebuffer is not initialized");
-	i32 numFramebuffers = 1;
-	for (i32 i = 0; i < framebuffer->attachments.size; i++) {
-		Attachment &attachment = framebuffer->attachments[i];
-		i32 ourWidth, ourHeight;
-		switch (attachment.kind) {
-		case Attachment::WINDOW:
-			numFramebuffers = attachment.window->numImages;
-			ourWidth = attachment.window->extent.width;
-			ourHeight = attachment.window->extent.height;
-			break;
-		case Attachment::IMAGE:
-			ourWidth = attachment.image->width;
-			ourHeight = attachment.image->height;
-			break;
-		case Attachment::DEPTH_BUFFER:
-			ourWidth = attachment.depthBuffer->width;
-			ourHeight = attachment.depthBuffer->height;
-			break;
+	if (framebuffer->attachmentsDirty) {
+		FramebufferDeinit(framebuffer);
+		if (auto result = FramebufferInit(framebuffer); result.isError) {
+			return result.error;
 		}
+	}
+	i32 numFramebuffers = 1;
+	for (i32 i = 0; i < framebuffer->attachmentRefs.size; i++) {
+		AttachmentRef &attachmentRef = framebuffer->attachmentRefs[i];
+		Attachment &attachment = attachmentRef.attachment;
+		i32 ourWidth, ourHeight;
+		u32 ourSampleCount;
+		GetAttachmentDimensions(attachment, ourWidth, ourHeight, ourSampleCount, numFramebuffers);
 		if (i == 0) {
 			framebuffer->width = ourWidth;
 			framebuffer->height = ourHeight;
-		} else if (framebuffer->width != ourWidth || framebuffer->height != ourHeight) {
-			return ERROR_RESULT(framebuffer, "Attachment ", i, " dimensions mismatch. Expected ", framebuffer->width, "x", framebuffer->height, ", but got ", ourWidth, "x", ourHeight);
+			framebuffer->sampleCount = ourSampleCount;
+		} else {
+			if (framebuffer->width != ourWidth || framebuffer->height != ourHeight) {
+				return ERROR_RESULT(framebuffer, "Attachment ", i, " dimensions mismatch. Expected ", framebuffer->width, "x", framebuffer->height, ", but got ", ourWidth, "x", ourHeight);
+			}
+			if (framebuffer->sampleCount != ourSampleCount) {
+				return ERROR_RESULT(framebuffer, "Attachment ", i, " sample count mismatch. Expected ", framebuffer->sampleCount, ", but got ", ourSampleCount);
+			}
+		}
+		if (attachmentRef.resolveAttachment.Exists()) {
+			Attachment &resolveAttachment = attachmentRef.resolveAttachment.ValueOrAssert();
+			GetAttachmentDimensions(resolveAttachment, ourWidth, ourHeight, ourSampleCount, numFramebuffers);
+			if (framebuffer->width != ourWidth || framebuffer->height != ourHeight) {
+				return ERROR_RESULT(framebuffer, "Resolve Attachment ", i, " dimensions mismatch. Expected ", framebuffer->width, "x", framebuffer->height, ", but got ", ourWidth, "x", ourHeight);
+			}
 		}
 	}
 	for (VkFramebuffer fb : framebuffer->vkFramebuffers) {
 		vkDestroyFramebuffer(framebuffer->device->vkDevice, fb, nullptr);
 	}
 	framebuffer->vkFramebuffers.Resize(numFramebuffers);
+	Array<VkImageView> imageViews;
 	for (i32 i = 0; i < numFramebuffers; i++) {
 		VkFramebuffer &vkFramebuffer = framebuffer->vkFramebuffers[i];
-		Array<VkImageView> imageViews(framebuffer->attachments.size);
-		for (i32 j = 0; j < imageViews.size; j++) {
-			VkImageView &imageView = imageViews[j];
-			Attachment &attachment = framebuffer->attachments[j];
-			switch (attachment.kind) {
-			case Attachment::WINDOW:
-				imageView = attachment.window->swapchainImages[i].vkImageView;
-				break;
-			case Attachment::IMAGE:
-				imageView = attachment.image->vkImageView;
-				break;
-			case Attachment::DEPTH_BUFFER:
-				imageView = attachment.depthBuffer->vkImageView;
-				break;
+		imageViews.ClearSoft();
+		for (i32 j = 0; j < framebuffer->attachmentRefs.size; j++) {
+			AttachmentRef &attachmentRef = framebuffer->attachmentRefs[j];
+			imageViews.Append(GetAttachmentImageView(attachmentRef.attachment, i));
+			if (attachmentRef.resolveAttachment.Exists()) {
+				imageViews.Append(GetAttachmentImageView(attachmentRef.resolveAttachment.ValueOrAssert(), i));
 			}
 		}
 		VkFramebufferCreateInfo createInfo{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
@@ -2905,10 +3126,18 @@ VkFramebuffer FramebufferGetCurrentVkFramebuffer(Framebuffer *framebuffer) {
 		return framebuffer->vkFramebuffers[0];
 	} else if (framebuffer->vkFramebuffers.size > 1) {
 		i32 currentFramebuffer = -1;
-		for (i32 i = 0; i < framebuffer->attachments.size; i++) {
-			if (framebuffer->attachments[i].kind == Attachment::WINDOW) {
-				currentFramebuffer = framebuffer->attachments[i].window->currentImage;
+		for (i32 i = 0; i < framebuffer->attachmentRefs.size; i++) {
+			AttachmentRef &attachmentRef = framebuffer->attachmentRefs[i];
+			if (attachmentRef.attachment.kind == Attachment::WINDOW) {
+				currentFramebuffer = attachmentRef.attachment.window->currentImage;
 				break;
+			}
+			if (attachmentRef.resolveAttachment.Exists()) {
+				Attachment &attachment = attachmentRef.resolveAttachment.ValueOrAssert();
+				if (attachment.kind == Attachment::WINDOW) {
+					currentFramebuffer = attachment.window->currentImage;
+					break;
+				}
 			}
 		}
 		AzAssert(currentFramebuffer != -1, "Unreachable");
@@ -2918,15 +3147,19 @@ VkFramebuffer FramebufferGetCurrentVkFramebuffer(Framebuffer *framebuffer) {
 }
 
 bool FramebufferHasDepthBuffer(Framebuffer *framebuffer) {
-	for (Attachment &attachment : framebuffer->attachments) {
-		if (attachment.kind == Attachment::DEPTH_BUFFER) return true;
+	for (AttachmentRef &attachmentRef : framebuffer->attachmentRefs) {
+		if (attachmentRef.attachment.kind == Attachment::DEPTH_BUFFER) return true;
 	}
 	return false;
 }
 
 Window* FramebufferGetWindowAttachment(Framebuffer *framebuffer) {
-	for (Attachment &attachment : framebuffer->attachments) {
-		if (attachment.kind == Attachment::WINDOW) return attachment.window;
+	for (AttachmentRef &attachmentRef : framebuffer->attachmentRefs) {
+		if (attachmentRef.attachment.kind == Attachment::WINDOW) return attachmentRef.attachment.window;
+		if (attachmentRef.resolveAttachment.Exists()) {
+			Attachment &attachment = attachmentRef.resolveAttachment.ValueOrAssert();
+			if (attachment.kind == Attachment::WINDOW) return attachment.window;
+		}
 	}
 	return nullptr;
 }
@@ -3059,6 +3292,29 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 	
 	bool create = false;
 	
+	if (context->bindings.framebuffer->sampleCount != pipeline->sampleCount) {
+		pipeline->sampleCount = context->bindings.framebuffer->sampleCount;
+		create = true;
+	}
+	bool framebufferHasDepthBuffer = FramebufferHasDepthBuffer(context->bindings.framebuffer);
+	if (framebufferHasDepthBuffer != pipeline->framebufferHasDepthBuffer) {
+		pipeline->framebufferHasDepthBuffer = framebufferHasDepthBuffer;
+		create = true;
+	}
+	{
+		i32 numColorAttachments = 0;
+		for (AttachmentRef &attachmentRef : context->bindings.framebuffer->attachmentRefs) {
+			if (attachmentRef.attachment.kind != Attachment::DEPTH_BUFFER) {
+				numColorAttachments++;
+				// We don't care about resolveAttachments because we don't draw into them
+			}
+		}
+		if (numColorAttachments != pipeline->numColorAttachments) {
+			pipeline->numColorAttachments = numColorAttachments;
+			create = true;
+		}
+	}
+	
 	if (!VkPipelineLayoutCreateInfoMatches(layoutCreateInfo, pipeline->vkPipelineLayoutCreateInfo)) {
 		pipeline->vkPipelineLayoutCreateInfo = layoutCreateInfo;
 		create = true;
@@ -3095,11 +3351,11 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 				break;
 			default: return ERROR_RESULT(pipeline, "Unimplemented");
 			}
-			io::cout.IndentLess();
 			createInfo.module = shader->vkShaderModule;
 			// The Vulkan API pretends we can use something other than "main", but we really can't :(
 			createInfo.pName = "main";
 		}
+		io::cout.IndentLess();
 		if (pipeline->kind == Pipeline::GRAPHICS) {
 			VkPipelineVertexInputStateCreateInfo vertexInputState{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
 			Array<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions;
@@ -3182,7 +3438,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			
 			// TODO: Support multisampling (need to be able to resolve images, probably in the framebuffer)
 			VkPipelineMultisampleStateCreateInfo multisampleState{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-			multisampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+			multisampleState.rasterizationSamples = (VkSampleCountFlagBits)pipeline->sampleCount;
 			multisampleState.sampleShadingEnable = VK_FALSE;
 			// Controls what fraction of samples get shaded with the above turned on. No effect otherwise.
 			multisampleState.minSampleShading = 1.0f;
@@ -3192,7 +3448,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			
 			VkPipelineDepthStencilStateCreateInfo depthStencilState{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
 			// depthStencilState.flags; // VkPipelineDepthStencilStateCreateFlags
-			bool framebufferHasDepthBuffer = FramebufferHasDepthBuffer(context->bindings.framebuffer);
+			
 			if (pipeline->depthTest == BoolOrDefault::TRUE && !framebufferHasDepthBuffer) {
 				return ERROR_RESULT(pipeline, "Depth test is enabled, but framebuffer doesn't have a depth buffer");
 			}
@@ -3219,8 +3475,8 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			colorBlendState.blendConstants[3] = 1.0f;
 			Array<VkPipelineColorBlendAttachmentState> blendModes;
 			{ // Attachment blend modes
-				for (i32 i = 0; i < context->bindings.framebuffer->attachments.size; i++) {
-					Attachment &attachment = context->bindings.framebuffer->attachments[i];
+				for (i32 i = 0; i < context->bindings.framebuffer->attachmentRefs.size; i++) {
+					Attachment &attachment = context->bindings.framebuffer->attachmentRefs[i].attachment;
 					if (attachment.kind == Attachment::IMAGE || attachment.kind == Attachment::WINDOW) {
 						VkPipelineColorBlendAttachmentState state;
 						state.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;

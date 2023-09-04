@@ -12,6 +12,8 @@ using namespace AzCore;
 
 const u32 maxVertices = 8192;
 
+const bool msaa = true;
+
 f32 scale = 1.0f;
 
 struct Vertex {
@@ -93,9 +95,20 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
 	GPU::Buffer *vertexBuffer = GPU::NewVertexBuffer(device);
 	GPU::BufferSetSize(vertexBuffer, sizeof(Vertex) * maxVertices);
+	
+	GPU::Image *msaaImage;
 
 	GPU::Framebuffer *framebuffer = GPU::NewFramebuffer(device);
-	GPU::FramebufferAddWindow(framebuffer, gpuWindow);
+	if (msaa) {
+		msaaImage = GPU::NewImage(device, "MSAA image");
+		GPU::ImageSetSampleCount(msaaImage, 4);
+		GPU::ImageSetFormat(msaaImage, GPU::ImageBits::B8G8R8A8, GPU::ImageComponentType::SRGB);
+		GPU::ImageSetSize(msaaImage, ioWindow.width, ioWindow.height);
+		GPU::FramebufferAddImageMultisampled(framebuffer, msaaImage, gpuWindow);
+	} else {
+		GPU::FramebufferAddWindow(framebuffer, gpuWindow);
+	}
+	
 	vec4 clearColor = vec4(sRGBToLinear(vec3(0.0f, 0.1f, 0.2f)), 1.0f);
 	
 	GPU::Shader *shaderVert = GPU::NewShader(device, "data/shaders/2D.vert.spv", GPU::ShaderStage::VERTEX);
@@ -147,7 +160,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	bool faceMode = false;
 	bool pause = false;
 	bool enableStereoGraphic = false;
-	bool resized = false;
 
 	vec2i draggingOrigin[2] = {vec2i(0), vec2i(0)};
 	vec2 draggingFacingAngleOrigin[2] = {vec2(0.0f), vec2(0.0f)};
@@ -164,9 +176,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		input.Tick(1.0f/(f32)framerate);
 		if (!ioWindow.Update()) {
 			break;
-		}
-		if (ioWindow.resized) {
-			resized = true;
 		}
 		if (input.Pressed(KC_KEY_ESC)) {
 			break;
@@ -240,13 +249,11 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			if (enableStereoGraphic) {
 				if (aspectRatio > 0.9f) {
 					ioWindow.Resize(ioWindow.width * 2, ioWindow.height);
-					continue;
 				}
 			} else {
 				offset.x += eyeWidth/2.0f;
 				if (abs(aspectRatio - 0.5f) < 0.05f) {
 					ioWindow.Resize(ioWindow.height, ioWindow.height);
-					continue;
 				}
 			}
 		}
@@ -261,6 +268,16 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
 		if (input.PressedChar('V')) {
 			GPU::SetVSync(gpuWindow, !GPU::GetVSyncEnabled(gpuWindow));
+		}
+		
+		if (ioWindow.resized) {
+			if (msaa) {
+				GPU::ImageSetSize(msaaImage, ioWindow.width, ioWindow.height);
+				if (auto result = GPU::ImageRecreate(msaaImage); result.isError) {
+					io::cerr.PrintLn("Failed to recreate msaaImage: ", result.error);
+					return 1;
+				}
+			}
 		}
 
 		if (auto result = GPU::WindowUpdate(gpuWindow); result.isError) {
@@ -486,11 +503,23 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			}
 		}
 
-		GPU::ContextEndRecording(contextDrawing);
+		if (auto result = GPU::ContextEndRecording(contextDrawing); result.isError) {
+			io::cerr.PrintLn("Failed to end recording drawing: ", result.error);
+			return 1;
+		}
 		
-		GPU::ContextBeginRecording(contextTransfer);
-		GPU::CmdCopyDataToBuffer(contextTransfer, vertexBuffer, vertices, 0, sizeof(Vertex) * vertex);
-		GPU::ContextEndRecording(contextTransfer);
+		if (auto result = GPU::ContextBeginRecording(contextTransfer); result.isError) {
+			io::cerr.PrintLn("Failed to begin recording transfer: ", result.error);
+			return 1;
+		}
+		if (auto result = GPU::CmdCopyDataToBuffer(contextTransfer, vertexBuffer, vertices, 0, sizeof(Vertex) * vertex); result.isError) {
+			io::cerr.PrintLn("Failed to copy data to vertex buffer: ", result.error);\
+			return 1;
+		}
+		if (auto result = GPU::ContextEndRecording(contextTransfer); result.isError) {
+			io::cerr.PrintLn("Failed to end recording transfer: ", result.error);
+			return 1;
+		}
 		
 		if (auto result = GPU::SubmitCommands(contextTransfer, true); result.isError) {
 			io::cerr.PrintLn("Failed to Submit Transfer Commands: ", result.error);

@@ -11,6 +11,7 @@
 #include "Memory/ArrayWithBucket.hpp"
 #include "Memory/String.hpp"
 #include "Memory/List.hpp"
+#include "Memory/Optional.hpp"
 #include "Memory/ArrayList.hpp"
 #include "Memory/Ptr.hpp"
 #include "Memory/Range.hpp"

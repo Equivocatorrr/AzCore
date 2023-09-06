@@ -3064,6 +3064,26 @@ Result<VoidResult_t, String> FramebufferCreate(Framebuffer *framebuffer) {
 		}
 	}
 	i32 numFramebuffers = 1;
+	bool resizeAttachmentsAsNeeded = false;
+	for (i32 i = 0; i < framebuffer->attachmentRefs.size; i++) {
+		AttachmentRef &attachmentRef = framebuffer->attachmentRefs[i];
+		Attachment &attachment = attachmentRef.attachment;
+		if (attachment.kind == Attachment::WINDOW) {
+			framebuffer->width = attachment.window->extent.width;
+			framebuffer->height = attachment.window->extent.height;
+			resizeAttachmentsAsNeeded = true;
+			break;
+		}
+		if (attachmentRef.resolveAttachment.Exists()) {
+			Attachment &resolveAttachment = attachmentRef.resolveAttachment.ValueOrAssert();
+			if (resolveAttachment.kind == Attachment::WINDOW) {
+				framebuffer->width = resolveAttachment.window->extent.width;
+				framebuffer->height = resolveAttachment.window->extent.height;
+				resizeAttachmentsAsNeeded = true;
+				break;
+			}
+		}
+	}
 	for (i32 i = 0; i < framebuffer->attachmentRefs.size; i++) {
 		AttachmentRef &attachmentRef = framebuffer->attachmentRefs[i];
 		Attachment &attachment = attachmentRef.attachment;
@@ -3071,22 +3091,36 @@ Result<VoidResult_t, String> FramebufferCreate(Framebuffer *framebuffer) {
 		u32 ourSampleCount;
 		GetAttachmentDimensions(attachment, ourWidth, ourHeight, ourSampleCount, numFramebuffers);
 		if (i == 0) {
-			framebuffer->width = ourWidth;
-			framebuffer->height = ourHeight;
 			framebuffer->sampleCount = ourSampleCount;
 		} else {
-			if (framebuffer->width != ourWidth || framebuffer->height != ourHeight) {
-				return ERROR_RESULT(framebuffer, "Attachment ", i, " dimensions mismatch. Expected ", framebuffer->width, "x", framebuffer->height, ", but got ", ourWidth, "x", ourHeight);
-			}
 			if (framebuffer->sampleCount != ourSampleCount) {
 				return ERROR_RESULT(framebuffer, "Attachment ", i, " sample count mismatch. Expected ", framebuffer->sampleCount, ", but got ", ourSampleCount);
+			}
+		}
+		if (framebuffer->width != ourWidth || framebuffer->height != ourHeight) {
+			if (resizeAttachmentsAsNeeded) {
+				AzAssert(attachment.kind != Attachment::WINDOW, "This shouldn't be possible");
+				ImageSetSize(attachment.image, framebuffer->width, framebuffer->height);
+				if (auto result = ImageRecreate(attachment.image); result.isError) {
+					return ERROR_RESULT(framebuffer, "Attachment ", i, " attempted to resize, but failed: ", result.error);
+				}
+			} else {
+				return ERROR_RESULT(framebuffer, "Attachment ", i, " dimensions mismatch. Expected ", framebuffer->width, "x", framebuffer->height, ", but got ", ourWidth, "x", ourHeight);
 			}
 		}
 		if (attachmentRef.resolveAttachment.Exists()) {
 			Attachment &resolveAttachment = attachmentRef.resolveAttachment.ValueOrAssert();
 			GetAttachmentDimensions(resolveAttachment, ourWidth, ourHeight, ourSampleCount, numFramebuffers);
 			if (framebuffer->width != ourWidth || framebuffer->height != ourHeight) {
-				return ERROR_RESULT(framebuffer, "Resolve Attachment ", i, " dimensions mismatch. Expected ", framebuffer->width, "x", framebuffer->height, ", but got ", ourWidth, "x", ourHeight);
+				if (resizeAttachmentsAsNeeded) {
+					AzAssert(resolveAttachment.kind != Attachment::WINDOW, "This shouldn't be possible");
+					ImageSetSize(resolveAttachment.image, framebuffer->width, framebuffer->height);
+					if (auto result = ImageRecreate(resolveAttachment.image); result.isError) {
+						return ERROR_RESULT(framebuffer, "Resolve Attachment ", i, " attempted to resize, but failed: ", result.error);
+					}
+				} else {
+					return ERROR_RESULT(framebuffer, "Resolve Attachment ", i, " dimensions mismatch. Expected ", framebuffer->width, "x", framebuffer->height, ", but got ", ourWidth, "x", ourHeight);
+				}
 			}
 		}
 	}

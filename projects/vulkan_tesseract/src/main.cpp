@@ -247,6 +247,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		if (toggleStereographic) {
 			enableStereoGraphic = !enableStereoGraphic;
 			if (enableStereoGraphic) {
+				offset.x -= eyeWidth/2.0f;
 				if (aspectRatio > 0.9f) {
 					ioWindow.Resize(ioWindow.width * 2, ioWindow.height);
 				}
@@ -270,16 +271,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			GPU::SetVSync(gpuWindow, !GPU::GetVSyncEnabled(gpuWindow));
 		}
 		
-		if (ioWindow.resized) {
-			if (msaa) {
-				GPU::ImageSetSize(msaaImage, ioWindow.width, ioWindow.height);
-				if (auto result = GPU::ImageRecreate(msaaImage); result.isError) {
-					io::cerr.PrintLn("Failed to recreate msaaImage: ", result.error);
-					return 1;
-				}
-			}
-		}
-
 		if (auto result = GPU::WindowUpdate(gpuWindow); result.isError) {
 			io::cerr.PrintLn("Failed to GPU::WindowUpdate: ", result.error);
 			return 1;

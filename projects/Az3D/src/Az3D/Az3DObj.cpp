@@ -306,7 +306,7 @@ namespace Types {
 		Str data;
 		bool FromBuffer(Str buffer, i64 &cur) {
 			if (!filename.FromBuffer(buffer, cur)) return false;
-			EXPECT_SPACE_IN_BUFFER(4);
+			EXPECT_SPACE_IN_BUFFER(8);
 			memcpy(&length, &buffer[cur], 8);
 			cur += 8;
 			EXPECT_SPACE_IN_BUFFER(length);

@@ -22,68 +22,6 @@ extern const vec3 colorHighlightLow;
 extern const vec3 colorHighlightMedium;
 extern const vec3 colorHighlightHigh;
 
-struct GuiBasic : public GameSystems::System {
-	// configuration
-	const char *defaultFontFilename = "DroidSans.ttf";
-	struct SoundDef {
-		az::SimpleRange<char> filename;
-		f32 gain;
-		f32 pitch;
-	};
-	az::Array<SoundDef> sndClickInDefs = {
-		{"click in 1.ogg", 0.15f, 1.2f},
-		{"click in 2.ogg", 0.15f, 1.2f},
-		{"click in 3.ogg", 0.15f, 1.2f},
-		{"click in 4.ogg", 0.15f, 1.2f},
-	};
-	az::Array<SoundDef> sndClickOutDefs = {
-		{"click out 1.ogg", 0.15f, 1.2f},
-		{"click out 2.ogg", 0.15f, 1.2f},
-		{"click out 3.ogg", 0.15f, 1.2f},
-		{"click out 4.ogg", 0.15f, 1.2f},
-	};
-	az::Array<SoundDef> sndClickSoftDefs = {
-		{"click soft 1.ogg", 0.01f, 1.2f},
-		{"click soft 2.ogg", 0.01f, 1.2f},
-	};
-	SoundDef sndCheckboxOnDef = {"Pop High.ogg", 0.1f, 1.0f};
-	SoundDef sndCheckboxOffDef = {"Pop Low.ogg", 0.1f, 1.0f};
-
-	// assets
-	Assets::FontIndex fontIndex;
-	az::Array<Sound::Source> sndClickInSources;
-	az::Array<Sound::Source> sndClickOutSources;
-	az::Array<Sound::Source> sndClickSoftSources;
-	Sound::Source sndCheckboxOn, sndCheckboxOff;
-	Sound::MultiSource sndClickIn;
-	Sound::MultiSource sndClickOut;
-	Sound::MultiSource sndClickSoft;
-	Assets::Font *font;
-
-	i32 controlDepth = 0;
-	f32 scale = 2.0f;
-	bool usingMouse = true;
-	bool usingArrows = false;
-	bool usingGamepad = false;
-	// Used to make sure the mouse can only interact with top-most widgets.
-	// Also provides an easy test to see if the mouse can interact with items below it.
-	Widget *mouseoverWidget;
-	i32 mouseoverDepth;
-
-	az::HashSet<Widget*> allWidgets; // So we can delete them at the end of the program.
-
-	GuiBasic();
-	~GuiBasic();
-
-	void EventAssetsQueue() override;
-	void EventAssetsAcquire() override;
-	// When deriving, call this first, do your own sync, and then set readyForDraw to true at the end.
-	void EventSync() override;
-};
-
-// global accessor to our basic gui, should be derived from, created in main, and passed into GameSystems::Init
-extern GuiBasic *guiBasic;
-
 // Base polymorphic interface, also usable as a blank spacer.
 struct Widget {
 	az::Array<Widget*> children;
@@ -147,6 +85,55 @@ struct Widget {
 	virtual bool Selectable() const;
 	bool MouseOver() const;
 	void FindMouseoverDepth(i32 actualDepth);
+	
+	// Helpers to make it easier to read and edit GUI definitions
+	
+	inline void SetWidthPixel(f32 width) {
+		AzAssert(width > 0.0f, "Pixel width must be > 0");
+		size.x = width;
+		fractionWidth = false;
+	}
+	inline void SetWidthFraction(f32 width) {
+		AzAssert(width <= 1.0f && width > 0.0f, "Fractional width must be > 0 and <= 1");
+		size.x = width;
+		fractionWidth = true;
+	}
+	
+	inline void SetWidthContents() {
+		size.x = 0.0f;
+	}
+	inline void SetHeightPixel(f32 height) {
+		AzAssert(height > 0.0f, "Pixel height must be > 0");
+		size.y = height;
+		fractionHeight = false;
+	}
+	inline void SetHeightFraction(f32 height) {
+		AzAssert(height <= 1.0f && height > 0.0f, "Fractional height must be > 0 and <= 1");
+		size.y = height;
+		fractionHeight = true;
+	}
+	
+	inline void SetHeightContents() {
+		size.y = 0.0f;
+	}
+	inline void SetSizePixel(vec2 _size) {
+		AzAssert(_size.x > 0.0f, "Pixel width must be > 0");
+		AzAssert(_size.y > 0.0f, "Pixel height must be > 0");
+		size = _size;
+		fractionWidth = false;
+		fractionHeight = false;
+	}
+	inline void SetSizeFraction(vec2 _size) {
+		AzAssert(_size.x <= 1.0f && _size.x > 0.0f, "Fractional width must be > 0 and <= 1");
+		AzAssert(_size.y <= 1.0f && _size.y > 0.0f, "Fractional height must be > 0 and <= 1");
+		size = _size;
+		fractionWidth = true;
+		fractionHeight = true;
+	}
+	
+	inline void SetSizeContents() {
+		size = 0.0f;
+	}
 };
 
 // Lowest level widget, used for input for game objects.
@@ -178,10 +165,24 @@ struct List : public Widget {
 		Defaults:
 		List: -1, Switch: 0 */
 	i32 selectionDefault;
+	/*  How far we've scrolled if our contents don't fit in the range 0 to 1. */
+	vec2 scroll;
+	/*  How far we want to scroll. scroll will decay towards this value. */
+	vec2 scrollTarget;
+	/*  How big our contents are in absolute size. */
+	vec2 sizeContents;
+	/*  Whether we can scroll horizontally.
+		Defaults:
+		ListH: true, ListV: false */
+	bool scrollableX;
+	/*  Whether we can scroll vertically.
+		Defaults:
+		ListH: false, ListV: true */
+	bool scrollableY;
 	List();
 	~List() = default;
 	// returns whether or not to update the selection based on the mouse position
-	bool UpdateSelection(bool selected, az::BucketArray<u8, 4> keyCodeSelect, az::BucketArray<u8, 4> keyCodeBack, az::BucketArray<u8, 4> keyCodeIncrement, az::BucketArray<u8, 4> keyCodeDecrement);
+	bool UpdateSelection(bool selected, az::StaticArray<u8, 4> keyCodeSelect, az::StaticArray<u8, 4> keyCodeBack, az::StaticArray<u8, 4> keyCodeIncrement, az::StaticArray<u8, 4> keyCodeDecrement);
 	void Draw(Rendering::DrawingContext &context) const override;
 };
 
@@ -338,6 +339,7 @@ typedef bool (*fpTextFilter)(char32);
 typedef bool (*fpTextValidate)(const az::WString&);
 
 // Some premade filters
+
 bool TextFilterBasic(char32 c);
 bool TextFilterWordSingle(char32 c);
 bool TextFilterWordMultiple(char32 c);
@@ -431,6 +433,15 @@ struct Slider : public Widget {
 	/*  Maximum bounds for value.
 		Default: 1.0 */
 	f32 valueMax;
+	/*  Forces values to be quantized to multiples of valueStep relative to valueMin. A value of 0 disables this behavior.
+		Default: 0.0f */
+	f32 valueStep;
+	/*  How much the value changes when clicked on either side of the knob or moved by a controller or arrow key input. Negative values indicate a factor of the total allowed range.
+		Default: -0.1f */
+	f32 valueTick;
+	/*  Multiplier for valueTick when SHIFT is held by the user.
+		Default: 0.1f */
+	f32 valueTickShiftMult;
 	/*  Whether to override the minimum slider value when it's in the minimum position.
 		Default: false */
 	bool minOverride;
@@ -446,6 +457,9 @@ struct Slider : public Widget {
 	/*  Any TextBox that should reflect the value of the slider in text, and which can likewise affect our value.
 		Default: nullptr */
 	TextBox *mirror;
+	/*  How many digits after the decimal point do we put into the mirror?
+		Default: 1 */
+	i32 mirrorPrecision;
 	/*  Color of the background when not highlighted.
 		Default: {vec3(0.15), 1.0} */
 	vec4 colorBG;
@@ -495,6 +509,92 @@ void AddWidget(Widget *parent, Widget *newWidget, bool deeper = false);
 void AddWidget(Widget *parent, Switch *newWidget);
 void AddWidgetAsDefault(List *parent, Widget *newWidget, bool deeper = false);
 void AddWidgetAsDefault(List *parent, Switch *newWidget);
+
+constexpr u32 CONSOLE_COMMAND_HISTORY_CAP = 100;
+constexpr u32 CONSOLE_COMMAND_OUTPUT_LINES_CAP = 20;
+
+struct DevConsole {
+	Screen screen;
+	TextBox *textboxInput;
+	Text *consoleOutput;
+	az::WString previousCommands[CONSOLE_COMMAND_HISTORY_CAP];
+	i32 recentCommand = -1;
+	i32 nextCommand = 0;
+	i32 numCommandsInHistory = 0;
+	az::WString outputLines[CONSOLE_COMMAND_OUTPUT_LINES_CAP];
+	
+	void Initialize();
+	void Update();
+	void Draw(Rendering::DrawingContext &context);
+};
+
+struct GuiBasic : public GameSystems::System {
+	// configuration
+	const char *defaultFontFilename = "DroidSans.ttf";
+	struct SoundDef {
+		az::SimpleRange<char> filename;
+		f32 gain;
+		f32 pitch;
+	};
+	az::Array<SoundDef> sndClickInDefs = {
+		{"click in 1.ogg", 0.15f, 1.2f},
+		{"click in 2.ogg", 0.15f, 1.2f},
+		{"click in 3.ogg", 0.15f, 1.2f},
+		{"click in 4.ogg", 0.15f, 1.2f},
+	};
+	az::Array<SoundDef> sndClickOutDefs = {
+		{"click out 1.ogg", 0.15f, 1.2f},
+		{"click out 2.ogg", 0.15f, 1.2f},
+		{"click out 3.ogg", 0.15f, 1.2f},
+		{"click out 4.ogg", 0.15f, 1.2f},
+	};
+	az::Array<SoundDef> sndClickSoftDefs = {
+		{"click soft 1.ogg", 0.01f, 1.2f},
+		{"click soft 2.ogg", 0.01f, 1.2f},
+	};
+	SoundDef sndCheckboxOnDef = {"Pop High.ogg", 0.1f, 1.0f};
+	SoundDef sndCheckboxOffDef = {"Pop Low.ogg", 0.1f, 1.0f};
+
+	// assets
+	Assets::FontIndex fontIndex;
+	az::Array<Sound::Source> sndClickInSources;
+	az::Array<Sound::Source> sndClickOutSources;
+	az::Array<Sound::Source> sndClickSoftSources;
+	Sound::Source sndCheckboxOn, sndCheckboxOff;
+	Sound::MultiSource sndClickIn;
+	Sound::MultiSource sndClickOut;
+	Sound::MultiSource sndClickSoft;
+	Assets::Font *font;
+
+	i32 controlDepth = 0;
+	f32 scale = 2.0f;
+	bool usingMouse = true;
+	bool usingArrows = false;
+	bool usingGamepad = false;
+	// Used to make sure the mouse can only interact with top-most widgets.
+	// Also provides an easy test to see if the mouse can interact with items below it.
+	Widget *mouseoverWidget;
+	i32 mouseoverDepth;
+	vec2 selectedCenter;
+	
+	bool console = false;
+	DevConsole devConsole;
+
+	az::HashSet<Widget*> allWidgets; // So we can delete them at the end of the program.
+
+	GuiBasic();
+	~GuiBasic();
+
+	void EventAssetsQueue() override;
+	void EventAssetsAcquire() override;
+	void EventInitialize() override;
+	// When deriving, call this first, do your own sync, and then set readyForDraw to true at the end.
+	void EventSync() override;
+	void EventDraw(az::Array<Rendering::DrawingContext> &contexts) override;
+};
+
+// global accessor to our basic gui, should be derived from, created in main, and passed into GameSystems::Init
+extern GuiBasic *guiBasic;
 
 } // namespace Az2D
 

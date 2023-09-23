@@ -944,7 +944,7 @@ void Manager::BindPipeline(DrawingContext &context, PipelineIndex pipeline) cons
 	context.currentPipeline = pipeline;
 	data.pipelines[pipeline]->Bind(context.commandBuffer);
 	vk::CmdBindVertexBuffer(context.commandBuffer, 0, pipeline == PIPELINE_FONT_2D ? data.fontVertexBuffer : data.vertexBuffer);
-	BucketArray<VkDescriptorSet, 4> sets;
+	StaticArray<VkDescriptorSet, 4> sets;
 	for (const Ptr<vk::DescriptorSet> &set : data.pipelineDescriptorSets[pipeline]) {
 		sets.Append(set->data.set);
 	}

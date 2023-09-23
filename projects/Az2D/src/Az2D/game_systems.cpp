@@ -7,6 +7,7 @@
 #include "gui_basics.hpp"
 #include "settings.hpp"
 #include "profiling.hpp"
+#include "console_commands.hpp"
 #include "AzCore/Thread.hpp"
 
 namespace Az2D::GameSystems {
@@ -33,6 +34,10 @@ bool Init(SimpleRange<char> windowTitle, Array<System*> systemsToRegister, bool 
 	sys->sound.name = windowTitle;
 	sys->rendering.data.instance.AppInfo(windowTitle.str, 1, 0, 0);
 	sys->enableVulkanValidation = enableVulkanValidation;
+	
+	Dev::AddGlobalVariable(Az2D::Settings::sVolumeMain.GetString(), "Main volume setting between 0.0 and 1.0", nullptr, Dev::defaultRealSettingsGetter, Dev::defaultRealSettingsSetter);
+	Dev::AddGlobalVariable(Az2D::Settings::sVolumeEffects.GetString(), "Effects volume setting between 0.0 and 1.0", nullptr, Dev::defaultRealSettingsGetter, Dev::defaultRealSettingsSetter);
+	Dev::AddGlobalVariable(Az2D::Settings::sVolumeMusic.GetString(), "Music volume setting between 0.0 and 1.0", nullptr, Dev::defaultRealSettingsGetter, Dev::defaultRealSettingsSetter);
 	return sys->Init();
 }
 
@@ -73,8 +78,13 @@ void UpdateLoop() {
 		if (frame == 0) {
 			sys->frametimes.Update();
 			if (vsync) {
-				// TODO: switch to polling current monitor refresh rate
-				sys->SetFramerate(clamp(1000.0f / sys->frametimes.AverageWithoutOutliers(), 30.0f, 300.0f), true);
+				f32 targetFramerate = clamp((f32)sys->window.refreshRate / 1000.0f, 30.0f, 300.0f);
+				f32 measuredFramerate = 1000.0f / sys->frametimes.AverageWithoutOutliers();
+				if (abs(measuredFramerate - targetFramerate) / targetFramerate > 0.05f) {
+					// We're not within 5% of our refresh rate, so fallback to measured framerate
+					targetFramerate = measuredFramerate;
+				}
+				sys->SetFramerate(targetFramerate, true);
 			}
 		}
 		if (abs(Nanoseconds(frameNext - Clock::now()).count()) >= 10000000) {
@@ -87,7 +97,7 @@ void UpdateLoop() {
 		{
 			i32 dpi = sys->window.GetDPI();
 			f32 scale = (f32)dpi / 96.0f;
-			Gui::guiBasic->scale = scale;
+			Gui::guiBasic->scale = scale * Settings::ReadReal(Settings::sGuiScale);
 		}
 		sys->rawInput.Update(sys->timestep);
 		sys->Sync();

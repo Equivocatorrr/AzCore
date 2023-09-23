@@ -36,6 +36,8 @@ struct Window {
 	bool quit = false;
 	bool cursorHidden = false;
 	u16 dpi = 96;
+	// current monitor refresh rate in mHz
+	u32 refreshRate = 60000;
 	u16 width = 1280;
 	u16 height = 720;
 	u16 windowedWidth = 1280;

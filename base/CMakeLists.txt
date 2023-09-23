@@ -20,6 +20,8 @@ add_library(AzCore STATIC
 		src/AzCore/Font/font_cff_std_data.c
 		src/AzCore/Font/FontTables.cpp
 		src/AzCore/Font/FontTables.hpp
+	src/AzCore/gpu.cpp
+	src/AzCore/gpu.hpp
 	src/AzCore/Image.cpp
 	src/AzCore/Image.hpp
 	src/AzCore/io.cpp
@@ -66,7 +68,6 @@ add_library(AzCore STATIC
 		src/AzCore/Math/vec3_t.hpp
 		src/AzCore/Math/vec4_t.hpp
 		src/AzCore/Math/vec5_t.hpp
-	src/AzCore/memory.cpp
 	src/AzCore/memory.hpp
 		src/AzCore/Memory/Array.hpp
 		src/AzCore/Memory/ArrayList.hpp
@@ -75,7 +76,7 @@ add_library(AzCore STATIC
 		src/AzCore/Memory/BigInt.hpp
 		src/AzCore/Memory/BinaryMap.hpp
 		src/AzCore/Memory/BinarySet.hpp
-		src/AzCore/Memory/BucketArray.hpp
+		src/AzCore/Memory/StaticArray.hpp
 		src/AzCore/Memory/Endian.cpp
 		src/AzCore/Memory/Endian.hpp
 		src/AzCore/Memory/HashMap.hpp
@@ -91,6 +92,8 @@ add_library(AzCore STATIC
 		src/AzCore/Memory/StringArena.hpp
 		src/AzCore/Memory/StringCommon.hpp
 		src/AzCore/Memory/UniquePtr.hpp
+		src/AzCore/Memory/Util.cpp
+		src/AzCore/Memory/Util.hpp
 	src/AzCore/QuickSort.hpp
 	src/AzCore/Simd.hpp
 		src/AzCore/SIMD/SimdAVX.hpp
@@ -102,10 +105,17 @@ add_library(AzCore STATIC
 	src/AzCore/SoftwareRendering.cpp
 	src/AzCore/SoftwareRendering.hpp
 	src/AzCore/Thread.hpp
-	src/AzCore/Thread${TARGET_PLATFORM_NAME}.hpp
+	src/AzCore/Thread.cpp
+	src/AzCore/Thread${TARGET_PLATFORM_NAME}.cpp
+	src/AzCore/Time.cpp
 	src/AzCore/Time.hpp
 	src/AzCore/vk.cpp
 	src/AzCore/vk.hpp
+)
+
+set_source_files_properties(
+	src/AzCore/Thread${TARGET_PLATFORM_NAME}.cpp
+	PROPERTIES HEADER_FILE_ONLY TRUE
 )
 
 if (CMAKE_SYSTEM MATCHES Linux)
@@ -143,8 +153,6 @@ set_source_files_properties(
 	src/AzCore/IO/${TARGET_PLATFORM_NAME}/RawInput.cpp
 	src/AzCore/IO/${TARGET_PLATFORM_NAME}/Window.cpp
 	src/AzCore/Net/${TARGET_PLATFORM_NAME}/Sockets.cpp
-	src/AzCore/Memory/Endian.cpp
-	src/AzCore/Memory/String.cpp
 	PROPERTIES HEADER_FILE_ONLY TRUE
 )
 

@@ -308,7 +308,7 @@ BigInt& BigInt::operator*=(const BigInt& a) {
 	}
 	bool neg = negative != a.negative;
 	negative = false;
-	BucketArray<u64, BIGINT_BUCKET_SIZE> wordsTemp(words);
+	StaticArray<u64, BIGINT_BUCKET_SIZE> wordsTemp(words);
 	words = {0};
 	for (i32 i = 0; i < wordsTemp.size; i++) {
 		for (i32 j = 0; j < a.words.size; j++) {
@@ -406,7 +406,7 @@ void BigInt::QuotientAndRemainder(const BigInt &a, const BigInt &b, BigInt *dstQ
 		return;
 	}
 	BigInt taken(0u);
-	dstQuotient->words = BucketArray<u64, BIGINT_BUCKET_SIZE>(a.words.size, 0);
+	dstQuotient->words = StaticArray<u64, BIGINT_BUCKET_SIZE>(a.words.size, 0);
 	i32 startingI = a.words.size*64-1;
 	for (; (a.words[startingI/64] & (1ull << startingI%64)) == 0;) { startingI--; }
 	BigInt shifted = divisor << startingI;
@@ -517,7 +517,7 @@ BigInt& BigInt::operator*=(u64 a) {
 	} else if (*this == 0) {
 		return *this;
 	}
-	BucketArray<u64, BIGINT_BUCKET_SIZE> wordsTemp = words;
+	StaticArray<u64, BIGINT_BUCKET_SIZE> wordsTemp = words;
 	words = {0};
 	for (i32 i = 0; i < wordsTemp.size; i++) {
 		u64 mul = (wordsTemp[i] & 0xFFFFFFFF) * (a & 0xFFFFFFFF);
@@ -617,7 +617,7 @@ void BigInt::QuotientAndRemainder(const BigInt &a, u64 b, BigInt *dstQuotient, u
 	}
 	const BigInt divisor(b);
 	BigInt taken(0u);
-	dstQuotient->words = BucketArray<u64, BIGINT_BUCKET_SIZE>(a.words.size, 0);
+	dstQuotient->words = StaticArray<u64, BIGINT_BUCKET_SIZE>(a.words.size, 0);
 	i32 startingI = dividend.words.size*64-1;
 	for (; startingI >= 0 && (dividend.words[startingI/64] & (1ull << startingI%64)) == 0;) { startingI--; }
 	BigInt shifted = divisor << startingI;

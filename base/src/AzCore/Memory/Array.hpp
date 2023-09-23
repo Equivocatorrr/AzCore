@@ -9,15 +9,11 @@
 
 #include "../basictypes.hpp"
 
-namespace AzCore {
-template <typename T, i32 allocTail=0>
-struct Array;
-}
 #include "StringCommon.hpp"
+#include "Util.hpp"
 #include <stdexcept> // std::out_of_range
 #include <initializer_list>
 #include <type_traits> // std::is_trivially_copyable
-#include <cstring> // memcpy
 
 namespace AzCore {
 
@@ -34,7 +30,7 @@ struct SimpleRange;
 	allocTail is the number of elements of type T to be set at the end of the valid data,
 	starting at data[size].
 	For an allocTail != 0, an associated StringTerminators must be declared for type T. */
-template <typename T, i32 allocTail>
+template <typename T, i32 allocTail=0>
 struct Array {
 	T *data;
 	i32 allocated;
@@ -348,20 +344,12 @@ struct Array {
 	}
 
 	const T &operator[](i32 index) const {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index >= size || index < 0) {
-			throw std::out_of_range("Array index is out of bounds");
-		}
-#endif
+		AzAssert(index < size && index >= 0, "Array index is out of bounds");
 		return data[index];
 	}
 
 	T &operator[](i32 index) {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index >= size || index < 0) {
-			throw std::out_of_range("Array index is out of bounds");
-		}
-#endif
+		AzAssert(index < size && index >= 0, "Array index is out of bounds");
 		return data[index];
 	}
 
@@ -459,8 +447,8 @@ struct Array {
 	}
 
 	inline void _Grow(i32 minSize) {
-	if (minSize > allocated) {
-			i32 growth = minSize + (minSize >> 1) + 4;
+		if (minSize > allocated) {
+			i32 growth = align((minSize + (minSize >> 1) + 4) * sizeof(T), 128) / sizeof(T);
 			Reserve(growth);
 		}
 	}
@@ -526,6 +514,10 @@ struct Array {
 		size = newSize;
 		_SetTerminator();
 		return *this;
+	}
+	
+	inline Array<T, allocTail>& Append(const T *string) {
+		return Append(SimpleRange<T>(string));
 	}
 
 	Array<T, allocTail>&

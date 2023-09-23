@@ -29,6 +29,7 @@ const vec3 colorHighlightHigh = {0.9f, 0.98f, 1.0f};
 
 void Gui::EventInitialize() {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Gui::EventInitialize)
+	GuiBasic::EventInitialize();
 	menuMain.Initialize();
 	menuSettings.Initialize();
 	menuPlay.Initialize();
@@ -38,16 +39,23 @@ void Gui::EventSync() {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Gui::EventSync)
 	GuiBasic::EventSync();
 	currentMenu = nextMenu;
-	switch (currentMenu) {
-	case Menu::MAIN:
-		menuMain.Update();
-		break;
-	case Menu::SETTINGS:
-		menuSettings.Update();
-		break;
-	case Menu::PLAY:
-		menuPlay.Update();
-		break;
+	if (console) {
+		sys->paused = true;
+	} else {
+		switch (currentMenu) {
+		case Menu::MAIN:
+			sys->paused = true;
+			menuMain.Update();
+			break;
+		case Menu::SETTINGS:
+			sys->paused = true;
+			menuSettings.Update();
+			break;
+		case Menu::PLAY:
+			sys->paused = false;
+			menuPlay.Update();
+			break;
+		}
 	}
 }
 
@@ -64,6 +72,7 @@ void Gui::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 		menuPlay.Draw(contexts.Back());
 		break;
 	}
+	GuiBasic::EventDraw(contexts);
 }
 
 void MainMenu::Initialize() {
@@ -156,6 +165,7 @@ void MainMenu::Update() {
 	}
 	if (buttonSettings->state.Released()) {
 		gui->nextMenu = Gui::Menu::SETTINGS;
+		gui->menuSettings.Reset();
 	}
 	if (buttonExit->state.Released()) {
 		sys->exit = true;
@@ -211,7 +221,7 @@ void SettingsMenu::Initialize() {
 
 	TextBox *textboxTemplate = new TextBox();
 	textboxTemplate->fontIndex = gui->fontIndex;
-	textboxTemplate->size.x = 64.0f;
+	textboxTemplate->size.x = 72.0f;
 	textboxTemplate->alignH = Rendering::RIGHT;
 	textboxTemplate->textFilter = TextFilterDigits;
 	textboxTemplate->textValidate = TextValidateNonempty;
@@ -220,28 +230,27 @@ void SettingsMenu::Initialize() {
 	sliderTemplate->fractionHeight = true;
 	sliderTemplate->fractionWidth = false;
 	sliderTemplate->size = vec2(116.0f, 1.0f);
-	sliderTemplate->valueMax = 100.0f;
+	sliderTemplate->valueMin = -60.0f;
+	sliderTemplate->valueMax = 0.0f;
+	sliderTemplate->valueTick = 3.0f;
+	sliderTemplate->valueTickShiftMult = 1.0f / 3.0f;
+	sliderTemplate->minOverride = true;
+	sliderTemplate->minOverrideValue = -INFINITY;
+	sliderTemplate->maxOverride = true;
+	sliderTemplate->maxOverrideValue = -0.0f;
 
 	textboxFramerate = new TextBox(*textboxTemplate);
-	textboxFramerate->string = ToWString(ToString((i32)Settings::ReadReal(Settings::sFramerate)));
+	textboxFramerate->stringSuffix = ToWString("fps");
 
 
 	for (i32 i = 0; i < 3; i++) {
 		textboxVolumes[i] = new TextBox(*textboxTemplate);
 		sliderVolumes[i] = new Slider(*sliderTemplate);
-		textboxVolumes[i]->textFilter = TextFilterDecimalsPositive;
-		textboxVolumes[i]->textValidate = TextValidateDecimalsPositive;
+		textboxVolumes[i]->stringSuffix = ToWString("dB");
+		textboxVolumes[i]->textFilter = TextFilterBasic;
+		textboxVolumes[i]->textValidate = TextValidateDecimalsNegativeAndInfinity;
 		sliderVolumes[i]->mirror = textboxVolumes[i];
 	}
-	f32 volumeMain = Settings::ReadReal(Settings::sVolumeMain);
-	f32 volumeMusic = Settings::ReadReal(Settings::sVolumeMusic);
-	f32 volumeEffects = Settings::ReadReal(Settings::sVolumeEffects);
-	textboxVolumes[0]->string = ToWString(ToString(volumeMain*100.0f, 10, 1));
-	textboxVolumes[1]->string = ToWString(ToString(volumeMusic*100.0f, 10, 1));
-	textboxVolumes[2]->string = ToWString(ToString(volumeEffects*100.0f, 10, 1));
-	sliderVolumes[0]->value = volumeMain*100.0f;
-	sliderVolumes[1]->value = volumeMusic*100.0f;
-	sliderVolumes[2]->value = volumeEffects*100.0f;
 
 	ListH *settingListTemplate = new ListH();
 	settingListTemplate->size.y = 0.0f;
@@ -342,6 +351,8 @@ void SettingsMenu::Initialize() {
 	delete settingTextTemplate;
 	delete sliderTemplate;
 	delete textboxTemplate;
+	
+	Reset();
 }
 
 u64 WStringToU64(WString str) {
@@ -354,11 +365,26 @@ u64 WStringToU64(WString str) {
 	return number;
 }
 
+void SettingsMenu::Reset() {
+	checkFullscreen->checked = Settings::ReadBool(Settings::sFullscreen);
+	checkVSync->checked = Settings::ReadBool(Settings::sVSync);
+	framerateHideable->hidden = Settings::ReadBool(Settings::sVSync);
+	textboxFramerate->string = ToWString(ToString((i32)Settings::ReadReal(Settings::sFramerate)));
+	f32 volumeMain = (f32)az::ampToDecibels(Settings::ReadReal(Settings::sVolumeMain));
+	f32 volumeMusic = (f32)az::ampToDecibels(Settings::ReadReal(Settings::sVolumeMusic));
+	f32 volumeEffects = (f32)az::ampToDecibels(Settings::ReadReal(Settings::sVolumeEffects));
+	sliderVolumes[0]->SetValue(volumeMain);
+	sliderVolumes[1]->SetValue(volumeMusic);
+	sliderVolumes[2]->SetValue(volumeEffects);
+	for (i32 i = 0; i < 3; i++) {
+		sliderVolumes[i]->UpdateMirror();
+	}
+}
+
 void SettingsMenu::Update() {
 	framerateHideable->hidden = checkVSync->checked;
 	screen.Update(vec2(0.0f), true);
 	if (buttonApply->state.Released()) {
-		sys->window.Fullscreen(checkFullscreen->checked);
 		Settings::SetBool(Settings::sFullscreen, checkFullscreen->checked);
 		Settings::SetBool(Settings::sVSync, checkVSync->checked);
 		u64 framerate = 60;
@@ -368,11 +394,11 @@ void SettingsMenu::Update() {
 		}
 		Settings::SetReal(Settings::sFramerate, (f64)framerate);
 		textboxFramerate->string = ToWString(ToString(framerate));
-		Settings::SetReal(Settings::sVolumeMain, f64(sliderVolumes[0]->value / 100.0f));
-		Settings::SetReal(Settings::sVolumeMusic, f64(sliderVolumes[1]->value / 100.0f));
-		Settings::SetReal(Settings::sVolumeEffects, f64(sliderVolumes[2]->value / 100.0f));
+		Settings::SetReal(Settings::sVolumeMain, f64(az::decibelsToAmp(sliderVolumes[0]->GetActualValue())));
+		Settings::SetReal(Settings::sVolumeMusic, f64(az::decibelsToAmp(sliderVolumes[1]->GetActualValue())));
+		Settings::SetReal(Settings::sVolumeEffects, f64(az::decibelsToAmp(sliderVolumes[2]->GetActualValue())));
 		for (i32 i = 0; i < 3; i++) {
-			textboxVolumes[i]->string = ToWString(ToString(sliderVolumes[i]->value, 10, 1));
+			sliderVolumes[i]->UpdateMirror();
 		}
 	}
 	if (buttonBack->state.Released()) {

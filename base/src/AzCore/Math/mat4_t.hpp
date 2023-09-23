@@ -278,6 +278,9 @@ extern template mat4_t<f64> mat4_t<f64>::Perspective(Radians64, f64, f64, f64);
 typedef mat4_t<f32> mat4;
 typedef mat4_t<f64> mat4d;
 
+typedef mat4_t<f32> mat4;
+typedef mat4_t<f64> mat4d;
+
 } // namespace AzCore
 
 template <typename T>

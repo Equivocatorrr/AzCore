@@ -68,6 +68,28 @@ Window::~Window() {
 
 i32 GetWindowDpi(Window *window);
 
+void UpdateRefreshRate(Window *window) {
+	static bool failed = false;
+	if (failed) return;
+	HMONITOR monitor = MonitorFromWindow(window->data->window, MONITOR_DEFAULTTOPRIMARY);
+	MONITORINFOEX monitorInfo;
+	monitorInfo.cbSize = sizeof(monitorInfo);
+	if (!GetMonitorInfo(monitor, &monitorInfo)) {
+		io::cerr.PrintLnDebug("GetMonitorInfo failed");
+		failed = true;
+		return;
+	}
+	DEVMODE devmode;
+	if (!EnumDisplaySettings(monitorInfo.szDevice, ENUM_CURRENT_SETTINGS, &devmode)) {
+		io::cerr.PrintLnDebug("EnumDisplaySettings failed");
+		failed = true;
+		return;
+	}
+	u32 refreshRateHz = devmode.dmDisplayFrequency;
+	window->refreshRate = refreshRateHz * 1000;
+	io::cout.PrintLnTrace("Got a refresh rate of ", FormatFloat((f32)window->refreshRate / 1000.0f, 10, 2), "Hz");
+}
+
 static void GetInputRepeatInfo(Input *input) {
 	if (input) {
 		// Supposedly this comes in with values between 0 and 3 inclusive where 0 is 250ms and 3 is 1s
@@ -374,8 +396,7 @@ bool Window::Open() {
 	rect.bottom = height;
 	AdjustWindowRect(&rect, WS_WINDOWED, FALSE);
 	focusedWindow = this;
-	data->window = CreateWindowEx(0, data->windowClassName.data, name.data, WS_WINDOWED, CW_USEDEFAULT, CW_USEDEFAULT,
-								  rect.right - rect.left, rect.bottom - rect.top, NULL, NULL, data->instance, 0);
+	data->window = CreateWindowEx(0, data->windowClassName.data, name.data, WS_WINDOWED, CW_USEDEFAULT, CW_USEDEFAULT, rect.right - rect.left, rect.bottom - rect.top, NULL, NULL, data->instance, 0);
 	if (data->window == NULL) {
 		error = "Failed to create window: ";
 		error += ToString((u32)GetLastError());
@@ -501,6 +522,7 @@ bool Window::Update() {
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
+	UpdateRefreshRate(this);
 	return true;
 }
 

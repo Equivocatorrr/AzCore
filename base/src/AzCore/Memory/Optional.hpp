@@ -107,7 +107,7 @@ public:
 	inline bool Exists() const {
 		return exists;
 	}
-	// This makes sure the value exists. If you need to check, use Exists().
+	// This creates the value if it doesn't exist. If you need to check, use Exists().
 	T& Value() {
 		if (!exists) {
 			new(bytes) T();
@@ -123,7 +123,7 @@ public:
 	T& ValueOrAssert() {
 		return *(T*)&std::as_const(*this).ValueOrAssert();
 	}
-	// This throws std:bad_optional_access if the value doesn't exist.
+	// This throws a std:runtime_error if the value doesn't exist.
 	const T& ValueOrThrow() const {
 		if (!exists) throw std::runtime_error("Optional value does not exist.");
 		return _Value();

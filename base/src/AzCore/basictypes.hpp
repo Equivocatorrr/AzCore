@@ -10,7 +10,7 @@ typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned int u32;
 typedef unsigned long long u64;
-typedef char i8;
+typedef signed char i8;
 typedef short i16;
 typedef int i32;
 typedef long long i64;
@@ -83,47 +83,49 @@ namespace AzCore {
 namespace AzCore {}
 namespace az = AzCore;
 
+#include <stdio.h>
+#include <stdlib.h>
+#ifdef __unix
+#include <execinfo.h>
+inline void PrintBacktrace(FILE *file) {
+	constexpr size_t stackSizeMax = 256;
+	void *array[stackSizeMax];
+	int size;
+
+	size = backtrace(array, stackSizeMax);
+	fprintf(file, "Backtrace:\n");
+	backtrace_symbols_fd(array, size, fileno(file));
+}
+inline void PrintBacktrace() {
+	PrintBacktrace(stderr);
+}
+#else
+inline void PrintBacktrace(FILE* file) { (void)file; }
+inline void PrintBacktrace() {}
+#endif // __unix
+constexpr void _Assert(bool condition, const char *file, const char *line, const char *message) {
+	if (!condition) {
+		fprintf(stderr, "\033[96m%s\033[0m:\033[96m%s\033[0m Assert failed: \033[91m%s\033[0m\n", file, line, message);
+		PrintBacktrace(stderr);
+		abort();
+	}
+}
+constexpr auto* _GetFileName(const char* const path) {
+	const auto* startPosition = path;
+	for (const auto* cur = path; *cur != '\0'; ++cur) {
+		if (*cur == '\\' || *cur == '/') startPosition = cur+1;
+	}
+	return startPosition;
+}
+#define STRINGIFY_DAMMIT(x) #x
+#define STRINGIFY(x) STRINGIFY_DAMMIT(x)
 #ifdef NDEBUG
 	#define AzAssert(condition, message)
 #else
-	#include <stdio.h>
-	#include <stdlib.h>
-	#ifdef __unix
-	#include <execinfo.h>
-	inline void PrintBacktrace(FILE *file) {
-		constexpr size_t stackSizeMax = 256;
-		void *array[stackSizeMax];
-		int size;
-
-		size = backtrace(array, stackSizeMax);
-		fprintf(file, "Backtrace:\n");
-		backtrace_symbols_fd(array, size, fileno(file));
-	}
-	inline void PrintBacktrace() {
-		PrintBacktrace(stderr);
-	}
-	#else
-	inline void PrintBacktrace(FILE* file) { (void)file; }
-	inline void PrintBacktrace() {}
-	#endif // __unix
-	constexpr void _Assert(bool condition, const char *file, const char *line, const char *message) {
-		if (!condition) {
-			fprintf(stderr, "\033[96m%s\033[0m:\033[96m%s\033[0m Assert failed: \033[91m%s\033[0m\n", file, line, message);
-			PrintBacktrace(stderr);
-			abort();
-		}
-	}
-	constexpr auto* _GetFileName(const char* const path) {
-		const auto* startPosition = path;
-		for (const auto* cur = path; *cur != '\0'; ++cur) {
-			if (*cur == '\\' || *cur == '/') startPosition = cur+1;
-		}
-		return startPosition;
-	}
-	#define STRINGIFY_DAMMIT(x) #x
-	#define STRINGIFY(x) STRINGIFY_DAMMIT(x)
 	#define AzAssert(condition, message) if (!(condition)) {_Assert(false, _GetFileName(__FILE__), STRINGIFY(__LINE__), (message));}
 #endif
+// Assert that persists in release mode
+#define AzAssertRel(condition, message) if (!(condition)) {_Assert(false, _GetFileName(__FILE__), STRINGIFY(__LINE__), (message));}
 
 #define AzPlacementNew(value, ...) new(&(value)) decltype(value)(__VA_ARGS__)
 

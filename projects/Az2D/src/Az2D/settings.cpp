@@ -31,6 +31,7 @@ Name sFramerate = "framerate";
 Name sVolumeMain = "volumeMain";
 Name sVolumeMusic = "volumeMusic";
 Name sVolumeEffects = "volumeEffects";
+Name sGuiScale = "guiScale";
 Name sLocaleOverride = "localeOverride";
 
 AStringMap<Setting> settings = {
@@ -41,6 +42,7 @@ AStringMap<Setting> settings = {
 	{sVolumeMain, Setting(1.0, 0.0, 1.0)},
 	{sVolumeMusic, Setting(1.0, 0.0, 1.0)},
 	{sVolumeEffects, Setting(1.0, 0.0, 1.0)},
+	{sGuiScale, Setting(1.0f, 0.5f, 3.0f)},
 	{sLocaleOverride, Setting(String())},
 };
 
@@ -135,7 +137,7 @@ bool GetKeyValuePair(SimpleRange<char> line, SimpleRange<char> &outKey, SimpleRa
 bool Load() {
 	Array<char> buffer = FileContents("settings.conf");
 	if (buffer.size == 0) {
-		az::io::cerr.PrintLn("Failed to load settings.conf");
+		az::io::cout.PrintLn("Failed to load settings.conf, using defaults");
 		return false;
 	}
 	Array<SimpleRange<char>> lines = SeparateByNewlines(buffer);

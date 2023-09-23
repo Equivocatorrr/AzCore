@@ -352,7 +352,7 @@ u64 pow(const u64& base, const u64& exponent) {
 #define TEST(expression) val = expression; cout.PrintLn(#expression " = ", val.HexString(), " = ", val.Digits());
 
 void BigIntTest() {
-	BigInt test(BucketArray<u64, BIGINT_BUCKET_SIZE>({0, 1}));
+	BigInt test(StaticArray<u64, BIGINT_BUCKET_SIZE>({0, 1}));
 	BigInt test2(2);
 	BigInt test3(0xffffffffffffffffULL);
 	BigInt val;

@@ -251,9 +251,9 @@ namespace vk {
 		// Configuration
 		VkFilter magFilter = VK_FILTER_LINEAR;
 		VkFilter minFilter = VK_FILTER_LINEAR;
-		VkSamplerAddressMode addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		VkSamplerAddressMode addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		VkSamplerAddressMode addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		VkSamplerAddressMode addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+		VkSamplerAddressMode addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+		VkSamplerAddressMode addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
 		u32 anisotropy = 1; // 1 is disabled, 4 is low, 8 is medium, and 16 is high
 		VkBorderColor borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
 		bool unnormalizedCoordinates = false;
@@ -262,7 +262,7 @@ namespace vk {
 		f32 mipLodBias = 0.0f;
 		f32 minLod = 0.0f;
 		// Change maxLod to an integer multiple of the number of mip levels you generate
-		f32 maxLod = 0.0f;
+		f32 maxLod = VK_LOD_CLAMP_NONE;
 
 		~Sampler();
 		void Init(Device *device, String debugMarker = String());
@@ -772,7 +772,7 @@ namespace vk {
 		} data;
 
 		// Configuration
-		VkSurfaceFormatKHR formatPreferred = {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR}; // You probably won't need to change this
+		VkSurfaceFormatKHR formatPreferred = {VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
 		bool vsync = true; // To determine the ideal present mode
 		VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		u32 imageCountPreferred = 2;

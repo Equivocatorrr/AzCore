@@ -15,6 +15,14 @@ namespace AzCore {
 
 namespace io {
 
+enum class LogLevel : u32 {
+	RELEASE=0,
+	DEBUG=1,
+	TRACE=2
+};
+
+extern LogLevel logLevel;
+
 /*  Use this to write any and all console output. */
 class Log {
 	FILE *mFile = nullptr;
@@ -23,7 +31,7 @@ class Log {
 	bool mLogFile = false;
 	bool mLogConsole = true;
 	bool mStartOnNewline = true;
-	String mIndentString = "    ";
+	String mIndentString = "\t";
 	Mutex mMutex;
 	String mPrepend;
 	String mFilename;
@@ -31,12 +39,12 @@ class Log {
 	inline void _HandleFile();
 
 	template<bool newline>
-	void _Print(SimpleRange<char> out);
+	void _Print(Str out);
 public:
 	i32 indent = 0;
 
 	Log() = default;
-	inline Log(String filename, bool useConsole=true, bool useFile=false, FILE *consoleFile=stdout) : Log() {
+	inline Log(Str filename, bool useConsole=true, bool useFile=false, FILE *consoleFile=stdout) : Log() {
 		mConsoleFile = consoleFile;
 		UseLogFile(useFile, filename);
 		mLogConsole = useConsole;
@@ -48,21 +56,7 @@ public:
 	Log(Log &&other) = default;
 	Log& operator=(Log &&other) = default;
 
-	Log& UseLogFile(bool useFile=true, SimpleRange<char> filename="") {
-		mFilename = filename;
-		u32 lastSlash = 0;
-		if (mFilename.size != 0) {
-			for (i32 i = 0; i < mFilename.size; i++) {
-				if (mFilename[i] == '\\' || mFilename[i] == '/') {
-					lastSlash = i+1;
-				}
-			}
-			mPrepend = Stringify("[", mFilename.GetRange(lastSlash, mFilename.size-lastSlash), "] ");
-			mPrepend.Resize(align(mPrepend.size, mIndentString.size), ' ');
-		}
-		mLogFile = useFile;
-		return *this;
-	}
+	Log& UseLogFile(bool useFile=true, Str filename="");
 
 	[[deprecated("NoLogFile() is deprecated, and Log by default doesn't use a file. Switch to UseLogFile(bool)")]]
 	void NoLogFile() {
@@ -84,7 +78,7 @@ public:
 		_Print<false>(out);
 		return *this;
 	}
-	inline Log& Print(SimpleRange<char> out) {
+	inline Log& Print(Str out) {
 		_Print<false>(out);
 		return *this;
 	}
@@ -101,7 +95,7 @@ public:
 		_Print<true>(out);
 		return *this;
 	}
-	inline Log& PrintLn(SimpleRange<char> out) {
+	inline Log& PrintLn(Str out) {
 		_Print<true>(out);
 		return *this;
 	}
@@ -116,10 +110,38 @@ public:
 		PrintLn(Stringify(std::forward<Args>(args)...));
 		return *this;
 	}
+	template <typename... Args>
+	inline Log& PrintDebug(Args&&... args) {
+		if ((u32)logLevel >= (u32)LogLevel::DEBUG) {
+			Print(Stringify(std::forward<Args>(args)...));
+		}
+		return *this;
+	}
+	template <typename... Args>
+	inline Log& PrintLnDebug(Args&&... args) {
+		if ((u32)logLevel >= (u32)LogLevel::DEBUG) {
+			PrintLn(Stringify(std::forward<Args>(args)...));
+		}
+		return *this;
+	}
+	template <typename... Args>
+	inline Log& PrintTrace(Args&&... args) {
+		if ((u32)logLevel >= (u32)LogLevel::TRACE) {
+			Print(Stringify(std::forward<Args>(args)...));
+		}
+		return *this;
+	}
+	template <typename... Args>
+	inline Log& PrintLnTrace(Args&&... args) {
+		if ((u32)logLevel >= (u32)LogLevel::TRACE) {
+			PrintLn(Stringify(std::forward<Args>(args)...));
+		}
+		return *this;
+	}
 	// Print without indenting or prepending on newlines
-	Log& PrintPlain(SimpleRange<char> out);
+	Log& PrintPlain(Str out);
 	// Print without indenting or prepending on newlines
-	Log& PrintLnPlain(SimpleRange<char> out);
+	Log& PrintLnPlain(Str out);
 
 	// Outputs count newlines (default 1).
 	Log& Newline(i32 count = 1);
@@ -146,7 +168,7 @@ public:
 		return *this;
 	}
 	// Changes the string we use for indenting. Default is 4 spaces.
-	inline Log& IndentString(SimpleRange<char> value) {
+	inline Log& IndentString(Str value) {
 		if (value.size == 0) value = " ";
 		mIndentString = value;
 		mPrepend.Resize(mFilename.size + 3);

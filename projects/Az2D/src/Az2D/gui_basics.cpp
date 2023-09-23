@@ -5,7 +5,10 @@
 
 #include "gui_basics.hpp"
 #include "game_systems.hpp"
+#include "settings.hpp"
 #include "profiling.hpp"
+#include "console_commands.hpp"
+#include "AzCore/Math/Color.hpp"
 
 namespace Az2D::Gui {
 
@@ -87,6 +90,26 @@ void GuiBasic::EventAssetsQueue() {
 	sys->assets.QueueFile(sndCheckboxOffDef.filename);
 }
 
+String FramerateSetter(void *userdata, String name, String argument) {
+	f32 real;
+	if (!StringToF32(argument, &real)) {
+		return Stringify(name, " expected a real number value");
+	}
+	real = clamp(real, 10.0f, 1000.0f);
+	Az2D::Settings::Name settingName = name;
+	Az2D::Settings::SetReal(settingName, real);
+	sys->SetFramerate(real);
+	return Stringify("set ", name, " to ", real);
+}
+
+void GuiBasic::EventInitialize() {
+	devConsole.Initialize();
+	Dev::AddGlobalVariable(Az2D::Settings::sDebugInfo.GetString(), "Whether to display frame rate and time information.", nullptr, Dev::defaultBoolSettingsGetter, Dev::defaultBoolSettingsSetter);
+	Dev::AddGlobalVariable(Az2D::Settings::sFullscreen.GetString(), "Whether the window should be fullscreen.", nullptr, Dev::defaultBoolSettingsGetter, Dev::defaultBoolSettingsSetter);
+	Dev::AddGlobalVariable(Az2D::Settings::sVSync.GetString(), "Whether to enable vertical sync.", nullptr, Dev::defaultBoolSettingsGetter, Dev::defaultBoolSettingsSetter);
+	Dev::AddGlobalVariable(Az2D::Settings::sFramerate.GetString(), "Target framerate when vsync is disabled.", nullptr, Dev::defaultRealSettingsGetter, FramerateSetter);
+}
+
 void AcquireSounds(Array<GuiBasic::SoundDef> &defs, Array<Sound::Source> &sources, Sound::MultiSource &multiSource) {
 	sources.Resize(defs.size);
 	multiSource.sources.Reserve(defs.size);
@@ -132,6 +155,131 @@ void GuiBasic::EventSync() {
 		usingGamepad = false;
 		usingArrows = true;
 	}
+	if (sys->Pressed(KC_KEY_GRAVE)) {
+		console = !console;
+		sys->input.typingString.Clear();
+		if (console) {
+			devConsole.textboxInput->entry = true;
+		}
+	}
+	if (console) {
+		devConsole.Update();
+	}
+}
+
+void GuiBasic::EventDraw(Array<Rendering::DrawingContext> &contexts) {
+	if (console) {
+		devConsole.Draw(contexts.Back());
+	}
+}
+
+void DevConsole::Initialize() {
+	ListV *listV = new ListV();
+	listV->color = ColorFromARGB(0xee0a1a1a);
+	listV->highlight = listV->color;
+	listV->SetSizeFraction(vec2(1.0f, 0.3f));
+	listV->padding = 8.0f;
+	listV->margin = 0.0f;
+	listV->scrollableY = false;
+	
+	ListV *outputListV = new ListV();
+	outputListV->color = vec4(0.0f);
+	outputListV->highlight = vec4(0.0f);
+	outputListV->SetSizeFraction(vec2(1.0f));
+	outputListV->padding = 0.0f;
+	outputListV->margin = 0.0f;
+	
+	AddWidget(listV, outputListV);
+	
+	consoleOutput = new Text();
+	consoleOutput->alignV = Rendering::BOTTOM;
+	consoleOutput->fontSize = 16.0f;
+	consoleOutput->margin = 0.0f;
+	
+	AddWidget(outputListV, consoleOutput);
+	
+	textboxInput = new TextBox();
+	textboxInput->minSize.y = 24.0f;
+	textboxInput->SetWidthFraction(1.0f);
+	textboxInput->colorBG = ColorFromARGB(0xff1a4033);
+	textboxInput->highlightBG = ColorFromARGB(0xff245947);
+	textboxInput->fontSize = 16.0f;
+	textboxInput->margin = 0.0f;
+	textboxInput->multiline = true;
+	
+	AddWidget(listV, textboxInput);
+	AddWidget(&screen, listV);
+}
+
+void DevConsole::Update() {
+	if (Az2D::Settings::ReadBool(Az2D::Settings::sDebugInfo)) {
+		screen.margin.y = 20.0f;
+	} else {
+		screen.margin.y = 0.0f;
+	}
+	if (sys->Pressed(KC_KEY_ENTER) && !(sys->Down(KC_KEY_LEFTSHIFT) || sys->Down(KC_KEY_RIGHTSHIFT))) {
+		for (i32 i = CONSOLE_COMMAND_OUTPUT_LINES_CAP-1; i > 0; i--) {
+			outputLines[i] = std::move(outputLines[i-1]);
+		}
+		recentCommand = -1;
+		// This clears the texbox string
+		outputLines[0] = ToWString(Dev::HandleCommand(FromWString(textboxInput->string)));
+		previousCommands[nextCommand] = textboxInput->string;
+		if (textboxInput->string.size != 0) {
+			nextCommand++;
+			textboxInput->string.ClearSoft();
+			textboxInput->cursor = 0;
+		}
+		sys->input.typingString.ClearSoft();
+		numCommandsInHistory++;
+		if (nextCommand == CONSOLE_COMMAND_HISTORY_CAP) {
+			nextCommand = 0;
+			numCommandsInHistory = CONSOLE_COMMAND_HISTORY_CAP;
+		}
+		consoleOutput->string.ClearSoft();
+		for (i32 i = CONSOLE_COMMAND_OUTPUT_LINES_CAP-1; i >= 0; i--) {
+			if (outputLines[i].size == 0) continue;
+			consoleOutput->string.Append(outputLines[i]);
+			consoleOutput->string.Append('\n');
+		}
+		if (consoleOutput->string.size > 0) consoleOutput->string.size--;
+	} else {
+		if (numCommandsInHistory > 0) {
+			bool changeCommand = false;
+			if ((recentCommand != -1 || textboxInput->string.size == 0) && (recentCommand == -1 || textboxInput->string == previousCommands[recentCommand])) {
+				if (sys->Pressed(KC_KEY_UP)) {
+					if (recentCommand == -1) {
+						recentCommand = nextCommand-1;
+					} else {
+						if (recentCommand == 0) {
+							recentCommand = numCommandsInHistory - 1;
+						} else {
+							recentCommand -= 1;
+						}
+					}
+					changeCommand = true;
+				} else if (sys->Pressed(KC_KEY_DOWN)) {
+					if (recentCommand >= numCommandsInHistory-1) {
+						textboxInput->string.ClearSoft();
+						textboxInput->cursor = 0;
+						recentCommand = -1;
+					} else {
+						recentCommand += 1;
+						changeCommand = true;
+					}
+				}
+			}
+			if (changeCommand) {
+				textboxInput->string = previousCommands[recentCommand];
+				textboxInput->cursor = textboxInput->string.size;
+			}
+		}
+		screen.Update(vec2(0.0f), false);
+	}
+}
+
+void DevConsole::Draw(Rendering::DrawingContext &context) {
+	screen.Draw(context);
 }
 
 
@@ -190,6 +338,9 @@ void Widget::PopScissor(Rendering::DrawingContext &context) const {
 void Widget::Update(vec2 pos, bool selected) {
 	pos += (margin + position) * scale;
 	positionAbsolute = pos;
+	if (selected && selectable) {
+		guiBasic->selectedCenter = positionAbsolute + sizeAbsolute * 0.5f;
+	}
 	highlighted = selected;
 	for (Widget* child : children) {
 		child->Update(pos, selected);
@@ -259,9 +410,9 @@ void Screen::UpdateSize(vec2 container, f32 _scale) {
 	}
 }
 
-List::List() : padding(8.0f), color(0.05f, 0.05f, 0.05f, 0.9f), highlight(0.05f, 0.05f, 0.05f, 0.9f), select(0.2f, 0.2f, 0.2f, 0.0f), selection(-2), selectionDefault(-1) { occludes = true; }
+List::List() : padding(8.0f), color(0.05f, 0.05f, 0.05f, 0.9f), highlight(0.05f, 0.05f, 0.05f, 0.9f), select(0.2f, 0.2f, 0.2f, 0.0f), selection(-2), selectionDefault(-1), scroll(0.0f), sizeContents(vec2(0.0f)), scrollableX(false), scrollableY(true) { occludes = true; }
 
-bool List::UpdateSelection(bool selected, BucketArray<u8, 4> keyCodeSelect, BucketArray<u8, 4> keyCodeBack, BucketArray<u8, 4> keyCodeIncrement, BucketArray<u8, 4> keyCodeDecrement) {
+bool List::UpdateSelection(bool selected, StaticArray<u8, 4> keyCodeSelect, StaticArray<u8, 4> keyCodeBack, StaticArray<u8, 4> keyCodeIncrement, StaticArray<u8, 4> keyCodeDecrement) {
 	highlighted = selected;
 	if (selected) {
 		bool select = false;
@@ -386,23 +537,22 @@ void ListV::UpdateSize(vec2 container, f32 _scale) {
 		for (Widget* child : children) {
 			child->UpdateSize(sizeForInheritance, scale);
 			vec2 childSize = child->GetSize();
-			sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + totalPadding.x);
+			sizeAbsolute.x = max(sizeAbsolute.x, max(childSize.x + child->position.x, 0.0f) + totalPadding.x);
 		}
 	}
 	sizeForInheritance = sizeAbsolute - totalPadding;
 	for (Widget* child : children) {
-		if (child->size.y == 0.0f) {
+		if (child->size.y == 0.0f || !child->fractionHeight) {
 			child->UpdateSize(sizeForInheritance, scale);
 			sizeForInheritance.y -= child->GetSize().y;
-		} else {
-			if (!child->fractionHeight) {
-				sizeForInheritance.y -= (child->size.y + child->margin.y * 2.0f) * child->scale;
-			}
 		}
 	}
+	sizeContents = vec2(0.0f);
 	for (Widget* child : children) {
 		child->UpdateSize(sizeForInheritance, scale);
 		vec2 childSize = child->GetSize();
+		sizeContents.x = max(sizeContents.x, childSize.x);
+		sizeContents.y += childSize.y;
 		if (size.x == 0.0f) {
 			sizeAbsolute.x = max(sizeAbsolute.x, childSize.x + totalPadding.x);
 		}
@@ -416,8 +566,19 @@ void ListV::UpdateSize(vec2 container, f32 _scale) {
 void ListV::Update(vec2 pos, bool selected) {
 	pos += (margin + position) * scale;
 	positionAbsolute = pos;
+	if (selected && selectable) {
+		guiBasic->selectedCenter = positionAbsolute + sizeAbsolute * 0.5f;
+	}
 	const bool mouseSelect = UpdateSelection(selected, {KC_GP_BTN_A, KC_KEY_ENTER}, {KC_GP_BTN_B, KC_KEY_ESC}, {KC_GP_AXIS_LS_DOWN, KC_KEY_DOWN}, {KC_GP_AXIS_LS_UP, KC_KEY_UP});
 	pos += padding * scale;
+	// Scrolling
+	vec2 sizeAvailable = sizeAbsolute - padding * 2.0f * scale;
+	vec2 scrollable = sizeContents - sizeAvailable;
+	scrollable.x = max(0.0f, scrollable.x);
+	scrollable.y = max(0.0f, scrollable.y);
+	if (!scrollableX) scrollable.x = 0.0f;
+	if (!scrollableY) scrollable.y = 0.0f;
+	pos -= scrollable * scroll;
 	if (mouseSelect) {
 		f32 childY = pos.y;
 		for (selection = 0; selection < children.size; selection++) {
@@ -442,12 +603,31 @@ void ListV::Update(vec2 pos, bool selected) {
 		child->Update(pos, selected && i == selection);
 		pos.y += child->GetSize().y;
 	}
+	{ // Scrolling
+		vec2 mouse = vec2(sys->input.cursor) / guiBasic->scale;
+		bool modifyScrollTarget = true;
+		if (guiBasic->usingMouse) {
+			scrollTarget = (mouse - positionAbsolute) / sizeAbsolute;
+		} else if (selection >= 0 && selection < children.size) {
+			scrollTarget = (guiBasic->selectedCenter - positionAbsolute) / sizeAbsolute;
+		} else {
+			modifyScrollTarget = false;
+		}
+		if (modifyScrollTarget) {
+			scrollTarget = (scrollTarget - 0.5f) * 2.0f + 0.5f;
+			scrollTarget.x = clamp01(scrollTarget.x);
+			scrollTarget.y = clamp01(scrollTarget.y);
+		}
+		scroll = decay(scroll, scrollTarget, 0.1f, sys->timestep);
+	}
 }
 
 ListH::ListH() {
 	color = vec4(0.0f, 0.0f, 0.0f, 0.9f);
 	highlight = vec4(0.1f, 0.1f, 0.1f, 0.9f);
 	occludes = true;
+	scrollableX = true;
+	scrollableY = false;
 }
 
 void ListH::UpdateSize(vec2 container, f32 _scale) {
@@ -471,23 +651,22 @@ void ListH::UpdateSize(vec2 container, f32 _scale) {
 		for (Widget* child : children) {
 			child->UpdateSize(sizeForInheritance, scale);
 			vec2 childSize = child->GetSize();
-			sizeAbsolute.y = max(sizeAbsolute.y, childSize.y + totalPadding.y);
+			sizeAbsolute.y = max(sizeAbsolute.y, max(childSize.y + child->position.y, 0.0f) + totalPadding.y);
 		}
 		sizeForInheritance = sizeAbsolute - totalPadding;
 	}
 	for (Widget* child : children) {
-		if (child->size.x == 0.0f) {
+		if (child->size.x == 0.0f || !child->fractionWidth) {
 			child->UpdateSize(sizeForInheritance, scale);
 			sizeForInheritance.x -= child->GetSize().x;
-		} else {
-			if (!child->fractionWidth) {
-				sizeForInheritance.x -= (child->size.x + child->margin.x * 2.0f) * child->scale;
-			}
 		}
 	}
+	sizeContents = vec2(0.0f);
 	for (Widget* child : children) {
 		child->UpdateSize(sizeForInheritance, scale);
 		vec2 childSize = child->GetSize();
+		sizeContents.x += childSize.x;
+		sizeContents.y = max(sizeContents.y, childSize.y);
 		if (size.x == 0.0f) {
 			sizeAbsolute.x += childSize.x;
 		}
@@ -501,8 +680,19 @@ void ListH::UpdateSize(vec2 container, f32 _scale) {
 void ListH::Update(vec2 pos, bool selected) {
 	pos += (margin + position) * scale;
 	positionAbsolute = pos;
+	if (selected && selectable) {
+		guiBasic->selectedCenter = positionAbsolute + sizeAbsolute * 0.5f;
+	}
 	const bool mouseSelect = UpdateSelection(selected, {KC_GP_BTN_A, KC_KEY_ENTER}, {KC_GP_BTN_B, KC_KEY_ESC}, {KC_GP_AXIS_LS_RIGHT, KC_KEY_RIGHT}, {KC_GP_AXIS_LS_LEFT, KC_KEY_LEFT});
 	pos += padding * scale;
+	// Scrolling
+	vec2 sizeAvailable = sizeAbsolute - padding * 2.0f * scale;
+	vec2 scrollable = sizeContents - sizeAvailable;
+	scrollable.x = max(0.0f, scrollable.x);
+	scrollable.y = max(0.0f, scrollable.y);
+	if (!scrollableX) scrollable.x = 0.0f;
+	if (!scrollableY) scrollable.y = 0.0f;
+	pos -= scrollable * scroll;
 	if (mouseSelect) {
 		f32 childX = pos.x;
 		for (selection = 0; selection < children.size; selection++) {
@@ -524,6 +714,19 @@ void ListH::Update(vec2 pos, bool selected) {
 		Widget *child = children[i];
 		child->Update(pos, selected && i == selection);
 		pos.x += child->GetSize().x;
+	}
+	{ // Scrolling
+		vec2 mouse = vec2(sys->input.cursor) / guiBasic->scale;
+		vec2 scrollTarget = vec2(0.0f);
+		if (guiBasic->usingMouse) {
+			scrollTarget = (mouse - positionAbsolute) / sizeAbsolute;
+		} else if (selection >= 0 && selection < children.size) {
+			scrollTarget = (guiBasic->selectedCenter - positionAbsolute) / sizeAbsolute;
+		}
+		scrollTarget = (scrollTarget - 0.5f) * 2.0f + 0.5f;
+		scrollTarget.x = clamp01(scrollTarget.x);
+		scrollTarget.y = clamp01(scrollTarget.y);
+		scroll = decay(scroll, scrollTarget, 0.1f, sys->timestep);
 	}
 }
 
@@ -601,6 +804,9 @@ void Switch::Update(vec2 pos, bool selected) {
 		}
 	} else {
 		pos += (margin + position) * scale;
+		if (selected && selectable) {
+			guiBasic->selectedCenter = positionAbsolute + sizeAbsolute * 0.5f;
+		}
 		highlighted = selected;
 		positionAbsolute = pos;
 		pos += padding * scale;
@@ -784,6 +990,9 @@ void Button::Update(vec2 pos, bool selected) {
 	pos += (margin + position) * scale;
 	f32 childScale = state.Down() ? 0.9f : 1.0f;
 	positionAbsolute = pos;
+	if (selected && selectable) {
+		guiBasic->selectedCenter = positionAbsolute + sizeAbsolute * 0.5f;
+	}
 	pos += padding * scale;
 	highlighted = selected;
 	{
@@ -991,7 +1200,7 @@ bool TextValidateDecimalsNegative(const WString &string) {
 }
 
 bool TextValidateDecimalsNegativeAndInfinity(const WString &string) {
-	static WString negInfinity = ToWString("-Infinity");
+	static WString negInfinity = ToWString("-Inf");
 	if (string == negInfinity) return true;
 	if (string.size == 0) return false;
 	if (string[0] != '-') return false;
@@ -1219,6 +1428,15 @@ void TextBox::Update(vec2 pos, bool selected) {
 				cursor++;
 				cursorBlinkTimer = 0.0f;
 			}
+		}
+	}
+	if (size.x != 0.0f && multiline) {
+		stringFormatted = sys->rendering.StringAddNewlines(string + stringSuffix, fontIndex, (sizeAbsolute.x - padding.x * 2.0f * scale) / fontSize);
+	} else {
+		stringFormatted = string + stringSuffix;
+	}
+	if (entry) {
+		if (multiline) {
 			if (sys->input.Repeated(KC_KEY_UP)) {
 				vec2 cursorPos = PositionFromCursor();
 				cursorPos.y -= fontSize * guiBasic->scale * Rendering::lineHeight * 0.5f;
@@ -1287,11 +1505,6 @@ void TextBox::Update(vec2 pos, bool selected) {
 				guiBasic->controlDepth = depth;
 			}
 		}
-	}
-	if (size.x != 0.0f && multiline) {
-		stringFormatted = sys->rendering.StringAddNewlines(string + stringSuffix, fontIndex, (sizeAbsolute.x - padding.x * 2.0f * scale) / fontSize);
-	} else {
-		stringFormatted = string + stringSuffix;
 	}
 	Widget::Update(pos, selected);
 	bool mouseover = MouseOver();
@@ -1369,10 +1582,13 @@ void TextBox::Draw(Rendering::DrawingContext &context) const {
 }
 
 Slider::Slider() :
-value(1.0f),                    valueMin(0.0f),
-valueMax(1.0f),                 mirror(nullptr),
+value(1.0f),
+valueMin(0.0f),                 valueMax(1.0f),
+valueStep(0.0f),
+valueTick(-0.1f),               valueTickShiftMult(0.1f),
 minOverride(false),             minOverrideValue(0.0f),
 maxOverride(false),             maxOverrideValue(1.0f),
+mirror(nullptr),                mirrorPrecision(1),
 colorBG(vec3(0.15f), 0.9f),     colorSlider(colorHighlightMedium, 1.0f),
 highlightBG(vec3(0.2f), 0.9f),  highlightSlider(colorHighlightHigh, 1.0f),
 grabbed(false), left(), right()
@@ -1431,8 +1647,9 @@ void Slider::Update(vec2 pos, bool selected) {
 		if (moved != 0.0f) updated = true;
 		value = clamp(value + moved, valueMin, valueMax);
 	}
-	if (!sys->Down(KC_KEY_LEFTSHIFT)) {
-		scale *= 10.0f;
+	scale = valueTick >= 0.0f ? valueTick : (valueMax - valueMin) * -valueTick;
+	if (sys->Down(KC_KEY_LEFTSHIFT)) {
+		scale *= valueTickShiftMult;
 	}
 	if (right.Repeated()) {
 		value = clamp(value + scale, valueMin, valueMax);
@@ -1480,19 +1697,22 @@ void Slider::SetValue(f32 newValue) {
 
 f32 Slider::GetActualValue() {
 	f32 actualValue;
-	if (minOverride && value == valueMin) {
-		actualValue = minOverrideValue;
-	} else if (maxOverride && value == valueMax) {
-		actualValue = maxOverrideValue;
+	if (valueStep != 0.0f) {
+		actualValue = valueMin + round((value - valueMin) / valueStep) * valueStep;
 	} else {
 		actualValue = value;
+	}
+	if (minOverride && abs(actualValue - valueMin) < 0.000001f) {
+		actualValue = minOverrideValue;
+	} else if (maxOverride && abs(actualValue - valueMax) < 0.000001f) {
+		actualValue = maxOverrideValue;
 	}
 	return actualValue;
 }
 
 void Slider::UpdateMirror() {
 	f32 actualValue = GetActualValue();
-	mirror->string = ToWString(ToString(actualValue, 10, 1));
+	mirror->string = ToWString(ToString(actualValue, 10, mirrorPrecision));
 	i32 dot = -1;
 	for (i32 i = 0; i < mirror->string.size; i++) {
 		char32 &c = mirror->string[i];
@@ -1507,9 +1727,9 @@ void Slider::UpdateMirror() {
 }
 
 Hideable::Hideable(Widget *child) : hidden(false), hiddenPrev(false) {
+	size = 0.0f;
 	margin = 0.0f;
 	AddWidget(this, child);
-	size = child->size; // We need to inherit this for Lists to work properly
 	fractionWidth = child->fractionWidth;
 	fractionHeight = child->fractionHeight;
 	occludes = child->occludes;
@@ -1522,7 +1742,6 @@ void Hideable::UpdateSize(vec2 container, f32 _scale) {
 		sizeAbsolute = 0.0f;
 	} else {
 		children[0]->UpdateSize(container, scale);
-		scale = children[0]->scale;
 		sizeAbsolute = children[0]->GetSize();
 	}
 }

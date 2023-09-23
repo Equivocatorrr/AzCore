@@ -2063,7 +2063,6 @@ failure:
 		renderPassInfo.pAttachments = data.attachmentDescriptions.data;
 		renderPassInfo.subpassCount = data.subpassDescriptions.size;
 		renderPassInfo.pSubpasses = data.subpassDescriptions.data;
-		renderPassInfo.subpassCount = data.subpassDescriptions.size;
 		renderPassInfo.dependencyCount = data.subpassDependencies.size;
 		renderPassInfo.pDependencies = data.subpassDependencies.data;
 

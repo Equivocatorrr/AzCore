@@ -4,13 +4,22 @@
 */
 
 #include "Log.hpp"
+#include "../Environment.hpp"
 
 namespace AzCore {
 
 namespace io {
 
+#ifndef NDEBUG
+LogLevel logLevel = LogLevel::DEBUG;
+#else
+LogLevel logLevel = LogLevel::RELEASE;
+#endif
+
 Log::~Log() {
-	if (mFile) fclose(mFile);
+	if (mFile) {
+		fclose(mFile);
+	}
 }
 
 Log::Log(const Log &other) {
@@ -32,6 +41,26 @@ Log& Log::operator=(const Log &other) {
 	indent = other.indent;
 	mPrepend = other.mPrepend;
 	mFilename = other.mFilename + "_d";
+	return *this;
+}
+
+Log& Log::UseLogFile(bool useFile, Str filename) {
+	mFilename = filename;
+	u32 lastSlash = 0;
+	if (filename.size != 0) {
+		for (i32 i = 0; i < filename.size; i++) {
+			if (filename[i] == '\\' || filename[i] == '/') {
+				lastSlash = i+1;
+			}
+		}
+		Str prepend = filename.SubRange(lastSlash, filename.size-lastSlash);
+		if (filename.size > 4 && filename.SubRange(filename.size-4, 4) == ".log") {
+			prepend = prepend.SubRange(0, prepend.size-4);
+		}
+		mPrepend = Stringify("[", prepend, "] ");
+		mPrepend.Resize(alignNonPowerOfTwo(mPrepend.size, mIndentString.size), ' ');
+	}
+	mLogFile = useFile;
 	return *this;
 }
 
@@ -57,7 +86,7 @@ inline void Log::_HandleFile() {
 	mOpenAttempt = true;
 }
 
-inline void Indent(String &str, i32 indent, String mIndentString) {
+inline void StringIndent(String &str, i32 indent, String mIndentString) {
 	if (str.size && indent) {
 		for (i32 i = 0; i < indent; i++) {
 			str.Append(mIndentString);
@@ -90,10 +119,10 @@ void Log::_Print(SimpleRange<char> out) {
 	if (mStartOnNewline && out.size && out[0] != '\n' && out[0] != '\r') {
 		if (mLogConsole) {
 			consoleOut = mPrepend;
-			Indent(consoleOut, indent, mIndentString);
+			StringIndent(consoleOut, indent, mIndentString);
 		}
 		if (mLogFile) {
-			Indent(fileOut, indent, mIndentString);
+			StringIndent(fileOut, indent, mIndentString);
 		}
 	}
 	i32 i = 0;
@@ -106,13 +135,13 @@ void Log::_Print(SimpleRange<char> out) {
 				consoleOut += range;
 				if (i < out.size-1) {
 					consoleOut += mPrepend;
-					Indent(consoleOut, indent, mIndentString);
+					StringIndent(consoleOut, indent, mIndentString);
 				}
 			}
 			if (mLogFile) {
 				fileOut += range;
 				if (i < out.size-1) {
-					Indent(fileOut, indent, mIndentString);
+					StringIndent(fileOut, indent, mIndentString);
 				}
 			}
 			last = i+1;
@@ -200,8 +229,8 @@ Log& Log::Newline(i32 count) {
 	return *this;
 }
 
-Log cout = Log(String());
-Log cerr = Log(String(), true, false, stderr);
+Log cout = Log(Str());
+Log cerr = Log("stderr.log", true, true, stderr);
 
 } // namespace io
 

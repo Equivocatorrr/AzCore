@@ -96,12 +96,12 @@ constexpr T square(T a) {
 
 template <typename T>
 constexpr T min(T a, T b) {
-	return (T)(a > b) * b + (T)(b >= a) * a;
+	return a <= b ? a : b;
 }
 
 template <typename T>
 constexpr T max(T a, T b) {
-	return (T)(a > b) * a + (T)(b >= a) * b;
+	return a >= b ? a : b;
 }
 
 inline f32 min(f32 a, f32 b) {
@@ -141,16 +141,6 @@ constexpr T min(T a, T b, Args... c) {
 
 template <typename T>
 constexpr T clamp(T a, T min, T max) {
-	AzAssert(min <= max, "in clamp(): min > max. Maybe you meant to use median()?");
-	return max * T(a > max) + min * T(a < min) + a * T(a <= max && a >= min);
-}
-
-inline f32 clamp(f32 a, f32 min, f32 max) {
-	AzAssert(min <= max, "in clamp(): min > max. Maybe you meant to use median()?");
-	return ::min(::max(a, min), max);
-}
-
-inline f64 clamp(f64 a, f64 min, f64 max) {
 	AzAssert(min <= max, "in clamp(): min > max. Maybe you meant to use median()?");
 	return ::min(::max(a, min), max);
 }

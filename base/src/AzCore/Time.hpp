@@ -9,7 +9,7 @@
 #include "basictypes.hpp"
 #include <chrono>
 #include "Memory/String.hpp"
-#include "Memory/BucketArray.hpp"
+#include "Memory/StaticArray.hpp"
 
 namespace AzCore {
 
@@ -29,7 +29,7 @@ String FormatTime(Nanoseconds time);
 // times are measured in milliseconds
 struct FrametimeCounter {
 	static constexpr i32 totalFrames = 30;
-	BucketArray<f32, totalFrames> frametimes = BucketArray<f32, totalFrames>(totalFrames, 16.6666f);
+	StaticArray<f32, totalFrames> frametimes = StaticArray<f32, totalFrames>(totalFrames, 16.6666f);
 	i32 frame = 0;
 	ClockTime lastTime = Clock::now();
 	inline void Update() {

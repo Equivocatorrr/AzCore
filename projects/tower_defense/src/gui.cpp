@@ -22,6 +22,9 @@ const vec3 colorHighlightLow = {0.2f, 0.45f, 0.5f};
 const vec3 colorHighlightMedium = {0.4f, 0.9f, 1.0f};
 const vec3 colorHighlightHigh = {0.9f, 0.98f, 1.0f};
 
+const f32 backgroundOpacity = 0.7f;
+const f32 buttonBaseOpacity = 0.4f;
+
 Gui::Gui() {
 	gui = this;
 }
@@ -37,6 +40,7 @@ void Gui::EventAssetsAcquire() {
 }
 
 void Gui::EventInitialize() {
+	GuiBasic::EventInitialize();
 	menuMain.Initialize();
 	menuSettings.Initialize();
 	menuPlay.Initialize();
@@ -45,17 +49,31 @@ void Gui::EventInitialize() {
 void Gui::EventSync() {
 	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Gui::EventSync)
 	GuiBasic::EventSync();
-	currentMenu = nextMenu;
-	switch (currentMenu) {
-	case Menu::MAIN:
-		menuMain.Update();
-		break;
-	case Menu::SETTINGS:
-		menuSettings.Update();
-		break;
-	case Menu::PLAY:
-		menuPlay.Update();
-		break;
+	static bool wasPaused;
+	static bool once = true;
+	if (console) {
+		if (once) {
+			wasPaused = sys->paused;
+			once = false;
+		}
+		sys->paused = true;
+	} else {
+		if (!once) {
+			sys->paused = wasPaused;
+			once = true;
+		}
+		currentMenu = nextMenu;
+		switch (currentMenu) {
+		case Menu::MAIN:
+			menuMain.Update();
+			break;
+		case Menu::SETTINGS:
+			menuSettings.Update();
+			break;
+		case Menu::PLAY:
+			menuPlay.Update();
+			break;
+		}
 	}
 }
 
@@ -72,6 +90,7 @@ void Gui::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 		menuPlay.Draw(contexts.Back());
 		break;
 	}
+	GuiBasic::EventDraw(contexts);
 	if (usingMouse) {
 		sys->rendering.DrawQuad(contexts.Back(), sys->input.cursor, vec2(32.0f * scale), vec2(1.0f), vec2(0.5f), 0.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), texCursor);
 	}
@@ -79,79 +98,62 @@ void Gui::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 
 void MainMenu::Initialize() {
 	ListV *listV = new ListV();
-	listV->color = vec4(0.0f);
-	listV->highlight = vec4(0.0f);
-
-	Widget *spacer = new Widget();
-	spacer->size.y = 0.3f;
-	AddWidget(listV, spacer);
-
+	listV->SetWidthContents();
+	listV->SetHeightFraction(1.0f);
+	listV->padding = vec2(40.0f);
+	listV->color = 0.0f;
+	listV->highlight = 0.0f;
+	
+	constexpr f32 slant = 32.0f;
+	
 	Text *title = new Text();
+	title->position.x = 4.0f * slant;
 	title->alignH = Rendering::CENTER;
 	title->bold = true;
 	title->color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	title->colorOutline = vec4(1.0f);
 	title->outline = true;
-	title->fontSize = 64.0f;
+	title->fontSize = 48.0f;
 	title->fontIndex = guiBasic->fontIndex;
 	title->string = sys->ReadLocale("AzCore Tower Defense");
+	title->SetWidthPixel(256.0f);
+	title->SetHeightContents();
 	AddWidget(listV, title);
-
-	spacer = new Widget();
-	spacer->size.y = 0.4f;
+	
+	Widget *spacer = new Widget();
+	spacer->size.y = 1.0f;
 	AddWidget(listV, spacer);
+	
+	Button buttonTemplate;
+	buttonTemplate.SetSizePixel(vec2(256.0f, 64.0f));
+	buttonTemplate.margin = vec2(16.0f);
+	buttonTemplate.padding = vec2(16.0f);
+	buttonTemplate.colorBG = vec4(vec3(0.0f), buttonBaseOpacity);
 
-	ListV *buttonList = new ListV();
-	buttonList->fractionWidth = false;
-	buttonList->size = vec2(500.0f, 0.0f);
-	buttonList->padding = vec2(16.0f);
-
-	buttonContinue = new Button();
-	buttonContinue->AddDefaultText(sys->ReadLocale("Continue"));
-	buttonContinue->size.y = 64.0f;
-	buttonContinue->fractionHeight = false;
-	buttonContinue->margin = vec2(16.0f);
+	buttonContinue = new Button(buttonTemplate);
+	buttonContinue->position.x = 3.0f * slant;
+	buttonContinue->AddDefaultText(sys->ReadLocale("Continue"))->alignH = Rendering::LEFT;
 	buttonContinue->keycodeActivators = {KC_KEY_ESC};
 
 	continueHideable = new Hideable(buttonContinue);
 	continueHideable->hidden = true;
-	AddWidget(buttonList, continueHideable);
+	AddWidget(listV, continueHideable);
 
-	buttonNewGame = new Button();
-	buttonNewGame->AddDefaultText(sys->ReadLocale("New Game"));
-	buttonNewGame->size.y = 64.0f;
-	buttonNewGame->fractionHeight = false;
-	buttonNewGame->margin = vec2(16.0f);
-	AddWidget(buttonList, buttonNewGame);
+	buttonNewGame = new Button(buttonTemplate);
+	buttonNewGame->position.x = 2.0f * slant;
+	buttonNewGame->AddDefaultText(sys->ReadLocale("New Game"))->alignH = Rendering::LEFT;
+	AddWidget(listV, buttonNewGame);
 
-	buttonSettings = new Button();
-	buttonSettings->AddDefaultText(sys->ReadLocale("Settings"));
-	buttonSettings->size.y = 64.0f;
-	buttonSettings->fractionHeight = false;
-	buttonSettings->margin = vec2(16.0f);
-	AddWidget(buttonList, buttonSettings);
+	buttonSettings = new Button(buttonTemplate);
+	buttonSettings->position.x = slant;
+	buttonSettings->AddDefaultText(sys->ReadLocale("Settings"))->alignH = Rendering::LEFT;
+	AddWidget(listV, buttonSettings);
 
-	buttonExit = new Button();
-	buttonExit->AddDefaultText(sys->ReadLocale("Exit"));
-	buttonExit->size.y = 64.0f;
-	buttonExit->fractionHeight = false;
-	buttonExit->margin = vec2(16.0f);
+	buttonExit = new Button(buttonTemplate);
+	buttonExit->AddDefaultText(sys->ReadLocale("Exit"))->alignH = Rendering::LEFT;
 	buttonExit->highlightBG = vec4(colorBack, 0.9f);
-	AddWidget(buttonList, buttonExit);
-
-	ListH *spacingList = new ListH();
-	spacingList->color = vec4(0.0f);
-	spacingList->highlight = vec4(0.0f);
-	spacingList->size.y = 0.0f;
-
-	spacer = new Widget();
-	spacer->size.x = 0.5f;
-	AddWidget(spacingList, spacer);
-
-	AddWidgetAsDefault(spacingList, buttonList);
-
-	AddWidgetAsDefault(listV, spacingList);
-
+	AddWidget(listV, buttonExit);
+	
 	AddWidget(&screen, listV);
 }
 
@@ -166,6 +168,7 @@ void MainMenu::Update() {
 	}
 	if (buttonSettings->state.Released()) {
 		gui->nextMenu = Gui::Menu::SETTINGS;
+		gui->menuSettings.Reset();
 	}
 	if (buttonExit->state.Released()) {
 		sys->exit = true;
@@ -176,14 +179,32 @@ void MainMenu::Draw(Rendering::DrawingContext &context) {
 	screen.Draw(context);
 }
 
+void SettingsMenu::Reset() {
+	checkFullscreen->checked = Settings::ReadBool(Settings::sFullscreen);
+	checkVSync->checked = Settings::ReadBool(Settings::sVSync);
+	framerateHideable->hidden = Settings::ReadBool(Settings::sVSync);
+	textboxFramerate->string = ToWString(ToString((i32)Settings::ReadReal(Settings::sFramerate)));
+	f32 volumeMain = (f32)az::ampToDecibels(Settings::ReadReal(Settings::sVolumeMain));
+	f32 volumeMusic = (f32)az::ampToDecibels(Settings::ReadReal(Settings::sVolumeMusic));
+	f32 volumeEffects = (f32)az::ampToDecibels(Settings::ReadReal(Settings::sVolumeEffects));
+	sliderVolumes[0]->SetValue(volumeMain);
+	sliderVolumes[1]->SetValue(volumeMusic);
+	sliderVolumes[2]->SetValue(volumeEffects);
+	for (i32 i = 0; i < 3; i++) {
+		sliderVolumes[i]->UpdateMirror();
+	}
+	f32 guiScale = Settings::ReadReal(Settings::sGuiScale)*100.0f;
+	sliderGuiScale->SetValue(guiScale);
+	sliderGuiScale->UpdateMirror();
+}
+
 void SettingsMenu::Initialize() {
 	ListV *listV = new ListV();
+	listV->SetWidthPixel(500.0f);
+	listV->SetHeightFraction(1.0f);
+	listV->padding = vec2(40.0f);
 	listV->color = vec4(0.0f);
 	listV->highlight = vec4(0.0f);
-
-	Widget *spacer = new Widget();
-	spacer->size.y = 0.3f;
-	AddWidget(listV, spacer);
 
 	Text *title = new Text();
 	title->alignH = Rendering::CENTER;
@@ -194,24 +215,21 @@ void SettingsMenu::Initialize() {
 	title->fontSize = 64.0f;
 	title->fontIndex = gui->fontIndex;
 	title->string = sys->ReadLocale("Settings");
+	title->SetWidthFraction(1.0f);
+	title->SetHeightContents();
 	AddWidget(listV, title);
-
-	spacer = new Widget();
-	spacer->size.y = 0.4f;
+	
+	Widget *spacer = new Widget();
+	spacer->size.y = 1.0f;
 	AddWidget(listV, spacer);
 
-	ListV *actualList = new ListV();
-	actualList->fractionWidth = false;
-	actualList->size.x = 500.0f;
-	actualList->size.y = 0.0f;
-	actualList->padding = vec2(24.0f);
-
-	Text *settingTextTemplate = new Text();
-	settingTextTemplate->fontIndex = gui->fontIndex;
-	settingTextTemplate->fontSize = 20.0f;
-	settingTextTemplate->fractionHeight = true;
-	settingTextTemplate->size.y = 1.0f;
-	settingTextTemplate->alignV = Rendering::CENTER;
+	Text settingTextTemplate;
+	settingTextTemplate.fontIndex = gui->fontIndex;
+	settingTextTemplate.fontSize = 20.0f;
+	settingTextTemplate.padding = 2.0f;
+	settingTextTemplate.paddingEM = false;
+	settingTextTemplate.SetHeightContents();
+	settingTextTemplate.alignV = Rendering::CENTER;
 
 	checkFullscreen = new Checkbox();
 	checkFullscreen->checked = Settings::ReadBool(Settings::sFullscreen);
@@ -219,58 +237,81 @@ void SettingsMenu::Initialize() {
 	checkVSync = new Checkbox();
 	checkVSync->checked = Settings::ReadBool(Settings::sVSync);
 
-	TextBox *textboxTemplate = new TextBox();
-	textboxTemplate->fontIndex = gui->fontIndex;
-	textboxTemplate->size.x = 64.0f;
-	textboxTemplate->alignH = Rendering::RIGHT;
-	textboxTemplate->textFilter = TextFilterDigits;
-	textboxTemplate->textValidate = TextValidateNonempty;
+	TextBox textboxTemplate;
+	textboxTemplate.fontIndex = gui->fontIndex;
+	textboxTemplate.SetWidthPixel(64.0f);
+	textboxTemplate.SetHeightFraction(1.0f);
+	textboxTemplate.alignH = Rendering::RIGHT;
+	textboxTemplate.fontSize = 20.0f;
+	textboxTemplate.textFilter = TextFilterDigits;
+	textboxTemplate.textValidate = TextValidateNonempty;
+	textboxTemplate.stringSuffix = ToWString("%");
+	textboxTemplate.colorBG = vec4(vec3(0.0f), buttonBaseOpacity);
 
-	Slider *sliderTemplate = new Slider();
-	sliderTemplate->fractionHeight = true;
-	sliderTemplate->fractionWidth = false;
-	sliderTemplate->size = vec2(116.0f, 1.0f);
-	sliderTemplate->valueMax = 100.0f;
+	Slider sliderTemplate;
+	sliderTemplate.SetWidthPixel(116.0f);
+	sliderTemplate.SetHeightFraction(1.0f);
+	sliderTemplate.valueMin = -60.0f;
+	sliderTemplate.valueMax = 0.0f;
+	sliderTemplate.valueStep = 1.0f;
+	sliderTemplate.valueTick = 3.0f;
+	sliderTemplate.valueTickShiftMult = 1.0f / 3.0f;
+	sliderTemplate.minOverride = true;
+	sliderTemplate.minOverrideValue = -INFINITY;
+	sliderTemplate.maxOverride = true;
+	sliderTemplate.maxOverrideValue = -0.0f;
+	sliderTemplate.mirrorPrecision = 0;
+	sliderTemplate.colorBG = vec4(vec3(0.0f), buttonBaseOpacity);
 
-	textboxFramerate = new TextBox(*textboxTemplate);
+	textboxFramerate = new TextBox(textboxTemplate);
 	textboxFramerate->string = ToWString(ToString((i32)Settings::ReadReal(Settings::sFramerate)));
+	textboxFramerate->stringSuffix = ToWString("fps");
 
 
 	for (i32 i = 0; i < 3; i++) {
-		textboxVolumes[i] = new TextBox(*textboxTemplate);
-		sliderVolumes[i] = new Slider(*sliderTemplate);
-		textboxVolumes[i]->textFilter = TextFilterDecimalsPositive;
-		textboxVolumes[i]->textValidate = TextValidateDecimalsPositive;
+		textboxVolumes[i] = new TextBox(textboxTemplate);
+		sliderVolumes[i] = new Slider(sliderTemplate);
+		textboxVolumes[i]->stringSuffix = ToWString("dB");
+		textboxVolumes[i]->textFilter = TextFilterBasic;
+		textboxVolumes[i]->textValidate = TextValidateDecimalsNegativeAndInfinity;
 		sliderVolumes[i]->mirror = textboxVolumes[i];
 	}
-	f32 volumeMain = Settings::ReadReal(Settings::sVolumeMain);
-	f32 volumeMusic = Settings::ReadReal(Settings::sVolumeMusic);
-	f32 volumeEffects = Settings::ReadReal(Settings::sVolumeEffects);
-	textboxVolumes[0]->string = ToWString(ToString(volumeMain*100.0f, 10, 1));
-	textboxVolumes[1]->string = ToWString(ToString(volumeMusic*100.0f, 10, 1));
-	textboxVolumes[2]->string = ToWString(ToString(volumeEffects*100.0f, 10, 1));
-	sliderVolumes[0]->value = volumeMain*100.0f;
-	sliderVolumes[1]->value = volumeMusic*100.0f;
-	sliderVolumes[2]->value = volumeEffects*100.0f;
+	
+	f32 guiScale = Settings::ReadReal(Settings::sGuiScale);
+	textboxGuiScale = new TextBox(textboxTemplate);
+	textboxGuiScale->textFilter = TextFilterDigits;
+	textboxGuiScale->textValidate = TextValidateNonempty;
+	sliderGuiScale = new Slider(sliderTemplate);
+	sliderGuiScale->minOverride = false;
+	sliderGuiScale->maxOverride = false;
+	sliderGuiScale->value = guiScale*100.0f;
+	sliderGuiScale->valueMax = 300.0f;
+	sliderGuiScale->valueMin = 50.0f;
+	sliderGuiScale->valueTick = 25.0f;
+	sliderGuiScale->valueTickShiftMult = 0.2f;
+	sliderGuiScale->mirror = textboxGuiScale;
 
-	ListH *settingListTemplate = new ListH();
-	settingListTemplate->size.y = 0.0f;
-	settingListTemplate->margin = vec2(8.0f);
-	settingListTemplate->padding = vec2(0.0f);
+	ListH settingListTemplate;
+	settingListTemplate.SetHeightContents();
+	settingListTemplate.margin = vec2(8.0f);
+	settingListTemplate.padding = vec2(0.0f);
+	settingListTemplate.color = vec4(vec3(0.0f), backgroundOpacity);
 
-	Array<Widget*> settingListItems = {
+	StaticArray<Widget*, 16> settingListItems = {
 		checkFullscreen, nullptr,
-		checkVSync, nullptr,
 		textboxFramerate, nullptr,
+		checkVSync, nullptr,
+		sliderGuiScale, textboxGuiScale,
 		nullptr, nullptr,
 		sliderVolumes[0], textboxVolumes[0],
 		sliderVolumes[1], textboxVolumes[1],
-		sliderVolumes[2], textboxVolumes[2]
+		sliderVolumes[2], textboxVolumes[2],
 	};
 	const char *settingListNames[] = {
 		"Fullscreen",
-		"VSync",
 		"Framerate",
+		"VSync",
+		"GUI Scale",
 		"Volume",
 		"Main",
 		"Music",
@@ -279,14 +320,14 @@ void SettingsMenu::Initialize() {
 
 	for (i32 i = 0; i < settingListItems.size; i+=2) {
 		if (settingListItems[i] == nullptr) {
-			Text *settingText = new Text(*settingTextTemplate);
+			Text *settingText = new Text(settingTextTemplate);
 			settingText->string = sys->ReadLocale(settingListNames[i / 2]);
 			settingText->alignH = Rendering::CENTER;
 			settingText->fontSize = 24.0f;
-			AddWidget(actualList, settingText);
+			AddWidget(listV, settingText);
 		} else {
-			ListH *settingList = new ListH(*settingListTemplate);
-			Text *settingText = new Text(*settingTextTemplate);
+			ListH *settingList = new ListH(settingListTemplate);
+			Text *settingText = new Text(settingTextTemplate);
 			settingText->string = sys->ReadLocale(settingListNames[i / 2]);
 			AddWidget(settingList, settingText);
 			AddWidgetAsDefault(settingList, settingListItems[i]);
@@ -296,63 +337,45 @@ void SettingsMenu::Initialize() {
 				AddWidget(settingList, settingListItems[i+1]);
 			}
 
-			if (i == 4) {
+			if (i == 2) {
 				// Hideable Framerate
 				framerateHideable = new Hideable(settingList);
 				framerateHideable->hidden = Settings::ReadBool(Settings::sVSync);
-				AddWidget(actualList, framerateHideable);
+				AddWidget(listV, framerateHideable);
 			} else {
-				AddWidget(actualList, settingList);
+				AddWidget(listV, settingList);
 			}
 		}
 	}
 
 	ListH *buttonList = new ListH();
-	buttonList->size.y = 0.0f;
+	buttonList->SetHeightContents();
 	buttonList->margin = vec2(0.0f);
 	buttonList->padding = vec2(0.0f);
 	buttonList->color = vec4(0.0f);
 	buttonList->highlight = vec4(0.0f);
+	
+	Button buttonTemplate;
+	buttonTemplate.SetWidthFraction(1.0f / 2.0f);
+	buttonTemplate.SetHeightPixel(64.0f);
+	buttonTemplate.margin = vec2(8.0f);
+	buttonTemplate.colorBG = vec4(vec3(0.0f), buttonBaseOpacity);
 
-	buttonBack = new Button();
+	buttonBack = new Button(buttonTemplate);
 	buttonBack->AddDefaultText(sys->ReadLocale("Back"));
-	buttonBack->size.x = 1.0f / 2.0f;
-	buttonBack->size.y = 64.0f;
-	buttonBack->fractionHeight = false;
-	buttonBack->margin = vec2(8.0f);
 	buttonBack->highlightBG = vec4(colorBack, 0.9f);
 	buttonBack->keycodeActivators = {KC_GP_BTN_B, KC_KEY_ESC};
 	AddWidget(buttonList, buttonBack);
 
-	buttonApply = new Button();
+	buttonApply = new Button(buttonTemplate);
 	buttonApply->AddDefaultText(sys->ReadLocale("Apply"));
-	buttonApply->size.x = 1.0f / 2.0f;
-	buttonApply->size.y = 64.0f;
-	buttonApply->fractionHeight = false;
-	buttonApply->margin = vec2(8.0f);
 	AddWidgetAsDefault(buttonList, buttonApply);
 
-	AddWidget(actualList, buttonList);
-
-	ListH *spacingList = new ListH();
-	spacingList->color = vec4(0.0f);
-	spacingList->highlight = vec4(0.0f);
-	spacingList->size.y = 0.0f;
-
-	spacer = new Widget();
-	spacer->size.x = 0.5f;
-	AddWidget(spacingList, spacer);
-
-	AddWidgetAsDefault(spacingList, actualList);
-
-	AddWidgetAsDefault(listV, spacingList);
+	AddWidget(listV, buttonList);
 
 	AddWidget(&screen, listV);
-
-	delete settingListTemplate;
-	delete settingTextTemplate;
-	delete sliderTemplate;
-	delete textboxTemplate;
+	
+	Reset();
 }
 
 u64 WStringToU64(WString str) {
@@ -379,12 +402,10 @@ void SettingsMenu::Update() {
 		}
 		Settings::SetReal(Settings::sFramerate, (f64)framerate);
 		textboxFramerate->string = ToWString(ToString(framerate));
-		Settings::SetReal(Settings::sVolumeMain, f64(sliderVolumes[0]->value / 100.0f));
-		Settings::SetReal(Settings::sVolumeMusic, f64(sliderVolumes[1]->value / 100.0f));
-		Settings::SetReal(Settings::sVolumeEffects, f64(sliderVolumes[2]->value / 100.0f));
-		for (i32 i = 0; i < 3; i++) {
-			textboxVolumes[i]->string = ToWString(ToString(sliderVolumes[i]->value, 10, 1));
-		}
+		Settings::SetReal(Settings::sGuiScale, f64(sliderGuiScale->value / 100.0f));
+		Settings::SetReal(Settings::sVolumeMain, f64(az::decibelsToAmp(sliderVolumes[0]->GetActualValue())));
+		Settings::SetReal(Settings::sVolumeMusic, f64(az::decibelsToAmp(sliderVolumes[1]->GetActualValue())));
+		Settings::SetReal(Settings::sVolumeEffects, f64(az::decibelsToAmp(sliderVolumes[2]->GetActualValue())));
 	}
 	if (buttonBack->state.Released()) {
 		gui->nextMenu = Gui::Menu::MAIN;
@@ -400,7 +421,7 @@ void UpgradesMenu::Initialize() {
 	list->fractionWidth = false;
 	list->fractionHeight = false;
 	list->size = 0.0f;
-	list->color = vec4(vec3(0.05f), 0.8f);
+	list->color = vec4(vec3(0.0f), backgroundOpacity);
 	list->highlight = list->color;
 	list->padding *= 0.5f;
 
@@ -414,18 +435,18 @@ void UpgradesMenu::Initialize() {
 	listStats->color = 0.0f;
 	listStats->highlight = 0.0f;
 
-	Text *titleText = new Text();
-	titleText->fontIndex = gui->fontIndex;
-	titleText->alignH = Rendering::CENTER;
-	titleText->alignV = Rendering::CENTER;
-	titleText->bold = true;
-	titleText->fontSize = 24.0f;
-	titleText->fractionWidth = true;
-	titleText->fractionHeight = false;
-	titleText->size.x = 1.0f;
-	titleText->size.y = 0.0f;
-	titleText->string = sys->ReadLocale("Info");
-	AddWidget(listStats, titleText);
+	towerName = new Text();
+	towerName->fontIndex = gui->fontIndex;
+	towerName->alignH = Rendering::CENTER;
+	towerName->alignV = Rendering::CENTER;
+	towerName->bold = true;
+	towerName->fontSize = 24.0f;
+	towerName->fractionWidth = true;
+	towerName->fractionHeight = false;
+	towerName->size.x = 1.0f;
+	towerName->size.y = 0.0f;
+	towerName->string = sys->ReadLocale("Info");
+	AddWidget(listStats, towerName);
 
 	ListH *selectedTowerPriorityList = new ListH();
 	selectedTowerPriorityList->fractionWidth = true;
@@ -449,6 +470,7 @@ void UpgradesMenu::Initialize() {
 	towerPriority->size.x = 0.5f;
 	towerPriority->size.y = 0.0f;
 	towerPriority->padding = 0.0f;
+	towerPriority->color = vec4(vec3(0.0f), buttonBaseOpacity);
 	for (i32 i = 0; i < 6; i++) {
 		Text *priorityText = new Text();
 		priorityText->selectable = true;
@@ -484,7 +506,7 @@ void UpgradesMenu::Initialize() {
 	listUpgrades->highlight = 0.0f;
 	listUpgrades->selectionDefault = 1;
 
-	titleText = new Text();
+	Text *titleText = new Text();
 	titleText->fontIndex = gui->fontIndex;
 	titleText->alignH = Rendering::CENTER;
 	titleText->alignV = Rendering::CENTER;
@@ -558,6 +580,7 @@ void UpgradesMenu::Initialize() {
 		upgradeButton[i]->size.x = 0.25f;
 		upgradeButton[i]->size.y = 1.0f;
 		upgradeButton[i]->margin *= 0.5f;
+		upgradeButton[i]->colorBG = vec4(vec3(0.0f), buttonBaseOpacity);
 		Text *buttonText = upgradeButton[i]->AddDefaultText(sys->ReadLocale("Buy"));
 		buttonText->fontIndex = gui->fontIndex;
 		buttonText->fontSize = 18.0f;
@@ -590,13 +613,17 @@ inline String FloatToString(f32 in) {
 
 void UpgradesMenu::Update() {
 	if (entities->selectedTower != -1) {
-		hideable->hidden = false;
-		vec2 towerScreenPos = entities->WorldPosToScreen(entities->towers[entities->selectedTower].physical.pos) / gui->scale;
-		hideable->position = towerScreenPos - vec2(hideable->sizeAbsolute.x / 2.0f, 0.0f);
-
 		Entities::Tower &tower = entities->towers.GetMutable(entities->selectedTower);
+		hideable->hidden = false;
+		vec2 towerScreenPos = entities->WorldPosToScreen(tower.physical.pos) / gui->scale;
+		hideable->position = towerScreenPos - vec2(hideable->sizeAbsolute.x / 2.0f, 0.0f);
+		// We need to use median because in the case of very large UI scaling min could be > max.
+		hideable->position.x = median(hideable->position.x, gui->menuPlay.list->sizeAbsolute.x, screen.sizeAbsolute.x - hideable->sizeAbsolute.x);
+		hideable->position.y = median(hideable->position.y, 0.0f, screen.sizeAbsolute.y - hideable->sizeAbsolute.y);
+
 		towerPriorityHideable->hidden = !Entities::towerHasPriority[tower.type];
 		const Entities::TowerUpgradeables &upgradeables = Entities::towerUpgradeables[tower.type];
+		towerName->string = sys->ReadLocale(Entities::towerStrings[tower.type]);
 		for (i32 i = 0; i < 5; i++) {
 			upgradeHideable[i]->hidden = !upgradeables.data[i];
 		}
@@ -686,7 +713,7 @@ void UpgradesMenu::Update() {
 	} else {
 		hideable->hidden = true;
 	}
-	screen.Update(vec2(0.0f), !entities->focusMenu); // Hideable will handle selection culling
+	screen.Update(vec2(0.0f, 0.0f), !entities->focusMenu); // Hideable will handle selection culling
 }
 
 void UpgradesMenu::Draw(Rendering::DrawingContext &context) {
@@ -694,26 +721,14 @@ void UpgradesMenu::Draw(Rendering::DrawingContext &context) {
 }
 
 void PlayMenu::Initialize() {
-	ListH *screenListH = new ListH();
-	screenListH->fractionWidth = true;
-	screenListH->size.x = 1.0f;
-	screenListH->padding = vec2(0.0f);
-	screenListH->margin = vec2(0.0f);
-	screenListH->color = 0.0f;
-	screenListH->highlight = 0.0f;
-	screenListH->occludes = false;
-	AddWidget(&screen, screenListH);
-	Widget *spacer = new Widget();
-	spacer->fractionWidth = true;
-	spacer->size.x = 1.0f;
-	AddWidget(screenListH, spacer);
 	list = new ListV();
-	list->fractionHeight = true;
-	list->fractionWidth = false;
+	list->SetWidthPixel(300.0f);
+	list->SetHeightFraction(1.0f);
 	list->margin = 0.0f;
-	list->size = vec2(300.0f, 1.0f);
 	list->selectionDefault = 1;
-	AddWidgetAsDefault(screenListH, list);
+	list->color = vec4(vec3(0.0f), backgroundOpacity);
+	list->highlight = list->color;
+	AddWidget(&screen, list);
 
 	Text *towerHeader = new Text();
 	towerHeader->fontIndex = gui->fontIndex;
@@ -721,30 +736,27 @@ void PlayMenu::Initialize() {
 	towerHeader->string = sys->ReadLocale("Towers");
 	AddWidget(list, towerHeader);
 
-	ListH *gridBase = new ListH();
-	gridBase->fractionWidth = true;
-	gridBase->size.x = 1.0f;
-	gridBase->fractionHeight = false;
-	gridBase->size.y = 0.0f;
-	gridBase->padding = vec2(0.0f);
-	gridBase->margin = vec2(0.0f);
-	gridBase->color = 0.0f;
-	gridBase->highlight = 0.0f;
-	gridBase->selectionDefault = 0;
+	ListH gridBase;
+	gridBase.SetWidthFraction(1.0f);
+	gridBase.SetHeightContents();
+	gridBase.padding = vec2(0.0f);
+	gridBase.margin = vec2(0.0f);
+	gridBase.color = 0.0f;
+	gridBase.highlight = 0.0f;
+	gridBase.selectionDefault = 0;
 
-	Button *halfWidth = new Button();
-	halfWidth->fractionWidth = true;
-	halfWidth->size.x = 0.5f;
-	halfWidth->fractionHeight = false;
-	halfWidth->size.y = 32.0f;
+	Button halfWidth;
+	halfWidth.SetWidthFraction(0.5f);
+	halfWidth.SetHeightPixel(32.0f);
+	halfWidth.colorBG = vec4(vec3(0.0f), buttonBaseOpacity);
 
 	towerButtons.Resize(Entities::TOWER_MAX_RANGE + 1);
 	for (i32 i = 0; i < towerButtons.size; i+=2) {
-		ListH *grid = new ListH(*gridBase);
+		ListH *grid = new ListH(gridBase);
 		for (i32 j = 0; j < 2; j++) {
 			i32 index = i+j;
 			if (index > towerButtons.size) break;
-			towerButtons[index] = new Button(*halfWidth);
+			towerButtons[index] = new Button(halfWidth);
 			Text *buttonText = towerButtons[index]->AddDefaultText(sys->ReadLocale(Entities::towerStrings[index]));
 			buttonText->fontSize = 20.0f;
 			towerButtons[index]->highlightBG = Entities::Tower(Entities::TowerType(index)).color;
@@ -755,30 +767,25 @@ void PlayMenu::Initialize() {
 	}
 
 	towerInfo = new Text();
-	towerInfo->size.x = 1.0f;
+	towerInfo->SetHeightPixel(96.0f);
+	towerInfo->SetWidthFraction(1.0f);
 	towerInfo->color = vec4(1.0f);
 	towerInfo->fontIndex = gui->fontIndex;
 	towerInfo->fontSize = 18.0f;
 	towerInfo->string = ToWString("$MONEY");
 	AddWidget(list, towerInfo);
+	
+	AddWidget(list, new Widget());
 
-	spacer = new Widget();
-	spacer->fractionHeight = true;
-	spacer->size.y = 1.0f;
-	AddWidget(list, spacer);
+	Button fullWidth;
+	fullWidth.SetWidthFraction(1.0f);
+	fullWidth.SetHeightPixel(32.0f);
+	fullWidth.colorBG = vec4(vec3(0.0f), buttonBaseOpacity);
 
-	Button *fullWidth = new Button();
-	fullWidth->fractionWidth = true;
-	fullWidth->size.x = 1.0f;
-	fullWidth->fractionHeight = false;
-	fullWidth->size.y = 32.0f;
-
-	ListH *waveList = new ListH(*gridBase);
+	ListH *waveList = new ListH(gridBase);
 
 	waveTitle = new Text();
-	waveTitle->size.x = 0.5f;
-	waveTitle->size.y = 1.0f;
-	waveTitle->fractionHeight = true;
+	waveTitle->SetSizeFraction(vec2(0.5f, 1.0f));
 	waveTitle->alignV = Rendering::CENTER;
 	waveTitle->colorOutline = vec4(1.0f, 0.0f, 0.5f, 1.0f);
 	waveTitle->color = vec4(1.0f);
@@ -789,7 +796,7 @@ void PlayMenu::Initialize() {
 	waveTitle->margin.y = 0.0f;
 	waveTitle->string = ToWString("Nothing");
 	AddWidget(waveList, waveTitle);
-	buttonStartWave = new Button(*halfWidth);
+	buttonStartWave = new Button(halfWidth);
 	buttonTextStartWave = buttonStartWave->AddDefaultText(sys->ReadLocale("Start Wave"));
 	buttonTextStartWave->fontSize = 20.0f;
 	buttonStartWave->size.y = 32.0f;
@@ -799,21 +806,17 @@ void PlayMenu::Initialize() {
 	AddWidget(list, waveList);
 
 	waveInfo = new Text();
-	waveInfo->size.x = 1.0f;
+	waveInfo->SetWidthFraction(1.0f);
 	waveInfo->color = vec4(1.0f);
 	waveInfo->fontIndex = gui->fontIndex;
 	waveInfo->fontSize = 20.0f;
 	waveInfo->string = ToWString("Nothing");
 	AddWidget(list, waveInfo);
 
-	buttonMenu = new Button(*fullWidth);
+	buttonMenu = new Button(fullWidth);
 	buttonMenu->AddDefaultText(sys->ReadLocale("Menu"));
 	buttonMenu->keycodeActivators = {KC_GP_BTN_SELECT, KC_KEY_ESC};
 	AddWidget(list, buttonMenu);
-
-	delete gridBase;
-	delete halfWidth;
-	delete fullWidth;
 
 	upgradesMenu.Initialize();
 }

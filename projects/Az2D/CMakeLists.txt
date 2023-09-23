@@ -1,6 +1,8 @@
 add_library(Az2D STATIC
 	src/Az2D/assets.cpp
 	src/Az2D/assets.hpp
+	src/Az2D/console_commands.cpp
+	src/Az2D/console_commands.hpp
 	src/Az2D/entity_basics.cpp
 	src/Az2D/entity_basics.hpp
 	src/Az2D/settings.cpp

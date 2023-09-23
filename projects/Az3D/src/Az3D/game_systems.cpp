@@ -73,8 +73,13 @@ void UpdateLoop() {
 		if (frame == 0) {
 			sys->frametimes.Update();
 			if (vsync) {
-				// TODO: switch to polling current monitor refresh rate
-				sys->SetFramerate(clamp(1000.0f / sys->frametimes.AverageWithoutOutliers(), 30.0f, 300.0f), true);
+				f32 targetFramerate = clamp((f32)sys->window.refreshRate / 1000.0f, 30.0f, 300.0f);
+				f32 measuredFramerate = 1000.0f / sys->frametimes.AverageWithoutOutliers();
+				if (abs(measuredFramerate - targetFramerate) / targetFramerate > 0.05f) {
+					// We're not within 5% of our refresh rate, so fallback to measured framerate
+					targetFramerate = measuredFramerate;
+				}
+				sys->SetFramerate(targetFramerate, true);
 			}
 		}
 		if (abs(Nanoseconds(frameNext - Clock::now()).count()) >= 10000000) {

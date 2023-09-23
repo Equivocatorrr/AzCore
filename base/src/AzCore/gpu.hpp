@@ -217,6 +217,12 @@ void Deinitialize();
 // This can only error if Initialize was called before AddWindow
 [[nodiscard]] Result<Window*, String> AddWindow(io::Window *window, String tag = String());
 
+/* Note on Framebuffer Attachments:
+	If a Framebuffer contains a Window attachment, all other attachments will be automatically resized to match the Window's dimensions.
+	This is necessary because with XCB, our surface can change size between io::Window::Update() calls, making it impossible to handle image resizing externally without a race condition.
+	It's also just more convenient this way :)
+	For more complicated rendering with multiple Framebuffers feeding into each other, there will always be the possibility of some undesired scaling for one frame when resizing the window, but at least it won't crash in that case.
+*/
 
 void FramebufferAddImage(Framebuffer *framebuffer, Image *image);
 void FramebufferAddWindow(Framebuffer *framebuffer, Window *window);

@@ -12,6 +12,8 @@
 #include <AL/al.h>
 #include <AL/alc.h>
 
+#include <atomic>
+
 namespace Az3D::Assets {
 	struct Stream;
 }

@@ -31,7 +31,7 @@ bool Init(SimpleRange<char> windowTitle, Array<System*> systemsToRegister, bool 
 	}
 	sys->window.name = windowTitle;
 	sys->sound.name = windowTitle;
-	sys->rendering.data.instance.AppInfo(windowTitle.str, 1, 0, 0);
+	GPU::SetAppName(windowTitle.str);
 	sys->enableVulkanValidation = enableVulkanValidation;
 	return sys->Init();
 }
@@ -165,10 +165,7 @@ bool Manager::Init() {
 	CallInitialize();
 	
 	if (enableVulkanValidation) {
-		Array<const char*> layers = {
-			"VK_LAYER_KHRONOS_validation",
-		};
-		rendering.data.instance.AddLayers(layers);
+		GPU::EnableValidationLayers();
 	}
 	rendering.data.concurrency = 4;
 	

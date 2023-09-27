@@ -158,6 +158,7 @@ namespace Types {
 			Vertex result;
 			// Default value because tangents aren't always included
 			result.tangent = vec3(1.0f, 0.0f, 0.0f);
+			result.tex = vec2(0.0f);
 			u32 *dst = (u32*)&result;
 			u32 *src = (u32*)buffer;
 			for (i32 offset : offsets) {

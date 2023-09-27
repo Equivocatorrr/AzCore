@@ -184,6 +184,7 @@ public:
 
 extern Name sFullscreen;
 extern Name sVSync;
+extern Name sMSAA;
 extern Name sDebugInfo;
 extern Name sFramerate;
 extern Name sVolumeMain;

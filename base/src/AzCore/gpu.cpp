@@ -64,7 +64,7 @@ const Str ShaderStageString(ShaderStage shaderStage) {
 	}
 }
 
-// Per-location stride
+// Per-location stride, equal to alignment when not using the scalarBlockLayout device feature.
 constexpr i64 ShaderValueTypeStride[] = {
 	/* U32 */    4,
 	/* I32 */    4,
@@ -89,6 +89,57 @@ constexpr i64 ShaderValueTypeStride[] = {
 	// A special exception must be made for DVEC3, as the second location's stride is half the first
 	/* DVEC3 */  16,
 	/* DVEC4 */  16,
+};
+// Per-location stride, used when the scalarBlockLayout device feature is used.
+constexpr i64 ShaderValueTypeStrideScalarBlockLayout[] = {
+	/* U32 */    4,
+	/* I32 */    4,
+	/* IVEC2 */  8,
+	/* IVEC3 */  12,
+	/* IVEC4 */  16,
+	/* F32 */    4,
+	/* VEC2 */   8,
+	/* VEC3 */   12,
+	/* VEC4 */   16,
+	/* MAT2 */   8,
+	/* MAT2X3 */ 12,
+	/* MAT2X4 */ 16,
+	/* MAT3X2 */ 8,
+	/* MAT3 */   12,
+	/* MAT3X4 */ 16,
+	/* MAT4X2 */ 8,
+	/* MAT4X3 */ 12,
+	/* MAT4 */   16,
+	/* F64 */    8,
+	/* DVEC2 */  16,
+	// A special exception must be made for DVEC3, as the second location's stride is half the first
+	/* DVEC3 */  16,
+	/* DVEC4 */  16,
+};
+// Per-location alignment, used when scalarBlockLayout device feature is used.
+constexpr i64 ShaderValueTypeAlignmentScalarBlockLayout[] = {
+	/* U32 */    4,
+	/* I32 */    4,
+	/* IVEC2 */  4,
+	/* IVEC3 */  4,
+	/* IVEC4 */  4,
+	/* F32 */    4,
+	/* VEC2 */   4,
+	/* VEC3 */   4,
+	/* VEC4 */   4,
+	/* MAT2 */   4,
+	/* MAT2X3 */ 4,
+	/* MAT2X4 */ 4,
+	/* MAT3X2 */ 4,
+	/* MAT3 */   4,
+	/* MAT3X4 */ 4,
+	/* MAT4X2 */ 4,
+	/* MAT4X3 */ 4,
+	/* MAT4 */   4,
+	/* F64 */    8,
+	/* DVEC2 */  8,
+	/* DVEC3 */  8,
+	/* DVEC4 */  8,
 };
 // How many location bindings this value consumes
 constexpr i64 ShaderValueNumLocations[] = {
@@ -625,8 +676,9 @@ struct Binding {
 			DescriptorIndex binding;
 		} storageBuffer;
 		struct {
-			Image *object;
+			Sampler *sampler;
 			DescriptorIndex binding;
+			ArrayWithBucket<Image*, 8> images;
 		} imageSampler;
 		// For generic descriptor access to binding
 		struct {
@@ -638,6 +690,96 @@ struct Binding {
 			Buffer *object;
 		} anyBuffer;
 	};
+	// Assumes kind matches other.kind
+	inline void _Assign(const Binding &other) {
+		switch (kind) {
+			case FRAMEBUFFER:
+				framebuffer.object = other.framebuffer.object;
+				break;
+			case PIPELINE:
+				pipeline.object = other.pipeline.object;
+				break;
+			case VERTEX_BUFFER:
+			case INDEX_BUFFER:
+				anyBuffer.object = other.anyBuffer.object;
+				break;
+			case UNIFORM_BUFFER:
+			case STORAGE_BUFFER:
+				anyDescriptor.object = other.anyDescriptor.object;
+				anyDescriptor.binding = other.anyDescriptor.binding;
+				break;
+			case IMAGE_SAMPLER:
+				imageSampler.sampler = other.imageSampler.sampler;
+				imageSampler.binding = other.imageSampler.binding;
+				imageSampler.images = other.imageSampler.images;
+				break;
+			default:
+				AzAssert(false, "Unreachable");
+				break;
+		}
+	}
+	// Assumes kind matches other kind
+	inline void _Move(Binding &&other) {
+		switch (kind) {
+			case FRAMEBUFFER:
+				framebuffer.object = other.framebuffer.object;
+				break;
+			case PIPELINE:
+				pipeline.object = other.pipeline.object;
+				break;
+			case VERTEX_BUFFER:
+			case INDEX_BUFFER:
+				anyBuffer.object = other.anyBuffer.object;
+				break;
+			case UNIFORM_BUFFER:
+			case STORAGE_BUFFER:
+				anyDescriptor.object = other.anyDescriptor.object;
+				anyDescriptor.binding = other.anyDescriptor.binding;
+				break;
+			case IMAGE_SAMPLER:
+				imageSampler.sampler = other.imageSampler.sampler;
+				imageSampler.binding = other.imageSampler.binding;
+				imageSampler.images = std::move(other.imageSampler.images);
+				break;
+			default:
+				AzAssert(false, "Unreachable");
+				break;
+		}
+	}
+	Binding() {
+		AzPlacementNew(imageSampler.images);
+	}
+	Binding(const Binding &other) : kind(other.kind) {
+		AzPlacementNew(imageSampler.images);
+		_Assign(other);
+	}
+	Binding(Binding &&other) : kind(other.kind) {
+		AzPlacementNew(imageSampler.images);
+		_Move(std::move(other));
+	}
+	~Binding() {
+		if (kind == IMAGE_SAMPLER) {
+			imageSampler.images.~ArrayWithBucket();
+		}
+	}
+	Binding& operator=(const Binding &other) {
+		if (kind != other.kind) {
+			this->~Binding();
+			kind = other.kind;
+			AzPlacementNew(imageSampler.images);
+		}
+		_Assign(other);
+		return *this;
+	}
+	Binding& operator=(Binding &&other) {
+		if (kind != other.kind) {
+			this->~Binding();
+			kind = other.kind;
+			AzPlacementNew(imageSampler.images);
+		}
+		_Move(std::move(other));
+		return *this;
+	}
 };
 
 #endif
@@ -712,8 +854,11 @@ struct Window {
 
 struct PhysicalDevice {
 	VkPhysicalDeviceProperties2 properties;
-	VkPhysicalDeviceFeatures2 features;
-	VkPhysicalDeviceScalarBlockLayoutFeatures scalarBlockLayoutFeatures;
+	VkPhysicalDeviceFeatures2 vk10Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+	VkPhysicalDeviceVulkan11Features vk11Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
+	VkPhysicalDeviceMultiviewFeatures vkMultiviewFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES};
+	VkPhysicalDeviceVulkan12Features vk12Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+	VkPhysicalDeviceVulkan13Features vk13Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
 	Array<VkExtensionProperties> extensionsAvailable{};
 	Array<VkQueueFamilyProperties2> queueFamiliesAvailable{};
 	VkPhysicalDeviceMemoryProperties2 memoryProperties;
@@ -727,10 +872,11 @@ struct PhysicalDevice {
 
 		io::cout.PrintLnDebug("Reading Physical Device Info for \"", properties.properties.deviceName, "\"");
 
-		features = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-		features.pNext = &scalarBlockLayoutFeatures;
-		scalarBlockLayoutFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES};
-		vkGetPhysicalDeviceFeatures2(vkPhysicalDevice, &features);
+		vk10Features.pNext = &vk11Features;
+		vk11Features.pNext = &vkMultiviewFeatures;
+		vkMultiviewFeatures.pNext = &vk12Features;
+		vk12Features.pNext = &vk13Features;
+		vkGetPhysicalDeviceFeatures2(vkPhysicalDevice, &vk10Features);
 
 		u32 extensionCount = 0;
 		vkEnumerateDeviceExtensionProperties(vkPhysicalDevice, nullptr, &extensionCount, nullptr);
@@ -805,11 +951,19 @@ struct Device {
 	List<Pipeline> pipelines;
 	List<Buffer> buffers;
 	List<Image> images;
+	List<Sampler> samplers;
 	List<Framebuffer> framebuffers;
 	// Map from memoryType to Memory
 	HashMap<u32, Memory> memory;
 
 	Ptr<PhysicalDevice> physicalDevice;
+	
+	VkPhysicalDeviceFeatures2 vk10Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+	VkPhysicalDeviceVulkan11Features vk11Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
+	VkPhysicalDeviceMultiviewFeatures vkMultiviewFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES};
+	VkPhysicalDeviceVulkan12Features vk12Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+	VkPhysicalDeviceVulkan13Features vk13Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+	
 	VkDevice vkDevice;
 	VkQueue vkQueue;
 	i32 queueFamilyIndex;
@@ -929,6 +1083,11 @@ struct Pipeline {
 	
 	// One for each possible color attachment
 	BlendMode blendModes[8];
+	
+	struct {
+		bool enabled = false;
+		f32 minFraction = 1.0f;
+	} multisampleShading;
 
 	enum Kind {
 		GRAPHICS,
@@ -965,7 +1124,7 @@ struct Buffer {
 	
 	u32 shaderStages = 0;
 
-	i64 size = -1;
+	i64 size = 0;
 
 	// Used only for index buffers
 	VkIndexType indexType = VK_INDEX_TYPE_UINT16;
@@ -1005,14 +1164,11 @@ struct Image {
 	i32 width=1, height=1;
 	i32 bytesPerPixel=4;
 
-	i32 anisotropy = 1;
 	u32 mipLevels = 1;
 	u32 sampleCount = 1;
 
 	VkImage vkImage;
 	VkImageView vkImageView;
-	// TODO: Global deduplication of samplers
-	VkSampler vkSampler = VK_NULL_HANDLE;
 	VkBuffer vkBufferHostVisible;
 	VkFormat vkFormat = VK_FORMAT_R8G8B8A8_UNORM;
 	VkImageAspectFlags vkImageAspect = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1029,6 +1185,34 @@ struct Image {
 
 	Image() = default;
 	Image(Device *_device, String _tag) : device(_device), tag(_tag) {}
+};
+
+struct Sampler {
+	Filter magFilter = Filter::LINEAR;
+	Filter minFilter = Filter::LINEAR;
+	bool mipmapInterpolation = false;
+	AddressMode addressModeU = AddressMode::CLAMP_TO_BORDER;
+	AddressMode addressModeV = AddressMode::CLAMP_TO_BORDER;
+	AddressMode addressModeW = AddressMode::CLAMP_TO_BORDER;
+	f32 lodMin = 0.0f;
+	f32 lodMax = VK_LOD_CLAMP_NONE;
+	f32 lodBias = 0.0f;
+	i32 anisotropy = 1;
+	// Used for shadow maps
+	struct {
+		bool enable = false;
+		CompareOp op = CompareOp::ALWAYS_TRUE;
+	} compare;
+	VkBorderColor borderColor=VK_BORDER_COLOR_INT_TRANSPARENT_BLACK;
+	
+	VkSampler vkSampler;
+	
+	Device *device;
+	String tag;
+	bool initted = false;
+	
+	Sampler() = default;
+	Sampler(Device *_device, String _tag) : device(_device), tag(_tag) {}
 };
 
 struct Attachment {
@@ -1122,7 +1306,6 @@ void WindowDeinit(Window *window);
 [[nodiscard]] Result<VoidResult_t, String> DeviceInit(Device *device);
 void DeviceDeinit(Device *device);
 
-
 [[nodiscard]] Result<Allocation, String> MemoryAllocate(Memory *memory, u32 size, u32 alignment);
 void MemoryFree(Allocation allocation);
 
@@ -1150,6 +1333,9 @@ void BufferHostDeinit(Buffer *buffer);
 void ImageDeinit(Image *image);
 [[nodiscard]] Result<VoidResult_t, String> ImageHostInit(Image *image);
 void ImageHostDeinit(Image *image);
+
+[[nodiscard]] Result<VoidResult_t, String> SamplerInit(Sampler *sampler);
+void ImageDeinit(Sampler *sampler);
 
 [[nodiscard]] Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer);
 void FramebufferDeinit(Framebuffer *framebuffer);
@@ -1689,7 +1875,7 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 void WindowDeinit(Window *window) {
 	DEINIT_HEAD(window);
 	for (Fence &fence : window->acquireFences) {
-		FenceWaitForSignal(&fence).Unwrap();
+		FenceWaitForSignal(&fence).AzUnwrap();
 		FenceDeinit(&fence);
 	}
 	for (Semaphore &semaphore : window->acquireSemaphores) {
@@ -1819,6 +2005,10 @@ Buffer* NewUniformBuffer(Device *device, String tag) {
 
 Image* NewImage(Device *device, String tag) {
 	return device->images.Append(new Image(device, tag)).RawPtr();
+}
+
+Sampler* NewSampler(Device *device, String tag) {
+	return device->samplers.Append(new Sampler(device, tag)).RawPtr();
 }
 
 Framebuffer* NewFramebuffer(Device *device, String tag) {
@@ -1990,7 +2180,7 @@ void MemoryClear(Memory *memory) {
 }
 
 u32 alignedSize(u32 offset, u32 size, u32 alignment) {
-	return size - (align(offset, alignment) - offset);
+	return (u32)max((i64)0, (i64)size - (i64)(align(offset, alignment) - offset));
 }
 
 i32 PageFindSegment(Memory::Page *page, u32 size, u32 alignment) {
@@ -2006,32 +2196,31 @@ i32 PageFindSegment(Memory::Page *page, u32 size, u32 alignment) {
 Allocation PageAllocInSegment(Memory *memory, i32 pageIndex, i32 segmentIndex, u32 size, u32 alignment) {
 	Allocation result;
 	Memory::Page &page = memory->pages[pageIndex];
-	AzAssert(size < page.segments[segmentIndex].size, "segment is too small for alloc");
+	AzAssert(size <= page.segments[segmentIndex].size, "segment is too small for alloc");
 	AzAssert(page.segments[segmentIndex].used == false, "Trying to allocate in a segment that's already in use!");
 	using Segment = Memory::Page::Segment;
 	u32 alignedBegin = align(page.segments[segmentIndex].begin, alignment);
 	u32 availableSize = alignedSize(page.segments[segmentIndex].begin, page.segments[segmentIndex].size, alignment);
-	if (availableSize > size) {
-		Segment &newSegment = page.segments.Insert(segmentIndex+1, Segment());
-		Segment &lastSegment = page.segments[segmentIndex];
-		newSegment.begin = lastSegment.begin + size;
-		newSegment.size = lastSegment.size - size;
-		newSegment.used = false;
-		lastSegment.size = size;
-		lastSegment.used = true;
-	} else {
-		Segment &segment = page.segments[segmentIndex];
-		segment.used = true;
-	}
 	if (page.segments[segmentIndex].begin != alignedBegin) {
 		Segment &preSegment = page.segments.Insert(segmentIndex, Segment());
 		Segment &ourSegment = page.segments[segmentIndex+1];
 		preSegment.begin = ourSegment.begin;
 		preSegment.size = alignedBegin - ourSegment.begin;
-		preSegment.used = false;
 		ourSegment.begin = alignedBegin;
 		ourSegment.size = availableSize;
 		segmentIndex++;
+	}
+	if (availableSize > size) {
+		Segment &newSegment = page.segments.Insert(segmentIndex+1, Segment());
+		Segment &ourSegment = page.segments[segmentIndex];
+		newSegment.begin = ourSegment.begin + size;
+		newSegment.size = ourSegment.size - size;
+		newSegment.used = false;
+		ourSegment.size = size;
+		ourSegment.used = true;
+	} else {
+		Segment &segment = page.segments[segmentIndex];
+		segment.used = true;
 	}
 	result.memory = memory;
 	result.page = pageIndex;
@@ -2162,22 +2351,22 @@ breakout:
 			device->tag = device->physicalDevice->properties.properties.deviceName;
 		}
 	}
-	VkPhysicalDeviceFeatures2 featuresAvailable = device->physicalDevice->features;
-	VkPhysicalDeviceFeatures2 featuresEnabled = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+	VkPhysicalDeviceFeatures2 featuresAvailable = device->physicalDevice->vk10Features;
+	VkPhysicalDeviceFeatures2 featuresEnabled = device->vk10Features;
 	{ // Select needed features based on what we use
 		bool anisotropyAvailable = featuresAvailable.features.samplerAnisotropy;
 		if (!anisotropyAvailable) {
-			for (auto &image : device->images) {
-				if (image->anisotropy != 1) {
-					WARNING(image, "samplerAnisotropy unavailable, so anisotropy is being reset to 1");
-					image->anisotropy = 1;
+			for (auto &sampler : device->samplers) {
+				if (sampler->anisotropy != 1) {
+					WARNING(sampler, "Sampler Anisotropy unavailable, so anisotropy is being reset to 1");
+					sampler->anisotropy = 1;
 				}
 			}
 		} else {
-			for (auto &image : device->images) {
-				if (image->anisotropy != 1) {
+			for (auto &sampler : device->samplers) {
+				if (sampler->anisotropy != 1) {
 					featuresEnabled.features.samplerAnisotropy = VK_TRUE;
-					io::cout.PrintLnDebug("Enabling samplerAnisotropy");
+					io::cout.PrintLnDebug("Enabling Sampler Anisotropy");
 					break;
 				}
 			}
@@ -2194,12 +2383,33 @@ breakout:
 			for (auto &pipeline : device->pipelines) {
 				if (pipeline->lineWidth != 1.0f) {
 					featuresEnabled.features.wideLines = VK_TRUE;
-					io::cout.PrintLnDebug("Enabling wideLines");
+					io::cout.PrintLnDebug("Enabling Wide Lines");
+					break;
+				}
+			}
+		}
+		bool sampleRateShadingAvailable = featuresAvailable.features.sampleRateShading;
+		if (!sampleRateShadingAvailable) {
+			for (auto &pipeline : device->pipelines) {
+				if (pipeline->multisampleShading.enabled) {
+					WARNING(pipeline, "Multisample Shading unavailable, disabling");
+					pipeline->multisampleShading.enabled = false;
+				}
+			}
+		} else {
+			for (auto &pipeline : device->pipelines) {
+				if (pipeline->multisampleShading.enabled) {
+					featuresEnabled.features.sampleRateShading = VK_TRUE;
+					io::cout.PrintLnDebug("Enabling Multisample Shading");
 					break;
 				}
 			}
 		}
 	}
+	featuresEnabled.pNext = &device->vk11Features;
+	device->vk11Features.pNext = &device->vkMultiviewFeatures;
+	device->vkMultiviewFeatures.pNext = &device->vk12Features;
+	device->vk12Features.pNext = &device->vk13Features;
 	if ((u32)io::logLevel >= (u32)io::LogLevel::DEBUG) {
 		PrintPhysicalDeviceInfo(device->physicalDevice.RawPtr());
 	}
@@ -2281,6 +2491,11 @@ breakout2:
 			return ERROR_RESULT(device, result.error);
 		}
 	}
+	for (auto &sampler : device->samplers) {
+		if (auto result = SamplerInit(sampler.RawPtr()); result.isError) {
+			return ERROR_RESULT(device, result.error);
+		}
+	}
 	for (auto &framebuffer : device->framebuffers) {
 		if (auto result = FramebufferInit(framebuffer.RawPtr()); result.isError) {
 			return ERROR_RESULT(device, result.error);
@@ -2338,11 +2553,166 @@ void DeviceDeinit(Device *device) {
 	vkDestroyDevice(device->vkDevice, nullptr);
 }
 
+void DeviceWaitIdle(Device *device) {
+	if (!device->initted) return;
+	vkDeviceWaitIdle(device->vkDevice);
+}
+
+void DeviceRequireFeatures(Device *device, const ArrayWithBucket<Str, 8> &features) {
+	static BinaryMap<Str, u64> featureByteOffsets = {
+		// Vulkan 1.0 Features
+		{"robustBufferAccess", (u64)&device->vk10Features.features.robustBufferAccess - (u64)&device},
+		{"fullDrawIndexUint32", (u64)&device->vk10Features.features.fullDrawIndexUint32 - (u64)&device},
+		{"imageCubeArray", (u64)&device->vk10Features.features.imageCubeArray - (u64)&device},
+		{"independentBlend", (u64)&device->vk10Features.features.independentBlend - (u64)&device},
+		{"geometryShader", (u64)&device->vk10Features.features.geometryShader - (u64)&device},
+		{"tessellationShader", (u64)&device->vk10Features.features.tessellationShader - (u64)&device},
+		{"sampleRateShading", (u64)&device->vk10Features.features.sampleRateShading - (u64)&device},
+		{"dualSrcBlend", (u64)&device->vk10Features.features.dualSrcBlend - (u64)&device},
+		{"logicOp", (u64)&device->vk10Features.features.logicOp - (u64)&device},
+		{"multiDrawIndirect", (u64)&device->vk10Features.features.multiDrawIndirect - (u64)&device},
+		{"drawIndirectFirstInstance", (u64)&device->vk10Features.features.drawIndirectFirstInstance - (u64)&device},
+		{"depthClamp", (u64)&device->vk10Features.features.depthClamp - (u64)&device},
+		{"depthBiasClamp", (u64)&device->vk10Features.features.depthBiasClamp - (u64)&device},
+		{"fillModeNonSolid", (u64)&device->vk10Features.features.fillModeNonSolid - (u64)&device},
+		{"depthBounds", (u64)&device->vk10Features.features.depthBounds - (u64)&device},
+		{"wideLines", (u64)&device->vk10Features.features.wideLines - (u64)&device},
+		{"largePoints", (u64)&device->vk10Features.features.largePoints - (u64)&device},
+		{"alphaToOne", (u64)&device->vk10Features.features.alphaToOne - (u64)&device},
+		{"multiViewport", (u64)&device->vk10Features.features.multiViewport - (u64)&device},
+		{"samplerAnisotropy", (u64)&device->vk10Features.features.samplerAnisotropy - (u64)&device},
+		{"textureCompressionETC2", (u64)&device->vk10Features.features.textureCompressionETC2 - (u64)&device},
+		{"textureCompressionASTC_LDR", (u64)&device->vk10Features.features.textureCompressionASTC_LDR - (u64)&device},
+		{"textureCompressionBC", (u64)&device->vk10Features.features.textureCompressionBC - (u64)&device},
+		{"occlusionQueryPrecise", (u64)&device->vk10Features.features.occlusionQueryPrecise - (u64)&device},
+		{"pipelineStatisticsQuery", (u64)&device->vk10Features.features.pipelineStatisticsQuery - (u64)&device},
+		{"vertexPipelineStoresAndAtomics", (u64)&device->vk10Features.features.vertexPipelineStoresAndAtomics - (u64)&device},
+		{"fragmentStoresAndAtomics", (u64)&device->vk10Features.features.fragmentStoresAndAtomics - (u64)&device},
+		{"shaderTessellationAndGeometryPointSize", (u64)&device->vk10Features.features.shaderTessellationAndGeometryPointSize - (u64)&device},
+		{"shaderImageGatherExtended", (u64)&device->vk10Features.features.shaderImageGatherExtended - (u64)&device},
+		{"shaderStorageImageExtendedFormats", (u64)&device->vk10Features.features.shaderStorageImageExtendedFormats - (u64)&device},
+		{"shaderStorageImageMultisample", (u64)&device->vk10Features.features.shaderStorageImageMultisample - (u64)&device},
+		{"shaderStorageImageReadWithoutFormat", (u64)&device->vk10Features.features.shaderStorageImageReadWithoutFormat - (u64)&device},
+		{"shaderStorageImageWriteWithoutFormat", (u64)&device->vk10Features.features.shaderStorageImageWriteWithoutFormat - (u64)&device},
+		{"shaderUniformBufferArrayDynamicIndexing", (u64)&device->vk10Features.features.shaderUniformBufferArrayDynamicIndexing - (u64)&device},
+		{"shaderSampledImageArrayDynamicIndexing", (u64)&device->vk10Features.features.shaderSampledImageArrayDynamicIndexing - (u64)&device},
+		{"shaderStorageBufferArrayDynamicIndexing", (u64)&device->vk10Features.features.shaderStorageBufferArrayDynamicIndexing - (u64)&device},
+		{"shaderStorageImageArrayDynamicIndexing", (u64)&device->vk10Features.features.shaderStorageImageArrayDynamicIndexing - (u64)&device},
+		{"shaderClipDistance", (u64)&device->vk10Features.features.shaderClipDistance - (u64)&device},
+		{"shaderCullDistance", (u64)&device->vk10Features.features.shaderCullDistance - (u64)&device},
+		{"shaderFloat64", (u64)&device->vk10Features.features.shaderFloat64 - (u64)&device},
+		{"shaderInt64", (u64)&device->vk10Features.features.shaderInt64 - (u64)&device},
+		{"shaderInt16", (u64)&device->vk10Features.features.shaderInt16 - (u64)&device},
+		{"shaderResourceResidency", (u64)&device->vk10Features.features.shaderResourceResidency - (u64)&device},
+		{"shaderResourceMinLod", (u64)&device->vk10Features.features.shaderResourceMinLod - (u64)&device},
+		{"sparseBinding", (u64)&device->vk10Features.features.sparseBinding - (u64)&device},
+		{"sparseResidencyBuffer", (u64)&device->vk10Features.features.sparseResidencyBuffer - (u64)&device},
+		{"sparseResidencyImage2D", (u64)&device->vk10Features.features.sparseResidencyImage2D - (u64)&device},
+		{"sparseResidencyImage3D", (u64)&device->vk10Features.features.sparseResidencyImage3D - (u64)&device},
+		{"sparseResidency2Samples", (u64)&device->vk10Features.features.sparseResidency2Samples - (u64)&device},
+		{"sparseResidency4Samples", (u64)&device->vk10Features.features.sparseResidency4Samples - (u64)&device},
+		{"sparseResidency8Samples", (u64)&device->vk10Features.features.sparseResidency8Samples - (u64)&device},
+		{"sparseResidency16Samples", (u64)&device->vk10Features.features.sparseResidency16Samples - (u64)&device},
+		{"sparseResidencyAliased", (u64)&device->vk10Features.features.sparseResidencyAliased - (u64)&device},
+		{"variableMultisampleRate", (u64)&device->vk10Features.features.variableMultisampleRate - (u64)&device},
+		{"inheritedQueries", (u64)&device->vk10Features.features.inheritedQueries - (u64)&device},
+		// Vulkan 1.1 Features
+		{"storageBuffer16BitAccess", (u64)&device->vk11Features.storageBuffer16BitAccess - (u64)&device},
+		{"uniformAndStorageBuffer16BitAccess", (u64)&device->vk11Features.uniformAndStorageBuffer16BitAccess - (u64)&device},
+		{"storagePushConstant16", (u64)&device->vk11Features.storagePushConstant16 - (u64)&device},
+		{"storageInputOutput16", (u64)&device->vk11Features.storageInputOutput16 - (u64)&device},
+		{"multiview", (u64)&device->vk11Features.multiview - (u64)&device},
+		{"multiviewGeometryShader", (u64)&device->vk11Features.multiviewGeometryShader - (u64)&device},
+		{"multiviewTessellationShader", (u64)&device->vk11Features.multiviewTessellationShader - (u64)&device},
+		{"variablePointersStorageBuffer", (u64)&device->vk11Features.variablePointersStorageBuffer - (u64)&device},
+		{"variablePointers", (u64)&device->vk11Features.variablePointers - (u64)&device},
+		{"protectedMemory", (u64)&device->vk11Features.protectedMemory - (u64)&device},
+		{"samplerYcbcrConversion", (u64)&device->vk11Features.samplerYcbcrConversion - (u64)&device},
+		{"shaderDrawParameters", (u64)&device->vk11Features.shaderDrawParameters - (u64)&device},
+		// Vulkan Multiview Features
+		{"multiview", (u64)&device->vkMultiviewFeatures.multiview - (u64)&device},
+		{"multiviewGeometryShader", (u64)&device->vkMultiviewFeatures.multiviewGeometryShader - (u64)&device},
+		{"multiviewTessellationShader", (u64)&device->vkMultiviewFeatures.multiviewTessellationShader - (u64)&device},
+		// Vulkan 1.2 Features
+		{"samplerMirrorClampToEdge", (u64)&device->vk12Features.samplerMirrorClampToEdge - (u64)&device},
+		{"drawIndirectCount", (u64)&device->vk12Features.drawIndirectCount - (u64)&device},
+		{"storageBuffer8BitAccess", (u64)&device->vk12Features.storageBuffer8BitAccess - (u64)&device},
+		{"uniformAndStorageBuffer8BitAccess", (u64)&device->vk12Features.uniformAndStorageBuffer8BitAccess - (u64)&device},
+		{"storagePushConstant8", (u64)&device->vk12Features.storagePushConstant8 - (u64)&device},
+		{"shaderBufferInt64Atomics", (u64)&device->vk12Features.shaderBufferInt64Atomics - (u64)&device},
+		{"shaderSharedInt64Atomics", (u64)&device->vk12Features.shaderSharedInt64Atomics - (u64)&device},
+		{"shaderFloat16", (u64)&device->vk12Features.shaderFloat16 - (u64)&device},
+		{"shaderInt8", (u64)&device->vk12Features.shaderInt8 - (u64)&device},
+		{"descriptorIndexing", (u64)&device->vk12Features.descriptorIndexing - (u64)&device},
+		{"shaderInputAttachmentArrayDynamicIndexing", (u64)&device->vk12Features.shaderInputAttachmentArrayDynamicIndexing - (u64)&device},
+		{"shaderUniformTexelBufferArrayDynamicIndexing", (u64)&device->vk12Features.shaderUniformTexelBufferArrayDynamicIndexing - (u64)&device},
+		{"shaderStorageTexelBufferArrayDynamicIndexing", (u64)&device->vk12Features.shaderStorageTexelBufferArrayDynamicIndexing - (u64)&device},
+		{"shaderUniformBufferArrayNonUniformIndexing", (u64)&device->vk12Features.shaderUniformBufferArrayNonUniformIndexing - (u64)&device},
+		{"shaderSampledImageArrayNonUniformIndexing", (u64)&device->vk12Features.shaderSampledImageArrayNonUniformIndexing - (u64)&device},
+		{"shaderStorageBufferArrayNonUniformIndexing", (u64)&device->vk12Features.shaderStorageBufferArrayNonUniformIndexing - (u64)&device},
+		{"shaderStorageImageArrayNonUniformIndexing", (u64)&device->vk12Features.shaderStorageImageArrayNonUniformIndexing - (u64)&device},
+		{"shaderInputAttachmentArrayNonUniformIndexing", (u64)&device->vk12Features.shaderInputAttachmentArrayNonUniformIndexing - (u64)&device},
+		{"shaderUniformTexelBufferArrayNonUniformIndexing", (u64)&device->vk12Features.shaderUniformTexelBufferArrayNonUniformIndexing - (u64)&device},
+		{"shaderStorageTexelBufferArrayNonUniformIndexing", (u64)&device->vk12Features.shaderStorageTexelBufferArrayNonUniformIndexing - (u64)&device},
+		{"descriptorBindingUniformBufferUpdateAfterBind", (u64)&device->vk12Features.descriptorBindingUniformBufferUpdateAfterBind - (u64)&device},
+		{"descriptorBindingSampledImageUpdateAfterBind", (u64)&device->vk12Features.descriptorBindingSampledImageUpdateAfterBind - (u64)&device},
+		{"descriptorBindingStorageImageUpdateAfterBind", (u64)&device->vk12Features.descriptorBindingStorageImageUpdateAfterBind - (u64)&device},
+		{"descriptorBindingStorageBufferUpdateAfterBind", (u64)&device->vk12Features.descriptorBindingStorageBufferUpdateAfterBind - (u64)&device},
+		{"descriptorBindingUniformTexelBufferUpdateAfterBind", (u64)&device->vk12Features.descriptorBindingUniformTexelBufferUpdateAfterBind - (u64)&device},
+		{"descriptorBindingStorageTexelBufferUpdateAfterBind", (u64)&device->vk12Features.descriptorBindingStorageTexelBufferUpdateAfterBind - (u64)&device},
+		{"descriptorBindingUpdateUnusedWhilePending", (u64)&device->vk12Features.descriptorBindingUpdateUnusedWhilePending - (u64)&device},
+		{"descriptorBindingPartiallyBound", (u64)&device->vk12Features.descriptorBindingPartiallyBound - (u64)&device},
+		{"descriptorBindingVariableDescriptorCount", (u64)&device->vk12Features.descriptorBindingVariableDescriptorCount - (u64)&device},
+		{"runtimeDescriptorArray", (u64)&device->vk12Features.runtimeDescriptorArray - (u64)&device},
+		{"samplerFilterMinmax", (u64)&device->vk12Features.samplerFilterMinmax - (u64)&device},
+		{"scalarBlockLayout", (u64)&device->vk12Features.scalarBlockLayout - (u64)&device},
+		{"imagelessFramebuffer", (u64)&device->vk12Features.imagelessFramebuffer - (u64)&device},
+		{"uniformBufferStandardLayout", (u64)&device->vk12Features.uniformBufferStandardLayout - (u64)&device},
+		{"shaderSubgroupExtendedTypes", (u64)&device->vk12Features.shaderSubgroupExtendedTypes - (u64)&device},
+		{"separateDepthStencilLayouts", (u64)&device->vk12Features.separateDepthStencilLayouts - (u64)&device},
+		{"hostQueryReset", (u64)&device->vk12Features.hostQueryReset - (u64)&device},
+		{"timelineSemaphore", (u64)&device->vk12Features.timelineSemaphore - (u64)&device},
+		{"bufferDeviceAddress", (u64)&device->vk12Features.bufferDeviceAddress - (u64)&device},
+		{"bufferDeviceAddressCaptureReplay", (u64)&device->vk12Features.bufferDeviceAddressCaptureReplay - (u64)&device},
+		{"bufferDeviceAddressMultiDevice", (u64)&device->vk12Features.bufferDeviceAddressMultiDevice - (u64)&device},
+		{"vulkanMemoryModel", (u64)&device->vk12Features.vulkanMemoryModel - (u64)&device},
+		{"vulkanMemoryModelDeviceScope", (u64)&device->vk12Features.vulkanMemoryModelDeviceScope - (u64)&device},
+		{"vulkanMemoryModelAvailabilityVisibilityChains", (u64)&device->vk12Features.vulkanMemoryModelAvailabilityVisibilityChains - (u64)&device},
+		{"shaderOutputViewportIndex", (u64)&device->vk12Features.shaderOutputViewportIndex - (u64)&device},
+		{"shaderOutputLayer", (u64)&device->vk12Features.shaderOutputLayer - (u64)&device},
+		{"subgroupBroadcastDynamicId", (u64)&device->vk12Features.subgroupBroadcastDynamicId - (u64)&device},
+		// Vulkan 1.3 Features
+		{"robustImageAccess", (u64)&device->vk13Features.robustImageAccess - (u64)&device},
+		{"inlineUniformBlock", (u64)&device->vk13Features.inlineUniformBlock - (u64)&device},
+		{"descriptorBindingInlineUniformBlockUpdateAfterBind", (u64)&device->vk13Features.descriptorBindingInlineUniformBlockUpdateAfterBind - (u64)&device},
+		{"pipelineCreationCacheControl", (u64)&device->vk13Features.pipelineCreationCacheControl - (u64)&device},
+		{"privateData", (u64)&device->vk13Features.privateData - (u64)&device},
+		{"shaderDemoteToHelperInvocation", (u64)&device->vk13Features.shaderDemoteToHelperInvocation - (u64)&device},
+		{"shaderTerminateInvocation", (u64)&device->vk13Features.shaderTerminateInvocation - (u64)&device},
+		{"subgroupSizeControl", (u64)&device->vk13Features.subgroupSizeControl - (u64)&device},
+		{"computeFullSubgroups", (u64)&device->vk13Features.computeFullSubgroups - (u64)&device},
+		{"synchronization2", (u64)&device->vk13Features.synchronization2 - (u64)&device},
+		{"textureCompressionASTC_HDR", (u64)&device->vk13Features.textureCompressionASTC_HDR - (u64)&device},
+		{"shaderZeroInitializeWorkgroupMemory", (u64)&device->vk13Features.shaderZeroInitializeWorkgroupMemory - (u64)&device},
+		{"dynamicRendering", (u64)&device->vk13Features.dynamicRendering - (u64)&device},
+		{"shaderIntegerDotProduct", (u64)&device->vk13Features.shaderIntegerDotProduct - (u64)&device},
+		{"maintenance4", (u64)&device->vk13Features.maintenance4 - (u64)&device},
+	};
+	for (Str feature : features) {
+		if (auto *node = featureByteOffsets.Find(feature)) {
+			*(VkBool32*)((u64)&device + node->value) = VK_TRUE;
+		} else {
+			AzAssert(false, Stringify("Feature string \"", feature, "\" is unrecognized"));
+		}
+	}
+}
+
 #endif
 
 #ifndef Resources
 
 Result<VoidResult_t, String> BufferInit(Buffer *buffer) {
+	// AzAssert(buffer->size > 0, "Cannot allocate a buffer with size <= 0");
 	INIT_HEAD(buffer);
 	VkBufferCreateInfo createInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
 	createInfo.size = buffer->size;
@@ -2454,28 +2824,6 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 	}
 	if (image->shaderStages) {
 		createInfo.usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-		VkSamplerCreateInfo samplerCreateInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-		// TODO: Make controls for all of these
-		samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
-		samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
-		// TODO: Support trilinear filtering
-		samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-		samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-		samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-		samplerCreateInfo.mipLodBias = -0.5f;
-		samplerCreateInfo.anisotropyEnable = image->anisotropy != 1 ? VK_TRUE : VK_FALSE;
-		samplerCreateInfo.maxAnisotropy = image->anisotropy;
-		// TODO: Support shadow map compares
-		samplerCreateInfo.compareEnable = VK_FALSE;
-		samplerCreateInfo.compareOp = VK_COMPARE_OP_LESS;
-		samplerCreateInfo.minLod = 0.0f;
-		samplerCreateInfo.maxLod = VK_LOD_CLAMP_NONE;
-		samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
-		samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
-		if (VkResult result = vkCreateSampler(image->device->vkDevice, &samplerCreateInfo, nullptr, &image->vkSampler); result != VK_SUCCESS) {
-			return ERROR_RESULT(image, "Failed to create sampler: ", VkResultString(result));
-		}
 	}
 	if (image->attachment) {
 		createInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
@@ -2513,10 +2861,6 @@ void ImageDeinit(Image *image) {
 	DEINIT_HEAD(image);
 	vkDestroyImageView(image->device->vkDevice, image->vkImageView, nullptr);
 	vkDestroyImage(image->device->vkDevice, image->vkImage, nullptr);
-	if (image->vkSampler != VK_NULL_HANDLE) {
-		vkDestroySampler(image->device->vkDevice, image->vkSampler, nullptr);
-		image->vkSampler = VK_NULL_HANDLE;
-	}
 	MemoryFree(image->alloc);
 	if (image->hostVisible) {
 		vkDestroyBuffer(image->device->vkDevice, image->vkBufferHostVisible, nullptr);
@@ -2565,6 +2909,27 @@ void ImageHostDeinit(Image *image) {
 
 void ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType componentType) {
 	switch (imageBits) {
+		case ImageBits::D16:
+			switch (componentType) {
+				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_D16_UNORM;   break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 2;
+			break;
+		case ImageBits::D24:
+			switch (componentType) {
+				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_X8_D24_UNORM_PACK32;   break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 4;
+			break;
+		case ImageBits::D32:
+			switch (componentType) {
+				case ImageComponentType::SFLOAT:   image->vkFormat = VK_FORMAT_D32_SFLOAT; break;
+				default: goto bad_format;
+			}
+			image->bytesPerPixel = 4;
+			break;
 		case ImageBits::R8:
 			switch (componentType) {
 				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_R8_UNORM;   break;
@@ -2836,11 +3201,16 @@ void ImageSetSize(Image *image, i32 width, i32 height) {
 	}
 }
 
-void ImageSetMipmapping(Image *image, bool enableMipmapping, i32 anisotropy) {
+void ImageSetMipmapping(Image *image, bool enableMipmapping) {
 	image->mipmapped = enableMipmapping;
-	image->anisotropy = enableMipmapping ? anisotropy : 1;
 	if (image->mipmapped) {
-		image->mipLevels = (u32)ceil(log2((f64)max(image->width, image->height)));
+		if (image->width == 1 && image->height == 1) {
+			image->mipLevels = 1;
+			image->mipmapped = false;
+			WARNING(image, "Image is too small to use mipmaps (1x1). Ignoring.");
+		} else {
+			image->mipLevels = (u32)ceil(log2((f64)max(image->width, image->height)));
+		}
 	} else {
 		image->mipLevels = 1;
 	}
@@ -2855,6 +3225,106 @@ void ImageSetSampleCount(Image *image, u32 sampleCount) {
 	AzAssert(sampleCount <= 64, "sampleCount must not be > 64");
 	AzAssert(sampleCount > 0, "sampleCount must be > 0");
 	image->sampleCount = sampleCount;
+}
+
+static VkFilter GetVkFilter(Filter filter) {
+	switch (filter) {
+		case Filter::NEAREST:
+			return VK_FILTER_NEAREST;
+		case Filter::LINEAR:
+			return VK_FILTER_LINEAR;
+		case Filter::CUBIC:
+			return VK_FILTER_CUBIC_EXT;
+	}
+}
+
+Result<VoidResult_t, String> SamplerInit(Sampler *sampler) {
+	INIT_HEAD(sampler);
+	VkSamplerCreateInfo samplerCreateInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+	// TODO: Make controls for all of these
+	samplerCreateInfo.magFilter = GetVkFilter(sampler->magFilter);
+	samplerCreateInfo.minFilter = GetVkFilter(sampler->minFilter);
+	// TODO: Support trilinear filtering
+	samplerCreateInfo.mipmapMode = sampler->mipmapInterpolation ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	samplerCreateInfo.addressModeU = (VkSamplerAddressMode)sampler->addressModeU;
+	samplerCreateInfo.addressModeV = (VkSamplerAddressMode)sampler->addressModeV;
+	samplerCreateInfo.addressModeW = (VkSamplerAddressMode)sampler->addressModeW;
+	samplerCreateInfo.mipLodBias = sampler->lodBias;
+	samplerCreateInfo.minLod = sampler->lodMin;
+	samplerCreateInfo.maxLod = sampler->lodMax;
+	samplerCreateInfo.anisotropyEnable = sampler->anisotropy != 1 ? VK_TRUE : VK_FALSE;
+	samplerCreateInfo.maxAnisotropy = sampler->anisotropy;
+	samplerCreateInfo.compareEnable = sampler->compare.enable;
+	samplerCreateInfo.compareOp = (VkCompareOp)sampler->compare.op;
+	samplerCreateInfo.borderColor = sampler->borderColor;
+	samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
+	if (VkResult result = vkCreateSampler(sampler->device->vkDevice, &samplerCreateInfo, nullptr, &sampler->vkSampler); result != VK_SUCCESS) {
+		return ERROR_RESULT(sampler, "Failed to create sampler: ", VkResultString(result));
+	}
+	sampler->initted = true;
+	return VoidResult_t();
+}
+
+void SamplerDeinit(Sampler *sampler) {
+	DEINIT_HEAD(sampler);
+	vkDestroySampler(sampler->device->vkDevice, sampler->vkSampler, nullptr);
+	sampler->initted = false;
+}
+
+void SamplerSetMipmapFiltering(Sampler *sampler, bool enabled) {
+	sampler->mipmapInterpolation = enabled;
+}
+
+void SamplerSetFiltering(Sampler *sampler, Filter magFilter, Filter minFilter) {
+	sampler->magFilter = magFilter;
+	sampler->minFilter = minFilter;
+}
+
+void SamplerSetAddressMode(Sampler *sampler, AddressMode addressModeU, AddressMode addressModeV, AddressMode addressModeW) {
+	sampler->addressModeU = addressModeU;
+	sampler->addressModeV = addressModeV;
+	sampler->addressModeW = addressModeW;
+}
+
+void SamplerSetLod(Sampler *sampler, f32 bias, f32 minimum, f32 maximum) {
+	sampler->lodBias = bias;
+	sampler->lodMin = minimum;
+	sampler->lodMax = maximum;
+}
+
+void SamplerSetAnisotropy(Sampler *sampler, i32 anisotropy) {
+	sampler->anisotropy = anisotropy;
+}
+
+void SamplerSetCompare(Sampler *sampler, bool enable, CompareOp op) {
+	sampler->compare.enable = enable;
+	sampler->compare.op = op;
+}
+
+void SamplerSetBorderColor(Sampler *sampler, bool isFloat, bool white, bool opaque) {
+	if (isFloat) {
+		if (white) {
+			AzAssert(opaque, "Cannot have transparent white");
+			sampler->borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+		} else {
+			if (opaque) {
+				sampler->borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+			} else {
+				sampler->borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+			}
+		}
+	} else {
+		if (white) {
+			AzAssert(opaque, "Cannot have transparent white");
+			sampler->borderColor = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
+		} else {
+			if (opaque) {
+				sampler->borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+			} else {
+				sampler->borderColor = VK_BORDER_COLOR_INT_TRANSPARENT_BLACK;
+			}
+		}
+	}
 }
 
 #endif
@@ -3206,7 +3676,7 @@ void PipelineAddShaders(Pipeline *pipeline, ArrayWithBucket<Shader*, 4> shaders)
 	pipeline->shaders.Append(shaders);
 }
 
-void PipelineAddVertexInputs(Pipeline *pipeline, ArrayWithBucket<ShaderValueType, 8> inputs) {
+void PipelineAddVertexInputs(Pipeline *pipeline, const ArrayWithBucket<ShaderValueType, 8> &inputs) {
 	pipeline->vertexInputs.Append(inputs);
 }
 
@@ -3247,6 +3717,11 @@ void PipelineSetDepthWrite(Pipeline *pipeline, bool enabled) {
 
 void PipelineSetDepthCompareOp(Pipeline *pipeline, CompareOp compareOp) {
 	pipeline->depthCompareOp = compareOp;
+}
+
+void PipelineSetMultisampleShading(Pipeline *pipeline, bool enabled, f32 minFraction) {
+	pipeline->multisampleShading.enabled = enabled;
+	pipeline->multisampleShading.minFraction = minFraction;
 }
 
 bool VkPipelineLayoutCreateInfoMatches(VkPipelineLayoutCreateInfo a, VkPipelineLayoutCreateInfo b) {
@@ -3406,16 +3881,28 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 						VkVertexInputAttributeDescription attributeDescription;
 						attributeDescription.binding = 0;
 						attributeDescription.location = location++;
-						i64 myStride;
+						i64 myStride, myAlignment;
 						if (inputType == ShaderValueType::DVEC3 && j == 1) {
 							// Handle our special case, as DVEC3 is the only input type that takes multiple locations with different strides/formats
-							myStride = ShaderValueTypeStride[(u16)inputType]/2;
+							if (pipeline->device->vk12Features.scalarBlockLayout) {
+								myStride = ShaderValueTypeStrideScalarBlockLayout[(u16)inputType]/2;
+								myAlignment = ShaderValueTypeAlignmentScalarBlockLayout[(u16)inputType];
+							} else {
+								myStride = ShaderValueTypeStride[(u16)inputType]/2;
+								myAlignment = myStride;
+							}
 							attributeDescription.format = VK_FORMAT_R64_SFLOAT;
 						} else {
-							myStride = ShaderValueTypeStride[(u16)inputType];
+							if (pipeline->device->vk12Features.scalarBlockLayout) {
+								myStride = ShaderValueTypeStrideScalarBlockLayout[(u16)inputType];
+								myAlignment = ShaderValueTypeAlignmentScalarBlockLayout[(u16)inputType];
+							} else {
+								myStride = ShaderValueTypeStride[(u16)inputType];
+								myAlignment = myStride;
+							}
 							attributeDescription.format = ShaderValueFormats[(u16)inputType];
 						}
-						attributeDescription.offset = align(offset, myStride);
+						attributeDescription.offset = align(offset, myAlignment);
 						offset += myStride;
 						vertexInputAttributeDescriptions.Append(attributeDescription);
 					}
@@ -3473,9 +3960,9 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			// TODO: Support multisampling (need to be able to resolve images, probably in the framebuffer)
 			VkPipelineMultisampleStateCreateInfo multisampleState{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
 			multisampleState.rasterizationSamples = (VkSampleCountFlagBits)pipeline->sampleCount;
-			multisampleState.sampleShadingEnable = VK_FALSE;
+			multisampleState.sampleShadingEnable = pipeline->multisampleShading.enabled;
 			// Controls what fraction of samples get shaded with the above turned on. No effect otherwise.
-			multisampleState.minSampleShading = 1.0f;
+			multisampleState.minSampleShading = pipeline->multisampleShading.minFraction;
 			multisampleState.pSampleMask = nullptr;
 			multisampleState.alphaToCoverageEnable = VK_FALSE;
 			multisampleState.alphaToOneEnable = VK_FALSE;
@@ -3659,19 +4146,48 @@ bool DescriptorSetLayoutMatches(DescriptorSetLayout &a, DescriptorSetLayout &b) 
 }
 
 Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
+	u32 numUniformBuffers = 0;
+	u32 numStorageBuffers = 0;
+	u32 numImages = 0;
+	for (auto &node : context->bindings.descriptors) {
+		Binding &binding = node.value;
+		switch (binding.kind) {
+			case Binding::UNIFORM_BUFFER:
+				numUniformBuffers++;
+				break;
+			case Binding::STORAGE_BUFFER:
+				numStorageBuffers++;
+				break;
+			case Binding::IMAGE_SAMPLER:
+				numImages += binding.imageSampler.images.size;
+				break;
+		}
+	}
 	if (context->vkDescriptorPool == VK_NULL_HANDLE) {
 		// TODO: Allow recreation of the pool to allow it to grow
 		VkDescriptorPoolCreateInfo createInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
 		createInfo.maxSets = 4;
-		VkDescriptorPoolSize poolSizes[3];
-		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSizes[0].descriptorCount = 10;
-		poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		poolSizes[1].descriptorCount = 10;
-		poolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		poolSizes[2].descriptorCount = 10;
-		createInfo.poolSizeCount = 3;
-		createInfo.pPoolSizes = poolSizes;
+		Array<VkDescriptorPoolSize> poolSizes;
+		if (numUniformBuffers > 0) {
+			VkDescriptorPoolSize poolSize;
+			poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			poolSize.descriptorCount = numUniformBuffers;
+			poolSizes.Append(poolSize);
+		}
+		if (numStorageBuffers > 0) {
+			VkDescriptorPoolSize poolSize;
+			poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			poolSize.descriptorCount = numStorageBuffers;
+			poolSizes.Append(poolSize);
+		}
+		if (numImages > 0) {
+			VkDescriptorPoolSize poolSize;
+			poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			poolSize.descriptorCount = numImages;
+			poolSizes.Append(poolSize);
+		}
+		createInfo.poolSizeCount = poolSizes.size;
+		createInfo.pPoolSizes = poolSizes.data;
 		createInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 		if (VkResult result = vkCreateDescriptorPool(context->device->vkDevice, &createInfo, nullptr, &context->vkDescriptorPool); result != VK_SUCCESS) {
 			return ERROR_RESULT(context, "Failed to create descriptor pool: ", VkResultString(result));
@@ -3680,8 +4196,10 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 	Array<DescriptorSetLayout> descriptorSetLayouts;
 	Array<Array<VkWriteDescriptorSet>> vkWriteDescriptorSets;
 	// NOTE: In order to update array descriptors, we'll need to switch to contiguous arrays of Buffer and Image Infos like how it's done in vk.cpp (even though vk::Descriptors::Update() is incredibly confusing, it's the optimal way to do it)
-	List<VkDescriptorBufferInfo> descriptorBufferInfos;
-	List<VkDescriptorImageInfo> descriptorImageInfos;
+	Array<VkDescriptorBufferInfo> descriptorBufferInfos;
+	descriptorBufferInfos.Reserve(numUniformBuffers + numStorageBuffers);
+	Array<VkDescriptorImageInfo> descriptorImageInfos;
+	descriptorImageInfos.Reserve(numImages);
 	for (auto &node : context->bindings.descriptors) {
 		Binding &binding = node.value;
 		// NOTE: These are necessarily sorted by set first, then binding. This code will break if that is no longer the case.
@@ -3703,29 +4221,32 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 			break;
 		case Binding::IMAGE_SAMPLER:
 			bindingInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			bindingInfo.descriptorCount = binding.imageSampler.images.size;
 			break;
 		default:
 			return ERROR_RESULT(context, "Invalid descriptor binding (kind is ", (u32)binding.kind, ")");
 		}
 		switch (binding.kind) {
-		case Binding::UNIFORM_BUFFER:
+			case Binding::UNIFORM_BUFFER:
 			case Binding::STORAGE_BUFFER: {
 				bindingInfo.stageFlags = (VkShaderStageFlags)binding.anyBuffer.object->shaderStages;
-				UniquePtr<VkDescriptorBufferInfo> bufferInfo;
-				bufferInfo->buffer = binding.anyBuffer.object->vkBuffer;
-				bufferInfo->offset = 0;
-				bufferInfo->range = binding.anyBuffer.object->size;
-				write.pBufferInfo = bufferInfo.RawPtr();
-				descriptorBufferInfos.Append(std::move(bufferInfo));
+				VkDescriptorBufferInfo bufferInfo;
+				bufferInfo.buffer = binding.anyBuffer.object->vkBuffer;
+				bufferInfo.offset = 0;
+				bufferInfo.range = binding.anyBuffer.object->size;
+				write.pBufferInfo = &descriptorBufferInfos.Append(bufferInfo);
 			} break;
 			case Binding::IMAGE_SAMPLER: {
-				bindingInfo.stageFlags = (VkShaderStageFlags)binding.imageSampler.object->shaderStages;
-				UniquePtr<VkDescriptorImageInfo> imageInfo;
-				imageInfo->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				imageInfo->imageView = binding.imageSampler.object->vkImageView;
-				imageInfo->sampler = binding.imageSampler.object->vkSampler;
-				write.pImageInfo = imageInfo.RawPtr();
-				descriptorImageInfos.Append(std::move(imageInfo));
+				bindingInfo.stageFlags = 0;
+				VkDescriptorImageInfo imageInfo;
+				imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				imageInfo.sampler = binding.imageSampler.sampler->vkSampler;
+				write.pImageInfo = descriptorImageInfos.data + descriptorImageInfos.size;
+				for (Image *image : binding.imageSampler.images) {
+					imageInfo.imageView = image->vkImageView;
+					bindingInfo.stageFlags |= (VkShaderStageFlags)image->shaderStages;
+					descriptorImageInfos.Append(imageInfo);
+				}
 			} break;
 			default: break;
 		}
@@ -3939,7 +4460,7 @@ Result<VoidResult_t, String> CmdCopyDataToBuffer(Context *context, Buffer *dst, 
 	AzAssert(ContextIsRecording(context), "Trying to record into a context that's not recording");
 	if (size == 0) {
 		// We do the whole size
-		size = dst->memoryRequirements.size;
+		size = dst->size;
 	}
 	if (!dst->hostVisible) {
 		if (auto result = BufferHostInit(dst); result.isError) {
@@ -4157,10 +4678,21 @@ void CmdBindStorageBuffer(Context *context, Buffer *buffer, i32 set, i32 binding
 	context->bindCommands.Append(bind);
 }
 
-void CmdBindImageSampler(Context *context, Image *image, i32 set, i32 binding) {
+void CmdBindImageSampler(Context *context, Image *image, Sampler *sampler, i32 set, i32 binding) {
 	Binding bind;
 	bind.kind = Binding::IMAGE_SAMPLER;
-	bind.imageSampler.object = image;
+	bind.imageSampler.images = {image};
+	bind.imageSampler.sampler = sampler;
+	bind.imageSampler.binding.set = set;
+	bind.imageSampler.binding.binding = binding;
+	context->bindCommands.Append(bind);
+}
+
+void CmdBindImageArraySampler(Context *context, const Array<Image*> &images, Sampler *sampler, i32 set, i32 binding) {
+	Binding bind;
+	bind.kind = Binding::IMAGE_SAMPLER;
+	bind.imageSampler.images = images;
+	bind.imageSampler.sampler = sampler;
 	bind.imageSampler.binding.set = set;
 	bind.imageSampler.binding.binding = binding;
 	context->bindCommands.Append(bind);
@@ -4281,6 +4813,25 @@ void CmdClearColorAttachment(Context *context, vec4 color, i32 attachment) {
 	clearAttachment.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	clearAttachment.clearValue = clearValue;
 	clearAttachment.colorAttachment = (u32)attachment;
+	vkCmdClearAttachments(context->vkCommandBuffer, 1, &clearAttachment, 1, &clearRect);
+}
+
+void CmdClearDepthAttachment(Context *context, f32 depth) {
+	AzAssert(context->bindings.framebuffer != nullptr, "Cannot CmdClearDepthAttachment without a Framebuffer bound");
+	AzAssert(FramebufferHasDepthBuffer(context->bindings.framebuffer), "Cannot CmdClearDepthAttachment when Framebuffer doesn't have a depth attachment");
+	VkClearValue clearValue;
+	clearValue.depthStencil.depth = depth;
+	clearValue.depthStencil.stencil = 0;
+	VkClearRect clearRect;
+	clearRect.baseArrayLayer = 0;
+	clearRect.layerCount = 1;
+	clearRect.rect.extent.width = (u32)context->bindings.framebuffer->width;
+	clearRect.rect.extent.height = (u32)context->bindings.framebuffer->height;
+	clearRect.rect.offset.x = 0;
+	clearRect.rect.offset.y = 0;
+	VkClearAttachment clearAttachment;
+	clearAttachment.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+	clearAttachment.clearValue = clearValue;
 	vkCmdClearAttachments(context->vkCommandBuffer, 1, &clearAttachment, 1, &clearRect);
 }
 

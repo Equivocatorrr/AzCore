@@ -84,7 +84,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	
 	GPU::SetAppName("AzCore Tesseract");
 	
-	GPU::Window *gpuWindow = GPU::AddWindow(&ioWindow, "Main window").Unwrap();
+	GPU::Window *gpuWindow = GPU::AddWindow(&ioWindow, "Main window").AzUnwrap();
 
 	if (enableLayers) {
 		io::cout.PrintLn("Validation layers enabled.");

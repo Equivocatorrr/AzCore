@@ -11,7 +11,7 @@
 
 #include "AzCore/basictypes.hpp"
 #include "AzCore/memory.hpp"
-#include "AzCore/vk.hpp"
+#include "AzCore/gpu.hpp"
 
 namespace AzCore {
 namespace io {
@@ -201,72 +201,33 @@ struct DrawingContext {
 
 struct Manager {
 	struct {
-		vk::Instance instance;
-		Ptr<vk::Device> device;
-		Ptr<vk::Swapchain> swapchain;
-		bool resized = false;
-		// Indicates we've been told our extent is invalid, so wait until a resize
-		bool zeroExtent = false;
-		Ptr<vk::Framebuffer> framebuffer;
-		Ptr<vk::RenderPass> renderPass;
-		Ptr<vk::Queue> queueGraphics;
-		Ptr<vk::Queue> queueTransfer;
-		Ptr<vk::Queue> queuePresent;
+		GPU::Device *device;
+		GPU::Window *window;
+		GPU::Image *msaaImage;
+		GPU::Image *depthBuffer;
+		GPU::Framebuffer *framebuffer;
+		GPU::Context *contextGraphics;
+		GPU::Context *contextTransfer;
+		GPU::Sampler *textureSampler;
+		Array<GPU::Image*> textures;
 		i32 concurrency = 1;
-		Ptr<vk::CommandPool> commandPoolGraphics;
-		bool buffer = false; // Which primary command buffer we're on. Switches every frame.
-		Ptr<vk::CommandBuffer> commandBufferGraphics[2];
-		Ptr<vk::CommandBuffer> commandBufferGraphicsTransfer;
-		Ptr<vk::CommandPool> commandPoolTransfer;
-		Ptr<vk::CommandBuffer> commandBufferTransfer;
 
-		Ptr<vk::Semaphore> semaphoreRenderComplete;
-		Ptr<vk::QueueSubmission> queueSubmission[2];
-		// This can be used only for transfer. Generating mipmaps needs a GRAPHICS queue.
-		Ptr<vk::QueueSubmission> queueSubmissionTransfer;
-		// Use GraphicsTransfer if you're transferring images and generating mipmaps.
-		Ptr<vk::QueueSubmission> queueSubmissionGraphicsTransfer;
-
-		Ptr<vk::Sampler> textureSampler;
-
-		Ptr<vk::Memory> stagingMemory;
-		Ptr<vk::Memory> bufferMemory; // Uniform buffers, vertex buffers, index buffers
-		Ptr<vk::Memory> textureMemory;
-
-		Ptr<vk::Buffer> uniformStagingBuffer;
-		Ptr<vk::Buffer> uniformBuffer;
-		Ptr<vk::Buffer> objectStagingBuffer;
-		Ptr<vk::Buffer> objectBuffer;
-		Ptr<vk::Buffer> vertexStagingBuffer;
-		Ptr<vk::Buffer> vertexBuffer;
-		Ptr<vk::Buffer> indexStagingBuffer;
-		Ptr<vk::Buffer> indexBuffer;
+		GPU::Buffer *uniformBuffer;
+		GPU::Buffer *objectBuffer;
+		GPU::Buffer *vertexBuffer;
+		GPU::Buffer *indexBuffer;
 		
-		Ptr<vk::Memory> shadowMapMemory;
-		Ptr<vk::Image> shadowMapImage;
-		Ptr<vk::Framebuffer> framebufferShadowMaps;
-		Ptr<vk::RenderPass> renderPassShadowMaps;
-		Ptr<vk::Semaphore> semaphoreShadowMapsComplete;
-		Ptr<vk::QueueSubmission> queueSubmissionShadowMaps;
-		Ptr<vk::Pipeline> pipelineShadowMaps;
+		GPU::Image *shadowMapImage;
+		GPU::Framebuffer *framebufferShadowMaps;
+		GPU::Pipeline *pipelineShadowMaps;
 		
 		// For debug lines
-		Ptr<vk::Buffer> debugVertexStagingBuffer;
-		Ptr<vk::Buffer> debugVertexBuffer;
+		GPU::Buffer *debugVertexBuffer;
 
-		Ptr<vk::Memory> fontStagingMemory;
-		Ptr<vk::Memory> fontBufferMemory;
-		Ptr<vk::Memory> fontImageMemory;
+		GPU::Buffer *fontVertexBuffer;
+		Array<GPU::Image*> fontImages;
 
-		Ptr<vk::Buffer> fontStagingVertexBuffer;
-		Range<vk::Buffer> fontStagingImageBuffers;
-		Ptr<vk::Buffer> fontVertexBuffer;
-		Range<vk::Image> fontImages;
-
-		Array<Ptr<vk::Pipeline>> pipelines;
-		Ptr<vk::Descriptors> descriptors;
-		// Use one descriptor set for everything, bound once per frame
-		Ptr<vk::DescriptorSet> descriptorSet;
+		Array<GPU::Pipeline*> pipelines;
 
 		Assets::MeshPart *meshPartUnitSquare;
 		// One for each draw call, sent to the shader
@@ -281,7 +242,6 @@ struct Manager {
 	f32 aspectRatio; // height/width
 	vec3 backgroundHSV = vec3(215.0f/360.0f, 0.7f, 0.125f);
 	vec3 backgroundRGB; // Derivative of HSV
-	bool msaa = true;
 	// Emptied at the beginning of every frame
 	Array<Light> lights;
 	UniformBuffer uniforms;
@@ -294,7 +254,7 @@ struct Manager {
 	bool UpdateFonts();
 	bool UpdateUniforms();
 	bool UpdateObjects();
-	bool UpdateDebugLines(VkCommandBuffer cmdBuf);
+	bool UpdateDebugLines();
 	bool Draw();
 	bool Present();
 

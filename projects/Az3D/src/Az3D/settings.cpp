@@ -26,6 +26,7 @@ const char *Setting::typeStrings[5] = {
 
 Name sFullscreen = "fullscreen";
 Name sVSync = "vsync";
+Name sMSAA = "msaa";
 Name sDebugInfo = "debugInfo";
 Name sFramerate = "framerate";
 Name sVolumeMain = "volumeMain";
@@ -36,6 +37,7 @@ Name sLocaleOverride = "localeOverride";
 AStringMap<Setting> settings = {
 	{sFullscreen, Setting(false)},
 	{sVSync, Setting(true)},
+	{sMSAA, Setting(false)},
 	{sDebugInfo, Setting(false)},
 	{sFramerate, Setting(60.0, 30.0, 600.0)},
 	{sVolumeMain, Setting(1.0, 0.0, 1.0)},

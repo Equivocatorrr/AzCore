@@ -80,6 +80,13 @@ enum class Winding {
 	CLOCKWISE         = 1,
 };
 
+#ifdef TRUE
+#undef TRUE
+#endif
+#ifdef FALSE
+#undef FALSE
+#endif
+
 enum class BoolOrDefault {
 	DEFAULT,
 	TRUE,
@@ -151,6 +158,10 @@ enum class ImageBits : u16 {
 	R4G4B4A4,
 	R5G6B5,
 	R5G5B5A1,
+	// Depth
+	D16, // Can only be UNORM
+	D24, // Can only be UNORM
+	D32, // Can only be SFLOAT
 	// Special other
 	A2R10G10B10, // Can be UNORM, SNORM, USCALED, SSCALED, UINT, SINT
 	B10G11R11, // Can only be UFLOAT
@@ -158,6 +169,28 @@ enum class ImageBits : u16 {
 	// TODO: Compressed formats
 };
 extern Str imageBitsStrings[23];
+
+enum class AddressMode : u16 {
+	REPEAT,
+	REPEAT_MIRRORED,
+	CLAMP_TO_EDGE,
+	CLAMP_TO_BORDER,
+};
+extern Str addressModeStrings[4];
+
+enum class Filter : u16 {
+	NEAREST,
+	LINEAR,
+	CUBIC,
+};
+extern Str filterStrings[3];
+
+#ifdef OPAQUE
+#undef OPAQUE
+#endif
+#ifdef TRANSPARENT
+#undef TRANSPARENT
+#endif
 
 struct BlendMode {
 	enum Kind {
@@ -187,6 +220,9 @@ struct Buffer;
 
 // GPU-side image which can be memory mapped host-side and committed (transferred) on a Context
 struct Image;
+
+// Used to determine how images are sampled in shaders.
+struct Sampler;
 
 // Describes the ability to render to an Image or a Window surface
 struct Framebuffer;
@@ -275,7 +311,18 @@ bool GetVSyncEnabled(Window *window);
 
 [[nodiscard]] Image* NewImage(Device *device, String tag = String());
 
+[[nodiscard]] Sampler* NewSampler(Device *device, String tag = String());
+
 [[nodiscard]] Framebuffer* NewFramebuffer(Device *device, String tag = String());
+
+
+// Device
+
+
+// feature names are as defined in the Vulkan Spec under Features
+void DeviceRequireFeatures(Device *device, const ArrayWithBucket<Str, 8> &features);
+
+void DeviceWaitIdle(Device *device);
 
 
 // Buffer, Image
@@ -291,8 +338,7 @@ void ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 
 void ImageSetSize(Image *image, i32 width, i32 height);
 
-// anisotropy is the number of samples taken in anisotropic filtering (only relevant with mipmapping enabled)
-void ImageSetMipmapping(Image *image, bool enableMipmapping, i32 anisotropy = 1);
+void ImageSetMipmapping(Image *image, bool enableMipmapping);
 
 // shaderStages is a bitmask of ShaderStage
 void ImageSetShaderUsage(Image *image, u32 shaderStages);
@@ -304,12 +350,35 @@ void ImageSetSampleCount(Image *image, u32 sampleCount);
 [[nodiscard]] Result<VoidResult_t, String> ImageRecreate(Image *image);
 
 
+// Sampler
+
+
+// When enabled, it linearly interpolates between miplevels.
+void SamplerSetMipmapFiltering(Sampler *sampler, bool enabled);
+
+void SamplerSetFiltering(Sampler *sampler, Filter magFilter, Filter minFilter);
+
+void SamplerSetAddressMode(Sampler *sampler, AddressMode addressModeU, AddressMode addressModeV, AddressMode addressModeW=AddressMode::CLAMP_TO_BORDER);
+
+void SamplerSetLod(Sampler *sampler, f32 bias, f32 minimum=0.0f, f32 maximum=1000.0f);
+
+// anisotropy is the number of samples taken in anisotropic filtering (only relevant with mipmapped images)
+void SamplerSetAnisotropy(Sampler *sampler, i32 anisotropy);
+
+void SamplerSetCompare(Sampler *sampler, bool enable, CompareOp op=CompareOp::ALWAYS_TRUE);
+
+// isFloat should be true when using with float images, false with integer images
+// Border is white when white is true, black otherwise.
+// Border is opaque when opaque is true, completely transparent otherwise.
+void SamplerSetBorderColor(Sampler *sampler, bool isFloat, bool white, bool opaque);
+
+
 // Pipeline
 
 
 void PipelineAddShaders(Pipeline *pipeline, ArrayWithBucket<Shader*, 4> shaders);
 
-void PipelineAddVertexInputs(Pipeline *pipeline, ArrayWithBucket<ShaderValueType, 8> inputs);
+void PipelineAddVertexInputs(Pipeline *pipeline, const ArrayWithBucket<ShaderValueType, 8> &inputs);
 
 void PipelineSetTopology(Pipeline *pipeline, Topology topology);
 
@@ -328,6 +397,9 @@ void PipelineSetDepthWrite(Pipeline *pipeline, bool enabled);
 void PipelineSetDepthCompareOp(Pipeline *pipeline, CompareOp compareOp);
 
 void PipelineSetBlendMode(Pipeline *pipeline, BlendMode blendMode, i32 attachment = 0);
+
+// minFraction is shadedSamples / totalSamples
+void PipelineSetMultisampleShading(Pipeline *pipeline, bool enabled, f32 minFraction=1.0f);
 
 
 // Context, Commands
@@ -368,7 +440,9 @@ void CmdBindUniformBuffer(Context *context, Buffer *buffer, i32 set, i32 binding
 
 void CmdBindStorageBuffer(Context *context, Buffer *buffer, i32 set, i32 binding);
 
-void CmdBindImageSampler(Context *context, Image *image, i32 set, i32 binding);
+void CmdBindImageSampler(Context *context, Image *image, Sampler *sampler, i32 set, i32 binding);
+
+void CmdBindImageArraySampler(Context *context, const Array<Image*> &images, Sampler *sampler, i32 set, i32 binding);
 
 // Before recording draw commands, you have to commit all your bindings at once
 [[nodiscard]] Result<VoidResult_t, String> CmdCommitBindings(Context *context);
@@ -383,6 +457,7 @@ inline void CmdSetViewportAndScissor(Context *context, f32 width, f32 height, f3
 }
 
 void CmdClearColorAttachment(Context *context, vec4 color, i32 attachment=0);
+void CmdClearDepthAttachment(Context *context, f32 depth);
 
 void CmdDraw(Context *context, i32 count, i32 vertexOffset, i32 instanceCount=1, i32 instanceOffset=0);
 

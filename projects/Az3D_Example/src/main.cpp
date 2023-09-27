@@ -38,7 +38,7 @@ struct Test : public GameSystems::System {
 	virtual void EventUpdate() override {
 		f32 speed = sys->Down(KC_KEY_LEFTSHIFT) ? 8.0f : 2.0f;
 		if (sys->Pressed(KC_KEY_ESC)) sys->exit = true;
-		if (sys->Pressed(KC_KEY_S)) sunTurning = !sunTurning;
+		if (sys->Pressed(KC_KEY_T)) sunTurning = !sunTurning;
 		if (sunTurning) {
 			sunAngle += Radians32(halfpi * 0.1f * sys->timestep);
 		}
@@ -141,8 +141,8 @@ struct Test : public GameSystems::System {
 		RandomNumberGenerator rng(69420);
 		for (i32 i = 0; i < 10000; i++) {
 			mat4 transform = mat4::RotationBasic(random(0.0f, tau, &rng), Axis::Z);
-			transform.h.w1 = random(-10.0f, 10.0f, &rng);
-			transform.h.w2 = random(-10.0f, 10.0f, &rng);
+			transform.h.w1 = random(-2.0f, 2.0f, &rng);
+			transform.h.w2 = random(-2.0f, 2.0f, &rng);
 			Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshes[3]], transform, true, false);
 		}
 		sys->rendering.uniforms.sunDir = vec3(0.0f, vec2::UnitVecFromAngle(sunAngle.value()));

@@ -48,7 +48,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	scale = (f32)ioWindow.GetDPI() / 96.0f;
 	ioWindow.Resize(u32((f32)ioWindow.width * scale), u32((u32)ioWindow.height * scale));
 
-	GPU::Window *gpuWindow = GPU::AddWindow(&ioWindow, "main").Unwrap();
+	GPU::Window *gpuWindow = GPU::AddWindow(&ioWindow, "main").AzUnwrap();
 	GPU::SetVSync(gpuWindow, false);
 	
 	GPU::Framebuffer *framebuffer = GPU::NewFramebuffer(device, "main");
@@ -74,10 +74,13 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	GPU::Buffer *indexBuffer = GPU::NewIndexBuffer(device, "index buffer", sizeof(indices[0]));
 	GPU::BufferSetSize(indexBuffer, indices.size * sizeof(indices[0]));
 	
+	GPU::Sampler *sampler = GPU::NewSampler(device);
+	GPU::SamplerSetAnisotropy(sampler, 16);
+	
 	GPU::Image *gpuImage = GPU::NewImage(device, "tex");
 	GPU::ImageSetFormat(gpuImage, GPU::ImageBits::R8G8B8A8, GPU::ImageComponentType::SRGB);
 	GPU::ImageSetSize(gpuImage, image.width, image.height);
-	GPU::ImageSetMipmapping(gpuImage, true, 16);
+	GPU::ImageSetMipmapping(gpuImage, true);
 	GPU::ImageSetShaderUsage(gpuImage, (u32)GPU::ShaderStage::FRAGMENT);
 	
 	GPU::Shader *shaderVert = GPU::NewShader(device, "data/shaders/test.vert.spv", GPU::ShaderStage::VERTEX);
@@ -161,7 +164,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		GPU::CmdBindPipeline(context, pipeline);
 		GPU::CmdBindVertexBuffer(context, vertexBuffer);
 		GPU::CmdBindIndexBuffer(context, indexBuffer);
-		GPU::CmdBindImageSampler(context, gpuImage, 0, 0);
+		GPU::CmdBindImageSampler(context, gpuImage, sampler, 0, 0);
 		if (auto result = GPU::CmdCommitBindings(context); result.isError) {
 			io::cerr.PrintLn("Failed to commit bindings: ", result.error);
 			return 1;

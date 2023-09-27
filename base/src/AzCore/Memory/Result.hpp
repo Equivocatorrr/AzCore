@@ -31,7 +31,8 @@ struct Result {
 			value.~Success_t();
 		}
 	}
-	constexpr Success_t&& Unwrap(const char *file = __FILE__, i32 line = __LINE__) {
+	#define AzUnwrap() Unwrap(__FILE__, __LINE__)
+	constexpr Success_t&& Unwrap(const char *file, i32 line) {
 		if (isError) {
 			io::cerr.PrintLn(file, ":", line, " unwrap failure with error: ", error);
 			PrintBacktrace();

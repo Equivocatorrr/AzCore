@@ -16,6 +16,10 @@
 #include "AzCore/font.hpp"
 #include "AzCore/QuickSort.hpp"
 
+#ifdef TRANSPARENT
+#undef TRANSPARENT
+#endif
+
 namespace Az3D::Rendering {
 
 constexpr i32 MAX_DEBUG_VERTICES = 8192;
@@ -58,74 +62,56 @@ void AddLight(vec3 pos, vec3 color, vec3 direction, f32 angleMin, f32 angleMax, 
 	sys->rendering.lightsMutex.Unlock();
 }
 
-void BindPipeline(VkCommandBuffer cmdBuf, PipelineIndex pipeline) {
+void BindPipeline(GPU::Context *context, PipelineIndex pipeline) {
 	Manager &r = sys->rendering;
-	r.data.pipelines[pipeline]->Bind(cmdBuf);
+	GPU::CmdBindPipeline(context, r.data.pipelines[pipeline]);
 	switch (pipeline) {
 		case PIPELINE_DEBUG_LINES: {
-			vk::CmdBindVertexBuffer(cmdBuf, 0, r.data.debugVertexBuffer);
+			GPU::CmdBindVertexBuffer(context, r.data.debugVertexBuffer);
 		} break;
 		case PIPELINE_BASIC_3D:
 		case PIPELINE_FOLIAGE_3D: {
-			vk::CmdBindVertexBuffer(cmdBuf, 0, r.data.vertexBuffer);
+			GPU::CmdBindVertexBuffer(context, r.data.vertexBuffer);
 		} break;
 		case PIPELINE_FONT_3D: {
-			vk::CmdBindVertexBuffer(cmdBuf, 0, r.data.fontVertexBuffer);
+			GPU::CmdBindVertexBuffer(context, r.data.fontVertexBuffer);
 		} break;
 	}
-	vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, r.data.pipelines[pipeline]->data.layout, 0, 1, &r.data.descriptorSet->data.set, 0, nullptr);
+	GPU::CmdCommitBindings(context).AzUnwrap();
 }
 
 bool Manager::Init() {
 	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::Init)
-	
+
 	{ // Device
-		data.device = data.instance.AddDevice();
-		data.device->data.vk12FeaturesRequired.scalarBlockLayout = VK_TRUE;
-		data.device->data.vk12FeaturesRequired.uniformAndStorageBuffer8BitAccess = VK_TRUE;
-		data.device->data.vk11FeaturesRequired.shaderDrawParameters = VK_TRUE; // For gl_BaseInstance
-		data.device->data.deviceFeaturesRequired.features.sampleRateShading = VK_TRUE;
+		data.device = GPU::NewDevice();
+		GPU::DeviceRequireFeatures(data.device, {
+			"scalarBlockLayout",
+			"uniformAndStorageBuffer8BitAccess",
+			"shaderDrawParameters",
+		});
 	}
-	{ // Queues
-		data.queueGraphics = data.device->AddQueue();
-		data.queueGraphics->queueType = vk::QueueType::GRAPHICS;
-		data.queueTransfer = data.device->AddQueue();
-		data.queueTransfer->queueType = vk::QueueType::TRANSFER;
-		data.queuePresent = data.device->AddQueue();
-		data.queuePresent->queueType = vk::QueueType::PRESENT;
-	}
-	{ // Swapchain
-		data.swapchain = data.device->AddSwapchain();
-		data.swapchain->vsync = Settings::ReadBool(Settings::sVSync);
-		data.swapchain->window = data.instance.AddWindowForSurface(&sys->window);
-		data.swapchain->formatPreferred.format = VK_FORMAT_B8G8R8A8_SRGB;
-		data.swapchain->formatPreferred.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-		// data.swapchain->useFences = true;
-		// data.swapchain->imageCountPreferred = 3;
+	{ // Window
+		data.window = GPU::AddWindow(&sys->window).AzUnwrap();
+		GPU::SetVSync(data.window, Settings::ReadBool(Settings::sVSync));
+		// TODO: Probably support differenc color spaces
 	}
 	{ // Framebuffer
-		data.framebuffer = data.device->AddFramebuffer();
-		data.framebuffer->swapchain = data.swapchain;
-	}
-	{ // RenderPass, Attachment, Subpass
-		data.renderPass = data.device->AddRenderPass();
-		auto attachment = data.renderPass->AddAttachment(data.swapchain);
-		attachment->bufferDepthStencil = true;
-		if (msaa) {
-			attachment->sampleCount = VK_SAMPLE_COUNT_4_BIT;
-			attachment->resolveColor = true;
+		data.framebuffer = GPU::NewFramebuffer(data.device, "primary");
+		data.depthBuffer = GPU::NewImage(data.device, "depthBuffer");
+		GPU::ImageSetFormat(data.depthBuffer, GPU::ImageBits::D32, GPU::ImageComponentType::SFLOAT);
+		GPU::ImageSetSize(data.depthBuffer, sys->window.width, sys->window.height);
+		if (Settings::ReadBool(Settings::sMSAA)) {
+			data.msaaImage = GPU::NewImage(data.device, "msaaImage");
+			GPU::ImageSetFormat(data.msaaImage, GPU::ImageBits::B8G8R8A8, GPU::ImageComponentType::SRGB);
+			GPU::ImageSetSampleCount(data.msaaImage, 4);
+			GPU::ImageSetSampleCount(data.depthBuffer, 4);
+			GPU::ImageSetSize(data.msaaImage, sys->window.width, sys->window.height);
+			GPU::FramebufferAddImageMultisampled(data.framebuffer, data.msaaImage, data.window);
+		} else {
+			GPU::FramebufferAddWindow(data.framebuffer, data.window);
 		}
-		auto subpass = data.renderPass->AddSubpass();
-		subpass->UseAttachment(attachment, vk::AttachmentType::ATTACHMENT_ALL,
-				VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-		data.framebuffer->renderPass = data.renderPass;
-		// attachment->initialLayoutColor = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		// attachment->loadColor = true;
-		// attachment->clearColor = true;
-		attachment->clearDepth = true;
-		attachment->clearDepthStencilValue = {0.0f, 0};
-		// attachment->clearColorValue = {1.0, 1.0, 1.0, 1.0};
-		// attachment->clearColorValue = {0.0f, 0.1f, 0.2f, 1.0f}; // AzCore blue
+		GPU::FramebufferAddImage(data.framebuffer, data.depthBuffer);
 	}
 	{ // Concurrency, runtime CPU data pools
 		uniforms.ambientLight = vec3(0.001f);
@@ -134,56 +120,17 @@ bool Manager::Init() {
 		}
 		data.drawingContexts.Resize(data.concurrency);
 		data.debugVertices.Resize(MAX_DEBUG_VERTICES);
-		// Allow up to 10000 objects at once
 		// TODO: Make this resizeable
 		data.objectShaderInfos.Resize(1000000);
 	}
-	{ // Command Pools
-		data.commandPoolGraphics = data.device->AddCommandPool(data.queueGraphics);
-		data.commandPoolGraphics->resettable = true;
-		data.commandPoolTransfer = data.device->AddCommandPool(data.queueTransfer);
-		data.commandPoolTransfer->resettable = true;
-	}
-	{ // Semaphores
-		data.semaphoreRenderComplete = data.device->AddSemaphore();
-	}
-	{ // Command Buffers
-		for (i32 i = 0; i < 2; i++) {
-			data.commandBufferGraphics[i] = data.commandPoolGraphics->AddCommandBuffer();
-			data.queueSubmission[i] = data.device->AddQueueSubmission();
-			data.queueSubmission[i]->commandBuffers = {data.commandBufferGraphics[i]};
-			data.queueSubmission[i]->signalSemaphores = {data.semaphoreRenderComplete};
-			data.queueSubmission[i]->waitSemaphores = {vk::SemaphoreWait(data.swapchain, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)};
-			data.queueSubmission[i]->noAutoConfig = true;
-		}
-		data.commandBufferGraphicsTransfer = data.commandPoolGraphics->AddCommandBuffer();
-
-		data.commandBufferTransfer = data.commandPoolTransfer->AddCommandBuffer();
-	}
-	{ // Queue Submissions
-		data.queueSubmissionTransfer = data.device->AddQueueSubmission();
-		data.queueSubmissionTransfer->commandBuffers = {data.commandBufferTransfer};
-
-		data.queueSubmissionGraphicsTransfer = data.device->AddQueueSubmission();
-		data.queueSubmissionGraphicsTransfer->commandBuffers = {data.commandBufferGraphicsTransfer};
+	{ // Context
+		data.contextGraphics = GPU::NewContext(data.device);
+		data.contextTransfer = GPU::NewContext(data.device);
 	}
 	{ // Texture Samplers
-		data.textureSampler = data.device->AddSampler();
-		data.textureSampler->addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		data.textureSampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		data.textureSampler->anisotropy = 4;
-		data.textureSampler->maxLod = 1000000000000.0f; // Just, like, BIG
-	}
-	{ // Memory
-		data.stagingMemory = data.device->AddMemory();
-		data.stagingMemory->deviceLocal = false;
-		data.bufferMemory = data.device->AddMemory();
-		data.textureMemory = data.device->AddMemory();
-		
-		data.fontStagingMemory = data.device->AddMemory();
-		data.fontStagingMemory->deviceLocal = false;
-		data.fontBufferMemory = data.device->AddMemory();
-		data.fontImageMemory = data.device->AddMemory();
+		data.textureSampler = GPU::NewSampler(data.device);
+		GPU::SamplerSetAddressMode(data.textureSampler, GPU::AddressMode::REPEAT, GPU::AddressMode::REPEAT);
+		GPU::SamplerSetAnisotropy(data.textureSampler, 4);
 	}
 	{ // Unit square mesh
 		data.meshPartUnitSquare = new Assets::MeshPart;
@@ -197,12 +144,6 @@ bool Manager::Init() {
 		data.meshPartUnitSquare->indices = {0, 1, 2, 1, 3, 2};
 		data.meshPartUnitSquare->material = Material::Blank();
 	}
-	vk::Buffer baseStagingBuffer = vk::Buffer();
-	baseStagingBuffer.size = 1;
-	baseStagingBuffer.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-	vk::Buffer baseBuffer = vk::Buffer();
-	baseBuffer.size = 1;
-	baseBuffer.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	Array<Vertex> vertices;
 	Array<u32> indices;
 	{ // Load 3D assets and make Vertex/Index buffers
@@ -214,312 +155,160 @@ bool Manager::Init() {
 			}
 			vertices.Append(part->vertices);
 		}
-		data.vertexStagingBuffer = data.stagingMemory->AddBuffer(baseStagingBuffer);
-		data.vertexStagingBuffer->size = vertices.size * sizeof(Vertex);
-		data.indexStagingBuffer = data.stagingMemory->AddBuffer(baseStagingBuffer);
-		data.indexStagingBuffer->size = indices.size * sizeof(u32);
+		data.vertexBuffer = GPU::NewVertexBuffer(data.device);
+		GPU::BufferSetSize(data.vertexBuffer, vertices.size * sizeof(Vertex));
+		data.indexBuffer = GPU::NewIndexBuffer(data.device, String(), 4);
+		GPU::BufferSetSize(data.indexBuffer, indices.size * sizeof(u32));
 
-		data.debugVertexStagingBuffer = data.stagingMemory->AddBuffer(baseStagingBuffer);
-		data.debugVertexStagingBuffer->size = data.debugVertices.size * sizeof(DebugVertex);
-
-		data.vertexBuffer = data.bufferMemory->AddBuffer(baseBuffer);
-		data.indexBuffer = data.bufferMemory->AddBuffer(baseBuffer);
-		data.vertexBuffer->usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-		data.vertexBuffer->size = data.vertexStagingBuffer->size;
-		data.indexBuffer->usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-		data.indexBuffer->size = data.indexStagingBuffer->size;
-
-		data.debugVertexBuffer = data.bufferMemory->AddBuffer(baseBuffer);
-		data.debugVertexBuffer->usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-		data.debugVertexBuffer->size = data.debugVertexStagingBuffer->size;
+		data.debugVertexBuffer = GPU::NewVertexBuffer(data.device, "DebugLines Vertex Buffer");
+		GPU::BufferSetSize(data.debugVertexBuffer, data.debugVertices.size * sizeof(DebugVertex));
 	}
-	Range<vk::Buffer> texStagingBuffers;
-	Range<vk::Image> texImages;
 	{ // Load textures/buffers
-		data.uniformStagingBuffer = data.stagingMemory->AddBuffer(baseStagingBuffer);
-		data.uniformStagingBuffer->size = sizeof(UniformBuffer);
-		data.uniformBuffer = data.bufferMemory->AddBuffer(baseBuffer);
-		data.uniformBuffer->usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-		data.uniformBuffer->size = data.uniformStagingBuffer->size;
-	
+		data.uniformBuffer = GPU::NewUniformBuffer(data.device);
+		GPU::BufferSetSize(data.uniformBuffer, sizeof(UniformBuffer));
+		GPU::BufferSetShaderUsage(data.uniformBuffer, (u32)GPU::ShaderStage::VERTEX | (u32)GPU::ShaderStage::FRAGMENT);
+
 		// TODO: Make the following buffers resizable
 
-		data.objectStagingBuffer = data.stagingMemory->AddBuffer(baseStagingBuffer);
-		data.objectStagingBuffer->size = data.objectShaderInfos.size * sizeof(ObjectShaderInfo);
-		data.objectBuffer = data.bufferMemory->AddBuffer(baseBuffer);
-		data.objectBuffer->usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-		data.objectBuffer->size = data.objectStagingBuffer->size;
-		
-		texStagingBuffers = data.stagingMemory->AddBuffers(sys->assets.textures.size, baseStagingBuffer);
+		data.objectBuffer = GPU::NewStorageBuffer(data.device);
+		GPU::BufferSetSize(data.objectBuffer, data.objectShaderInfos.size * sizeof(ObjectShaderInfo));
+		GPU::BufferSetShaderUsage(data.objectBuffer, (u32)GPU::ShaderStage::VERTEX | (u32)GPU::ShaderStage::FRAGMENT);
 
-		data.fontStagingVertexBuffer = data.fontStagingMemory->AddBuffer(baseStagingBuffer);
-		data.fontStagingImageBuffers = data.fontStagingMemory->AddBuffers(sys->assets.fonts.size, baseStagingBuffer);
-
-		data.fontVertexBuffer = data.fontBufferMemory->AddBuffer(baseBuffer);
-		data.fontVertexBuffer->usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-
-		vk::Image baseImage = vk::Image();
-		baseImage.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		baseImage.format = VK_FORMAT_R8G8B8A8_SRGB;
-		texImages = data.textureMemory->AddImages(sys->assets.textures.size, baseImage);
+		data.textures.Resize(sys->assets.textures.size);
 		for (i32 i = 0; i < sys->assets.textures.size; i++) {
 			Image &image = sys->assets.textures[i].image;
+			data.textures[i] = GPU::NewImage(data.device, Stringify("texture ", i));
+			// TODO: Support HDR images
+			GPU::ImageBits imageBits;
 			switch (image.channels) {
-			case 1:
-				data.textureMemory->data.images[i].format = image.colorSpace == Image::LINEAR ? VK_FORMAT_R8_UNORM : VK_FORMAT_R8_SRGB;
-				break;
-			case 2:
-				data.textureMemory->data.images[i].format = image.colorSpace == Image::LINEAR ? VK_FORMAT_R8G8_UNORM : VK_FORMAT_R8G8_SRGB;
-				break;
-			case 3:
-				data.textureMemory->data.images[i].format = image.colorSpace == Image::LINEAR ? VK_FORMAT_R8G8B8_UNORM : VK_FORMAT_R8G8B8_SRGB;
-				break;
-			case 4:
-				data.textureMemory->data.images[i].format = image.colorSpace == Image::LINEAR ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
-				break;
-			default:
-				error = Stringify("Texture image ", i, " has invalid channel count (", image.channels, ")");
-				return false;
+				case 1: imageBits = GPU::ImageBits::R8; break;
+				case 2: imageBits = GPU::ImageBits::R8G8; break;
+				case 3: imageBits = GPU::ImageBits::R8G8B8; break;
+				case 4: imageBits = GPU::ImageBits::R8G8B8A8; break;
+				default:
+					error = Stringify("Texture image ", i, " has invalid channel count (", image.channels, ")");
+					return false;
 			}
+			GPU::ImageSetFormat(data.textures[i], imageBits, image.colorSpace == Image::LINEAR ? GPU::ImageComponentType::UNORM : GPU::ImageComponentType::SRGB);
+			GPU::ImageSetSize(data.textures[i], image.width, image.height);
+			GPU::ImageSetMipmapping(data.textures[i], true);
+			GPU::ImageSetShaderUsage(data.textures[i], (u32)GPU::ShaderStage::FRAGMENT);
 		}
-
-		baseImage.format = VK_FORMAT_R8_UNORM;
-		baseImage.width = 1;
-		baseImage.height = 1;
-		data.fontImages = data.fontImageMemory->AddImages(sys->assets.fonts.size, baseImage);
-
-		for (i32 i = 0; i < texImages.size; i++) {
-			const i32 channels = sys->assets.textures[i].image.channels;
-			texImages[i].width = sys->assets.textures[i].image.width;
-			texImages[i].height = sys->assets.textures[i].image.height;
-			texImages[i].mipLevels = (u32)floor(log2((f32)max(texImages[i].width, texImages[i].height))) + 1;
-
-			texStagingBuffers[i].size = channels * texImages[i].width * texImages[i].height;
-		}
-	}
-	Ptr<vk::DescriptorLayout> descriptorLayout;
-	Ptr<vk::DescriptorLayout> descriptorLayoutShadowed;
-	{ // Make descriptors
-		data.descriptors = data.device->AddDescriptors();
-		descriptorLayout = data.descriptors->AddLayout();
-		descriptorLayout->bindings.Resize(3);
-		// Binding 0 is WorldInfo
-		descriptorLayout->bindings[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descriptorLayout->bindings[0].stage = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT;
-		descriptorLayout->bindings[0].binding = 0;
-		descriptorLayout->bindings[0].count = 1;
-		// Binding 1 is ObjectInfo
-		descriptorLayout->bindings[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		descriptorLayout->bindings[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT;
-		descriptorLayout->bindings[1].binding = 1;
-		descriptorLayout->bindings[1].count = 1;
-		// Binding 2 is textures
-		descriptorLayout->bindings[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		descriptorLayout->bindings[2].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-		descriptorLayout->bindings[2].binding = 2;
-		descriptorLayout->bindings[2].count = sys->assets.textures.size;
-		
-		// Descriptors just for shadow map images
-		descriptorLayoutShadowed = data.descriptors->AddLayout();
-		descriptorLayoutShadowed->bindings.Resize(1);
-		descriptorLayoutShadowed->bindings[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		descriptorLayoutShadowed->bindings[0].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-		descriptorLayoutShadowed->bindings[0].binding = 0;
-		// TODO: Cascaded shadow maps, cube map shadows, etc.
-		descriptorLayoutShadowed->bindings[0].count = 1;
-
-		data.descriptorSet = data.descriptors->AddSet(descriptorLayout);
-		if (!data.descriptorSet->AddDescriptor(data.uniformBuffer, 0)) {
-			error = "Failed to add Uniform Buffer Descriptor: " + vk::error;
-			return false;
-		}
-		if (!data.descriptorSet->AddDescriptor(data.objectBuffer, 1)) {
-			error = "Failed to add Storage Buffer Descriptor: " + vk::error;
-			return false;
-		}
-		if (!data.descriptorSet->AddDescriptor(texImages, data.textureSampler, 2)) {
-			error = "Failed to add Texture Descriptor: " + vk::error;
-			return false;
-		}
+		data.fontVertexBuffer = GPU::NewVertexBuffer(data.device, "Font Vertex Buffer");
+		data.fontImages.Resize(sys->assets.fonts.size);
 	}
 	{ // Pipelines
-		Range<vk::Shader> shaders = data.device->AddShaders(5);
-		shaders[0].filename = "data/Az3D/shaders/DebugLines.vert.spv";
-		shaders[1].filename = "data/Az3D/shaders/DebugLines.frag.spv";
-		shaders[2].filename = "data/Az3D/shaders/Basic3D.vert.spv";
-		shaders[3].filename = "data/Az3D/shaders/Basic3D.frag.spv";
-		shaders[4].filename = "data/Az3D/shaders/Font3D.frag.spv";
-
-		vk::ShaderRef shaderRefDebugLinesVert = vk::ShaderRef(shaders.GetPtr(0), VK_SHADER_STAGE_VERTEX_BIT);
-		vk::ShaderRef shaderRefDebugLinesFrag = vk::ShaderRef(shaders.GetPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT);
-		vk::ShaderRef shaderRefVert = vk::ShaderRef(shaders.GetPtr(2), VK_SHADER_STAGE_VERTEX_BIT);
-		vk::ShaderRef shaderRefBasic3D = vk::ShaderRef(shaders.GetPtr(3), VK_SHADER_STAGE_FRAGMENT_BIT);
-		vk::ShaderRef shaderRefFont3D = vk::ShaderRef(shaders.GetPtr(4), VK_SHADER_STAGE_FRAGMENT_BIT);
+		GPU::Shader *debugLinesVert = GPU::NewShader(data.device, "data/Az3D/shaders/DebugLines.vert.spv", GPU::ShaderStage::VERTEX);
+		GPU::Shader *debugLinesFrag = GPU::NewShader(data.device, "data/Az3D/shaders/DebugLines.frag.spv", GPU::ShaderStage::FRAGMENT);
+		GPU::Shader *basic3DVert = GPU::NewShader(data.device, "data/Az3D/shaders/Basic3D.vert.spv", GPU::ShaderStage::VERTEX);
+		GPU::Shader *basic3DFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Basic3D.frag.spv", GPU::ShaderStage::FRAGMENT);
+		GPU::Shader *font3DFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Font3D.frag.spv", GPU::ShaderStage::FRAGMENT);
 
 		data.pipelines.Resize(PIPELINE_COUNT);
-		
-		data.pipelines[PIPELINE_DEBUG_LINES] = data.device->AddPipeline();
-		data.pipelines[PIPELINE_DEBUG_LINES]->renderPass = data.renderPass;
-		data.pipelines[PIPELINE_DEBUG_LINES]->subpass = 0;
-		data.pipelines[PIPELINE_DEBUG_LINES]->shaders.Append(shaderRefDebugLinesVert);
-		data.pipelines[PIPELINE_DEBUG_LINES]->shaders.Append(shaderRefDebugLinesFrag);
-		data.pipelines[PIPELINE_DEBUG_LINES]->inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-		data.pipelines[PIPELINE_DEBUG_LINES]->rasterizer.lineWidth = 2.0f;
-		data.pipelines[PIPELINE_DEBUG_LINES]->depthStencil.depthTestEnable = VK_TRUE;
-		data.pipelines[PIPELINE_DEBUG_LINES]->depthStencil.depthCompareOp = VK_COMPARE_OP_GREATER;
-		data.pipelines[PIPELINE_DEBUG_LINES]->descriptorLayouts.Append(descriptorLayout);
-		
-		data.pipelines[PIPELINE_BASIC_3D] = data.device->AddPipeline();
-		data.pipelines[PIPELINE_BASIC_3D]->renderPass = data.renderPass;
-		data.pipelines[PIPELINE_BASIC_3D]->subpass = 0;
-		data.pipelines[PIPELINE_BASIC_3D]->multisampleShading = true;
-		data.pipelines[PIPELINE_BASIC_3D]->shaders.Append(shaderRefVert);
-		data.pipelines[PIPELINE_BASIC_3D]->shaders.Append(shaderRefBasic3D);
-		data.pipelines[PIPELINE_BASIC_3D]->rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-		// data.pipelines[PIPELINE_BASIC_3D]->rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
-		data.pipelines[PIPELINE_BASIC_3D]->depthStencil.depthTestEnable = VK_TRUE;
-		data.pipelines[PIPELINE_BASIC_3D]->depthStencil.depthWriteEnable = VK_TRUE;
-		data.pipelines[PIPELINE_BASIC_3D]->depthStencil.depthCompareOp = VK_COMPARE_OP_GREATER;
-		data.pipelines[PIPELINE_BASIC_3D]->descriptorLayouts = {descriptorLayout, descriptorLayoutShadowed};
 
-		data.pipelines[PIPELINE_BASIC_3D]->dynamicStates = {
-			VK_DYNAMIC_STATE_VIEWPORT,
-			VK_DYNAMIC_STATE_SCISSOR
+		ArrayWithBucket<GPU::ShaderValueType, 8> vertexInputs = {
+			GPU::ShaderValueType::VEC3, // pos
+			GPU::ShaderValueType::VEC3, // normal
+			GPU::ShaderValueType::VEC3, // tangent
+			GPU::ShaderValueType::VEC2, // tex
 		};
+
+		data.pipelines[PIPELINE_DEBUG_LINES] = GPU::NewGraphicsPipeline(data.device, "Debug Lines Pipeline");
+		GPU::PipelineAddShaders(data.pipelines[PIPELINE_DEBUG_LINES], {debugLinesVert, debugLinesFrag});
+		GPU::PipelineAddVertexInputs(data.pipelines[PIPELINE_DEBUG_LINES], {
+			GPU::ShaderValueType::VEC3, // pos
+			GPU::ShaderValueType::VEC4, // color
+		});
+		GPU::PipelineSetTopology(data.pipelines[PIPELINE_DEBUG_LINES], GPU::Topology::LINE_LIST);
+		GPU::PipelineSetLineWidth(data.pipelines[PIPELINE_DEBUG_LINES], 2.0f);
+		GPU::PipelineSetDepthTest(data.pipelines[PIPELINE_DEBUG_LINES], true);
+		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_DEBUG_LINES], GPU::CompareOp::GREATER);
 		
-		data.pipelines[PIPELINE_FOLIAGE_3D] = data.device->AddPipeline();
-		*data.pipelines[PIPELINE_FOLIAGE_3D] = *data.pipelines[PIPELINE_BASIC_3D];
-		data.pipelines[PIPELINE_FOLIAGE_3D]->rasterizer.cullMode = VK_CULL_MODE_NONE;
-		data.pipelines[PIPELINE_DEBUG_LINES]->dynamicStates = data.pipelines[PIPELINE_BASIC_3D]->dynamicStates;
-
-		data.pipelines[PIPELINE_FONT_3D] = data.device->AddPipeline();
-		data.pipelines[PIPELINE_FONT_3D]->renderPass = data.renderPass;
-		data.pipelines[PIPELINE_FONT_3D]->subpass = 0;
-		data.pipelines[PIPELINE_FONT_3D]->shaders.Append(shaderRefVert);
-		data.pipelines[PIPELINE_FONT_3D]->shaders.Append(shaderRefFont3D);
-		data.pipelines[PIPELINE_FONT_3D]->descriptorLayouts.Append(descriptorLayout);
-
-		data.pipelines[PIPELINE_FONT_3D]->dynamicStates = data.pipelines[PIPELINE_BASIC_3D]->dynamicStates;
-
-		VkVertexInputAttributeDescription vertexInputAttributeDescription = {};
-		vertexInputAttributeDescription.binding = 0;
-		vertexInputAttributeDescription.location = 0;
-		vertexInputAttributeDescription.offset = offsetof(DebugVertex, pos);
-		vertexInputAttributeDescription.format = VK_FORMAT_R32G32B32_SFLOAT;
-		data.pipelines[PIPELINE_DEBUG_LINES]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-		vertexInputAttributeDescription.location = 1;
-		vertexInputAttributeDescription.offset = offsetof(DebugVertex, color);
-		vertexInputAttributeDescription.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		data.pipelines[PIPELINE_DEBUG_LINES]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
 		
-		vertexInputAttributeDescription.binding = 0;
-		vertexInputAttributeDescription.location = 0;
-		vertexInputAttributeDescription.offset = offsetof(Vertex, pos);
-		vertexInputAttributeDescription.format = VK_FORMAT_R32G32B32_SFLOAT;
-		for (i32 i = PIPELINE_3D_RANGE_START; i < PIPELINE_3D_RANGE_END; i++) {
-			data.pipelines[i]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-		}
-		vertexInputAttributeDescription.location = 1;
-		vertexInputAttributeDescription.offset = offsetof(Vertex, normal);
-		vertexInputAttributeDescription.format = VK_FORMAT_R32G32B32_SFLOAT;
-		for (i32 i = PIPELINE_3D_RANGE_START; i < PIPELINE_3D_RANGE_END; i++) {
-			data.pipelines[i]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-		}
-		vertexInputAttributeDescription.location = 2;
-		vertexInputAttributeDescription.offset = offsetof(Vertex, tangent);
-		vertexInputAttributeDescription.format = VK_FORMAT_R32G32B32_SFLOAT;
-		for (i32 i = PIPELINE_3D_RANGE_START; i < PIPELINE_3D_RANGE_END; i++) {
-			data.pipelines[i]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-		}
-		vertexInputAttributeDescription.location = 3;
-		vertexInputAttributeDescription.offset = offsetof(Vertex, tex);
-		vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
-		for (i32 i = PIPELINE_3D_RANGE_START; i < PIPELINE_3D_RANGE_END; i++) {
-			data.pipelines[i]->inputAttributeDescriptions.Append(vertexInputAttributeDescription);
-		}
-		VkVertexInputBindingDescription vertexInputBindingDescription = {};
-		vertexInputBindingDescription.binding = 0;
-		vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-		vertexInputBindingDescription.stride = sizeof(DebugVertex);
-		data.pipelines[PIPELINE_DEBUG_LINES]->inputBindingDescriptions.Append(vertexInputBindingDescription);
+		data.pipelines[PIPELINE_BASIC_3D] = GPU::NewGraphicsPipeline(data.device, "Basic 3D Pipeline");
+		GPU::PipelineAddShaders(data.pipelines[PIPELINE_BASIC_3D], {basic3DVert, basic3DFrag});
+		GPU::PipelineAddVertexInputs(data.pipelines[PIPELINE_BASIC_3D], vertexInputs);
+		GPU::PipelineSetTopology(data.pipelines[PIPELINE_BASIC_3D], GPU::Topology::TRIANGLE_LIST);
+		GPU::PipelineSetMultisampleShading(data.pipelines[PIPELINE_BASIC_3D], true);
+		GPU::PipelineSetDepthTest(data.pipelines[PIPELINE_BASIC_3D], true);
+		GPU::PipelineSetDepthWrite(data.pipelines[PIPELINE_BASIC_3D], true);
+		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_BASIC_3D], GPU::CompareOp::GREATER);
+		GPU::PipelineSetCullingMode(data.pipelines[PIPELINE_BASIC_3D], GPU::CullingMode::BACK);
+		GPU::PipelineSetWinding(data.pipelines[PIPELINE_BASIC_3D], GPU::Winding::COUNTER_CLOCKWISE);
 		
-		vertexInputBindingDescription.binding = 0;
-		vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-		vertexInputBindingDescription.stride = sizeof(Vertex);
-		for (i32 i = PIPELINE_3D_RANGE_START; i < PIPELINE_3D_RANGE_END; i++) {
-			data.pipelines[i]->inputBindingDescriptions.Append(vertexInputBindingDescription);
-		}
+		data.pipelines[PIPELINE_FOLIAGE_3D] = GPU::NewGraphicsPipeline(data.device, "Foliage 3D Pipeline");
+		GPU::PipelineAddShaders(data.pipelines[PIPELINE_FOLIAGE_3D], {basic3DVert, basic3DFrag});
+		GPU::PipelineAddVertexInputs(data.pipelines[PIPELINE_FOLIAGE_3D], vertexInputs);
+		GPU::PipelineSetTopology(data.pipelines[PIPELINE_FOLIAGE_3D], GPU::Topology::TRIANGLE_LIST);
+		GPU::PipelineSetMultisampleShading(data.pipelines[PIPELINE_FOLIAGE_3D], true);
+		GPU::PipelineSetDepthTest(data.pipelines[PIPELINE_FOLIAGE_3D], true);
+		GPU::PipelineSetDepthWrite(data.pipelines[PIPELINE_FOLIAGE_3D], true);
+		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_FOLIAGE_3D], GPU::CompareOp::GREATER);
+		GPU::PipelineSetCullingMode(data.pipelines[PIPELINE_FOLIAGE_3D], GPU::CullingMode::NONE);
+		GPU::PipelineSetWinding(data.pipelines[PIPELINE_FOLIAGE_3D], GPU::Winding::COUNTER_CLOCKWISE);
 
-		VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
-		colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
-											| VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-		colorBlendAttachment.blendEnable = VK_TRUE;
-		colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-		colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-		colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-		colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-		colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-		colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+		data.pipelines[PIPELINE_FONT_3D] = GPU::NewGraphicsPipeline(data.device, "Font 3D Pipeline");
+		GPU::PipelineAddShaders(data.pipelines[PIPELINE_FONT_3D], {basic3DVert, font3DFrag});
 
 		for (i32 i = 1; i < PIPELINE_COUNT; i++) {
-			data.pipelines[i]->colorBlendAttachments.Append(colorBlendAttachment);
+			GPU::PipelineSetBlendMode(data.pipelines[i], {GPU::BlendMode::TRANSPARENT, true});
 		}
 	}
 	{ // Shadow maps
-		data.shadowMapMemory = data.device->AddMemory();
-		data.shadowMapImage = data.shadowMapMemory->AddImage();
-		data.shadowMapImage->aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
-		data.shadowMapImage->format = VK_FORMAT_D32_SFLOAT;
-		data.shadowMapImage->usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		data.shadowMapImage->width = data.shadowMapImage->height = 2048;
-		data.renderPassShadowMaps = data.device->AddRenderPass();
-		data.renderPassShadowMaps->initialAccessStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		data.renderPassShadowMaps->finalAccessStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		auto attachment = data.renderPassShadowMaps->AddAttachment();
-		attachment->bufferDepthStencil = true;
-		attachment->clearDepth = true;
-		attachment->clearDepthStencilValue.depth = 0.0f;
-		attachment->formatDepthStencil = data.shadowMapImage->format;
-		attachment->keepDepth = true;
-		auto subpass = data.renderPassShadowMaps->AddSubpass();
-		subpass->UseAttachment(attachment, vk::ATTACHMENT_DEPTH_STENCIL, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-		data.framebufferShadowMaps = data.device->AddFramebuffer();
-		data.framebufferShadowMaps->renderPass = data.renderPassShadowMaps;
-		data.framebufferShadowMaps->attachmentImages = {{data.shadowMapImage}};
-		data.framebufferShadowMaps->ownMemory = false;
-		data.framebufferShadowMaps->ownImages = false;
-		data.framebufferShadowMaps->depthMemory = data.shadowMapMemory.RawPtr();
-		data.framebufferShadowMaps->width = data.shadowMapImage->width;
-		data.framebufferShadowMaps->height = data.shadowMapImage->height;
-		data.semaphoreShadowMapsComplete = data.device->AddSemaphore();
-		data.queueSubmissionShadowMaps = data.device->AddQueueSubmission();
-		data.pipelineShadowMaps = data.device->AddPipeline();
-		data.pipelineShadowMaps->renderPass = data.renderPassShadowMaps;
-		data.pipelineShadowMaps->subpass = 0;
-		data.pipelineShadowMaps->inputAssembly = data.pipelines[PIPELINE_BASIC_3D]->inputAssembly;
-		data.pipelineShadowMaps->inputAttributeDescriptions = data.pipelines[PIPELINE_BASIC_3D]->inputAttributeDescriptions;
-		data.pipelineShadowMaps->inputBindingDescriptions = data.pipelines[PIPELINE_BASIC_3D]->inputBindingDescriptions;
-		data.pipelineShadowMaps->rasterizer = data.pipelines[PIPELINE_BASIC_3D]->rasterizer;
-		data.pipelineShadowMaps->rasterizer.rasterizerDiscardEnable = VK_TRUE;
-		
-		auto shadersShadow = data.device->AddShaders(2);
-		shadersShadow[0].filename = "data/Az3D/shaders/ShadowMap.vert.spv";
-		shadersShadow[1].filename = "data/Az3D/shaders/ShadowMap.frag.spv";
-		vk::ShaderRef vertShadow = vk::ShaderRef(shadersShadow.GetPtr(0), VK_SHADER_STAGE_VERTEX_BIT);
-		vk::ShaderRef fragShadow = vk::ShaderRef(shadersShadow.GetPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT);
-		
-		data.pipelineShadowMaps->shaders = {vertShadow, fragShadow};
-		data.pipelineShadowMaps->depthStencil.depthTestEnable = VK_TRUE;
-		data.pipelineShadowMaps->depthStencil.depthWriteEnable = VK_TRUE;
-		data.pipelineShadowMaps->depthStencil.depthCompareOp = VK_COMPARE_OP_GREATER;
-		data.pipelineShadowMaps->descriptorLayouts = {descriptorLayout};
+		// data.shadowMapMemory = data.device->AddMemory();
+		// data.shadowMapImage = data.shadowMapMemory->AddImage();
+		// data.shadowMapImage->aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+		// data.shadowMapImage->format = VK_FORMAT_D32_SFLOAT;
+		// data.shadowMapImage->usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		// data.shadowMapImage->width = data.shadowMapImage->height = 2048;
+		// data.renderPassShadowMaps = data.device->AddRenderPass();
+		// data.renderPassShadowMaps->initialAccessStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		// data.renderPassShadowMaps->finalAccessStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		// auto attachment = data.renderPassShadowMaps->AddAttachment();
+		// attachment->bufferDepthStencil = true;
+		// attachment->clearDepth = true;
+		// attachment->clearDepthStencilValue.depth = 0.0f;
+		// attachment->formatDepthStencil = data.shadowMapImage->format;
+		// attachment->keepDepth = true;
+		// auto subpass = data.renderPassShadowMaps->AddSubpass();
+		// subpass->UseAttachment(attachment, vk::ATTACHMENT_DEPTH_STENCIL, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+		// data.framebufferShadowMaps = data.device->AddFramebuffer();
+		// data.framebufferShadowMaps->renderPass = data.renderPassShadowMaps;
+		// data.framebufferShadowMaps->attachmentImages = {{data.shadowMapImage}};
+		// data.framebufferShadowMaps->ownMemory = false;
+		// data.framebufferShadowMaps->ownImages = false;
+		// data.framebufferShadowMaps->depthMemory = data.shadowMapMemory.RawPtr();
+		// data.framebufferShadowMaps->width = data.shadowMapImage->width;
+		// data.framebufferShadowMaps->height = data.shadowMapImage->height;
+		// data.semaphoreShadowMapsComplete = data.device->AddSemaphore();
+		// data.queueSubmissionShadowMaps = data.device->AddQueueSubmission();
+		// data.pipelineShadowMaps = data.device->AddPipeline();
+		// data.pipelineShadowMaps->renderPass = data.renderPassShadowMaps;
+		// data.pipelineShadowMaps->subpass = 0;
+		// data.pipelineShadowMaps->inputAssembly = data.pipelines[PIPELINE_BASIC_3D]->inputAssembly;
+		// data.pipelineShadowMaps->inputAttributeDescriptions = data.pipelines[PIPELINE_BASIC_3D]->inputAttributeDescriptions;
+		// data.pipelineShadowMaps->inputBindingDescriptions = data.pipelines[PIPELINE_BASIC_3D]->inputBindingDescriptions;
+		// data.pipelineShadowMaps->rasterizer = data.pipelines[PIPELINE_BASIC_3D]->rasterizer;
+		// data.pipelineShadowMaps->rasterizer.rasterizerDiscardEnable = VK_TRUE;
+
+		// auto shadersShadow = data.device->AddShaders(2);
+		// shadersShadow[0].filename = "data/Az3D/shaders/ShadowMap.vert.spv";
+		// shadersShadow[1].filename = "data/Az3D/shaders/ShadowMap.frag.spv";
+		// vk::ShaderRef vertShadow = vk::ShaderRef(shadersShadow.GetPtr(0), VK_SHADER_STAGE_VERTEX_BIT);
+		// vk::ShaderRef fragShadow = vk::ShaderRef(shadersShadow.GetPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT);
+
+		// data.pipelineShadowMaps->shaders = {vertShadow, fragShadow};
+		// data.pipelineShadowMaps->depthStencil.depthTestEnable = VK_TRUE;
+		// data.pipelineShadowMaps->depthStencil.depthWriteEnable = VK_TRUE;
+		// data.pipelineShadowMaps->depthStencil.depthCompareOp = VK_COMPARE_OP_GREATER;
+		// data.pipelineShadowMaps->descriptorLayouts = {descriptorLayout};
 	}
 
-	if (!data.instance.Init()) {
-		error = "Failed to init vk::instance: " + vk::error;
+	if (auto result = GPU::Initialize(); result.isError) {
+		error = "Failed to init GPU: " + result.error;
 		return false;
 	}
-	
+
 	uniforms.lights[0].position = vec4(vec3(0.0f), 1.0f);
 	uniforms.lights[0].color = vec3(0.0f);
 	uniforms.lights[0].direction = vec3(0.0f, 0.0f, 1.0f);
@@ -528,45 +317,31 @@ bool Manager::Init() {
 	uniforms.lights[0].distMin = 0.0f;
 	uniforms.lights[0].distMax = 0.0f;
 
-	data.vertexStagingBuffer->CopyData(vertices.data);
-	data.indexStagingBuffer->CopyData(indices.data);
-	for (i32 i = 0; i < texStagingBuffers.size; i++) {
-		texStagingBuffers[i].CopyData(sys->assets.textures[i].image.pixels);
+	GPU::ContextBeginRecording(data.contextTransfer).AzUnwrap();
+	GPU::CmdCopyDataToBuffer(data.contextTransfer, data.vertexBuffer, vertices.data).AzUnwrap();
+	GPU::CmdCopyDataToBuffer(data.contextTransfer, data.indexBuffer, indices.data).AzUnwrap();
+	for (i32 i = 0; i < sys->assets.textures.size; i++) {
+		if (auto result = GPU::CmdCopyDataToImage(data.contextTransfer, data.textures[i], sys->assets.textures[i].image.pixels); result.isError) {
+			error = Stringify("Failed to copy data to texture ", i, result.error);
+			return false;
+		}
 	}
 
-	VkCommandBuffer cmdBufCopy = data.commandBufferGraphicsTransfer->Begin();
-	data.vertexBuffer->Copy(cmdBufCopy, data.vertexStagingBuffer);
-	data.indexBuffer->Copy(cmdBufCopy, data.indexStagingBuffer);
-
-	for (i32 i = 0; i < texStagingBuffers.size; i++) {
-		texImages[i].TransitionLayout(cmdBufCopy, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-		texImages[i].Copy(cmdBufCopy, texStagingBuffers.GetPtr(i));
-		texImages[i].GenerateMipMaps(cmdBufCopy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	}
-	if (!data.commandBufferGraphicsTransfer->End()) {
-		error = "Failed to copy from staging buffers: " + vk::error;
-		return false;
-	}
-	if (!data.device->SubmitCommandBuffers(data.queueGraphics, {data.queueSubmissionGraphicsTransfer})) {
-		error = "Failed to submit transfer command buffers: " + vk::error;
-		return false;
-	}
-	vk::QueueWaitIdle(data.queueGraphics);
+	GPU::ContextEndRecording(data.contextTransfer).AzUnwrap();
+	GPU::SubmitCommands(data.contextTransfer).AzUnwrap();
+	GPU::ContextWaitUntilFinished(data.contextTransfer).AzUnwrap();
 
 	if (!UpdateFonts()) {
 		error = "Failed to update fonts: " + error;
 		return false;
 	}
 	UpdateBackground();
-	
+
 	return true;
 }
 
 bool Manager::Deinit() {
-	if (!data.instance.Deinit()) {
-		error = vk::error;
-		return false;
-	}
+	GPU::Deinitialize();
 	return true;
 }
 
@@ -574,10 +349,10 @@ bool Manager::Deinit() {
 // AABB GetAABB(const Light &light) {
 // 	AABB result;
 // 	vec2 center = {light.position.x, light.position.y};
-	
+
 // 	result.minPos = center;
 // 	result.maxPos = center;
-	
+
 // 	f32 dist = light.distMax;// * sqrt(1.0f - square(light.direction.z));
 // 	Angle32 cardinalDirs[4] = {0.0f, halfpi, pi, halfpi * 3.0f};
 // 	vec2 cardinalVecs[4] = {
@@ -689,6 +464,7 @@ void Manager::UpdateLights() {
 
 bool Manager::UpdateFonts() {
 	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::UpdateFonts)
+	/*
 	// Will be done on-the-fly
 	if (data.fontStagingMemory->data.initted) {
 		data.fontStagingMemory->Deinit();
@@ -791,15 +567,15 @@ bool Manager::UpdateFonts() {
 		return false;
 	}
 	vk::QueueWaitIdle(data.queueGraphics);
-
+*/
 	return true;
 }
 
 String ToString(mat4 mat, i32 precision=2) {
 	return Stringify(
-		"| ", FormatFloat(mat.v.x1, 10, precision), ", ", FormatFloat(mat.v.y1, 10, precision), ", ", FormatFloat(mat.v.z1, 10, precision), ", ", FormatFloat(mat.v.w1, 10, precision), " |\n", 
-		"| ", FormatFloat(mat.v.x2, 10, precision), ", ", FormatFloat(mat.v.y2, 10, precision), ", ", FormatFloat(mat.v.z2, 10, precision), ", ", FormatFloat(mat.v.w2, 10, precision), " |\n", 
-		"| ", FormatFloat(mat.v.x3, 10, precision), ", ", FormatFloat(mat.v.y3, 10, precision), ", ", FormatFloat(mat.v.z3, 10, precision), ", ", FormatFloat(mat.v.w3, 10, precision), " |\n", 
+		"| ", FormatFloat(mat.v.x1, 10, precision), ", ", FormatFloat(mat.v.y1, 10, precision), ", ", FormatFloat(mat.v.z1, 10, precision), ", ", FormatFloat(mat.v.w1, 10, precision), " |\n",
+		"| ", FormatFloat(mat.v.x2, 10, precision), ", ", FormatFloat(mat.v.y2, 10, precision), ", ", FormatFloat(mat.v.z2, 10, precision), ", ", FormatFloat(mat.v.w2, 10, precision), " |\n",
+		"| ", FormatFloat(mat.v.x3, 10, precision), ", ", FormatFloat(mat.v.y3, 10, precision), ", ", FormatFloat(mat.v.z3, 10, precision), ", ", FormatFloat(mat.v.w3, 10, precision), " |\n",
 		"| ", FormatFloat(mat.v.x4, 10, precision), ", ", FormatFloat(mat.v.y4, 10, precision), ", ", FormatFloat(mat.v.z4, 10, precision), ", ", FormatFloat(mat.v.w4, 10, precision), " |");
 }
 
@@ -818,181 +594,149 @@ bool Manager::UpdateUniforms() {
 	uniforms.viewProj = uniforms.view * uniforms.proj;
 	uniforms.eyePos = camera.pos;
 	UpdateLights();
-	
-	data.uniformStagingBuffer->CopyData(&uniforms);
-	VkCommandBuffer cmdBuf = data.commandBufferTransfer->Begin();
-	data.uniformBuffer->Copy(cmdBuf, data.uniformStagingBuffer);
-	if (!data.commandBufferTransfer->End()) {
-		error = "Failed to copy from uniform staging buffer: " + vk::error;
-		return false;
-	}
-	if (!data.device->SubmitCommandBuffers(data.queueTransfer, {data.queueSubmissionTransfer})) {
-		error = "Failed to submit transer command buffer for uniforms: " + vk::error;
+
+	GPU::ContextBeginRecording(data.contextTransfer).AzUnwrap();
+	GPU::CmdCopyDataToBuffer(data.contextTransfer, data.uniformBuffer, &uniforms).AzUnwrap();
+	GPU::ContextEndRecording(data.contextTransfer).AzUnwrap();
+	if (auto result = GPU::SubmitCommands(data.contextTransfer); result.isError) {
+		error = "Failed to submit transer commands for uniforms: " + result.error;
 		return false;
 	}
 	// TODO: Synchronize this with the graphics queue using a semaphore
-	vk::QueueWaitIdle(data.queueTransfer);
+	GPU::ContextWaitUntilFinished(data.contextTransfer).AzUnwrap();
 
 	return true;
 }
 
 bool Manager::UpdateObjects() {
 	i64 copySize = min(data.objectShaderInfos.size, 1000000) * sizeof(ObjectShaderInfo);
-	data.objectStagingBuffer->CopyData(data.objectShaderInfos.data, copySize);
-	VkCommandBuffer cmdBuf = data.commandBufferTransfer->Begin();
-	data.objectBuffer->Copy(cmdBuf, data.objectStagingBuffer, copySize);
-	if (!data.commandBufferTransfer->End()) {
-		error = "Failed to copy from objects staging buffer: " + vk::error;
-		return false;
-	}
-	if (!data.device->SubmitCommandBuffers(data.queueTransfer, {data.queueSubmissionTransfer})) {
-		error = "Failed to submit transer command buffer for objects: " + vk::error;
+	GPU::ContextBeginRecording(data.contextTransfer).AzUnwrap();
+	GPU::CmdCopyDataToBuffer(data.contextTransfer, data.objectBuffer, data.objectShaderInfos.data, 0, copySize).AzUnwrap();
+	GPU::ContextEndRecording(data.contextTransfer).AzUnwrap();
+	if (auto result = GPU::SubmitCommands(data.contextTransfer); result.isError) {
+		error = "Failed to submit transer command buffer for objects: " + result.error;
 		return false;
 	}
 	// TODO: Synchronize this with the graphics queue using a semaphore
-	vk::QueueWaitIdle(data.queueTransfer);
+	GPU::ContextWaitUntilFinished(data.contextTransfer).AzUnwrap();
 
 	return true;
 }
 
-bool Manager::UpdateDebugLines(VkCommandBuffer cmdBuf) {
+bool Manager::UpdateDebugLines() {
 	data.debugVertices.ClearSoft();
 	for (DrawingContext &context : data.drawingContexts) {
 		data.debugVertices.Append(context.debugLines);
 	}
 	if (data.debugVertices.size < 2) return true;
-	
-	BindPipeline(cmdBuf, PIPELINE_DEBUG_LINES);
-	
-	vkCmdDraw(cmdBuf, data.debugVertices.size, 1, 0, 0);
-	
-	data.debugVertexStagingBuffer->CopyData(data.debugVertices.data, min(data.debugVertices.size, MAX_DEBUG_VERTICES) * sizeof(DebugVertex));
-	VkCommandBuffer cmdBufTransfer = data.commandBufferTransfer->Begin();
-	data.debugVertexBuffer->Copy(cmdBufTransfer, data.debugVertexStagingBuffer);
-	if (!data.commandBufferTransfer->End()) {
-		error = "Failed to copy from debug vertex staging buffer: " + vk::error;
-		return false;
-	}
-	if (!data.device->SubmitCommandBuffers(data.queueTransfer, {data.queueSubmissionTransfer})) {
-		error = "Failed to submit transer command buffer for debug vertices: " + vk::error;
-		return false;
-	}
-	// TODO: Synchronize this with the graphics queue using a semaphore
-	vk::QueueWaitIdle(data.queueTransfer);
 
+	BindPipeline(data.contextGraphics, PIPELINE_DEBUG_LINES);
+
+	GPU::CmdDraw(data.contextGraphics, data.debugVertices.size, 0);
+
+	GPU::ContextBeginRecording(data.contextTransfer).AzUnwrap();
+	GPU::CmdCopyDataToBuffer(data.contextTransfer, data.debugVertexBuffer, data.debugVertices.data, 0, min(data.debugVertices.size, MAX_DEBUG_VERTICES) * sizeof(DebugVertex)).AzUnwrap();
+	GPU::ContextEndRecording(data.contextTransfer).AzUnwrap();
+	if (auto result = GPU::SubmitCommands(data.contextTransfer); result.isError) {
+		error = "Failed to submit transer commands for debug vertices: " + result.error;
+		return false;
+	}
+	GPU::ContextWaitUntilFinished(data.contextTransfer).AzUnwrap();
 	return true;
 }
 
 bool Manager::Draw() {
 	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::Draw)
-	if (vk::hadValidationError) {
-		error = "Quitting due to vulkan validation error.";
+	// if (vk::hadValidationError) {
+	// 	error = "Quitting due to vulkan validation error.";
+	// 	return false;
+	// }
+	// if (sys->window.resized || data.resized || data.zeroExtent) {
+	// 	AZ3D_PROFILING_EXCEPTION_START();
+	// 	GPU::
+	// 	AZ3D_PROFILING_EXCEPTION_END();
+	// 	data.swapchain->UpdateSurfaceCapabilities();
+	// 	VkExtent2D extent = data.swapchain->data.surfaceCapabilities.currentExtent;
+	// 	if (extent.width == 0 || extent.height == 0) {
+	// 		data.zeroExtent = true;
+	// 		return true;
+	// 	}
+	// 	data.zeroExtent = false;
+	// 	if (!data.swapchain->Resize()) {
+	// 		error = "Failed to resize swapchain: " + vk::error;
+	// 		return false;
+	// 	}
+	// 	data.resized = false;
+	// }
+	// if (Settings::ReadBool(Settings::sVSync) != data.swapchain->vsync) {
+	// 	AZ3D_PROFILING_EXCEPTION_START();
+	// 	vk::DeviceWaitIdle(data.device);
+	// 	AZ3D_PROFILING_EXCEPTION_END();
+	// 	data.swapchain->vsync = Settings::ReadBool(Settings::sVSync);
+	// 	if (!data.swapchain->Reconfigure()) {
+	// 		error = "Failed to set VSync: " + vk::error;
+	// 		return false;
+	// 	}
+	// }
+
+	// bool updateFontMemory = false;
+	// for (i32 i = 0; i < sys->assets.fonts.size; i++) {
+	// 	Assets::Font& font = sys->assets.fonts[i];
+	// 	if (font.fontBuilder.indicesToAdd.size != 0) {
+	// 		font.fontBuilder.Build();
+	// 		updateFontMemory = true;
+	// 	}
+	// }
+	// if (updateFontMemory) {
+	// 	AZ3D_PROFILING_EXCEPTION_START();
+	// 	GPU::ContextWaitUntilFinished(data.contextGraphics).AzUnwrap();
+	// 	AZ3D_PROFILING_EXCEPTION_END();
+	// 	if (!UpdateFonts()) {
+	// 		return false;
+	// 	}
+	// }
+
+	static Az3D::Profiling::AString sWindowUpdate("GPU::WindowUpdate");
+	Az3D::Profiling::Timer timerWindowUpdate(sWindowUpdate);
+	timerWindowUpdate.Start();
+	AZ3D_PROFILING_EXCEPTION_START();
+	if (auto result = GPU::WindowUpdate(data.window); result.isError) {
+		error = "Failed to update GPU window: " + result.error;
 		return false;
 	}
-	if (sys->window.resized || data.resized || data.zeroExtent) {
-		AZ3D_PROFILING_EXCEPTION_START();
-		vk::DeviceWaitIdle(data.device);
-		AZ3D_PROFILING_EXCEPTION_END();
-		data.swapchain->UpdateSurfaceCapabilities();
-		VkExtent2D extent = data.swapchain->data.surfaceCapabilities.currentExtent;
-		if (extent.width == 0 || extent.height == 0) {
-			data.zeroExtent = true;
-			return true;
-		}
-		data.zeroExtent = false;
-		if (!data.swapchain->Resize()) {
-			error = "Failed to resize swapchain: " + vk::error;
-			return false;
-		}
-		data.resized = false;
-	}
-	if (Settings::ReadBool(Settings::sVSync) != data.swapchain->vsync) {
-		AZ3D_PROFILING_EXCEPTION_START();
-		vk::DeviceWaitIdle(data.device);
-		AZ3D_PROFILING_EXCEPTION_END();
-		data.swapchain->vsync = Settings::ReadBool(Settings::sVSync);
-		if (!data.swapchain->Reconfigure()) {
-			error = "Failed to set VSync: " + vk::error;
-			return false;
-		}
-	}
-
-	bool updateFontMemory = false;
-	for (i32 i = 0; i < sys->assets.fonts.size; i++) {
-		Assets::Font& font = sys->assets.fonts[i];
-		if (font.fontBuilder.indicesToAdd.size != 0) {
-			font.fontBuilder.Build();
-			updateFontMemory = true;
-		}
-	}
-	if (updateFontMemory) {
-		AZ3D_PROFILING_EXCEPTION_START();
-		vk::DeviceWaitIdle(data.device);
-		AZ3D_PROFILING_EXCEPTION_END();
-		if (!UpdateFonts()) {
-			return false;
-		}
-	}
-
-	static Az3D::Profiling::AString sAcquisition("Swapchain::AcquireNextImage");
-	Az3D::Profiling::Timer timerAcquisition(sAcquisition);
-	timerAcquisition.Start();
-	AZ3D_PROFILING_EXCEPTION_START();
-	VkResult acquisitionResult = data.swapchain->AcquireNextImage();
-	timerAcquisition.End();
+	timerWindowUpdate.End();
 	AZ3D_PROFILING_EXCEPTION_END();
 
-	if (acquisitionResult == VK_ERROR_OUT_OF_DATE_KHR || acquisitionResult == VK_NOT_READY) {
-		cout.PrintLn("Skipping a frame because acquisition returned: ", vk::ErrorString(acquisitionResult));
-		data.resized = true;
-		return true; // Don't render this frame.
-	} else if (acquisitionResult == VK_TIMEOUT) {
-		cout.PrintLn("Skipping a frame because acquisition returned: ", vk::ErrorString(acquisitionResult));
-		return true;
-	} else if (acquisitionResult == VK_SUBOPTIMAL_KHR) {
-		data.resized = true;
-		// We'll try to render this frame anyway
-	} else if (acquisitionResult != VK_SUCCESS) {
-		error = "Failed to acquire swapchain image: " + vk::error;
-		return false;
-	}
-
-	data.buffer = !data.buffer;
+	// data.buffer = !data.buffer;
 
 	screenSize = vec2((f32)sys->window.width, (f32)sys->window.height);
 	aspectRatio = screenSize.y / screenSize.x;
 
-	Ptr<vk::CommandBuffer> commandBuffer = data.commandBufferGraphics[data.buffer];
-	VkCommandBuffer cmdBuf = commandBuffer->Begin();
-	if (cmdBuf == VK_NULL_HANDLE) {
-		error = "Failed to Begin recording graphics command buffer: " + vk::error;
-		return false;
-	}
-	data.renderPass->Begin(cmdBuf, data.framebuffer, true);
-	vk::CmdSetViewportAndScissor(cmdBuf, sys->window.width, sys->window.height);
-	vk::CmdBindIndexBuffer(cmdBuf, data.indexBuffer, VK_INDEX_TYPE_UINT32);
+	GPU::ContextBeginRecording(data.contextGraphics).AzUnwrap();
+	GPU::CmdBindFramebuffer(data.contextGraphics, data.framebuffer);
+	GPU::CmdSetViewportAndScissor(data.contextGraphics, (f32)sys->window.width, (f32)sys->window.height);
+	GPU::CmdBindIndexBuffer(data.contextGraphics, data.indexBuffer);
+	GPU::CmdBindUniformBuffer(data.contextGraphics, data.uniformBuffer, 0, 0);
+	GPU::CmdBindStorageBuffer(data.contextGraphics, data.objectBuffer, 0, 1);
+	GPU::CmdBindImageArraySampler(data.contextGraphics, data.textures, data.textureSampler, 0, 2);
+	GPU::CmdCommitBindings(data.contextGraphics).AzUnwrap();
 	/*{ // Fade
 		DrawQuadSS(commandBuffersSecondary[0], texBlank, vec4(backgroundRGB, 0.2f), vec2(-1.0), vec2(2.0), vec2(1.0));
 	}*/
 	{ // Clear
-		vk::CmdClearColorAttachment(
-			cmdBuf,
-			data.renderPass->data.subpasses[0].data.referencesColor[0].attachment,
-			vec4(sRGBToLinear(backgroundRGB), 1.0f),
-			sys->window.width,
-			sys->window.height
-		);
+		GPU::CmdClearColorAttachment(data.contextGraphics, vec4(sRGBToLinear(backgroundRGB), 1.0f));
+		GPU::CmdClearDepthAttachment(data.contextGraphics, 0.0f);
 	}
 	// Clear lights so we get new ones this frame
 	lights.size = 0;
-	
+
 	for (DrawingContext &context : data.drawingContexts) {
 		context.thingsToDraw.ClearSoft();
 		context.debugLines.ClearSoft();
 	}
 
 	sys->Draw(data.drawingContexts);
-	
+
 	data.objectShaderInfos.ClearSoft();
 	{ // Sorting draw calls
 		Array<DrawCallInfo> allDrawCalls;
@@ -1011,12 +755,12 @@ bool Manager::Draw() {
 		for (DrawCallInfo &drawCall : allDrawCalls) {
 			if (drawCall.culled) continue;
 			if (drawCall.pipeline != currentPipeline) {
-				BindPipeline(cmdBuf, drawCall.pipeline);
+				BindPipeline(data.contextGraphics, drawCall.pipeline);
 				currentPipeline = drawCall.pipeline;
 			}
 			drawCall.instanceStart = data.objectShaderInfos.size;
 			data.objectShaderInfos.Append(ObjectShaderInfo{drawCall.transform, drawCall.material});
-			vkCmdDrawIndexed(cmdBuf, drawCall.indexCount, drawCall.instanceCount, drawCall.indexStart, 0, drawCall.instanceStart);
+			GPU::CmdDrawIndexed(data.contextGraphics, drawCall.indexCount, drawCall.indexStart, 0, drawCall.instanceCount, drawCall.instanceStart);
 		}
 	}
 
@@ -1047,42 +791,31 @@ bool Manager::Draw() {
 	Az3D::Profiling::Timer timerWaitIdle(sWaitIdle);
 	timerWaitIdle.Start();
 	AZ3D_PROFILING_EXCEPTION_START();
-	vk::DeviceWaitIdle(data.device);
+	GPU::DeviceWaitIdle(data.device);
 	AZ3D_PROFILING_EXCEPTION_END();
 	timerWaitIdle.End();
-	
+
 	if (!UpdateUniforms()) return false;
 	if (!UpdateObjects()) return false;
-	if (!UpdateDebugLines(cmdBuf)) return false;
-	
-	vkCmdEndRenderPass(cmdBuf);
+	if (!UpdateDebugLines()) return false;
 
-	if (!commandBuffer->End()) {
-		error = Stringify("Failed to End graphics command buffer: ", vk::error);
-		return false;
-	}
+	GPU::ContextEndRecording(data.contextGraphics).AzUnwrap();
 
-	if (!data.queueSubmission[data.buffer]->Config()) {
-		error = "Failed to configure queue submisson: " + vk::error;
-		return false;
-	}
-
-	// Submit to queue
-	if (!data.device->SubmitCommandBuffers(data.queueGraphics, {data.queueSubmission[data.buffer]})) {
-		error = "Failed to SubmitCommandBuffers: " + vk::error;
+	if (auto result = GPU::SubmitCommands(data.contextGraphics, true); result.isError) {
+		error = "Failed to SubmitCommandBuffers: " + result.error;
 		return false;
 	}
 	return true;
 }
 
 bool Manager::Present() {
-	if (data.zeroExtent) {
-		Thread::Sleep(Milliseconds(clamp((i32)sys->frametimes.AverageWithoutOutliers(), 5, 50)));
-		return true;
-	}
+	// if (data.zeroExtent) {
+	// 	Thread::Sleep(Milliseconds(clamp((i32)sys->frametimes.AverageWithoutOutliers(), 5, 50)));
+	// 	return true;
+	// }
 	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::Present)
-	if (!data.swapchain->Present(data.queuePresent, {data.semaphoreRenderComplete->semaphore})) {
-		error = "Failed to present: " + vk::error;
+	if (auto result = GPU::WindowPresent(data.window, {data.contextGraphics}); result.isError) {
+		error = "Failed to present: " + result.error;
 		return false;
 	}
 	return true;

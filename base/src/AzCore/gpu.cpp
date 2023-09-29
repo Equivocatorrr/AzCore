@@ -960,7 +960,6 @@ struct Device {
 	
 	VkPhysicalDeviceFeatures2 vk10Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
 	VkPhysicalDeviceVulkan11Features vk11Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
-	VkPhysicalDeviceMultiviewFeatures vkMultiviewFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES};
 	VkPhysicalDeviceVulkan12Features vk12Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
 	VkPhysicalDeviceVulkan13Features vk13Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
 	
@@ -1341,7 +1340,7 @@ void ImageDeinit(Image *image);
 void ImageHostDeinit(Image *image);
 
 [[nodiscard]] Result<VoidResult_t, String> SamplerInit(Sampler *sampler);
-void ImageDeinit(Sampler *sampler);
+void SamplerDeinit(Sampler *sampler);
 
 [[nodiscard]] Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer);
 void FramebufferDeinit(Framebuffer *framebuffer);
@@ -1374,7 +1373,7 @@ Result<VoidResult_t, String> Initialize() {
 	appInfo.applicationVersion = 1;
 	appInfo.pEngineName = "AzCore::GPU";
 	appInfo.engineVersion = VK_MAKE_VERSION(VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
-	appInfo.apiVersion = VK_API_VERSION_1_2;
+	appInfo.apiVersion = VK_API_VERSION_1_3;
 
 	Array<const char*> extensions;
 	{ // Add and check availability of extensions
@@ -2413,8 +2412,7 @@ breakout:
 		}
 	}
 	featuresEnabled.pNext = &device->vk11Features;
-	device->vk11Features.pNext = &device->vkMultiviewFeatures;
-	device->vkMultiviewFeatures.pNext = &device->vk12Features;
+	device->vk11Features.pNext = &device->vk12Features;
 	device->vk12Features.pNext = &device->vk13Features;
 	if ((u32)io::logLevel >= (u32)io::LogLevel::DEBUG) {
 		PrintPhysicalDeviceInfo(device->physicalDevice.RawPtr());
@@ -2546,6 +2544,9 @@ void DeviceDeinit(Device *device) {
 	for (auto &image : device->images) {
 		ImageDeinit(image.RawPtr());
 	}
+	for (auto &sampler : device->samplers) {
+		SamplerDeinit(sampler.RawPtr());
+	}
 	for (auto &shader : device->shaders) {
 		ShaderDeinit(shader.RawPtr());
 	}
@@ -2635,10 +2636,6 @@ void DeviceRequireFeatures(Device *device, const ArrayWithBucket<Str, 8> &featur
 		{"protectedMemory", (u64)&device->vk11Features.protectedMemory - (u64)&device},
 		{"samplerYcbcrConversion", (u64)&device->vk11Features.samplerYcbcrConversion - (u64)&device},
 		{"shaderDrawParameters", (u64)&device->vk11Features.shaderDrawParameters - (u64)&device},
-		// Vulkan Multiview Features
-		{"multiview", (u64)&device->vkMultiviewFeatures.multiview - (u64)&device},
-		{"multiviewGeometryShader", (u64)&device->vkMultiviewFeatures.multiviewGeometryShader - (u64)&device},
-		{"multiviewTessellationShader", (u64)&device->vkMultiviewFeatures.multiviewTessellationShader - (u64)&device},
 		// Vulkan 1.2 Features
 		{"samplerMirrorClampToEdge", (u64)&device->vk12Features.samplerMirrorClampToEdge - (u64)&device},
 		{"drawIndirectCount", (u64)&device->vk12Features.drawIndirectCount - (u64)&device},
@@ -2832,7 +2829,11 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 		createInfo.usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
 	}
 	if (image->attachment) {
-		createInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		if (FormatIsDepth(image->vkFormat)) {
+			createInfo.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		} else {
+			createInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		}
 	}
 	createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	createInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
@@ -3193,6 +3194,11 @@ void ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 			image->bytesPerPixel = 4;
 			break;
 		default: goto bad_format;
+	}
+	if (FormatIsDepth(image->vkFormat)) {
+		image->vkImageAspect = VK_IMAGE_ASPECT_DEPTH_BIT;
+	} else {
+		image->vkImageAspect = VK_IMAGE_ASPECT_COLOR_BIT;
 	}
 	return;
 bad_format:

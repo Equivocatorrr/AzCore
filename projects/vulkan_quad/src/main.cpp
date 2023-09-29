@@ -17,8 +17,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
 	for (i32 i = 0; i < argumentCount; i++) {
 		io::cout.PrintLn("Argument ", i, ": ", argumentValues[i]);
-		if (equals(argumentValues[i], "--enable-layers")) {
-			io::cout.PrintLn("Enabling layers");
+		if (equals(argumentValues[i], "--validation")) {
 			GPU::EnableValidationLayers();
 		} else if (equals(argumentValues[i], "--trace")) {
 			io::logLevel = io::LogLevel::TRACE;
@@ -179,12 +178,12 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			return 1;
 		}
 
-		if (auto result = GPU::SubmitCommands(context, true); result.isError) {
+		if (auto result = GPU::SubmitCommands(context, 1); result.isError) {
 			io::cerr.PrintLn("Failed to submit data copies: ", result.error);
 			return 1;
 		}
 
-		if (auto result = GPU::WindowPresent(gpuWindow, {context}); result.isError) {
+		if (auto result = GPU::WindowPresent(gpuWindow, {GPU::ContextGetCurrentSemaphore(context)}); result.isError) {
 			io::cerr.PrintLn("Failed to present window surface: ", result.error);
 			return 1;
 		}

@@ -771,14 +771,24 @@ bool Manager::Draw() {
 	if (!UpdateObjects(data.contextTransfer)) return false;
 	if (!UpdateDebugLines(data.contextTransfer)) return false;
 	GPU::ContextEndRecording(data.contextTransfer).AzUnwrap();
-	if (auto result = GPU::SubmitCommands(data.contextTransfer, true); result.isError) {
-		error = "Failed to submit transfer commands: " + result.error;
-		return false;
+	{
+		// Because the first frame won't have a signaled semaphore, only wait for it if we're not on the first frame.
+		ArrayWithBucket<GPU::Semaphore*, 4> waitSemaphores;
+		static bool once = true;
+		if (once) {
+			once = false;
+		} else {
+			waitSemaphores.Append(GPU::ContextGetPreviousSemaphore(data.contextGraphics, 1));
+		}
+		if (auto result = GPU::SubmitCommands(data.contextTransfer, 1, waitSemaphores); result.isError) {
+			error = "Failed to submit transfer commands: " + result.error;
+			return false;
+		}
 	}
 
 	GPU::ContextEndRecording(data.contextGraphics).AzUnwrap();
 
-	if (auto result = GPU::SubmitCommands(data.contextGraphics, true, {data.contextTransfer}); result.isError) {
+	if (auto result = GPU::SubmitCommands(data.contextGraphics, 2, {GPU::ContextGetCurrentSemaphore(data.contextTransfer)}); result.isError) {
 		error = "Failed to SubmitCommandBuffers: " + result.error;
 		return false;
 	}
@@ -791,7 +801,7 @@ bool Manager::Present() {
 	// 	return true;
 	// }
 	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::Present)
-	if (auto result = GPU::WindowPresent(data.window, {data.contextGraphics}); result.isError) {
+	if (auto result = GPU::WindowPresent(data.window, {GPU::ContextGetCurrentSemaphore(data.contextGraphics)}); result.isError) {
 		error = "Failed to present: " + result.error;
 		return false;
 	}

@@ -170,7 +170,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	for (i32 i = 0; i < argumentCount; i++) {
 		io::cout.PrintLn(i, ": ", argumentValues[i]);
 		if (equals(argumentValues[i], "--validation")) {
-			io::cout.PrintLn("Enabling validation layers");
 			enableLayers = true;
 		} else if (equals(argumentValues[i], "--profiling")) {
 			io::cout.PrintLn("Enabling profiling");

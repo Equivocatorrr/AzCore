@@ -1002,7 +1002,7 @@ struct DescriptorSetLayout {
 struct ContextFrame {
 	VkCommandBuffer vkCommandBuffer;
 	Fence fence;
-	Semaphore semaphore;
+	Array<Semaphore> semaphores;
 };
 
 struct Context {
@@ -1935,14 +1935,14 @@ reconfigure:
 	return VoidResult_t();
 }
 
-Result<VoidResult_t, String> WindowPresent(Window *window, ArrayWithBucket<Context*, 4> waitContexts) {
-	ArrayWithBucket<VkSemaphore, 4> waitSemaphores(waitContexts.size);
-	for (i32 i = 0; i < waitContexts.size; i++) {
-		waitSemaphores[i] = waitContexts[i]->frames[waitContexts[i]->currentFrame].semaphore.vkSemaphore;
+Result<VoidResult_t, String> WindowPresent(Window *window, ArrayWithBucket<Semaphore*, 4> waitSemaphores) {
+	ArrayWithBucket<VkSemaphore, 4> waitVkSemaphores(waitSemaphores.size);
+	for (i32 i = 0; i < waitVkSemaphores.size; i++) {
+		waitVkSemaphores[i] = waitSemaphores[i]->vkSemaphore;
 	}
 	VkPresentInfoKHR presentInfo{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
-	presentInfo.waitSemaphoreCount = waitSemaphores.size;
-	presentInfo.pWaitSemaphores = waitSemaphores.data;
+	presentInfo.waitSemaphoreCount = waitVkSemaphores.size;
+	presentInfo.pWaitSemaphores = waitVkSemaphores.data;
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = &window->vkSwapchain;
 	presentInfo.pImageIndices = (u32*)&window->currentImage;
@@ -4122,11 +4122,6 @@ Result<VoidResult_t, String> ContextInit(Context *context) {
 		if (auto result = FenceInit(&frame.fence, true); result.isError) {
 			return ERROR_RESULT(context, result.error);
 		}
-		frame.semaphore.device = context->device;
-		frame.semaphore.tag = Stringify("Context Semaphore ", i);
-		if (auto result = SemaphoreInit(&frame.semaphore); result.isError) {
-			return ERROR_RESULT(context, result.error);
-		}
 	}
 	context->initted = true;
 	return VoidResult_t();
@@ -4138,7 +4133,9 @@ void ContextDeinit(Context *context) {
 	for (i32 i = 0; i < context->numFrames; i++) {
 		ContextFrame &frame = context->frames[i];
 		FenceDeinit(&frame.fence);
-		SemaphoreDeinit(&frame.semaphore);
+		for (Semaphore &semaphore : frame.semaphores) {
+			SemaphoreDeinit(&semaphore);
+		}
 	}
 	if (context->vkDescriptorPool != VK_NULL_HANDLE) {
 		vkDestroyDescriptorPool(context->device->vkDevice, context->vkDescriptorPool, nullptr);
@@ -4163,6 +4160,37 @@ bool DescriptorSetLayoutMatches(DescriptorSetLayout &a, DescriptorSetLayout &b) 
 		if (a.bindings[i].stageFlags != b.bindings[i].stageFlags) return false;
 	}
 	return true;
+}
+
+
+static Result<VoidResult_t, String> ContextEnsureSemaphoreCount(Context *context, i32 count, i32 frameIndex) {
+	ContextFrame &frame = context->frames[frameIndex];
+	if (frame.semaphores.size < count) {
+		i32 prevSize = frame.semaphores.size;
+		frame.semaphores.Resize(count);
+		for (i32 i = prevSize; i < count; i++) {
+			frame.semaphores[i].device = context->device;
+			frame.semaphores[i].tag = Stringify(context->tag, " Frame ", frameIndex, " Semaphore ", i);
+			if (auto result = SemaphoreInit(&frame.semaphores[i]); result.isError) {
+				return ERROR_RESULT(context, "Couldn't ensure we had enough semaphores: ", result.error);
+			}
+		}
+	}
+	return VoidResult_t();
+}
+
+Semaphore* ContextGetCurrentSemaphore(Context *context, i32 index) {
+	ContextFrame &frame = context->frames[context->currentFrame];
+	ContextEnsureSemaphoreCount(context, index+1, context->currentFrame).AzUnwrap();
+	return &frame.semaphores[index];
+}
+
+Semaphore* ContextGetPreviousSemaphore(Context *context, i32 index) {
+	i32 lastFrame = context->currentFrame - 1;
+	if (lastFrame < 0) lastFrame = context->numFrames-1;
+	ContextFrame &frame = context->frames[lastFrame];
+	ContextEnsureSemaphoreCount(context, index+1, lastFrame).AzUnwrap();
+	return &frame.semaphores[index];
 }
 
 Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
@@ -4411,34 +4439,41 @@ Result<VoidResult_t, String> ContextEndRecording(Context *context) {
 	return VoidResult_t();
 }
 
-Result<VoidResult_t, String> SubmitCommands(Context *context, bool useSemaphore, ArrayWithBucket<Context*, 4> waitContexts) {
+Result<VoidResult_t, String> SubmitCommands(Context *context, i32 numSemaphores, ArrayWithBucket<Semaphore*, 4> waitSemaphores) {
 	ContextFrame &frame = context->frames[context->currentFrame];
 	if (context->state != Context::State::DONE_RECORDING) {
 		return ERROR_RESULT(context, "Trying to SubmitCommands without anything recorded.");
 	}
-	ArrayWithBucket<VkSemaphore, 4> waitSemaphores(waitContexts.size);
-	ArrayWithBucket<VkPipelineStageFlags, 4> waitStages(waitContexts.size);
+	ArrayWithBucket<VkSemaphore, 4> waitVkSemaphores(waitSemaphores.size);
+	ArrayWithBucket<VkPipelineStageFlags, 4> waitStages(waitSemaphores.size);
 	for (i32 i = 0; i < waitSemaphores.size; i++) {
-		waitSemaphores[i] = waitContexts[i]->frames[waitContexts[i]->currentFrame].semaphore.vkSemaphore;
+		waitVkSemaphores[i] = waitSemaphores[i]->vkSemaphore;
 		// TODO: This is a safe assumption, but we could probably be more specific.
 		waitStages[i] = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 	}
 	if (context->bindings.framebuffer) {
 		Window *window = FramebufferGetWindowAttachment(context->bindings.framebuffer);
 		if (window) {
-			waitSemaphores.Append(window->acquireSemaphores[window->currentSync].vkSemaphore);
+			waitVkSemaphores.Append(window->acquireSemaphores[window->currentSync].vkSemaphore);
 			waitStages.Append(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+		}
+	}
+	ArrayWithBucket<VkSemaphore, 4> signalVkSemaphores(numSemaphores);
+	if (numSemaphores) {
+		if (auto result = ContextEnsureSemaphoreCount(context, numSemaphores, context->currentFrame); result.isError) {
+			return ERROR_RESULT(context, "Couldn't ensure we had ", numSemaphores, " semaphores");
+		}
+		for (i32 i = 0; i < numSemaphores; i++) {
+			signalVkSemaphores[i] = frame.semaphores[i].vkSemaphore;
 		}
 	}
 	VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &frame.vkCommandBuffer;
-	if (useSemaphore) {
-		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = &frame.semaphore.vkSemaphore;
-	}
-	submitInfo.waitSemaphoreCount = waitSemaphores.size;
-	submitInfo.pWaitSemaphores = waitSemaphores.data;
+	submitInfo.signalSemaphoreCount = signalVkSemaphores.size;
+	submitInfo.pSignalSemaphores = signalVkSemaphores.data;
+	submitInfo.waitSemaphoreCount = waitVkSemaphores.size;
+	submitInfo.pWaitSemaphores = waitVkSemaphores.data;
 	submitInfo.pWaitDstStageMask = waitStages.data;
 	if (VkResult result = vkQueueSubmit(context->device->vkQueue, 1, &submitInfo, frame.fence.vkFence); result != VK_SUCCESS) {
 		return ERROR_RESULT(context, "Failed to submit to queue: ", VkResultString(result));

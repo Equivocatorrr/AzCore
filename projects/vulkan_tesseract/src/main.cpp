@@ -48,15 +48,11 @@ void DrawLine(GPU::Context *context, Vertex *vertices, u32 *vertex, vec2 p1, vec
 
 i32 main(i32 argumentCount, char** argumentValues) {
 
-	bool enableLayers = false, enableCoreValidation = false;
-
 	io::cout.PrintLn("\nTest program received ",  argumentCount,  " arguments:");
 	for (i32 i = 0; i < argumentCount; i++) {
 		io::cout.PrintLn(i,  ": ",  argumentValues[i]);
-		if (equals(argumentValues[i], "--enable-layers")) {
-			enableLayers = true;
-		} else if (equals(argumentValues[i], "--core-validation")) {
-			enableCoreValidation = true;
+		if (equals(argumentValues[i], "--validation")) {
+			GPU::EnableValidationLayers();
 		}
 	}
 
@@ -86,11 +82,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	
 	GPU::Window *gpuWindow = GPU::AddWindow(&ioWindow, "Main window").AzUnwrap();
 
-	if (enableLayers) {
-		io::cout.PrintLn("Validation layers enabled.");
-		GPU::EnableValidationLayers();
-	}
-	
 	GPU::Device *device = GPU::NewDevice();
 
 	GPU::Buffer *vertexBuffer = GPU::NewVertexBuffer(device);
@@ -511,17 +502,26 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			io::cerr.PrintLn("Failed to end recording transfer: ", result.error);
 			return 1;
 		}
-		
-		if (auto result = GPU::SubmitCommands(contextTransfer, true); result.isError) {
-			io::cerr.PrintLn("Failed to Submit Transfer Commands: ", result.error);
-			return 1;
+		{
+			// Because the first frame won't have a signaled semaphore, only wait for it if we're not on the first frame.
+			ArrayWithBucket<GPU::Semaphore*, 4> waitSemaphores;
+			static bool once = true;
+			if (once) {
+				once = false;
+			} else {
+				waitSemaphores.Append(GPU::ContextGetPreviousSemaphore(contextDrawing, 1));
+			}
+			if (auto result = GPU::SubmitCommands(contextTransfer, 1, waitSemaphores); result.isError) {
+				io::cerr.PrintLn("Failed to Submit Transfer Commands: ", result.error);
+				return 1;
+			}
 		}
-		if (auto result = GPU::SubmitCommands(contextDrawing, true, {contextTransfer}); result.isError) {
+		if (auto result = GPU::SubmitCommands(contextDrawing, 2, {GPU::ContextGetCurrentSemaphore(contextTransfer)}); result.isError) {
 			io::cerr.PrintLn("Failed to Submit Drawing Commands: ", result.error);
 			return 1;
 		}
 
-		if (auto result = GPU::WindowPresent(gpuWindow, {contextDrawing}); result.isError) {
+		if (auto result = GPU::WindowPresent(gpuWindow, {GPU::ContextGetCurrentSemaphore(contextDrawing)}); result.isError) {
 			io::cout.PrintLn("Failed to present: ", result.error);
 			return 1;
 		}

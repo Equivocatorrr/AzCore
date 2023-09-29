@@ -230,6 +230,9 @@ struct Framebuffer;
 // Describes a window with a surface
 struct Window;
 
+// Synchronization primitive for 1-way dependencies
+struct Semaphore;
+
 
 // Global settings
 
@@ -280,7 +283,7 @@ bool GetVSyncEnabled(Window *window);
 [[nodiscard]] Result<VoidResult_t, String> WindowUpdate(Window *window);
 
 // waitContexts are any contexts that the window's resulting image depend on. These only need to be populated if not using external synchronization like ContextWaitUntilFinished().
-[[nodiscard]] Result<VoidResult_t, String> WindowPresent(Window *window, ArrayWithBucket<Context*, 4> waitContexts={});
+[[nodiscard]] Result<VoidResult_t, String> WindowPresent(Window *window, ArrayWithBucket<Semaphore*, 4> waitSemaphores={});
 
 
 // Creating new objects
@@ -405,15 +408,17 @@ void PipelineSetMultisampleShading(Pipeline *pipeline, bool enabled, f32 minFrac
 // Context, Commands
 
 
+[[nodiscard]] Semaphore* ContextGetCurrentSemaphore(Context *context, i32 semaphoreIndex=0);
+[[nodiscard]] Semaphore* ContextGetPreviousSemaphore(Context *context, i32 semaphoreIndex=0);
+
 [[nodiscard]] Result<VoidResult_t, String> ContextBeginRecording(Context *context);
 
 [[nodiscard]] Result<VoidResult_t, String> ContextBeginRecordingSecondary(Context *context, Framebuffer *framebuffer, i32 subpass);
 
 [[nodiscard]] Result<VoidResult_t, String> ContextEndRecording(Context *context);
 
-// useSemaphore must be true if this context is to be waited on by either another context or a window present. Forgetting to do this will hang the program.
-// waitContexts are any contexts that need to finish executing before we can execute our current context.
-[[nodiscard]] Result<VoidResult_t, String> SubmitCommands(Context *context, bool useSemaphore=false, ArrayWithBucket<Context*, 4> waitContexts={});
+// numSemaphores is how many semaphores to signal
+[[nodiscard]] Result<VoidResult_t, String> SubmitCommands(Context *context, i32 numSemaphores=0, ArrayWithBucket<Semaphore*, 4> waitSemaphores={});
 
 // Returns true if Context is still executing
 [[nodiscard]] Result<bool, String> ContextIsExecuting(Context *context);
@@ -426,7 +431,6 @@ void PipelineSetMultisampleShading(Pipeline *pipeline, bool enabled, f32 minFrac
 [[nodiscard]] Result<VoidResult_t, String> CmdCopyDataToBuffer(Context *context, Buffer *dst, void *src, i64 dstOffset=0, i64 size=0);
 
 [[nodiscard]] Result<VoidResult_t, String> CmdCopyDataToImage(Context *context, Image *dst, void *src);
-
 
 void CmdBindFramebuffer(Context *context, Framebuffer *framebuffer);
 

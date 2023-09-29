@@ -1723,25 +1723,26 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 			window->surfaceFormat = window->surfaceFormatsAvailable[0];
 		}
 	}
-	// NOTE: Defaulting to double-buffering for most present modes helps keep latency low, but may result in underutilization of the hardware. Is it possible to automatically choose a number that works for all situations? Maybe make it a setting like most games do.
-	u32 imageCountPreferred = 2;
+	u32 imageCountPreferred = 3;
 	{ // Choose present mode
 		bool found = false;
 		if (window->vsync) {
 			// The Vulkan Spec requires this present mode to exist
 			window->presentMode = VK_PRESENT_MODE_FIFO_KHR;
+			imageCountPreferred = 3;
 			found = true;
 		} else {
 			for (const VkPresentModeKHR& mode : window->presentModesAvailable) {
 				if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
 					window->presentMode = mode;
 					found = true;
-					imageCountPreferred = 3;
-					break; // Ideal choice, don't keep looking
+					imageCountPreferred = 2;
+					// Acceptable choice, but keep looking
 				} else if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
 					window->presentMode = mode;
 					found = true;
-					// Acceptable choice, but keep looking
+					imageCountPreferred = 3;
+					break; // Ideal choice, don't keep looking
 				}
 			}
 		}

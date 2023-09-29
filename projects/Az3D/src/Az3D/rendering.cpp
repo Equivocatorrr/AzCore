@@ -587,7 +587,7 @@ vec4 PerspectiveNormalize(vec4 point) {
 	return point / point.w;
 }
 
-bool Manager::UpdateUniforms() {
+bool Manager::UpdateUniforms(GPU::Context *context) {
 	// Update camera matrix
 	uniforms.view = mat4::Camera(camera.pos, camera.forward, camera.up);
 	uniforms.proj = mat4::Perspective(camera.fov, screenSize.x / screenSize.y, camera.nearClip, camera.farClip);
@@ -595,35 +595,19 @@ bool Manager::UpdateUniforms() {
 	uniforms.eyePos = camera.pos;
 	UpdateLights();
 
-	GPU::ContextBeginRecording(data.contextTransfer).AzUnwrap();
-	GPU::CmdCopyDataToBuffer(data.contextTransfer, data.uniformBuffer, &uniforms).AzUnwrap();
-	GPU::ContextEndRecording(data.contextTransfer).AzUnwrap();
-	if (auto result = GPU::SubmitCommands(data.contextTransfer); result.isError) {
-		error = "Failed to submit transer commands for uniforms: " + result.error;
-		return false;
-	}
-	// TODO: Synchronize this with the graphics queue using a semaphore
-	GPU::ContextWaitUntilFinished(data.contextTransfer).AzUnwrap();
+	GPU::CmdCopyDataToBuffer(context, data.uniformBuffer, &uniforms).AzUnwrap();
 
 	return true;
 }
 
-bool Manager::UpdateObjects() {
+bool Manager::UpdateObjects(GPU::Context *context) {
 	i64 copySize = min(data.objectShaderInfos.size, 1000000) * sizeof(ObjectShaderInfo);
-	GPU::ContextBeginRecording(data.contextTransfer).AzUnwrap();
-	GPU::CmdCopyDataToBuffer(data.contextTransfer, data.objectBuffer, data.objectShaderInfos.data, 0, copySize).AzUnwrap();
-	GPU::ContextEndRecording(data.contextTransfer).AzUnwrap();
-	if (auto result = GPU::SubmitCommands(data.contextTransfer); result.isError) {
-		error = "Failed to submit transer command buffer for objects: " + result.error;
-		return false;
-	}
-	// TODO: Synchronize this with the graphics queue using a semaphore
-	GPU::ContextWaitUntilFinished(data.contextTransfer).AzUnwrap();
+	GPU::CmdCopyDataToBuffer(context, data.objectBuffer, data.objectShaderInfos.data, 0, copySize).AzUnwrap();
 
 	return true;
 }
 
-bool Manager::UpdateDebugLines() {
+bool Manager::UpdateDebugLines(GPU::Context *context) {
 	data.debugVertices.ClearSoft();
 	for (DrawingContext &context : data.drawingContexts) {
 		data.debugVertices.Append(context.debugLines);
@@ -634,14 +618,7 @@ bool Manager::UpdateDebugLines() {
 
 	GPU::CmdDraw(data.contextGraphics, data.debugVertices.size, 0);
 
-	GPU::ContextBeginRecording(data.contextTransfer).AzUnwrap();
-	GPU::CmdCopyDataToBuffer(data.contextTransfer, data.debugVertexBuffer, data.debugVertices.data, 0, min(data.debugVertices.size, MAX_DEBUG_VERTICES) * sizeof(DebugVertex)).AzUnwrap();
-	GPU::ContextEndRecording(data.contextTransfer).AzUnwrap();
-	if (auto result = GPU::SubmitCommands(data.contextTransfer); result.isError) {
-		error = "Failed to submit transer commands for debug vertices: " + result.error;
-		return false;
-	}
-	GPU::ContextWaitUntilFinished(data.contextTransfer).AzUnwrap();
+	GPU::CmdCopyDataToBuffer(context, data.debugVertexBuffer, data.debugVertices.data, 0, min(data.debugVertices.size, MAX_DEBUG_VERTICES) * sizeof(DebugVertex)).AzUnwrap();
 	return true;
 }
 
@@ -787,21 +764,20 @@ bool Manager::Draw() {
 	// 	}
 	// }
 
-	static Az3D::Profiling::AString sWaitIdle("vk::DeviceWaitIdle()");
-	Az3D::Profiling::Timer timerWaitIdle(sWaitIdle);
-	timerWaitIdle.Start();
-	AZ3D_PROFILING_EXCEPTION_START();
-	GPU::DeviceWaitIdle(data.device);
-	AZ3D_PROFILING_EXCEPTION_END();
-	timerWaitIdle.End();
 
-	if (!UpdateUniforms()) return false;
-	if (!UpdateObjects()) return false;
-	if (!UpdateDebugLines()) return false;
+	GPU::ContextBeginRecording(data.contextTransfer).AzUnwrap();
+	if (!UpdateUniforms(data.contextTransfer)) return false;
+	if (!UpdateObjects(data.contextTransfer)) return false;
+	if (!UpdateDebugLines(data.contextTransfer)) return false;
+	GPU::ContextEndRecording(data.contextTransfer).AzUnwrap();
+	if (auto result = GPU::SubmitCommands(data.contextTransfer, true); result.isError) {
+		error = "Failed to submit transfer commands: " + result.error;
+		return false;
+	}
 
 	GPU::ContextEndRecording(data.contextGraphics).AzUnwrap();
 
-	if (auto result = GPU::SubmitCommands(data.contextGraphics, true); result.isError) {
+	if (auto result = GPU::SubmitCommands(data.contextGraphics, true, {data.contextTransfer}); result.isError) {
 		error = "Failed to SubmitCommandBuffers: " + result.error;
 		return false;
 	}

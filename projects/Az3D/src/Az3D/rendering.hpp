@@ -252,9 +252,9 @@ struct Manager {
 	bool Deinit();
 	void UpdateLights();
 	bool UpdateFonts();
-	bool UpdateUniforms();
-	bool UpdateObjects();
-	bool UpdateDebugLines();
+	bool UpdateUniforms(GPU::Context *context);
+	bool UpdateObjects(GPU::Context *context);
+	bool UpdateDebugLines(GPU::Context *context);
 	bool Draw();
 	bool Present();
 

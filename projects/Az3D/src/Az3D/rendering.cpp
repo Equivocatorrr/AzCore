@@ -673,6 +673,7 @@ bool Manager::Draw() {
 	// 	}
 	// }
 
+	GPU::SetVSync(data.window, Settings::ReadBool(Settings::sVSync));
 	static Az3D::Profiling::AString sWindowUpdate("GPU::WindowUpdate");
 	Az3D::Profiling::Timer timerWindowUpdate(sWindowUpdate);
 	timerWindowUpdate.Start();

@@ -12,6 +12,9 @@ using namespace AzCore;
 using namespace Az3D;
 using GameSystems::sys;
 
+Settings::Name sLookSmoothing;
+Settings::Name sFlickTilting;
+
 struct Test : public GameSystems::System {
 	vec3 pos = vec3(1.0f, 1.0f, 1.0f);
 	quat facingDir = quat(1.0f);
@@ -59,7 +62,10 @@ struct Test : public GameSystems::System {
 			}
 		}
 		{
-			f32 factor = decayFactor(0.025f, sys->timestep);
+			f32 factor = 1.0f;
+			if (Settings::ReadBool(sLookSmoothing)) {
+				factor = decayFactor(0.01f, sys->timestep);
+			}
 			vec2 diff = facingDiff * factor;
 			facingDiff -= diff;
 			quat zRot = quat::Rotation(
@@ -98,7 +104,11 @@ struct Test : public GameSystems::System {
 			f32 theta = acos(clamp(dot(camUp, targetUp), -1.0f, 1.0f));
 			if (theta > 1.0e-14f) {
 				vec3 axis = normalize(cross(camUp, targetUp));
-				quat adjust = quat::Rotation(theta * decayFactor(0.05f, sys->timestep), axis);
+				f32 factor = 1.0f;
+				if (Settings::ReadBool(sFlickTilting)) {
+					factor = decayFactor(0.025f, sys->timestep);
+				}
+				quat adjust = quat::Rotation(theta * factor, axis);
 				facingDir *= adjust;
 			}
 		}
@@ -153,6 +163,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
 	bool enableLayers = false;
 	Test test;
+	
+	sLookSmoothing = "lookSmoothing";
+	sFlickTilting = "flickTilting";
 
 	for (i32 i = 0; i < argumentCount; i++) {
 		io::cout.PrintLn(i, ": ", argumentValues[i]);
@@ -164,6 +177,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			Profiling::Enable();
 		}
 	}
+	
+	Settings::Add(sLookSmoothing, Settings::Setting(true));
+	Settings::Add(sFlickTilting, Settings::Setting(true));
 
 	if (!GameSystems::Init("Az3D Example", {&test}, enableLayers)) {
 		io::cerr.PrintLn("Failed to Init: ", GameSystems::sys->error);

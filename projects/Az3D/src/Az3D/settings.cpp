@@ -28,7 +28,8 @@ Name sFullscreen = "fullscreen";
 Name sVSync = "vsync";
 Name sMSAA = "msaa";
 Name sDebugInfo = "debugInfo";
-Name sFramerate = "framerate";
+Name sFramerateLimitEnabled = "framerateLimitEnabled";
+Name sFramerateLimit = "framerateLimit";
 Name sVolumeMain = "volumeMain";
 Name sVolumeMusic = "volumeMusic";
 Name sVolumeEffects = "volumeEffects";
@@ -39,7 +40,8 @@ AStringMap<Setting> settings = {
 	{sVSync, Setting(true)},
 	{sMSAA, Setting(false)},
 	{sDebugInfo, Setting(false)},
-	{sFramerate, Setting(60.0, 30.0, 600.0)},
+	{sFramerateLimitEnabled, Setting(false)},
+	{sFramerateLimit, Setting(60.0, 30.0, 1000.0)},
 	{sVolumeMain, Setting(1.0, 0.0, 1.0)},
 	{sVolumeMusic, Setting(1.0, 0.0, 1.0)},
 	{sVolumeEffects, Setting(1.0, 0.0, 1.0)},

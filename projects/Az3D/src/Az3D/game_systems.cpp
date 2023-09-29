@@ -66,20 +66,25 @@ void UpdateLoop() {
 		if (sys->input.Pressed(KC_KEY_F11)) {
 			Settings::SetBool(Settings::sFullscreen, !Settings::ReadBool(Settings::sFullscreen));
 		}
+		if (sys->input.Pressed(KC_KEY_F12)) {
+			Settings::SetBool(Settings::sVSync, !Settings::ReadBool(Settings::sVSync));
+		}
 		if (exit) {
 			exitDelay -= sys->timestep;
 		}
 		bool vsync = Settings::ReadBool(Settings::sVSync);
 		if (frame == 0) {
 			sys->frametimes.Update();
+			f32 measuredFramerate = 1000.0f / sys->frametimes.AverageWithoutOutliers();
 			if (vsync) {
 				f32 targetFramerate = clamp((f32)sys->window.refreshRate / 1000.0f, 30.0f, 300.0f);
-				f32 measuredFramerate = 1000.0f / sys->frametimes.AverageWithoutOutliers();
 				if (abs(measuredFramerate - targetFramerate) / targetFramerate > 0.05f) {
 					// We're not within 5% of our refresh rate, so fallback to measured framerate
 					targetFramerate = measuredFramerate;
 				}
 				sys->SetFramerate(targetFramerate, true);
+			} else {
+				sys->SetFramerate(measuredFramerate, false);
 			}
 		}
 		if (abs(Nanoseconds(frameNext - Clock::now()).count()) >= 10000000) {
@@ -145,9 +150,6 @@ bool Manager::Init() {
 	rawInput.window = &window;
 	LoadLocale();
 	Settings::Load();
-	if (!Settings::ReadBool(Settings::sVSync)) {
-		SetFramerate(Settings::ReadReal(Settings::sFramerate));
-	}
 	if (!rawInput.Init(io::RAW_INPUT_ENABLE_GAMEPAD_BIT)) {
 		error = Stringify("Failed to initialize RawInput: ", io::error);
 		return false;
@@ -285,17 +287,22 @@ void Manager::LoadLocale() {
 	}
 }
 
-void Manager::SetFramerate(f32 framerate, bool tryCatchup) {
+void Manager::SetFramerate(f32 framerate, bool vsync) {
 	timestep = 1.0f / framerate;
 	updateIterations = ceil(minUpdateFrequency * timestep);
 	timestep /= updateIterations;
-	if (tryCatchup && updateIterations > 1) {
-		framerate *= updateIterations+1;
+	framerate *= updateIterations;
+	if (Settings::ReadBool(Settings::sFramerateLimitEnabled)) {
+		// We sleep on every frame
+		frameDuration = AzCore::Nanoseconds(1000000000/((i64)Settings::ReadReal(Settings::sFramerateLimit) * updateIterations));
 	} else {
-		framerate *= updateIterations;
+		if (vsync) {
+			// We only sleep on in-between frames
+			frameDuration = AzCore::Nanoseconds(1000000000/(i64)framerate);
+		} else {
+			frameDuration = AzCore::Nanoseconds(0);
+		}
 	}
-	// frameDuration affects in-between frametimes even with vsync
-	frameDuration = AzCore::Nanoseconds(1000000000/(i32)framerate);
 }
 
 void Manager::GetAssets() {

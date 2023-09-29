@@ -62,8 +62,9 @@ struct Manager {
 	i32 updateIterations = 1;
 	f32 simulationRate = 1.0f;
 	f32 minUpdateFrequency = 59.0f;
+	// Used for frame limiting with vsync off, and update frames in-between rendering frames with vsync on
 	az::Nanoseconds frameDuration = az::Nanoseconds(1000000000/60);
-	void SetFramerate(f32 framerate, bool tryCatchup=false);
+	void SetFramerate(f32 framerate, bool vsync);
 	az::FrametimeCounter frametimes;
 	bool paused = false;
 	bool exit = false;

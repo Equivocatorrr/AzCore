@@ -1000,11 +1000,15 @@ struct DescriptorSetLayout {
 	}
 };
 
-struct Context {
-	VkCommandPool vkCommandPool;
+struct ContextFrame {
 	VkCommandBuffer vkCommandBuffer;
 	Fence fence;
 	Semaphore semaphore;
+};
+
+struct Context {
+	VkCommandPool vkCommandPool;
+	Array<ContextFrame> frames;
 	VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
 	Array<DescriptorSetLayout> descriptorSetLayouts;
 	Array<VkDescriptorSet> vkDescriptorSets;
@@ -1025,6 +1029,8 @@ struct Context {
 		RECORDING_PRIMARY = 2,
 		RECORDING_SECONDARY = 3,
 	} state = State::NOT_RECORDING;
+	i32 numFrames = 3;
+	i32 currentFrame = 0;
 
 	Device *device;
 	String tag;
@@ -1688,6 +1694,7 @@ void WindowSurfaceDeinit(Window *window) {
 
 Result<VoidResult_t, String> WindowInit(Window *window) {
 	TRACE_INIT(window);
+	vkQueueWaitIdle(window->device->vkQueue);
 	SetDebugMarker(window->device, window->tag, VK_OBJECT_TYPE_SURFACE_KHR, (u64)window->vkSurface);
 	{ // Query surface capabilities
 		VkPhysicalDevice vkPhysicalDevice = window->device->physicalDevice->vkPhysicalDevice;
@@ -1838,8 +1845,6 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 	}
 	io::cout.PrintLnDebug("Number of images: ", window->numImages);
 	if (window->acquireFences.size > window->numImages) {
-		// We need to wait on the queue because our previous frame might refer to one of the semaphores.
-		vkQueueWaitIdle(window->device->vkQueue);
 		for (i32 i = window->acquireFences.size-1; i >= window->numImages; i--) {
 			// Calling vkQueueWaitIdle does nothing for swapchain image acquisition, so we need to wait on the fence.
 			// This is okay to call on all of them because we only set unsignaled right before asking for the image.
@@ -1933,7 +1938,7 @@ reconfigure:
 Result<VoidResult_t, String> WindowPresent(Window *window, ArrayWithBucket<Context*, 4> waitContexts) {
 	ArrayWithBucket<VkSemaphore, 4> waitSemaphores(waitContexts.size);
 	for (i32 i = 0; i < waitContexts.size; i++) {
-		waitSemaphores[i] = waitContexts[i]->semaphore.vkSemaphore;
+		waitSemaphores[i] = waitContexts[i]->frames[waitContexts[i]->currentFrame].semaphore.vkSemaphore;
 	}
 	VkPresentInfoKHR presentInfo{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
 	presentInfo.waitSemaphoreCount = waitSemaphores.size;
@@ -4100,16 +4105,21 @@ Result<VoidResult_t, String> ContextInit(Context *context) {
 		return ERROR_RESULT(context, "Failed to create command pool: ", VkResultString(result));
 	}
 	SetDebugMarker(context->device, Stringify(context->tag, " command pool"), VK_OBJECT_TYPE_COMMAND_POOL, (u64)context->vkCommandPool);
-	context->fence.device = context->device;
-	context->fence.tag = "Context Fence";
-	// We'll use signaled to mean not executing
-	if (auto result = FenceInit(&context->fence, true); result.isError) {
-		return ERROR_RESULT(context, result.error);
-	}
-	context->semaphore.device = context->device;
-	context->semaphore.tag = "Context Semaphore";
-	if (auto result = SemaphoreInit(&context->semaphore); result.isError) {
-		return ERROR_RESULT(context, result.error);
+	context->frames.Resize(context->numFrames);
+	for (i32 i = 0; i < context->numFrames; i++) {
+		ContextFrame &frame = context->frames[i];
+		frame.vkCommandBuffer = VK_NULL_HANDLE;
+		frame.fence.device = context->device;
+		frame.fence.tag = Stringify("Context Fence ", i);
+		// We'll use signaled to mean not executing
+		if (auto result = FenceInit(&frame.fence, true); result.isError) {
+			return ERROR_RESULT(context, result.error);
+		}
+		frame.semaphore.device = context->device;
+		frame.semaphore.tag = Stringify("Context Semaphore ", i);
+		if (auto result = SemaphoreInit(&frame.semaphore); result.isError) {
+			return ERROR_RESULT(context, result.error);
+		}
 	}
 	context->initted = true;
 	return VoidResult_t();
@@ -4118,8 +4128,11 @@ Result<VoidResult_t, String> ContextInit(Context *context) {
 void ContextDeinit(Context *context) {
 	DEINIT_HEAD(context);
 	vkDestroyCommandPool(context->device->vkDevice, context->vkCommandPool, nullptr);
-	FenceDeinit(&context->fence);
-	SemaphoreDeinit(&context->semaphore);
+	for (i32 i = 0; i < context->numFrames; i++) {
+		ContextFrame &frame = context->frames[i];
+		FenceDeinit(&frame.fence);
+		SemaphoreDeinit(&frame.semaphore);
+	}
 	if (context->vkDescriptorPool != VK_NULL_HANDLE) {
 		vkDestroyDescriptorPool(context->device->vkDevice, context->vkDescriptorPool, nullptr);
 		context->vkDescriptorPool = VK_NULL_HANDLE;
@@ -4195,7 +4208,6 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 	}
 	Array<DescriptorSetLayout> descriptorSetLayouts;
 	Array<Array<VkWriteDescriptorSet>> vkWriteDescriptorSets;
-	// NOTE: In order to update array descriptors, we'll need to switch to contiguous arrays of Buffer and Image Infos like how it's done in vk.cpp (even though vk::Descriptors::Update() is incredibly confusing, it's the optimal way to do it)
 	Array<VkDescriptorBufferInfo> descriptorBufferInfos;
 	descriptorBufferInfos.Reserve(numUniformBuffers + numStorageBuffers);
 	Array<VkDescriptorImageInfo> descriptorImageInfos;
@@ -4210,7 +4222,6 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 		VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 		VkDescriptorSetLayoutBinding bindingInfo{};
 		bindingInfo.binding = binding.anyDescriptor.binding.binding;
-		// TODO: Support arrays
 		bindingInfo.descriptorCount = 1;
 		switch (binding.kind) {
 		case Binding::UNIFORM_BUFFER:
@@ -4306,32 +4317,34 @@ void ContextResetBindings(Context *context) {
 }
 
 Result<VoidResult_t, String> ContextBeginRecording(Context *context) {
+	context->currentFrame = (context->currentFrame + 1) % context->numFrames;
+	ContextFrame &frame = context->frames[context->currentFrame];
 	AzAssert(context->initted, "Trying to record to a Context that's not initted");
 	if ((u32)context->state >= (u32)Context::State::RECORDING_PRIMARY) {
 		return ERROR_RESULT(context, "Cannot begin recording on a command buffer that's already recording");
 	}
 	ContextResetBindings(context);
 	// TODO: This prevents us from building the next command buffers while the previous ones are running. Switch to double-buffered Contexts
-	if (auto result = FenceWaitForSignal(&context->fence); result.isError) {
+	if (auto result = FenceWaitForSignal(&frame.fence); result.isError) {
 		return ERROR_RESULT(context, result.error);
 	}
-	if (auto result = FenceResetSignaled(&context->fence); result.isError) {
+	if (auto result = FenceResetSignaled(&frame.fence); result.isError) {
 		return ERROR_RESULT(context, result.error);
 	}
 
 	if (context->state == Context::State::DONE_RECORDING) {
-		vkFreeCommandBuffers(context->device->vkDevice, context->vkCommandPool, 1, &context->vkCommandBuffer);
+		vkFreeCommandBuffers(context->device->vkDevice, context->vkCommandPool, 1, &frame.vkCommandBuffer);
 	}
 
 	VkCommandBufferAllocateInfo bufferAllocInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
 	bufferAllocInfo.commandPool = context->vkCommandPool;
 	bufferAllocInfo.commandBufferCount = 1;
 	bufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	if (VkResult result = vkAllocateCommandBuffers(context->device->vkDevice, &bufferAllocInfo, &context->vkCommandBuffer); result != VK_SUCCESS) {
+	if (VkResult result = vkAllocateCommandBuffers(context->device->vkDevice, &bufferAllocInfo, &frame.vkCommandBuffer); result != VK_SUCCESS) {
 		return ERROR_RESULT(context, "Failed to allocate primary command buffer: ", VkResultString(result));
 	}
 	VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-	if (VkResult result = vkBeginCommandBuffer(context->vkCommandBuffer, &beginInfo); result != VK_SUCCESS) {
+	if (VkResult result = vkBeginCommandBuffer(frame.vkCommandBuffer, &beginInfo); result != VK_SUCCESS) {
 		return ERROR_RESULT(context, "Failed to begin primary command buffer: ", VkResultString(result));
 	}
 	context->state = Context::State::RECORDING_PRIMARY;
@@ -4343,17 +4356,19 @@ Result<VoidResult_t, String> ContextBeginRecordingSecondary(Context *context, Fr
 	if ((u32)context->state >= (u32)Context::State::RECORDING_PRIMARY) {
 		return ERROR_RESULT(context, "Cannot begin recording on a command buffer that's already recording");
 	}
+	context->currentFrame = (context->currentFrame + 1) % context->numFrames;
+	ContextFrame &frame = context->frames[context->currentFrame];
 	ContextResetBindings(context);
 
 	if (context->state == Context::State::DONE_RECORDING) {
-		vkFreeCommandBuffers(context->device->vkDevice, context->vkCommandPool, 1, &context->vkCommandBuffer);
+		vkFreeCommandBuffers(context->device->vkDevice, context->vkCommandPool, 1, &frame.vkCommandBuffer);
 	}
 
 	VkCommandBufferAllocateInfo bufferAllocInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
 	bufferAllocInfo.commandPool = context->vkCommandPool;
 	bufferAllocInfo.commandBufferCount = 1;
 	bufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
-	if (VkResult result = vkAllocateCommandBuffers(context->device->vkDevice, &bufferAllocInfo, &context->vkCommandBuffer); result != VK_SUCCESS) {
+	if (VkResult result = vkAllocateCommandBuffers(context->device->vkDevice, &bufferAllocInfo, &frame.vkCommandBuffer); result != VK_SUCCESS) {
 		return ERROR_RESULT(context, "Failed to allocate secondary command buffer: ", VkResultString(result));
 	}
 	VkCommandBufferInheritanceInfo inheritanceInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO};
@@ -4366,7 +4381,7 @@ Result<VoidResult_t, String> ContextBeginRecordingSecondary(Context *context, Fr
 	VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
 	beginInfo.flags = framebuffer != nullptr ? VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT : 0;
 	beginInfo.pInheritanceInfo = &inheritanceInfo;
-	if (VkResult result = vkBeginCommandBuffer(context->vkCommandBuffer, &beginInfo); result != VK_SUCCESS) {
+	if (VkResult result = vkBeginCommandBuffer(frame.vkCommandBuffer, &beginInfo); result != VK_SUCCESS) {
 		return ERROR_RESULT(context, "Failed to begin secondary command buffer: ", VkResultString(result));
 	}
 	context->state = Context::State::RECORDING_SECONDARY;
@@ -4374,14 +4389,15 @@ Result<VoidResult_t, String> ContextBeginRecordingSecondary(Context *context, Fr
 }
 
 Result<VoidResult_t, String> ContextEndRecording(Context *context) {
+	ContextFrame &frame = context->frames[context->currentFrame];
 	AzAssert(context->initted, "Context not initted");
 	if (!ContextIsRecording(context)) {
 		return ERROR_RESULT(context, "Trying to End Recording but we haven't started recording.");
 	}
 	if (context->bindings.framebuffer) {
-		vkCmdEndRenderPass(context->vkCommandBuffer);
+		vkCmdEndRenderPass(frame.vkCommandBuffer);
 	}
-	if (VkResult result = vkEndCommandBuffer(context->vkCommandBuffer); result != VK_SUCCESS) {
+	if (VkResult result = vkEndCommandBuffer(frame.vkCommandBuffer); result != VK_SUCCESS) {
 		return ERROR_RESULT(context, "Failed to End Recording: ", VkResultString(result));
 	}
 	context->state = Context::State::DONE_RECORDING;
@@ -4389,13 +4405,14 @@ Result<VoidResult_t, String> ContextEndRecording(Context *context) {
 }
 
 Result<VoidResult_t, String> SubmitCommands(Context *context, bool useSemaphore, ArrayWithBucket<Context*, 4> waitContexts) {
+	ContextFrame &frame = context->frames[context->currentFrame];
 	if (context->state != Context::State::DONE_RECORDING) {
 		return ERROR_RESULT(context, "Trying to SubmitCommands without anything recorded.");
 	}
 	ArrayWithBucket<VkSemaphore, 4> waitSemaphores(waitContexts.size);
 	ArrayWithBucket<VkPipelineStageFlags, 4> waitStages(waitContexts.size);
 	for (i32 i = 0; i < waitSemaphores.size; i++) {
-		waitSemaphores[i] = waitContexts[i]->semaphore.vkSemaphore;
+		waitSemaphores[i] = waitContexts[i]->frames[waitContexts[i]->currentFrame].semaphore.vkSemaphore;
 		// TODO: This is a safe assumption, but we could probably be more specific.
 		waitStages[i] = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 	}
@@ -4408,23 +4425,24 @@ Result<VoidResult_t, String> SubmitCommands(Context *context, bool useSemaphore,
 	}
 	VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &context->vkCommandBuffer;
+	submitInfo.pCommandBuffers = &frame.vkCommandBuffer;
 	if (useSemaphore) {
 		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = &context->semaphore.vkSemaphore;
+		submitInfo.pSignalSemaphores = &frame.semaphore.vkSemaphore;
 	}
 	submitInfo.waitSemaphoreCount = waitSemaphores.size;
 	submitInfo.pWaitSemaphores = waitSemaphores.data;
 	submitInfo.pWaitDstStageMask = waitStages.data;
-	if (VkResult result = vkQueueSubmit(context->device->vkQueue, 1, &submitInfo, context->fence.vkFence); result != VK_SUCCESS) {
+	if (VkResult result = vkQueueSubmit(context->device->vkQueue, 1, &submitInfo, frame.fence.vkFence); result != VK_SUCCESS) {
 		return ERROR_RESULT(context, "Failed to submit to queue: ", VkResultString(result));
 	}
 	return VoidResult_t();
 }
 
 Result<bool, String> ContextIsExecuting(Context *context) {
+	ContextFrame &frame = context->frames[context->currentFrame];
 	AzAssert(context->initted, "Context is not initted");
-	VkResult result = FenceGetStatus(&context->fence);
+	VkResult result = FenceGetStatus(&frame.fence);
 	switch (result) {
 		case VK_SUCCESS:
 			return false;
@@ -4438,10 +4456,11 @@ Result<bool, String> ContextIsExecuting(Context *context) {
 }
 
 Result<bool, String> ContextWaitUntilFinished(Context *context, Nanoseconds timeout) {
+	ContextFrame &frame = context->frames[context->currentFrame];
 	AzAssert(context->initted, "Context is not initted");
 	AzAssert(timeout.count() >= 0, "Cannot have negative timeout");
 	bool wasTimeout;
-	if (auto result = FenceWaitForSignal(&context->fence, (u64)timeout.count(), &wasTimeout); result.isError) {
+	if (auto result = FenceWaitForSignal(&frame.fence, (u64)timeout.count(), &wasTimeout); result.isError) {
 		return ERROR_RESULT(context, result.error);
 	}
 	return wasTimeout;
@@ -4456,6 +4475,7 @@ Result<VoidResult_t, String> CmdExecuteSecondary(Context *primary, Context *seco
 }
 
 Result<VoidResult_t, String> CmdCopyDataToBuffer(Context *context, Buffer *dst, void *src, i64 dstOffset, i64 size) {
+	ContextFrame &frame = context->frames[context->currentFrame];
 	AzAssert(size+dstOffset <= (i64)dst->memoryRequirements.size, "size is bigger than our buffer");
 	AzAssert(ContextIsRecording(context), "Trying to record into a context that's not recording");
 	if (size == 0) {
@@ -4479,7 +4499,7 @@ Result<VoidResult_t, String> CmdCopyDataToBuffer(Context *context, Buffer *dst, 
 	vkCopy.dstOffset = dstOffset;
 	vkCopy.srcOffset = dstOffset;
 	vkCopy.size = size;
-	vkCmdCopyBuffer(context->vkCommandBuffer, dst->vkBufferHostVisible, dst->vkBuffer, 1, &vkCopy);
+	vkCmdCopyBuffer(frame.vkCommandBuffer, dst->vkBufferHostVisible, dst->vkBuffer, 1, &vkCopy);
 	return VoidResult_t();
 }
 
@@ -4536,6 +4556,7 @@ static AccessAndStage AccessAndStageFromImageLayout(VkImageLayout layout) {
 }
 
 static void CmdImageTransitionLayout(Context *context, Image *image, VkImageLayout from, VkImageLayout to, VkImageSubresourceRange subresourceRange) {
+	ContextFrame &frame = context->frames[context->currentFrame];
 	AccessAndStage srcAccessAndStage = AccessAndStageFromImageLayout(from);
 	AccessAndStage dstAccessAndStage = AccessAndStageFromImageLayout(to);
 	VkImageMemoryBarrier barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
@@ -4547,10 +4568,11 @@ static void CmdImageTransitionLayout(Context *context, Image *image, VkImageLayo
 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.image = image->vkImage;
 	barrier.subresourceRange = subresourceRange;
-	vkCmdPipelineBarrier(context->vkCommandBuffer, srcAccessAndStage.stageFlags, dstAccessAndStage.stageFlags, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+	vkCmdPipelineBarrier(frame.vkCommandBuffer, srcAccessAndStage.stageFlags, dstAccessAndStage.stageFlags, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 
 static void CmdImageTransitionLayout(Context *context, Image *image, VkImageLayout from, VkImageLayout to, u32 baseMipLevel=0, u32 mipLevelCount=1) {
+	ContextFrame &frame = context->frames[context->currentFrame];
 	VkImageSubresourceRange subresourceRange = {};
 	subresourceRange.aspectMask = image->vkImageAspect;
 	subresourceRange.baseArrayLayer = 0;
@@ -4562,6 +4584,7 @@ static void CmdImageTransitionLayout(Context *context, Image *image, VkImageLayo
 }
 
 static void CmdImageGenerateMipmaps(Context *context, Image *image, VkImageLayout startingLayout, VkImageLayout finalLayout, VkFilter filter=VK_FILTER_LINEAR) {
+	ContextFrame &frame = context->frames[context->currentFrame];
 	AzAssert(image->mipLevels > 1, "Calling CmdImageGenerateMipmaps on an image without mipmaps");
 	if (startingLayout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
 		CmdImageTransitionLayout(context, image, startingLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -4583,7 +4606,7 @@ static void CmdImageGenerateMipmaps(Context *context, Image *image, VkImageLayou
 		imageBlit.dstOffsets[1].z = 1;
 
 		CmdImageTransitionLayout(context, image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mip);
-		vkCmdBlitImage(context->vkCommandBuffer, image->vkImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image->vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageBlit, filter);
+		vkCmdBlitImage(frame.vkCommandBuffer, image->vkImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image->vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageBlit, filter);
 		CmdImageTransitionLayout(context, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, mip);
 	}
 
@@ -4591,6 +4614,7 @@ static void CmdImageGenerateMipmaps(Context *context, Image *image, VkImageLayou
 }
 
 Result<VoidResult_t, String> CmdCopyDataToImage(Context *context, Image *dst, void *src) {
+	ContextFrame &frame = context->frames[context->currentFrame];
 	AzAssert(ContextIsRecording(context), "Trying to record into a context that's not recording");
 	if (!dst->hostVisible) {
 		if (auto result = ImageHostInit(dst); result.isError) {
@@ -4613,7 +4637,7 @@ Result<VoidResult_t, String> CmdCopyDataToImage(Context *context, Image *dst, vo
 	vkCopy.imageSubresource.layerCount = 1;
 	vkCopy.imageOffset = {0, 0, 0};
 	vkCopy.imageExtent = {(u32)dst->width, (u32)dst->height, 1};
-	vkCmdCopyBufferToImage(context->vkCommandBuffer, dst->vkBufferHostVisible, dst->vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &vkCopy);
+	vkCmdCopyBufferToImage(frame.vkCommandBuffer, dst->vkBufferHostVisible, dst->vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &vkCopy);
 	VkImageLayout finalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	if (dst->shaderStages) {
 		finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -4699,6 +4723,7 @@ void CmdBindImageArraySampler(Context *context, const Array<Image*> &images, Sam
 }
 
 Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
+	ContextFrame &frame = context->frames[context->currentFrame];
 	Framebuffer *framebuffer = nullptr;
 	Pipeline *pipeline = nullptr;
 	Buffer *vertexBuffer = nullptr;
@@ -4734,7 +4759,7 @@ Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
 	}
 	if (nullptr != framebuffer && context->bindings.framebuffer != framebuffer) {
 		if (context->bindings.framebuffer) {
-			vkCmdEndRenderPass(context->vkCommandBuffer);
+			vkCmdEndRenderPass(frame.vkCommandBuffer);
 		}
 		context->bindings.framebuffer = framebuffer;
 		VkRenderPassBeginInfo beginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
@@ -4743,7 +4768,7 @@ Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
 		beginInfo.renderArea.offset = {0, 0};
 		beginInfo.renderArea.extent.width = framebuffer->width;
 		beginInfo.renderArea.extent.height = framebuffer->height;
-		vkCmdBeginRenderPass(context->vkCommandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+		vkCmdBeginRenderPass(frame.vkCommandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	}
 	if (descriptorsChanged) {
 		if (auto result = ContextDescriptorsCompose(context); result.isError) {
@@ -4754,21 +4779,21 @@ Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
 		context->bindings.vertexBuffer = vertexBuffer;
 		VkDeviceSize zero = 0;
 		// TODO: Support multiple vertex buffer bindings
-		vkCmdBindVertexBuffers(context->vkCommandBuffer, 0, 1, &vertexBuffer->vkBuffer, &zero);
+		vkCmdBindVertexBuffers(frame.vkCommandBuffer, 0, 1, &vertexBuffer->vkBuffer, &zero);
 	}
 	if (indexBuffer) {
 		context->bindings.indexBuffer = indexBuffer;
-		vkCmdBindIndexBuffer(context->vkCommandBuffer, indexBuffer->vkBuffer, 0, indexBuffer->indexType);
+		vkCmdBindIndexBuffer(frame.vkCommandBuffer, indexBuffer->vkBuffer, 0, indexBuffer->indexType);
 	}
 	if (nullptr != pipeline && context->bindings.pipeline != pipeline) {
 		context->bindings.pipeline = pipeline;
 		if (auto result = PipelineCompose(pipeline, context); result.isError) {
 			return ERROR_RESULT(context, "Failed to bind Pipeline: ", result.error);
 		}
-		vkCmdBindPipeline(context->vkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->vkPipeline);
+		vkCmdBindPipeline(frame.vkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->vkPipeline);
 	}
 	if (context->bindings.pipeline != nullptr && context->vkDescriptorSets.size != 0) {
-		vkCmdBindDescriptorSets(context->vkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context->bindings.pipeline->vkPipelineLayout, 0, context->vkDescriptorSets.size, context->vkDescriptorSets.data, 0, nullptr);
+		vkCmdBindDescriptorSets(frame.vkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context->bindings.pipeline->vkPipelineLayout, 0, context->vkDescriptorSets.size, context->vkDescriptorSets.data, 0, nullptr);
 	}
 	CmdSetViewportAndScissor(context, (f32)context->bindings.framebuffer->width, (f32)context->bindings.framebuffer->height);
 	context->bindCommands.ClearSoft();
@@ -4776,6 +4801,7 @@ Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
 }
 
 void CmdSetViewport(Context *context, f32 width, f32 height, f32 minDepth, f32 maxDepth, f32 x, f32 y) {
+	ContextFrame &frame = context->frames[context->currentFrame];
 	VkViewport viewport;
 	viewport.width = width;
 	viewport.height = height;
@@ -4783,19 +4809,21 @@ void CmdSetViewport(Context *context, f32 width, f32 height, f32 minDepth, f32 m
 	viewport.maxDepth = maxDepth;
 	viewport.x = x;
 	viewport.y = y;
-	vkCmdSetViewport(context->vkCommandBuffer, 0, 1, &viewport);
+	vkCmdSetViewport(frame.vkCommandBuffer, 0, 1, &viewport);
 }
 
 void CmdSetScissor(Context *context, u32 width, u32 height, i32 x, i32 y) {
+	ContextFrame &frame = context->frames[context->currentFrame];
 	VkRect2D scissor;
 	scissor.extent.width = width;
 	scissor.extent.height = height;
 	scissor.offset.x = x;
 	scissor.offset.y = y;
-	vkCmdSetScissor(context->vkCommandBuffer, 0, 1, &scissor);
+	vkCmdSetScissor(frame.vkCommandBuffer, 0, 1, &scissor);
 }
 
 void CmdClearColorAttachment(Context *context, vec4 color, i32 attachment) {
+	ContextFrame &frame = context->frames[context->currentFrame];
 	AzAssert(context->bindings.framebuffer != nullptr, "Cannot CmdClearColorAttachment without a Framebuffer bound");
 	VkClearValue clearValue;
 	clearValue.color.float32[0] = color.r;
@@ -4813,10 +4841,11 @@ void CmdClearColorAttachment(Context *context, vec4 color, i32 attachment) {
 	clearAttachment.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	clearAttachment.clearValue = clearValue;
 	clearAttachment.colorAttachment = (u32)attachment;
-	vkCmdClearAttachments(context->vkCommandBuffer, 1, &clearAttachment, 1, &clearRect);
+	vkCmdClearAttachments(frame.vkCommandBuffer, 1, &clearAttachment, 1, &clearRect);
 }
 
 void CmdClearDepthAttachment(Context *context, f32 depth) {
+	ContextFrame &frame = context->frames[context->currentFrame];
 	AzAssert(context->bindings.framebuffer != nullptr, "Cannot CmdClearDepthAttachment without a Framebuffer bound");
 	AzAssert(FramebufferHasDepthBuffer(context->bindings.framebuffer), "Cannot CmdClearDepthAttachment when Framebuffer doesn't have a depth attachment");
 	VkClearValue clearValue;
@@ -4832,16 +4861,18 @@ void CmdClearDepthAttachment(Context *context, f32 depth) {
 	VkClearAttachment clearAttachment;
 	clearAttachment.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 	clearAttachment.clearValue = clearValue;
-	vkCmdClearAttachments(context->vkCommandBuffer, 1, &clearAttachment, 1, &clearRect);
+	vkCmdClearAttachments(frame.vkCommandBuffer, 1, &clearAttachment, 1, &clearRect);
 }
 
 void CmdDraw(Context *context, i32 count, i32 vertexOffset, i32 instanceCount, i32 instanceOffset) {
-	vkCmdDraw(context->vkCommandBuffer, count, instanceCount, vertexOffset, instanceOffset);
+	ContextFrame &frame = context->frames[context->currentFrame];
+	vkCmdDraw(frame.vkCommandBuffer, count, instanceCount, vertexOffset, instanceOffset);
 }
 
 void CmdDrawIndexed(Context *context, i32 count, i32 indexOffset, i32 vertexOffset, i32 instanceCount, i32 instanceOffset) {
+	ContextFrame &frame = context->frames[context->currentFrame];
 	AzAssert(context->bindings.indexBuffer != nullptr, "Cannot use CmdDrawIndexed without an index buffer bound");
-	vkCmdDrawIndexed(context->vkCommandBuffer, count, instanceCount, indexOffset, vertexOffset, instanceOffset);
+	vkCmdDrawIndexed(frame.vkCommandBuffer, count, instanceCount, indexOffset, vertexOffset, instanceOffset);
 }
 
 #endif

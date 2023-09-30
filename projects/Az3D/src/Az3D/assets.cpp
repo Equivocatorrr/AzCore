@@ -450,6 +450,12 @@ bool Mesh::Load(String filename) {
 				meshPart->material.tex[i] = meshData.material.tex[i] + texOffset;
 			}
 		}
+		f32 sqrRadius = 0.0f;
+		for (Az3DObj::Vertex &vert : meshPart->vertices) {
+			f32 mySqrRadius = normSqr(vert.pos);
+			if (mySqrRadius > sqrRadius) sqrRadius = mySqrRadius;
+		}
+		meshPart->boundingSphereRadius = sqrt(sqrRadius);
 		parts.Append(GameSystems::sys->assets.meshParts.Append(std::move(meshPart)).RawPtr());
 	}
 	for (az::Image &image : file.images) {

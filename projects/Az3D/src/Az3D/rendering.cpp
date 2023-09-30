@@ -19,6 +19,12 @@
 #ifdef TRANSPARENT
 #undef TRANSPARENT
 #endif
+#ifdef near
+#undef near
+#endif
+#ifdef far
+#undef far
+#endif
 
 namespace Az3D::Rendering {
 
@@ -29,6 +35,57 @@ using GameSystems::sys;
 io::Log cout("rendering.log");
 
 String error = "No error.";
+
+struct Frustum {
+	struct Plane {
+		vec3 normal;
+		// distance from origin in the normal direction
+		f32 dist;
+	};
+	Plane near;
+	Plane far;
+	Plane left;
+	Plane right;
+	Plane top;
+	Plane bottom;
+};
+
+Frustum::Plane GetPlaneFromRay(vec3 point, vec3 normal) {
+	Frustum::Plane result;
+	result.normal = normal;
+	result.dist = dot(point, normal);
+	return result;
+}
+
+Frustum GetFrustumFromCamera(const Camera &camera, f32 heightOverWidth) {
+	Frustum result;
+	result.near  = GetPlaneFromRay(camera.pos + camera.nearClip * camera.forward, camera.forward);
+	result.far   = GetPlaneFromRay(camera.pos + camera.farClip * camera.forward, -camera.forward);
+	f32 tanhFOV = tan(Radians32(camera.fov).value() * 0.5f);
+	f32 tanvFOV = tanhFOV * heightOverWidth;
+	vec3 forward = normalize(camera.forward);
+	vec3 right = normalize(cross(camera.up, forward));
+	vec3 up = normalize(cross(forward, right));
+	result.left  = GetPlaneFromRay(camera.pos, normalize(right + forward * tanhFOV));
+	result.right = GetPlaneFromRay(camera.pos, normalize(-right + forward * tanhFOV));
+	result.top    = GetPlaneFromRay(camera.pos, normalize(-up + forward * tanvFOV));
+	result.bottom = GetPlaneFromRay(camera.pos, normalize(up + forward * tanvFOV));
+	return result;
+}
+
+bool IsSphereAbovePlane(vec3 center, f32 radius, const Frustum::Plane &plane) {
+	return dot(center, plane.normal) - plane.dist + radius > 0.0f;
+}
+
+bool IsSphereInFrustum(vec3 center, f32 radius, const Frustum &frustum) {
+	return
+		IsSphereAbovePlane(center, radius, frustum.near) &&
+		IsSphereAbovePlane(center, radius, frustum.far) &&
+		IsSphereAbovePlane(center, radius, frustum.left) &&
+		IsSphereAbovePlane(center, radius, frustum.right) &&
+		IsSphereAbovePlane(center, radius, frustum.bottom) &&
+		IsSphereAbovePlane(center, radius, frustum.top);
+}
 
 void AddPointLight(vec3 pos, vec3 color, f32 distMin, f32 distMax) {
 	AzAssert(distMin < distMax, "distMin must be < distMax, else shit breaks");
@@ -602,7 +659,9 @@ bool Manager::UpdateUniforms(GPU::Context *context) {
 
 bool Manager::UpdateObjects(GPU::Context *context) {
 	i64 copySize = min(data.objectShaderInfos.size, 1000000) * sizeof(ObjectShaderInfo);
-	GPU::CmdCopyDataToBuffer(context, data.objectBuffer, data.objectShaderInfos.data, 0, copySize).AzUnwrap();
+	if (copySize) {
+		GPU::CmdCopyDataToBuffer(context, data.objectBuffer, data.objectShaderInfos.data, 0, copySize).AzUnwrap();
+	}
 
 	return true;
 }
@@ -714,6 +773,9 @@ bool Manager::Draw() {
 	}
 
 	sys->Draw(data.drawingContexts);
+	
+	GPU::ContextBeginRecording(data.contextTransfer).AzUnwrap();
+	if (!UpdateUniforms(data.contextTransfer)) return false;
 
 	data.objectShaderInfos.ClearSoft();
 	{ // Sorting draw calls
@@ -721,7 +783,16 @@ bool Manager::Draw() {
 		for (DrawingContext &context : data.drawingContexts) {
 			allDrawCalls.Append(context.thingsToDraw);
 		}
+		// Do frustum-based culling
+		Frustum frustum = GetFrustumFromCamera(camera, screenSize.y / screenSize.x);
+		for (DrawCallInfo &drawCall : allDrawCalls) {
+			drawCall.culled = !IsSphereInFrustum(drawCall.boundingSphereCenter, drawCall.boundingSphereRadius, frustum);
+			#if 0
+			DrawDebugSphere(data.drawingContexts[0], drawCall.boundingSphereCenter, drawCall.boundingSphereRadius*2.0f, drawCall.culled ? vec4(1.0f, 0.0f, 0.0f, 1.0f) : vec4(1.0f));
+			#endif
+		}
 		QuickSort(allDrawCalls, [](const DrawCallInfo &lhs, const DrawCallInfo &rhs) -> bool {
+			// Place culled objects at the end
 			if (lhs.opaque != rhs.opaque) return lhs.opaque;
 			if (lhs.pipeline < rhs.pipeline) return true;
 			// We want opaque objects sorted front to back
@@ -737,7 +808,11 @@ bool Manager::Draw() {
 				currentPipeline = drawCall.pipeline;
 			}
 			drawCall.instanceStart = data.objectShaderInfos.size;
-			data.objectShaderInfos.Append(ObjectShaderInfo{drawCall.transform, drawCall.material});
+			i32 prevSize = data.objectShaderInfos.size;
+			data.objectShaderInfos.Resize(data.objectShaderInfos.size + drawCall.transforms.size);
+			for (i32 i = 0; i < drawCall.transforms.size; i++) {
+				data.objectShaderInfos[prevSize+i] = ObjectShaderInfo{drawCall.transforms[i], drawCall.material};
+			}
 			GPU::CmdDrawIndexed(data.contextGraphics, drawCall.indexCount, drawCall.indexStart, 0, drawCall.instanceCount, drawCall.instanceStart);
 		}
 	}
@@ -766,8 +841,6 @@ bool Manager::Draw() {
 	// }
 
 
-	GPU::ContextBeginRecording(data.contextTransfer).AzUnwrap();
-	if (!UpdateUniforms(data.contextTransfer)) return false;
 	if (!UpdateObjects(data.contextTransfer)) return false;
 	if (!UpdateDebugLines(data.contextTransfer)) return false;
 	GPU::ContextEndRecording(data.contextTransfer).AzUnwrap();
@@ -796,10 +869,6 @@ bool Manager::Draw() {
 }
 
 bool Manager::Present() {
-	// if (data.zeroExtent) {
-	// 	Thread::Sleep(Milliseconds(clamp((i32)sys->frametimes.AverageWithoutOutliers(), 5, 50)));
-	// 	return true;
-	// }
 	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::Present)
 	if (auto result = GPU::WindowPresent(data.window, {GPU::ContextGetCurrentSemaphore(data.contextGraphics)}); result.isError) {
 		error = "Failed to present: " + result.error;
@@ -859,6 +928,19 @@ vec2 Manager::StringSize(WString string, i32 fontIndex) const {
 
 f32 Manager::StringWidth(WString string, i32 fontIndex) const {
 	return StringSize(string, fontIndex).x;
+}
+
+void DrawDebugSphere(DrawingContext &context, vec3 center, f32 radius, vec4 color) {
+	f32 angleDelta = tau / 32.0f;
+	for (f32 angle = 0.0f; angle < tau; angle += angleDelta) {
+		f32 x1 = sin(angle) * radius;
+		f32 y1 = cos(angle) * radius;
+		f32 x2 = sin(angle+angleDelta) * radius;
+		f32 y2 = cos(angle+angleDelta) * radius;
+		DrawDebugLine(context, {center + vec3(x1, y1, 0.0f), color}, {center + vec3(x2, y2, 0.0f), color});
+		DrawDebugLine(context, {center + vec3(x1, 0.0f, y1), color}, {center + vec3(x2, 0.0f, y2), color});
+		DrawDebugLine(context, {center + vec3(0.0f, x1, y1), color}, {center + vec3(0.0f, x2, y2), color});
+	}
 }
 
 f32 StringHeight(WString string) {
@@ -942,19 +1024,30 @@ void Manager::LineCursorStartAndSpaceScale(f32 &dstCursor, f32 &dstSpaceScale, f
 	}
 }
 
-void DrawMeshPart(DrawingContext &context, Assets::MeshPart *meshPart, const mat4 &transform, bool opaque, bool castsShadows) {
+void DrawMeshPart(DrawingContext &context, Assets::MeshPart *meshPart, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows) {
 	DrawCallInfo draw;
-	draw.transform = transform;
-	draw.boundingSphereCenter = transform.Col4().xyz;
-	draw.boundingSphereRadius = meshPart->boundingSphereRadius * sqrt(max(
-		normSqr(transform.Col1().xyz),
-		normSqr(transform.Col2().xyz),
-		normSqr(transform.Col3().xyz)
-	));
+	draw.transforms = transforms;
+	draw.boundingSphereCenter = vec3(0.0f);
+	for (i32 i = 0; i < transforms.size; i++) {
+		draw.boundingSphereCenter += transforms[i].Row4().xyz;
+	}
+	draw.boundingSphereCenter /= (f32)transforms.size;
+	draw.boundingSphereRadius = 0.0f;
+	for (i32 i = 0; i < transforms.size; i++) {
+		f32 myRadius = meshPart->boundingSphereRadius * sqrt(max(
+			normSqr(transforms[i].Row1().xyz),
+			normSqr(transforms[i].Row2().xyz),
+			normSqr(transforms[i].Row3().xyz)
+		));
+		myRadius += norm(draw.boundingSphereCenter - transforms[i].Row4().xyz);
+		if (myRadius > draw.boundingSphereRadius) {
+			draw.boundingSphereRadius = myRadius;
+		}
+	}
 	draw.depth = dot(sys->rendering.camera.forward, draw.boundingSphereCenter - sys->rendering.camera.pos);
 	draw.indexStart = meshPart->indexStart;
 	draw.indexCount = meshPart->indices.size;
-	draw.instanceCount = 1;
+	draw.instanceCount = transforms.size;
 	draw.material = meshPart->material;
 	draw.pipeline = meshPart->material.isFoliage ? PIPELINE_FOLIAGE_3D : PIPELINE_BASIC_3D;
 	draw.opaque = opaque;
@@ -964,9 +1057,9 @@ void DrawMeshPart(DrawingContext &context, Assets::MeshPart *meshPart, const mat
 	context.thingsToDraw.Append(draw);
 }
 
-void DrawMesh(DrawingContext &context, Assets::Mesh mesh, const mat4 &transform, bool opaque, bool castsShadows) {
+void DrawMesh(DrawingContext &context, Assets::Mesh mesh, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows) {
 	for (Assets::MeshPart *meshPart : mesh.parts) {
-		DrawMeshPart(context, meshPart, transform, opaque, castsShadows);
+		DrawMeshPart(context, meshPart, transforms, opaque && meshPart->material.color.a == 1.0f, castsShadows && meshPart->material.color.a >= 0.5f);
 	}
 }
 

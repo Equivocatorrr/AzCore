@@ -20,7 +20,7 @@ struct Test : public GameSystems::System {
 	quat facingDir = quat(1.0f);
 	quat objectOrientation = quat(1.0f);
 	vec2 facingDiff = 0.0f;
-	Degrees32 targetFOV = 120.0f;
+	Degrees32 targetFOV = 90.0f;
 	Angle32 sunAngle = Degrees32(45.0f);
 	bool mouseLook = false;
 	bool sunTurning = false;
@@ -130,12 +130,12 @@ struct Test : public GameSystems::System {
 		if (sys->Pressed(KC_KEY_2)) currentMesh = 1;
 		if (sys->Pressed(KC_KEY_3)) currentMesh = 2;
 		if (sys->Pressed(KC_KEY_4)) currentMesh = 3;
-		targetFOV = clamp(targetFOV.value() - sys->input.scroll.y*5.0f, 5.0f, 150.0f);
+		targetFOV = clamp(targetFOV.value() - sys->input.scroll.y*5.0f, 5.0f, 103.0f);
 		camera.fov = decay(camera.fov.value(), targetFOV.value(), 0.5f, sys->timestep);
 	}
 	virtual void EventDraw(Array<Rendering::DrawingContext> &contexts) override {
 		mat4 transform = Rendering::GetTransform(pos, objectOrientation, vec3(1.0f));
-		Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshes[currentMesh]], transform, true, true);
+		Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshes[currentMesh]], {transform}, true, true);
 		for (i32 i = -10; i <= 10; i++) {
 			f32 p = i;
 			f32 f = (p+10.0f)/20.0f;
@@ -149,12 +149,20 @@ struct Test : public GameSystems::System {
 			);
 		}
 		RandomNumberGenerator rng(69420);
-		for (i32 i = 0; i < 10000; i++) {
-			mat4 transform = mat4::RotationBasic(random(0.0f, tau, &rng), Axis::Z);
-			transform.h.w1 = random(-2.0f, 2.0f, &rng);
-			transform.h.w2 = random(-2.0f, 2.0f, &rng);
-			Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshes[3]], transform, true, false);
+		ArrayWithBucket<mat4, 1> transforms(1000);
+		const f32 grassDimensions = 1.5f;
+		for (f32 y = -grassDimensions; y <= grassDimensions; y += 1.0f) {
+			for (f32 x = -grassDimensions; x <= grassDimensions; x += 1.0f) {
+				for (i32 i = 0; i < transforms.size; i++) {
+					mat4 &transform = transforms[i];
+					transform = mat4::RotationBasic(random(0.0f, tau, &rng), Axis::Z);
+					transform.h.w1 = random(x - 0.5f, x + 0.5f, &rng);
+					transform.h.w2 = random(y - 0.5f, y + 0.5f, &rng);
+				}
+				Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshes[3]], transforms, true, false);
+			}
 		}
+		// Rendering::DrawDebugSphere(contexts[0], vec3(0.0f), 1.0f, vec4(1.0f));
 		sys->rendering.uniforms.sunDir = vec3(0.0f, vec2::UnitVecFromAngle(sunAngle.value()));
 	}
 };

@@ -51,7 +51,7 @@ layout(std140, set=0, binding=1) readonly buffer ObjectBuffer {
 } objectBuffer;
 
 void main() {
-	mat4 model = objectBuffer.objects[gl_BaseInstance].model;
+	mat4 model = objectBuffer.objects[gl_InstanceIndex].model;
 	mat3 modelRotationScale = mat3(
 		model[0].xyz,
 		model[1].xyz,

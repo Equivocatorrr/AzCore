@@ -156,7 +156,7 @@ struct Camera {
 	f32 nearClip = 0.1f;
 	f32 farClip = 100.0f;
 	// Horizontal field of view
-	Degrees32 fov = 120.0f;
+	Degrees32 fov = 90.0f;
 };
 
 // I fucking hate Microsoft and every decision they've ever made
@@ -167,7 +167,7 @@ struct Camera {
 
 // Contains all the info for a single indexed draw call
 struct DrawCallInfo {
-	mat4 transform;
+	ArrayWithBucket<mat4, 1> transforms;
 	// World-space culling info, also used for depth sorting
 	vec3 boundingSphereCenter;
 	f32 boundingSphereRadius;
@@ -178,6 +178,7 @@ struct DrawCallInfo {
 	u32 indexCount;
 	// This will be set once the calls have been sorted
 	u32 instanceStart;
+	// This will be set to transforms.size
 	u32 instanceCount;
 	Material material;
 	PipelineIndex pipeline;
@@ -269,13 +270,15 @@ struct Manager {
 
 };
 
-void DrawMeshPart(DrawingContext &context, Assets::MeshPart *meshPart, const mat4 &transform, bool opaque, bool castsShadows);
-void DrawMesh(DrawingContext &context, Assets::Mesh mesh, const mat4 &transform, bool opaque, bool castsShadows);
+void DrawMeshPart(DrawingContext &context, Assets::MeshPart *meshPart, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows);
+void DrawMesh(DrawingContext &context, Assets::Mesh mesh, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows);
 
 inline void DrawDebugLine(DrawingContext &context, DebugVertex point1, DebugVertex point2) {
 	context.debugLines.Append(point1);
 	context.debugLines.Append(point2);
 }
+
+void DrawDebugSphere(DrawingContext &context, vec3 center, f32 radius, vec4 color);
 
 f32 StringHeight(WString string);
 

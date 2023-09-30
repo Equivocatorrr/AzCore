@@ -36,8 +36,8 @@ mat4_t<T> mat4_t<T>::Perspective(Radians<T> fovX, T widthOverHeight, T nearClip,
 	T fovFac = T(1) / tan(fovX * T(0.5));
 	result.h.x1 = fovFac;
 	result.h.y2 = fovFac * widthOverHeight;
-	result.h.z3 = nearClip / (farClip - nearClip);
-	result.h.z4 = T(0.5);
+	result.h.z3 = -nearClip / (farClip - nearClip);
+	result.h.z4 = T(1.0);
 	result.h.w3 = (nearClip * farClip) / (farClip - nearClip);
 	return result;
 }

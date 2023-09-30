@@ -4522,12 +4522,18 @@ Result<VoidResult_t, String> CmdCopyDataToBuffer(Context *context, Buffer *dst, 
 	AzAssert(ContextIsRecording(context), "Trying to record into a context that's not recording");
 	if (size == 0) {
 		// We do the whole size
-		size = dst->size;
+		size = dst->size - dstOffset;
 	}
 	if (!dst->hostVisible) {
 		if (auto result = BufferHostInit(dst); result.isError) {
 			return result.error;
 		}
+	} else {
+		// Ensure the last frame completed the copy before we rewrite the staging buffer.
+		i32 prevFrame = context->currentFrame - 1;
+		if (prevFrame < 0) prevFrame = context->numFrames - 1;
+		ContextFrame &framePrevious = context->frames[prevFrame];
+		FenceWaitForSignal(&framePrevious.fence).AzUnwrap();
 	}
 	Allocation alloc = dst->allocHostVisible;
 	VkDeviceMemory vkMemory = alloc.memory->pages[alloc.page].vkMemory;
@@ -4662,6 +4668,12 @@ Result<VoidResult_t, String> CmdCopyDataToImage(Context *context, Image *dst, vo
 		if (auto result = ImageHostInit(dst); result.isError) {
 			return result.error;
 		}
+	} else {
+		// Ensure the last frame completed the copy before we rewrite the staging buffer.
+		i32 prevFrame = context->currentFrame - 1;
+		if (prevFrame < 0) prevFrame = context->numFrames - 1;
+		ContextFrame &framePrevious = context->frames[prevFrame];
+		FenceWaitForSignal(&framePrevious.fence).AzUnwrap();
 	}
 	CmdImageTransitionLayout(context, dst, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	Allocation alloc = dst->allocHostVisible;

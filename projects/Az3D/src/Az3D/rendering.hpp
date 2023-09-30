@@ -144,6 +144,7 @@ struct UniformBuffer {
 	alignas(16) vec3 sunDir;
 	alignas(16) vec3 eyePos;
 	alignas(16) vec3 ambientLight;
+	alignas(16) vec3 fogColor;
 	LightBin lightBins[LIGHT_BIN_COUNT];
 	// lights[0] is always a zero-brightness light
 	Light lights[MAX_LIGHTS];
@@ -241,7 +242,7 @@ struct Manager {
 	Array<u32> fontIndexOffsets{0};
 	vec2 screenSize = vec2(1280.0f, 720.0f);
 	f32 aspectRatio; // height/width
-	vec3 backgroundHSV = vec3(215.0f/360.0f, 0.7f, 0.125f);
+	vec3 backgroundHSV = vec3(197.4f/360.0f, 42.6f/100.0f, 92.2f/100.0f);
 	vec3 backgroundRGB; // Derivative of HSV
 	// Emptied at the beginning of every frame
 	Array<Light> lights;

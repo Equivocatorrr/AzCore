@@ -10,8 +10,9 @@ layout(location=0) out vec2 outTexCoord;
 layout(location=1) out vec3 outNormal;
 layout(location=2) out vec3 outTangent;
 layout(location=3) out vec3 outBitangent;
-layout(location=4) out int outBaseInstance;
+layout(location=4) out int outInstanceIndex;
 layout(location=5) out vec3 outWorldPos;
+layout(location=6) out vec3 outProjPos;
 
 layout(set=0, binding=0) uniform WorldInfo {
 	mat4 proj;
@@ -63,6 +64,7 @@ void main() {
 	outNormal = inNormal * modelRotationScale;
 	outTangent = inTangent * modelRotationScale;
 	outBitangent = cross(outNormal, outTangent);
-	outBaseInstance = gl_BaseInstance;
+	outInstanceIndex = gl_InstanceIndex;
 	outWorldPos = worldPos.xyz;
+	outProjPos = gl_Position.xyz / gl_Position.w;
 }

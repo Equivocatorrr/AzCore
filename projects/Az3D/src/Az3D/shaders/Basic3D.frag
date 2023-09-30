@@ -5,8 +5,9 @@ layout(location=0) in vec2 texCoord;
 layout(location=1) in vec3 inNormal;
 layout(location=2) in vec3 inTangent;
 layout(location=3) in vec3 inBitangent;
-layout(location=4) flat in int baseInstance;
+layout(location=4) flat in int inInstanceIndex;
 layout(location=5) in vec3 inWorldPos;
+layout(location=6) in vec3 inProjPos;
 
 layout (location = 0) out vec4 outColor;
 
@@ -17,6 +18,8 @@ layout(set=0, binding=0) uniform WorldInfo {
 	mat4 sun;
 	vec3 sunDir;
 	vec3 eyePos;
+	vec3 ambientLight;
+	vec3 fogColor;
 } worldInfo;
 
 layout(set=0, binding=2) uniform sampler2D texSampler[1];
@@ -61,6 +64,11 @@ vec3 sqr(vec3 a) {
 	return a * a;
 }
 
+float GetZFromDepth(float depth)
+{
+	return worldInfo.proj[2][3] / (depth - worldInfo.proj[2][2]);
+}
+
 float DistributionGGX(float cosThetaHalfViewNorm, float roughness) {
 	roughness = sqr(roughness);
 	float denominator = sqr(cosThetaHalfViewNorm) * (roughness - 1.0) + 1.0;
@@ -85,7 +93,7 @@ vec3 wrap(float attenuation, vec3 wrapFac) {
 }
 
 void main() {
-	ObjectInfo info = objectBuffer.objects[baseInstance];
+	ObjectInfo info = objectBuffer.objects[inInstanceIndex];
 	
 	vec4 albedo = texture(texSampler[info.material.texAlbedo], texCoord) * info.material.color;
 	vec3 emit = texture(texSampler[info.material.texEmit], texCoord).rgb * info.material.emit;
@@ -149,4 +157,6 @@ void main() {
 	// outColor.rg = texCoord;
 	outColor.a = albedo.a;
 	outColor.rgb += emit;
+	outColor.rgb += albedo.rgb * worldInfo.ambientLight;
+	outColor.rgb = mix(outColor.rgb, worldInfo.fogColor, GetZFromDepth(inProjPos.z)/-(worldInfo.proj[2][3]/worldInfo.proj[2][2]));
 }

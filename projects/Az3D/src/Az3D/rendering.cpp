@@ -650,6 +650,8 @@ bool Manager::UpdateUniforms(GPU::Context *context) {
 	uniforms.proj = mat4::Perspective(camera.fov, screenSize.x / screenSize.y, camera.nearClip, camera.farClip);
 	uniforms.viewProj = uniforms.view * uniforms.proj;
 	uniforms.eyePos = camera.pos;
+	uniforms.fogColor = sRGBToLinear(backgroundRGB);
+	uniforms.ambientLight = uniforms.fogColor * 0.01f + vec3(0.01f);
 	UpdateLights();
 
 	GPU::CmdCopyDataToBuffer(context, data.uniformBuffer, &uniforms).AzUnwrap();

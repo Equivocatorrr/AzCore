@@ -197,9 +197,14 @@ struct BlendMode {
 		OPAQUE,
 		TRANSPARENT,
 		ADDITION,
+		MIN,
+		MAX,
 	} kind = OPAQUE;
 	// TODO: Add more common blend modes
 	bool alphaPremult = false;
+	BlendMode() = default;
+	BlendMode(Kind _kind) : kind(_kind) {}
+	BlendMode(Kind _kind, bool _alphaPremult) : kind(_kind), alphaPremult(_alphaPremult) {}
 };
 // NOTE: We probably want to support more specific stuff anyway, so probably make a mechanism for that.
 
@@ -404,6 +409,9 @@ void PipelineSetBlendMode(Pipeline *pipeline, BlendMode blendMode, i32 attachmen
 // minFraction is shadedSamples / totalSamples
 void PipelineSetMultisampleShading(Pipeline *pipeline, bool enabled, f32 minFraction=1.0f);
 
+// shaderStages is a bitmask of ShaderStage values
+void PipelineAddPushConstantRange(Pipeline *pipeline, u32 offset, u32 size, u32 shaderStages);
+
 
 // Context, Commands
 
@@ -434,6 +442,7 @@ void PipelineSetMultisampleShading(Pipeline *pipeline, bool enabled, f32 minFrac
 
 void CmdBindFramebuffer(Context *context, Framebuffer *framebuffer);
 
+
 void CmdBindPipeline(Context *context, Pipeline *pipeline);
 
 void CmdBindVertexBuffer(Context *context, Buffer *buffer);
@@ -450,6 +459,13 @@ void CmdBindImageArraySampler(Context *context, const Array<Image*> &images, Sam
 
 // Before recording draw commands, you have to commit all your bindings at once
 [[nodiscard]] Result<VoidResult_t, String> CmdCommitBindings(Context *context);
+// Ends the render pass that was started with a CmdBindFramebuffer call followed by CmdCommitBindings.
+// If you need to process the image drawn in the same context, you need to use this, otherwise it'll be automatically called in CmdEndRecording.
+// doGenMipmaps only has an effect if images attached to the framebuffer have mipmaps enabled.
+// Also resets all the bindings on the context, so you must bind things again if necessary.
+void CmdFinishFramebuffer(Context *context, bool doGenMipmaps=true);
+
+void CmdPushConstants(Context *context, const void *src, u32 offset, u32 size);
 
 void CmdSetViewport(Context *context, f32 width, f32 height, f32 minDepth=0.0f, f32 maxDepth=1.0f, f32 x=0.0f, f32 y=0.0f);
 

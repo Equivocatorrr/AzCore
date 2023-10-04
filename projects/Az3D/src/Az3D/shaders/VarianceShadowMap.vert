@@ -1,8 +1,14 @@
 #version 460
 #extension GL_ARB_separate_shader_objects : enable
 
-layout(location=0) in vec2 texCoord;
-layout(location=1) flat in int baseInstance;
+layout(location=0) in vec3 inPosition;
+layout(location=1) in vec3 inNormal;
+layout(location=2) in vec3 inTangent;
+layout(location=3) in vec2 inTexCoord;
+
+layout(location=0) out vec2 outTexCoord;
+layout(location=1) out int outInstanceIndex;
+layout(location=2) out float outDepth;
 
 layout(set=0, binding=0) uniform WorldInfo {
 	mat4 proj;
@@ -12,10 +18,6 @@ layout(set=0, binding=0) uniform WorldInfo {
 	vec3 sunDir;
 	vec3 eyePos;
 } worldInfo;
-
-layout(set=0, binding=2) uniform sampler2D texSampler[1];
-
-const float PI = 3.1415926535897932;
 
 struct Material {
 	// The following multiply with any texture bound (with default textures having a value of 1)
@@ -46,10 +48,10 @@ layout(std140, set=0, binding=1) readonly buffer ObjectBuffer {
 } objectBuffer;
 
 void main() {
-	ObjectInfo info = objectBuffer.objects[baseInstance];
-	
-	float alpha = texture(texSampler[info.material.texAlbedo], texCoord).a * info.material.color.a;
-	if (alpha < 0.5) {
-		discard;
-	}
+	mat4 model = objectBuffer.objects[gl_InstanceIndex].model;
+	vec4 worldPos = vec4(inPosition, 1.0) * model;
+	gl_Position = worldPos * worldInfo.sun;
+	outTexCoord = inTexCoord;
+	outInstanceIndex = gl_InstanceIndex;
+	outDepth = gl_Position.z;
 }

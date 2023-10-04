@@ -23,6 +23,7 @@ layout(set=0, binding=0) uniform WorldInfo {
 } worldInfo;
 
 layout(set=0, binding=2) uniform sampler2D texSampler[1];
+layout(set=0, binding=3) uniform sampler2D shadowMap;
 
 const float PI = 3.1415926535897932;
 
@@ -92,8 +93,23 @@ vec3 wrap(float attenuation, vec3 wrapFac) {
 	return clamp((vec3(attenuation) + wrapFac) / sqr(1.0 + wrapFac), 0.0, 1.0);
 }
 
+float ChebyshevInequality(vec2 moments, float depth) {
+	float squaredMean = moments.y;
+	float meanSquared = sqr(moments.x);
+	float minVariance = sqr(0.004 * depth);
+	float variance = max(squaredMean - meanSquared, minVariance);
+	float pMax = variance / (variance + sqr(moments.x - depth));
+	
+	// return max(pMax, float(depth > moments.x));
+	return pMax;
+}
+
 void main() {
 	ObjectInfo info = objectBuffer.objects[inInstanceIndex];
+	
+	vec4 sunCoord = vec4(inWorldPos, 1.0) * worldInfo.sun;
+	vec2 moments = texture(shadowMap, sunCoord.xy * 0.5 + 0.5).xy;
+	float sunFactor = ChebyshevInequality(moments, sunCoord.z);
 	
 	vec4 albedo = texture(texSampler[info.material.texAlbedo], texCoord) * info.material.color;
 	vec3 emit = texture(texSampler[info.material.texEmit], texCoord).rgb * info.material.emit;
@@ -153,10 +169,10 @@ void main() {
 	// outColor.rgb = vec3(sssSharpness);
 	// outColor.rgb = subsurface;
 	// outColor.rgb = FresnelSchlick(surfaceNormal, viewNormal, baseReflectivity);
-	outColor.rgb = 1.0 / PI * (mix(diffuse * (1.0 - metalness), specular, fresnel) * attenuationGeometry + subsurface);
+	outColor.rgb = 1.0 / PI * (mix(diffuse * (1.0 - metalness), specular, fresnel) * attenuationGeometry + subsurface) * sunFactor;
 	// outColor.rg = texCoord;
 	outColor.a = albedo.a;
 	outColor.rgb += emit;
 	outColor.rgb += albedo.rgb * worldInfo.ambientLight;
-	outColor.rgb = mix(outColor.rgb, worldInfo.fogColor, GetZFromDepth(inProjPos.z)/-(worldInfo.proj[2][3]/worldInfo.proj[2][2]));
+	// outColor.rgb = mix(outColor.rgb, worldInfo.fogColor, GetZFromDepth(inProjPos.z)/-(worldInfo.proj[2][3]/worldInfo.proj[2][2]));
 }

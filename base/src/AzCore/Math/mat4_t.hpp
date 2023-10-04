@@ -269,6 +269,7 @@ struct mat4_t {
 	// forward must be a unit vector
 	static mat4_t<T> Camera(vec3_t<T> pos, vec3_t<T> forward, vec3_t<T> up=vec3_t<T>(0, 0, 1));
 	static mat4_t<T> Perspective(Radians<T> fovX, T widthOverHeight, T nearClip, T farClip);
+	static mat4_t<T> Ortho(T width, T height, T nearClip, T farClip);
 };
 extern template mat4_t<f32> mat4_t<f32>::Camera(vec3, vec3, vec3);
 extern template mat4_t<f32> mat4_t<f32>::Perspective(Radians32, f32, f32, f32);

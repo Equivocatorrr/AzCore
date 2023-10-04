@@ -36,36 +36,27 @@ io::Log cout("rendering.log");
 
 String error = "No error.";
 
-struct Frustum {
-	struct Plane {
-		vec3 normal;
-		// distance from origin in the normal direction
-		f32 dist;
-	};
-	Plane near;
-	Plane far;
-	Plane left;
-	Plane right;
-	Plane top;
-	Plane bottom;
-};
-
-Frustum::Plane GetPlaneFromRay(vec3 point, vec3 normal) {
-	Frustum::Plane result;
+Plane GetPlaneFromRay(vec3 point, vec3 normal) {
+	Plane result;
 	result.normal = normal;
 	result.dist = dot(point, normal);
 	return result;
 }
 
+void GetBasisFromCamera(const Camera &camera, vec3 &dstForward, vec3 &dstRight, vec3 &dstUp) {
+	dstForward = normalize(camera.forward);
+	dstRight = normalize(cross(camera.up, dstForward));
+	dstUp = normalize(cross(dstForward, dstRight));
+}
+
 Frustum GetFrustumFromCamera(const Camera &camera, f32 heightOverWidth) {
 	Frustum result;
-	result.near  = GetPlaneFromRay(camera.pos + camera.nearClip * camera.forward, camera.forward);
-	result.far   = GetPlaneFromRay(camera.pos + camera.farClip * camera.forward, -camera.forward);
 	f32 tanhFOV = tan(Radians32(camera.fov).value() * 0.5f);
 	f32 tanvFOV = tanhFOV * heightOverWidth;
-	vec3 forward = normalize(camera.forward);
-	vec3 right = normalize(cross(camera.up, forward));
-	vec3 up = normalize(cross(forward, right));
+	vec3 forward, right, up;
+	GetBasisFromCamera(camera, forward, right, up);
+	result.near  = GetPlaneFromRay(camera.pos + camera.nearClip * camera.forward, camera.forward);
+	result.far   = GetPlaneFromRay(camera.pos + camera.farClip * camera.forward, -camera.forward);
 	result.left  = GetPlaneFromRay(camera.pos, normalize(right + forward * tanhFOV));
 	result.right = GetPlaneFromRay(camera.pos, normalize(-right + forward * tanhFOV));
 	result.top    = GetPlaneFromRay(camera.pos, normalize(-up + forward * tanvFOV));
@@ -73,7 +64,25 @@ Frustum GetFrustumFromCamera(const Camera &camera, f32 heightOverWidth) {
 	return result;
 }
 
-bool IsSphereAbovePlane(vec3 center, f32 radius, const Frustum::Plane &plane) {
+// pos is the center of the near plane, pos+forward is the center of the far plane
+// right and up are half of the width and height of the frustum such that pos+right is on the right plane, etc.
+Frustum GetOrtho(vec3 pos, vec3 forward, vec3 right, vec3 up) {
+	Frustum result;
+	vec3 forwardNormal = normalize(forward);
+	vec3 rightNormal = normalize(right);
+	// What's upNormal?
+	// Nothing, what's up wit u?
+	vec3 upNormal = normalize(up);
+	result.near = GetPlaneFromRay(pos, forwardNormal);
+	result.far = GetPlaneFromRay(pos + forward, -forwardNormal);
+	result.left = GetPlaneFromRay(pos - right, rightNormal);
+	result.right = GetPlaneFromRay(pos + right, -rightNormal);
+	result.top = GetPlaneFromRay(pos - up, upNormal);
+	result.bottom = GetPlaneFromRay(pos + up, -upNormal);
+	return result;
+}
+
+bool IsSphereAbovePlane(vec3 center, f32 radius, const Plane &plane) {
 	return dot(center, plane.normal) - plane.dist + radius > 0.0f;
 }
 
@@ -254,6 +263,12 @@ bool Manager::Init() {
 		data.fontVertexBuffer = GPU::NewVertexBuffer(data.device, "Font Vertex Buffer");
 		data.fontImages.Resize(sys->assets.fonts.size);
 	}
+	ArrayWithBucket<GPU::ShaderValueType, 8> vertexInputs = {
+		GPU::ShaderValueType::VEC3, // pos
+		GPU::ShaderValueType::VEC3, // normal
+		GPU::ShaderValueType::VEC3, // tangent
+		GPU::ShaderValueType::VEC2, // tex
+	};
 	{ // Pipelines
 		GPU::Shader *debugLinesVert = GPU::NewShader(data.device, "data/Az3D/shaders/DebugLines.vert.spv", GPU::ShaderStage::VERTEX);
 		GPU::Shader *debugLinesFrag = GPU::NewShader(data.device, "data/Az3D/shaders/DebugLines.frag.spv", GPU::ShaderStage::FRAGMENT);
@@ -262,13 +277,6 @@ bool Manager::Init() {
 		GPU::Shader *font3DFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Font3D.frag.spv", GPU::ShaderStage::FRAGMENT);
 
 		data.pipelines.Resize(PIPELINE_COUNT);
-
-		ArrayWithBucket<GPU::ShaderValueType, 8> vertexInputs = {
-			GPU::ShaderValueType::VEC3, // pos
-			GPU::ShaderValueType::VEC3, // normal
-			GPU::ShaderValueType::VEC3, // tangent
-			GPU::ShaderValueType::VEC2, // tex
-		};
 
 		data.pipelines[PIPELINE_DEBUG_LINES] = GPU::NewGraphicsPipeline(data.device, "Debug Lines Pipeline");
 		GPU::PipelineAddShaders(data.pipelines[PIPELINE_DEBUG_LINES], {debugLinesVert, debugLinesFrag});
@@ -312,53 +320,52 @@ bool Manager::Init() {
 		}
 	}
 	{ // Shadow maps
-		// data.shadowMapMemory = data.device->AddMemory();
-		// data.shadowMapImage = data.shadowMapMemory->AddImage();
-		// data.shadowMapImage->aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
-		// data.shadowMapImage->format = VK_FORMAT_D32_SFLOAT;
-		// data.shadowMapImage->usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		// data.shadowMapImage->width = data.shadowMapImage->height = 2048;
-		// data.renderPassShadowMaps = data.device->AddRenderPass();
-		// data.renderPassShadowMaps->initialAccessStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		// data.renderPassShadowMaps->finalAccessStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		// auto attachment = data.renderPassShadowMaps->AddAttachment();
-		// attachment->bufferDepthStencil = true;
-		// attachment->clearDepth = true;
-		// attachment->clearDepthStencilValue.depth = 0.0f;
-		// attachment->formatDepthStencil = data.shadowMapImage->format;
-		// attachment->keepDepth = true;
-		// auto subpass = data.renderPassShadowMaps->AddSubpass();
-		// subpass->UseAttachment(attachment, vk::ATTACHMENT_DEPTH_STENCIL, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-		// data.framebufferShadowMaps = data.device->AddFramebuffer();
-		// data.framebufferShadowMaps->renderPass = data.renderPassShadowMaps;
-		// data.framebufferShadowMaps->attachmentImages = {{data.shadowMapImage}};
-		// data.framebufferShadowMaps->ownMemory = false;
-		// data.framebufferShadowMaps->ownImages = false;
-		// data.framebufferShadowMaps->depthMemory = data.shadowMapMemory.RawPtr();
-		// data.framebufferShadowMaps->width = data.shadowMapImage->width;
-		// data.framebufferShadowMaps->height = data.shadowMapImage->height;
-		// data.semaphoreShadowMapsComplete = data.device->AddSemaphore();
-		// data.queueSubmissionShadowMaps = data.device->AddQueueSubmission();
-		// data.pipelineShadowMaps = data.device->AddPipeline();
-		// data.pipelineShadowMaps->renderPass = data.renderPassShadowMaps;
-		// data.pipelineShadowMaps->subpass = 0;
-		// data.pipelineShadowMaps->inputAssembly = data.pipelines[PIPELINE_BASIC_3D]->inputAssembly;
-		// data.pipelineShadowMaps->inputAttributeDescriptions = data.pipelines[PIPELINE_BASIC_3D]->inputAttributeDescriptions;
-		// data.pipelineShadowMaps->inputBindingDescriptions = data.pipelines[PIPELINE_BASIC_3D]->inputBindingDescriptions;
-		// data.pipelineShadowMaps->rasterizer = data.pipelines[PIPELINE_BASIC_3D]->rasterizer;
-		// data.pipelineShadowMaps->rasterizer.rasterizerDiscardEnable = VK_TRUE;
-
-		// auto shadersShadow = data.device->AddShaders(2);
-		// shadersShadow[0].filename = "data/Az3D/shaders/ShadowMap.vert.spv";
-		// shadersShadow[1].filename = "data/Az3D/shaders/ShadowMap.frag.spv";
-		// vk::ShaderRef vertShadow = vk::ShaderRef(shadersShadow.GetPtr(0), VK_SHADER_STAGE_VERTEX_BIT);
-		// vk::ShaderRef fragShadow = vk::ShaderRef(shadersShadow.GetPtr(1), VK_SHADER_STAGE_FRAGMENT_BIT);
-
-		// data.pipelineShadowMaps->shaders = {vertShadow, fragShadow};
-		// data.pipelineShadowMaps->depthStencil.depthTestEnable = VK_TRUE;
-		// data.pipelineShadowMaps->depthStencil.depthWriteEnable = VK_TRUE;
-		// data.pipelineShadowMaps->depthStencil.depthCompareOp = VK_COMPARE_OP_GREATER;
-		// data.pipelineShadowMaps->descriptorLayouts = {descriptorLayout};
+		constexpr i32 dims = 1024;
+		data.contextShadowMap = GPU::NewContext(data.device, "VSM Context");
+		
+		GPU::Image *shadowMapMSAAImage = GPU::NewImage(data.device, "VSM MSAA Image");
+		data.shadowMapImage = GPU::NewImage(data.device, "VSM Image");
+		GPU::ImageSetFormat(shadowMapMSAAImage, GPU::ImageBits::R32G32, GPU::ImageComponentType::SFLOAT);
+		GPU::ImageSetSize(shadowMapMSAAImage, dims, dims);
+		GPU::ImageSetSampleCount(shadowMapMSAAImage, 4);
+		
+		GPU::ImageSetFormat(data.shadowMapImage, GPU::ImageBits::R32G32, GPU::ImageComponentType::SFLOAT);
+		GPU::ImageSetSize(data.shadowMapImage, dims, dims);
+		GPU::ImageSetShaderUsage(data.shadowMapImage, (u32)GPU::ShaderStage::FRAGMENT);
+		GPU::ImageSetMipmapping(data.shadowMapImage, true);
+		
+		data.framebufferShadowMaps = GPU::NewFramebuffer(data.device, "VSM Framebuffer");
+		GPU::FramebufferAddImageMultisampled(data.framebufferShadowMaps, shadowMapMSAAImage, data.shadowMapImage);
+		
+		GPU::Shader *vsmVert = GPU::NewShader(data.device, "data/Az3D/shaders/VarianceShadowMap.vert.spv", GPU::ShaderStage::VERTEX, "VSM Vertex Shader");
+		GPU::Shader *vsmFrag = GPU::NewShader(data.device, "data/Az3D/shaders/VarianceShadowMap.frag.spv", GPU::ShaderStage::FRAGMENT, "VSM Fragment Shader");
+		data.pipelineShadowMaps = GPU::NewGraphicsPipeline(data.device, "VSM Pipeline");
+		GPU::PipelineAddShaders(data.pipelineShadowMaps, {vsmVert, vsmFrag});
+		GPU::PipelineAddVertexInputs(data.pipelineShadowMaps, vertexInputs);
+		GPU::PipelineSetTopology(data.pipelineShadowMaps, GPU::Topology::TRIANGLE_LIST);
+		GPU::PipelineSetBlendMode(data.pipelineShadowMaps, GPU::BlendMode::MAX);
+		
+		data.shadowMapConvolutionImage = GPU::NewImage(data.device, "VSM Convolution Image");
+		GPU::ImageSetFormat(data.shadowMapConvolutionImage, GPU::ImageBits::R32G32, GPU::ImageComponentType::SFLOAT);
+		GPU::ImageSetSize(data.shadowMapConvolutionImage, dims, dims);
+		GPU::ImageSetShaderUsage(data.shadowMapConvolutionImage, (u32)GPU::ShaderStage::FRAGMENT);
+		
+		data.framebufferConvolution[0] = GPU::NewFramebuffer(data.device, "VSM Convolution Framebuffer 0");
+		data.framebufferConvolution[1] = GPU::NewFramebuffer(data.device, "VSM Convolution Framebuffer 1");
+		GPU::FramebufferAddImage(data.framebufferConvolution[0], data.shadowMapConvolutionImage);
+		GPU::FramebufferAddImage(data.framebufferConvolution[1], data.shadowMapImage);
+		
+		GPU::Shader *convolutionVert = GPU::NewShader(data.device, "data/Az3D/shaders/Convolution.vert.spv", GPU::ShaderStage::VERTEX);
+		GPU::Shader *convolutionFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Convolution.frag.spv", GPU::ShaderStage::FRAGMENT);
+		
+		data.pipelineShadowMapConvolution = GPU::NewGraphicsPipeline(data.device, "VSM Convolution Pipeline");
+		GPU::PipelineAddShaders(data.pipelineShadowMapConvolution, {convolutionVert, convolutionFrag});
+		GPU::PipelineSetTopology(data.pipelineShadowMapConvolution, GPU::Topology::TRIANGLE_FAN);
+		GPU::PipelineAddPushConstantRange(data.pipelineShadowMapConvolution, 0, sizeof(vec2), (u32)GPU::ShaderStage::FRAGMENT);
+		
+		data.shadowMapSampler = GPU::NewSampler(data.device, "VSM Sampler");
+		GPU::SamplerSetAddressMode(data.shadowMapSampler, GPU::AddressMode::CLAMP_TO_BORDER, GPU::AddressMode::CLAMP_TO_BORDER);
+		GPU::SamplerSetBorderColor(data.shadowMapSampler, true, false, true);
 	}
 
 	if (auto result = GPU::Initialize(); result.isError) {
@@ -450,23 +457,21 @@ bool Manager::Deinit() {
 
 void Manager::UpdateLights() {
 	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::UpdateLights)
-	const f32 minClip = camera.nearClip;
-	const f32 maxClip = camera.farClip;
-	mat4 invView = uniforms.view.Inverse();
+	mat4 invView = uniforms.viewProj.Inverse();
 	// frustum corners
 	vec3 corners[8] = {
-		(vec4(-1.0f, -1.0f, minClip, 1.0f) * invView).xyz,
-		(vec4( 1.0f, -1.0f, minClip, 1.0f) * invView).xyz,
-		(vec4(-1.0f,  1.0f, minClip, 1.0f) * invView).xyz,
-		(vec4( 1.0f,  1.0f, minClip, 1.0f) * invView).xyz,
-		(vec4(-1.0f, -1.0f, maxClip, 1.0f) * invView).xyz,
-		(vec4( 1.0f, -1.0f, maxClip, 1.0f) * invView).xyz,
-		(vec4(-1.0f,  1.0f, maxClip, 1.0f) * invView).xyz,
-		(vec4( 1.0f,  1.0f, maxClip, 1.0f) * invView).xyz
+		(vec4(-1.0f, -1.0f, 0.0f, 1.0f) * invView).xyz,
+		(vec4( 1.0f, -1.0f, 0.0f, 1.0f) * invView).xyz,
+		(vec4(-1.0f,  1.0f, 0.0f, 1.0f) * invView).xyz,
+		(vec4( 1.0f,  1.0f, 0.0f, 1.0f) * invView).xyz,
+		(vec4(-1.0f, -1.0f, 1.0f, 1.0f) * invView).xyz,
+		(vec4( 1.0f, -1.0f, 1.0f, 1.0f) * invView).xyz,
+		(vec4(-1.0f,  1.0f, 1.0f, 1.0f) * invView).xyz,
+		(vec4( 1.0f,  1.0f, 1.0f, 1.0f) * invView).xyz
 	};
-	vec3 center = (vec4(0.0f, 0.0f, (minClip+maxClip) * 0.5, 1.0f) * invView).xyz;
+	vec3 center = (vec4(0.0f, 0.0f, 0.5f, 1.0f) * invView).xyz;
 	vec3 boundsMin(100000000.0f), boundsMax(-100000000.0f);
-	uniforms.sun = mat4::Camera(center + uniforms.sunDir*100.0f, -uniforms.sunDir, camera.up);
+	uniforms.sun = mat4::Camera(uniforms.sunDir*10.0f, -uniforms.sunDir, vec3(0.0f, 0.0f, 1.0f));
 	for (i32 i = 0; i < 8; i++) {
 		corners[i] = (vec4(corners[i], 1.0f) * uniforms.sun).xyz;
 		boundsMin.x = min(boundsMin.x, corners[i].x);
@@ -477,7 +482,20 @@ void Manager::UpdateLights() {
 		boundsMax.z = max(boundsMax.z, corners[i].z);
 	}
 	vec3 dimensions = boundsMax - boundsMin;
-	uniforms.sun = mat4::Scaler(vec4(dimensions, 1.0f)) * uniforms.sun;
+	// uniforms.sun = mat4::Scaler(vec4(dimensions, 1.0f)) * uniforms.sun;
+	uniforms.sun = uniforms.sun * mat4::Ortho(5.0f, 5.0f, 0.0f, 20.0f);
+	sunFrustum = GetOrtho(
+		uniforms.sun.Row4().xyz,
+		uniforms.sun.Row3().xyz,
+		uniforms.sun.Row2().xyz,
+		uniforms.sun.Row1().xyz
+	);
+	sunFrustum = GetOrtho(
+		uniforms.sunDir * 10.0f,
+		-uniforms.sunDir * 20.0f,
+		vec3(5.0f, 0.0f, 0.0f),
+		vec3(0.0f, 5.0f, 0.0f)
+	);
 // 	i32 lightCounts[LIGHT_BIN_COUNT] = {0};
 // 	i32 totalLights = 1;
 // 	// By default, they all point to the default light which has no light at all
@@ -647,6 +665,7 @@ vec4 PerspectiveNormalize(vec4 point) {
 bool Manager::UpdateUniforms(GPU::Context *context) {
 	// Update camera matrix
 	uniforms.view = mat4::Camera(camera.pos, camera.forward, camera.up);
+	// uniforms.proj = mat4::Ortho(10.0f, 10.0f * screenSize.y / screenSize.x, camera.nearClip, camera.farClip);
 	uniforms.proj = mat4::Perspective(camera.fov, screenSize.x / screenSize.y, camera.nearClip, camera.farClip);
 	uniforms.viewProj = uniforms.view * uniforms.proj;
 	uniforms.eyePos = camera.pos;
@@ -750,6 +769,20 @@ bool Manager::Draw() {
 
 	screenSize = vec2((f32)sys->window.width, (f32)sys->window.height);
 	aspectRatio = screenSize.y / screenSize.x;
+	
+	{ // Shadow Map
+		GPU::ContextBeginRecording(data.contextShadowMap).AzUnwrap();
+		GPU::CmdBindFramebuffer(data.contextShadowMap, data.framebufferShadowMaps);
+		GPU::CmdBindPipeline(data.contextShadowMap, data.pipelineShadowMaps);
+		GPU::CmdBindIndexBuffer(data.contextShadowMap, data.indexBuffer);
+		GPU::CmdBindVertexBuffer(data.contextShadowMap, data.vertexBuffer);
+		GPU::CmdBindUniformBuffer(data.contextShadowMap, data.uniformBuffer, 0, 0);
+		GPU::CmdBindStorageBuffer(data.contextShadowMap, data.objectBuffer, 0, 1);
+		GPU::CmdBindImageArraySampler(data.contextShadowMap, data.textures, data.textureSampler, 0, 2);
+		GPU::CmdCommitBindings(data.contextShadowMap).AzUnwrap();
+		
+		GPU::CmdClearColorAttachment(data.contextShadowMap, vec4(0.0));
+	}
 
 	GPU::ContextBeginRecording(data.contextGraphics).AzUnwrap();
 	GPU::CmdBindFramebuffer(data.contextGraphics, data.framebuffer);
@@ -758,6 +791,7 @@ bool Manager::Draw() {
 	GPU::CmdBindUniformBuffer(data.contextGraphics, data.uniformBuffer, 0, 0);
 	GPU::CmdBindStorageBuffer(data.contextGraphics, data.objectBuffer, 0, 1);
 	GPU::CmdBindImageArraySampler(data.contextGraphics, data.textures, data.textureSampler, 0, 2);
+	GPU::CmdBindImageSampler(data.contextGraphics, data.shadowMapImage, data.shadowMapSampler, 0, 3);
 	GPU::CmdCommitBindings(data.contextGraphics).AzUnwrap();
 	/*{ // Fade
 		DrawQuadSS(commandBuffersSecondary[0], texBlank, vec4(backgroundRGB, 0.2f), vec2(-1.0), vec2(2.0), vec2(1.0));
@@ -792,6 +826,9 @@ bool Manager::Draw() {
 			#if 0
 			DrawDebugSphere(data.drawingContexts[0], drawCall.boundingSphereCenter, drawCall.boundingSphereRadius*2.0f, drawCall.culled ? vec4(1.0f, 0.0f, 0.0f, 1.0f) : vec4(1.0f));
 			#endif
+			// if (drawCall.castsShadows) {
+			// 	drawCall.castsShadows = IsSphereInFrustum(drawCall.boundingSphereCenter, drawCall.boundingSphereRadius, sunFrustum);
+			// }
 		}
 		QuickSort(allDrawCalls, [](const DrawCallInfo &lhs, const DrawCallInfo &rhs) -> bool {
 			// Place culled objects at the end
@@ -804,7 +841,7 @@ bool Manager::Draw() {
 		});
 		PipelineIndex currentPipeline = PIPELINE_NONE;
 		for (DrawCallInfo &drawCall : allDrawCalls) {
-			if (drawCall.culled) continue;
+			if (drawCall.culled && !drawCall.castsShadows) continue;
 			if (drawCall.pipeline != currentPipeline) {
 				BindPipeline(data.contextGraphics, drawCall.pipeline);
 				currentPipeline = drawCall.pipeline;
@@ -815,7 +852,12 @@ bool Manager::Draw() {
 			for (i32 i = 0; i < drawCall.transforms.size; i++) {
 				data.objectShaderInfos[prevSize+i] = ObjectShaderInfo{drawCall.transforms[i], drawCall.material};
 			}
-			GPU::CmdDrawIndexed(data.contextGraphics, drawCall.indexCount, drawCall.indexStart, 0, drawCall.instanceCount, drawCall.instanceStart);
+			if (!drawCall.culled) {
+				GPU::CmdDrawIndexed(data.contextGraphics, drawCall.indexCount, drawCall.indexStart, 0, drawCall.instanceCount, drawCall.instanceStart);
+			}
+			if (drawCall.castsShadows) {
+				GPU::CmdDrawIndexed(data.contextShadowMap, drawCall.indexCount, drawCall.indexStart, 0, drawCall.instanceCount, drawCall.instanceStart);
+			}
 		}
 	}
 
@@ -860,11 +902,38 @@ bool Manager::Draw() {
 			return false;
 		}
 	}
+	
+	GPU::CmdFinishFramebuffer(data.contextShadowMap, false);
+	
+	GPU::CmdBindFramebuffer(data.contextShadowMap, data.framebufferConvolution[0]);
+	GPU::CmdBindPipeline(data.contextShadowMap, data.pipelineShadowMapConvolution);
+	GPU::CmdBindImageSampler(data.contextShadowMap, data.shadowMapImage, data.shadowMapSampler, 0, 0);
+	GPU::CmdCommitBindings(data.contextShadowMap).AzUnwrap();
+	vec2 convolutionDirection = vec2(1.0f, 0.0f);
+	GPU::CmdPushConstants(data.contextShadowMap, &convolutionDirection, 0, sizeof(vec2));
+	GPU::CmdDraw(data.contextShadowMap, 4, 0);
+	GPU::CmdFinishFramebuffer(data.contextShadowMap);
+	
+	GPU::CmdBindFramebuffer(data.contextShadowMap, data.framebufferConvolution[1]);
+	GPU::CmdBindPipeline(data.contextShadowMap, data.pipelineShadowMapConvolution);
+	GPU::CmdBindImageSampler(data.contextShadowMap, data.shadowMapConvolutionImage, data.shadowMapSampler, 0, 0);
+	GPU::CmdCommitBindings(data.contextShadowMap).AzUnwrap();
+	convolutionDirection = vec2(0.0f, 1.0f);
+	GPU::CmdPushConstants(data.contextShadowMap, &convolutionDirection, 0, sizeof(vec2));
+	GPU::CmdDraw(data.contextShadowMap, 4, 0);
+	GPU::CmdFinishFramebuffer(data.contextShadowMap);
+	
+	GPU::ContextEndRecording(data.contextShadowMap).AzUnwrap();
+	
+	if (auto result = GPU::SubmitCommands(data.contextShadowMap, 1, {GPU::ContextGetCurrentSemaphore(data.contextTransfer)}); result.isError) {
+		error = "Failed to submit shadow map commands: " + result.error;
+		return false;
+	}
 
 	GPU::ContextEndRecording(data.contextGraphics).AzUnwrap();
 
-	if (auto result = GPU::SubmitCommands(data.contextGraphics, 2, {GPU::ContextGetCurrentSemaphore(data.contextTransfer)}); result.isError) {
-		error = "Failed to SubmitCommandBuffers: " + result.error;
+	if (auto result = GPU::SubmitCommands(data.contextGraphics, 2, {GPU::ContextGetCurrentSemaphore(data.contextShadowMap)}); result.isError) {
+		error = "Failed to draw commands: " + result.error;
 		return false;
 	}
 	return true;

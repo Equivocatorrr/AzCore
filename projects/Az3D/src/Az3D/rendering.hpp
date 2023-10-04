@@ -201,6 +201,28 @@ struct DrawingContext {
 	Array<DebugVertex> debugLines;
 };
 
+#ifdef near
+#undef near
+#endif
+#ifdef far
+#undef far
+#endif
+
+struct Plane {
+	vec3 normal;
+	// distance from origin in the normal direction
+	f32 dist;
+};
+
+struct Frustum {
+	Plane near;
+	Plane far;
+	Plane left;
+	Plane right;
+	Plane top;
+	Plane bottom;
+};
+
 struct Manager {
 	struct {
 		GPU::Device *device;
@@ -219,9 +241,14 @@ struct Manager {
 		GPU::Buffer *vertexBuffer;
 		GPU::Buffer *indexBuffer;
 		
+		GPU::Context *contextShadowMap;
 		GPU::Image *shadowMapImage;
 		GPU::Framebuffer *framebufferShadowMaps;
 		GPU::Pipeline *pipelineShadowMaps;
+		GPU::Image *shadowMapConvolutionImage;
+		GPU::Framebuffer *framebufferConvolution[2];
+		GPU::Pipeline *pipelineShadowMapConvolution;
+		GPU::Sampler *shadowMapSampler;
 		
 		// For debug lines
 		GPU::Buffer *debugVertexBuffer;
@@ -249,6 +276,7 @@ struct Manager {
 	UniformBuffer uniforms;
 	Mutex lightsMutex;
 	Camera camera;
+	Frustum sunFrustum;
 
 	bool Init();
 	bool Deinit();

@@ -180,6 +180,14 @@ void Window::HideCursor(bool hide) {
 	}
 }
 
+void Window::MoveCursor(i32 x, i32 y) {
+	if (data->useWayland) {
+		AzAssert(false, "Unimplemented");
+	} else {
+		MoveCursorXCB(this, x, y);
+	}
+}
+
 String Window::InputName(u8 keyCode) const {
 	if (!open) {
 		return "Error";

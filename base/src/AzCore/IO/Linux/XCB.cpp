@@ -22,6 +22,11 @@ void SetCursorXCB(Window *window) {
 	xcb_flush(window->data->x11.connection);
 }
 
+void MoveCursorXCB(Window *window, i32 x, i32 y) {
+	xcb_warp_pointer(window->data->x11.connection, XCB_NONE, window->data->x11.window, 0, 0, 0, 0, x, y);
+	xcb_flush(window->data->x11.connection);
+}
+
 xcb_atom_t xcbGetAtom(xcb_connection_t *connection, bool onlyIfExists, const String &name) {
 	xcb_intern_atom_cookie_t cookie;
 	xcb_intern_atom_reply_t *reply;

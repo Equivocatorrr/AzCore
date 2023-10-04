@@ -134,7 +134,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		return 1;
 	}
 	RandomNumberGenerator rng;
-	bool resize = false;
 	const vec4 clearColor = vec4(sRGBToLinear(vec3(0.0f, 0.1f, 0.2f)), 1.0f);
 	do {
 		for (i32 i = 0; i < 256; i++) {

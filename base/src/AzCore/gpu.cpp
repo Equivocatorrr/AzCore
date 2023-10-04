@@ -3247,6 +3247,9 @@ static VkFilter GetVkFilter(Filter filter) {
 			return VK_FILTER_LINEAR;
 		case Filter::CUBIC:
 			return VK_FILTER_CUBIC_EXT;
+		default:
+			AzAssert(false, "Unreachable");
+			return VK_FILTER_NEAREST;
 	}
 }
 
@@ -3401,6 +3404,8 @@ static VkFormat GetAttachmentFormat(Attachment &attachment) {
 		AzAssert(attachment.image->initted, "Cannot get format from an uninitialized Image");
 		return attachment.image->vkFormat;
 	}
+	AzAssert(false, "Unreachable");
+	return (VkFormat)0;
 }
 
 Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
@@ -3535,6 +3540,8 @@ static VkImageView GetAttachmentImageView(Attachment &attachment, i32 framebuffe
 		return attachment.depthBuffer->vkImageView;
 		break;
 	}
+	AzAssert(false, "Unreachable");
+	return VK_NULL_HANDLE;
 }
 
 Result<VoidResult_t, String> FramebufferCreate(Framebuffer *framebuffer) {
@@ -3569,8 +3576,9 @@ Result<VoidResult_t, String> FramebufferCreate(Framebuffer *framebuffer) {
 	for (i32 i = 0; i < framebuffer->attachmentRefs.size; i++) {
 		AttachmentRef &attachmentRef = framebuffer->attachmentRefs[i];
 		Attachment &attachment = attachmentRef.attachment;
-		i32 ourWidth, ourHeight;
-		u32 ourSampleCount;
+		i32 ourWidth = 1;
+		i32 ourHeight = 1;
+		u32 ourSampleCount = 1;
 		GetAttachmentDimensions(attachment, ourWidth, ourHeight, ourSampleCount, numFramebuffers);
 		if (i == 0) {
 			framebuffer->sampleCount = ourSampleCount;
@@ -4209,6 +4217,9 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 			case Binding::IMAGE_SAMPLER:
 				numImages += binding.imageSampler.images.size;
 				break;
+			default:
+				AzAssert(false, "Unreachable");
+				break;
 		}
 	}
 	if (context->vkDescriptorPool == VK_NULL_HANDLE) {
@@ -4620,7 +4631,6 @@ static void CmdImageTransitionLayout(Context *context, Image *image, VkImageLayo
 }
 
 static void CmdImageTransitionLayout(Context *context, Image *image, VkImageLayout from, VkImageLayout to, u32 baseMipLevel=0, u32 mipLevelCount=1) {
-	ContextFrame &frame = context->frames[context->currentFrame];
 	VkImageSubresourceRange subresourceRange = {};
 	subresourceRange.aspectMask = image->vkImageAspect;
 	subresourceRange.baseArrayLayer = 0;

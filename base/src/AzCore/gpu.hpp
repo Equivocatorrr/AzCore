@@ -208,6 +208,15 @@ struct BlendMode {
 };
 // NOTE: We probably want to support more specific stuff anyway, so probably make a mechanism for that.
 
+enum class ImageLayout {
+	// This is fine whenever you don't care about preserving the contents of the image.
+	UNDEFINED,
+	TRANSFER_SRC,
+	TRANSFER_DST,
+	ATTACHMENT,
+	SHADER_READ,
+};
+
 // Base device from which everything else is allocated
 struct Device;
 
@@ -459,11 +468,16 @@ void CmdBindImageArraySampler(Context *context, const Array<Image*> &images, Sam
 
 // Before recording draw commands, you have to commit all your bindings at once
 [[nodiscard]] Result<VoidResult_t, String> CmdCommitBindings(Context *context);
+
 // Ends the render pass that was started with a CmdBindFramebuffer call followed by CmdCommitBindings.
 // If you need to process the image drawn in the same context, you need to use this, otherwise it'll be automatically called in CmdEndRecording.
 // doGenMipmaps only has an effect if images attached to the framebuffer have mipmaps enabled.
 // Also resets all the bindings on the context, so you must bind things again if necessary.
 void CmdFinishFramebuffer(Context *context, bool doGenMipmaps=true);
+
+void CmdImageTransitionLayout(Context *context, Image *image, ImageLayout from, ImageLayout to, i32 baseMipLevel=0, i32 mipLevelCount=-1);
+
+void CmdImageGenerateMipmaps(Context *context, Image *image, ImageLayout from, ImageLayout to);
 
 void CmdPushConstants(Context *context, const void *src, u32 offset, u32 size);
 

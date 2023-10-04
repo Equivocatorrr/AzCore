@@ -1209,14 +1209,6 @@ struct Image {
 	bool transferDst = true;
 	bool mipmapped = false;
 
-	enum State {
-		PREINITIALIZED=0,
-		READY_FOR_SAMPLING,
-		READY_FOR_ATTACHMENT,
-		READY_FOR_TRANSFER_SRC,
-		READY_FOR_TRANSFER_DST,
-	} state = PREINITIALIZED;
-
 	i32 width=1, height=1;
 	i32 bytesPerPixel=4;
 
@@ -1225,6 +1217,7 @@ struct Image {
 
 	VkImage vkImage;
 	VkImageView vkImageView;
+	VkImageView vkImageViewAttachment;
 	VkBuffer vkBufferHostVisible;
 	VkFormat vkFormat = VK_FORMAT_R8G8B8A8_UNORM;
 	VkImageAspectFlags vkImageAspect = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -2936,6 +2929,14 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 	if (VkResult result = vkCreateImageView(image->device->vkDevice, &viewCreateInfo, nullptr, &image->vkImageView); result != VK_SUCCESS) {
 		return ERROR_RESULT(image, "Failed to create image view: ", VkResultString(result));
 	}
+	if (image->attachment && image->mipmapped && image->mipLevels > 1) {
+		viewCreateInfo.subresourceRange.levelCount = 1;
+		if (VkResult result = vkCreateImageView(image->device->vkDevice, &viewCreateInfo, nullptr, &image->vkImageViewAttachment); result != VK_SUCCESS) {
+			return ERROR_RESULT(image, "Failed to create image view: ", VkResultString(result));
+		}
+	} else {
+		image->vkImageViewAttachment = image->vkImageView;
+	}
 	SetDebugMarker(image->device, Stringify(image->tag, " image view"), VK_OBJECT_TYPE_IMAGE_VIEW, (u64)image->vkImageView);
 	image->initted = true;
 	image->timestamp = GetTimestamp();
@@ -2945,6 +2946,9 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 void ImageDeinit(Image *image) {
 	DEINIT_HEAD(image);
 	vkDestroyImageView(image->device->vkDevice, image->vkImageView, nullptr);
+	if (image->vkImageViewAttachment != image->vkImageView) {
+		vkDestroyImageView(image->device->vkDevice, image->vkImageViewAttachment, nullptr);
+	}
 	vkDestroyImage(image->device->vkDevice, image->vkImage, nullptr);
 	MemoryFree(image->alloc);
 	if (image->hostVisible) {
@@ -3612,10 +3616,10 @@ static VkImageView GetAttachmentImageView(Attachment &attachment, i32 framebuffe
 		return attachment.window->swapchainImages[framebufferIndex].vkImageView;
 		break;
 	case Attachment::IMAGE:
-		return attachment.image->vkImageView;
+		return attachment.image->vkImageViewAttachment;
 		break;
 	case Attachment::DEPTH_BUFFER:
-		return attachment.depthBuffer->vkImageView;
+		return attachment.depthBuffer->vkImageViewAttachment;
 		break;
 	}
 	AzAssert(false, "Unreachable");
@@ -4800,6 +4804,34 @@ static void CmdImageTransitionLayout(Context *context, Image *image, VkImageLayo
 	CmdImageTransitionLayout(context, image, from, to, subresourceRange);
 }
 
+VkImageLayout GetVkImageLayout(Image *image, ImageLayout layout) {
+	switch (layout) {
+		case ImageLayout::UNDEFINED:
+			return VK_IMAGE_LAYOUT_UNDEFINED;
+		case ImageLayout::TRANSFER_DST:
+			return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		case ImageLayout::TRANSFER_SRC:
+			return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		case ImageLayout::ATTACHMENT:
+			if (FormatIsDepth(image->vkFormat)) {
+				return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			} else {
+				return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			}
+		case ImageLayout::SHADER_READ:
+			return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	}
+	AzAssert(false, "Unreachable");
+	return VK_IMAGE_LAYOUT_UNDEFINED;
+}
+
+void CmdImageTransitionLayout(Context *context, Image *image, ImageLayout from, ImageLayout to, i32 baseMipLevel, i32 mipLevelCount) {
+	if (mipLevelCount == -1) {
+		mipLevelCount = (i32)image->mipLevels;
+	}
+	CmdImageTransitionLayout(context, image, GetVkImageLayout(image, from), GetVkImageLayout(image, to), baseMipLevel, mipLevelCount);
+}
+
 static void CmdImageGenerateMipmaps(Context *context, Image *image, VkImageLayout startingLayout, VkImageLayout finalLayout, VkFilter filter=VK_FILTER_LINEAR) {
 	ContextFrame &frame = context->frames[context->currentFrame];
 	AzAssert(image->mipLevels > 1, "Calling CmdImageGenerateMipmaps on an image without mipmaps");
@@ -4828,6 +4860,10 @@ static void CmdImageGenerateMipmaps(Context *context, Image *image, VkImageLayou
 	}
 
 	CmdImageTransitionLayout(context, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, finalLayout, 0, image->mipLevels);
+}
+
+void CmdImageGenerateMipmaps(Context *context, Image *image, ImageLayout from, ImageLayout to) {
+	CmdImageGenerateMipmaps(context, image, GetVkImageLayout(image, from), GetVkImageLayout(image, to));
 }
 
 Result<VoidResult_t, String> CmdCopyDataToImage(Context *context, Image *dst, void *src) {
@@ -5032,35 +5068,6 @@ void CmdFinishFramebuffer(Context *context, bool doGenMipmaps) {
 	AzAssert(framebuffer != nullptr, "Expected a framebuffer to be bound and committed, but there wasn't one!");
 	ContextFrame &frame = context->frames[context->currentFrame];
 	vkCmdEndRenderPass(frame.vkCommandBuffer);
-	for (auto &ref : framebuffer->attachmentRefs) {
-		Image *image = nullptr;
-		VkImageLayout imageLayoutFrom;
-		VkImageLayout imageLayoutTo;
-		Attachment *attachment;
-		if (ref.resolveAttachment.Exists()) {
-			attachment = &ref.resolveAttachment.ValueOrAssert();
-		} else {
-			attachment = &ref.attachment;
-		}
-		switch (attachment->kind) {
-		case Attachment::IMAGE:
-			image = attachment->image;
-			imageLayoutFrom = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-			break;
-		case Attachment::DEPTH_BUFFER:
-			image = attachment->image;
-			imageLayoutFrom = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-			break;
-		}
-		if (image) {
-			imageLayoutTo = image->shaderStages ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-			if (image->mipmapped && doGenMipmaps) {
-				CmdImageGenerateMipmaps(context, image, imageLayoutFrom, imageLayoutTo);
-			} else {
-				CmdImageTransitionLayout(context, image, imageLayoutFrom, imageLayoutTo);
-			}
-		}
-	}
 	ContextResetBindings(context);
 }
 

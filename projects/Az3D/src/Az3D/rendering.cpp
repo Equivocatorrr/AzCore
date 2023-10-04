@@ -772,6 +772,7 @@ bool Manager::Draw() {
 	
 	{ // Shadow Map
 		GPU::ContextBeginRecording(data.contextShadowMap).AzUnwrap();
+		GPU::CmdImageTransitionLayout(data.contextShadowMap, data.shadowMapImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
 		GPU::CmdBindFramebuffer(data.contextShadowMap, data.framebufferShadowMaps);
 		GPU::CmdBindPipeline(data.contextShadowMap, data.pipelineShadowMaps);
 		GPU::CmdBindIndexBuffer(data.contextShadowMap, data.indexBuffer);
@@ -904,7 +905,9 @@ bool Manager::Draw() {
 	}
 	
 	GPU::CmdFinishFramebuffer(data.contextShadowMap, false);
+	GPU::CmdImageTransitionLayout(data.contextShadowMap, data.shadowMapImage, GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
 	
+	GPU::CmdImageTransitionLayout(data.contextShadowMap, data.shadowMapConvolutionImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
 	GPU::CmdBindFramebuffer(data.contextShadowMap, data.framebufferConvolution[0]);
 	GPU::CmdBindPipeline(data.contextShadowMap, data.pipelineShadowMapConvolution);
 	GPU::CmdBindImageSampler(data.contextShadowMap, data.shadowMapImage, data.shadowMapSampler, 0, 0);
@@ -913,6 +916,8 @@ bool Manager::Draw() {
 	GPU::CmdPushConstants(data.contextShadowMap, &convolutionDirection, 0, sizeof(vec2));
 	GPU::CmdDraw(data.contextShadowMap, 4, 0);
 	GPU::CmdFinishFramebuffer(data.contextShadowMap);
+	GPU::CmdImageTransitionLayout(data.contextShadowMap, data.shadowMapConvolutionImage, GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
+	GPU::CmdImageTransitionLayout(data.contextShadowMap, data.shadowMapImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
 	
 	GPU::CmdBindFramebuffer(data.contextShadowMap, data.framebufferConvolution[1]);
 	GPU::CmdBindPipeline(data.contextShadowMap, data.pipelineShadowMapConvolution);
@@ -922,6 +927,7 @@ bool Manager::Draw() {
 	GPU::CmdPushConstants(data.contextShadowMap, &convolutionDirection, 0, sizeof(vec2));
 	GPU::CmdDraw(data.contextShadowMap, 4, 0);
 	GPU::CmdFinishFramebuffer(data.contextShadowMap);
+	GPU::CmdImageGenerateMipmaps(data.contextShadowMap, data.shadowMapImage, GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
 	
 	GPU::ContextEndRecording(data.contextShadowMap).AzUnwrap();
 	

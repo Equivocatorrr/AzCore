@@ -45,6 +45,12 @@ BoolOrDefault BoolOrDefaultFromBool(bool on) {
 	return on ? BoolOrDefault::TRUE : BoolOrDefault::FALSE;
 }
 
+// This is a value that only measures order of events, not actual time between them.
+u64 GetTimestamp() {
+	static u64 nextVal = 0;
+	return nextVal++;
+}
+
 const Str ShaderStageString(ShaderStage shaderStage) {
 	switch (shaderStage) {
 	case ShaderStage::VERTEX:
@@ -1001,6 +1007,8 @@ struct DescriptorBindings {
 struct DescriptorSet {
 	VkDescriptorPool vkDescriptorPool;
 	VkDescriptorSet vkDescriptorSet;
+	Array<u64*> descriptorTimestamps;
+	u64 timestamp;
 };
 
 struct Device {
@@ -1181,6 +1189,8 @@ struct Buffer {
 	Allocation alloc;
 	Allocation allocHostVisible;
 
+	// Used to determine when to update descriptors
+	u64 timestamp;
 	Device *device;
 	String tag;
 	bool initted = false;
@@ -1223,6 +1233,8 @@ struct Image {
 	Allocation alloc;
 	Allocation allocHostVisible;
 
+	// Used to determine when to update descriptors
+	u64 timestamp;
 	Device *device;
 	String tag;
 	bool initted = false;
@@ -2811,6 +2823,7 @@ Result<VoidResult_t, String> BufferInit(Buffer *buffer) {
 		buffer->alloc = result.value;
 	}
 	buffer->initted = true;
+	buffer->timestamp = GetTimestamp();
 	return VoidResult_t();
 }
 
@@ -2925,6 +2938,7 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 	}
 	SetDebugMarker(image->device, Stringify(image->tag, " image view"), VK_OBJECT_TYPE_IMAGE_VIEW, (u64)image->vkImageView);
 	image->initted = true;
+	image->timestamp = GetTimestamp();
 	return VoidResult_t();
 }
 
@@ -4296,9 +4310,10 @@ Result<VkDescriptorSetLayout, String> DeviceGetDescriptorSetLayout(Device *devic
 	return dst;
 }
 
-Result<DescriptorSet*, String> DeviceGetDescriptorSet(Device *device, VkDescriptorSetLayout vkDescriptorSetLayout, const DescriptorBindings &bindings) {
+Result<DescriptorSet*, String> DeviceGetDescriptorSet(Device *device, VkDescriptorSetLayout vkDescriptorSetLayout, const DescriptorBindings &bindings, bool &dstDoWrite) {
 	DescriptorSet* &dst = device->descriptorSetsMap.ValueOf(bindings, nullptr);
 	if (dst == nullptr) {
+		dstDoWrite = true;
 		dst = device->descriptorSets.Append(new DescriptorSet()).RawPtr();
 		// Make the descriptor pool
 		u32 numUniformBuffers = 0;
@@ -4308,12 +4323,21 @@ Result<DescriptorSet*, String> DeviceGetDescriptorSet(Device *device, VkDescript
 			switch (binding.kind) {
 				case DescriptorBinding::UNIFORM_BUFFER:
 					numUniformBuffers += binding.objects.size;
+					for (void* obj : binding.objects) {
+						dst->descriptorTimestamps.Append(&((Buffer*)obj)->timestamp);
+					}
 					break;
 				case DescriptorBinding::STORAGE_BUFFER:
 					numStorageBuffers += binding.objects.size;
+					for (void* obj : binding.objects) {
+						dst->descriptorTimestamps.Append(&((Buffer*)obj)->timestamp);
+					}
 					break;
 				case DescriptorBinding::IMAGE_SAMPLER:
 					numImages += binding.objects.size;
+					for (void* obj : binding.objects) {
+						dst->descriptorTimestamps.Append(&((Image*)obj)->timestamp);
+					}
 					break;
 				default:
 					AzAssert(false, "Unreachable");
@@ -4354,6 +4378,7 @@ Result<DescriptorSet*, String> DeviceGetDescriptorSet(Device *device, VkDescript
 		if (VkResult result = vkAllocateDescriptorSets(device->vkDevice, &allocInfo, &dst->vkDescriptorSet); result != VK_SUCCESS) {
 			return ERROR_RESULT(device, "Failed to allocate descriptor set: ", VkResultString(result));
 		}
+		dst->timestamp = GetTimestamp();
 	}
 	return dst;
 }
@@ -4457,16 +4482,31 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 		} else {
 			boundDescriptorSet.layout = result.value;
 		}
-		if (auto result = DeviceGetDescriptorSet(context->device, boundDescriptorSet.layout, descriptorBindings[i]); result.isError) {
+		DescriptorSet *set;
+		bool doWrite = false;
+		if (auto result = DeviceGetDescriptorSet(context->device, boundDescriptorSet.layout, descriptorBindings[i], doWrite); result.isError) {
 			return result.error;
 		} else {
-			boundDescriptorSet.set = result.value->vkDescriptorSet;
+			set = result.value;
+			boundDescriptorSet.set = set->vkDescriptorSet;
 		}
-		for (VkWriteDescriptorSet &write : vkWriteDescriptorSets[i]) {
-			write.dstSet = boundDescriptorSet.set;
+		if (!doWrite) {
+			for (u64 *timestamp : set->descriptorTimestamps) {
+				if (*timestamp >= set->timestamp) {
+					doWrite = true;
+					break;
+				}
+			}
 		}
-		// TODO: Synchronize this with any Contexts actively using these sets (and probably only update if something changed)
-		vkUpdateDescriptorSets(context->device->vkDevice, vkWriteDescriptorSets[i].size, vkWriteDescriptorSets[i].data, 0, nullptr);
+		if (doWrite) {
+			for (VkWriteDescriptorSet &write : vkWriteDescriptorSets[i]) {
+				write.dstSet = boundDescriptorSet.set;
+			}
+			ContextFrame &lastFrame = context->frames[(context->currentFrame+context->numFrames-1)%context->numFrames];
+			FenceWaitForSignal(&lastFrame.fence).AzUnwrap();
+			// NOTE: Descriptor changes should only happen between frames and never within the same command buffer, so this should be okay.
+			vkUpdateDescriptorSets(context->device->vkDevice, vkWriteDescriptorSets[i].size, vkWriteDescriptorSets[i].data, 0, nullptr);
+		}
 		frame.descriptorSetsBound.Append(boundDescriptorSet);
 	}
 	return VoidResult_t();

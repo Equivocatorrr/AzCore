@@ -18,7 +18,7 @@ using namespace AzCore;
 constexpr Str AZ3D_MAGIC = Str("Az3DObj\0", 8);
 
 // 1st argument must be a "string literal", __VA_ARGS__ breaks somewhere when I add the comma.
-#define PRINT_ERROR(...) io::cerr.PrintLn(__FUNCTION__ " error: " __VA_ARGS__)
+#define PRINT_ERROR(...) io::cerr.PrintLn(__FUNCTION__, " error: " __VA_ARGS__)
 
 #define EXPECT_SPACE_IN_BUFFER(length) if (buffer.size-cur < (length)) {\
 	PRINT_ERROR("Buffer underflow!");\

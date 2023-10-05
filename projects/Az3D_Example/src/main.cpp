@@ -46,7 +46,7 @@ struct Test : public GameSystems::System {
 		if (sys->Pressed(KC_KEY_ESC)) sys->exit = true;
 		if (sys->Pressed(KC_KEY_T)) sunTurning = !sunTurning;
 		if (sunTurning) {
-			sunAngle += Radians32(halfpi * 0.1f * sys->timestep);
+			sunAngle += Radians32(halfpi * 0.5f * sys->timestep);
 		}
 		Rendering::Camera &camera = sys->rendering.camera;
 		vec3 camRight = normalize(cross(camera.forward, camera.up));
@@ -137,7 +137,8 @@ struct Test : public GameSystems::System {
 		camera.fov = decay(camera.fov.value(), targetFOV.value(), 0.5f, sys->timestep);
 	}
 	virtual void EventDraw(Array<Rendering::DrawingContext> &contexts) override {
-		Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshGround], {mat4::Identity()}, true, true);
+		Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshGround], {mat4::Scaler(vec4(vec3(2.0f), 1.0f))}, true, true);
+		Rendering::DrawMesh(contexts[0], sys->assets.meshes[2], {Rendering::GetTransform(vec3(-2.0f, 0.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
 		mat4 transform = Rendering::GetTransform(pos, objectOrientation, vec3(1.0f));
 		Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshes[currentMesh]], {transform}, true, true);
 		for (i32 i = -10; i <= 10; i++) {
@@ -198,6 +199,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	}
 	
 	sys->rendering.camera.pos = vec3(0.0f, -3.0f, 3.0f);
+	sys->rendering.uniforms.ambientLight = sRGBToLinear(sys->rendering.backgroundRGB) * 0.5f;
 
 	GameSystems::UpdateLoop();
 

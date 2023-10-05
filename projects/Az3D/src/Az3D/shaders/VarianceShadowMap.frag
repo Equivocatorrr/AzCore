@@ -3,7 +3,7 @@
 
 layout(location=0) in vec2 texCoord;
 layout(location=1) flat in int inInstanceIndex;
-layout(location=2) in float inDepth;
+layout(location=2) centroid in float inDepth;
 
 layout(location=0) out vec2 outColor;
 

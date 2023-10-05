@@ -61,6 +61,10 @@ float sqr(float a) {
 	return a * a;
 }
 
+float sqrNorm(vec3 a) {
+	return dot(a, a);
+}
+
 vec3 sqr(vec3 a) {
 	return a * a;
 }
@@ -89,6 +93,10 @@ vec3 FresnelSchlick(float cosThetaView, vec3 baseReflectivity) {
 	return baseReflectivity + (1.0 - baseReflectivity) * pow(1.0 - cosThetaView, 5.0);
 }
 
+vec3 FresnelSchlickRoughness(float cosThetaView, vec3 baseReflectivity, float roughness) {
+	return baseReflectivity + (max(vec3(1.0 - roughness), baseReflectivity) - baseReflectivity) * pow(1.0 - cosThetaView, 5.0);
+}
+
 vec3 wrap(float attenuation, vec3 wrapFac) {
 	return clamp((vec3(attenuation) + wrapFac) / sqr(1.0 + wrapFac), 0.0, 1.0);
 }
@@ -96,20 +104,50 @@ vec3 wrap(float attenuation, vec3 wrapFac) {
 float ChebyshevInequality(vec2 moments, float depth) {
 	float squaredMean = moments.y;
 	float meanSquared = sqr(moments.x);
-	float minVariance = sqr(0.004 * depth);
+	float minVariance = sqr(0.004);
 	float variance = max(squaredMean - meanSquared, minVariance);
 	float pMax = variance / (variance + sqr(moments.x - depth));
 	
-	// return max(pMax, float(depth > moments.x));
-	return pMax;
+	// Lower bound of 0.25 helps reduce light bleeding
+	return smoothstep(0.25, 1.0, pMax);
 }
 
 void main() {
 	ObjectInfo info = objectBuffer.objects[inInstanceIndex];
 	
 	vec4 sunCoord = vec4(inWorldPos, 1.0) * worldInfo.sun;
-	vec2 moments = texture(shadowMap, sunCoord.xy * 0.5 + 0.5).xy;
-	float sunFactor = ChebyshevInequality(moments, sunCoord.z);
+	const vec2 shadowMapSize = textureSize(shadowMap, 0);
+	const float boxBlurDimension = 5.0;
+	// Converts meters to UV-space units
+	const float worldToUV = sqrt(max(sqrNorm(worldInfo.sun[0].xyz), sqrNorm(worldInfo.sun[1].xyz)));
+	const float lightWidth = max(shadowMapSize.x, shadowMapSize.y) * 0.2 * worldToUV;
+	vec2 filterSize = boxBlurDimension / shadowMapSize;
+	vec2 moments[3][3];
+	float blockerDepth = -1000.0;
+	for (int y = 0; y < 3; y++) {
+		for (int x = 0; x < 3; x++) {
+			vec2 uv = sunCoord.xy * 0.5 + 0.5 + filterSize * vec2(float(x-1), float(y-1));
+			moments[y][x] = texture(shadowMap, uv).xy;
+			blockerDepth = max(blockerDepth, moments[y][x].x);
+		}
+	}
+	float penumbraWidth = lightWidth * (blockerDepth - sunCoord.z) / blockerDepth;
+	vec2 avgMoments = vec2(0.0);
+	float avgContributions = 0.0;
+	for (int y = 0; y < 3; y++) {
+		for (int x = 0; x < 3; x++) {
+			float dist = length(vec2(float(x-1), float(y-1))) * boxBlurDimension / penumbraWidth;
+			float contribution = 1.0 - clamp(dist, 0.0, 1.0);
+			avgMoments += moments[y][x] * contribution;
+			avgContributions += contribution;
+		}
+	}
+	avgMoments /= avgContributions;
+	float sssDepth = mix(avgMoments.x, blockerDepth, 0.5);
+	float shrink = clamp(boxBlurDimension / penumbraWidth / 2.0 - 1.0, 0.0, 0.4);
+	float sunFactor = smoothstep(shrink, 1.0 - shrink, ChebyshevInequality(avgMoments, sunCoord.z));
+	
+	float sssDistance = (sssDepth - sunCoord.z) / length(worldInfo.sun[2].xyz);
 	
 	vec4 albedo = texture(texSampler[info.material.texAlbedo], texCoord) * info.material.color;
 	vec3 emit = texture(texSampler[info.material.texEmit], texCoord).rgb * info.material.emit;
@@ -142,37 +180,31 @@ void main() {
 	vec3 baseReflectivity = mix(vec3(0.04), albedo.rgb, metalness);
 	float attenuationGeometry = GeometrySchlickGGX(cosThetaView, k);
 	float attenuationLight = GeometrySchlickGGX(max(cosThetaLight, 0.0), k);
+	float attenuationSpecular = DistributionGGX(cosThetaViewHalfNormal, roughness);
 	// Linear attenuation looks nicer because it's softer. 
 	float attenuationWrap = cosThetaLight; //GeometrySchlickGGX(cosThetaLight, k);
 	vec3 fresnel = FresnelSchlick(cosThetaView, baseReflectivity);
-	
-	// This is a way to determine the "pointiness" of the surface to make sharper edges diffuse the subsurface lighting more, but it's flat along the triangle
-	// The increased accuracy we get from this is nice, but gets outweighed by making the triangles obvious with sharp edges.
-	// float sssSharpness = clamp(fwidth(cosThetaLight) / length(fwidth(viewDelta)) * 0.3, 0.0, 1.0);
+	vec3 fresnelAmbient = FresnelSchlickRoughness(cosThetaView, baseReflectivity, roughness);
 	
 	float isFoliage = float(info.material.isFoliage);
-	// TODO: Use Radius and shadow maps to calculate back-facing lighting
-	// This current method only looks convincing on rotund surfaces where scattering all the way through the object wouldn't be expected
-	// For things like foliage, this is very unconvincing.
 	vec3 sssWrap = tanh(info.material.sssRadius);
 	
-	// Squaring the denominator makes our output more physically accurate since otherwise we're generating more light than we absorb.
 	vec3 wrapFac = wrap(attenuationWrap, sssWrap);
-	vec3 invWrapFac = wrap(-attenuationWrap, sssWrap);
-	vec3 diffuse = albedo.rgb * attenuationLight * (1.0 - sssFactor) * lightColor;
-	// TODO: Maybe eliminate the 0.75 magic constant since it doesn't really come from anything. I just thought it looked nice.
-	vec3 subsurface = mix(wrapFac, wrapFac + invWrapFac * info.material.sssColor * 0.75, isFoliage) * info.material.sssColor * sssFactor * lightColor;
+	vec3 diffuse = albedo.rgb * attenuationLight * (1.0 - sssFactor) * lightColor * attenuationGeometry;
 	
-	vec3 specular = lightColor * DistributionGGX(cosThetaViewHalfNormal, roughness) * attenuationLight;
+	vec3 sssFac = min(1.0 - vec3(sssDistance) / info.material.sssRadius, 1.0);
+	sssFac = pow(vec3(5.0 - isFoliage*3.0), sssFac - 1.0);
+	sssFac = max(sssFac, 0.0);
+	// 0.5 comes from the fact that light is only coming from one direction, but scattering in all directions
+	vec3 subsurface = sssFac * lightColor * 0.5 + worldInfo.ambientLight * 0.5;
+	subsurface *= info.material.sssColor * sssFactor;
 	
-	// outColor.rgb = normal * 0.5 + 0.5;
-	// outColor.rgb = vec3(sssSharpness);
-	// outColor.rgb = subsurface;
-	// outColor.rgb = FresnelSchlick(surfaceNormal, viewNormal, baseReflectivity);
-	outColor.rgb = 1.0 / PI * (mix(diffuse * (1.0 - metalness), specular, fresnel) * attenuationGeometry + subsurface) * sunFactor;
-	// outColor.rg = texCoord;
+	vec3 specular = lightColor * attenuationSpecular * attenuationLight * attenuationGeometry;
+	
+	vec3 ambientDiffuse = albedo.rgb * worldInfo.ambientLight * 0.5;
+	vec3 ambientSpecular = worldInfo.ambientLight;
+	
+	outColor.rgb = 1.0 / PI * mix(diffuse * (1.0 - metalness), specular, fresnel) * sunFactor + subsurface + mix(ambientDiffuse, ambientSpecular, fresnelAmbient * 0.25 * (1.0 - roughness));
 	outColor.a = albedo.a;
 	outColor.rgb += emit;
-	outColor.rgb += albedo.rgb * worldInfo.ambientLight;
-	// outColor.rgb = mix(outColor.rgb, worldInfo.fogColor, GetZFromDepth(inProjPos.z)/-(worldInfo.proj[2][3]/worldInfo.proj[2][2]));
 }

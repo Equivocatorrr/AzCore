@@ -55,7 +55,7 @@ layout(std140, set=0, binding=1) readonly buffer ObjectBuffer {
 	ObjectInfo objects[];
 } objectBuffer;
 
-const vec3 lightColor = vec3(1.0, 0.9, 0.8) * 2.0;
+const vec3 lightColor = vec3(1.0, 0.9, 0.8) * 4.0;
 
 float sqr(float a) {
 	return a * a;
@@ -110,6 +110,16 @@ float ChebyshevInequality(vec2 moments, float depth) {
 	
 	// Lower bound of 0.25 helps reduce light bleeding
 	return smoothstep(0.25, 1.0, pMax);
+}
+
+vec3 TonemapACES(vec3 color)
+{
+	float a = 2.51;
+	float b = 0.03;
+	float c = 2.43;
+	float d = 0.59;
+	float e = 0.14;
+	return clamp((color*(a*color+b))/(color*(c*color+d)+e), 0.0, 1.0);
 }
 
 void main() {
@@ -207,4 +217,6 @@ void main() {
 	outColor.rgb = 1.0 / PI * mix(diffuse * (1.0 - metalness), specular, fresnel) * sunFactor + subsurface + mix(ambientDiffuse, ambientSpecular, fresnelAmbient * 0.25 * (1.0 - roughness));
 	outColor.a = albedo.a;
 	outColor.rgb += emit;
+	
+	outColor.rgb = TonemapACES(outColor.rgb);
 }

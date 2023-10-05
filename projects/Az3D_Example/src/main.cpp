@@ -31,14 +31,14 @@ struct Test : public GameSystems::System {
 		sys->assets.QueueFile("suzanne.az3d");
 		sys->assets.QueueFile("F-232 Eagle.az3d");
 		sys->assets.QueueFile("Tree.az3d");
-		sys->assets.QueueFile("Grass_Blade.az3d");
+		sys->assets.QueueFile("Grass_Patch.az3d");
 		sys->assets.QueueFile("ground.az3d");
 	}
 	virtual void EventAssetsAcquire() override {
 		meshes[0] = sys->assets.FindMesh("suzanne.az3d");
 		meshes[1] = sys->assets.FindMesh("F-232 Eagle.az3d");
 		meshes[2] = sys->assets.FindMesh("Tree.az3d");
-		meshes[3] = sys->assets.FindMesh("Grass_Blade.az3d");
+		meshes[3] = sys->assets.FindMesh("Grass_Patch.az3d");
 		meshGround = sys->assets.FindMesh("ground.az3d");
 	}
 	virtual void EventUpdate() override {
@@ -154,17 +154,21 @@ struct Test : public GameSystems::System {
 			);
 		}
 		RandomNumberGenerator rng(69420);
-		ArrayWithBucket<mat4, 1> transforms(2000);
-		const f32 grassDimensions = 1.5f;
-		for (f32 y = -grassDimensions; y <= grassDimensions; y += 1.0f) {
-			for (f32 x = -grassDimensions; x <= grassDimensions; x += 1.0f) {
-				for (i32 i = 0; i < transforms.size; i++) {
-					mat4 &transform = transforms[i];
-					transform = mat4::RotationBasic(random(0.0f, tau, &rng), Axis::Z) * mat4::Scaler(vec4(1.0f, 1.0f, random(0.5f, 1.0f, &rng), 1.0f));
-					transform.h.w1 = random(x - 0.5f, x + 0.5f, &rng);
-					transform.h.w2 = random(y - 0.5f, y + 0.5f, &rng);
+		const i32 patchCount = 14;
+		const f32 patchDimension = 2.0f;
+		ArrayWithBucket<mat4, 1> transforms(square(patchCount));
+		const f32 grassDimensions = 10.0f - patchDimension/2.0f;
+		for (f32 y = -grassDimensions; y <= grassDimensions; y += 2.0f) {
+			for (f32 x = -grassDimensions; x <= grassDimensions; x += 2.0f) {
+				for (i32 yy = -patchCount/2; yy < patchCount/2; yy++) {
+					for (i32 xx = -patchCount/2; xx < patchCount/2; xx++) {
+						mat4 &transform = transforms[(yy+patchCount/2) * patchCount + (xx+patchCount/2)];
+						transform = mat4::RotationBasic(random(0.0f, tau, &rng), Axis::Z);
+						transform.h.w1 = x + float(xx) * patchDimension / float(patchCount);
+						transform.h.w2 = y + float(yy) * patchDimension / float(patchCount);
+					}
 				}
-				Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshes[3]], transforms, true, true);
+				Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshes[3]], transforms, true, false);
 			}
 		}
 		// Rendering::DrawDebugSphere(contexts[0], vec3(0.0f), 1.0f, vec4(1.0f));

@@ -133,7 +133,7 @@ struct Test : public GameSystems::System {
 		if (sys->Pressed(KC_KEY_2)) currentMesh = 1;
 		if (sys->Pressed(KC_KEY_3)) currentMesh = 2;
 		if (sys->Pressed(KC_KEY_4)) currentMesh = 3;
-		targetFOV = clamp(targetFOV.value() - sys->input.scroll.y*5.0f, 5.0f, 103.0f);
+		targetFOV = clamp(targetFOV.value() - sys->input.scroll.y*5.0f, 5.0f, 90.0f);
 		camera.fov = decay(camera.fov.value(), targetFOV.value(), 0.5f, sys->timestep);
 	}
 	virtual void EventDraw(Array<Rendering::DrawingContext> &contexts) override {

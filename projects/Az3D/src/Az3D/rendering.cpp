@@ -294,7 +294,7 @@ bool Manager::Init() {
 		GPU::PipelineAddShaders(data.pipelines[PIPELINE_BASIC_3D], {basic3DVert, basic3DFrag});
 		GPU::PipelineAddVertexInputs(data.pipelines[PIPELINE_BASIC_3D], vertexInputs);
 		GPU::PipelineSetTopology(data.pipelines[PIPELINE_BASIC_3D], GPU::Topology::TRIANGLE_LIST);
-		GPU::PipelineSetMultisampleShading(data.pipelines[PIPELINE_BASIC_3D], true);
+		// GPU::PipelineSetMultisampleShading(data.pipelines[PIPELINE_BASIC_3D], true);
 		GPU::PipelineSetDepthTest(data.pipelines[PIPELINE_BASIC_3D], true);
 		GPU::PipelineSetDepthWrite(data.pipelines[PIPELINE_BASIC_3D], true);
 		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_BASIC_3D], GPU::CompareOp::GREATER);
@@ -305,7 +305,7 @@ bool Manager::Init() {
 		GPU::PipelineAddShaders(data.pipelines[PIPELINE_FOLIAGE_3D], {basic3DVert, basic3DFrag});
 		GPU::PipelineAddVertexInputs(data.pipelines[PIPELINE_FOLIAGE_3D], vertexInputs);
 		GPU::PipelineSetTopology(data.pipelines[PIPELINE_FOLIAGE_3D], GPU::Topology::TRIANGLE_LIST);
-		GPU::PipelineSetMultisampleShading(data.pipelines[PIPELINE_FOLIAGE_3D], true);
+		// GPU::PipelineSetMultisampleShading(data.pipelines[PIPELINE_FOLIAGE_3D], true);
 		GPU::PipelineSetDepthTest(data.pipelines[PIPELINE_FOLIAGE_3D], true);
 		GPU::PipelineSetDepthWrite(data.pipelines[PIPELINE_FOLIAGE_3D], true);
 		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_FOLIAGE_3D], GPU::CompareOp::GREATER);
@@ -320,7 +320,7 @@ bool Manager::Init() {
 		}
 	}
 	{ // Shadow maps
-		constexpr i32 dims = 1024;
+		constexpr i32 dims = 2048;
 		data.contextShadowMap = GPU::NewContext(data.device, "VSM Context");
 		
 		GPU::Image *shadowMapMSAAImage = GPU::NewImage(data.device, "VSM MSAA Image");
@@ -455,24 +455,30 @@ bool Manager::Deinit() {
 // 	return bin.y * LIGHT_BIN_COUNT_X + bin.x;
 // }
 
+vec3 InvViewProj(vec3 point, const mat4 &invViewProj) {
+	vec4 inter = vec4(point, 1.0f) * invViewProj;
+	return inter.xyz / inter.w;
+}
+
 void Manager::UpdateLights() {
 	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::UpdateLights)
 	mat4 invView = uniforms.viewProj.Inverse();
 	// frustum corners
 	vec3 corners[8] = {
-		(vec4(-1.0f, -1.0f, 0.0f, 1.0f) * invView).xyz,
-		(vec4( 1.0f, -1.0f, 0.0f, 1.0f) * invView).xyz,
-		(vec4(-1.0f,  1.0f, 0.0f, 1.0f) * invView).xyz,
-		(vec4( 1.0f,  1.0f, 0.0f, 1.0f) * invView).xyz,
-		(vec4(-1.0f, -1.0f, 1.0f, 1.0f) * invView).xyz,
-		(vec4( 1.0f, -1.0f, 1.0f, 1.0f) * invView).xyz,
-		(vec4(-1.0f,  1.0f, 1.0f, 1.0f) * invView).xyz,
-		(vec4( 1.0f,  1.0f, 1.0f, 1.0f) * invView).xyz
+		InvViewProj(vec3(-1.0f, -1.0f, 0.0f), invView),
+		InvViewProj(vec3( 1.0f, -1.0f, 0.0f), invView),
+		InvViewProj(vec3(-1.0f,  1.0f, 0.0f), invView),
+		InvViewProj(vec3( 1.0f,  1.0f, 0.0f), invView),
+		InvViewProj(vec3(-1.0f, -1.0f, 1.0f), invView),
+		InvViewProj(vec3( 1.0f, -1.0f, 1.0f), invView),
+		InvViewProj(vec3(-1.0f,  1.0f, 1.0f), invView),
+		InvViewProj(vec3( 1.0f,  1.0f, 1.0f), invView),
 	};
-	vec3 center = (vec4(0.0f, 0.0f, 0.5f, 1.0f) * invView).xyz;
+	vec3 center = 0.0f;
 	vec3 boundsMin(100000000.0f), boundsMax(-100000000.0f);
-	uniforms.sun = mat4::Camera(uniforms.sunDir*10.0f, -uniforms.sunDir, vec3(0.0f, 0.0f, 1.0f));
+	uniforms.sun = mat4::Camera(-uniforms.sunDir, uniforms.sunDir, vec3(0.0f, 0.0f, 1.0f));
 	for (i32 i = 0; i < 8; i++) {
+		center += corners[i];
 		corners[i] = (vec4(corners[i], 1.0f) * uniforms.sun).xyz;
 		boundsMin.x = min(boundsMin.x, corners[i].x);
 		boundsMin.y = min(boundsMin.y, corners[i].y);
@@ -481,20 +487,20 @@ void Manager::UpdateLights() {
 		boundsMax.y = max(boundsMax.y, corners[i].y);
 		boundsMax.z = max(boundsMax.z, corners[i].z);
 	}
+	center /= 8.0f;
+	// if (sys->Pressed(KC_KEY_C)) {
+	// 	io::cout.PrintLn("Center: [", center.x, ", ", center.y, ", ", center.z, "]");
+	// }
+	// DrawDebugSphere(data.drawingContexts[0], center, 0.1f, vec4(1.0f));
 	vec3 dimensions = boundsMax - boundsMin;
-	// uniforms.sun = mat4::Scaler(vec4(dimensions, 1.0f)) * uniforms.sun;
-	uniforms.sun = uniforms.sun * mat4::Ortho(5.0f, 5.0f, 0.0f, 20.0f);
+	// center gives us an implicit 0.5
+	uniforms.sun = mat4::Camera(center + uniforms.sunDir * dimensions.z * 9.5f, -uniforms.sunDir, vec3(0.0f, 0.0f, 1.0f));
+	uniforms.sun = uniforms.sun * mat4::Ortho(dimensions.x, dimensions.y, 0.0f, dimensions.z*10.0f);
 	sunFrustum = GetOrtho(
 		uniforms.sun.Row4().xyz,
 		uniforms.sun.Row3().xyz,
 		uniforms.sun.Row2().xyz,
 		uniforms.sun.Row1().xyz
-	);
-	sunFrustum = GetOrtho(
-		uniforms.sunDir * 10.0f,
-		-uniforms.sunDir * 20.0f,
-		vec3(5.0f, 0.0f, 0.0f),
-		vec3(0.0f, 5.0f, 0.0f)
 	);
 // 	i32 lightCounts[LIGHT_BIN_COUNT] = {0};
 // 	i32 totalLights = 1;

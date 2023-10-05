@@ -155,7 +155,7 @@ struct Camera {
 	vec3 forward = vec3(0.0f, 1.0f, 0.0f);
 	vec3 up = vec3(0.0f, 0.0f, 1.0f);
 	f32 nearClip = 0.1f;
-	f32 farClip = 100.0f;
+	f32 farClip = 25.0f;
 	// Horizontal field of view
 	Degrees32 fov = 90.0f;
 };

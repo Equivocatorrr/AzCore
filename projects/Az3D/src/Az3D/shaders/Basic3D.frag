@@ -129,8 +129,8 @@ void main() {
 	const vec2 shadowMapSize = textureSize(shadowMap, 0);
 	const float boxBlurDimension = 5.0;
 	// Converts meters to UV-space units
-	const float worldToUV = sqrt(max(sqrNorm(worldInfo.sun[0].xyz), sqrNorm(worldInfo.sun[1].xyz)));
-	const float lightWidth = max(shadowMapSize.x, shadowMapSize.y) * 0.2 * worldToUV;
+	const vec2 worldToUV = vec2(length(worldInfo.sun[0].xyz), length(worldInfo.sun[1].xyz));
+	const vec2 lightWidth = max(shadowMapSize.x, shadowMapSize.y) * 0.25 * worldToUV;
 	vec2 filterSize = boxBlurDimension / shadowMapSize;
 	vec2 moments[3][3];
 	float blockerDepth = -1000.0;
@@ -141,12 +141,12 @@ void main() {
 			blockerDepth = max(blockerDepth, moments[y][x].x);
 		}
 	}
-	float penumbraWidth = lightWidth * (blockerDepth - sunCoord.z) / blockerDepth;
+	vec2 penumbraWidth = lightWidth * (blockerDepth - sunCoord.z) / blockerDepth;
 	vec2 avgMoments = vec2(0.0);
 	float avgContributions = 0.0;
 	for (int y = 0; y < 3; y++) {
 		for (int x = 0; x < 3; x++) {
-			float dist = length(vec2(float(x-1), float(y-1))) * boxBlurDimension / penumbraWidth;
+			float dist = length(vec2(float(x-1), float(y-1)) / penumbraWidth) * boxBlurDimension;
 			float contribution = 1.0 - clamp(dist, 0.0, 1.0);
 			avgMoments += moments[y][x] * contribution;
 			avgContributions += contribution;
@@ -154,7 +154,7 @@ void main() {
 	}
 	avgMoments /= avgContributions;
 	float sssDepth = mix(avgMoments.x, blockerDepth, 0.5);
-	float shrink = clamp(boxBlurDimension / penumbraWidth / 2.0 - 1.0, 0.0, 0.4);
+	float shrink = clamp(boxBlurDimension / max(penumbraWidth.x, penumbraWidth.y) / 2.0 - 1.0, 0.0, 0.4);
 	float sunFactor = smoothstep(shrink, 1.0 - shrink, ChebyshevInequality(avgMoments, sunCoord.z));
 	
 	float sssDistance = (sssDepth - sunCoord.z) / length(worldInfo.sun[2].xyz);

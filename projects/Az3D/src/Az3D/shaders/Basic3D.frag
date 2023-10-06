@@ -153,7 +153,7 @@ void main() {
 		}
 	}
 	avgMoments /= avgContributions;
-	float sssDepth = mix(avgMoments.x, blockerDepth, 0.5);
+	float sssDepth = avgMoments.x;
 	float shrink = clamp(boxBlurDimension / max(penumbraWidth.x, penumbraWidth.y) / 2.0 - 1.0, 0.0, 0.4);
 	float sunFactor = smoothstep(shrink, 1.0 - shrink, ChebyshevInequality(avgMoments, sunCoord.z));
 	

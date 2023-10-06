@@ -53,7 +53,7 @@ void UpdateLoop() {
 	frameNext = Clock::now();
 	bool soundProblem = false;
 
-	f32 exitDelay = 0.5f;
+	f32 exitDelay = 0.1f;
 	bool exit = false;
 	i32 frame = 0;
 
@@ -76,18 +76,18 @@ void UpdateLoop() {
 		if (frame == 0) {
 			sys->frametimes.Update();
 			f32 measuredFramerate = 1000.0f / sys->frametimes.AverageWithoutOutliers();
+			f32 targetFramerate;
 			if (vsync) {
-				f32 targetFramerate = clamp((f32)sys->window.refreshRate / 1000.0f, 30.0f, 300.0f);
-				if (abs(measuredFramerate - targetFramerate) / targetFramerate > 0.05f) {
-					// We're not within 5% of our refresh rate, so fallback to measured framerate
-					targetFramerate = measuredFramerate;
-				}
-				sys->SetFramerate(targetFramerate, true);
+				targetFramerate = clamp((f32)sys->window.refreshRate / 1000.0f, 30.0f, 300.0f);
 			} else {
-				sys->SetFramerate(measuredFramerate, false);
+				targetFramerate = 1000.0f;
+				if (Settings::ReadBool(Settings::sFramerateLimitEnabled)) {
+					targetFramerate = Settings::ReadReal(Settings::sFramerateLimit);
+				}
 			}
+			sys->SetFramerate(targetFramerate, measuredFramerate);
 		}
-		if (abs(Nanoseconds(frameNext - Clock::now()).count()) >= 10000000) {
+		if (abs(Nanoseconds(frameNext - Clock::now()).count()) >= sys->frameDuration.count()*4) {
 			// Something must have hung the program. Start fresh.
 			frameStart = Clock::now();
 		} else {
@@ -122,8 +122,8 @@ void UpdateLoop() {
 			}
 		}
 		sys->input.Tick(sys->timestep);
-		if (!vsync || frame != 0) {
-			Nanoseconds frameSleep = frameNext - Clock::now() - Nanoseconds(1000000);
+		{
+			Nanoseconds frameSleep = Nanoseconds(frameNext - Clock::now()) - sys->frameDuration;
 			if (frameSleep.count() >= 1000000) {
 				Thread::Sleep(frameSleep);
 			}
@@ -287,22 +287,16 @@ void Manager::LoadLocale() {
 	}
 }
 
-void Manager::SetFramerate(f32 framerate, bool vsync) {
-	timestep = 1.0f / framerate;
-	updateIterations = ceil(minUpdateFrequency * timestep);
-	timestep /= updateIterations;
-	framerate *= updateIterations;
-	if (Settings::ReadBool(Settings::sFramerateLimitEnabled)) {
-		// We sleep on every frame
-		frameDuration = AzCore::Nanoseconds(1000000000/((i64)Settings::ReadReal(Settings::sFramerateLimit) * updateIterations));
-	} else {
-		if (vsync) {
-			// We only sleep on in-between frames
-			frameDuration = AzCore::Nanoseconds(1000000000/(i64)framerate);
-		} else {
-			frameDuration = AzCore::Nanoseconds(0);
-		}
+void Manager::SetFramerate(f32 framerateTarget, f32 framerateMeasured) {
+	if (abs(framerateTarget - framerateMeasured) / framerateTarget < 0.02f) {
+		// If we're consistent enough, cut all measured jitter to zero
+		framerateMeasured = framerateTarget;
 	}
+	timestep = 1.0f / framerateMeasured;
+	updateIterations = min((i32)ceil(minUpdateFrequency * timestep), 10);
+	timestep /= updateIterations;
+	framerateTarget *= updateIterations;
+	frameDuration = Nanoseconds(1000000000/(i64)framerateTarget);
 }
 
 void Manager::GetAssets() {

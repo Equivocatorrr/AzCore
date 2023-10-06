@@ -35,6 +35,9 @@ struct Window {
 	bool fullscreen = false;
 	bool quit = false;
 	bool cursorHidden = false;
+	bool _setCursor = false;
+	i32 _setCursorX;
+	i32 _setCursorY;
 	u16 dpi = 96;
 	// current monitor refresh rate in mHz
 	u32 refreshRate = 60000;

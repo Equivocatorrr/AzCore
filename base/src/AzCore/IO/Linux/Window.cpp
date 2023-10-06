@@ -163,6 +163,14 @@ bool Window::Update() {
 	} else {
 		if (!windowUpdateXCB(this, changeFullscreen)) return false;
 	}
+	if (_setCursor) {
+		if (data->useWayland) {
+			AzAssert(false, "Unimplemented");
+		} else {
+			MoveCursorXCB(this, _setCursorX, _setCursorY);
+		}
+		_setCursor = false;
+	}
 
 	if (changeFullscreen) {
 		Fullscreen(!fullscreen);
@@ -181,11 +189,9 @@ void Window::HideCursor(bool hide) {
 }
 
 void Window::MoveCursor(i32 x, i32 y) {
-	if (data->useWayland) {
-		AzAssert(false, "Unimplemented");
-	} else {
-		MoveCursorXCB(this, x, y);
-	}
+	_setCursor = true;
+	_setCursorX = x;
+	_setCursorY = y;
 }
 
 String Window::InputName(u8 keyCode) const {

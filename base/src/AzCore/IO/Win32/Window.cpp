@@ -522,6 +522,16 @@ bool Window::Update() {
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
+	if (_setCursor) {
+		RECT rect;
+		POINT point;
+		GetClientRect(data->window, &rect);
+		point.x = rect.left;
+		point.y = rect.top;
+		ClientToScreen(data->window, &point);
+		SetCursorPos(point.x + _setCursorX, point.y + _setCursorY);
+		_setCursor = false;
+	}
 	UpdateRefreshRate(this);
 	return true;
 }
@@ -536,13 +546,9 @@ void Window::HideCursor(bool hide) {
 }
 
 void Window::MoveCursor(i32 x, i32 y) {
-	RECT rect;
-	POINT point;
-	GetClientRect(data->window, &rect);
-	point.x = rect.left;
-	point.y = rect.top;
-	ClientToScreen(data->window, &point);
-	SetCursorPos(point.x + x, point.y + y);
+	_setCursor = true;
+	_setCursorX = x;
+	_setCursorY = y;
 }
 
 String Window::InputName(u8 keyCode) const {

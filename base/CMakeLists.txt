@@ -10,6 +10,8 @@ add_library(AzCore STATIC
 	src/resources.rc
 	src/manifest.xml.manifest
 	src/AzCore/basictypes.hpp
+	src/AzCore/Assert.hpp
+	src/AzCore/Assert.cpp
 	src/AzCore/common.hpp
 	src/AzCore/Environment.cpp
 	src/AzCore/Environment.hpp
@@ -175,7 +177,7 @@ add_library(AzCore_SoftwareRenderer INTERFACE)
 target_link_libraries(AzCore_SoftwareRenderer INTERFACE AzCore_IO)
 
 if (CMAKE_SYSTEM MATCHES Windows)
-	target_link_libraries(AzCore INTERFACE winmm)
+	target_link_libraries(AzCore INTERFACE winmm psapi dbghelp)
 	target_link_libraries(AzCore_Net INTERFACE ws2_32)
 	target_link_libraries(AzCore_IO INTERFACE gdi32 dinput8 dxguid)
 elseif (CMAKE_SYSTEM MATCHES Linux)

@@ -7,6 +7,7 @@
 #define AZCORE_MATH_BASIC_HPP
 
 #include "../basictypes.hpp"
+#include "../Assert.hpp"
 // Use math.h because it puts the overloads in global namespace.
 #include <math.h>
 

@@ -4,6 +4,7 @@
 */
 
 #include "Util.hpp"
+#include "../Assert.hpp"
 
 #include <stdio.h>
 

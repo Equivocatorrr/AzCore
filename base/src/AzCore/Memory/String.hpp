@@ -483,14 +483,8 @@ template<typename T, i32 allocTail=0>
 }
 // TODO: Implement SeparateByStrings for ArrayWithBucket, Range, and raw strings.
 
-} // namespace AzCore
+void _AssertFailure(const char *file, const char *line, const String &message);
 
-inline void _Assert(bool condition, const char *file, const char *line, az::String message) {
-	if (!condition) {
-		fprintf(stderr, "\033[96m%s\033[0m:\033[96m%s\033[0m Assert failed: \033[91m%s\033[0m\n", file, line, message.data);
-		PrintBacktrace(stderr);
-		exit(1);
-	}
-}
+} // namespace AzCore
 
 #endif // AZCORE_STRING_HPP

@@ -36,7 +36,6 @@ namespace AzCore {
 	static constexpr i32 indexIndicatingRaw = (i32)0xFFFFFFFF; // Because MSVC is stupid
 }
 
-// Let's pretend we support compilers other than GCC for a moment.
 #if 1
 #if defined(__clang__)
 	#define f128 static_assert(false && "f128 is not supported in this compiler");
@@ -83,56 +82,4 @@ namespace AzCore {
 namespace AzCore {}
 namespace az = AzCore;
 
-#include <stdio.h>
-#include <stdlib.h>
-#ifdef __unix
-#include <execinfo.h>
-inline void PrintBacktrace(FILE *file) {
-	constexpr size_t stackSizeMax = 256;
-	void *array[stackSizeMax];
-	int size;
-
-	size = backtrace(array, stackSizeMax);
-	fprintf(file, "Backtrace:\n");
-	backtrace_symbols_fd(array, size, fileno(file));
-}
-inline void PrintBacktrace() {
-	PrintBacktrace(stderr);
-}
-#else
-inline void PrintBacktrace(FILE* file) { (void)file; }
-inline void PrintBacktrace() {}
-#endif // __unix
-constexpr void _Assert(bool condition, const char *file, const char *line, const char *message) {
-	if (!condition) {
-		fprintf(stderr, "\033[96m%s\033[0m:\033[96m%s\033[0m Assert failed: \033[91m%s\033[0m\n", file, line, message);
-		PrintBacktrace(stderr);
-		abort();
-	}
-}
-constexpr auto* _GetFileName(const char* const path) {
-	const auto* startPosition = path;
-	for (const auto* cur = path; *cur != '\0'; ++cur) {
-		if (*cur == '\\' || *cur == '/') startPosition = cur+1;
-	}
-	return startPosition;
-}
-#define STRINGIFY_DAMMIT(x) #x
-#define STRINGIFY(x) STRINGIFY_DAMMIT(x)
-#ifdef NDEBUG
-	#define AzAssert(condition, message)
-#else
-	#define AzAssert(condition, message) if (!(condition)) {_Assert(false, _GetFileName(__FILE__), STRINGIFY(__LINE__), (message));}
-#endif
-// Assert that persists in release mode
-#define AzAssertRel(condition, message) if (!(condition)) {_Assert(false, _GetFileName(__FILE__), STRINGIFY(__LINE__), (message));}
-
-#define AzPlacementNew(value, ...) new(&(value)) decltype(value)(__VA_ARGS__)
-
 #endif // AZCORE_BASICTYPES_HPP
-
-// Do this so if basictypes is included without AZCORE_DEFINE_ASSERT,
-// and it gets defined later, we can still define Assert
-#if defined(AZCORE_DEFINE_ASSERT) && !defined(Assert)
-	#define Assert(condition, message) AzAssert(condition, message)
-#endif // AZCORE_DEFINE_ASSERT

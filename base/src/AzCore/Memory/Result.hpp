@@ -35,8 +35,8 @@ struct Result {
 	constexpr Success_t&& Unwrap(const char *file, i32 line) {
 		if (isError) {
 			io::cerr.PrintLn(file, ":", line, " unwrap failure with error: ", error);
-			PrintBacktrace();
-			abort();
+			PrintBacktrace(io::cerr);
+			exit(1);
 		}
 		return std::move(value);
 	}

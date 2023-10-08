@@ -320,7 +320,7 @@ bool Manager::Init() {
 		}
 	}
 	{ // Shadow maps
-		constexpr i32 dims = 2048;
+		constexpr i32 dims = 1024;
 		data.contextShadowMap = GPU::NewContext(data.device, "VSM Context");
 		
 		GPU::Image *shadowMapMSAAImage = GPU::NewImage(data.device, "VSM MSAA Image");
@@ -464,11 +464,13 @@ void Manager::UpdateLights() {
 	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::UpdateLights)
 	mat4 invView = uniforms.viewProj.Inverse();
 	// frustum corners
+	// TODO: This is a very non-linear way to limit the range of shadows. Do something more direct pls.
+	f32 shadowMaxDist = 0.005f;
 	vec3 corners[8] = {
-		InvViewProj(vec3(-1.0f, -1.0f, 0.0f), invView),
-		InvViewProj(vec3( 1.0f, -1.0f, 0.0f), invView),
-		InvViewProj(vec3(-1.0f,  1.0f, 0.0f), invView),
-		InvViewProj(vec3( 1.0f,  1.0f, 0.0f), invView),
+		InvViewProj(vec3(-1.0f, -1.0f, shadowMaxDist), invView),
+		InvViewProj(vec3( 1.0f, -1.0f, shadowMaxDist), invView),
+		InvViewProj(vec3(-1.0f,  1.0f, shadowMaxDist), invView),
+		InvViewProj(vec3( 1.0f,  1.0f, shadowMaxDist), invView),
 		InvViewProj(vec3(-1.0f, -1.0f, 1.0f), invView),
 		InvViewProj(vec3( 1.0f, -1.0f, 1.0f), invView),
 		InvViewProj(vec3(-1.0f,  1.0f, 1.0f), invView),
@@ -495,7 +497,7 @@ void Manager::UpdateLights() {
 	vec3 dimensions = boundsMax - boundsMin;
 	// center gives us an implicit 0.5
 	uniforms.sun = mat4::Camera(center + uniforms.sunDir * dimensions.z * 9.5f, -uniforms.sunDir, vec3(0.0f, 0.0f, 1.0f));
-	uniforms.sun = uniforms.sun * mat4::Ortho(dimensions.x, dimensions.y, 0.0f, dimensions.z*10.0f);
+	uniforms.sun = uniforms.sun * mat4::Ortho(max(0.1f, dimensions.x), max(0.1f, dimensions.y), 0.0f, max(0.1f, dimensions.z*10.0f));
 	sunFrustum = GetOrtho(
 		uniforms.sun.Row4().xyz,
 		uniforms.sun.Row3().xyz,
@@ -676,7 +678,7 @@ bool Manager::UpdateUniforms(GPU::Context *context) {
 	uniforms.viewProj = uniforms.view * uniforms.proj;
 	uniforms.eyePos = camera.pos;
 	uniforms.fogColor = sRGBToLinear(backgroundRGB);
-	uniforms.ambientLight = uniforms.fogColor * 0.1f;
+	uniforms.ambientLight = uniforms.fogColor;
 	UpdateLights();
 
 	GPU::CmdCopyDataToBuffer(context, data.uniformBuffer, &uniforms).AzUnwrap();
@@ -773,7 +775,7 @@ bool Manager::Draw() {
 
 	// data.buffer = !data.buffer;
 
-	screenSize = vec2((f32)sys->window.width, (f32)sys->window.height);
+	screenSize = vec2((f32)max((u16)1, sys->window.width), (f32)max((u16)1, sys->window.height));
 	aspectRatio = screenSize.y / screenSize.x;
 	
 	{ // Shadow Map

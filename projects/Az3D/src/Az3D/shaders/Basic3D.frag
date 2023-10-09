@@ -101,15 +101,18 @@ vec3 wrap(float attenuation, vec3 wrapFac) {
 	return clamp((vec3(attenuation) + wrapFac) / sqr(1.0 + wrapFac), 0.0, 1.0);
 }
 
+const float minPenumbraVal = 0.25;
+
 float ChebyshevInequality(vec2 moments, float depth) {
 	float squaredMean = moments.y;
 	float meanSquared = sqr(moments.x);
-	float minVariance = sqr(0.004);
+	float minVariance = sqr(0.001);
 	float variance = max(squaredMean - meanSquared, minVariance);
 	float pMax = variance / (variance + sqr(moments.x - depth));
+	if (depth < 0.0) return 1.0;
 	
-	// Lower bound of 0.25 helps reduce light bleeding
-	return smoothstep(0.25, 1.0, pMax);
+	// Lower bound helps reduce light bleeding
+	return smoothstep(minPenumbraVal, 1.0, pMax);
 }
 
 vec3 TonemapACES(vec3 color)
@@ -122,40 +125,68 @@ vec3 TonemapACES(vec3 color)
 	return clamp((color*(a*color+b))/(color*(c*color+d)+e), 0.0, 1.0);
 }
 
+const float sunRadiusDegrees = 0.6/2.0;
+const float sunRadiusRadians = PI * sunRadiusDegrees / 180.0;
+const float sunTanRadius = tan(sunRadiusRadians);
+
 void main() {
 	ObjectInfo info = objectBuffer.objects[inInstanceIndex];
 	
 	vec4 sunCoord = vec4(inWorldPos, 1.0) * worldInfo.sun;
 	const vec2 shadowMapSize = textureSize(shadowMap, 0);
-	const float boxBlurDimension = 5.0;
+	const float boxBlurDimension = 3.0;
 	// Converts meters to UV-space units
 	const vec2 worldToUV = vec2(length(worldInfo.sun[0].xyz), length(worldInfo.sun[1].xyz));
-	const vec2 lightWidth = max(shadowMapSize.x, shadowMapSize.y) * 0.25 * worldToUV;
+	const vec2 lightWidth = max(shadowMapSize.x, shadowMapSize.y) * sunTanRadius * worldToUV;
 	vec2 filterSize = boxBlurDimension / shadowMapSize;
-	vec2 moments[3][3];
-	float blockerDepth = -1000.0;
-	for (int y = 0; y < 3; y++) {
-		for (int x = 0; x < 3; x++) {
-			vec2 uv = sunCoord.xy * 0.5 + 0.5 + filterSize * vec2(float(x-1), float(y-1));
+	const int maxPCFDims = 3;
+	const int maxPCFOffset = 1;
+	vec2 moments[maxPCFDims][maxPCFDims];
+	float momentContributions[maxPCFDims][maxPCFDims];
+	float blockerDepth = 0.0;
+	float blockerContribution = 0.0;
+	for (int y = 0; y < maxPCFDims; y++) {
+		for (int x = 0; x < maxPCFDims; x++) {
+			vec2 uv = sunCoord.xy * 0.5 + 0.5 + filterSize * vec2(float(x-maxPCFOffset), float(y-maxPCFOffset));
 			moments[y][x] = texture(shadowMap, uv).xy;
-			blockerDepth = max(blockerDepth, moments[y][x].x);
+			momentContributions[y][x] = 1.0;
+			if (uv.x <= 1.0/shadowMapSize.x || uv.x >= 1.0-1.0/shadowMapSize.x || uv.y <= 1.0/shadowMapSize.y || uv.y >= 1.0-1.0/shadowMapSize.y) {
+				momentContributions[y][x] = 0.0;
+			}
+			if (moments[y][x].x >= sunCoord.z) {
+				blockerDepth += moments[y][x].x;
+				blockerContribution += 1.0;
+			}
 		}
 	}
+	if (blockerContribution == 0.0) {
+		blockerDepth = moments[maxPCFOffset][maxPCFOffset].x;
+	} else {
+		blockerDepth /= blockerContribution;
+	}
+	// lightWidth is in unnormalized texture coordinates
+	// depth ratio is unitless
 	vec2 penumbraWidth = lightWidth * (blockerDepth - sunCoord.z) / blockerDepth;
 	vec2 avgMoments = vec2(0.0);
 	float avgContributions = 0.0;
-	for (int y = 0; y < 3; y++) {
-		for (int x = 0; x < 3; x++) {
-			float dist = length(vec2(float(x-1), float(y-1)) / penumbraWidth) * boxBlurDimension;
-			float contribution = 1.0 - clamp(dist, 0.0, 1.0);
+	for (int y = 0; y < maxPCFDims; y++) {
+		for (int x = 0; x < maxPCFDims; x++) {
+			float dist = length(vec2(float(x-maxPCFOffset), float(y-maxPCFOffset)) / penumbraWidth) * boxBlurDimension;
+			float contribution = 1.0 - clamp(dist*2.0 - 1.0, 0.0, 1.0);
+			contribution *= momentContributions[y][x];
 			avgMoments += moments[y][x] * contribution;
 			avgContributions += contribution;
 		}
 	}
 	avgMoments /= avgContributions;
 	float sssDepth = avgMoments.x;
-	float shrink = clamp(boxBlurDimension / max(penumbraWidth.x, penumbraWidth.y) / 2.0 - 1.0, 0.0, 0.4);
-	float sunFactor = smoothstep(shrink, 1.0 - shrink, ChebyshevInequality(avgMoments, sunCoord.z));
+	float shrink = clamp((0.5 - min(penumbraWidth.x, penumbraWidth.y) / boxBlurDimension / 2.0) / (1.0-minPenumbraVal), 0.0, 0.3);
+	float sunFactor;
+	if (avgContributions != 0.0) {
+		sunFactor = smoothstep(shrink, 1.0 - shrink, ChebyshevInequality(avgMoments, sunCoord.z));
+	} else {
+		sunFactor = 1.0;
+	}
 	
 	float sssDistance = (sssDepth - sunCoord.z) / length(worldInfo.sun[2].xyz);
 	
@@ -164,23 +195,33 @@ void main() {
 	vec3 normal = texture(texSampler[info.material.texNormal], texCoord).xyz * 2.0 - 1.0;
 	float metalness = texture(texSampler[info.material.texMetalness], texCoord).x * info.material.metalness;
 	float roughness = texture(texSampler[info.material.texRoughness], texCoord).x * info.material.roughness;
-	roughness = sqr(roughness);
+	roughness = max(0.001, sqr(roughness));
 	float sssFactor = info.material.sssFactor;
 	
 	vec3 surfaceNormal = normalize(inNormal);
 	vec3 surfaceTangent = normalize(inTangent);
 	vec3 surfaceBitangent = normalize(inBitangent);
 	
-	vec3 lightNormal = worldInfo.sunDir;
-	
 	vec3 viewDelta = worldInfo.eyePos - inWorldPos;
 	vec3 viewNormal = normalize(viewDelta);
-	vec3 halfNormal = normalize(viewNormal + lightNormal);
 	
-	
-	surfaceNormal *= sign(dot(surfaceNormal, viewNormal));
+	if (!gl_FrontFacing) {
+		surfaceNormal = -surfaceNormal;
+	}
 	mat3 invTBN = transpose(mat3(surfaceTangent, surfaceBitangent, surfaceNormal));
 	normal = normalize(mix(surfaceNormal, normal * invTBN, info.material.normal));
+	
+	// Negate viewNormal because reflect expects the ray to be pointing towards the surface
+	vec3 viewReflect = reflect(-viewNormal, normal);
+	
+	vec3 lightNormal = worldInfo.sunDir;
+	// Approximate spherical area lighting by moving our light normal towards the reflection vector
+	// NOTE: This approximation can be improved by methods described here: https://advances.realtimerendering.com/s2017/DecimaSiggraph2017.pdf
+	vec3 viewReflectedToLightNormal = viewReflect - dot(lightNormal, viewReflect) * lightNormal;
+	vec3 lightNormalAdjusted = normalize(lightNormal + viewReflectedToLightNormal * clamp(sunTanRadius / length(viewReflectedToLightNormal), 0.0, 1.0));
+	
+	vec3 halfNormal = normalize(viewNormal + lightNormalAdjusted);
+	
 	float cosThetaView = max(dot(normal, viewNormal), 0.0);
 	float cosThetaLight = dot(normal, lightNormal);
 	float cosThetaViewHalfNormal = max(dot(normal, halfNormal), 0.0);
@@ -206,15 +247,15 @@ void main() {
 	sssFac = pow(vec3(5.0 - isFoliage*3.0), sssFac - 1.0);
 	sssFac = max(sssFac, 0.0);
 	// 0.5 comes from the fact that light is only coming from one direction, but scattering in all directions
-	vec3 subsurface = sssFac * lightColor * 0.5 + worldInfo.ambientLight * 0.5;
+	vec3 subsurface = (sssFac * lightColor * 0.5 + worldInfo.ambientLight) * attenuationGeometry;
 	subsurface *= info.material.sssColor * sssFactor;
 	
 	vec3 specular = lightColor * attenuationSpecular * attenuationLight * attenuationGeometry;
 	
-	vec3 ambientDiffuse = albedo.rgb * worldInfo.ambientLight * 0.5;
+	vec3 ambientDiffuse = albedo.rgb * worldInfo.ambientLight * attenuationGeometry;
 	vec3 ambientSpecular = worldInfo.ambientLight;
 	
-	outColor.rgb = 1.0 / PI * mix(diffuse * (1.0 - metalness), specular, fresnel) * sunFactor + subsurface + mix(ambientDiffuse, ambientSpecular, fresnelAmbient * 0.25 * (1.0 - roughness));
+	outColor.rgb = 1.0 / PI * mix(diffuse * (1.0 - metalness), specular, fresnel) * sunFactor + subsurface + mix(ambientDiffuse, ambientSpecular, fresnelAmbient * 0.5 * (1.0 - roughness));
 	outColor.a = albedo.a;
 	outColor.rgb += emit;
 	

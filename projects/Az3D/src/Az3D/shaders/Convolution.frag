@@ -12,8 +12,8 @@ layout(push_constant) uniform PushConstants {
 } constants;
 
 const uint numSamples = 3;
-const float offsets[numSamples] = float[numSamples](-1.5, 0.0, 1.5);
-const float amounts[numSamples] = float[numSamples](2.0, 1.0, 2.0);
+const float offsets[numSamples] = float[numSamples](-1.0, 0.0, 1.0);
+const float amounts[numSamples] = float[numSamples](1.0, 1.0, 1.0);
 
 void main() {
 	vec2 texelSize = 1.0 / textureSize(shadowMap, 0);

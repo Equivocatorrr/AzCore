@@ -17,6 +17,9 @@ using namespace AzCore;
 
 constexpr Str AZ3D_MAGIC = Str("Az3DObj\0", 8);
 
+constexpr u16 VERSION_MAJOR = 1;
+constexpr u16 VERSION_MINOR = 1;
+
 // 1st argument must be a "string literal", __VA_ARGS__ breaks somewhere when I add the comma.
 #define PRINT_ERROR(...) io::cerr.PrintLn(__FUNCTION__, " error: " __VA_ARGS__)
 
@@ -96,76 +99,142 @@ namespace Types {
 		Str format;
 		// u8 vertexBuffer[count*stride];
 		Array<Vertex> vertices;
+		struct SrcScalar {
+			enum Kind {
+				F32,
+				S16,
+				S8,
+			} kind;
+			// Stride of a single scalar in bytes
+			i32 stride;
+			// All values are given by: src/dimension + offset
+			f32 dimension;
+			f32 offset;
+			// Offset into the Vertex struct in f32s.
+			i32 dstOffset;
+		};
 		bool FromBuffer(Str buffer, i64 &cur) {
 			EXPECT_SPACE_IN_BUFFER(SIZE);
 			EXPECT_TAG_IN_BUFFER("Vert", 4);
 			memcpy(this, &buffer[cur], SIZE);
 			cur += SIZE;
-			EXPECT_SPACE_IN_BUFFER(componentCount*4);
-			format = Str(&buffer[cur], componentCount*4);
-			cur += componentCount*4;
-			// This is a map
-			Array<i32> offsets;
-			if (!ParseFormat(format, stride, offsets)) return false;
+			Array<SrcScalar> srcScalars;
+			if (!ParseFormat(buffer, cur, componentCount, stride, srcScalars)) return false;
 			i64 length = count * stride;
 			EXPECT_SPACE_IN_BUFFER(length);
 			vertices.Resize(count);
 			for (i64 i = 0; i < (i64)count; i++) {
-				vertices[i] = GetVertex(&buffer[cur], offsets);
+				vertices[i] = GetVertex(&buffer[cur], srcScalars);
 				cur += stride;
 			}
 			return true;
 		}
 		// Fills an array of offsets into our Vertex struct for each 4-byte chunk of data
-		// The index into this array increases by one for every 4 bytes in the input buffer
-		bool ParseFormat(Str format, u32 stride, Array<i32> &dst) {
-			for (i32 i = 0; i < format.size; i+=4) {
-				Str tag = format.SubRange(i, 4);
-				if (tag == "PoF\003") {
-					dst.Append(0);
-					dst.Append(1);
-					dst.Append(2);
-				} else if (tag == "NoF\003") {
-					dst.Append(3);
-					dst.Append(4);
-					dst.Append(5);
-				} else if (tag == "TaF\003") {
-					dst.Append(6);
-					dst.Append(7);
-					dst.Append(8);
-				} else if (tag == "UVF\002") {
-					dst.Append(9);
-					dst.Append(10);
-				} else {
-					u32 count = (u32)tag[3];
-					if (count == 0) {
-						io::cerr.PrintLn("Unused Vert Format tag \"", tag, "\" has invalid count ", count);
+		// The index into this array increases by one for every component in the input buffer
+		bool ParseFormat(Str buffer, i64 &cur, i32 numComponents, u32 stride, Array<SrcScalar> &dst) {
+			i32 totalSize = 0;
+			for (i32 i = 0; i < numComponents; i++) {
+				EXPECT_SPACE_IN_BUFFER(4);
+				Str tag = buffer.SubRange(cur, 2);
+				char type = buffer[cur + 2];
+				u8 count = buffer[cur + 3];
+				cur += 4;
+				ArrayWithBucket<f32, 4> dimension, srcOffset;
+				bool hasDimensionAndSrcOffset;
+				SrcScalar::Kind kind;
+				i32 scalarStride;
+				switch (type) {
+					case 'F':
+						kind = SrcScalar::F32;
+						dimension = ArrayWithBucket<f32, 4>((i32)count, 1.0f);
+						srcOffset = ArrayWithBucket<f32, 4>((i32)count, 0.0f);
+						hasDimensionAndSrcOffset = false;
+						scalarStride = 4;
+						break;
+					case 'S':
+						kind = SrcScalar::S16;
+						hasDimensionAndSrcOffset = true;
+						scalarStride = 2;
+						break;
+					case 'B':
+						kind = SrcScalar::S8;
+						hasDimensionAndSrcOffset = true;
+						scalarStride = 1;
+						break;
+					default:
+						io::cerr.PrintLn("Vert Component ", i, " with tag \"", tag, "\" has an invalid scalar type: '", type, "'");
 						return false;
-					}
-					for (i64 j = 0; j < (i64)count; j++) {
-						dst.Append(-1);
+				}
+				totalSize += scalarStride * count;
+				if (hasDimensionAndSrcOffset) {
+					EXPECT_SPACE_IN_BUFFER(8*count);
+					for (i32 j = 0; j < count; j++) {
+						dimension.Append(*(f32*)&buffer[cur]);
+						cur += 4;
+						srcOffset.Append(*(f32*)&buffer[cur]);
+						cur += 4;
 					}
 				}
+				i32 dstOffset;
+				i32 maxInDst;
+				if (tag == "Po") {
+					dstOffset = 0;
+					maxInDst = 3;
+				} else if (tag == "No") {
+					dstOffset = 3;
+					maxInDst = 3;
+				} else if (tag == "Ta") {
+					dstOffset = 6;
+					maxInDst = 3;
+				} else if (tag == "UV") {
+					dstOffset = 9;
+					maxInDst = 2;
+				} else {
+					maxInDst = 0;
+				}
+				for (i32 j = 0; j < count; j++) {
+					SrcScalar scalar;
+					scalar.kind = kind;
+					scalar.stride = scalarStride;
+					scalar.dimension = dimension[j];
+					scalar.offset = srcOffset[j];
+					scalar.dstOffset = j < maxInDst ? dstOffset + j : -1;
+					dst.Append(scalar);
+				}
 			}
-			if (dst.size * 4 != stride) {
-				io::cerr.PrintLn("Vert Format string describes a Vertex with a stride of ", dst.size*4, " when it was supposed to have a stride of ", stride);
+			if (totalSize != stride) {
+				io::cerr.PrintLn("Vert Format string describes a Vertex with a stride of ", totalSize, " when it was supposed to have a stride of ", stride);
 				return false;
 			}
 			return true;
 		}
 		
-		Vertex GetVertex(char *buffer, Array<i32> offsets) {
+		Vertex GetVertex(char *buffer, Array<SrcScalar> srcScalars) {
 			Vertex result;
-			// Default value because tangents aren't always included
+			// Default values
+			result.pos = vec3(0.0f);
+			result.normal = vec3(0.0f, 0.0f, 1.0f);
 			result.tangent = vec3(1.0f, 0.0f, 0.0f);
 			result.tex = vec2(0.0f);
-			u32 *dst = (u32*)&result;
-			u32 *src = (u32*)buffer;
-			for (i32 offset : offsets) {
-				if (offset >= 0) {
-					dst[offset] = *src;
+			f32 *dst = (f32*)&result;
+			u8 *src = (u8*)buffer;
+			for (SrcScalar srcScalar : srcScalars) {
+				AzAssert(srcScalar.dstOffset < sizeof(Vertex) / sizeof(f32), "dstOffset is out of bounds");
+				if (srcScalar.dstOffset >= 0) {
+					switch (srcScalar.kind) {
+						case SrcScalar::F32:
+							dst[srcScalar.dstOffset] = *(f32*)src * srcScalar.dimension + srcScalar.offset;
+							break;
+						case SrcScalar::S16:
+							dst[srcScalar.dstOffset] = f32(*(i16*)src) * srcScalar.dimension / 32767.0f + srcScalar.offset;
+							break;
+						case SrcScalar::S8:
+							dst[srcScalar.dstOffset] = f32(*(i8*)src) * srcScalar.dimension / 127.0f + srcScalar.offset;
+							break;
+						default: AzAssert(false, "Unreachable"); break;
+					}
 				}
-				src++;
+				src += srcScalar.stride;
 			}
 			// This is mostly to fix our default value not relating to anything in particular, but if for whatever reason the file's tangent isn't orthogonal to the normal, we still ensure that.
 			result.tangent = orthogonalize(result.tangent, result.normal);
@@ -360,6 +429,7 @@ namespace Tables {
 					cur = endCur;
 					skippedToEnd = true;
 				}
+				cur = align(cur, 4);
 			}
 			if (!hasName) {
 				PRINT_ERROR("\"Mesh\" has no \"Name\"", skippedToEnd ? "... was it skipped?" : "");
@@ -457,8 +527,8 @@ bool File::LoadFromBuffer(Str buffer) {
 	i64 cur = 0;
 	Headers::File header;
 	if (!header.FromBuffer(buffer, cur)) return false;
-	if (header.versionMajor > 1 || header.versionMinor > 0) {
-		io::cout.PrintLn("Az3DObj version ", header.versionMajor, ".", header.versionMinor, " is newer than our importer (version 1.0). Some features may not be available.");
+	if (header.versionMajor > VERSION_MAJOR || header.versionMinor > VERSION_MINOR) {
+		io::cout.PrintLn("Az3DObj version ", header.versionMajor, ".", header.versionMinor, " is newer than our importer (version ", VERSION_MAJOR, ".", VERSION_MINOR, "). Some features may not be available.");
 	}
 	u32 numTexturesExpected = 0;
 	u32 numTexturesActual = 0;
@@ -528,6 +598,7 @@ bool File::LoadFromBuffer(Str buffer) {
 			io::cout.PrintLn("There seems to be some trailing information in '", tag, "' table of ", endCur - cur, " bytes. Skipping...");
 			cur = endCur;
 		}
+		cur = align(cur, 4);
 	}
 	if (numTexturesActual != numTexturesExpected) {
 		io::cerr.PrintLn("Materials expected ", numTexturesExpected, " textures, but we actually had ", numTexturesActual);

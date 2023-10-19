@@ -232,6 +232,7 @@ void main() {
 	float attenuationGeometry = GeometrySchlickGGX(cosThetaView, k);
 	float attenuationLight = GeometrySchlickGGX(max(cosThetaLight, 0.0), k);
 	float attenuationSpecular = DistributionGGX(cosThetaViewHalfNormal, roughness);
+	float attenuationAmbient = mix(GeometrySchlickGGX(cosThetaView, roughness), 1.0, 0.5);
 	// Linear attenuation looks nicer because it's softer. 
 	float attenuationWrap = cosThetaLight; //GeometrySchlickGGX(cosThetaLight, k);
 	vec3 fresnel = FresnelSchlick(cosThetaView, baseReflectivity);
@@ -247,12 +248,12 @@ void main() {
 	sssFac = pow(vec3(5.0 - isFoliage*3.0), sssFac - 1.0);
 	sssFac = max(sssFac, 0.0);
 	// 0.5 comes from the fact that light is only coming from one direction, but scattering in all directions
-	vec3 subsurface = (sssFac * lightColor * 0.5 + worldInfo.ambientLight) * attenuationGeometry;
+	vec3 subsurface = (sssFac * lightColor * 0.5 + worldInfo.ambientLight) * attenuationAmbient;
 	subsurface *= info.material.sssColor * sssFactor;
 	
 	vec3 specular = lightColor * attenuationSpecular * attenuationLight * attenuationGeometry;
 	
-	vec3 ambientDiffuse = albedo.rgb * worldInfo.ambientLight * attenuationGeometry;
+	vec3 ambientDiffuse = albedo.rgb * worldInfo.ambientLight * attenuationAmbient;
 	vec3 ambientSpecular = worldInfo.ambientLight;
 	
 	outColor.rgb = 1.0 / PI * mix(diffuse * (1.0 - metalness), specular, fresnel) * sunFactor + subsurface + mix(ambientDiffuse, ambientSpecular, fresnelAmbient * 0.5 * (1.0 - roughness));

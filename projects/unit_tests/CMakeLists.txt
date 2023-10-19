@@ -6,6 +6,7 @@ add_executable(unit_tests
 	src/Utilities.hpp
 	# actual tests
 	src/tests/BinarySet.cpp
+	src/tests/BranchPredictionVsReturnAddressPrediction.cpp
 	src/tests/BinaryMap.cpp
 	src/tests/BasicMath.cpp
 	src/tests/CustomMaths.cpp

@@ -21,24 +21,31 @@ struct Test : public GameSystems::System {
 	quat objectOrientation = quat(1.0f);
 	vec2 facingDiff = 0.0f;
 	Degrees32 targetFOV = 90.0f;
-	Angle32 sunAngle = Degrees32(45.0f);
+	Angle32 sunAngle = Degrees32(20.0f);
 	bool mouseLook = false;
-	bool sunTurning = false;
-	Assets::MeshIndex meshes[4];
+	bool sunTurning = true;
+	Assets::MeshIndex meshes[3];
 	Assets::MeshIndex meshGround;
+	Assets::MeshIndex meshTree;
+	Assets::MeshIndex meshGrass;
+	Assets::MeshIndex meshFence;
 	i32 currentMesh = 0;
 	virtual void EventAssetsQueue() override {
 		sys->assets.QueueFile("suzanne.az3d");
 		sys->assets.QueueFile("F-232 Eagle.az3d");
+		sys->assets.QueueFile("C-1 Transport.az3d");
 		sys->assets.QueueFile("Tree.az3d");
 		sys->assets.QueueFile("Grass_Patch.az3d");
+		sys->assets.QueueFile("Weathered Metal Fence.az3d");
 		sys->assets.QueueFile("ground.az3d");
 	}
 	virtual void EventAssetsAcquire() override {
 		meshes[0] = sys->assets.FindMesh("suzanne.az3d");
 		meshes[1] = sys->assets.FindMesh("F-232 Eagle.az3d");
-		meshes[2] = sys->assets.FindMesh("Tree.az3d");
-		meshes[3] = sys->assets.FindMesh("Grass_Patch.az3d");
+		meshes[2] = sys->assets.FindMesh("C-1 Transport.az3d");
+		meshFence = sys->assets.FindMesh("Weathered Metal Fence.az3d");
+		meshTree = sys->assets.FindMesh("Tree.az3d");
+		meshGrass = sys->assets.FindMesh("Grass_Patch.az3d");
 		meshGround = sys->assets.FindMesh("ground.az3d");
 	}
 	virtual void EventUpdate() override {
@@ -46,7 +53,7 @@ struct Test : public GameSystems::System {
 		if (sys->Pressed(KC_KEY_ESC)) sys->exit = true;
 		if (sys->Pressed(KC_KEY_T)) sunTurning = !sunTurning;
 		if (sunTurning) {
-			sunAngle += Radians32(halfpi * 0.5f * sys->timestep);
+			sunAngle += Radians32(tau * sys->timestep / 60.0f / 60.0f);
 		}
 		Rendering::Camera &camera = sys->rendering.camera;
 		vec3 camRight = normalize(cross(camera.forward, camera.up));
@@ -67,7 +74,7 @@ struct Test : public GameSystems::System {
 		{
 			f32 factor = 1.0f;
 			if (Settings::ReadBool(sLookSmoothing)) {
-				factor = decayFactor(0.01f, sys->timestep);
+				factor = decayFactor(0.015f, sys->timestep);
 			}
 			vec2 diff = facingDiff * factor;
 			facingDiff -= diff;
@@ -132,13 +139,21 @@ struct Test : public GameSystems::System {
 		if (sys->Pressed(KC_KEY_1)) currentMesh = 0;
 		if (sys->Pressed(KC_KEY_2)) currentMesh = 1;
 		if (sys->Pressed(KC_KEY_3)) currentMesh = 2;
-		if (sys->Pressed(KC_KEY_4)) currentMesh = 3;
+		// if (sys->Pressed(KC_KEY_4)) currentMesh = 3;
+		// if (sys->Pressed(KC_KEY_5)) currentMesh = 4;
 		targetFOV = clamp(targetFOV.value() - sys->input.scroll.y*5.0f, 5.0f, 90.0f);
-		camera.fov = decay(camera.fov.value(), targetFOV.value(), 0.5f, sys->timestep);
+		camera.fov = decay(camera.fov.value(), targetFOV.value(), 0.2f, sys->timestep);
 	}
 	virtual void EventDraw(Array<Rendering::DrawingContext> &contexts) override {
-		Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshGround], {mat4::Scaler(vec4(vec3(2.0f), 1.0f))}, true, true);
-		Rendering::DrawMesh(contexts[0], sys->assets.meshes[2], {Rendering::GetTransform(vec3(-2.0f, 0.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
+		for (i32 y = -5; y <= 5; y++) {
+			for (i32 x = -5; x <= 5; x++) {
+				const f32 scale = 5.0f;
+				mat4 transform = Rendering::GetTransform(vec3((f32)x * scale * 10.0f, (f32)y * scale * 10.0f, 0.0f), quat(1.0f), vec3(vec2(scale), 1.0f));
+				Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshGround], {transform}, true, true);
+			}
+		}
+		Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshTree], {Rendering::GetTransform(vec3(-2.0f, 0.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
+		Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshFence], {Rendering::GetTransform(vec3(0.0f, 8.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
 		mat4 transform = Rendering::GetTransform(pos, objectOrientation, vec3(1.0f));
 		Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshes[currentMesh]], {transform}, true, true);
 		for (i32 i = -10; i <= 10; i++) {
@@ -157,7 +172,7 @@ struct Test : public GameSystems::System {
 		const i32 patchCount = 14;
 		const f32 patchDimension = 2.0f;
 		ArrayWithBucket<mat4, 1> transforms(square(patchCount));
-		const f32 grassDimensions = 10.0f - patchDimension/2.0f;
+		const f32 grassDimensions = 2.0f - patchDimension/2.0f;
 		for (f32 y = -grassDimensions; y <= grassDimensions; y += 2.0f) {
 			for (f32 x = -grassDimensions; x <= grassDimensions; x += 2.0f) {
 				for (i32 yy = -patchCount/2; yy < patchCount/2; yy++) {
@@ -168,7 +183,7 @@ struct Test : public GameSystems::System {
 						transform.h.w2 = y + float(yy) * patchDimension / float(patchCount);
 					}
 				}
-				Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshes[3]], transforms, true, false);
+				Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshGrass], transforms, true, false);
 			}
 		}
 		// Rendering::DrawDebugSphere(contexts[0], vec3(0.0f), 1.0f, vec4(1.0f));

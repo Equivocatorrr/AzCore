@@ -209,7 +209,7 @@ constexpr T hermiteInterp(T a, T a_tangent, T b, T b_tangent, F factor) {
 	factor = clamp01(factor);
 	F f2 = square(factor);
 	F f3 = f2 * factor;
-	F endpointBasis = F(2)*f3 - F(3)*f2;
+	F endpointBasis = -F(2)*f3 + F(3)*f2;
 	return lerpUnclamped(a, b, endpointBasis)
 	     + (f3 - F(2)*f2 + factor) * a_tangent + (f3 - f2) * b_tangent;
 }

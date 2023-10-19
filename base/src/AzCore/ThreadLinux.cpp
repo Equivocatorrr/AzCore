@@ -81,6 +81,55 @@ unsigned Thread::HardwareConcurrency() {
 	return get_nprocs();
 }
 
+
+static inline void _SetProcessorAffinity(pthread_t threadHandle, SimpleRange<u16> cpus) {
+	cpu_set_t cpuset;
+	CPU_ZERO(&cpuset);
+	for (u16 cpu : cpus) {
+		if (cpu >= CPU_SETSIZE) {
+			// TODO: Support larger sets using CPU_ALLOC or maybe alloca
+			fprintf(stderr, "Posix has a CPU set size limit of %u logical cores (tried to mask cpu %hu)", CPU_SETSIZE, cpu);
+			continue;
+		}
+		CPU_SET(cpu, &cpuset);
+	}
+	if (int err = pthread_setaffinity_np(threadHandle, sizeof(cpuset), &cpuset)) {
+		fprintf(stderr, "Failed to SetProcessorAffinity: %s (%i)", strerror(err), err);
+	}
+}
+
+static inline void _ResetProcessorAffinity(pthread_t threadHandle) {
+	cpu_set_t cpuset;
+	CPU_ZERO(&cpuset);
+	u32 concurrency = Thread::HardwareConcurrency();
+	for (u16 cpu = 0; cpu < concurrency; cpu++) {
+		CPU_SET(cpu, &cpuset);
+	}
+	if (int err = pthread_setaffinity_np(threadHandle, sizeof(cpuset), &cpuset)) {
+		fprintf(stderr, "Failed to ResetProcessorAffinity: %s (%i)", strerror(err), err);
+	}
+}
+
+void Thread::SetProcessorAffinity(SimpleRange<u16> cpus) {
+	pthread_t threadHandle = pthread_self();
+	_SetProcessorAffinity(threadHandle, cpus);
+}
+
+void Thread::SetProcessorAffinity(Thread &thread, SimpleRange<u16> cpus) {
+	ThreadData &threadData = GetThreadData(thread.data);
+	_SetProcessorAffinity(threadData.threadHandle, cpus);
+}
+
+void Thread::ResetProcessorAffinity() {
+	pthread_t threadHandle = pthread_self();
+	_ResetProcessorAffinity(threadHandle);
+}
+
+void Thread::ResetProcessorAffinity(Thread &thread) {
+	ThreadData &threadData = GetThreadData(thread.data);
+	_ResetProcessorAffinity(threadData.threadHandle);
+}
+
 void Thread::_Sleep(i64 nanoseconds) {
 	struct timespec remaining = {
 		(time_t)(nanoseconds / 1000000000),

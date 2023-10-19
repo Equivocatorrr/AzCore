@@ -112,6 +112,47 @@ unsigned Thread::HardwareConcurrency() {
 	return sysinfo.dwNumberOfProcessors;
 }
 
+static inline void _SetProcessorAffinity(HANDLE hThread, SimpleRange<u16> cpus) {
+	DWORD_PTR mask = 0;
+	for (u16 cpu : cpus) {
+		if (cpu >= 64) {
+			fprintf(stderr, "Windows 10 has a processor affinity mask limit of 64 logical cores (tried to mask cpu %hu)\n", cpu);
+			continue;
+		}
+		mask |= (DWORD_PTR)1 << (DWORD_PTR)cpu;
+	}
+	if (0 == SetThreadAffinityMask(hThread, mask)) {
+		fprintf(stderr, "Failed to SetProcessorAffinity: Error Code %lu\n", GetLastError());
+	}
+}
+
+static inline void _ResetProcessorAffinity(HANDLE hThread) {
+	DWORD_PTR mask = (u64)0xffffffffffffffff >> (u64)(64 - Thread::HardwareConcurrency());
+	if (0 == SetThreadAffinityMask(hThread, mask)) {
+		fprintf(stderr, "Failed to ResetProcessorAffinity: Error Code %lu\n", GetLastError());
+	}
+}
+
+void Thread::SetProcessorAffinity(SimpleRange<u16> cpus) {
+	HANDLE hThread = GetCurrentThread();
+	_SetProcessorAffinity(hThread, cpus);
+}
+
+void Thread::SetProcessorAffinity(Thread &thread, SimpleRange<u16> cpus) {
+	ThreadData &threadData = GetThreadData(thread.data);
+	_SetProcessorAffinity(threadData.threadHandle, cpus);
+}
+
+void Thread::ResetProcessorAffinity() {
+	HANDLE hThread = GetCurrentThread();
+	_ResetProcessorAffinity(hThread);
+}
+
+void Thread::ResetProcessorAffinity(Thread &thread) {
+	ThreadData &threadData = GetThreadData(thread.data);
+	_ResetProcessorAffinity(threadData.threadHandle);
+}
+
 void Thread::_Sleep(i64 nanoseconds) {
 	AZ_MSVC_ONLY(timeBeginPeriod(1));
 	::Sleep((DWORD)(nanoseconds/1000000));

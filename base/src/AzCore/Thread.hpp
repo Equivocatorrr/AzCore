@@ -8,6 +8,7 @@
 #define AZCORE_THREAD_HPP
 
 #include "basictypes.hpp"
+#include "Memory/Range.hpp"
 #include <tuple>
 #include <functional>
 #include <chrono>
@@ -103,6 +104,15 @@ public:
 	Thread& operator=(Thread&& other);
 
 	static unsigned HardwareConcurrency();
+	
+	// Sets the processor affinity for the current thread
+	static void SetProcessorAffinity(SimpleRange<u16> cpus);
+	// Sets the processor affinity for the given thread
+	static void SetProcessorAffinity(Thread &thread, SimpleRange<u16> cpus);
+	// Sets default processor affinity for the current thread
+	static void ResetProcessorAffinity();
+	// Sets default processor affinity for the given thread
+	static void ResetProcessorAffinity(Thread &thread);
 
 	template<class Rep, class Period>
 	static inline void Sleep(const std::chrono::duration<Rep,Period>& duration) {

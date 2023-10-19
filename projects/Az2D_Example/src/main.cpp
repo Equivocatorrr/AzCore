@@ -9,7 +9,7 @@
 
 #include "Az2D/game_systems.hpp"
 #include "Az2D/settings.hpp"
-#include "Az2D/profiling.hpp"
+#include "AzCore/Profiling.hpp"
 
 i32 main(i32 argumentCount, char** argumentValues) {
 
@@ -29,7 +29,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			enableLayers = true;
 		} else if (az::equals(argumentValues[i], "--profiling")) {
 			az::io::cout.PrintLn("Enabling profiling");
-			Az2D::Profiling::Enable();
+			az::Profiling::Enable();
 		}
 	}
 

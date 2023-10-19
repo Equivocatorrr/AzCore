@@ -6,7 +6,7 @@
 #include "game_systems.hpp"
 #include "gui_basics.hpp"
 #include "settings.hpp"
-#include "profiling.hpp"
+#include "AzCore/Profiling.hpp"
 #include "console_commands.hpp"
 #include "AzCore/Thread.hpp"
 
@@ -25,7 +25,7 @@ void System::EventInitialize() {}
 void System::EventClose() {}
 
 bool Init(SimpleRange<char> windowTitle, Array<System*> systemsToRegister, bool enableVulkanValidation) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Init)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Init)
 	sys = new Manager();
 	for (System *system : systemsToRegister) {
 		sys->systems.Append(system);
@@ -138,11 +138,11 @@ void UpdateLoop() {
 
 void Deinit() {
 	{
-		AZ2D_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Deinit)
+		AZCORE_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Deinit)
 		sys->Deinit();
 		delete sys;
 	}
-	Az2D::Profiling::Report();
+	az::Profiling::Report();
 }
 
 bool Manager::Init() {
@@ -224,7 +224,7 @@ void Manager::Deinit() {
 }
 
 void Manager::LoadLocale() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::LoadLocale)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::LoadLocale)
 	String localeName;
 	localeName.Reserve(21);
 	localeName = "data/locale/";
@@ -318,28 +318,28 @@ void Manager::RegisterDrawing() {
 }
 
 void Manager::GetAssets() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::GetAssets)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::GetAssets)
 	for (System* system : systems) {
 		system->EventAssetsQueue();
 	}
 }
 
 void Manager::UseAssets() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::UseAssets)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::UseAssets)
 	for (System* system : systems) {
 		system->EventAssetsAcquire();
 	}
 }
 
 void Manager::CallInitialize() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::CallInitialize)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::CallInitialize)
 	for (System* system : systems) {
 		system->EventInitialize();
 	}
 }
 
 void Manager::Sync() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::Sync)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::Sync)
 	buffer = !buffer;
 	if (!paused) {
 		sys->simulationRate = min(1.0f, sys->simulationRate + sys->timestep * 5.0f);
@@ -355,7 +355,7 @@ void Manager::Sync() {
 }
 
 void Manager::Update() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::Update)
 	for (System* system : systems) {
 		system->EventUpdate();
 	}
@@ -366,7 +366,7 @@ void Manager::Update() {
 // }
 
 void Manager::Draw(Array<Rendering::DrawingContext>& contexts) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::Draw)
 	for (System *system : systems) {
 		system->EventDraw(contexts);
 	}

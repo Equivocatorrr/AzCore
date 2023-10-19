@@ -8,7 +8,7 @@
 #include "settings.hpp"
 #include "assets.hpp"
 #include "gui_basics.hpp"
-#include "profiling.hpp"
+#include "AzCore/Profiling.hpp"
 #include "entity_basics.hpp"
 
 #include "AzCore/IO/Log.hpp"
@@ -93,7 +93,7 @@ void PushConstants::PushCircle(VkCommandBuffer commandBuffer, const Manager *ren
 }
 
 bool Manager::Init() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Init)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Init)
 	data.device = data.instance.AddDevice();
 	data.device->data.vk12FeaturesRequired.scalarBlockLayout = VK_TRUE;
 	data.device->data.vk12FeaturesRequired.uniformAndStorageBuffer8BitAccess = VK_TRUE;
@@ -586,7 +586,7 @@ i32 LightBinIndex(vec2i bin) {
 }
 
 void Manager::UpdateLights() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::UpdateLights)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::UpdateLights)
 	i32 lightCounts[LIGHT_BIN_COUNT] = {0};
 	i32 totalLights = 1;
 	// By default, they all point to the default light which has no light at all
@@ -629,7 +629,7 @@ void Manager::UpdateLights() {
 }
 
 bool Manager::UpdateFonts() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::UpdateFonts)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::UpdateFonts)
 	// Will be done on-the-fly
 	if (data.fontStagingMemory->data.initted) {
 		data.fontStagingMemory->Deinit();
@@ -753,15 +753,15 @@ bool Manager::UpdateUniforms() {
 }
 
 bool Manager::Draw() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Draw)
 	if (vk::hadValidationError) {
 		error = "Quitting due to vulkan validation error.";
 		return false;
 	}
 	if (sys->window.resized || data.resized || data.zeroExtent) {
-		AZ2D_PROFILING_EXCEPTION_START();
+		AZCORE_PROFILING_EXCEPTION_START();
 		vk::DeviceWaitIdle(data.device);
-		AZ2D_PROFILING_EXCEPTION_END();
+		AZCORE_PROFILING_EXCEPTION_END();
 		data.swapchain->UpdateSurfaceCapabilities();
 		VkExtent2D extent = data.swapchain->data.surfaceCapabilities.currentExtent;
 		if (extent.width == 0 || extent.height == 0) {
@@ -776,9 +776,9 @@ bool Manager::Draw() {
 		data.resized = false;
 	}
 	if (Settings::ReadBool(Settings::sVSync) != data.swapchain->vsync) {
-		AZ2D_PROFILING_EXCEPTION_START();
+		AZCORE_PROFILING_EXCEPTION_START();
 		vk::DeviceWaitIdle(data.device);
-		AZ2D_PROFILING_EXCEPTION_END();
+		AZCORE_PROFILING_EXCEPTION_END();
 		data.swapchain->vsync = Settings::ReadBool(Settings::sVSync);
 		if (!data.swapchain->Reconfigure()) {
 			error = "Failed to set VSync: " + vk::error;
@@ -795,21 +795,21 @@ bool Manager::Draw() {
 		}
 	}
 	if (updateFontMemory) {
-		AZ2D_PROFILING_EXCEPTION_START();
+		AZCORE_PROFILING_EXCEPTION_START();
 		vk::DeviceWaitIdle(data.device);
-		AZ2D_PROFILING_EXCEPTION_END();
+		AZCORE_PROFILING_EXCEPTION_END();
 		if (!UpdateFonts()) {
 			return false;
 		}
 	}
 
-	static Az2D::Profiling::AString sAcquisition("Swapchain::AcquireNextImage");
-	Az2D::Profiling::Timer timerAcquisition(sAcquisition);
+	static az::Profiling::AString sAcquisition("Swapchain::AcquireNextImage");
+	az::Profiling::Timer timerAcquisition(sAcquisition);
 	timerAcquisition.Start();
-	AZ2D_PROFILING_EXCEPTION_START();
+	AZCORE_PROFILING_EXCEPTION_START();
 	VkResult acquisitionResult = data.swapchain->AcquireNextImage();
 	timerAcquisition.End();
-	AZ2D_PROFILING_EXCEPTION_END();
+	AZCORE_PROFILING_EXCEPTION_END();
 
 	if (acquisitionResult == VK_ERROR_OUT_OF_DATE_KHR || acquisitionResult == VK_NOT_READY) {
 		cout.PrintLn("Skipping a frame because acquisition returned: ", vk::ErrorString(acquisitionResult));
@@ -888,12 +888,12 @@ bool Manager::Draw() {
 		commandBuffer->End();
 	}
 
-	static Az2D::Profiling::AString sWaitIdle("vk::DeviceWaitIdle()");
-	Az2D::Profiling::Timer timerWaitIdle(sWaitIdle);
+	static az::Profiling::AString sWaitIdle("vk::DeviceWaitIdle()");
+	az::Profiling::Timer timerWaitIdle(sWaitIdle);
 	timerWaitIdle.Start();
-	AZ2D_PROFILING_EXCEPTION_START();
+	AZCORE_PROFILING_EXCEPTION_START();
 	vk::DeviceWaitIdle(data.device);
-	AZ2D_PROFILING_EXCEPTION_END();
+	AZCORE_PROFILING_EXCEPTION_END();
 	timerWaitIdle.End();
 	
 	uniforms.screenSize = screenSize;
@@ -931,7 +931,7 @@ bool Manager::Present() {
 		Thread::Sleep(Milliseconds(clamp((i32)sys->frametimes.AverageWithoutOutliers(), 5, 50)));
 		return true;
 	}
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Present)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Present)
 	if (!data.swapchain->Present(data.queuePresent, {data.semaphoreRenderComplete->semaphore})) {
 		error = "Failed to present: " + vk::error;
 		return false;

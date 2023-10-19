@@ -9,8 +9,6 @@ add_library(Az2D STATIC
 	src/Az2D/settings.hpp
 	src/Az2D/gui_basics.cpp
 	src/Az2D/gui_basics.hpp
-	src/Az2D/profiling.cpp
-	src/Az2D/profiling.hpp
 	src/Az2D/game_systems.cpp
 	src/Az2D/game_systems.hpp
 	src/Az2D/rendering.cpp

@@ -6,7 +6,7 @@
 #include "entities.hpp"
 #include "gui.hpp"
 
-#include "Az2D/profiling.hpp"
+#include "AzCore/Profiling.hpp"
 
 #include "AzCore/Thread.hpp"
 #include "AzCore/IO/Log.hpp"
@@ -111,7 +111,7 @@ void Manager::EventAssetsAcquire() {
 }
 
 void Manager::EventInitialize() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Manager::EventInitialize)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Manager::EventInitialize)
 	Array<char> levels = FileContents("data/levels.txt");
 	Array<SimpleRange<char>> lines = SeparateByNewlines(levels);
 	for (i32 i = 0; i < lines.size; i++) {
@@ -202,7 +202,7 @@ inline void Manager::HandleUI() {
 }
 
 void Manager::EventSync() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Manager::EventSync)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Manager::EventSync)
 	camZoom = (f32)sys->window.height / 1080.0f * 1.5f;
 	if (Gui::gui->menuMain.buttonContinue->state.Released()) {
 		Gui::gui->menuMain.buttonContinue->state.Set(false, false, false);
@@ -300,7 +300,7 @@ void Manager::EventSync() {
 }
 
 void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Manager::EventDraw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Manager::EventDraw)
 	// if (gui->currentMenu != Int::MENU_PLAY) return;
 	if (flame > 0.0f) {
 		vec4 color = vec4(1.0f, 1.0f, 0.5f, flame*0.5f);
@@ -361,7 +361,7 @@ void MessageText::Draw(Rendering::DrawingContext &context) {
 }
 
 void World::Draw(Rendering::DrawingContext &context, bool playing, bool under) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::World::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::World::Draw)
 	vec4 color;
 	vec2 pos;
 	vec2 scale;
@@ -518,7 +518,7 @@ bool World::Load(String filename) {
 }
 
 void Lantern::Update(f32 timestep) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Lantern::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Lantern::Update)
 	vel = (pos - posPrev) / timestep;
 	vec2 v = vec2(cos(angle), -sin(angle));
 	if (particleTimer > 0.0f) {
@@ -551,7 +551,7 @@ void Lantern::Update(f32 timestep) {
 }
 
 void Lantern::Draw(Rendering::DrawingContext &context) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Lantern::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Lantern::Draw)
 	sys->rendering.DrawQuad(context, entities->WorldPosToScreen(pos), vec2(41.0f, 66.0f) * 0.4f * entities->camZoom, 1.0f, vec2(0.5f, 0.05f), angle.value() + pi / 2.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), entities->texLantern);
 }
 
@@ -565,7 +565,7 @@ void Player::EventCreate() {
 }
 
 void Player::Update(f32 timestep) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Player::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Player::Update)
 	physical.Update(timestep);
 	physical.UpdateActual();
 	bool buttonJump = sys->Down(KC_KEY_UP) || sys->Down(KC_KEY_W);
@@ -738,7 +738,7 @@ void Player::Update(f32 timestep) {
 }
 
 void Player::Draw(Rendering::DrawingContext &context) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Player::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Player::Draw)
 	vec2 pos = entities->WorldPosToScreen(physical.pos+vec2(facingRight ? 44.0f : -9.0f, -11.0f));
 	vec2 scale = vec2(facingRight? -53.0f : 53.0f, 57.0f) * entities->camZoom;
 	i32 tex = 0;
@@ -769,7 +769,7 @@ void Sprinkler::EventCreate() {
 }
 
 void Sprinkler::Update(f32 timestep) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Sprinkler::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Sprinkler::Update)
 	angle += rot * timestep;
 	if (angle.value() >= pi || angle.value() <= 0.0f) {
 		rot *= -1.0f;
@@ -786,7 +786,7 @@ void Sprinkler::Update(f32 timestep) {
 }
 
 void Sprinkler::Draw(Rendering::DrawingContext &context) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Sprinkler::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Sprinkler::Draw)
 	const vec2 scale = vec2(25.0f, 13.0f) * entities->camZoom;
 	const vec2 p = entities->WorldPosToScreen(physical.pos) - vec2(scale.x * 0.5f, 0.0f);
 	sys->rendering.DrawQuad(context, p, scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), entities->texSprinkler);
@@ -802,7 +802,7 @@ void Droplet::EventCreate() {
 }
 
 void Droplet::Update(f32 timestep) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Droplet::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Droplet::Update)
 	physical.Update(timestep);
 	physical.UpdateActual();
 	lifetime -= timestep;
@@ -814,7 +814,7 @@ void Droplet::Update(f32 timestep) {
 }
 
 void Droplet::Draw(Rendering::DrawingContext &context) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Droplet::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Droplet::Draw)
 	vec4 color = vec4(0.2f, 0.6f, 1.0f, clamp01(lifetime) * 0.1f);
 	physical.Draw(context, color);
 }
@@ -828,7 +828,7 @@ void Flame::EventCreate() {
 }
 
 void Flame::Update(f32 timestep) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Flame::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Flame::Update)
 	physical.basis.circle.r -= 32.0f * timestep;
 	physical.Update(timestep);
 	physical.UpdateActual();
@@ -840,7 +840,7 @@ void Flame::Update(f32 timestep) {
 }
 
 void Flame::Draw(Rendering::DrawingContext &context) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Flame::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Flame::Update)
 	f32 s = size * 6.0f + 4.0f;
 	f32 prog = (s - physical.basis.circle.r) / s;
 	vec4 color = vec4(

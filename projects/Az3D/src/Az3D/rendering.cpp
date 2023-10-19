@@ -8,7 +8,7 @@
 #include "settings.hpp"
 #include "assets.hpp"
 // #include "gui_basics.hpp"
-#include "profiling.hpp"
+#include "AzCore/Profiling.hpp"
 // #include "entity_basics.hpp"
 
 #include "AzCore/IO/Log.hpp"
@@ -147,7 +147,7 @@ void BindPipeline(GPU::Context *context, PipelineIndex pipeline) {
 }
 
 bool Manager::Init() {
-	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::Init)
+	AZCORE_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::Init)
 
 	{ // Device
 		data.device = GPU::NewDevice();
@@ -461,7 +461,7 @@ vec3 InvViewProj(vec3 point, const mat4 &invViewProj) {
 }
 
 void Manager::UpdateLights() {
-	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::UpdateLights)
+	AZCORE_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::UpdateLights)
 	mat4 invView = uniforms.viewProj.Inverse();
 	// frustum corners
 	// TODO: This is a very non-linear way to limit the range of shadows. Do something more direct pls.
@@ -546,7 +546,7 @@ void Manager::UpdateLights() {
 }
 
 bool Manager::UpdateFonts() {
-	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::UpdateFonts)
+	AZCORE_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::UpdateFonts)
 	/*
 	// Will be done on-the-fly
 	if (data.fontStagingMemory->data.initted) {
@@ -711,15 +711,15 @@ bool Manager::UpdateDebugLines(GPU::Context *context) {
 }
 
 bool Manager::Draw() {
-	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::Draw)
 	// if (vk::hadValidationError) {
 	// 	error = "Quitting due to vulkan validation error.";
 	// 	return false;
 	// }
 	// if (sys->window.resized || data.resized || data.zeroExtent) {
-	// 	AZ3D_PROFILING_EXCEPTION_START();
+	// 	AZCORE_PROFILING_EXCEPTION_START();
 	// 	GPU::
-	// 	AZ3D_PROFILING_EXCEPTION_END();
+	// 	AZCORE_PROFILING_EXCEPTION_END();
 	// 	data.swapchain->UpdateSurfaceCapabilities();
 	// 	VkExtent2D extent = data.swapchain->data.surfaceCapabilities.currentExtent;
 	// 	if (extent.width == 0 || extent.height == 0) {
@@ -734,9 +734,9 @@ bool Manager::Draw() {
 	// 	data.resized = false;
 	// }
 	// if (Settings::ReadBool(Settings::sVSync) != data.swapchain->vsync) {
-	// 	AZ3D_PROFILING_EXCEPTION_START();
+	// 	AZCORE_PROFILING_EXCEPTION_START();
 	// 	vk::DeviceWaitIdle(data.device);
-	// 	AZ3D_PROFILING_EXCEPTION_END();
+	// 	AZCORE_PROFILING_EXCEPTION_END();
 	// 	data.swapchain->vsync = Settings::ReadBool(Settings::sVSync);
 	// 	if (!data.swapchain->Reconfigure()) {
 	// 		error = "Failed to set VSync: " + vk::error;
@@ -753,25 +753,25 @@ bool Manager::Draw() {
 	// 	}
 	// }
 	// if (updateFontMemory) {
-	// 	AZ3D_PROFILING_EXCEPTION_START();
+	// 	AZCORE_PROFILING_EXCEPTION_START();
 	// 	GPU::ContextWaitUntilFinished(data.contextGraphics).AzUnwrap();
-	// 	AZ3D_PROFILING_EXCEPTION_END();
+	// 	AZCORE_PROFILING_EXCEPTION_END();
 	// 	if (!UpdateFonts()) {
 	// 		return false;
 	// 	}
 	// }
 
 	GPU::SetVSync(data.window, Settings::ReadBool(Settings::sVSync));
-	static Az3D::Profiling::AString sWindowUpdate("GPU::WindowUpdate");
-	Az3D::Profiling::Timer timerWindowUpdate(sWindowUpdate);
+	static az::Profiling::AString sWindowUpdate("GPU::WindowUpdate");
+	az::Profiling::Timer timerWindowUpdate(sWindowUpdate);
 	timerWindowUpdate.Start();
-	AZ3D_PROFILING_EXCEPTION_START();
+	AZCORE_PROFILING_EXCEPTION_START();
 	if (auto result = GPU::WindowUpdate(data.window); result.isError) {
 		error = "Failed to update GPU window: " + result.error;
 		return false;
 	}
 	timerWindowUpdate.End();
-	AZ3D_PROFILING_EXCEPTION_END();
+	AZCORE_PROFILING_EXCEPTION_END();
 
 	// data.buffer = !data.buffer;
 
@@ -954,7 +954,7 @@ bool Manager::Draw() {
 }
 
 bool Manager::Present() {
-	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::Present)
+	AZCORE_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::Present)
 	if (auto result = GPU::WindowPresent(data.window, {GPU::ContextGetCurrentSemaphore(data.contextGraphics)}); result.isError) {
 		error = "Failed to present: " + result.error;
 		return false;

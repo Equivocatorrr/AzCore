@@ -6,7 +6,7 @@
 #include "entity_basics.hpp"
 #include "game_systems.hpp"
 #include "sprite.hpp"
-#include "profiling.hpp"
+#include "AzCore/Profiling.hpp"
 
 namespace Az2D::Entities {
 
@@ -245,7 +245,7 @@ void Physical::FromSpriteAABB(const Sprite &sprite, vec2 scale, vec2 shrinkTopLe
 }
 
 bool Physical::Collides(const Physical &other) const {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Physical::Collides)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Physical::Collides)
 	if (!updated) {
 		UpdateActual();
 	}
@@ -328,7 +328,7 @@ bool Physical::MouseOver(vec2 mouse) const {
 }
 
 void PhysicalAbsFromBasis(PhysicalAbs &actual, const PhysicalBasis &basis, const CollisionType &type, const vec2 &pos, const Angle32 &angle) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Physical::PhysicalAbsFromBasis)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Physical::PhysicalAbsFromBasis)
 	mat2 rotation(1.0f);
 	if (angle != 0.0f) {
 		rotation = mat2::Rotation(angle.value());
@@ -383,7 +383,7 @@ void Physical::UpdateActual() const {
 }
 
 void Physical::Draw(Rendering::DrawingContext &context, vec4 color) const {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Physical::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Physical::Draw)
 	vec2 camZoom = entitiesBasic->camZoom;
 	vec2 p = entitiesBasic->WorldPosToScreen(pos);
 	if (type == BOX) {
@@ -435,7 +435,7 @@ void ManagerBasic::EventSync() {
 }
 
 void ManagerBasic::EventUpdate() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::ManagerBasic::EventUpdate)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::ManagerBasic::EventUpdate)
 	if (timestep != 0.0f) {
 		const i32 concurrency = 4;
 		Array<Thread> threads(concurrency);
@@ -455,7 +455,7 @@ void ManagerBasic::EventUpdate() {
 }
 
 void ManagerBasic::EventDraw(Array<Rendering::DrawingContext> &contexts) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::ManagerBasic::EventDraw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::ManagerBasic::EventDraw)
 	const i32 concurrency = contexts.size;
 	Array<Thread> threads(concurrency);
 	for (i32 i = 0; i < workChunks.size; i++) {

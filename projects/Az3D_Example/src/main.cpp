@@ -5,7 +5,7 @@
 
 #include "Az3D/game_systems.hpp"
 #include "Az3D/settings.hpp"
-#include "Az3D/profiling.hpp"
+#include "AzCore/Profiling.hpp"
 #include "Az3D/rendering.hpp"
 
 using namespace AzCore;
@@ -190,7 +190,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			enableLayers = true;
 		} else if (equals(argumentValues[i], "--profiling")) {
 			io::cout.PrintLn("Enabling profiling");
-			Profiling::Enable();
+			az::Profiling::Enable();
 		}
 	}
 	

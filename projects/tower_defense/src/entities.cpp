@@ -6,7 +6,7 @@
 #include "entities.hpp"
 #include "gui.hpp"
 
-#include "Az2D/profiling.hpp"
+#include "AzCore/Profiling.hpp"
 
 #include "AzCore/Thread.hpp"
 #include "AzCore/IO/Log.hpp"
@@ -531,7 +531,7 @@ inline bool Manager::CursorVisible() const {
 }
 
 void Manager::EventSync() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Manager::EventSync)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Manager::EventSync)
 	if (Gui::gui->menuMain.buttonNewGame->state.Released()) {
 		Gui::gui->menuMain.buttonNewGame->state.Set(false, false, false);
 		Reset();
@@ -599,7 +599,7 @@ void Manager::EventSync() {
 }
 
 void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Manager::EventDraw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Manager::EventDraw)
 	// if (Gui::gui->currentMenu != Gui::Menu::PLAY) return;
 
 	ManagerBasic::EventDraw(contexts);
@@ -721,7 +721,7 @@ void Tower::EventCreate() {
 }
 
 void Tower::Update(f32 timestep) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Tower::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Tower::Update)
 	physical.Update(timestep);
 	selected = entities->selectedTower == id;
 	// if (shootTimer <= 0.0f) disabled = false;
@@ -884,7 +884,7 @@ void Tower::Update(f32 timestep) {
 }
 
 void Tower::Draw(Rendering::DrawingContext &context) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Tower::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Tower::Draw)
 	vec4 colorTemp;
 	if (selected) {
 		colorTemp = vec4(0.5f) + color * 0.5f;
@@ -993,7 +993,7 @@ inline i32 DamageOverTime(i32 dps, f32 timestep) {
 }
 
 void Enemy::Update(f32 timestep) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Enemy::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Enemy::Update)
 	age += timestep;
 	if (hitpoints > 0) {
 		size = decay(size, (f32)hitpoints, 0.1f, timestep);
@@ -1099,7 +1099,7 @@ void Enemy::Update(f32 timestep) {
 }
 
 void Enemy::Draw(Rendering::DrawingContext &context) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Enemy::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Enemy::Draw)
 	physical.Draw(context, color * vec4(vec3(1.0f), clamp01(size)));
 }
 
@@ -1127,7 +1127,7 @@ void Bullet::EventDestroy() {
 }
 
 void Bullet::Update(f32 timestep) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Bullet::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Bullet::Update)
 	physical.Update(timestep);
 	physical.UpdateActual();
 	lifetime -= timestep;
@@ -1137,7 +1137,7 @@ void Bullet::Update(f32 timestep) {
 }
 
 void Bullet::Draw(Rendering::DrawingContext &context) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Bullet::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Bullet::Draw)
 	vec4 color = vec4(1.0f, 1.0f, 0.5f, clamp01(lifetime * 8.0f));
 	if (explosionDamage != 0) {
 		color.rgb = vec3(1.0f, 0.25f, 0.0f);
@@ -1156,7 +1156,7 @@ void Wind::EventCreate() {
 }
 
 void Wind::Update(f32 timestep) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Wind::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Wind::Update)
 	physical.Update(timestep);
 	physical.UpdateActual();
 	lifetime -= timestep;
@@ -1166,7 +1166,7 @@ void Wind::Update(f32 timestep) {
 }
 
 void Wind::Draw(Rendering::DrawingContext &context) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Wind::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Wind::Draw)
 	vec4 color = vec4(1.0f, 1.0f, 1.0f, clamp01(lifetime) * 0.1f);
 	const f32 z = entities->camZoom;
 	const vec2 p = (physical.pos - entities->camPos) * z
@@ -1184,7 +1184,7 @@ void Explosion::EventCreate() {
 }
 
 void Explosion::Update(f32 timestep) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Explosion::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Explosion::Update)
 	// shockwaves have a growth of 5.0
 	// bullet explosions have a growth of 8.0
 	physical.basis.circle.r = decay(physical.basis.circle.r, size, 1.0f / growth, timestep);
@@ -1199,7 +1199,7 @@ void Explosion::Update(f32 timestep) {
 }
 
 void Explosion::Draw(Rendering::DrawingContext &context) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Explosion::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Explosion::Draw)
 	f32 prog = physical.basis.circle.r / size / 0.9375f;
 	vec4 color = vec4(
 		hsvToRgb(vec3(

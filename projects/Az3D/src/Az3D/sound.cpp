@@ -6,7 +6,7 @@
 #include "sound.hpp"
 #include "game_systems.hpp"
 #include "settings.hpp"
-#include "profiling.hpp"
+#include "AzCore/Profiling.hpp"
 
 namespace Az3D::Sound {
 
@@ -44,7 +44,7 @@ bool ErrorCheck(const char* info) {
 }
 
 bool Manager::Initialize() {
-	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Sound::Manager::Initialize)
+	AZCORE_PROFILING_SCOPED_TIMER(Az3D::Sound::Manager::Initialize)
 	if (initialized) return false;
 	device = alcOpenDevice(nullptr);
 	if (!device) {
@@ -93,7 +93,7 @@ bool Manager::DeleteSources() {
 }
 
 bool Manager::Deinitialize() {
-	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Sound::Manager::Deinitialize)
+	AZCORE_PROFILING_SCOPED_TIMER(Az3D::Sound::Manager::Deinitialize)
 	if (!initialized) return true;
 	procStop = true;
 	if (streamUpdateProc.Joinable()) {
@@ -112,7 +112,7 @@ Manager::~Manager() {
 }
 
 Array<PriorityIndex> Manager::GetPriorities() {
-	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Sound::Manager::GetPriorities)
+	AZCORE_PROFILING_SCOPED_TIMER(Az3D::Sound::Manager::GetPriorities)
 	Array<PriorityIndex> priorities;
 	priorities.Reserve(sounds.size);
 	for (i32 i = 0; i < sounds.size; i++) {
@@ -205,7 +205,7 @@ bool Manager::Activate(SourceBase *sound) {
 }
 
 bool Manager::UpdateActiveSound(SourceBase *sound, f32 timestep) {
-	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Sound::Manager::UpdateActiveSound)
+	AZCORE_PROFILING_SCOPED_TIMER(Az3D::Sound::Manager::UpdateActiveSound)
 	// alSource3f(sound->source, AL_POSITION, sound->position.x, sound->position.y, sound->position.z);
 	// ErrorCheck("alSource3f(AL_POSITION)");
 	// alSource3f(sound->source, AL_VELOCITY, sound->velocity.x, sound->velocity.y, sound->velocity.z);
@@ -314,7 +314,7 @@ bool Manager::Stop(SourceBase *sound) {
 }
 
 bool Manager::Update(f32 timestep) {
-	AZ3D_PROFILING_SCOPED_TIMER(Az3D::Sound::Manager::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az3D::Sound::Manager::Update)
 	if (procFailure) {
 		return false;
 	}

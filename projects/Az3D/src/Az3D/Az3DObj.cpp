@@ -5,7 +5,6 @@
 
 #include "Az3DObj.hpp"
 #include "AzCore/IO/Log.hpp"
-#include "profiling.hpp"
 #include "AzCore/Memory/Endian.hpp"
 
 // NOTE: File is little endian, and current target platform is little endian.

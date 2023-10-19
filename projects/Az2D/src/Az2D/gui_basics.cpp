@@ -6,7 +6,7 @@
 #include "gui_basics.hpp"
 #include "game_systems.hpp"
 #include "settings.hpp"
-#include "profiling.hpp"
+#include "AzCore/Profiling.hpp"
 #include "console_commands.hpp"
 #include "AzCore/Math/Color.hpp"
 
@@ -393,7 +393,7 @@ Screen::Screen() {
 }
 
 void Screen::Update(vec2 pos, bool selected) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Screen::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Gui::Screen::Update)
 	UpdateSize(sys->rendering.screenSize / guiBasic->scale, 1.0f);
 	Widget::Update(pos, selected);
 	// if (selected) {
@@ -402,7 +402,7 @@ void Screen::Update(vec2 pos, bool selected) {
 }
 
 void Screen::UpdateSize(vec2 container, f32 _scale) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Screen::UpdateSize)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Gui::Screen::UpdateSize)
 	scale = _scale;
 	sizeAbsolute = container - margin * 2.0f * scale;
 	for (Widget* child : children) {

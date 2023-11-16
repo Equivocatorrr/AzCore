@@ -24,6 +24,8 @@ add_library(AzCore STATIC
 		src/AzCore/Font/FontTables.hpp
 	src/AzCore/gpu.cpp
 	src/AzCore/gpu.hpp
+	src/AzCore/gui.cpp
+	src/AzCore/gui.hpp
 	src/AzCore/Image.cpp
 	src/AzCore/Image.hpp
 	src/AzCore/io.cpp
@@ -71,6 +73,7 @@ add_library(AzCore STATIC
 		src/AzCore/Math/vec4_t.hpp
 		src/AzCore/Math/vec5_t.hpp
 	src/AzCore/memory.hpp
+		src/AzCore/Memory/Any.hpp
 		src/AzCore/Memory/Array.hpp
 		src/AzCore/Memory/ArrayList.hpp
 		src/AzCore/Memory/ArrayWithBucket.hpp

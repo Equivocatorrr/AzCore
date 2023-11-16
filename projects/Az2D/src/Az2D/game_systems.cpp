@@ -97,7 +97,7 @@ void UpdateLoop() {
 		{
 			i32 dpi = sys->window.GetDPI();
 			f32 scale = (f32)dpi / 96.0f;
-			Gui::guiBasic->scale = scale * Settings::ReadReal(Settings::sGuiScale);
+			Gui::guiBasic->system.scale = scale * Settings::ReadReal(Settings::sGuiScale);
 		}
 		sys->rawInput.Update(sys->timestep);
 		sys->Sync();
@@ -185,7 +185,7 @@ bool Manager::Init() {
 	{
 		i32 dpi = window.GetDPI();
 		f32 scale = (f32)dpi / 96.0f;
-		Gui::guiBasic->scale = scale;
+		Gui::guiBasic->system.scale = scale * Settings::ReadReal(Settings::sGuiScale);
 		window.Resize(u32((f32)window.width * scale), u32((u32)window.height * scale));
 	}
 	

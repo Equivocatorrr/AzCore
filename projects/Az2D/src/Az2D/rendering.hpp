@@ -260,6 +260,7 @@ struct Manager {
 
 	void BindPipeline(DrawingContext &context, PipelineIndex pipeline) const;
 
+	void SetScissor(DrawingContext &context, vec2i min, vec2i size);
 	void PushScissor(DrawingContext &context, vec2i min, vec2i max);
 	void PopScissor(DrawingContext &context);
 

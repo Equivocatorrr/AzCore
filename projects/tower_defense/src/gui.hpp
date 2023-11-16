@@ -6,23 +6,21 @@
 #ifndef GUI_HPP
 #define GUI_HPP
 
+#include "AzCore/gui.hpp"
 #include "Az2D/gui_basics.hpp"
 
-namespace Az2D::Gui { // Short for Interface
+namespace Az2D::Gui {
 
-using namespace AzCore;
-
-// Ways to define a GUI with a hierarchy
 struct Gui;
 
 // Now we can have some different screens
 struct MainMenu {
-	Screen screen;
-	Hideable *continueHideable;
-	Button *buttonContinue;
-	Button *buttonNewGame;
-	Button *buttonSettings;
-	Button *buttonExit;
+	az::GuiGeneric::Screen *screen;
+	az::GuiGeneric::Hideable *continueHideable;
+	az::GuiGeneric::Button *buttonContinue;
+	az::GuiGeneric::Button *buttonNewGame;
+	az::GuiGeneric::Button *buttonSettings;
+	az::GuiGeneric::Button *buttonExit;
 
 	void Initialize();
 	void Update();
@@ -30,17 +28,17 @@ struct MainMenu {
 };
 
 struct SettingsMenu {
-	Screen screen;
-	Checkbox *checkFullscreen;
-	Checkbox *checkVSync;
-	Hideable *framerateHideable;
-	TextBox *textboxFramerate;
-	Slider *sliderVolumes[3];
-	TextBox *textboxVolumes[3];
-	Slider *sliderGuiScale;
-	TextBox *textboxGuiScale;
-	Button *buttonApply;
-	Button *buttonBack;
+	az::GuiGeneric::Screen *screen;
+	az::GuiGeneric::Checkbox *checkFullscreen;
+	az::GuiGeneric::Checkbox *checkVSync;
+	az::GuiGeneric::Hideable *framerateHideable;
+	az::GuiGeneric::Textbox *textboxFramerate;
+	az::GuiGeneric::Slider *sliderVolumes[3];
+	az::GuiGeneric::Textbox *textboxVolumes[3];
+	az::GuiGeneric::Slider *sliderGuiScale;
+	az::GuiGeneric::Textbox *textboxGuiScale;
+	az::GuiGeneric::Button *buttonApply;
+	az::GuiGeneric::Button *buttonBack;
 
 	void Reset();
 	void Initialize();
@@ -49,20 +47,20 @@ struct SettingsMenu {
 };
 
 struct UpgradesMenu {
-	Screen screen;
-	Hideable *hideable;
-	Text *towerName;
+	az::GuiGeneric::Screen *screen;
+	az::GuiGeneric::Hideable *hideable;
+	az::GuiGeneric::Text *towerName;
 	// Information about the currently selected tower
-	Text *selectedTowerStats;
-	Hideable *towerPriorityHideable;
+	az::GuiGeneric::Text *selectedTowerStats;
+	az::GuiGeneric::Hideable *towerPriorityHideable;
 	// How the selected tower prioritizes target selection
-	Switch *towerPriority;
+	az::GuiGeneric::Switch *towerPriority;
 	// Some upgrades aren't available on some towers
-	Hideable *upgradeHideable[5];
+	az::GuiGeneric::Hideable *upgradeHideable[5];
 	// The number indicator for the state of each attribute
-	Text *upgradeStatus[5];
+	az::GuiGeneric::Text *upgradeStatus[5];
 	// Button for purchasing an upgrade
-	Button *upgradeButton[5];
+	az::GuiGeneric::Button *upgradeButton[5];
 
 	void Initialize();
 	void Update();
@@ -70,14 +68,14 @@ struct UpgradesMenu {
 };
 
 struct PlayMenu {
-	Screen screen;
-	ListV *list;
-	Text *waveTitle, *waveInfo, *towerInfo;
-	Array<ListH*> towerButtonLists;
-	Array<Button*> towerButtons;
-	Button *buttonMenu;
-	Button *buttonStartWave;
-	Text *buttonTextStartWave;
+	az::GuiGeneric::Screen *screen;
+	az::GuiGeneric::ListV *list;
+	az::GuiGeneric::Text *waveTitle, *waveInfo, *towerInfo;
+	az::Array<az::GuiGeneric::ListH*> towerButtonLists;
+	az::Array<az::GuiGeneric::Button*> towerButtons;
+	az::GuiGeneric::Button *buttonMenu;
+	az::GuiGeneric::Button *buttonStartWave;
+	az::GuiGeneric::Text *buttonTextStartWave;
 
 	UpgradesMenu upgradesMenu;
 
@@ -93,13 +91,22 @@ struct Gui : public GuiBasic {
 		PLAY
 	};
 	
-	Assets::TexIndex texCursor;
-
 	Menu currentMenu = Menu::MAIN;
 	Menu nextMenu = Menu::MAIN;
 	MainMenu menuMain;
 	SettingsMenu menuSettings;
 	PlayMenu menuPlay;
+	
+	Assets::TexIndex texCursor;
+	Assets::FontIndex fontIndex;
+	az::Array<Sound::Source> sndClickInSources;
+	az::Array<Sound::Source> sndClickOutSources;
+	az::Array<Sound::Source> sndClickSoftSources;
+	Sound::Source sndCheckboxOn, sndCheckboxOff;
+	Sound::MultiSource sndClickIn;
+	Sound::MultiSource sndClickOut;
+	Sound::MultiSource sndClickSoft;
+	Assets::Font *font;
 
 	Gui();
 	~Gui() = default;
@@ -108,7 +115,7 @@ struct Gui : public GuiBasic {
 	void EventAssetsAcquire() override;
 	void EventInitialize() override;
 	void EventSync() override;
-	void EventDraw(Array<Rendering::DrawingContext> &contexts) override;
+	void EventDraw(az::Array<Rendering::DrawingContext> &contexts) override;
 };
 
 extern Gui *gui;

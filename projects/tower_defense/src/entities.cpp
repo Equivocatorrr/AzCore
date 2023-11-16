@@ -248,7 +248,7 @@ void Manager::Reset() {
 }
 
 inline void Manager::HandleGamepadCamera() {
-	vec2 screenBorder = (vec2(sys->window.width, sys->window.height) - vec2(50.0f * Gui::gui->scale)) / 2.0f / camZoom;
+	vec2 screenBorder = (vec2(sys->window.width, sys->window.height) - vec2(50.0f * Gui::gui->system.scale)) / 2.0f / camZoom;
 	if (CursorVisible() || placeMode) {
 		vec2 mouseMove;
 		if (sys->gamepad) mouseMove = sys->gamepad->axis.vec.RS;
@@ -304,7 +304,7 @@ inline void Manager::HandleGamepadCamera() {
 }
 
 inline void Manager::HandleMouseCamera() {
-	if (Gui::gui->mouseoverDepth > 0) {
+	if (Gui::gui->system.mouseoverDepth > 0) {
 		return;
 	}
 	bool changed = false;
@@ -332,7 +332,7 @@ bool TypedCode(String code) {
 }
 
 inline void Manager::HandleUI() {
-	if (Gui::gui->usingGamepad) {
+	if (Gui::gui->system.inputMethod == GuiGeneric::InputMethod::GAMEPAD) {
 		HandleGamepadCamera();
 		HandleGamepadUI();
 	} else {
@@ -398,7 +398,7 @@ inline void Manager::HandleUI() {
 }
 
 inline void Manager::HandleGamepadUI() {
-	if (sys->Pressed(KC_GP_BTN_X) && Gui::gui->controlDepth == Gui::gui->menuPlay.list->depth) {
+	if (sys->Pressed(KC_GP_BTN_X) && Gui::gui->system.controlDepth == Gui::gui->menuPlay.list->depth) {
 		focusMenu = !focusMenu;
 		placeMode = false;
 	}
@@ -449,7 +449,7 @@ inline void Manager::HandleMouseUI() {
 	} else {
 		focusMenu = false;
 	}
-	if (Gui::gui->mouseoverDepth > 0) {
+	if (Gui::gui->system.mouseoverDepth > 0) {
 		return;
 	}
 	if (!placeMode) {
@@ -527,7 +527,7 @@ inline void Manager::HandleMusicLoops(i32 w) {
 }
 
 inline bool Manager::CursorVisible() const {
-	return Gui::gui->currentMenu == Gui::Gui::Menu::PLAY && Gui::gui->usingGamepad && !placeMode && !focusMenu && selectedTower == -1 && sys->gamepad != nullptr;
+	return Gui::gui->currentMenu == Gui::Gui::Menu::PLAY && Gui::gui->system.inputMethod == GuiGeneric::InputMethod::GAMEPAD && !placeMode && !focusMenu && selectedTower == -1 && sys->gamepad != nullptr;
 }
 
 void Manager::EventSync() {
@@ -623,7 +623,7 @@ void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 	}
 	if (CursorVisible()) {
 		vec2 cursor = WorldPosToScreen(mouse);
-		sys->rendering.DrawQuad(contexts.Back(), cursor, vec2(32.0f * Gui::gui->scale), vec2(1.0f), vec2(0.5f), 0.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), Gui::gui->texCursor);
+		sys->rendering.DrawQuad(contexts.Back(), cursor, vec2(32.0f * Gui::gui->system.scale), vec2(1.0f), vec2(0.5f), 0.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), Gui::gui->texCursor);
 	}
 	if (lives == 0) {
 		failureText.Draw(contexts.Back());

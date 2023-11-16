@@ -867,7 +867,7 @@ bool Manager::Draw() {
 			f32 msMin = sys->frametimes.Min();
 			f32 msDiff = msMax - msMin;
 			f32 fps = 1000.0f / msAvg;
-			DrawQuad(commandBuffersSecondary.Back(), 0.0f, vec2(500.0f, 20.0f) * Gui::guiBasic->scale, 1.0f, 0.0f, 0.0f, PIPELINE_BASIC_2D, vec4(vec3(0.0f), 0.5f));
+			DrawQuad(commandBuffersSecondary.Back(), 0.0f, vec2(500.0f, 20.0f) * Gui::guiBasic->system.scale, 1.0f, 0.0f, 0.0f, PIPELINE_BASIC_2D, vec4(vec3(0.0f), 0.5f));
 			WString strings[] = {
 				ToWString(Stringify("fps: ", FormatFloat(fps, 10, 1))),
 				ToWString(Stringify("avg: ", FormatFloat(msAvg, 10, 1), "ms")),
@@ -877,8 +877,8 @@ bool Manager::Draw() {
 				ToWString(Stringify("timestep: ", FormatFloat(sys->timestep * 1000.0f, 10, 1), "ms")),
 			};
 			for (i32 i = 0; i < (i32)(sizeof(strings)/sizeof(WString)); i++) {
-				vec2 pos = vec2(4.0f + f32(i*80), 4.0f) * Gui::guiBasic->scale;
-				DrawText(commandBuffersSecondary.Back(), strings[i], 0, vec4(1.0f), pos, vec2(12.0f * Gui::guiBasic->scale), LEFT, TOP);
+				vec2 pos = vec2(4.0f + f32(i*80), 4.0f) * Gui::guiBasic->system.scale;
+				DrawText(commandBuffersSecondary.Back(), strings[i], 0, vec4(1.0f), pos, vec2(12.0f * Gui::guiBasic->system.scale), LEFT, TOP);
 			}
 		}
 	}
@@ -951,6 +951,10 @@ void Manager::BindPipeline(DrawingContext &context, PipelineIndex pipeline) cons
 	if (sets.size != 0) {
 		vkCmdBindDescriptorSets(context.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, data.pipelines[pipeline]->data.layout, 0, sets.size, sets.data, 0, nullptr);
 	}
+}
+
+void Manager::SetScissor(DrawingContext &context, vec2i min, vec2i size) {
+	// vk::CmdSetScissor(context.commandBuffer, size.x, size.y, min.x, min.y);
 }
 
 void Manager::PushScissor(DrawingContext &context, vec2i min, vec2i max) {

@@ -149,13 +149,13 @@ This coordinate space represents the vertex coordinates of whatever 3D models yo
 
 Conventionally, a 4x4 "model" matrix is used to represent the transformation from Model Space to World Space. This directly encodes the rotation, scale, and position of the object's origin. When applied to all the vertex positions in the model, they are put into World Space. Additionally, vertex normals and tangents are transformed either by a 3x3 matrix "trimmed" from the "model" matrix by removing the 4th row and column, or by promoting them to 4D vectors with a 0 at the end.
 
-Given a model orientation and scale with vectors right $\overrightarrow{R}$, forward $\overrightarrow{F}$, up $\overrightarrow{U}$, and an offset $\overrightarrow{P}$, you can construct a model matrix as follows:
+Given a model orientation and scale with vectors right $\vec{R}$, forward $\vec{F}$, up $\vec{U}$, and an offset $\vec{P}$, you can construct a model matrix as follows:
 
 $$
 \begin{bmatrix}
-\overrightarrow{R}_x & \overrightarrow{F}_x & \overrightarrow{U}_x & \overrightarrow{P}_x \\
-\overrightarrow{R}_y & \overrightarrow{F}_y & \overrightarrow{U}_y & \overrightarrow{P}_y \\
-\overrightarrow{R}_z & \overrightarrow{F}_z & \overrightarrow{U}_z & \overrightarrow{P}_z \\
+\vec{R}_x & \vec{F}_x & \vec{U}_x & \vec{P}_x \\
+\vec{R}_y & \vec{F}_y & \vec{U}_y & \vec{P}_y \\
+\vec{R}_z & \vec{F}_z & \vec{U}_z & \vec{P}_z \\
 0 & 0 & 0 & 1
 \end{bmatrix}
 \begin{bmatrix}
@@ -165,9 +165,9 @@ z_p \\
 1
 \end{bmatrix}=
 \begin{bmatrix}
-\overrightarrow{R}_x x_p + \overrightarrow{F}_x y_p + \overrightarrow{U}_x z_p + \overrightarrow{P}_x \\
-\overrightarrow{R}_y x_p + \overrightarrow{F}_y y_p + \overrightarrow{U}_y z_p + \overrightarrow{P}_y \\
-\overrightarrow{R}_z x_p + \overrightarrow{F}_z y_p + \overrightarrow{U}_z z_p + \overrightarrow{P}_z \\
+\vec{R}_x x_p + \vec{F}_x y_p + \vec{U}_x z_p + \vec{P}_x \\
+\vec{R}_y x_p + \vec{F}_y y_p + \vec{U}_y z_p + \vec{P}_y \\
+\vec{R}_z x_p + \vec{F}_z y_p + \vec{U}_z z_p + \vec{P}_z \\
 1
 \end{bmatrix}
 $$
@@ -181,25 +181,25 @@ This space represents something of an "absolute" space where game logic often ha
 
 This can be thought of as the space where the origin is at the "camera" or "eye", and Y+ points in the direction that the eye is pointing. This space is rotated and translated (but not scaled) from World Space using the 4x4 "view" matrix.
 
-Given an eye with unit vectors right $\overrightarrow{R}$, forward $\overrightarrow{F}$, up $\overrightarrow{U}$, and a position $\overrightarrow{P}$, you can construct a view matrix as follows:
+Given an eye with unit vectors right $\vec{R}$, forward $\vec{F}$, up $\vec{U}$, and a position $\vec{P}$, you can construct a view matrix as follows:
 
 $$
 \begin{bmatrix}
-\overrightarrow{R}_x & \overrightarrow{R}_y & \overrightarrow{R}_z & 0 \\
-\overrightarrow{F}_x & \overrightarrow{F}_y & \overrightarrow{F}_z & 0 \\
-\overrightarrow{U}_x & \overrightarrow{U}_y & \overrightarrow{U}_z & 0 \\
+\vec{R}_x & \vec{R}_y & \vec{R}_z & 0 \\
+\vec{F}_x & \vec{F}_y & \vec{F}_z & 0 \\
+\vec{U}_x & \vec{U}_y & \vec{U}_z & 0 \\
 0 & 0 & 0 & 1
 \end{bmatrix}
 \begin{bmatrix}
-1 & 0 & 0 & -\overrightarrow{P}_x \\
-0 & 1 & 0 & -\overrightarrow{P}_y \\
-0 & 0 & 1 & -\overrightarrow{P}_z \\
+1 & 0 & 0 & -\vec{P}_x \\
+0 & 1 & 0 & -\vec{P}_y \\
+0 & 0 & 1 & -\vec{P}_z \\
 0 & 0 & 0 & 1
 \end{bmatrix}=
 \begin{bmatrix}
-\overrightarrow{R}_x & \overrightarrow{R}_y & \overrightarrow{R}_z & -\overrightarrow{R}\sdot\overrightarrow{P} \\
-\overrightarrow{F}_x & \overrightarrow{F}_y & \overrightarrow{F}_z & -\overrightarrow{F}\sdot\overrightarrow{P} \\
-\overrightarrow{U}_x & \overrightarrow{U}_y & \overrightarrow{U}_z & -\overrightarrow{U}\sdot\overrightarrow{P} \\
+\vec{R}_x & \vec{R}_y & \vec{R}_z & -\vec{R}\cdot\vec{P} \\
+\vec{F}_x & \vec{F}_y & \vec{F}_z & -\vec{F}\cdot\vec{P} \\
+\vec{U}_x & \vec{U}_y & \vec{U}_z & -\vec{U}\cdot\vec{P} \\
 0 & 0 & 0 & 1
 \end{bmatrix}
 $$
@@ -227,13 +227,13 @@ This enables us to express a Perspective transform as a 4x4 matrix that converts
 
 Conceptually these transforms are made up of a few pieces, since their job is to get from View Space to Normalized Device Coordinates while regarding the rules of Perspective Division. Since NDCs are different for different APIs, the resulting transformations must be altered slightly. Given we've defined our View transform with Z up and Y forward (and that doesn't match NDC for any API), we define a transformation to get us to the desired basis and range.
 
-Given target basis vectors right $\overrightarrow{R}$, forward $\overrightarrow{F}$, up $\overrightarrow{U}$ which are defined as the NDC directions in the Z-up space we've chosen, we derive the change of basis as:
+Given target basis vectors right $\vec{R}$, forward $\vec{F}$, up $\vec{U}$ which are defined as the NDC directions in the Z-up space we've chosen, we derive the change of basis as:
 
 $$
 \begin{bmatrix}
-\overrightarrow{R}_x & \overrightarrow{F}_x & \overrightarrow{U}_x & 0 \\
-\overrightarrow{R}_y & \overrightarrow{F}_y & \overrightarrow{U}_y & 0 \\
-\overrightarrow{R}_z & \overrightarrow{F}_z & \overrightarrow{U}_z & 0 \\
+\vec{R}_x & \vec{F}_x & \vec{U}_x & 0 \\
+\vec{R}_y & \vec{F}_y & \vec{U}_y & 0 \\
+\vec{R}_z & \vec{F}_z & \vec{U}_z & 0 \\
 0 & 0 & 0 & 1
 \end{bmatrix}
 $$

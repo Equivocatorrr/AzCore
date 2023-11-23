@@ -359,9 +359,9 @@ z/z \\
 \end{bmatrix}
 $$
 
-You'll notice that it's not actually this simple because our near plane represents the screen, which intersects the origin in Clip Space, which is clearly not happening in this diagram, and there's the matter of scaling the space for our near and far planes. Also, $z/z = 1$, which means the only possible depth value is 1, and that would break depth testing.
+You'll notice that it's not actually this simple because our near plane represents the screen, which intersects the origin in NDC, which is clearly not happening in this diagram, and there's the matter of scaling the space to cover the distance between our near and far planes. Also, $z/z = 1$, which means the only possible depth value is 1, and that would break depth testing.
 
-So first we're going to offset such that the origin is on the near plane, and then scale the space such that the distance between the near and far plane is 1.
+So first we're going to offset such that the origin is on the near plane (offsetting the origin is the opposite action to offsetting a point, so we use $-n$ here), and then scale the space such that the distance between the near and far plane is 1. While we're at it, we'll scale the width and height to match our Field of View and Aspect Ratio.
 
 We're going to use a horizontal Field of View and define our aspect ratio $r = w/h$
 

@@ -936,7 +936,7 @@ Glyph cffParsed::GetGlyph(u32 glyphIndex) const {
 		return out;
 	}
 	out.Simplify();
-	out.Scale(mat2::Scaler(vec2(1.0f / (f32)header->unitsPerEm)));
+	out.Scale(mat2::Scale(vec2(1.0f / (f32)header->unitsPerEm)));
 	vec2 minBounds(1000.0), maxBounds(-1000.0);
 	for (Curve2& curve2 : out.curve2s) {
 		if (curve2.p1.x < minBounds.x) { minBounds.x = curve2.p1.x; }

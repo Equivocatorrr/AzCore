@@ -1132,15 +1132,15 @@ void Manager::DrawCharSS(DrawingContext &context, char32 character, i32 fontInde
 	if (glyph.components.size != 0) {
 		for (const font::Component& component : glyph.components) {
 			i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
-			pc.vert.transform = mat2::Scaler(fullScale);
-			pc.font_circle.font.edge = 0.5f / (font::sdfDistance * screenSize.y * pc.vert.transform.h.y2);
+			pc.vert.transform = mat2::Scale(fullScale);
+			pc.font_circle.font.edge = 0.5f / (font::sdfDistance * screenSize.y * pc.vert.transform[1][1]);
 			pc.vert.position = position + component.offset * fullScale;
 			pc.PushFont(context.commandBuffer, this);
 			vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + componentId * 4, 0);
 		}
 	} else {
 		pc.font_circle.font.edge = 0.5f / (font::sdfDistance * screenSize.y * scale.y);
-		pc.vert.transform = mat2::Scaler(fullScale);
+		pc.vert.transform = mat2::Scale(fullScale);
 		pc.vert.position = position;
 		pc.PushFont(context.commandBuffer, this);
 		vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + glyphId * 4, 0);
@@ -1205,28 +1205,30 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 			font->fontBuilder.AddRange(character, character);
 		}
 		font::Glyph& glyph = font->fontBuilder.glyphs[glyphId];
+		
+		mat2 rotator = mat2::Rotation(rotation.value());
 
 		pc.frag.tex.albedo = actualFontIndex;
 		pc.font_circle.font.edge = edge / (font::sdfDistance * screenSize.y * scale.y);
 		pc.font_circle.font.bounds = bounds;
-		pc.vert.transform = mat2::Scaler(scale * vec2(aspectRatio, 1.0f));
+		pc.vert.transform = mat2::Scale(scale);
 		if (rotation != 0.0f) {
-			pc.vert.transform = mat2::Rotation(rotation.value()) * pc.vert.transform;
+			pc.vert.transform = rotator * pc.vert.transform;
 		}
+		pc.vert.transform = mat2::Scale(vec2(aspectRatio, 1.0f)) * pc.vert.transform;
 		if (glyph.components.size != 0) {
 			for (const font::Component& component : glyph.components) {
 				i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
 				// const font::Glyph& componentGlyph = font->fontBuilder.glyphs[componentId];
-				pc.vert.transform = component.transform * mat2::Scaler(scale * vec2(aspectRatio, 1.0f));
-				if (rotation != 0.0f) {
-					pc.vert.transform = mat2::Rotation(rotation.value()) * pc.vert.transform;
-				}
-				pc.font_circle.font.edge = edge / (font::sdfDistance * screenSize.y * abs(pc.vert.transform.h.y2));
+				pc.vert.transform = mat2::Scale(scale) * component.transform;
 				pc.vert.position = cursor + component.offset * scale * vec2(1.0f, -1.0f);
 				if (rotation != 0.0f) {
-					pc.vert.position = (pc.vert.position - position) * mat2::Rotation(rotation.value()) + position;
+					pc.vert.transform = rotator * pc.vert.transform;
+					pc.vert.position = rotator * (pc.vert.position - position) + position;
 				}
+				pc.vert.transform = mat2::Scale(vec2(aspectRatio, 1.0f)) * pc.vert.transform;
 				pc.vert.position *= vec2(aspectRatio, 1.0f);
+				pc.font_circle.font.edge = edge / (font::sdfDistance * screenSize.y * abs(pc.vert.transform[1][1]));
 				pc.PushFont(context.commandBuffer, this);
 				vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + componentId * 4, 0);
 			}
@@ -1234,7 +1236,7 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 			if (character != ' ') {
 				pc.vert.position = cursor;
 				if (rotation != 0.0f) {
-					pc.vert.position = (cursor-position) * mat2::Rotation(rotation.value()) + position;
+					pc.vert.position = rotator * (cursor-position) + position;
 				}
 				pc.vert.position *= vec2(aspectRatio, 1.0f);
 				pc.PushFont(context.commandBuffer, this);
@@ -1258,13 +1260,13 @@ void Manager::DrawQuadSS(DrawingContext &context, vec2 position, vec2 scalePre, 
 	pc.vert.position = position;
 	pc.vert.zShear = zShear;
 	pc.vert.z = zPos;
-	pc.vert.transform = mat2::Scaler(scalePre);
+	pc.vert.transform = mat2::Scale(scalePre);
 	pc.vert.texScale = texScale;
 	pc.vert.texOffset = texOffset;
 	if (rotation != 0.0f) {
-		pc.vert.transform = pc.vert.transform * mat2::Rotation(rotation.value());
+		pc.vert.transform = mat2::Rotation(rotation.value()) * pc.vert.transform;
 	}
-	pc.vert.transform = pc.vert.transform * mat2::Scaler(scalePost);
+	pc.vert.transform = mat2::Scale(scalePost) * pc.vert.transform;
 	pc.vert.origin = origin;
 	pc.Push2D(context.commandBuffer, this);
 	vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, 0, 0);
@@ -1277,11 +1279,11 @@ void Manager::DrawCircleSS(DrawingContext &context, i32 texIndex, vec4 color, ve
 	pc.frag.mat = Material(color);
 	pc.frag.tex = TexIndices(texIndex);
 	pc.vert.position = position;
-	pc.vert.transform = mat2::Scaler(scalePre);
+	pc.vert.transform = mat2::Scale(scalePre);
 	if (rotation != 0.0f) {
-		pc.vert.transform = pc.vert.transform * mat2::Rotation(rotation.value());
+		pc.vert.transform = mat2::Rotation(rotation.value()) * pc.vert.transform;
 	}
-	pc.vert.transform = pc.vert.transform * mat2::Scaler(scalePost);
+	pc.vert.transform = mat2::Scale(scalePost) * pc.vert.transform;
 	pc.vert.origin = origin;
 	pc.font_circle.circle.edge = edge;
 	pc.PushCircle(context.commandBuffer, this);

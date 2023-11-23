@@ -34,29 +34,29 @@ FPError<f32> fpError;
 
 #define COMPARE_MAT3(lhs, rhs, magnitude) \
 	{ \
-		COMPARE_FP(lhs.h.x1, rhs.h.x1, magnitude); \
-		COMPARE_FP(lhs.h.x2, rhs.h.x2, magnitude); \
-		COMPARE_FP(lhs.h.x3, rhs.h.x3, magnitude); \
-		COMPARE_FP(lhs.h.y1, rhs.h.y1, magnitude); \
-		COMPARE_FP(lhs.h.y2, rhs.h.y2, magnitude); \
-		COMPARE_FP(lhs.h.y3, rhs.h.y3, magnitude); \
-		COMPARE_FP(lhs.h.z1, rhs.h.z1, magnitude); \
-		COMPARE_FP(lhs.h.z2, rhs.h.z2, magnitude); \
-		COMPARE_FP(lhs.h.z3, rhs.h.z3, magnitude); \
+		COMPARE_FP(lhs[0][0], rhs[0][0], magnitude); \
+		COMPARE_FP(lhs[0][1], rhs[0][1], magnitude); \
+		COMPARE_FP(lhs[0][2], rhs[0][2], magnitude); \
+		COMPARE_FP(lhs[1][0], rhs[1][0], magnitude); \
+		COMPARE_FP(lhs[1][1], rhs[1][1], magnitude); \
+		COMPARE_FP(lhs[1][2], rhs[1][2], magnitude); \
+		COMPARE_FP(lhs[2][0], rhs[2][0], magnitude); \
+		COMPARE_FP(lhs[2][1], rhs[2][1], magnitude); \
+		COMPARE_FP(lhs[2][2], rhs[2][2], magnitude); \
 	}
 
 #define COMPARE_QUAT_AND_MATRIX(quaternion, matrix, magnitude) \
 	{ \
 		mat3 quatMatrix = quaternion.ToMat3(); \
-		COMPARE_FP(matrix.h.x1, quatMatrix.h.x1, magnitude); \
-		COMPARE_FP(matrix.h.x2, quatMatrix.h.x2, magnitude); \
-		COMPARE_FP(matrix.h.x3, quatMatrix.h.x3, magnitude); \
-		COMPARE_FP(matrix.h.y1, quatMatrix.h.y1, magnitude); \
-		COMPARE_FP(matrix.h.y2, quatMatrix.h.y2, magnitude); \
-		COMPARE_FP(matrix.h.y3, quatMatrix.h.y3, magnitude); \
-		COMPARE_FP(matrix.h.z1, quatMatrix.h.z1, magnitude); \
-		COMPARE_FP(matrix.h.z2, quatMatrix.h.z2, magnitude); \
-		COMPARE_FP(matrix.h.z3, quatMatrix.h.z3, magnitude); \
+		COMPARE_FP(matrix[0][0], quatMatrix[0][0], magnitude); \
+		COMPARE_FP(matrix[0][1], quatMatrix[0][1], magnitude); \
+		COMPARE_FP(matrix[0][2], quatMatrix[0][2], magnitude); \
+		COMPARE_FP(matrix[1][0], quatMatrix[1][0], magnitude); \
+		COMPARE_FP(matrix[1][1], quatMatrix[1][1], magnitude); \
+		COMPARE_FP(matrix[1][2], quatMatrix[1][2], magnitude); \
+		COMPARE_FP(matrix[2][0], quatMatrix[2][0], magnitude); \
+		COMPARE_FP(matrix[2][1], quatMatrix[2][1], magnitude); \
+		COMPARE_FP(matrix[2][2], quatMatrix[2][2], magnitude); \
 	}
 
 void QuaternionTest() {

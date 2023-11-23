@@ -76,7 +76,8 @@ struct vec4_t {
 	inline vec4_t<T> operator/(T vec) const { return vec4_t<T>(x / vec, y / vec, z / vec, w / vec); }
 	inline bool operator==(vec4_t<T> a) const { return x == a.x && y == a.y && z == a.z && w == a.w; }
 	inline bool operator!=(vec4_t<T> a) const { return x != a.x || y != a.y || z != a.z || w != a.w; }
-	inline T &operator[](u32 i) { return data[i]; }
+	inline T& operator[](i32 i) { return data[i]; }
+	inline const T& operator[](i32 i) const { return data[i]; }
 	inline vec4_t<T> operator+=(vec4_t<T> vec) {
 		x += vec.x;
 		y += vec.y;

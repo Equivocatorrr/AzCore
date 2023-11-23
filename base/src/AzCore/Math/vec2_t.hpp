@@ -54,9 +54,8 @@ struct vec2_t {
 	inline bool operator!=(vec2_t<T> a) const {
 		return x != a.x || y != a.y;
 	}
-	inline T &operator[](u32 i) {
-		return data[i];
-	}
+	inline T& operator[](i32 i) { return data[i]; }
+	inline const T& operator[](i32 i) const { return data[i]; }
 	inline vec2_t<T> operator+=(vec2_t<T> a) {
 		x += a.x;
 		y += a.y;

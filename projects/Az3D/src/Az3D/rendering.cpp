@@ -287,7 +287,7 @@ bool Manager::Init() {
 		GPU::PipelineSetTopology(data.pipelines[PIPELINE_DEBUG_LINES], GPU::Topology::LINE_LIST);
 		GPU::PipelineSetLineWidth(data.pipelines[PIPELINE_DEBUG_LINES], 2.0f);
 		GPU::PipelineSetDepthTest(data.pipelines[PIPELINE_DEBUG_LINES], true);
-		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_DEBUG_LINES], GPU::CompareOp::GREATER);
+		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_DEBUG_LINES], GPU::CompareOp::LESS);
 		
 		
 		data.pipelines[PIPELINE_BASIC_3D] = GPU::NewGraphicsPipeline(data.device, "Basic 3D Pipeline");
@@ -297,7 +297,7 @@ bool Manager::Init() {
 		// GPU::PipelineSetMultisampleShading(data.pipelines[PIPELINE_BASIC_3D], true);
 		GPU::PipelineSetDepthTest(data.pipelines[PIPELINE_BASIC_3D], true);
 		GPU::PipelineSetDepthWrite(data.pipelines[PIPELINE_BASIC_3D], true);
-		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_BASIC_3D], GPU::CompareOp::GREATER);
+		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_BASIC_3D], GPU::CompareOp::LESS);
 		GPU::PipelineSetCullingMode(data.pipelines[PIPELINE_BASIC_3D], GPU::CullingMode::BACK);
 		GPU::PipelineSetWinding(data.pipelines[PIPELINE_BASIC_3D], GPU::Winding::COUNTER_CLOCKWISE);
 		
@@ -308,7 +308,7 @@ bool Manager::Init() {
 		// GPU::PipelineSetMultisampleShading(data.pipelines[PIPELINE_FOLIAGE_3D], true);
 		GPU::PipelineSetDepthTest(data.pipelines[PIPELINE_FOLIAGE_3D], true);
 		GPU::PipelineSetDepthWrite(data.pipelines[PIPELINE_FOLIAGE_3D], true);
-		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_FOLIAGE_3D], GPU::CompareOp::GREATER);
+		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_FOLIAGE_3D], GPU::CompareOp::LESS);
 		GPU::PipelineSetCullingMode(data.pipelines[PIPELINE_FOLIAGE_3D], GPU::CullingMode::NONE);
 		GPU::PipelineSetWinding(data.pipelines[PIPELINE_FOLIAGE_3D], GPU::Winding::COUNTER_CLOCKWISE);
 
@@ -456,7 +456,7 @@ bool Manager::Deinit() {
 // }
 
 vec3 InvViewProj(vec3 point, const mat4 &invViewProj) {
-	vec4 inter = vec4(point, 1.0f) * invViewProj;
+	vec4 inter = invViewProj * vec4(point, 1.0f);
 	return inter.xyz / inter.w;
 }
 
@@ -465,23 +465,23 @@ void Manager::UpdateLights() {
 	mat4 invView = uniforms.viewProj.Inverse();
 	// frustum corners
 	// TODO: This is a very non-linear way to limit the range of shadows. Do something more direct pls.
-	f32 shadowMaxDist = 0.005f;
+	f32 shadowMaxDist = 0.995f;
 	vec3 corners[8] = {
+		InvViewProj(vec3(-1.0f, -1.0f, 0.0f), invView),
+		InvViewProj(vec3( 1.0f, -1.0f, 0.0f), invView),
+		InvViewProj(vec3(-1.0f,  1.0f, 0.0f), invView),
+		InvViewProj(vec3( 1.0f,  1.0f, 0.0f), invView),
 		InvViewProj(vec3(-1.0f, -1.0f, shadowMaxDist), invView),
 		InvViewProj(vec3( 1.0f, -1.0f, shadowMaxDist), invView),
 		InvViewProj(vec3(-1.0f,  1.0f, shadowMaxDist), invView),
 		InvViewProj(vec3( 1.0f,  1.0f, shadowMaxDist), invView),
-		InvViewProj(vec3(-1.0f, -1.0f, 1.0f), invView),
-		InvViewProj(vec3( 1.0f, -1.0f, 1.0f), invView),
-		InvViewProj(vec3(-1.0f,  1.0f, 1.0f), invView),
-		InvViewProj(vec3( 1.0f,  1.0f, 1.0f), invView),
 	};
 	vec3 center = 0.0f;
 	vec3 boundsMin(100000000.0f), boundsMax(-100000000.0f);
 	uniforms.sun = mat4::Camera(-uniforms.sunDir, uniforms.sunDir, vec3(0.0f, 0.0f, 1.0f));
 	for (i32 i = 0; i < 8; i++) {
 		center += corners[i];
-		corners[i] = (vec4(corners[i], 1.0f) * uniforms.sun).xyz;
+		corners[i] = (uniforms.sun * vec4(corners[i], 1.0f)).xyz;
 		boundsMin.x = min(boundsMin.x, corners[i].x);
 		boundsMin.y = min(boundsMin.y, corners[i].y);
 		boundsMin.z = min(boundsMin.z, corners[i].z);
@@ -497,12 +497,12 @@ void Manager::UpdateLights() {
 	vec3 dimensions = boundsMax - boundsMin;
 	// center gives us an implicit 0.5
 	uniforms.sun = mat4::Camera(center + uniforms.sunDir * dimensions.z * 9.5f, -uniforms.sunDir, vec3(0.0f, 0.0f, 1.0f));
-	uniforms.sun = uniforms.sun * mat4::Ortho(max(0.1f, dimensions.x), max(0.1f, dimensions.y), 0.0f, max(0.1f, dimensions.z*10.0f));
+	uniforms.sun = mat4::Ortho(max(0.1f, dimensions.x), max(0.1f, dimensions.y), 0.0f, max(0.1f, dimensions.z*10.0f)) * uniforms.sun;
 	sunFrustum = GetOrtho(
-		uniforms.sun.Row4().xyz,
-		uniforms.sun.Row3().xyz,
-		uniforms.sun.Row2().xyz,
-		uniforms.sun.Row1().xyz
+		uniforms.sun.Col<3>().xyz,
+		uniforms.sun.Col<2>().xyz,
+		uniforms.sun.Col<1>().xyz,
+		uniforms.sun.Col<0>().xyz
 	);
 // 	i32 lightCounts[LIGHT_BIN_COUNT] = {0};
 // 	i32 totalLights = 1;
@@ -656,10 +656,10 @@ bool Manager::UpdateFonts() {
 
 String ToString(mat4 mat, i32 precision=2) {
 	return Stringify(
-		"| ", FormatFloat(mat.v.x1, 10, precision), ", ", FormatFloat(mat.v.y1, 10, precision), ", ", FormatFloat(mat.v.z1, 10, precision), ", ", FormatFloat(mat.v.w1, 10, precision), " |\n",
-		"| ", FormatFloat(mat.v.x2, 10, precision), ", ", FormatFloat(mat.v.y2, 10, precision), ", ", FormatFloat(mat.v.z2, 10, precision), ", ", FormatFloat(mat.v.w2, 10, precision), " |\n",
-		"| ", FormatFloat(mat.v.x3, 10, precision), ", ", FormatFloat(mat.v.y3, 10, precision), ", ", FormatFloat(mat.v.z3, 10, precision), ", ", FormatFloat(mat.v.w3, 10, precision), " |\n",
-		"| ", FormatFloat(mat.v.x4, 10, precision), ", ", FormatFloat(mat.v.y4, 10, precision), ", ", FormatFloat(mat.v.z4, 10, precision), ", ", FormatFloat(mat.v.w4, 10, precision), " |");
+		"| ", FormatFloat(mat[0][0], 10, precision), ", ", FormatFloat(mat[1][0], 10, precision), ", ", FormatFloat(mat[2][0], 10, precision), ", ", FormatFloat(mat[3][0], 10, precision), " |\n",
+		"| ", FormatFloat(mat[0][1], 10, precision), ", ", FormatFloat(mat[1][1], 10, precision), ", ", FormatFloat(mat[2][1], 10, precision), ", ", FormatFloat(mat[3][1], 10, precision), " |\n",
+		"| ", FormatFloat(mat[0][2], 10, precision), ", ", FormatFloat(mat[1][2], 10, precision), ", ", FormatFloat(mat[2][2], 10, precision), ", ", FormatFloat(mat[3][2], 10, precision), " |\n",
+		"| ", FormatFloat(mat[0][3], 10, precision), ", ", FormatFloat(mat[1][3], 10, precision), ", ", FormatFloat(mat[2][3], 10, precision), ", ", FormatFloat(mat[3][3], 10, precision), " |");
 }
 
 String ToString(vec4 vec, i32 precision=2) {
@@ -675,7 +675,7 @@ bool Manager::UpdateUniforms(GPU::Context *context) {
 	uniforms.view = mat4::Camera(camera.pos, camera.forward, camera.up);
 	// uniforms.proj = mat4::Ortho(10.0f, 10.0f * screenSize.y / screenSize.x, camera.nearClip, camera.farClip);
 	uniforms.proj = mat4::Perspective(camera.fov, screenSize.x / screenSize.y, camera.nearClip, camera.farClip);
-	uniforms.viewProj = uniforms.view * uniforms.proj;
+	uniforms.viewProj = uniforms.proj * uniforms.view;
 	uniforms.eyePos = camera.pos;
 	uniforms.fogColor = sRGBToLinear(backgroundRGB);
 	uniforms.ambientLight = uniforms.fogColor;
@@ -807,7 +807,7 @@ bool Manager::Draw() {
 	}*/
 	{ // Clear
 		GPU::CmdClearColorAttachment(data.contextGraphics, vec4(sRGBToLinear(backgroundRGB), 1.0f));
-		GPU::CmdClearDepthAttachment(data.contextGraphics, 0.0f);
+		GPU::CmdClearDepthAttachment(data.contextGraphics, 1.0f);
 	}
 	// Clear lights so we get new ones this frame
 	lights.size = 0;
@@ -1114,17 +1114,17 @@ void DrawMeshPart(DrawingContext &context, Assets::MeshPart *meshPart, const Arr
 	draw.transforms = transforms;
 	draw.boundingSphereCenter = vec3(0.0f);
 	for (i32 i = 0; i < transforms.size; i++) {
-		draw.boundingSphereCenter += transforms[i].Row4().xyz;
+		draw.boundingSphereCenter += transforms[i].Col<3>().xyz;
 	}
 	draw.boundingSphereCenter /= (f32)transforms.size;
 	draw.boundingSphereRadius = 0.0f;
 	for (i32 i = 0; i < transforms.size; i++) {
 		f32 myRadius = meshPart->boundingSphereRadius * sqrt(max(
-			normSqr(transforms[i].Row1().xyz),
-			normSqr(transforms[i].Row2().xyz),
-			normSqr(transforms[i].Row3().xyz)
+			normSqr(transforms[i].Col<0>().xyz),
+			normSqr(transforms[i].Col<1>().xyz),
+			normSqr(transforms[i].Col<2>().xyz)
 		));
-		myRadius += norm(draw.boundingSphereCenter - transforms[i].Row4().xyz);
+		myRadius += norm(draw.boundingSphereCenter - transforms[i].Col<3>().xyz);
 		if (myRadius > draw.boundingSphereRadius) {
 			draw.boundingSphereRadius = myRadius;
 		}
@@ -1177,7 +1177,7 @@ void Manager::DrawCharSS(DrawingContext &context, char32 character, i32 fontInde
 	if (glyph.components.size != 0) {
 		for (const font::Component& component : glyph.components) {
 			i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
-			pc.vert.transform = mat2::Scaler(fullScale);
+			pc.vert.transform = mat2::Scale(fullScale);
 			pc.font_circle.font.edge = 0.5f / (font::sdfDistance * screenSize.y * pc.vert.transform.h.y2);
 			pc.vert.position = position + component.offset * fullScale;
 			pc.PushFont(context.commandBuffer, this);
@@ -1185,7 +1185,7 @@ void Manager::DrawCharSS(DrawingContext &context, char32 character, i32 fontInde
 		}
 	} else {
 		pc.font_circle.font.edge = 0.5f / (font::sdfDistance * screenSize.y * scale.y);
-		pc.vert.transform = mat2::Scaler(fullScale);
+		pc.vert.transform = mat2::Scale(fullScale);
 		pc.vert.position = position;
 		pc.PushFont(context.commandBuffer, this);
 		vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + glyphId * 4, 0);
@@ -1254,7 +1254,7 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 		pc.frag.tex.albedo = actualFontIndex;
 		pc.font_circle.font.edge = edge / (font::sdfDistance * screenSize.y * scale.y);
 		pc.font_circle.font.bounds = bounds;
-		pc.vert.transform = mat2::Scaler(scale * vec2(aspectRatio, 1.0f));
+		pc.vert.transform = mat2::Scale(scale * vec2(aspectRatio, 1.0f));
 		if (rotation != 0.0f) {
 			pc.vert.transform = mat2::Rotation(rotation.value()) * pc.vert.transform;
 		}
@@ -1262,7 +1262,7 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 			for (const font::Component& component : glyph.components) {
 				i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
 				// const font::Glyph& componentGlyph = font->fontBuilder.glyphs[componentId];
-				pc.vert.transform = component.transform * mat2::Scaler(scale * vec2(aspectRatio, 1.0f));
+				pc.vert.transform = component.transform * mat2::Scale(scale * vec2(aspectRatio, 1.0f));
 				if (rotation != 0.0f) {
 					pc.vert.transform = mat2::Rotation(rotation.value()) * pc.vert.transform;
 				}

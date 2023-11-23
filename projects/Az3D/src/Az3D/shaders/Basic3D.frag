@@ -7,7 +7,7 @@ layout(location=2) in vec3 inTangent;
 layout(location=3) in vec3 inBitangent;
 layout(location=4) flat in int inInstanceIndex;
 layout(location=5) in vec3 inWorldPos;
-layout(location=6) in vec3 inProjPos;
+layout(location=6) in vec4 inProjPos;
 
 layout (location = 0) out vec4 outColor;
 
@@ -132,11 +132,22 @@ const float sunTanRadius = tan(sunRadiusRadians);
 void main() {
 	ObjectInfo info = objectBuffer.objects[inInstanceIndex];
 	
-	vec4 sunCoord = vec4(inWorldPos, 1.0) * worldInfo.sun;
+	vec4 sunCoord = worldInfo.sun * vec4(inWorldPos, 1.0);
+	sunCoord.z = 1.0 - sunCoord.z;
 	const vec2 shadowMapSize = textureSize(shadowMap, 0);
 	const float boxBlurDimension = 3.0;
 	// Converts meters to UV-space units
-	const vec2 worldToUV = vec2(length(worldInfo.sun[0].xyz), length(worldInfo.sun[1].xyz));
+	const vec2 worldToUV = vec2(
+		length(vec3(
+			worldInfo.sun[0][0],
+			worldInfo.sun[1][0],
+			worldInfo.sun[2][0]
+		)), length(vec3(
+			worldInfo.sun[0][1],
+			worldInfo.sun[1][1],
+			worldInfo.sun[2][1]
+		))
+	);
 	const vec2 lightWidth = max(shadowMapSize.x, shadowMapSize.y) * sunTanRadius * worldToUV;
 	vec2 filterSize = boxBlurDimension / shadowMapSize;
 	const int maxPCFDims = 3;

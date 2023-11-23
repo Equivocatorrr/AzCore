@@ -312,10 +312,11 @@ void DrawDebugSphere(DrawingContext &context, vec3 center, f32 radius, vec4 colo
 f32 StringHeight(WString string);
 
 inline mat4 GetTransform(vec3 pos, quat rotation, vec3 scale) {
-	mat4 transform = mat4(mat3::Scaler(scale) * rotation.ToMat3());
-	transform.h.w1 = pos.x;
-	transform.h.w2 = pos.y;
-	transform.h.w3 = pos.z;
+	// TODO: This can be optimized easily
+	mat4 transform = mat4(rotation.ToMat3() * mat3::Scale(scale));
+	transform[3][0] = pos.x;
+	transform[3][1] = pos.y;
+	transform[3][2] = pos.z;
 	return transform;
 }
 

@@ -57,7 +57,8 @@ struct vec3_t {
 	inline vec3_t<T> operator/(T a) const { return vec3_t<T>(x / a, y / a, z / a); }
 	inline bool operator==(vec3_t<T> a) const { return x == a.x && y == a.y && z == a.z; }
 	inline bool operator!=(vec3_t<T> a) const { return x != a.x || y != a.y || z != a.z; }
-	inline T &operator[](u32 i) { return data[i]; }
+	inline T& operator[](i32 i) { return data[i]; }
+	inline const T& operator[](i32 i) const { return data[i]; }
 	inline vec3_t<T> operator+=(vec3_t<T> a) {
 		x += a.x;
 		y += a.y;

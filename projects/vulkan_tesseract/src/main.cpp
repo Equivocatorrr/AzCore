@@ -302,10 +302,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		mat5 model(1.0f);
 		model = mat5::RotationBasic(rotateAngle*halfpi, Plane::XZ) * mat5::RotationBasic(rotateAngle, Plane::YW);
 		mat5 view(1.0f);
-		view.v.v1 = offset.x;
-		view.v.v2 = offset.y;
-		view.v.v3 = offset.z;
-		view.v.v4 = offset.w;
+		view[4][0] = offset.x;
+		view[4][1] = offset.y;
+		view[4][2] = offset.z;
+		view[4][3] = offset.w;
 
 		view = mat5::RotationBasic(facingAngleXY.y, Plane::XW) * mat5::RotationBasic(facingAngleXY.x, Plane::YW) * view;
 		view = mat5::RotationBasic(facingAngleZW.y, Plane::XZ) * mat5::RotationBasic(facingAngleZW.x, Plane::XY) * view;
@@ -364,7 +364,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		const f32 fovFac = 1.0f / tan(fov*pi/360.0f);
 		mat5 modelView = view * model;
 		if (enableStereoGraphic) {
-			modelView.v.v1 -= eyeWidth/2.0f;
+			modelView[4][0] -= eyeWidth/2.0f;
 		}
 
 		for (u32 i = 0; i < 16; i++) {
@@ -375,9 +375,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			proj[0][i].y = projected[0].y / d[0][i] * fovFac;
 			if (enableStereoGraphic) {
 				proj[0][i].x -= 0.5f;
-				modelView.v.v1 += eyeWidth;
+				modelView[4][0] += eyeWidth;
 				projected[1] = modelView * points[i];
-				modelView.v.v1 -= eyeWidth;
+				modelView[4][0] -= eyeWidth;
 				d[1][i] = max(projected[1].z+projected[1].w+projected[1].v, 0.000001f);
 				proj[1][i].x = projected[1].x / d[1][i] * aspectRatio * fovFac + 0.5f;
 				proj[1][i].y = projected[1].y / d[1][i] * fovFac;

@@ -472,9 +472,9 @@ inline void Manager::HandleMouseUI() {
 			increment = increment5;
 		}
 		if (sys->Pressed(KC_KEY_LEFT)) {
-			placingAngle += increment;
-		} else if (sys->Pressed(KC_KEY_RIGHT)) {
 			placingAngle += -increment;
+		} else if (sys->Pressed(KC_KEY_RIGHT)) {
+			placingAngle += increment;
 		}
 		HandleTowerPlacement(KC_MOUSE_LEFT);
 	}
@@ -632,14 +632,14 @@ void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 
 void Manager::CreateSpawn() {
 	f32 angle = random(0.0f, tau);
-	vec2 place(sin(angle), cos(angle));
+	vec2 place(cos(angle), sin(angle));
 	place *= 1500.0f;
 	Physical newSpawn;
 	newSpawn.type = BOX;
-	newSpawn.basis.box.a = vec2(-128.0f, -32.0f);
-	newSpawn.basis.box.b = vec2(128.0f, 32.0f);
+	newSpawn.basis.box.a = vec2(-32.0f, -128.0f);
+	newSpawn.basis.box.b = vec2(32.0f, 128.0f);
 	newSpawn.pos = place;
-	newSpawn.angle = angle + pi;
+	newSpawn.angle = angle;
 	enemySpawns.Append(newSpawn);
 }
 
@@ -832,11 +832,11 @@ void Tower::Update(f32 timestep) {
 					dist = norm(deltaP);
 				}
 				deltaP = other.physical.pos - physical.pos + other.physical.vel * dist / bulletSpeed;
-				Angle32 idealAngle = atan2(-deltaP.y, deltaP.x);
+				Angle32 idealAngle = atan2(deltaP.y, deltaP.x);
 				for (i32 i = 0; i < bulletCount; i++) {
 					Angle32 angle = idealAngle + Degrees32(random(-bulletSpread.value(), bulletSpread.value()));
 					bullet.physical.vel.x = cos(angle);
-					bullet.physical.vel.y = -sin(angle);
+					bullet.physical.vel.y = sin(angle);
 					bullet.physical.vel *= bulletSpeed + random(-bulletSpeedVariability, bulletSpeedVariability);
 					bullet.physical.pos = physical.pos + bullet.physical.vel * timestep;
 					bullet.damage = damage;
@@ -870,11 +870,11 @@ void Tower::Update(f32 timestep) {
 			wind.lifetime = range / bulletSpeed;
 			f32 randomPos = random(-20.0f, 20.0f);
 			wind.physical.pos.x += cos(physical.angle.value() + pi * 0.5f) * randomPos;
-			wind.physical.pos.y -= sin(physical.angle.value() + pi * 0.5f) * randomPos;
+			wind.physical.pos.y += sin(physical.angle.value() + pi * 0.5f) * randomPos;
 			for (i32 i = 0; i < bulletCount; i++) {
 				Angle32 angle = physical.angle + Degrees32(random(-bulletSpread.value(), bulletSpread.value()));
 				wind.physical.vel.x = cos(angle);
-				wind.physical.vel.y = -sin(angle);
+				wind.physical.vel.y = sin(angle);
 				wind.physical.vel *= bulletSpeed + random(-bulletSpeedVariability, bulletSpeedVariability);
 				wind.physical.pos += wind.physical.vel * 0.03f;
 				entities->winds.Create(wind);
@@ -907,9 +907,9 @@ vec2 GetSpawnLocation() {
 	s = sin(entities->enemySpawns[spawnPoint].angle);
 	c = cos(entities->enemySpawns[spawnPoint].angle);
 	vec2 x, y;
-	x = vec2(c, -s) * entities->enemySpawns[spawnPoint].basis.box.b.x
+	x = vec2(c, s) * entities->enemySpawns[spawnPoint].basis.box.b.x
 	  * random(-1.0f, 1.0f);
-	y = vec2(s, c) * entities->enemySpawns[spawnPoint].basis.box.b.y
+	y = vec2(-s, c) * entities->enemySpawns[spawnPoint].basis.box.b.y
 	  * random(-1.0f, 1.0f);
 	return entities->enemySpawns[spawnPoint].pos + x + y;
 }
@@ -1017,7 +1017,7 @@ void Enemy::Update(f32 timestep) {
 			newEnemy.child = true;
 			newEnemy.age = age;
 			Angle32 spawnAngle = random(0.0f, tau);
-			vec2 spawnVector = vec2(cos(spawnAngle), -sin(spawnAngle)) * sqrt(random(0.0f, 1.0f));
+			vec2 spawnVector = vec2(cos(spawnAngle), sin(spawnAngle)) * sqrt(random(0.0f, 1.0f));
 			newEnemy.physical.pos = physical.pos + spawnVector * physical.basis.circle.r;
 			newEnemy.physical.vel = physical.vel + spawnVector * 100.0f;
 			newEnemy.color = color;
@@ -1110,7 +1110,7 @@ void Bullet::EventCreate() {
 	physical.type = SEGMENT;
 	physical.basis.segment.a = vec2(-length, -1.0f);
 	physical.basis.segment.b = vec2(length, 1.0f);
-	physical.angle = atan2(-physical.vel.y, physical.vel.x);
+	physical.angle = atan2(physical.vel.y, physical.vel.x);
 }
 
 void Bullet::EventDestroy() {

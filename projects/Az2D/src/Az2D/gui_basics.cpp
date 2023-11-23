@@ -1108,7 +1108,7 @@ void Checkbox::Draw(Rendering::DrawingContext &context) const {
 	vec4 colorActual = lerp(colorOffActual, colorOnActual, transition);
 	vec2 switchPos = (positionAbsolute + sizeAbsolute * vec2(lerp(0.25f, 0.75f, transition), 0.5f)) * guiBasic->scale;
 	sys->rendering.DrawQuad(context, positionAbsolute * guiBasic->scale, sizeAbsolute * guiBasic->scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, colorActual);
-	sys->rendering.DrawQuad(context, switchPos, (sizeAbsolute * vec2(0.375f, 0.75f)) * guiBasic->scale, 1.0f, 0.5f, -halfpi * transition, Rendering::PIPELINE_BASIC_2D, vec4(vec3(0.0f), 0.8f));
+	sys->rendering.DrawQuad(context, switchPos, (sizeAbsolute * vec2(0.375f, 0.75f)) * guiBasic->scale, 1.0f, 0.5f, halfpi * transition, Rendering::PIPELINE_BASIC_2D, vec4(vec3(0.0f), 0.8f));
 }
 
 TextBox::TextBox() : string(), stringFormatted(), stringSuffix(), colorBG(vec3(0.15f), 0.9f), highlightBG(vec3(0.2f), 0.9f), errorBG(0.1f, 0.0f, 0.0f, 0.9f), colorText(vec3(1.0f), 1.0f), highlightText(vec3(1.0f), 1.0f), errorText(1.0f, 0.5f, 0.5f, 1.0f), padding(2.0f), cursor(0), fontIndex(1), fontSize(17.39f), cursorBlinkTimer(0.0f), alignH(Rendering::LEFT), textFilter(TextFilterBasic), textValidate(TextValidateAll), entry(false), multiline(false) {

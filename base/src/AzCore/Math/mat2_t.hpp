@@ -10,21 +10,16 @@
 
 namespace AzCore {
 
-// 2x2 matrix with the data in a column-major layout to match GLSL's behavior
+// 2x2 matrix with the conventions matching GLSL
+// - column-major memory layout
+// - post-multiplication (transforms are applied in right-to-left order)
+// - multiplication means lhs rows are dotted with rhs columns
+// - vectors are row vectors on the lhs, and column vectors on the rhs
 template <typename T>
 struct mat2_t {
 	union {
-		struct {
-			T x1, y1,
-			  x2, y2;
-		} h;
-		struct {
-			T x1, x2,
-			  y1, y2;
-		} v;
-		struct {
-			T data[4];
-		};
+		vec2_t<T> cols[2];
+		T data[4];
 	};
 	mat2_t() = default;
 	inline mat2_t(T a) : data{
@@ -32,31 +27,45 @@ struct mat2_t {
 		0, a
 	} {};
 	inline mat2_t(
-		T x1, T y1,
-		T x2, T y2
+		T col_0_x, T col_0_y,
+		T col_1_x, T col_1_y
 	) : data{
-		x1, y1,
-		x2, y2
+		col_0_x, col_0_y,
+		col_1_x, col_1_y
 	} {};
-	inline static mat2_t<T> FromCols(vec2_t<T> col1, vec2_t<T> col2) {
+	inline static mat2_t<T> FromCols(vec2_t<T> col_0, vec2_t<T> col_1) {
 		mat2_t<T> result(
-			col1.x, col1.y,
-			col2.x, col2.y
+			col_0.x, col_0.y,
+			col_1.x, col_1.y
 		);
 		return result;
 	}
-	inline static mat2_t<T> FromRows(vec2_t<T> row1, vec2_t<T> row2) {
+	inline static mat2_t<T> FromRows(vec2_t<T> row_0, vec2_t<T> row_1) {
 		mat2_t<T> result(
-			row1.x, row1.y,
-			row2.x, row2.y
+			row_0.x, row_1.x,
+			row_0.y, row_1.y
 		);
 		return result;
 	}
 	inline mat2_t(const T d[4]) : data{d[0], d[1], d[2], d[3]} {};
-	inline vec2_t<T> Col1() const { return vec2_t<T>(h.x1, h.y1); }
-	inline vec2_t<T> Col2() const { return vec2_t<T>(h.x2, h.y2); }
-	inline vec2_t<T> Row1() const { return vec2_t<T>(v.x1, v.y1); }
-	inline vec2_t<T> Row2() const { return vec2_t<T>(v.x2, v.y2); }
+	inline vec2_t<T>& operator[](i32 column) {
+		AzAssert(column >= 0 && column < 2, Stringify("Invalid column (", column, ") in mat2_t::operator[]"));
+		return cols[column];
+	}
+	inline const vec2_t<T>& operator[](i32 column) const {
+		AzAssert(column >= 0 && column < 2, Stringify("Invalid column (", column, ") in mat2_t::operator[]"));
+		return cols[column];
+	}
+	template<i32 col>
+	inline vec2_t<T> Col() const {
+		static_assert(col >= 0 && col < 2);
+		return cols[col];
+	}
+	template<i32 row>
+	inline vec2_t<T> Row() const {
+		static_assert(row >= 0 && row < 2);
+		return vec2_t<T>(cols[0][row], cols[1][row]);
+	}
 	inline static mat2_t<T> Identity() {
 		return mat2_t(1);
 	};
@@ -73,46 +82,46 @@ struct mat2_t {
 			amount.x, 1
 		);
 	}
-	inline static mat2_t<T> Scaler(vec2_t<T> scale) {
+	inline static mat2_t<T> Scale(vec2_t<T> scale) {
 		return mat2_t<T>(
 			scale.x, 0,
 			0, scale.y
 		);
 	}
 	inline mat2_t<T> Transpose() const {
-		return mat2_t<T>(
-			v.x1, v.y1,
-			v.x2, v.y2
+		return FromRows(
+			Col<0>(),
+			Col<1>()
 		);
 	}
 	inline mat2_t<T> operator+(mat2_t<T> rhs) const {
-		return mat2_t<T>(
-			h.x1 + rhs.h.x1, h.y1 + rhs.h.y1,
-			h.x2 + rhs.h.x2, h.y2 + rhs.h.y2
+		return FromCols(
+			Col<0>() + rhs.Col<0>(),
+			Col<1>() + rhs.Col<1>()
 		);
 	}
 	inline mat2_t<T> operator*(mat2_t<T> rhs) const {
 		return mat2_t<T>(
-			dot(Row1(), rhs.Col1()), dot(Row2(), rhs.Col1()),
-			dot(Row1(), rhs.Col2()), dot(Row2(), rhs.Col2())
+			dot(Row<0>(), rhs.Col<0>()), dot(Row<1>(), rhs.Col<0>()),
+			dot(Row<0>(), rhs.Col<1>()), dot(Row<1>(), rhs.Col<1>())
 		);
 	}
 	inline vec2_t<T> operator*(vec2_t<T> rhs) const {
 		return vec2_t<T>(
-			dot(Row1(), rhs),
-			dot(Row2(), rhs)
+			dot(Row<0>(), rhs),
+			dot(Row<1>(), rhs)
 		);
 	}
-	inline mat2_t<T> operator*(T rhs) const {
-		return mat2_t<T>(
-			h.x1 * rhs, h.y1 * rhs,
-			h.x2 * rhs, h.y2 * rhs
+	inline mat2_t<T> operator*(T a) const {
+		return FromCols(
+			Col<0>() * a,
+			Col<1>() * a
 		);
 	}
-	inline mat2_t<T> operator/(T rhs) const {
-		return mat2_t<T>(
-			h.x1 / rhs, h.y1 / rhs,
-			h.x2 / rhs, h.y2 / rhs
+	inline mat2_t<T> operator/(T a) const {
+		return FromCols(
+			Col<0>() / a,
+			Col<1>() / a
 		);
 	}
 };
@@ -125,8 +134,8 @@ typedef mat2_t<f64> mat2d;
 template <typename T>
 inline AzCore::vec2_t<T> operator*(AzCore::vec2_t<T> lhs, AzCore::mat2_t<T> rhs) {
 	return AzCore::vec2_t<T>(
-		dot(lhs, rhs.Col1()),
-		dot(lhs, rhs.Col2())
+		dot(lhs, rhs.Col<0>()),
+		dot(lhs, rhs.Col<1>())
 	);
 }
 

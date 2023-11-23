@@ -12,34 +12,23 @@
 
 namespace AzCore {
 
-// 5x5 matrix with the data in a column-major layout to be consistent with the rest of the matrices
+// 5x5 matrix with the conventions matching GLSL
+// - column-major memory layout
+// - post-multiplication (transforms are applied in right-to-left order)
+// - multiplication means lhs rows are dotted with rhs columns
+// - vectors are row vectors on the lhs, and column vectors on the rhs
 template <typename T>
 struct mat5_t {
 	union {
-		struct {
-			T x1, y1, z1, w1, v1,
-			  x2, y2, z2, w2, v2,
-			  x3, y3, z3, w3, v3,
-			  x4, y4, z4, w4, v4,
-			  x5, y5, z5, w5, v5;
-		} h;
-		struct {
-			T x1, x2, x3, x4, x5,
-			  y1, y2, y3, y4, y5,
-			  z1, z2, z3, z4, z5,
-			  w1, w2, w3, w4, w5,
-			  v1, v2, v3, v4, v5;
-		} v;
-		struct {
-			T data[25];
-		};
+		vec5_t<T> cols[5];
+		T data[25];
 	};
 	mat5_t() = default;
 	inline mat5_t(mat4_t<T> in) : data{
-		in.h.x1, in.h.y1, in.h.z1, in.h.w1, 0,
-		in.h.x2, in.h.y2, in.h.z2, in.h.w2, 0,
-		in.h.x3, in.h.y3, in.h.z3, in.h.w3, 0,
-		in.h.x4, in.h.y4, in.h.z4, in.h.w4, 0,
+		in.cols[0][0], in.cols[0][1], in.cols[0][2], in.cols[0][3], 0,
+		in.cols[1][0], in.cols[1][1], in.cols[1][2], in.cols[1][3], 0,
+		in.cols[2][0], in.cols[2][1], in.cols[2][2], in.cols[2][3], 0,
+		in.cols[3][0], in.cols[3][1], in.cols[3][2], in.cols[3][3], 0,
 		0,       0,       0,       0,       1
 	} {}
 	inline mat5_t(T a) : data{
@@ -50,55 +39,63 @@ struct mat5_t {
 		0, 0, 0, 0, a
 	} {}
 	inline mat5_t(
-		T x1, T y1, T z1, T w1, T v1,
-		T x2, T y2, T z2, T w2, T v2,
-		T x3, T y3, T z3, T w3, T v3,
-		T x4, T y4, T z4, T w4, T v4,
-		T x5, T y5, T z5, T w5, T v5
+		T col_0_x, T col_0_y, T col_0_z, T col_0_w, T col_0_v,
+		T col_1_x, T col_1_y, T col_1_z, T col_1_w, T col_1_v,
+		T col_2_x, T col_2_y, T col_2_z, T col_2_w, T col_2_v,
+		T col_3_x, T col_3_y, T col_3_z, T col_3_w, T col_3_v,
+		T col_4_x, T col_4_y, T col_4_z, T col_4_w, T col_4_v
 	) : data{
-		x1, y1, z1, w1, v1,
-		x2, y2, z2, w2, v2,
-		x3, y3, z3, w3, v3,
-		x4, y4, z4, w4, v4,
-		x5, y5, z5, w5, v5
+		col_0_x, col_0_y, col_0_z, col_0_w, col_0_v,
+		col_1_x, col_1_y, col_1_z, col_1_w, col_1_v,
+		col_2_x, col_2_y, col_2_z, col_2_w, col_2_v,
+		col_3_x, col_3_y, col_3_z, col_3_w, col_3_v,
+		col_4_x, col_4_y, col_4_z, col_4_w, col_4_v
 	} {}
-	inline static mat5_t<T> FromCols(vec5_t<T> col1, vec5_t<T> col2, vec5_t<T> col3, vec5_t<T> col4, vec5_t<T> col5) {
+	inline static mat5_t<T> FromCols(vec5_t<T> col_0, vec5_t<T> col_1, vec5_t<T> col_2, vec5_t<T> col_3, vec5_t<T> col_4) {
 		mat5_t<T> result(
-			col1.x, col1.y, col1.z, col1.w, col1.v,
-			col2.x, col2.y, col2.z, col2.w, col2.v,
-			col3.x, col3.y, col3.z, col3.w, col3.v,
-			col4.x, col4.y, col4.z, col4.w, col4.v,
-			col5.x, col5.y, col5.z, col5.w, col5.v
+			col_0.x, col_0.y, col_0.z, col_0.w, col_0.v,
+			col_1.x, col_1.y, col_1.z, col_1.w, col_1.v,
+			col_2.x, col_2.y, col_2.z, col_2.w, col_2.v,
+			col_3.x, col_3.y, col_3.z, col_3.w, col_3.v,
+			col_4.x, col_4.y, col_4.z, col_4.w, col_4.v
 		);
 		return result;
 	}
-	inline static mat5_t<T> FromRows(vec5_t<T> row1, vec5_t<T> row2, vec5_t<T> row3, vec5_t<T> row4, vec5_t<T> row5) {
+	inline static mat5_t<T> FromRows(vec5_t<T> row_0, vec5_t<T> row_1, vec5_t<T> row_2, vec5_t<T> row_3, vec5_t<T> row_4) {
 		mat5_t<T> result(
-			row1.x, row1.y, row1.z, row1.w, row1.v,
-			row2.x, row2.y, row2.z, row2.w, row2.v,
-			row3.x, row3.y, row3.z, row3.w, row3.v,
-			row4.x, row4.y, row4.z, row4.w, row4.v,
-			row5.x, row5.y, row5.z, row5.w, row5.v
+			row_0.x, row_1.x, row_2.x, row_3.x, row_4.x,
+			row_0.y, row_1.y, row_2.y, row_3.y, row_4.y,
+			row_0.z, row_1.z, row_2.z, row_3.z, row_4.z,
+			row_0.w, row_1.w, row_2.w, row_3.w, row_4.w,
+			row_0.v, row_1.v, row_2.v, row_3.v, row_4.v
 		);
 		return result;
 	}
 	inline mat5_t(const T d[25]) : data{
-		d[0],  d[1],  d[2],  d[3],  d[4],
-		d[5],  d[6],  d[7],  d[8],  d[9],
+		d[ 0], d[ 1], d[ 2], d[ 3], d[ 4],
+		d[ 5], d[ 6], d[ 7], d[ 8], d[ 9],
 		d[10], d[11], d[12], d[13], d[14],
 		d[15], d[16], d[17], d[18], d[19],
 		d[20], d[21], d[22], d[23], d[24]
 	} {}
-	inline vec5_t<T> Col1() const { return vec5_t<T>(h.x1, h.y1, h.z1, h.w1, h.v1); }
-	inline vec5_t<T> Col2() const { return vec5_t<T>(h.x2, h.y2, h.z2, h.w2, h.v2); }
-	inline vec5_t<T> Col3() const { return vec5_t<T>(h.x3, h.y3, h.z3, h.w3, h.v3); }
-	inline vec5_t<T> Col4() const { return vec5_t<T>(h.x4, h.y4, h.z4, h.w4, h.v4); }
-	inline vec5_t<T> Col5() const { return vec5_t<T>(h.x5, h.y5, h.z5, h.w5, h.v5); }
-	inline vec5_t<T> Row1() const { return vec5_t<T>(v.x1, v.y1, v.z1, v.w1, v.v1); }
-	inline vec5_t<T> Row2() const { return vec5_t<T>(v.x2, v.y2, v.z2, v.w2, v.v2); }
-	inline vec5_t<T> Row3() const { return vec5_t<T>(v.x3, v.y3, v.z3, v.w3, v.v3); }
-	inline vec5_t<T> Row4() const { return vec5_t<T>(v.x4, v.y4, v.z4, v.w4, v.v4); }
-	inline vec5_t<T> Row5() const { return vec5_t<T>(v.x5, v.y5, v.z5, v.w5, v.v5); }
+	inline vec5_t<T>& operator[](i32 column) {
+		AzAssert(column >= 0 && column < 5, Stringify("Invalid column (", column, ") in mat5_t::operator[]"));
+		return cols[column];
+	}
+	inline const vec5_t<T>& operator[](i32 column) const {
+		AzAssert(column >= 0 && column < 5, Stringify("Invalid column (", column, ") in mat5_t::operator[]"));
+		return cols[column];
+	}
+	template<i32 col>
+	inline vec5_t<T> Col() const {
+		static_assert(col >= 0 && col < 5);
+		return cols[col];
+	}
+	template<i32 row>
+	inline vec5_t<T> Row() const {
+		static_assert(row >= 0 && row < 5);
+		return vec5_t<T>(cols[0][row], cols[1][row], cols[2][row], cols[3][row], cols[4][row]);
+	}
 	inline static mat5_t<T> Identity() {
 		return mat5_t(1);
 	};
@@ -186,7 +183,7 @@ struct mat5_t {
 			0,                   0,                   0,                   0, 1
 		);
 	}
-	static mat5_t<T> Scaler(vec5_t<T> scale) {
+	static mat5_t<T> Scale(vec5_t<T> scale) {
 		return mat5_t<T>(
 			scale.x, 0, 0, 0, 0,
 			0, scale.y, 0, 0, 0,
@@ -196,57 +193,58 @@ struct mat5_t {
 		);
 	}
 	inline mat5_t<T> Transpose() const {
-		return mat5_t<T>(
-			v.x1, v.y1, v.z1, v.w1, v.v1,
-			v.x2, v.y2, v.z2, v.w2, v.v2,
-			v.x3, v.y3, v.z3, v.w3, v.v3,
-			v.x4, v.y4, v.z4, v.w4, v.v4,
-			v.x5, v.y5, v.z5, v.w5, v.v5
+		return FromRows(
+			Col<0>(),
+			Col<1>(),
+			Col<2>(),
+			Col<3>(),
+			Col<4>()
 		);
 	}
 	inline mat5_t<T> operator+(mat5_t<T> a) const {
-		return mat5_t<T>(
-			h.x1 + a.h.x1, h.y1 + a.h.y1, h.z1 + a.h.z1, h.w1 + a.h.w1, h.v1 + a.h.v1,
-			h.x2 + a.h.x2, h.y2 + a.h.y2, h.z2 + a.h.z2, h.w2 + a.h.w2, h.v2 + a.h.v2,
-			h.x3 + a.h.x3, h.y3 + a.h.y3, h.z3 + a.h.z3, h.w3 + a.h.w3, h.v3 + a.h.v3,
-			h.x4 + a.h.x4, h.y4 + a.h.y4, h.z4 + a.h.z4, h.w4 + a.h.w4, h.v4 + a.h.v4,
-			h.x5 + a.h.x5, h.y5 + a.h.y5, h.z5 + a.h.z5, h.w5 + a.h.w5, h.v5 + a.h.v5
+		return FromCols(
+			Col<0>() + a,
+			Col<1>() + a,
+			Col<2>() + a,
+			Col<3>() + a,
+			Col<4>() + a
 		);
 	}
 	inline mat5_t<T> operator*(mat5_t<T> rhs) const {
 		return mat5_t<T>(
-			dot(Row1(), rhs.Col1()), dot(Row2(), rhs.Col1()), dot(Row3(), rhs.Col1()), dot(Row4(), rhs.Col1()), dot(Row5(), rhs.Col1()),
-			dot(Row1(), rhs.Col2()), dot(Row2(), rhs.Col2()), dot(Row3(), rhs.Col2()), dot(Row4(), rhs.Col2()), dot(Row5(), rhs.Col2()),
-			dot(Row1(), rhs.Col3()), dot(Row2(), rhs.Col3()), dot(Row3(), rhs.Col3()), dot(Row4(), rhs.Col3()), dot(Row5(), rhs.Col3()),
-			dot(Row1(), rhs.Col4()), dot(Row2(), rhs.Col4()), dot(Row3(), rhs.Col4()), dot(Row4(), rhs.Col4()), dot(Row5(), rhs.Col4()),
-			dot(Row1(), rhs.Col5()), dot(Row2(), rhs.Col5()), dot(Row3(), rhs.Col5()), dot(Row4(), rhs.Col5()), dot(Row5(), rhs.Col5())
+			dot(Row<0>(), rhs.Col<0>()), dot(Row<1>(), rhs.Col<0>()), dot(Row<2>(), rhs.Col<0>()), dot(Row<3>(), rhs.Col<0>()), dot(Row<4>(), rhs.Col<0>()),
+			dot(Row<0>(), rhs.Col<1>()), dot(Row<1>(), rhs.Col<1>()), dot(Row<2>(), rhs.Col<1>()), dot(Row<3>(), rhs.Col<1>()), dot(Row<4>(), rhs.Col<1>()),
+			dot(Row<0>(), rhs.Col<2>()), dot(Row<1>(), rhs.Col<2>()), dot(Row<2>(), rhs.Col<2>()), dot(Row<3>(), rhs.Col<2>()), dot(Row<4>(), rhs.Col<2>()),
+			dot(Row<0>(), rhs.Col<3>()), dot(Row<1>(), rhs.Col<3>()), dot(Row<2>(), rhs.Col<3>()), dot(Row<3>(), rhs.Col<3>()), dot(Row<4>(), rhs.Col<3>()),
+			dot(Row<0>(), rhs.Col<4>()), dot(Row<1>(), rhs.Col<4>()), dot(Row<2>(), rhs.Col<4>()), dot(Row<3>(), rhs.Col<4>()), dot(Row<4>(), rhs.Col<4>())
 		);
 	}
 	inline vec5_t<T> operator*(vec5_t<T> rhs) const {
 		return vec5_t<T>(
-			dot(Row1(), rhs),
-			dot(Row2(), rhs),
-			dot(Row3(), rhs),
-			dot(Row4(), rhs),
-			dot(Row5(), rhs)
+			dot(Row<0>(), rhs),
+			dot(Row<1>(), rhs),
+			dot(Row<2>(), rhs),
+			dot(Row<3>(), rhs),
+			dot(Row<4>(), rhs)
 		);
 	}
 	inline mat5_t<T> operator*(T a) const {
-		return mat5_t<T>(
-			h.x1 * a, h.y1 * a, h.z1 * a, h.w1 * a, h.v1 * a,
-			h.x2 * a, h.y2 * a, h.z2 * a, h.w2 * a, h.v2 * a,
-			h.x3 * a, h.y3 * a, h.z3 * a, h.w3 * a, h.v3 * a,
-			h.x4 * a, h.y4 * a, h.z4 * a, h.w4 * a, h.v4 * a,
-			h.x5 * a, h.y5 * a, h.z5 * a, h.w5 * a, h.v5 * a
+		return FromCols(
+			Col<0>() * a,
+			Col<1>() * a,
+			Col<2>() * a,
+			Col<3>() * a,
+			Col<4>() * a
 		);
 	}
 	inline mat5_t<T> operator/(T a) const {
-		return mat5_t<T>(
-			h.x1 / a, h.y1 / a, h.z1 / a, h.w1 / a, h.v1 / a,
-			h.x2 / a, h.y2 / a, h.z2 / a, h.w2 / a, h.v2 / a,
-			h.x3 / a, h.y3 / a, h.z3 / a, h.w3 / a, h.v3 / a,
-			h.x4 / a, h.y4 / a, h.z4 / a, h.w4 / a, h.v4 / a,
-			h.x5 / a, h.y5 / a, h.z5 / a, h.w5 / a, h.v5 / a);
+		return FromCols(
+			Col<0>() / a,
+			Col<1>() / a,
+			Col<2>() / a,
+			Col<3>() / a,
+			Col<4>() / a
+		);
 	}
 };
 
@@ -258,11 +256,11 @@ typedef mat5_t<f64> mat5d;
 template <typename T>
 inline AzCore::vec5_t<T> operator*(AzCore::vec5_t<T> lhs, AzCore::mat5_t<T> rhs) {
 	return AzCore::vec5_t<T>(
-		dot(lhs, rhs.Col1()),
-		dot(lhs, rhs.Col2()),
-		dot(lhs, rhs.Col3()),
-		dot(lhs, rhs.Col4()),
-		dot(lhs, rhs.Col5())
+		dot(lhs, rhs.Col<0>()),
+		dot(lhs, rhs.Col<1>()),
+		dot(lhs, rhs.Col<2>()),
+		dot(lhs, rhs.Col<3>()),
+		dot(lhs, rhs.Col<4>())
 	);
 }
 

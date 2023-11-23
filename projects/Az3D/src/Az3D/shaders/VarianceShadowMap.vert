@@ -49,9 +49,9 @@ layout(std140, set=0, binding=1) readonly buffer ObjectBuffer {
 
 void main() {
 	mat4 model = objectBuffer.objects[gl_InstanceIndex].model;
-	vec4 worldPos = vec4(inPosition, 1.0) * model;
-	gl_Position = worldPos * worldInfo.sun;
+	vec4 worldPos = model * vec4(inPosition, 1.0);
+	gl_Position = worldInfo.sun * worldPos;
 	outTexCoord = inTexCoord;
 	outInstanceIndex = gl_InstanceIndex;
-	outDepth = gl_Position.z;
+	outDepth = 1.0 - gl_Position.z;
 }

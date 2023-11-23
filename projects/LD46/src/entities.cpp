@@ -520,7 +520,7 @@ bool World::Load(String filename) {
 void Lantern::Update(f32 timestep) {
 	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Lantern::Update)
 	vel = (pos - posPrev) / timestep;
-	vec2 v = vec2(cos(angle), -sin(angle));
+	vec2 v = -14.0f * vec2(cos(angle), sin(angle));
 	if (particleTimer > 0.0f) {
 		particleTimer -= timestep;
 	}
@@ -529,7 +529,7 @@ void Lantern::Update(f32 timestep) {
 			Flame flame;
 			f32 a = random(-pi, pi);
 			vec2 offset = vec2(cos(a), sin(a)) * random(0.0f, 4.0f);
-			flame.physical.pos = pos + offset + v * 14.0f;
+			flame.physical.pos = pos + offset + v;
 			flame.physical.vel = vel * 0.5f;
 			flame.size = entities->flame;
 			entities->flames.Create(flame);
@@ -810,7 +810,7 @@ void Droplet::Update(f32 timestep) {
 		entities->droplets.Destroy(id);
 	}
 	physical.ImpulseY(2000.0f, timestep);
-	physical.angle = atan2(-physical.vel.y, physical.vel.x);
+	physical.angle = atan2(physical.vel.y, physical.vel.x);
 }
 
 void Droplet::Draw(Rendering::DrawingContext &context) {

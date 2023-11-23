@@ -13,6 +13,6 @@ layout(set=0, binding=0) uniform WorldInfo {
 } worldInfo;
 
 void main() {
-	gl_Position = vec4(inPosition, 1.0) * worldInfo.viewProj;
+	gl_Position = worldInfo.viewProj * vec4(inPosition, 1.0);
 	outColor = inColor;
 }

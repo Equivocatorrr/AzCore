@@ -11,63 +11,68 @@
 
 namespace AzCore {
 
-// 3x3 matrix with the data in a column-major layout to match GLSL's behavior
+// 3x3 matrix with the conventions matching GLSL
+// - column-major memory layout
+// - post-multiplication (transforms are applied in right-to-left order)
+// - multiplication means lhs rows are dotted with rhs columns
+// - vectors are row vectors on the lhs, and column vectors on the rhs
 template <typename T>
 struct mat3_t {
 	union {
-		struct {
-			T x1, y1, z1,
-			  x2, y2, z2,
-			  x3, y3, z3;
-		} h;
-		struct {
-			T x1, x2, x3,
-			  y1, y2, y3,
-			  z1, z2, z3;
-		} v;
-		struct {
-			T data[9];
-		};
+		vec3_t<T> cols[3];
+		T data[9];
 	};
 	mat3_t() = default;
 	inline mat3_t(mat2_t<T> in) : data{
-		in.h.x1, in.h.y1, 0,
-		in.h.x2, in.h.y2, 0,
-		0,       0,       1
+		in.cols[0][0], in.cols[0][1], 0,
+		in.cols[1][0], in.cols[1][1], 0,
+		0            , 0            , 1
 	} {}
 	inline mat3_t(T a) : data{a, 0, 0, 0, a, 0, 0, 0, a} {}
 	inline mat3_t(
-		T x1, T y1, T z1,
-		T x2, T y2, T z2,
-		T x3, T y3, T z3
+		T col_0_x, T col_0_y, T col_0_z,
+		T col_1_x, T col_1_y, T col_1_z,
+		T col_2_x, T col_2_y, T col_2_z
 	) : data{
-		x1, y1, z1,
-		x2, y2, z2,
-		x3, y3, z3
+		col_0_x, col_0_y, col_0_z,
+		col_1_x, col_1_y, col_1_z,
+		col_2_x, col_2_y, col_2_z
 	} {}
-	inline static mat3_t<T> FromCols(vec3_t<T> col1, vec3_t<T> col2, vec3_t<T> col3) {
+	inline static mat3_t<T> FromCols(vec3_t<T> col_0, vec3_t<T> col_1, vec3_t<T> col_2) {
 		mat3_t<T> result(
-			col1.x, col1.y, col1.z,
-			col2.x, col2.y, col2.z,
-			col3.x, col3.y, col3.z
+			col_0.x, col_0.y, col_0.z,
+			col_1.x, col_1.y, col_1.z,
+			col_2.x, col_2.y, col_2.z
 		);
 		return result;
 	}
-	inline static mat3_t<T> FromRows(vec3_t<T> row1, vec3_t<T> row2, vec3_t<T> row3) {
+	inline static mat3_t<T> FromRows(vec3_t<T> row_0, vec3_t<T> row_1, vec3_t<T> row_2) {
 		mat3_t<T> result(
-			row1.x, row1.y, row1.z,
-			row2.x, row2.y, row2.z,
-			row3.x, row3.y, row3.z
+			row_0.x, row_1.x, row_2.x,
+			row_0.y, row_1.y, row_2.y,
+			row_0.z, row_1.z, row_2.z
 		);
 		return result;
 	}
 	inline mat3_t(const T d[9]) : data{d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[9]} {}
-	inline vec3_t<T> Col1() const { return vec3_t<T>(h.x1, h.y1, h.z1); }
-	inline vec3_t<T> Col2() const { return vec3_t<T>(h.x2, h.y2, h.z2); }
-	inline vec3_t<T> Col3() const { return vec3_t<T>(h.x3, h.y3, h.z3); }
-	inline vec3_t<T> Row1() const { return vec3_t<T>(v.x1, v.y1, v.z1); }
-	inline vec3_t<T> Row2() const { return vec3_t<T>(v.x2, v.y2, v.z2); }
-	inline vec3_t<T> Row3() const { return vec3_t<T>(v.x3, v.y3, v.z3); }
+	inline vec3_t<T>& operator[](i32 column) {
+		AzAssert(column >= 0 && column < 3, Stringify("Invalid column (", column, ") in mat3_t::operator[]"));
+		return cols[column];
+	}
+	inline const vec3_t<T>& operator[](i32 column) const {
+		AzAssert(column >= 0 && column < 3, Stringify("Invalid column (", column, ") in mat3_t::operator[]"));
+		return cols[column];
+	}
+	template<i32 col>
+	inline vec3_t<T> Col() const {
+		static_assert(col >= 0 && col < 3);
+		return cols[col];
+	}
+	template<i32 row>
+	inline vec3_t<T> Row() const {
+		static_assert(row >= 0 && row < 3);
+		return vec3_t<T>(cols[0][row], cols[1][row], cols[2][row]);
+	}
 	inline static mat3_t<T> Identity() {
 		return mat3_t(1);
 	};
@@ -109,7 +114,7 @@ struct mat3_t {
 			xz * ic + a.y * s,   yz * ic - a.x * s,   c + zz * ic
 		);
 	}
-	static mat3_t<T> Scaler(vec3_t<T> scale) {
+	static mat3_t<T> Scale(vec3_t<T> scale) {
 		return mat3_t<T>(
 			scale.x, 0, 0,
 			0, scale.y, 0,
@@ -117,45 +122,45 @@ struct mat3_t {
 		);
 	}
 	inline mat3_t<T> Transpose() const {
-		return mat3_t<T>(
-			v.x1, v.y1, v.z1,
-			v.x2, v.y2, v.z2,
-			v.x3, v.y3, v.z3
+		return FromRows(
+			Col<0>(),
+			Col<1>(),
+			Col<2>()
 		);
 	}
 	inline mat3_t<T> operator+(mat3_t<T> a) const {
-		return mat3_t<T>(
-			h.x1 + a.h.x1, h.y1 + a.h.y1, h.z1 + a.h.z1,
-			h.x2 + a.h.x2, h.y2 + a.h.y2, h.z2 + a.h.z2,
-			h.x3 + a.h.x3, h.y3 + a.h.y3, h.z3 + a.h.z3
+		return FromCols(
+			Col<0>() + rhs.Col<0>(),
+			Col<1>() + rhs.Col<1>(),
+			Col<2>() + rhs.Col<2>()
 		);
 	}
 	inline mat3_t<T> operator*(mat3_t<T> rhs) const {
 		return mat3_t<T>(
-			dot(Row1(), rhs.Col1()), dot(Row2(), rhs.Col1()), dot(Row3(), rhs.Col1()),
-			dot(Row1(), rhs.Col2()), dot(Row2(), rhs.Col2()), dot(Row3(), rhs.Col2()),
-			dot(Row1(), rhs.Col3()), dot(Row2(), rhs.Col3()), dot(Row3(), rhs.Col3())
+			dot(Row<0>(), rhs.Col<0>()), dot(Row<1>(), rhs.Col<0>()), dot(Row<2>(), rhs.Col<0>()),
+			dot(Row<0>(), rhs.Col<1>()), dot(Row<1>(), rhs.Col<1>()), dot(Row<2>(), rhs.Col<1>()),
+			dot(Row<0>(), rhs.Col<2>()), dot(Row<1>(), rhs.Col<2>()), dot(Row<2>(), rhs.Col<2>())
 		);
 	}
 	inline vec3_t<T> operator*(vec3_t<T> rhs) const {
 		return vec3_t<T>(
-			dot(Row1(), rhs),
-			dot(Row2(), rhs),
-			dot(Row3(), rhs)
+			dot(Row<0>(), rhs),
+			dot(Row<1>(), rhs),
+			dot(Row<2>(), rhs)
 		);
 	}
 	inline mat3_t<T> operator*(T a) const {
-		return mat3_t<T>(
-			h.x1 * a, h.y1 * a, h.z1 * a,
-			h.x2 * a, h.y2 * a, h.z2 * a,
-			h.x3 * a, h.y3 * a, h.z3 * a
+		return FromCols(
+			Col<0>() * a,
+			Col<1>() * a,
+			Col<2>() * a
 		);
 	}
 	inline mat3_t<T> operator/(T a) const {
-		return mat3_t<T>(
-			h.x1 / a, h.y1 / a, h.z1 / a,
-			h.x2 / a, h.y2 / a, h.z2 / a,
-			h.x3 / a, h.y3 / a, h.z3 / a
+		return FromCols(
+			Col<0>() / a,
+			Col<1>() / a,
+			Col<2>() / a
 		);
 	}
 };
@@ -168,9 +173,9 @@ typedef mat3_t<f64> mat3d;
 template <typename T>
 inline AzCore::vec3_t<T> operator*(AzCore::vec3_t<T> lhs, AzCore::mat3_t<T> rhs) {
 	return AzCore::vec3_t<T>(
-		dot(lhs, rhs.Col1()),
-		dot(lhs, rhs.Col2()),
-		dot(lhs, rhs.Col3())
+		dot(lhs, rhs.Col<0>()),
+		dot(lhs, rhs.Col<1>()),
+		dot(lhs, rhs.Col<2>())
 	);
 }
 

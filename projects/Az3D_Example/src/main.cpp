@@ -18,6 +18,7 @@ Settings::Name sFlickTilting;
 struct Test : public GameSystems::System {
 	vec3 pos = vec3(1.0f, 1.0f, 1.0f);
 	quat facingDir = quat(1.0f);
+	// Angle32 pitch = 0.0f, yaw = 0.0f;
 	quat objectOrientation = quat(1.0f);
 	vec2 facingDiff = 0.0f;
 	Degrees32 targetFOV = 90.0f;
@@ -78,6 +79,8 @@ struct Test : public GameSystems::System {
 			}
 			vec2 diff = facingDiff * factor;
 			facingDiff -= diff;
+			// pitch += Radians32(diff.y);
+			// yaw += Radians32(diff.x);
 			quat zRot = quat::Rotation(
 				diff.x,
 				facingDir.Conjugate().RotatePoint(camUp)
@@ -93,7 +96,7 @@ struct Test : public GameSystems::System {
 			// vec3 right = objectOrientation.RotatePoint(vec3(1.0f, 0.0f, 0.0f));
 			// vec3 up = objectOrientation.RotatePoint(vec3(0.0f, 0.0f, 1.0f));
 			quat zRot = quat::Rotation(
-				-f32(sys->input.cursor.x - sys->input.cursorPrevious.x) * 4.0f / sys->rendering.screenSize.x,
+				f32(sys->input.cursor.x - sys->input.cursorPrevious.x) * 4.0f / sys->rendering.screenSize.x,
 				camUp
 			);
 			quat xRot = quat::Rotation(
@@ -103,6 +106,18 @@ struct Test : public GameSystems::System {
 			objectOrientation *= zRot * xRot;
 			objectOrientation = normalize(objectOrientation);
 		}
+		// camera.up = vec3(0.0f, 0.0f, 1.0f);
+		// {
+		// 	f32 sYaw = sin(yaw);
+		// 	f32 cYaw = cos(yaw);
+		// 	f32 sPitch = sin(pitch);
+		// 	f32 cPitch = cos(pitch);
+		// 	camera.forward = vec3(
+		// 		sYaw * cPitch,
+		// 		cYaw * cPitch,
+		// 		sPitch
+		// 	);
+		// }
 		camera.forward = facingDir.RotatePoint(vec3(0.0f, 1.0f, 0.0f));
 		camera.up = facingDir.RotatePoint(vec3(0.0f, 0.0f, 1.0f));
 		{
@@ -179,8 +194,8 @@ struct Test : public GameSystems::System {
 					for (i32 xx = -patchCount/2; xx < patchCount/2; xx++) {
 						mat4 &transform = transforms[(yy+patchCount/2) * patchCount + (xx+patchCount/2)];
 						transform = mat4::RotationBasic(random(0.0f, tau, &rng), Axis::Z);
-						transform.h.w1 = x + float(xx) * patchDimension / float(patchCount);
-						transform.h.w2 = y + float(yy) * patchDimension / float(patchCount);
+						transform[3][0] = x + float(xx) * patchDimension / float(patchCount);
+						transform[3][1] = y + float(yy) * patchDimension / float(patchCount);
 					}
 				}
 				Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshGrass], transforms, true, false);

@@ -101,14 +101,14 @@ void MainMenu::Initialize() {
 
 	spacer = gui->system.CreateSpacer(listV, 0.4f);
 	
-	azgui::ListH *spacingList = gui->system.CreateListH(listV);
+	azgui::ListH *spacingList = gui->system.CreateListHAsDefault(listV);
 	spacingList->color = vec4(0.0f);
 	spacingList->colorHighlighted = vec4(0.0f);
 	spacingList->SetHeightContents();
 
 	spacer = gui->system.CreateSpacer(spacingList, 0.5f);
 
-	azgui::ListV *buttonList = gui->system.CreateListV(spacingList);
+	azgui::ListV *buttonList = gui->system.CreateListVAsDefault(spacingList);
 	buttonList->SetWidthPixel(500.0f);
 	buttonList->SetHeightContents();
 	buttonList->padding = vec2(16.0f);
@@ -182,14 +182,14 @@ void SettingsMenu::Initialize() {
 
 	spacer = gui->system.CreateSpacer(listV, 0.4f);
 	
-	azgui::ListH *spacingList = gui->system.CreateListH(listV);
+	azgui::ListH *spacingList = gui->system.CreateListHAsDefault(listV);
 	spacingList->color = vec4(0.0f);
 	spacingList->colorHighlighted = vec4(0.0f);
 	spacingList->SetHeightContents();
 
 	spacer = gui->system.CreateSpacer(spacingList, 0.5f);
 
-	azgui::ListV *actualList = gui->system.CreateListV(spacingList);
+	azgui::ListV *actualList = gui->system.CreateListVAsDefault(spacingList);
 	actualList->SetWidthPixel(500.0f);
 	actualList->SetHeightContents();
 	actualList->padding = vec2(24.0f);
@@ -305,7 +305,7 @@ void SettingsMenu::Initialize() {
 	buttonBack->keycodeActivators = {KC_GP_BTN_B, KC_KEY_ESC};
 	buttonBack->AddDefaultText(sys->ReadLocale("Back"));
 
-	buttonApply = gui->system.CreateButtonFrom(buttonList, buttonTemplate);
+	buttonApply = gui->system.CreateButtonAsDefaultFrom(buttonList, buttonTemplate);
 	buttonApply->AddDefaultText(sys->ReadLocale("Apply"));
 
 	Reset();

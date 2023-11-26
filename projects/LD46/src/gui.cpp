@@ -173,14 +173,14 @@ void MainMenu::Initialize() {
 
 	spacer = gui->system.CreateSpacer(listV, 0.4f);
 	
-	azgui::ListH *spacingList = gui->system.CreateListH(listV);
+	azgui::ListH *spacingList = gui->system.CreateListHAsDefault(listV);
 	spacingList->color = vec4(0.0f);
 	spacingList->colorHighlighted = vec4(0.0f);
 	spacingList->SetHeightContents();
 
 	spacer = gui->system.CreateSpacer(spacingList, 0.5f);
 
-	azgui::ListV *buttonList = gui->system.CreateListV(spacingList);
+	azgui::ListV *buttonList = gui->system.CreateListVAsDefault(spacingList);
 	buttonList->SetWidthPixel(500.0f);
 	buttonList->SetHeightContents();
 	buttonList->padding = vec2(16.0f);
@@ -191,6 +191,7 @@ void MainMenu::Initialize() {
 	buttonContinue->AddDefaultText(sys->ReadLocale("Continue"));
 	buttonContinue->SetHeightPixel(64.0f);
 	buttonContinue->margin = vec2(16.0f);
+	buttonContinue->keycodeActivators = {KC_KEY_ESC};
 
 	buttonNewGame = gui->system.CreateButton(buttonList);
 	buttonNewGame->AddDefaultText(sys->ReadLocale("New Game"));
@@ -212,7 +213,6 @@ void MainMenu::Initialize() {
 	buttonExit->SetHeightPixel(64.0f);
 	buttonExit->margin = vec2(16.0f);
 	buttonExit->colorHighlighted = vec4(colorBack, 0.9f);
-	buttonExit->keycodeActivators = {KC_KEY_ESC};
 }
 
 void MainMenu::Update() {
@@ -380,7 +380,7 @@ void SettingsMenu::Initialize() {
 	buttonBack->colorHighlighted = vec4(colorBack, 0.9f);
 	buttonBack->keycodeActivators = {KC_GP_BTN_B, KC_KEY_ESC};
 
-	buttonApply = gui->system.CreateButton(buttonList);
+	buttonApply = gui->system.CreateButtonAsDefault(buttonList);
 	buttonApply->AddDefaultText(sys->ReadLocale("Apply"));
 	buttonApply->SetWidthFraction(1.0f / 2.0f);
 	buttonApply->SetHeightPixel(64.0f);
@@ -442,7 +442,7 @@ void CutsceneMenu::Initialize() {
 
 	azgui::Spacer *spacer = gui->system.CreateSpacer(screenListH, 0.5f);
 
-	azgui::ListV *listV = gui->system.CreateListV(screenListH);
+	azgui::ListV *listV = gui->system.CreateListVAsDefault(screenListH);
 	listV->margin = 0.0f;
 	listV->padding = 0.0f;
 	listV->color = 0.0f;
@@ -636,6 +636,8 @@ void EditorMenu::Initialize() {
 	switchBlock->SetWidthPixel(128.0f);
 	switchBlock->SetHeightContents();
 	switchBlock->padding = 0.0f;
+	switchBlock->selectable = false;
+	switchBlock->inheritSelectable = false;
 
 	const char *blockNames[] = {
 		"Player",
@@ -689,6 +691,7 @@ void EditorMenu::Initialize() {
 	
 	azgui::Button buttonTemplate;
 	buttonTemplate.SetWidthPixel(120.0f);
+	buttonTemplate.selectable = false;
 
 	buttonMenu = gui->system.CreateButtonFrom(listBottom, buttonTemplate);
 	buttonMenu->AddDefaultText(sys->ReadLocale("Menu"));

@@ -247,14 +247,15 @@ void System::Update(vec2 newMouseCursor, vec2 _canvasSize, f32 _timestep) {
 }
 
 
-Widget::Widget() : children(), margin(8.0f), size(1.0f), fractionWidth(true), fractionHeight(true), minSize(0.0f), maxSize(-1.0f), position(0.0f), sizeAbsolute(0.0f), positionAbsolute(0.0f), depth(0), selectable(false), highlighted(false), occludes(false), mouseover(false) {}
+Widget::Widget() : children(), margin(8.0f), size(1.0f), fractionWidth(true), fractionHeight(true), minSize(0.0f), maxSize(-1.0f), position(0.0f), sizeAbsolute(0.0f), positionAbsolute(0.0f), depth(0), selectable(false), inheritSelectable(true), highlighted(false), occludes(false), mouseover(false) {}
 
-bool Widget::UpdateSelectable() {
+void Widget::UpdateSelectable() {
 	for (Widget *child : children) {
-		bool childSelectable = child->UpdateSelectable();
-		selectable = selectable || childSelectable;
+		child->UpdateSelectable();
+		if (inheritSelectable) {
+			selectable = selectable || child->selectable;
+		}
 	}
-	return selectable;
 }
 
 void Widget::UpdateSize(vec2 container, f32 _scale) {
@@ -398,7 +399,7 @@ void Screen::UpdateSize(vec2 container, f32 _scale) {
 	}
 }
 
-List::List() : padding(8.0f), color(0.05f, 0.05f, 0.05f, 0.9f), colorHighlighted(0.05f, 0.05f, 0.05f, 0.9f), colorSelection(0.2f, 0.2f, 0.2f, 0.0f), selection(-2), selectionDefault(-1), scroll(0.0f), sizeContents(vec2(0.0f)), scrollableX(false), scrollableY(true) { occludes = true; }
+List::List() : padding(8.0f), color(0.05f, 0.05f, 0.05f, 0.9f), colorHighlighted(0.05f, 0.05f, 0.05f, 0.9f), colorSelection(0.2f, 0.2f, 0.2f, 0.0f), selection(-2), selectionDefault(-1), scroll(0.0f), scrollTarget(0.0f), sizeContents(vec2(0.0f)), scrollableX(false), scrollableY(true) { occludes = true; }
 
 bool List::UpdateSelection(bool selected, StaticArray<u8, 4> keyCodeSelect, StaticArray<u8, 4> keyCodeBack, StaticArray<u8, 4> keyCodeIncrement, StaticArray<u8, 4> keyCodeDecrement) {
 	highlighted = selected;

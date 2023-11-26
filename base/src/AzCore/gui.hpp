@@ -60,6 +60,9 @@ struct Widget {
 	/*  Whether or not this widget can be used in a selection by a controller.
 		Default: false */
 	bool selectable;
+	/*  Wether or not this widget will update whether it's selectable based on its children.
+		Default: true */
+	bool inheritSelectable;
 	/*  Whether we should be drawn highlighted. (Typically true when selected) */
 	bool highlighted;
 	/*  Whether the widget counts for mouse occlusion.
@@ -71,8 +74,8 @@ struct Widget {
 	f32 scale = 1.0f;
 	Widget();
 	virtual ~Widget() = default;
-	// Determines selectability recursively based on whether any children are selectable. Returns whether we are selectable.
-	bool UpdateSelectable();
+	// Determines selectability recursively based on whether any children are selectable.
+	void UpdateSelectable();
 	virtual void UpdateSize(vec2 container, f32 _scale);
 	void LimitSize();
 	virtual void PushScissor() const;

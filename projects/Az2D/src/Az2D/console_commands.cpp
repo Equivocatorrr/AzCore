@@ -109,7 +109,7 @@ String defaultBoolSettingsSetter(void *userdata, String name, String arg) {
 
 String defaultRealGetter(void *userdata, String name) {
 	f32 *real = (f32*)userdata;
-	return Stringify(name, " is ", *real);
+	return Stringify(name, " is ", FormatFloat(*real, 10, 3));
 }
 
 String defaultRealSetter(void *userdata, String name, String arg) {
@@ -119,13 +119,13 @@ String defaultRealSetter(void *userdata, String name, String arg) {
 		return Stringify(name, " expected a real number value");
 	}
 	*real = argVal;
-	return Stringify("set ", name, " to ", *real);
+	return Stringify("set ", name, " to ", FormatFloat(*real, 10, 3));
 }
 
 String defaultRealSettingsGetter(void *userdata, String name) {
 	Az2D::Settings::Name settingName = name;
 	f32 real = Az2D::Settings::ReadReal(settingName);
-	return Stringify(name, " is ", real);
+	return Stringify(name, " is ", FormatFloat(real, 10, 3));
 }
 
 String defaultRealSettingsSetter(void *userdata, String name, String arg) {
@@ -135,7 +135,7 @@ String defaultRealSettingsSetter(void *userdata, String name, String arg) {
 	}
 	Az2D::Settings::Name settingName = name;
 	Az2D::Settings::SetReal(settingName, real);
-	return Stringify("set ", name, " to ", real);
+	return Stringify("set ", name, " to ", FormatFloat(real, 10, 3));
 }
 
 String defaultIntSettingsGetter(void *userdata, String name) {

@@ -327,6 +327,7 @@ void GuiBasic::EventInitialize() {
 	Dev::AddGlobalVariable(Az2D::Settings::sFullscreen.GetString(), "Whether the window should be fullscreen.", nullptr, Dev::defaultBoolSettingsGetter, Dev::defaultBoolSettingsSetter);
 	Dev::AddGlobalVariable(Az2D::Settings::sVSync.GetString(), "Whether to enable vertical sync.", nullptr, Dev::defaultBoolSettingsGetter, Dev::defaultBoolSettingsSetter);
 	Dev::AddGlobalVariable(Az2D::Settings::sFramerate.GetString(), "Target framerate when vsync is disabled.", nullptr, Dev::defaultRealSettingsGetter, FramerateSetter);
+	Dev::AddGlobalVariable(Az2D::Settings::sGuiScale.GetString(), "A scaling factor for all GUIs.", &system.scale, Dev::defaultRealSettingsGetter, Dev::defaultRealSettingsSetter);
 }
 
 void AcquireSounds(Array<GuiBasic::SoundDef> &defs, Array<Sound::Source> &sources, Sound::MultiSource &multiSource) {
@@ -385,7 +386,7 @@ void DevConsole::Initialize() {
 	listV->color = ColorFromARGB(0xee0a1a1a);
 	listV->colorHighlighted = listV->color;
 	listV->SetSizeFraction(vec2(1.0f, 0.3f));
-	listV->padding = 8.0f;
+	listV->padding = 4.0f;
 	listV->margin = 0.0f;
 	listV->scrollableY = false;
 	
@@ -394,7 +395,7 @@ void DevConsole::Initialize() {
 	outputListV->colorHighlighted = vec4(0.0f);
 	outputListV->SetSizeFraction(vec2(1.0f));
 	outputListV->padding = 0.0f;
-	outputListV->margin = 0.0f;
+	outputListV->margin = 4.0f;
 	
 	consoleOutput = system->CreateText(outputListV);
 	consoleOutputMeta->alignV = Rendering::BOTTOM;
@@ -408,7 +409,7 @@ void DevConsole::Initialize() {
 	textboxInput->colorBG = ColorFromARGB(0xff1a4033);
 	textboxInput->colorBGHighlighted = ColorFromARGB(0xff245947);
 	textboxInput->fontSize = 16.0f;
-	textboxInput->margin = 0.0f;
+	textboxInput->margin = 4.0f;
 	textboxInput->multiline = true;
 }
 

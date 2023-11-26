@@ -954,7 +954,7 @@ void Manager::BindPipeline(DrawingContext &context, PipelineIndex pipeline) cons
 }
 
 void Manager::SetScissor(DrawingContext &context, vec2i min, vec2i size) {
-	// vk::CmdSetScissor(context.commandBuffer, size.x, size.y, min.x, min.y);
+	vk::CmdSetScissor(context.commandBuffer, size.x, size.y, min.x, min.y);
 }
 
 void Manager::PushScissor(DrawingContext &context, vec2i min, vec2i max) {

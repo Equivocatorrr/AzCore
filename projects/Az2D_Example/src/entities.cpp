@@ -190,7 +190,7 @@ void Player::Update(f32 timestep) {
 	}
 	hue += 0.3f * timestep;
 	if (hue > 1.0f) hue -= 1.0f;
-	if (sys->Down(KC_MOUSE_LEFT) && Gui::gui->mouseoverWidget == nullptr) {
+	if (sys->Down(KC_MOUSE_LEFT) && Gui::gui->system.mouseoverWidget == nullptr) {
 		vec2 prevPos = physical.pos;
 		physical.pos = entities->ScreenPosToWorld(vec2(sys->input.cursor));
 		physical.vel += (physical.pos - prevPos) / max(timestep, 0.01f);

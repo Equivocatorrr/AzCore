@@ -1,6 +1,6 @@
 # make ALL the projects!
 add_subdirectory(Az2D)
-#add_subdirectory(Az2D_Example)
+add_subdirectory(Az2D_Example)
 add_subdirectory(Az3D)
 add_subdirectory(Az3D_Example)
 add_subdirectory(font_test)

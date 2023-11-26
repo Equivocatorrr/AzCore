@@ -10,14 +10,16 @@
 
 namespace Az2D::Gui {
 
+namespace azgui = az::GuiGeneric;
+
 // Now we can have some different screens
 struct MainMenu {
-	Screen screen;
-	Hideable *continueHideable;
-	Button *buttonContinue;
-	Button *buttonNewGame;
-	Button *buttonSettings;
-	Button *buttonExit;
+	azgui::Screen *screen;
+	azgui::Hideable *continueHideable;
+	azgui::Button *buttonContinue;
+	azgui::Button *buttonNewGame;
+	azgui::Button *buttonSettings;
+	azgui::Button *buttonExit;
 
 	void Initialize();
 	void Update();
@@ -25,15 +27,15 @@ struct MainMenu {
 };
 
 struct SettingsMenu {
-	Screen screen;
-	Checkbox *checkFullscreen;
-	Checkbox *checkVSync;
-	Hideable *framerateHideable;
-	TextBox *textboxFramerate;
-	Slider *sliderVolumes[3];
-	TextBox *textboxVolumes[3];
-	Button *buttonApply;
-	Button *buttonBack;
+	azgui::Screen *screen;
+	azgui::Checkbox *checkFullscreen;
+	azgui::Checkbox *checkVSync;
+	azgui::Hideable *framerateHideable;
+	azgui::Textbox *textboxFramerate;
+	azgui::Slider *sliderVolumes[3];
+	azgui::Textbox *textboxVolumes[3];
+	azgui::Button *buttonApply;
+	azgui::Button *buttonBack;
 
 	void Initialize();
 	void Update();
@@ -42,9 +44,9 @@ struct SettingsMenu {
 };
 
 struct PlayMenu {
-	Screen screen;
-	Button *buttonMenu;
-	Button *buttonReset;
+	azgui::Screen *screen;
+	azgui::Button *buttonMenu;
+	azgui::Button *buttonReset;
 
 	void Initialize();
 	void Update();

@@ -71,9 +71,12 @@ struct Widget {
 	f32 scale = 1.0f;
 	Widget();
 	virtual ~Widget() = default;
+	// Determines selectability recursively based on whether any children are selectable. Returns whether we are selectable.
+	bool UpdateSelectable();
 	virtual void UpdateSize(vec2 container, f32 _scale);
 	void LimitSize();
 	virtual void PushScissor() const;
+	void PushScissor(vec2 pos, vec2 size) const;
 	void PopScissor() const;
 	inline vec2 GetSize() const { return sizeAbsolute + margin * 2.0f * scale; }
 	virtual void Update(vec2 pos, bool selected);
@@ -211,6 +214,11 @@ struct Switch : public ListV {
 	bool open;
 	// Whether the choice was changed
 	bool changed;
+	// Store the sizeAbsolute value for when we're opened here since we don't want to affect layout, but we still need this value for mouse picking.
+	vec2 openSizeAbsolute;
+	/*  The color of a quad drawn beneath the choice when we're open and it's not highlighted.
+		Default: {0.0, 0.0, 0.0, 0.9} */
+	vec4 colorChoice;
 	Switch();
 	~Switch() = default;
 	void UpdateSize(vec2 container, f32 _scale) override;
@@ -650,91 +658,91 @@ struct System {
 	Slider*   CreateSliderFrom  (Widget *parent, const Slider &src, bool deeper=false);
 	
 	inline Spacer*   CreateSpacerAsDefault  (List *parent, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateSpacer(parent, deeper);
 	}
 	inline ListV*    CreateListVAsDefault   (List *parent, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateListV(parent, deeper);
 	}
 	inline ListH*    CreateListHAsDefault   (List *parent, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateListH(parent, deeper);
 	}
 	inline Switch*   CreateSwitchAsDefault  (List *parent) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateSwitch(parent);
 	}
 	inline Text*     CreateTextAsDefault    (List *parent, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateText(parent, deeper);
 	}
 	inline Image*    CreateImageAsDefault   (List *parent, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateImage(parent, deeper);
 	}
 	inline Button*   CreateButtonAsDefault  (List *parent, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateButton(parent, deeper);
 	}
 	inline Checkbox* CreateCheckboxAsDefault(List *parent, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateCheckbox(parent, deeper);
 	}
 	inline Textbox*  CreateTextboxAsDefault (List *parent, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateTextbox(parent, deeper);
 	}
 	inline Slider*   CreateSliderAsDefault  (List *parent, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateSlider(parent, deeper);
 	}
 	inline Hideable* CreateHideableAsDefault(List *parent, Widget *child, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateHideable(parent, child, deeper);
 	}
 	inline Hideable* CreateHideableAsDefault(List *parent, Switch *child, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateHideable(parent, child, deeper);
 	}
 	inline Spacer*   CreateSpacerAsDefaultFrom  (List *parent, const Spacer &src, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateSpacerFrom(parent, src, deeper);
 	}
 	inline ListV*    CreateListVAsDefaultFrom   (List *parent, const ListV &src, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateListVFrom(parent, src, deeper);
 	}
 	inline ListH*    CreateListHAsDefaultFrom   (List *parent, const ListH &src, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateListHFrom(parent, src, deeper);
 	}
 	inline Switch*   CreateSwitchAsDefaultFrom  (List *parent, const Switch &src) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateSwitchFrom(parent, src);
 	}
 	inline Text*     CreateTextAsDefaultFrom    (List *parent, const Text &src, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateTextFrom(parent, src, deeper);
 	}
 	inline Image*    CreateImageAsDefaultFrom   (List *parent, const Image &src, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateImageFrom(parent, src, deeper);
 	}
 	inline Button*   CreateButtonAsDefaultFrom  (List *parent, const Button &src, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateButtonFrom(parent, src, deeper);
 	}
 	inline Checkbox* CreateCheckboxAsDefaultFrom(List *parent, const Checkbox &src, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateCheckboxFrom(parent, src, deeper);
 	}
 	inline Textbox*  CreateTextboxAsDefaultFrom (List *parent, const Textbox &src, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateTextboxFrom(parent, src, deeper);
 	}
 	inline Slider*   CreateSliderAsDefaultFrom  (List *parent, const Slider &src, bool deeper=false) {
-		parent->selectionDefault = parent->children.size-1;
+		parent->selectionDefault = parent->children.size;
 		return CreateSliderFrom(parent, src, deeper);
 	}
 	

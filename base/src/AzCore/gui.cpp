@@ -25,9 +25,6 @@ void System::AddWidget(Widget *parent, Widget *newWidget, bool deeper) {
 	newWidget->_system = this;
 	if (parent) {
 		newWidget->depth = parent->depth + (deeper ? 1 : 0);
-		if (newWidget->selectable) {
-			parent->selectable = true;
-		}
 		parent->children.Append(newWidget);
 	}
 }
@@ -39,9 +36,6 @@ void System::AddWidget(Widget *parent, Switch *newWidget) {
 	if (parent) {
 		newWidget->depth = parent->depth + 1;
 		newWidget->parentDepth = parent->depth;
-		if (newWidget->selectable) {
-			parent->selectable = true;
-		}
 		parent->children.Append(newWidget);
 	}
 }
@@ -51,9 +45,6 @@ void System::AddWidgetAsDefault(List *parent, Widget *newWidget, bool deeper) {
 	_allWidgets.Append(newWidget);
 	newWidget->_system = this;
 	newWidget->depth = parent->depth + (deeper ? 1 : 0);
-	if (newWidget->selectable) {
-		parent->selectable = true;
-	}
 	parent->selectionDefault = parent->children.size;
 	parent->children.Append(newWidget);
 }
@@ -64,9 +55,6 @@ void System::AddWidgetAsDefault(List *parent, Switch *newWidget) {
 	newWidget->_system = this;
 	newWidget->depth = parent->depth + 1;
 	newWidget->parentDepth = parent->depth;
-	if (newWidget->selectable) {
-		parent->selectable = true;
-	}
 	parent->selectionDefault = parent->children.size;
 	parent->children.Append(newWidget);
 }
@@ -144,9 +132,6 @@ Hideable* System::CreateHideable(Widget *parent, Widget *child, bool deeper) {
 	child->_system = this;
 	if (parent) {
 		child->depth = parent->depth + (deeper ? 1 : 0);
-		if (child->selectable) {
-			parent->selectable = true;
-		}
 	}
 	return result;
 }
@@ -157,9 +142,6 @@ Hideable* System::CreateHideable(Widget *parent, Switch *child, bool deeper) {
 	if (parent) {
 		child->depth = parent->depth + (deeper ? 1 : 0);
 		child->parentDepth = parent->depth;
-		if (child->selectable) {
-			parent->selectable = true;
-		}
 	}
 	return result;
 }
@@ -243,6 +225,14 @@ void System::Update(vec2 newMouseCursor, vec2 _canvasSize, f32 _timestep) {
 
 Widget::Widget() : children(), margin(8.0f), size(1.0f), fractionWidth(true), fractionHeight(true), minSize(0.0f), maxSize(-1.0f), position(0.0f), sizeAbsolute(0.0f), positionAbsolute(0.0f), depth(0), selectable(false), highlighted(false), occludes(false), mouseover(false) {}
 
+bool Widget::UpdateSelectable() {
+	for (Widget *child : children) {
+		bool childSelectable = child->UpdateSelectable();
+		selectable = selectable || childSelectable;
+	}
+	return selectable;
+}
+
 void Widget::UpdateSize(vec2 container, f32 _scale) {
 	scale = _scale;
 	sizeAbsolute = vec2(0.0f);
@@ -274,29 +264,40 @@ void Widget::LimitSize() {
 }
 
 void Widget::PushScissor() const {
-	if (sizeAbsolute.x != 0.0f && sizeAbsolute.y != 0.0f) {
-		const Scissor upScissor = _system->stackScissors.Back();
-		Scissor scissor;
-		scissor.topLeft = vec2i(
-			max(upScissor.topLeft.x, i32(positionAbsolute.x * _system->scale)),
-			max(upScissor.topLeft.y, i32(positionAbsolute.y * _system->scale))
-		);
-		scissor.botRight = vec2i(
-			min(upScissor.botRight.x, (i32)ceil((positionAbsolute.x + sizeAbsolute.x) * _system->scale)),
-			min(upScissor.botRight.y, (i32)ceil((positionAbsolute.y + sizeAbsolute.y) * _system->scale))
-		);
-		_system->functions.SetScissor(_system->data, const_cast<Any*>(&data), scissor.topLeft, scissor.botRight-scissor.topLeft);
-		_system->stackScissors.Append(scissor);
-	}
+	const Scissor upScissor = _system->stackScissors.Back();
+	Scissor scissor;
+	scissor.topLeft = vec2i(
+		max(upScissor.topLeft.x, i32(positionAbsolute.x * _system->scale)),
+		max(upScissor.topLeft.y, i32(positionAbsolute.y * _system->scale))
+	);
+	scissor.botRight = vec2i(
+		min(upScissor.botRight.x, (i32)ceil((positionAbsolute.x + sizeAbsolute.x) * _system->scale)),
+		min(upScissor.botRight.y, (i32)ceil((positionAbsolute.y + sizeAbsolute.y) * _system->scale))
+	);
+	_system->functions.SetScissor(_system->data, const_cast<Any*>(&data), scissor.topLeft, scissor.botRight-scissor.topLeft);
+	_system->stackScissors.Append(scissor);
+}
+
+void Widget::PushScissor(vec2 pos, vec2 size) const {
+	const Scissor upScissor = _system->stackScissors.Back();
+	Scissor scissor;
+	scissor.topLeft = vec2i(
+		max(upScissor.topLeft.x, i32(pos.x * _system->scale)),
+		max(upScissor.topLeft.y, i32(pos.y * _system->scale))
+	);
+	scissor.botRight = vec2i(
+		min(upScissor.botRight.x, (i32)ceil((pos.x + size.x) * _system->scale)),
+		min(upScissor.botRight.y, (i32)ceil((pos.y + size.y) * _system->scale))
+	);
+	_system->functions.SetScissor(_system->data, const_cast<Any*>(&data), scissor.topLeft, scissor.botRight-scissor.topLeft);
+	_system->stackScissors.Append(scissor);
 }
 
 void Widget::PopScissor() const {
-	if (sizeAbsolute.x != 0.0f && sizeAbsolute.y != 0.0f) {
-		AzAssert(_system->stackScissors.size > 1, "Cannot pop any more scissors!");
-		_system->stackScissors.Erase(_system->stackScissors.size-1);
-		const Scissor scissor = _system->stackScissors.Back();
-		_system->functions.SetScissor(_system->data, const_cast<Any*>(&data), scissor.topLeft, scissor.botRight-scissor.topLeft);
-	}
+	AzAssert(_system->stackScissors.size > 1, "Cannot pop any more scissors!");
+	_system->stackScissors.Erase(_system->stackScissors.size-1);
+	const Scissor scissor = _system->stackScissors.Back();
+	_system->functions.SetScissor(_system->data, const_cast<Any*>(&data), scissor.topLeft, scissor.botRight-scissor.topLeft);
 }
 
 void Widget::Update(vec2 pos, bool selected) {
@@ -358,6 +359,7 @@ Screen::Screen() {
 
 void Screen::Update(vec2 pos, bool selected) {
 	AZCORE_PROFILING_FUNC_TIMER()
+	UpdateSelectable();
 	UpdateSize(_system->canvasSize / _system->scale, 1.0f);
 	Widget::Update(pos, selected);
 	FindMouseoverDepth(0);
@@ -454,7 +456,7 @@ bool List::UpdateSelection(bool selected, StaticArray<u8, 4> keyCodeSelect, Stat
 	}
 	if (_system->controlDepth == depth && selected) {
 		bool mouseSelect = false;
-		if (_system->inputMethod == InputMethod::MOUSE && _system->mouseCursor != _system->mouseCursorPrev) {
+		if (_system->inputMethod == InputMethod::MOUSE) {
 			if (MouseOver()) {
 				mouseSelect = true;
 			}
@@ -696,22 +698,25 @@ void ListH::Update(vec2 pos, bool selected) {
 	}
 }
 
-Switch::Switch() : choice(0), open(false), changed(false) {
+Switch::Switch() : choice(0), open(false), changed(false), colorChoice(vec4(vec3(0.0f), 0.9f)) {
 	selectable = true;
 	selectionDefault = 0;
 	color = vec4(vec3(0.2f), 0.9f);
 	colorHighlighted = vec4(0.4f, 0.9f, 1.0f, 0.9f);
 	colorSelection = vec4(0.4f, 0.9f, 1.0f, 0.9f);
+	scrollableY = false;
 }
 
 void Switch::UpdateSize(vec2 container, f32 _scale) {
 	scale = _scale;
+	vec2 totalMargin = margin * 2.0f * scale;
+	vec2 totalPadding = padding * 2.0f * scale;
 	if (open) {
 		ListV::UpdateSize(container, scale);
+		openSizeAbsolute = sizeAbsolute;
+		sizeAbsolute.y = children[choice]->GetSize().y + totalPadding.y;
 	} else {
 		sizeAbsolute = vec2(0.0f);
-		vec2 totalMargin = margin * 2.0f * scale;
-		vec2 totalPadding = padding * 2.0f * scale;
 		if (size.x > 0.0f) {
 			sizeAbsolute.x = fractionWidth ? (container.x * size.x - totalMargin.x) : size.x * scale;
 		} else {
@@ -754,11 +759,19 @@ void Switch::UpdateSize(vec2 container, f32 _scale) {
 void Switch::Update(vec2 pos, bool selected) {
 	changed = false;
 	if (open) {
-		ListV::Update(pos, selected);
+		// Spoof our size for mouse picking
+		vec2 closedSizeAbsolute = sizeAbsolute;
+		sizeAbsolute = openSizeAbsolute;
+		ListV::Update(pos, true);
+		// Set it back for layout
+		sizeAbsolute = closedSizeAbsolute;
 		if (_system->functions.KeycodeReleased(_system->data, &data, KC_MOUSE_LEFT) || _system->functions.KeycodeReleased(_system->data, &data, KC_GP_BTN_A) || _system->functions.KeycodeReleased(_system->data, &data, KC_KEY_ENTER)) {
 			if (selection >= 0) {
 				choice = selection;
 				changed = true;
+			}
+			if (!MouseOver()) {
+				highlighted = false;
 			}
 			open = false;
 		}
@@ -776,7 +789,7 @@ void Switch::Update(vec2 pos, bool selected) {
 		highlighted = selected;
 		positionAbsolute = pos;
 		pos += padding * scale;
-		if (_system->functions.KeycodePressed(_system->data, &data, KC_MOUSE_LEFT) && MouseOver()) {
+		if (_system->functions.KeycodeReleased(_system->data, &data, KC_MOUSE_LEFT) && MouseOver()) {
 			open = true;
 		}
 		if (selected && (_system->functions.KeycodeReleased(_system->data, &data, KC_GP_BTN_A) || _system->functions.KeycodeReleased(_system->data, &data, KC_KEY_ENTER))) {
@@ -792,18 +805,29 @@ void Switch::Update(vec2 pos, bool selected) {
 
 void Switch::Draw() const {
 	if (color.a > 0.0f) {
-		_system->functions.DrawQuad(_system->data, const_cast<Any*>(&data), positionAbsolute * _system->scale, sizeAbsolute * _system->scale, (highlighted && !open) ? colorHighlighted : color);
+		vec2 fullSize = sizeAbsolute;
+		if (open) {
+			fullSize = max(fullSize, children.Back()->GetSize() + children.Back()->positionAbsolute - positionAbsolute - padding - children.Back()->margin);
+		}
+		_system->functions.DrawQuad(_system->data, const_cast<Any*>(&data), positionAbsolute * _system->scale, fullSize * _system->scale, (highlighted && !open) ? colorHighlighted : color);
 	}
-	PushScissor();
 	if (open) {
+		PushScissor(positionAbsolute, openSizeAbsolute);
 		if (selection >= 0 && colorSelection.a > 0.0f) {
 			Widget *child = children[selection];
 			vec2 selectionPos = child->positionAbsolute - child->margin;
 			vec2 selectionSize = child->sizeAbsolute + child->margin * 2.0f;
 			_system->functions.DrawQuad(_system->data, const_cast<Any*>(&data), selectionPos * _system->scale, selectionSize * _system->scale, colorSelection);
 		}
+		if (choice != selection && colorChoice.a > 0.0f) {
+			Widget *child = children[choice];
+			vec2 choicePos = child->positionAbsolute - child->margin;
+			vec2 choiceSize = child->sizeAbsolute + child->margin * 2.0f;
+			_system->functions.DrawQuad(_system->data, const_cast<Any*>(&data), choicePos * _system->scale, choiceSize * _system->scale, colorChoice);
+		}
 		Widget::Draw();
 	} else {
+		PushScissor();
 		children[choice]->Draw();
 	}
 	PopScissor();
@@ -820,20 +844,18 @@ Text::Text() : stringFormatted(), string(), padding(0.1f), fontSize(32.0f), bold
 }
 
 void Text::PushScissor() const {
-	if (sizeAbsolute.x != 0.0f && sizeAbsolute.y != 0.0f) {
-		const Scissor upScissor = _system->stackScissors.Back();
-		Scissor scissor;
-		scissor.topLeft = vec2i(
-			max(upScissor.topLeft.x, i32((positionAbsolute.x - margin.x * scale) * _system->scale)),
-			max(upScissor.topLeft.y, i32((positionAbsolute.y - margin.y * scale) * _system->scale))
-		);
-		scissor.botRight = vec2i(
-			min(upScissor.botRight.x, (i32)ceil((positionAbsolute.x + margin.x * scale + sizeAbsolute.x) * _system->scale)),
-			min(upScissor.botRight.y, (i32)ceil((positionAbsolute.y + margin.y * scale + sizeAbsolute.y) * _system->scale))
-		);
-		_system->functions.SetScissor(_system->data, const_cast<Any*>(&data), scissor.topLeft, scissor.botRight-scissor.topLeft);
-		_system->stackScissors.Append(scissor);
-	}
+	const Scissor upScissor = _system->stackScissors.Back();
+	Scissor scissor;
+	scissor.topLeft = vec2i(
+		max(upScissor.topLeft.x, i32((positionAbsolute.x - margin.x * scale) * _system->scale)),
+		max(upScissor.topLeft.y, i32((positionAbsolute.y - margin.y * scale) * _system->scale))
+	);
+	scissor.botRight = vec2i(
+		min(upScissor.botRight.x, (i32)ceil((positionAbsolute.x + margin.x * scale + sizeAbsolute.x) * _system->scale)),
+		min(upScissor.botRight.y, (i32)ceil((positionAbsolute.y + margin.y * scale + sizeAbsolute.y) * _system->scale))
+	);
+	_system->functions.SetScissor(_system->data, const_cast<Any*>(&data), scissor.topLeft, scissor.botRight-scissor.topLeft);
+	_system->stackScissors.Append(scissor);
 }
 
 void Text::UpdateSize(vec2 container, f32 _scale) {
@@ -841,20 +863,20 @@ void Text::UpdateSize(vec2 container, f32 _scale) {
 	vec2 totalMargin = margin * 2.0f * scale;
 	vec2 totalPadding = padding * 2.0f * scale;
 	if (size.x == 0.0f || size.y == 0.0f) {
-		sizeAbsolute = _system->functions.GetTextDimensions(_system->data, &data, stringFormatted) * fontSize;
+		sizeAbsolute = _system->functions.GetTextDimensions(_system->data, &data, stringFormatted) * fontSize * scale;
 	}
 	if (size.x > 0.0f) {
 		sizeAbsolute.x = fractionWidth ? (container.x * size.x - totalMargin.x) : size.x * scale;
 	}
 	if (size.y > 0.0f) {
-		sizeAbsolute.y = fractionHeight ? (container.y * size.y - totalMargin.y) : size.y;
+		sizeAbsolute.y = fractionHeight ? (container.y * size.y - totalMargin.y) : size.y * scale;
 	}
 	LimitSize();
 }
 
 void Text::Update(vec2 pos, bool selected) {
 	if (size.x != 0.0f) {
-		stringFormatted = _system->functions.ApplyTextWrapping(_system->data, &data, string, sizeAbsolute.x / fontSize * _system->scale);
+		stringFormatted = _system->functions.ApplyTextWrapping(_system->data, &data, string, sizeAbsolute.x / fontSize);
 	} else {
 		stringFormatted = string;
 	}
@@ -1069,8 +1091,8 @@ void Checkbox::Draw() const {
 	const vec4 &colorKnobOffActual = highlighted ? colorKnobHighlightOff : colorKnobOff;
 	vec4 colorKnobActual = lerp(colorKnobOffActual, colorKnobOnActual, transition);
 	f32 switchSize = min(sizeAbsolute.x, sizeAbsolute.y) * 0.9f;
-	f32 switchMoveArea = max(sizeAbsolute.x, sizeAbsolute.y) * 0.9f - switchSize;
-	vec2 switchPos = positionAbsolute + sizeAbsolute * 0.05f;
+	f32 switchMoveArea = max(sizeAbsolute.x, sizeAbsolute.y) - switchSize * (1.0f + 0.1f / 0.9f);
+	vec2 switchPos = positionAbsolute + vec2(switchSize * 0.05f / 0.9f);
 	if (sizeAbsolute.y < sizeAbsolute.x) {
 		// Right means on
 		switchPos.x += switchMoveArea * transition;

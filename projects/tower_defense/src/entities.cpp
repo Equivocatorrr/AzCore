@@ -426,14 +426,14 @@ inline void Manager::HandleGamepadUI() {
 		const Degrees32 increment30(30.0f);
 		const Degrees32 increment5(5.0f);
 		if (sys->Pressed(KC_GP_AXIS_H0_LEFT)) {
-			placingAngle += increment5;
-		} else if (sys->Pressed(KC_GP_AXIS_H0_RIGHT)) {
 			placingAngle += -increment5;
+		} else if (sys->Pressed(KC_GP_AXIS_H0_RIGHT)) {
+			placingAngle += increment5;
 		}
 		if (sys->Pressed(KC_GP_BTN_TL)) {
-			placingAngle += increment30;
-		} else if (sys->Pressed(KC_GP_BTN_TR)) {
 			placingAngle += -increment30;
+		} else if (sys->Pressed(KC_GP_BTN_TR)) {
+			placingAngle += increment30;
 		}
 		HandleTowerPlacement(KC_GP_BTN_A);
 	}

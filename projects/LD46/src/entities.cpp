@@ -257,7 +257,7 @@ void Manager::EventSync() {
 			camPos.x += 1000.0f * sys->timestep;
 		}
 		// Placing of blocks
-		if (Gui::gui->mouseoverWidget == nullptr) {
+		if (Gui::gui->system.mouseoverWidget == nullptr) {
 			toPlace = (World::Block)Gui::EditorMenu::blockTypes[Gui::gui->menuEditor.switchBlock->choice];
 			vec2i pos = vec2i(mouse)/32;
 			if (sys->Down(KC_MOUSE_LEFT)) {

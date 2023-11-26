@@ -631,7 +631,8 @@ struct System {
 	
 	Screen*   CreateScreen();
 	
-	Spacer*   CreateSpacer  (Widget *parent, bool deeper=false);
+	Spacer*   CreateSpacer  (ListH *parent, f32 fraction);
+	Spacer*   CreateSpacer  (ListV *parent, f32 fraction);
 	ListV*    CreateListV   (Widget *parent, bool deeper=false);
 	ListH*    CreateListH   (Widget *parent, bool deeper=false);
 	Switch*   CreateSwitch  (Widget *parent);
@@ -646,7 +647,6 @@ struct System {
 	
 	// Create From functions use template objects instead of the defaults
 	
-	Spacer*   CreateSpacerFrom  (Widget *parent, const Spacer &src, bool deeper=false);
 	ListV*    CreateListVFrom   (Widget *parent, const ListV &src, bool deeper=false);
 	ListH*    CreateListHFrom   (Widget *parent, const ListH &src, bool deeper=false);
 	Switch*   CreateSwitchFrom  (Widget *parent, const Switch &src);
@@ -657,10 +657,6 @@ struct System {
 	Textbox*  CreateTextboxFrom (Widget *parent, const Textbox &src, bool deeper=false);
 	Slider*   CreateSliderFrom  (Widget *parent, const Slider &src, bool deeper=false);
 	
-	inline Spacer*   CreateSpacerAsDefault  (List *parent, bool deeper=false) {
-		parent->selectionDefault = parent->children.size;
-		return CreateSpacer(parent, deeper);
-	}
 	inline ListV*    CreateListVAsDefault   (List *parent, bool deeper=false) {
 		parent->selectionDefault = parent->children.size;
 		return CreateListV(parent, deeper);
@@ -704,10 +700,6 @@ struct System {
 	inline Hideable* CreateHideableAsDefault(List *parent, Switch *child, bool deeper=false) {
 		parent->selectionDefault = parent->children.size;
 		return CreateHideable(parent, child, deeper);
-	}
-	inline Spacer*   CreateSpacerAsDefaultFrom  (List *parent, const Spacer &src, bool deeper=false) {
-		parent->selectionDefault = parent->children.size;
-		return CreateSpacerFrom(parent, src, deeper);
 	}
 	inline ListV*    CreateListVAsDefaultFrom   (List *parent, const ListV &src, bool deeper=false) {
 		parent->selectionDefault = parent->children.size;

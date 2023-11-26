@@ -20,8 +20,7 @@ static bool IsWidgetIsAlreadyTracked(System *system, Widget *widget) {
 }
 
 void System::AddWidget(Widget *parent, Widget *newWidget, bool deeper) {
-	AzAssert(!IsWidgetIsAlreadyTracked(this, newWidget), "Widget already tracked");
-	_allWidgets.Append(newWidget);
+	AzAssert(IsWidgetIsAlreadyTracked(this, newWidget), "Widget not tracked! Please use the System::Create functions.");
 	newWidget->_system = this;
 	if (parent) {
 		newWidget->depth = parent->depth + (deeper ? 1 : 0);
@@ -30,8 +29,7 @@ void System::AddWidget(Widget *parent, Widget *newWidget, bool deeper) {
 }
 
 void System::AddWidget(Widget *parent, Switch *newWidget) {
-	AzAssert(!IsWidgetIsAlreadyTracked(this, newWidget), "Widget already tracked");
-	_allWidgets.Append(newWidget);
+	AzAssert(IsWidgetIsAlreadyTracked(this, newWidget), "Widget not tracked! Please use the System::Create functions.");
 	newWidget->_system = this;
 	if (parent) {
 		newWidget->depth = parent->depth + 1;
@@ -41,8 +39,7 @@ void System::AddWidget(Widget *parent, Switch *newWidget) {
 }
 
 void System::AddWidgetAsDefault(List *parent, Widget *newWidget, bool deeper) {
-	AzAssert(!IsWidgetIsAlreadyTracked(this, newWidget), "Widget already tracked");
-	_allWidgets.Append(newWidget);
+	AzAssert(IsWidgetIsAlreadyTracked(this, newWidget), "Widget not tracked! Please use the System::Create functions.");
 	newWidget->_system = this;
 	newWidget->depth = parent->depth + (deeper ? 1 : 0);
 	parent->selectionDefault = parent->children.size;
@@ -50,8 +47,7 @@ void System::AddWidgetAsDefault(List *parent, Widget *newWidget, bool deeper) {
 }
 
 void System::AddWidgetAsDefault(List *parent, Switch *newWidget) {
-	AzAssert(!IsWidgetIsAlreadyTracked(this, newWidget), "Widget already tracked");
-	_allWidgets.Append(newWidget);
+	AzAssert(IsWidgetIsAlreadyTracked(this, newWidget), "Widget not tracked! Please use the System::Create functions.");
 	newWidget->_system = this;
 	newWidget->depth = parent->depth + 1;
 	newWidget->parentDepth = parent->depth;
@@ -66,68 +62,92 @@ Screen* System::CreateScreen() {
 	return result;
 }
 
-Spacer* System::CreateSpacer(Widget *parent, bool deeper) {
+Spacer* System::CreateSpacer(ListH *parent, f32 fraction) {
 	Spacer *result = new Spacer(defaults.spacer);
-	AddWidget(parent, result, deeper);
+	_allWidgets.Append(result);
+	result->SetWidthFraction(fraction);
+	result->SetHeightContents();
+	result->occludes = false;
+	AddWidget(parent, result, false);
+	return result;
+}
+
+Spacer* System::CreateSpacer(ListV *parent, f32 fraction) {
+	Spacer *result = new Spacer(defaults.spacer);
+	_allWidgets.Append(result);
+	result->SetWidthContents();
+	result->SetHeightFraction(fraction);
+	result->occludes = false;
+	AddWidget(parent, result, false);
 	return result;
 }
 
 ListV* System::CreateListV(Widget *parent, bool deeper) {
 	ListV *result = new ListV(defaults.listV);
+	_allWidgets.Append(result);
 	AddWidget(parent, result, deeper);
 	return result;
 }
 
 ListH* System::CreateListH(Widget *parent, bool deeper) {
 	ListH *result = new ListH(defaults.listH);
+	_allWidgets.Append(result);
 	AddWidget(parent, result, deeper);
 	return result;
 }
 
 Switch* System::CreateSwitch(Widget *parent) {
 	Switch *result = new Switch(defaults.switch_);
+	_allWidgets.Append(result);
 	AddWidget(parent, result);
 	return result;
 }
 
 Text* System::CreateText(Widget *parent, bool deeper) {
 	Text *result = new Text(defaults.text);
+	_allWidgets.Append(result);
 	AddWidget(parent, result, deeper);
 	return result;
 }
 
 Image* System::CreateImage(Widget *parent, bool deeper) {
 	Image *result = new Image(defaults.image);
+	_allWidgets.Append(result);
 	AddWidget(parent, result, deeper);
 	return result;
 }
 
 Button* System::CreateButton(Widget *parent, bool deeper) {
 	Button *result = new Button(defaults.button);
+	_allWidgets.Append(result);
 	AddWidget(parent, result, deeper);
 	return result;
 }
 
 Checkbox* System::CreateCheckbox(Widget *parent, bool deeper) {
 	Checkbox *result = new Checkbox(defaults.checkbox);
+	_allWidgets.Append(result);
 	AddWidget(parent, result, deeper);
 	return result;
 }
 
 Textbox* System::CreateTextbox(Widget *parent, bool deeper) {
 	Textbox *result = new Textbox(defaults.textbox);
+	_allWidgets.Append(result);
 	AddWidget(parent, result, deeper);
 	return result;
 }
 
 Slider* System::CreateSlider(Widget *parent, bool deeper) {
 	Slider *result = new Slider(defaults.slider);
+	_allWidgets.Append(result);
 	AddWidget(parent, result, deeper);
 	return result;
 }
 
 Hideable* System::CreateHideable(Widget *parent, Widget *child, bool deeper) {
 	Hideable *result = new Hideable(child);
+	_allWidgets.Append(result);
 	AddWidget(parent, result, deeper);
 	child->_system = this;
 	if (parent) {
@@ -138,6 +158,7 @@ Hideable* System::CreateHideable(Widget *parent, Widget *child, bool deeper) {
 
 Hideable* System::CreateHideable(Widget *parent, Switch *child, bool deeper) {
 	Hideable *result = new Hideable(child);
+	_allWidgets.Append(result);
 	AddWidget(parent, result, deeper);
 	if (parent) {
 		child->depth = parent->depth + (deeper ? 1 : 0);
@@ -146,62 +167,65 @@ Hideable* System::CreateHideable(Widget *parent, Switch *child, bool deeper) {
 	return result;
 }
 
-Spacer* System::CreateSpacerFrom(Widget *parent, const Spacer &src, bool deeper) {
-	Spacer *result = new Spacer(src);
-	AddWidget(parent, result, deeper);
-	return result;
-}
-
 ListV* System::CreateListVFrom(Widget *parent, const ListV &src, bool deeper) {
 	ListV *result = new ListV(src);
+	_allWidgets.Append(result);
 	AddWidget(parent, result, deeper);
 	return result;
 }
 
 ListH* System::CreateListHFrom(Widget *parent, const ListH &src, bool deeper) {
 	ListH *result = new ListH(src);
+	_allWidgets.Append(result);
 	AddWidget(parent, result, deeper);
 	return result;
 }
 
 Switch* System::CreateSwitchFrom(Widget *parent, const Switch &src) {
 	Switch *result = new Switch(src);
+	_allWidgets.Append(result);
 	AddWidget(parent, result);
 	return result;
 }
 
 Text* System::CreateTextFrom(Widget *parent, const Text &src, bool deeper) {
 	Text *result = new Text(src);
+	_allWidgets.Append(result);
 	AddWidget(parent, result, deeper);
 	return result;
 }
 
 Image* System::CreateImageFrom(Widget *parent, const Image &src, bool deeper) {
 	Image *result = new Image(src);
+	_allWidgets.Append(result);
 	AddWidget(parent, result, deeper);
 	return result;
 }
 
 Button* System::CreateButtonFrom(Widget *parent, const Button &src, bool deeper) {
 	Button *result = new Button(src);
+	_allWidgets.Append(result);
 	AddWidget(parent, result, deeper);
 	return result;
 }
 
 Checkbox* System::CreateCheckboxFrom(Widget *parent, const Checkbox &src, bool deeper) {
 	Checkbox *result = new Checkbox(src);
+	_allWidgets.Append(result);
 	AddWidget(parent, result, deeper);
 	return result;
 }
 
 Textbox* System::CreateTextboxFrom(Widget *parent, const Textbox &src, bool deeper) {
 	Textbox *result = new Textbox(src);
+	_allWidgets.Append(result);
 	AddWidget(parent, result, deeper);
 	return result;
 }
 
 Slider* System::CreateSliderFrom(Widget *parent, const Slider &src, bool deeper) {
 	Slider *result = new Slider(src);
+	_allWidgets.Append(result);
 	AddWidget(parent, result, deeper);
 	return result;
 }
@@ -904,15 +928,8 @@ void Image::Draw() const {
 
 Text* Button::AddDefaultText(WString string) {
 	AzAssert(children.size == 0, "Buttons can only have 1 child");
-	Text *buttonText = new Text(_system->defaults.buttonText);
-	// buttonText->fontSize = 28.0f;
-	// buttonText->color = vec4(vec3(1.0f), 1.0f);
-	// buttonText->colorHighlighted = vec4(vec3(0.0f), 1.0f);
-	// buttonText->SetHeightFraction(1.0f);
-	// buttonText->padding = 0.0f;
-	// buttonText->margin = 0.0f;
+	Text *buttonText = _system->CreateTextFrom(this, _system->defaults.buttonText);
 	buttonText->string = string;
-	_system->AddWidget(this, buttonText);
 	return buttonText;
 }
 

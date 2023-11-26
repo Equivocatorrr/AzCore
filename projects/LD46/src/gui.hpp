@@ -10,15 +10,16 @@
 
 namespace Az2D::Gui {
 
-// Now we can have some different screens
+namespace azgui = az::GuiGeneric;
+
 struct MainMenu {
-	Screen screen;
-	Hideable *continueHideable;
-	Button *buttonContinue;
-	Button *buttonNewGame;
-	Button *buttonLevelEditor;
-	Button *buttonSettings;
-	Button *buttonExit;
+	azgui::Screen *screen;
+	azgui::Hideable *continueHideable;
+	azgui::Button *buttonContinue;
+	azgui::Button *buttonNewGame;
+	azgui::Button *buttonLevelEditor;
+	azgui::Button *buttonSettings;
+	azgui::Button *buttonExit;
 
 	void Initialize();
 	void Update();
@@ -26,15 +27,15 @@ struct MainMenu {
 };
 
 struct SettingsMenu {
-	Screen screen;
-	Checkbox *checkFullscreen;
-	Checkbox *checkVSync;
-	Hideable *framerateHideable;
-	TextBox *textboxFramerate;
-	Slider *sliderVolumes[3];
-	TextBox *textboxVolumes[3];
-	Button *buttonApply;
-	Button *buttonBack;
+	azgui::Screen *screen;
+	azgui::Checkbox *checkFullscreen;
+	azgui::Checkbox *checkVSync;
+	azgui::Hideable *framerateHideable;
+	azgui::Textbox *textboxFramerate;
+	azgui::Slider *sliderVolumes[3];
+	azgui::Textbox *textboxVolumes[3];
+	azgui::Button *buttonApply;
+	azgui::Button *buttonBack;
 
 	void Initialize();
 	void Update();
@@ -56,10 +57,10 @@ struct CutsceneMenu {
 	f32 frameTimer;
 	az::Array<Frame> introFrames;
 	az::Array<Frame> outtroFrames;
-	Screen screen;
-	Text *text;
-	Image *image;
-	Button *buttonSkip;
+	azgui::Screen *screen;
+	azgui::Text *text;
+	azgui::Image *image;
+	azgui::Button *buttonSkip;
 
 	inline void Begin() {
 		currentFrame = -1;
@@ -71,9 +72,9 @@ struct CutsceneMenu {
 };
 
 struct PlayMenu {
-	Screen screen;
-	Button *buttonMenu;
-	Button *buttonReset;
+	azgui::Screen *screen;
+	azgui::Button *buttonMenu;
+	azgui::Button *buttonReset;
 
 	void Initialize();
 	void Update();
@@ -81,21 +82,21 @@ struct PlayMenu {
 };
 
 struct EditorMenu {
-	Screen screen;
-	Switch *switchBlock;
-	Button *buttonMenu;
-	Button *buttonNew;
-	Button *buttonSave;
-	Button *buttonLoad;
+	azgui::Screen *screen;
+	azgui::Switch *switchBlock;
+	azgui::Button *buttonMenu;
+	azgui::Button *buttonNew;
+	azgui::Button *buttonSave;
+	azgui::Button *buttonLoad;
 	// Dialogs
-	Hideable *hideableSave;
-	Hideable *hideableLoad;
-	Hideable *hideableResize;
-	TextBox *textboxFilename;
-	TextBox *textboxWidth;
-	TextBox *textboxHeight;
-	Button *buttonCancel;
-	Button *buttonConfirm;
+	azgui::Hideable *hideableSave;
+	azgui::Hideable *hideableLoad;
+	azgui::Hideable *hideableResize;
+	azgui::Textbox *textboxFilename;
+	azgui::Textbox *textboxWidth;
+	azgui::Textbox *textboxHeight;
+	azgui::Button *buttonCancel;
+	azgui::Button *buttonConfirm;
 
 	static const u8 blockTypes[5];
 

@@ -79,6 +79,13 @@ void Gui::EventAssetsAcquire() {
 
 void Gui::EventInitialize() {
 	GuiBasic::EventInitialize();
+	system.defaults.buttonText.fontSize = 28.0f;
+	system.defaults.buttonText.color = vec4(vec3(1.0f), 1.0f);
+	system.defaults.buttonText.colorHighlighted = vec4(vec3(0.0f), 1.0f);
+	system.defaults.buttonText.SetHeightFraction(1.0f);
+	system.defaults.buttonText.padding = 0.0f;
+	system.defaults.buttonText.margin = 0.0f;
+	system.defaults.buttonText.data = TextMetadata{Rendering::CENTER, Rendering::CENTER};
 	menuMain.Initialize();
 	menuSettings.Initialize();
 	menuPlay.Initialize();
@@ -148,92 +155,68 @@ void Gui::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 }
 
 void MainMenu::Initialize() {
-	ListV *listV = new ListV();
+	screen = gui->system.CreateScreen();
+	azgui::ListV *listV = gui->system.CreateListV(screen);
 	listV->color = vec4(0.0f);
-	listV->highlight = vec4(0.0f);
+	listV->colorHighlighted = vec4(0.0f);
 
-	Widget *spacer = new Widget();
-	spacer->size.y = 0.3f;
-	AddWidget(listV, spacer);
+	azgui::Spacer *spacer = gui->system.CreateSpacer(listV, 0.3f);
 
-	Text *title = new Text();
-	title->alignH = Rendering::CENTER;
+	azgui::Text *title = gui->system.CreateText(listV);
+	title->data = TextMetadata{Rendering::CENTER, Rendering::TOP};
 	title->bold = true;
 	title->color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	title->colorOutline = vec4(1.0f);
 	title->outline = true;
 	title->fontSize = 64.0f;
-	title->fontIndex = guiBasic->fontIndex;
 	title->string = sys->ReadLocale("Torch Runner");
-	AddWidget(listV, title);
 
-	spacer = new Widget();
-	spacer->size.y = 0.4f;
-	AddWidget(listV, spacer);
+	spacer = gui->system.CreateSpacer(listV, 0.4f);
+	
+	azgui::ListH *spacingList = gui->system.CreateListH(listV);
+	spacingList->color = vec4(0.0f);
+	spacingList->colorHighlighted = vec4(0.0f);
+	spacingList->SetHeightContents();
 
-	ListV *buttonList = new ListV();
-	buttonList->fractionWidth = false;
-	buttonList->size = vec2(500.0f, 0.0f);
+	spacer = gui->system.CreateSpacer(spacingList, 0.5f);
+
+	azgui::ListV *buttonList = gui->system.CreateListV(spacingList);
+	buttonList->SetWidthPixel(500.0f);
+	buttonList->SetHeightContents();
 	buttonList->padding = vec2(16.0f);
 
-	buttonContinue = new Button();
+	buttonContinue = gui->system.CreateButton(nullptr);
+	continueHideable = gui->system.CreateHideable(buttonList, buttonContinue);
+	continueHideable->hidden = true;
 	buttonContinue->AddDefaultText(sys->ReadLocale("Continue"));
-	buttonContinue->size.y = 64.0f;
-	buttonContinue->fractionHeight = false;
+	buttonContinue->SetHeightPixel(64.0f);
 	buttonContinue->margin = vec2(16.0f);
 
-	continueHideable = new Hideable(buttonContinue);
-	continueHideable->hidden = true;
-	AddWidget(buttonList, continueHideable);
-
-	buttonNewGame = new Button();
+	buttonNewGame = gui->system.CreateButton(buttonList);
 	buttonNewGame->AddDefaultText(sys->ReadLocale("New Game"));
-	buttonNewGame->size.y = 64.0f;
-	buttonNewGame->fractionHeight = false;
+	buttonNewGame->SetHeightPixel(64.0f);
 	buttonNewGame->margin = vec2(16.0f);
-	AddWidget(buttonList, buttonNewGame);
 
-	buttonLevelEditor = new Button();
+	buttonLevelEditor = gui->system.CreateButton(buttonList);
 	buttonLevelEditor->AddDefaultText(sys->ReadLocale("Level Editor"));
-	buttonLevelEditor->size.y = 64.0f;
-	buttonLevelEditor->fractionHeight = false;
+	buttonLevelEditor->SetHeightPixel(64.0f);
 	buttonLevelEditor->margin = vec2(16.0f);
-	AddWidget(buttonList, buttonLevelEditor);
 
-	buttonSettings = new Button();
+	buttonSettings = gui->system.CreateButton(buttonList);
 	buttonSettings->AddDefaultText(sys->ReadLocale("Settings"));
-	buttonSettings->size.y = 64.0f;
-	buttonSettings->fractionHeight = false;
+	buttonSettings->SetHeightPixel(64.0f);
 	buttonSettings->margin = vec2(16.0f);
-	AddWidget(buttonList, buttonSettings);
 
-	buttonExit = new Button();
+	buttonExit = gui->system.CreateButton(buttonList);
 	buttonExit->AddDefaultText(sys->ReadLocale("Exit"));
-	buttonExit->size.y = 64.0f;
-	buttonExit->fractionHeight = false;
+	buttonExit->SetHeightPixel(64.0f);
 	buttonExit->margin = vec2(16.0f);
-	buttonExit->highlightBG = vec4(colorBack, 0.9f);
+	buttonExit->colorHighlighted = vec4(colorBack, 0.9f);
 	buttonExit->keycodeActivators = {KC_KEY_ESC};
-	AddWidget(buttonList, buttonExit);
-
-	ListH *spacingList = new ListH();
-	spacingList->color = vec4(0.0f);
-	spacingList->highlight = vec4(0.0f);
-	spacingList->size.y = 0.0f;
-
-	spacer = new Widget();
-	spacer->size.x = 0.5f;
-	AddWidget(spacingList, spacer);
-
-	AddWidgetAsDefault(spacingList, buttonList);
-
-	AddWidgetAsDefault(listV, spacingList);
-
-	AddWidget(&screen, listV);
 }
 
 void MainMenu::Update() {
-	screen.Update(vec2(0.0f), true);
+	screen->Update(vec2(0.0f), true);
 	if (buttonContinue->state.Released()) {
 		gui->menuNext = Gui::Menu::PLAY;
 	}
@@ -255,74 +238,71 @@ void MainMenu::Update() {
 }
 
 void MainMenu::Draw(Rendering::DrawingContext &context) {
-	screen.Draw(context);
+	gui->currentContext = &context;
+	screen->Draw();
 }
 
 void SettingsMenu::Initialize() {
-	ListV *listV = new ListV();
+	screen = gui->system.CreateScreen();
+	azgui::ListV *listV = gui->system.CreateListV(screen);
 	listV->color = vec4(0.0f);
-	listV->highlight = vec4(0.0f);
+	listV->colorHighlighted = vec4(0.0f);
 
-	Widget *spacer = new Widget();
-	spacer->size.y = 0.3f;
-	AddWidget(listV, spacer);
+	azgui::Spacer *spacer = gui->system.CreateSpacer(listV, 0.3f);
 
-	Text *title = new Text();
-	title->alignH = Rendering::CENTER;
+	azgui::Text *title = gui->system.CreateText(listV);
+	title->data = TextMetadata{Rendering::CENTER, Rendering::TOP};
 	title->bold = true;
 	title->color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	title->colorOutline = vec4(1.0f);
 	title->outline = true;
 	title->fontSize = 64.0f;
-	title->fontIndex = guiBasic->fontIndex;
 	title->string = sys->ReadLocale("Settings");
-	AddWidget(listV, title);
 
-	spacer = new Widget();
-	spacer->size.y = 0.4f;
-	AddWidget(listV, spacer);
+	spacer = gui->system.CreateSpacer(listV, 0.4f);
+	
+	azgui::ListH *spacingList = gui->system.CreateListHAsDefault(listV);
+	spacingList->color = vec4(0.0f);
+	spacingList->colorHighlighted = vec4(0.0f);
+	spacingList->SetHeightContents();
 
-	ListV *actualList = new ListV();
-	actualList->fractionWidth = false;
-	actualList->size.x = 500.0f;
-	actualList->size.y = 0.0f;
+	spacer = gui->system.CreateSpacer(spacingList, 0.5f);
+
+	azgui::ListV *actualList = gui->system.CreateListVAsDefault(spacingList);
+	actualList->SetWidthPixel(500.0f);
+	actualList->SetHeightContents();
 	actualList->padding = vec2(24.0f);
 
-	Text *settingTextTemplate = new Text();
-	settingTextTemplate->fontIndex = guiBasic->fontIndex;
-	settingTextTemplate->fontSize = 20.0f;
-	settingTextTemplate->fractionHeight = true;
-	settingTextTemplate->size.y = 1.0f;
-	settingTextTemplate->alignV = Rendering::CENTER;
+	azgui::Text settingTextTemplate;
+	settingTextTemplate.fontSize = 20.0f;
+	settingTextTemplate.SetHeightFraction(1.0f);
+	settingTextTemplate.data = TextMetadata{Rendering::LEFT, Rendering::CENTER};
 
-	checkFullscreen = new Checkbox();
+	checkFullscreen = gui->system.CreateCheckbox(nullptr);
 	checkFullscreen->checked = Settings::ReadBool(Settings::sFullscreen);
 
-	checkVSync = new Checkbox();
+	checkVSync = gui->system.CreateCheckbox(nullptr);
 	checkVSync->checked = Settings::ReadBool(Settings::sVSync);
 
-	TextBox *textboxTemplate = new TextBox();
-	textboxTemplate->fontIndex = guiBasic->fontIndex;
-	textboxTemplate->size.x = 64.0f;
-	textboxTemplate->alignH = Rendering::RIGHT;
-	textboxTemplate->textFilter = TextFilterDigits;
-	textboxTemplate->textValidate = TextValidateNonempty;
+	azgui::Textbox textboxTemplate;
+	textboxTemplate.SetWidthPixel(64.0f);
+	textboxTemplate.data = TextMetadata{Rendering::RIGHT, Rendering::CENTER};
+	textboxTemplate.textFilter = azgui::TextFilterDigits;
+	textboxTemplate.textValidate = azgui::TextValidateNonempty;
 
-	Slider *sliderTemplate = new Slider();
-	sliderTemplate->fractionHeight = true;
-	sliderTemplate->fractionWidth = false;
-	sliderTemplate->size = vec2(116.0f, 1.0f);
-	sliderTemplate->valueMax = 100.0f;
+	azgui::Slider sliderTemplate;
+	sliderTemplate.SetWidthPixel(116.0f);
+	sliderTemplate.SetHeightFraction(1.0f);
+	sliderTemplate.valueMax = 100.0f;
 
-	textboxFramerate = new TextBox(*textboxTemplate);
+	textboxFramerate = gui->system.CreateTextboxFrom(nullptr, textboxTemplate);
 	textboxFramerate->string = ToWString(ToString((i32)Settings::ReadReal(Settings::sFramerate)));
 
-
 	for (i32 i = 0; i < 3; i++) {
-		textboxVolumes[i] = new TextBox(*textboxTemplate);
-		sliderVolumes[i] = new Slider(*sliderTemplate);
-		textboxVolumes[i]->textFilter = TextFilterDecimalsPositive;
-		textboxVolumes[i]->textValidate = TextValidateDecimalsPositive;
+		textboxVolumes[i] = gui->system.CreateTextboxFrom(nullptr, textboxTemplate);
+		sliderVolumes[i] = gui->system.CreateSliderFrom(nullptr, sliderTemplate);
+		textboxVolumes[i]->textFilter = azgui::TextFilterDecimalsPositive;
+		textboxVolumes[i]->textValidate = azgui::TextValidateDecimalsPositive;
 		sliderVolumes[i]->mirror = textboxVolumes[i];
 	}
 	f32 volumeMain = Settings::ReadReal(Settings::sVolumeMain);
@@ -335,12 +315,12 @@ void SettingsMenu::Initialize() {
 	sliderVolumes[1]->value = volumeMusic*100.0f;
 	sliderVolumes[2]->value = volumeEffects*100.0f;
 
-	ListH *settingListTemplate = new ListH();
-	settingListTemplate->size.y = 0.0f;
-	settingListTemplate->margin = vec2(8.0f);
-	settingListTemplate->padding = vec2(0.0f);
+	azgui::ListH settingListTemplate;
+	settingListTemplate.SetHeightContents();
+	settingListTemplate.margin = vec2(8.0f);
+	settingListTemplate.padding = vec2(0.0f);
 
-	Array<Widget*> settingListItems = {
+	Array<azgui::Widget*> settingListItems = {
 		checkFullscreen, nullptr,
 		checkVSync, nullptr,
 		textboxFramerate, nullptr,
@@ -361,80 +341,50 @@ void SettingsMenu::Initialize() {
 
 	for (i32 i = 0; i < settingListItems.size; i+=2) {
 		if (settingListItems[i] == nullptr) {
-			Text *settingText = new Text(*settingTextTemplate);
+			azgui::Text *settingText = gui->system.CreateTextFrom(actualList, settingTextTemplate);
 			settingText->string = sys->ReadLocale(settingListNames[i / 2]);
-			settingText->alignH = Rendering::CENTER;
+			settingText->data = TextMetadata{Rendering::CENTER, Rendering::CENTER};
 			settingText->fontSize = 24.0f;
-			AddWidget(actualList, settingText);
 		} else {
-			ListH *settingList = new ListH(*settingListTemplate);
-			Text *settingText = new Text(*settingTextTemplate);
+			azgui::ListH *settingList = gui->system.CreateListHFrom(nullptr, settingListTemplate);
+			if (i == 4) {
+				// Hideable Framerate
+				framerateHideable = gui->system.CreateHideable(actualList, settingList);
+				framerateHideable->hidden = Settings::ReadBool(Settings::sVSync);
+			} else {
+				gui->system.AddWidget(actualList, settingList);
+			}
+			azgui::Text *settingText = gui->system.CreateTextFrom(settingList, settingTextTemplate);
 			settingText->string = sys->ReadLocale(settingListNames[i / 2]);
-			AddWidget(settingList, settingText);
-			AddWidgetAsDefault(settingList, settingListItems[i]);
+			gui->system.AddWidgetAsDefault(settingList, settingListItems[i]);
 			if (settingListItems[i+1] != nullptr) {
 				// Allowing us to use the keyboard and gamepad to control the slider instead
 				settingListItems[i+1]->selectable = false;
-				AddWidget(settingList, settingListItems[i+1]);
-			}
-
-			if (i == 4) {
-				// Hideable Framerate
-				framerateHideable = new Hideable(settingList);
-				framerateHideable->hidden = Settings::ReadBool(Settings::sVSync);
-				AddWidget(actualList, framerateHideable);
-			} else {
-				AddWidget(actualList, settingList);
+				gui->system.AddWidget(settingList, settingListItems[i+1]);
 			}
 		}
 	}
 
-	ListH *buttonList = new ListH();
-	buttonList->size.y = 0.0f;
+	azgui::ListH *buttonList = gui->system.CreateListH(actualList);
+	buttonList->SetHeightContents();
 	buttonList->margin = vec2(0.0f);
 	buttonList->padding = vec2(0.0f);
 	buttonList->color = vec4(0.0f);
-	buttonList->highlight = vec4(0.0f);
+	buttonList->colorHighlighted = vec4(0.0f);
 
-	buttonBack = new Button();
+	buttonBack = gui->system.CreateButton(buttonList);
 	buttonBack->AddDefaultText(sys->ReadLocale("Back"));
-	buttonBack->size.x = 1.0f / 2.0f;
-	buttonBack->size.y = 64.0f;
-	buttonBack->fractionHeight = false;
+	buttonBack->SetWidthFraction(1.0f / 2.0f);
+	buttonBack->SetHeightPixel(64.0f);
 	buttonBack->margin = vec2(8.0f);
-	buttonBack->highlightBG = vec4(colorBack, 0.9f);
+	buttonBack->colorHighlighted = vec4(colorBack, 0.9f);
 	buttonBack->keycodeActivators = {KC_GP_BTN_B, KC_KEY_ESC};
-	AddWidget(buttonList, buttonBack);
 
-	buttonApply = new Button();
+	buttonApply = gui->system.CreateButton(buttonList);
 	buttonApply->AddDefaultText(sys->ReadLocale("Apply"));
-	buttonApply->size.x = 1.0f / 2.0f;
-	buttonApply->size.y = 64.0f;
-	buttonApply->fractionHeight = false;
+	buttonApply->SetWidthFraction(1.0f / 2.0f);
+	buttonApply->SetHeightPixel(64.0f);
 	buttonApply->margin = vec2(8.0f);
-	AddWidgetAsDefault(buttonList, buttonApply);
-
-	AddWidget(actualList, buttonList);
-
-	ListH *spacingList = new ListH();
-	spacingList->color = vec4(0.0f);
-	spacingList->highlight = vec4(0.0f);
-	spacingList->size.y = 0.0f;
-
-	spacer = new Widget();
-	spacer->size.x = 0.5f;
-	AddWidget(spacingList, spacer);
-
-	AddWidgetAsDefault(spacingList, actualList);
-
-	AddWidgetAsDefault(listV, spacingList);
-
-	AddWidget(&screen, listV);
-
-	delete settingListTemplate;
-	delete settingTextTemplate;
-	delete sliderTemplate;
-	delete textboxTemplate;
 }
 
 u64 WStringToU64(WString str) {
@@ -449,7 +399,7 @@ u64 WStringToU64(WString str) {
 
 void SettingsMenu::Update() {
 	framerateHideable->hidden = checkVSync->checked;
-	screen.Update(vec2(0.0f), true);
+	screen->Update(vec2(0.0f), true);
 	if (buttonApply->state.Released()) {
 		sys->window.Fullscreen(checkFullscreen->checked);
 		Settings::SetBool(Settings::sFullscreen, checkFullscreen->checked);
@@ -474,7 +424,8 @@ void SettingsMenu::Update() {
 }
 
 void SettingsMenu::Draw(Rendering::DrawingContext &context) {
-	screen.Draw(context);
+	gui->currentContext = &context;
+	screen->Draw();
 }
 
 inline String FloatToString(f32 in) {
@@ -482,56 +433,40 @@ inline String FloatToString(f32 in) {
 }
 
 void CutsceneMenu::Initialize() {
-	ListH *screenListH = new ListH();
+	screen = gui->system.CreateScreen();
+	azgui::ListH *screenListH = gui->system.CreateListH(screen);
 	screenListH->margin = 0.0f;
 	screenListH->padding = 0.0f;
 	screenListH->color = vec4(vec3(0.0f), 1.0f);
-	screenListH->highlight = screenListH->color;
-	AddWidget(&screen, screenListH);
+	screenListH->colorHighlighted = screenListH->color;
 
-	Widget *spacer = new Widget();
-	spacer->size.x = 0.5f;
-	AddWidget(screenListH, spacer);
+	azgui::Spacer *spacer = gui->system.CreateSpacer(screenListH, 0.5f);
 
-	ListV *listV = new ListV();
+	azgui::ListV *listV = gui->system.CreateListV(screenListH);
 	listV->margin = 0.0f;
 	listV->padding = 0.0f;
 	listV->color = 0.0f;
-	listV->highlight = 0.0f;
-	listV->size.x = 0.0f;
-	listV->fractionWidth = false;
-	AddWidget(screenListH, listV);
+	listV->colorHighlighted = 0.0f;
+	listV->SetWidthContents();
 
-	spacer = new Widget();
-	spacer->size.y = 0.5f;
-	AddWidget(listV, spacer);
+	spacer = gui->system.CreateSpacer(listV, 0.5f);
 
-	image = new Image();
-	image->size = vec2(416.0f, 416.0f);
-	image->fractionWidth = false;
-	image->fractionHeight = false;
+	image = gui->system.CreateImage(listV);
+	image->SetSizePixel(vec2(416.0f, 416.0f));
 	image->margin = vec2(224.0f, 32.0f);
-	AddWidget(listV, image);
 
-	text = new Text();
-	text->alignH = Rendering::CENTER;
-	text->alignV = Rendering::CENTER;
-	text->size = vec2(800.0f, 100.0f);
-	text->fractionWidth = false;
-	text->fractionHeight = false;
+	text = gui->system.CreateText(listV);
+	text->data = TextMetadata{Rendering::CENTER, Rendering::CENTER};
+	text->SetSizePixel(vec2(800.0f, 100.0f));
 	text->margin = 32.0f;
 	text->string = sys->ReadLocale("This is the intro cutscene!");
-	AddWidget(listV, text);
-
-	buttonSkip = new Button();
-	buttonSkip->fractionHeight = false;
-	buttonSkip->fractionWidth = false;
-	buttonSkip->size = vec2(128.0f, 64.0f);
+	
+	buttonSkip = gui->system.CreateButton(listV);
+	buttonSkip->SetSizePixel(vec2(128.0f, 64.0f));
 	buttonSkip->margin.x = 368.0f;
 	buttonSkip->AddDefaultText(sys->ReadLocale("Skip"));
 	buttonSkip->keycodeActivators = {KC_KEY_ESC, KC_KEY_SPACE};
-	buttonSkip->colorBG = 0.0f;
-	AddWidget(listV, buttonSkip);
+	buttonSkip->color = 0.0f;
 
 	introFrames = {
 		{"", &gui->sndBeepShort, 0.5f, 0.5f, 0.0f, gui->texIntro[0], true},
@@ -557,7 +492,7 @@ void CutsceneMenu::Initialize() {
 }
 
 void CutsceneMenu::Update() {
-	screen.Update(vec2(0.0f), true);
+	screen->Update(vec2(0.0f), true);
 	const Array<Frame> &frames = intro ? introFrames : outtroFrames;
 	if (currentFrame < 0) {
 		currentFrame = 0;
@@ -574,7 +509,7 @@ void CutsceneMenu::Update() {
 	}
 	const Frame &frame = frames[currentFrame];
 	if (frameTimer == 0.0f) {
-		image->texIndex = frame.image;
+		image->data = ImageMetadata{frame.image};
 		text->string = sys->ReadLocale(frame.text);
 		if (frame.sound) {
 			frame.sound->Play();
@@ -614,63 +549,51 @@ void CutsceneMenu::Update() {
 }
 
 void CutsceneMenu::Draw(Rendering::DrawingContext &context) {
-	screen.Draw(context);
+	gui->currentContext = &context;
+	screen->Draw();
 }
 
 void PlayMenu::Initialize() {
-	ListV *screenListV = new ListV();
-	screenListV->fractionHeight = true;
-	screenListV->size.y = 1.0f;
+	screen = gui->system.CreateScreen();
+	azgui::ListV *screenListV = gui->system.CreateListV(screen);
+	screenListV->SetHeightFraction(1.0f);
 	screenListV->padding = vec2(0.0f);
 	screenListV->margin = vec2(0.0f);
 	screenListV->color = 0.0f;
-	screenListV->highlight = 0.0f;
+	screenListV->colorHighlighted = 0.0f;
 	screenListV->occludes = false;
-	AddWidget(&screen, screenListV);
-	ListH *listTop = new ListH();
-	listTop->fractionHeight = false;
-	listTop->fractionWidth = true;
+	
+	azgui::ListH *listTop = gui->system.CreateListH(screenListV);
+	listTop->SetWidthFraction(1.0f);
+	listTop->SetHeightPixel(80.0f);
 	listTop->margin = 0.0f;
 	listTop->color = 0.0f;
-	listTop->highlight = 0.0f;
-	listTop->size = vec2(1.0f, 80.0f);
-	AddWidget(screenListV, listTop);
+	listTop->colorHighlighted = 0.0f;
 
-	Widget *spacer = new Widget();
-	spacer->fractionHeight = true;
-	spacer->size.y = 1.0f;
-	AddWidget(screenListV, spacer);
+	azgui::Spacer *spacer = gui->system.CreateSpacer(screenListV, 1.0f);
 
-	ListH *listBottom = new ListH();
-	listBottom->fractionHeight = false;
-	listBottom->fractionWidth = true;
+	azgui::ListH *listBottom = gui->system.CreateListH(screenListV);
+	listBottom->SetWidthFraction(1.0f);
+	listBottom->SetHeightPixel(80.0f);
 	listBottom->color = 0.0f;
-	listBottom->highlight = 0.0f;
+	listBottom->colorHighlighted = 0.0f;
 	listBottom->margin = 0.0f;
-	listBottom->size = vec2(1.0f, 80.0f);
-	AddWidgetAsDefault(screenListV, listBottom);
 
-	buttonMenu = new Button();
-	buttonMenu->fractionWidth = false;
-	buttonMenu->size.x = 120.0f;
+	buttonMenu = gui->system.CreateButton(listBottom);
+	buttonMenu->SetWidthPixel(120.0f);
 	buttonMenu->AddDefaultText(sys->ReadLocale("Menu"));
 	buttonMenu->keycodeActivators = {KC_GP_BTN_START, KC_KEY_ESC};
-	AddWidgetAsDefault(listBottom, buttonMenu);
 
-	spacer = new Widget();
-	spacer->fractionWidth = true;
-	spacer->size.x = 1.0f;
-	AddWidget(listBottom, spacer);
+	spacer = gui->system.CreateSpacer(listBottom, 1.0f);
 
-	buttonReset = new Button(*buttonMenu);
-	buttonReset->children.Clear();
+	buttonReset = gui->system.CreateButton(listBottom);
+	buttonReset->SetWidthPixel(120.0f);
 	buttonReset->AddDefaultText(sys->ReadLocale("Reset"));
 	buttonReset->keycodeActivators = {KC_GP_BTN_SELECT, KC_KEY_R};
-	AddWidget(listBottom, buttonReset);
 }
 
 void PlayMenu::Update() {
-	screen.Update(vec2(0.0f), false);
+	screen->Update(vec2(0.0f), false);
 	if (buttonMenu->state.Released()) {
 		gui->menuNext = Gui::Menu::MAIN;
 		sys->paused = true;
@@ -680,7 +603,8 @@ void PlayMenu::Update() {
 }
 
 void PlayMenu::Draw(Rendering::DrawingContext &context) {
-	screen.Draw(context);
+	gui->currentContext = &context;
+	screen->Draw();
 }
 
 const u8 EditorMenu::blockTypes[5] = {
@@ -692,28 +616,25 @@ const u8 EditorMenu::blockTypes[5] = {
 };
 
 void EditorMenu::Initialize() {
-	ListV *screenListV = new ListV();
-	screenListV->fractionHeight = true;
-	screenListV->size.y = 1.0f;
+	screen = gui->system.CreateScreen();
+	azgui::ListV *screenListV = gui->system.CreateListV(screen);
+	screenListV->SetHeightFraction(1.0f);
 	screenListV->padding = vec2(0.0f);
 	screenListV->margin = vec2(0.0f);
 	screenListV->color = 0.0f;
-	screenListV->highlight = 0.0f;
+	screenListV->colorHighlighted = 0.0f;
 	screenListV->occludes = false;
-	AddWidget(&screen, screenListV);
-	ListH *listTop = new ListH();
-	listTop->fractionHeight = false;
-	listTop->fractionWidth = true;
+	
+	azgui::ListH *listTop = gui->system.CreateListH(screenListV);
+	listTop->SetWidthFraction(1.0f);
+	listTop->SetHeightContents();
 	listTop->margin = 0.0f;
 	listTop->color = 0.0f;
-	listTop->highlight = 0.0f;
-	listTop->size = vec2(1.0f, 0.0f);
-	AddWidget(screenListV, listTop);
+	listTop->colorHighlighted = 0.0f;
 
-	switchBlock = new Switch();
-	switchBlock->fractionWidth = false;
-	switchBlock->size.x = 128.0f;
-	switchBlock->size.y = 0.0f;
+	switchBlock = gui->system.CreateSwitchAsDefault(listTop);
+	switchBlock->SetWidthPixel(128.0f);
+	switchBlock->SetHeightContents();
 	switchBlock->padding = 0.0f;
 
 	const char *blockNames[] = {
@@ -725,257 +646,191 @@ void EditorMenu::Initialize() {
 	};
 
 	for (i32 i = 0; i < (i32)sizeof(blockTypes); i++) {
-		Text *text = new Text();
+		azgui::Text *text = gui->system.CreateText(switchBlock);
 		text->selectable = true;
-		text->size.x = 1.0f;
-		text->fractionHeight = false;
-		text->size.y = 28.0f;
+		text->SetWidthFraction(1.0f);
+		text->SetHeightPixel(28.0f);
 		text->margin = 2.0f;
-		text->fontIndex = guiBasic->fontIndex;
 		text->fontSize = 24.0f;
-		text->alignV = Rendering::CENTER;
+		text->data = TextMetadata{Rendering::LEFT, Rendering::CENTER};
 		text->string = sys->ReadLocale(blockNames[i]);
-		AddWidget(switchBlock, text);
 	}
-	AddWidgetAsDefault(listTop, switchBlock);
 
-	Widget *spacer = new Widget();
-	spacer->size.y = 0.5f;
-	AddWidget(screenListV, spacer);
+	azgui::Spacer *spacer = gui->system.CreateSpacer(screenListV, 0.5f);
 
-	ListH *listMiddle = new ListH();
-	listMiddle->fractionHeight = false;
-	listMiddle->fractionWidth = true;
+	azgui::ListH *listMiddle = gui->system.CreateListH(screenListV);
+	listMiddle->SetHeightContents();
+	listMiddle->SetWidthFraction(1.0f);
 	listMiddle->margin = 0.0f;
 	listMiddle->padding = 0.0f;
 	listMiddle->color = 0.0f;
-	listMiddle->highlight = 0.0f;
-	listMiddle->size = vec2(1.0f, 0.0f);
+	listMiddle->colorHighlighted = 0.0f;
 	listMiddle->occludes = false;
-	AddWidget(screenListV, listMiddle);
 
-	spacer = new Widget();
-	spacer->size.x = 0.5f;
-	spacer->size.y = 0.0f;
-	spacer->margin = 0.0f;
-	AddWidget(listMiddle, spacer);
+	spacer = gui->system.CreateSpacer(listMiddle, 0.5f);
 
-	ListV *listDialogs = new ListV();
-	listDialogs->fractionWidth = false;
-	listDialogs->fractionHeight = false;
-	listDialogs->size = vec2(480.0f, 0.0f);
+	azgui::ListV *listDialogs = gui->system.CreateListV(listMiddle);
+	listDialogs->SetWidthPixel(480.0f);
+	listDialogs->SetHeightContents();
 	listDialogs->color = 0.0f;
+	listDialogs->colorHighlighted = 0.0f;
 	listDialogs->margin = 0.0f;
 	listDialogs->padding = 0.0f;
-	listDialogs->highlight = 0.0f;
 	listDialogs->occludes = false;
-	AddWidget(listMiddle, listDialogs);
 
-	spacer = new Widget();
-	spacer->size.y = 0.5f;
-	AddWidget(screenListV, spacer);
+	spacer = gui->system.CreateSpacer(screenListV, 0.5f);
 
-	ListH *listBottom = new ListH();
-	listBottom->fractionHeight = false;
-	listBottom->fractionWidth = true;
+	azgui::ListH *listBottom = gui->system.CreateListH(screenListV);
+	listBottom->SetHeightPixel(80.0f);
+	listBottom->SetWidthFraction(1.0f);
 	listBottom->color = 0.0f;
-	listBottom->highlight = 0.0f;
+	listBottom->colorHighlighted = 0.0f;
 	listBottom->margin = 0.0f;
-	listBottom->size = vec2(1.0f, 80.0f);
-	AddWidgetAsDefault(screenListV, listBottom);
+	
+	azgui::Button buttonTemplate;
+	buttonTemplate.SetWidthPixel(120.0f);
 
-	buttonMenu = new Button();
-	buttonMenu->fractionWidth = false;
-	buttonMenu->size.x = 120.0f;
+	buttonMenu = gui->system.CreateButtonFrom(listBottom, buttonTemplate);
 	buttonMenu->AddDefaultText(sys->ReadLocale("Menu"));
 	buttonMenu->keycodeActivators = {KC_GP_BTN_START, KC_KEY_ESC};
-	AddWidgetAsDefault(listBottom, buttonMenu);
 
-	spacer = new Widget();
-	spacer->size.x = 1.0f;
-	AddWidget(listBottom, spacer);
+	spacer = gui->system.CreateSpacer(listBottom, 1.0f);
 
-	buttonNew = new Button(*buttonMenu);
-	buttonNew->children.Clear();
+	buttonNew = gui->system.CreateButtonFrom(listBottom, buttonTemplate);
 	buttonNew->AddDefaultText(sys->ReadLocale("New"));
 	buttonNew->keycodeActivators = {KC_GP_BTN_SELECT, KC_KEY_N};
-	AddWidget(listBottom, buttonNew);
 
-	buttonLoad = new Button(*buttonMenu);
-	buttonLoad->children.Clear();
+	buttonLoad = gui->system.CreateButtonFrom(listBottom, buttonTemplate);
 	buttonLoad->AddDefaultText(sys->ReadLocale("Load"));
 	buttonLoad->keycodeActivators = {KC_GP_BTN_Y, KC_KEY_L};
-	AddWidget(listBottom, buttonLoad);
 
-	buttonSave = new Button(*buttonMenu);
-	buttonSave->children.Clear();
+	buttonSave = gui->system.CreateButtonFrom(listBottom, buttonTemplate);
 	buttonSave->AddDefaultText(sys->ReadLocale("Save"));
 	buttonSave->keycodeActivators = {KC_GP_BTN_X, KC_KEY_S};
-	AddWidget(listBottom, buttonSave);
 
 	// Dialogs
 
-	buttonCancel = new Button(*buttonMenu);
-	buttonCancel->children.Clear();
+	buttonCancel = gui->system.CreateButtonFrom(nullptr, buttonTemplate);
 	buttonCancel->AddDefaultText(sys->ReadLocale("Cancel"));
 	buttonCancel->keycodeActivators = {KC_GP_BTN_B};
-	buttonConfirm = new Button(*buttonMenu);
-	buttonConfirm->children.Clear();
+	buttonConfirm = gui->system.CreateButtonFrom(nullptr, buttonTemplate);
 	buttonConfirm->AddDefaultText(sys->ReadLocale("Confirm"));
 	buttonConfirm->keycodeActivators = {};
 
 	{ // Resize
-		ListV *dialog = new ListV();
-		dialog->fractionHeight = false;
-		dialog->size.y = 0.0f;
+		azgui::ListV *dialog = gui->system.CreateListV(nullptr);
+		hideableResize = gui->system.CreateHideable(listDialogs, dialog);
+		hideableResize->hidden = true;
+		dialog->SetHeightContents();
 		dialog->margin = 0.0f;
 		dialog->padding = 0.0f;
 
-		Text *header = new Text();
+		azgui::Text *header = gui->system.CreateText(dialog);
 		header->bold = true;
-		header->fontIndex = guiBasic->fontIndex;
 		header->fontSize = 24.0f;
 		header->string = sys->ReadLocale("ResizeText");
-		AddWidget(dialog, header);
 
-		ListH *textboxes = new ListH();
-		textboxes->fractionHeight = false;
-		textboxes->size.y = 48.0f;
+		azgui::ListH *textboxes = gui->system.CreateListH(dialog);
+		textboxes->SetHeightPixel(48.0f);
 		textboxes->padding = 0.0f;
 		textboxes->color = 0.0f;
-		textboxes->highlight = 0.0f;
-		AddWidgetAsDefault(dialog, textboxes);
+		textboxes->colorHighlighted = 0.0f;
 
-		Text *widthText = new Text();
-		widthText->size.x = 0.5f;
-		widthText->fontIndex = guiBasic->fontIndex;
+		azgui::Text *widthText = gui->system.CreateText(textboxes);
+		widthText->SetWidthFraction(0.5f);
 		widthText->fontSize = 24.0f;
 		widthText->string = sys->ReadLocale("Width:");
-		AddWidget(textboxes, widthText);
 
-		textboxWidth = new TextBox();
-		textboxWidth->fractionHeight = true;
-		textboxWidth->size.x = 80.0f;
-		textboxWidth->size.y = 1.0f;
-		textboxWidth->fontIndex = guiBasic->fontIndex;
+		textboxWidth = gui->system.CreateTextbox(textboxes);
+		textboxWidth->SetWidthPixel(80.0f);
+		textboxWidth->SetHeightFraction(1.0f);
 		textboxWidth->fontSize = 24.0f;
-		textboxWidth->alignH = Rendering::RIGHT;
+		textboxWidth->data = TextMetadata{Rendering::RIGHT, Rendering::CENTER};
 		textboxWidth->string = ToWString("64");
-		textboxWidth->textFilter = TextFilterDigits;
-		textboxWidth->textValidate = TextValidateNonempty;
-		AddWidget(textboxes, textboxWidth);
+		textboxWidth->textFilter = azgui::TextFilterDigits;
+		textboxWidth->textValidate = azgui::TextValidateNonempty;
 
-		Text *heightText = new Text();
-		heightText->size.x = 0.5f;
-		heightText->fontIndex = guiBasic->fontIndex;
+		azgui::Text *heightText = gui->system.CreateText(textboxes);
+		heightText->SetWidthFraction(0.5f);
 		heightText->fontSize = 24.0f;
 		heightText->string = sys->ReadLocale("Height:");
-		AddWidget(textboxes, heightText);
 
-		textboxHeight = new TextBox(*textboxWidth);
+		textboxHeight = gui->system.CreateTextboxFrom(textboxes, *textboxWidth);
 		textboxHeight->string = ToWString("32");
-		AddWidget(textboxes, textboxHeight);
 
-		ListH *buttons = new ListH();
-		buttons->fractionHeight = false;
-		buttons->size.y = 80.0f;
+		azgui::ListH *buttons = gui->system.CreateListH(dialog);
+		buttons->SetHeightPixel(80.0f);
 		buttons->padding = 0.0f;
 		buttons->color = 0.0f;
-		buttons->highlight = 0.0f;
-		AddWidget(dialog, buttons);
+		buttons->colorHighlighted = 0.0f;
 
-		AddWidgetAsDefault(buttons, buttonCancel);
-		spacer = new Widget();
-		AddWidget(buttons, spacer);
-		AddWidget(buttons, buttonConfirm);
-		hideableResize = new Hideable(dialog);
-		hideableResize->hidden = true;
-
-		AddWidget(listDialogs, hideableResize);
+		gui->system.AddWidgetAsDefault(buttons, buttonCancel);
+		spacer = gui->system.CreateSpacer(buttons, 1.0f);
+		gui->system.AddWidget(buttons, buttonConfirm);
 	}
 
 	{ // Save
-		ListV *dialog = new ListV();
-		dialog->fractionHeight = false;
-		dialog->size.y = 0.0f;
+		azgui::ListV *dialog = gui->system.CreateListV(nullptr);
+		hideableSave = gui->system.CreateHideable(listDialogs, dialog);
+		hideableSave->hidden = true;
+		dialog->SetHeightContents();
 		dialog->margin = 0.0f;
 		dialog->padding = 0.0f;
 
-		Text *header = new Text();
+		azgui::Text *header = gui->system.CreateText(dialog);
 		header->bold = true;
-		header->fontIndex = guiBasic->fontIndex;
 		header->fontSize = 24.0f;
 		header->string = sys->ReadLocale("SaveText");
-		AddWidget(dialog, header);
 
-		textboxFilename = new TextBox();
-		textboxFilename->fractionWidth = true;
-		textboxFilename->fractionHeight = false;
-		textboxFilename->size.x = 1.0f;
-		textboxFilename->size.y = 32.0f;
+		textboxFilename = gui->system.CreateTextbox(dialog);
+		textboxFilename->SetWidthFraction(1.0f);
+		textboxFilename->SetHeightPixel(32.0f);
 		textboxFilename->margin *= 2.0f;
-		textboxFilename->fontIndex = guiBasic->fontIndex;
 		textboxFilename->fontSize = 24.0f;
-		textboxFilename->alignH = Rendering::CENTER;
+		textboxFilename->data = TextMetadata{Rendering::CENTER, Rendering::CENTER};
 		textboxFilename->string = ToWString("My Level");
-		textboxFilename->textValidate = TextValidateNonempty;
-		AddWidget(dialog, textboxFilename);
+		textboxFilename->textValidate = azgui::TextValidateNonempty;
 
-		ListH *buttons = new ListH();
-		buttons->fractionHeight = false;
-		buttons->size.y = 80.0f;
+		azgui::ListH *buttons = gui->system.CreateListH(dialog);
+		buttons->SetHeightPixel(80.0f);
 		buttons->padding = 0.0f;
 		buttons->color = 0.0f;
-		buttons->highlight = 0.0f;
-		AddWidget(dialog, buttons);
+		buttons->colorHighlighted = 0.0f;
 
-		AddWidgetAsDefault(buttons, buttonCancel);
-		spacer = new Widget();
-		AddWidget(buttons, spacer);
-		AddWidget(buttons, buttonConfirm);
-		hideableSave = new Hideable(dialog);
-		hideableSave->hidden = true;
-
-		AddWidget(listDialogs, hideableSave);
+		gui->system.AddWidgetAsDefault(buttons, buttonCancel);
+		spacer = gui->system.CreateSpacer(buttons, 1.0f);
+		gui->system.AddWidget(buttons, buttonConfirm);
 	}
 
 	{ // Load
-		ListV *dialog = new ListV();
-		dialog->fractionHeight = false;
-		dialog->size.y = 0.0f;
+		azgui::ListV *dialog = gui->system.CreateListV(nullptr);
+		hideableLoad = gui->system.CreateHideable(listDialogs, dialog);
+		hideableLoad->hidden = true;
+		dialog->SetHeightContents();
 		dialog->margin = 0.0f;
 		dialog->padding = 0.0f;
 
-		Text *header = new Text();
+		azgui::Text *header = gui->system.CreateText(dialog);
 		header->bold = true;
-		header->fontIndex = guiBasic->fontIndex;
 		header->fontSize = 24.0f;
 		header->string = sys->ReadLocale("LoadText");
-		AddWidget(dialog, header);
 
-		AddWidget(dialog, textboxFilename);
+		gui->system.AddWidget(dialog, textboxFilename);
 
-		ListH *buttons = new ListH();
-		buttons->fractionHeight = false;
-		buttons->size.y = 80.0f;
+		azgui::ListH *buttons = gui->system.CreateListH(dialog);
+		buttons->SetHeightPixel(80.0f);
 		buttons->padding = 0.0f;
 		buttons->color = 0.0f;
-		buttons->highlight = 0.0f;
-		AddWidget(dialog, buttons);
+		buttons->colorHighlighted = 0.0f;
 
-		AddWidgetAsDefault(buttons, buttonCancel);
-		spacer = new Widget();
-		AddWidget(buttons, spacer);
-		AddWidget(buttons, buttonConfirm);
-		hideableLoad = new Hideable(dialog);
-		hideableLoad->hidden = true;
-
-		AddWidget(listDialogs, hideableLoad);
+		gui->system.AddWidgetAsDefault(buttons, buttonCancel);
+		spacer = gui->system.CreateSpacer(buttons, 1.0f);
+		gui->system.AddWidget(buttons, buttonConfirm);
 	}
 }
 
 void EditorMenu::Update() {
-	screen.Update(vec2(0.0f), true);
+	screen->Update(vec2(0.0f), true);
 
 	if (buttonMenu->state.Released()) {
 		gui->menuNext = Gui::Menu::MAIN;
@@ -1039,7 +894,8 @@ void EditorMenu::Update() {
 }
 
 void EditorMenu::Draw(Rendering::DrawingContext &context) {
-	screen.Draw(context);
+	gui->currentContext = &context;
+	screen->Draw();
 }
 
 } // namespace Az2D::Gui

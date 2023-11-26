@@ -129,8 +129,7 @@ void MainMenu::Initialize() {
 	title->SetWidthPixel(256.0f);
 	title->SetHeightContents();
 	
-	azgui::Widget *spacer = gui->system.CreateSpacer(listV);
-	spacer->size.y = 1.0f;
+	azgui::Spacer *spacer = gui->system.CreateSpacer(listV, 1.0f);
 	
 	azgui::Button buttonTemplate;
 	buttonTemplate.SetSizePixel(vec2(256.0f, 64.0f));
@@ -221,18 +220,17 @@ void SettingsMenu::Initialize() {
 	title->SetWidthFraction(1.0f);
 	title->SetHeightContents();
 	
-	azgui::Spacer *spacer = gui->system.CreateSpacer(listV);
-	spacer->size.y = 1.0f;
+	azgui::Spacer *spacer = gui->system.CreateSpacer(listV, 1.0f);
 
 	azgui::Text settingTextTemplate;
 	settingTextTemplate.fontSize = 20.0f;
 	settingTextTemplate.SetHeightFraction(1.0f);
 	settingTextTemplate.data = TextMetadata{Rendering::LEFT, Rendering::CENTER};
 
-	checkFullscreen = new azgui::Checkbox();
+	checkFullscreen = gui->system.CreateCheckbox(nullptr);
 	checkFullscreen->checked = Settings::ReadBool(Settings::sFullscreen);
 	
-	checkVSync = new azgui::Checkbox();
+	checkVSync = gui->system.CreateCheckbox(nullptr);
 	checkVSync->checked = Settings::ReadBool(Settings::sVSync);
 
 	azgui::Textbox textboxTemplate;
@@ -260,12 +258,12 @@ void SettingsMenu::Initialize() {
 	sliderTemplate.mirrorPrecision = 0;
 	sliderTemplate.colorBG = vec4(vec3(0.0f), buttonBaseOpacity);
 
-	textboxFramerate = new azgui::Textbox(textboxTemplate);
+	textboxFramerate = gui->system.CreateTextboxFrom(nullptr, textboxTemplate);
 	textboxFramerate->stringSuffix = ToWString("fps");
 
 	for (i32 i = 0; i < 3; i++) {
-		textboxVolumes[i] = new azgui::Textbox(textboxTemplate);
-		sliderVolumes[i] = new azgui::Slider(sliderTemplate);
+		textboxVolumes[i] = gui->system.CreateTextboxFrom(nullptr, textboxTemplate);
+		sliderVolumes[i] = gui->system.CreateSliderFrom(nullptr, sliderTemplate);
 		textboxVolumes[i]->stringSuffix = ToWString("dB");
 		textboxVolumes[i]->textFilter = azgui::TextFilterBasic;
 		textboxVolumes[i]->textValidate = azgui::TextValidateDecimalsNegativeAndInfinity;
@@ -273,10 +271,10 @@ void SettingsMenu::Initialize() {
 	}
 	
 	f32 guiScale = Settings::ReadReal(Settings::sGuiScale);
-	textboxGuiScale = new azgui::Textbox(textboxTemplate);
+	textboxGuiScale = gui->system.CreateTextboxFrom(nullptr, textboxTemplate);
 	textboxGuiScale->textFilter = azgui::TextFilterDigits;
 	textboxGuiScale->textValidate = azgui::TextValidateNonempty;
-	sliderGuiScale = new azgui::Slider(sliderTemplate);
+	sliderGuiScale = gui->system.CreateSliderFrom(nullptr, sliderTemplate);
 	sliderGuiScale->minOverride = false;
 	sliderGuiScale->maxOverride = false;
 	sliderGuiScale->value = guiScale*100.0f;
@@ -321,23 +319,21 @@ void SettingsMenu::Initialize() {
 			settingText->fontSize = 24.0f;
 			settingText->SetHeightContents();
 		} else {
-			azgui::ListH *settingList = new azgui::ListH(settingListTemplate);
-			azgui::Text *settingText = new azgui::Text(settingTextTemplate);
-			settingText->string = sys->ReadLocale(settingListNames[i / 2]);
-			gui->system.AddWidget(settingList, settingText);
-			gui->system.AddWidgetAsDefault(settingList, settingListItems[i]);
-			if (settingListItems[i+1] != nullptr) {
-				// So we can control the slider with the keyboard and gamepad
-				settingListItems[i+1]->selectable = false;
-				gui->system.AddWidget(settingList, settingListItems[i+1]);
-			}
-
+			azgui::ListH *settingList = gui->system.CreateListHFrom(nullptr, settingListTemplate);
 			if (i == 2) {
 				// Hideable Framerate
 				framerateHideable = gui->system.CreateHideable(listV, settingList);
 				framerateHideable->hidden = Settings::ReadBool(Settings::sVSync);
 			} else {
 				gui->system.AddWidget(listV, settingList);
+			}
+			azgui::Text *settingText = gui->system.CreateTextFrom(settingList, settingTextTemplate);
+			settingText->string = sys->ReadLocale(settingListNames[i / 2]);
+			gui->system.AddWidgetAsDefault(settingList, settingListItems[i]);
+			if (settingListItems[i+1] != nullptr) {
+				// So we can control the slider with the keyboard and gamepad
+				settingListItems[i+1]->selectable = false;
+				gui->system.AddWidget(settingList, settingListItems[i+1]);
 			}
 		}
 	}
@@ -712,7 +708,7 @@ void PlayMenu::Initialize() {
 	towerInfo->fontSize = 18.0f;
 	towerInfo->string = ToWString("$MONEY");
 	
-	gui->system.CreateSpacer(list);
+	gui->system.CreateSpacer(list, 1.0f);
 
 	azgui::Button fullWidth;
 	fullWidth.SetWidthFraction(1.0f);

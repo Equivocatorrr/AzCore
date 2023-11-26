@@ -88,8 +88,7 @@ void MainMenu::Initialize() {
 	listV->color = vec4(0.0f);
 	listV->colorHighlighted = vec4(0.0f);
 
-	azgui::Spacer *spacer = gui->system.CreateSpacer(listV);
-	spacer->SetHeightFraction(0.3f);
+	azgui::Spacer *spacer = gui->system.CreateSpacer(listV, 0.3f);
 
 	azgui::Text *title = gui->system.CreateText(listV);
 	title->data = TextMetadata{Rendering::CENTER, Rendering::TOP};
@@ -100,16 +99,14 @@ void MainMenu::Initialize() {
 	title->fontSize = 64.0f;
 	title->string = sys->ReadLocale("Az2D Example");
 
-	spacer = gui->system.CreateSpacer(listV);
-	spacer->SetHeightFraction(0.4f);
+	spacer = gui->system.CreateSpacer(listV, 0.4f);
 	
 	azgui::ListH *spacingList = gui->system.CreateListH(listV);
 	spacingList->color = vec4(0.0f);
 	spacingList->colorHighlighted = vec4(0.0f);
 	spacingList->SetHeightContents();
 
-	spacer = gui->system.CreateSpacer(spacingList);
-	spacer->SetWidthFraction(0.5f);
+	spacer = gui->system.CreateSpacer(spacingList, 0.5f);
 
 	azgui::ListV *buttonList = gui->system.CreateListV(spacingList);
 	buttonList->SetWidthPixel(500.0f);
@@ -172,8 +169,7 @@ void SettingsMenu::Initialize() {
 	listV->color = vec4(0.0f);
 	listV->colorHighlighted = vec4(0.0f);
 
-	azgui::Spacer *spacer = gui->system.CreateSpacer(listV);
-	spacer->SetHeightFraction(0.3f);
+	azgui::Spacer *spacer = gui->system.CreateSpacer(listV, 0.3f);
 
 	azgui::Text *title = gui->system.CreateText(listV);
 	title->data = TextMetadata{Rendering::CENTER, Rendering::TOP};
@@ -184,16 +180,14 @@ void SettingsMenu::Initialize() {
 	title->fontSize = 64.0f;
 	title->string = sys->ReadLocale("Settings");
 
-	spacer = gui->system.CreateSpacer(listV);
-	spacer->SetHeightFraction(0.4f);
+	spacer = gui->system.CreateSpacer(listV, 0.4f);
 	
 	azgui::ListH *spacingList = gui->system.CreateListH(listV);
 	spacingList->color = vec4(0.0f);
 	spacingList->colorHighlighted = vec4(0.0f);
 	spacingList->SetHeightContents();
 
-	spacer = gui->system.CreateSpacer(spacingList);
-	spacer->SetWidthFraction(0.5f);
+	spacer = gui->system.CreateSpacer(spacingList, 0.5f);
 
 	azgui::ListV *actualList = gui->system.CreateListV(spacingList);
 	actualList->SetWidthPixel(500.0f);
@@ -205,10 +199,10 @@ void SettingsMenu::Initialize() {
 	settingTextTemplate.SetHeightFraction(1.0f);
 	settingTextTemplate.data = TextMetadata{Rendering::LEFT, Rendering::CENTER};
 
-	checkFullscreen = new azgui::Checkbox();
+	checkFullscreen = gui->system.CreateCheckbox(nullptr);
 	checkFullscreen->checked = Settings::ReadBool(Settings::sFullscreen);
 
-	checkVSync = new azgui::Checkbox();
+	checkVSync = gui->system.CreateCheckbox(nullptr);
 	checkVSync->checked = Settings::ReadBool(Settings::sVSync);
 
 	azgui::Textbox textboxTemplate;
@@ -232,13 +226,13 @@ void SettingsMenu::Initialize() {
 	sliderTemplate.maxOverrideValue = -0.0f;
 	sliderTemplate.mirrorPrecision = 0;
 
-	textboxFramerate = new azgui::Textbox(textboxTemplate);
+	textboxFramerate = gui->system.CreateTextboxFrom(nullptr, textboxTemplate);
 	textboxFramerate->stringSuffix = ToWString("fps");
 
 
 	for (i32 i = 0; i < 3; i++) {
-		textboxVolumes[i] = new azgui::Textbox(textboxTemplate);
-		sliderVolumes[i] = new azgui::Slider(sliderTemplate);
+		textboxVolumes[i] = gui->system.CreateTextboxFrom(nullptr, textboxTemplate);
+		sliderVolumes[i] = gui->system.CreateSliderFrom(nullptr, sliderTemplate);
 		textboxVolumes[i]->stringSuffix = ToWString("dB");
 		textboxVolumes[i]->textFilter = azgui::TextFilterBasic;
 		textboxVolumes[i]->textValidate = azgui::TextValidateDecimalsNegativeAndInfinity;
@@ -276,22 +270,20 @@ void SettingsMenu::Initialize() {
 			settingText->data = TextMetadata{Rendering::CENTER, Rendering::CENTER};
 			settingText->fontSize = 24.0f;
 		} else {
-			azgui::ListH *settingList = new azgui::ListH(settingListTemplate);
-			azgui::Text *settingText = new azgui::Text(settingTextTemplate);
-			settingText->string = sys->ReadLocale(settingListNames[i / 2]);
-			gui->system.AddWidget(settingList, settingText);
-			gui->system.AddWidgetAsDefault(settingList, settingListItems[i]);
-			if (settingListItems[i+1] != nullptr) {
-				settingListItems[i+1]->selectable = false;
-				gui->system.AddWidget(settingList, settingListItems[i+1]);
-			}
-
+			azgui::ListH *settingList = gui->system.CreateListHFrom(nullptr, settingListTemplate);
 			if (i == 4) {
 				// Hideable Framerate
 				framerateHideable = gui->system.CreateHideable(actualList, settingList);
 				framerateHideable->hidden = Settings::ReadBool(Settings::sVSync);
 			} else {
 				gui->system.AddWidget(actualList, settingList);
+			}
+			azgui::Text *settingText = gui->system.CreateTextFrom(settingList, settingTextTemplate);
+			settingText->string = sys->ReadLocale(settingListNames[i / 2]);
+			gui->system.AddWidgetAsDefault(settingList, settingListItems[i]);
+			if (settingListItems[i+1] != nullptr) {
+				settingListItems[i+1]->selectable = false;
+				gui->system.AddWidget(settingList, settingListItems[i+1]);
 			}
 		}
 	}
@@ -393,8 +385,7 @@ void PlayMenu::Initialize() {
 	listTop->colorHighlighted = 0.0f;
 	listTop->occludes = false;
 
-	azgui::Spacer *spacer = gui->system.CreateSpacer(screenListV);
-	spacer->SetHeightFraction(1.0f);
+	azgui::Spacer *spacer = gui->system.CreateSpacer(screenListV, 1.0f);
 
 	azgui::ListH *listBottom = gui->system.CreateListH(screenListV);
 	listBottom->SetWidthFraction(1.0f);
@@ -409,8 +400,7 @@ void PlayMenu::Initialize() {
 	buttonMenu->keycodeActivators = {KC_GP_BTN_START, KC_KEY_ESC};
 	buttonMenu->AddDefaultText(sys->ReadLocale("Menu"));
 
-	spacer = gui->system.CreateSpacer(listBottom);
-	spacer->SetWidthFraction(1.0f);
+	spacer = gui->system.CreateSpacer(listBottom, 1.0f);
 
 	buttonReset = gui->system.CreateButton(listBottom);
 	buttonReset->SetWidthPixel(120.0f);

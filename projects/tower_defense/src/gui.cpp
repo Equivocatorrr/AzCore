@@ -19,10 +19,10 @@ using namespace AzCore;
 
 Gui *gui = nullptr;
 
-const az::vec3 colorBack = {1.0f, 0.4f, 0.1f};
-const az::vec3 colorHighlightLow = {0.2f, 0.45f, 0.5f};
-const az::vec3 colorHighlightMedium = {0.4f, 0.9f, 1.0f};
-const az::vec3 colorHighlightHigh = {0.9f, 0.98f, 1.0f};
+const vec3 colorBack = {1.0f, 0.4f, 0.1f};
+const vec3 colorHighlightLow = {0.2f, 0.45f, 0.5f};
+const vec3 colorHighlightMedium = {0.4f, 0.9f, 1.0f};
+const vec3 colorHighlightHigh = {0.9f, 0.98f, 1.0f};
 
 const f32 backgroundOpacity = 0.7f;
 const f32 buttonBaseOpacity = 0.4f;
@@ -107,7 +107,7 @@ void Gui::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 
 void MainMenu::Initialize() {
 	screen = gui->system.CreateScreen();
-	az::GuiGeneric::ListV *listV = gui->system.CreateListV(screen);
+	azgui::ListV *listV = gui->system.CreateListV(screen);
 	listV->SetWidthContents();
 	listV->SetHeightFraction(1.0f);
 	listV->padding = vec2(40.0f);
@@ -116,7 +116,7 @@ void MainMenu::Initialize() {
 	
 	constexpr f32 slant = 32.0f;
 	
-	az::GuiGeneric::Text *title = gui->system.CreateText(listV);
+	azgui::Text *title = gui->system.CreateText(listV);
 	title->position.x = 4.0f * slant;
 	title->data = TextMetadata();
 	title->data.Get<TextMetadata>().alignH = Rendering::CENTER;
@@ -129,10 +129,10 @@ void MainMenu::Initialize() {
 	title->SetWidthPixel(256.0f);
 	title->SetHeightContents();
 	
-	az::GuiGeneric::Widget *spacer = gui->system.CreateSpacer(listV);
+	azgui::Widget *spacer = gui->system.CreateSpacer(listV);
 	spacer->size.y = 1.0f;
 	
-	az::GuiGeneric::Button buttonTemplate;
+	azgui::Button buttonTemplate;
 	buttonTemplate.SetSizePixel(vec2(256.0f, 64.0f));
 	buttonTemplate.margin = vec2(16.0f);
 	buttonTemplate.padding = vec2(16.0f);
@@ -203,14 +203,14 @@ void SettingsMenu::Reset() {
 
 void SettingsMenu::Initialize() {
 	screen = gui->system.CreateScreen();
-	az::GuiGeneric::ListV *listV = gui->system.CreateListV(screen);
+	azgui::ListV *listV = gui->system.CreateListV(screen);
 	listV->SetWidthPixel(500.0f);
 	listV->SetHeightFraction(1.0f);
 	listV->padding = vec2(40.0f);
 	listV->color = vec4(0.0f);
 	listV->colorHighlighted = vec4(0.0f);
 
-	az::GuiGeneric::Text *title = gui->system.CreateText(listV);
+	azgui::Text *title = gui->system.CreateText(listV);
 	title->data = TextMetadata{Rendering::CENTER, Rendering::TOP};
 	title->bold = true;
 	title->color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -221,33 +221,31 @@ void SettingsMenu::Initialize() {
 	title->SetWidthFraction(1.0f);
 	title->SetHeightContents();
 	
-	az::GuiGeneric::Spacer *spacer = gui->system.CreateSpacer(listV);
+	azgui::Spacer *spacer = gui->system.CreateSpacer(listV);
 	spacer->size.y = 1.0f;
 
-	az::GuiGeneric::Text settingTextTemplate;
+	azgui::Text settingTextTemplate;
 	settingTextTemplate.fontSize = 20.0f;
-	settingTextTemplate.padding = 2.0f;
-	settingTextTemplate.paddingEM = false;
-	settingTextTemplate.SetHeightContents();
-	settingTextTemplate.data = TextMetadata{Rendering::CENTER, Rendering::CENTER};
+	settingTextTemplate.SetHeightFraction(1.0f);
+	settingTextTemplate.data = TextMetadata{Rendering::LEFT, Rendering::CENTER};
 
-	checkFullscreen = new az::GuiGeneric::Checkbox();
+	checkFullscreen = new azgui::Checkbox();
 	checkFullscreen->checked = Settings::ReadBool(Settings::sFullscreen);
 	
-	checkVSync = new az::GuiGeneric::Checkbox();
+	checkVSync = new azgui::Checkbox();
 	checkVSync->checked = Settings::ReadBool(Settings::sVSync);
 
-	az::GuiGeneric::Textbox textboxTemplate;
+	azgui::Textbox textboxTemplate;
 	textboxTemplate.SetWidthPixel(64.0f);
 	textboxTemplate.SetHeightFraction(1.0f);
 	textboxTemplate.data = TextMetadata{Rendering::RIGHT, Rendering::CENTER};
 	textboxTemplate.fontSize = 20.0f;
-	textboxTemplate.textFilter = az::GuiGeneric::TextFilterDigits;
-	textboxTemplate.textValidate = az::GuiGeneric::TextValidateNonempty;
+	textboxTemplate.textFilter = azgui::TextFilterDigits;
+	textboxTemplate.textValidate = azgui::TextValidateNonempty;
 	textboxTemplate.stringSuffix = ToWString("%");
 	textboxTemplate.colorBG = vec4(vec3(0.0f), buttonBaseOpacity);
 
-	az::GuiGeneric::Slider sliderTemplate;
+	azgui::Slider sliderTemplate;
 	sliderTemplate.SetWidthPixel(116.0f);
 	sliderTemplate.SetHeightFraction(1.0f);
 	sliderTemplate.valueMin = -60.0f;
@@ -262,24 +260,23 @@ void SettingsMenu::Initialize() {
 	sliderTemplate.mirrorPrecision = 0;
 	sliderTemplate.colorBG = vec4(vec3(0.0f), buttonBaseOpacity);
 
-	textboxFramerate = new az::GuiGeneric::Textbox(textboxTemplate);
-	textboxFramerate->string = ToWString(ToString((i32)Settings::ReadReal(Settings::sFramerate)));
+	textboxFramerate = new azgui::Textbox(textboxTemplate);
 	textboxFramerate->stringSuffix = ToWString("fps");
 
 	for (i32 i = 0; i < 3; i++) {
-		textboxVolumes[i] = new az::GuiGeneric::Textbox(textboxTemplate);
-		sliderVolumes[i] = new az::GuiGeneric::Slider(sliderTemplate);
+		textboxVolumes[i] = new azgui::Textbox(textboxTemplate);
+		sliderVolumes[i] = new azgui::Slider(sliderTemplate);
 		textboxVolumes[i]->stringSuffix = ToWString("dB");
-		textboxVolumes[i]->textFilter = az::GuiGeneric::TextFilterBasic;
-		textboxVolumes[i]->textValidate = az::GuiGeneric::TextValidateDecimalsNegativeAndInfinity;
+		textboxVolumes[i]->textFilter = azgui::TextFilterBasic;
+		textboxVolumes[i]->textValidate = azgui::TextValidateDecimalsNegativeAndInfinity;
 		sliderVolumes[i]->mirror = textboxVolumes[i];
 	}
 	
 	f32 guiScale = Settings::ReadReal(Settings::sGuiScale);
-	textboxGuiScale = new az::GuiGeneric::Textbox(textboxTemplate);
-	textboxGuiScale->textFilter = az::GuiGeneric::TextFilterDigits;
-	textboxGuiScale->textValidate = az::GuiGeneric::TextValidateNonempty;
-	sliderGuiScale = new az::GuiGeneric::Slider(sliderTemplate);
+	textboxGuiScale = new azgui::Textbox(textboxTemplate);
+	textboxGuiScale->textFilter = azgui::TextFilterDigits;
+	textboxGuiScale->textValidate = azgui::TextValidateNonempty;
+	sliderGuiScale = new azgui::Slider(sliderTemplate);
 	sliderGuiScale->minOverride = false;
 	sliderGuiScale->maxOverride = false;
 	sliderGuiScale->value = guiScale*100.0f;
@@ -289,13 +286,13 @@ void SettingsMenu::Initialize() {
 	sliderGuiScale->valueTickShiftMult = 0.2f;
 	sliderGuiScale->mirror = textboxGuiScale;
 
-	az::GuiGeneric::ListH settingListTemplate;
+	azgui::ListH settingListTemplate;
 	settingListTemplate.SetHeightContents();
 	settingListTemplate.margin = vec2(8.0f);
 	settingListTemplate.padding = vec2(0.0f);
 	settingListTemplate.color = vec4(vec3(0.0f), backgroundOpacity);
 
-	StaticArray<az::GuiGeneric::Widget*, 16> settingListItems = {
+	StaticArray<azgui::Widget*, 16> settingListItems = {
 		checkFullscreen, nullptr,
 		textboxFramerate, nullptr,
 		checkVSync, nullptr,
@@ -318,12 +315,14 @@ void SettingsMenu::Initialize() {
 
 	for (i32 i = 0; i < settingListItems.size; i+=2) {
 		if (settingListItems[i] == nullptr) {
-			az::GuiGeneric::Text *settingText = gui->system.CreateTextFrom(listV, settingTextTemplate);
+			azgui::Text *settingText = gui->system.CreateTextFrom(listV, settingTextTemplate);
 			settingText->string = sys->ReadLocale(settingListNames[i / 2]);
+			settingText->data = TextMetadata{Rendering::CENTER, Rendering::CENTER};
 			settingText->fontSize = 24.0f;
+			settingText->SetHeightContents();
 		} else {
-			az::GuiGeneric::ListH *settingList = new az::GuiGeneric::ListH(settingListTemplate);
-			az::GuiGeneric::Text *settingText = new az::GuiGeneric::Text(settingTextTemplate);
+			azgui::ListH *settingList = new azgui::ListH(settingListTemplate);
+			azgui::Text *settingText = new azgui::Text(settingTextTemplate);
 			settingText->string = sys->ReadLocale(settingListNames[i / 2]);
 			gui->system.AddWidget(settingList, settingText);
 			gui->system.AddWidgetAsDefault(settingList, settingListItems[i]);
@@ -343,14 +342,14 @@ void SettingsMenu::Initialize() {
 		}
 	}
 
-	az::GuiGeneric::ListH *buttonList = gui->system.CreateListH(listV);
+	azgui::ListH *buttonList = gui->system.CreateListH(listV);
 	buttonList->SetHeightContents();
 	buttonList->margin = vec2(0.0f);
 	buttonList->padding = vec2(0.0f);
 	buttonList->color = vec4(0.0f);
 	buttonList->colorHighlighted = vec4(0.0f);
 	
-	az::GuiGeneric::Button buttonTemplate;
+	azgui::Button buttonTemplate;
 	buttonTemplate.SetWidthFraction(1.0f / 2.0f);
 	buttonTemplate.SetHeightPixel(64.0f);
 	buttonTemplate.margin = vec2(8.0f);
@@ -408,14 +407,14 @@ void SettingsMenu::Draw(Rendering::DrawingContext &context) {
 
 void UpgradesMenu::Initialize() {
 	screen = gui->system.CreateScreen();
-	az::GuiGeneric::ListH *list = gui->system.CreateListH(nullptr);
+	azgui::ListH *list = gui->system.CreateListH(nullptr);
 	hideable = gui->system.CreateHideable(screen, list);
 	list->SetSizeContents();
 	list->color = vec4(vec3(0.0f), backgroundOpacity);
 	list->colorHighlighted = list->color;
 	list->padding *= 0.5f;
 
-	az::GuiGeneric::ListV *listStats = gui->system.CreateListVAsDefault(list);
+	azgui::ListV *listStats = gui->system.CreateListVAsDefault(list);
 	listStats->SetWidthPixel(250.0f);
 	listStats->SetHeightContents();
 	listStats->margin = 0.0f;
@@ -431,7 +430,7 @@ void UpgradesMenu::Initialize() {
 	towerName->SetHeightContents();
 	towerName->string = sys->ReadLocale("Info");
 
-	az::GuiGeneric::ListH *selectedTowerPriorityList = gui->system.CreateListH(nullptr);
+	azgui::ListH *selectedTowerPriorityList = gui->system.CreateListH(nullptr);
 	towerPriorityHideable = gui->system.CreateHideableAsDefault(listStats, selectedTowerPriorityList);
 	selectedTowerPriorityList->SetWidthFraction(1.0f);
 	selectedTowerPriorityList->SetHeightContents();
@@ -439,7 +438,7 @@ void UpgradesMenu::Initialize() {
 	selectedTowerPriorityList->margin = vec2(0.0f);
 	selectedTowerPriorityList->color = 0.0f;
 	selectedTowerPriorityList->colorHighlighted = 0.0f;
-	az::GuiGeneric::Text *selectedTowerPriorityText = gui->system.CreateText(selectedTowerPriorityList);
+	azgui::Text *selectedTowerPriorityText = gui->system.CreateText(selectedTowerPriorityList);
 	selectedTowerPriorityText->color = 1.0f;
 	selectedTowerPriorityText->SetSizeFraction(vec2(0.5f, 1.0f));
 	selectedTowerPriorityText->data = TextMetadata{Rendering::LEFT, Rendering::CENTER};
@@ -451,7 +450,7 @@ void UpgradesMenu::Initialize() {
 	towerPriority->padding = 0.0f;
 	towerPriority->color = vec4(vec3(0.0f), buttonBaseOpacity);
 	for (i32 i = 0; i < 6; i++) {
-		az::GuiGeneric::Text *priorityText = gui->system.CreateText(towerPriority);
+		azgui::Text *priorityText = gui->system.CreateText(towerPriority);
 		priorityText->selectable = true;
 		priorityText->SetWidthFraction(1.0f);
 		priorityText->SetHeightPixel(22.0f);
@@ -466,7 +465,7 @@ void UpgradesMenu::Initialize() {
 	selectedTowerStats->color = 1.0f;
 	selectedTowerStats->fontSize = 18.0f;
 
-	az::GuiGeneric::ListV *listUpgrades = gui->system.CreateListV(list);
+	azgui::ListV *listUpgrades = gui->system.CreateListV(list);
 	listUpgrades->fractionWidth = false;
 	listUpgrades->fractionHeight = false;
 	listUpgrades->SetWidthPixel(300.0f);
@@ -477,7 +476,7 @@ void UpgradesMenu::Initialize() {
 	listUpgrades->colorHighlighted = 0.0f;
 	listUpgrades->selectionDefault = 1;
 
-	az::GuiGeneric::Text *titleText = gui->system.CreateText(listUpgrades);
+	azgui::Text *titleText = gui->system.CreateText(listUpgrades);
 	titleText->data = TextMetadata{Rendering::CENTER, Rendering::CENTER};
 	titleText->bold = true;
 	titleText->fontSize = 24.0f;
@@ -501,7 +500,7 @@ void UpgradesMenu::Initialize() {
 	};
 
 	for (i32 i = 0; i < 5; i++) {
-		az::GuiGeneric::ListV *listV = gui->system.CreateListV(nullptr);
+		azgui::ListV *listV = gui->system.CreateListV(nullptr);
 		upgradeHideable[i] = gui->system.CreateHideable(listUpgrades, listV);
 		listV->SetWidthFraction(1.0f);
 		listV->SetHeightContents();
@@ -510,14 +509,14 @@ void UpgradesMenu::Initialize() {
 		listV->color = 0.0f;
 		listV->colorHighlighted = 0.0f;
 
-		az::GuiGeneric::ListH *listH = gui->system.CreateListHAsDefault(listV);
+		azgui::ListH *listH = gui->system.CreateListHAsDefault(listV);
 		listH->SetHeightContents();
 		listH->margin = 0.0f;
 		listH->padding = 0.0f;
 		listH->color = 0.0f;
 		listH->colorHighlighted = 0.0f;
 
-		az::GuiGeneric::Text *upgradeName = gui->system.CreateText(listH);
+		azgui::Text *upgradeName = gui->system.CreateText(listH);
 		upgradeName->SetSizeFraction(vec2(0.35f, 1.0f));
 		upgradeName->margin *= 0.5f;
 		upgradeName->data = TextMetadata{Rendering::LEFT, Rendering::CENTER};
@@ -537,10 +536,10 @@ void UpgradesMenu::Initialize() {
 		upgradeButton[i]->SetSizeFraction(vec2(0.25f, 1.0f));
 		upgradeButton[i]->margin *= 0.5f;
 		upgradeButton[i]->color = vec4(vec3(0.0f), buttonBaseOpacity);
-		az::GuiGeneric::Text *buttonText = upgradeButton[i]->AddDefaultText(sys->ReadLocale("Buy"));
+		azgui::Text *buttonText = upgradeButton[i]->AddDefaultText(sys->ReadLocale("Buy"));
 		buttonText->fontSize = 18.0f;
 
-		az::GuiGeneric::Text *upgradeDescription = gui->system.CreateText(listV);
+		azgui::Text *upgradeDescription = gui->system.CreateText(listV);
 		upgradeDescription->data = TextMetadata{Rendering::LEFT, Rendering::CENTER};
 		upgradeDescription->SetWidthFraction(1.0f);
 		upgradeDescription->margin = 0.0f;
@@ -674,11 +673,11 @@ void PlayMenu::Initialize() {
 	list->color = vec4(vec3(0.0f), backgroundOpacity);
 	list->colorHighlighted = list->color;
 
-	az::GuiGeneric::Text *towerHeader = gui->system.CreateText(list);
+	azgui::Text *towerHeader = gui->system.CreateText(list);
 	towerHeader->data = TextMetadata{Rendering::CENTER, Rendering::TOP};
 	towerHeader->string = sys->ReadLocale("Towers");
 
-	az::GuiGeneric::ListH gridBase;
+	azgui::ListH gridBase;
 	gridBase.SetWidthFraction(1.0f);
 	gridBase.SetHeightContents();
 	gridBase.padding = vec2(0.0f);
@@ -687,19 +686,19 @@ void PlayMenu::Initialize() {
 	gridBase.colorHighlighted = 0.0f;
 	gridBase.selectionDefault = 0;
 
-	az::GuiGeneric::Button halfWidth;
+	azgui::Button halfWidth;
 	halfWidth.SetWidthFraction(0.5f);
 	halfWidth.SetHeightPixel(32.0f);
 	halfWidth.color = vec4(vec3(0.0f), buttonBaseOpacity);
 
 	towerButtons.Resize(Entities::TOWER_MAX_RANGE + 1);
 	for (i32 i = 0; i < towerButtons.size; i+=2) {
-		az::GuiGeneric::ListH *grid = gui->system.CreateListHFrom(list, gridBase);
+		azgui::ListH *grid = gui->system.CreateListHFrom(list, gridBase);
 		for (i32 j = 0; j < 2; j++) {
 			i32 index = i+j;
 			if (index > towerButtons.size) break;
 			towerButtons[index] = gui->system.CreateButtonFrom(grid, halfWidth);
-			az::GuiGeneric::Text *buttonText = towerButtons[index]->AddDefaultText(sys->ReadLocale(Entities::towerStrings[index]));
+			azgui::Text *buttonText = towerButtons[index]->AddDefaultText(sys->ReadLocale(Entities::towerStrings[index]));
 			buttonText->fontSize = 20.0f;
 			towerButtons[index]->colorHighlighted = Entities::Tower(Entities::TowerType(index)).color;
 		}
@@ -715,12 +714,12 @@ void PlayMenu::Initialize() {
 	
 	gui->system.CreateSpacer(list);
 
-	az::GuiGeneric::Button fullWidth;
+	azgui::Button fullWidth;
 	fullWidth.SetWidthFraction(1.0f);
 	fullWidth.SetHeightPixel(32.0f);
 	fullWidth.color = vec4(vec3(0.0f), buttonBaseOpacity);
 
-	az::GuiGeneric::ListH *waveList = gui->system.CreateListHFrom(list, gridBase);
+	azgui::ListH *waveList = gui->system.CreateListHFrom(list, gridBase);
 
 	waveTitle = gui->system.CreateText(waveList);
 	waveTitle->SetSizeFraction(vec2(0.5f, 1.0f));
@@ -767,14 +766,14 @@ void PlayMenu::Update() {
 	}
 	{ // Make the grid work more nicely (hacky)
 		i32 selection = -1;
-		for (az::GuiGeneric::ListH *list : towerButtonLists) {
+		for (azgui::ListH *list : towerButtonLists) {
 			if (list->selection >= 0) {
 				selection = list->selection;
 				break;
 			}
 		}
 		if (selection != -1) {
-			for (az::GuiGeneric::ListH *list : towerButtonLists) {
+			for (azgui::ListH *list : towerButtonLists) {
 				list->selectionDefault = selection;
 			}
 		}

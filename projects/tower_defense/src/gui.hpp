@@ -11,16 +11,18 @@
 
 namespace Az2D::Gui {
 
+namespace azgui = az::GuiGeneric;
+
 struct Gui;
 
 // Now we can have some different screens
 struct MainMenu {
-	az::GuiGeneric::Screen *screen;
-	az::GuiGeneric::Hideable *continueHideable;
-	az::GuiGeneric::Button *buttonContinue;
-	az::GuiGeneric::Button *buttonNewGame;
-	az::GuiGeneric::Button *buttonSettings;
-	az::GuiGeneric::Button *buttonExit;
+	azgui::Screen *screen;
+	azgui::Hideable *continueHideable;
+	azgui::Button *buttonContinue;
+	azgui::Button *buttonNewGame;
+	azgui::Button *buttonSettings;
+	azgui::Button *buttonExit;
 
 	void Initialize();
 	void Update();
@@ -28,17 +30,17 @@ struct MainMenu {
 };
 
 struct SettingsMenu {
-	az::GuiGeneric::Screen *screen;
-	az::GuiGeneric::Checkbox *checkFullscreen;
-	az::GuiGeneric::Checkbox *checkVSync;
-	az::GuiGeneric::Hideable *framerateHideable;
-	az::GuiGeneric::Textbox *textboxFramerate;
-	az::GuiGeneric::Slider *sliderVolumes[3];
-	az::GuiGeneric::Textbox *textboxVolumes[3];
-	az::GuiGeneric::Slider *sliderGuiScale;
-	az::GuiGeneric::Textbox *textboxGuiScale;
-	az::GuiGeneric::Button *buttonApply;
-	az::GuiGeneric::Button *buttonBack;
+	azgui::Screen *screen;
+	azgui::Checkbox *checkFullscreen;
+	azgui::Checkbox *checkVSync;
+	azgui::Hideable *framerateHideable;
+	azgui::Textbox *textboxFramerate;
+	azgui::Slider *sliderVolumes[3];
+	azgui::Textbox *textboxVolumes[3];
+	azgui::Slider *sliderGuiScale;
+	azgui::Textbox *textboxGuiScale;
+	azgui::Button *buttonApply;
+	azgui::Button *buttonBack;
 
 	void Reset();
 	void Initialize();
@@ -47,20 +49,20 @@ struct SettingsMenu {
 };
 
 struct UpgradesMenu {
-	az::GuiGeneric::Screen *screen;
-	az::GuiGeneric::Hideable *hideable;
-	az::GuiGeneric::Text *towerName;
+	azgui::Screen *screen;
+	azgui::Hideable *hideable;
+	azgui::Text *towerName;
 	// Information about the currently selected tower
-	az::GuiGeneric::Text *selectedTowerStats;
-	az::GuiGeneric::Hideable *towerPriorityHideable;
+	azgui::Text *selectedTowerStats;
+	azgui::Hideable *towerPriorityHideable;
 	// How the selected tower prioritizes target selection
-	az::GuiGeneric::Switch *towerPriority;
+	azgui::Switch *towerPriority;
 	// Some upgrades aren't available on some towers
-	az::GuiGeneric::Hideable *upgradeHideable[5];
+	azgui::Hideable *upgradeHideable[5];
 	// The number indicator for the state of each attribute
-	az::GuiGeneric::Text *upgradeStatus[5];
+	azgui::Text *upgradeStatus[5];
 	// Button for purchasing an upgrade
-	az::GuiGeneric::Button *upgradeButton[5];
+	azgui::Button *upgradeButton[5];
 
 	void Initialize();
 	void Update();
@@ -68,14 +70,14 @@ struct UpgradesMenu {
 };
 
 struct PlayMenu {
-	az::GuiGeneric::Screen *screen;
-	az::GuiGeneric::ListV *list;
-	az::GuiGeneric::Text *waveTitle, *waveInfo, *towerInfo;
-	az::Array<az::GuiGeneric::ListH*> towerButtonLists;
-	az::Array<az::GuiGeneric::Button*> towerButtons;
-	az::GuiGeneric::Button *buttonMenu;
-	az::GuiGeneric::Button *buttonStartWave;
-	az::GuiGeneric::Text *buttonTextStartWave;
+	azgui::Screen *screen;
+	azgui::ListV *list;
+	azgui::Text *waveTitle, *waveInfo, *towerInfo;
+	az::Array<azgui::ListH*> towerButtonLists;
+	az::Array<azgui::Button*> towerButtons;
+	azgui::Button *buttonMenu;
+	azgui::Button *buttonStartWave;
+	azgui::Text *buttonTextStartWave;
 
 	UpgradesMenu upgradesMenu;
 

@@ -165,4 +165,26 @@ constexpr F barycentricInterp(az::vec2_t<F> a, az::vec2_t<F> b, az::vec2_t<F> c,
 	return a_val * u + b_val * v + c_val * w;
 }
 
+inline AzCore::vec2 min(AzCore::vec2 a, AzCore::vec2 b) {
+	alignas(16) f32 data[8] = {a[0], a[1], 0.0f, 0.0f, b[0], b[1], 0.0f, 0.0f};
+	_mm_store_ps(data, _mm_min_ps(_mm_load_ps(data), _mm_load_ps(data+4)));
+	return AzCore::vec2(data[0], data[1]);
+}
+
+inline AzCore::vec2 max(AzCore::vec2 a, AzCore::vec2 b) {
+	alignas(16) f32 data[8] = {a[0], a[1], 0.0f, 0.0f, b[0], b[1], 0.0f, 0.0f};
+	_mm_store_ps(data, _mm_max_ps(_mm_load_ps(data), _mm_load_ps(data+4)));
+	return AzCore::vec2(data[0], data[1]);
+}
+
+inline AzCore::vec2d min(AzCore::vec2d a, AzCore::vec2d b) {
+	_mm_store_pd(a.data, _mm_min_pd(_mm_set_pd(a[0], a[1]), _mm_set_pd(b[0], b[1])));
+	return a;
+}
+
+inline AzCore::vec2d max(AzCore::vec2d a, AzCore::vec2d b) {
+	_mm_store_pd(a.data, _mm_max_pd(_mm_set_pd(a[0], a[1]), _mm_set_pd(b[0], b[1])));
+	return a;
+}
+
 #endif // AZCORE_MATH_VEC2_HPP

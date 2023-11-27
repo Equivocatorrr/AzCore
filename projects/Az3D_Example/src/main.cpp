@@ -233,7 +233,6 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	}
 	
 	sys->rendering.camera.pos = vec3(0.0f, -3.0f, 3.0f);
-	sys->rendering.uniforms.ambientLight = sRGBToLinear(sys->rendering.backgroundRGB) * 0.5f;
 
 	GameSystems::UpdateLoop();
 

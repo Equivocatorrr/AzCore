@@ -10,6 +10,7 @@
 #include <type_traits>
 
 #include "../Assert.hpp"
+#include "TypeHash.hpp"
 
 namespace AzCore {
 
@@ -19,11 +20,14 @@ struct Any {
 	fp_Deleter deleter = nullptr;
 	typedef void (*fp_Copyer)(void *src, void **dst);
 	fp_Copyer copyer = nullptr;
+	u32 typeHash = 0;
 	Any() = default;
 	
-	inline Any(Any &&other) : data(other.data), deleter(other.deleter) {
+	inline Any(Any &&other) : data(other.data), deleter(other.deleter), copyer(other.copyer), typeHash(other.typeHash) {
 		other.data = nullptr;
 		other.deleter = nullptr;
+		other.copyer = nullptr;
+		other.typeHash = 0;
 	}
 	
 	inline Any(const Any &other) {
@@ -32,6 +36,7 @@ struct Any {
 			other.copyer(other.data, &data);
 			deleter = other.deleter;
 			copyer = other.copyer;
+			typeHash = other.typeHash;
 		}
 	}
 	
@@ -42,7 +47,7 @@ struct Any {
 	}
 	template <typename T>
 	static fp_Copyer MakeCopyer() {
-		if constexpr (std::is_copy_assignable<T>::value) {
+		if constexpr (std::is_copy_constructible<T>::value) {
 			return [](void *src, void **dst) {
 				(*dst) = new T(*(const T*)src);
 			};
@@ -55,13 +60,15 @@ struct Any {
 	Any(T &&value) :
 		data(new T(std::move(value))),
 		deleter(MakeDeleter<T>()),
-		copyer(MakeCopyer<T>()) {}
+		copyer(MakeCopyer<T>()),
+		typeHash(TypeHash<T>()) {}
 	
 	template <typename T>
 	Any(const T &value) :
 		data(new T(value)),
 		deleter(MakeDeleter<T>()),
-		copyer(MakeCopyer<T>()) {}
+		copyer(MakeCopyer<T>()),
+		typeHash(TypeHash<T>()) {}
 	
 	template <typename T>
 	Any& operator=(T &&value) {
@@ -76,6 +83,7 @@ struct Any {
 		data = new T(std::move(value));
 		deleter = MakeDeleter<T>();
 		copyer = MakeCopyer<T>();
+		typeHash = TypeHash<T>();
 		return *this;
 	}
 	
@@ -92,6 +100,7 @@ struct Any {
 		data = new T(value);
 		deleter = MakeDeleter<T>();
 		copyer = MakeCopyer<T>();
+		typeHash = TypeHash<T>();
 		return *this;
 	}
 	
@@ -118,8 +127,7 @@ struct Any {
 	
 	template <typename T>
 	bool IsType() const {
-		// TODO: Confirm that this actually works with multiple translation units.
-		return deleter == MakeDeleter<T>();
+		return typeHash == TypeHash<T>();
 	}
 };
 

@@ -43,6 +43,7 @@ namespace AzCore {
 	#define i128 static_assert(false && "i128 is not supported in this compiler");
 	#define force_inline(...) inline __VA_ARGS__
 	#define AZCORE_COMPILER_SUPPORTS_128BIT_TYPES 0
+	#define AZCORE_PRETTY_FUNCTION __PRETTY_FUNCTION__
 #elif defined(__GNUG__)
 	typedef __float128 f128;
 	typedef unsigned __int128 u128;
@@ -52,6 +53,7 @@ namespace AzCore {
 	static_assert(sizeof(i128) == 16);
 	#define force_inline(...) inline __VA_ARGS__ __attribute__((always_inline))
 	#define AZCORE_COMPILER_SUPPORTS_128BIT_TYPES 1
+	#define AZCORE_PRETTY_FUNCTION __PRETTY_FUNCTION__
 #elif defined(_MSC_VER)
 	#define f128 static_assert(false && "f128 is not supported in this compiler");
 	#define u128 static_assert(false && "u128 is not supported in this compiler");
@@ -59,6 +61,7 @@ namespace AzCore {
 	#define force_inline(...) __forceinline __VA_ARGS__
 	// #define force_inline(...) inline __VA_ARGS__
 	#define AZCORE_COMPILER_SUPPORTS_128BIT_TYPES 0
+	#define AZCORE_PRETTY_FUNCTION __FUNCSIG__
 #endif
 #else
 	#define force_inline(...) inline __VA_ARGS__

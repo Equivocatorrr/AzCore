@@ -96,6 +96,7 @@ add_library(AzCore STATIC
 		src/AzCore/Memory/StringArena.cpp
 		src/AzCore/Memory/StringArena.hpp
 		src/AzCore/Memory/StringCommon.hpp
+		src/AzCore/Memory/TypeHash.hpp
 		src/AzCore/Memory/UniquePtr.hpp
 		src/AzCore/Memory/Util.cpp
 		src/AzCore/Memory/Util.hpp

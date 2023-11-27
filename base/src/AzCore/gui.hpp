@@ -79,7 +79,8 @@ struct Widget {
 	virtual void UpdateSize(vec2 container, f32 _scale);
 	void LimitSize();
 	virtual void PushScissor() const;
-	void PushScissor(vec2 pos, vec2 size) const;
+	// inherit determines whether we limit our scissor to fit within the bounds of the topmost one on the stack.
+	void PushScissor(vec2 pos, vec2 size, bool inherit=true) const;
 	void PopScissor() const;
 	inline vec2 GetSize() const { return sizeAbsolute + margin * 2.0f * scale; }
 	virtual void Update(vec2 pos, bool selected);

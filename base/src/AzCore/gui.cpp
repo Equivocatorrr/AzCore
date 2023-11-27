@@ -303,17 +303,22 @@ void Widget::PushScissor() const {
 	_system->stackScissors.Append(scissor);
 }
 
-void Widget::PushScissor(vec2 pos, vec2 size) const {
+void Widget::PushScissor(vec2 pos, vec2 size, bool inherit) const {
 	const Scissor upScissor = _system->stackScissors.Back();
 	Scissor scissor;
-	scissor.topLeft = vec2i(
-		max(upScissor.topLeft.x, i32(pos.x * _system->scale)),
-		max(upScissor.topLeft.y, i32(pos.y * _system->scale))
-	);
-	scissor.botRight = vec2i(
-		min(upScissor.botRight.x, (i32)ceil((pos.x + size.x) * _system->scale)),
-		min(upScissor.botRight.y, (i32)ceil((pos.y + size.y) * _system->scale))
-	);
+	if (inherit) {
+		scissor.topLeft = vec2i(
+			max(upScissor.topLeft.x, i32(pos.x * _system->scale)),
+			max(upScissor.topLeft.y, i32(pos.y * _system->scale))
+		);
+		scissor.botRight = vec2i(
+			min(upScissor.botRight.x, (i32)ceil((pos.x + size.x) * _system->scale)),
+			min(upScissor.botRight.y, (i32)ceil((pos.y + size.y) * _system->scale))
+		);
+	} else {
+		scissor.topLeft = vec2i(pos * _system->scale);
+		scissor.botRight = vec2i((i32)ceil((pos.x + size.x) * _system->scale), (i32)ceil((pos.y + size.y) * _system->scale));
+	}
 	_system->functions.SetScissor(_system->data, const_cast<Any*>(&data), scissor.topLeft, scissor.botRight-scissor.topLeft);
 	_system->stackScissors.Append(scissor);
 }
@@ -829,6 +834,9 @@ void Switch::Update(vec2 pos, bool selected) {
 }
 
 void Switch::Draw() const {
+	if (open) {
+		PushScissor(positionAbsolute, openSizeAbsolute, false);
+	}
 	if (color.a > 0.0f) {
 		vec2 fullSize = sizeAbsolute;
 		if (open) {
@@ -837,7 +845,6 @@ void Switch::Draw() const {
 		_system->functions.DrawQuad(_system->data, const_cast<Any*>(&data), positionAbsolute * _system->scale, fullSize * _system->scale, (highlighted && !open) ? colorHighlighted : color);
 	}
 	if (open) {
-		PushScissor(positionAbsolute, openSizeAbsolute);
 		if (selection >= 0 && colorSelection.a > 0.0f) {
 			Widget *child = children[selection];
 			vec2 selectionPos = child->positionAbsolute - child->margin;

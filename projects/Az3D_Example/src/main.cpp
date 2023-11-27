@@ -169,7 +169,7 @@ struct Test : public GameSystems::System {
 		}
 		Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshTree], {Rendering::GetTransform(vec3(-2.0f, 0.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
 		Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshFence], {Rendering::GetTransform(vec3(0.0f, 8.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
-		mat4 transform = Rendering::GetTransform(pos, objectOrientation, vec3(1.0f));
+		mat4 transform = Rendering::GetTransform(pos, objectOrientation, vec3(5.0f, 0.1f, 1.0f));
 		Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshes[currentMesh]], {transform}, true, true);
 		for (i32 i = -10; i <= 10; i++) {
 			f32 p = i;

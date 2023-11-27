@@ -51,19 +51,25 @@ layout(std140, set=0, binding=1) readonly buffer ObjectBuffer {
 	ObjectInfo objects[];
 } objectBuffer;
 
+float sqrNorm(vec3 a) {
+	return dot(a, a);
+}
+
 void main() {
 	mat4 model = objectBuffer.objects[gl_InstanceIndex].model;
+	// With positions being scaled by S, normals must be scaled by 1/S
+	// Scale is represented as the norm of the basis vectors, so scale them by 1/norm(B)^2
 	mat3 modelRotationScale = mat3(
-		model[0].xyz,
-		model[1].xyz,
-		model[2].xyz
+		model[0].xyz / sqrNorm(model[0].xyz),
+		model[1].xyz / sqrNorm(model[1].xyz),
+		model[2].xyz / sqrNorm(model[2].xyz)
 	);
 	vec4 worldPos = model * vec4(inPosition, 1.0);
 	gl_Position = worldInfo.viewProj * worldPos;
 	outTexCoord = inTexCoord;
-	outNormal = modelRotationScale * inNormal;
-	outTangent = modelRotationScale * inTangent;
-	outBitangent = cross(outNormal, outTangent);
+	outNormal = normalize(modelRotationScale * inNormal);
+	outTangent = normalize(modelRotationScale * inTangent);
+	outBitangent = normalize(cross(outNormal, outTangent));
 	outInstanceIndex = gl_InstanceIndex;
 	outWorldPos = worldPos.xyz;
 	outProjPos = gl_Position;

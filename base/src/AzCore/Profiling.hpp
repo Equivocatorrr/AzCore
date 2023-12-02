@@ -18,21 +18,23 @@ AZCORE_CREATE_STRING_ARENA_HPP()
 void Enable();
 
 // Outputs a log file containing all the times, or nothing if no profiling was done
-void Report();
-
-void Exception(AString scopeName, az::Nanoseconds time);
+void Report(bool pretty=false);
 
 class Timer {
 protected:
 	AString scope;
 	az::ClockTime start;
+	az::ClockTime exceptionStart;
+	az::Nanoseconds exceptionTime;
 public:
 	Timer(AString scopeName);
 	void Start();
 	void End();
+	void ExceptionStart();
+	void ExceptionEnd();
 };
 
-class ScopedTimer : Timer {
+class ScopedTimer : public Timer {
 public:
 	inline ScopedTimer(AString scopeName) : Timer(scopeName) { Start(); }
 	inline ~ScopedTimer() { End(); }
@@ -42,18 +44,16 @@ public:
 
 #define AZCORE_PROFILING_SCOPED_TIMER(scopeName)\
 	static az::Profiling::AString _scopedTimerString(#scopeName);\
-	static az::ClockTime _exceptionStart;\
-	az::Profiling::ScopedTimer _scopedTimer(_scopedTimerString);
+	az::Profiling::ScopedTimer _timer(_scopedTimerString);
 
 #define AZCORE_PROFILING_FUNC_TIMER()\
 	static az::Profiling::AString _funcTimerString(__FUNCTION__);\
-	static az::ClockTime _exceptionStart;\
-	az::Profiling::ScopedTimer _funcTimer(_funcTimerString);
+	az::Profiling::ScopedTimer _timer(_funcTimerString);
 
 #define AZCORE_PROFILING_EXCEPTION_START()\
-	_exceptionStart = az::Clock::now();
+	_timer.ExceptionStart();
 
 #define AZCORE_PROFILING_EXCEPTION_END() \
-	az::Profiling::Exception(_scopedTimerString, az::Nanoseconds(az::Clock::now() - _exceptionStart));
+	_timer.ExceptionEnd();
 
 #endif // AZCORE_PROFILING_HPP

@@ -23,6 +23,7 @@ String FormatTime(Nanoseconds time) {
 			addSpace = true;
 		}
 	}
+	if (out.size == 0) out = "0";
 	return out;
 }
 

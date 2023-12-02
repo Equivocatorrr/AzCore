@@ -176,4 +176,39 @@ bool Mutex::TryLock() {
 	return 0 == pthread_mutex_trylock(&mutexData.mutex);
 }
 
+struct CondVarData {
+	pthread_cond_t conditionVariable;
+};
+static_assert(sizeof(CondVarData) <= sizeof(CondVar::data));
+
+inline CondVarData& GetCondVarData(char *data) {
+	return *(CondVarData*)data;
+}
+
+CondVar::CondVar() {
+	CondVarData &condVarData = GetCondVarData(data);
+	pthread_cond_init(&condVarData.conditionVariable, nullptr);
+}
+
+CondVar::~CondVar() {
+	CondVarData &condVarData = GetCondVarData(data);
+	pthread_cond_destroy(&condVarData.conditionVariable);
+}
+
+void CondVar::Wait(Mutex &mutex) {
+	CondVarData &condVarData = GetCondVarData(data);
+	MutexData &mutexData = GetMutexData(mutex.data);
+	pthread_cond_wait(&condVarData.conditionVariable, &mutexData.mutex);
+}
+
+void CondVar::WakeOne() {
+	CondVarData &condVarData = GetCondVarData(data);
+	pthread_cond_signal(&condVarData.conditionVariable);
+}
+
+void CondVar::WakeAll() {
+	CondVarData &condVarData = GetCondVarData(data);
+	pthread_cond_broadcast(&condVarData.conditionVariable);
+}
+
 } // namespace AzCore

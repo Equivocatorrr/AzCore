@@ -195,7 +195,7 @@ fallback:
 #ifdef Yield
 #undef Yield
 #endif // I don't know who the fuck did this but I'm gonna scream I swear to god
-inline void Thread::Yield() {
+void Thread::Yield() {
 	::Sleep(0);
 }
 
@@ -228,6 +228,40 @@ bool Mutex::TryLock() {
 	MutexData &mutexData = GetMutexData(data);
 	BOOL ret = TryEnterCriticalSection(&mutexData.criticalSection);
 	return ret;
+}
+
+struct CondVarData {
+	CONDITION_VARIABLE conditionVariable;
+};
+static_assert(sizeof(CondVarData) <= sizeof(CondVar::data));
+
+inline CondVarData& GetCondVarData(char *data) {
+	return *(CondVarData*)data;
+}
+
+CondVar::CondVar() {
+	CondVarData &condVarData = GetCondVarData(data);
+	InitializeConditionVariable(&condVarData.conditionVariable);
+}
+
+CondVar::~CondVar() {
+	// Interestingly, there's nothing to clean up
+}
+
+void CondVar::Wait(Mutex &mutex) {
+	CondVarData &condVarData = GetCondVarData(data);
+	MutexData &mutexData = GetMutexData(mutex.data);
+	SleepConditionVariableCS(&condVarData.conditionVariable, &mutexData.criticalSection, INFINITE);
+}
+
+void CondVar::WakeOne() {
+	CondVarData &condVarData = GetCondVarData(data);
+	WakeConditionVariable(&condVarData.conditionVariable);
+}
+
+void CondVar::WakeAll() {
+	CondVarData &condVarData = GetCondVarData(data);
+	WakeAllConditionVariable(&condVarData.conditionVariable);
 }
 
 } // namespace AzCore

@@ -133,12 +133,26 @@ public:
 
 class Mutex {
 	alignas(8) char data[48];
+	friend class CondVar;
 public:
 	Mutex();
 	~Mutex();
 	void Lock();
 	void Unlock();
 	bool TryLock();
+};
+
+class CondVar {
+	alignas(8) char data[8];
+public:
+	CondVar();
+	~CondVar();
+	// Atomically unlocks mutex, waits for a signal, and atomically locks mutex when a signal is received.
+	void Wait(Mutex &mutex);
+	// Wakes one thread waiting on this Condition Variable
+	void WakeOne();
+	// Wakes all threads waiting on this Condition Variable
+	void WakeAll();
 };
 
 } // namespace AzCore

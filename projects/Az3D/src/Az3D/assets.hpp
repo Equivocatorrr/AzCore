@@ -7,6 +7,7 @@
 #ifndef AZ3D_ASSETS_HPP
 #define AZ3D_ASSETS_HPP
 
+#include "AzCore/IO/FileManager.hpp"
 #include "AzCore/memory.hpp"
 #include "AzCore/font.hpp"
 #include "sound.hpp"
@@ -45,19 +46,22 @@ struct Mapping {
 };
 
 struct Texture {
+	az::io::File *file;
 	az::Image image;
-	bool Load(az::String filename);
+	void Decode();
 	void PremultiplyAlpha();
 };
 
 struct Font {
+	az::io::File *file;
 	az::font::Font font;
 	az::font::FontBuilder fontBuilder;
 
-	bool Load(az::String filename);
+	void Decode();
 };
 
 struct Sound {
+	az::io::File *file;
 	bool valid;
 	Az3D::Sound::Buffer buffer;
 	inline Sound() : valid(false), buffer({UINT32_MAX, false}) {}
@@ -76,12 +80,13 @@ struct Sound {
 		return *this;
 	}
 
-	bool Load(az::String filename);
+	void Decode();
 };
 
 constexpr i8 numStreamBuffers = 2;
 
 struct Stream {
+	az::io::File *file;
 	stb_vorbis *vorbis;
 	bool valid;
 	struct {
@@ -139,7 +144,7 @@ struct Stream {
 		return *this;
 	}
 
-	bool Open(az::String filename);
+	void Open();
 	// Returns the number of samples decoded or -1 on error
 	i32 Decode(i32 sampleCount);
 	void SeekStart();
@@ -161,32 +166,21 @@ struct MeshPart {
 	u32 indexStart;
 };
 
+struct Manager;
+
 struct Mesh {
+	az::io::File *file;
 	az::ArrayWithBucket<MeshPart*, 8> parts;
 	
-	bool Load(az::String filename);
+	void Decode(Manager *manager);
 };
 
 constexpr i32 texIndexBlank = 1;
 constexpr i32 texIndexBlankNormal = 2;
 
 struct Manager {
-	struct FileToLoad {
-		az::String filename;
-		Type type;
-		bool isLinearTexture = false;
-		inline FileToLoad() : filename(), type(Type::NONE) {}
-		explicit inline FileToLoad(az::String fn) : filename(fn), type(Type::NONE) {}
-		inline FileToLoad(az::String fn, Type t) : filename(fn), type(t) {}
-		inline FileToLoad(az::String fn, bool linTexture) : filename(fn), type(Type::TEXTURE), isLinearTexture(linTexture) {}
-	};
-	// Everything we want to actually load.
-	az::Array<FileToLoad> filesToLoad{
-		FileToLoad("TextureMissing.png"),
-		FileToLoad("blank.tga"),
-		FileToLoad("blank_n.tga", true),
-		FileToLoad("DroidSansFallback.ttf")
-	};
+	az::io::FileManager fileManager;
+	
 	az::HashMap<az::Str, Mapping> mappings;
 	az::Array<Texture> textures;
 	az::Array<Font> fonts;
@@ -194,18 +188,26 @@ struct Manager {
 	az::Array<Stream> streams;
 	az::Array<Mesh> meshes;
 	az::Array<az::UniquePtr<MeshPart>> meshParts;
+	TexIndex nextTexIndex;
+	FontIndex nextFontIndex;
+	SoundIndex nextSoundIndex;
+	StreamIndex nextStreamIndex;
+	MeshIndex nextMeshIndex;
+	
+	az::Mutex arrayMutex;
+	
+	void Init();
+	void Deinit();
+	
+	TexIndex    RequestTexture(az::String filepath, bool linear, i32 priority=0);
+	FontIndex   RequestFont   (az::String filepath, i32 priority=0);
+	SoundIndex  RequestSound  (az::String filepath, i32 priority=0);
+	StreamIndex RequestStream (az::String filepath, i32 priority=0);
+	MeshIndex   RequestMesh   (az::String filepath, i32 priority=0);
+	
+	// filepath is for debugging purposes
+	TexIndex    RequestTextureDecode(az::Array<char> &&buffer, az::String filepath, bool linear, i32 priority=0);
 
-	inline void QueueFile(az::String filename) {
-		filesToLoad.Append(FileToLoad(filename));
-	}
-	inline void QueueFile(az::String filename, Type type) {
-		filesToLoad.Append(FileToLoad(filename, type));
-	}
-	inline void QueueLinearTexture(az::String filename) {
-		filesToLoad.Append(FileToLoad(filename, true));
-	}
-
-	bool LoadAll();
 	i32 FindMapping(az::Str filename, Type type);
 	inline TexIndex FindTexture(az::Str filename) {
 		return (TexIndex)FindMapping(filename, Type::TEXTURE);
@@ -222,7 +224,7 @@ struct Manager {
 	inline MeshIndex FindMesh(az::Str filename) {
 		return (MeshIndex)FindMapping(filename, Type::MESH);
 	}
-	f32 CharacterWidth(char32 c, i32 fontIndex) const;
+	f32 CharacterWidth(char32 c, FontIndex fontIndex) const;
 };
 
 } // namespace Az3D::Assets

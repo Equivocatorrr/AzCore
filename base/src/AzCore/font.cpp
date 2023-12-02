@@ -664,20 +664,22 @@ Glyph& Glyph::Simplify() {
 	return *this;
 }
 
-bool Font::Load() {
-	if (filename.size == 0) {
-		error = "No filename specified!";
+bool Font::Load(String filepath) {
+	Array<char> data = FileContents(filepath, true);
+	if (data.size == 0) {
+		error = Stringify("Failed to open font \"", filepath, "\"");
 		return false;
 	}
-	cout.PrintLn("Attempting to load \"", filename, "\"");
+	this->filepath = std::move(filepath);
+	return LoadFromBuffer(std::move(data));
+}
 
-	data.file.open(filename.data, std::ios::in | std::ios::binary);
-	if (!data.file.is_open()) {
-		error = "Failed to open font with filename: \"" + filename + "\"";
-		return false;
-	}
+bool Font::LoadFromBuffer(Array<char> &&buffer) {
+	data.buffer = std::move(buffer);
+	
+	i32 cur = 0;
 
-	data.ttcHeader.Read(data.file);
+	data.ttcHeader.Read(data.buffer, cur);
 
 	if (data.ttcHeader.ttcTag == 0x10000_Tag) {
 		cout.PrintLn("TrueType outline");
@@ -690,16 +692,16 @@ bool Font::Load() {
 	} else if (data.ttcHeader.ttcTag == "ttcf"_Tag) {
 		cout.PrintLn("TrueType Collection");
 	} else {
-		error = "Unknown font type for file: \"" + filename + "\"";
+		error = "Unknown font type for file: \"" + filepath + "\"";
 		return false;
 	}
 
 	data.offsetTables.Resize(data.ttcHeader.numFonts);
 	HashSet<u32, 32> uniqueOffsets;
 	for (u32 i = 0; i < data.ttcHeader.numFonts; i++) {
-		data.file.seekg(data.ttcHeader.offsetTables[i]);
+		cur = data.ttcHeader.offsetTables[i];
 		tables::Offset &offsetTable = data.offsetTables[i];
-		offsetTable.Read(data.file);
+		offsetTable.Read(data.buffer, cur);
 #ifdef LOG_VERBOSE
 		cout << "Font[" << i << "]\n\tnumTables: " << offsetTable.numTables
 			 << "\n\tsearchRange: " << offsetTable.searchRange
@@ -728,12 +730,7 @@ bool Font::Load() {
 #ifdef LOG_VERBOSE
 	cout.PrintLn("offsetMin = ", data.offsetMin, ", offsetMax = ", data.offsetMax);
 #endif
-	data.tableData.Resize(align(data.offsetMax-data.offsetMin, 4), 0);
-
-	data.file.seekg(data.offsetMin); // Should probably already be here but you never know ;)
-	data.file.read(data.tableData.data, data.offsetMax-data.offsetMin);
-
-	data.file.close();
+	data.tableData = Str(&data.buffer[data.offsetMin], data.offsetMax-data.offsetMin);
 
 	// Checksum verifications
 
@@ -742,7 +739,7 @@ bool Font::Load() {
 
 	for (i32 i = 0; i < data.uniqueTables.size; i++) {
 		tables::Record &record = data.uniqueTables[i];
-		char *ptr = data.tableData.data + record.offset - data.offsetMin;
+		char *ptr = data.tableData.str + record.offset - data.offsetMin;
 		if (record.tableTag == "head"_Tag || record.tableTag == "bhed"_Tag) {
 			((tables::head*)ptr)->checkSumAdjustment = 0;
 		}
@@ -771,7 +768,7 @@ bool Font::Load() {
 		u16 numOfLongHorMetrics = 0;
 		for (i32 i = 0; i < data.uniqueTables.size; i++) {
 			tables::Record &record = data.uniqueTables[i];
-			char *ptr = data.tableData.data + record.offset - data.offsetMin;
+			char *ptr = data.tableData.str + record.offset - data.offsetMin;
 			const Tag_t &tag = record.tableTag;
 			Array<u32> uniqueEncodingOffsets;
 			if (tag == "head"_Tag || tag == "bhed"_Tag) {
@@ -811,7 +808,7 @@ bool Font::Load() {
 		tables::loca *loca = nullptr;
 		for (i32 i = 0; i < data.uniqueTables.size; i++) {
 			tables::Record &record = data.uniqueTables[i];
-			char *ptr = data.tableData.data + record.offset - data.offsetMin;
+			char *ptr = data.tableData.str + record.offset - data.offsetMin;
 			const Tag_t &tag = record.tableTag;
 			if (tag == "loca"_Tag) {
 				loca = (tables::loca*)ptr;
@@ -830,7 +827,7 @@ bool Font::Load() {
 		// To parse the 'glyf' table correctly, loca needs to be parsed first
 		for (i32 i = 0; i < data.uniqueTables.size; i++) {
 			tables::Record &record = data.uniqueTables[i];
-			char *ptr = data.tableData.data + record.offset - data.offsetMin;
+			char *ptr = data.tableData.str + record.offset - data.offsetMin;
 			const Tag_t &tag = record.tableTag;
 			if (tag == "glyf"_Tag) {
 				if (loca == nullptr) {
@@ -855,7 +852,7 @@ bool Font::Load() {
 		i16 chosenCmap = -1; // -1 is not found, bigger is better
 		for (i32 ii = 0; ii < offsetTable.numTables; ii++) {
 			tables::Record &record = offsetTable.tables[ii];
-			char *ptr = data.tableData.data + record.offset - data.offsetMin;
+			char *ptr = data.tableData.str + record.offset - data.offsetMin;
 			Tag_t &tag = record.tableTag;
 #ifdef LOG_VERBOSE
 			if (tag == "head"_Tag || tag == "bhed"_Tag) {
@@ -891,7 +888,7 @@ bool Font::Load() {
 //							  << "\nFormat: " << *((u16*)(ptr+encoding->offset)) << "\n";
 // #endif
 					#define CHOOSE(in) chosenCmap = in; \
-							data.cmaps[i] = u32((char*)index - data.tableData.data) + encoding->offset
+							data.cmaps[i] = u32((char*)index - data.tableData.str) + encoding->offset
 					if (encoding->platformID == 0 && encoding->platformSpecificID == 4) {
 						CHOOSE(4);
 					} else if (encoding->platformID == 0 && encoding->platformSpecificID == 3 && chosenCmap < 4) {
@@ -938,7 +935,7 @@ bool Font::Load() {
 		} else {
 #ifdef LOG_VERBOSE
 			cout << "chosenCmap = " << chosenCmap << " offset = " << data.cmaps[i]
-				 << " format = " << *((u16*)(data.tableData.data+data.cmaps[i])) << "\n" << std::endl;
+				 << " format = " << *((u16*)(data.tableData.str+data.cmaps[i])) << "\n" << std::endl;
 #endif
 		}
 	}
@@ -1003,14 +1000,14 @@ bool Font::Load() {
 		}
 	}
 
-	cout.PrintLn("Successfully prepared \"", filename, "\" for usage.");
+	cout.PrintLn("Successfully prepared \"", filepath, "\" for usage.");
 
 	return true;
 }
 
 u16 Font::GetGlyphIndex(char32 unicode) const {
 	for (i32 i = 0; i < data.cmaps.size; i++) {
-		tables::cmap_format_any *cmap = (tables::cmap_format_any*)(data.tableData.data + data.cmaps[i]);
+		tables::cmap_format_any *cmap = (tables::cmap_format_any*)(data.tableData.str + data.cmaps[i]);
 		u16 glyphIndex = cmap->GetGlyphIndex(unicode);
 		if (glyphIndex) {
 			return glyphIndex;

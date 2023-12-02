@@ -10,6 +10,8 @@
 #include "console_commands.hpp"
 #include "AzCore/Thread.hpp"
 
+#include <clocale>
+
 namespace Az2D::GameSystems {
 
 using namespace AzCore;

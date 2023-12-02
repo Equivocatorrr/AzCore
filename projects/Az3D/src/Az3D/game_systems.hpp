@@ -43,8 +43,6 @@ struct System {
 
 	// Queue all asset files in this event
 	virtual void EventAssetsQueue();
-	// Get all your asset mappings in this event
-	virtual void EventAssetsAcquire();
 	virtual void EventInitialize();
 	// Called once per frame synchronously
 	virtual void EventSync();
@@ -95,8 +93,6 @@ struct Manager {
 	
 	// Calls EventAssetInit for every type of object.
 	void GetAssets();
-	// Calls EventAssetAcquire for every type of object.
-	void UseAssets();
 	// Calls EventInitialize
 	void CallInitialize();
 	// Calls different Sync events.

@@ -35,6 +35,8 @@ add_library(AzCore STATIC
 		src/AzCore/IO/${TARGET_PLATFORM_NAME}/WindowData.hpp
 		src/AzCore/IO/ButtonState.cpp
 		src/AzCore/IO/ButtonState.hpp
+		src/AzCore/IO/FileManager.cpp
+		src/AzCore/IO/FileManager.hpp
 		src/AzCore/IO/Gamepad.cpp
 		src/AzCore/IO/Gamepad.hpp
 		src/AzCore/IO/Input.cpp

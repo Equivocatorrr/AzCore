@@ -9,6 +9,8 @@
 #include "AzCore/Profiling.hpp"
 #include "AzCore/Thread.hpp"
 
+#include <clocale>
+
 namespace Az3D::GameSystems {
 
 using namespace AzCore;
@@ -16,7 +18,6 @@ using namespace AzCore;
 Manager *sys = nullptr;
 
 void System::EventAssetsQueue() {}
-void System::EventAssetsAcquire() {}
 void System::EventSync() {}
 void System::EventUpdate() {}
 void System::EventDraw(Array<Rendering::DrawingContext> &contexts) {}
@@ -158,12 +159,8 @@ bool Manager::Init() {
 		error = Stringify("Failed to initialize sound: ", Sound::error);
 		return false;
 	}
+	assets.Init();
 	GetAssets();
-	if (!assets.LoadAll()) {
-		error = Stringify("Failed to load assets: ", Assets::error);
-		return false;
-	}
-	UseAssets();
 	CallInitialize();
 	
 	if (enableVulkanValidation) {
@@ -208,6 +205,7 @@ void Manager::Deinit() {
 	}
 	assets.sounds.Clear(); // Deletes the OpenAL buffers
 	assets.streams.Clear(); // Deletes the OpenAL buffers
+	assets.Deinit();
 	if (!sound.Deinitialize()) {
 		io::cerr.PrintLn("Failed to deinitialize sound: ", Sound::error);
 	}
@@ -303,13 +301,6 @@ void Manager::GetAssets() {
 	AZCORE_PROFILING_SCOPED_TIMER(Az3D::GameSystems::Manager::GetAssets)
 	for (System* system : systems) {
 		system->EventAssetsQueue();
-	}
-}
-
-void Manager::UseAssets() {
-	AZCORE_PROFILING_SCOPED_TIMER(Az3D::GameSystems::Manager::UseAssets)
-	for (System* system : systems) {
-		system->EventAssetsAcquire();
 	}
 }
 

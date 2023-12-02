@@ -62,8 +62,15 @@ struct File {
 	az::Array<Empty> empties;
 	az::Array<az::Image> images;
 	
+	struct ImageData {
+		az::Str filename;
+		az::Str data;
+		bool isLinear;
+	};
+	
 	bool Load(az::Str filepath);
-	bool LoadFromBuffer(az::Str buffer);
+	// If dstImageData != nullptr then images won't be filled and instead the raw data is put into dstImageData undecoded.
+	bool LoadFromBuffer(az::Str buffer, az::Array<ImageData> *dstImageData=nullptr);
 };
 
 } // namespace Az3D::Az3DObj

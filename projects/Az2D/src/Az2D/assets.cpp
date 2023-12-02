@@ -104,7 +104,7 @@ Type FilenameToType(String filename) {
 }
 
 void PremultiplyAlpha(u8 *pixels, i32 width, i32 height, i32 channels) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Assets::PremultiplyAlpha)
+	AZCORE_PROFILING_FUNC_TIMER()
 	i32 i = 0;
 	static __m256i alphaMask = _mm256_set_epi16(
 		0xff, 0, 0, 0,
@@ -167,7 +167,7 @@ void PremultiplyAlpha(u8 *pixels, i32 width, i32 height, i32 channels) {
 }
 
 bool Texture::Load(String filename) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Assets::Texture::Load)
+	AZCORE_PROFILING_FUNC_TIMER()
 	String path = Stringify("data/textures/", filename);
 	pixels = stbi_load(path.data, &width, &height, &channels, 4);
 	if (pixels == nullptr) {
@@ -214,11 +214,9 @@ Texture::~Texture() {
 }
 
 bool Font::Load(String filename) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Assets::Font::Load)
-	font.filename = "data/fonts/" + filename;
-	if (!font.Load()) {
-		font.filename = "data/Az2D/fonts/" + filename;
-		if (!font.Load()) {
+	AZCORE_PROFILING_FUNC_TIMER()
+	if (!font.Load("data/fonts/" + filename)) {
+		if (!font.Load("data/Az2D/fonts/" + filename)) {
 			error = "Failed to load font: " + font::error;
 			return false;
 		}
@@ -233,7 +231,7 @@ bool Font::Load(String filename) {
 }
 
 bool Sound::Load(String filename) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Assets::Sound::Load)
+	AZCORE_PROFILING_FUNC_TIMER()
 	String path = Stringify("data/sound/", filename);
 	if (!buffer.Create()) {
 		error = "Sound::Load: Failed to create buffer: " + Az2D::Sound::error;
@@ -280,7 +278,7 @@ Sound::~Sound() {
 }
 
 bool Stream::Open(String filename) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Assets::Stream::Open)
+	AZCORE_PROFILING_FUNC_TIMER()
 	String path = Stringify("data/sound/", filename);
 	for (i32 i = 0; i < numStreamBuffers; i++) {
 		if (!buffers[i].Create()) {
@@ -315,7 +313,7 @@ bool Stream::Open(String filename) {
 constexpr i32 crossfadeSamples = 2205;
 
 i32 Stream::Decode(i32 sampleCount) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Assets::Stream::Decode)
+	AZCORE_PROFILING_FUNC_TIMER()
 	if (!valid) {
 		error = "Stream::Decode: Stream not valid!";
 		return -1;
@@ -432,7 +430,7 @@ Stream::~Stream() {
 }
 
 bool Manager::LoadAll() {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Assets::Manager::LoadAll)
+	AZCORE_PROFILING_FUNC_TIMER()
 	for (i32 i = 0; i < filesToLoad.size; i++) {
 		cout.Print("Loading asset \"", filesToLoad[i].filename, "\": ");
 		Type type;
@@ -496,7 +494,7 @@ bool Manager::LoadAll() {
 }
 
 i32 Manager::FindMapping(SimpleRange<char> filename, Type type) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Assets::Manager::FindMapping)
+	AZCORE_PROFILING_FUNC_TIMER()
 	auto *node = mappings.Find(filename);
 	if (node == nullptr) {
 		FILE_NOT_FOUND("No mapping found for \"", filename, "\"");

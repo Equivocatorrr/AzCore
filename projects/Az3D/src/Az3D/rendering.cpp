@@ -210,6 +210,10 @@ bool Manager::Init() {
 		data.meshPartUnitSquare->indices = {0, 1, 2, 1, 3, 2};
 		data.meshPartUnitSquare->material = Material::Blank();
 	}
+	// We'll be loading all the textures and meshes at once, so wait until they're loaded.
+	AZCORE_PROFILING_EXCEPTION_START()
+	sys->assets.fileManager.WaitUntilDone();
+	AZCORE_PROFILING_EXCEPTION_END()
 	Array<Vertex> vertices;
 	Array<u32> indices;
 	{ // Load 3D assets and make Vertex/Index buffers

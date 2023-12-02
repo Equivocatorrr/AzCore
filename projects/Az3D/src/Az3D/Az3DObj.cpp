@@ -522,7 +522,7 @@ bool File::Load(Str filepath) {
 	return LoadFromBuffer(buffer);
 }
 
-bool File::LoadFromBuffer(Str buffer) {
+bool File::LoadFromBuffer(Str buffer, Array<File::ImageData> *dstImageData) {
 	i64 cur = 0;
 	Headers::File header;
 	if (!header.FromBuffer(buffer, cur)) return false;
@@ -577,13 +577,23 @@ bool File::LoadFromBuffer(Str buffer) {
 			Tables::Imgs imagesData;
 			imagesData.header = table;
 			if (!imagesData.FromBuffer(buffer, cur)) return false;
-			for (u32 i = 0; i < imagesData.count; i++) {
-				Image &image = images.Append(Image());
-				if (!image.LoadFromBuffer(imagesData.files[i].data)) {
-					io::cerr.PrintLn("Failed to decode image data for \"", imagesData.files[i].filename.name, "\" embedded in Az3DObj.");
-					return false;
+			if (dstImageData) {
+				dstImageData->Resize(imagesData.count);
+				for (u32 i = 0; i < imagesData.count; i++) {
+					ImageData &imageData = (*dstImageData)[i];
+					imageData.filename = imagesData.files[i].filename.name;
+					imageData.data = imagesData.files[i].data;
+					imageData.isLinear = imagesData.files[i].isLinear;
 				}
-				image.colorSpace = imagesData.files[i].isLinear ? Image::LINEAR : Image::SRGB;
+			} else {
+				for (u32 i = 0; i < imagesData.count; i++) {
+					Image &image = images.Append(Image());
+					if (!image.LoadFromBuffer(imagesData.files[i].data)) {
+						io::cerr.PrintLn("Failed to decode image data for \"", imagesData.files[i].filename.name, "\" embedded in Az3DObj.");
+						return false;
+					}
+					image.colorSpace = imagesData.files[i].isLinear ? Image::LINEAR : Image::SRGB;
+				}
 			}
 			numTexturesActual += imagesData.count;
 		} else {

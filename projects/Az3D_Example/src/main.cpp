@@ -32,22 +32,13 @@ struct Test : public GameSystems::System {
 	Assets::MeshIndex meshFence;
 	i32 currentMesh = 0;
 	virtual void EventAssetsQueue() override {
-		sys->assets.QueueFile("suzanne.az3d");
-		sys->assets.QueueFile("F-232 Eagle.az3d");
-		sys->assets.QueueFile("C-1 Transport.az3d");
-		sys->assets.QueueFile("Tree.az3d");
-		sys->assets.QueueFile("Grass_Patch.az3d");
-		sys->assets.QueueFile("Weathered Metal Fence.az3d");
-		sys->assets.QueueFile("ground.az3d");
-	}
-	virtual void EventAssetsAcquire() override {
-		meshes[0] = sys->assets.FindMesh("suzanne.az3d");
-		meshes[1] = sys->assets.FindMesh("F-232 Eagle.az3d");
-		meshes[2] = sys->assets.FindMesh("C-1 Transport.az3d");
-		meshFence = sys->assets.FindMesh("Weathered Metal Fence.az3d");
-		meshTree = sys->assets.FindMesh("Tree.az3d");
-		meshGrass = sys->assets.FindMesh("Grass_Patch.az3d");
-		meshGround = sys->assets.FindMesh("ground.az3d");
+		meshes[0]  = sys->assets.RequestMesh("suzanne.az3d");
+		meshes[1]  = sys->assets.RequestMesh("F-232 Eagle.az3d");
+		meshes[2]  = sys->assets.RequestMesh("C-1 Transport.az3d");
+		meshTree   = sys->assets.RequestMesh("Tree.az3d");
+		meshGrass  = sys->assets.RequestMesh("Grass_Patch.az3d");
+		meshFence  = sys->assets.RequestMesh("Weathered Metal Fence.az3d");
+		meshGround = sys->assets.RequestMesh("ground.az3d");
 	}
 	virtual void EventUpdate() override {
 		f32 speed = sys->Down(KC_KEY_LEFTSHIFT) ? 8.0f : 2.0f;

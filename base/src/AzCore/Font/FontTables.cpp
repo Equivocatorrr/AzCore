@@ -42,12 +42,6 @@ Tag_t operator "" _Tag(const u64 in) {
 	return Tag_t(endianToB((u32)in));
 }
 
-Tag_t readTag(std::ifstream &file) {
-	Tag_t buffer;
-	file.read(buffer.name, 4);
-	return buffer;
-}
-
 Tag_t bytesToTag(char *buffer) {
 	return Tag_t(*reinterpret_cast<const u32*>(buffer));
 }
@@ -94,42 +88,48 @@ u32 ChecksumV2(u32 *table, u32 length) {
 	return sum;
 }
 
-void Offset::Read(std::ifstream &file) {
-	char buffer[12];
-	file.read(buffer, 12);
-	sfntVersion.data = *(u32*)buffer;
-	numTables = bytesToU16(&buffer[4], SysEndian.little);
-	searchRange = bytesToU16(&buffer[6], SysEndian.little);
-	entrySelector = bytesToU16(&buffer[8], SysEndian.little);
-	rangeShift = bytesToU16(&buffer[10], SysEndian.little);
-	tables.Resize(numTables);
+void Offset::Read(Array<char> &buffer, i32 &cur) {
+	sfntVersion = bytesToTag(&buffer[cur]);
+	cur += 4;
+	numTables = bytesToU16(&buffer[cur], SysEndian.little);
+	cur += 2;
+	searchRange = bytesToU16(&buffer[cur], SysEndian.little);
+	cur += 2;
+	entrySelector = bytesToU16(&buffer[cur], SysEndian.little);
+	cur += 2;
+	rangeShift = bytesToU16(&buffer[cur], SysEndian.little);
+	cur += 2;
+	tables = SimpleRange<Record>((Record*)&buffer[cur], numTables);
 	for (u32 i = 0; i < numTables; i++) {
-		tables[i].Read(file);
+		// Read in-place performs endian swap
+		tables[i].Read(buffer, cur);
 	}
 }
 
-bool TTCHeader::Read(std::ifstream &file) {
-	ttcTag = readTag(file);
+bool TTCHeader::Read(Array<char> &buffer, i32 &cur) {
+	ttcTag = bytesToTag(buffer.data);
+	cur += 4;
 	if (ttcTag == "ttcf"_Tag) {
 		{
-			char buffer[8];
-			file.read(buffer, 8);
-			version = bytesToFixed(&buffer[0], SysEndian.little);
-			numFonts = bytesToU32(&buffer[4], SysEndian.little);
+			version = bytesToFixed(&buffer[cur], SysEndian.little);
+			cur += 4;
+			numFonts = bytesToU32(&buffer[cur], SysEndian.little);
+			cur += 4;
 		}
-		offsetTables.Resize(numFonts);
-		file.read((char*)offsetTables.data, numFonts * 4);
+		offsetTables = SimpleRange<u32>((u32*)&buffer[cur], numFonts);
+		cur += 4 * numFonts;
 		if (SysEndian.little) {
 			for (u32 i = 0; i < numFonts; i++) {
 				offsetTables[i] = endianSwap(offsetTables[i]);
 			}
 		}
 		if (version.major == 2) {
-			char buffer[12];
-			file.read(buffer, 12);
-			dsigTag.data = bytesToU32(&buffer[0], false);
-			dsigLength = bytesToU32(&buffer[4], SysEndian.little);
-			dsigOffset = bytesToU32(&buffer[8], SysEndian.little);
+			dsigTag = bytesToTag(&buffer[cur]);
+			cur += 4;
+			dsigLength = bytesToU32(&buffer[cur], SysEndian.little);
+			cur += 4;
+			dsigOffset = bytesToU32(&buffer[cur], SysEndian.little);
+			cur += 4;
 		} else if (version.major != 1) {
 			error = "Unknown TTC file version: " + ToString(version.major) + "." + ToString(version.minor);
 			return false;
@@ -137,19 +137,21 @@ bool TTCHeader::Read(std::ifstream &file) {
 	} else {
 		version.major = 0;
 		numFonts = 1;
-		offsetTables.Resize(1);
-		offsetTables[0] = 0;
+		static u32 zero = 0;
+		offsetTables = SimpleRange<u32>(&zero, 1);
 	}
 	return true;
 }
 
-void Record::Read(std::ifstream &file) {
-	char buffer[sizeof(Record)];
-	file.read(buffer, sizeof(Record));
-	tableTag.data = *(u32*)buffer;
-	checkSum = bytesToU32(&buffer[4], SysEndian.little);
-	offset = bytesToU32(&buffer[8], SysEndian.little);
-	length = bytesToU32(&buffer[12], SysEndian.little);
+void Record::Read(Array<char> &buffer, i32 &cur) {
+	tableTag = bytesToTag(&buffer[cur]);
+	cur += 4;
+	checkSum = bytesToU32(&buffer[cur], SysEndian.little);
+	cur += 4;
+	offset = bytesToU32(&buffer[cur], SysEndian.little);
+	cur += 4;
+	length = bytesToU32(&buffer[cur], SysEndian.little);
+	cur += 4;
 }
 
 #define ENDIAN_SWAP(in) in = endianSwap((in))

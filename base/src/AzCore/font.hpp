@@ -17,8 +17,6 @@
 
 #include "Font/FontTables.hpp"
 
-#include <fstream>
-
 namespace AzCore {
 
 namespace font {
@@ -143,7 +141,8 @@ namespace font {
 		Allows loading a single font file, and getting useful information from them.    */
 	struct Font {
 		struct {
-			std::ifstream file;
+			// Entire file contents
+			Array<char> buffer;
 			tables::TTCHeader ttcHeader;
 			Array<tables::Offset> offsetTables;
 			// In the case of font collections, we should determine which tables
@@ -154,13 +153,20 @@ namespace font {
 			tables::glyfParsed glyfParsed;
 			u32 offsetMin = UINT32_MAX;
 			u32 offsetMax = 0;
-			// Holds all of the tables, which can then be read by referencing
-			// any of the offsetTables and finding the desired ones using tags
-			Array<char> tableData;
+			Str tableData;
 		} data;
-		String filename{};
+		String filepath;
+		
+		Font() = default;
+		// Our tables point to the data in data.buffer. Copying would invalidate our pointers, but moving wouldn't.
+		Font(const Font&) = delete;
+		Font(Font&&) = default;
+		Font& operator=(const Font&) = delete;
+		Font& operator=(Font&&) = default;
 
-		bool Load();
+		bool Load(String filepath);
+		// Will acquire buffer
+		bool LoadFromBuffer(Array<char> &&buffer);
 
 		u16 GetGlyphIndex(char32 unicode) const;
 		Glyph GetGlyphByIndex(u16 index) const;

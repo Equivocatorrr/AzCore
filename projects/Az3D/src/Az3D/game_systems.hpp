@@ -14,6 +14,7 @@
 #include "rendering.hpp"
 #include "sound.hpp"
 #include "assets.hpp"
+#include "AzCore/Thread.hpp"
 #include <atomic>
 
 namespace Az3D::Assets {
@@ -82,6 +83,18 @@ struct Manager {
 	AzCore::io::Window window;
 	AzCore::io::RawInput rawInput;
 	AzCore::io::Gamepad *gamepad = nullptr;
+	
+	az::Thread threadUpdate;
+	az::Mutex mutexUpdate;
+	az::CondVar condUpdate;
+	bool doUpdate, doneUpdate;
+	az::Thread threadDraw;
+	az::Mutex mutexDraw;
+	az::CondVar condDraw;
+	bool doDraw, doneDraw;
+	az::Mutex mutexControl;
+	az::CondVar condControl;
+	bool stopThreads;
 	
 	Sound::Manager sound;
 	Assets::Manager assets;

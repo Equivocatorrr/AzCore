@@ -31,6 +31,7 @@ struct Test : public GameSystems::System {
 	Assets::MeshIndex meshGrass;
 	Assets::MeshIndex meshFence;
 	i32 currentMesh = 0;
+	Angle32 hover = 0.0f;
 	virtual void EventAssetsQueue() override {
 		meshes[0]  = sys->assets.RequestMesh("suzanne.az3d");
 		meshes[1]  = sys->assets.RequestMesh("F-232 Eagle.az3d");
@@ -40,7 +41,9 @@ struct Test : public GameSystems::System {
 		meshFence  = sys->assets.RequestMesh("Weathered Metal Fence.az3d");
 		meshGround = sys->assets.RequestMesh("ground.az3d");
 	}
-	virtual void EventUpdate() override {
+	virtual void EventSync() override {
+		pos.z = 1.5f + sin(hover);
+		hover += Degrees32(sys->timestep * 90.0f);
 		f32 speed = sys->Down(KC_KEY_LEFTSHIFT) ? 8.0f : 2.0f;
 		if (sys->Pressed(KC_KEY_ESC)) sys->exit = true;
 		if (sys->Pressed(KC_KEY_T)) sunTurning = !sunTurning;
@@ -160,7 +163,7 @@ struct Test : public GameSystems::System {
 		}
 		Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshTree], {Rendering::GetTransform(vec3(-2.0f, 0.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
 		Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshFence], {Rendering::GetTransform(vec3(0.0f, 8.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
-		mat4 transform = Rendering::GetTransform(pos, objectOrientation, vec3(5.0f, 0.1f, 1.0f));
+		mat4 transform = Rendering::GetTransform(pos, objectOrientation, vec3(3.0f, 0.5f, 1.0f));
 		Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshes[currentMesh]], {transform}, true, true);
 		for (i32 i = -10; i <= 10; i++) {
 			f32 p = i;

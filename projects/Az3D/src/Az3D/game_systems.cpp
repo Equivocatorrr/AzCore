@@ -37,16 +37,42 @@ bool Init(SimpleRange<char> windowTitle, Array<System*> systemsToRegister, bool 
 	return sys->Init();
 }
 
-void UpdateProc() {
-	sys->Update();
+void UpdateProc(Manager *manager) {
+	manager->mutexUpdate.Lock();
+	while (true) {
+		while (!manager->doUpdate) {
+			manager->condUpdate.Wait(manager->mutexUpdate);
+			if (manager->abort || manager->stopThreads) goto break_full;
+		}
+		manager->doUpdate = false;
+		manager->Update();
+		manager->doneUpdate = true;
+		manager->condControl.WakeAll();
+	}
+break_full:
+	manager->mutexUpdate.Unlock();
+	manager->condControl.WakeAll();
 }
 
-void DrawProc() {
-	if (!sys->rendering.Draw() || !sys->rendering.Present()) {
-		io::cerr.Lock().PrintLn("Error in Rendering::Manager::Draw or Present: ", Rendering::error).Unlock();
-		sys->abort = true;
-		return;
-	};
+void DrawProc(Manager *manager) {
+	manager->mutexDraw.Lock();
+	while (true) {
+		while (!manager->doDraw) {
+			manager->condDraw.Wait(manager->mutexDraw);
+			if (manager->abort || manager->stopThreads) goto break_full;
+		}
+		manager->doDraw = false;
+		if (!manager->rendering.Draw() || !manager->rendering.Present()) {
+			io::cerr.Lock().PrintLn("Error in Rendering::Manager::Draw or Present: ", Rendering::error).Unlock();
+			manager->abort = true;
+			goto break_full;
+		};
+		manager->doneDraw = true;
+		manager->condControl.WakeAll();
+	}
+break_full:
+	manager->mutexDraw.Unlock();
+	manager->condControl.WakeAll();
 }
 
 void UpdateLoop() {
@@ -102,16 +128,23 @@ void UpdateLoop() {
 		}
 		sys->rawInput.Update(sys->timestep);
 		sys->Sync();
-		// TODO: Use persistent threads
-		Thread threads[2];
-		threads[0] = Thread(UpdateProc);
-		if (frame == 0) {
-			threads[1] = Thread(DrawProc);
+		
+		sys->doUpdate = true;
+		sys->doneUpdate = false;
+		sys->condUpdate.WakeAll();
+		sys->doDraw = true;
+		sys->doneDraw = false;
+		sys->condDraw.WakeAll();
+		
+		sys->mutexControl.Lock();
+		while (!(sys->doneUpdate && sys->doneDraw)) {
+			sys->condControl.Wait(sys->mutexControl);
+			if (sys->abort) break;
 		}
-		for (i32 i = 0; i < 2; i++) {
-			if (threads[i].Joinable()) threads[i].Join();
-		}
+		sys->mutexControl.Unlock();
+		
 		if (sys->abort) break;
+		
 		if (!soundProblem) {
 			if (!sys->sound.Update(sys->timestep)) {
 				io::cerr.PrintLn(Sound::error);
@@ -191,6 +224,10 @@ bool Manager::Init() {
 
 	window.Fullscreen(Settings::ReadBool(Settings::sFullscreen));
 	
+	doUpdate = doDraw = doneUpdate = doneDraw = stopThreads = false;
+	threadUpdate = Thread(UpdateProc, this);
+	threadDraw = Thread(DrawProc, this);
+	
 	return true;
 }
 
@@ -209,6 +246,11 @@ void Manager::Deinit() {
 	if (!sound.Deinitialize()) {
 		io::cerr.PrintLn("Failed to deinitialize sound: ", Sound::error);
 	}
+	stopThreads = true;
+	condUpdate.WakeAll();
+	condDraw.WakeAll();
+	threadUpdate.Join();
+	threadDraw.Join();
 	// NOTE: There appears to be a bug on shutdown where the last second or so of audio gets repeated for a split second before being cut off. (Confirmed on Windows, may be an OpenAL bug)
 }
 
@@ -333,10 +375,6 @@ void Manager::Update() {
 		system->EventUpdate();
 	}
 }
-
-// void DrawThreadProc(System *system, Array<Rendering::DrawingContext> *contexts) {
-//	 system->EventDraw(*contexts);
-// }
 
 void Manager::Draw(Array<Rendering::DrawingContext>& contexts) {
 	AZCORE_PROFILING_SCOPED_TIMER(Az3D::GameSystems::Manager::Draw)

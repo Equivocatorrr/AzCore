@@ -136,11 +136,11 @@ struct Array {
 		_Initialize(0);
 		_SetTerminator();
 	}
-	Array(i32 newSize) {
+	explicit Array(i32 newSize) {
 		_Initialize(newSize);
 		_SetTerminator();
 	}
-	Array(i32 newSize, const T &value) {
+	explicit Array(i32 newSize, const T &value) {
 		_Initialize(newSize);
 		for (i32 i = 0; i < size; i++) {
 			data[i] = value;
@@ -149,10 +149,10 @@ struct Array {
 	}
 
 	force_inline()
-	Array(u32 newSize) : Array((i32)newSize) {}
+	explicit Array(u32 newSize) : Array((i32)newSize) {}
 
 	force_inline()
-	Array(u32 newSize, const T &value) : Array((i32)newSize, value) {}
+	explicit Array(u32 newSize, const T &value) : Array((i32)newSize, value) {}
 
 	Array(const std::initializer_list<T> &init) {
 		_Initialize(init.size());

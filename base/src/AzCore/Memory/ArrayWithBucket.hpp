@@ -140,11 +140,11 @@ struct ArrayWithBucket {
 		_Initialize(0);
 		_SetTerminator();
 	}
-	ArrayWithBucket(i32 newSize) {
+	explicit ArrayWithBucket(i32 newSize) {
 		_Initialize(newSize);
 		_SetTerminator();
 	}
-	ArrayWithBucket(i32 newSize, const T &value) {
+	explicit ArrayWithBucket(i32 newSize, const T &value) {
 		_Initialize(newSize);
 		for (i32 i = 0; i < size; i++) {
 			data[i] = value;
@@ -152,9 +152,9 @@ struct ArrayWithBucket {
 		_SetTerminator();
 	}
 	force_inline()
-	ArrayWithBucket(u32 newSize) : ArrayWithBucket((i32)newSize) {}
+	explicit ArrayWithBucket(u32 newSize) : ArrayWithBucket((i32)newSize) {}
 	force_inline()
-	ArrayWithBucket(u32 newSize, const T &value) : ArrayWithBucket((i32)newSize, value) {}
+	explicit ArrayWithBucket(u32 newSize, const T &value) : ArrayWithBucket((i32)newSize, value) {}
 
 	ArrayWithBucket(const std::initializer_list<T> &init) {
 		_Initialize(init.size());

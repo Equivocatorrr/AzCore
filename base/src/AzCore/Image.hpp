@@ -74,6 +74,7 @@ struct Image {
 	void Reformat(Format newFormat);
 	void SetChannels(i32 newChannels);
 	bool SavePNG(const char *filename);
+	void PremultiplyAlpha();
 };
 
 } // namespace AzCore

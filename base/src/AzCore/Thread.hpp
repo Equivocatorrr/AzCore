@@ -142,6 +142,37 @@ public:
 	bool TryLock();
 };
 
+struct ScopedLock {
+	Mutex *mutex;
+	inline ScopedLock(Mutex &_mutex) : mutex(&_mutex) {
+		mutex->Lock();
+	}
+	inline ScopedLock(ScopedLock &&other) : mutex(other.mutex) {
+		other.mutex = nullptr;
+	}
+	ScopedLock(const ScopedLock&) = delete;
+	inline ~ScopedLock() {
+		if (mutex) {
+			mutex->Unlock();
+		}
+	}
+};
+
+// Wraps a pointer in a ScopedLock. Used for when access to an object must be synchronized by a Mutex externally from the object that owns the Mutex.
+template <typename T>
+class LockedPtr {
+	T *value;
+	ScopedLock lock;
+public:
+	inline LockedPtr(T *_value, ScopedLock &&_lock) : value(_value), lock(std::move(_lock)) {}
+	constexpr T& operator * () {
+		return *value;
+	}
+	constexpr T* operator -> () {
+		return value;
+	}
+};
+
 class CondVar {
 	alignas(8) char data[8];
 public:
@@ -149,6 +180,10 @@ public:
 	~CondVar();
 	// Atomically unlocks mutex, waits for a signal, and atomically locks mutex when a signal is received.
 	void Wait(Mutex &mutex);
+	inline void Wait(ScopedLock &scopedLock) {
+		AzAssert(scopedLock.mutex != nullptr, "ScopedLock is invalid!");
+		Wait(*scopedLock.mutex);
+	}
 	// Wakes one thread waiting on this Condition Variable
 	void WakeOne();
 	// Wakes all threads waiting on this Condition Variable

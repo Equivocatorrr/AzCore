@@ -13,23 +13,17 @@ using namespace AzCore;
 using GameSystems::sys;
 using Entities::entitiesBasic;
 
-void Sprite::AssetsQueue(Str name, Str fileExtension) {
-	nameAlbedo = Stringify(name, '.', fileExtension);
-	nameNormal = Stringify(name, "_n.", fileExtension);
-	nameEmit = Stringify(name, "_e.", fileExtension);
-	sys->assets.QueueFile(nameAlbedo);
-	sys->assets.QueueLinearTexture(nameNormal);
-	sys->assets.QueueFile(nameEmit);
+void Sprite::AssetsRequest(Str name, Str fileExtension) {
+	tex.albedo = sys->assets.RequestTexture(Stringify(name, '.', fileExtension), false);
+	tex.normal = sys->assets.RequestTexture(Stringify(name, "_n.", fileExtension), true);
+	tex.emit = sys->assets.RequestTexture(Stringify(name, "_e.", fileExtension), false);
 }
 
 void Sprite::AssetsAcquire() {
-	tex.albedo = sys->assets.FindTexture(nameAlbedo);
-	tex.normal = sys->assets.FindTexture(nameNormal);
-	tex.emit = sys->assets.FindTexture(nameEmit);
-	if (tex.normal == 0) {
+	if (!sys->assets.IsTextureValid(tex.normal)) {
 		tex.normal = 2;
 	}
-	if (tex.emit == 0) {
+	if (!sys->assets.IsTextureValid(tex.emit)) {
 		tex.emit = 3;
 	}
 	if (framesEnd == vec2i(-1)) {
@@ -63,8 +57,8 @@ vec2i Sprite::Size() const {
 
 vec2i Sprite::SpriteSheetSize() const {
 	i32 texChoice = tex.albedo != 0 ? tex.albedo : tex.normal;
-	const Assets::Texture &texture = sys->assets.textures[texChoice];
-	vec2i result = vec2i(texture.width, texture.height);
+	LockedPtr<Assets::Texture> texture = sys->assets.GetTexture(texChoice);
+	vec2i result = vec2i(texture->image.width, texture->image.height);
 	return result;
 }
 

@@ -290,7 +290,7 @@ struct DoubleBufferArray {
 	}
 	// Done between frames. Must be done synchronously.
 	void Synchronize() {
-		buffer = sys->buffer;
+		buffer = !buffer;
 
 		empty.Erase(0, claimedEmpty);
 		for (i32 index : destroyed) {

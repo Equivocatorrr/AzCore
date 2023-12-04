@@ -28,52 +28,37 @@ const vec3 colorHighlightLow = {0.2f, 0.45f, 0.5f};
 const vec3 colorHighlightMedium = {0.4f, 0.9f, 1.0f};
 const vec3 colorHighlightHigh = {0.9f, 0.98f, 1.0f};
 
-void Gui::EventAssetsQueue() {
-	GuiBasic::EventAssetsQueue();
-	sys->assets.QueueFile("beep short.ogg");
-	sys->assets.QueueFile("dramatic beep.ogg");
-	sys->assets.QueueFile("phone buzz.ogg");
+void Gui::EventAssetsRequest() {
+	GuiBasic::EventAssetsRequest();
+	sys->assets.RequestSound("beep short.ogg");
+	sys->assets.RequestSound("dramatic beep.ogg");
+	sys->assets.RequestSound("phone buzz.ogg");
 
-	sys->assets.QueueFile("Intro/Intro-1.png");
-	sys->assets.QueueFile("Intro/Intro-2.png");
-	sys->assets.QueueFile("Intro/Intro-3.png");
-	sys->assets.QueueFile("Intro/Intro-4.png");
-	sys->assets.QueueFile("Intro/Intro-5.png");
+	texIntro[0] = sys->assets.RequestTexture("Intro/Intro-1.png");
+	texIntro[1] = sys->assets.RequestTexture("Intro/Intro-2.png");
+	texIntro[2] = sys->assets.RequestTexture("Intro/Intro-3.png");
+	texIntro[3] = sys->assets.RequestTexture("Intro/Intro-4.png");
+	texIntro[4] = sys->assets.RequestTexture("Intro/Intro-5.png");
 
-	sys->assets.QueueFile("Outro/Outro1.png");
-	sys->assets.QueueFile("Outro/Outro2.png");
-	sys->assets.QueueFile("Outro/Outro3.png");
-	sys->assets.QueueFile("Outro/Outro4.png");
-	sys->assets.QueueFile("Outro/Outro5.png");
-	sys->assets.QueueFile("Outro/Outro6.png");
+	texOutro[0] = sys->assets.RequestTexture("Outro/Outro1.png");
+	texOutro[1] = sys->assets.RequestTexture("Outro/Outro2.png");
+	texOutro[2] = sys->assets.RequestTexture("Outro/Outro3.png");
+	texOutro[3] = sys->assets.RequestTexture("Outro/Outro4.png");
+	texOutro[4] = sys->assets.RequestTexture("Outro/Outro5.png");
+	texOutro[5] = sys->assets.RequestTexture("Outro/Outro6.png");
 
-	sys->assets.QueueFile("Outro/Credits-Equivocator.png");
-	sys->assets.QueueFile("Outro/Credits-Flubz.png");
+	texCreditsEquivocator = sys->assets.RequestTexture("Outro/Credits-Equivocator.png");
+	texCreditsFlubz = sys->assets.RequestTexture("Outro/Credits-Flubz.png");
 }
 
-void Gui::EventAssetsAcquire() {
-	GuiBasic::EventAssetsAcquire();
-	texIntro[0] = sys->assets.FindTexture("Intro/Intro-1.png");
-	texIntro[1] = sys->assets.FindTexture("Intro/Intro-2.png");
-	texIntro[2] = sys->assets.FindTexture("Intro/Intro-3.png");
-	texIntro[3] = sys->assets.FindTexture("Intro/Intro-4.png");
-	texIntro[4] = sys->assets.FindTexture("Intro/Intro-5.png");
+void Gui::EventAssetsAvailable() {
+	GuiBasic::EventAssetsAvailable();
 
-	texOutro[0] = sys->assets.FindTexture("Outro/Outro1.png");
-	texOutro[1] = sys->assets.FindTexture("Outro/Outro2.png");
-	texOutro[2] = sys->assets.FindTexture("Outro/Outro3.png");
-	texOutro[3] = sys->assets.FindTexture("Outro/Outro4.png");
-	texOutro[4] = sys->assets.FindTexture("Outro/Outro5.png");
-	texOutro[5] = sys->assets.FindTexture("Outro/Outro6.png");
-
-	texCreditsEquivocator = sys->assets.FindTexture("Outro/Credits-Equivocator.png");
-	texCreditsFlubz = sys->assets.FindTexture("Outro/Credits-Flubz.png");
-
-	sndBeepShort.Create("beep short.ogg");
+	sndBeepShort.Create(sys->assets.FindSound("beep short.ogg"));
 	sndBeepShort.SetGain(0.5f);
-	sndBeepLong.Create("dramatic beep.ogg");
+	sndBeepLong.Create(sys->assets.FindSound("dramatic beep.ogg"));
 	sndBeepLong.SetGain(0.5f);
-	sndPhoneBuzz.Create("phone buzz.ogg");
+	sndPhoneBuzz.Create(sys->assets.FindSound("phone buzz.ogg"));
 	sndPhoneBuzz.SetGain(0.5f);
 }
 

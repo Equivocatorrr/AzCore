@@ -32,7 +32,7 @@ struct Test : public GameSystems::System {
 	Assets::MeshIndex meshFence;
 	i32 currentMesh = 0;
 	Angle32 hover = 0.0f;
-	virtual void EventAssetsQueue() override {
+	virtual void EventAssetsRequest() override {
 		meshes[0]  = sys->assets.RequestMesh("suzanne.az3d");
 		meshes[1]  = sys->assets.RequestMesh("F-232 Eagle.az3d");
 		meshes[2]  = sys->assets.RequestMesh("C-1 Transport.az3d");

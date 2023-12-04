@@ -94,6 +94,7 @@ void PushConstants::PushCircle(VkCommandBuffer commandBuffer, const Manager *ren
 
 bool Manager::Init() {
 	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Init)
+	ScopedLock lock(sys->assets.arrayMutex);
 	data.device = data.instance.AddDevice();
 	data.device->data.vk12FeaturesRequired.scalarBlockLayout = VK_TRUE;
 	data.device->data.vk12FeaturesRequired.uniformAndStorageBuffer8BitAccess = VK_TRUE;
@@ -233,7 +234,7 @@ bool Manager::Init() {
 	baseImage.format = VK_FORMAT_R8G8B8A8_SRGB;
 	auto texImages = data.textureMemory->AddImages(sys->assets.textures.size, baseImage);
 	for (i32 i = 0; i < sys->assets.textures.size; i++) {
-		if (sys->assets.textures[i].linear) {
+		if (sys->assets.textures[i].image.colorSpace == Image::ColorSpace::LINEAR) {
 			data.textureMemory->data.images[i].format = VK_FORMAT_R8G8B8A8_UNORM;
 		}
 	}
@@ -244,13 +245,13 @@ bool Manager::Init() {
 	data.fontImages = data.fontImageMemory->AddImages(sys->assets.fonts.size, baseImage);
 
 	for (i32 i = 0; i < texImages.size; i++) {
-		const i32 channels = sys->assets.textures[i].channels;
+		const i32 channels = sys->assets.textures[i].image.channels;
 		if (channels != 4) {
 			error = Stringify("Invalid channel count (", channels, ") in textures[", i, "]");
 			return false;
 		}
-		texImages[i].width = sys->assets.textures[i].width;
-		texImages[i].height = sys->assets.textures[i].height;
+		texImages[i].width = sys->assets.textures[i].image.width;
+		texImages[i].height = sys->assets.textures[i].image.height;
 		texImages[i].mipLevels = (u32)floor(log2((f32)max(texImages[i].width, texImages[i].height))) + 1;
 
 		texStagingBuffers[i].size = channels * texImages[i].width * texImages[i].height;
@@ -500,7 +501,7 @@ bool Manager::Init() {
 	bufferStagingBuffers[0].CopyData(vertices.data);
 	bufferStagingBuffers[1].CopyData(indices.data);
 	for (i32 i = 0; i < texStagingBuffers.size; i++) {
-		texStagingBuffers[i].CopyData(sys->assets.textures[i].pixels);
+		texStagingBuffers[i].CopyData(sys->assets.textures[i].image.pixels);
 	}
 
 	VkCommandBuffer cmdBufCopy = data.commandBufferGraphicsTransfer->Begin();

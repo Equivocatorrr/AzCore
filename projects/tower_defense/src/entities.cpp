@@ -179,19 +179,19 @@ const Tower towerFlakTemplate = Tower(
 	vec4(1.0f, 0.0f, 0.8f, 1.0f)                // color
 );
 
-void Manager::EventAssetsQueue() {
-	sys->assets.QueueFile("Money Cursed.ogg");
-	sys->assets.QueueFile("Segment 1.ogg", Assets::Type::STREAM);
-	sys->assets.QueueFile("Segment 2.ogg", Assets::Type::STREAM);
+void Manager::EventAssetsRequest() {
+	sys->assets.RequestSound("Money Cursed.ogg");
+	sys->assets.RequestStream("Segment 1.ogg");
+	sys->assets.RequestStream("Segment 2.ogg");
 }
 
-void Manager::EventAssetsAcquire() {
-	sndMoney.Create("Money Cursed.ogg");
+void Manager::EventAssetsAvailable() {
+	sndMoney.Create(sys->assets.FindSound("Money Cursed.ogg"));
 	sndMoney.SetGain(0.5f);
-	if (!streamSegment1.Create("Segment 1.ogg")) {
+	if (!streamSegment1.Create(sys->assets.FindStream("Segment 1.ogg"))) {
 		io::cerr.PrintLn("Failed to create stream for \"Segment 1.ogg\": ", Sound::error);
 	}
-	if (!streamSegment2.Create("Segment 2.ogg")) {
+	if (!streamSegment2.Create(sys->assets.FindStream("Segment 2.ogg"))) {
 		io::cerr.PrintLn("Failed to create stream for \"Segment 2.ogg\": ", Sound::error);
 	}
 }

@@ -31,14 +31,9 @@ Gui::Gui() {
 	gui = this;
 }
 
-void Gui::EventAssetsQueue() {
-	GuiBasic::EventAssetsQueue();
-	sys->assets.QueueFile("Cursor.png");
-}
-
-void Gui::EventAssetsAcquire() {
-	GuiBasic::EventAssetsAcquire();
-	texCursor = sys->assets.FindTexture("Cursor.png");
+void Gui::EventAssetsRequest() {
+	GuiBasic::EventAssetsRequest();
+	texCursor = sys->assets.RequestTexture("Cursor.png");
 }
 
 void Gui::EventInitialize() {

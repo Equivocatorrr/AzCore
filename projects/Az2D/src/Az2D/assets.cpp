@@ -8,25 +8,16 @@
 #include "AzCore/Profiling.hpp"
 
 #include "AzCore/IO/Log.hpp"
-#include "AzCore/Simd.hpp"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
 #include <stb_vorbis.c>
 
 namespace Az2D::Assets {
 
 using namespace AzCore;
 
-bool warnFileNotFound = false;
-
 io::Log cout("assets.log");
 
 String error = "No error.";
-
-#define FILE_NOT_FOUND(...) if (warnFileNotFound) {\
-	cout.PrintLn(__VA_ARGS__);\
-}
 
 const char *typeStrings[5] = {
 	"None",
@@ -103,170 +94,56 @@ Type FilenameToType(String filename) {
 	return Type::NONE;
 }
 
-void PremultiplyAlpha(u8 *pixels, i32 width, i32 height, i32 channels) {
+void Texture::Decode() {
 	AZCORE_PROFILING_FUNC_TIMER()
-	i32 i = 0;
-	static __m256i alphaMask = _mm256_set_epi16(
-		0xff, 0, 0, 0,
-		0xff, 0, 0, 0,
-		0xff, 0, 0, 0,
-		0xff, 0, 0, 0
-	);
-	AzAssert(((u64)pixels & 15) == 0, "We're expecting the pixel array to be aligned on a 16-byte boundary");
-	// Premultiply alpha
-#if 1
-	for (; i <= width*height-4; i+=4) {
-		u8 *pixel = &pixels[i*channels];
-		__m128i &rgba8 = *(__m128i*)pixel;
-		__m256i RGBA = _mm256_cvtepu8_epi16(rgba8);
-		// Shuffle our alpha channel into all the rgb channels
-		__m256i AAA1 = _mm256_shufflelo_epi16(
-			_mm256_shufflehi_epi16(RGBA, _MM_SHUFFLE(3,3,3,3)),
-			_MM_SHUFFLE(3,3,3,3)
-		);
-		// RGBA = _mm256_set1_epi16(0xff);
-		// Set our alpha to 1.0 so it doesn't get squared
-		AAA1 = _mm256_or_si256(AAA1, alphaMask);
-		// Multiply RGBA by AAA1
-		RGBA = _mm256_mullo_epi16(RGBA, AAA1);
-		// now divide by 255 by multiplying by a magic number and shifting
-		{
-			// NOTE: MSVC gives the warning "C4309: 'initializing': truncation of constant value"
-			//       I would assume that truncation means it's losing data, but the static_assert
-			//       passes so that means this code is valid.
-			constexpr short test = 0x8081;
-			static_assert((unsigned short)test == (unsigned short)0x8081);
-		}
-		RGBA = _mm256_srli_epi16(
-			_mm256_mulhi_epu16(RGBA, _mm256_set1_epi16(0x8081)),
-			7
-		);
-		// Pack 16-bit integers into 8-bit integers using unsigned saturation
-		// Shuffle 64-bit integers to get the parts we want in the lower 128 bits
-		// cast to __m128i so we just have the parts we want.
-		__m256i packed = _mm256_packus_epi16(RGBA, RGBA);
-		rgba8 = _mm256_castsi256_si128(
-			_mm256_permute4x64_epi64(packed, _MM_SHUFFLE(2, 0, 2, 0))
-		);
-	}
-#endif
-	for (; i < width*height; i++) {
-		u32 &pixel = *((u32*)&pixels[i*channels]);
-		u16 r = (pixel >> 8*0) & 0xff;
-		u16 g = (pixel >> 8*1) & 0xff;
-		u16 b = (pixel >> 8*2) & 0xff;
-		u16 a = (pixel >> 8*3) & 0xff;
-		r = (r * a) / 0xff;
-		g = (g * a) / 0xff;
-		b = (b * a) / 0xff;
-		pixel = (u32)a << 8*3;
-		pixel |= (u32)r << 8*0;
-		pixel |= (u32)g << 8*1;
-		pixel |= (u32)b << 8*2;
-	}
-}
-
-bool Texture::Load(String filename) {
-	AZCORE_PROFILING_FUNC_TIMER()
-	String path = Stringify("data/textures/", filename);
-	pixels = stbi_load(path.data, &width, &height, &channels, 4);
-	if (pixels == nullptr) {
-		path = Stringify("data/Az2D/textures/", filename);
-		pixels = stbi_load(path.data, &width, &height, &channels, 4);
-		if (pixels == nullptr) {
-			FILE_NOT_FOUND("Failed to load Texture file: \"", filename, "\"");
-			return false;
-		}
-	}
-	if (channels == 4) {
+	image.LoadFromBuffer(file->data);
+	if (image.channels == 4) {
 		// Only multiply alpha if we actually had an alpha channel in the first place
-		PremultiplyAlpha(pixels, width, height, 4);
+		image.PremultiplyAlpha();
 	}
-	channels = 4;
-	return true;
-}
-
-Texture::Texture(Texture &&other) : pixels(other.pixels), width(other.width), height(other.height), channels(other.channels), linear(other.linear) {
-	other.pixels = nullptr;
-	other.width = 0;
-	other.height = 0;
-	other.channels = 0;
-}
-
-Texture& Texture::operator=(Texture &&other) {
-	if (pixels) stbi_image_free(pixels);
-	pixels = other.pixels;
-	width = other.width;
-	height = other.height;
-	channels = other.channels;
-	linear = other.linear;
-	other.pixels = nullptr;
-	other.width = 0;
-	other.height = 0;
-	other.channels = 0;
-	return *this;
-}
-
-Texture::~Texture() {
-	if (pixels) {
-		stbi_image_free(pixels);
+	if (image.channels == 3) {
+		image.SetChannels(4);
 	}
 }
 
-bool Font::Load(String filename) {
+void Font::Decode() {
 	AZCORE_PROFILING_FUNC_TIMER()
-	if (!font.Load("data/fonts/" + filename)) {
-		if (!font.Load("data/Az2D/fonts/" + filename)) {
-			error = "Failed to load font: " + font::error;
-			return false;
-		}
-	}
+	font.LoadFromBuffer(std::move(file->data));
 	fontBuilder.font = &font;
 	fontBuilder.AddRange(0, 128);
-	if (!fontBuilder.Build()) {
-		error = "Failed to load font: " + font::error;
-		return false;
-	}
-	return true;
+	fontBuilder.Build();
 }
 
-bool Sound::Load(String filename) {
+void Sound::Decode() {
 	AZCORE_PROFILING_FUNC_TIMER()
-	String path = Stringify("data/sound/", filename);
+	valid = false;
 	if (!buffer.Create()) {
-		error = "Sound::Load: Failed to create buffer: " + Az2D::Sound::error;
-		return false;
+		cout.PrintLn("Sound::Decode: Failed to create buffer: ", Az2D::Sound::error);
+		return;
 	}
-	valid = true;
 	i16 *decoded;
 	i32 channels, samplerate, length;
-	length = stb_vorbis_decode_filename(path.data, &channels, &samplerate, &decoded);
+	length = stb_vorbis_decode_memory((u8*)file->data.data, file->data.size, &channels, &samplerate, &decoded);
 	if (length <= 0) {
-		path = Stringify("data/Az2D/sound/", filename);
-		length = stb_vorbis_decode_filename(path.data, &channels, &samplerate, &decoded);
-		if (length <= 0) {
-			FILE_NOT_FOUND("Failed to decode sound file (", filename, ")");
-			return false;
-		}
+		cout.PrintLn("Failed to decode sound file (", file->filepath, ")");
+		return;
 	}
-	if (!decoded) {
-		error = "Decoded is nullptr!";
-		return false;
+	if (nullptr == decoded) {
+		cout.PrintLn("Decoded is nullptr!");
+		return;
 	}
 	if (channels > 2 || channels < 1) {
-		error = "Unsupported number of channels in sound file (" + filename + "): " + ToString(channels);
+		cout.PrintLn("Unsupported number of channels in sound file (", file->filepath, "): ", channels);
 		free(decoded);
-		return false;
+		return;
 	}
 	if (!buffer.Load(decoded, channels == 1 ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16, length * 2 * channels, samplerate)) {
-		error = "Sound::Load: Failed to load buffer: " + Az2D::Sound::error
-			+ " channels=" + ToString(channels) + " length=" + ToString(length)
-			+ " samplerate=" + ToString(samplerate) + " bufferid=" + ToString(buffer.buffer) + " &decoded=0x" + ToString((i64)decoded, 16);
+		cout.PrintLn("Sound::Load: Failed to load buffer: ", Az2D::Sound::error, " channels=",channels, " length=", length, " samplerate=", samplerate, " bufferid=", buffer.buffer, " &decoded=0x", FormatInt((i64)decoded, 16));
 		free(decoded);
-		return false;
+		return;
 	}
+	valid = true;
 	free(decoded);
-	return true;
 }
 
 Sound::~Sound() {
@@ -277,42 +154,37 @@ Sound::~Sound() {
 	}
 }
 
-bool Stream::Open(String filename) {
+void Stream::Decode() {
 	AZCORE_PROFILING_FUNC_TIMER()
-	String path = Stringify("data/sound/", filename);
+	valid = false;
 	for (i32 i = 0; i < numStreamBuffers; i++) {
 		if (!buffers[i].Create()) {
-			error = "Stream::Open: Failed to create buffer: " + Az2D::Sound::error;
-			return false;
+			cout.PrintLn("Stream::Decode: Failed to create buffer: ", Az2D::Sound::error);
+			return;
 		}
 	}
 	i32 iError = 0;
-	vorbis = stb_vorbis_open_filename(path.data, &iError, nullptr);
+	vorbis = stb_vorbis_open_memory((u8*)file->data.data, file->data.size, &iError, nullptr);
 	if (!vorbis) {
-		path = Stringify("data/Az2D/sound/", filename);
-		vorbis = stb_vorbis_open_filename(path.data, &iError, nullptr);
-		if (!vorbis) {
-			FILE_NOT_FOUND("Stream::Open: Failed to open \"", filename, "\", error code ", iError);
-			return false;
-		}
+		cout.PrintLn("Stream::Decode: Failed to decode \"", file->filepath, "\", error code ", iError);
+		return;
 	}
 	data.totalSamples = stb_vorbis_stream_length_in_samples(vorbis);
 	stb_vorbis_info info = stb_vorbis_get_info(vorbis);
 	data.channels = info.channels;
 	data.samplerate = info.sample_rate;
 	if (data.channels > 2 || data.channels < 1) {
-		error = "Unsupported number of channels in sound file (" + filename + "): "
-			  + ToString(data.channels);
+		cout.PrintLn("Unsupported number of channels in sound file (", file->filepath, "): ", data.channels);
 		stb_vorbis_close(vorbis);
-		return false;
+		return;
 	}
 	valid = true;
-	return true;
+	return;
 }
 
 constexpr i32 crossfadeSamples = 2205;
 
-i32 Stream::Decode(i32 sampleCount) {
+i32 Stream::DecodeSamples(i32 sampleCount) {
 	AZCORE_PROFILING_FUNC_TIMER()
 	if (!valid) {
 		error = "Stream::Decode: Stream not valid!";
@@ -429,75 +301,174 @@ Stream::~Stream() {
 	}
 }
 
-bool Manager::LoadAll() {
-	AZCORE_PROFILING_FUNC_TIMER()
-	for (i32 i = 0; i < filesToLoad.size; i++) {
-		cout.Print("Loading asset \"", filesToLoad[i].filename, "\": ");
-		Type type;
-		if (filesToLoad[i].type == Type::NONE) {
-			type = FilenameToType(filesToLoad[i].filename);
-		} else {
-			type = filesToLoad[i].type;
-		}
-		i32 nextTexIndex = textures.size;
-		i32 nextFontIndex = fonts.size;
-		i32 nextSoundIndex = sounds.size;
-		i32 nextStreamIndex = streams.size;
-		Mapping mapping;
-		mapping.type = type;
-		switch (type) {
-		default:
-		case Type::NONE:
-			cout.PrintLn("Unknown file type.");
-			continue;
-		case Type::FONT:
-			cout.PrintLn("as font.");
-			fonts.Append(Font());
-			fonts[nextFontIndex].fontBuilder.resolution = font::FontBuilder::HIGH;
-			if (!fonts[nextFontIndex].Load(filesToLoad[i].filename)) {
-				return false;
-			}
-			mapping.index = nextFontIndex;
-			break;
-		case Type::TEXTURE:
-			cout.PrintLn("as texture.");
-			textures.Append(Texture());
-			if (!textures[nextTexIndex].Load(filesToLoad[i].filename)) {
-				textures.size--;
-				continue;
-			}
-			textures.Back().linear = filesToLoad[i].isLinearTexture;
-			mapping.index = nextTexIndex;
-			break;
-		case Type::SOUND:
-			cout.PrintLn("as sound.");
-			sounds.Append(Sound());
-			if (!sounds[nextSoundIndex].Load(filesToLoad[i].filename)) {
-				sounds.size--;
-				continue;
-			}
-			mapping.index = nextSoundIndex;
-			break;
-		case Type::STREAM:
-			cout.PrintLn("as stream.");
-			streams.Append(Stream());
-			if (!streams[nextStreamIndex].Open(filesToLoad[i].filename)) {
-				streams.size--;
-				continue;
-			}
-			mapping.index = nextStreamIndex;
-			break;
-		}
-		mappings.Emplace(filesToLoad[i].filename, mapping);
+void Manager::Init() {
+	fileManager.Init();
+	fileManager.searchDirectories = {
+		"data/",
+		"data/Az2D/",
+	};
+	mappings.Clear();
+	textures.Clear();
+	fonts.Clear();
+	sounds.Clear();
+	streams.Clear();
+	nextTexIndex = 0;
+	nextFontIndex = 0;
+	nextSoundIndex = 0;
+	nextStreamIndex = 0;
+#ifndef NDEBUG
+	fileManager.warnFileNotFound = true;
+#endif
+	
+	RequestTexture("TextureMissing.png", false);
+	RequestTexture("blank.tga", false);
+	RequestTexture("blank_n.tga", true);
+	RequestTexture("blank_e.tga", true);
+	RequestFont("DroidSansFallback.ttf");
+}
+
+void Manager::Deinit() {
+	// Delete the OpenAL buffers
+	sounds.Clear();
+	streams.Clear();
+	fileManager.Deinit();
+}
+
+struct TextureDecodeMetadata {
+	TexIndex texIndex;
+	Array<Texture> *dstArray;
+	Mutex *dstArrayMutex;
+	bool linear;
+};
+
+bool textureDecoder(io::File *file, Any &any) {
+	Texture texture;
+	texture.file = file;
+	texture.Decode();
+	TextureDecodeMetadata &metadata = any.Get<TextureDecodeMetadata>();
+	texture.image.colorSpace = metadata.linear ? Image::LINEAR : Image::SRGB;
+	metadata.dstArrayMutex->Lock();
+	metadata.dstArray->Resize(max(metadata.texIndex+1, metadata.dstArray->size));
+	(*metadata.dstArray)[metadata.texIndex] = std::move(texture);
+	metadata.dstArrayMutex->Unlock();
+	return false;
+};
+
+TexIndex Manager::RequestTexture(az::String filepath, bool linear, i32 priority) {
+	if (auto node = mappings.Find(filepath)) {
+		AzAssert(node->value.type == Type::TEXTURE, Stringify("RequestTexture for \"", filepath, "\" already exists as a ", typeStrings[(i32)node->value.type]));
+		return node->value.index;
 	}
-	return true;
+	arrayMutex.Lock();
+	TexIndex result = nextTexIndex++;
+	mappings.Emplace(filepath, Mapping{Type::TEXTURE, result});
+	arrayMutex.Unlock();
+	filepath = Stringify("textures/", filepath);
+	fileManager.RequestFile(filepath, priority, textureDecoder, TextureDecodeMetadata{result, &textures, &arrayMutex, linear});
+	return result;
+}
+
+TexIndex Manager::RequestTextureDecode(Array<char> &&buffer, az::String filepath, bool linear, i32 priority) {
+	arrayMutex.Lock();
+	TexIndex result = nextTexIndex++;
+	mappings.Emplace(filepath, Mapping{Type::TEXTURE, result});
+	arrayMutex.Unlock();
+	fileManager.RequestDecode(std::move(buffer), filepath, priority, textureDecoder, TextureDecodeMetadata{result, &textures, &arrayMutex, linear});
+	return result;
+}
+
+FontIndex Manager::RequestFont(az::String filepath, i32 priority) {
+	struct FontDecodeMetadata {
+		FontIndex fontIndex;
+		Array<Font> *dstArray;
+		Mutex *dstArrayMutex;
+	};
+	if (auto node = mappings.Find(filepath)) {
+		AzAssert(node->value.type == Type::FONT, Stringify("RequestFont for \"", filepath, "\" already exists as a ", typeStrings[(i32)node->value.type]));
+		return node->value.index;
+	}
+	arrayMutex.Lock();
+	FontIndex result = nextFontIndex++;
+	mappings.Emplace(filepath, Mapping{Type::FONT, result});
+	arrayMutex.Unlock();
+	filepath = Stringify("fonts/", filepath);
+	fileManager.RequestFile(filepath, priority, [](io::File *file, Any &any) -> bool {
+		Font font;
+		font.file = file;
+		font.Decode();
+		FontDecodeMetadata &metadata = any.Get<FontDecodeMetadata>();
+		metadata.dstArrayMutex->Lock();
+		metadata.dstArray->Resize(max(metadata.fontIndex+1, metadata.dstArray->size));
+		(*metadata.dstArray)[metadata.fontIndex] = std::move(font);
+		metadata.dstArrayMutex->Unlock();
+		return false;
+	}, FontDecodeMetadata{result, &fonts, &arrayMutex});
+	return result;
+}
+
+SoundIndex Manager::RequestSound(az::String filepath, i32 priority) {
+	struct SoundDecodeMetadata {
+		SoundIndex soundIndex;
+		Array<Sound> *dstArray;
+		Mutex *dstArrayMutex;
+	};
+	if (auto node = mappings.Find(filepath)) {
+		AzAssert(node->value.type == Type::SOUND, Stringify("RequestSound for \"", filepath, "\" already exists as a ", typeStrings[(i32)node->value.type]));
+		return node->value.index;
+	}
+	arrayMutex.Lock();
+	SoundIndex result = nextSoundIndex++;
+	mappings.Emplace(filepath, Mapping{Type::SOUND, result});
+	arrayMutex.Unlock();
+	filepath = Stringify("sound/", filepath);
+	fileManager.RequestFile(filepath, priority, [](io::File *file, Any &any) -> bool {
+		Sound sound;
+		sound.file = file;
+		sound.Decode();
+		SoundDecodeMetadata &metadata = any.Get<SoundDecodeMetadata>();
+		metadata.dstArrayMutex->Lock();
+		metadata.dstArray->Resize(max(metadata.soundIndex+1, metadata.dstArray->size));
+		(*metadata.dstArray)[metadata.soundIndex] = std::move(sound);
+		metadata.dstArrayMutex->Unlock();
+		return false;
+	}, SoundDecodeMetadata{result, &sounds, &arrayMutex});
+	return result;
+}
+
+StreamIndex Manager::RequestStream(az::String filepath, i32 priority) {
+	struct StreamDecodeMetadata {
+		StreamIndex streamIndex;
+		Array<Stream> *dstArray;
+		Mutex *dstArrayMutex;
+	};
+	if (auto node = mappings.Find(filepath)) {
+		AzAssert(node->value.type == Type::STREAM, Stringify("RequestStream for \"", filepath, "\" already exists as a ", typeStrings[(i32)node->value.type]));
+		return node->value.index;
+	}
+	arrayMutex.Lock();
+	StreamIndex result = nextStreamIndex++;
+	mappings.Emplace(filepath, Mapping{Type::STREAM, result});
+	arrayMutex.Unlock();
+	filepath = Stringify("sound/", filepath);
+	fileManager.RequestFile(filepath, priority, [](io::File *file, Any &any) -> bool {
+		Stream stream;
+		stream.file = file;
+		stream.Decode();
+		StreamDecodeMetadata &metadata = any.Get<StreamDecodeMetadata>();
+		metadata.dstArrayMutex->Lock();
+		metadata.dstArray->Resize(max(metadata.streamIndex+1, metadata.dstArray->size));
+		(*metadata.dstArray)[metadata.streamIndex] = std::move(stream);
+		metadata.dstArrayMutex->Unlock();
+		return true;
+	}, StreamDecodeMetadata{result, &streams, &arrayMutex});
+	return result;
 }
 
 i32 Manager::FindMapping(SimpleRange<char> filename, Type type) {
 	AZCORE_PROFILING_FUNC_TIMER()
 	auto *node = mappings.Find(filename);
 	if (node == nullptr) {
-		FILE_NOT_FOUND("No mapping found for \"", filename, "\"");
+		cout.PrintLn("No mapping found for \"", filename, "\"");
 		return 0;
 	}
 	Mapping &mapping = node->value;
@@ -512,4 +483,63 @@ f32 Manager::CharacterWidth(char32 c, i32 fontIndex) const {
 	return GameSystems::sys->rendering.CharacterWidth(c, &fonts[fontIndex], &fonts[0]);
 }
 
+LockedPtr<Texture> Manager::GetTexture(TexIndex index) {
+	AzAssert(index >= 0 && index < nextTexIndex, Stringify("TexIndex (", index, ") is invalid (must be >= 0 and < ", nextTexIndex, ")"));
+	ScopedLock lock(arrayMutex);
+	textures.Resize(max(index+1, textures.size));
+	return LockedPtr(&textures[index], std::move(lock));
 }
+
+LockedPtr<Font> Manager::GetFont(FontIndex index) {
+	AzAssert(index >= 0 && index < nextFontIndex, Stringify("FontIndex (", index, ") is invalid (must be >= 0 and < ", nextFontIndex, ")"));
+	ScopedLock lock(arrayMutex);
+	fonts.Resize(max(index+1, fonts.size));
+	return LockedPtr(&fonts[index], std::move(lock));
+}
+
+LockedPtr<Sound> Manager::GetSound(SoundIndex index) {
+	AzAssert(index >= 0 && index < nextSoundIndex, Stringify("SoundIndex (", index, ") is invalid (must be >= 0 and < ", nextSoundIndex, ")"));
+	ScopedLock lock(arrayMutex);
+	sounds.Resize(max(index+1, sounds.size));
+	return LockedPtr(&sounds[index], std::move(lock));
+}
+
+LockedPtr<Stream> Manager::GetStream(StreamIndex index) {
+	AzAssert(index >= 0 && index < nextStreamIndex, Stringify("StreamIndex (", index, ") is invalid (must be >= 0 and < ", nextStreamIndex, ")"));
+	ScopedLock lock(arrayMutex);
+	streams.Resize(max(index+1, streams.size));
+	return LockedPtr(&streams[index], std::move(lock));
+}
+
+bool Manager::IsTextureValid(TexIndex index) {
+	// NOTE: You might think this should be a return value, but any indices outside of these bounds probably indicate a bug elsewhere. This function is for checking whether an index returned by a Request___ function was successfully loaded, and they can only return indices within these bounds.
+	AzAssert(index >= 0 && index < nextTexIndex, Stringify("TexIndex (", index, ") is invalid (must be >= 0 and < ", nextTexIndex, ")"));
+	ScopedLock lock(arrayMutex);
+	if (textures.size <= index) return false;
+	if (textures[index].file->stage == io::File::Stage::FILE_NOT_FOUND) return false;
+	return true;
+}
+
+bool Manager::IsFontValid(FontIndex index) {
+	AzAssert(index >= 0 && index < nextFontIndex, Stringify("FontIndex (", index, ") is invalid (must be >= 0 and < ", nextFontIndex, ")"));
+	ScopedLock lock(arrayMutex);
+	if (fonts.size <= index) return false;
+	if (fonts[index].file->stage == io::File::Stage::FILE_NOT_FOUND) return false;
+	return true;
+}
+
+bool Manager::IsSoundValid(SoundIndex index) {
+	AzAssert(index >= 0 && index < nextSoundIndex, Stringify("SoundIndex (", index, ") is invalid (must be >= 0 and < ", nextSoundIndex, ")"));
+	ScopedLock lock(arrayMutex);
+	if (sounds.size <= index) return false;
+	return sounds[index].valid;
+}
+
+bool Manager::IsStreamValid(StreamIndex index) {
+	AzAssert(index >= 0 && index < nextStreamIndex, Stringify("StreamIndex (", index, ") is invalid (must be >= 0 and < ", nextStreamIndex, ")"));
+	ScopedLock lock(arrayMutex);
+	if (streams.size <= index) return false;
+	return streams[index].valid;
+}
+
+} // namespace Az2D::Assets

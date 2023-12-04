@@ -51,8 +51,8 @@ struct Manager : public ManagerBasic {
 
 	Manager();
 
-	void EventAssetsQueue() override;
-	void EventAssetsAcquire() override;
+	void EventAssetsRequest() override;
+	void EventAssetsAvailable() override;
 	void EventSync() override;
 	void EventClose() override;
 

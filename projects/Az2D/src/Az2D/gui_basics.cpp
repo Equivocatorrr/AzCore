@@ -21,19 +21,47 @@ GuiBasic::GuiBasic() {
 	guiBasic = this;
 }
 
-void GuiBasic::EventAssetsQueue() {
-	sys->assets.QueueFile(defaultFontFilename);
+void GuiBasic::EventAssetsRequest() {
+	fontIndex = sys->assets.RequestFont(defaultFontFilename);
 	for (SoundDef& def : sndClickInDefs) {
-		sys->assets.QueueFile(def.filename);
+		def.soundIndex = sys->assets.RequestSound(def.filename);
 	}
 	for (SoundDef& def : sndClickOutDefs) {
-		sys->assets.QueueFile(def.filename);
+		def.soundIndex = sys->assets.RequestSound(def.filename);
 	}
 	for (SoundDef& def : sndClickSoftDefs) {
-		sys->assets.QueueFile(def.filename);
+		def.soundIndex = sys->assets.RequestSound(def.filename);
 	}
-	sys->assets.QueueFile(sndCheckboxOnDef.filename);
-	sys->assets.QueueFile(sndCheckboxOffDef.filename);
+	sndCheckboxOnDef.soundIndex = sys->assets.RequestSound(sndCheckboxOnDef.filename);
+	sndCheckboxOffDef.soundIndex = sys->assets.RequestSound(sndCheckboxOffDef.filename);
+}
+
+void AcquireSounds(Array<GuiBasic::SoundDef> &defs, Array<Sound::Source> &sources, Sound::MultiSource &multiSource) {
+	sources.Resize(defs.size);
+	multiSource.sources.Reserve(defs.size);
+	for (i32 i = 0; i < sources.size; i++) {
+		GuiBasic::SoundDef &def = defs[i];
+		Sound::Source &source = sources[i];
+		source.Create(def.soundIndex);
+		source.SetGain(def.gain);
+		source.SetPitch(def.pitch);
+		multiSource.sources.Append(&source);
+	}
+}
+
+void AcquireSound(GuiBasic::SoundDef &def, Sound::Source &source) {
+	source.Create(def.soundIndex);
+	source.SetGain(def.gain);
+	source.SetPitch(def.pitch);
+}
+
+void GuiBasic::EventAssetsAvailable() {
+	AcquireSounds(sndClickInDefs, sndClickInSources, sndClickIn);
+	AcquireSounds(sndClickOutDefs, sndClickOutSources, sndClickOut);
+	AcquireSounds(sndClickSoftDefs, sndClickSoftSources, sndClickSoft);
+	AcquireSound(sndCheckboxOnDef, sndCheckboxOn);
+	AcquireSound(sndCheckboxOffDef, sndCheckboxOff);
+	font = &sys->assets.fonts[fontIndex];
 }
 
 String FramerateSetter(void *userdata, String name, String argument) {
@@ -328,35 +356,6 @@ void GuiBasic::EventInitialize() {
 	Dev::AddGlobalVariable(Az2D::Settings::sVSync.GetString(), "Whether to enable vertical sync.", nullptr, Dev::defaultBoolSettingsGetter, Dev::defaultBoolSettingsSetter);
 	Dev::AddGlobalVariable(Az2D::Settings::sFramerate.GetString(), "Target framerate when vsync is disabled.", nullptr, Dev::defaultRealSettingsGetter, FramerateSetter);
 	Dev::AddGlobalVariable(Az2D::Settings::sGuiScale.GetString(), "A scaling factor for all GUIs.", &system.scale, Dev::defaultRealSettingsGetter, Dev::defaultRealSettingsSetter);
-}
-
-void AcquireSounds(Array<GuiBasic::SoundDef> &defs, Array<Sound::Source> &sources, Sound::MultiSource &multiSource) {
-	sources.Resize(defs.size);
-	multiSource.sources.Reserve(defs.size);
-	for (i32 i = 0; i < sources.size; i++) {
-		GuiBasic::SoundDef &def = defs[i];
-		Sound::Source &source = sources[i];
-		source.Create(def.filename);
-		source.SetGain(def.gain);
-		source.SetPitch(def.pitch);
-		multiSource.sources.Append(&source);
-	}
-}
-
-void AcquireSound(GuiBasic::SoundDef &def, Sound::Source &source) {
-	source.Create(def.filename);
-	source.SetGain(def.gain);
-	source.SetPitch(def.pitch);
-}
-
-void GuiBasic::EventAssetsAcquire() {
-	fontIndex = sys->assets.FindFont(defaultFontFilename);
-	AcquireSounds(sndClickInDefs, sndClickInSources, sndClickIn);
-	AcquireSounds(sndClickOutDefs, sndClickOutSources, sndClickOut);
-	AcquireSounds(sndClickSoftDefs, sndClickSoftSources, sndClickSoft);
-	AcquireSound(sndCheckboxOnDef, sndCheckboxOn);
-	AcquireSound(sndCheckboxOffDef, sndCheckboxOff);
-	font = &sys->assets.fonts[fontIndex];
 }
 
 void GuiBasic::EventSync() {

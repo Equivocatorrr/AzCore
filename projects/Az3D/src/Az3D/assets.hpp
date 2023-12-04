@@ -20,8 +20,6 @@ namespace Az3D::Assets {
 
 extern az::String error;
 
-extern bool warnFileNotFound;
-
 typedef i32 TexIndex;
 typedef i32 FontIndex;
 typedef i32 SoundIndex;
@@ -49,7 +47,6 @@ struct Texture {
 	az::io::File *file;
 	az::Image image;
 	void Decode();
-	void PremultiplyAlpha();
 };
 
 struct Font {
@@ -144,9 +141,9 @@ struct Stream {
 		return *this;
 	}
 
-	void Open();
+	void Decode();
 	// Returns the number of samples decoded or -1 on error
-	i32 Decode(i32 sampleCount);
+	i32 DecodeSamples(i32 sampleCount);
 	void SeekStart();
 	ALuint LastBuffer();
 	inline void BeginFadeout(f32 duration) {
@@ -181,7 +178,7 @@ constexpr i32 texIndexBlankNormal = 2;
 struct Manager {
 	az::io::FileManager fileManager;
 	
-	az::HashMap<az::Str, Mapping> mappings;
+	az::HashMap<az::String, Mapping> mappings;
 	az::Array<Texture> textures;
 	az::Array<Font> fonts;
 	az::Array<Sound> sounds;

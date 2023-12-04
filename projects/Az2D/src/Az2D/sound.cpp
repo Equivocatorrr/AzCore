@@ -187,7 +187,7 @@ bool Manager::Activate(SourceBase *sound) {
 			} else {
 				Stream *stream = (Stream*)sound;
 				for (i32 i = 0; i < Assets::numStreamBuffers; i++) {
-					if (!stream->file->Decode(stream->file->data.samplerate/8)) {
+					if (!stream->file->DecodeSamples(stream->file->data.samplerate/8)) {
 						error = "Manager::Activate: Failed to Decode: " + Assets::error;
 						return false;
 					}
@@ -297,7 +297,7 @@ bool Manager::Stop(SourceBase *sound) {
 		}
 		stream->file->SeekStart();
 		for (i32 i = 0; i < Assets::numStreamBuffers; i++) {
-			if (!stream->file->Decode(stream->file->data.samplerate/8)) {
+			if (!stream->file->DecodeSamples(stream->file->data.samplerate/8)) {
 				error = "Manager::Activate: Failed to Decode: " + Assets::error;
 				return false;
 			}
@@ -390,7 +390,7 @@ void Manager::StreamUpdateProc(Manager *theThisPointer) {
 				if (!stream->Unqueue(stream->file->data.currentBuffer)) {
 					goto failure;
 				}
-				i32 decoded = stream->file->Decode(stream->file->data.samplerate/8);
+				i32 decoded = stream->file->DecodeSamples(stream->file->data.samplerate/8);
 				if (decoded < 0) {
 					goto failure;
 				}
@@ -439,9 +439,9 @@ void Source::Create(Buffer *buf) {
 	stream = false;
 }
 
-void Source::Create(String filename) {
-	Assets::SoundIndex soundIndex = sys->assets.FindSound(filename);
-	Create(&sys->assets.sounds[soundIndex].buffer);
+void Source::Create(i32 soundIndex) {
+	LockedPtr<Assets::Sound> sound = sys->assets.GetSound(soundIndex);
+	Create(&sound->buffer);
 	sys->sound.Register(this);
 }
 
@@ -482,8 +482,7 @@ bool Stream::Create(Ptr<Assets::Stream> file_in) {
 	return true;
 }
 
-bool Stream::Create(String filename) {
-	Assets::StreamIndex streamIndex = sys->assets.FindStream(filename);
+bool Stream::Create(i32 streamIndex) {
 	if (!Create(sys->assets.streams.GetPtr(streamIndex))) {
 		return false;
 	}

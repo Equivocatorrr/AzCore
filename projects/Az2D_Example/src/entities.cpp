@@ -35,23 +35,21 @@ inline void ApplyFriction(T &obj, f32 friction, f32 timestep) {
 	}
 }
 
-void Manager::EventAssetsQueue() {
-	sys->assets.QueueFile("Player.tga");
-	sys->assets.QueueFile("PlayerScream.tga");
-	sys->assets.QueueFile("scream.ogg");
-	sys->assets.QueueFile("music.ogg", Assets::Type::STREAM);
-	sprGuy.AssetsQueue("guy");
+void Manager::EventAssetsRequest() {
+	texPlayer = sys->assets.RequestTexture("Player.tga");
+	texPlayerScream = sys->assets.RequestTexture("PlayerScream.tga");
+	sys->assets.RequestSound("scream.ogg");
+	sys->assets.RequestStream("music.ogg");
+	sprGuy.AssetsRequest("guy");
 }
 
-void Manager::EventAssetsAcquire() {
-	texPlayer = sys->assets.FindTexture("Player.tga");
-	texPlayerScream = sys->assets.FindTexture("PlayerScream.tga");
+void Manager::EventAssetsAvailable() {
 	sprGuy.AssetsAcquire();
 	sprGuy.origin = vec2(6.5f, 7.5f);
 	
-	sndScream.Create("scream.ogg");
+	sndScream.Create(sys->assets.FindSound("scream.ogg"));
 
-	sndMusic.Create("music.ogg");
+	sndMusic.Create(sys->assets.FindStream("music.ogg"));
 	sndMusic.SetLoopRange(44100*8, 44100*24);
 }
 

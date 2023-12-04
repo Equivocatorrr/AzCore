@@ -17,7 +17,7 @@ using namespace AzCore;
 
 Manager *sys = nullptr;
 
-void System::EventAssetsQueue() {}
+void System::EventAssetsRequest() {}
 void System::EventSync() {}
 void System::EventUpdate() {}
 void System::EventDraw(Array<Rendering::DrawingContext> &contexts) {}
@@ -25,7 +25,7 @@ void System::EventInitialize() {}
 void System::EventClose() {}
 
 bool Init(SimpleRange<char> windowTitle, Array<System*> systemsToRegister, bool enableVulkanValidation) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az3D::GameSystems::Init)
+	AZCORE_PROFILING_FUNC_TIMER()
 	sys = new Manager();
 	for (System *system : systemsToRegister) {
 		sys->systems.Append(system);
@@ -172,7 +172,7 @@ void UpdateLoop() {
 
 void Deinit() {
 	{
-		AZCORE_PROFILING_SCOPED_TIMER(Az3D::GameSystems::Deinit)
+		AZCORE_PROFILING_FUNC_TIMER()
 		sys->Deinit();
 		delete sys;
 	}
@@ -180,6 +180,7 @@ void Deinit() {
 }
 
 bool Manager::Init() {
+	AZCORE_PROFILING_FUNC_TIMER()
 	window.input = &input;
 	rawInput.window = &window;
 	LoadLocale();
@@ -193,7 +194,7 @@ bool Manager::Init() {
 		return false;
 	}
 	assets.Init();
-	GetAssets();
+	RequestAssets();
 	CallInitialize();
 	
 	if (enableVulkanValidation) {
@@ -240,8 +241,6 @@ void Manager::Deinit() {
 	if (!sound.DeleteSources()) {
 		io::cerr.PrintLn("Failed to delete sound sources: ", Sound::error);
 	}
-	assets.sounds.Clear(); // Deletes the OpenAL buffers
-	assets.streams.Clear(); // Deletes the OpenAL buffers
 	assets.Deinit();
 	if (!sound.Deinitialize()) {
 		io::cerr.PrintLn("Failed to deinitialize sound: ", Sound::error);
@@ -255,7 +254,7 @@ void Manager::Deinit() {
 }
 
 void Manager::LoadLocale() {
-	AZCORE_PROFILING_SCOPED_TIMER(Az3D::GameSystems::Manager::LoadLocale)
+	AZCORE_PROFILING_FUNC_TIMER()
 	String localeName;
 	localeName.Reserve(21);
 	localeName = "data/locale/";
@@ -339,23 +338,22 @@ void Manager::SetFramerate(f32 framerateTarget, f32 framerateMeasured) {
 	frameDuration = Nanoseconds(1000000000/(i64)framerateTarget);
 }
 
-void Manager::GetAssets() {
-	AZCORE_PROFILING_SCOPED_TIMER(Az3D::GameSystems::Manager::GetAssets)
+void Manager::RequestAssets() {
+	AZCORE_PROFILING_FUNC_TIMER()
 	for (System* system : systems) {
-		system->EventAssetsQueue();
+		system->EventAssetsRequest();
 	}
 }
 
 void Manager::CallInitialize() {
-	AZCORE_PROFILING_SCOPED_TIMER(Az3D::GameSystems::Manager::CallInitialize)
+	AZCORE_PROFILING_FUNC_TIMER()
 	for (System* system : systems) {
 		system->EventInitialize();
 	}
 }
 
 void Manager::Sync() {
-	AZCORE_PROFILING_SCOPED_TIMER(Az3D::GameSystems::Manager::Sync)
-	buffer = !buffer;
+	AZCORE_PROFILING_FUNC_TIMER()
 	if (!paused) {
 		sys->simulationRate = min(1.0f, sys->simulationRate + sys->timestep * 5.0f);
 	} else {
@@ -370,14 +368,14 @@ void Manager::Sync() {
 }
 
 void Manager::Update() {
-	AZCORE_PROFILING_SCOPED_TIMER(Az3D::GameSystems::Manager::Update)
+	AZCORE_PROFILING_FUNC_TIMER()
 	for (System* system : systems) {
 		system->EventUpdate();
 	}
 }
 
 void Manager::Draw(Array<Rendering::DrawingContext>& contexts) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az3D::GameSystems::Manager::Draw)
+	AZCORE_PROFILING_FUNC_TIMER()
 	for (System *system : systems) {
 		system->EventDraw(contexts);
 	}

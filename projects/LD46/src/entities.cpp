@@ -33,85 +33,75 @@ inline void ApplyFriction(T &obj, f32 friction, f32 timestep) {
 	}
 }
 
-void Manager::EventAssetsQueue() {
-	sys->assets.QueueFile("Jump.png");
-	sys->assets.QueueFile("Float.png");
-	sys->assets.QueueFile("Run1.png");
-	sys->assets.QueueFile("Run2.png");
-	sys->assets.QueueFile("Wall_Touch.png");
-	sys->assets.QueueFile("Wall_Back.png");
-	sys->assets.QueueFile("Lantern.png");
-	sys->assets.QueueFile("beacon.png");
-	sys->assets.QueueFile("sprinkler.png");
+void Manager::EventAssetsRequest() {
+	texPlayerJump = sys->assets.RequestTexture("Jump.png");
+	texPlayerFloat = sys->assets.RequestTexture("Float.png");
+	texPlayerStand = sys->assets.RequestTexture("Run1.png");
+	texPlayerRun = sys->assets.RequestTexture("Run2.png");
+	texPlayerWallTouch = sys->assets.RequestTexture("Wall_Touch.png");
+	texPlayerWallBack = sys->assets.RequestTexture("Wall_Back.png");
+	texLantern = sys->assets.RequestTexture("Lantern.png");
+	texBeacon = sys->assets.RequestTexture("beacon.png");
+	texSprinkler = sys->assets.RequestTexture("sprinkler.png");
 
-	sys->assets.QueueFile("step-01.ogg");
-	sys->assets.QueueFile("step-02.ogg");
-	sys->assets.QueueFile("step-03.ogg");
-	sys->assets.QueueFile("step-04.ogg");
-	sys->assets.QueueFile("step-05.ogg");
-	sys->assets.QueueFile("step-06.ogg");
-	sys->assets.QueueFile("step-07.ogg");
-	sys->assets.QueueFile("step-08.ogg");
+	sys->assets.RequestSound("step-01.ogg");
+	sys->assets.RequestSound("step-02.ogg");
+	sys->assets.RequestSound("step-03.ogg");
+	sys->assets.RequestSound("step-04.ogg");
+	sys->assets.RequestSound("step-05.ogg");
+	sys->assets.RequestSound("step-06.ogg");
+	sys->assets.RequestSound("step-07.ogg");
+	sys->assets.RequestSound("step-08.ogg");
 
-	sys->assets.QueueFile("jump-01.ogg");
-	sys->assets.QueueFile("jump-02.ogg");
-	sys->assets.QueueFile("jump-03.ogg");
-	sys->assets.QueueFile("jump-04.ogg");
+	sys->assets.RequestSound("jump-01.ogg");
+	sys->assets.RequestSound("jump-02.ogg");
+	sys->assets.RequestSound("jump-03.ogg");
+	sys->assets.RequestSound("jump-04.ogg");
 
-	sys->assets.QueueFile("jump2-01.ogg");
-	sys->assets.QueueFile("jump2-02.ogg");
-	sys->assets.QueueFile("jump2-03.ogg");
+	sys->assets.RequestSound("jump2-01.ogg");
+	sys->assets.RequestSound("jump2-02.ogg");
+	sys->assets.RequestSound("jump2-03.ogg");
 
-	sys->assets.QueueFile("music.ogg", Assets::Type::STREAM);
+	sys->assets.RequestStream("music.ogg");
 }
 
-void Manager::EventAssetsAcquire() {
-	texPlayerJump = sys->assets.FindTexture("Jump.png");
-	texPlayerFloat = sys->assets.FindTexture("Float.png");
-	texPlayerStand = sys->assets.FindTexture("Run1.png");
-	texPlayerRun = sys->assets.FindTexture("Run2.png");
-	texPlayerWallTouch = sys->assets.FindTexture("Wall_Touch.png");
-	texPlayerWallBack = sys->assets.FindTexture("Wall_Back.png");
-	texLantern = sys->assets.FindTexture("Lantern.png");
-	texBeacon = sys->assets.FindTexture("beacon.png");
-	texSprinkler = sys->assets.FindTexture("sprinkler.png");
-
-	stepSources[0].Create("step-01.ogg");
-	stepSources[1].Create("step-02.ogg");
-	stepSources[2].Create("step-03.ogg");
-	stepSources[3].Create("step-04.ogg");
-	stepSources[4].Create("step-05.ogg");
-	stepSources[5].Create("step-06.ogg");
-	stepSources[6].Create("step-07.ogg");
-	stepSources[7].Create("step-08.ogg");
+void Manager::EventAssetsAvailable() {
+	stepSources[0].Create(sys->assets.FindSound("step-01.ogg"));
+	stepSources[1].Create(sys->assets.FindSound("step-02.ogg"));
+	stepSources[2].Create(sys->assets.FindSound("step-03.ogg"));
+	stepSources[3].Create(sys->assets.FindSound("step-04.ogg"));
+	stepSources[4].Create(sys->assets.FindSound("step-05.ogg"));
+	stepSources[5].Create(sys->assets.FindSound("step-06.ogg"));
+	stepSources[6].Create(sys->assets.FindSound("step-07.ogg"));
+	stepSources[7].Create(sys->assets.FindSound("step-08.ogg"));
 
 	for (i32 i = 0; i < 8; i++) {
 		step.sources.Append(stepSources + i);
 	}
 
-	jump1Sources[0].Create("jump-01.ogg");
-	jump1Sources[1].Create("jump-02.ogg");
-	jump1Sources[2].Create("jump-03.ogg");
-	jump1Sources[3].Create("jump-04.ogg");
+	jump1Sources[0].Create(sys->assets.FindSound("jump-01.ogg"));
+	jump1Sources[1].Create(sys->assets.FindSound("jump-02.ogg"));
+	jump1Sources[2].Create(sys->assets.FindSound("jump-03.ogg"));
+	jump1Sources[3].Create(sys->assets.FindSound("jump-04.ogg"));
 
 	for (i32 i = 0; i < 4; i++) {
 		jump1.sources.Append(jump1Sources + i);
 	}
 
-	jump2Sources[0].Create("jump2-01.ogg");
-	jump2Sources[1].Create("jump2-02.ogg");
-	jump2Sources[2].Create("jump2-03.ogg");
+	jump2Sources[0].Create(sys->assets.FindSound("jump2-01.ogg"));
+	jump2Sources[1].Create(sys->assets.FindSound("jump2-02.ogg"));
+	jump2Sources[2].Create(sys->assets.FindSound("jump2-03.ogg"));
 
 	for (i32 i = 0; i < 3; i++) {
 		jump2.sources.Append(jump2Sources + i);
 	}
 
-	music.Create("music.ogg");
+	music.Create(sys->assets.FindStream("music.ogg"));
 	music.SetLoopRange(44100*8, 44100*48);
 }
 
 void Manager::EventInitialize() {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Manager::EventInitialize)
+	AZCORE_PROFILING_FUNC_TIMER()
 	Array<char> levels = FileContents("data/levels.txt");
 	Array<SimpleRange<char>> lines = SeparateByNewlines(levels);
 	for (i32 i = 0; i < lines.size; i++) {
@@ -202,7 +192,7 @@ inline void Manager::HandleUI() {
 }
 
 void Manager::EventSync() {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Manager::EventSync)
+	AZCORE_PROFILING_FUNC_TIMER()
 	camZoom = (f32)sys->window.height / 1080.0f * 1.5f;
 	if (Gui::gui->menuMain.buttonContinue->state.Released()) {
 		Gui::gui->menuMain.buttonContinue->state.Set(false, false, false);
@@ -300,7 +290,7 @@ void Manager::EventSync() {
 }
 
 void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Manager::EventDraw)
+	AZCORE_PROFILING_FUNC_TIMER()
 	// if (gui->currentMenu != Int::MENU_PLAY) return;
 	if (flame > 0.0f) {
 		vec4 color = vec4(1.0f, 1.0f, 0.5f, flame*0.5f);
@@ -361,7 +351,7 @@ void MessageText::Draw(Rendering::DrawingContext &context) {
 }
 
 void World::Draw(Rendering::DrawingContext &context, bool playing, bool under) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::World::Draw)
+	AZCORE_PROFILING_FUNC_TIMER()
 	vec4 color;
 	vec2 pos;
 	vec2 scale;
@@ -518,7 +508,7 @@ bool World::Load(String filename) {
 }
 
 void Lantern::Update(f32 timestep) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Lantern::Update)
+	AZCORE_PROFILING_FUNC_TIMER()
 	vel = (pos - posPrev) / timestep;
 	vec2 v = -14.0f * vec2(cos(angle), sin(angle));
 	if (particleTimer > 0.0f) {
@@ -551,7 +541,7 @@ void Lantern::Update(f32 timestep) {
 }
 
 void Lantern::Draw(Rendering::DrawingContext &context) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Lantern::Draw)
+	AZCORE_PROFILING_FUNC_TIMER()
 	sys->rendering.DrawQuad(context, entities->WorldPosToScreen(pos), vec2(41.0f, 66.0f) * 0.4f * entities->camZoom, 1.0f, vec2(0.5f, 0.05f), angle.value() + pi / 2.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), entities->texLantern);
 }
 
@@ -565,7 +555,7 @@ void Player::EventCreate() {
 }
 
 void Player::Update(f32 timestep) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Player::Update)
+	AZCORE_PROFILING_FUNC_TIMER()
 	physical.Update(timestep);
 	physical.UpdateActual();
 	bool buttonJump = sys->Down(KC_KEY_UP) || sys->Down(KC_KEY_W);
@@ -738,7 +728,7 @@ void Player::Update(f32 timestep) {
 }
 
 void Player::Draw(Rendering::DrawingContext &context) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Player::Draw)
+	AZCORE_PROFILING_FUNC_TIMER()
 	vec2 pos = entities->WorldPosToScreen(physical.pos+vec2(facingRight ? 44.0f : -9.0f, -11.0f));
 	vec2 scale = vec2(facingRight? -53.0f : 53.0f, 57.0f) * entities->camZoom;
 	i32 tex = 0;
@@ -769,7 +759,7 @@ void Sprinkler::EventCreate() {
 }
 
 void Sprinkler::Update(f32 timestep) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Sprinkler::Update)
+	AZCORE_PROFILING_FUNC_TIMER()
 	angle += rot * timestep;
 	if (angle.value() >= pi || angle.value() <= 0.0f) {
 		rot *= -1.0f;
@@ -786,7 +776,7 @@ void Sprinkler::Update(f32 timestep) {
 }
 
 void Sprinkler::Draw(Rendering::DrawingContext &context) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Sprinkler::Draw)
+	AZCORE_PROFILING_FUNC_TIMER()
 	const vec2 scale = vec2(25.0f, 13.0f) * entities->camZoom;
 	const vec2 p = entities->WorldPosToScreen(physical.pos) - vec2(scale.x * 0.5f, 0.0f);
 	sys->rendering.DrawQuad(context, p, scale, 1.0f, 0.0f, 0.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), entities->texSprinkler);
@@ -802,7 +792,7 @@ void Droplet::EventCreate() {
 }
 
 void Droplet::Update(f32 timestep) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Droplet::Update)
+	AZCORE_PROFILING_FUNC_TIMER()
 	physical.Update(timestep);
 	physical.UpdateActual();
 	lifetime -= timestep;
@@ -814,7 +804,7 @@ void Droplet::Update(f32 timestep) {
 }
 
 void Droplet::Draw(Rendering::DrawingContext &context) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Droplet::Draw)
+	AZCORE_PROFILING_FUNC_TIMER()
 	vec4 color = vec4(0.2f, 0.6f, 1.0f, clamp01(lifetime) * 0.1f);
 	physical.Draw(context, color);
 }
@@ -828,7 +818,7 @@ void Flame::EventCreate() {
 }
 
 void Flame::Update(f32 timestep) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Flame::Update)
+	AZCORE_PROFILING_FUNC_TIMER()
 	physical.basis.circle.r -= 32.0f * timestep;
 	physical.Update(timestep);
 	physical.UpdateActual();
@@ -840,7 +830,7 @@ void Flame::Update(f32 timestep) {
 }
 
 void Flame::Draw(Rendering::DrawingContext &context) {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Flame::Update)
+	AZCORE_PROFILING_FUNC_TIMER()
 	f32 s = size * 6.0f + 4.0f;
 	f32 prog = (s - physical.basis.circle.r) / s;
 	vec4 color = vec4(

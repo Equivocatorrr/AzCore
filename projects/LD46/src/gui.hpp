@@ -133,8 +133,8 @@ struct Gui : public GuiBasic {
 	Gui();
 	~Gui() = default;
 
-	void EventAssetsQueue() override;
-	void EventAssetsAcquire() override;
+	void EventAssetsRequest() override;
+	void EventAssetsAvailable() override;
 	void EventInitialize() override;
 	void EventSync() override;
 	void EventDraw(az::Array<Rendering::DrawingContext> &contexts) override;

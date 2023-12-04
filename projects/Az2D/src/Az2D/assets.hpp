@@ -7,8 +7,10 @@
 #ifndef AZ2D_ASSETS_HPP
 #define AZ2D_ASSETS_HPP
 
+#include "AzCore/IO/FileManager.hpp"
 #include "AzCore/memory.hpp"
 #include "AzCore/font.hpp"
+#include "AzCore/Image.hpp"
 #include "sound.hpp"
 
 struct stb_vorbis;
@@ -20,8 +22,6 @@ namespace Az2D::Rendering {
 namespace Az2D::Assets {
 
 extern az::String error;
-
-extern bool warnFileNotFound;
 
 typedef i32 TexIndex;
 typedef i32 FontIndex;
@@ -45,28 +45,21 @@ struct Mapping {
 };
 
 struct Texture {
-	u8 *pixels = nullptr;
-	i32 width = 0, height = 0, channels = 0;
-	// if this is false, then the image is sRGB
-	bool linear = false;
-
-	bool Load(az::String filename);
-	Texture() = default;
-	Texture(const Texture &other) = delete;
-	Texture(Texture &&other);
-	Texture& operator=(Texture &&other);
-	Texture& operator=(const Texture &other) = delete;
-	~Texture();
+	az::io::File *file;
+	az::Image image;
+	void Decode();
 };
 
 struct Font {
+	az::io::File *file;
 	az::font::Font font;
 	az::font::FontBuilder fontBuilder;
 
-	bool Load(az::String filename);
+	void Decode();
 };
 
 struct Sound {
+	az::io::File *file;
 	bool valid;
 	Az2D::Sound::Buffer buffer;
 	inline Sound() : valid(false), buffer({UINT32_MAX, false}) {}
@@ -85,12 +78,13 @@ struct Sound {
 		return *this;
 	}
 
-	bool Load(az::String filename);
+	void Decode();
 };
 
 constexpr i8 numStreamBuffers = 2;
 
 struct Stream {
+	az::io::File *file;
 	stb_vorbis *vorbis;
 	bool valid;
 	struct {
@@ -148,9 +142,9 @@ struct Stream {
 		return *this;
 	}
 
-	bool Open(az::String filename);
+	void Decode();
 	// Returns the number of samples decoded or -1 on error
-	i32 Decode(i32 sampleCount);
+	i32 DecodeSamples(i32 sampleCount);
 	void SeekStart();
 	ALuint LastBuffer();
 	inline void BeginFadeout(f32 duration) {
@@ -163,40 +157,31 @@ struct Stream {
 constexpr i32 textureIndexBlank = 1;
 
 struct Manager {
-	struct FileToLoad {
-		az::String filename;
-		Type type;
-		bool isLinearTexture = false;
-		inline FileToLoad() : filename(), type(Type::NONE) {}
-		explicit inline FileToLoad(az::String fn) : filename(fn), type(Type::NONE) {}
-		inline FileToLoad(az::String fn, Type t) : filename(fn), type(t) {}
-		inline FileToLoad(az::String fn, bool linTexture) : filename(fn), type(Type::TEXTURE), isLinearTexture(linTexture) {}
-	};
-	// Everything we want to actually load.
-	az::Array<FileToLoad> filesToLoad{
-		FileToLoad("TextureMissing.png"),
-		FileToLoad("blank.tga"),
-		FileToLoad("blank_n.tga", true),
-		FileToLoad("blank_e.tga"),
-		FileToLoad("DroidSansFallback.ttf")
-	};
-	az::HashMap<az::SimpleRange<char>, Mapping> mappings;
+	az::io::FileManager fileManager;
+	
+	az::HashMap<az::String, Mapping> mappings;
 	az::Array<Texture> textures;
 	az::Array<Font> fonts;
 	az::Array<Sound> sounds;
 	az::Array<Stream> streams;
+	TexIndex nextTexIndex;
+	FontIndex nextFontIndex;
+	SoundIndex nextSoundIndex;
+	StreamIndex nextStreamIndex;
+	
+	az::Mutex arrayMutex;
+	
+	void Init();
+	void Deinit();
+	
+	TexIndex    RequestTexture(az::String filepath, bool linear=false, i32 priority=0);
+	FontIndex   RequestFont   (az::String filepath, i32 priority=0);
+	SoundIndex  RequestSound  (az::String filepath, i32 priority=0);
+	StreamIndex RequestStream (az::String filepath, i32 priority=0);
+	
+	// filepath is for debugging purposes
+	TexIndex    RequestTextureDecode(az::Array<char> &&buffer, az::String filepath, bool linear=false, i32 priority=0);
 
-	inline void QueueFile(az::String filename) {
-		filesToLoad.Append(FileToLoad(filename));
-	}
-	inline void QueueFile(az::String filename, Type type) {
-		filesToLoad.Append(FileToLoad(filename, type));
-	}
-	inline void QueueLinearTexture(az::String filename) {
-		filesToLoad.Append(FileToLoad(filename, true));
-	}
-
-	bool LoadAll();
 	i32 FindMapping(az::SimpleRange<char> filename, Type type);
 	inline TexIndex FindTexture(az::SimpleRange<char> filename) {
 		return (TexIndex)FindMapping(filename, Type::TEXTURE);
@@ -211,6 +196,16 @@ struct Manager {
 		return (StreamIndex)FindMapping(filename, Type::STREAM);
 	}
 	f32 CharacterWidth(char32 c, i32 fontIndex) const;
+	
+	az::LockedPtr<Texture> GetTexture(TexIndex    index);
+	az::LockedPtr<Font>    GetFont   (FontIndex   index);
+	az::LockedPtr<Sound>   GetSound  (SoundIndex  index);
+	az::LockedPtr<Stream>  GetStream (StreamIndex index);
+	
+	bool IsTextureValid(TexIndex    index);
+	bool IsFontValid   (FontIndex   index);
+	bool IsSoundValid  (SoundIndex  index);
+	bool IsStreamValid (StreamIndex index);
 };
 
 } // namespace Az2D::Assets

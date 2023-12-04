@@ -187,7 +187,7 @@ bool Manager::Activate(SourceBase *sound) {
 			} else {
 				Stream *stream = (Stream*)sound;
 				for (i32 i = 0; i < Assets::numStreamBuffers; i++) {
-					if (!stream->file->Decode(stream->file->data.samplerate/8)) {
+					if (!stream->file->DecodeSamples(stream->file->data.samplerate/8)) {
 						error = "Manager::Activate: Failed to Decode: " + Assets::error;
 						return false;
 					}
@@ -297,7 +297,7 @@ bool Manager::Stop(SourceBase *sound) {
 		}
 		stream->file->SeekStart();
 		for (i32 i = 0; i < Assets::numStreamBuffers; i++) {
-			if (!stream->file->Decode(stream->file->data.samplerate/8)) {
+			if (!stream->file->DecodeSamples(stream->file->data.samplerate/8)) {
 				error = "Manager::Activate: Failed to Decode: " + Assets::error;
 				return false;
 			}
@@ -390,7 +390,7 @@ void Manager::StreamUpdateProc(Manager *theThisPointer) {
 				if (!stream->Unqueue(stream->file->data.currentBuffer)) {
 					goto failure;
 				}
-				i32 decoded = stream->file->Decode(stream->file->data.samplerate/8);
+				i32 decoded = stream->file->DecodeSamples(stream->file->data.samplerate/8);
 				if (decoded < 0) {
 					goto failure;
 				}

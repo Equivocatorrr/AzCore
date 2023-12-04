@@ -52,6 +52,7 @@ struct GuiBasic : public GameSystems::System {
 		az::SimpleRange<char> filename;
 		f32 gain;
 		f32 pitch;
+		Assets::SoundIndex soundIndex;
 	};
 	az::Array<SoundDef> sndClickInDefs = {
 		{"click in 1.ogg", 0.15f, 1.2f},
@@ -91,8 +92,8 @@ struct GuiBasic : public GameSystems::System {
 
 	GuiBasic();
 
-	void EventAssetsQueue() override;
-	void EventAssetsAcquire() override;
+	void EventAssetsRequest() override;
+	void EventAssetsAvailable() override;
 	void EventInitialize() override;
 	// When deriving, call this first, do your own sync, and then set readyForDraw to true at the end.
 	void EventSync() override;

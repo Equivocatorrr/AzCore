@@ -8,9 +8,7 @@
 #include "AzCore/Profiling.hpp"
 
 #include "AzCore/IO/Log.hpp"
-#include "AzCore/Simd.hpp"
 
-#include <stb_image.h>
 #include <stb_vorbis.c>
 
 namespace Az3D::Assets {
@@ -113,76 +111,12 @@ Type FilenameToType(String filename) {
 	return Type::NONE;
 }
 
-void Texture::PremultiplyAlpha() {
-	AZCORE_PROFILING_FUNC_TIMER()
-	AzAssert(image.channels == 4, "Image must have 4 channels for PremultiplyAlpha");
-	i32 i = 0;
-	static __m256i alphaMask = _mm256_set_epi16(
-		0xff, 0, 0, 0,
-		0xff, 0, 0, 0,
-		0xff, 0, 0, 0,
-		0xff, 0, 0, 0
-	);
-	AzAssert(((u64)image.pixels & 15) == 0, "We're expecting the pixel array to be aligned on a 16-byte boundary");
-	// Premultiply alpha
-#if 1
-	for (; i <= image.width*image.height-4; i+=4) {
-		u8 *pixel = &image.pixels[i*image.channels];
-		__m128i &rgba8 = *(__m128i*)pixel;
-		__m256i RGBA = _mm256_cvtepu8_epi16(rgba8);
-		// Shuffle our alpha channel into all the rgb channels
-		__m256i AAA1 = _mm256_shufflelo_epi16(
-			_mm256_shufflehi_epi16(RGBA, _MM_SHUFFLE(3,3,3,3)),
-			_MM_SHUFFLE(3,3,3,3)
-		);
-		// RGBA = _mm256_set1_epi16(0xff);
-		// Set our alpha to 1.0 so it doesn't get squared
-		AAA1 = _mm256_or_si256(AAA1, alphaMask);
-		// Multiply RGBA by AAA1
-		RGBA = _mm256_mullo_epi16(RGBA, AAA1);
-		// now divide by 255 by multiplying by a magic number and shifting
-		{
-			// NOTE: MSVC gives the warning "C4309: 'initializing': truncation of constant value"
-			//       I would assume that truncation means it's losing data, but the static_assert
-			//       passes so that means this code is valid.
-			constexpr short test = 0x8081;
-			static_assert((unsigned short)test == (unsigned short)0x8081);
-		}
-		RGBA = _mm256_srli_epi16(
-			_mm256_mulhi_epu16(RGBA, _mm256_set1_epi16(0x8081)),
-			7
-		);
-		// Pack 16-bit integers into 8-bit integers using unsigned saturation
-		// Shuffle 64-bit integers to get the parts we want in the lower 128 bits
-		// cast to __m128i so we just have the parts we want.
-		__m256i packed = _mm256_packus_epi16(RGBA, RGBA);
-		rgba8 = _mm256_castsi256_si128(
-			_mm256_permute4x64_epi64(packed, _MM_SHUFFLE(2, 0, 2, 0))
-		);
-	}
-#endif
-	for (; i < image.width*image.height; i++) {
-		u32 &pixel = *((u32*)&image.pixels[i*image.channels]);
-		u16 r = (pixel >> 8*0) & 0xff;
-		u16 g = (pixel >> 8*1) & 0xff;
-		u16 b = (pixel >> 8*2) & 0xff;
-		u16 a = (pixel >> 8*3) & 0xff;
-		r = (r * a) / 0xff;
-		g = (g * a) / 0xff;
-		b = (b * a) / 0xff;
-		pixel = (u32)a << 8*3;
-		pixel |= (u32)r << 8*0;
-		pixel |= (u32)g << 8*1;
-		pixel |= (u32)b << 8*2;
-	}
-}
-
 void Texture::Decode() {
 	AZCORE_PROFILING_FUNC_TIMER()
 	image.LoadFromBuffer(file->data);
 	if (image.channels == 4) {
 		// Only multiply alpha if we actually had an alpha channel in the first place
-		PremultiplyAlpha();
+		image.PremultiplyAlpha();
 	}
 	if (image.channels == 3) {
 		image.SetChannels(4);
@@ -237,19 +171,19 @@ Sound::~Sound() {
 	}
 }
 
-void Stream::Open() {
+void Stream::Decode() {
 	AZCORE_PROFILING_FUNC_TIMER()
 	valid = false;
 	for (i32 i = 0; i < numStreamBuffers; i++) {
 		if (!buffers[i].Create()) {
-			cout.PrintLn("Stream::Open: Failed to create buffer: ", Az3D::Sound::error);
+			cout.PrintLn("Stream::Decode: Failed to create buffer: ", Az3D::Sound::error);
 			return;
 		}
 	}
 	i32 iError = 0;
 	vorbis = stb_vorbis_open_memory((u8*)file->data.data, file->data.size, &iError, nullptr);
 	if (!vorbis) {
-		cout.PrintLn("Stream::Open: Failed to decode \"", file->filepath, "\", error code ", iError);
+		cout.PrintLn("Stream::Decode: Failed to decode \"", file->filepath, "\", error code ", iError);
 		return;
 	}
 	data.totalSamples = stb_vorbis_stream_length_in_samples(vorbis);
@@ -267,7 +201,7 @@ void Stream::Open() {
 
 constexpr i32 crossfadeSamples = 2205;
 
-i32 Stream::Decode(i32 sampleCount) {
+i32 Stream::DecodeSamples(i32 sampleCount) {
 	AZCORE_PROFILING_FUNC_TIMER()
 	if (!valid) {
 		error = "Stream::Decode: Stream not valid!";
@@ -461,6 +395,9 @@ void Manager::Init() {
 	nextSoundIndex = 0;
 	nextStreamIndex = 0;
 	nextMeshIndex = 0;
+#ifndef NDEBUG
+	fileManager.warnFileNotFound = true;
+#endif
 	
 	RequestTexture("TextureMissing.png", false);
 	RequestTexture("blank.tga", false);
@@ -469,6 +406,9 @@ void Manager::Init() {
 }
 
 void Manager::Deinit() {
+	// Delete the OpenAL buffers
+	sounds.Clear();
+	streams.Clear();
 	fileManager.Deinit();
 }
 
@@ -493,15 +433,15 @@ bool textureDecoder(io::File *file, Any &any) {
 };
 
 TexIndex Manager::RequestTexture(az::String filepath, bool linear, i32 priority) {
-	filepath = Stringify("textures/", filepath);
-	
 	if (auto node = mappings.Find(filepath)) {
 		AzAssert(node->value.type == Type::TEXTURE, Stringify("RequestTexture for \"", filepath, "\" already exists as a ", typeStrings[(i32)node->value.type]));
 		return node->value.index;
 	}
 	arrayMutex.Lock();
 	TexIndex result = nextTexIndex++;
+	mappings.Emplace(filepath, Mapping{Type::TEXTURE, result});
 	arrayMutex.Unlock();
+	filepath = Stringify("textures/", filepath);
 	fileManager.RequestFile(filepath, priority, textureDecoder, TextureDecodeMetadata{result, &textures, &arrayMutex, linear});
 	return result;
 }
@@ -509,6 +449,7 @@ TexIndex Manager::RequestTexture(az::String filepath, bool linear, i32 priority)
 TexIndex Manager::RequestTextureDecode(Array<char> &&buffer, az::String filepath, bool linear, i32 priority) {
 	arrayMutex.Lock();
 	TexIndex result = nextTexIndex++;
+	mappings.Emplace(filepath, Mapping{Type::TEXTURE, result});
 	arrayMutex.Unlock();
 	fileManager.RequestDecode(std::move(buffer), filepath, priority, textureDecoder, TextureDecodeMetadata{result, &textures, &arrayMutex, linear});
 	return result;
@@ -520,15 +461,15 @@ FontIndex Manager::RequestFont(az::String filepath, i32 priority) {
 		Array<Font> *dstArray;
 		Mutex *dstArrayMutex;
 	};
-	filepath = Stringify("fonts/", filepath);
-	
 	if (auto node = mappings.Find(filepath)) {
 		AzAssert(node->value.type == Type::FONT, Stringify("RequestFont for \"", filepath, "\" already exists as a ", typeStrings[(i32)node->value.type]));
 		return node->value.index;
 	}
 	arrayMutex.Lock();
 	FontIndex result = nextFontIndex++;
+	mappings.Emplace(filepath, Mapping{Type::FONT, result});
 	arrayMutex.Unlock();
+	filepath = Stringify("fonts/", filepath);
 	fileManager.RequestFile(filepath, priority, [](io::File *file, Any &any) -> bool {
 		Font font;
 		font.file = file;
@@ -549,15 +490,15 @@ SoundIndex Manager::RequestSound(az::String filepath, i32 priority) {
 		Array<Sound> *dstArray;
 		Mutex *dstArrayMutex;
 	};
-	filepath = Stringify("sounds/", filepath);
-	
 	if (auto node = mappings.Find(filepath)) {
 		AzAssert(node->value.type == Type::SOUND, Stringify("RequestSound for \"", filepath, "\" already exists as a ", typeStrings[(i32)node->value.type]));
 		return node->value.index;
 	}
 	arrayMutex.Lock();
 	SoundIndex result = nextSoundIndex++;
+	mappings.Emplace(filepath, Mapping{Type::SOUND, result});
 	arrayMutex.Unlock();
+	filepath = Stringify("sound/", filepath);
 	fileManager.RequestFile(filepath, priority, [](io::File *file, Any &any) -> bool {
 		Sound sound;
 		sound.file = file;
@@ -578,25 +519,25 @@ StreamIndex Manager::RequestStream(az::String filepath, i32 priority) {
 		Array<Stream> *dstArray;
 		Mutex *dstArrayMutex;
 	};
-	filepath = Stringify("sounds/", filepath);
-	
 	if (auto node = mappings.Find(filepath)) {
 		AzAssert(node->value.type == Type::STREAM, Stringify("RequestStream for \"", filepath, "\" already exists as a ", typeStrings[(i32)node->value.type]));
 		return node->value.index;
 	}
 	arrayMutex.Lock();
 	StreamIndex result = nextStreamIndex++;
+	mappings.Emplace(filepath, Mapping{Type::STREAM, result});
 	arrayMutex.Unlock();
+	filepath = Stringify("sound/", filepath);
 	fileManager.RequestFile(filepath, priority, [](io::File *file, Any &any) -> bool {
 		Stream stream;
 		stream.file = file;
-		stream.Open();
+		stream.Decode();
 		StreamDecodeMetadata &metadata = any.Get<StreamDecodeMetadata>();
 		metadata.dstArrayMutex->Lock();
 		metadata.dstArray->Resize(max(metadata.streamIndex+1, metadata.dstArray->size));
 		(*metadata.dstArray)[metadata.streamIndex] = std::move(stream);
 		metadata.dstArrayMutex->Unlock();
-		return false;
+		return true;
 	}, StreamDecodeMetadata{result, &streams, &arrayMutex});
 	return result;
 }
@@ -606,15 +547,15 @@ MeshIndex Manager::RequestMesh(az::String filepath, i32 priority) {
 		MeshIndex meshIndex;
 		Manager *manager;
 	};
-	filepath = Stringify("models/", filepath);
-	
 	if (auto node = mappings.Find(filepath)) {
 		AzAssert(node->value.type == Type::MESH, Stringify("RequestMesh for \"", filepath, "\" already exists as a ", typeStrings[(i32)node->value.type]));
 		return node->value.index;
 	}
 	arrayMutex.Lock();
 	MeshIndex result = nextMeshIndex++;
+	mappings.Emplace(filepath, Mapping{Type::MESH, result});
 	arrayMutex.Unlock();
+	filepath = Stringify("models/", filepath);
 	fileManager.RequestFile(filepath, priority, [](io::File *file, Any &any) -> bool {
 		Mesh mesh;
 		mesh.file = file;

@@ -92,7 +92,7 @@ struct SourceBase {
 struct Source : public SourceBase {
 	ALuint buffer;
 	void Create(Buffer *buf);
-	void Create(String filename);
+	void Create(i32 soundIndex);
 };
 
 /*  struct: MultiSource
@@ -116,7 +116,7 @@ struct Stream : public SourceBase {
 	// bool fadeout = false;
 	// Array<ALuint> buffersToQueue{};
 	bool Create(Ptr<Assets::Stream> file_in);
-	bool Create(String filename);
+	bool Create(i32 streamIndex);
 	bool Queue(ALuint buffer);
 	i32 BuffersDone();
 	bool Unqueue(ALuint buffer);

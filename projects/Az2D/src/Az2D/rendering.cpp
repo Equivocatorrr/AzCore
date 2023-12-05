@@ -245,6 +245,13 @@ bool Manager::Init() {
 	data.fontImages = data.fontImageMemory->AddImages(sys->assets.fonts.size, baseImage);
 
 	for (i32 i = 0; i < texImages.size; i++) {
+		if (!sys->assets.IsTextureValid(i)) {
+			texImages[i].width = 1;
+			texImages[i].height = 1;
+			texImages[i].mipLevels = 1;
+			texStagingBuffers[i].size = 1;
+			continue;
+		}
 		const i32 channels = sys->assets.textures[i].image.channels;
 		if (channels != 4) {
 			error = Stringify("Invalid channel count (", channels, ") in textures[", i, "]");
@@ -501,7 +508,12 @@ bool Manager::Init() {
 	bufferStagingBuffers[0].CopyData(vertices.data);
 	bufferStagingBuffers[1].CopyData(indices.data);
 	for (i32 i = 0; i < texStagingBuffers.size; i++) {
-		texStagingBuffers[i].CopyData(sys->assets.textures[i].image.pixels);
+		if (sys->assets.IsTextureValid(i)) {
+			texStagingBuffers[i].CopyData(sys->assets.textures[i].image.pixels);
+		} else {
+			u8 black = 0;
+			texStagingBuffers[i].CopyData(&black);
+		}
 	}
 
 	VkCommandBuffer cmdBufCopy = data.commandBufferGraphicsTransfer->Begin();

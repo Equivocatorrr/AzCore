@@ -516,7 +516,7 @@ bool Manager::IsTextureValid(TexIndex index) {
 	AzAssert(index >= 0 && index < nextTexIndex, Stringify("TexIndex (", index, ") is invalid (must be >= 0 and < ", nextTexIndex, ")"));
 	ScopedLock lock(arrayMutex);
 	if (textures.size <= index) return false;
-	if (textures[index].file->stage == io::File::Stage::FILE_NOT_FOUND) return false;
+	if (nullptr == textures[index].file || textures[index].file->stage == io::File::Stage::FILE_NOT_FOUND) return false;
 	return true;
 }
 
@@ -524,7 +524,7 @@ bool Manager::IsFontValid(FontIndex index) {
 	AzAssert(index >= 0 && index < nextFontIndex, Stringify("FontIndex (", index, ") is invalid (must be >= 0 and < ", nextFontIndex, ")"));
 	ScopedLock lock(arrayMutex);
 	if (fonts.size <= index) return false;
-	if (fonts[index].file->stage == io::File::Stage::FILE_NOT_FOUND) return false;
+	if (nullptr == fonts[index].file || fonts[index].file->stage == io::File::Stage::FILE_NOT_FOUND) return false;
 	return true;
 }
 

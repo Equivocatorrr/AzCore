@@ -45,13 +45,13 @@ struct Mapping {
 };
 
 struct Texture {
-	az::io::File *file;
+	az::io::File *file = nullptr;
 	az::Image image;
 	void Decode();
 };
 
 struct Font {
-	az::io::File *file;
+	az::io::File *file = nullptr;
 	az::font::Font font;
 	az::font::FontBuilder fontBuilder;
 
@@ -59,7 +59,7 @@ struct Font {
 };
 
 struct Sound {
-	az::io::File *file;
+	az::io::File *file = nullptr;
 	bool valid;
 	Az2D::Sound::Buffer buffer;
 	inline Sound() : valid(false), buffer({UINT32_MAX, false}) {}
@@ -84,7 +84,7 @@ struct Sound {
 constexpr i8 numStreamBuffers = 2;
 
 struct Stream {
-	az::io::File *file;
+	az::io::File *file = nullptr;
 	stb_vorbis *vorbis;
 	bool valid;
 	struct {

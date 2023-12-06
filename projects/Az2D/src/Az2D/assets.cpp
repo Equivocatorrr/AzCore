@@ -359,21 +359,23 @@ TexIndex Manager::RequestTexture(az::String filepath, bool linear, i32 priority)
 		AzAssert(node->value.type == Type::TEXTURE, Stringify("RequestTexture for \"", filepath, "\" already exists as a ", typeStrings[(i32)node->value.type]));
 		return node->value.index;
 	}
-	arrayMutex.Lock();
+	ScopedLock lock(arrayMutex);
 	TexIndex result = nextTexIndex++;
 	mappings.Emplace(filepath, Mapping{Type::TEXTURE, result});
-	arrayMutex.Unlock();
+	textures.Resize(max(result+1, textures.size));
+	Texture &texture = textures[result];
 	filepath = Stringify("textures/", filepath);
-	fileManager.RequestFile(filepath, priority, textureDecoder, TextureDecodeMetadata{result, &textures, &arrayMutex, linear});
+	texture.file = fileManager.RequestFile(filepath, priority, textureDecoder, TextureDecodeMetadata{result, &textures, &arrayMutex, linear});
 	return result;
 }
 
 TexIndex Manager::RequestTextureDecode(Array<char> &&buffer, az::String filepath, bool linear, i32 priority) {
-	arrayMutex.Lock();
+	ScopedLock lock(arrayMutex);
 	TexIndex result = nextTexIndex++;
 	mappings.Emplace(filepath, Mapping{Type::TEXTURE, result});
-	arrayMutex.Unlock();
-	fileManager.RequestDecode(std::move(buffer), filepath, priority, textureDecoder, TextureDecodeMetadata{result, &textures, &arrayMutex, linear});
+	textures.Resize(max(result+1, textures.size));
+	Texture &texture = textures[result];
+	texture.file = fileManager.RequestDecode(std::move(buffer), filepath, priority, textureDecoder, TextureDecodeMetadata{result, &textures, &arrayMutex, linear});
 	return result;
 }
 
@@ -387,12 +389,13 @@ FontIndex Manager::RequestFont(az::String filepath, i32 priority) {
 		AzAssert(node->value.type == Type::FONT, Stringify("RequestFont for \"", filepath, "\" already exists as a ", typeStrings[(i32)node->value.type]));
 		return node->value.index;
 	}
-	arrayMutex.Lock();
+	ScopedLock lock(arrayMutex);
 	FontIndex result = nextFontIndex++;
 	mappings.Emplace(filepath, Mapping{Type::FONT, result});
-	arrayMutex.Unlock();
+	fonts.Resize(max(result+1, fonts.size));
+	Font &font = fonts[result];
 	filepath = Stringify("fonts/", filepath);
-	fileManager.RequestFile(filepath, priority, [](io::File *file, Any &any) -> bool {
+	font.file = fileManager.RequestFile(filepath, priority, [](io::File *file, Any &any) -> bool {
 		Font font;
 		font.file = file;
 		font.Decode();
@@ -416,12 +419,13 @@ SoundIndex Manager::RequestSound(az::String filepath, i32 priority) {
 		AzAssert(node->value.type == Type::SOUND, Stringify("RequestSound for \"", filepath, "\" already exists as a ", typeStrings[(i32)node->value.type]));
 		return node->value.index;
 	}
-	arrayMutex.Lock();
+	ScopedLock lock(arrayMutex);
 	SoundIndex result = nextSoundIndex++;
 	mappings.Emplace(filepath, Mapping{Type::SOUND, result});
-	arrayMutex.Unlock();
+	sounds.Resize(max(result+1, sounds.size));
+	Sound &sound = sounds[result];
 	filepath = Stringify("sound/", filepath);
-	fileManager.RequestFile(filepath, priority, [](io::File *file, Any &any) -> bool {
+	sound.file = fileManager.RequestFile(filepath, priority, [](io::File *file, Any &any) -> bool {
 		Sound sound;
 		sound.file = file;
 		sound.Decode();
@@ -445,12 +449,13 @@ StreamIndex Manager::RequestStream(az::String filepath, i32 priority) {
 		AzAssert(node->value.type == Type::STREAM, Stringify("RequestStream for \"", filepath, "\" already exists as a ", typeStrings[(i32)node->value.type]));
 		return node->value.index;
 	}
-	arrayMutex.Lock();
+	ScopedLock lock(arrayMutex);
 	StreamIndex result = nextStreamIndex++;
 	mappings.Emplace(filepath, Mapping{Type::STREAM, result});
-	arrayMutex.Unlock();
+	streams.Resize(max(result+1, streams.size));
+	Stream &stream = streams[result];
 	filepath = Stringify("sound/", filepath);
-	fileManager.RequestFile(filepath, priority, [](io::File *file, Any &any) -> bool {
+	stream.file = fileManager.RequestFile(filepath, priority, [](io::File *file, Any &any) -> bool {
 		Stream stream;
 		stream.file = file;
 		stream.Decode();

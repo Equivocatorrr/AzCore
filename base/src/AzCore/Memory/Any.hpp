@@ -21,22 +21,33 @@ struct Any {
 	typedef void (*fp_Copyer)(void *src, void **dst);
 	fp_Copyer copyer = nullptr;
 	u32 typeHash = 0;
+	bool owned = false;
 	Any() = default;
 	
-	inline Any(Any &&other) : data(other.data), deleter(other.deleter), copyer(other.copyer), typeHash(other.typeHash) {
+	static inline Any None() {
+		return Any();
+	}
+	
+	inline Any(Any &&other) : data(other.data), deleter(other.deleter), copyer(other.copyer), typeHash(other.typeHash), owned(other.owned) {
 		other.data = nullptr;
 		other.deleter = nullptr;
 		other.copyer = nullptr;
 		other.typeHash = 0;
+		other.owned = false;
 	}
 	
 	inline Any(const Any &other) {
 		if (other.data) {
-			AzAssert(other.copyer != nullptr, "Cannot copy without a copyer");
-			other.copyer(other.data, &data);
+			if (other.owned) {
+				AzAssert(other.copyer != nullptr, "Cannot copy without a copyer");
+				other.copyer(other.data, &data);
+			} else {
+				data = other.data;
+			}
 			deleter = other.deleter;
 			copyer = other.copyer;
 			typeHash = other.typeHash;
+			owned = other.owned;
 		}
 	}
 	
@@ -61,18 +72,28 @@ struct Any {
 		data(new T(std::move(value))),
 		deleter(MakeDeleter<T>()),
 		copyer(MakeCopyer<T>()),
-		typeHash(TypeHash<T>()) {}
+		typeHash(TypeHash<T>()),
+		owned(true) {}
 	
 	template <typename T>
 	Any(const T &value) :
 		data(new T(value)),
 		deleter(MakeDeleter<T>()),
 		copyer(MakeCopyer<T>()),
-		typeHash(TypeHash<T>()) {}
+		typeHash(TypeHash<T>()),
+		owned(true) {}
+	
+	template <typename T>
+	Any(T *value) :
+		data(value),
+		deleter(nullptr),
+		copyer(nullptr),
+		typeHash(TypeHash<T>()),
+		owned(false) {}
 	
 	template <typename T>
 	Any& operator=(T &&value) {
-		if (data) {
+		if (data && owned) {
 			if (IsType<T>()) {
 				*(T*)data = std::move(value);
 				return *this;
@@ -84,12 +105,13 @@ struct Any {
 		deleter = MakeDeleter<T>();
 		copyer = MakeCopyer<T>();
 		typeHash = TypeHash<T>();
+		owned = true;
 		return *this;
 	}
 	
 	template <typename T>
 	Any& operator=(const T &value) {
-		if (data) {
+		if (data && owned) {
 			if (IsType<T>()) {
 				*(T*)data = value;
 				return *this;
@@ -101,11 +123,25 @@ struct Any {
 		deleter = MakeDeleter<T>();
 		copyer = MakeCopyer<T>();
 		typeHash = TypeHash<T>();
+		owned = true;
+		return *this;
+	}
+	
+	template <typename T>
+	Any& operator=(T *value) {
+		if (data && owned) {
+			deleter(data);
+		}
+		data = value;
+		deleter = nullptr;
+		copyer = nullptr;
+		typeHash = TypeHash<T>();
+		owned = false;
 		return *this;
 	}
 	
 	inline ~Any() {
-		if (data) {
+		if (data && owned) {
 			AzAssert(nullptr != deleter, "We have data but no deleter!");
 			deleter(data);
 		}
@@ -128,6 +164,11 @@ struct Any {
 	template <typename T>
 	bool IsType() const {
 		return typeHash == TypeHash<T>();
+	}
+	
+	// NOTE: Only use this when you don't know or care what the type is. IsType<T>() will only return true if this is also true, so that should be preferred when the expected type is known.
+	bool IsSomething() const {
+		return data != nullptr;
 	}
 };
 

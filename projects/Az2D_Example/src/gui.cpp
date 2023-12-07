@@ -159,8 +159,8 @@ void MainMenu::Update() {
 }
 
 void MainMenu::Draw(Rendering::DrawingContext &context) {
-	gui->currentContext = &context;
-	screen->Draw();
+	Any anyContext = &context;
+	screen->Draw(anyContext);
 }
 
 void SettingsMenu::Initialize() {
@@ -363,8 +363,8 @@ void SettingsMenu::Update() {
 }
 
 void SettingsMenu::Draw(Rendering::DrawingContext &context) {
-	gui->currentContext = &context;
-	screen->Draw();
+	Any anyContext = &context;
+	screen->Draw(anyContext);
 }
 
 void PlayMenu::Initialize() {
@@ -419,8 +419,8 @@ void PlayMenu::Update() {
 }
 
 void PlayMenu::Draw(Rendering::DrawingContext &context) {
-	gui->currentContext = &context;
-	screen->Draw();
+	Any anyContext = &context;
+	screen->Draw(anyContext);
 }
 
 } // namespace Int

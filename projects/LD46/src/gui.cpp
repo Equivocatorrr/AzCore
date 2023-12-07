@@ -223,8 +223,8 @@ void MainMenu::Update() {
 }
 
 void MainMenu::Draw(Rendering::DrawingContext &context) {
-	gui->currentContext = &context;
-	screen->Draw();
+	Any anyContext = &context;
+	screen->Draw(anyContext);
 }
 
 void SettingsMenu::Initialize() {
@@ -409,8 +409,8 @@ void SettingsMenu::Update() {
 }
 
 void SettingsMenu::Draw(Rendering::DrawingContext &context) {
-	gui->currentContext = &context;
-	screen->Draw();
+	Any anyContext = &context;
+	screen->Draw(anyContext);
 }
 
 inline String FloatToString(f32 in) {
@@ -534,8 +534,8 @@ void CutsceneMenu::Update() {
 }
 
 void CutsceneMenu::Draw(Rendering::DrawingContext &context) {
-	gui->currentContext = &context;
-	screen->Draw();
+	Any anyContext = &context;
+	screen->Draw(anyContext);
 }
 
 void PlayMenu::Initialize() {
@@ -588,8 +588,8 @@ void PlayMenu::Update() {
 }
 
 void PlayMenu::Draw(Rendering::DrawingContext &context) {
-	gui->currentContext = &context;
-	screen->Draw();
+	Any anyContext = &context;
+	screen->Draw(anyContext);
 }
 
 const u8 EditorMenu::blockTypes[5] = {
@@ -882,8 +882,8 @@ void EditorMenu::Update() {
 }
 
 void EditorMenu::Draw(Rendering::DrawingContext &context) {
-	gui->currentContext = &context;
-	screen->Draw();
+	Any anyContext = &context;
+	screen->Draw(anyContext);
 }
 
 } // namespace Az2D::Gui

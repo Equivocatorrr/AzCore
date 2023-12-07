@@ -78,13 +78,13 @@ struct Widget {
 	void UpdateSelectable();
 	virtual void UpdateSize(vec2 container, f32 _scale);
 	void LimitSize();
-	virtual void PushScissor() const;
+	virtual void PushScissor(Any &dataDrawCall) const;
 	// inherit determines whether we limit our scissor to fit within the bounds of the topmost one on the stack.
-	void PushScissor(vec2 pos, vec2 size, bool inherit=true) const;
-	void PopScissor() const;
+	void PushScissor(Any &dataDrawCall, vec2 pos, vec2 size, bool inherit=true) const;
+	void PopScissor(Any &dataDrawCall) const;
 	inline vec2 GetSize() const { return sizeAbsolute + margin * 2.0f * scale; }
 	virtual void Update(vec2 pos, bool selected);
-	virtual void Draw() const;
+	virtual void Draw(Any &dataDrawCall) const;
 
 	// If a widget gets hidden by a Hideable, this allows it to configure itself as a response
 	virtual void OnHide();
@@ -192,7 +192,7 @@ struct List : public Widget {
 	~List() = default;
 	// returns whether or not to update the selection based on the mouse position
 	bool UpdateSelection(bool selected, az::StaticArray<u8, 4> keyCodeSelect, az::StaticArray<u8, 4> keyCodeBack, az::StaticArray<u8, 4> keyCodeIncrement, az::StaticArray<u8, 4> keyCodeDecrement);
-	void Draw() const override;
+	void Draw(Any &dataDrawCall) const override;
 };
 
 // A vertical list of items.
@@ -227,7 +227,7 @@ struct Switch : public ListV {
 	~Switch() = default;
 	void UpdateSize(vec2 container, f32 _scale) override;
 	void Update(vec2 pos, bool selected) override;
-	void Draw() const override;
+	void Draw(Any &dataDrawCall) const override;
 
 	void OnHide();
 };
@@ -267,10 +267,10 @@ public:
 	bool outline;
 	Text();
 	~Text() = default;
-	void PushScissor() const override;
+	void PushScissor(Any &dataDrawCall) const override;
 	void UpdateSize(vec2 container, f32 _scale) override;
 	void Update(vec2 pos, bool selected) override;
-	void Draw() const override;
+	void Draw(Any &dataDrawCall) const override;
 };
 
 struct Image : public Widget {
@@ -279,7 +279,7 @@ struct Image : public Widget {
 	vec4 color;
 	Image();
 	~Image() = default;
-	void Draw() const override;
+	void Draw(Any &dataDrawCall) const override;
 };
 
 struct Button : public Widget {
@@ -303,7 +303,7 @@ struct Button : public Widget {
 	~Button() = default;
 	void UpdateSize(vec2 container, f32 _scale) override;
 	void Update(vec2 pos, bool selected) override;
-	void Draw() const override;
+	void Draw(Any &dataDrawCall) const override;
 };
 
 // Boolean widget.
@@ -341,7 +341,7 @@ struct Checkbox : public Widget {
 	Checkbox();
 	~Checkbox() = default;
 	void Update(vec2 pos, bool selected) override;
-	void Draw() const override;
+	void Draw(Any &dataDrawCall) const override;
 };
 
 // Returns whether a character is acceptable in a Textbox
@@ -427,7 +427,7 @@ struct Textbox : public Widget {
 	vec2 PositionFromCursor() const;
 	void UpdateSize(vec2 container, f32 _scale) override;
 	void Update(vec2 pos, bool selected) override;
-	void Draw() const override;
+	void Draw(Any &dataDrawCall) const override;
 };
 
 // A scalar within a range.
@@ -490,7 +490,7 @@ struct Slider : public Widget {
 	Slider();
 	~Slider() = default;
 	void Update(vec2 pos, bool selected) override;
-	void Draw() const override;
+	void Draw(Any &dataDrawCall) const override;
 	
 	void SetValue(f32 newValue);
 	f32 GetActualValue();
@@ -509,7 +509,7 @@ struct Hideable : public Widget {
 	~Hideable() = default;
 	void UpdateSize(vec2 container, f32 _scale) override;
 	void Update(vec2 pos, bool selected) override;
-	void Draw() const override;
+	void Draw(Any &dataDrawCall) const override;
 	bool Selectable() const override;
 };
 
@@ -523,22 +523,22 @@ struct Functions {
 	// Basic commands. These must be set.
 	
 	// Set the drawable region
-	typedef void (*fp_SetScissor) (void *dataGlobal, Any *dataWidget, vec2 position, vec2 size);
-	typedef void (*fp_DrawQuad)   (void *dataGlobal, Any *dataWidget, vec2 position, vec2 size, vec4 color);
-	typedef void (*fp_DrawImage)  (void *dataGlobal, Any *dataWidget, vec2 position, vec2 size, vec4 color);
-	typedef void (*fp_DrawText)   (void *dataGlobal, Any *dataWidget, vec2 position, vec2 area, vec2 fontSize, const WString &text, vec4 color, vec4 colorOutline, bool bold);
+	typedef void (*fp_SetScissor) (Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 position, vec2 size);
+	typedef void (*fp_DrawQuad)   (Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 position, vec2 size, vec4 color);
+	typedef void (*fp_DrawImage)  (Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 position, vec2 size, vec4 color);
+	typedef void (*fp_DrawText)   (Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 position, vec2 area, vec2 fontSize, const WString &text, vec4 color, vec4 colorOutline, bool bold);
 	// Units are in the font's EM square
 	// Multiply this by the font size for the actual dimensions
-	typedef vec2    (*fp_GetTextDimensions)(void *dataGlobal, Any *dataWidget, const WString &string);
+	typedef vec2    (*fp_GetTextDimensions)(Any &dataGlobal, Any &dataWidget, const WString &string);
 	// Units are in the font's EM square
 	// Divide the actual width by the font size for the EM size
-	typedef WString (*fp_ApplyTextWrapping)(void *dataGlobal, Any *dataWidget, const WString &string, f32 maxWidth);
+	typedef WString (*fp_ApplyTextWrapping)(Any &dataGlobal, Any &dataWidget, const WString &string, f32 maxWidth);
 	// Returns the index into the text to place the cursor based on pickerPosition. It should aim to find the cursor position closest to the left of the character halfway between lines (a UV of {0, 0.5}).
-	typedef i32     (*fp_GetCursorFromPositionInText)(void *dataGlobal, Any *dataWidget, vec2 position, vec2 area, vec2 fontSize, const SimpleRange<char32> text, vec2 pickerPosition);
+	typedef i32     (*fp_GetCursorFromPositionInText)(Any &dataGlobal, Any &dataWidget, vec2 position, vec2 area, vec2 fontSize, const SimpleRange<char32> text, vec2 pickerPosition);
 	// Returns the absolute position of a UV within the character at cursor where a UV of {0, 0} is the top left, and {1, 1} is the bottom right.
-	typedef vec2    (*fp_GetPositionFromCursorInText)(void *dataGlobal, Any *dataWidget, vec2 position, vec2 area, vec2 fontSize, const SimpleRange<char32> text, i32 cursor, vec2 charUV);
+	typedef vec2    (*fp_GetPositionFromCursorInText)(Any &dataGlobal, Any &dataWidget, vec2 position, vec2 area, vec2 fontSize, const SimpleRange<char32> text, i32 cursor, vec2 charUV);
 	// Returns the height of one line for the given fontSize for the given widget.
-	typedef f32     (*fp_GetLineHeight)(void *dataGlobal, Any *dataWidget, f32 fontSize);
+	typedef f32     (*fp_GetLineHeight)(Any &dataGlobal, Any &dataWidget, f32 fontSize);
 	
 	fp_SetScissor SetScissor = nullptr;
 	fp_DrawQuad DrawQuad = nullptr;
@@ -553,7 +553,7 @@ struct Functions {
 	
 	// Input functions. These must be set.
 	
-	typedef bool (*fp_GetKeycodeState)(void *dataGlobal, Any *dataWidget, u8 keycode);
+	typedef bool (*fp_GetKeycodeState)(Any &dataGlobal, Any &dataWidget, u8 keycode);
 	
 	fp_GetKeycodeState KeycodePressed = nullptr;
 	fp_GetKeycodeState KeycodeRepeated = nullptr;
@@ -561,7 +561,7 @@ struct Functions {
 	fp_GetKeycodeState KeycodeReleased = nullptr;
 	
 	// Returns any characters that were typed since the last call
-	typedef WString (*fp_ConsumeTypingString)(void *dataGlobal, Any *dataWidget);
+	typedef WString (*fp_ConsumeTypingString)(Any &dataGlobal, Any &dataWidget);
 	
 	// Required for Textbox input
 	fp_ConsumeTypingString ConsumeTypingString = nullptr;
@@ -570,7 +570,7 @@ struct Functions {
 	// NOTE: For responding to Button inputs use Button::state instead.
 	
 	// dataWidget CAN be nullptr, which means it's being called by System
-	typedef void (*fp_Event)(void *dataGlobal, Any *dataWidget);
+	typedef void (*fp_Event)(Any &dataGlobal, Any &dataWidget);
 	
 	fp_Event OnButtonPressed     = nullptr;
 	fp_Event OnButtonRepeated    = nullptr;
@@ -609,7 +609,7 @@ struct System {
 	Functions functions;
 	Defaults defaults;
 	// Passed into the various external functions
-	void *data = nullptr;
+	Any data = Any::None();
 	
 	bool _goneBack = false;
 	i32 controlDepth = 0;

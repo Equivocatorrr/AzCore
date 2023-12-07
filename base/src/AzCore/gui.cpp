@@ -8,7 +8,7 @@
 
 namespace AzCore::GuiGeneric {
 
-#define CALL_EVENT_FUNCTION(event) if(_system->functions.event) _system->functions.event(_system->data, &data);
+#define CALL_EVENT_FUNCTION(event) if(_system->functions.event) _system->functions.event(_system->data, data);
 
 static bool IsWidgetIsAlreadyTracked(System *system, Widget *widget) {
 	for (UniquePtr<Widget> &w : system->_allWidgets) {
@@ -235,11 +235,12 @@ void System::Update(vec2 newMouseCursor, vec2 _canvasSize, f32 _timestep) {
 	timestep = _timestep;
 	mouseoverWidget = nullptr;
 	mouseoverDepth = -1;
+	Any anyNone = Any::None();
 	if (newMouseCursor != mouseCursor) {
 		inputMethod = InputMethod::MOUSE;
 	} else if (false /* TODO: Implement this somehow: functions.KeycodePressed(data, nullptr, KC_GP_ANY) */) {
 		inputMethod = InputMethod::GAMEPAD;
-	} else if (functions.KeycodePressed(data, nullptr, KC_KEY_UP) || functions.KeycodePressed(data, nullptr, KC_KEY_DOWN) || functions.KeycodePressed(data, nullptr, KC_KEY_LEFT) || functions.KeycodePressed(data, nullptr, KC_KEY_RIGHT)) {
+	} else if (functions.KeycodePressed(data, anyNone, KC_KEY_UP) || functions.KeycodePressed(data, anyNone, KC_KEY_DOWN) || functions.KeycodePressed(data, anyNone, KC_KEY_LEFT) || functions.KeycodePressed(data, anyNone, KC_KEY_RIGHT)) {
 		inputMethod = InputMethod::ARROWS;
 	}
 	mouseCursorPrev = mouseCursor;
@@ -288,7 +289,7 @@ void Widget::LimitSize() {
 	}
 }
 
-void Widget::PushScissor() const {
+void Widget::PushScissor(Any &dataDrawCall) const {
 	const Scissor upScissor = _system->stackScissors.Back();
 	Scissor scissor;
 	scissor.topLeft = vec2i(
@@ -299,11 +300,11 @@ void Widget::PushScissor() const {
 		min(upScissor.botRight.x, (i32)ceil((positionAbsolute.x + sizeAbsolute.x) * _system->scale)),
 		min(upScissor.botRight.y, (i32)ceil((positionAbsolute.y + sizeAbsolute.y) * _system->scale))
 	);
-	_system->functions.SetScissor(_system->data, const_cast<Any*>(&data), scissor.topLeft, scissor.botRight-scissor.topLeft);
+	_system->functions.SetScissor(_system->data, const_cast<Any&>(data), dataDrawCall, scissor.topLeft, scissor.botRight-scissor.topLeft);
 	_system->stackScissors.Append(scissor);
 }
 
-void Widget::PushScissor(vec2 pos, vec2 size, bool inherit) const {
+void Widget::PushScissor(Any &dataDrawCall, vec2 pos, vec2 size, bool inherit) const {
 	const Scissor upScissor = _system->stackScissors.Back();
 	Scissor scissor;
 	if (inherit) {
@@ -319,15 +320,15 @@ void Widget::PushScissor(vec2 pos, vec2 size, bool inherit) const {
 		scissor.topLeft = vec2i(pos * _system->scale);
 		scissor.botRight = vec2i((i32)ceil((pos.x + size.x) * _system->scale), (i32)ceil((pos.y + size.y) * _system->scale));
 	}
-	_system->functions.SetScissor(_system->data, const_cast<Any*>(&data), scissor.topLeft, scissor.botRight-scissor.topLeft);
+	_system->functions.SetScissor(_system->data, const_cast<Any&>(data), dataDrawCall, scissor.topLeft, scissor.botRight-scissor.topLeft);
 	_system->stackScissors.Append(scissor);
 }
 
-void Widget::PopScissor() const {
+void Widget::PopScissor(Any &dataDrawCall) const {
 	AzAssert(_system->stackScissors.size > 1, "Cannot pop any more scissors!");
 	_system->stackScissors.Erase(_system->stackScissors.size-1);
 	const Scissor scissor = _system->stackScissors.Back();
-	_system->functions.SetScissor(_system->data, const_cast<Any*>(&data), scissor.topLeft, scissor.botRight-scissor.topLeft);
+	_system->functions.SetScissor(_system->data, const_cast<Any&>(data), dataDrawCall, scissor.topLeft, scissor.botRight-scissor.topLeft);
 }
 
 void Widget::Update(vec2 pos, bool selected) {
@@ -342,9 +343,9 @@ void Widget::Update(vec2 pos, bool selected) {
 	}
 }
 
-void Widget::Draw() const {
+void Widget::Draw(Any &dataDrawCall) const {
 	for (const Widget* child : children) {
-		child->Draw();
+		child->Draw(dataDrawCall);
 	}
 }
 
@@ -411,14 +412,14 @@ bool List::UpdateSelection(bool selected, StaticArray<u8, 4> keyCodeSelect, Stat
 	if (selected) {
 		bool select = false;
 		for (u8 kc : keyCodeSelect) {
-			if (_system->functions.KeycodeReleased(_system->data, &data, kc)) {
+			if (_system->functions.KeycodeReleased(_system->data, data, kc)) {
 				select = true;
 				break;
 			}
 		}
 		bool back = false;
 		for (u8 kc : keyCodeBack) {
-			if (_system->functions.KeycodeReleased(_system->data, &data, kc) && !_system->_goneBack) {
+			if (_system->functions.KeycodeReleased(_system->data, data, kc) && !_system->_goneBack) {
 				back = true;
 				if (_system->controlDepth > depth) {
 					_system->_goneBack = true;
@@ -427,11 +428,11 @@ bool List::UpdateSelection(bool selected, StaticArray<u8, 4> keyCodeSelect, Stat
 		}
 		bool increment = false;
 		for (u8 kc : keyCodeIncrement) {
-			if (_system->functions.KeycodeRepeated(_system->data, &data, kc)) increment = true;
+			if (_system->functions.KeycodeRepeated(_system->data, data, kc)) increment = true;
 		}
 		bool decrement = false;
 		for (u8 kc : keyCodeDecrement) {
-			if (_system->functions.KeycodeRepeated(_system->data, &data, kc)) decrement = true;
+			if (_system->functions.KeycodeRepeated(_system->data, data, kc)) decrement = true;
 		}
 		if (_system->controlDepth == depth) {
 			if (selection >= 0 && selection < children.size && select) {
@@ -499,19 +500,19 @@ bool List::UpdateSelection(bool selected, StaticArray<u8, 4> keyCodeSelect, Stat
 	return false;
 }
 
-void List::Draw() const {
+void List::Draw(Any &dataDrawCall) const {
 	vec4 colorActual = highlighted ? colorHighlighted : color;
 	if (colorActual.a > 0.0f) {
-		_system->functions.DrawQuad(_system->data, const_cast<Any*>(&data), positionAbsolute * _system->scale, sizeAbsolute * _system->scale, colorActual);
+		_system->functions.DrawQuad(_system->data, const_cast<Any&>(data), dataDrawCall, positionAbsolute * _system->scale, sizeAbsolute * _system->scale, colorActual);
 	}
 	if (selection >= 0 && colorSelection.a > 0.0f) {
 		vec2 selectionPos = children[selection]->positionAbsolute;
 		vec2 selectionSize = children[selection]->sizeAbsolute;
-		_system->functions.DrawQuad(_system->data, const_cast<Any*>(&data), selectionPos * _system->scale, selectionSize * _system->scale, colorSelection);
+		_system->functions.DrawQuad(_system->data, const_cast<Any&>(data), dataDrawCall, selectionPos * _system->scale, selectionSize * _system->scale, colorSelection);
 	}
-	PushScissor();
-	Widget::Draw();
-	PopScissor();
+	PushScissor(dataDrawCall);
+	Widget::Draw(dataDrawCall);
+	PopScissor(dataDrawCall);
 }
 
 void ListV::UpdateSize(vec2 container, f32 _scale) {
@@ -795,7 +796,7 @@ void Switch::Update(vec2 pos, bool selected) {
 		ListV::Update(pos, true);
 		// Set it back for layout
 		sizeAbsolute = closedSizeAbsolute;
-		if (_system->functions.KeycodeReleased(_system->data, &data, KC_MOUSE_LEFT) || _system->functions.KeycodeReleased(_system->data, &data, KC_GP_BTN_A) || _system->functions.KeycodeReleased(_system->data, &data, KC_KEY_ENTER)) {
+		if (_system->functions.KeycodeReleased(_system->data, data, KC_MOUSE_LEFT) || _system->functions.KeycodeReleased(_system->data, data, KC_GP_BTN_A) || _system->functions.KeycodeReleased(_system->data, data, KC_KEY_ENTER)) {
 			if (selection >= 0) {
 				choice = selection;
 				changed = true;
@@ -805,7 +806,7 @@ void Switch::Update(vec2 pos, bool selected) {
 			}
 			open = false;
 		}
-		if (_system->functions.KeycodeReleased(_system->data, &data, KC_GP_BTN_B) || _system->functions.KeycodeReleased(_system->data, &data, KC_KEY_ESC)) {
+		if (_system->functions.KeycodeReleased(_system->data, data, KC_GP_BTN_B) || _system->functions.KeycodeReleased(_system->data, data, KC_KEY_ESC)) {
 			open = false;
 		}
 		if (!open) {
@@ -819,10 +820,10 @@ void Switch::Update(vec2 pos, bool selected) {
 		highlighted = selected;
 		positionAbsolute = pos;
 		pos += padding * scale;
-		if (_system->functions.KeycodeReleased(_system->data, &data, KC_MOUSE_LEFT) && MouseOver()) {
+		if (_system->functions.KeycodeReleased(_system->data, data, KC_MOUSE_LEFT) && MouseOver()) {
 			open = true;
 		}
-		if (selected && (_system->functions.KeycodeReleased(_system->data, &data, KC_GP_BTN_A) || _system->functions.KeycodeReleased(_system->data, &data, KC_KEY_ENTER))) {
+		if (selected && (_system->functions.KeycodeReleased(_system->data, data, KC_GP_BTN_A) || _system->functions.KeycodeReleased(_system->data, data, KC_KEY_ENTER))) {
 			open = true;
 		}
 		if (open) {
@@ -833,36 +834,36 @@ void Switch::Update(vec2 pos, bool selected) {
 	}
 }
 
-void Switch::Draw() const {
+void Switch::Draw(Any &dataDrawCall) const {
 	if (open) {
-		PushScissor(positionAbsolute, openSizeAbsolute, false);
+		PushScissor(dataDrawCall, positionAbsolute, openSizeAbsolute, false);
 	}
 	if (color.a > 0.0f) {
 		vec2 fullSize = sizeAbsolute;
 		if (open) {
 			fullSize = max(fullSize, children.Back()->GetSize() + children.Back()->positionAbsolute - positionAbsolute - padding - children.Back()->margin);
 		}
-		_system->functions.DrawQuad(_system->data, const_cast<Any*>(&data), positionAbsolute * _system->scale, fullSize * _system->scale, (highlighted && !open) ? colorHighlighted : color);
+		_system->functions.DrawQuad(_system->data, const_cast<Any&>(data), dataDrawCall, positionAbsolute * _system->scale, fullSize * _system->scale, (highlighted && !open) ? colorHighlighted : color);
 	}
 	if (open) {
 		if (selection >= 0 && colorSelection.a > 0.0f) {
 			Widget *child = children[selection];
 			vec2 selectionPos = child->positionAbsolute - child->margin;
 			vec2 selectionSize = child->sizeAbsolute + child->margin * 2.0f;
-			_system->functions.DrawQuad(_system->data, const_cast<Any*>(&data), selectionPos * _system->scale, selectionSize * _system->scale, colorSelection);
+			_system->functions.DrawQuad(_system->data, const_cast<Any&>(data), dataDrawCall, selectionPos * _system->scale, selectionSize * _system->scale, colorSelection);
 		}
 		if (choice != selection && colorChoice.a > 0.0f) {
 			Widget *child = children[choice];
 			vec2 choicePos = child->positionAbsolute - child->margin;
 			vec2 choiceSize = child->sizeAbsolute + child->margin * 2.0f;
-			_system->functions.DrawQuad(_system->data, const_cast<Any*>(&data), choicePos * _system->scale, choiceSize * _system->scale, colorChoice);
+			_system->functions.DrawQuad(_system->data, const_cast<Any&>(data), dataDrawCall, choicePos * _system->scale, choiceSize * _system->scale, colorChoice);
 		}
-		Widget::Draw();
+		Widget::Draw(dataDrawCall);
 	} else {
-		PushScissor();
-		children[choice]->Draw();
+		PushScissor(dataDrawCall);
+		children[choice]->Draw(dataDrawCall);
 	}
-	PopScissor();
+	PopScissor(dataDrawCall);
 }
 
 void Switch::OnHide() {
@@ -875,7 +876,7 @@ Text::Text() : stringFormatted(), string(), padding(0.1f), fontSize(32.0f), bold
 	size.y = 0.0f;
 }
 
-void Text::PushScissor() const {
+void Text::PushScissor(Any &dataDrawCall) const {
 	const Scissor upScissor = _system->stackScissors.Back();
 	Scissor scissor;
 	scissor.topLeft = vec2i(
@@ -886,7 +887,7 @@ void Text::PushScissor() const {
 		min(upScissor.botRight.x, (i32)ceil((positionAbsolute.x + margin.x * scale + sizeAbsolute.x) * _system->scale)),
 		min(upScissor.botRight.y, (i32)ceil((positionAbsolute.y + margin.y * scale + sizeAbsolute.y) * _system->scale))
 	);
-	_system->functions.SetScissor(_system->data, const_cast<Any*>(&data), scissor.topLeft, scissor.botRight-scissor.topLeft);
+	_system->functions.SetScissor(_system->data, const_cast<Any&>(data), dataDrawCall, scissor.topLeft, scissor.botRight-scissor.topLeft);
 	_system->stackScissors.Append(scissor);
 }
 
@@ -895,7 +896,7 @@ void Text::UpdateSize(vec2 container, f32 _scale) {
 	vec2 totalMargin = margin * 2.0f * scale;
 	vec2 totalPadding = padding * 2.0f * scale;
 	if (size.x == 0.0f || size.y == 0.0f) {
-		sizeAbsolute = _system->functions.GetTextDimensions(_system->data, &data, stringFormatted) * fontSize * scale;
+		sizeAbsolute = _system->functions.GetTextDimensions(_system->data, data, stringFormatted) * fontSize * scale;
 	}
 	if (size.x > 0.0f) {
 		sizeAbsolute.x = fractionWidth ? (container.x * size.x - totalMargin.x) : size.x * scale;
@@ -908,15 +909,15 @@ void Text::UpdateSize(vec2 container, f32 _scale) {
 
 void Text::Update(vec2 pos, bool selected) {
 	if (size.x != 0.0f) {
-		stringFormatted = _system->functions.ApplyTextWrapping(_system->data, &data, string, sizeAbsolute.x / fontSize);
+		stringFormatted = _system->functions.ApplyTextWrapping(_system->data, data, string, sizeAbsolute.x / fontSize);
 	} else {
 		stringFormatted = string;
 	}
 	Widget::Update(pos, selected);
 }
 
-void Text::Draw() const {
-	PushScissor();
+void Text::Draw(Any &dataDrawCall) const {
+	PushScissor(dataDrawCall);
 	vec2 paddingAbsolute = padding;
 	if (paddingEM) paddingAbsolute *= fontSize;
 	vec2 drawPos = (positionAbsolute + paddingAbsolute) * _system->scale;
@@ -924,14 +925,14 @@ void Text::Draw() const {
 	vec2 textArea = (sizeAbsolute - paddingAbsolute * 2.0f) * _system->scale;
 	vec4 colorActual = highlighted ? colorHighlighted : color;
 	vec4 colorOutlineActual = outline ? (highlighted ? colorOutlineHighlighted : colorOutline) : vec4(0.0);
-	_system->functions.DrawText(_system->data, const_cast<Any*>(&data), drawPos, textArea, textScale, stringFormatted, colorActual, colorOutlineActual, bold);
-	PopScissor();
+	_system->functions.DrawText(_system->data, const_cast<Any&>(data), dataDrawCall, drawPos, textArea, textScale, stringFormatted, colorActual, colorOutlineActual, bold);
+	PopScissor(dataDrawCall);
 }
 
 Image::Image() : color(vec4(1.0f)) { occludes = true; }
 
-void Image::Draw() const {
-	_system->functions.DrawImage(_system->data, const_cast<Any*>(&data), positionAbsolute * _system->scale, sizeAbsolute * _system->scale, color);
+void Image::Draw(Any &dataDrawCall) const {
+	_system->functions.DrawImage(_system->data, const_cast<Any&>(data), dataDrawCall, positionAbsolute * _system->scale, sizeAbsolute * _system->scale, color);
 }
 
 Text* Button::AddDefaultText(WString string) {
@@ -1006,27 +1007,27 @@ void Button::Update(vec2 pos, bool selected) {
 	}
 	state.Tick(0.0f);
 	if (mouseover) {
-		if (_system->functions.KeycodePressed(_system->data, &data, KC_MOUSE_LEFT)) {
+		if (_system->functions.KeycodePressed(_system->data, data, KC_MOUSE_LEFT)) {
 			state.Press();
 		}
-		if (_system->functions.KeycodeReleased(_system->data, &data, KC_MOUSE_LEFT) && state.Down()) {
+		if (_system->functions.KeycodeReleased(_system->data, data, KC_MOUSE_LEFT) && state.Down()) {
 			state.Release();
 		}
 	}
 	if (_system->controlDepth == depth) {
 		if (selected) {
-			if (_system->functions.KeycodePressed(_system->data, &data, KC_GP_BTN_A) || _system->functions.KeycodePressed(_system->data, &data, KC_KEY_ENTER)) {
+			if (_system->functions.KeycodePressed(_system->data, data, KC_GP_BTN_A) || _system->functions.KeycodePressed(_system->data, data, KC_KEY_ENTER)) {
 				state.Press();
 			}
-			if (_system->functions.KeycodeReleased(_system->data, &data, KC_GP_BTN_A) || _system->functions.KeycodeReleased(_system->data, &data, KC_KEY_ENTER)) {
+			if (_system->functions.KeycodeReleased(_system->data, data, KC_GP_BTN_A) || _system->functions.KeycodeReleased(_system->data, data, KC_KEY_ENTER)) {
 				state.Release();
 			}
 		}
 		for (u8 kc : keycodeActivators) {
-			if (_system->functions.KeycodePressed(_system->data, &data, kc)) {
+			if (_system->functions.KeycodePressed(_system->data, data, kc)) {
 				state.Press();
 			}
-			if (_system->functions.KeycodeReleased(_system->data, &data, kc)) {
+			if (_system->functions.KeycodeReleased(_system->data, data, kc)) {
 				state.Release();
 			}
 		}
@@ -1046,20 +1047,20 @@ void Button::Update(vec2 pos, bool selected) {
 	}
 }
 
-void Button::Draw() const {
-	PushScissor();
+void Button::Draw(Any &dataDrawCall) const {
+	PushScissor(dataDrawCall);
 	vec2 pos = positionAbsolute * _system->scale;
 	vec2 size = sizeAbsolute * _system->scale;
 	if (state.Down()) {
 		pos += size * 0.05f;
 		size *= 0.9f;
 	}
-	_system->functions.DrawQuad(_system->data, const_cast<Any*>(&data), pos, size, highlighted ? colorHighlighted : color);
+	_system->functions.DrawQuad(_system->data, const_cast<Any&>(data), dataDrawCall, pos, size, highlighted ? colorHighlighted : color);
 	if (children.size) {
 		Widget *child = children[0];
-		child->Draw();
+		child->Draw(dataDrawCall);
 	}
-	PopScissor();
+	PopScissor(dataDrawCall);
 }
 
 Checkbox::Checkbox() : colorBGOff(vec3(0.15f), 0.9f), colorBGHighlightOff(0.2f, 0.45f, 0.5f, 0.9f), colorBGOn(0.4f, 0.9f, 1.0f, 1.0f), colorBGHighlightOn(0.9f, 0.98f, 1.0f, 1.0f), colorKnobOff(vec3(0.0f), 1.0f), colorKnobOn(vec3(0.0f), 1.0f), colorKnobHighlightOff(vec3(0.0f), 1.0f), colorKnobHighlightOn(vec3(0.0f), 1.0f), transition(0.0f), checked(false) {
@@ -1078,7 +1079,7 @@ void Checkbox::Update(vec2 pos, bool selected) {
 	}
 	if (mouseover) {
 		highlighted = true;
-		if (_system->functions.KeycodeReleased(_system->data, &data, KC_MOUSE_LEFT)) {
+		if (_system->functions.KeycodeReleased(_system->data, data, KC_MOUSE_LEFT)) {
 			checked = !checked;
 			if (checked) {
 				CALL_EVENT_FUNCTION(OnCheckboxTurnedOn);
@@ -1089,7 +1090,7 @@ void Checkbox::Update(vec2 pos, bool selected) {
 	}
 	if (_system->controlDepth == depth) {
 		if (selected) {
-			if (_system->functions.KeycodeReleased(_system->data, &data, KC_GP_BTN_A) || _system->functions.KeycodeReleased(_system->data, &data, KC_KEY_ENTER)) {
+			if (_system->functions.KeycodeReleased(_system->data, data, KC_GP_BTN_A) || _system->functions.KeycodeReleased(_system->data, data, KC_KEY_ENTER)) {
 				checked = !checked;
 				if (checked) {
 					CALL_EVENT_FUNCTION(OnCheckboxTurnedOn);
@@ -1106,11 +1107,11 @@ void Checkbox::Update(vec2 pos, bool selected) {
 	}
 }
 
-void Checkbox::Draw() const {
+void Checkbox::Draw(Any &dataDrawCall) const {
 	const vec4 &colorBGOnActual = highlighted ? colorBGHighlightOn : colorBGOn;
 	const vec4 &colorBGOffActual = highlighted ? colorBGHighlightOff : colorBGOff;
 	vec4 colorBGActual = lerp(colorBGOffActual, colorBGOnActual, transition);
-	_system->functions.DrawQuad(_system->data, const_cast<Any*>(&data), positionAbsolute * _system->scale, sizeAbsolute * _system->scale, colorBGActual);
+	_system->functions.DrawQuad(_system->data, const_cast<Any&>(data), dataDrawCall, positionAbsolute * _system->scale, sizeAbsolute * _system->scale, colorBGActual);
 	
 	const vec4 &colorKnobOnActual = highlighted ? colorKnobHighlightOn : colorKnobOn;
 	const vec4 &colorKnobOffActual = highlighted ? colorKnobHighlightOff : colorKnobOff;
@@ -1125,7 +1126,7 @@ void Checkbox::Draw() const {
 		// Up means on
 		switchPos.y += switchMoveArea * (1.0f - transition);
 	}
-	_system->functions.DrawQuad(_system->data, const_cast<Any*>(&data), switchPos * _system->scale, switchSize * _system->scale, colorKnobActual);
+	_system->functions.DrawQuad(_system->data, const_cast<Any&>(data), dataDrawCall, switchPos * _system->scale, switchSize * _system->scale, colorKnobActual);
 }
 
 Textbox::Textbox() : string(), stringFormatted(), stringSuffix(), colorBG(vec3(0.15f), 0.9f), colorBGHighlighted(vec3(0.2f), 0.9f), colorBGError(0.1f, 0.0f, 0.0f, 0.9f), colorText(vec3(1.0f), 1.0f), colorTextHighlighted(vec3(1.0f), 1.0f), colorTextError(1.0f, 0.5f, 0.5f, 1.0f), padding(2.0f), cursor(0), fontIndex(1), fontSize(17.39f), cursorBlinkTimer(0.0f), textFilter(TextFilterBasic), textValidate(TextValidateAll), entry(false), multiline(false) {
@@ -1269,7 +1270,7 @@ void Textbox::UpdateSize(vec2 container, f32 _scale) {
 	vec2 totalMargin = margin * 2.0f * scale;
 	vec2 totalPadding = padding * 2.0f * scale;
 	if (size.x == 0.0f || size.y == 0.0f) {
-		sizeAbsolute = _system->functions.GetTextDimensions(_system->data, &data, stringFormatted) * fontSize * scale + totalPadding;
+		sizeAbsolute = _system->functions.GetTextDimensions(_system->data, data, stringFormatted) * fontSize * scale + totalPadding;
 	}
 	if (size.x > 0.0f) {
 		sizeAbsolute.x = fractionWidth ? (container.x * size.x - totalMargin.x) : size.x * scale;
@@ -1316,7 +1317,7 @@ void Textbox::Update(vec2 pos, bool selected) {
 			cursorBlinkTimer -= 1.0f;
 		}
 		highlighted = true;
-		WString typed = _system->functions.ConsumeTypingString(_system->data, &data);
+		WString typed = _system->functions.ConsumeTypingString(_system->data, data);
 		for (char32 c : typed) {
 			if (textFilter(c)) {
 				string.Insert(cursor, c);
@@ -1324,21 +1325,21 @@ void Textbox::Update(vec2 pos, bool selected) {
 				cursor++;
 			}
 		}
-		if (_system->functions.KeycodeRepeated(_system->data, &data, KC_KEY_BACKSPACE)) {
+		if (_system->functions.KeycodeRepeated(_system->data, data, KC_KEY_BACKSPACE)) {
 			if (cursor <= string.size && cursor > 0) {
 				string.Erase(cursor-1);
 				cursorBlinkTimer = 0.0f;
 				cursor--;
 			}
 		}
-		if (_system->functions.KeycodeRepeated(_system->data, &data, KC_KEY_DELETE)) {
+		if (_system->functions.KeycodeRepeated(_system->data, data, KC_KEY_DELETE)) {
 			if (cursor < string.size) {
 				string.Erase(cursor);
 				cursorBlinkTimer = 0.0f;
 			}
 		}
-		if (_system->functions.KeycodePressed(_system->data, &data, KC_KEY_HOME)) {
-			if (_system->functions.KeycodeDown(_system->data, &data, KC_KEY_LEFTCTRL) || _system->functions.KeycodeDown(_system->data, &data, KC_KEY_RIGHTCTRL) || !multiline) {
+		if (_system->functions.KeycodePressed(_system->data, data, KC_KEY_HOME)) {
+			if (_system->functions.KeycodeDown(_system->data, data, KC_KEY_LEFTCTRL) || _system->functions.KeycodeDown(_system->data, data, KC_KEY_RIGHTCTRL) || !multiline) {
 				cursor = 0;
 			} else {
 				for (cursor--; cursor >= 0; cursor--) {
@@ -1348,8 +1349,8 @@ void Textbox::Update(vec2 pos, bool selected) {
 			}
 			cursorBlinkTimer = 0.0f;
 		}
-		if (_system->functions.KeycodePressed(_system->data, &data, KC_KEY_END)) {
-			if (_system->functions.KeycodeDown(_system->data, &data, KC_KEY_LEFTCTRL) || _system->functions.KeycodeDown(_system->data, &data, KC_KEY_RIGHTCTRL) || !multiline) {
+		if (_system->functions.KeycodePressed(_system->data, data, KC_KEY_END)) {
+			if (_system->functions.KeycodeDown(_system->data, data, KC_KEY_LEFTCTRL) || _system->functions.KeycodeDown(_system->data, data, KC_KEY_RIGHTCTRL) || !multiline) {
 				cursor = string.size;
 			} else {
 				for (; cursor < string.size; cursor++) {
@@ -1358,13 +1359,13 @@ void Textbox::Update(vec2 pos, bool selected) {
 			}
 			cursorBlinkTimer = 0.0f;
 		}
-		if (_system->functions.KeycodeRepeated(_system->data, &data, KC_KEY_TAB)) {
+		if (_system->functions.KeycodeRepeated(_system->data, data, KC_KEY_TAB)) {
 			string.Insert(cursor, '\t');
 			cursor++;
 			cursorBlinkTimer = 0.0f;
 		}
 		if (multiline) {
-			if (_system->functions.KeycodeRepeated(_system->data, &data, KC_KEY_ENTER)) {
+			if (_system->functions.KeycodeRepeated(_system->data, data, KC_KEY_ENTER)) {
 				string.Insert(cursor, '\n');
 				cursor++;
 				cursorBlinkTimer = 0.0f;
@@ -1372,30 +1373,30 @@ void Textbox::Update(vec2 pos, bool selected) {
 		}
 	}
 	if (size.x != 0.0f && multiline) {
-		stringFormatted = _system->functions.ApplyTextWrapping(_system->data, &data, string + stringSuffix, (sizeAbsolute.x - padding.x * 2.0f * scale) / fontSize);
+		stringFormatted = _system->functions.ApplyTextWrapping(_system->data, data, string + stringSuffix, (sizeAbsolute.x - padding.x * 2.0f * scale) / fontSize);
 	} else {
 		stringFormatted = string + stringSuffix;
 	}
 	if (entry) {
 		if (multiline) {
-			bool up = _system->functions.KeycodeRepeated(_system->data, &data, KC_KEY_UP);
-			bool down = _system->functions.KeycodeRepeated(_system->data, &data, KC_KEY_DOWN);
+			bool up = _system->functions.KeycodeRepeated(_system->data, data, KC_KEY_UP);
+			bool down = _system->functions.KeycodeRepeated(_system->data, data, KC_KEY_DOWN);
 			if (up || down) {
-				vec2 cursorPos = _system->functions.GetPositionFromCursorInText(_system->data, &data, textPos, textArea, fontSize * scale, SimpleRange<char32>(stringFormatted.data, stringFormatted.size - stringSuffix.size), CursorFromSourceToFormatted(cursor, string, stringFormatted), vec2(0.0f, 0.5f));
+				vec2 cursorPos = _system->functions.GetPositionFromCursorInText(_system->data, data, textPos, textArea, fontSize * scale, SimpleRange<char32>(stringFormatted.data, stringFormatted.size - stringSuffix.size), CursorFromSourceToFormatted(cursor, string, stringFormatted), vec2(0.0f, 0.5f));
 				if (up) {
-					cursorPos -= _system->functions.GetLineHeight(_system->data, &data, fontSize * scale);
+					cursorPos -= _system->functions.GetLineHeight(_system->data, data, fontSize * scale);
 				}
 				if (down) {
-					cursorPos += _system->functions.GetLineHeight(_system->data, &data, fontSize * scale);
+					cursorPos += _system->functions.GetLineHeight(_system->data, data, fontSize * scale);
 				}
-				cursor = _system->functions.GetCursorFromPositionInText(_system->data, &data, textPos, textArea, fontSize * scale, SimpleRange<char32>(stringFormatted.data, stringFormatted.size - stringSuffix.size), cursorPos);
+				cursor = _system->functions.GetCursorFromPositionInText(_system->data, data, textPos, textArea, fontSize * scale, SimpleRange<char32>(stringFormatted.data, stringFormatted.size - stringSuffix.size), cursorPos);
 				cursor = CursorFromFormattedToSource(cursor, string, stringFormatted);
 				cursorBlinkTimer = 0.0f;
 			}
 		}
-		if (_system->functions.KeycodeRepeated(_system->data, &data, KC_KEY_LEFT)) {
+		if (_system->functions.KeycodeRepeated(_system->data, data, KC_KEY_LEFT)) {
 			cursorBlinkTimer = 0.0f;
-			if (_system->functions.KeycodeDown(_system->data, &data, KC_KEY_LEFTCTRL) || _system->functions.KeycodeDown(_system->data, &data, KC_KEY_RIGHTCTRL)) {
+			if (_system->functions.KeycodeDown(_system->data, data, KC_KEY_LEFTCTRL) || _system->functions.KeycodeDown(_system->data, data, KC_KEY_RIGHTCTRL)) {
 				if (IsWhitespace(string[--cursor])) {
 					for (; cursor > 0; cursor--) {
 						const char32 c = string[cursor];
@@ -1418,9 +1419,9 @@ void Textbox::Update(vec2 pos, bool selected) {
 				cursor = max(0, cursor-1);
 			}
 		}
-		if (_system->functions.KeycodeRepeated(_system->data, &data, KC_KEY_RIGHT)) {
+		if (_system->functions.KeycodeRepeated(_system->data, data, KC_KEY_RIGHT)) {
 			cursorBlinkTimer = 0.0f;
-			if (_system->functions.KeycodeDown(_system->data, &data, KC_KEY_LEFTCTRL) || _system->functions.KeycodeDown(_system->data, &data, KC_KEY_RIGHTCTRL)) {
+			if (_system->functions.KeycodeDown(_system->data, data, KC_KEY_LEFTCTRL) || _system->functions.KeycodeDown(_system->data, data, KC_KEY_RIGHTCTRL)) {
 				if (IsWhitespace(string[cursor])) {
 					for (cursor++; cursor < string.size; cursor++) {
 						const char32 c = string[cursor];
@@ -1441,7 +1442,7 @@ void Textbox::Update(vec2 pos, bool selected) {
 				cursor = min(string.size, cursor+1);
 			}
 		}
-		if (!multiline && _system->functions.KeycodeReleased(_system->data, &data, KC_KEY_ENTER)) {
+		if (!multiline && _system->functions.KeycodeReleased(_system->data, data, KC_KEY_ENTER)) {
 			entry = false;
 			stoppedEntry = true;
 			if (_system->controlDepth == depth+1) {
@@ -1457,13 +1458,13 @@ void Textbox::Update(vec2 pos, bool selected) {
 	if (mouseover) {
 		highlighted = true;
 	}
-	if (_system->functions.KeycodePressed(_system->data, &data, KC_MOUSE_LEFT)) {
+	if (_system->functions.KeycodePressed(_system->data, data, KC_MOUSE_LEFT)) {
 		if (mouseover) {
 			if (_system->controlDepth == depth) {
 				_system->controlDepth = depth+1;
 			}
 			const vec2 mouse = vec2(_system->mouseCursor);
-			cursor = _system->functions.GetCursorFromPositionInText(_system->data, &data, textPos, textArea, fontSize * scale, SimpleRange<char32>(stringFormatted.data, stringFormatted.size - stringSuffix.size), mouse);
+			cursor = _system->functions.GetCursorFromPositionInText(_system->data, data, textPos, textArea, fontSize * scale, SimpleRange<char32>(stringFormatted.data, stringFormatted.size - stringSuffix.size), mouse);
 			cursor = CursorFromFormattedToSource(cursor, string, stringFormatted);
 			cursorBlinkTimer = 0.0f;
 		}
@@ -1476,7 +1477,7 @@ void Textbox::Update(vec2 pos, bool selected) {
 	}
 	if (_system->controlDepth == depth) {
 		if (selected) {
-			if ((_system->functions.KeycodeReleased(_system->data, &data, KC_GP_BTN_A) || _system->functions.KeycodeReleased(_system->data, &data, KC_KEY_ENTER)) && !stoppedEntry) {
+			if ((_system->functions.KeycodeReleased(_system->data, data, KC_GP_BTN_A) || _system->functions.KeycodeReleased(_system->data, data, KC_KEY_ENTER)) && !stoppedEntry) {
 				entry = true;
 				_system->controlDepth++;
 			} else {
@@ -1485,7 +1486,7 @@ void Textbox::Update(vec2 pos, bool selected) {
 		}
 	} else if (_system->controlDepth == depth+1) {
 		if (selected) {
-			if (_system->functions.KeycodeReleased(_system->data, &data, KC_GP_BTN_B) || _system->functions.KeycodeReleased(_system->data, &data, KC_KEY_ESC)) {
+			if (_system->functions.KeycodeReleased(_system->data, data, KC_GP_BTN_B) || _system->functions.KeycodeReleased(_system->data, data, KC_KEY_ESC)) {
 				entry = false;
 				_system->controlDepth--;
 			}
@@ -1493,7 +1494,7 @@ void Textbox::Update(vec2 pos, bool selected) {
 	}
 }
 
-void Textbox::Draw() const {
+void Textbox::Draw(Any &dataDrawCall) const {
 	vec4 colorBGActual, colorTextActual;
 	if (!textValidate(string)) {
 		colorBGActual = colorBGError;
@@ -1502,17 +1503,17 @@ void Textbox::Draw() const {
 		colorBGActual = highlighted ? colorBGHighlighted : colorBG;
 		colorTextActual = highlighted ? colorTextHighlighted : colorText;
 	}
-	PushScissor();
+	PushScissor(dataDrawCall);
 	vec2 textPos = (positionAbsolute + padding * scale) * _system->scale;
 	vec2 textScale = vec2(fontSize * _system->scale) * scale;
 	vec2 textArea = (sizeAbsolute - padding * 2.0f * scale) * _system->scale;
-	_system->functions.DrawQuad(_system->data, const_cast<Any*>(&data), positionAbsolute * _system->scale, sizeAbsolute * _system->scale, colorBGActual);
-	_system->functions.DrawText(_system->data, const_cast<Any*>(&data), textPos, textArea, textScale, stringFormatted, colorTextActual, vec4(0.0f), false); 
+	_system->functions.DrawQuad(_system->data, const_cast<Any&>(data), dataDrawCall, positionAbsolute * _system->scale, sizeAbsolute * _system->scale, colorBGActual);
+	_system->functions.DrawText(_system->data, const_cast<Any&>(data), dataDrawCall, textPos, textArea, textScale, stringFormatted, colorTextActual, vec4(0.0f), false); 
 	if (cursorBlinkTimer < 0.5f && entry) {
-		vec2 cursorPos = _system->functions.GetPositionFromCursorInText(_system->data, const_cast<Any*>(&data), textPos / _system->scale, textArea / _system->scale, textScale / _system->scale, SimpleRange<char32>(stringFormatted.data, stringFormatted.size - stringSuffix.size), CursorFromSourceToFormatted(cursor, string, stringFormatted), vec2(0.0f, 0.0f));
-		_system->functions.DrawQuad(_system->data, const_cast<Any*>(&data), cursorPos, vec2(ceil(_system->scale), textScale.y), colorTextActual);
+		vec2 cursorPos = _system->functions.GetPositionFromCursorInText(_system->data, const_cast<Any&>(data), textPos / _system->scale, textArea / _system->scale, textScale / _system->scale, SimpleRange<char32>(stringFormatted.data, stringFormatted.size - stringSuffix.size), CursorFromSourceToFormatted(cursor, string, stringFormatted), vec2(0.0f, 0.0f));
+		_system->functions.DrawQuad(_system->data, const_cast<Any&>(data), dataDrawCall, cursorPos, vec2(ceil(_system->scale), textScale.y), colorTextActual);
 	}
-	PopScissor();
+	PopScissor(dataDrawCall);
 }
 
 Slider::Slider() :
@@ -1538,15 +1539,15 @@ void Slider::Update(vec2 pos, bool selected) {
 	left.Tick(_system->timestep);
 	right.Tick(_system->timestep);
 	if (selected && _system->controlDepth == depth) {
-		bool held = _system->functions.KeycodeDown(_system->data, &data, KC_MOUSE_LEFT);
-		bool leftHeld = held || _system->functions.KeycodeDown(_system->data, &data, KC_GP_AXIS_LS_LEFT) || _system->functions.KeycodeDown(_system->data, &data, KC_KEY_LEFT);
-		bool rightHeld = held || _system->functions.KeycodeDown(_system->data, &data, KC_GP_AXIS_LS_RIGHT) || _system->functions.KeycodeDown(_system->data, &data, KC_KEY_RIGHT);
-		if (_system->functions.KeycodePressed(_system->data, &data, KC_GP_AXIS_LS_LEFT) || _system->functions.KeycodePressed(_system->data, &data, KC_KEY_LEFT)) {
+		bool held = _system->functions.KeycodeDown(_system->data, data, KC_MOUSE_LEFT);
+		bool leftHeld = held || _system->functions.KeycodeDown(_system->data, data, KC_GP_AXIS_LS_LEFT) || _system->functions.KeycodeDown(_system->data, data, KC_KEY_LEFT);
+		bool rightHeld = held || _system->functions.KeycodeDown(_system->data, data, KC_GP_AXIS_LS_RIGHT) || _system->functions.KeycodeDown(_system->data, data, KC_KEY_RIGHT);
+		if (_system->functions.KeycodePressed(_system->data, data, KC_GP_AXIS_LS_LEFT) || _system->functions.KeycodePressed(_system->data, data, KC_KEY_LEFT)) {
 			left.Press();
 		} else if (left.Down() && !leftHeld) {
 			left.Release();
 		}
-		if (_system->functions.KeycodePressed(_system->data, &data, KC_GP_AXIS_LS_RIGHT) || _system->functions.KeycodePressed(_system->data, &data, KC_KEY_RIGHT)) {
+		if (_system->functions.KeycodePressed(_system->data, data, KC_GP_AXIS_LS_RIGHT) || _system->functions.KeycodePressed(_system->data, data, KC_KEY_RIGHT)) {
 			right.Press();
 		} else if (right.Down() && !rightHeld) {
 			right.Release();
@@ -1561,7 +1562,7 @@ void Slider::Update(vec2 pos, bool selected) {
 		} else if (mouseX > sliderX+knobSize) {
 			mousePos = 1;
 		}
-		if (_system->functions.KeycodePressed(_system->data, &data, KC_MOUSE_LEFT)) {
+		if (_system->functions.KeycodePressed(_system->data, data, KC_MOUSE_LEFT)) {
 			if (mousePos == 0) {
 				grabbed = true;
 			} else if (mousePos == 1) {
@@ -1575,14 +1576,14 @@ void Slider::Update(vec2 pos, bool selected) {
 	f32 scale = (valueMax - valueMin) / (sizeAbsolute.x - knobSize);
 	if (grabbed) {
 		f32 moved = f32(_system->mouseCursor.x - _system->mouseCursorPrev.x) / _system->scale * scale;
-		if (_system->functions.KeycodeDown(_system->data, &data, KC_KEY_LEFTSHIFT)) {
+		if (_system->functions.KeycodeDown(_system->data, data, KC_KEY_LEFTSHIFT)) {
 			moved /= 10.0f;
 		}
 		if (moved != 0.0f) updated = true;
 		value = clamp(value + moved, valueMin, valueMax);
 	}
 	scale = valueTick >= 0.0f ? valueTick : (valueMax - valueMin) * -valueTick;
-	if (_system->functions.KeycodeDown(_system->data, &data, KC_KEY_LEFTSHIFT)) {
+	if (_system->functions.KeycodeDown(_system->data, data, KC_KEY_LEFTSHIFT)) {
 		scale *= valueTickShiftMult;
 	}
 	if (right.Repeated()) {
@@ -1593,7 +1594,7 @@ void Slider::Update(vec2 pos, bool selected) {
 		value = clamp(value - scale, valueMin, valueMax);
 		updated = true;
 	}
-	if (_system->functions.KeycodeReleased(_system->data, &data, KC_MOUSE_LEFT)) {
+	if (_system->functions.KeycodeReleased(_system->data, data, KC_MOUSE_LEFT)) {
 		grabbed = false;
 		if (right.Down()) {
 			right.Release();
@@ -1614,15 +1615,15 @@ void Slider::Update(vec2 pos, bool selected) {
 	}
 }
 
-void Slider::Draw() const {
+void Slider::Draw(Any &dataDrawCall) const {
 	f32 knobSize = 16.0f * scale;
 	vec4 colorBGActual = highlighted ? colorBGHighlighted : colorBG;
 	vec4 colorSliderActual = highlighted ? colorSliderHighlighted : colorSlider;
 	vec2 drawPos = positionAbsolute * _system->scale;
-	_system->functions.DrawQuad(_system->data, const_cast<Any*>(&data), drawPos, sizeAbsolute * _system->scale, colorBGActual);
+	_system->functions.DrawQuad(_system->data, const_cast<Any&>(data), dataDrawCall, drawPos, sizeAbsolute * _system->scale, colorBGActual);
 	drawPos.x += map(value, valueMin, valueMax, 2.0f * scale, sizeAbsolute.x - knobSize) * _system->scale;
 	drawPos.y += 2.0f * _system->scale * scale;
-	_system->functions.DrawQuad(_system->data, const_cast<Any*>(&data), drawPos, vec2(12.0f * scale, sizeAbsolute.y - 4.0f * scale) * _system->scale, colorSliderActual);
+	_system->functions.DrawQuad(_system->data, const_cast<Any&>(data), dataDrawCall, drawPos, vec2(12.0f * scale, sizeAbsolute.y - 4.0f * scale) * _system->scale, colorSliderActual);
 }
 
 void Slider::SetValue(f32 newValue) {
@@ -1682,9 +1683,9 @@ void Hideable::Update(vec2 pos, bool selected) {
 	hiddenPrev = hidden;
 }
 
-void Hideable::Draw() const {
+void Hideable::Draw(Any &dataDrawCall) const {
 	if (!hidden) {
-		children[0]->Draw();
+		children[0]->Draw(dataDrawCall);
 	}
 }
 

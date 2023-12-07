@@ -77,104 +77,104 @@ String FramerateSetter(void *userdata, String name, String argument) {
 }
 
 // Set the drawable region
-void SetScissor(void *dataGlobal, Any *dataWidget, vec2 position, vec2 size) {
-	GuiBasic *guiBasic = (GuiBasic*)dataGlobal;
-	AzAssert(nullptr != guiBasic->currentContext, "We didn't set our context for drawing");
+void SetScissor(Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 position, vec2 size) {
+	(void)dataGlobal;
 	(void)dataWidget;
-	sys->rendering.SetScissor(*guiBasic->currentContext, position, size);
+	sys->rendering.SetScissor(dataDrawCall.Get<Rendering::DrawingContext>(), position, size);
 }
 
-void DrawQuad(void *dataGlobal, Any *dataWidget, vec2 position, vec2 size, vec4 color) {
-	GuiBasic *guiBasic = (GuiBasic*)dataGlobal;
-	AzAssert(nullptr != guiBasic->currentContext, "We didn't set our context for drawing");
+void DrawQuad(Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 position, vec2 size, vec4 color) {
+	(void)dataGlobal;
 	(void)dataWidget;
 	Rendering::Material material;
 	material.color = color;
-	sys->rendering.DrawQuad(*guiBasic->currentContext, position, size, vec2(1.0f), vec2(0.0f), 0.0f, Rendering::PIPELINE_BASIC_2D, material);
+	sys->rendering.DrawQuad(dataDrawCall.Get<Rendering::DrawingContext>(), position, size, vec2(1.0f), vec2(0.0f), 0.0f, Rendering::PIPELINE_BASIC_2D, material);
 }
 
-void DrawImage(void *dataGlobal, Any *dataWidget, vec2 position, vec2 size, vec4 color) {
-	GuiBasic *guiBasic = (GuiBasic*)dataGlobal;
-	AzAssert(nullptr != guiBasic->currentContext, "We didn't set our context for drawing");
-	i32 texIndex = Rendering::texBlank;
-	if (nullptr != dataWidget && dataWidget->IsType<ImageMetadata>()) {
-		ImageMetadata &metadata = dataWidget->Get<ImageMetadata>();
-		texIndex = metadata.texIndex;
+void DrawImage(Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 position, vec2 size, vec4 color) {
+	(void)dataGlobal;
+	ImageMetadata metadata;
+	if (dataWidget.IsType<ImageMetadata>()) {
+		metadata = dataWidget.Get<ImageMetadata>();
 	}
 	Rendering::Material material;
 	material.color = color;
-	sys->rendering.DrawQuad(*guiBasic->currentContext, position, size, vec2(1.0f), vec2(0.0f), 0.0f, Rendering::PIPELINE_BASIC_2D, material, Rendering::TexIndices(texIndex));
+	sys->rendering.DrawQuad(dataDrawCall.Get<Rendering::DrawingContext>(), position, size, vec2(1.0f), vec2(0.0f), 0.0f, metadata.pipeline, material, Rendering::TexIndices(metadata.texIndex));
 }
 
-void DrawText(void *dataGlobal, Any *dataWidget, vec2 position, vec2 area, vec2 fontSize, const WString &text, vec4 color, vec4 colorOutline, bool bold) {
-	GuiBasic *guiBasic = (GuiBasic*)dataGlobal;
-	AzAssert(nullptr != guiBasic->currentContext, "We didn't set our context for drawing");
-	Rendering::FontAlign alignH = Rendering::LEFT;
-	Rendering::FontAlign alignV = Rendering::TOP;
-	if (nullptr != dataWidget && dataWidget->IsType<TextMetadata>()) {
-		TextMetadata &metadata = dataWidget->Get<TextMetadata>();
-		alignH = metadata.alignH;
-		alignV = metadata.alignV;
+void DrawText(Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 position, vec2 area, vec2 fontSize, const WString &text, vec4 color, vec4 colorOutline, bool bold) {
+	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+	TextMetadata metadata;
+	if (dataWidget.IsType<TextMetadata>()) {
+		metadata = dataWidget.Get<TextMetadata>();
 	}
-	if (alignH == Rendering::CENTER) {
+	if (metadata.fontIndex == -1) metadata.fontIndex = guiBasic.fontIndex;
+	if (metadata.alignH == Rendering::CENTER) {
 		position.x += area.x * 0.5f;
-	} else if (alignH == Rendering::RIGHT) {
+	} else if (metadata.alignH == Rendering::RIGHT) {
 		position.x += area.x;
 	}
-	if (alignV == Rendering::CENTER) {
+	if (metadata.alignV == Rendering::CENTER) {
 		position.y += area.y * 0.5f;
-	} else if (alignV == Rendering::BOTTOM) {
+	} else if (metadata.alignV == Rendering::BOTTOM) {
 		position.y += area.y;
 	}
 	f32 bounds = bold ? 0.425f : 0.525f;
 	if (colorOutline.a > 0.0f) {
-		sys->rendering.DrawText(*guiBasic->currentContext, text, guiBasic->fontIndex, colorOutline, position, fontSize, alignH, alignV, area.x, 0.05f, bounds - 0.325f - clamp((1.0f - (colorOutline.r + colorOutline.g + colorOutline.b) / 3.0f) * 2.0f, 0.0f, 2.0f)/fontSize.y);
+		sys->rendering.DrawText(dataDrawCall.Get<Rendering::DrawingContext>(), text, metadata.fontIndex, colorOutline, position, fontSize, metadata.alignH, metadata.alignV, area.x, 0.05f, bounds - 0.325f - clamp((1.0f - (colorOutline.r + colorOutline.g + colorOutline.b) / 3.0f) * 2.0f, 0.0f, 2.0f)/fontSize.y);
 	}
 	bounds -= clamp((1.0f - (color.r + color.g + color.b) / 3.0f) * 2.0f, 0.0f, 2.0f) / fontSize.y;
-	sys->rendering.DrawText(*guiBasic->currentContext, text, guiBasic->fontIndex, color, position, fontSize, alignH, alignV, area.x, 0.0f, bounds);
+	sys->rendering.DrawText(dataDrawCall.Get<Rendering::DrawingContext>(), text, metadata.fontIndex, color, position, fontSize, metadata.alignH, metadata.alignV, area.x, 0.0f, bounds);
 }
 
 // Units are in the font's EM square
 // Multiply this by the font size for the actual dimensions
-vec2 GetTextDimensions(void *dataGlobal, Any *dataWidget, const WString &string) {
-	GuiBasic *guiBasic = (GuiBasic*)dataGlobal;
-	return sys->rendering.StringSize(string, guiBasic->fontIndex);
+vec2 GetTextDimensions(Any &dataGlobal, Any &dataWidget, const WString &string) {
+	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+	Assets::FontIndex fontIndex = -1;
+	if (dataWidget.IsType<TextMetadata>()) {
+		fontIndex = dataWidget.Get<TextMetadata>().fontIndex;
+	}
+	if (fontIndex == -1) fontIndex = guiBasic.fontIndex;
+	return sys->rendering.StringSize(string, fontIndex);
 }
 
 // Units are in the font's EM square
 // Divide the actual width by the font size for the EM size
-WString ApplyTextWrapping(void *dataGlobal, Any *dataWidget, const WString &string, f32 maxWidth) {
-	GuiBasic *guiBasic = (GuiBasic*)dataGlobal;
-	return sys->rendering.StringAddNewlines(string, guiBasic->fontIndex, maxWidth);
+WString ApplyTextWrapping(Any &dataGlobal, Any &dataWidget, const WString &string, f32 maxWidth) {
+	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+	Assets::FontIndex fontIndex = -1;
+	if (dataWidget.IsType<TextMetadata>()) {
+		fontIndex = dataWidget.Get<TextMetadata>().fontIndex;
+	}
+	if (fontIndex == -1) fontIndex = guiBasic.fontIndex;
+	return sys->rendering.StringAddNewlines(string, fontIndex, maxWidth);
 }
 
 // Returns the index into the text to place the cursor based on pickerPosition. It should aim to find the cursor position closest to the left of the character halfway between lines (a UV of {0, 0.5}).
-i32 GetCursorFromPositionInText(void *dataGlobal, Any *dataWidget, vec2 position, vec2 area, vec2 fontSize, const SimpleRange<char32> text, vec2 pickerPosition) {
-	GuiBasic *guiBasic = (GuiBasic*)dataGlobal;
-	const i32 fontIndex = guiBasic->fontIndex;
-	Rendering::FontAlign alignH = Rendering::LEFT;
-	Rendering::FontAlign alignV = Rendering::TOP;
-	if (nullptr != dataWidget && dataWidget->IsType<TextMetadata>()) {
-		TextMetadata &metadata = dataWidget->Get<TextMetadata>();
-		alignH = metadata.alignH;
-		alignV = metadata.alignV;
+i32 GetCursorFromPositionInText(Any &dataGlobal, Any &dataWidget, vec2 position, vec2 area, vec2 fontSize, const SimpleRange<char32> text, vec2 pickerPosition) {
+	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+	TextMetadata metadata;
+	if (dataWidget.IsType<TextMetadata>()) {
+		metadata = dataWidget.Get<TextMetadata>();
 	}
+	if (metadata.fontIndex == -1) metadata.fontIndex = guiBasic.fontIndex;
 	
 	vec2 cursorPos = 0.0f;
 	f32 spaceScale, spaceWidth, tabWidth;
-	spaceWidth = sys->assets.CharacterWidth(' ', fontIndex) * fontSize.x;
-	tabWidth = sys->assets.CharacterWidth((char32)'_', fontIndex) * fontSize.x * 4.0f;
+	spaceWidth = sys->assets.CharacterWidth(' ', metadata.fontIndex) * fontSize.x;
+	tabWidth = sys->assets.CharacterWidth((char32)'_', metadata.fontIndex) * fontSize.x * 4.0f;
 	const char32 *lineString = text.str;
 	i32 cursor = 0;
 	// Find which line we're on first
 	cursorPos.y += fontSize.y * Rendering::lineHeight + position.y;
-	if (cursorPos.y <= pickerPosition.y / guiBasic->system.scale) {
+	if (cursorPos.y <= pickerPosition.y / guiBasic.system.scale) {
 		for (; cursor < text.size; cursor++) {
 			const char32 &c = text[cursor];
 			if (c == '\n') {
 				lineString = &c+1;
 				cursorPos.y += fontSize.y * Rendering::lineHeight;
-				if (cursorPos.y > pickerPosition.y / guiBasic->system.scale) {
+				if (cursorPos.y > pickerPosition.y / guiBasic.system.scale) {
 					cursor++;
 					break;
 				}
@@ -182,15 +182,15 @@ i32 GetCursorFromPositionInText(void *dataGlobal, Any *dataWidget, vec2 position
 		}
 	}
 	// Find where we are in that line
-	sys->rendering.LineCursorStartAndSpaceScale(cursorPos.x, spaceScale, fontSize.x, spaceWidth, fontIndex, lineString, area.x, alignH);
+	sys->rendering.LineCursorStartAndSpaceScale(cursorPos.x, spaceScale, fontSize.x, spaceWidth, metadata.fontIndex, lineString, area.x, metadata.alignH);
 	cursorPos.x += position.x;
-	if (alignH == Rendering::CENTER) {
+	if (metadata.alignH == Rendering::CENTER) {
 		cursorPos.x += area.x * 0.5f;
-	} else if (alignH == Rendering::RIGHT) {
+	} else if (metadata.alignH == Rendering::RIGHT) {
 		cursorPos.x += area.x;
 	}
-	cursorPos *= guiBasic->system.scale;
-	spaceWidth *= spaceScale * guiBasic->system.scale;
+	cursorPos *= guiBasic.system.scale;
+	spaceWidth *= spaceScale * guiBasic.system.scale;
 	for (; cursor < text.size; cursor++) {
 		const char32 &c = text[cursor];
 		f32 halfAdvance;
@@ -201,7 +201,7 @@ i32 GetCursorFromPositionInText(void *dataGlobal, Any *dataWidget, vec2 position
 		} else if (c == ' ') {
 			halfAdvance = spaceWidth * 0.5f;
 		} else {
-			halfAdvance = sys->assets.CharacterWidth(c, fontIndex) * fontSize.x * guiBasic->system.scale * 0.5f;
+			halfAdvance = sys->assets.CharacterWidth(c, metadata.fontIndex) * fontSize.x * guiBasic.system.scale * 0.5f;
 		}
 		cursorPos.x += halfAdvance;
 		if (cursorPos.x > pickerPosition.x) {
@@ -213,21 +213,18 @@ i32 GetCursorFromPositionInText(void *dataGlobal, Any *dataWidget, vec2 position
 }
 
 // Returns the absolute position of a UV within the character at cursor where a UV of {0, 0} is the top left, and {1, 1} is the bottom right.
-vec2 GetPositionFromCursorInText(void *dataGlobal, Any *dataWidget, vec2 position, vec2 area, vec2 fontSize, const SimpleRange<char32> text, i32 cursor, vec2 charUV) {
-	GuiBasic *guiBasic = (GuiBasic*)dataGlobal;
-	const i32 fontIndex = guiBasic->fontIndex;
-	Rendering::FontAlign alignH = Rendering::LEFT;
-	Rendering::FontAlign alignV = Rendering::TOP;
-	if (nullptr != dataWidget && dataWidget->IsType<TextMetadata>()) {
-		TextMetadata &metadata = dataWidget->Get<TextMetadata>();
-		alignH = metadata.alignH;
-		alignV = metadata.alignV;
+vec2 GetPositionFromCursorInText(Any &dataGlobal, Any &dataWidget, vec2 position, vec2 area, vec2 fontSize, const SimpleRange<char32> text, i32 cursor, vec2 charUV) {
+	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+	TextMetadata metadata;
+	if (dataWidget.IsType<TextMetadata>()) {
+		metadata = dataWidget.Get<TextMetadata>();
 	}
+	if (metadata.fontIndex == -1) metadata.fontIndex = guiBasic.fontIndex;
 	
 	vec2 cursorPos = 0.0f;
 	f32 spaceScale, spaceWidth, tabWidth;
-	spaceWidth = sys->assets.CharacterWidth(' ', fontIndex) * fontSize.x;
-	tabWidth = sys->assets.CharacterWidth((char32)'_', fontIndex) * fontSize.x * 4.0f;
+	spaceWidth = sys->assets.CharacterWidth(' ', metadata.fontIndex) * fontSize.x;
+	tabWidth = sys->assets.CharacterWidth((char32)'_', metadata.fontIndex) * fontSize.x * 4.0f;
 	// Get our line start and vertical position
 	const char32 *lineString = text.str;
 	i32 lineStart = 0;
@@ -240,7 +237,7 @@ vec2 GetPositionFromCursorInText(void *dataGlobal, Any *dataWidget, vec2 positio
 		}
 	}
 	// Get our horizontal position
-	sys->rendering.LineCursorStartAndSpaceScale(cursorPos.x, spaceScale, fontSize.x, spaceWidth, fontIndex, lineString, area.x, alignH);
+	sys->rendering.LineCursorStartAndSpaceScale(cursorPos.x, spaceScale, fontSize.x, spaceWidth, metadata.fontIndex, lineString, area.x, metadata.alignH);
 	spaceWidth *= spaceScale;
 	for (i32 i = lineStart; i < cursor; i++) {
 		const char32 &c = text[i];
@@ -253,73 +250,73 @@ vec2 GetPositionFromCursorInText(void *dataGlobal, Any *dataWidget, vec2 positio
 		if (c == ' ') {
 			cursorPos.x += spaceWidth;
 		} else {
-			cursorPos.x += sys->assets.CharacterWidth(c, fontIndex) * fontSize.x;
+			cursorPos.x += sys->assets.CharacterWidth(c, metadata.fontIndex) * fontSize.x;
 		}
 	}
-	if (alignH == Rendering::CENTER) {
+	if (metadata.alignH == Rendering::CENTER) {
 		cursorPos.x += area.x * 0.5f;
-	} else if (alignH == Rendering::RIGHT) {
+	} else if (metadata.alignH == Rendering::RIGHT) {
 		cursorPos.x += area.x;
 	}
 	cursorPos += position;
-	cursorPos *= guiBasic->system.scale;
+	cursorPos *= guiBasic.system.scale;
 	return cursorPos;
 }
 
 // Returns the height of one line for the given fontSize for the given widget.
-f32 GetLineHeight(void *dataGlobal, Any *dataWidget, f32 fontSize) {
+f32 GetLineHeight(Any &dataGlobal, Any &dataWidget, f32 fontSize) {
 	return Rendering::lineHeight * fontSize;
 }
 
-bool KeycodePressed(void *dataGlobal, Any *dataWidget, u8 keycode) {
+bool KeycodePressed(Any &dataGlobal, Any &dataWidget, u8 keycode) {
 	return sys->Pressed(keycode);
 }
 
-bool KeycodeRepeated(void *dataGlobal, Any *dataWidget, u8 keycode) {
+bool KeycodeRepeated(Any &dataGlobal, Any &dataWidget, u8 keycode) {
 	return sys->Repeated(keycode);
 }
 
-bool KeycodeDown(void *dataGlobal, Any *dataWidget, u8 keycode) {
+bool KeycodeDown(Any &dataGlobal, Any &dataWidget, u8 keycode) {
 	return sys->Down(keycode);
 }
 
-bool KeycodeReleased(void *dataGlobal, Any *dataWidget, u8 keycode) {
+bool KeycodeReleased(Any &dataGlobal, Any &dataWidget, u8 keycode) {
 	return sys->Released(keycode);
 }
 
-WString ConsumeTypingString(void *dataGlobal, Any *dataWidget) {
+WString ConsumeTypingString(Any &dataGlobal, Any &dataWidget) {
 	WString result = ToWString(sys->input.typingString);
 	sys->input.typingString.ClearSoft();
 	return result;
 }
 
-void OnButtonPressed(void *dataGlobal, Any *dataWidget) {
-	GuiBasic *guiBasic = (GuiBasic*)dataGlobal;
-	guiBasic->sndClickIn.Play();
+void OnButtonPressed(Any &dataGlobal, Any &dataWidget) {
+	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+	guiBasic.sndClickIn.Play();
 }
 
-void OnButtonRepeated(void *dataGlobal, Any *dataWidget) {
+void OnButtonRepeated(Any &dataGlobal, Any &dataWidget) {
 	// Do nothing
 }
 
-void OnButtonReleased(void *dataGlobal, Any *dataWidget) {
-	GuiBasic *guiBasic = (GuiBasic*)dataGlobal;
-	guiBasic->sndClickOut.Play();
+void OnButtonReleased(Any &dataGlobal, Any &dataWidget) {
+	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+	guiBasic.sndClickOut.Play();
 }
 
-void OnButtonHighlighted(void *dataGlobal, Any *dataWidget) {
-	GuiBasic *guiBasic = (GuiBasic*)dataGlobal;
-	guiBasic->sndClickSoft.Play();
+void OnButtonHighlighted(Any &dataGlobal, Any &dataWidget) {
+	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+	guiBasic.sndClickSoft.Play();
 }
 
-void OnCheckboxTurnedOn(void *dataGlobal, Any *dataWidget) {
-	GuiBasic *guiBasic = (GuiBasic*)dataGlobal;
-	guiBasic->sndCheckboxOn.Play();
+void OnCheckboxTurnedOn(Any &dataGlobal, Any &dataWidget) {
+	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+	guiBasic.sndCheckboxOn.Play();
 }
 
-void OnCheckboxTurnedOff(void *dataGlobal, Any *dataWidget) {
-	GuiBasic *guiBasic = (GuiBasic*)dataGlobal;
-	guiBasic->sndCheckboxOff.Play();
+void OnCheckboxTurnedOff(Any &dataGlobal, Any &dataWidget) {
+	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+	guiBasic.sndCheckboxOff.Play();
 }
 
 
@@ -480,9 +477,8 @@ void DevConsole::Update() {
 }
 
 void DevConsole::Draw(Rendering::DrawingContext &context) {
-	// TODO: Pass this in directly in a void*
-	guiBasic->currentContext = &context;
-	screen->Draw();
+	Any anyContext = &context;
+	screen->Draw(anyContext);
 }
 
 } // namespace Az2D::Gui

@@ -19,10 +19,12 @@ namespace Az2D::Gui {
 struct TextMetadata {
 	Rendering::FontAlign alignH = Rendering::LEFT;
 	Rendering::FontAlign alignV = Rendering::TOP;
+	Assets::FontIndex fontIndex = -1;
 };
 
 struct ImageMetadata {
 	i32 texIndex = Rendering::texBlank;
+	Rendering::PipelineIndex pipeline = Rendering::PIPELINE_BASIC_2D;
 };
 
 constexpr u32 CONSOLE_COMMAND_HISTORY_CAP = 100;

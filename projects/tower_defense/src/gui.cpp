@@ -172,8 +172,8 @@ void MainMenu::Update() {
 }
 
 void MainMenu::Draw(Rendering::DrawingContext &context) {
-	gui->currentContext = &context;
-	screen->Draw();
+	Any anyContext = &context;
+	screen->Draw(anyContext);
 }
 
 void SettingsMenu::Reset() {
@@ -392,8 +392,8 @@ void SettingsMenu::Update() {
 }
 
 void SettingsMenu::Draw(Rendering::DrawingContext &context) {
-	gui->currentContext = &context;
-	screen->Draw();
+	Any anyContext = &context;
+	screen->Draw(anyContext);
 }
 
 void UpgradesMenu::Initialize() {
@@ -649,8 +649,8 @@ void UpgradesMenu::Update() {
 }
 
 void UpgradesMenu::Draw(Rendering::DrawingContext &context) {
-	gui->currentContext = &context;
-	screen->Draw();
+	Any anyContext = &context;
+	screen->Draw(anyContext);
 }
 
 void PlayMenu::Initialize() {
@@ -789,8 +789,8 @@ void PlayMenu::Update() {
 
 void PlayMenu::Draw(Rendering::DrawingContext &context) {
 	upgradesMenu.Draw(context);
-	gui->currentContext = &context;
-	screen->Draw();
+	Any anyContext = &context;
+	screen->Draw(anyContext);
 }
 
 } // namespace Az2D::Gui

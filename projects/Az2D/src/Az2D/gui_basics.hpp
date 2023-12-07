@@ -90,7 +90,6 @@ struct GuiBasic : public GameSystems::System {
 	DevConsole devConsole;
 	
 	az::GuiGeneric::System system;
-	Rendering::DrawingContext *currentContext = nullptr;
 
 	GuiBasic();
 

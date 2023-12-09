@@ -23,6 +23,9 @@ constexpr i32 IndexHash(const GPU::DescriptorBindings&);
 } // namespace AzCore
 
 #include "Memory/HashMap.hpp"
+#include "Memory/BinaryMap.hpp"
+#include "Memory/UniquePtr.hpp"
+#include "Memory/Optional.hpp"
 
 #ifdef __unix
 	#define VK_USE_PLATFORM_XCB_KHR

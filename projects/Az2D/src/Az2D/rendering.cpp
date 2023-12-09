@@ -245,7 +245,7 @@ bool Manager::Init() {
 	data.fontImages = data.fontImageMemory->AddImages(sys->assets.fonts.size, baseImage);
 
 	for (i32 i = 0; i < texImages.size; i++) {
-		if (!sys->assets.IsTextureValid(i)) {
+		if (!sys->assets.IsTextureValid(i, false)) {
 			texImages[i].width = 1;
 			texImages[i].height = 1;
 			texImages[i].mipLevels = 1;
@@ -508,7 +508,7 @@ bool Manager::Init() {
 	bufferStagingBuffers[0].CopyData(vertices.data);
 	bufferStagingBuffers[1].CopyData(indices.data);
 	for (i32 i = 0; i < texStagingBuffers.size; i++) {
-		if (sys->assets.IsTextureValid(i)) {
+		if (sys->assets.IsTextureValid(i, false)) {
 			texStagingBuffers[i].CopyData(sys->assets.textures[i].image.pixels);
 		} else {
 			u8 black = 0;

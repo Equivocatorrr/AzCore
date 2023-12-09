@@ -124,7 +124,7 @@ void MainMenu::Initialize() {
 	title->SetWidthPixel(256.0f);
 	title->SetHeightContents();
 	
-	azgui::Spacer *spacer = gui->system.CreateSpacer(listV, 1.0f);
+	gui->system.CreateSpacer(listV, 1.0f);
 	
 	azgui::Button buttonTemplate;
 	buttonTemplate.SetSizePixel(vec2(256.0f, 64.0f));
@@ -215,7 +215,7 @@ void SettingsMenu::Initialize() {
 	title->SetWidthFraction(1.0f);
 	title->SetHeightContents();
 	
-	azgui::Spacer *spacer = gui->system.CreateSpacer(listV, 1.0f);
+	gui->system.CreateSpacer(listV, 1.0f);
 
 	azgui::Text settingTextTemplate;
 	settingTextTemplate.fontSize = 20.0f;

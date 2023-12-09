@@ -7,8 +7,16 @@
 #ifndef AZCORE_GPU_HPP
 #define AZCORE_GPU_HPP
 
-#include "memory.hpp"
+#include "basictypes.hpp"
+#include "Assert.hpp"
+#include "Memory/String.hpp"
 #include "Memory/Result.hpp"
+#include "Memory/Array.hpp"
+#include "Memory/ArrayWithBucket.hpp"
+#include "Math/vec4_t.hpp"
+
+#include "Time.hpp"
+#include "IO/Window.hpp"
 
 namespace AzCore::io {
 	struct Window;

@@ -4,9 +4,25 @@
 */
 
 #include "gpu.hpp"
-#include "common.hpp"
-#include "io.hpp"
 #include "QuickSort.hpp"
+
+namespace AzCore {
+
+namespace GPU {
+
+struct DescriptorSetLayout;
+struct DescriptorBindings;
+
+} // namespace GPU
+
+template<u16 bounds>
+constexpr i32 IndexHash(const GPU::DescriptorSetLayout&);
+template<u16 bounds>
+constexpr i32 IndexHash(const GPU::DescriptorBindings&);
+
+} // namespace AzCore
+
+#include "Memory/HashMap.hpp"
 
 #ifdef __unix
 	#define VK_USE_PLATFORM_XCB_KHR
@@ -1336,6 +1352,49 @@ DescriptorBinding::DescriptorBinding(const ArrayWithBucket<Buffer*, 8> buffers) 
 	memcpy(objects.data, buffers.data, buffers.size * sizeof(void*));
 }
 
+} // namespace AzCore::GPU
+
+namespace AzCore {
+
+constexpr u64 PRIME1 = 123456789133;
+constexpr u64 PRIME2 = 456789123499;
+
+// TODO: Is this overkill? Is it even good?
+constexpr void ProgressiveHash(u64 &dst, u64 value) {
+	dst += value + PRIME2;
+	dst *= PRIME1;
+	dst ^= dst >> 31;
+	dst ^= dst << 21;
+	dst ^= dst >> 13;
+}
+
+template<u16 bounds>
+constexpr i32 IndexHash(const GPU::DescriptorSetLayout &in) {
+	u64 hash = 0;
+	for (const VkDescriptorSetLayoutBinding &binding : in.bindings) {
+		ProgressiveHash(hash, (u64)binding.binding);
+		ProgressiveHash(hash, (u64)binding.descriptorType);
+		ProgressiveHash(hash, (u64)binding.descriptorCount);
+		ProgressiveHash(hash, (u64)binding.stageFlags);
+	}
+	return hash % bounds;
+}
+
+template<u16 bounds>
+constexpr i32 IndexHash(const GPU::DescriptorBindings &in) {
+	u64 hash = 0;
+	for (const GPU::DescriptorBinding &binding : in.bindings) {
+		ProgressiveHash(hash, (u64)binding.kind);
+		for (const void *ptr : binding.objects) {
+			ProgressiveHash(hash, (u64)ptr);
+		}
+	}
+	return hash % bounds;
+}
+
+} // namespace AzCore
+
+namespace AzCore::GPU {
 
 static void SetDebugMarker(Device *device, const String &debugMarker, VkObjectType objectType, u64 objectHandle) {
 	if (instance.enableValidationLayers && debugMarker.size != 0) {
@@ -4404,6 +4463,7 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 			case Binding::IMAGE_SAMPLER:
 				numImages += binding.imageSampler.images.size;
 				break;
+			default: break;
 		}
 	}
 	// These are for finding or creating them
@@ -5163,46 +5223,6 @@ void CmdDrawIndexed(Context *context, i32 count, i32 indexOffset, i32 vertexOffs
 #endif
 
 } // namespace AzCore::GPU
-
-namespace AzCore {
-
-constexpr u64 PRIME1 = 123456789133;
-constexpr u64 PRIME2 = 456789123499;
-
-// TODO: Is this overkill? Is it even good?
-constexpr void ProgressiveHash(u64 &dst, u64 value) {
-	dst += value + PRIME2;
-	dst *= PRIME1;
-	dst ^= dst >> 31;
-	dst ^= dst << 21;
-	dst ^= dst >> 13;
-}
-
-template<u16 bounds>
-constexpr i32 IndexHash(const GPU::DescriptorSetLayout &in) {
-	u64 hash = 0;
-	for (const VkDescriptorSetLayoutBinding &binding : in.bindings) {
-		ProgressiveHash(hash, (u64)binding.binding);
-		ProgressiveHash(hash, (u64)binding.descriptorType);
-		ProgressiveHash(hash, (u64)binding.descriptorCount);
-		ProgressiveHash(hash, (u64)binding.stageFlags);
-	}
-	return hash % bounds;
-}
-
-template<u16 bounds>
-constexpr i32 IndexHash(const GPU::DescriptorBindings &in) {
-	u64 hash = 0;
-	for (const GPU::DescriptorBinding &binding : in.bindings) {
-		ProgressiveHash(hash, (u64)binding.kind);
-		for (const void *ptr : binding.objects) {
-			ProgressiveHash(hash, (u64)ptr);
-		}
-	}
-	return hash % bounds;
-}
-
-} // namespace AzCore
 
 // For array operator==
 constexpr bool operator!=(VkDescriptorSetLayoutBinding lhs, VkDescriptorSetLayoutBinding rhs) {

@@ -896,7 +896,7 @@ void Text::UpdateSize(vec2 container, f32 _scale) {
 	vec2 totalMargin = margin * 2.0f * scale;
 	vec2 totalPadding = padding * 2.0f * scale;
 	if (size.x == 0.0f || size.y == 0.0f) {
-		sizeAbsolute = _system->functions.GetTextDimensions(_system->data, data, stringFormatted) * fontSize * scale;
+		sizeAbsolute = _system->functions.GetTextDimensions(_system->data, data, stringFormatted) * fontSize * scale + totalPadding;
 	}
 	if (size.x > 0.0f) {
 		sizeAbsolute.x = fractionWidth ? (container.x * size.x - totalMargin.x) : size.x * scale;
@@ -1063,7 +1063,7 @@ void Button::Draw(Any &dataDrawCall) const {
 	PopScissor(dataDrawCall);
 }
 
-Checkbox::Checkbox() : colorBGOff(vec3(0.15f), 0.9f), colorBGHighlightOff(0.2f, 0.45f, 0.5f, 0.9f), colorBGOn(0.4f, 0.9f, 1.0f, 1.0f), colorBGHighlightOn(0.9f, 0.98f, 1.0f, 1.0f), colorKnobOff(vec3(0.0f), 1.0f), colorKnobOn(vec3(0.0f), 1.0f), colorKnobHighlightOff(vec3(0.0f), 1.0f), colorKnobHighlightOn(vec3(0.0f), 1.0f), transition(0.0f), checked(false) {
+Checkbox::Checkbox() : colorBGOff(vec3(0.15f), 0.9f), colorBGHighlightOff(0.2f, 0.45f, 0.5f, 0.9f), colorBGOn(0.4f, 0.9f, 1.0f, 1.0f), colorBGHighlightOn(0.9f, 0.98f, 1.0f, 1.0f), colorKnobOff(vec3(0.0f), 1.0f), colorKnobHighlightOff(vec3(0.0f), 1.0f), colorKnobOn(vec3(0.0f), 1.0f), colorKnobHighlightOn(vec3(0.0f), 1.0f), transition(0.0f), checked(false) {
 	selectable = true;
 	size = vec2(48.0f, 24.0f);
 	fractionWidth = false;

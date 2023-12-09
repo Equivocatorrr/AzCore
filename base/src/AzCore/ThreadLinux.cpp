@@ -179,7 +179,7 @@ bool Mutex::TryLock() {
 struct CondVarData {
 	pthread_cond_t conditionVariable;
 };
-static_assert(sizeof(CondVarData) <= sizeof(CondVar::data));
+static_assert(sizeof(CondVarData) <= AZCORE_CONDVAR_DATA_SIZE);
 
 inline CondVarData& GetCondVarData(char *data) {
 	return *(CondVarData*)data;

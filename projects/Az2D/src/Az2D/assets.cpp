@@ -369,13 +369,14 @@ TexIndex Manager::RequestTexture(az::String filepath, bool linear, i32 priority)
 	return result;
 }
 
-TexIndex Manager::RequestTextureDecode(Array<char> &&buffer, az::String filepath, bool linear, i32 priority) {
-	ScopedLock lock(arrayMutex);
+TexIndex Manager::RequestTextureDecode(Array<char> &&buffer, az::String filepath, bool linear, i32 priority, bool lock) {
+	if (lock) arrayMutex.Lock();
 	TexIndex result = nextTexIndex++;
 	mappings.Emplace(filepath, Mapping{Type::TEXTURE, result});
 	textures.Resize(max(result+1, textures.size));
 	Texture &texture = textures[result];
 	texture.file = fileManager.RequestDecode(std::move(buffer), filepath, priority, textureDecoder, TextureDecodeMetadata{result, &textures, &arrayMutex, linear});
+	if (lock) arrayMutex.Unlock();
 	return result;
 }
 
@@ -516,33 +517,33 @@ LockedPtr<Stream> Manager::GetStream(StreamIndex index) {
 	return LockedPtr(&streams[index], std::move(lock));
 }
 
-bool Manager::IsTextureValid(TexIndex index) {
+bool Manager::IsTextureValid(TexIndex index, bool lock) {
 	// NOTE: You might think this should be a return value, but any indices outside of these bounds probably indicate a bug elsewhere. This function is for checking whether an index returned by a Request___ function was successfully loaded, and they can only return indices within these bounds.
 	AzAssert(index >= 0 && index < nextTexIndex, Stringify("TexIndex (", index, ") is invalid (must be >= 0 and < ", nextTexIndex, ")"));
-	ScopedLock lock(arrayMutex);
+	ScopedLock _lock(lock ? &arrayMutex : nullptr);
 	if (textures.size <= index) return false;
 	if (nullptr == textures[index].file || textures[index].file->stage == io::File::Stage::FILE_NOT_FOUND) return false;
 	return true;
 }
 
-bool Manager::IsFontValid(FontIndex index) {
+bool Manager::IsFontValid(FontIndex index, bool lock) {
 	AzAssert(index >= 0 && index < nextFontIndex, Stringify("FontIndex (", index, ") is invalid (must be >= 0 and < ", nextFontIndex, ")"));
-	ScopedLock lock(arrayMutex);
+	ScopedLock _lock(lock ? &arrayMutex : nullptr);
 	if (fonts.size <= index) return false;
 	if (nullptr == fonts[index].file || fonts[index].file->stage == io::File::Stage::FILE_NOT_FOUND) return false;
 	return true;
 }
 
-bool Manager::IsSoundValid(SoundIndex index) {
+bool Manager::IsSoundValid(SoundIndex index, bool lock) {
 	AzAssert(index >= 0 && index < nextSoundIndex, Stringify("SoundIndex (", index, ") is invalid (must be >= 0 and < ", nextSoundIndex, ")"));
-	ScopedLock lock(arrayMutex);
+	ScopedLock _lock(lock ? &arrayMutex : nullptr);
 	if (sounds.size <= index) return false;
 	return sounds[index].valid;
 }
 
-bool Manager::IsStreamValid(StreamIndex index) {
+bool Manager::IsStreamValid(StreamIndex index, bool lock) {
 	AzAssert(index >= 0 && index < nextStreamIndex, Stringify("StreamIndex (", index, ") is invalid (must be >= 0 and < ", nextStreamIndex, ")"));
-	ScopedLock lock(arrayMutex);
+	ScopedLock _lock(lock ? &arrayMutex : nullptr);
 	if (streams.size <= index) return false;
 	return streams[index].valid;
 }

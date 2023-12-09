@@ -86,8 +86,7 @@ void SetScissor(Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 positi
 void DrawQuad(Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 position, vec2 size, vec4 color) {
 	(void)dataGlobal;
 	(void)dataWidget;
-	Rendering::Material material;
-	material.color = color;
+	Rendering::Material material(color);
 	sys->rendering.DrawQuad(dataDrawCall.Get<Rendering::DrawingContext>(), position, size, vec2(1.0f), vec2(0.0f), 0.0f, Rendering::PIPELINE_BASIC_2D, material);
 }
 

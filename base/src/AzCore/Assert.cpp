@@ -16,14 +16,20 @@ void AzCore::_AssertFailure(const char *file, const char *line, const AzCore::St
 
 #ifdef __unix
 #include <execinfo.h>
-void AzCore::PrintBacktrace(FILE *file) {
+void AzCore::PrintBacktrace(io::Log &log) {
 	constexpr size_t stackSizeMax = 256;
 	void *array[stackSizeMax];
 	int size;
 
 	size = backtrace(array, stackSizeMax);
-	fprintf(file, "Backtrace:\n");
-	backtrace_symbols_fd(array, size, fileno(file));
+	log.PrintLn("Backtrace:");
+	char **memory = backtrace_symbols(array, size);
+	log.IndentMore();
+	for (i32 i = 0; i < size; i++) {
+		log.PrintLn(memory[i]);
+	}
+	log.IndentLess();
+	free(memory);
 }
 
 #elif defined(_MSC_VER)

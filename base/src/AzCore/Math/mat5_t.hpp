@@ -201,22 +201,22 @@ struct mat5_t {
 			Col<4>()
 		);
 	}
-	inline mat5_t<T> operator+(mat5_t<T> a) const {
+	inline mat5_t<T> operator+(mat5_t<T> rhs) const {
 		return FromCols(
-			Col<0>() + a,
-			Col<1>() + a,
-			Col<2>() + a,
-			Col<3>() + a,
-			Col<4>() + a
+			Col<0>() + rhs.template Col<0>(),
+			Col<1>() + rhs.template Col<1>(),
+			Col<2>() + rhs.template Col<2>(),
+			Col<3>() + rhs.template Col<3>(),
+			Col<4>() + rhs.template Col<4>()
 		);
 	}
 	inline mat5_t<T> operator*(mat5_t<T> rhs) const {
 		return mat5_t<T>(
-			dot(Row<0>(), rhs.Col<0>()), dot(Row<1>(), rhs.Col<0>()), dot(Row<2>(), rhs.Col<0>()), dot(Row<3>(), rhs.Col<0>()), dot(Row<4>(), rhs.Col<0>()),
-			dot(Row<0>(), rhs.Col<1>()), dot(Row<1>(), rhs.Col<1>()), dot(Row<2>(), rhs.Col<1>()), dot(Row<3>(), rhs.Col<1>()), dot(Row<4>(), rhs.Col<1>()),
-			dot(Row<0>(), rhs.Col<2>()), dot(Row<1>(), rhs.Col<2>()), dot(Row<2>(), rhs.Col<2>()), dot(Row<3>(), rhs.Col<2>()), dot(Row<4>(), rhs.Col<2>()),
-			dot(Row<0>(), rhs.Col<3>()), dot(Row<1>(), rhs.Col<3>()), dot(Row<2>(), rhs.Col<3>()), dot(Row<3>(), rhs.Col<3>()), dot(Row<4>(), rhs.Col<3>()),
-			dot(Row<0>(), rhs.Col<4>()), dot(Row<1>(), rhs.Col<4>()), dot(Row<2>(), rhs.Col<4>()), dot(Row<3>(), rhs.Col<4>()), dot(Row<4>(), rhs.Col<4>())
+			dot(Row<0>(), rhs.template Col<0>()), dot(Row<1>(), rhs.template Col<0>()), dot(Row<2>(), rhs.template Col<0>()), dot(Row<3>(), rhs.template Col<0>()), dot(Row<4>(), rhs.template Col<0>()),
+			dot(Row<0>(), rhs.template Col<1>()), dot(Row<1>(), rhs.template Col<1>()), dot(Row<2>(), rhs.template Col<1>()), dot(Row<3>(), rhs.template Col<1>()), dot(Row<4>(), rhs.template Col<1>()),
+			dot(Row<0>(), rhs.template Col<2>()), dot(Row<1>(), rhs.template Col<2>()), dot(Row<2>(), rhs.template Col<2>()), dot(Row<3>(), rhs.template Col<2>()), dot(Row<4>(), rhs.template Col<2>()),
+			dot(Row<0>(), rhs.template Col<3>()), dot(Row<1>(), rhs.template Col<3>()), dot(Row<2>(), rhs.template Col<3>()), dot(Row<3>(), rhs.template Col<3>()), dot(Row<4>(), rhs.template Col<3>()),
+			dot(Row<0>(), rhs.template Col<4>()), dot(Row<1>(), rhs.template Col<4>()), dot(Row<2>(), rhs.template Col<4>()), dot(Row<3>(), rhs.template Col<4>()), dot(Row<4>(), rhs.template Col<4>())
 		);
 	}
 	inline vec5_t<T> operator*(vec5_t<T> rhs) const {
@@ -256,11 +256,11 @@ typedef mat5_t<f64> mat5d;
 template <typename T>
 inline AzCore::vec5_t<T> operator*(AzCore::vec5_t<T> lhs, AzCore::mat5_t<T> rhs) {
 	return AzCore::vec5_t<T>(
-		dot(lhs, rhs.Col<0>()),
-		dot(lhs, rhs.Col<1>()),
-		dot(lhs, rhs.Col<2>()),
-		dot(lhs, rhs.Col<3>()),
-		dot(lhs, rhs.Col<4>())
+		dot(lhs, rhs.template Col<0>()),
+		dot(lhs, rhs.template Col<1>()),
+		dot(lhs, rhs.template Col<2>()),
+		dot(lhs, rhs.template Col<3>()),
+		dot(lhs, rhs.template Col<4>())
 	);
 }
 

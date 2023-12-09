@@ -232,18 +232,18 @@ struct mat4_t {
 	}
 	inline mat4_t<T> operator+(mat4_t<T> rhs) const {
 		return FromCols(
-			Col<0>() + rhs.Col<0>(),
-			Col<1>() + rhs.Col<1>(),
-			Col<2>() + rhs.Col<2>(),
-			Col<3>() + rhs.Col<3>()
+			Col<0>() + rhs.template Col<0>(),
+			Col<1>() + rhs.template Col<1>(),
+			Col<2>() + rhs.template Col<2>(),
+			Col<3>() + rhs.template Col<3>()
 		);
 	}
 	inline mat4_t<T> operator*(mat4_t<T> rhs) const {
 		return mat4_t<T>(
-			dot(Row<0>(), rhs.Col<0>()), dot(Row<1>(), rhs.Col<0>()), dot(Row<2>(), rhs.Col<0>()), dot(Row<3>(), rhs.Col<0>()),
-			dot(Row<0>(), rhs.Col<1>()), dot(Row<1>(), rhs.Col<1>()), dot(Row<2>(), rhs.Col<1>()), dot(Row<3>(), rhs.Col<1>()),
-			dot(Row<0>(), rhs.Col<2>()), dot(Row<1>(), rhs.Col<2>()), dot(Row<2>(), rhs.Col<2>()), dot(Row<3>(), rhs.Col<2>()),
-			dot(Row<0>(), rhs.Col<3>()), dot(Row<1>(), rhs.Col<3>()), dot(Row<2>(), rhs.Col<3>()), dot(Row<3>(), rhs.Col<3>())
+			dot(Row<0>(), rhs.template Col<0>()), dot(Row<1>(), rhs.template Col<0>()), dot(Row<2>(), rhs.template Col<0>()), dot(Row<3>(), rhs.template Col<0>()),
+			dot(Row<0>(), rhs.template Col<1>()), dot(Row<1>(), rhs.template Col<1>()), dot(Row<2>(), rhs.template Col<1>()), dot(Row<3>(), rhs.template Col<1>()),
+			dot(Row<0>(), rhs.template Col<2>()), dot(Row<1>(), rhs.template Col<2>()), dot(Row<2>(), rhs.template Col<2>()), dot(Row<3>(), rhs.template Col<2>()),
+			dot(Row<0>(), rhs.template Col<3>()), dot(Row<1>(), rhs.template Col<3>()), dot(Row<2>(), rhs.template Col<3>()), dot(Row<3>(), rhs.template Col<3>())
 		);
 	}
 	inline vec4_t<T> operator*(vec4_t<T> rhs) const {
@@ -291,10 +291,10 @@ typedef mat4_t<f64> mat4d;
 template <typename T>
 inline AzCore::vec4_t<T> operator*(AzCore::vec4_t<T> lhs, AzCore::mat4_t<T> rhs) {
 	return AzCore::vec4_t<T>(
-		dot(lhs, rhs.Col<0>()),
-		dot(lhs, rhs.Col<1>()),
-		dot(lhs, rhs.Col<2>()),
-		dot(lhs, rhs.Col<3>())
+		dot(lhs, rhs.template Col<0>()),
+		dot(lhs, rhs.template Col<1>()),
+		dot(lhs, rhs.template Col<2>()),
+		dot(lhs, rhs.template Col<3>())
 	);
 }
 

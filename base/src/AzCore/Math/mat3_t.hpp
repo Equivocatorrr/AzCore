@@ -128,18 +128,18 @@ struct mat3_t {
 			Col<2>()
 		);
 	}
-	inline mat3_t<T> operator+(mat3_t<T> a) const {
+	inline mat3_t<T> operator+(mat3_t<T> rhs) const {
 		return FromCols(
-			Col<0>() + rhs.Col<0>(),
-			Col<1>() + rhs.Col<1>(),
-			Col<2>() + rhs.Col<2>()
+			Col<0>() + rhs.template Col<0>(),
+			Col<1>() + rhs.template Col<1>(),
+			Col<2>() + rhs.template Col<2>()
 		);
 	}
 	inline mat3_t<T> operator*(mat3_t<T> rhs) const {
 		return mat3_t<T>(
-			dot(Row<0>(), rhs.Col<0>()), dot(Row<1>(), rhs.Col<0>()), dot(Row<2>(), rhs.Col<0>()),
-			dot(Row<0>(), rhs.Col<1>()), dot(Row<1>(), rhs.Col<1>()), dot(Row<2>(), rhs.Col<1>()),
-			dot(Row<0>(), rhs.Col<2>()), dot(Row<1>(), rhs.Col<2>()), dot(Row<2>(), rhs.Col<2>())
+			dot(Row<0>(), rhs.template Col<0>()), dot(Row<1>(), rhs.template Col<0>()), dot(Row<2>(), rhs.template Col<0>()),
+			dot(Row<0>(), rhs.template Col<1>()), dot(Row<1>(), rhs.template Col<1>()), dot(Row<2>(), rhs.template Col<1>()),
+			dot(Row<0>(), rhs.template Col<2>()), dot(Row<1>(), rhs.template Col<2>()), dot(Row<2>(), rhs.template Col<2>())
 		);
 	}
 	inline vec3_t<T> operator*(vec3_t<T> rhs) const {
@@ -173,9 +173,9 @@ typedef mat3_t<f64> mat3d;
 template <typename T>
 inline AzCore::vec3_t<T> operator*(AzCore::vec3_t<T> lhs, AzCore::mat3_t<T> rhs) {
 	return AzCore::vec3_t<T>(
-		dot(lhs, rhs.Col<0>()),
-		dot(lhs, rhs.Col<1>()),
-		dot(lhs, rhs.Col<2>())
+		dot(lhs, rhs.template Col<0>()),
+		dot(lhs, rhs.template Col<1>()),
+		dot(lhs, rhs.template Col<2>())
 	);
 }
 

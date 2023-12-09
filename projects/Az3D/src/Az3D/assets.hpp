@@ -203,7 +203,8 @@ struct Manager {
 	MeshIndex   RequestMesh   (az::String filepath, i32 priority=0);
 	
 	// filepath is for debugging purposes
-	TexIndex    RequestTextureDecode(az::Array<char> &&buffer, az::String filepath, bool linear, i32 priority=0);
+	// if lock is true then it will try to lock arrayMutex, otherwise it's expected you've already locked it.
+	TexIndex    RequestTextureDecode(az::Array<char> &&buffer, az::String filepath, bool linear, i32 priority=0, bool lock=true);
 
 	i32 FindMapping(az::Str filename, Type type);
 	inline TexIndex FindTexture(az::Str filename) {

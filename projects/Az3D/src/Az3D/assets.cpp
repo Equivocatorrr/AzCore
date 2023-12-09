@@ -341,7 +341,7 @@ void Mesh::Decode(Manager *manager) {
 	// 	}
 	// }
 	for (auto &image : imageData) {
-		manager->RequestTextureDecode(Array<char>(image.data), Stringify(file->filepath, "/", image.filename), image.isLinear, file->priority);
+		manager->RequestTextureDecode(Array<char>(image.data), Stringify(file->filepath, "/", image.filename), image.isLinear, file->priority, false);
 	}
 	manager->arrayMutex.Unlock();
 	for (Az3DObj::Mesh &meshData : az3dFile.meshes) {
@@ -447,14 +447,15 @@ TexIndex Manager::RequestTexture(az::String filepath, bool linear, i32 priority)
 	return result;
 }
 
-TexIndex Manager::RequestTextureDecode(Array<char> &&buffer, az::String filepath, bool linear, i32 priority) {
-	ScopedLock lock(arrayMutex);
+TexIndex Manager::RequestTextureDecode(Array<char> &&buffer, az::String filepath, bool linear, i32 priority, bool lock) {
+	if (lock) arrayMutex.Lock();
 	TexIndex result = nextTexIndex++;
 	mappings.Emplace(filepath, Mapping{Type::TEXTURE, result});
 	textures.Resize(max(result+1, textures.size));
 	Texture &texture = textures[result];
 	filepath = Stringify("textures/", filepath);
 	texture.file = fileManager.RequestDecode(std::move(buffer), filepath, priority, textureDecoder, TextureDecodeMetadata{result, &textures, &arrayMutex, linear});
+	if (lock) arrayMutex.Unlock();
 	return result;
 }
 

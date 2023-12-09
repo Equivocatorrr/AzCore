@@ -41,7 +41,7 @@ T sin(T x) {
 	x -= T(pi64/4.0);
 	T result = coefficients[0];
 	T xx = x;
-	for (i32 i = 1; i < sizeof(coefficients) / sizeof(T); i++) {
+	for (i32 i = 1; i < i32(sizeof(coefficients) / sizeof(T)); i++) {
 		result += xx * coefficients[i];
 		xx *= x;
 	}

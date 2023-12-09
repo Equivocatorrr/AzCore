@@ -284,6 +284,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 				case NoiseType::SIMPLEX_LAYERED:
 					RenderSimplexLayeredNoise(renderer, pos, zoom, aspect, nOctaves, detail, seed);
 					break;
+				default: AzAssert(false, "Whoops!"); break;
 			}
 			cout.PrintLn("Took ", FormatTime(noiseTime), " for ", calls, " calls. (", (1000000000 * calls / noiseTime.count()), " calls per second)");
 			updated = false;

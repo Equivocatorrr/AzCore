@@ -7,7 +7,9 @@
 #ifndef AZCORE_QUICKSORT_HPP
 
 #include "basictypes.hpp"
-#include "memory.hpp"
+#include "Memory/Range.hpp"
+#include "Memory/Array.hpp"
+#include "Memory/ArrayWithBucket.hpp"
 
 namespace AzCore {
 

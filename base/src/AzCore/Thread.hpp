@@ -144,6 +144,11 @@ public:
 
 struct ScopedLock {
 	Mutex *mutex;
+	inline ScopedLock(Mutex *_mutex) : mutex(_mutex) {
+		if (mutex) {
+			mutex->Lock();
+		}
+	}
 	inline ScopedLock(Mutex &_mutex) : mutex(&_mutex) {
 		mutex->Lock();
 	}
@@ -173,8 +178,14 @@ public:
 	}
 };
 
+#ifdef __unix
+#define AZCORE_CONDVAR_DATA_SIZE 48
+#elif defined(_WIN32)
+#define AZCORE_CONDVAR_DATA_SIZE 8
+#endif
+
 class CondVar {
-	alignas(8) char data[8];
+	alignas(8) char data[AZCORE_CONDVAR_DATA_SIZE];
 public:
 	CondVar();
 	~CondVar();

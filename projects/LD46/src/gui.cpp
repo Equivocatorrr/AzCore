@@ -145,7 +145,7 @@ void MainMenu::Initialize() {
 	listV->color = vec4(0.0f);
 	listV->colorHighlighted = vec4(0.0f);
 
-	azgui::Spacer *spacer = gui->system.CreateSpacer(listV, 0.3f);
+	gui->system.CreateSpacer(listV, 0.3f);
 
 	azgui::Text *title = gui->system.CreateText(listV);
 	title->data = TextMetadata{Rendering::CENTER, Rendering::TOP};
@@ -156,14 +156,14 @@ void MainMenu::Initialize() {
 	title->fontSize = 64.0f;
 	title->string = sys->ReadLocale("Torch Runner");
 
-	spacer = gui->system.CreateSpacer(listV, 0.4f);
+	gui->system.CreateSpacer(listV, 0.4f);
 	
 	azgui::ListH *spacingList = gui->system.CreateListHAsDefault(listV);
 	spacingList->color = vec4(0.0f);
 	spacingList->colorHighlighted = vec4(0.0f);
 	spacingList->SetHeightContents();
 
-	spacer = gui->system.CreateSpacer(spacingList, 0.5f);
+	gui->system.CreateSpacer(spacingList, 0.5f);
 
 	azgui::ListV *buttonList = gui->system.CreateListVAsDefault(spacingList);
 	buttonList->SetWidthPixel(500.0f);
@@ -233,7 +233,7 @@ void SettingsMenu::Initialize() {
 	listV->color = vec4(0.0f);
 	listV->colorHighlighted = vec4(0.0f);
 
-	azgui::Spacer *spacer = gui->system.CreateSpacer(listV, 0.3f);
+	gui->system.CreateSpacer(listV, 0.3f);
 
 	azgui::Text *title = gui->system.CreateText(listV);
 	title->data = TextMetadata{Rendering::CENTER, Rendering::TOP};
@@ -244,14 +244,14 @@ void SettingsMenu::Initialize() {
 	title->fontSize = 64.0f;
 	title->string = sys->ReadLocale("Settings");
 
-	spacer = gui->system.CreateSpacer(listV, 0.4f);
+	gui->system.CreateSpacer(listV, 0.4f);
 	
 	azgui::ListH *spacingList = gui->system.CreateListHAsDefault(listV);
 	spacingList->color = vec4(0.0f);
 	spacingList->colorHighlighted = vec4(0.0f);
 	spacingList->SetHeightContents();
 
-	spacer = gui->system.CreateSpacer(spacingList, 0.5f);
+	gui->system.CreateSpacer(spacingList, 0.5f);
 
 	azgui::ListV *actualList = gui->system.CreateListVAsDefault(spacingList);
 	actualList->SetWidthPixel(500.0f);
@@ -425,7 +425,7 @@ void CutsceneMenu::Initialize() {
 	screenListH->color = vec4(vec3(0.0f), 1.0f);
 	screenListH->colorHighlighted = screenListH->color;
 
-	azgui::Spacer *spacer = gui->system.CreateSpacer(screenListH, 0.5f);
+	gui->system.CreateSpacer(screenListH, 0.5f);
 
 	azgui::ListV *listV = gui->system.CreateListVAsDefault(screenListH);
 	listV->margin = 0.0f;
@@ -434,7 +434,7 @@ void CutsceneMenu::Initialize() {
 	listV->colorHighlighted = 0.0f;
 	listV->SetWidthContents();
 
-	spacer = gui->system.CreateSpacer(listV, 0.5f);
+	gui->system.CreateSpacer(listV, 0.5f);
 
 	image = gui->system.CreateImage(listV);
 	image->SetSizePixel(vec2(416.0f, 416.0f));
@@ -555,7 +555,7 @@ void PlayMenu::Initialize() {
 	listTop->color = 0.0f;
 	listTop->colorHighlighted = 0.0f;
 
-	azgui::Spacer *spacer = gui->system.CreateSpacer(screenListV, 1.0f);
+	gui->system.CreateSpacer(screenListV, 1.0f);
 
 	azgui::ListH *listBottom = gui->system.CreateListH(screenListV);
 	listBottom->SetWidthFraction(1.0f);
@@ -569,7 +569,7 @@ void PlayMenu::Initialize() {
 	buttonMenu->AddDefaultText(sys->ReadLocale("Menu"));
 	buttonMenu->keycodeActivators = {KC_GP_BTN_START, KC_KEY_ESC};
 
-	spacer = gui->system.CreateSpacer(listBottom, 1.0f);
+	gui->system.CreateSpacer(listBottom, 1.0f);
 
 	buttonReset = gui->system.CreateButton(listBottom);
 	buttonReset->SetWidthPixel(120.0f);
@@ -643,7 +643,7 @@ void EditorMenu::Initialize() {
 		text->string = sys->ReadLocale(blockNames[i]);
 	}
 
-	azgui::Spacer *spacer = gui->system.CreateSpacer(screenListV, 0.5f);
+	gui->system.CreateSpacer(screenListV, 0.5f);
 
 	azgui::ListH *listMiddle = gui->system.CreateListH(screenListV);
 	listMiddle->SetHeightContents();
@@ -654,7 +654,7 @@ void EditorMenu::Initialize() {
 	listMiddle->colorHighlighted = 0.0f;
 	listMiddle->occludes = false;
 
-	spacer = gui->system.CreateSpacer(listMiddle, 0.5f);
+	gui->system.CreateSpacer(listMiddle, 0.5f);
 
 	azgui::ListV *listDialogs = gui->system.CreateListV(listMiddle);
 	listDialogs->SetWidthPixel(480.0f);
@@ -665,7 +665,7 @@ void EditorMenu::Initialize() {
 	listDialogs->padding = 0.0f;
 	listDialogs->occludes = false;
 
-	spacer = gui->system.CreateSpacer(screenListV, 0.5f);
+	gui->system.CreateSpacer(screenListV, 0.5f);
 
 	azgui::ListH *listBottom = gui->system.CreateListH(screenListV);
 	listBottom->SetHeightPixel(80.0f);
@@ -682,7 +682,7 @@ void EditorMenu::Initialize() {
 	buttonMenu->AddDefaultText(sys->ReadLocale("Menu"));
 	buttonMenu->keycodeActivators = {KC_GP_BTN_START, KC_KEY_ESC};
 
-	spacer = gui->system.CreateSpacer(listBottom, 1.0f);
+	gui->system.CreateSpacer(listBottom, 1.0f);
 
 	buttonNew = gui->system.CreateButtonFrom(listBottom, buttonTemplate);
 	buttonNew->AddDefaultText(sys->ReadLocale("New"));
@@ -753,7 +753,7 @@ void EditorMenu::Initialize() {
 		buttons->colorHighlighted = 0.0f;
 
 		gui->system.AddWidgetAsDefault(buttons, buttonCancel);
-		spacer = gui->system.CreateSpacer(buttons, 1.0f);
+		gui->system.CreateSpacer(buttons, 1.0f);
 		gui->system.AddWidget(buttons, buttonConfirm);
 	}
 
@@ -786,7 +786,7 @@ void EditorMenu::Initialize() {
 		buttons->colorHighlighted = 0.0f;
 
 		gui->system.AddWidgetAsDefault(buttons, buttonCancel);
-		spacer = gui->system.CreateSpacer(buttons, 1.0f);
+		gui->system.CreateSpacer(buttons, 1.0f);
 		gui->system.AddWidget(buttons, buttonConfirm);
 	}
 
@@ -812,7 +812,7 @@ void EditorMenu::Initialize() {
 		buttons->colorHighlighted = 0.0f;
 
 		gui->system.AddWidgetAsDefault(buttons, buttonCancel);
-		spacer = gui->system.CreateSpacer(buttons, 1.0f);
+		gui->system.CreateSpacer(buttons, 1.0f);
 		gui->system.AddWidget(buttons, buttonConfirm);
 	}
 }

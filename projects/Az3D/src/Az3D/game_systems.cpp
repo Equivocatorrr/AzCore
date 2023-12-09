@@ -121,19 +121,23 @@ void UpdateLoop() {
 			frameStart = frameNext;
 		}
 		frameNext = frameStart + sys->frameDuration;
-		{
-			i32 dpi = sys->window.GetDPI();
-			f32 scale = (f32)dpi / 96.0f;
-			// Gui::guiBasic->scale = scale;
-		}
+		// {
+		// 	i32 dpi = sys->window.GetDPI();
+		// 	f32 scale = (f32)dpi / 96.0f;
+		// 	Gui::guiBasic->scale = scale;
+		// }
 		sys->rawInput.Update(sys->timestep);
 		sys->Sync();
 		
+		sys->mutexUpdate.Lock();
 		sys->doUpdate = true;
 		sys->doneUpdate = false;
+		sys->mutexUpdate.Unlock();
 		sys->condUpdate.WakeAll();
+		sys->mutexDraw.Lock();
 		sys->doDraw = true;
 		sys->doneDraw = false;
+		sys->mutexDraw.Unlock();
 		sys->condDraw.WakeAll();
 		
 		sys->mutexControl.Lock();

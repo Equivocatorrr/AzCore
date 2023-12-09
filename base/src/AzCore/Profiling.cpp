@@ -3,7 +3,7 @@
 	Author: Philip Haynes
 */
 
-#include "profiling.hpp"
+#include "Profiling.hpp"
 #include "IO/Log.hpp"
 #include "Thread.hpp"
 #include "QuickSort.hpp"

@@ -7,6 +7,7 @@
 #define AZCORE_MATH_MAT2_T_HPP
 
 #include "vec2_t.hpp"
+#include "../Memory/String.hpp"
 
 namespace AzCore {
 
@@ -96,14 +97,14 @@ struct mat2_t {
 	}
 	inline mat2_t<T> operator+(mat2_t<T> rhs) const {
 		return FromCols(
-			Col<0>() + rhs.Col<0>(),
-			Col<1>() + rhs.Col<1>()
+			Col<0>() + rhs.template Col<0>(),
+			Col<1>() + rhs.template Col<1>()
 		);
 	}
 	inline mat2_t<T> operator*(mat2_t<T> rhs) const {
 		return mat2_t<T>(
-			dot(Row<0>(), rhs.Col<0>()), dot(Row<1>(), rhs.Col<0>()),
-			dot(Row<0>(), rhs.Col<1>()), dot(Row<1>(), rhs.Col<1>())
+			dot(Row<0>(), rhs.template Col<0>()), dot(Row<1>(), rhs.template Col<0>()),
+			dot(Row<0>(), rhs.template Col<1>()), dot(Row<1>(), rhs.template Col<1>())
 		);
 	}
 	inline vec2_t<T> operator*(vec2_t<T> rhs) const {
@@ -134,8 +135,8 @@ typedef mat2_t<f64> mat2d;
 template <typename T>
 inline AzCore::vec2_t<T> operator*(AzCore::vec2_t<T> lhs, AzCore::mat2_t<T> rhs) {
 	return AzCore::vec2_t<T>(
-		dot(lhs, rhs.Col<0>()),
-		dot(lhs, rhs.Col<1>())
+		dot(lhs, rhs.template Col<0>()),
+		dot(lhs, rhs.template Col<1>())
 	);
 }
 

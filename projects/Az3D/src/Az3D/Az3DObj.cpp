@@ -77,7 +77,7 @@ namespace Types {
 		bool FromBuffer(Str buffer, i64 &cur) {
 			EXPECT_SPACE_IN_BUFFER(SIZE);
 			EXPECT_TAG_IN_BUFFER("Name", 4);
-			memcpy(this, &buffer[cur], SIZE);
+			memcpy(ident, &buffer[cur], SIZE);
 			cur += SIZE;
 			EXPECT_SPACE_IN_BUFFER(length);
 			name = Str(&buffer[cur], length);
@@ -115,7 +115,7 @@ namespace Types {
 		bool FromBuffer(Str buffer, i64 &cur) {
 			EXPECT_SPACE_IN_BUFFER(SIZE);
 			EXPECT_TAG_IN_BUFFER("Vert", 4);
-			memcpy(this, &buffer[cur], SIZE);
+			memcpy(ident, &buffer[cur], SIZE);
 			cur += SIZE;
 			Array<SrcScalar> srcScalars;
 			if (!ParseFormat(buffer, cur, componentCount, stride, srcScalars)) return false;
@@ -201,7 +201,7 @@ namespace Types {
 					dst.Append(scalar);
 				}
 			}
-			if (totalSize != stride) {
+			if (totalSize != (i32)stride) {
 				io::cerr.PrintLn("Vert Format string describes a Vertex with a stride of ", totalSize, " when it was supposed to have a stride of ", stride);
 				return false;
 			}
@@ -218,7 +218,7 @@ namespace Types {
 			f32 *dst = (f32*)&result;
 			u8 *src = (u8*)buffer;
 			for (SrcScalar srcScalar : srcScalars) {
-				AzAssert(srcScalar.dstOffset < sizeof(Vertex) / sizeof(f32), "dstOffset is out of bounds");
+				AzAssert(srcScalar.dstOffset < i64(sizeof(Vertex) / sizeof(f32)), "dstOffset is out of bounds");
 				if (srcScalar.dstOffset >= 0) {
 					switch (srcScalar.kind) {
 						case SrcScalar::F32:
@@ -254,7 +254,7 @@ namespace Types {
 		bool FromBuffer(Str buffer, i64 &cur) {
 			EXPECT_SPACE_IN_BUFFER(SIZE);
 			EXPECT_TAG_IN_BUFFER("Indx", 4);
-			memcpy(this, &buffer[cur], SIZE);
+			memcpy(ident, &buffer[cur], SIZE);
 			cur += SIZE;
 			if (count < 0x100) {
 				stride = 1;
@@ -409,7 +409,6 @@ namespace Tables {
 			bool hasMat0 = false;
 			bool skippedToEnd = false;
 			while (cur < endCur) {
-				i64 spaceLeft = endCur - cur;
 				Str tag = Str(&buffer[cur], 4);
 				if (tag == "Name") {
 					if (!name.FromBuffer(buffer, cur)) return false;

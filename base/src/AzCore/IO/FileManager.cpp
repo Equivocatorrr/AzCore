@@ -6,11 +6,12 @@
 #include "FileManager.hpp"
 #include "../QuickSort.hpp"
 #include "Log.hpp"
+#include "../Math/basic.hpp"
 
 namespace AzCore::io {
 
 void FileManager::Init(i32 numDecodeWorkers) {
-	cout.PrintLnTrace("Calling " __FUNCTION__);
+	cout.PrintLnTrace("Calling ", __func__);
 	AzAssert(!initted, "Calling FileManager::Init when it's already been initted");
 	if (numDecodeWorkers < 1) {
 		numDecodeWorkers = max((i32)Thread::HardwareConcurrency() - 2, 2);
@@ -27,7 +28,7 @@ void FileManager::Init(i32 numDecodeWorkers) {
 }
 
 void FileManager::Deinit() {
-	cout.PrintLnTrace("Calling " __FUNCTION__);
+	cout.PrintLnTrace("Calling ", __func__);
 	AzAssert(initted, "Calling FileManager::Deinit when it hasn't been initted");
 	close = true;
 	condRequested.WakeAll();
@@ -40,7 +41,7 @@ void FileManager::Deinit() {
 }
 
 void FileManager::WaitUntilDone() {
-	cout.PrintLnTrace("Calling " __FUNCTION__);
+	cout.PrintLnTrace("Calling ", __func__);
 	mutexPipeline.Lock();
 	while (!close && filesInPipeline > 0) {
 		condPipeline.Wait(mutexPipeline);
@@ -53,7 +54,7 @@ static void SortFiles(Array<File*> &array) {
 }
 
 File* FileManager::RequestFile(String filepath, i32 priority, File::fp_Decoder decoder, Any userdata) {
-	cout.PrintLnTrace("Calling " __FUNCTION__ " for \"", filepath, "\"");
+	cout.PrintLnTrace("Calling ", __func__, " for \"", filepath, "\"");
 	AzAssert(initted, "Calling FileManager::RequestFile when it hasn't been initted");
 	mutexFiles.Lock();
 	File &result = files.ValueOf(filepath, File{filepath, {}, std::move(userdata), decoder, priority, File::Stage::REQUESTED});
@@ -72,7 +73,7 @@ File* FileManager::RequestFile(String filepath, i32 priority, File::fp_Decoder d
 }
 
 File* FileManager::RequestDecode(Array<char> &&buffer, String filepath, i32 priority, File::fp_Decoder decoder, Any userdata) {
-	cout.PrintLnTrace("Calling " __FUNCTION__ " for \"", filepath, "\"");
+	cout.PrintLnTrace("Calling ", __func__, " for \"", filepath, "\"");
 	AzAssert(initted, "Calling FileManager::RequestFile when it hasn't been initted");
 	AzAssert(decoder != nullptr, "Why are you calling RequestDecode without any decoder???");
 	mutexFiles.Lock();

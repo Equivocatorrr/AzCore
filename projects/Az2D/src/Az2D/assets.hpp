@@ -180,7 +180,8 @@ struct Manager {
 	StreamIndex RequestStream (az::String filepath, i32 priority=0);
 	
 	// filepath is for debugging purposes
-	TexIndex    RequestTextureDecode(az::Array<char> &&buffer, az::String filepath, bool linear=false, i32 priority=0);
+	// if lock is true then it will try to lock arrayMutex, otherwise it's expected you've already locked it.
+	TexIndex    RequestTextureDecode(az::Array<char> &&buffer, az::String filepath, bool linear=false, i32 priority=0, bool lock=true);
 
 	i32 FindMapping(az::SimpleRange<char> filename, Type type);
 	inline TexIndex FindTexture(az::SimpleRange<char> filename) {
@@ -202,10 +203,10 @@ struct Manager {
 	az::LockedPtr<Sound>   GetSound  (SoundIndex  index);
 	az::LockedPtr<Stream>  GetStream (StreamIndex index);
 	
-	bool IsTextureValid(TexIndex    index);
-	bool IsFontValid   (FontIndex   index);
-	bool IsSoundValid  (SoundIndex  index);
-	bool IsStreamValid (StreamIndex index);
+	bool IsTextureValid(TexIndex    index, bool lock=true);
+	bool IsFontValid   (FontIndex   index, bool lock=true);
+	bool IsSoundValid  (SoundIndex  index, bool lock=true);
+	bool IsStreamValid (StreamIndex index, bool lock=true);
 };
 
 } // namespace Az2D::Assets

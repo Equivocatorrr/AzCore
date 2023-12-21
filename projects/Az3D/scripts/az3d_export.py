@@ -427,10 +427,20 @@ def pad(data):
 	data += b'\0' * (align(len(data)) - len(data))
 
 # tex_indices should be a dict that maps from texture filenames to [index, isLinear]
-def write_mesh(context, props, out, object, tex_indices):
+def write_mesh(context: bpy.types.Context, props: bpy.types.OperatorProperties, out, object: bpy.types.Object, tex_indices: dict[str, list[int | bool]]):
+	object_armature_poses = []
+	for modifier in object.modifiers:
+		if modifier.type == 'ARMATURE' and modifier.object and modifier.object.type == 'ARMATURE':
+			armature = modifier.object.data
+			if armature.pose_position != 'REST':
+				object_armature_poses.append((armature, armature.pose_position))
+				armature.pose_position = 'REST'
+		# TODO: Use subsurface modifier (perhaps for LOD, but also maybe to save on file size since we can apply it on file load)
 	depsgraph = context.evaluated_depsgraph_get()
 	object_eval = object.evaluated_get(depsgraph)
-	mesh = object_eval.to_mesh()
+	mesh: bpy.types.Mesh = object_eval.to_mesh()
+	for armature_pose in object_armature_poses:
+		armature_pose[0].pose_position = armature_pose[1]
 	prepare_mesh(mesh, object_eval.matrix_world.copy())
 	s = props.scale
 	materials = get_material_props(object)
@@ -619,6 +629,9 @@ def write_textures(out, tex_indices):
 		out.write(struct.pack('<II', len(file_info.data), file_info.linear))
 		write_padded(out, file_info.data)
 
+def write_armature(context: bpy.types.Context, props: bpy.types.OperatorProperties, out, object: bpy.types.Object):
+	pass
+
 class ExportAZ3D(bpy.types.Operator, ExportHelper):
 	"""Exports all relevant objects in the scene that define an AZ3D Object."""
 	bl_idname = "export_scene.az3d"
@@ -646,6 +659,8 @@ class ExportAZ3D(bpy.types.Operator, ExportHelper):
 				write_mesh(context, props, out, obj, tex_indices)
 			elif obj.type == 'EMPTY':
 				write_empty(props, out, obj)
+			elif obj.type == 'ARMATURE':
+				write_armature(context, props, out, obj)
 		write_textures(out, tex_indices)
 		out.close()
 			

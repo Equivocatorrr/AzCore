@@ -156,15 +156,14 @@ public:
 		indent--;
 		return *this;
 	}
-	// Locks this Log's mutex, allowing thread-safe output.
-	// NOTE: All threads must call this to be thread-safe.
+	[[deprecated("Mutex locks are now implicit to Print calls")]]
 	inline Log& Lock() {
-		mMutex.Lock();
+		// mMutex.Lock();
 		return *this;
 	}
-	// Unlocks the mutex.
+	[[deprecated("Mutex locks are now implicit to Print calls")]]
 	inline Log& Unlock() {
-		mMutex.Unlock();
+		// mMutex.Unlock();
 		return *this;
 	}
 	// Changes the string we use for indenting. Default is 4 spaces.

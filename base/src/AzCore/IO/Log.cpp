@@ -101,6 +101,7 @@ void Log::_Print(SimpleRange<char> out) {
 		out = "\nPlease use Log::Newline() instead of Log::Print(\"\\n\")\n";
 	}
 #endif
+	ScopedLock lock(mMutex);
 	if (!mLogConsole && !mLogFile) return;
 	_HandleFile();
 	static String consoleOut;
@@ -185,6 +186,7 @@ template void Log::_Print<false>(SimpleRange<char>);
 template void Log::_Print<true>(SimpleRange<char>);
 
 Log& Log::PrintPlain(SimpleRange<char> out) {
+	ScopedLock lock(mMutex);
 	if (!mLogConsole && !mLogFile) return *this;
 	_HandleFile();
 	if (mFile) {
@@ -199,6 +201,7 @@ Log& Log::PrintPlain(SimpleRange<char> out) {
 }
 
 Log& Log::PrintLnPlain(SimpleRange<char> out) {
+	ScopedLock lock(mMutex);
 	if (!mLogConsole && !mLogFile) return *this;
 	_HandleFile();
 	if (mFile) {
@@ -215,6 +218,7 @@ Log& Log::PrintLnPlain(SimpleRange<char> out) {
 }
 
 Log& Log::Newline(i32 count) {
+	ScopedLock lock(mMutex);
 	if (!mLogConsole && !mLogFile) return *this;
 	_HandleFile();
 	if (mFile) {

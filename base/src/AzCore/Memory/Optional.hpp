@@ -7,6 +7,7 @@
 #define AZCORE_OPTIONAL_HPP
 
 #include "../basictypes.hpp"
+#include "../Assert.hpp"
 #include <utility> // std::move
 #include <stdexcept>
 

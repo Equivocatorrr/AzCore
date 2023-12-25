@@ -3933,7 +3933,7 @@ failure:
 					goto failed;
 				}
 			} else {
-				if (!shader.Init(this, data.debugMarker + ".shaders[" + ToString(index) + "]")) {
+				if (!shader.Init(this, Stringify(data.debugMarker, ".shaders[", index, "] \"", shader.filename, "\""))) {
 					goto failed;
 				}
 				index++;

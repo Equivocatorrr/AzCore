@@ -80,7 +80,15 @@ String FramerateSetter(void *userdata, String name, String argument) {
 void SetScissor(Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 position, vec2 size) {
 	(void)dataGlobal;
 	(void)dataWidget;
-	sys->rendering.SetScissor(dataDrawCall.Get<Rendering::DrawingContext>(), position, size);
+	vec2i p = vec2i(
+		clamp((i64)position.x, (i64)0, (i64)INT32_MAX),
+		clamp((i64)position.y, (i64)0, (i64)INT32_MAX)
+	);
+	vec2i s = vec2i(
+		clamp((i64)size.x, (i64)0, i64(INT32_MAX - p.x)),
+		clamp((i64)size.y, (i64)0, i64(INT32_MAX - p.y))
+	);
+	sys->rendering.SetScissor(dataDrawCall.Get<Rendering::DrawingContext>(), p, s);
 }
 
 void DrawQuad(Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 position, vec2 size, vec4 color) {

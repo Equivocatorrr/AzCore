@@ -249,6 +249,7 @@ bool Manager::Init() {
 			texImages[i].width = 1;
 			texImages[i].height = 1;
 			texImages[i].mipLevels = 1;
+			texImages[i].format = VK_FORMAT_R8_UNORM;
 			texStagingBuffers[i].size = 1;
 			continue;
 		}
@@ -437,8 +438,8 @@ bool Manager::Init() {
 		},
 		{
 			/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT,
-			/* offset */ 48,
-			/* size */ sizeof(Material) + 4
+			/* offset */ offsetof(PushConstants, frag),
+			/* size */ sizeof(PushConstants::frag_t)
 		}
 	};
 	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->pushConstantRanges = data.pipelines[PIPELINE_BASIC_2D]->pushConstantRanges;
@@ -967,6 +968,8 @@ void Manager::BindPipeline(DrawingContext &context, PipelineIndex pipeline) cons
 }
 
 void Manager::SetScissor(DrawingContext &context, vec2i min, vec2i size) {
+	AzAssert(min.x >= 0 && min.y >= 0, "SetScissor min must be >= 0");
+	AzAssert((i64)min.x+(i64)size.x <= INT32_MAX && (i64)min.y+(i64)size.y <= INT32_MAX, "SetScissor min+size must be <= INT32_MAX");
 	vk::CmdSetScissor(context.commandBuffer, size.x, size.y, min.x, min.y);
 }
 
@@ -978,13 +981,13 @@ void Manager::PushScissor(DrawingContext &context, vec2i min, vec2i max) {
 	state.max.x = ::min(max.x, prev.max.x);
 	state.max.y = ::min(max.y, prev.max.y);
 	context.scissorStack.Append(state);
-	vk::CmdSetScissor(context.commandBuffer, (u32)::max(state.max.x-state.min.x, 0), (u32)::max(state.max.y-state.min.y, 0), state.min.x, state.min.y);
+	SetScissor(context, state.min, vec2i(::max(state.max.x-state.min.x, 0), ::max(state.max.y-state.min.y, 0)));
 }
 
 void Manager::PopScissor(DrawingContext &context) {
 	context.scissorStack.Erase(context.scissorStack.size-1);
 	const ScissorState &state = context.scissorStack.Back();
-	vk::CmdSetScissor(context.commandBuffer, (u32)(state.max.x-state.min.x), (u32)(state.max.y-state.min.y), state.min.x, state.min.y);
+	SetScissor(context, state.min, vec2i(::max(state.max.x-state.min.x, 0), ::max(state.max.y-state.min.y, 0)));
 }
 
 void Manager::UpdateBackground() {

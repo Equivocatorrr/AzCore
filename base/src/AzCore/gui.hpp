@@ -604,7 +604,7 @@ enum class InputMethod {
 
 struct System {
 	Array<UniquePtr<Widget>> _allWidgets;
-	Array<Scissor> stackScissors = {Scissor{vec2i(INT32_MIN), vec2i(INT32_MAX)}};
+	Array<Scissor> stackScissors = {Scissor{vec2i(0), vec2i(INT32_MAX)}};
 	
 	Functions functions;
 	Defaults defaults;

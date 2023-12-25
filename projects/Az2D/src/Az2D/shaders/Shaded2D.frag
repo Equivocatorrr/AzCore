@@ -9,6 +9,7 @@
 layout (location = 0) in vec2 inTexCoord;
 layout (location = 1) in vec3 inScreenPos;
 layout (location = 2) in mat2 inTransform;
+layout (location = 4) in float inZShear;
 
 layout (location = 0) out vec4 outColor;
 

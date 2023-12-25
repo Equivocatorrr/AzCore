@@ -983,6 +983,8 @@ namespace vk {
 	}
 
 	inline void CmdSetScissor(VkCommandBuffer commandBuffer, u32 width, u32 height, i32 x=0, i32 y=0) {
+		AzAssert((i64)width+(i64)x <= INT32_MAX, "CmdSetScissor width+x must be <= INT32_MAX");
+		AzAssert((i64)height+(i64)y <= INT32_MAX, "CmdSetScissor height+y must be <= INT32_MAX");
 		VkRect2D scissor;
 		scissor.extent.width = width;
 		scissor.extent.height = height;

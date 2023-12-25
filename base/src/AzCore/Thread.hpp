@@ -161,6 +161,12 @@ struct ScopedLock {
 			mutex->Unlock();
 		}
 	}
+	inline void Release() {
+		if (mutex) {
+			mutex->Unlock();
+		}
+		mutex = nullptr;
+	}
 };
 
 // Wraps a pointer in a ScopedLock. Used for when access to an object must be synchronized by a Mutex externally from the object that owns the Mutex.

@@ -107,6 +107,7 @@ void Log::_Print(SimpleRange<char> out) {
 	static String consoleOut;
 	static String fileOut;
 	if ((!mLogConsole || mPrepend.size == 0) && indent == 0) {
+		lock.Release();
 		if constexpr (newline) {
 			PrintLnPlain(out);
 		} else {
@@ -114,9 +115,8 @@ void Log::_Print(SimpleRange<char> out) {
 		}
 		return;
 	}
-	// Soft reset since we don't want to reallocate all the time
-	consoleOut.size = 0;
-	fileOut.size = 0;
+	consoleOut.ClearSoft();
+	fileOut.ClearSoft();
 	if (mStartOnNewline && out.size && out[0] != '\n' && out[0] != '\r') {
 		if (mLogConsole) {
 			consoleOut = mPrepend;

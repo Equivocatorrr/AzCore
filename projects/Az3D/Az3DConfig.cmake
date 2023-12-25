@@ -1,4 +1,5 @@
 include(CMakeFindDependencyMacro)
+find_dependency(Vulkan REQUIRED)
 find_dependency(AzCore REQUIRED)
 find_dependency(OpenAL REQUIRED)
 

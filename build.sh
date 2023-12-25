@@ -158,8 +158,8 @@ then
 	( set -x; cmake --build . $verbose -j $NumThreads )
 	abort_if_failed "CMake build failed for $buildName!"
 	if [ $install -ne 0 ]; then
-		echo "To install, you need root access:"
-		sudo cmake --install . $verbose
+		# echo "To install, you need root access:"
+		cmake --install . $verbose
 	fi
 	cd ..
 fi

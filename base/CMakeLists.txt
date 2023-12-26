@@ -190,7 +190,7 @@ if (CMAKE_SYSTEM MATCHES Windows)
 	target_link_libraries(AzCore_IO INTERFACE gdi32 dinput8 dxguid)
 elseif (CMAKE_SYSTEM MATCHES Linux)
 	target_link_libraries(AzCore INTERFACE pthread)
-	target_link_libraries(AzCore_IO INTERFACE xcb xkbcommon xkbcommon-x11 xcb-xkb wayland-client wayland-cursor)
+	target_link_libraries(AzCore_IO INTERFACE xcb xcb-randr xkbcommon xkbcommon-x11 xcb-xkb wayland-client wayland-cursor)
 	target_link_libraries(AzCore_SoftwareRenderer INTERFACE xcb-shm xcb-image)
 endif()
 

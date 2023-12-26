@@ -85,7 +85,7 @@ struct WindowData {
 			xcb_cursor_t cursorVisible;
 			i32 windowDepth;
 			i32 frameCount;
-			Thread dpiThread;
+			Thread asyncThread;
 		#ifndef AZCORE_IO_NO_XLIB
 			Display *display;
 		#endif
@@ -136,7 +136,7 @@ struct WindowData {
 			AzPlacementNew(wayland.cursors);
 			wayland = {0};
 		} else {
-			AzPlacementNew(x11.dpiThread);
+			AzPlacementNew(x11.asyncThread);
 			x11 = {0};
 			x11.windowDepth = 24;
 		}
@@ -147,7 +147,7 @@ struct WindowData {
 			wayland.outputsWeTouch.~Array();
 			wayland.cursors.~BinaryMap();
 		} else {
-			x11.dpiThread.~Thread();
+			x11.asyncThread.~Thread();
 		}
 	}
 }; // struct WindowData

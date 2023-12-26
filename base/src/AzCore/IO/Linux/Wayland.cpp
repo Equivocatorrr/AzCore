@@ -755,6 +755,16 @@ static i32 GetWindowScaleWayland(Window *window) {
 	return maxScale;
 }
 
+static u32 GetWindowRefreshWayland(Window *window) {
+	u32 maxRefresh = 0;
+	for (wl_output *output : window->data->wayland.outputsWeTouch) {
+		wlOutputInfo &info = window->data->wayland.outputs[output];
+		if (info.refresh > (i32)maxRefresh) maxRefresh = max(info.refresh, 0);
+	}
+	if (maxRefresh == 0) maxRefresh = 60000;
+	return maxRefresh;
+}
+
 bool windowOpenWayland(Window *window) {
 	window->data->wayland.scale = 1;
 	// Connect to the display named by $WAYLAND_DISPLAY if it's defined
@@ -826,6 +836,8 @@ bool windowOpenWayland(Window *window) {
 	if (window->dpi != newDpi) {
 		window->dpi = newDpi;
 	}
+	i32 newRefresh = GetWindowRefreshWayland(window);
+	window->refreshRate = newRefresh;
 
 	window->data->wayland.touchId = TOUCH_ID_NONE;
 	window->data->wayland.hadError = false;
@@ -880,6 +892,8 @@ bool windowUpdateWayland(Window *window, bool &changeFullscreen) {
 		windowResizeLater(window, window->width * newDpi / window->dpi, window->height * newDpi / window->dpi);
 		window->dpi = newDpi;
 	}
+	u32 newRefresh = GetWindowRefreshWayland(window);
+	window->refreshRate = newRefresh;
 	if (window->resized) {
 		windowResizeWayland(window);
 	}

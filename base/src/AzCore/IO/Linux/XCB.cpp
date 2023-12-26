@@ -9,6 +9,8 @@
 #include "../../keycodes.hpp"
 #include "WindowData.hpp"
 
+#include <xcb/randr.h>
+
 namespace AzCore::io {
 
 void SetCursorXCB(Window *window) {
@@ -76,7 +78,7 @@ char* xcbGetProperty(xcb_connection_t *connection, xcb_window_t window, xcb_atom
 	return content;
 }
 
-i32 GetWindowDpiXCB(Window *window) {
+static i32 GetWindowDpiXCB(Window *window) {
 	char *res = xcbGetProperty(window->data->x11.connection, window->data->x11.screen->root, XCB_ATOM_RESOURCE_MANAGER, XCB_ATOM_STRING, 16*1024);
 	Array<char> resources;
 	resources.data = res;
@@ -98,6 +100,56 @@ i32 GetWindowDpiXCB(Window *window) {
 		}
 	}
 	return dpi > 0 ? dpi : 0;
+}
+
+// NOTE: The output of this will probably not change very often.
+static u32 GetWindowRefreshXCB(Window *window) {
+	u32 maxRefresh = 0;
+	xcb_randr_get_screen_resources_cookie_t screenResourcesCookie = xcb_randr_get_screen_resources(window->data->x11.connection, window->data->x11.screen->root);
+	xcb_randr_get_screen_resources_reply_t* screenResourcesReply = xcb_randr_get_screen_resources_reply(window->data->x11.connection, screenResourcesCookie, 0);
+	xcb_randr_output_t *outputs = xcb_randr_get_screen_resources_outputs(screenResourcesReply);
+	i32 numOutputs = xcb_randr_get_screen_resources_outputs_length(screenResourcesReply);
+	ArrayWithBucket<u32, 4> modesInUse;
+
+	for (i32 i = 0; i < numOutputs; i++) {
+		xcb_randr_get_output_info_cookie_t outputCookie = xcb_randr_get_output_info(window->data->x11.connection, outputs[i], 0);
+		xcb_randr_get_output_info_reply_t *outputReply = xcb_randr_get_output_info_reply(window->data->x11.connection, outputCookie, nullptr);
+		Str outputName = Str((char*)xcb_randr_get_output_info_name(outputReply), (i64)xcb_randr_get_output_info_name_length(outputReply));
+		ioLog.PrintLnTrace("display: \"", outputName, "\" with connection: ", outputReply->connection);
+#if 0
+		xcb_randr_mode_t *modes = xcb_randr_get_output_info_modes(outputReply);
+		i32 numModes = xcb_randr_get_output_info_modes_length(outputReply);
+		ioLog.IndentMore();
+		for (i32 i = 0; i < numModes; i++) {
+			ioLog.PrintLnTrace("Mode: ", modes[i]);
+		}
+		ioLog.IndentLess();
+#endif
+		ioLog.PrintLnTrace("CRTC: ", outputReply->crtc);
+		if (outputReply->crtc != 0) {
+			xcb_randr_get_crtc_info_cookie_t crtcCookie = xcb_randr_get_crtc_info(window->data->x11.connection, outputReply->crtc, 0);
+			xcb_randr_get_crtc_info_reply_t *crtcReply = xcb_randr_get_crtc_info_reply(window->data->x11.connection, crtcCookie, nullptr);
+			ioLog.PrintLnTrace("CRTC ", outputReply->crtc, " uses mode ", crtcReply->mode);
+			modesInUse.Append(crtcReply->mode);
+			free(crtcReply);
+		}
+		free(outputReply);
+	}
+
+	xcb_randr_mode_info_iterator_t modeIterator = xcb_randr_get_screen_resources_modes_iterator(screenResourcesReply);
+	i32 numModes = xcb_randr_get_screen_resources_modes_length(screenResourcesReply);
+	for (i32 i = 0; i < numModes; i++) {
+		xcb_randr_mode_info_t *modeInfo = modeIterator.data;
+		if (modesInUse.Contains(modeInfo->id)) {
+			u32 refreshRate = (u32)((u64)modeInfo->dot_clock * 1000 / ((u64)modeInfo->htotal * (u64)modeInfo->vtotal));
+			ioLog.PrintLnTrace("ID: ", modeInfo->id, ", size: ", modeInfo->width, "x", modeInfo->height, ", Refresh Rate: ", refreshRate, "mHz");
+			if (refreshRate > maxRefresh) maxRefresh = refreshRate;
+		}
+		xcb_randr_mode_info_next(&modeIterator);
+	}
+	free(screenResourcesReply);
+	if (maxRefresh == 0) maxRefresh = 60000;
+	return maxRefresh;
 }
 
 void xkbCleanupXCB(xkb_keyboard *xkb) {
@@ -417,10 +469,8 @@ bool windowOpenX11(Window *window) {
 		return false;
 	}
 
-	xcb_change_property(data->x11.connection, XCB_PROP_MODE_REPLACE, data->x11.window,
-						XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, name.size, name.data);
-	xcb_change_property(data->x11.connection, XCB_PROP_MODE_REPLACE, data->x11.window,
-						XCB_ATOM_WM_ICON_NAME, XCB_ATOM_STRING, 8, name.size, name.data);
+	xcb_change_property(data->x11.connection, XCB_PROP_MODE_REPLACE, data->x11.window, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, name.size, name.data);
+	xcb_change_property(data->x11.connection, XCB_PROP_MODE_REPLACE, data->x11.window, XCB_ATOM_WM_ICON_NAME, XCB_ATOM_STRING, 8, name.size, name.data);
 
 	if ((data->x11.atoms[0] = xcbGetAtom(data->x11.connection, true, "WM_PROTOCOLS")) == 0) {
 		error = "Couldn't get WM_PROTOCOLS atom";
@@ -447,8 +497,7 @@ bool windowOpenX11(Window *window) {
 		return false;
 	}
 
-	xcb_change_property(data->x11.connection, XCB_PROP_MODE_REPLACE,
-						data->x11.window, data->x11.atoms[0], 4, 32, 1, &data->x11.atoms[1]);
+	xcb_change_property(data->x11.connection, XCB_PROP_MODE_REPLACE, data->x11.window, data->x11.atoms[0], 4, 32, 1, &data->x11.atoms[1]);
 
 	xcb_pixmap_t pixmap_source, pixmap_mask;
 	pixmap_source = xcb_generate_id(data->x11.connection);
@@ -472,6 +521,7 @@ bool windowOpenX11(Window *window) {
 	open = true;
 	dpi = GetWindowDpiXCB(window);
 	data->x11.frameCount = 0;
+	window->refreshRate = GetWindowRefreshXCB(window);
 	return true;
 }
 
@@ -508,8 +558,9 @@ void windowResizeX11(Window *window) {
 	xcb_flush(data->x11.connection);
 }
 
-static void UpdateWindowDpiXCB(Window *window) {
+static void UpdateWindowAsyncXCB(Window *window) {
 	window->dpi = GetWindowDpiXCB(window);
+	window->refreshRate = GetWindowRefreshXCB(window);
 }
 
 bool windowUpdateXCB(Window *window, bool &changeFullscreen) {
@@ -521,9 +572,9 @@ bool windowUpdateXCB(Window *window, bool &changeFullscreen) {
 	bool &focused = window->focused;
 	data->x11.frameCount++;
 	if (data->x11.frameCount >= 15) {
-		if (!data->x11.dpiThread.Joinable()) {
+		if (!data->x11.asyncThread.Joinable()) {
 			// Only try again if the last thread finished already
-			data->x11.dpiThread = Thread(UpdateWindowDpiXCB, window);
+			data->x11.asyncThread = Thread(UpdateWindowAsyncXCB, window);
 			data->x11.frameCount = 0;
 		}
 	}
@@ -716,7 +767,7 @@ bool windowUpdateXCB(Window *window, bool &changeFullscreen) {
 }
 
 void windowCloseXCB(Window *window) {
-	if (window->data->x11.dpiThread.Joinable()) window->data->x11.dpiThread.Join();
+	if (window->data->x11.asyncThread.Joinable()) window->data->x11.asyncThread.Join();
 	xkbCleanupXCB(&window->data->xkb);
 	xcb_free_cursor(window->data->x11.connection, window->data->x11.cursorHidden);
 	xcb_destroy_window(window->data->x11.connection, window->data->x11.window);

@@ -49,7 +49,7 @@ $ cd AzCore
 ```
 ### Linux
 #### Dependencies
-AzCore uses Vulkan as its primary graphics API, and xcb and Wayland for window IO, so make sure to set up a build environment for Vulkan, xcb, wayland, xkbcommon, and openal for the example projects.
+AzCore uses Vulkan as its primary graphics API, and xcb and Wayland for window IO, so make sure to set up a build environment for Vulkan, xcb, xcb-randr, wayland, xkbcommon, and openal for the example projects.
 You can use your distribution's Vulkan dev package, or you can grab the Vulkan SDK from [LunarG.](https://www.lunarg.com/vulkan-sdk/)
 *Note that using the Vulkan SDK requires setting the environment variable `LINUX_VULKAN_SDK` to the path of the SDK's root folder, or specifying the path when calling `build.sh`. Likewise, the environment variable `WIN32_VULKAN_SDK` can be set for cross-compiling to Windows.*
 

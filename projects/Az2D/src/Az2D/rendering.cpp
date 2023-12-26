@@ -945,6 +945,9 @@ bool Manager::Present() {
 		Thread::Sleep(Milliseconds(clamp((i32)sys->frametimes.AverageWithoutOutliers(), 5, 50)));
 		return true;
 	}
+	if (data.resized) {
+		return true;
+	}
 	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Present)
 	if (!data.swapchain->Present(data.queuePresent, {data.semaphoreRenderComplete->semaphore})) {
 		error = "Failed to present: " + vk::error;

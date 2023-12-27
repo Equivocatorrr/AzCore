@@ -55,6 +55,12 @@ struct Font {
 	az::font::Font font;
 	az::font::FontBuilder fontBuilder;
 
+	Font() = default;
+	Font(Font&&);
+
+	Font& operator=(const Font&) = default;
+	Font& operator=(Font&&);
+
 	void Decode();
 };
 

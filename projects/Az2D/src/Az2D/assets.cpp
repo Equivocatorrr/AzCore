@@ -106,6 +106,18 @@ void Texture::Decode() {
 	}
 }
 
+Font::Font(Font &&other) : file(other.file), font(std::move(other.font)), fontBuilder(std::move(other.fontBuilder)) {
+	fontBuilder.font = &font;
+}
+
+Font& Font::operator=(Font&& other) {
+	file = other.file;
+	font = std::move(other.font);
+	fontBuilder = std::move(other.fontBuilder);
+	fontBuilder.font = &font;
+	return *this;
+}
+
 void Font::Decode() {
 	AZCORE_PROFILING_FUNC_TIMER()
 	font.LoadFromBuffer(std::move(file->data));

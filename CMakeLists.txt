@@ -14,7 +14,7 @@ if (NOT ${CMAKE_INSTALL_PREFIX})
 endif()
 
 if (MSVC)
-	add_compile_options(/W3 /arch:AVX2 -DAZCORE_IO_FOR_VULKAN)
+	add_compile_options(/W3 /arch:AVX -DAZCORE_IO_FOR_VULKAN)
 	# Disable common warnings that we don't care about.
 	# C4267: 'var' : conversion from 'size_t' to 'type', possible loss of data
 	add_compile_options(/wd4267)
@@ -26,7 +26,7 @@ if (MSVC)
 	# Disable generating a manifest in Visual Studio since we provide our own
 	add_link_options(/MANIFEST:NO)
 else()
-	add_compile_options(-Wall -mavx2 -DAZCORE_IO_FOR_VULKAN -g -fmax-errors=1)
+	add_compile_options(-Wall -mavx -DAZCORE_IO_FOR_VULKAN -g -fmax-errors=1)
 	if (CMAKE_SYSTEM MATCHES Windows)
 		add_compile_options(-D_GLIBCXX_USE_NANOSLEEP)
 		add_link_options(-static-libgcc -static-libstdc++ -static -Llibwinpthread-1.dll)

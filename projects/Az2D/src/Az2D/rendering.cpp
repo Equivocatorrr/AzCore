@@ -695,9 +695,15 @@ bool Manager::UpdateFonts() {
 	data.fontVertexBuffer->size = data.fontStagingVertexBuffer->size;
 
 	for (i32 i = 0; i < data.fontImages.size; i++) {
-		data.fontImages[i].width = sys->assets.fonts[i].fontBuilder.dimensions.x;
-		data.fontImages[i].height = sys->assets.fonts[i].fontBuilder.dimensions.y;
-		data.fontImages[i].mipLevels = (u32)floor(log2((f32)max(data.fontImages[i].width, data.fontImages[i].height))) + 1;
+		if (!sys->assets.IsFontValid(i, false)) {
+			data.fontImages[i].width = 1;
+			data.fontImages[i].height = 1;
+			data.fontImages[i].mipLevels = 1;
+		} else {
+			data.fontImages[i].width = sys->assets.fonts[i].fontBuilder.dimensions.x;
+			data.fontImages[i].height = sys->assets.fonts[i].fontBuilder.dimensions.y;
+			data.fontImages[i].mipLevels = (u32)floor(log2((f32)max(data.fontImages[i].width, data.fontImages[i].height))) + 1;
+		}
 
 		data.fontStagingImageBuffers[i].size = data.fontImages[i].width * data.fontImages[i].height;
 	}
@@ -720,7 +726,12 @@ bool Manager::UpdateFonts() {
 
 	data.fontStagingVertexBuffer->CopyData(fontVertices.data);
 	for (i32 i = 0; i < data.fontStagingImageBuffers.size; i++) {
-		data.fontStagingImageBuffers[i].CopyData(sys->assets.fonts[i].fontBuilder.pixels.data);
+		if (!sys->assets.IsFontValid(i, false)) {
+			u8 black = 0;
+			data.fontStagingImageBuffers[i].CopyData(&black);
+		} else {
+			data.fontStagingImageBuffers[i].CopyData(sys->assets.fonts[i].fontBuilder.pixels.data);
+		}
 	}
 
 	VkCommandBuffer cmdBufCopy = data.commandBufferGraphicsTransfer->Begin();

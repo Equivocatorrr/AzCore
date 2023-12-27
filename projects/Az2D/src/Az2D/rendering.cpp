@@ -804,7 +804,13 @@ bool Manager::Draw() {
 	for (i32 i = 0; i < sys->assets.fonts.size; i++) {
 		Assets::Font& font = sys->assets.fonts[i];
 		if (font.fontBuilder.indicesToAdd.size != 0) {
-			font.fontBuilder.Build();
+			if (font.file->stage != az::io::File::Stage::READY) {
+				continue;
+			}
+			if (!font.fontBuilder.Build()) {
+				error = Stringify("Failed to update font \"", font.file->filepath, "\": ", az::font::error);
+				return false;
+			}
 			updateFontMemory = true;
 		}
 	}

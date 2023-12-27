@@ -13,7 +13,7 @@ set /a clean=0
 set /a install=0
 set trace=
 set verbose=
-set vulkan_sdk=-DVULKAN_SDK=%VULKAN_SDK%
+set user_vulkan_sdk=
 set /a vulkan_sdk_arg=0
 
 set /a argCount=0
@@ -31,7 +31,7 @@ if %run_arg% == 1 (
 	goto Done
 )
 if %vulkan_sdk_arg% == 1 (
-	set vulkan_sdk=-DVULKAN_SDK=%arg%
+	set user_vulkan_sdk=-DUSER_VULKAN_SDK=%arg%
 	set /a vulkan_sdk_arg=0
 	goto Done
 )
@@ -58,7 +58,7 @@ goto Arg
 	set /a run=0
 	set /a run_debug=1
 	goto Done
-:ArgVULKAN_SDK
+:ArgUSER_VULKAN_SDK
 	set /a vulkan_sdk_arg=1
 	goto Done
 :Argclean
@@ -75,7 +75,7 @@ goto Arg
 	goto Done
 :Arg
 :Arg%arg%
-	echo "Usage: build.bat [clean]? [verbose]? [trace]? [install]? (VULKAN_SDK path_to_sdk)? [All|Debug|Release]? ([run|run_debug] project_name)?"
+	echo "Usage: build.bat [clean]? [verbose]? [trace]? [install]? (USER_VULKAN_SDK path_to_sdk)? [All|Debug|Release]? ([run|run_debug] project_name)?"
 	goto EndOfScript
 :Done
 set /a argIndex+=1
@@ -83,14 +83,16 @@ if %argIndex% neq %argCount% goto loopStart
 
 
 if %clean% == 1 (
-	rm -rf projects/*/bin projects/*/*.log build
+	for /f %%i in ('dir /a:d /b "projects\*"') do rd /s /q projects\%%i\bin
+	rd /s /q build
+	@REM rd /s /q projects/*/bin projects/*/*.log build
 )
 
 if %BuildDebug% == 1 (
 	echo "Building Win32 Debug"
 	md build
 	cd build
-	cmake %trace% %vulkan_sdk% ..
+	cmake %trace% %user_vulkan_sdk% ..
 	if ERRORLEVEL 1 (
 		echo "CMake configure failed! Aborting..."
 		goto EndOfScript
@@ -110,7 +112,7 @@ if %BuildRelease% == 1 (
 	echo "Building Win32 Release"
 	md build
 	cd build
-	cmake %trace% %vulkan_sdk% ..
+	cmake %trace% %user_vulkan_sdk% ..
 	if ERRORLEVEL 1 (
 		echo "CMake configure failed! Aborting..."
 		goto EndOfScript

@@ -163,12 +163,12 @@ bool SegmentInAABB(const vec2 &A, const vec2 &B, AABB aabb) {
 bool CollisionSegmentBox(const Physical &a, const Physical &b) {
 	const mat2 aRotation = mat2::Rotation(-b.angle.value());
 	// const vec2 dPos = a.pos - b.pos;
-	const vec2 A = (a.actual.segment.a - b.pos) * aRotation;
+	const vec2 A = aRotation * (a.actual.segment.a - b.pos);
 	if (A.x == median(A.x, b.basis.box.a.x, b.basis.box.b.x) && A.y == median(A.y, b.basis.box.a.y, b.basis.box.b.y)) {
 		// Point is inside box
 		return true;
 	}
-	const vec2 B = (a.actual.segment.b - b.pos) * aRotation;
+	const vec2 B = aRotation * (a.actual.segment.b - b.pos);
 	if (B.x == median(B.x, b.basis.box.a.x, b.basis.box.b.x) && B.y == median(B.y, b.basis.box.a.y, b.basis.box.b.y)) {
 		// Point is inside box
 		return true;
@@ -188,7 +188,7 @@ bool CollisionCircleBox(const Physical &a, const Physical &b) {
 	if (normSqr(a.actual.circle.c - b.actual.box.d) <= rSquared) return true;
 
 	const mat2 rotation = mat2::Rotation(-b.angle.value());
-	const vec2 C = (a.actual.circle.c - b.pos) * rotation;
+	const vec2 C = rotation * (a.actual.circle.c - b.pos);
 	if (C.x == median(C.x, b.basis.box.a.x, b.basis.box.b.x)
 	 && C.y + a.actual.circle.r >= b.basis.box.a.y
 	 && C.y - a.actual.circle.r <= b.basis.box.b.y) {
@@ -204,22 +204,22 @@ bool CollisionCircleBox(const Physical &a, const Physical &b) {
 
 bool CollisionBoxBoxPart(const Physical &a, const Physical &b) {
 	const mat2 rotation = mat2::Rotation(-b.angle.value());
-	const vec2 A = (a.actual.box.a - b.pos) * rotation;
+	const vec2 A = rotation * (a.actual.box.a - b.pos);
 	if (A.x == median(A.x, b.basis.box.a.x, b.basis.box.b.x)
 	 && A.y == median(A.y, b.basis.box.a.y, b.basis.box.b.y)) {
 		return true;
 	}
-	const vec2 B = (a.actual.box.b - b.pos) * rotation;
+	const vec2 B = rotation * (a.actual.box.b - b.pos);
 	if (B.x == median(B.x, b.basis.box.a.x, b.basis.box.b.x)
 	 && B.y == median(B.y, b.basis.box.a.y, b.basis.box.b.y)) {
 		return true;
 	}
-	const vec2 C = (a.actual.box.c - b.pos) * rotation;
+	const vec2 C = rotation * (a.actual.box.c - b.pos);
 	if (C.x == median(C.x, b.basis.box.a.x, b.basis.box.b.x)
 	 && C.y == median(C.y, b.basis.box.a.y, b.basis.box.b.y)) {
 		return true;
 	}
-	const vec2 D = (a.actual.box.d - b.pos) * rotation;
+	const vec2 D = rotation * (a.actual.box.d - b.pos);
 	if (D.x == median(D.x, b.basis.box.a.x, b.basis.box.b.x)
 	 && D.y == median(D.y, b.basis.box.a.y, b.basis.box.b.y)) {
 		return true;
@@ -316,7 +316,7 @@ bool Physical::MouseOver(vec2 mouse) const {
 	}
 	case BOX: {
 		const mat2 rotation = mat2::Rotation(-angle.value());
-		const vec2 A = (mouse - pos) * rotation;
+		const vec2 A = rotation * (mouse - pos);
 		if (A.x == median(A.x, basis.box.a.x, basis.box.b.x)
 		 && A.y == median(A.y, basis.box.a.y, basis.box.b.y)) {
 			return true;
@@ -336,8 +336,8 @@ void PhysicalAbsFromBasis(PhysicalAbs &actual, const PhysicalBasis &basis, const
 	switch (type) {
 	case SEGMENT: {
 		if (angle != 0.0f) {
-			actual.segment.a = basis.segment.a * rotation + pos;
-			actual.segment.b = basis.segment.b * rotation + pos;
+			actual.segment.a = rotation * basis.segment.a + pos;
+			actual.segment.b = rotation * basis.segment.b + pos;
 		} else {
 			actual.segment.a = basis.segment.a + pos;
 			actual.segment.b = basis.segment.b + pos;
@@ -346,7 +346,7 @@ void PhysicalAbsFromBasis(PhysicalAbs &actual, const PhysicalBasis &basis, const
 	}
 	case CIRCLE: {
 		if (angle != 0.0f) {
-			actual.circle.c = basis.circle.c * rotation + pos;
+			actual.circle.c = rotation * basis.circle.c + pos;
 		} else {
 			actual.circle.c = basis.circle.c + pos;
 		}
@@ -355,10 +355,10 @@ void PhysicalAbsFromBasis(PhysicalAbs &actual, const PhysicalBasis &basis, const
 	}
 	case BOX: {
 		if (angle != 0.0f) {
-			actual.box.a = basis.box.a * rotation + pos;
-			actual.box.b = basis.box.b * rotation + pos;
-			actual.box.c = vec2(basis.box.b.x, basis.box.a.y) * rotation + pos;
-			actual.box.d = vec2(basis.box.a.x, basis.box.b.y) * rotation + pos;
+			actual.box.a = rotation * basis.box.a + pos;
+			actual.box.b = rotation * basis.box.b + pos;
+			actual.box.c = rotation * vec2(basis.box.b.x, basis.box.a.y) + pos;
+			actual.box.d = rotation * vec2(basis.box.a.x, basis.box.b.y) + pos;
 		} else {
 			actual.box.a = basis.box.a + pos;
 			actual.box.b = basis.box.b + pos;

@@ -224,7 +224,7 @@ def write_mat0(buffer, material, tex_indices):
 	normal    = get_tex_index(material["normalFile"][0], True)
 	metalness = get_tex_index(material["metalnessFile"][0], True)
 	roughness = get_tex_index(material["roughnessFile"][0], True)
-	
+
 	data = bytearray()
 	# A_ is for Albedo
 	# E_ is for Emission
@@ -319,14 +319,14 @@ class MeshData:
 		self.uvErrorS16 = 0.0
 		self.posScalarKind = ScalarKind.F32
 		self.uvScalarKind = ScalarKind.F32
-	
+
 	def update_pos_bounds(self, pos):
 		for i in range(3):
 			if pos[i] < self.posMin[i]:
 				self.posMin[i] = pos[i]
 			if pos[i] > self.posMax[i]:
 				self.posMax[i] = pos[i]
-	
+
 	def update_uv_bounds(self, uv):
 		uv[1] = 1.0 - uv[1]
 		for i in range(2):
@@ -334,7 +334,7 @@ class MeshData:
 				self.uvMin[i] = uv[i]
 			if uv[i] > self.uvMax[i]:
 				self.uvMax[i] = uv[i]
-	
+
 	def calc_dimensions(self, ):
 		for i in range(3):
 			self.posDimensions[i] = (self.posMax[i] - self.posMin[i]) / 2
@@ -344,7 +344,7 @@ class MeshData:
 				self.uvDimensions[i] = (self.uvMax[i] - self.uvMin[i]) / 2
 				self.uvOffset[i] = (self.uvMax[i] + self.uvMin[i]) / 2
 		print("posDimensions: " + str(self.posDimensions) + ", posOffset: " + str(self.posOffset) + "\nuvDimensions: " + str(self.uvDimensions) + ", uvOffset: " + str(self.uvOffset))
-	
+
 	def add_pos_error(self, pos):
 		for i in range(3):
 			# n is for normalized
@@ -355,7 +355,7 @@ class MeshData:
 				self.posErrorS8 = errorS8
 			if errorS16 > self.posErrorS16:
 				self.posErrorS16 = errorS16
-	
+
 	def add_uv_error(self, uv):
 		uv[1] = 1.0 - uv[1]
 		for i in range(2):
@@ -367,59 +367,50 @@ class MeshData:
 				self.uvErrorS8 = errorS8
 			if errorS16 > self.uvErrorS16:
 				self.uvErrorS16 = errorS16
-	
+
 	def calc_format(self, posMaxError, uvMaxError):
 		self.vertexFormat = bytearray()
 		self.componentCount = 0
 		self.vertexStride = 0
+
+		def add_component(tag: bytes, scalarKind: ScalarKind, scalarCount: int, dims, offsets):
+			scalarSize = 1
+			scalarTag = b'B'
+			match scalarKind:
+				case ScalarKind.S8:
+					pass
+				case ScalarKind.S16:
+					scalarSize = 2
+					scalarTag = b'S'
+				case ScalarKind.F32:
+					scalarSize = 4
+					scalarTag = b'F'
+			self.vertexStride += scalarSize * scalarCount
+			self.vertexFormat += tag + scalarTag + struct.pack('b', scalarCount)
+			self.componentCount += 1
+			if scalarKind != ScalarKind.F32:
+				assert(len(dims) == scalarCount and len(offsets) == scalarCount)
+				for i in range(scalarCount):
+					self.vertexFormat += struct.pack('<ff', dims[i], offsets[i])
+
 		if self.posErrorS8 < posMaxError:
-			self.vertexStride += 1*3
-			self.vertexFormat += b"PoB\003"
-			self.componentCount += 1
 			self.posScalarKind = ScalarKind.S8
-			for i in range(3):
-				self.vertexFormat += struct.pack('<ff', self.posDimensions[i], self.posOffset[i])
 		elif self.posErrorS16 < posMaxError:
-			self.vertexStride += 2*3
-			self.vertexFormat += b"PoS\003"
-			self.componentCount += 1
 			self.posScalarKind = ScalarKind.S16
-			for i in range(3):
-				self.vertexFormat += struct.pack('<ff', self.posDimensions[i], self.posOffset[i])
 		else:
-			self.vertexStride += 4*3
-			self.vertexFormat += b"PoF\003"
-			self.componentCount += 1
 			self.posScalarKind = ScalarKind.F32
-		self.vertexStride += 1*3
-		self.vertexFormat += b"NoB\003"
-		self.componentCount += 1
-		self.vertexFormat += struct.pack('<ffffff', 1, 0, 1, 0, 1, 0)
+		add_component(b"Po", self.posScalarKind, 3, self.posDimensions, self.posOffset)
+		add_component(b"No", ScalarKind.S8, 3, (1, 1, 1), (0, 0, 0))
 		if self.hasUVs:
 			if self.hasNormalMap:
-				self.vertexStride += 1*3
-				self.vertexFormat += b"TaB\003"
-				self.componentCount += 1
-				self.vertexFormat += struct.pack('<ffffff', 1, 0, 1, 0, 1, 0)
+				add_component(b"Ta", ScalarKind.S8, 3, (1, 1, 1), (0, 0, 0))
 			if self.uvErrorS8 <= uvMaxError:
-				self.vertexStride += 1*2
-				self.vertexFormat += b"UVB\002"
-				self.componentCount += 1
 				self.uvScalarKind = ScalarKind.S8
-				for i in range(2):
-					self.vertexFormat += struct.pack('<ff', self.uvDimensions[i], self.uvOffset[i])
 			elif self.uvErrorS16 <= uvMaxError:
-				self.vertexStride += 2*2
-				self.vertexFormat += b"UVS\002"
-				self.componentCount += 1
 				self.uvScalarKind = ScalarKind.S16
-				for i in range(2):
-					self.vertexFormat += struct.pack('<ff', self.uvDimensions[i], self.uvOffset[i])
 			else:
-				self.vertexStride += 4*2
-				self.vertexFormat += b"UVF\002"
-				self.componentCount += 1
 				self.uvScalarKind = ScalarKind.F32
+			add_component(b"UV", self.uvScalarKind, 2, self.uvDimensions, self.uvOffset)
 		print("posScalarKind: " + str(self.posScalarKind) + "\nuvScalarKind: " + str(self.uvScalarKind) + "\nformat: " + str(self.vertexFormat))
 
 # Adds zeros to the end of this bytearray such that it aligns on a 4-byte boundary
@@ -462,11 +453,11 @@ def write_mesh(context: bpy.types.Context, props: bpy.types.OperatorProperties, 
 				mesh_data.update_uv_bounds(vertUV)
 		for vert in face.loop_indices:
 			check_vert(vert)
-	
+
 	# calculate the dimensions and offsets of the meshes as they're needed to calculate error
 	for mesh_data in mesh_datas.values():
 		mesh_data.calc_dimensions()
-	
+
 	# next determine error of lower-precision data types
 	for face in mesh.polygons:
 		material_index = face.material_index
@@ -480,11 +471,11 @@ def write_mesh(context: bpy.types.Context, props: bpy.types.OperatorProperties, 
 				mesh_data.add_uv_error(vertUV)
 		for vert in face.loop_indices:
 			check_vert(vert)
-	
+
 	# calculate the vertex format based on error bounds
 	for i, mesh_data in mesh_datas.items():
 		mesh_data.calc_format(0.001, 0.5 / get_material_max_tex_size(materials[i]))
-	
+
 	# pack the vertex data
 	for face in mesh.polygons:
 		material_index = face.material_index
@@ -521,16 +512,16 @@ def write_mesh(context: bpy.types.Context, props: bpy.types.OperatorProperties, 
 				normal = vert.normal
 				tangent = vert.tangent
 				vertex = b''
-				
+
 				posActual = posTransform(pos)
 				vertex += struct.pack(posFmt, posActual[0], posActual[1], posActual[2])
-				
+
 				vertex += struct.pack('<bbb',
 					round(normal.x * 127),
 					round(normal.y * 127),
 					round(normal.z * 127)
 				)
-				
+
 				if mesh_data.hasUVs:
 					if mesh_data.hasNormalMap:
 						vertex += struct.pack('<bbb',
@@ -538,10 +529,10 @@ def write_mesh(context: bpy.types.Context, props: bpy.types.OperatorProperties, 
 							round(tangent.y * 127),
 							round(tangent.z * 127)
 						)
-					
+
 					uvActual = uvTransform([vertUV.x, 1-vertUV.y])
 					vertex += struct.pack(uvFmt, uvActual[0], uvActual[1])
-				
+
 				vertInfo[0] = mesh_data.dedup.setdefault(vertex, mesh_data.nextVertIndex)
 				if vertInfo[0] == mesh_data.nextVertIndex:
 					mesh_data.vertices += vertex
@@ -555,20 +546,20 @@ def write_mesh(context: bpy.types.Context, props: bpy.types.OperatorProperties, 
 			newVert = [mesh_data.nextVertIndex, vert]
 			add_vert(newVert)
 			vPrev = newVert
-	
+
 	for mesh_data in mesh_datas.values():
 		if len(mesh_data.indices) < 256:
 			mesh_data.indexStride = 1
 		elif len(mesh_data.indices) < 65536:
 			mesh_data.indexStride = 2
-	
+
 	for i, mesh_data in mesh_datas.items():
 		data = bytearray()
 		write_name(data, object.name)
 		data += b'Vert' + struct.pack('<IHH', len(mesh_data.vertices) // mesh_data.vertexStride, mesh_data.vertexStride, mesh_data.componentCount) + mesh_data.vertexFormat
 		data += mesh_data.vertices
 		pad(data)
-		
+
 		# indexStride isn't explicitly written, but instead depends on how many vertices we have
 		data += b'Indx' + struct.pack('<I', len(mesh_data.indices))
 		fmt = ''
@@ -582,11 +573,11 @@ def write_mesh(context: bpy.types.Context, props: bpy.types.OperatorProperties, 
 		for index in mesh_data.indices:
 			data += struct.pack(fmt, index)
 		pad(data)
-		
+
 		write_mat0(data, materials[i], tex_indices)
 		write_section_header(out, b'Mesh', len(data))
 		out.write(data)
-		
+
 		print("Mesh Part: " + str(len(mesh_data.vertices) // mesh_data.vertexStride) + " vertices and " + str(len(mesh_data.indices)) + " indices, material " + str(i))
 
 def write_empty(props, out, object):
@@ -604,7 +595,7 @@ def write_textures(out, tex_indices):
 			self.linear = False
 			self.name = ''
 			self.data = b''
-	
+
 	file_infos = []
 	total_bytes = 0
 	for filepath, info in tex_indices.items():
@@ -637,14 +628,14 @@ class ExportAZ3D(bpy.types.Operator, ExportHelper):
 	bl_idname = "export_scene.az3d"
 	bl_label = "Export AZ3D Object (.az3d)"
 	bl_options = {'REGISTER'}
-	
+
 	filename_ext = ".az3d"
-	
+
 	apply_modifiers: BoolProperty(name="Apply Modifiers", description="Applies the Modifiers", default=True)
-	
+
 	scale: FloatProperty(name="Scale", description="Scales all coordinates by a factor", default=1.0)
-	
-	
+
+
 	def execute(self, context):
 		scene = context.scene
 		props = self.properties
@@ -663,21 +654,21 @@ class ExportAZ3D(bpy.types.Operator, ExportHelper):
 				write_armature(context, props, out, obj)
 		write_textures(out, tex_indices)
 		out.close()
-			
+
 		return {'FINISHED'}
 
 def menu_func(self, context):
 	self.layout.operator(ExportAZ3D.bl_idname, text="AZ3D Object (.az3d)")
-	
+
 def register():
 	bpy.utils.register_class(ExportAZ3D)
-	
+
 	bpy.types.TOPBAR_MT_file_export.append(menu_func)
-	
+
 def unregister():
 	bpy.utils.unregister_class(ExportAZ3D)
-	
+
 	bpy.types.TOPBAR_MT_file_export.remove(menu_func)
-	
+
 if __name__ == "__main__":
 	register()

@@ -368,7 +368,7 @@ class MeshData:
 			if errorS16 > self.uvErrorS16:
 				self.uvErrorS16 = errorS16
 
-	def calc_format(self, posMaxError, uvMaxError):
+	def calc_format(self, posMaxError, uvMaxError, props: bpy.types.OperatorProperties):
 		self.vertexFormat = bytearray()
 		self.componentCount = 0
 		self.vertexStride = 0
@@ -393,23 +393,39 @@ class MeshData:
 				for i in range(scalarCount):
 					self.vertexFormat += struct.pack('<ff', dims[i], offsets[i])
 
-		if self.posErrorS8 < posMaxError:
-			self.posScalarKind = ScalarKind.S8
-		elif self.posErrorS16 < posMaxError:
-			self.posScalarKind = ScalarKind.S16
-		else:
-			self.posScalarKind = ScalarKind.F32
+		match props.position_format:
+			case "AUTO":
+				if self.posErrorS8 < posMaxError:
+					self.posScalarKind = ScalarKind.S8
+				elif self.posErrorS16 < posMaxError:
+					self.posScalarKind = ScalarKind.S16
+				else:
+					self.posScalarKind = ScalarKind.F32
+			case "BYTE":
+				self.posScalarKind = ScalarKind.S8
+			case "SHORT":
+				self.posScalarKind = ScalarKind.S16
+			case "FLOAT":
+				self.posScalarKind = ScalarKind.F32
 		add_component(b"Po", self.posScalarKind, 3, self.posDimensions, self.posOffset)
 		add_component(b"No", ScalarKind.S8, 3, (1, 1, 1), (0, 0, 0))
 		if self.hasUVs:
 			if self.hasNormalMap:
 				add_component(b"Ta", ScalarKind.S8, 3, (1, 1, 1), (0, 0, 0))
-			if self.uvErrorS8 <= uvMaxError:
-				self.uvScalarKind = ScalarKind.S8
-			elif self.uvErrorS16 <= uvMaxError:
-				self.uvScalarKind = ScalarKind.S16
-			else:
-				self.uvScalarKind = ScalarKind.F32
+			match props.texture_coordinate_format:
+				case "AUTO":
+					if self.uvErrorS8 <= uvMaxError:
+						self.uvScalarKind = ScalarKind.S8
+					elif self.uvErrorS16 <= uvMaxError:
+						self.uvScalarKind = ScalarKind.S16
+					else:
+						self.uvScalarKind = ScalarKind.F32
+				case "BYTE":
+					self.uvScalarKind = ScalarKind.S8
+				case "SHORT":
+					self.uvScalarKind = ScalarKind.S16
+				case "FLOAT":
+					self.uvScalarKind = ScalarKind.F32
 			add_component(b"UV", self.uvScalarKind, 2, self.uvDimensions, self.uvOffset)
 		print("posScalarKind: " + str(self.posScalarKind) + "\nuvScalarKind: " + str(self.uvScalarKind) + "\nformat: " + str(self.vertexFormat))
 
@@ -479,7 +495,7 @@ def write_mesh(context: bpy.types.Context, props: bpy.types.OperatorProperties, 
 
 	# calculate the vertex format based on error bounds
 	for i, mesh_data in mesh_datas.items():
-		mesh_data.calc_format(0.001, 0.5 / get_material_max_tex_size(materials[i]))
+		mesh_data.calc_format(0.001, 0.5 / get_material_max_tex_size(materials[i]), props)
 
 	# pack the vertex data
 	for face in mesh.polygons:
@@ -639,6 +655,20 @@ class ExportAZ3D(bpy.types.Operator, ExportHelper):
 	apply_modifiers: BoolProperty(name="Apply Modifiers", description="Applies the Modifiers", default=True)
 
 	scale: FloatProperty(name="Scale", description="Scales all coordinates by a factor", default=1.0)
+
+	position_format: EnumProperty(items=[
+		("AUTO", "Auto", "Automatically choose data format based on error margins.", 1),
+		("BYTE", "Byte", "Use signed 8-bit integers.", 2),
+		("SHORT", "Short", "Use signed 16-bit integers.", 3),
+		("FLOAT", "Float", "Use 32-bit floating point numbers.", 4),
+	], description="Vertex Position Data Format", default="AUTO")
+
+	texture_coordinate_format: EnumProperty(items=[
+		("AUTO", "Auto", "Automatically choose data format based on error margins.", 1),
+		("BYTE", "Byte", "Use signed 8-bit integers.", 2),
+		("SHORT", "Short", "Use signed 16-bit integers.", 3),
+		("FLOAT", "Float", "Use 32-bit floating point numbers.", 4),
+	], description="Texture Coordinate Data Format", default="AUTO")
 
 
 	def execute(self, context):

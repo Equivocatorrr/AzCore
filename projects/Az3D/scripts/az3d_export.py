@@ -419,19 +419,24 @@ def pad(data):
 
 # tex_indices should be a dict that maps from texture filenames to [index, isLinear]
 def write_mesh(context: bpy.types.Context, props: bpy.types.OperatorProperties, out, object: bpy.types.Object, tex_indices: dict[str, list[int | bool]]):
-	object_armature_poses = []
-	for modifier in object.modifiers:
-		if modifier.type == 'ARMATURE' and modifier.object and modifier.object.type == 'ARMATURE':
-			armature = modifier.object.data
-			if armature.pose_position != 'REST':
-				object_armature_poses.append((armature, armature.pose_position))
-				armature.pose_position = 'REST'
-		# TODO: Use subsurface modifier (perhaps for LOD, but also maybe to save on file size since we can apply it on file load)
-	depsgraph = context.evaluated_depsgraph_get()
-	object_eval = object.evaluated_get(depsgraph)
-	mesh: bpy.types.Mesh = object_eval.to_mesh()
-	for armature_pose in object_armature_poses:
-		armature_pose[0].pose_position = armature_pose[1]
+	object_eval = None
+	if props.apply_modifiers:
+		object_armature_poses = []
+		for modifier in object.modifiers:
+			if modifier.type == 'ARMATURE' and modifier.object and modifier.object.type == 'ARMATURE':
+				armature = modifier.object.data
+				if armature.pose_position != 'REST':
+					object_armature_poses.append((armature, armature.pose_position))
+					armature.pose_position = 'REST'
+			# TODO: Use subsurface modifier (perhaps for LOD, but also maybe to save on file size since we can apply it on file load)
+		depsgraph = context.evaluated_depsgraph_get()
+		object_eval = object.evaluated_get(depsgraph)
+		mesh: bpy.types.Mesh = object_eval.to_mesh()
+		for armature_pose in object_armature_poses:
+			armature_pose[0].pose_position = armature_pose[1]
+	else:
+		object_eval = object
+		mesh: bpy.types.Mesh = object_eval.to_mesh()
 	prepare_mesh(mesh, object_eval.matrix_world.copy())
 	s = props.scale
 	materials = get_material_props(object)

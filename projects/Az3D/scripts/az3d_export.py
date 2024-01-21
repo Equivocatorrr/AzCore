@@ -431,9 +431,9 @@ class MeshData:
 			add_component(b"UV", self.uvScalarKind, 2, self.uvDimensions, self.uvOffset)
 		if self.hasBones:
 			# Bone Index (up to 4 bones per vertex)
-			add_component(b"BI", ScalarKind.S8, 4, (255, 255, 255, 255), (128, 128, 128, 128))
+			add_component(b"BI", ScalarKind.S8, 4, (127, 127, 127, 127), (128, 128, 128, 128))
 			# Bone Weights (1 per bone index)
-			add_component(b"BW", ScalarKind.S8, 4, (1, 1, 1, 1), (128/255, 128/255, 128/255, 128/255))
+			add_component(b"BW", ScalarKind.S8, 4, (127, 127, 127, 127), (128, 128, 128, 128))
 		print("posScalarKind: " + str(self.posScalarKind) + "\nuvScalarKind: " + str(self.uvScalarKind) + "\nformat: " + str(self.vertexFormat))
 
 # Adds zeros to the end of this bytearray such that it aligns on a 4-byte boundary
@@ -577,10 +577,17 @@ def write_mesh(context: bpy.types.Context, props: bpy.types.OperatorProperties, 
 					weight_sum = 0
 					for i in range(min(4, len(weights))):
 						weight_sum += weights[i][1]
+					for i in range(min(4, len(weights))):
+						weights[i] = (weights[i][0], round(weights[i][1] / weight_sum * 255))
+					weight_sum = 0
+					for i in range(min(4, len(weights))):
+						weight_sum += weights[i][1]
+					# Since our rounding might round the wrong way too many times, just give any remainder to the bone with the biggest influence
+					weights[0] = (weights[0][0], weights[0][1] + 255-weight_sum)
 					for i in range(4):
 						vertex += struct.pack('<b', weights[i][0] - 128 if i < len(weights) else 127)
 					for i in range(4):
-						vertex += struct.pack('<b', round(weights[i][1] / weight_sum * 255 - 128) if i < len(weights) else -128)
+						vertex += struct.pack('<b', weights[i][1] - 128 if i < len(weights) else -128)
 
 				vertInfo[0] = mesh_data.dedup.setdefault(vertex, mesh_data.nextVertIndex)
 				if vertInfo[0] == mesh_data.nextVertIndex:

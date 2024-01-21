@@ -10,6 +10,8 @@ namespace AzCore {
 
 namespace io {
 
+static Mutex consoleMutex;
+
 #ifndef NDEBUG
 LogLevel logLevel = LogLevel::DEBUG;
 #else
@@ -66,6 +68,7 @@ Log& Log::UseLogFile(bool useFile, Str filename) {
 
 Log& Log::Flush() {
 	if (mLogConsole) {
+		ScopedLock lock(consoleMutex);
 		fflush(mConsoleFile);
 	}
 	if (mLogFile) {
@@ -177,6 +180,7 @@ void Log::_Print(SimpleRange<char> out) {
 		if (written != (size_t)fileOut.size) mLogFile = false;
 	}
 	if (mLogConsole) {
+		ScopedLock lock(consoleMutex);
 		size_t written = fwrite(consoleOut.data, sizeof(char), consoleOut.size, mConsoleFile);
 		if (written != (size_t)consoleOut.size) mLogConsole = false;
 	}
@@ -194,6 +198,7 @@ Log& Log::PrintPlain(SimpleRange<char> out) {
 		if (written != (size_t)out.size) mLogFile = false;
 	}
 	if (mLogConsole) {
+		ScopedLock lock(consoleMutex);
 		size_t written = fwrite(out.str, sizeof(char), out.size, mConsoleFile);
 		if (written != (size_t)out.size) mLogConsole = false;
 	}
@@ -210,6 +215,7 @@ Log& Log::PrintLnPlain(SimpleRange<char> out) {
 		fputc('\n', mFile);
 	}
 	if (mLogConsole) {
+		ScopedLock lock(consoleMutex);
 		size_t written = fwrite(out.str, sizeof(char), out.size, mConsoleFile);
 		if (written != (size_t)out.size) mLogConsole = false;
 		fputc('\n', mConsoleFile);
@@ -226,6 +232,7 @@ Log& Log::Newline(i32 count) {
 			fputc('\n', mFile);
 	}
 	if (mLogConsole) {
+		ScopedLock lock(consoleMutex);
 		for (i32 i = 0; i < count; i++)
 			fputc('\n', mConsoleFile);
 	}

@@ -21,15 +21,16 @@ def align(s):
 def clamp(value, minimum, maximum):
 	return max(minimum, min(maximum, value))
 
+def padding(length):
+	return b'\0' * (align(length) - length)
+
 def write_padded(out, b):
 	out.write(b)
-	leftover = align(len(b)) - len(b)
-	out.write(b'\0' * leftover)
+	out.write(padding(len(b)))
 
 def write_padded_buffer(buffer, b):
 	buffer += b
-	leftover = align(len(b)) - len(b)
-	buffer += b'\0' * leftover
+	buffer += padding(len(b))
 
 def get_node_group_output_node(nodes):
 	for node in nodes:
@@ -290,7 +291,7 @@ class ScalarKind(Enum):
 	S8  = 2
 
 class MeshData:
-	def __init__(self, hasUVs, hasNormalMap):
+	def __init__(self, hasUVs, hasNormalMap, hasBones):
 		self.dedup = dict()
 		self.vertices = bytearray()
 		self.indices = []
@@ -301,6 +302,7 @@ class MeshData:
 		self.indexStride = 4
 		self.hasUVs = hasUVs
 		self.hasNormalMap = hasNormalMap
+		self.hasBones = hasBones
 		# stored positions and uvs for signed int types are scaled and offset
 		self.posDimensions = [0.0, 0.0, 0.0]
 		self.posOffset = [0.0, 0.0, 0.0]
@@ -427,24 +429,36 @@ class MeshData:
 				case "FLOAT":
 					self.uvScalarKind = ScalarKind.F32
 			add_component(b"UV", self.uvScalarKind, 2, self.uvDimensions, self.uvOffset)
+		if self.hasBones:
+			# Bone Index (up to 4 bones per vertex)
+			add_component(b"BI", ScalarKind.S8, 4, (255, 255, 255, 255), (128, 128, 128, 128))
+			# Bone Weights (1 per bone index)
+			add_component(b"BW", ScalarKind.S8, 4, (1, 1, 1, 1), (128/255, 128/255, 128/255, 128/255))
 		print("posScalarKind: " + str(self.posScalarKind) + "\nuvScalarKind: " + str(self.uvScalarKind) + "\nformat: " + str(self.vertexFormat))
 
 # Adds zeros to the end of this bytearray such that it aligns on a 4-byte boundary
-def pad(data):
-	data += b'\0' * (align(len(data)) - len(data))
+def pad(data: bytearray):
+	data += padding(len(data))
 
 # tex_indices should be a dict that maps from texture filenames to [index, isLinear]
 def write_mesh(context: bpy.types.Context, props: bpy.types.OperatorProperties, out, object: bpy.types.Object, tex_indices: dict[str, list[int | bool]]):
 	object_eval = None
+	armature = None
+	for modifier in object.modifiers:
+		if modifier.type == 'ARMATURE' and modifier.object and modifier.object.type == 'ARMATURE':
+			armature = modifier.object.data
+	# This maps from vertex group indices to bone indices, where -1 means the group is not a bone group
+	group_to_bone_indices = None
+	if armature is not None:
+		group_to_bone_indices = [armature.bones.find(group.name) for group in object.vertex_groups]
+		print(group_to_bone_indices)
 	if props.apply_modifiers:
 		object_armature_poses = []
-		for modifier in object.modifiers:
-			if modifier.type == 'ARMATURE' and modifier.object and modifier.object.type == 'ARMATURE':
-				armature = modifier.object.data
-				if armature.pose_position != 'REST':
-					object_armature_poses.append((armature, armature.pose_position))
-					armature.pose_position = 'REST'
-			# TODO: Use subsurface modifier (perhaps for LOD, but also maybe to save on file size since we can apply it on file load)
+		if armature is not None:
+			if armature.pose_position != 'REST':
+				object_armature_poses.append((armature, armature.pose_position))
+				armature.pose_position = 'REST'
+		# TODO: Use subsurface modifier (perhaps for LOD, but also maybe to save on file size since we can apply it on file load)
 		depsgraph = context.evaluated_depsgraph_get()
 		object_eval = object.evaluated_get(depsgraph)
 		mesh: bpy.types.Mesh = object_eval.to_mesh()
@@ -463,7 +477,7 @@ def write_mesh(context: bpy.types.Context, props: bpy.types.OperatorProperties, 
 	for face in mesh.polygons:
 		material_index = face.material_index
 		assert(material_index < len(materials))
-		mesh_data = mesh_datas.setdefault(material_index, MeshData(hasUVs, materials[material_index]["normalFile"] != ''))
+		mesh_data = mesh_datas.setdefault(material_index, MeshData(hasUVs, materials[material_index]["normalFile"] != '', group_to_bone_indices != None))
 		def check_vert(vertIndex):
 			mesh_data.numVerts += 1
 			vert = mesh.loops[vertIndex]
@@ -554,6 +568,20 @@ def write_mesh(context: bpy.types.Context, props: bpy.types.OperatorProperties, 
 					uvActual = uvTransform([vertUV.x, 1-vertUV.y])
 					vertex += struct.pack(uvFmt, uvActual[0], uvActual[1])
 
+				if mesh_data.hasBones:
+					weights = sorted(
+						[(group_to_bone_indices[group.group], group.weight) for group in mesh.vertices[vert.vertex_index].groups if group_to_bone_indices[group.group] != -1],
+						key = lambda group: group[1],
+						reverse=True
+					)
+					weight_sum = 0
+					for i in range(min(4, len(weights))):
+						weight_sum += weights[i][1]
+					for i in range(4):
+						vertex += struct.pack('<b', weights[i][0] - 128 if i < len(weights) else 127)
+					for i in range(4):
+						vertex += struct.pack('<b', round(weights[i][1] / weight_sum * 255 - 128) if i < len(weights) else -128)
+
 				vertInfo[0] = mesh_data.dedup.setdefault(vertex, mesh_data.nextVertIndex)
 				if vertInfo[0] == mesh_data.nextVertIndex:
 					mesh_data.vertices += vertex
@@ -597,7 +625,7 @@ def write_mesh(context: bpy.types.Context, props: bpy.types.OperatorProperties, 
 
 		write_mat0(data, materials[i], tex_indices)
 		write_section_header(out, b'Mesh', len(data))
-		out.write(data)
+		write_padded(out, data)
 
 		print("Mesh Part: " + str(len(mesh_data.vertices) // mesh_data.vertexStride) + " vertices and " + str(len(mesh_data.indices)) + " indices, material " + str(i))
 
@@ -608,7 +636,7 @@ def write_empty(props, out, object):
 	write_name(data, object.name)
 	data += struct.pack('<ffffff', loc.x, loc.y, loc.z, vec.x, vec.y, vec.z)
 	write_section_header(out, b'Empt', len(data))
-	out.write(data)
+	write_padded(out, data)
 
 def write_textures(out, tex_indices):
 	class FileInfo:
@@ -641,8 +669,170 @@ def write_textures(out, tex_indices):
 		out.write(struct.pack('<II', len(file_info.data), file_info.linear))
 		write_padded(out, file_info.data)
 
+def pack_vector3(vector):
+	assert(len(vector) == 3)
+	return struct.pack('<fff', vector[0], vector[1], vector[2])
+
+def bone_has_ik_info(bone: bpy.types.PoseBone):
+	return bone.ik_stretch != 0 or bone.lock_ik_x or bone.lock_ik_y or bone.lock_ik_z or bone.use_ik_limit_x or bone.use_ik_limit_y or bone.use_ik_limit_z
+
+# Arm0, the first version of the Armature table
 def write_armature(context: bpy.types.Context, props: bpy.types.OperatorProperties, out, object: bpy.types.Object):
-	pass
+	data = bytearray()
+	object_bones = object.pose.bones
+	assert(len(object_bones) < 255) # We only support up to 255 indices, where 255 means none
+	bones: dict[bpy.types.PoseBone, int] = {bone: i for i, bone in enumerate(object_bones.values())} # Now that's pythonic!
+	bones[None] = 255
+	# We have the hierarchy in a specific order, so we can use indices to point to parent bones. This is the order we'll be writing them to disc, and the indices are what we'll write.
+	# print(str(bones))
+	write_name(data, object.name)
+	data += struct.pack('<I', len(object_bones)) # u32 number of bones
+	for bone in bones.keys():
+		if bone == None: continue
+		write_name(data, bone.name) # name of bone
+		ik_target = None
+		ik_pole = None
+		bitflags = (
+			  (0b00000001 if bone.bone.use_deform else 0)
+			| (0b00000010 if bone.is_in_ik_chain else 0) # This specifically means IK will be used for animations.
+			| (0b00000100 if bone_has_ik_info(bone) else 0) # This is used for general IK, whether that be from an animation, or procedural. Either way we want to store bone limitations.
+		)
+		data += struct.pack('<BBBB', bones[bone.parent], bones[ik_target], bones[ik_pole], bitflags) # u8 index of parent, index of IK target, index of IK Pole target, bitflags
+		# 4x vec3 basis vectors and offset for rest pose
+		data += pack_vector3(bone.x_axis)
+		data += pack_vector3(bone.y_axis)
+		data += pack_vector3(bone.z_axis)
+		data += pack_vector3(bone.vector)
+		if bone_has_ik_info(bone):
+			ik_data = bytearray()
+			limits_flags = (
+				  (0b00000001 if bone.ik_stretch != 0 else 0)
+				| (0b00000010 if bone.lock_ik_x else 0)
+				| (0b00000100 if bone.lock_ik_y else 0)
+				| (0b00001000 if bone.lock_ik_z else 0)
+				| (0b00010000 if bone.use_ik_limit_x else 0)
+				| (0b00100000 if bone.use_ik_limit_y else 0)
+				| (0b01000000 if bone.use_ik_limit_z else 0)
+			)
+			ik_data += struct.pack('<I', limits_flags)
+			def pack_float_to_short(value: float, minimum: float, maximum: float):
+				return struct.pack('<H', round((clamp(value, minimum, maximum) - minimum) / (maximum - minimum) * 0xffff))
+			if bone.ik_stretch != 0:
+				ik_data += pack_float_to_short(bone.ik_stretch, 0, 1)
+			if not bone.lock_ik_x:
+				ik_data += pack_float_to_short(bone.ik_stiffness_x, 0, 1)
+			if not bone.lock_ik_y:
+				ik_data += pack_float_to_short(bone.ik_stiffness_y, 0, 1)
+			if not bone.lock_ik_z:
+				ik_data += pack_float_to_short(bone.ik_stiffness_z, 0, 1)
+			if bone.use_ik_limit_x:
+				ik_data += pack_float_to_short(bone.ik_min_x, -180, 0)
+				ik_data += pack_float_to_short(bone.ik_max_x, 0, 180)
+			if bone.use_ik_limit_y:
+				ik_data += pack_float_to_short(bone.ik_min_y, -180, 0)
+				ik_data += pack_float_to_short(bone.ik_max_y, 0, 180)
+			if bone.use_ik_limit_z:
+				ik_data += pack_float_to_short(bone.ik_min_z, -180, 0)
+				ik_data += pack_float_to_short(bone.ik_max_z, 0, 180)
+			data += b"IK" + struct.pack('<H', len(ik_data) + 4)
+			data += ik_data
+			pad(data)
+
+	write_section_header(out, b'Arm0', len(data))
+	write_padded(out, data)
+
+def is_curve_totally_null(curve: bpy.types.FCurve):
+	keyframePrev = None
+	for keyframe in curve.keyframe_points:
+		# From some playing around I believe this covers every case accurately.
+		if keyframe.co[1] != 0 or (keyframePrev is not None and keyframePrev.interpolation == 'BEZIER' and keyframe.handle_left[1] != 0) or (keyframe.interpolation == 'BEZIER' and keyframe.handle_right[1] != 0) or (keyframe.interpolation == 'ELASTIC' and keyframe.amplitude != 0):
+			return False
+		keyframePrev = keyframe
+	return True
+
+def keyframe_x_to_time(context: bpy.types.Context, action: bpy.types.Action, x):
+	start_frame = action.curve_frame_range[0]
+	fps = context.scene.render.fps
+	return (x - start_frame) / fps
+
+def is_bezier_linear(p1, c1, c2, p2, epsilon=0.001):
+	def get_y(x):
+		x = clamp((x - p1[0]) / (p2[0] - p1[0]), 0, 1)
+		return p1[1] * (1 - x) + p2[1] * x
+	def is_on_line(c):
+		return abs(c[1] - get_y(c[0])) < epsilon
+	return is_on_line(c1) and is_on_line(c2)
+
+# Keyframes are laid out in binary as:
+# b"KF"
+# size: u16 (whole keyframe size including this header, not including padding)
+# time: f32
+# val: f32
+# interpID: u32 (enum below)
+# + Any additional data for the kind of interpolation. Logic below
+def pack_keyframe(context: bpy.types.Context, props: bpy.types.OperatorProperties, action: bpy.types.Action, keyframe: bpy.types.Keyframe, keyframeNext: bpy.types.Keyframe | None):
+	data = bytearray()
+	time = keyframe_x_to_time(context, action, keyframe.co[0])
+	# These enums are stored as u8's, so they must match the values exactly
+	interpID = {key: i for i, key in enumerate(['CONSTANT', 'LINEAR', 'BEZIER', 'SINE', 'QUAD', 'CUBIC', 'QUART', 'QUINT', 'EXPO', 'CIRC', 'BACK', 'BOUNCE', 'ELASTIC'])}
+	easingID = {key: i for i, key in enumerate(['EASE_IN', 'EASE_OUT', 'EASE_IN_OUT'])}
+	interpolation = 'CONSTANT' if keyframeNext == None else keyframe.interpolation
+
+	if interpolation == 'BEZIER':
+		# Maybe we're CONSTANT or LINEAR
+		cp1 = keyframe.handle_right
+		cp2 = keyframeNext.handle_left
+		if keyframeNext.co[1] == keyframe.co[1] and cp1[1] == keyframe.co[1] and cp2[1] == keyframe.co[1]:
+			# print("Turns out our Bezier was actually just a constant")
+			interpolation = 'CONSTANT'
+		elif is_bezier_linear(keyframe.co, cp1, cp2, keyframeNext.co):
+			# print("Turns out our Bezier was actually just a line")
+			interpolation = 'LINEAR'
+
+	data += struct.pack('<ffI', time, keyframe.co[1], interpID[interpolation])
+
+	if interpolation == 'BEZIER':
+		# We invert the logic here because we'd rather store control points than handles
+		cp1 = keyframe.handle_right
+		cp2 = keyframeNext.handle_left
+		data += struct.pack('<ffff',
+			keyframe_x_to_time(context, action, cp1[0]), cp1[1],
+			keyframe_x_to_time(context, action, cp2[0]), cp2[1]
+		)
+	elif interpID[interpolation] >= interpID['SINE']:
+		easing = keyframe.easing
+		if easing == 'AUTO':
+			easing = 'EASE_IN' if interpID[interpolation] < interpID['BACK'] else 'EASE_OUT'
+		data += struct.pack('<I', easingID[easing])
+	if interpolation == 'BACK':
+		data += struct.pack('<f', keyframe.back)
+	elif interpolation == 'ELASTIC':
+		data += struct.pack('<ff', keyframe.amplitude, keyframe.period)
+	return b"KF" + struct.pack('<H', len(data) + 4) + data
+
+# Act0, the first version of the Action table
+def write_action(context: bpy.types.Context, props: bpy.types.OperatorProperties, out, action: bpy.types.Action):
+	print("Exporting action \"" + action.name + "\" with " + str(len(action.fcurves)) + " curves")
+	data = bytearray()
+	write_name(data, action.name)
+	curves = [curve for curve in action.fcurves if not curve.mute and not is_curve_totally_null(curve)]
+	if len(curves) != len(action.fcurves):
+		print("Actually there are only " + str(len(curves)) + " curves, since some are muted or do nothing")
+	data += struct.pack('<H', len(curves))
+	for curve in curves:
+		name = curve.data_path + '[' + str(curve.array_index) + ']'
+		write_name(data, name)
+		data += struct.pack('<H', len(curve.keyframe_points))
+		is_cyclic = any(mod.type == 'CYCLES' for mod in curve.modifiers)
+		# if is_cyclic:
+		# 	print(name + " is cyclic")
+		for i, keyframe in enumerate(curve.keyframe_points):
+			# print("keyframe co = " + str((keyframe_x_to_time(context, action, keyframe.co[0]), keyframe.co[1])))
+			data += pack_keyframe(context, props, action, keyframe, curve.keyframe_points[i+1] if i+1 < len(curve.keyframe_points) else (curve.keyframe_points[0] if is_cyclic else None))
+			data += padding(len(data))
+	write_section_header(out, b'Act0', len(data))
+	write_padded(out, data)
+
 
 class ExportAZ3D(bpy.types.Operator, ExportHelper):
 	"""Exports all relevant objects in the scene that define an AZ3D Object."""
@@ -687,6 +877,9 @@ class ExportAZ3D(bpy.types.Operator, ExportHelper):
 				write_empty(props, out, obj)
 			elif obj.type == 'ARMATURE':
 				write_armature(context, props, out, obj)
+		for action in bpy.data.actions:
+			if action.users == 0: continue # ignore orphans :(
+			write_action(context, props, out, action)
 		write_textures(out, tex_indices)
 		out.close()
 

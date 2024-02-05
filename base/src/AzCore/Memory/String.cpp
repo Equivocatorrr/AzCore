@@ -227,7 +227,7 @@ f64 intPow(i32 base, i32 exponent) {
 
 template<typename Float, i32 MAX_SIGNIFICANT_DIGITS>
 void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) {
-	const i32 MAX_SIGNIFICANT_DIGITS_BASED = ceil((f32)MAX_SIGNIFICANT_DIGITS/log2((f32)base));
+	const i32 MAX_SIGNIFICANT_DIGITS_BASED = floor((f32)MAX_SIGNIFICANT_DIGITS/log2((f32)base));
 	i32 startSize = string.size;
 	string.Reserve(startSize + MAX_SIGNIFICANT_DIGITS_BASED + 4);
 	i32 basisExponent = 0;
@@ -240,7 +240,7 @@ void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) 
 	// Whether our string has the '.' in it already
 	bool point = false;
 	Float basis;
-	
+
 	// Find a basis that's the smallest power of base greater than the number
 	if (remaining >= 1.0f) {
 		while (true) {

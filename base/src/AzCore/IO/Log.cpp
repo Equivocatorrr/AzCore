@@ -90,7 +90,7 @@ inline void Log::_HandleFile() {
 }
 
 inline void StringIndent(String &str, i32 indent, String mIndentString) {
-	if (str.size && indent) {
+	if (indent) {
 		for (i32 i = 0; i < indent; i++) {
 			str.Append(mIndentString);
 		}

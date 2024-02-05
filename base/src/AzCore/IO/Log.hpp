@@ -170,7 +170,11 @@ public:
 	inline Log& IndentString(Str value) {
 		if (value.size == 0) value = " ";
 		mIndentString = value;
-		mPrepend.Resize(mFilename.size + 3);
+		if (mFilename.size) {
+			mPrepend.Resize(mFilename.size + 3);
+		} else {
+			mPrepend.ClearSoft();
+		}
 		mPrepend.Resize(align(mPrepend.size, mIndentString.size), ' ');
 		return *this;
 	}

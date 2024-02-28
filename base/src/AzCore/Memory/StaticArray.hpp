@@ -55,6 +55,16 @@ struct StaticArray {
 			}
 		}
 	}
+	StaticArray(const SimpleRange<T> &range) : size(range.size) {
+		AzAssert(size <= count, "StaticArray initialized with a size bigger than count");
+		if constexpr (std::is_trivially_copyable<T>::value) {
+			memcpy((void *)data, (void *)range.str, sizeof(T) * size);
+		} else {
+			for (i32 i = 0; i < size; i++) {
+				data[i] = range[i];
+			}
+		}
+	}
 
 	StaticArray<T, count> &operator=(const std::initializer_list<T> &init) {
 		size = init.size();
@@ -82,12 +92,37 @@ struct StaticArray {
 		return *this;
 	}
 
+	StaticArray<T, count> &operator=(const SimpleRange<T> &range) {
+		size = range.size;
+		AzAssert(size <= count, "StaticArray assigned with a size bigger than count");
+		if constexpr (std::is_trivially_copyable<T>::value) {
+			memcpy((void *)data, (void *)range.str, sizeof(T) * size);
+		} else {
+			for (i32 i = 0; i < size; i++) {
+				data[i] = range[i];
+			}
+		}
+		return *this;
+	}
+
 	bool operator==(const StaticArray<T, count> &other) const {
 		if (size != other.size) {
 			return false;
 		}
 		for (i32 i = 0; i < size; i++) {
 			if (data[i] != other.data[i]) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	bool operator==(const SimpleRange<T> &other) const {
+		if (size != other.size) {
+			return false;
+		}
+		for (i32 i = 0; i < size; i++) {
+			if (data[i] != other[i]) {
 				return false;
 			}
 		}

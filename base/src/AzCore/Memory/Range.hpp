@@ -11,6 +11,7 @@
 #include "Ptr.hpp"
 #include "StringCommon.hpp"
 #include "Array.hpp"
+#include "StaticArray.hpp"
 #include "List.hpp"
 
 namespace AzCore {
@@ -305,6 +306,8 @@ struct SimpleRange {
 	SimpleRange(const Array<T, allocTail> &array) : str(array.data), size(array.size) {}
 	template<i32 bucketSize, i32 allocTail>
 	SimpleRange(const ArrayWithBucket<T, bucketSize, allocTail> &array) : str(array.data), size(array.size) {}
+	template<i32 staticSize>
+	SimpleRange(const StaticArray<T, staticSize> &array) : str((T*)&array.data[0]), size(array.size) {}
 	SimpleRange(const Range<T> &range) : size(range.size) {
 		if (range.PointsToArray()) {
 			str = &(*((Array<T,0> *)range.ptr))[range.index];

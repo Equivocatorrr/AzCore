@@ -15,7 +15,7 @@ namespace AzCore {
 
 template<typename T>
 class Optional {
-	char bytes[sizeof(T)];
+	alignas(alignof(T)) char bytes[sizeof(T)];
 	bool exists;
 	// Returns the type-punned bytes without initializing anything
 	inline const T& _Value() const {

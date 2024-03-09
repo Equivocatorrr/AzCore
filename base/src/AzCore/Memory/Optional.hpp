@@ -26,11 +26,11 @@ class Optional {
 		return *(T*)bytes;
 	}
 public:
-	Optional() : exists(false) {}
-	Optional(const T &in) : exists(true) {
+	constexpr Optional() : exists(false) {}
+	constexpr Optional(const T &in) : exists(true) {
 		new(bytes) T(in);
 	}
-	Optional(T &&in) : exists(true) {
+	constexpr Optional(T &&in) : exists(true) {
 		new(bytes) T(std::move(in));
 	}
 	~Optional() {
@@ -39,7 +39,7 @@ public:
 			value.~T();
 		}
 	}
-	Optional(const Optional &other) : exists(other.exists) {
+	constexpr Optional(const Optional &other) : exists(other.exists) {
 		if (exists) {
 			new(bytes) T(other._Value());
 		}
@@ -131,6 +131,19 @@ public:
 	}
 	T& ValueOrThrow() {
 		return *(T*)&std::as_const(*this).ValueOrThrow();
+	}
+	const T& ValueUnchecked() const {
+		return _Value();
+	}
+	T& ValueUnchecked() {
+		return _Value();
+	}
+	T ValueOrDefault(T def) const {
+		if (exists) {
+			return _Value();
+		} else {
+			return def;
+		}
 	}
 };
 

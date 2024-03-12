@@ -29,7 +29,7 @@ struct StringTerminators {
 	Finds the length of a value-terminated string. The type T must have an
 	associated StringTerminators declared somewhere. */
 template <typename T>
-i32 StringLength(const T *string) {
+constexpr i32 StringLength(const T *string) {
 	i32 length = 0;
 	while (string[length] != StringTerminators<T>::value) {
 		length++;

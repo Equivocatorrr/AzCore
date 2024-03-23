@@ -22,8 +22,10 @@ struct Result {
 	};
 	bool isError;
 	Result() = delete;
-	Result(Success_t _value) : value(_value), isError(false) {}
-	Result(Error_t _error) : error(_error), isError(true) {}
+	Result(const Success_t &_value) : value(_value), isError(false) {}
+	Result(Success_t &&_value) : value(std::move(_value)), isError(false) {}
+	Result(const Error_t &_error) : error(_error), isError(true) {}
+	Result(Error_t &&_error) : error(std::move(_error)), isError(true) {}
 	~Result() {
 		if (isError) {
 			error.~Error_t();

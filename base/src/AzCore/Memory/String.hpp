@@ -261,12 +261,12 @@ bool StringToF64(String string, f64 *dst, i32 base = 10);
 
 bool WStringToF32(WString string, f32 *dst, i32 base = 10);
 
-bool StringToI32(String string, i32 *dst, i32 base = 10);
-bool StringToI64(String string, i64 *dst, i32 base = 10);
+bool StringToI32(Str string, i32 *dst, i32 base = 10);
+bool StringToI64(Str string, i64 *dst, i32 base = 10);
 
 #if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
 bool StringToF128(String string, f128 *dst, i32 base = 10);
-bool StringToI128(String string, i128 *dst, i32 base = 10);
+bool StringToI128(Str string, i128 *dst, i32 base = 10);
 #endif
 
 inline bool operator==(const char *b, const String &a)

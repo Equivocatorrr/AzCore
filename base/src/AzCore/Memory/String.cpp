@@ -641,16 +641,16 @@ bool WStringToF32(WString string, f32 *dst, i32 base) {
 	return _StringToFloat<f32>(string, dst, base);
 }
 
-bool StringToI32(String string, i32 *dst, i32 base) {
+bool StringToI32(Str string, i32 *dst, i32 base) {
 	return _StringToInt<i32, char>(string, dst, base);
 }
 
-bool StringToI64(String string, i64 *dst, i32 base) {
+bool StringToI64(Str string, i64 *dst, i32 base) {
 	return _StringToInt<i64, char>(string, dst, base);
 }
 
 #if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
-bool StringToI128(String string, i128 *dst, i32 base) {
+bool StringToI128(Str string, i128 *dst, i32 base) {
 	return _StringToInt<i128, char>(string, dst, base);
 }
 #endif

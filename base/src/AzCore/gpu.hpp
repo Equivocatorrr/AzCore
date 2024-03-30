@@ -101,6 +101,18 @@ enum class BoolOrDefault {
 	FALSE,
 };
 
+constexpr bool operator!=(BoolOrDefault lhs, bool rhs) {
+	switch (lhs) {
+		case BoolOrDefault::DEFAULT:
+			return true;
+		case BoolOrDefault::TRUE:
+			return rhs != true;
+		case BoolOrDefault::FALSE:
+			return rhs != false;
+	}
+	return true;
+}
+
 inline bool ResolveBoolOrDefault(BoolOrDefault value, bool defaultValue) {
 	switch (value) {
 	case BoolOrDefault::DEFAULT:
@@ -213,6 +225,12 @@ struct BlendMode {
 	BlendMode() = default;
 	BlendMode(Kind _kind) : kind(_kind) {}
 	BlendMode(Kind _kind, bool _alphaPremult) : kind(_kind), alphaPremult(_alphaPremult) {}
+	constexpr bool operator==(const BlendMode &other) const {
+		return kind == other.kind && alphaPremult == other.alphaPremult;
+	}
+	constexpr bool operator!=(const BlendMode &other) const {
+		return !operator==(other);
+	}
 };
 // NOTE: We probably want to support more specific stuff anyway, so probably make a mechanism for that.
 

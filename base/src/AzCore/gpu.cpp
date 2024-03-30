@@ -974,7 +974,7 @@ struct Allocation {
 struct DescriptorSetLayout {
 	VkDescriptorSetLayoutCreateInfo createInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
 	Array<VkDescriptorSetLayoutBinding> bindings;
-	
+
 	// Some housekeeping, since createInfo must reference bindings, moving/copying etc would break createInfo.
 	DescriptorSetLayout() = default;
 	DescriptorSetLayout(const DescriptorSetLayout &other) : bindings(other.bindings) {
@@ -1045,12 +1045,12 @@ struct Device {
 	HashMap<DescriptorBindings, DescriptorSet*> descriptorSetsMap;
 
 	Ptr<PhysicalDevice> physicalDevice;
-	
+
 	VkPhysicalDeviceFeatures2 vk10Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
 	VkPhysicalDeviceVulkan11Features vk11Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
 	VkPhysicalDeviceVulkan12Features vk12Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
 	VkPhysicalDeviceVulkan13Features vk13Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
-	
+
 	VkDevice vkDevice;
 	VkQueue vkQueue;
 	i32 queueFamilyIndex;
@@ -1112,15 +1112,15 @@ inline bool ContextIsRecording(Context *context) {
 struct Shader {
 	String filename;
 	ShaderStage stage;
-	
+
 	// TODO: Specialization constants
-	
+
 	VkShaderModule vkShaderModule;
-	
+
 	Device *device;
 	String tag; // defaults to filename if not given
 	bool initted = false;
-	
+
 	Shader() = default;
 	Shader(Device *_device, String _filename, ShaderStage _stage, String _tag) : filename(_filename), stage(_stage), device(_device), tag(_tag) {}
 };
@@ -1128,9 +1128,9 @@ struct Shader {
 struct Pipeline {
 	Array<Shader*> shaders;
 	ArrayWithBucket<ShaderValueType, 8> vertexInputs;
-	
+
 	Topology topology = Topology::TRIANGLE_LIST;
-	
+
 	CullingMode cullingMode = CullingMode::NONE;
 	Winding winding = Winding::COUNTER_CLOCKWISE;
 	// depthBias is calculated as (constant + slope*m) where m can either be sqrt(dFdx(z)^2 + dFdy(z)^2) or fwidth(z) depending on the implementation.
@@ -1146,20 +1146,20 @@ struct Pipeline {
 		f32 clampValue = 0.0f;
 	} depthBias;
 	f32 lineWidth = 1.0f;
-	
+
 	// DEFAULT means true if we have a depth buffer, else false
 	BoolOrDefault depthTest = BoolOrDefault::DEFAULT;
 	BoolOrDefault depthWrite = BoolOrDefault::DEFAULT;
 	CompareOp depthCompareOp = CompareOp::LESS;
-	
+
 	// One for each possible color attachment
 	BlendMode blendModes[8];
-	
+
 	struct {
 		bool enabled = false;
 		f32 minFraction = 1.0f;
 	} multisampleShading;
-	
+
 	Array<VkPushConstantRange> pushConstantRanges;
 
 	enum Kind {
@@ -1177,10 +1177,11 @@ struct Pipeline {
 		bool framebufferHasDepthBuffer = false;
 		i32 numColorAttachments = 0;
 	};
-	
+
 	Device *device;
 	String tag;
 	bool initted = false;
+	bool dirty = true;
 
 	Pipeline() = default;
 	Pipeline(Device *_device, Kind _kind, String _tag) : kind(_kind), device(_device), tag(_tag) {}
@@ -1194,14 +1195,14 @@ struct Buffer {
 		STORAGE_BUFFER,
 		UNIFORM_BUFFER,
 	} kind=UNDEFINED;
-	
+
 	u32 shaderStages = 0;
 
 	i64 size = 0;
 
 	// Used only for index buffers
 	VkIndexType indexType = VK_INDEX_TYPE_UINT16;
-	
+
 	VkBuffer vkBuffer;
 	VkBuffer vkBufferHostVisible;
 	VkMemoryRequirements memoryRequirements;
@@ -1274,13 +1275,13 @@ struct Sampler {
 		CompareOp op = CompareOp::ALWAYS_TRUE;
 	} compare;
 	VkBorderColor borderColor=VK_BORDER_COLOR_INT_TRANSPARENT_BLACK;
-	
+
 	VkSampler vkSampler;
-	
+
 	Device *device;
 	String tag;
 	bool initted = false;
-	
+
 	Sampler() = default;
 	Sampler(Device *_device, String _tag) : device(_device), tag(_tag) {}
 };
@@ -1321,7 +1322,7 @@ struct Framebuffer {
 	// If we have a WINDOW attachment, this will match the number of swapchain images, else it will just be size 1
 	Array<VkFramebuffer> vkFramebuffers;
 	VkRenderPass vkRenderPass;
-	
+
 	// width and height will be set automagically, just used for easy access
 	i32 width, height;
 	u32 sampleCount = 1;
@@ -1577,7 +1578,7 @@ Result<VoidResult_t, String> Initialize() {
 		return Stringify("vkCreateInstance failed with ", VkResultString(vkResult));
 	}
 	instance.initted = true;
-	
+
 	if (instance.enableValidationLayers) {
 		instance.fpSetDebugUtilsObjectNameEXT = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(instance.vkInstance, "vkSetDebugUtilsObjectNameEXT");
 		if (instance.fpSetDebugUtilsObjectNameEXT == nullptr) {
@@ -2071,7 +2072,7 @@ Result<VoidResult_t, String> WindowPresent(Window *window, ArrayWithBucket<Semap
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = &window->vkSwapchain;
 	presentInfo.pImageIndices = (u32*)&window->currentImage;
-	
+
 	VkResult result = vkQueuePresentKHR(window->device->vkQueue, &presentInfo);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
 		io::cout.PrintLnDebug("WindowPresent got ", VkResultString(result));
@@ -3627,7 +3628,7 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 		subpass.pPreserveAttachments = preserveAttachments.data;
 		subpass.inputAttachmentCount = 0;
 		subpass.pInputAttachments = nullptr;
-		
+
 		VkRenderPassCreateInfo createInfo = {VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
 		createInfo.attachmentCount = attachments.size;
 		createInfo.pAttachments = attachments.data;
@@ -3636,7 +3637,7 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 		// We'll just use barriers to transition layouts
 		createInfo.dependencyCount = 0;
 		createInfo.pDependencies = nullptr;
-		
+
 		if (VkResult result = vkCreateRenderPass(framebuffer->device->vkDevice, &createInfo, nullptr, &framebuffer->vkRenderPass); result != VK_SUCCESS) {
 			return ERROR_RESULT(framebuffer, "Failed to create RenderPass: ", VkResultString(result));
 		}
@@ -3841,29 +3842,40 @@ Window* FramebufferGetWindowAttachment(Framebuffer *framebuffer) {
 
 void PipelineAddShaders(Pipeline *pipeline, ArrayWithBucket<Shader*, 4> shaders) {
 	pipeline->shaders.Append(shaders);
+	pipeline->dirty = true;
 }
 
 void PipelineAddVertexInputs(Pipeline *pipeline, const ArrayWithBucket<ShaderValueType, 8> &inputs) {
 	pipeline->vertexInputs.Append(inputs);
+	pipeline->dirty = true;
 }
 
 void PipelineSetBlendMode(Pipeline *pipeline, BlendMode blendMode, i32 attachment) {
+	pipeline->dirty = pipeline->blendModes[attachment] != blendMode;
 	pipeline->blendModes[attachment] = blendMode;
 }
 
 void PipelineSetTopology(Pipeline *pipeline, Topology topology) {
+	pipeline->dirty = pipeline->topology != topology;
 	pipeline->topology = topology;
 }
 
 void PipelineSetCullingMode(Pipeline *pipeline, CullingMode cullingMode) {
+	pipeline->dirty = pipeline->cullingMode != cullingMode;
 	pipeline->cullingMode = cullingMode;
 }
 
 void PipelineSetWinding(Pipeline *pipeline, Winding winding) {
+	pipeline->dirty = pipeline->winding != winding;
 	pipeline->winding = winding;
 }
 
 void PipelineSetDepthBias(Pipeline *pipeline, bool enable, f32 constant, f32 slope, f32 clampValue) {
+	pipeline->dirty =
+		pipeline->depthBias.enable != enable ||
+		pipeline->depthBias.constant != constant ||
+		pipeline->depthBias.slope != slope ||
+		pipeline->depthBias.clampValue != clampValue;
 	pipeline->depthBias.enable = enable;
 	pipeline->depthBias.constant = constant;
 	pipeline->depthBias.slope = slope;
@@ -3871,22 +3883,29 @@ void PipelineSetDepthBias(Pipeline *pipeline, bool enable, f32 constant, f32 slo
 }
 
 void PipelineSetLineWidth(Pipeline *pipeline, f32 lineWidth) {
+	pipeline->dirty = pipeline->lineWidth != lineWidth;
 	pipeline->lineWidth = lineWidth;
 }
 
 void PipelineSetDepthTest(Pipeline *pipeline, bool enabled) {
+	pipeline->dirty = pipeline->depthTest != enabled;
 	pipeline->depthTest = BoolOrDefaultFromBool(enabled);
 }
 
 void PipelineSetDepthWrite(Pipeline *pipeline, bool enabled) {
+	pipeline->dirty = pipeline->depthWrite != enabled;
 	pipeline->depthWrite = BoolOrDefaultFromBool(enabled);
 }
 
 void PipelineSetDepthCompareOp(Pipeline *pipeline, CompareOp compareOp) {
+	pipeline->dirty = pipeline->depthCompareOp != compareOp;
 	pipeline->depthCompareOp = compareOp;
 }
 
 void PipelineSetMultisampleShading(Pipeline *pipeline, bool enabled, f32 minFraction) {
+	pipeline->dirty =
+		pipeline->multisampleShading.enabled != enabled ||
+		pipeline->multisampleShading.minFraction != minFraction;
 	pipeline->multisampleShading.enabled = enabled;
 	pipeline->multisampleShading.minFraction = minFraction;
 }
@@ -3903,6 +3922,7 @@ void PipelineAddPushConstantRange(Pipeline *pipeline, u32 offset, u32 size, u32 
 	range.size = size;
 	range.stageFlags = (VkShaderStageFlags)shaderStages;
 	pipeline->pushConstantRanges.Append(range);
+	pipeline->dirty = true;
 }
 
 bool VkPipelineLayoutCreateInfoMatches(VkPipelineLayoutCreateInfo a, VkPipelineLayoutCreateInfo b) {
@@ -3980,9 +4000,9 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 	layoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts.data;
 	layoutCreateInfo.pPushConstantRanges = pipeline->pushConstantRanges.data;
 	layoutCreateInfo.pushConstantRangeCount = pipeline->pushConstantRanges.size;
-	
-	bool create = false;
-	
+
+	bool create = pipeline->dirty;
+
 	if (context->bindings.framebuffer->sampleCount != pipeline->sampleCount) {
 		pipeline->sampleCount = context->bindings.framebuffer->sampleCount;
 		create = true;
@@ -4005,7 +4025,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			create = true;
 		}
 	}
-	
+
 	if (!VkPipelineLayoutCreateInfoMatches(layoutCreateInfo, pipeline->vkPipelineLayoutCreateInfo)) {
 		pipeline->vkPipelineLayoutCreateInfo = layoutCreateInfo;
 		create = true;
@@ -4103,13 +4123,13 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			vertexInputState.pVertexBindingDescriptions = &vertexInputBindingDescription;
 			vertexInputState.vertexAttributeDescriptionCount = vertexInputAttributeDescriptions.size;
 			vertexInputState.pVertexAttributeDescriptions = vertexInputAttributeDescriptions.data;
-			
+
 			VkPipelineInputAssemblyStateCreateInfo inputAssemblyState{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
 			// This is a 1-to-1 mapping
 			inputAssemblyState.topology = (VkPrimitiveTopology)pipeline->topology;
 			// TODO: We could use this
 			inputAssemblyState.primitiveRestartEnable = VK_FALSE;
-			
+
 			VkPipelineViewportStateCreateInfo viewportState={VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
 			VkViewport viewport;
 			viewport.width = (f32)context->bindings.framebuffer->width;
@@ -4126,7 +4146,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			scissor.extent.height = context->bindings.framebuffer->height;
 			viewportState.scissorCount = 1;
 			viewportState.pScissors = &scissor;
-			
+
 			VkPipelineRasterizationStateCreateInfo rasterizerState{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
 			rasterizerState.depthClampEnable = VK_FALSE;
 			rasterizerState.rasterizerDiscardEnable = VK_FALSE;
@@ -4138,7 +4158,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			rasterizerState.depthBiasSlopeFactor = pipeline->depthBias.slope;
 			rasterizerState.depthBiasClamp = pipeline->depthBias.clampValue;
 			rasterizerState.lineWidth = pipeline->lineWidth;
-			
+
 			VkPipelineMultisampleStateCreateInfo multisampleState{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
 			multisampleState.rasterizationSamples = (VkSampleCountFlagBits)pipeline->sampleCount;
 			multisampleState.sampleShadingEnable = pipeline->multisampleShading.enabled;
@@ -4147,10 +4167,10 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			multisampleState.pSampleMask = nullptr;
 			multisampleState.alphaToCoverageEnable = VK_FALSE;
 			multisampleState.alphaToOneEnable = VK_FALSE;
-			
+
 			VkPipelineDepthStencilStateCreateInfo depthStencilState{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
 			// depthStencilState.flags; // VkPipelineDepthStencilStateCreateFlags
-			
+
 			if (pipeline->depthTest == BoolOrDefault::TRUE && !framebufferHasDepthBuffer) {
 				return ERROR_RESULT(pipeline, "Depth test is enabled, but framebuffer doesn't have a depth buffer");
 			}
@@ -4167,7 +4187,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			// depthStencilState.back; // VkStencilOpState
 			depthStencilState.minDepthBounds = 0.0f;
 			depthStencilState.maxDepthBounds = 1.0f;
-			
+
 			VkPipelineColorBlendStateCreateInfo colorBlendState{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
 			colorBlendState.logicOpEnable = VK_FALSE;
 			colorBlendState.logicOp = VK_LOGIC_OP_COPY;
@@ -4236,7 +4256,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			}
 			colorBlendState.attachmentCount = blendModes.size;
 			colorBlendState.pAttachments = blendModes.data;
-			
+
 			VkPipelineDynamicStateCreateInfo dynamicState{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
 			Array<VkDynamicState> dynamicStates = {
 				VK_DYNAMIC_STATE_VIEWPORT,
@@ -4256,7 +4276,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			};
 			dynamicState.dynamicStateCount = dynamicStates.size;
 			dynamicState.pDynamicStates = dynamicStates.data;
-			
+
 			if (pipeline->vkPipeline != VK_NULL_HANDLE) {
 				// TODO: Probably cache
 				vkDestroyPipeline(pipeline->device->vkDevice, pipeline->vkPipeline, nullptr);
@@ -4280,7 +4300,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			createInfo.subpass = 0;
 			createInfo.basePipelineHandle = VK_NULL_HANDLE;
 			createInfo.basePipelineIndex = -1;
-			
+
 			if (VkResult result = vkCreateGraphicsPipelines(pipeline->device->vkDevice, VK_NULL_HANDLE, 1, &createInfo, nullptr, &pipeline->vkPipeline); result != VK_SUCCESS) {
 				return ERROR_RESULT(pipeline, "Failed to create graphics pipeline: ", VkResultString(result));
 			}
@@ -4288,6 +4308,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 		} else {
 			return ERROR_RESULT(pipeline, "Compute pipelines are not implemented yet");
 		}
+		pipeline->dirty = false;
 	}
 	return VoidResult_t();
 }
@@ -4472,7 +4493,7 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 	// These are for finding or creating them
 	Array<DescriptorSetLayout> descriptorSetLayouts;
 	Array<DescriptorBindings> descriptorBindings;
-	
+
 	Array<Array<VkWriteDescriptorSet>> vkWriteDescriptorSets;
 	Array<VkDescriptorBufferInfo> descriptorBufferInfos;
 	descriptorBufferInfos.Reserve(numUniformBuffers + numStorageBuffers);

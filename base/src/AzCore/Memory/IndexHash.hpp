@@ -8,62 +8,15 @@
 #define AZCORE_INDEX_HASH_HPP
 
 #include "../basictypes.hpp"
+#include "ByteHash.hpp"
+#include <type_traits>
 
 namespace AzCore {
 
-template<u16 bounds>
-constexpr i32 IndexHash(u8 in) {
-	if constexpr (bounds < 256)
-		return in % bounds;
-	else
-		return in;
-}
-template<u16 bounds>
-constexpr i32 IndexHash(i8 in) {
-	if constexpr (bounds < 256)
-		return u8(in) % bounds;
-	else
-		return in;
-}
-template<u16 bounds>
-constexpr i32 IndexHash(u16 in) {
-	return in % bounds;
-}
-template<u16 bounds>
-constexpr i32 IndexHash(i16 in) {
-	return u16(in) % bounds;
-}
-template<u16 bounds>
-constexpr i32 IndexHash(u32 in) {
-	return in % bounds;
-}
-template<u16 bounds>
-constexpr i32 IndexHash(i32 in) {
-	return u32(in) % bounds;
-}
-template<u16 bounds>
-constexpr i32 IndexHash(u64 in) {
-	return in % bounds;
-}
-template<u16 bounds>
-constexpr i32 IndexHash(i64 in) {
-	return u64(in) % bounds;
-}
-
-#if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
-template<u16 bounds>
-constexpr i32 IndexHash(u128 in) {
-	return in % bounds;
-}
-template<u16 bounds>
-constexpr i32 IndexHash(i128 in) {
-	return u128(in) % bounds;
-}
-#endif
-
-template<u16 bounds>
-constexpr i32 IndexHash(void *in) {
-	return u64(in) % bounds;
+template<u16 bounds, typename T>
+constexpr i32 IndexHash(const T &in) {
+	static_assert(std::is_trivially_copyable<T>::value);
+	return ByteHash<u64>((u8*)&in, sizeof(in)) % bounds;
 }
 
 } // namespace AzCore

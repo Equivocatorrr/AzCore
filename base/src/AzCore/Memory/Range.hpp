@@ -318,9 +318,14 @@ struct SimpleRange {
 		}
 	}
 
-	SimpleRange<T> SubRange(i64 index, i64 _size) {
+	// if _size == 0 then returns the range starting at index and going to the end
+	SimpleRange<T> SubRange(i64 index, i64 _size=0) {
 		AzAssert(index >= 0 && index + _size <= size, "SimpleRange::SubRange index + size is out of bounds");
-		return SimpleRange<T>(str + index, _size);
+		if (_size > 0) {
+			return SimpleRange<T>(str + index, _size);
+		} else {
+			return SimpleRange<T>(str + index, size - index);
+		}
 	}
 
 	T* begin() {

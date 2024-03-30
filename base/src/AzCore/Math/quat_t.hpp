@@ -61,6 +61,8 @@ struct quat_t {
 	inline quat_t<T> operator+(quat_t<T> a) const {
 		return quat_t<T>(w + a.w, x + a.x, y + a.y, z + a.z);
 	}
+	inline T& operator[](i32 i) { return data[i]; }
+	inline const T& operator[](i32 i) const { return data[i]; }
 	inline quat_t<T>& operator+=(quat_t<T> a) {
 		w += a.w;
 		x += a.x;
@@ -150,7 +152,7 @@ template <typename T>
 AzCore::quat_t<T> slerp(AzCore::quat_t<T> a, AzCore::quat_t<T> b, T factor) {
 	a = normalize(a);
 	b = normalize(b);
-	T d = dot(a.vector, b.vector);
+	T d = dot(a.wxyz, b.wxyz);
 	if (d < T(0.0)) {
 		b = -b.wxyz;
 		d *= T(-1.0);

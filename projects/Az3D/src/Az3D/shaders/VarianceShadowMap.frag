@@ -16,7 +16,7 @@ layout(set=0, binding=0) uniform WorldInfo {
 	vec3 eyePos;
 } worldInfo;
 
-layout(set=0, binding=2) uniform sampler2D texSampler[1];
+layout(set=0, binding=3) uniform sampler2D texSampler[1];
 
 const float PI = 3.1415926535897932;
 
@@ -50,7 +50,7 @@ layout(std140, set=0, binding=1) readonly buffer ObjectBuffer {
 
 void main() {
 	ObjectInfo info = objectBuffer.objects[inInstanceIndex];
-	
+
 	// float alpha = texture(texSampler[info.material.texAlbedo], texCoord).a * info.material.color.a;
 	// if (alpha < 0.5) {
 	// 	discard;

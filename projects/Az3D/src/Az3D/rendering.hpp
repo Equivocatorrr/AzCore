@@ -13,18 +13,11 @@
 #include "AzCore/memory.hpp"
 #include "AzCore/gpu.hpp"
 
-namespace AzCore {
-namespace io {
-	struct Window;
-}
-}
+#include "assets.hpp"
 
-namespace Az3D::Assets {
-	struct Texture;
-	struct Font;
-	struct Mesh;
-	struct MeshPart;
-}
+namespace AzCore::io {
+	struct Window;
+} // namespace AzCore::io
 
 namespace Az3D::Rendering {
 
@@ -56,41 +49,6 @@ using Vertex = Az3DObj::Vertex;
 struct DebugVertex {
 	vec3 pos;
 	vec4 color;
-};
-
-struct alignas(16) Material {
-	// The following multiply with any texture bound (with default textures having a value of 1)
-	vec4 color;
-	vec3 emit;
-	f32 normal;
-	vec3 sssColor;
-	f32 metalness;
-	vec3 sssRadius;
-	f32 roughness;
-	f32 sssFactor;
-	u32 isFoliage;
-	// Texture indices
-	union {
-		struct {
-			u32 texAlbedo;
-			u32 texEmit;
-			u32 texNormal;
-			u32 texMetalness;
-			u32 texRoughness;
-		};
-		u32 tex[5];
-	};
-	
-	inline static Material Blank() {
-		return Material{
-			vec4(1.0f),
-			vec3(0.0f),
-			1.0f,
-			0.0f,
-			0.5f,
-			0,
-			1, 1, 1, 1, 1};
-	}
 };
 
 constexpr i32 texBlank = 1;
@@ -166,6 +124,13 @@ struct Camera {
 #undef DrawText
 #endif
 
+struct ArmatureAction {
+	Assets::MeshIndex meshIndex;
+	Assets::ActionIndex actionIndex;
+	f32 actionTime;
+	bool operator==(const ArmatureAction &other) const;
+};
+
 // Contains all the info for a single indexed draw call
 struct DrawCallInfo {
 	ArrayWithBucket<mat4, 1> transforms;
@@ -181,8 +146,9 @@ struct DrawCallInfo {
 	u32 instanceStart;
 	// This will be set to transforms.size
 	u32 instanceCount;
-	Material material;
+	Assets::Material material;
 	PipelineIndex pipeline;
+	Optional<ArmatureAction> armatureAction;
 	// If this is false, this call gets sorted later than opaque calls
 	bool opaque;
 	// Whether to be considered for shadow passes, set to false if culled by shadow frustums
@@ -193,8 +159,11 @@ struct DrawCallInfo {
 
 struct alignas(16) ObjectShaderInfo {
 	mat4 model;
-	Material material;
+	Assets::Material material;
+	u32 bonesOffset;
 };
+// Verify that bonesOffset is nuzzled snugly after material (since material would otherwise be padded with 4 bytes anyway).
+static_assert(sizeof(ObjectShaderInfo) == 40*4);
 
 struct DrawingContext {
 	Array<DrawCallInfo> thingsToDraw;
@@ -238,9 +207,10 @@ struct Manager {
 
 		GPU::Buffer *uniformBuffer;
 		GPU::Buffer *objectBuffer;
+		GPU::Buffer *bonesBuffer;
 		GPU::Buffer *vertexBuffer;
 		GPU::Buffer *indexBuffer;
-		
+
 		GPU::Context *contextShadowMap;
 		GPU::Image *shadowMapImage;
 		GPU::Framebuffer *framebufferShadowMaps;
@@ -249,7 +219,7 @@ struct Manager {
 		GPU::Framebuffer *framebufferConvolution[2];
 		GPU::Pipeline *pipelineShadowMapConvolution;
 		GPU::Sampler *shadowMapSampler;
-		
+
 		// For debug lines
 		GPU::Buffer *debugVertexBuffer;
 
@@ -261,6 +231,7 @@ struct Manager {
 		Assets::MeshPart *meshPartUnitSquare;
 		// One for each draw call, sent to the shader
 		Array<ObjectShaderInfo> objectShaderInfos;
+		Array<mat4> bones;
 		// One for each thread
 		Array<DrawingContext> drawingContexts;
 		Array<DebugVertex> debugVertices;
@@ -299,8 +270,9 @@ struct Manager {
 
 };
 
-void DrawMeshPart(DrawingContext &context, Assets::MeshPart *meshPart, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows);
-void DrawMesh(DrawingContext &context, Assets::Mesh mesh, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows);
+void DrawMeshPart(DrawingContext &context, Assets::MeshPart *meshPart, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows, az::Optional<ArmatureAction> action=az::Optional<ArmatureAction>());
+void DrawMesh(DrawingContext &context, Assets::MeshIndex mesh, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows);
+void DrawMeshAnimated(DrawingContext &context, Assets::MeshIndex mesh, Assets::ActionIndex action, f32 time, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows);
 
 inline void DrawDebugLine(DrawingContext &context, DebugVertex point1, DebugVertex point2) {
 	context.debugLines.Append(point1);

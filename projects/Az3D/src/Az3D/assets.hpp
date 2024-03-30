@@ -11,7 +11,6 @@
 #include "AzCore/memory.hpp"
 #include "AzCore/font.hpp"
 #include "sound.hpp"
-#include "rendering.hpp"
 #include "Az3DObj.hpp"
 
 struct stb_vorbis;
@@ -25,6 +24,42 @@ typedef i32 FontIndex;
 typedef i32 SoundIndex;
 typedef i32 StreamIndex;
 typedef i32 MeshIndex;
+typedef i32 ActionIndex;
+
+struct Material {
+	// The following multiply with any texture bound (with default textures having a value of 1)
+	az::vec4 color;
+	az::vec3 emit;
+	f32 normal;
+	az::vec3 sssColor;
+	f32 metalness;
+	az::vec3 sssRadius;
+	f32 roughness;
+	f32 sssFactor;
+	u32 isFoliage;
+	// Texture indices
+	union {
+		struct {
+			u32 texAlbedo;
+			u32 texEmit;
+			u32 texNormal;
+			u32 texMetalness;
+			u32 texRoughness;
+		};
+		u32 tex[5];
+	};
+
+	inline static Material Blank() {
+		return Material{
+			az::vec4(1.0f),
+			az::vec3(0.0f),
+			1.0f,
+			0.0f,
+			0.5f,
+			0,
+			1, 1, 1, 1, 1};
+	}
+};
 
 enum class Type {
 	NONE=0,
@@ -33,8 +68,9 @@ enum class Type {
 	SOUND,
 	STREAM,
 	MESH,
+	ACTION,
 };
-extern const char* typeStrings[6];
+extern const char* typeStrings[];
 
 // Used to retrieve indices to actual assets
 // Should be consistent with indices in the Rendering Manager
@@ -157,7 +193,7 @@ struct MeshPart {
 	az::String name;
 	az::Array<Az3DObj::Vertex> vertices;
 	az::Array<u32> indices;
-	Rendering::Material material;
+	Material material;
 	f32 boundingSphereRadius;
 	// Used for drawing, assigned when the data is copied into the vertex and index buffers
 	u32 indexStart;
@@ -168,8 +204,14 @@ struct Manager;
 struct Mesh {
 	az::io::File *file;
 	az::ArrayWithBucket<MeshPart*, 8> parts;
-	
+	az::Array<Az3DObj::Armature> armatures;
+
 	void Decode(Manager *manager);
+};
+
+struct Action {
+	az::io::File *file;
+	Az3DObj::Action action;
 };
 
 constexpr i32 texIndexBlank = 1;
@@ -177,31 +219,34 @@ constexpr i32 texIndexBlankNormal = 2;
 
 struct Manager {
 	az::io::FileManager fileManager;
-	
+
 	az::HashMap<az::String, Mapping> mappings;
 	az::Array<Texture> textures;
 	az::Array<Font> fonts;
 	az::Array<Sound> sounds;
 	az::Array<Stream> streams;
 	az::Array<Mesh> meshes;
+	az::Array<Action> actions;
 	az::Array<az::UniquePtr<MeshPart>> meshParts;
 	TexIndex nextTexIndex;
 	FontIndex nextFontIndex;
 	SoundIndex nextSoundIndex;
 	StreamIndex nextStreamIndex;
 	MeshIndex nextMeshIndex;
-	
+	ActionIndex nextActionIndex;
+
 	az::Mutex arrayMutex;
-	
+
 	void Init();
 	void Deinit();
-	
+
 	TexIndex    RequestTexture(az::String filepath, bool linear, i32 priority=0);
 	FontIndex   RequestFont   (az::String filepath, i32 priority=0);
 	SoundIndex  RequestSound  (az::String filepath, i32 priority=0);
 	StreamIndex RequestStream (az::String filepath, i32 priority=0);
 	MeshIndex   RequestMesh   (az::String filepath, i32 priority=0);
-	
+	ActionIndex RequestAction (az::String path);
+
 	// filepath is for debugging purposes
 	// if lock is true then it will try to lock arrayMutex, otherwise it's expected you've already locked it.
 	TexIndex    RequestTextureDecode(az::Array<char> &&buffer, az::String filepath, bool linear, i32 priority=0, bool lock=true);
@@ -221,6 +266,10 @@ struct Manager {
 	}
 	inline MeshIndex FindMesh(az::Str filename) {
 		return (MeshIndex)FindMapping(filename, Type::MESH);
+	}
+	// Action paths are Mesh filename extended with a / and the action name. Ex: "model.az3d/actionName"
+	inline ActionIndex FindAction(az::Str path) {
+		return (ActionIndex)FindMapping(path, Type::ACTION);
 	}
 	f32 CharacterWidth(char32 c, FontIndex fontIndex) const;
 };

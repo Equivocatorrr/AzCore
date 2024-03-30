@@ -22,8 +22,8 @@ layout(set=0, binding=0) uniform WorldInfo {
 	vec3 fogColor;
 } worldInfo;
 
-layout(set=0, binding=2) uniform sampler2D texSampler[1];
-layout(set=0, binding=3) uniform sampler2D shadowMap;
+layout(set=0, binding=3) uniform sampler2D texSampler[1];
+layout(set=0, binding=4) uniform sampler2D shadowMap;
 
 const float PI = 3.1415926535897932;
 
@@ -110,7 +110,7 @@ float ChebyshevInequality(vec2 moments, float depth) {
 	float variance = max(squaredMean - meanSquared, minVariance);
 	float pMax = variance / (variance + sqr(moments.x - depth));
 	if (depth < 0.0) return 1.0;
-	
+
 	// Lower bound helps reduce light bleeding
 	return smoothstep(minPenumbraVal, 1.0, pMax);
 }
@@ -131,7 +131,7 @@ const float sunTanRadius = tan(sunRadiusRadians);
 
 void main() {
 	ObjectInfo info = objectBuffer.objects[inInstanceIndex];
-	
+
 	vec4 sunCoord = worldInfo.sun * vec4(inWorldPos, 1.0);
 	sunCoord.z = 1.0 - sunCoord.z;
 	const vec2 shadowMapSize = textureSize(shadowMap, 0);
@@ -198,9 +198,9 @@ void main() {
 	} else {
 		sunFactor = 1.0;
 	}
-	
+
 	float sssDistance = (sssDepth - sunCoord.z) / length(worldInfo.sun[2].xyz);
-	
+
 	vec4 albedo = texture(texSampler[info.material.texAlbedo], texCoord) * info.material.color;
 	vec3 emit = texture(texSampler[info.material.texEmit], texCoord).rgb * info.material.emit;
 	vec3 normal = texture(texSampler[info.material.texNormal], texCoord).xyz * 2.0 - 1.0;
@@ -208,68 +208,70 @@ void main() {
 	float roughness = texture(texSampler[info.material.texRoughness], texCoord).x * info.material.roughness;
 	roughness = max(0.001, sqr(roughness));
 	float sssFactor = info.material.sssFactor;
-	
+
 	vec3 surfaceNormal = normalize(inNormal);
 	vec3 surfaceTangent = normalize(inTangent);
 	vec3 surfaceBitangent = normalize(inBitangent);
-	
+
 	vec3 viewDelta = worldInfo.eyePos - inWorldPos;
 	vec3 viewNormal = normalize(viewDelta);
-	
+
 	if (!gl_FrontFacing) {
 		surfaceNormal = -surfaceNormal;
 	}
 	mat3 invTBN = transpose(mat3(surfaceTangent, surfaceBitangent, surfaceNormal));
 	normal = normalize(mix(surfaceNormal, normal * invTBN, info.material.normal));
-	
+
 	// Negate viewNormal because reflect expects the ray to be pointing towards the surface
 	vec3 viewReflect = reflect(-viewNormal, normal);
-	
+
 	vec3 lightNormal = worldInfo.sunDir;
 	// Approximate spherical area lighting by moving our light normal towards the reflection vector
 	// NOTE: This approximation can be improved by methods described here: https://advances.realtimerendering.com/s2017/DecimaSiggraph2017.pdf
 	vec3 viewReflectedToLightNormal = viewReflect - dot(lightNormal, viewReflect) * lightNormal;
 	vec3 lightNormalAdjusted = normalize(lightNormal + viewReflectedToLightNormal * clamp(sunTanRadius / length(viewReflectedToLightNormal), 0.0, 1.0));
-	
+
 	vec3 halfNormal = normalize(viewNormal + lightNormalAdjusted);
-	
+
 	float cosThetaView = max(dot(normal, viewNormal), 0.0);
 	float cosThetaLight = dot(normal, lightNormal);
 	float cosThetaViewHalfNormal = max(dot(normal, halfNormal), 0.0);
 	// Roughness remapping for direct lighting
 	float k = sqr(roughness+1.0)/8.0;
-	
+
 	vec3 baseReflectivity = mix(vec3(0.04), albedo.rgb, metalness);
 	float attenuationGeometry = GeometrySchlickGGX(cosThetaView, k);
 	float attenuationLight = GeometrySchlickGGX(max(cosThetaLight, 0.0), k);
 	float attenuationSpecular = DistributionGGX(cosThetaViewHalfNormal, roughness);
 	float attenuationAmbient = mix(GeometrySchlickGGX(cosThetaView, roughness), 1.0, 0.5);
-	// Linear attenuation looks nicer because it's softer. 
+	// Linear attenuation looks nicer because it's softer.
 	float attenuationWrap = cosThetaLight; //GeometrySchlickGGX(cosThetaLight, k);
 	vec3 fresnel = FresnelSchlick(cosThetaView, baseReflectivity);
 	vec3 fresnelAmbient = FresnelSchlickRoughness(cosThetaView, baseReflectivity, roughness);
-	
+
 	float isFoliage = float(info.material.isFoliage);
 	vec3 sssWrap = tanh(info.material.sssRadius);
-	
+
 	vec3 wrapFac = wrap(attenuationWrap, sssWrap);
 	vec3 diffuse = albedo.rgb * attenuationLight * (1.0 - sssFactor) * lightColor * attenuationGeometry;
-	
+
 	vec3 sssFac = min(1.0 - vec3(sssDistance) / info.material.sssRadius, 1.0);
 	sssFac = pow(vec3(5.0 - isFoliage*3.0), sssFac - 1.0);
 	sssFac = max(sssFac, 0.0);
 	// 0.5 comes from the fact that light is only coming from one direction, but scattering in all directions
 	vec3 subsurface = (sssFac * lightColor * 0.5 + worldInfo.ambientLight) * attenuationAmbient;
 	subsurface *= info.material.sssColor * sssFactor;
-	
+
 	vec3 specular = lightColor * attenuationSpecular * attenuationLight * attenuationGeometry;
-	
+
 	vec3 ambientDiffuse = albedo.rgb * worldInfo.ambientLight * attenuationAmbient;
 	vec3 ambientSpecular = worldInfo.ambientLight;
-	
+
 	outColor.rgb = 1.0 / PI * mix(diffuse * (1.0 - metalness), specular, fresnel) * sunFactor + subsurface + mix(ambientDiffuse, ambientSpecular, fresnelAmbient * 0.5 * (1.0 - roughness));
 	outColor.a = albedo.a;
 	outColor.rgb += emit;
-	
+
 	outColor.rgb = TonemapACES(outColor.rgb);
+
+	// outColor.rgb = vec3(inBoneAccum[0][0], inBoneAccum[1][1], inBoneAccum[2][2]);
 }

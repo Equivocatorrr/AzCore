@@ -19,13 +19,14 @@ io::Log cout("assets.log");
 
 String error = "No error.";
 
-const char *typeStrings[6] = {
+const char *typeStrings[] = {
 	"None",
 	"Texture",
 	"Font",
 	"Sound",
 	"Stream",
 	"Mesh",
+	"Action",
 };
 
 Type FilenameToType(String filename) {
@@ -318,12 +319,17 @@ Stream::~Stream() {
 	}
 }
 
+Str RemovePrefix(Str string, Str prefix) {
+	AzAssert(string.size >= prefix.size && prefix == string.SubRange(0, prefix.size), Stringify("String \"", string, "\" doesn't begin with \"", prefix, "\""));
+	return string.SubRange(prefix.size, string.size - prefix.size);
+}
+
 void Mesh::Decode(Manager *manager) {
 	AZCORE_PROFILING_FUNC_TIMER()
 	Az3DObj::File az3dFile;
 	Array<Az3DObj::File::ImageData> imageData;
 	if (!az3dFile.LoadFromBuffer(file->data, &imageData)) return;
-	// Hold the lock until we add all the images
+	// Hold the lock until we add all the images and actions
 	manager->arrayMutex.Lock();
 	// Use this to offset material texture indices
 	// Offset by -1 because mesh tex indices are 1-indexed, since 0 means no texture.
@@ -341,9 +347,20 @@ void Mesh::Decode(Manager *manager) {
 	// 	}
 	// }
 	for (auto &image : imageData) {
-		manager->RequestTextureDecode(Array<char>(image.data), Stringify(file->filepath, "/", image.filename), image.isLinear, file->priority, false);
+		manager->RequestTextureDecode(Array<char>(image.data), Stringify(file->filepath, '/', image.filename), image.isLinear, file->priority, false);
+	}
+	for (Az3DObj::Action &actionData : az3dFile.actions) {
+		az::String path = Stringify(RemovePrefix(file->filepath, "models/"), '/', actionData.name);
+		if (auto node = manager->mappings.Find(path)) {
+			AzAssert(node->value.type == Type::ACTION, Stringify("MeshDecode had action \"", path, "\" but that path already exists as a ", typeStrings[(i32)node->value.type]));
+			manager->actions[node->value.index] = Action{file, std::move(actionData)};
+		} else {
+			manager->mappings.Emplace(path, {Type::ACTION, manager->actions.size});
+			manager->actions.Append(Action{file, std::move(actionData)});
+		}
 	}
 	manager->arrayMutex.Unlock();
+	armatures = std::move(az3dFile.armatures);
 	for (Az3DObj::Mesh &meshData : az3dFile.meshes) {
 		UniquePtr<MeshPart> meshPart;
 		meshPart->name = std::move(meshData.name);
@@ -389,16 +406,18 @@ void Manager::Init() {
 	sounds.Clear();
 	streams.Clear();
 	meshes.Clear();
+	actions.Clear();
 	meshParts.Clear();
 	nextTexIndex = 0;
 	nextFontIndex = 0;
 	nextSoundIndex = 0;
 	nextStreamIndex = 0;
 	nextMeshIndex = 0;
+	nextActionIndex = 0;
 #ifndef NDEBUG
 	fileManager.warnFileNotFound = true;
 #endif
-	
+
 	RequestTexture("TextureMissing.png", false);
 	RequestTexture("blank.tga", false);
 	RequestTexture("blank_n.tga", true);
@@ -575,6 +594,18 @@ MeshIndex Manager::RequestMesh(az::String filepath, i32 priority) {
 		metadata.manager->arrayMutex.Unlock();
 		return false;
 	}, MeshDecodeMetadata{result, this});
+	return result;
+}
+
+ActionIndex Manager::RequestAction(az::String path) {
+	if (auto node = mappings.Find(path)) {
+		AzAssert(node->value.type == Type::ACTION, Stringify("RequestAction for \"", path, "\" already exists as a ", typeStrings[(i32)node->value.type]));
+		return node->value.index;
+	}
+	ScopedLock lock(arrayMutex);
+	ActionIndex result = nextActionIndex++;
+	mappings.Emplace(path, Mapping{Type::ACTION, result});
+	actions.Resize(max(result+1, actions.size));
 	return result;
 }
 

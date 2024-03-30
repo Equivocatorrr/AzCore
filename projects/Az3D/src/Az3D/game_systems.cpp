@@ -94,7 +94,13 @@ void UpdateLoop() {
 			Settings::SetBool(Settings::sFullscreen, !Settings::ReadBool(Settings::sFullscreen));
 		}
 		if (sys->input.Pressed(KC_KEY_F12)) {
-			Settings::SetBool(Settings::sVSync, !Settings::ReadBool(Settings::sVSync));
+			if (sys->input.Down(KC_KEY_LEFTSHIFT) || sys->input.Down(KC_KEY_RIGHTSHIFT)) {
+				Settings::SetBool(Settings::sDebugLines, !Settings::ReadBool(Settings::sDebugLines));
+			} else if (sys->input.Down(KC_KEY_LEFTCTRL) || sys->input.Down(KC_KEY_RIGHTCTRL)) {
+				Settings::SetBool(Settings::sDebugLinesDepthTest, !Settings::ReadBool(Settings::sDebugLinesDepthTest));
+			} else {
+				Settings::SetBool(Settings::sVSync, !Settings::ReadBool(Settings::sVSync));
+			}
 		}
 		if (exit) {
 			exitDelay -= sys->timestep;
@@ -128,7 +134,7 @@ void UpdateLoop() {
 		// }
 		sys->rawInput.Update(sys->timestep);
 		sys->Sync();
-		
+
 		sys->mutexUpdate.Lock();
 		sys->doUpdate = true;
 		sys->doneUpdate = false;
@@ -139,16 +145,16 @@ void UpdateLoop() {
 		sys->doneDraw = false;
 		sys->mutexDraw.Unlock();
 		sys->condDraw.WakeAll();
-		
+
 		sys->mutexControl.Lock();
 		while (!(sys->doneUpdate && sys->doneDraw)) {
 			sys->condControl.Wait(sys->mutexControl);
 			if (sys->abort) break;
 		}
 		sys->mutexControl.Unlock();
-		
+
 		if (sys->abort) break;
-		
+
 		if (!soundProblem) {
 			if (!sys->sound.Update(sys->timestep)) {
 				io::cerr.PrintLn(Sound::error);
@@ -168,7 +174,7 @@ void UpdateLoop() {
 		}
 		frame = (frame + 1) % sys->updateIterations;
 	}
-	
+
 	for (System* system : sys->systems) {
 		system->EventClose();
 	}
@@ -200,12 +206,12 @@ bool Manager::Init() {
 	assets.Init();
 	RequestAssets();
 	CallInitialize();
-	
+
 	if (enableVulkanValidation) {
 		GPU::EnableValidationLayers();
 	}
 	rendering.data.concurrency = 4;
-	
+
 	if (!window.Open()) {
 		error = Stringify("Failed to open window: ", io::error);
 		return false;
@@ -216,7 +222,7 @@ bool Manager::Init() {
 		// Gui::guiBasic->scale = scale;
 		window.Resize(u32((f32)window.width * scale), u32((u32)window.height * scale));
 	}
-	
+
 	if (!rendering.Init()) {
 		error = Stringify("Failed to init Rendering::Manager: ", Rendering::error);
 		return false;
@@ -228,11 +234,11 @@ bool Manager::Init() {
 	}
 
 	window.Fullscreen(Settings::ReadBool(Settings::sFullscreen));
-	
+
 	doUpdate = doDraw = doneUpdate = doneDraw = stopThreads = false;
 	threadUpdate = Thread(UpdateProc, this);
 	threadDraw = Thread(DrawProc, this);
-	
+
 	return true;
 }
 

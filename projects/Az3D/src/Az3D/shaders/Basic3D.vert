@@ -5,6 +5,8 @@ layout(location=0) in vec3 inPosition;
 layout(location=1) in vec3 inNormal;
 layout(location=2) in vec3 inTangent;
 layout(location=3) in vec2 inTexCoord;
+layout(location=4) in uint inBoneIDs;
+layout(location=5) in uint inBoneWeights;
 
 layout(location=0) out vec2 outTexCoord;
 layout(location=1) out vec3 outNormal;
@@ -23,8 +25,9 @@ layout(set=0, binding=0) uniform WorldInfo {
 	vec3 eyePos;
 } worldInfo;
 
-struct Material {
-	// The following multiply with any texture bound (with default textures having a value of 1)
+struct ObjectInfo {
+	mat4 model;
+	// Material must be laid out like this because if it's a struct, it will get padded and bonesOffset will also be padded out, wasting some space.
 	vec4 color;
 	vec3 emit;
 	float normal;
@@ -40,16 +43,17 @@ struct Material {
 	uint texNormal;
 	uint texMetalness;
 	uint texRoughness;
-};
-
-struct ObjectInfo {
-	mat4 model;
-	Material material;
+	// BONES
+	uint bonesOffset;
 };
 
 layout(std140, set=0, binding=1) readonly buffer ObjectBuffer {
 	ObjectInfo objects[];
 } objectBuffer;
+
+layout(std140, set=0, binding=2) readonly buffer BonesBuffer {
+	mat4 bones[];
+} bonesBuffer;
 
 float sqrNorm(vec3 a) {
 	return dot(a, a);
@@ -57,6 +61,15 @@ float sqrNorm(vec3 a) {
 
 void main() {
 	mat4 model = objectBuffer.objects[gl_InstanceIndex].model;
+	mat4 boneAccum = mat4(0);
+	if (inBoneWeights != 0) {
+		for (int i = 0; i < 4; i++) {
+			uint boneID = (inBoneIDs >> i*8) & 255;
+			float boneWeight = float((inBoneWeights >> i*8) & 255) / 255.0;
+			boneAccum += bonesBuffer.bones[boneID + objectBuffer.objects[gl_InstanceIndex].bonesOffset] * boneWeight;
+		}
+		model = model * boneAccum;
+	}
 	// With positions being scaled by S, normals must be scaled by 1/S
 	// Scale is represented as the norm of the basis vectors, so scale them by 1/norm(B)^2
 	mat3 modelRotationScale = mat3(

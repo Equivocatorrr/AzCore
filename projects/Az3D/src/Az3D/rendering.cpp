@@ -188,6 +188,7 @@ bool Manager::Init() {
 		data.debugVertices.Resize(MAX_DEBUG_VERTICES);
 		// TODO: Make this resizeable
 		data.objectShaderInfos.Resize(1000000);
+		data.bones.Resize(10000, mat4(1.0f));
 	}
 	{ // Context
 		data.contextGraphics = GPU::NewContext(data.device);
@@ -208,7 +209,7 @@ bool Manager::Init() {
 			{vec3(1.0f, 1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f), vec2(1.0f, 1.0f)},
 		};
 		data.meshPartUnitSquare->indices = {0, 1, 2, 1, 3, 2};
-		data.meshPartUnitSquare->material = Material::Blank();
+		data.meshPartUnitSquare->material = Assets::Material::Blank();
 	}
 	// We'll be loading all the textures and meshes at once, so wait until they're loaded.
 	AZCORE_PROFILING_EXCEPTION_START()
@@ -244,6 +245,10 @@ bool Manager::Init() {
 		GPU::BufferSetSize(data.objectBuffer, data.objectShaderInfos.size * sizeof(ObjectShaderInfo));
 		GPU::BufferSetShaderUsage(data.objectBuffer, (u32)GPU::ShaderStage::VERTEX | (u32)GPU::ShaderStage::FRAGMENT);
 
+		data.bonesBuffer = GPU::NewStorageBuffer(data.device);
+		GPU::BufferSetSize(data.bonesBuffer, data.bones.size * sizeof(mat4));
+		GPU::BufferSetShaderUsage(data.bonesBuffer, (u32)GPU::ShaderStage::VERTEX);
+
 		data.textures.Resize(sys->assets.textures.size);
 		for (i32 i = 0; i < sys->assets.textures.size; i++) {
 			Image &image = sys->assets.textures[i].image;
@@ -272,6 +277,8 @@ bool Manager::Init() {
 		GPU::ShaderValueType::VEC3, // normal
 		GPU::ShaderValueType::VEC3, // tangent
 		GPU::ShaderValueType::VEC2, // tex
+		GPU::ShaderValueType::U32,  // boneIDs (4 u8s packed into a u32)
+		GPU::ShaderValueType::U32,  // boneWeights (4 u8s packed into a u32)
 	};
 	{ // Pipelines
 		GPU::Shader *debugLinesVert = GPU::NewShader(data.device, "data/Az3D/shaders/DebugLines.vert.spv", GPU::ShaderStage::VERTEX);
@@ -290,10 +297,10 @@ bool Manager::Init() {
 		});
 		GPU::PipelineSetTopology(data.pipelines[PIPELINE_DEBUG_LINES], GPU::Topology::LINE_LIST);
 		GPU::PipelineSetLineWidth(data.pipelines[PIPELINE_DEBUG_LINES], 2.0f);
-		GPU::PipelineSetDepthTest(data.pipelines[PIPELINE_DEBUG_LINES], true);
+		GPU::PipelineSetDepthTest(data.pipelines[PIPELINE_DEBUG_LINES], Settings::ReadBool(Settings::sDebugLinesDepthTest));
 		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_DEBUG_LINES], GPU::CompareOp::LESS);
-		
-		
+
+
 		data.pipelines[PIPELINE_BASIC_3D] = GPU::NewGraphicsPipeline(data.device, "Basic 3D Pipeline");
 		GPU::PipelineAddShaders(data.pipelines[PIPELINE_BASIC_3D], {basic3DVert, basic3DFrag});
 		GPU::PipelineAddVertexInputs(data.pipelines[PIPELINE_BASIC_3D], vertexInputs);
@@ -304,7 +311,7 @@ bool Manager::Init() {
 		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_BASIC_3D], GPU::CompareOp::LESS);
 		GPU::PipelineSetCullingMode(data.pipelines[PIPELINE_BASIC_3D], GPU::CullingMode::BACK);
 		GPU::PipelineSetWinding(data.pipelines[PIPELINE_BASIC_3D], GPU::Winding::COUNTER_CLOCKWISE);
-		
+
 		data.pipelines[PIPELINE_FOLIAGE_3D] = GPU::NewGraphicsPipeline(data.device, "Foliage 3D Pipeline");
 		GPU::PipelineAddShaders(data.pipelines[PIPELINE_FOLIAGE_3D], {basic3DVert, basic3DFrag});
 		GPU::PipelineAddVertexInputs(data.pipelines[PIPELINE_FOLIAGE_3D], vertexInputs);
@@ -326,21 +333,21 @@ bool Manager::Init() {
 	{ // Shadow maps
 		constexpr i32 dims = 1024;
 		data.contextShadowMap = GPU::NewContext(data.device, "VSM Context");
-		
+
 		GPU::Image *shadowMapMSAAImage = GPU::NewImage(data.device, "VSM MSAA Image");
 		data.shadowMapImage = GPU::NewImage(data.device, "VSM Image");
 		GPU::ImageSetFormat(shadowMapMSAAImage, GPU::ImageBits::R32G32, GPU::ImageComponentType::SFLOAT);
 		GPU::ImageSetSize(shadowMapMSAAImage, dims, dims);
 		GPU::ImageSetSampleCount(shadowMapMSAAImage, 4);
-		
+
 		GPU::ImageSetFormat(data.shadowMapImage, GPU::ImageBits::R32G32, GPU::ImageComponentType::SFLOAT);
 		GPU::ImageSetSize(data.shadowMapImage, dims, dims);
 		GPU::ImageSetShaderUsage(data.shadowMapImage, (u32)GPU::ShaderStage::FRAGMENT);
 		GPU::ImageSetMipmapping(data.shadowMapImage, true);
-		
+
 		data.framebufferShadowMaps = GPU::NewFramebuffer(data.device, "VSM Framebuffer");
 		GPU::FramebufferAddImageMultisampled(data.framebufferShadowMaps, shadowMapMSAAImage, data.shadowMapImage);
-		
+
 		GPU::Shader *vsmVert = GPU::NewShader(data.device, "data/Az3D/shaders/VarianceShadowMap.vert.spv", GPU::ShaderStage::VERTEX, "VSM Vertex Shader");
 		GPU::Shader *vsmFrag = GPU::NewShader(data.device, "data/Az3D/shaders/VarianceShadowMap.frag.spv", GPU::ShaderStage::FRAGMENT, "VSM Fragment Shader");
 		data.pipelineShadowMaps = GPU::NewGraphicsPipeline(data.device, "VSM Pipeline");
@@ -348,25 +355,25 @@ bool Manager::Init() {
 		GPU::PipelineAddVertexInputs(data.pipelineShadowMaps, vertexInputs);
 		GPU::PipelineSetTopology(data.pipelineShadowMaps, GPU::Topology::TRIANGLE_LIST);
 		GPU::PipelineSetBlendMode(data.pipelineShadowMaps, GPU::BlendMode::MAX);
-		
+
 		data.shadowMapConvolutionImage = GPU::NewImage(data.device, "VSM Convolution Image");
 		GPU::ImageSetFormat(data.shadowMapConvolutionImage, GPU::ImageBits::R32G32, GPU::ImageComponentType::SFLOAT);
 		GPU::ImageSetSize(data.shadowMapConvolutionImage, dims, dims);
 		GPU::ImageSetShaderUsage(data.shadowMapConvolutionImage, (u32)GPU::ShaderStage::FRAGMENT);
-		
+
 		data.framebufferConvolution[0] = GPU::NewFramebuffer(data.device, "VSM Convolution Framebuffer 0");
 		data.framebufferConvolution[1] = GPU::NewFramebuffer(data.device, "VSM Convolution Framebuffer 1");
 		GPU::FramebufferAddImage(data.framebufferConvolution[0], data.shadowMapConvolutionImage);
 		GPU::FramebufferAddImage(data.framebufferConvolution[1], data.shadowMapImage);
-		
+
 		GPU::Shader *convolutionVert = GPU::NewShader(data.device, "data/Az3D/shaders/Convolution.vert.spv", GPU::ShaderStage::VERTEX);
 		GPU::Shader *convolutionFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Convolution.frag.spv", GPU::ShaderStage::FRAGMENT);
-		
+
 		data.pipelineShadowMapConvolution = GPU::NewGraphicsPipeline(data.device, "VSM Convolution Pipeline");
 		GPU::PipelineAddShaders(data.pipelineShadowMapConvolution, {convolutionVert, convolutionFrag});
 		GPU::PipelineSetTopology(data.pipelineShadowMapConvolution, GPU::Topology::TRIANGLE_FAN);
 		GPU::PipelineAddPushConstantRange(data.pipelineShadowMapConvolution, 0, sizeof(vec2), (u32)GPU::ShaderStage::FRAGMENT);
-		
+
 		data.shadowMapSampler = GPU::NewSampler(data.device, "VSM Sampler");
 		GPU::SamplerSetAddressMode(data.shadowMapSampler, GPU::AddressMode::CLAMP_TO_BORDER, GPU::AddressMode::CLAMP_TO_BORDER);
 		GPU::SamplerSetBorderColor(data.shadowMapSampler, true, false, true);
@@ -386,6 +393,7 @@ bool Manager::Init() {
 	uniforms.lights[0].distMax = 0.0f;
 
 	GPU::ContextBeginRecording(data.contextTransfer).AzUnwrap();
+	GPU::CmdCopyDataToBuffer(data.contextTransfer, data.bonesBuffer, data.bones.data).AzUnwrap();
 	GPU::CmdCopyDataToBuffer(data.contextTransfer, data.vertexBuffer, vertices.data).AzUnwrap();
 	GPU::CmdCopyDataToBuffer(data.contextTransfer, data.indexBuffer, indices.data).AzUnwrap();
 	for (i32 i = 0; i < sys->assets.textures.size; i++) {
@@ -674,6 +682,10 @@ vec4 PerspectiveNormalize(vec4 point) {
 	return point / point.w;
 }
 
+bool ArmatureAction::operator==(const ArmatureAction &other) const {
+	return meshIndex == other.meshIndex && actionIndex == other.actionIndex && other.actionTime == other.actionTime;
+}
+
 bool Manager::UpdateUniforms(GPU::Context *context) {
 	// Update camera matrix
 	uniforms.view = mat4::Camera(camera.pos, camera.forward, camera.up);
@@ -695,11 +707,16 @@ bool Manager::UpdateObjects(GPU::Context *context) {
 	if (copySize) {
 		GPU::CmdCopyDataToBuffer(context, data.objectBuffer, data.objectShaderInfos.data, 0, copySize).AzUnwrap();
 	}
-
+	copySize = min(data.bones.size, 10000) * sizeof(mat4);
+	if (copySize) {
+		GPU::CmdCopyDataToBuffer(context, data.bonesBuffer, data.bones.data, 0, copySize).AzUnwrap();
+	}
 	return true;
 }
 
 bool Manager::UpdateDebugLines(GPU::Context *context) {
+	if (!Settings::ReadBool(Settings::sDebugLines)) return true;
+	GPU::PipelineSetDepthTest(data.pipelines[PIPELINE_DEBUG_LINES], Settings::ReadBool(Settings::sDebugLinesDepthTest));
 	data.debugVertices.ClearSoft();
 	for (DrawingContext &context : data.drawingContexts) {
 		data.debugVertices.Append(context.debugLines);
@@ -712,6 +729,93 @@ bool Manager::UpdateDebugLines(GPU::Context *context) {
 
 	GPU::CmdCopyDataToBuffer(context, data.debugVertexBuffer, data.debugVertices.data, 0, min(data.debugVertices.size, MAX_DEBUG_VERTICES) * sizeof(DebugVertex)).AzUnwrap();
 	return true;
+}
+
+struct BoneEvalMetadata {
+	mat4 restTransformLocal;
+	mat4 restTransformModel;
+	vec3 tail = vec3(0.0f, 0.15f, 0.0f);
+	bool evaluated = false;
+};
+
+mat4 GetMat4(quat orientation, vec3 offset) {
+	mat3 rotation = normalize(orientation).ToMat3();
+	mat4 result = mat4(rotation);
+	result[3].xyz = offset;
+	return result;
+}
+
+void EvaluateBone(SimpleRange<mat4> transforms, SimpleRange<BoneEvalMetadata> metadatas, SimpleRange<Az3DObj::Bone> bones, i32 boneIndex, Az3DObj::Action &action, f32 time) {
+	mat4 &transform = transforms[boneIndex];
+	BoneEvalMetadata &meta = metadatas[boneIndex];
+	if (meta.evaluated) {
+		return;
+	}
+	Az3DObj::Bone &bone = bones[boneIndex];
+
+	meta.restTransformLocal = mat4::FromCols(
+		vec4(bone.basis.Col<0>(), 0.0f),
+		vec4(bone.basis.Col<1>(), 0.0f),
+		vec4(bone.basis.Col<2>(), 0.0f),
+		vec4(bone.offset        , 1.0f)
+	);
+	quat orientation = quat(1.0f);
+	vec3 offset = vec3(0.0f);
+
+	for (auto &curve : action.curves) {
+		if (curve.boneName != bone.name) continue;
+		// io::cout.PrintLn("Found curve for bone \"", bone.name, "\" which is a ", curve.isOffset ? "location" : "orientation", " with index ", curve.index);
+		if (curve.isOffset) {
+			offset[curve.index] = curve.Evaluate(time);
+		} else {
+			orientation[curve.index] = curve.Evaluate(time);
+		}
+	}
+
+	transform = GetMat4(orientation, offset);
+
+	// transform = mat4::RotationBasic(tau * 0.02f, Axis::X);
+	if (bone.parent != 255) {
+		if (!metadatas[bone.parent].evaluated) {
+			metadatas[bone.parent].tail = offset;
+		}
+		EvaluateBone(transforms, metadatas, bones, bone.parent, action, time);
+		meta.restTransformModel = metadatas[bone.parent].restTransformModel * meta.restTransformLocal;
+		transform = transforms[bone.parent] * meta.restTransformLocal * transform;
+	} else {
+		meta.restTransformModel = meta.restTransformLocal;
+		transform = meta.restTransformLocal * transform;
+	}
+	meta.evaluated = true;
+	return;
+}
+
+// Appends the animated bones to the end of dstBones
+void AnimateArmature(Array<mat4> &dstBones, ArmatureAction armatureAction, mat4 &transform) {
+	Assets::Mesh &mesh = sys->assets.meshes[armatureAction.meshIndex];
+	Az3DObj::Action &action = sys->assets.actions[armatureAction.actionIndex].action;
+	for (auto &armature : mesh.armatures) {
+		i32 boneStart = dstBones.size;
+		dstBones.Resize(dstBones.size + armature.bones.size, mat4::Identity());
+		SimpleRange<mat4> transforms(&dstBones[boneStart], armature.bones.size);
+		Array<BoneEvalMetadata> metadatas(armature.bones.size);
+		// Evaluate the hierarchy in bone space, also getting the model-space rest transforms
+		for (i32 i = 0; i < transforms.size; i++) {
+			EvaluateBone(transforms, metadatas, armature.bones, i, action, armatureAction.actionTime);
+		}
+		// THEN go from model space to bone space
+		for (i32 i = 0; i < transforms.size; i++) {
+			if (Settings::ReadBool(Settings::sDebugLines)) {
+				DebugVertex p1, p2;
+				p1.color = vec4(0.0f, 0.0f, 0.8f, 1.0f);
+				p2.color = vec4(0.0f, 0.8f, 0.0f, 1.0f);
+				p1.pos = (transform * transforms[i] * vec4(0.0f, 0.0f, 0.0f, 1.0f)).xyz;
+				p2.pos = (transform * transforms[i] * vec4(0.0f, 0.3f, 0.0f, 1.0f)).xyz;
+				DrawDebugLine(sys->rendering.data.drawingContexts[0], p1, p2);
+			}
+			transforms[i] = transforms[i] * metadatas[i].restTransformModel.Inverse();
+		}
+	}
 }
 
 bool Manager::Draw() {
@@ -781,7 +885,7 @@ bool Manager::Draw() {
 
 	screenSize = vec2((f32)max((u16)1, sys->window.width), (f32)max((u16)1, sys->window.height));
 	aspectRatio = screenSize.y / screenSize.x;
-	
+
 	{ // Shadow Map
 		GPU::ContextBeginRecording(data.contextShadowMap).AzUnwrap();
 		GPU::CmdImageTransitionLayout(data.contextShadowMap, data.shadowMapImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
@@ -791,9 +895,10 @@ bool Manager::Draw() {
 		GPU::CmdBindVertexBuffer(data.contextShadowMap, data.vertexBuffer);
 		GPU::CmdBindUniformBuffer(data.contextShadowMap, data.uniformBuffer, 0, 0);
 		GPU::CmdBindStorageBuffer(data.contextShadowMap, data.objectBuffer, 0, 1);
-		GPU::CmdBindImageArraySampler(data.contextShadowMap, data.textures, data.textureSampler, 0, 2);
+		GPU::CmdBindStorageBuffer(data.contextShadowMap, data.bonesBuffer, 0, 2);
+		GPU::CmdBindImageArraySampler(data.contextShadowMap, data.textures, data.textureSampler, 0, 3);
 		GPU::CmdCommitBindings(data.contextShadowMap).AzUnwrap();
-		
+
 		GPU::CmdClearColorAttachment(data.contextShadowMap, vec4(0.0));
 	}
 
@@ -803,8 +908,9 @@ bool Manager::Draw() {
 	GPU::CmdBindIndexBuffer(data.contextGraphics, data.indexBuffer);
 	GPU::CmdBindUniformBuffer(data.contextGraphics, data.uniformBuffer, 0, 0);
 	GPU::CmdBindStorageBuffer(data.contextGraphics, data.objectBuffer, 0, 1);
-	GPU::CmdBindImageArraySampler(data.contextGraphics, data.textures, data.textureSampler, 0, 2);
-	GPU::CmdBindImageSampler(data.contextGraphics, data.shadowMapImage, data.shadowMapSampler, 0, 3);
+	GPU::CmdBindStorageBuffer(data.contextGraphics, data.bonesBuffer, 0, 2);
+	GPU::CmdBindImageArraySampler(data.contextGraphics, data.textures, data.textureSampler, 0, 3);
+	GPU::CmdBindImageSampler(data.contextGraphics, data.shadowMapImage, data.shadowMapSampler, 0, 4);
 	GPU::CmdCommitBindings(data.contextGraphics).AzUnwrap();
 	/*{ // Fade
 		DrawQuadSS(commandBuffersSecondary[0], texBlank, vec4(backgroundRGB, 0.2f), vec2(-1.0), vec2(2.0), vec2(1.0));
@@ -822,11 +928,13 @@ bool Manager::Draw() {
 	}
 
 	sys->Draw(data.drawingContexts);
-	
+
 	GPU::ContextBeginRecording(data.contextTransfer).AzUnwrap();
 	if (!UpdateUniforms(data.contextTransfer)) return false;
 
 	data.objectShaderInfos.ClearSoft();
+	data.bones.ClearSoft();
+	az::HashMap<ArmatureAction, u32> actions;
 	{ // Sorting draw calls
 		Array<DrawCallInfo> allDrawCalls;
 		for (DrawingContext &context : data.drawingContexts) {
@@ -855,6 +963,15 @@ bool Manager::Draw() {
 		PipelineIndex currentPipeline = PIPELINE_NONE;
 		for (DrawCallInfo &drawCall : allDrawCalls) {
 			if (drawCall.culled && !drawCall.castsShadows) continue;
+			u32 bonesOffset = 0;
+			if (drawCall.armatureAction.Exists()) {
+				u32 &dstOffset = actions.ValueOf(drawCall.armatureAction.ValueUnchecked(), (u32)data.bones.size);
+				if (dstOffset == (u32)data.bones.size) {
+					// Actually make the bones!
+					AnimateArmature(data.bones, drawCall.armatureAction.ValueUnchecked(), drawCall.transforms[0]);
+				}
+				bonesOffset = dstOffset;
+			}
 			if (drawCall.pipeline != currentPipeline) {
 				BindPipeline(data.contextGraphics, drawCall.pipeline);
 				currentPipeline = drawCall.pipeline;
@@ -863,7 +980,7 @@ bool Manager::Draw() {
 			i32 prevSize = data.objectShaderInfos.size;
 			data.objectShaderInfos.Resize(data.objectShaderInfos.size + drawCall.transforms.size);
 			for (i32 i = 0; i < drawCall.transforms.size; i++) {
-				data.objectShaderInfos[prevSize+i] = ObjectShaderInfo{drawCall.transforms[i], drawCall.material};
+				data.objectShaderInfos[prevSize+i] = ObjectShaderInfo{drawCall.transforms[i], drawCall.material, bonesOffset};
 			}
 			if (!drawCall.culled) {
 				GPU::CmdDrawIndexed(data.contextGraphics, drawCall.indexCount, drawCall.indexStart, 0, drawCall.instanceCount, drawCall.instanceStart);
@@ -915,10 +1032,10 @@ bool Manager::Draw() {
 			return false;
 		}
 	}
-	
+
 	GPU::CmdFinishFramebuffer(data.contextShadowMap, false);
 	GPU::CmdImageTransitionLayout(data.contextShadowMap, data.shadowMapImage, GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
-	
+
 	GPU::CmdImageTransitionLayout(data.contextShadowMap, data.shadowMapConvolutionImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
 	GPU::CmdBindFramebuffer(data.contextShadowMap, data.framebufferConvolution[0]);
 	GPU::CmdBindPipeline(data.contextShadowMap, data.pipelineShadowMapConvolution);
@@ -930,7 +1047,7 @@ bool Manager::Draw() {
 	GPU::CmdFinishFramebuffer(data.contextShadowMap);
 	GPU::CmdImageTransitionLayout(data.contextShadowMap, data.shadowMapConvolutionImage, GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
 	GPU::CmdImageTransitionLayout(data.contextShadowMap, data.shadowMapImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
-	
+
 	GPU::CmdBindFramebuffer(data.contextShadowMap, data.framebufferConvolution[1]);
 	GPU::CmdBindPipeline(data.contextShadowMap, data.pipelineShadowMapConvolution);
 	GPU::CmdBindImageSampler(data.contextShadowMap, data.shadowMapConvolutionImage, data.shadowMapSampler, 0, 0);
@@ -940,9 +1057,9 @@ bool Manager::Draw() {
 	GPU::CmdDraw(data.contextShadowMap, 4, 0);
 	GPU::CmdFinishFramebuffer(data.contextShadowMap);
 	GPU::CmdImageGenerateMipmaps(data.contextShadowMap, data.shadowMapImage, GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
-	
+
 	GPU::ContextEndRecording(data.contextShadowMap).AzUnwrap();
-	
+
 	if (auto result = GPU::SubmitCommands(data.contextShadowMap, 1, {GPU::ContextGetCurrentSemaphore(data.contextTransfer)}); result.isError) {
 		error = "Failed to submit shadow map commands: " + result.error;
 		return false;
@@ -1113,7 +1230,7 @@ void Manager::LineCursorStartAndSpaceScale(f32 &dstCursor, f32 &dstSpaceScale, f
 	}
 }
 
-void DrawMeshPart(DrawingContext &context, Assets::MeshPart *meshPart, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows) {
+void DrawMeshPart(DrawingContext &context, Assets::MeshPart *meshPart, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows, az::Optional<ArmatureAction> action) {
 	DrawCallInfo draw;
 	draw.transforms = transforms;
 	draw.boundingSphereCenter = vec3(0.0f);
@@ -1133,12 +1250,17 @@ void DrawMeshPart(DrawingContext &context, Assets::MeshPart *meshPart, const Arr
 			draw.boundingSphereRadius = myRadius;
 		}
 	}
+	if (action.Exists()) {
+		// TODO: Maybe work out a better upper bound as animations can do more than this (but probably won't?)
+		draw.boundingSphereRadius *= 2.0f;
+	}
 	draw.depth = dot(sys->rendering.camera.forward, draw.boundingSphereCenter - sys->rendering.camera.pos);
 	draw.indexStart = meshPart->indexStart;
 	draw.indexCount = meshPart->indices.size;
 	draw.instanceCount = transforms.size;
 	draw.material = meshPart->material;
 	draw.pipeline = meshPart->material.isFoliage ? PIPELINE_FOLIAGE_3D : PIPELINE_BASIC_3D;
+	draw.armatureAction = action;
 	draw.opaque = opaque;
 	draw.castsShadows = castsShadows;
 	draw.culled = false;
@@ -1146,9 +1268,39 @@ void DrawMeshPart(DrawingContext &context, Assets::MeshPart *meshPart, const Arr
 	context.thingsToDraw.Append(draw);
 }
 
-void DrawMesh(DrawingContext &context, Assets::Mesh mesh, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows) {
-	for (Assets::MeshPart *meshPart : mesh.parts) {
+void DrawMesh(DrawingContext &context, Assets::MeshIndex mesh, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows) {
+	for (Assets::MeshPart *meshPart : sys->assets.meshes[mesh].parts) {
 		DrawMeshPart(context, meshPart, transforms, opaque && meshPart->material.color.a == 1.0f, castsShadows && meshPart->material.color.a >= 0.5f);
+	}
+}
+
+void DrawMeshAnimated(DrawingContext &context, Assets::MeshIndex mesh, Assets::ActionIndex actionIndex, f32 time, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows) {
+	const ArrayWithBucket<mat4, 1> *finalTransforms = &transforms;
+	Az3DObj::Action &action = sys->assets.actions[actionIndex].action;
+	bool usesModelTransform = false;
+	quat orientation = quat(1.0f);
+	vec3 offset = vec3(0.0f);
+	for (auto &curve : action.curves) {
+		if (curve.boneName.size == 0) {
+			usesModelTransform = true;
+			if (curve.isOffset) {
+				offset[curve.index] = curve.Evaluate(time);
+			} else {
+				orientation[curve.index] = curve.Evaluate(time);
+			}
+		}
+	}
+	ArrayWithBucket<mat4, 1> newTransforms;
+	if (usesModelTransform) {
+		newTransforms.Reserve(transforms.size);
+		mat4 transform = GetMat4(orientation, offset);
+		for (const mat4 &oldTransform : transforms) {
+			newTransforms.Append(oldTransform * transform);
+		}
+		finalTransforms = &newTransforms;
+	}
+	for (Assets::MeshPart *meshPart : sys->assets.meshes[mesh].parts) {
+		DrawMeshPart(context, meshPart, *finalTransforms, opaque && meshPart->material.color.a == 1.0f, castsShadows && meshPart->material.color.a >= 0.5f, ArmatureAction{mesh, actionIndex, time});
 	}
 }
 

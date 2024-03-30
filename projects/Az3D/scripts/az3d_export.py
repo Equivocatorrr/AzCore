@@ -291,7 +291,7 @@ class ScalarKind(Enum):
 	S8  = 2
 
 class MeshData:
-	def __init__(self, hasUVs, hasNormalMap, hasBones):
+	def __init__(self, hasUVs, hasNormalMap, hasBones, armatureName):
 		self.dedup = dict()
 		self.vertices = bytearray()
 		self.indices = []
@@ -303,6 +303,7 @@ class MeshData:
 		self.hasUVs = hasUVs
 		self.hasNormalMap = hasNormalMap
 		self.hasBones = hasBones
+		self.armatureName = armatureName
 		# stored positions and uvs for signed int types are scaled and offset
 		self.posDimensions = [0.0, 0.0, 0.0]
 		self.posOffset = [0.0, 0.0, 0.0]
@@ -477,7 +478,7 @@ def write_mesh(context: bpy.types.Context, props: bpy.types.OperatorProperties, 
 	for face in mesh.polygons:
 		material_index = face.material_index
 		assert(material_index < len(materials))
-		mesh_data = mesh_datas.setdefault(material_index, MeshData(hasUVs, materials[material_index]["normalFile"] != '', group_to_bone_indices != None))
+		mesh_data = mesh_datas.setdefault(material_index, MeshData(hasUVs, materials[material_index]["normalFile"] != '', group_to_bone_indices != None, None if armature == None else armature.name))
 		def check_vert(vertIndex):
 			mesh_data.numVerts += 1
 			vert = mesh.loops[vertIndex]
@@ -631,6 +632,9 @@ def write_mesh(context: bpy.types.Context, props: bpy.types.OperatorProperties, 
 		pad(data)
 
 		write_mat0(data, materials[i], tex_indices)
+		if mesh_data.hasBones:
+			data += b'Arm\0'
+			write_name(data, mesh_data.armatureName)
 		write_section_header(out, b'Mesh', len(data))
 		write_padded(out, data)
 
@@ -677,7 +681,6 @@ def write_textures(out, tex_indices):
 		write_padded(out, file_info.data)
 
 def pack_vector3(vector):
-	assert(len(vector) == 3)
 	return struct.pack('<fff', vector[0], vector[1], vector[2])
 
 def bone_has_ik_info(bone: bpy.types.PoseBone):
@@ -706,10 +709,13 @@ def write_armature(context: bpy.types.Context, props: bpy.types.OperatorProperti
 		)
 		data += struct.pack('<BBBB', bones[bone.parent], bones[ik_target], bones[ik_pole], bitflags) # u8 index of parent, index of IK target, index of IK Pole target, bitflags
 		# 4x vec3 basis vectors and offset for rest pose
-		data += pack_vector3(bone.x_axis)
-		data += pack_vector3(bone.y_axis)
-		data += pack_vector3(bone.z_axis)
-		data += pack_vector3(bone.vector)
+		mat = bone.matrix
+		if bone.parent:
+			mat = bone.parent.matrix.inverted() @ mat
+		data += pack_vector3(mat.col[0])
+		data += pack_vector3(mat.col[1])
+		data += pack_vector3(mat.col[2])
+		data += pack_vector3(mat.col[3] * props.scale)
 		if bone_has_ik_info(bone):
 			ik_data = bytearray()
 			limits_flags = (
@@ -777,13 +783,13 @@ def is_bezier_linear(p1, c1, c2, p2, epsilon=0.001):
 # val: f32
 # interpID: u32 (enum below)
 # + Any additional data for the kind of interpolation. Logic below
-def pack_keyframe(context: bpy.types.Context, props: bpy.types.OperatorProperties, action: bpy.types.Action, keyframe: bpy.types.Keyframe, keyframeNext: bpy.types.Keyframe | None):
+def pack_keyframe(context: bpy.types.Context, props: bpy.types.OperatorProperties, action: bpy.types.Action, keyframe: bpy.types.Keyframe, keyframeNext: bpy.types.Keyframe | None, is_location: bool):
 	data = bytearray()
 	time = keyframe_x_to_time(context, action, keyframe.co[0])
-	# These enums are stored as u8's, so they must match the values exactly
 	interpID = {key: i for i, key in enumerate(['CONSTANT', 'LINEAR', 'BEZIER', 'SINE', 'QUAD', 'CUBIC', 'QUART', 'QUINT', 'EXPO', 'CIRC', 'BACK', 'BOUNCE', 'ELASTIC'])}
 	easingID = {key: i for i, key in enumerate(['EASE_IN', 'EASE_OUT', 'EASE_IN_OUT'])}
 	interpolation = 'CONSTANT' if keyframeNext == None else keyframe.interpolation
+	s = props.scale if is_location else 1
 
 	if interpolation == 'BEZIER':
 		# Maybe we're CONSTANT or LINEAR
@@ -796,15 +802,15 @@ def pack_keyframe(context: bpy.types.Context, props: bpy.types.OperatorPropertie
 			# print("Turns out our Bezier was actually just a line")
 			interpolation = 'LINEAR'
 
-	data += struct.pack('<ffI', time, keyframe.co[1], interpID[interpolation])
+	data += struct.pack('<ffI', time, keyframe.co[1] * s, interpID[interpolation])
 
 	if interpolation == 'BEZIER':
 		# We invert the logic here because we'd rather store control points than handles
 		cp1 = keyframe.handle_right
 		cp2 = keyframeNext.handle_left
 		data += struct.pack('<ffff',
-			keyframe_x_to_time(context, action, cp1[0]), cp1[1],
-			keyframe_x_to_time(context, action, cp2[0]), cp2[1]
+			keyframe_x_to_time(context, action, cp1[0]), cp1[1] * s,
+			keyframe_x_to_time(context, action, cp2[0]), cp2[1] * s
 		)
 	elif interpID[interpolation] >= interpID['SINE']:
 		easing = keyframe.easing
@@ -814,7 +820,7 @@ def pack_keyframe(context: bpy.types.Context, props: bpy.types.OperatorPropertie
 	if interpolation == 'BACK':
 		data += struct.pack('<f', keyframe.back)
 	elif interpolation == 'ELASTIC':
-		data += struct.pack('<ff', keyframe.amplitude, keyframe.period)
+		data += struct.pack('<ff', keyframe.amplitude, keyframe.period / context.scene.render.fps)
 	return b"KF" + struct.pack('<H', len(data) + 4) + data
 
 # Act0, the first version of the Action table
@@ -825,17 +831,19 @@ def write_action(context: bpy.types.Context, props: bpy.types.OperatorProperties
 	curves = [curve for curve in action.fcurves if not curve.mute and not is_curve_totally_null(curve)]
 	if len(curves) != len(action.fcurves):
 		print("Actually there are only " + str(len(curves)) + " curves, since some are muted or do nothing")
-	data += struct.pack('<H', len(curves))
+	data += struct.pack('<I', len(curves))
 	for curve in curves:
 		name = curve.data_path + '[' + str(curve.array_index) + ']'
+		# print(name)
 		write_name(data, name)
-		data += struct.pack('<H', len(curve.keyframe_points))
+		data += struct.pack('<I', len(curve.keyframe_points))
 		is_cyclic = any(mod.type == 'CYCLES' for mod in curve.modifiers)
+		is_location = curve.data_path.endswith("location")
 		# if is_cyclic:
 		# 	print(name + " is cyclic")
 		for i, keyframe in enumerate(curve.keyframe_points):
 			# print("keyframe co = " + str((keyframe_x_to_time(context, action, keyframe.co[0]), keyframe.co[1])))
-			data += pack_keyframe(context, props, action, keyframe, curve.keyframe_points[i+1] if i+1 < len(curve.keyframe_points) else (curve.keyframe_points[0] if is_cyclic else None))
+			data += pack_keyframe(context, props, action, keyframe, curve.keyframe_points[i+1] if i+1 < len(curve.keyframe_points) else (curve.keyframe_points[0] if is_cyclic else None), is_location)
 			data += padding(len(data))
 	write_section_header(out, b'Act0', len(data))
 	write_padded(out, data)

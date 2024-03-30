@@ -192,6 +192,8 @@ extern Name sVolumeMain;
 extern Name sVolumeMusic;
 extern Name sVolumeEffects;
 extern Name sLocaleOverride;
+extern Name sDebugLines;
+extern Name sDebugLinesDepthTest;
 
 void Add(Name name, Setting &&defaultValue);
 

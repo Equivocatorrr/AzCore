@@ -26,24 +26,31 @@ struct Test : public GameSystems::System {
 	bool mouseLook = false;
 	bool sunTurning = true;
 	Assets::MeshIndex meshes[3];
+	static constexpr i32 meshesCount = 3;
 	Assets::MeshIndex meshGround;
 	Assets::MeshIndex meshTree;
 	Assets::MeshIndex meshGrass;
 	Assets::MeshIndex meshFence;
+	Assets::MeshIndex meshShitman;
+	Assets::ActionIndex actionJump;
+	f32 jumpT = 0.0f;
 	i32 currentMesh = 0;
 	Angle32 hover = 0.0f;
 	virtual void EventAssetsRequest() override {
-		meshes[0]  = sys->assets.RequestMesh("suzanne.az3d");
-		meshes[1]  = sys->assets.RequestMesh("F-232 Eagle.az3d");
-		meshes[2]  = sys->assets.RequestMesh("C-1 Transport.az3d");
-		meshTree   = sys->assets.RequestMesh("Tree.az3d");
-		meshGrass  = sys->assets.RequestMesh("Grass_Patch.az3d");
-		meshFence  = sys->assets.RequestMesh("Weathered Metal Fence.az3d");
-		meshGround = sys->assets.RequestMesh("ground.az3d");
+		meshes[0]   = sys->assets.RequestMesh("suzanne.az3d");
+		meshes[1]   = sys->assets.RequestMesh("F-232 Eagle.az3d");
+		meshes[2]   = sys->assets.RequestMesh("C-1 Transport.az3d");
+		meshShitman = sys->assets.RequestMesh("shitman.az3d");
+		actionJump  = sys->assets.RequestAction("shitman.az3d/Jump");
+		meshTree    = sys->assets.RequestMesh("Tree.az3d");
+		meshGrass   = sys->assets.RequestMesh("Grass_Patch.az3d");
+		meshFence   = sys->assets.RequestMesh("Weathered Metal Fence.az3d");
+		meshGround  = sys->assets.RequestMesh("ground.az3d");
 	}
 	virtual void EventSync() override {
 		pos.z = 1.5f + sin(hover);
 		hover += Degrees32(sys->timestep * 90.0f);
+		jumpT += sys->timestep;
 		f32 speed = sys->Down(KC_KEY_LEFTSHIFT) ? 8.0f : 2.0f;
 		if (sys->Pressed(KC_KEY_ESC)) sys->exit = true;
 		if (sys->Pressed(KC_KEY_T)) sunTurning = !sunTurning;
@@ -145,11 +152,9 @@ struct Test : public GameSystems::System {
 		if (sys->Down(KC_KEY_LEFT) || sys->Down(KC_KEY_A)) {
 			camera.pos -= speed * sys->timestep * camRight;
 		}
-		if (sys->Pressed(KC_KEY_1)) currentMesh = 0;
-		if (sys->Pressed(KC_KEY_2)) currentMesh = 1;
-		if (sys->Pressed(KC_KEY_3)) currentMesh = 2;
-		// if (sys->Pressed(KC_KEY_4)) currentMesh = 3;
-		// if (sys->Pressed(KC_KEY_5)) currentMesh = 4;
+		for (i32 i = 0; i < meshesCount; i++) {
+			if (sys->Pressed(KC_KEY_1 + i)) currentMesh = i;
+		}
 		targetFOV = clamp(targetFOV.value() - sys->input.scroll.y*5.0f, 5.0f, 90.0f);
 		camera.fov = decay(camera.fov.value(), targetFOV.value(), 0.2f, sys->timestep);
 	}
@@ -158,13 +163,15 @@ struct Test : public GameSystems::System {
 			for (i32 x = -5; x <= 5; x++) {
 				const f32 scale = 5.0f;
 				mat4 transform = Rendering::GetTransform(vec3((f32)x * scale * 10.0f, (f32)y * scale * 10.0f, 0.0f), quat(1.0f), vec3(vec2(scale), 1.0f));
-				Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshGround], {transform}, true, true);
+				Rendering::DrawMesh(contexts[0], meshGround, {transform}, true, true);
 			}
 		}
-		Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshTree], {Rendering::GetTransform(vec3(-2.0f, 0.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
-		Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshFence], {Rendering::GetTransform(vec3(0.0f, 8.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
-		mat4 transform = Rendering::GetTransform(pos, objectOrientation, vec3(3.0f, 0.5f, 1.0f));
-		Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshes[currentMesh]], {transform}, true, true);
+		Rendering::DrawMesh(contexts[0], meshTree, {Rendering::GetTransform(vec3(-2.0f, 0.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
+		Rendering::DrawMesh(contexts[0], meshFence, {Rendering::GetTransform(vec3(0.0f, 8.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
+		Rendering::DrawMeshAnimated(contexts[0], meshShitman, actionJump, jumpT, {Rendering::GetTransform(vec3(6.0f, 0.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
+		mat4 transform = Rendering::GetTransform(pos, objectOrientation, vec3(1.0f));
+		// mat4 transform = Rendering::GetTransform(pos, objectOrientation, vec3(3.0f, 0.5f, 1.0f));
+		Rendering::DrawMesh(contexts[0], meshes[currentMesh], {transform}, true, true);
 		for (i32 i = -10; i <= 10; i++) {
 			f32 p = i;
 			f32 f = (p+10.0f)/20.0f;
@@ -192,7 +199,7 @@ struct Test : public GameSystems::System {
 						transform[3][1] = y + float(yy) * patchDimension / float(patchCount);
 					}
 				}
-				Rendering::DrawMesh(contexts[0], sys->assets.meshes[meshGrass], transforms, true, false);
+				Rendering::DrawMesh(contexts[0], meshGrass, transforms, true, false);
 			}
 		}
 		// Rendering::DrawDebugSphere(contexts[0], vec3(0.0f), 1.0f, vec4(1.0f));
@@ -204,7 +211,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
 	bool enableLayers = false;
 	Test test;
-	
+
 	sLookSmoothing = "lookSmoothing";
 	sFlickTilting = "flickTilting";
 
@@ -217,7 +224,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			az::Profiling::Enable();
 		}
 	}
-	
+
 	Settings::Add(sLookSmoothing, Settings::Setting(true));
 	Settings::Add(sFlickTilting, Settings::Setting(true));
 
@@ -225,7 +232,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		io::cerr.PrintLn("Failed to Init: ", GameSystems::sys->error);
 		return 1;
 	}
-	
+
 	sys->rendering.camera.pos = vec3(0.0f, -3.0f, 3.0f);
 
 	GameSystems::UpdateLoop();

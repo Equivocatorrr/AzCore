@@ -66,6 +66,17 @@ struct StaticArray {
 			}
 		}
 	}
+	StaticArray(const StaticArray &other) : size(other.size) {
+		for (i32 i = 0; i < size; i++) {
+			data[i] = other.data[i];
+		}
+	}
+	StaticArray(StaticArray &&other) : size(other.size) {
+		for (i32 i = 0; i < size; i++) {
+			data[i] = std::move(other.data[i]);
+		}
+		other.size = 0;
+	}
 
 	StaticArray<T, count> &operator=(const std::initializer_list<T> &init) {
 		size = init.size();
@@ -103,6 +114,31 @@ struct StaticArray {
 				data[i] = range[i];
 			}
 		}
+		return *this;
+	}
+
+	StaticArray<T, count> &operator=(const StaticArray<T, count> &other) {
+		size = other.size;
+		if constexpr (std::is_trivially_copyable<T>::value) {
+			memcpy((void *)data, (void *)other.data, sizeof(T) * size);
+		} else {
+			for (i32 i = 0; i < size; i++) {
+				data[i] = other.data[i];
+			}
+		}
+		return *this;
+	}
+
+	StaticArray<T, count> &operator=(StaticArray<T, count> &&other) {
+		size = other.size;
+		if constexpr (std::is_trivially_copyable<T>::value) {
+			memcpy((void *)data, (void *)other.data, sizeof(T) * size);
+		} else {
+			for (i32 i = 0; i < size; i++) {
+				data[i] = std::move(other.data[i]);
+			}
+		}
+		other.size = 0;
 		return *this;
 	}
 

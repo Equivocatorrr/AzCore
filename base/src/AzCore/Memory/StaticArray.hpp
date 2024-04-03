@@ -7,7 +7,8 @@
 #define AZCORE_STATICARRAY_HPP
 
 #include "../basictypes.hpp"
-#include "Array.hpp"
+#include "../Assert.hpp"
+#include "TemplateForwardDeclares.hpp"
 #include <stdexcept> // std::out_of_range
 #include <initializer_list>
 #include <type_traits> // std::is_trivially_copyable

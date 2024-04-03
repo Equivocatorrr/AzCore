@@ -9,6 +9,7 @@
 
 #include "../basictypes.hpp"
 
+#include "TemplateForwardDeclares.hpp"
 #include "StringCommon.hpp"
 #include "Util.hpp"
 #include "../Assert.hpp"
@@ -18,20 +19,13 @@
 
 namespace AzCore {
 
-template <typename T>
-struct Ptr;
-template <typename T>
-struct Range;
-template <typename T>
-struct SimpleRange;
-
 /*  struct: Array
 	Author: Philip Haynes
 	A templated dynamic array which is guaranteed to be 16 bytes on a 64-bit architecture.
 	allocTail is the number of elements of type T to be set at the end of the valid data,
 	starting at data[size].
 	For an allocTail != 0, an associated StringTerminators must be declared for type T. */
-template <typename T, i32 allocTail=0>
+template <typename T, i32 allocTail>
 struct Array {
 	T *data;
 	i32 allocated;
@@ -516,7 +510,7 @@ struct Array {
 		_SetTerminator();
 		return *this;
 	}
-	
+
 	inline Array<T, allocTail>& Append(const T *string) {
 		return Append(SimpleRange<T>(string));
 	}

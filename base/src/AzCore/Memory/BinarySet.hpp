@@ -17,9 +17,6 @@
 namespace AzCore {
 
 template <typename Key_t>
-class BinarySetIterator;
-
-template <typename Key_t>
 struct BinarySet {
 	struct Node {
 		Node *left = nullptr;

@@ -16,9 +16,6 @@
 
 namespace AzCore {
 
-template <typename Node_t>
-class BinaryMapIterator;
-
 template <typename Key_t, typename Value_t>
 struct BinaryMap {
 	struct Node {

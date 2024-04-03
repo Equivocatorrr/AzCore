@@ -6,8 +6,14 @@
 #ifndef AZCORE_STRING_HPP
 #define AZCORE_STRING_HPP
 
-#include "ArrayWithBucket.hpp"
+#define AZCORE_STRING_WITH_BUCKET
+
+#include "Util.hpp"
 #include "Range.hpp"
+#ifdef AZCORE_STRING_WITH_BUCKET
+	#include "ArrayWithBucket.hpp"
+#endif
+#include "Array.hpp"
 
 namespace AzCore {
 
@@ -16,7 +22,6 @@ namespace AzCore {
 using Str = SimpleRange<char>;
 using Str32 = SimpleRange<char32>;
 
-#define AZCORE_STRING_WITH_BUCKET
 #ifdef AZCORE_STRING_WITH_BUCKET
 	template<typename T>
 	using StringBase = ArrayWithBucket<T, 16/sizeof(T), 1>;
@@ -355,7 +360,7 @@ constexpr i32 IndexHash(const String &in) {
 }
 
 template <typename T>
-String Join(const Array<T> &values, SimpleRange<char> joiner) {
+String Join(const Array<T> &values, Str joiner) {
 	String output;
 	for (const T &value : values) {
 		AppendToString(output, value);

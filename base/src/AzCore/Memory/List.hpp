@@ -7,13 +7,11 @@
 #define AZCORE_LIST_HPP
 
 #include "../basictypes.hpp"
+#include "TemplateForwardDeclares.hpp"
 #include <initializer_list>
 #include <utility> // std::move
 
 namespace AzCore {
-
-template <typename T, i32 allocTail>
-struct Array;
 
 /*  struct: ListIndex
 	Author: Philip Haynes

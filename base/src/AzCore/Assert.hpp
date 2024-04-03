@@ -38,8 +38,6 @@ constexpr auto* _GetFileName(const char* const path) {
 // Assert that persists in release mode
 #define AzAssertRel(condition, message) if (!(condition)) {AzCore::_AssertFailure(AzCore::_GetFileName(__FILE__), STRINGIFY(__LINE__), (message));}
 
-#define AzPlacementNew(value, ...) new(&(value)) decltype(value)(__VA_ARGS__)
-
 #endif // AZCORE_ASSERT_HPP
 
 // Do this so if we're included without AZCORE_DEFINE_ASSERT,

@@ -8,16 +8,11 @@
 
 #include "../basictypes.hpp"
 #include <stdexcept> // std::out_of_range
-#include "Ptr.hpp"
+#include "TemplateForwardDeclares.hpp"
 #include "StringCommon.hpp"
-#include "Array.hpp"
-#include "StaticArray.hpp"
-#include "List.hpp"
+#include "../Assert.hpp"
 
 namespace AzCore {
-
-template <typename T, i32 noAllocCount, i32 allocTail>
-struct ArrayWithBucket;
 
 template <typename T>
 struct RangeIterator {

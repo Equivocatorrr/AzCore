@@ -75,6 +75,7 @@ add_library(AzCore STATIC
 		src/AzCore/Math/vec4_t.hpp
 		src/AzCore/Math/vec5_t.hpp
 	src/AzCore/memory.hpp
+		src/AzCore/Memory/TemplateForwardDeclares.hpp
 		src/AzCore/Memory/Any.hpp
 		src/AzCore/Memory/Array.hpp
 		src/AzCore/Memory/ArrayList.hpp
@@ -93,6 +94,7 @@ add_library(AzCore STATIC
 		src/AzCore/Memory/List.hpp
 		src/AzCore/Memory/Optional.hpp
 		src/AzCore/Memory/Ptr.hpp
+		src/AzCore/Memory/RAIIHacks.hpp
 		src/AzCore/Memory/Range.hpp
 		src/AzCore/Memory/String.cpp
 		src/AzCore/Memory/String.hpp

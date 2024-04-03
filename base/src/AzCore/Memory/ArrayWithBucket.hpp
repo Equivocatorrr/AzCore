@@ -6,6 +6,7 @@
 #ifndef AZCORE_ARRAYWITHBUCKET_HPP
 #define AZCORE_ARRAYWITHBUCKET_HPP
 
+#include "TemplateForwardDeclares.hpp"
 #include "StringCommon.hpp"
 #include "Util.hpp"
 #include "../Assert.hpp"
@@ -16,16 +17,7 @@
 
 namespace AzCore {
 
-template <typename T>
-struct Ptr;
-template <typename T>
-struct Range;
-template<typename T>
-struct SimpleRange;
-template <typename T, i32 allocTail>
-struct Array;
-
-template <typename T, i32 noAllocCount, i32 allocTail=0>
+template <typename T, i32 noAllocCount, i32 allocTail>
 struct ArrayWithBucket {
 	static_assert(noAllocCount > 0);
 	T *data;

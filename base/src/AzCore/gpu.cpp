@@ -5,6 +5,8 @@
 
 #include "gpu.hpp"
 #include "QuickSort.hpp"
+#include "Memory/RAIIHacks.hpp"
+#include "Memory/Ptr.hpp"
 
 namespace AzCore {
 

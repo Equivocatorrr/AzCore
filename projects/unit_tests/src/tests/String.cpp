@@ -19,37 +19,37 @@ using namespace AzCore;
 FPError<f32> fpError;
 FPError<f64> fp64Error;
 
-#define COMPARE_FP(lhs, rhs, magnitude) \
-	fpError.Compare(lhs, rhs, magnitude, __LINE__, String(), 0.0f, 1.0f)
+#define COMPARE_FP(lhs, rhs, magnitude, info) \
+	fpError.Compare(lhs, rhs, magnitude, __LINE__, info, 0.0f, 1.0f)
 
 #define CHECK_F32_STRING(_real) \
 	real = f32(_real); \
 	str = ToString(real); \
 	UTExpectEquals(str, #_real); \
 	UTAssert(StringToF32(str, &real2)); \
-	COMPARE_FP(real, real2, real);
+	COMPARE_FP(real, real2, real, String());
 
-#define CHECK_F32(_real) \
+#define CHECK_F32(_real, info) \
 	real = (_real); \
 	str = ToString(real); \
 	UTAssert(StringToF32(str, &real2)); \
-	COMPARE_FP(real, real2, real);
+	COMPARE_FP(real, real2, real, info);
 
-#define COMPARE_FP64(lhs, rhs, magnitude) \
-	fp64Error.Compare(lhs, rhs, magnitude, __LINE__, String(), 0.0, 1.0)
+#define COMPARE_FP64(lhs, rhs, magnitude, info) \
+	fp64Error.Compare(lhs, rhs, magnitude, __LINE__, info, 0.0, 1.0)
 
 #define CHECK_F64_STRING(_real) \
 	real = (_real); \
 	str = ToString(real); \
 	UTExpectEquals(str, #_real); \
 	UTAssert(StringToF64(str, &real2)); \
-	COMPARE_FP64(real, real2, real);
+	COMPARE_FP64(real, real2, real, String());
 
-#define CHECK_F64(_real) \
+#define CHECK_F64(_real, info) \
 	real = (_real); \
 	str = ToString(real); \
 	UTAssert(StringToF64(str, &real2)); \
-	COMPARE_FP64(real, real2, real);
+	COMPARE_FP64(real, real2, real, info);
 
 #define CHECK_I32_STRING(_integer) \
 	integer1 = (_integer); \
@@ -58,17 +58,17 @@ FPError<f64> fp64Error;
 	UTAssert(StringToI32(str, &integer2)); \
 	UTExpectEquals(integer1, integer2);
 
-#define CHECK_I32(_integer) \
+#define CHECK_I32(_integer, info) \
 	integer1 = (_integer); \
 	str = ToString(integer1); \
 	UTAssert(StringToI32(str, &integer2)); \
-	UTExpectEquals(integer1, integer2);
+	UTExpectEquals(integer1, integer2, info);
 
 void StringTest() {
 	String str;
-	
+
 	RandomNumberGenerator rng(69420);
-	
+
 	{ // f32 ToString and StringToF32
 		f32 real, real2;
 		CHECK_F32_STRING(0.0);
@@ -81,24 +81,24 @@ void StringTest() {
 		str = ToString(real, 10, 5);
 		UTExpectEquals(str, "69.42");
 		UTAssert(StringToF32(str, &real2));
-		COMPARE_FP(real, real2, real);
+		COMPARE_FP(real, real2, real, String());
 		real = 1.0e-4f;
 		str = ToString(real);
 		UTExpectEquals(str, "1.0e-4");
 		UTAssert(StringToF32(str, &real2));
-		COMPARE_FP(real, real2, real);
+		COMPARE_FP(real, real2, real, String());
 		real = 0.1f - 1.0f / 100000.0f;
 		str = ToString(real, 10, 2);
 		UTExpectEquals(str, "0.1");
 		UTAssert(StringToF32(str, &real2));
-		COMPARE_FP(0.1f, real2, 0.1f);
+		COMPARE_FP(0.1f, real2, 0.1f, String());
 
 		for (i32 i = 0; i < 100000; i++) {
 			f32 value = random(-1000000.0f, 1000000.0f, &rng);
-			CHECK_F32(value);
+			CHECK_F32(value, Stringify("i = ", i));
 		}
 	}
-	
+
 	{ // f64 ToString and StringToF64
 		f64 real, real2;
 		CHECK_F64_STRING(0.0);
@@ -111,23 +111,23 @@ void StringTest() {
 		str = ToString(real, 10, 5);
 		UTExpectEquals(str, "69.42");
 		UTAssert(StringToF64(str, &real2));
-		COMPARE_FP64(real, real2, real);
+		COMPARE_FP64(real, real2, real, String());
 		real = 1.0e-4;
 		str = ToString(real);
 		UTExpectEquals(str, "1.0e-4");
 		UTAssert(StringToF64(str, &real2));
-		COMPARE_FP64(real, real2, real);
+		COMPARE_FP64(real, real2, real, String());
 		real = 0.1 - 1.0 / 100000.0;
 		str = ToString(real, 10, 2);
 		UTExpectEquals(str, "0.1");
 		UTAssert(StringToF64(str, &real2));
-		COMPARE_FP64(0.1, real2, 0.1);
+		COMPARE_FP64(0.1, real2, 0.1, String());
 
 		rng.Seed(69420);
 
 		for (i32 i = 0; i < 100000; i++) {
 			f64 value = random(-1000000.0, 1000000.0, &rng);
-			CHECK_F64(value);
+			CHECK_F64(value, Stringify("i = ", i));
 		}
 	}
 
@@ -139,11 +139,11 @@ void StringTest() {
 	CHECK_I32_STRING(2);
 	CHECK_I32_STRING(-1);
 	CHECK_I32_STRING(-2);
-	
+
 	rng.Seed(69420);
 
 	for (i32 i = 0; i < 100000; i++) {
-		CHECK_I32((i32)rng.Generate());
+		CHECK_I32((i32)rng.Generate(), Stringify("i = ", i));
 	}
 
 	// String modification

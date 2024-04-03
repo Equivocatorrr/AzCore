@@ -204,13 +204,25 @@ char IncrementedDigit(char digit) {
 template<typename Float>
 Float intPow(i32 base, i32 exponent) {
 	Float result = 1;
-	while (exponent > 0) {
-		result *= base;
-		exponent--;
-	}
-	while (exponent < 0) {
-		result /= base;
-		exponent++;
+	u64 intPart = 1;
+	if (exponent > 0) {
+		while (exponent > 0) {
+			while (exponent > 0 && intPart * base > intPart) {
+				intPart *= base;
+				exponent--;
+			}
+			result *= (Float)intPart;
+			intPart = base;
+		}
+	} else if (exponent < 0) {
+		while (exponent < 0) {
+			while (exponent < 0 && intPart * base > intPart) {
+				intPart *= base;
+				exponent++;
+			}
+			result /= (Float)intPart;
+			intPart = base;
+		}
 	}
 	return result;
 }
@@ -227,7 +239,7 @@ f64 intPow(i32 base, i32 exponent) {
 
 template<typename Float, i32 MAX_SIGNIFICANT_DIGITS>
 void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) {
-	const i32 MAX_SIGNIFICANT_DIGITS_BASED = floor((f32)MAX_SIGNIFICANT_DIGITS/log2((f32)base));
+	const i32 MAX_SIGNIFICANT_DIGITS_BASED = ceil((f32)MAX_SIGNIFICANT_DIGITS/log2((f32)base));
 	i32 startSize = string.size;
 	string.Reserve(startSize + MAX_SIGNIFICANT_DIGITS_BASED + 4);
 	i32 basisExponent = 0;
@@ -274,7 +286,7 @@ void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) 
 		crossover = intPow<Float>(base, basisExponent-1);
 	} else {
 		// Regular decimal notation
-		if (remaining < 1.0f) {
+		if (remaining < Float(1)) {
 			string += "0.";
 			dot = string.size-1;
 			point = true;
@@ -285,18 +297,27 @@ void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) 
 			}
 		}
 		// No special crossover
-		crossover = 1.0f / base;
+		crossover = Float(1) / base;
 	}
 	char lastDigit = base <= 10 ? '0'+base-1 : 'A'+base-11;
 	// Whether we need to round up
 	bool roundUp = false;
 	basis = intPow<Float>(base, basisExponent);
+	const Float margin = log2((Float)base);
 	for (; count > 0; count--) {
+		if (point && count == 1) {
+			if (abs(nextafter(value, value+1)-value) > remaining * margin) {
+				if (i32(remaining / basis) >= intDivCeil(base, 2)) {
+					roundUp = true;
+				}
+				break;
+			}
+		}
 		i32 digit = i32(remaining / basis);
 		string += DigitToChar(digit);
 		remaining -= basis * (Float)digit;
-		if (remaining < 0.0f)
-			remaining = 0.0f;
+		if (remaining < Float(0))
+			remaining = Float(0);
 		basisExponent--;
 		basis = intPow<Float>(base, basisExponent);
 		if (point && count == 1) {

@@ -19,6 +19,7 @@ add_executable(unit_tests
 	src/tests/RandomNumberGenerator.cpp
 	src/tests/Noise.cpp
 	src/tests/Equations.cpp
+	src/tests/Matrix.cpp
 )
 
 target_include_directories(unit_tests PUBLIC "${PROJECT_SOURCE_DIR}/base/src/")

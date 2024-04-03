@@ -27,6 +27,19 @@ constexpr T* ArrayNewCopy(size_t count, const T* other, size_t srcStride=1) {
 	return result;
 }
 
+template<typename T>
+constexpr T* ArrayNewCopy2D(size_t countX, size_t countY, const T* other, size_t srcStrideX, size_t srcStrideY) {
+	struct alignas(alignof(T)) FakeT {};
+	size_t count = countX * countY;
+	T *result = (T*)(new FakeT[count * sizeof(T) / sizeof(FakeT)]);
+	for (i32 y = 0; y < countY; y++) {
+		for (i32 x = 0; x < countX; x++) {
+			AzPlacementNew(result[y * countX + x], other[y * srcStrideY + x * srcStrideX]);
+		}
+	}
+	return result;
+}
+
 } // namespace AzCore
 
 #endif // AZCORE_RAII_HACKS_HPP

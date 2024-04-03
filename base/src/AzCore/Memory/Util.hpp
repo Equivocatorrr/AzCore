@@ -8,7 +8,9 @@
 #define AZCORE_MEMORY_UTIL_HPP
 
 #include "../basictypes.hpp"
-#include "string.h"
+#include "Range.hpp"
+
+#include <string.h>
 #include <memory>
 
 #if defined(__GNUG__)
@@ -75,6 +77,23 @@ Exponent(f32 value) {
 	memcpy((void *)&byteCode, (void *)&value, sizeof(byteCode));
 	i16 exponent = ((i16)(byteCode >> 23) & 0xff) - 0x7f;
 	return exponent;
+}
+
+template <typename T>
+constexpr auto TypeName() {
+	SimpleRange<char> name, prefix, suffix;
+	name = AZCORE_PRETTY_FUNCTION;
+	#ifdef __clang__
+		prefix = "auto TypeName() [T = ";
+		suffix = "]";
+	#elif defined(__GNUC__)
+		prefix = "constexpr auto TypeName() [with T = ";
+		suffix = "]";
+	#elif defined(_MSC_VER)
+		prefix = "auto __cdecl TypeName<";
+		suffix = ">(void)";
+	#endif
+	return name.SubRange(prefix.size, name.size - prefix.size - suffix.size);
 }
 
 } // namespace AzCore

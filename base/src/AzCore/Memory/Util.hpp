@@ -84,13 +84,13 @@ constexpr auto TypeName() {
 	SimpleRange<char> name, prefix, suffix;
 	name = AZCORE_PRETTY_FUNCTION;
 	#ifdef __clang__
-		prefix = "auto TypeName() [T = ";
+		prefix = "auto AzCore::TypeName() [T = ";
 		suffix = "]";
 	#elif defined(__GNUC__)
-		prefix = "constexpr auto TypeName() [with T = ";
+		prefix = "constexpr auto AzCore::TypeName() [with T = ";
 		suffix = "]";
 	#elif defined(_MSC_VER)
-		prefix = "auto __cdecl TypeName<";
+		prefix = "auto __cdecl AzCore::TypeName<";
 		suffix = ">(void)";
 	#endif
 	return name.SubRange(prefix.size, name.size - prefix.size - suffix.size);

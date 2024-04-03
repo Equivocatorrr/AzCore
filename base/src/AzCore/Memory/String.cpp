@@ -13,6 +13,7 @@ AZCORE_STRING_TERMINATOR(char32, 0u);
 namespace AzCore {
 
 thread_local IndentState _indentState;
+thread_local i32 _preciseFloatToStringMode = 0;
 
 String operator+(const char *cString, const String &string) {
 	String value(string);
@@ -239,7 +240,11 @@ f64 intPow(i32 base, i32 exponent) {
 
 template<typename Float, i32 MAX_SIGNIFICANT_DIGITS>
 void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) {
-	const i32 MAX_SIGNIFICANT_DIGITS_BASED = ceil((f32)MAX_SIGNIFICANT_DIGITS/log2((f32)base));
+	i32 MAX_SIGNIFICANT_DIGITS_BASED = ceil((f32)MAX_SIGNIFICANT_DIGITS/log2((f32)base));
+	if (0 == _preciseFloatToStringMode) {
+		// Make pretty instead of perfect.
+		MAX_SIGNIFICANT_DIGITS_BASED -= MAX_SIGNIFICANT_DIGITS >= 50 ? 2 : 1;
+	}
 	i32 startSize = string.size;
 	string.Reserve(startSize + MAX_SIGNIFICANT_DIGITS_BASED + 4);
 	i32 basisExponent = 0;

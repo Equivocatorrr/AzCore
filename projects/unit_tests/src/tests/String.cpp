@@ -31,7 +31,7 @@ FPError<f64> fp64Error;
 
 #define CHECK_F32(_real, info) \
 	real = (_real); \
-	str = ToString(real); \
+	str = Stringify(PreciseFloatToStringMode::On(), real); \
 	UTAssert(StringToF32(str, &real2)); \
 	COMPARE_FP(real, real2, real, info);
 
@@ -47,7 +47,7 @@ FPError<f64> fp64Error;
 
 #define CHECK_F64(_real, info) \
 	real = (_real); \
-	str = ToString(real); \
+	str = Stringify(PreciseFloatToStringMode::On(), real); \
 	UTAssert(StringToF64(str, &real2)); \
 	COMPARE_FP64(real, real2, real, info);
 
@@ -60,7 +60,7 @@ FPError<f64> fp64Error;
 
 #define CHECK_I32(_integer, info) \
 	integer1 = (_integer); \
-	str = ToString(integer1); \
+	str = Stringify(PreciseFloatToStringMode::On(), integer1); \
 	UTAssert(StringToI32(str, &integer2)); \
 	UTExpectEquals(integer1, integer2, info);
 

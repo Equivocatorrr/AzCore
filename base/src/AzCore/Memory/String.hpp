@@ -61,6 +61,33 @@ struct FormatInt {
 	inline FormatInt(T in, i32 base) : value(in), _base(base) {}
 };
 
+extern thread_local i32 _preciseFloatToStringMode;
+
+// If you need perfectly-reproducible float to string to float conversions, instantiate one of these.
+struct PreciseFloatToStringMode {
+	i32 diff=1;
+	// Use in a Stringify call only!
+	static inline PreciseFloatToStringMode On() {
+		_preciseFloatToStringMode -= 1;
+		return PreciseFloatToStringMode();
+	}
+	// Use in a Stringify call only!
+	static inline PreciseFloatToStringMode Off() {
+		_preciseFloatToStringMode += 1;
+		return PreciseFloatToStringMode(-1);
+	}
+	inline PreciseFloatToStringMode() {
+		_preciseFloatToStringMode += diff;
+	}
+	inline ~PreciseFloatToStringMode() {
+		_preciseFloatToStringMode -= diff;
+	}
+private:
+	inline PreciseFloatToStringMode(i32 _diff) : diff(_diff) {
+		_preciseFloatToStringMode += diff;
+	}
+};
+
 void AppendToStringWithBase(String &string, u32 value, i32 base);
 void AppendToStringWithBase(String &string, u64 value, i32 base);
 void AppendToStringWithBase(String &string, i32 value, i32 base);
@@ -85,6 +112,9 @@ inline void AppendToString(String &string, f32 value) {
 }
 inline void AppendToString(String &string, f64 value) {
 	AppendToStringWithBase(string, value, 10);
+}
+inline void AppendToString(String &string, const PreciseFloatToStringMode &mode) {
+	_preciseFloatToStringMode += mode.diff;
 }
 
 #if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES

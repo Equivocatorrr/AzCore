@@ -867,6 +867,7 @@ namespace Tables {
 			u8 bitflags;
 			mat3 basis;
 			vec3 offset;
+			f32 length;
 			// The following only exists if bitflags has the HAS_IK_INFO bit
 			char tag[2]; // Should be "IK"
 			u16 ikInfoLen; // Length of the following info not including padding at the end
@@ -895,7 +896,7 @@ namespace Tables {
 			u16 ikMaxZ;
 			bool FromBuffer(Str buffer, i64 &cur) {
 				if (!name.FromBuffer(buffer, cur)) return false;
-				COPY_FROM_BUFFER(parent, 4 + sizeof(mat3) + sizeof(vec3));
+				COPY_FROM_BUFFER(parent, 4 + sizeof(mat3) + sizeof(vec3) + sizeof(f32));
 				if (bitflags & HAS_IK_INFO) {
 					i64 startCur = cur;
 					EXPECT_TAG_IN_BUFFER("IK", 2);
@@ -1168,6 +1169,7 @@ bool File::LoadFromBuffer(Str buffer, Array<File::ImageData> *dstImageData) {
 				bone.name = boneData.name.name;
 				bone.basis = boneData.basis;
 				bone.offset = boneData.offset;
+				bone.length = boneData.length;
 				bone.parent = boneData.parent;
 				bone.ikTarget = boneData.ikTarget;
 				bone.ikPole = boneData.ikPole;
@@ -1175,7 +1177,7 @@ bool File::LoadFromBuffer(Str buffer, Array<File::ImageData> *dstImageData) {
 				bone.isInIkChain = 0 != (boneData.bitflags & Tables::Arm0::Bone::IS_IN_IK_CHAIN);
 				if (boneData.bitflags & Tables::Arm0::Bone::HAS_IK_INFO) {
 					using BoneData = Tables::Arm0::Bone;
-					Bone::IkInfo &ikInfo = bone.ikInfo.Value();
+					Bone::IkInfo &ikInfo = bone.ikInfo;
 					ikInfo.stretch = boneData.ikInfoFlags & BoneData::IK_STRETCH ? boneData.ikStretch : 0.0f;
 					ikInfo.limited = {
 						bool(boneData.ikInfoFlags & BoneData::IK_LIMIT_X),
@@ -1188,22 +1190,22 @@ bool File::LoadFromBuffer(Str buffer, Array<File::ImageData> *dstImageData) {
 						bool(boneData.ikInfoFlags & BoneData::IK_LOCK_Z),
 					};
 					if (boneData.ikInfoFlags & BoneData::IK_LIMIT_X) {
-						ikInfo.min.x = map((f32)boneData.ikMinX, 0.0f, f32(0xffff), -180.0f, 0.0f);
-						ikInfo.max.x = map((f32)boneData.ikMaxX, 0.0f, f32(0xffff), 0.0f, 180.0f);
+						ikInfo.min.x = map((f32)boneData.ikMinX, 0.0f, f32(0xffff), -pi, 0.0f);
+						ikInfo.max.x = map((f32)boneData.ikMaxX, 0.0f, f32(0xffff), 0.0f, pi);
 					} else {
 						ikInfo.min.x = -180.0f;
 						ikInfo.max.x = 180.0f;
 					}
 					if (boneData.ikInfoFlags & BoneData::IK_LIMIT_Y) {
-						ikInfo.min.y = map((f32)boneData.ikMinY, 0.0f, f32(0xffff), -180.0f, 0.0f);
-						ikInfo.max.y = map((f32)boneData.ikMaxY, 0.0f, f32(0xffff), 0.0f, 180.0f);
+						ikInfo.min.y = map((f32)boneData.ikMinY, 0.0f, f32(0xffff), -pi, 0.0f);
+						ikInfo.max.y = map((f32)boneData.ikMaxY, 0.0f, f32(0xffff), 0.0f, pi);
 					} else {
 						ikInfo.min.y = -180.0f;
 						ikInfo.max.y = 180.0f;
 					}
 					if (boneData.ikInfoFlags & BoneData::IK_LIMIT_Z) {
-						ikInfo.min.z = map((f32)boneData.ikMinZ, 0.0f, f32(0xffff), -180.0f, 0.0f);
-						ikInfo.max.z = map((f32)boneData.ikMaxZ, 0.0f, f32(0xffff), 0.0f, 180.0f);
+						ikInfo.min.z = map((f32)boneData.ikMinZ, 0.0f, f32(0xffff), -pi, 0.0f);
+						ikInfo.max.z = map((f32)boneData.ikMaxZ, 0.0f, f32(0xffff), 0.0f, pi);
 					} else {
 						ikInfo.min.z = -180.0f;
 						ikInfo.max.z = 180.0f;
@@ -1211,6 +1213,13 @@ bool File::LoadFromBuffer(Str buffer, Array<File::ImageData> *dstImageData) {
 					ikInfo.stiffness.x = ikInfo.locked.x ? 0.0f : map((f32)boneData.ikStiffnessX, 0.0f, f32(0xffff), 0.0f, 1.0f);
 					ikInfo.stiffness.y = ikInfo.locked.y ? 0.0f : map((f32)boneData.ikStiffnessY, 0.0f, f32(0xffff), 0.0f, 1.0f);
 					ikInfo.stiffness.z = ikInfo.locked.z ? 0.0f : map((f32)boneData.ikStiffnessZ, 0.0f, f32(0xffff), 0.0f, 1.0f);
+				} else {
+					bone.ikInfo.stretch = 0.0f;
+					bone.ikInfo.locked = vec3_t<bool>(false);
+					bone.ikInfo.limited = vec3_t<bool>(false);
+					bone.ikInfo.min = vec3(-pi);
+					bone.ikInfo.max = vec3(pi);
+					bone.ikInfo.stiffness = vec3(0.0f);
 				}
 			}
 		} else if (tag == "Act0") {

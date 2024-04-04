@@ -13,6 +13,7 @@ from bpy_extras.io_utils import ExportHelper
 import bmesh
 import os
 import struct
+import math
 from enum import Enum
 
 def align(s):
@@ -702,6 +703,11 @@ def write_armature(context: bpy.types.Context, props: bpy.types.OperatorProperti
 		write_name(data, bone.name) # name of bone
 		ik_target = None
 		ik_pole = None
+		for constraint in bone.constraints:
+			if constraint.type == 'IK' and constraint.target == object:
+				ik_target = object_bones[constraint.subtarget]
+				if constraint.pole_target == object:
+					ik_pole = object_bones[constraint.pole_subtarget]
 		bitflags = (
 			  (0b00000001 if bone.bone.use_deform else 0)
 			| (0b00000010 if bone.is_in_ik_chain else 0) # This specifically means IK will be used for animations.
@@ -716,6 +722,8 @@ def write_armature(context: bpy.types.Context, props: bpy.types.OperatorProperti
 		data += pack_vector3(mat.col[1])
 		data += pack_vector3(mat.col[2])
 		data += pack_vector3(mat.col[3] * props.scale)
+		length = (bone.tail - bone.head).magnitude
+		data += struct.pack('<f', length * props.scale)
 		if bone_has_ik_info(bone):
 			ik_data = bytearray()
 			limits_flags = (
@@ -739,14 +747,14 @@ def write_armature(context: bpy.types.Context, props: bpy.types.OperatorProperti
 			if not bone.lock_ik_z:
 				ik_data += pack_float_to_short(bone.ik_stiffness_z, 0, 1)
 			if bone.use_ik_limit_x:
-				ik_data += pack_float_to_short(bone.ik_min_x, -180, 0)
-				ik_data += pack_float_to_short(bone.ik_max_x, 0, 180)
+				ik_data += pack_float_to_short(bone.ik_min_x / math.pi * 180, -180, 0)
+				ik_data += pack_float_to_short(bone.ik_max_x / math.pi * 180, 0, 180)
 			if bone.use_ik_limit_y:
-				ik_data += pack_float_to_short(bone.ik_min_y, -180, 0)
-				ik_data += pack_float_to_short(bone.ik_max_y, 0, 180)
+				ik_data += pack_float_to_short(bone.ik_min_y / math.pi * 180, -180, 0)
+				ik_data += pack_float_to_short(bone.ik_max_y / math.pi * 180, 0, 180)
 			if bone.use_ik_limit_z:
-				ik_data += pack_float_to_short(bone.ik_min_z, -180, 0)
-				ik_data += pack_float_to_short(bone.ik_max_z, 0, 180)
+				ik_data += pack_float_to_short(bone.ik_min_z / math.pi * 180, -180, 0)
+				ik_data += pack_float_to_short(bone.ik_max_z / math.pi * 180, 0, 180)
 			data += b"IK" + struct.pack('<H', len(ik_data) + 4)
 			data += ik_data
 			pad(data)

@@ -66,6 +66,7 @@ struct Bone {
 	az::String name;
 	az::mat3 basis;
 	az::vec3 offset;
+	f32 length;
 	Id parent;
 	Id ikTarget;
 	Id ikPole;
@@ -79,14 +80,13 @@ struct Bone {
 		az::vec3_t<bool> locked;
 		// Movement on this axis is bounded by the min and max values below.
 		az::vec3_t<bool> limited;
-		// Minimum angle allowed in degrees from -180 to 0
+		// Minimum angle allowed in radians from -pi to 0
 		az::vec3 min;
-		// Maximum angle allowed in degrees from 0 to 180
+		// Maximum angle allowed in radians from 0 to pi
 		az::vec3 max;
 		// How resistant each axis is to being rotated in the range 0 to 1
 		az::vec3 stiffness;
-	};
-	az::Optional<IkInfo> ikInfo;
+	} ikInfo;
 };
 
 struct Armature {

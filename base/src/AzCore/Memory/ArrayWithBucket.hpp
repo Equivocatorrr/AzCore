@@ -116,6 +116,56 @@ struct ArrayWithBucket {
 			_SetTerminator();
 		}
 	}
+	force_inline(void)
+	_MakeSpaceForInsert(i32 index, i32 count) {
+		if (size+count > allocated && size+count > noAllocCount) {
+			const bool doDelete = allocated != 0;
+			allocated += (allocated >> 1) + 2;
+			if (allocated < size+count) allocated = size+count;
+			T *temp = new T[allocated + allocTail];
+			if constexpr (std::is_trivially_copyable<T>::value) {
+				if (index > 0) {
+					memcpy((void *)temp, (void *)data, sizeof(T) * index);
+				}
+				if (size - index > 0) {
+					memcpy((void *)(temp + index + count), (void *)(data + index),
+						sizeof(T) * (size - index));
+				}
+			} else {
+				for (i32 i = 0; i < index; i++) {
+					temp[i] = std::move(data[i]);
+				}
+				for (i32 i = index; i < size; i++) {
+					temp[i+count] = std::move(data[i]);
+				}
+			}
+			if (doDelete) {
+				delete[] data;
+			}
+			data = temp;
+			size += count;
+		} else {
+			size += count;
+			for (i32 i = size - 1; i >= index+count; i--) {
+				data[i] = std::move(data[i - count]);
+			}
+		}
+		_SetTerminator();
+	}
+	force_inline(void)
+	_DoInsertCopy(i32 index, i32 count, const T *otherData) {
+		_MakeSpaceForInsert(index, count);
+		for (i32 i = 0; i < count; i++) {
+			data[index + i] = otherData[i];
+		}
+	}
+	force_inline(void)
+	_DoInsertMove(i32 index, i32 count, T *otherData) {
+		_MakeSpaceForInsert(index, count);
+		for (i32 i = 0; i < count; i++) {
+			data[index + i] = std::move(otherData[i]);
+		}
+	}
 	// Deallocates
 	void Clear() {
 		_Deinitialize();
@@ -600,69 +650,31 @@ struct ArrayWithBucket {
 		return *this;
 	}
 
-	force_inline(T&)
-	Insert(i32 index, const T &value) {
-		T val(value);
-		return Insert(index, std::move(val));
+	T& Insert(i32 index, const T &value) {
+		_DoInsertCopy(index, 1, &value);
+		return data[index];
+	}
+
+	Range<T> Insert(i32 index, SimpleRange<T> string) {
+		_DoInsertCopy(index, string.size, string.str);
+		return GetRange(index, string.size);
 	}
 
 	force_inline(Range<T>)
 	Insert(i32 index, const T *string) {
-		ArrayWithBucket<T, noAllocCount, allocTail> array(string);
-		return Insert(index, std::move(array));
+		return Insert(index, SimpleRange<T>(string));
 	}
 
 	T& Insert(i32 index, T &&value) {
 		AzAssert(index >= 0 && index <= size, "ArrayWithBucket::Insert index is out of bounds");
-		if (size+allocTail >= allocated && size+allocTail >= noAllocCount) {
-			bool doDelete;
-			if (allocated != 0) {
-				doDelete = true;
-			} else {
-				doDelete = false;
-				allocated = size + allocTail + 1;
-			}
-			allocated += (allocated >> 1) + 4;
-			T *temp = new T[allocated + allocTail];
-			if constexpr (std::is_trivially_copyable<T>::value) {
-				if (index > 0) {
-					memcpy((void *)temp, (void *)data, sizeof(T) * index);
-				}
-				temp[index] = std::move(value);
-				if (size - index > 0) {
-					memcpy((void *)(temp + index + 1), (void *)(data + index),
-						sizeof(T) * (size - index));
-				}
-			} else {
-				for (i32 i = 0; i < index; i++) {
-					temp[i] = std::move(data[i]);
-				}
-				temp[index] = std::move(value);
-				for (i32 i = index + 1; i < size + 1; i++) {
-					temp[i] = std::move(data[i - 1]);
-				}
-			}
-			if (doDelete) {
-				delete[] data;
-			}
-			data = temp;
-			size++;
-			_SetTerminator();
-			return data[index];
-		}
-		// No realloc necessary
-		size++;
-		for (i32 i = size - 1; i > index; i--) {
-			data[i] = std::move(data[i - 1]);
-		}
-		_SetTerminator();
-		return data[index] = std::move(value);
+		_DoInsertMove(index, 1, &value);
+		return data[index];
 	}
 
-	force_inline(Range<T>)
-	Insert(i32 index, const ArrayWithBucket<T, allocTail> &other) {
-		ArrayWithBucket<T, allocTail> array(other);
-		return Insert(index, std::move(array));
+	Range<T> Insert(i32 index, const ArrayWithBucket<T, noAllocCount, allocTail> &other) {
+		AzAssert(index >= 0 && index <= size, "ArrayWithBucket::Insert index is out of bounds");
+		_DoInsertCopy(index, other.size, other.data);
+		return GetRange(index, other.size);
 	}
 
 	Range<T> Insert(i32 index, ArrayWithBucket<T, noAllocCount, allocTail> &&other) {
@@ -671,52 +683,10 @@ struct ArrayWithBucket {
 			*this = std::move(other);
 			return GetRange(0, size);
 		}
-		if (size+other.size > allocated) {
-			const bool doDelete = allocated != 0;
-			allocated += (allocated >> 1) + 2;
-			if (allocated < size+other.size) allocated = size+other.size;
-			T *temp = new T[allocated + allocTail];
-			if constexpr (std::is_trivially_copyable<T>::value) {
-				if (index > 0) {
-					memcpy((void *)temp, (void *)data, sizeof(T) * index);
-				}
-				memcpy((void *)(temp + index), (void *)other.data, sizeof(T) * other.size);
-				if (size - index > 0) {
-					memcpy((void *)(temp + index + other.size), (void *)(data + index),
-						sizeof(T) * (size - index));
-				}
-			} else {
-				for (i32 i = 0; i < index; i++) {
-					temp[i] = std::move(data[i]);
-				}
-				for (i32 i = 0; i < other.size; i++) {
-					temp[index+i] = std::move(other[i]);
-				}
-				for (i32 i = index; i < size; i++) {
-					temp[i+other.size] = std::move(data[i]);
-				}
-			}
-			if (doDelete) {
-				delete[] data;
-			}
-			data = temp;
-			size += other.size;
-			Range<T> range = GetRange(index, other.size);
-			other.Clear();
-			_SetTerminator();
-			return range;
-		}
-		size += other.size;
-		for (i32 i = size - 1; i >= index+other.size; i--) {
-			data[i] = std::move(data[i - other.size]);
-		}
-		for (i32 i = 0; i < other.size; i++) {
-			data[index + i] = std::move(other.data[i]);
-		}
-		Range<T> range = GetRange(index, other.size);
-		other.Clear();
-		_SetTerminator();
-		return range;
+		i32 count = other.size;
+		_DoInsertMove(index, count, other.data);
+		other.ClearSoft();
+		return GetRange(index, count);
 	}
 
 	void Erase(i32 index, const i32 count=1) {

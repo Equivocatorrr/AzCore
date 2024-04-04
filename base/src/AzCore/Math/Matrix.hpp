@@ -16,41 +16,40 @@
 
 namespace AzCore {
 
-#define MATRIX_INFO_ARGS(obj) "Matrix<", TypeName<T>(), ">(", (obj).cols, ", ", (obj).rows, ")"
-#define VECTOR_INFO_ARGS(obj) "Vector<", TypeName<T>(), ">(", (obj).count, ")"
+#define MATRIX_INFO_ARGS(obj) "Matrix<", az::TypeName<T>(), ">(", (obj).cols, ", ", (obj).rows, ")"
+#define VECTOR_INFO_ARGS(obj) "Vector<", az::TypeName<T>(), ">(", (obj).count, ")"
 
 template<typename T>
 struct Vector {
 	T *data;
 	u16 count, stride;
 	u16 capacity;
-	bool owned;
 
 	inline void AssertValid() const {
 		AzAssert(data != nullptr, Stringify("Vector<", TypeName<T>(), "> is null."));
 	}
 
 	~Vector() {
-		if (owned) delete[] data;
+		if (capacity) delete[] data;
 	}
-	constexpr Vector() : data(nullptr), count(0), stride(0), owned(false) {}
+	constexpr Vector() : data(nullptr), count(0), stride(0), capacity(0) {}
 
 	constexpr Vector(i32 _count) :
 		data(_count > 0 ? new T[_count] : nullptr),
-		count(_count), stride(1), owned(true) {}
+		count(_count), stride(1), capacity(_count) {}
 
-	constexpr Vector(T *_data, i32 _count, i32 _stride=1) : data(_data), count(_count), stride(_stride), owned(false) {}
+	constexpr Vector(T *_data, i32 _count, i32 _stride=1) : data(_data), count(_count), stride(_stride), capacity(0) {}
 
 	constexpr Vector(const Vector &other) :
 		data(other.count > 0 ? ArrayNewCopy(other.count, other.data, other.stride) : nullptr),
-		count(other.count), stride(1), owned(other.count > 0) {}
+		count(other.count), stride(1), capacity(other.count) {}
 
-	constexpr Vector(Vector &&other) : data(other.data), count(other.count), stride(other.stride), owned(other.owned) {
-		other.owned = false;
+	constexpr Vector(Vector &&other) : data(other.data), count(other.count), stride(other.stride), capacity(other.capacity) {
+		other.capacity = 0;
 	}
-	constexpr Vector(Vector *other) : data(other->data), count(other.count), stride(other.stride), owned(false) {}
+	constexpr Vector(Vector *other) : data(other->data), count(other.count), stride(other.stride), capacity(0) {}
 
-	constexpr Vector(std::initializer_list<T> list) : data(new T[list.size()]), count(list.size()), stride(1), owned(true) {
+	constexpr Vector(std::initializer_list<T> list) : data(new T[list.size()]), count(list.size()), stride(1), capacity(list.size()) {
 		i32 i = 0;
 		for (const T &it : list) {
 			data[i] = it;
@@ -58,9 +57,15 @@ struct Vector {
 		}
 	}
 
+	constexpr Vector(i32 _count, const T &value) : data(_count ? new T[_count] : nullptr), count(_count), stride(1), capacity(_count) {
+		for (i32 i = 0; i < _count; i++) {
+			data[i] = value;
+		}
+	}
+
 	Vector& operator=(const Vector &other) {
-		if (owned) {
-			if (Count() != other.Count()) {
+		if (capacity) {
+			if (capacity < other.Count()) {
 				delete[] data;
 				data = ArrayNewCopy(other.Count(), other.data);
 			} else {
@@ -70,20 +75,21 @@ struct Vector {
 			}
 		} else if (other.Count() != 0) {
 			data = ArrayNewCopy(other.Count(), other.data);
-			owned = true;
+			capacity = other.count;
 		}
 		count = other.count;
 		return *this;
 	}
 
 	Vector& operator=(Vector &&other) {
-		if (owned) {
+		if (capacity) {
 			delete[] data;
 		}
 		data = other.data;
 		count = other.count;
 		stride = other.stride;
-		other.owned = false;
+		capacity = other.capacity;
+		other.capacity = 0;
 		return *this;
 	}
 
@@ -245,9 +251,13 @@ struct Matrix {
 		return Col(index);
 	}
 
-	inline T& Val(i32 col, i32 row) {
+	inline T& Val(i32 col, i32 row) const {
+		AssertValid();
+		AzAssert(col >= 0 && col < (i32)cols, Stringify("Column ", col, " is out of bounds for ", MATRIX_INFO_ARGS(*this)));
+		AzAssert(row >= 0 && row < (i32)rows, Stringify("Row ", row, " is out of bounds for ", MATRIX_INFO_ARGS(*this)));
 		return data[col * colStride + row * rowStride];
 	}
+
 	// Flip the matrix along its diagonal in-place.
 	Matrix& Transpose() {
 		if (capacity == 0) {
@@ -282,11 +292,13 @@ struct Matrix {
 	}
 };
 
+} // namespace AzCore
+
 template<typename T>
-T dot(Vector<T> a, Vector<T> b) {
+T dot(az::Vector<T> a, az::Vector<T> b) {
 	a.AssertValid();
 	b.AssertValid();
-	AzAssert(a.Count() == b.Count(), Stringify("dot product of ", VECTOR_INFO_ARGS(a), " and ", VECTOR_INFO_ARGS(b), " error: Vectors must have the same number of components."));
+	AzAssert(a.Count() == b.Count(), az::Stringify("dot product of ", VECTOR_INFO_ARGS(a), " and ", VECTOR_INFO_ARGS(b), " error: Vectors must have the same number of components."));
 	T result = 0;
 	for (i32 i = 0; i < a.Count(); i++) {
 		result += a[i] * b[i];
@@ -294,9 +306,11 @@ T dot(Vector<T> a, Vector<T> b) {
 	return result;
 }
 
+namespace AzCore {
+
 template<typename T>
-Matrix<T> transpose(const Matrix<T> &a) {
-	Matrix<T> result = a;
+az::Matrix<T> transpose(const az::Matrix<T> &a) {
+	az::Matrix<T> result = a;
 	result.Transpose();
 	return result;
 }
@@ -353,6 +367,53 @@ Vector<T> operator*(const Vector<T> &lhs, const Matrix<T> &rhs) {
 
 #undef MATRIX_INFO_ARGS
 #undef VECTOR_INFO_ARGS
+
+template<typename T>
+void AppendToString(String &string, const Vector<T> &vector) {
+	string.Append('|');
+	for (i32 i = 0; i < vector.Count(); i++) {
+		string.Append(' ');
+		AppendToString(string, vector[i]);
+		string.Append(' ');
+	}
+	string.Append('|');
+}
+
+template<typename T>
+void AppendToString(String &string, const Matrix<T> &matrix) {
+	struct Info {
+		i32 indexStart;
+		i32 indexEnd;
+		i32 size;
+	};
+	static thread_local Array<Info> infos;
+	infos.ClearSoft();
+	infos.Reserve(matrix.Count());
+	i32 maxSize = 0;
+	for (i32 r = 0; r < matrix.Rows(); r++) {
+		string.Append('|');
+		for (i32 c = 0; c < matrix.Cols(); c++) {
+			Info info;
+			string.Append(' ');
+			info.indexStart = string.size;
+			AppendToString(string, matrix.Val(c, r));
+			info.indexEnd = string.size;
+			info.size = info.indexEnd - info.indexStart;
+			maxSize = max(maxSize, info.size);
+			string.Append(' ');
+			infos.Append(info);
+		}
+		string.Append("|\n");
+	}
+	Str spaces = "                ";
+	maxSize = min(maxSize, (i32)spaces.size);
+	for (i32 i = infos.size-1; i >= 0; i--) {
+		auto &info = infos[i];
+		if (info.size < maxSize) {
+			string.Insert(info.indexEnd, spaces.SubRange(0, maxSize - info.size));
+		}
+	}
+}
 
 } // namespace AzCore
 

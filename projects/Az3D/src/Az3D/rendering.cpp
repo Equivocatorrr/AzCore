@@ -15,6 +15,7 @@
 #include "AzCore/io.hpp"
 #include "AzCore/font.hpp"
 #include "AzCore/QuickSort.hpp"
+#include "AzCore/Math/Matrix.hpp"
 
 #ifdef TRANSPARENT
 #undef TRANSPARENT
@@ -29,6 +30,8 @@
 namespace Az3D::Rendering {
 
 constexpr i32 MAX_DEBUG_VERTICES = 8192;
+
+i32 numNewtonIterations = 100;
 
 using GameSystems::sys;
 
@@ -734,7 +737,8 @@ bool Manager::UpdateDebugLines(GPU::Context *context) {
 struct BoneEvalMetadata {
 	mat4 restTransformLocal;
 	mat4 restTransformModel;
-	vec3 tail = vec3(0.0f, 0.15f, 0.0f);
+	quat animOrientation = quat(1.0f);
+	vec3 animOffset = vec3(0.0f);
 	bool evaluated = false;
 };
 
@@ -745,7 +749,217 @@ mat4 GetMat4(quat orientation, vec3 offset) {
 	return result;
 }
 
-void EvaluateBone(SimpleRange<mat4> transforms, SimpleRange<BoneEvalMetadata> metadatas, SimpleRange<Az3DObj::Bone> bones, i32 boneIndex, Az3DObj::Action &action, f32 time) {
+struct IkEvalMetadata {
+	Az3DObj::Bone* bone;
+	// rest pose rotation matrix relative to parent
+	mat3 localRotation;
+	// rest pose offset from parent relative to parent
+	vec3 localOffset;
+	// Our transform relative to parent with evaluated joint positions
+	mat4 transformEval;
+	// Our transform with evaluated joint positions in model space
+	mat4 transformEvalAccum;
+	// position of the target relative to our current pose root bone
+	// Tip of the outermost bone in model space (only valid for the tip bone)
+	vec3 modelTip;
+	// Tip of the outermost bone relative to this bone
+	vec3 localTip;
+	// Evaluated parameters
+	f32 stretch = 1.0f;
+	vec3 axisAngles = 0.0f;
+};
+
+void EvaluateBone(SimpleRange<mat4> transforms, SimpleRange<BoneEvalMetadata> metadatas, SimpleRange<Az3DObj::Bone> bones, i32 boneIndex, Az3DObj::Action &action, f32 time, mat4 &modelTransform);
+
+void EvaluateParameters(Array<IkEvalMetadata> &ikChain, Vector<f32> &parameters, SimpleRange<mat4> transforms, SimpleRange<BoneEvalMetadata> metadatas, SimpleRange<Az3DObj::Bone> bones, mat4 &modelTransform) {
+	for (i32 i = 0, p = 0; i < ikChain.size; i++) {
+		auto *b = ikChain[i].bone;
+		auto &ik = b->ikInfo;
+		if (ik.stretch != 0.0f) {
+			ikChain[i].stretch = parameters[p];
+			p++;
+		}
+		if (!ik.locked.x) {
+			ikChain[i].axisAngles.x = parameters[p];
+			p++;
+		} else {
+			ikChain[i].axisAngles.x = 0.0f;
+		}
+		if (!ik.locked.y) {
+			ikChain[i].axisAngles.y = parameters[p];
+			p++;
+		} else {
+			ikChain[i].axisAngles.y = 0.0f;
+		}
+		if (!ik.locked.z) {
+			ikChain[i].axisAngles.z = parameters[p];
+			p++;
+		} else {
+			ikChain[i].axisAngles.z = 0.0f;
+		}
+		ikChain[i].transformEval = mat4(ikChain[i].localRotation * mat3::RotationEulerXYZ(ikChain[i].axisAngles));
+		ikChain[i].transformEval[3].xyz = ikChain[i].localOffset;
+		if (i > 0) {
+			ikChain[i].transformEvalAccum = ikChain[i-1].transformEvalAccum * ikChain[i].transformEval;
+		} else {
+			if (b->parent != 255) {
+				ikChain[i].transformEvalAccum = transforms[b->parent] * ikChain[i].transformEval;
+			} else {
+				ikChain[i].transformEvalAccum = ikChain[i].transformEval;
+			}
+		}
+	}
+	ikChain.Back().modelTip = ikChain.Back().transformEvalAccum[1].xyz * ikChain.Back().bone->length + ikChain.Back().transformEvalAccum[3].xyz;
+	for (i32 i = ikChain.size-1; i >= 0; i--) {
+		ikChain[i].localTip = (ikChain[i].transformEvalAccum.Inverse() * vec4(ikChain.Back().modelTip, 1.0f)).xyz;
+	}
+}
+
+void EvaluateJacobian(Matrix<f32> &jacobian, Array<IkEvalMetadata> &ikChain, Vector<f32> &parameters, Vector<f32> &stiffness, SimpleRange<mat4> transforms, SimpleRange<BoneEvalMetadata> metadatas, SimpleRange<Az3DObj::Bone> bones, bool showDerivatives, mat4 &modelTransform) {
+	for (i32 i = 0, p = 0; i < ikChain.size; i++) {
+		auto *b = ikChain[i].bone;
+		auto &ik = b->ikInfo;
+		vec3 tip;
+		if (showDerivatives) {
+			tip = (modelTransform * ikChain[i].transformEvalAccum * vec4(0.0f, b->length, 0.0f, 1.0f)).xyz;
+		}
+		mat3 rotationEval = ikChain[i].transformEvalAccum.TrimmedMat3();
+		if (ik.stretch != 0.0f) {
+			vec3 &pDerivative = jacobian.Col(p).AsVec3();
+			// Same as transformEval * vec3(0, length, 0)
+			pDerivative = ikChain[i].transformEvalAccum.Col<1>().xyz * b->length;
+			p++;
+		}
+		if (!ik.locked.x) {
+			vec3 &pDerivative = jacobian.Col(p).AsVec3();
+			pDerivative = rotationEval.Col<2>() * ikChain[i].localTip.y;
+			pDerivative *= (1.0f - stiffness[p]);
+			if (showDerivatives) {
+				DrawDebugLine(sys->rendering.data.drawingContexts.Back(), DebugVertex{tip, vec4(0.2f, 0.0f, 0.0f, 1.0f)}, DebugVertex{tip + pDerivative * 0.1f, vec4(1.0f, 0.0f, 0.0f, 1.0f)});
+			}
+			p++;
+		}
+		if (!ik.locked.y) {
+			vec3 &pDerivative = jacobian.Col(p).AsVec3();
+			pDerivative = rotationEval * ((mat3::RotationBasic(halfpi, Axis::Y) * mat3::RotationBasic(ikChain[i].axisAngles.x, Axis::X) * ikChain[i].localTip) * vec3(1.0f, 0.0f, 1.0f));
+			pDerivative *= (1.0f - stiffness[p]);
+			if (showDerivatives) {
+				DrawDebugLine(sys->rendering.data.drawingContexts.Back(), DebugVertex{tip, vec4(0.0f, 0.2f, 0.0f, 1.0f)}, DebugVertex{tip + pDerivative * 0.1f, vec4(0.0f, 1.0f, 0.0f, 1.0f)});
+			}
+			p++;
+		}
+		if (!ik.locked.z) {
+			vec3 &pDerivative = jacobian.Col(p).AsVec3();
+			pDerivative = rotationEval * ((mat3::RotationBasic(halfpi, Axis::Z) * mat3::RotationEulerXYZ(vec3(ikChain[i].axisAngles.xy, 0.0f)) * ikChain[i].localTip) * vec3(1.0f, 1.0f, 0.0f));
+			pDerivative *= (1.0f - stiffness[p]);
+			if (showDerivatives) {
+				DrawDebugLine(sys->rendering.data.drawingContexts.Back(), DebugVertex{tip, vec4(0.0f, 0.0f, 0.2f, 1.0f)}, DebugVertex{tip + pDerivative * 0.1f, vec4(0.0f, 0.0f, 1.0f, 1.0f)});
+			}
+			p++;
+		}
+	}
+}
+
+void LimitParameters(Vector<f32> &parameters, Vector<f32> &parameterMinimums, Vector<f32> &parameterMaximums) {
+	for (i32 i = 0; i < parameters.Count(); i++) {
+		parameters[i] = clamp(parameters[i], parameterMinimums[i], parameterMaximums[i]);
+	}
+}
+
+void EvaluateIK(SimpleRange<mat4> transforms, SimpleRange<BoneEvalMetadata> metadatas, SimpleRange<Az3DObj::Bone> bones, i32 boneIndex, Az3DObj::Action &action, f32 time, mat4 &modelTransform) {
+	// cout.PrintLn(bone.name, " has target ", bones[bone.ikTarget].name);
+	mat4 &transform = transforms[boneIndex];
+	BoneEvalMetadata &meta = metadatas[boneIndex];
+	Az3DObj::Bone &bone = bones[boneIndex];
+	EvaluateBone(transforms, metadatas, bones, bone.ikTarget, action, time, modelTransform);
+
+
+	static thread_local Array<IkEvalMetadata> ikChain;
+
+	i32 degreesOfFreedom = 0;
+	vec4 ikTargetPos = transforms[bone.ikTarget].Col<3>();
+	ikChain.ClearSoft();
+	for (Az3DObj::Bone *b = &bone; b->isInIkChain; b = &bones[b->parent]) {
+		auto &ik = b->ikInfo;
+		if (ik.stretch != 0.0f) degreesOfFreedom++;
+		if (!ik.locked.x) degreesOfFreedom++;
+		if (!ik.locked.y) degreesOfFreedom++;
+		if (!ik.locked.z) degreesOfFreedom++;
+		i32 chainBoneIndex = b - &bones[0];
+		mat4 &t = transforms[chainBoneIndex];
+		mat4 &rest = metadatas[chainBoneIndex].restTransformLocal;
+		ikChain.Insert(0, {b, rest.TrimmedMat3(), rest[3].xyz});
+		if (b->parent == 255) break;
+		// break;
+	}
+
+	// Do one allocation for everything, and partition the resulting matrix.
+	Matrix<f32> allInfo = Matrix<f32>::Filled(degreesOfFreedom, 8, 0.0f);
+	Matrix<f32> configuration = allInfo.SubMatrix(0, 0, degreesOfFreedom, 4);
+	Matrix<f32> jacobian = allInfo.SubMatrix(0, 4, degreesOfFreedom, 3);
+
+	Vector<f32> parameters = configuration.Row(0);
+	Vector<f32> parameterMinimums = configuration.Row(1);
+	Vector<f32> parameterMaximums = configuration.Row(2);
+	Vector<f32> parameterStiffness = configuration.Row(3);
+	for (i32 i = 0, p = 0; i < ikChain.size; i++) {
+		auto *b = ikChain[i].bone;
+		auto &ik = b->ikInfo;
+		if (ik.stretch != 0.0f) {
+			parameters[p] = 1.0f; // Default to no stretch or squash applied.
+			parameterMinimums[p] = 0.0f;
+			parameterMaximums[p] = INFINITY;
+			parameterStiffness[p] = 1.0f - ik.stretch;
+			p++;
+		}
+		if (!ik.locked.x) {
+			parameterMinimums[p] = ik.min.x;
+			parameterMaximums[p] = ik.max.x;
+			parameterStiffness[p] = ik.stiffness.x;
+			p++;
+		}
+		if (!ik.locked.y) {
+			parameterMinimums[p] = ik.min.y;
+			parameterMaximums[p] = ik.max.y;
+			parameterStiffness[p] = ik.stiffness.y;
+			p++;
+		}
+		if (!ik.locked.z) {
+			parameterMinimums[p] = ik.min.z;
+			parameterMaximums[p] = ik.max.z;
+			parameterStiffness[p] = ik.stiffness.z;
+			p++;
+		}
+	}
+
+	for (i32 i = 0; i < numNewtonIterations; i++) {
+		// Do some newton-raphson iteration to reduce error.
+		vec3 error;
+		EvaluateParameters(ikChain, parameters, transforms, metadatas, bones, modelTransform);
+		error = ikChain.Back().modelTip - ikTargetPos.xyz;
+		if (normSqr(error) < square(0.01f)) break;
+		EvaluateJacobian(jacobian, ikChain, parameters, parameterStiffness, transforms, metadatas, bones, false, modelTransform);
+		Vector<f32> err(error.data, 3, 1);
+		// io::cout.PrintLn("error: ", err);
+		parameters -= err * jacobian;
+		LimitParameters(parameters, parameterMinimums, parameterMaximums);
+	}
+	EvaluateParameters(ikChain, parameters, transforms, metadatas, bones, modelTransform);
+	EvaluateJacobian(jacobian, ikChain, parameters, parameterStiffness, transforms, metadatas, bones, true, modelTransform);
+
+	// io::cout.PrintLn("Parameters: ", parameters, "\nParameter Mins: ", parameterMinimums, "\nParameter Maxs: ", parameterMaximums, "\nParameter Stiffness: ", parameterStiffness, "\nJacobian:\n", Indent(), jacobian);
+	// static i32 count = 0;
+	// count++;
+	// if (count == 4) {
+	// 	exit(0);
+	// }
+	for (i32 i = 0; i < ikChain.size; i++) {
+		i32 boneIndex = ikChain[i].bone - &bones[0];
+		transforms[boneIndex] = ikChain[i].transformEvalAccum;
+	}
+}
+
+void EvaluateBone(SimpleRange<mat4> transforms, SimpleRange<BoneEvalMetadata> metadatas, SimpleRange<Az3DObj::Bone> bones, i32 boneIndex, Az3DObj::Action &action, f32 time, mat4 &modelTransform) {
 	mat4 &transform = transforms[boneIndex];
 	BoneEvalMetadata &meta = metadatas[boneIndex];
 	if (meta.evaluated) {
@@ -759,39 +973,39 @@ void EvaluateBone(SimpleRange<mat4> transforms, SimpleRange<BoneEvalMetadata> me
 		vec4(bone.basis.Col<2>(), 0.0f),
 		vec4(bone.offset        , 1.0f)
 	);
-	quat orientation = quat(1.0f);
-	vec3 offset = vec3(0.0f);
+	meta.animOrientation = quat(1.0f);
+	meta.animOffset = vec3(0.0f);
 
 	for (auto &curve : action.curves) {
 		if (curve.boneName != bone.name) continue;
 		// io::cout.PrintLn("Found curve for bone \"", bone.name, "\" which is a ", curve.isOffset ? "location" : "orientation", " with index ", curve.index);
 		if (curve.isOffset) {
-			offset[curve.index] = curve.Evaluate(time);
+			meta.animOffset[curve.index] = curve.Evaluate(time);
 		} else {
-			orientation[curve.index] = curve.Evaluate(time);
+			meta.animOrientation[curve.index] = curve.Evaluate(time);
 		}
 	}
 
-	transform = GetMat4(orientation, offset);
+	transform = GetMat4(meta.animOrientation, meta.animOffset);
 
 	// transform = mat4::RotationBasic(tau * 0.02f, Axis::X);
 	if (bone.parent != 255) {
-		if (!metadatas[bone.parent].evaluated) {
-			metadatas[bone.parent].tail = offset;
-		}
-		EvaluateBone(transforms, metadatas, bones, bone.parent, action, time);
+		EvaluateBone(transforms, metadatas, bones, bone.parent, action, time, modelTransform);
 		meta.restTransformModel = metadatas[bone.parent].restTransformModel * meta.restTransformLocal;
 		transform = transforms[bone.parent] * meta.restTransformLocal * transform;
 	} else {
 		meta.restTransformModel = meta.restTransformLocal;
 		transform = meta.restTransformLocal * transform;
 	}
+	if (bone.ikTarget != 255) {
+		EvaluateIK(transforms, metadatas, bones, boneIndex, action, time, modelTransform);
+	}
 	meta.evaluated = true;
 	return;
 }
 
 // Appends the animated bones to the end of dstBones
-void AnimateArmature(Array<mat4> &dstBones, ArmatureAction armatureAction, mat4 &transform) {
+void AnimateArmature(Array<mat4> &dstBones, ArmatureAction armatureAction, mat4 &modelTransform) {
 	Assets::Mesh &mesh = sys->assets.meshes[armatureAction.meshIndex];
 	Az3DObj::Action &action = sys->assets.actions[armatureAction.actionIndex].action;
 	for (auto &armature : mesh.armatures) {
@@ -801,16 +1015,16 @@ void AnimateArmature(Array<mat4> &dstBones, ArmatureAction armatureAction, mat4 
 		Array<BoneEvalMetadata> metadatas(armature.bones.size);
 		// Evaluate the hierarchy in bone space, also getting the model-space rest transforms
 		for (i32 i = 0; i < transforms.size; i++) {
-			EvaluateBone(transforms, metadatas, armature.bones, i, action, armatureAction.actionTime);
+			EvaluateBone(transforms, metadatas, armature.bones, i, action, armatureAction.actionTime, modelTransform);
 		}
 		// THEN go from model space to bone space
 		for (i32 i = 0; i < transforms.size; i++) {
 			if (Settings::ReadBool(Settings::sDebugLines)) {
 				DebugVertex p1, p2;
-				p1.color = vec4(0.0f, 0.0f, 0.8f, 1.0f);
-				p2.color = vec4(0.0f, 0.8f, 0.0f, 1.0f);
-				p1.pos = (transform * transforms[i] * vec4(0.0f, 0.0f, 0.0f, 1.0f)).xyz;
-				p2.pos = (transform * transforms[i] * vec4(0.0f, 0.3f, 0.0f, 1.0f)).xyz;
+				p1.color = vec4(0.0f, 0.0f, 1.0f, 0.4f);
+				p2.color = vec4(0.0f, 1.0f, 0.0f, 1.0f);
+				p1.pos = (modelTransform * transforms[i] * vec4(0.0f, 0.0f, 0.0f, 1.0f)).xyz;
+				p2.pos = (modelTransform * transforms[i] * vec4(0.0f, armature.bones[i].length, 0.0f, 1.0f)).xyz;
 				DrawDebugLine(sys->rendering.data.drawingContexts[0], p1, p2);
 			}
 			transforms[i] = transforms[i] * metadatas[i].restTransformModel.Inverse();

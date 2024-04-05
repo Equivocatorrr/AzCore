@@ -34,6 +34,8 @@ struct Test : public GameSystems::System {
 	Assets::MeshIndex meshShitman;
 	Assets::ActionIndex actionJump;
 	f32 jumpT = 0.0f;
+	f32 rate = 1.0f;
+	bool pause = false;
 	i32 currentMesh = 0;
 	Angle32 hover = 0.0f;
 	virtual void EventAssetsRequest() override {
@@ -50,10 +52,34 @@ struct Test : public GameSystems::System {
 	virtual void EventSync() override {
 		pos.z = 1.5f + sin(hover);
 		hover += Degrees32(sys->timestep * 90.0f);
-		jumpT += sys->timestep;
+		if (!pause)
+			jumpT += sys->timestep * rate;
 		f32 speed = sys->Down(KC_KEY_LEFTSHIFT) ? 8.0f : 2.0f;
 		if (sys->Pressed(KC_KEY_ESC)) sys->exit = true;
 		if (sys->Pressed(KC_KEY_T)) sunTurning = !sunTurning;
+		if (sys->Pressed(KC_KEY_SPACE)) {
+			pause = !pause;
+		}
+		if (sys->Repeated(KC_KEY_UP)) {
+			if (sys->Down(KC_KEY_LEFTSHIFT)) {
+				Az3D::Rendering::numNewtonIterations++;
+			} else {
+				rate *= 2.0f;
+			}
+		}
+		if (sys->Repeated(KC_KEY_DOWN)) {
+			if (sys->Down(KC_KEY_LEFTSHIFT)) {
+				Az3D::Rendering::numNewtonIterations--;
+			} else {
+				rate /= 2.0f;
+			}
+		}
+		if (sys->Down(KC_KEY_LEFT)) {
+			jumpT -= sys->timestep * (0.5f + rate);
+		}
+		if (sys->Down(KC_KEY_RIGHT)) {
+			jumpT += sys->timestep * (rate + 0.5f);
+		}
 		if (sunTurning) {
 			sunAngle += Radians32(tau * sys->timestep / 60.0f / 60.0f);
 		}
@@ -140,16 +166,16 @@ struct Test : public GameSystems::System {
 		}
 		camera.forward = facingDir.RotatePoint(vec3(0.0f, 1.0f, 0.0f));
 		camera.up = facingDir.RotatePoint(vec3(0.0f, 0.0f, 1.0f));
-		if (sys->Down(KC_KEY_UP) || sys->Down(KC_KEY_W)) {
+		if (sys->Down(KC_KEY_W)) {
 			camera.pos += speed * sys->timestep * camera.forward;
 		}
-		if (sys->Down(KC_KEY_DOWN) || sys->Down(KC_KEY_S)) {
+		if (sys->Down(KC_KEY_S)) {
 			camera.pos -= speed * sys->timestep * camera.forward;
 		}
-		if (sys->Down(KC_KEY_RIGHT) || sys->Down(KC_KEY_D)) {
+		if (sys->Down(KC_KEY_D)) {
 			camera.pos += speed * sys->timestep * camRight;
 		}
-		if (sys->Down(KC_KEY_LEFT) || sys->Down(KC_KEY_A)) {
+		if (sys->Down(KC_KEY_A)) {
 			camera.pos -= speed * sys->timestep * camRight;
 		}
 		for (i32 i = 0; i < meshesCount; i++) {

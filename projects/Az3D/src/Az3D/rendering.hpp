@@ -28,6 +28,8 @@ using namespace AzCore;
 
 constexpr f32 lineHeight = 1.3f;
 
+extern i32 numNewtonIterations;
+
 struct Manager;
 
 enum FontAlign {

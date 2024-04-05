@@ -16,6 +16,16 @@
 
 namespace AzCore {
 
+template <typename T>
+struct vec2_t;
+template <typename T>
+struct vec3_t;
+template <typename T>
+struct vec4_t;
+template <typename T>
+struct vec5_t;
+
+
 #define MATRIX_INFO_ARGS(obj) "Matrix<", az::TypeName<T>(), ">(", (obj).cols, ", ", (obj).rows, ")"
 #define VECTOR_INFO_ARGS(obj) "Vector<", az::TypeName<T>(), ">(", (obj).count, ")"
 
@@ -96,6 +106,34 @@ struct Vector {
 	i32 Count() const {
 		return count;
 	}
+
+	vec2_t<T>& AsVec2() const {
+		AssertValid();
+		AzAssert(count == 2, Stringify("Conversion of ", VECTOR_INFO_ARGS(*this), " to a vec2_t<", TypeName<T>(), ">& error: Count (", count, ") is incorrect."));
+		AzAssert(stride == 1, Stringify("Conversion of ", VECTOR_INFO_ARGS(*this), " to a vec2_t<", TypeName<T>(), ">& error: stride (", stride, ") must be 1."));
+		return *(vec2_t<T>*)data;
+	};
+
+	vec3_t<T>& AsVec3() const {
+		AssertValid();
+		AzAssert(count == 3, Stringify("Conversion of ", VECTOR_INFO_ARGS(*this), " to a vec3_t<", TypeName<T>(), ">& error: Count (", count, ") is incorrect."));
+		AzAssert(stride == 1, Stringify("Conversion of ", VECTOR_INFO_ARGS(*this), " to a vec3_t<", TypeName<T>(), ">& error: stride (", stride, ") must be 1."));
+		return *(vec3_t<T>*)data;
+	};
+
+	vec4_t<T>& AsVec4() const {
+		AssertValid();
+		AzAssert(count == 4, Stringify("Conversion of ", VECTOR_INFO_ARGS(*this), " to a vec4_t<", TypeName<T>(), ">& error: Count (", count, ") is incorrect."));
+		AzAssert(stride == 1, Stringify("Conversion of ", VECTOR_INFO_ARGS(*this), " to a vec4_t<", TypeName<T>(), ">& error: stride (", stride, ") must be 1."));
+		return *(vec4_t<T>*)data;
+	};
+
+	vec5_t<T>& AsVec5() const {
+		AssertValid();
+		AzAssert(count == 3, Stringify("Conversion of ", VECTOR_INFO_ARGS(*this), " to a vec5_t<", TypeName<T>(), ">& error: Count (", count, ") is incorrect."));
+		AzAssert(stride == 1, Stringify("Conversion of ", VECTOR_INFO_ARGS(*this), " to a vec5_t<", TypeName<T>(), ">& error: stride (", stride, ") must be 1."));
+		return *(vec5_t<T>*)data;
+	};
 
 	T& operator[](i32 index) {
 		AssertValid();
@@ -316,10 +354,38 @@ az::Matrix<T> transpose(const az::Matrix<T> &a) {
 }
 
 template<typename T>
+Vector<T>& operator+=(Vector<T> &lhs, const Vector<T> &rhs) {
+	AzAssert(lhs.Count() == rhs.Count(), Stringify("Adding ", VECTOR_INFO_ARGS(lhs), " and ", VECTOR_INFO_ARGS(rhs), " error: Vector addition can only be done on same-size vectors."));
+	for (i32 i = 0; i < lhs.Count(); i++) {
+		lhs[i] += rhs[i];
+	}
+	return lhs;
+}
+
+template<typename T>
+Vector<T>& operator-=(Vector<T> &lhs, const Vector<T> &rhs) {
+	AzAssert(lhs.Count() == rhs.Count(), Stringify("Subtracting ", VECTOR_INFO_ARGS(lhs), " and ", VECTOR_INFO_ARGS(rhs), " error: Vector subtraction can only be done on same-size vectors."));
+	for (i32 i = 0; i < lhs.Count(); i++) {
+		lhs[i] -= rhs[i];
+	}
+	return lhs;
+}
+
+template<typename T>
+Vector<T> operator*(Vector<T> &&lhs, const T &rhs) {
+	for (i32 i = 0; i < lhs.Count(); i++) {
+		lhs[i] *= rhs;
+	}
+	return std::move(lhs);
+}
+
+template<typename T>
 Matrix<T>& operator+=(Matrix<T> &lhs, const Matrix<T> &rhs) {
 	AzAssert(lhs.Cols() == rhs.Cols() && lhs.Rows() == rhs.Rows(), Stringify("Adding ", MATRIX_INFO_ARGS(lhs), " and ", MATRIX_INFO_ARGS(rhs), " error: Matrix addition can only be done on same-size matrices."));
-	for (i32 i = 0; i < Count(); i++) {
-		lhs.data[i] += rhs.data[i];
+	for (i32 r = 0; r < lhs.Rows(); r++) {
+		for (i32 c = 0; c < lhs.Cols(); c++) {
+			lhs.Val(c, r) += rhs.Val(c, r);
+		}
 	}
 	return lhs;
 }
@@ -327,8 +393,10 @@ Matrix<T>& operator+=(Matrix<T> &lhs, const Matrix<T> &rhs) {
 template<typename T>
 Matrix<T>& operator-=(Matrix<T> &lhs, const Matrix<T> &rhs) {
 	AzAssert(lhs.Cols() == rhs.Cols() && lhs.Rows() == rhs.Rows(), Stringify("Subtracting ", MATRIX_INFO_ARGS(lhs), " and ", MATRIX_INFO_ARGS(rhs), " error: Matrix subtraction can only be done on same-size matrices."));
-	for (i32 i = 0; i < Count(); i++) {
-		lhs.data[i] -= rhs.data[i];
+	for (i32 r = 0; r < lhs.Rows(); r++) {
+		for (i32 c = 0; c < lhs.Cols(); c++) {
+			lhs.Val(c, r) -= rhs.Val(c, r);
+		}
 	}
 	return lhs;
 }

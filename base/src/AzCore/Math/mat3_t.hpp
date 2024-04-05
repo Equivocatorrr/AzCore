@@ -101,6 +101,18 @@ struct mat3_t {
 		}
 		return mat3_t<T>();
 	}
+	// This is the same as RotationBasic(X) * RotationBasic(Y) * RotationBasic(Z)
+	static mat3_t<T> RotationEulerXYZ(vec3 angles) {
+		T s_x = sin(angles.x), c_x = cos(angles.x);
+		T s_y = sin(angles.y), c_y = cos(angles.y);
+		T s_z = sin(angles.z), c_z = cos(angles.z);
+		return mat3_t<T>(
+			c_y * c_z,                   c_y * s_z,                   -s_y,
+			s_x * s_y * c_z - c_x * s_z, s_x * s_y * s_z + c_x * c_z, s_x * c_y,
+			c_x * s_y * c_z + s_x * s_z, c_x * s_y * s_z - s_x * c_z, c_x * c_y
+		);
+	}
+
 	// Useful for arbitrary axes
 	static mat3_t<T> Rotation(T angle, vec3_t<T> axis) {
 		T s = sin(angle), c = cos(angle);

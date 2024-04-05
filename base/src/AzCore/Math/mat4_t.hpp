@@ -87,6 +87,15 @@ struct mat4_t {
 		static_assert(row >= 0 && row < 4);
 		return vec4_t<T>(cols[0][row], cols[1][row], cols[2][row], cols[3][row]);
 	}
+	// Returns the 3x3 sub-matrix in the lower 3 rows and columns
+	inline mat3_t<T> TrimmedMat3() const {
+		mat3_t<T> result = mat3_t<T>::FromCols(
+			cols[0].xyz,
+			cols[1].xyz,
+			cols[2].xyz
+		);
+		return result;
+	}
 	inline static mat4_t<T> Identity() {
 		return mat4_t(1);
 	};
@@ -174,7 +183,7 @@ struct mat4_t {
 			0, 0, 0, scale.w
 		);
 	}
-	
+
 	mat4_t<T> Inverse() const {
 		T A2323 = cols[2][2] * cols[3][3] - cols[3][2] * cols[2][3];
 		T A1323 = cols[1][2] * cols[3][3] - cols[3][2] * cols[1][3];
@@ -200,7 +209,7 @@ struct mat4_t {
 		      + cols[2][0] * (cols[0][1] * A1323 - cols[1][1] * A0323 + cols[3][1] * A0123)
 		      - cols[3][0] * (cols[0][1] * A1223 - cols[1][1] * A0223 + cols[2][1] * A0123);
 		det = 1 / det;
-		
+
 		mat4_t<T> result;
 		result.cols[0][0] = det *  (cols[1][1] * A2323 - cols[2][1] * A1323 + cols[3][1] * A1223);
 		result.cols[1][0] = det * -(cols[1][0] * A2323 - cols[2][0] * A1323 + cols[3][0] * A1223);

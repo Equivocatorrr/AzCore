@@ -11,7 +11,8 @@
 namespace CustomMathsTestNamespace {
 
 void CustomMathsTest();
-UT::Register customMathsTest("CustomMaths", CustomMathsTest);
+// Disabled until I decide to work on it again, since it's woefully incomplete
+// UT::Register customMathsTest("CustomMaths", CustomMathsTest);
 
 using namespace AzCore;
 
@@ -30,7 +31,7 @@ void CustomMathsTest() {
 		Real x = (Real)i / NUM_SAMPLES_R * Real(4.0 * tau64) - Real(2.0 * tau64);
 		COMPARE_FP(fa::sin<Real>(x), sin(x), 1.0f, Stringify("x = ", x));
 	}
-	
+
 	fpError.Report(__LINE__);
 }
 

@@ -45,11 +45,13 @@ void RunTests();
 
 template <typename... Args>
 inline void ReportProblem(i32 line, Args... what) {
+	PreciseFloatToStringMode _precise;
 	currentTestInfo->problems.Append({Stringify(what...), line});
 }
 
 template <typename... Args>
 inline void ReportInfo(i32 line, Args... what) {
+	PreciseFloatToStringMode _precise;
 	currentTestInfo->infos.Append({Stringify(what...), line});
 }
 

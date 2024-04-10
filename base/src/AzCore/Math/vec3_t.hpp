@@ -95,6 +95,24 @@ struct vec3_t {
 		z *= a;
 		return *this;
 	}
+	inline vec3_t<T> RotatedXPos90() const {
+		return vec3_t<T>(x, -z, y);
+	}
+	inline vec3_t<T> RotatedXNeg90() const {
+		return vec3_t<T>(x, z, -y);
+	}
+	inline vec3_t<T> RotatedYPos90() const {
+		return vec3_t<T>(z, y, -x);
+	}
+	inline vec3_t<T> RotatedYNeg90() const {
+		return vec3_t<T>(-z, y, x);
+	}
+	inline vec3_t<T> RotatedZPos90() const {
+		return vec3_t<T>(-y, x, z);
+	}
+	inline vec3_t<T> RotatedZNeg90() const {
+		return vec3_t<T>(y, -x, z);
+	}
 };
 
 typedef vec3_t<f32> vec3;

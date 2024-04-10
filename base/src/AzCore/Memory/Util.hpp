@@ -35,18 +35,46 @@ size_t alignNonPowerOfTwo(size_t size, size_t alignment);
 
 inline u32 CountTrailingZeroBits(u32 value) {
 	#if defined(__GNUG__)
-		u32 result;
+		unsigned result;
+		unsigned fallback = 32;
 		// We could use __builtin_ctz but it throws away the check we get from bsf for the cmov
 		asm (
-			"bsf %0, %1\n\t"
-			"cmovz %0, $32"
+			"bsf %0, %1"
 			: "=r" (result)
 			: "r" (value)
+		);
+		asm (
+			"cmovz %0, %1"
+			: "=r" (result)
+			: "r" (fallback)
 		);
 		return result;
 	#elif defined(_MSC_VER)
 		unsigned long result;
 		return _BitScanForward(&result, value) ? result : 32;
+	#endif
+}
+
+
+inline u32 CountTrailingZeroBits(u64 value) {
+	#if defined(__GNUG__)
+		u64 result;
+		u64 fallback = 32;
+		// We could use __builtin_ctz but it throws away the check we get from bsf for the cmov
+		asm (
+			"bsf %0, %1\n"
+			: "=r" (result)
+			: "r" (value)
+		);
+		asm (
+			"cmovz %0, %1"
+			: "=r" (result)
+			: "r" (fallback)
+		);
+		return result;
+	#elif defined(_MSC_VER)
+		unsigned long result;
+		return _BitScanForward64(&result, value) ? result : 32;
 	#endif
 }
 

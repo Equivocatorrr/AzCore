@@ -13,6 +13,8 @@
 
 #include <emmintrin.h>
 
+#include <type_traits>
+
 namespace AzCore {
 
 constexpr f64 halfpi64 = 1.5707963267948966;
@@ -70,7 +72,7 @@ Int intDivCeil(Int numerator, Int denominator) {
 template<typename F>
 F ampToDecibels(F amp) {
 	AzAssert(amp >= F(0), "val must be positive");
-	
+
 	F result;
 	if (amp == F(0)) {
 		result = F(-INFINITY);
@@ -86,6 +88,14 @@ F decibelsToAmp(F db) {
 	F result;
 	result = pow(F(10), db / F(20));
 	return result;
+}
+
+u64 GreatestCommonFactor(u64 a, u64 b);
+
+u64 GreatestCommonFactor(std::initializer_list<u64> list);
+
+inline u64 LeastCommonMultiple(u64 a, u64 b) {
+	return a * b / GreatestCommonFactor(a, b);
 }
 
 } // namespace AzCore
@@ -274,9 +284,24 @@ constexpr T cubert(T a) {
 	return sign(a) * pow(abs(a), T(1.0 / 3.0));
 }
 
+// Always returns a value with the same signed-ness as b. This is the actual modulo operator, not just remainder like % is.
+template<typename T>
+constexpr T mod(T a, T b) {
+	T remainder = a % b;
+	if ((a > 0 && remainder < 0) || (a > 0 && remainder > 0)) {
+		remainder += a;
+	}
+	return remainder;
+}
+
 template <typename T>
 constexpr T wrap(T a, T max) {
-	return fmod(a, max) + max * T(a < T(0));
+	if constexpr (std::is_floating_point_v<T>) {
+		return fmod(a, max) + max * T(a < T(0));
+	} else {
+		return mod(a, max);
+	}
 }
+
 
 #endif // AZCORE_MATH_BASIC_HPP

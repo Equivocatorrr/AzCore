@@ -50,7 +50,7 @@ struct mat4_t {
 		col_2_x, col_2_y, col_2_z, col_2_w,
 		col_3_x, col_3_y, col_3_z, col_3_w
 	} {}
-	inline static mat4_t<T> FromCols(vec4_t<T> col_0, vec4_t<T> col_1, vec4_t<T> col_2, vec4_t<T> col_3) {
+	inline static mat4_t<T> FromCols(const vec4_t<T> &col_0, const vec4_t<T> &col_1, const vec4_t<T> &col_2, const vec4_t<T> &col_3) {
 		mat4_t<T> result(
 			col_0.x, col_0.y, col_0.z, col_0.w,
 			col_1.x, col_1.y, col_1.z, col_1.w,
@@ -59,7 +59,7 @@ struct mat4_t {
 		);
 		return result;
 	}
-	inline static mat4_t<T> FromRows(vec4_t<T> row_0, vec4_t<T> row_1, vec4_t<T> row_2, vec4_t<T> row_3) {
+	inline static mat4_t<T> FromRows(const vec4_t<T> &row_0, const vec4_t<T> &row_1, const vec4_t<T> &row_2, const vec4_t<T> &row_3) {
 		mat4_t<T> result(
 			row_0.x, row_1.x, row_2.x, row_3.x,
 			row_0.y, row_1.y, row_2.y, row_3.y,
@@ -162,7 +162,7 @@ struct mat4_t {
 		return mat4_t<T>();
 	}
 	// Useful for arbitrary 3D-axes
-	static mat4_t<T> Rotation(T angle, vec3_t<T> axis) {
+	static mat4_t<T> Rotation(T angle, const vec3_t<T> &axis) {
 		T s = sin(angle), c = cos(angle);
 		T ic = 1 - c;
 		vec3_t<T> a = normalize(axis);
@@ -175,7 +175,7 @@ struct mat4_t {
 			0,                   0,                   0,                   1
 		);
 	}
-	static mat4_t<T> Scale(vec4_t<T> scale) {
+	static mat4_t<T> Scale(const vec4_t<T> &scale) {
 		return mat4_t<T>(
 			scale.x, 0, 0, 0,
 			0, scale.y, 0, 0,
@@ -230,6 +230,14 @@ struct mat4_t {
 		return result;
 	}
 
+	// Much faster than Inverse(), but only applicable to Transforms with only Rotation and Translation
+	mat4_t<T> InverseUnscaledTransform() const {
+		mat3_t<T> rot = TrimmedMat3().Transpose();
+		mat4_t<T> result = mat4_t<T>(rot);
+		result[3].xyz = -(rot * cols[3].xyz);
+		return result;
+	}
+
 
 	inline mat4_t<T> Transpose() const {
 		return FromRows(
@@ -239,7 +247,7 @@ struct mat4_t {
 			Col<3>()
 		);
 	}
-	inline mat4_t<T> operator+(mat4_t<T> rhs) const {
+	inline mat4_t<T> operator+(const mat4_t<T> &rhs) const {
 		return FromCols(
 			Col<0>() + rhs.template Col<0>(),
 			Col<1>() + rhs.template Col<1>(),
@@ -247,7 +255,7 @@ struct mat4_t {
 			Col<3>() + rhs.template Col<3>()
 		);
 	}
-	inline mat4_t<T> operator*(mat4_t<T> rhs) const {
+	inline mat4_t<T> operator*(const mat4_t<T> &rhs) const {
 		return mat4_t<T>(
 			dot(Row<0>(), rhs.template Col<0>()), dot(Row<1>(), rhs.template Col<0>()), dot(Row<2>(), rhs.template Col<0>()), dot(Row<3>(), rhs.template Col<0>()),
 			dot(Row<0>(), rhs.template Col<1>()), dot(Row<1>(), rhs.template Col<1>()), dot(Row<2>(), rhs.template Col<1>()), dot(Row<3>(), rhs.template Col<1>()),
@@ -255,7 +263,7 @@ struct mat4_t {
 			dot(Row<0>(), rhs.template Col<3>()), dot(Row<1>(), rhs.template Col<3>()), dot(Row<2>(), rhs.template Col<3>()), dot(Row<3>(), rhs.template Col<3>())
 		);
 	}
-	inline vec4_t<T> operator*(vec4_t<T> rhs) const {
+	inline vec4_t<T> operator*(const vec4_t<T> &rhs) const {
 		return vec4_t<T>(
 			dot(Row<0>(), rhs),
 			dot(Row<1>(), rhs),
@@ -298,7 +306,7 @@ typedef mat4_t<f64> mat4d;
 } // namespace AzCore
 
 template <typename T>
-inline AzCore::vec4_t<T> operator*(AzCore::vec4_t<T> lhs, AzCore::mat4_t<T> rhs) {
+inline AzCore::vec4_t<T> operator*(const AzCore::vec4_t<T> &lhs, const AzCore::mat4_t<T> &rhs) {
 	return AzCore::vec4_t<T>(
 		dot(lhs, rhs.template Col<0>()),
 		dot(lhs, rhs.template Col<1>()),

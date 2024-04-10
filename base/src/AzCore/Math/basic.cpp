@@ -5,6 +5,8 @@
 
 #include "basic.hpp"
 
+#include "../Memory/Util.hpp"
+
 namespace AzCore {
 
 f32 Power(f32 base, f32 exponent) {
@@ -46,5 +48,55 @@ f32 Power(f32 base, f32 exponent) {
 	f32 result2 = result1 * base;
 	return invExpFrac * result1 + expFrac * result2;
 }
+
+u64 GreatestCommonFactor(u64 a, u64 b) {
+	if (a == 0) return b;
+	if (b == 0) return a;
+	u32 shift = CountTrailingZeroBits(a | b);
+	a >>= CountTrailingZeroBits(a);
+	do {
+		b >>= CountTrailingZeroBits(b);
+		if (a > b) {
+			Swap(a, b);
+		}
+		b -= a;
+	} while (b != 0);
+	return a << shift;
+}
+
+u64 GreatestCommonFactor(std::initializer_list<u64> list) {
+	auto it = list.begin();
+	u64 val = *it++;
+	while (it != list.end()) {
+		val = GreatestCommonFactor(val, *it++);
+	}
+	return val;
+}
+
+// static long long greatest_common_divisor(long long a, long long b) {
+// 	// while (a != b) {
+// 	//     if (a > b) {
+// 	//         a -= b;
+// 	//     } else {
+// 	//         b -= a;
+// 	//     }
+// 	// }
+// 	// return a;
+// 	int shift;
+// 	if (a == 0) return b;
+// 	if (b == 0) return a;
+// 	shift = builtin_ctzll(a | b);
+// 	a >>= builtin_ctzll(a);
+// 	do {
+// 		b >>= __builtin_ctzll(b);
+// 		if (a > b) {
+// 			long long t = b;
+// 			b = a;
+// 			a = t;
+// 		}
+// 		b = b - a;
+// 	} while (b != 0);
+// 	return a << shift;
+// }
 
 } // namespace AzCore

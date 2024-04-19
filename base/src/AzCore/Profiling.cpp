@@ -61,17 +61,18 @@ void Report(bool pretty) {
 	}
 	if (nodes.size == 0) return;
 	if (pretty) {
-		log.PrintLn("Scope,", AlignText(maxNameLen + 2), "% of Runtime,", AlignText(maxNameLen + 16), "Time,", AlignText(maxNameLen + 16 + 36), "Exception Time,", AlignText(maxNameLen + 16 + 36*2), "Minimum Time,", AlignText(maxNameLen + 16 + 36*3), "Maximum Time,", AlignText(maxNameLen + 16 + 36*4), "Num Samples,", AlignText(maxNameLen + 16 + 36*4 + 16), "Num Exceptions");
+		log.PrintLn("Scope,", AlignText(maxNameLen + 2), "% of Runtime,", AlignText(maxNameLen + 16), "Time,", AlignText(maxNameLen + 16 + 36), "Exception Time,", AlignText(maxNameLen + 16 + 36*2), "Minimum Time,", AlignText(maxNameLen + 16 + 36*3), "Average Time,", AlignText(maxNameLen + 16 + 36*4), "Maximum Time,", AlignText(maxNameLen + 16 + 36*5), "Num Samples,", AlignText(maxNameLen + 16 + 36*6 + 16), "Num Exceptions");
 	} else {
-		log.PrintLn("Scope, % of Runtime, Time, Exception Time, Minimum Time, Maximum Time, Num Samples, Num Exceptions");
+		log.PrintLn("Scope, % of Runtime, Time, Exception Time, Minimum Time, Average Time, Maximum Time, Num Samples, Num Exceptions");
 	}
 	QuickSort(nodes, [](Node_t lhs, Node_t rhs) { return lhs.value->totalTime > rhs.value->totalTime; });
 	for (const auto &node : nodes) {
 		f64 percent = (f64)node.value->totalTime.count() / (f64)totalRuntime.count() * 100.0;
+		Nanoseconds averageTime = node.value->totalTime / node.value->numSamples;
 		if (pretty) {
-			log.PrintLn(node.key, ",", AlignText(maxNameLen + 2), FormatFloat(percent, 10, 4), "%,", AlignText(maxNameLen + 16), FormatTime(node.value->totalTime), ",", AlignText(maxNameLen + 16 + 36), FormatTime(node.value->totalTimeExceptions), ",", AlignText(maxNameLen + 16 + 36*2), FormatTime(node.value->minTime), ",", AlignText(maxNameLen + 16 + 36*3), FormatTime(node.value->maxTime), ",", AlignText(maxNameLen + 16 + 36*4), node.value->numSamples, ",", AlignText(maxNameLen + 16 + 36*4 + 16), node.value->numExceptions);
+			log.PrintLn(node.key, ",", AlignText(maxNameLen + 2), FormatFloat(percent, 10, 4), "%,", AlignText(maxNameLen + 16), FormatTime(node.value->totalTime), ",", AlignText(maxNameLen + 16 + 36), FormatTime(node.value->totalTimeExceptions), ",", AlignText(maxNameLen + 16 + 36*2), FormatTime(node.value->minTime), ",", AlignText(maxNameLen + 16 + 36*3), FormatTime(averageTime), ",", AlignText(maxNameLen + 16 + 36*4), FormatTime(node.value->maxTime), ",", AlignText(maxNameLen + 16 + 36*5), node.value->numSamples, ",", AlignText(maxNameLen + 16 + 36*6 + 16), node.value->numExceptions);
 		} else {
-			log.PrintLn(node.key, ",", FormatFloat(percent, 10, 4), "%,", FormatTime(node.value->totalTime), ",", FormatTime(node.value->totalTimeExceptions), ",", FormatTime(node.value->minTime), ",", FormatTime(node.value->maxTime), ",", node.value->numSamples, ",", node.value->numExceptions);
+			log.PrintLn(node.key, ",", FormatFloat(percent, 10, 4), "%,", FormatTime(node.value->totalTime), ",", FormatTime(node.value->totalTimeExceptions), ",", FormatTime(node.value->minTime), ",", FormatTime(averageTime), ",", FormatTime(node.value->maxTime), ",", node.value->numSamples, ",", node.value->numExceptions);
 		}
 	}
 }

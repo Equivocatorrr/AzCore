@@ -15,6 +15,8 @@
 #include "../Math/basic.hpp"
 #include "../TemplateUtil.hpp"
 
+#include "../Simd.hpp"
+
 #include <initializer_list>
 #include <type_traits>
 
@@ -72,15 +74,15 @@ template<typename T>
 using Operation = T (*)(const T &, const T &);
 
 template<typename T>
-T OperationMul(const T &a, const T &b) { return a * b; }
+force_inline(T) OperationMul(const T &a, const T &b) { return a * b; }
 template<typename T>
-T OperationDiv(const T &a, const T &b) { return a / b; }
+force_inline(T) OperationDiv(const T &a, const T &b) { return a / b; }
 template<typename T>
-T OperationAdd(const T &a, const T &b) { return a + b; }
+force_inline(T) OperationAdd(const T &a, const T &b) { return a + b; }
 template<typename T>
-T OperationSub(const T &a, const T &b) { return a - b; }
+force_inline(T) OperationSub(const T &a, const T &b) { return a - b; }
 template<typename T>
-T OperationPass(const T &a, const T &b) { return b; }
+force_inline(T) OperationPass(const T &a, const T &b) { return b; }
 
 // Deferred calculation
 template<typename T, Operation<T> operation, char opname, bool flipped>
@@ -155,12 +157,12 @@ struct VectorVectorOperation {
 		return result;
 	}
 	template<Operation<T> dstOp=OperationPass<T>>
-	Vector<T>& EvalInto(Vector<T> &dst) {
+	Vector<T>& EvalInto(Vector<T> &dst) const {
 		VerifySizeEval(dst);
 		AZ_DECLARE_MATRIX_WORKSPACE(workspace, dst.Count(), T);
 		Vector<T> temp = workspace.GetVector(dst.Count());
 		for (i32 i = 0; i < lhs.Count(); i++) {
-			temp[i] = dstOp(dst[i], operation(lhs[i], rhs));
+			temp[i] = dstOp(dst[i], operation(lhs[i], rhs[i]));
 		}
 		dst = temp;
 		return dst;
@@ -555,6 +557,7 @@ struct Vector {
 		count = _count;
 	}
 	// returns the old data pointer (or nullptr if we didn't need to do anything)
+	// You must delete[] it yourself.
 	T* MakeOwnedWithSizeDeferredDelete(i32 _count) {
 		T *result = nullptr;
 		if (capacity < _count) {
@@ -754,13 +757,17 @@ struct Matrix {
 	}
 	constexpr Matrix(Matrix *other) : data(other->data), cols(other->cols), rows(other->rows), colStride(other->colStride), rowStride(other->rowStride), capacity(0) {}
 
-	static Matrix Identity(i32 size) {
-		Matrix result(size, size);
-		for (i32 c = 0; c < size; c++) {
-			for (i32 r = 0; r < size; r++) {
-				result[c][r] = c == r ? T(1) : T(0);
+	void ResetToIdentity() {
+		for (i32 c = 0; c < Cols(); c++) {
+			for (i32 r = 0; r < Rows(); r++) {
+				Val(c,r) = c == r ? T(1) : T(0);
 			}
 		}
+	}
+
+	static Matrix Identity(i32 size) {
+		Matrix result(size, size);
+		result.ResetToIdentity();
 		return result;
 	}
 	static Matrix Diagonal(std::initializer_list<T> init) {
@@ -805,6 +812,7 @@ struct Matrix {
 	}
 
 	void Resize(i32 _cols, i32 _rows) {
+		if (cols == _cols && rows == _rows) return;
 		if (cols != 0 && rows != 0) {
 			AzAssert(capacity != 0, Stringify(MATRIX_INFO_ARGS(*this), ".Resize(", _cols, ", ", _rows, ") error: Pointer Matrices cannot be resized!"));
 		}
@@ -960,6 +968,13 @@ struct Matrix {
 		AssertValid();
 		AzAssert(index >= 0 && index < (i32)rows, Stringify("Row ", index, " is out of bounds for ", MATRIX_INFO_ARGS(*this)));
 		Vector<T> result(data + index * rowStride, cols, colStride);
+		return result;
+	}
+
+	// Returns a pointer Vector which represents the diagonal
+	Vector<T> Diag() const {
+		AssertValid();
+		Vector<T> result(data, min(cols, rows), colStride + rowStride);
 		return result;
 	}
 
@@ -1182,11 +1197,50 @@ struct Matrix {
 		}
 	}
 
+	// This always works on symmetric matrices. Non-symmetric ones are a bit more tricky.
+	void Eigen(Matrix &vectors, Vector<T> &values, i32 maxIterations = 1000, T epsilon = T(0.000001)) const {
+		// Do a naive QR iteration for now
+		AzAssert(Cols() == Rows(), Stringify(MATRIX_INFO_ARGS(*this), " error: Eigen-decomposition is only defined for square matrices."));
+		i32 dims = Cols();
+		vectors.Resize(dims, dims);
+		vectors.ResetToIdentity();
+		values.Resize(dims);
+		AZ_DECLARE_MATRIX_WORKSPACE(workspace, square(dims) * 4, T);
+		T epsilonSqr = square(epsilon); // Since we compare to normSqr and not norm
+		Matrix A_1 = workspace.GetMatrixCopy(*this);
+		Matrix A_2 = workspace.GetMatrix(dims, dims);
+		Matrix Q = workspace.GetMatrix(dims, dims);
+		Matrix R = workspace.GetMatrix(dims, dims);
+		Matrix *A_next = &A_2;
+		Matrix *A_cur = &A_1;
+		i32 i;
+		for (i = 0; i < maxIterations; i++) {
+			A_cur->QRDecomposition(Q, R);
+			*A_next = R * Q;
+			vectors = vectors * Q;
+			T deltaSqr = T(0);
+			T delta2Sqr = T(0);
+			for (i32 c = 0; c < dims; c++) {
+				for (i32 r = 0; r < dims; r++) {
+					if (c != r) // Remove the diagonal
+						deltaSqr += square(A_next->Val(c, r));
+					delta2Sqr += square(abs(A_next->Val(c, r)) - abs(A_cur->Val(c, r)));
+				}
+			}
+			Swap(A_cur, A_next);
+			if (deltaSqr < epsilonSqr) break;
+			// We're not really changing by iterating, so just bail out.
+			if (delta2Sqr < epsilonSqr) break;
+		}
+		values = A_cur->Diag();
+		//az::io::cout.PrintLn("Took ", i, " iterations\nQ:\n", Q, "\nR:\n", R, "\nA:\n", *A_cur, "\nvectors:\n", vectors, "\nvalues: ", values);
+	}
+
 	// U is a cols x rows left singular matrix
 	// S is a vector that contains all the singular values (represents a cols x cols diagonal matrix)
 	// Vt is the transpose of the right singular matrix
 	// U * Diagonal(S) * Vt is our original matrix
-	void SingularValueDecomposition(Matrix &U, Vector<T> &S, Matrix &Vt) const {
+	void SingularValueDecomposition(Matrix &U, Vector<T> &S, Matrix &Vt, i32 maxIterations = 1000, T epsilon = T(0.000001)) const {
 
 	}
 
@@ -1242,6 +1296,42 @@ T normSqr(const az::Vector<T> &a) {
 	a.AssertValid();
 	T result = 0;
 	for (i32 i = 0; i < a.Count(); i++) {
+		result += square(a[i]);
+	}
+	return result;
+}
+
+template<>
+f32 dot(const az::Vector<f32> &a, const az::Vector<f32> &b) {
+	a.AssertValid();
+	b.AssertValid();
+	using T = f32;
+	AzAssert(a.Count() == b.Count(), az::Stringify("dot product of ", VECTOR_INFO_ARGS(a), " and ", VECTOR_INFO_ARGS(b), " error: Vectors must have the same number of components."));
+	f32 result = 0;
+	i32 i;
+	for (i = 0; i <= a.Count()-4; i+=4) {
+		f32x4 A = f32x4(a[i], a[i+1], a[i+2], a[i+3]);
+		f32x4 B = f32x4(b[i], b[i+1], b[i+2], b[i+3]);
+		A *= B;
+		result += horizontalAdd(A);
+	}
+	for (; i < a.Count(); i++) {
+		result += a[i] * b[i];
+	}
+	return result;
+}
+
+template<>
+f32 normSqr(const az::Vector<f32> &a) {
+	a.AssertValid();
+	f32 result = 0;
+	i32 i;
+	for (i = 0; i <= a.Count()-4; i+=4) {
+		f32x4 A = f32x4(a[i], a[i+1], a[i+2], a[i+3]);
+		A *= A;
+		result += horizontalAdd(A);
+	}
+	for (; i < a.Count(); i++) {
 		result += square(a[i]);
 	}
 	return result;

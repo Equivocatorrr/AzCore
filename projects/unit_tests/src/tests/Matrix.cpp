@@ -30,6 +30,19 @@ Real maxErrorWeak = 10, maxErrorFail = 100;
 	}\
 }
 
+#define COMPARE_VECTOR_INVERTIBLE(lhs, rhs, magnitude) {\
+	UTExpectEquals((lhs).Count(), (rhs).Count(), "Differently-sized!");\
+	if (normSqr(Vector((lhs) - (rhs))) < normSqr(Vector((lhs) + (rhs)))) {\
+		for (i32 i = 0; i < (lhs).Count(); i++) {\
+			COMPARE_FP((lhs)[i], (rhs)[i], magnitude, az::Stringify("[", i, "]"));\
+		}\
+	} else {\
+		for (i32 i = 0; i < (lhs).Count(); i++) {\
+			COMPARE_FP((lhs)[i], -(rhs)[i], magnitude, az::Stringify("[", i, "]"));\
+		}\
+	}\
+}
+
 #define COMPARE_MATRIX(lhs, rhs, magnitude) {\
 	UTExpectEquals((lhs).Cols(), (rhs).Cols(), "Differently-sized!");\
 	UTExpectEquals((lhs).Rows(), (rhs).Rows(), "Differently-sized!");\
@@ -221,6 +234,31 @@ void MatrixTest() {
 	COMPARE_MATRIX(expectR, resultR, 1.0f);
 	result.Reassign(resultQ * resultR);
 	COMPARE_MATRIX(initial, result, 1.0f);
+
+	initial.Reassign(Matrix::Filled(3, 3, {
+		1.0f, 2.0f, 3.0f,
+		2.0f, 4.0f, 5.0f,
+		3.0f, 5.0f, 6.0f,
+	}));
+
+	Matrix expectVectors = Matrix::Filled(3, 3, {
+		0.445041867912629f, -1.246979603717467f,  1.801937735804838f,
+		0.801937735804838f, -0.554958132087371f, -2.246979603717467f,
+		1.000000000000000f,  1.000000000000000f,  1.000000000000000f,
+	});
+	expectVectors.Col(0).Normalize();
+	expectVectors.Col(1).Normalize();
+	expectVectors.Col(2).Normalize();
+	UT::ReportInfo(__LINE__, "expected eigenvectors:\n", expectVectors);
+	Vector expectValues = Vector({11.344814282762078f, -0.515729471589257, 0.170915188827179f});
+
+	Matrix resultVectors;
+	Vector resultValues;
+	initial.Eigen(resultVectors, resultValues, 1000, 0.00000001f);
+	COMPARE_VECTOR_INVERTIBLE(resultVectors.Col(0), expectVectors.Col(0), 1.0f);
+	COMPARE_VECTOR_INVERTIBLE(resultVectors.Col(1), expectVectors.Col(1), 1.0f);
+	COMPARE_VECTOR_INVERTIBLE(resultVectors.Col(2), expectVectors.Col(2), 1.0f);
+	COMPARE_VECTOR(resultValues, expectValues, 1.0f);
 
 	fpError.Report(__LINE__);
 }

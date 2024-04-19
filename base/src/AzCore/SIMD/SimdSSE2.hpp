@@ -86,7 +86,7 @@ struct _si128 {
 		_mm_storeu_si128((__m128i*)dst, V);
 	}
 	force_inline(void)
-	SetValues(char *src) {
+	SetValues(const char *src) {
 		V = _mm_loadu_si128((__m128i*)src);
 	}
 
@@ -328,7 +328,7 @@ struct _int32x4 : public _si128 {
 		_mm_storeu_si128((__m128i*)dst, V);
 	}
 	force_inline(void)
-	SetValues(u32 *src) {
+	SetValues(const u32 *src) {
 		V = _mm_loadu_si128((const __m128i*)src);
 	}
 	force_inline(void)
@@ -336,7 +336,7 @@ struct _int32x4 : public _si128 {
 		_mm_storeu_si128((__m128i*)dst, V);
 	}
 	force_inline(void)
-	SetValues(i32 *src) {
+	SetValues(const i32 *src) {
 		V = _mm_loadu_si128((const __m128i*)src);
 	}
 
@@ -598,7 +598,7 @@ struct _int64x2 : public _si128 {
 		_mm_storeu_si128((__m128i*)dst, V);
 	}
 	force_inline(void)
-	SetValues(u64 *src) {
+	SetValues(const u64 *src) {
 		V = _mm_loadu_si128((const __m128i*)src);
 	}
 	force_inline(void)
@@ -606,7 +606,7 @@ struct _int64x2 : public _si128 {
 		_mm_storeu_si128((__m128i*)dst, V);
 	}
 	force_inline(void)
-	SetValues(i64 *src) {
+	SetValues(const i64 *src) {
 		V = _mm_loadu_si128((const __m128i*)src);
 	}
 
@@ -818,7 +818,7 @@ struct f64x2 {
 	}
 	// Loads 2 values from src
 	force_inline(void)
-	SetValues(f64 *src) {
+	SetValues(const f64 *src) {
 		V = _mm_loadu_pd(src);
 	}
 
@@ -973,7 +973,7 @@ struct f32x4 {
 	}
 	// Loads 4 values from src
 	force_inline(void)
-	SetValues(f32 *src) {
+	SetValues(const f32 *src) {
 		V = _mm_loadu_ps(src);
 	}
 

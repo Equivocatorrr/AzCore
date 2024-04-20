@@ -27,3 +27,4 @@ projects/*/data/Az2D
 projects/*/data/Az3D
 *.rdc
 *.csv
+*.patch

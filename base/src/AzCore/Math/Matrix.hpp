@@ -14,6 +14,7 @@
 #include "../IO/Log.hpp"
 #include "../Math/basic.hpp"
 #include "../TemplateUtil.hpp"
+#include "../Sort.hpp"
 
 #include "../Simd.hpp"
 
@@ -720,6 +721,13 @@ struct Vector {
 		}
 		return *this;
 	}
+
+	Vector& Orthogonalize(Vector &other) {
+		AzAssert(Count() == other.Count(), Stringify("Orthogonalizing ", VECTOR_INFO_ARGS(*this), " against ", VECTOR_INFO_ARGS(other), " error: Vectors must be the same size!"));
+		T d = dot(*this, other);
+		*this -= other * d;
+		return *this;
+	}
 };
 
 template<typename T>
@@ -780,11 +788,14 @@ struct Matrix {
 		}
 		return result;
 	}
-	static Matrix Diagonal(const Vector<T> &vector) {
-		Matrix result(vector.Count(), vector.Count());
-		for (i32 c = 0; c < vector.Count(); c++) {
-			for (i32 r = 0; r < vector.Count(); r++) {
-				result[c][r] = c == r ? vector[c] : T(0);
+	static Matrix Diagonal(const Vector<T> &vector, i32 _cols=-1, i32 _rows=-1) {
+		if (_cols == -1) _cols = vector.Count();
+		if (_rows == -1) _rows = vector.Count();
+		AzAssert(min(_cols, _rows) <= vector.Count(), Stringify(VECTOR_INFO_ARGS(vector), " too small to fill the diagonals of a ", _cols, " x ", _rows, " matrix."));
+		Matrix result(_cols, _rows);
+		for (i32 c = 0; c < _cols; c++) {
+			for (i32 r = 0; r < _rows; r++) {
+				result.Val(c, r) = c == r ? vector[c] : T(0);
 			}
 		}
 		return result;
@@ -1205,7 +1216,7 @@ struct Matrix {
 		vectors.Resize(dims, dims);
 		vectors.ResetToIdentity();
 		values.Resize(dims);
-		AZ_DECLARE_MATRIX_WORKSPACE(workspace, square(dims) * 4, T);
+		AZ_DECLARE_MATRIX_WORKSPACE(workspace, square(dims) * 4 + dims, T);
 		T epsilonSqr = square(epsilon); // Since we compare to normSqr and not norm
 		Matrix A_1 = workspace.GetMatrixCopy(*this);
 		Matrix A_2 = workspace.GetMatrix(dims, dims);
@@ -1233,15 +1244,68 @@ struct Matrix {
 			if (delta2Sqr < epsilonSqr) break;
 		}
 		values = A_cur->Diag();
+		Vector<T> swapStorage = workspace.GetVector(dims);
+		BubbleSort(values, 0, values.Count(), [](Vector<T> &array, i64 indexLHS, i64 indexRHS) -> bool {
+			return array[indexLHS] > array[indexRHS];
+		}, [&](Vector<T> &array, i64 indexLHS, i64 indexRHS) {
+			Swap(array[indexLHS], array[indexRHS]);
+			swapStorage = vectors[indexLHS];
+			vectors[indexLHS] = vectors[indexRHS];
+			vectors[indexRHS] = swapStorage;
+		});
 		//az::io::cout.PrintLn("Took ", i, " iterations\nQ:\n", Q, "\nR:\n", R, "\nA:\n", *A_cur, "\nvectors:\n", vectors, "\nvalues: ", values);
 	}
 
-	// U is a cols x rows left singular matrix
-	// S is a vector that contains all the singular values (represents a cols x cols diagonal matrix)
-	// Vt is the transpose of the right singular matrix
+	// U is a min(cols, rows) x rows left singular matrix
+	// S is a min(cols, rows) length vector that contains all the singular values (represents a diagonal matrix)
+	// Vt is a cols x min(cols,rows) matrix, the transpose of the right singular matrix
 	// U * Diagonal(S) * Vt is our original matrix
-	void SingularValueDecomposition(Matrix &U, Vector<T> &S, Matrix &Vt, i32 maxIterations = 1000, T epsilon = T(0.000001)) const {
-
+	void SingularValueDecomposition(Matrix &U, Vector<T> &S, Matrix &Vt, i32 maxIterations = 1000, T epsilon = T(0.000001)) {
+		Matrix AT = transpose(this);
+		if (Cols() <= Rows()) {
+			Matrix AAT = *this * AT;
+			AAT.Eigen(U, S, maxIterations, epsilon);
+			U.cols = Cols();
+			for (i32 c = 0; c < U.Cols(); c++) {
+				if (c > 0) {
+					U.Col(c).Orthogonalize(U.Col(c-1));
+				}
+				U.Col(c).Normalize();
+			}
+			S.count = Cols();
+			for (i32 i = 0; i < S.Count(); i++) {
+				S[i] = sqrt(S[i]);
+			}
+			Vt.Resize(Cols(), Cols());
+			for (i32 r = 0; r < Vt.Rows(); r++) {
+				Vector<T> row = Vt.Row(r);
+				row = AT * U.Col(r);
+				row /= S[r];
+				// row.Normalize();
+			}
+		} else {
+			Matrix ATA = AT * *this;
+			ATA.Eigen(Vt, S, maxIterations, epsilon);
+			Vt.TransposeSoft();
+			Vt.rows = Rows();
+			for (i32 r = 0; r < Vt.Rows(); r++) {
+				if (r > 0) {
+					Vt.Row(r).Orthogonalize(Vt.Row(r-1));
+				}
+				Vt.Row(r).Normalize();
+			}
+			S.count = Rows();
+			for (i32 i = 0; i < S.Count(); i++) {
+				S[i] = sqrt(S[i]);
+			}
+			U.Resize(Rows(), Rows());
+			for (i32 r = 0; r < U.Rows(); r++) {
+				Vector<T> row = U.Row(r);
+				row = *this * Vt.Row(r);
+				row /= S[r];
+				// row.Normalize();
+			}
+		}
 	}
 
 	// Gives you the Moore-Penrose pseudoinverse (result will have inverted dimensions, like a transpose)
@@ -1655,6 +1719,16 @@ template<
 >
 inline Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t> operator*(T1 &&lhs, T2 &&rhs) {
 	return Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t>(std::forward<T1>(lhs), std::forward<T2>(rhs));
+}
+
+template<
+	class T1,
+	typename = std::enable_if_t<
+		std::is_same_v<az::remove_cvref_t<T1>, Matrix<typename az::remove_cvref_t<T1>::Scalar_t>>
+	>
+>
+inline Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t> operator*(Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t> &&lhs, T1 &&rhs) {
+	return Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t>((az::remove_cvref_t<T1>)lhs, std::forward<T1>(rhs));
 }
 
 #undef MATRIX_INFO_ARGS

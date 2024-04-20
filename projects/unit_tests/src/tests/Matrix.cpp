@@ -24,32 +24,42 @@ Real maxErrorWeak = 10, maxErrorFail = 100;
 #define COMPARE_FP(lhs, rhs, magnitude, info) fpError.Compare(lhs, rhs, magnitude, __LINE__, info, maxErrorWeak, maxErrorFail)
 
 #define COMPARE_VECTOR(lhs, rhs, magnitude) {\
-	UTExpectEquals((lhs).Count(), (rhs).Count(), "Differently-sized!");\
-	for (i32 i = 0; i < (lhs).Count(); i++) {\
-		COMPARE_FP((lhs)[i], (rhs)[i], magnitude, az::Stringify("[", i, "]"));\
+	if ((lhs).Count() != (rhs).Count()) {\
+		UT::ReportProblem(__LINE__, true, "Differently-sized!");\
+	} else {\
+		for (i32 i = 0; i < (lhs).Count(); i++) {\
+			COMPARE_FP((lhs)[i], (rhs)[i], magnitude, az::Stringify("[", i, "]"));\
+		}\
 	}\
 }
 
 #define COMPARE_VECTOR_INVERTIBLE(lhs, rhs, magnitude) {\
-	UTExpectEquals((lhs).Count(), (rhs).Count(), "Differently-sized!");\
-	if (normSqr(Vector((lhs) - (rhs))) < normSqr(Vector((lhs) + (rhs)))) {\
-		for (i32 i = 0; i < (lhs).Count(); i++) {\
-			COMPARE_FP((lhs)[i], (rhs)[i], magnitude, az::Stringify("[", i, "]"));\
-		}\
+	if ((lhs).Count() != (rhs).Count()) {\
+		UT::ReportProblem(__LINE__, true, "Differently-sized!");\
 	} else {\
-		for (i32 i = 0; i < (lhs).Count(); i++) {\
-			COMPARE_FP((lhs)[i], -(rhs)[i], magnitude, az::Stringify("[", i, "]"));\
+		if (normSqr(Vector((lhs) - (rhs))) < normSqr(Vector((lhs) + (rhs)))) {\
+			for (i32 i = 0; i < (lhs).Count(); i++) {\
+				COMPARE_FP((lhs)[i], (rhs)[i], magnitude, az::Stringify("[", i, "]"));\
+			}\
+		} else {\
+			for (i32 i = 0; i < (lhs).Count(); i++) {\
+				COMPARE_FP((lhs)[i], -(rhs)[i], magnitude, az::Stringify("[", i, "]"));\
+			}\
 		}\
 	}\
 }
 
 #define COMPARE_MATRIX(lhs, rhs, magnitude) {\
-	UTExpectEquals((lhs).Cols(), (rhs).Cols(), "Differently-sized!");\
-	UTExpectEquals((lhs).Rows(), (rhs).Rows(), "Differently-sized!");\
-	if ((lhs).Cols() == (rhs).Cols() && (lhs).Rows() == (rhs).Rows()) {\
-		for (i32 c = 0; c < (lhs).Cols(); c++) {\
-			for (i32 r = 0; r < (lhs).Rows(); r++) {\
-				COMPARE_FP((lhs).Val(c,r), (rhs).Val(c,r), magnitude, az::Stringify("[", c, ",", r, "]"));\
+	if ((lhs).Cols() != (rhs).Cols()) {\
+		UT::ReportProblem(__LINE__, true, "Differently-sized!");\
+	} else if ((lhs).Rows() != (rhs).Rows()) {\
+		UT::ReportProblem(__LINE__, true, "Differently-sized!");\
+	} else {\
+		if ((lhs).Cols() == (rhs).Cols() && (lhs).Rows() == (rhs).Rows()) {\
+			for (i32 c = 0; c < (lhs).Cols(); c++) {\
+				for (i32 r = 0; r < (lhs).Rows(); r++) {\
+					COMPARE_FP((lhs).Val(c,r), (rhs).Val(c,r), magnitude, az::Stringify("[", c, ",", r, "]"));\
+				}\
 			}\
 		}\
 	}\
@@ -242,15 +252,15 @@ void MatrixTest() {
 	}));
 
 	Matrix expectVectors = Matrix::Filled(3, 3, {
-		0.445041867912629f, -1.246979603717467f,  1.801937735804838f,
-		0.801937735804838f, -0.554958132087371f, -2.246979603717467f,
+		0.445041867912629f,  1.801937735804838f, -1.246979603717467f,
+		0.801937735804838f, -2.246979603717467f, -0.554958132087371f,
 		1.000000000000000f,  1.000000000000000f,  1.000000000000000f,
 	});
 	expectVectors.Col(0).Normalize();
 	expectVectors.Col(1).Normalize();
 	expectVectors.Col(2).Normalize();
 	UT::ReportInfo(__LINE__, "expected eigenvectors:\n", expectVectors);
-	Vector expectValues = Vector({11.344814282762078f, -0.515729471589257, 0.170915188827179f});
+	Vector expectValues = Vector({11.344814282762078f, 0.170915188827179f, -0.515729471589257f});
 
 	Matrix resultVectors;
 	Vector resultValues;
@@ -259,6 +269,60 @@ void MatrixTest() {
 	COMPARE_VECTOR_INVERTIBLE(resultVectors.Col(1), expectVectors.Col(1), 1.0f);
 	COMPARE_VECTOR_INVERTIBLE(resultVectors.Col(2), expectVectors.Col(2), 1.0f);
 	COMPARE_VECTOR(resultValues, expectValues, 1.0f);
+
+	initial.Reassign(Matrix::Filled(2, 4, {
+		1.0f, 2.0f,
+		3.0f, 4.0f,
+		5.0f, 6.0f,
+		7.0f, 8.0f,
+	}));
+	Matrix expectU, expectVt;
+	expectU.Reassign(Matrix::Filled(2, 4, {
+		0.152483233310201f,-0.822647472225659f,
+		0.349918371807964f,-0.421375287684581f,
+		0.547353510305727f,-0.020103103143503f,
+		0.744788648803490f, 0.381169081397575f,
+	}));
+	expectVt.Reassign(Matrix::Filled(2, 2, {
+		0.641423027995072f, 0.767187395072177f,
+		0.767187395072177f,-0.641423027995072f,
+	}));
+	Vector expectS = Vector({14.269095499261483f, 0.626828232417541f});
+	Matrix resultU, resultVt;
+	Vector resultS;
+	initial.SingularValueDecomposition(resultU, resultS, resultVt, 1000, 0.00000001f);
+
+	COMPARE_MATRIX(resultU, expectU, 1.0f);
+	COMPARE_VECTOR(resultS, expectS, 1.0f);
+	COMPARE_MATRIX(resultVt, expectVt, 1.0f);
+	result.Reassign(resultU * Matrix::Diagonal(resultS) * resultVt);
+	COMPARE_MATRIX(result, initial, 1.0f);
+
+	// UT::ReportInfo(__LINE__, "initial:\n", initial, "resultU:\n", resultU, "resultS: ", resultS, "\nresultVt:\n", resultVt, "result:\n", result);
+
+	initial.Reassign(Matrix::Filled(4, 2, {
+		1.0f, 2.0f, 3.0f, 4.0f,
+		5.0f, 6.0f, 7.0f, 8.0f,
+	}));
+	expectU.Reassign(Matrix::Filled(2, 2, {
+		0.376168234428141f, 0.926551379798884f,
+		0.926551379798884f,-0.376168234428141f,
+	}));
+	expectVt.Reassign(Matrix::Filled(4, 2, {
+		 0.352061692489013f, 0.443625782589520f, 0.535189872690028f, 0.626753962790535f,
+		-0.758981267675146f,-0.321241599145932f, 0.116498069383282f, 0.554237737912496f,
+	}));
+	expectS.Reassign(Vector({14.227407412633742f, 1.25732983537911f}));
+
+	initial.SingularValueDecomposition(resultU, resultS, resultVt, 1000, 0.00000001f);
+
+	COMPARE_MATRIX(resultU, expectU, 1.0f);
+	COMPARE_VECTOR(resultS, expectS, 1.0f);
+	COMPARE_MATRIX(resultVt, expectVt, 1.0f);
+	result.Reassign(resultU * Matrix::Diagonal(resultS) * resultVt);
+	COMPARE_MATRIX(result, initial, 1.0f);
+
+	// UT::ReportInfo(__LINE__, "initial:\n", initial, "resultU:\n", resultU, "resultS: ", resultS, "\nresultVt:\n", resultVt, "result:\n", result);
 
 	fpError.Report(__LINE__);
 }

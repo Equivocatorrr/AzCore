@@ -119,6 +119,7 @@ add_library(AzCore STATIC
 		src/AzCore/Net/Sockets.hpp
 	src/AzCore/SoftwareRendering.cpp
 	src/AzCore/SoftwareRendering.hpp
+	src/AzCore/Sort.hpp
 	src/AzCore/TemplateUtil.hpp
 	src/AzCore/Thread.hpp
 	src/AzCore/Thread.cpp

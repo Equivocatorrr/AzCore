@@ -26,6 +26,7 @@ typedef void (*fp_UnitTest)();
 struct Report {
 	String message;
 	i32 line;
+	bool fail;
 };
 
 struct TestInfo {
@@ -44,15 +45,15 @@ struct Register {
 void RunTests();
 
 template <typename... Args>
-inline void ReportProblem(i32 line, Args... what) {
+inline void ReportProblem(i32 line, bool fail, Args... what) {
 	PreciseFloatToStringMode _precise;
-	currentTestInfo->problems.Append({Stringify(what...), line});
+	currentTestInfo->problems.Append({Stringify(what...), line, fail});
 }
 
 template <typename... Args>
 inline void ReportInfo(i32 line, Args... what) {
 	PreciseFloatToStringMode _precise;
-	currentTestInfo->infos.Append({Stringify(what...), line});
+	currentTestInfo->infos.Append({Stringify(what...), line, false});
 }
 
 } // namespace UT
@@ -60,7 +61,7 @@ inline void ReportInfo(i32 line, Args... what) {
 // Use Assert if something must be true for the test to continue.
 #define UTAssert(condition, ...) \
 	if (!(condition)) { \
-		UT::ReportProblem(__LINE__, "Assertion failed, aborting test: `", #condition, "`: ", ##__VA_ARGS__); \
+		UT::ReportProblem(__LINE__, true, "Assertion failed, aborting test: `", #condition, "`: ", ##__VA_ARGS__); \
 		UT::currentTestInfo->result = UT::Result::FAILURE; \
 		return; \
 	}
@@ -73,7 +74,7 @@ inline void ReportInfo(i32 line, Args... what) {
 #define UTExpectEqualsWeak(lhs, rhs, ...) _UTExpect((lhs) == (rhs), WEAK, "Expected ", #lhs, " to equal ", (rhs), ", but it was ", (lhs), ##__VA_ARGS__)
 #define _UTExpect(condition, RESULT, ...) \
 	if (!(condition)) { \
-		UT::ReportProblem(__LINE__, "Expectation not met: `", #condition, "`: ", ##__VA_ARGS__); \
+		UT::ReportProblem(__LINE__, UT::Result::RESULT == UT::Result::FAILURE, "Expectation not met: `", #condition, "`: ", ##__VA_ARGS__); \
 		if (UT::currentTestInfo->result != UT::Result::FAILURE) \
 			UT::currentTestInfo->result = UT::Result::RESULT; \
 	}

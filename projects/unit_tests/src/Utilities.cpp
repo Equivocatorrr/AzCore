@@ -13,7 +13,7 @@ void FPError<FP>::Compare(FP lhs, FP rhs, FP magnitude, i32 line, az::String inf
 	sum += error;
 	if (error > errorMax) errorMax = error;
 	if (error > maxErrorWeak) {
-		UT::ReportProblem(line, "Comparing ", lhs, " and ", rhs, " yielded too much error (", error, "): \"", info, "\"");
+		UT::ReportProblem(line, error > maxErrorFail, "Comparing ", lhs, " and ", rhs, " yielded too much error (", error, "): \"", info, "\"");
 		if (error > maxErrorFail) {
 			UT::currentTestInfo->result = UT::Result::FAILURE;
 		} else {

@@ -1,6 +1,7 @@
 #include "UnitTests.hpp"
 #include "AzCore/IO/Log.hpp"
 #include "AzCore/QuickSort.hpp"
+#include "AzCore/IO/vt_strings.hpp"
 
 namespace UT {
 
@@ -67,7 +68,11 @@ void RunTests() {
 				skipCount++;
 				continue;
 			}
-			io::cout.PrintLn("\t", problem.message);
+			if (problem.fail) {
+				io::cout.PrintLn("\t", vt_span(VT_FG_RED, problem.message));
+			} else {
+				io::cout.PrintLn("\t", vt_span(VT_FG_YELLOW, problem.message));
+			}
 			countLine++;
 		}
 		if (skipCount) {
@@ -92,7 +97,7 @@ void RunTests() {
 				skipCount++;
 				continue;
 			}*/
-			io::cout.PrintLn("\t", info.message);
+			io::cout.PrintLn("\t", vt_span(VT_FG_BLUE, info.message));
 			countLine++;
 		}
 		// if (skipCount) {

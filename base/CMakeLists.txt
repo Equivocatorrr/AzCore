@@ -47,6 +47,7 @@ add_library(AzCore STATIC
 		src/AzCore/IO/LogStream.hpp
 		src/AzCore/IO/RawInput.cpp
 		src/AzCore/IO/RawInput.hpp
+		src/AzCore/IO/vt_strings.hpp
 		src/AzCore/IO/Window.hpp
 	src/AzCore/keycodes.cpp
 	src/AzCore/keycodes.hpp

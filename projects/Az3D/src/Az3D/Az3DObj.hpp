@@ -9,6 +9,10 @@
 
 #include "AzCore/memory.hpp"
 #include "AzCore/Image.hpp"
+#include "AzCore/Math/vec2_t.hpp"
+#include "AzCore/Math/vec3_t.hpp"
+#include "AzCore/Math/vec4_t.hpp"
+#include "AzCore/Math/mat3_t.hpp"
 
 namespace Az3D::Az3DObj {
 

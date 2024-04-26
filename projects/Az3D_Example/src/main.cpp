@@ -33,6 +33,10 @@ struct Test : public GameSystems::System {
 	Assets::MeshIndex meshFence;
 	Assets::MeshIndex meshShitman;
 	Assets::ActionIndex actionJump;
+	Assets::MeshIndex meshTube;
+	Assets::ActionIndex actionWiggle;
+	Array<Vector<f32>> ikParametersShitman;
+	Array<Vector<f32>> ikParametersTube;
 	f32 jumpT = 0.0f;
 	f32 rate = 1.0f;
 	bool pause = false;
@@ -44,6 +48,8 @@ struct Test : public GameSystems::System {
 		meshes[2]   = sys->assets.RequestMesh("C-1 Transport.az3d");
 		meshShitman = sys->assets.RequestMesh("shitman.az3d");
 		actionJump  = sys->assets.RequestAction("shitman.az3d/Jump");
+		meshTube    = sys->assets.RequestMesh("Tube.az3d");
+		actionWiggle= sys->assets.RequestAction("Tube.az3d/Wiggle");
 		meshTree    = sys->assets.RequestMesh("Tree.az3d");
 		meshGrass   = sys->assets.RequestMesh("Grass_Patch.az3d");
 		meshFence   = sys->assets.RequestMesh("Weathered Metal Fence.az3d");
@@ -63,6 +69,8 @@ struct Test : public GameSystems::System {
 		if (sys->Repeated(KC_KEY_UP)) {
 			if (sys->Down(KC_KEY_LEFTSHIFT)) {
 				Az3D::Rendering::numNewtonIterations++;
+			} else if (sys->Down(KC_KEY_LEFTCTRL)) {
+				Az3D::Rendering::numBinarySearchIterations++;
 			} else {
 				rate *= 2.0f;
 			}
@@ -70,6 +78,8 @@ struct Test : public GameSystems::System {
 		if (sys->Repeated(KC_KEY_DOWN)) {
 			if (sys->Down(KC_KEY_LEFTSHIFT)) {
 				Az3D::Rendering::numNewtonIterations--;
+			} else if (sys->Down(KC_KEY_LEFTCTRL)) {
+				Az3D::Rendering::numBinarySearchIterations--;
 			} else {
 				rate /= 2.0f;
 			}
@@ -194,7 +204,8 @@ struct Test : public GameSystems::System {
 		}
 		Rendering::DrawMesh(contexts[0], meshTree, {Rendering::GetTransform(vec3(-2.0f, 0.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
 		Rendering::DrawMesh(contexts[0], meshFence, {Rendering::GetTransform(vec3(0.0f, 8.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
-		Rendering::DrawMeshAnimated(contexts[0], meshShitman, actionJump, jumpT, {Rendering::GetTransform(vec3(6.0f, 0.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
+		Rendering::DrawMeshAnimated(contexts[0], meshShitman, actionJump, jumpT, {Rendering::GetTransform(vec3(6.0f, 0.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true, &ikParametersShitman);
+		Rendering::DrawMeshAnimated(contexts[0], meshTube, actionWiggle, jumpT, {Rendering::GetTransform(vec3(6.0f, 6.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true, &ikParametersTube);
 		mat4 transform = Rendering::GetTransform(pos, objectOrientation, vec3(1.0f));
 		// mat4 transform = Rendering::GetTransform(pos, objectOrientation, vec3(3.0f, 0.5f, 1.0f));
 		Rendering::DrawMesh(contexts[0], meshes[currentMesh], {transform}, true, true);

@@ -101,6 +101,10 @@ inline void AppendToString(String &string, u32 value) {
 inline void AppendToString(String &string, u64 value) {
 	AppendToStringWithBase(string, value, 10);
 }
+// Because unsigned long is considered a distinct type from unsigned long long even if they're the same width
+inline void AppendToString(String &string, unsigned long value) {
+	AppendToStringWithBase(string, (u64)value, 10);
+}
 inline void AppendToString(String &string, i32 value) {
 	AppendToStringWithBase(string, value, 10);
 }

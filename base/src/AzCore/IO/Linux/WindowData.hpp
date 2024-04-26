@@ -15,6 +15,7 @@
 #include "../../basictypes.hpp"
 #include "../../memory.hpp"
 #include "../../Thread.hpp"
+#include "../../Memory/RAIIHacks.hpp"
 
 #include <xcb/xcb.h>
 #ifndef AZCORE_IO_NO_XLIB

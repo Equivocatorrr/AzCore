@@ -174,4 +174,26 @@ inline AzCore::vec4_t<T> normalize(AzCore::vec4_t<T> a, T epsilon=T(1.0e-12), Az
 	return mag < epsilon ? def : a / mag;
 }
 
+inline AzCore::vec4 min(AzCore::vec4 a, AzCore::vec4 b) {
+	_mm_store_ps(a.data, _mm_min_ps(_mm_load_ps(a.data), _mm_load_ps(b.data)));
+	return a;
+}
+
+inline AzCore::vec4 max(AzCore::vec4 a, AzCore::vec4 b) {
+	_mm_store_ps(a.data, _mm_max_ps(_mm_load_ps(a.data), _mm_load_ps(b.data)));
+	return a;
+}
+
+inline AzCore::vec4d min(AzCore::vec4d a, AzCore::vec4d b) {
+	_mm_store_pd(a.data, _mm_min_pd(_mm_set_pd(a[0], a[1]), _mm_set_pd(b[0], b[1])));
+	_mm_store_pd(a.data+2, _mm_min_pd(_mm_set_pd(a[2], a[3]), _mm_set_pd(b[2], b[3])));
+	return a;
+}
+
+inline AzCore::vec4d max(AzCore::vec4d a, AzCore::vec4d b) {
+	_mm_store_pd(a.data, _mm_max_pd(_mm_set_pd(a[0], a[1]), _mm_set_pd(b[0], b[1])));
+	_mm_store_pd(a.data+2, _mm_max_pd(_mm_set_pd(a[2], a[3]), _mm_set_pd(b[2], b[3])));
+	return a;
+}
+
 #endif // AZCORE_MATH_VEC4_HPP

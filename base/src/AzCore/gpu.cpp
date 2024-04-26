@@ -2024,6 +2024,8 @@ void WindowDeinit(Window *window) {
 
 Result<VoidResult_t, String> WindowUpdate(Window *window) {
 	bool resize = false;
+	bool didCallAcquire = false;
+	Fence *fence;
 	if (window->window->width != window->extent.width
 	 || window->window->height != window->extent.height) {
 		resize = true;
@@ -2037,18 +2039,21 @@ reconfigure:
 	}
 
 	// Swapchain::AcquireNextImage
-	window->currentSync = (window->currentSync + 1) % window->numImages;
-	Fence *fence = &window->acquireFences[window->currentSync];
-	if (auto result = FenceWaitForSignal(fence); result.isError) {
-		return ERROR_RESULT(window, result.error);
-	}
-	if (auto result = FenceResetSignaled(fence); result.isError) {
-		return ERROR_RESULT(window, result.error);
+	if (!didCallAcquire) {
+		window->currentSync = (window->currentSync + 1) % window->numImages;
+		fence = &window->acquireFences[window->currentSync];
+		if (auto result = FenceWaitForSignal(fence); result.isError) {
+			return ERROR_RESULT(window, result.error);
+		}
+		if (auto result = FenceResetSignaled(fence); result.isError) {
+			return ERROR_RESULT(window, result.error);
+		}
 	}
 	Semaphore *semaphore = &window->acquireSemaphores[window->currentSync];
 	u32 currentImage;
 	VkResult result = vkAcquireNextImageKHR(window->device->vkDevice, window->vkSwapchain, UINT64_MAX, semaphore->vkSemaphore, fence->vkFence, &currentImage);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+		didCallAcquire = true;
 		goto reconfigure;
 	} else if (result == VK_TIMEOUT || result == VK_NOT_READY) {
 		// This shouldn't happen with a timeout of UINT64_MAX
@@ -2850,6 +2855,7 @@ void DeviceRequireFeatures(Device *device, const ArrayWithBucket<Str, 8> &featur
 
 Result<VoidResult_t, String> BufferInit(Buffer *buffer) {
 	// AzAssert(buffer->size > 0, "Cannot allocate a buffer with size <= 0");
+	if (buffer->size <= 0) buffer->size = 1;
 	INIT_HEAD(buffer);
 	VkBufferCreateInfo createInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
 	createInfo.size = buffer->size;

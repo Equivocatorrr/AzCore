@@ -156,7 +156,7 @@ namespace font {
 			Str tableData;
 		} data;
 		String filepath;
-		
+
 		Font() = default;
 		// Our tables point to the data in data.buffer. Copying would invalidate our pointers, but moving wouldn't.
 		Font(const Font&) = delete;

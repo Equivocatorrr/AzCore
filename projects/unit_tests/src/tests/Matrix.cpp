@@ -252,14 +252,17 @@ void MatrixTest() {
 	}));
 
 	Matrix expectVectors = Matrix::Filled(3, 3, {
-		0.445041867912629f,  1.801937735804838f, -1.246979603717467f,
-		0.801937735804838f, -2.246979603717467f, -0.554958132087371f,
-		1.000000000000000f,  1.000000000000000f,  1.000000000000000f,
+		// 0.445041867912629f,  1.801937735804838f, -1.246979603717467f,
+		// 0.801937735804838f, -2.246979603717467f, -0.554958132087371f,
+		// 1.000000000000000f,  1.000000000000000f,  1.000000000000000f,
+		0.327985245f, 0.591009025f,-0.736976278f,
+		0.591009025f,-0.736976219f,-0.327985275f,
+		0.736976219f, 0.327985245f, 0.591009084f,
 	});
-	expectVectors.Col(0).Normalize();
-	expectVectors.Col(1).Normalize();
-	expectVectors.Col(2).Normalize();
-	UT::ReportInfo(__LINE__, "expected eigenvectors:\n", expectVectors);
+	// expectVectors.Col(0).Normalize();
+	// expectVectors.Col(1).Normalize();
+	// expectVectors.Col(2).Normalize();
+	// UT::ReportInfo(__LINE__, "expected eigenvectors:\n", expectVectors);
 	Vector expectValues = Vector({11.344814282762078f, 0.170915188827179f, -0.515729471589257f});
 
 	Matrix resultVectors;
@@ -323,6 +326,48 @@ void MatrixTest() {
 	COMPARE_MATRIX(result, initial, 1.0f);
 
 	// UT::ReportInfo(__LINE__, "initial:\n", initial, "resultU:\n", resultU, "resultS: ", resultS, "\nresultVt:\n", resultVt, "result:\n", result);
+
+	initial.Reassign(Matrix::Filled(3, 3, {
+		1.0f, 1.0f, 1.0f,
+		1.0f, 1.0f, 1.0f,
+		1.0f, 1.0f, 1.0f,
+	}));
+	f32 oneNinth = 1.0f / 9.0f;
+	expect.Reassign(Matrix::Filled(3, 3, {
+		oneNinth, oneNinth, oneNinth,
+		oneNinth, oneNinth, oneNinth,
+		oneNinth, oneNinth, oneNinth,
+	}));
+	result.Reassign(initial.PseudoInverse());
+	COMPARE_MATRIX(result, expect, 1.0f);
+
+	initial.Reassign(Matrix::Filled(2, 4, {
+		1.0f, 2.0f,
+		3.0f, 4.0f,
+		5.0f, 6.0f,
+		7.0f, 8.0f,
+	}));
+	expect.Reassign(Matrix::Filled(4, 2, {
+		-1.00f,-0.50f, 0.00f, 0.50f,
+		 0.85f, 0.45f, 0.05f,-0.35f,
+	}));
+	result.Reassign(initial.PseudoInverse());
+	COMPARE_MATRIX(result, expect, 1.0f);
+
+	initial.Reassign(Matrix::Filled(5, 3, {
+		 0.0f, -10.0f, 0.0f,-9.0f, 0.0f,
+		-10.0f, 0.0f, -9.0f, 0.0f,-8.0f,
+		 0.0f,  0.0f,  0.0f, 0.0f, 0.0f,
+	}));
+	expect.Reassign(Matrix::Filled(3, 5, {
+		 0.0f,             -0.040816326530612f, 0.0f,
+		-0.05524861878453f, 0.0f,               0.0f,
+		 0.0f,             -0.036734693877551f, 0.0f,
+		-0.04972375690607f, 0.0f,               0.0f,
+		 0.0f,             -0.03265306122449f,  0.0f,
+	}));
+	result.Reassign(initial.PseudoInverse());
+	COMPARE_MATRIX(result, expect, 1.0f);
 
 	fpError.Report(__LINE__);
 }

@@ -21,7 +21,7 @@ constexpr T* ArrayNewCopy(size_t count, const T* other, size_t srcStride=1) {
 	// C++ has the ability to specify alignment in new calls, but MSVC throws an error if you actually do that, so we have this fuckery instead. Thanks again, Microshit.
 	struct alignas(alignof(T)) FakeT {};
 	T *result = (T*)(new FakeT[count * sizeof(T) / sizeof(FakeT)]);
-	for (i32 i = 0; i < count; i++) {
+	for (size_t i = 0; i < count; i++) {
 		AzPlacementNew(result[i], other[i * srcStride]);
 	}
 	return result;
@@ -32,8 +32,8 @@ constexpr T* ArrayNewCopy2D(size_t countX, size_t countY, const T* other, size_t
 	struct alignas(alignof(T)) FakeT {};
 	size_t count = countX * countY;
 	T *result = (T*)(new FakeT[count * sizeof(T) / sizeof(FakeT)]);
-	for (i32 y = 0; y < countY; y++) {
-		for (i32 x = 0; x < countX; x++) {
+	for (size_t y = 0; y < countY; y++) {
+		for (size_t x = 0; x < countX; x++) {
 			AzPlacementNew(result[y * countX + x], other[y * srcStrideY + x * srcStrideX]);
 		}
 	}

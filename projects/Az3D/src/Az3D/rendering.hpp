@@ -7,6 +7,8 @@
 #ifndef AZ3D_RENDERING_HPP
 #define AZ3D_RENDERING_HPP
 
+#include "AzCore/Math/Matrix.hpp"
+#include "AzCore/Math/mat4_t.hpp"
 #include "Az3DObj.hpp"
 
 #include "AzCore/basictypes.hpp"
@@ -14,6 +16,11 @@
 #include "AzCore/gpu.hpp"
 
 #include "assets.hpp"
+
+// namespace AzCore {
+// 	template<typename T>
+// 	struct Vector;
+// };
 
 namespace AzCore::io {
 	struct Window;
@@ -29,6 +36,7 @@ using namespace AzCore;
 constexpr f32 lineHeight = 1.3f;
 
 extern i32 numNewtonIterations;
+extern i32 numBinarySearchIterations;
 
 struct Manager;
 
@@ -151,6 +159,7 @@ struct DrawCallInfo {
 	Assets::Material material;
 	PipelineIndex pipeline;
 	Optional<ArmatureAction> armatureAction;
+	Array<Vector<f32>> *ikParameters = nullptr;
 	// If this is false, this call gets sorted later than opaque calls
 	bool opaque;
 	// Whether to be considered for shadow passes, set to false if culled by shadow frustums
@@ -274,7 +283,7 @@ struct Manager {
 
 void DrawMeshPart(DrawingContext &context, Assets::MeshPart *meshPart, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows, az::Optional<ArmatureAction> action=az::Optional<ArmatureAction>());
 void DrawMesh(DrawingContext &context, Assets::MeshIndex mesh, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows);
-void DrawMeshAnimated(DrawingContext &context, Assets::MeshIndex mesh, Assets::ActionIndex action, f32 time, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows);
+void DrawMeshAnimated(DrawingContext &context, Assets::MeshIndex mesh, Assets::ActionIndex action, f32 time, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows, Array<Vector<f32>> *ikParameters);
 
 inline void DrawDebugLine(DrawingContext &context, DebugVertex point1, DebugVertex point2) {
 	context.debugLines.Append(point1);

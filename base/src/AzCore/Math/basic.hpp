@@ -14,6 +14,8 @@
 #include <emmintrin.h>
 
 #include <type_traits>
+#include <initializer_list>
+#include <cstring>
 
 namespace AzCore {
 
@@ -303,5 +305,24 @@ constexpr T wrap(T a, T max) {
 	}
 }
 
+#if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
+// Not exactly a robust implementation... doesn't bother handling subnormal, infinity, nan, etc.
+constexpr f128 nextafter(f128 a, f128 b) {
+	if (a == b) return a;
+	u128 bytes=0;
+	memcpy(&bytes, &a, sizeof(a));
+	// Get just the exponent bits
+	bytes &= (u128)0x7fff << 112;
+	f128 c=0, d=0;
+	memcpy(&c, &bytes, sizeof(c));
+	bytes |= 1; // Here's your "next"
+	memcpy(&d, &bytes, sizeof(d));
+	if (a < b) {
+		return a + (d - c);
+	} else {
+		return a - (d - c);
+	}
+}
+#endif
 
 #endif // AZCORE_MATH_BASIC_HPP

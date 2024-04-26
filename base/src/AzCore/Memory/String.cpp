@@ -308,7 +308,7 @@ void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) 
 	// Whether we need to round up
 	bool roundUp = false;
 	basis = intPow<Float>(base, basisExponent);
-	const Float margin = log2((Float)base);
+	const Float margin = log2((f32)base);
 	for (; count > 0; count--) {
 		if (point && count == 1) {
 			if (abs(nextafter(value, value+1)-value) > remaining * margin) {

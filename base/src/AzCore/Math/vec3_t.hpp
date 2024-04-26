@@ -181,4 +181,34 @@ inline AzCore::vec3_t<T> orthogonalize(AzCore::vec3_t<T> a, AzCore::vec3_t<T> re
 	return normalize(a - ref * dot(a, ref));
 }
 
+inline AzCore::vec3 min(AzCore::vec3 a, AzCore::vec3 b) {
+	alignas(16) f32 data[8] = {a[0], a[1], a[2], 0.0f, b[0], b[1], b[2], 0.0f};
+	_mm_store_ps(data, _mm_min_ps(_mm_load_ps(data), _mm_load_ps(data+4)));
+	return AzCore::vec3(data[0], data[1], data[2]);
+}
+
+inline AzCore::vec3 max(AzCore::vec3 a, AzCore::vec3 b) {
+	alignas(16) f32 data[8] = {a[0], a[1], a[2], 0.0f, b[0], b[1], b[2], 0.0f};
+	_mm_store_ps(data, _mm_max_ps(_mm_load_ps(data), _mm_load_ps(data+4)));
+	return AzCore::vec3(data[0], data[1], data[2]);
+}
+
+inline AzCore::vec3 abs(AzCore::vec3 a) {
+	alignas(16) f32 data[8] = {a[0], a[1], a[2], 0.0f, -a[0], -a[1], -a[2], 0.0f};
+	_mm_store_ps(data, _mm_max_ps(_mm_load_ps(data), _mm_load_ps(data+4)));
+	return AzCore::vec3(data[0], data[1], data[2]);
+}
+
+inline AzCore::vec3d min(AzCore::vec3d a, AzCore::vec3d b) {
+	_mm_store_pd(a.data, _mm_min_pd(_mm_set_pd(a[0], a[1]), _mm_set_pd(b[0], b[1])));
+	a.z = min(a.z, b.z);
+	return a;
+}
+
+inline AzCore::vec3d max(AzCore::vec3d a, AzCore::vec3d b) {
+	_mm_store_pd(a.data, _mm_max_pd(_mm_set_pd(a[0], a[1]), _mm_set_pd(b[0], b[1])));
+	a.z = max(a.z, b.z);
+	return a;
+}
+
 #endif // AZCORE_MATH_VEC3_HPP

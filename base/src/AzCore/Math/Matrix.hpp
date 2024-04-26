@@ -13,6 +13,10 @@
 #include "../Memory/RAIIHacks.hpp"
 #include "../IO/Log.hpp"
 #include "../Math/basic.hpp"
+#include "../Math/vec2_t.hpp"
+#include "../Math/vec3_t.hpp"
+#include "../Math/vec4_t.hpp"
+#include "../Math/vec5_t.hpp"
 #include "../TemplateUtil.hpp"
 #include "../Sort.hpp"
 
@@ -38,7 +42,7 @@ struct MatrixWorkspace;
 // Need to use a macro for alloca to work.
 #define AZ_DECLARE_MATRIX_WORKSPACE(name, capacity, T) \
 	az::MatrixWorkspace<T> name;\
-	if (capacity) {\
+	if (0 != capacity) {\
 		name.Init((capacity) > az::MatrixWorkspace<T>::MAX_STACK_CAPACITY ? (T*)malloc((capacity) * sizeof( T )) : (T*)alloca((capacity) * sizeof(T)), (capacity));\
 	}
 
@@ -90,7 +94,7 @@ template<typename T, Operation<T> operation, char opname, bool flipped>
 struct VectorScalarOperation {
 	Vector<T> vector;
 	T scalar;
-	explicit VectorScalarOperation(Vector<T> &_vector, const T &_scalar) : vector(&_vector), scalar(_scalar) {}
+	explicit VectorScalarOperation(const Vector<T> &_vector, const T &_scalar) : vector(const_cast<Vector<T>*>(&_vector)), scalar(_scalar) {}
 	explicit VectorScalarOperation(Vector<T> &&_vector, const T &_scalar) : vector(std::move(_vector)), scalar(_scalar) {}
 	VectorScalarOperation(VectorScalarOperation &&) = delete;
 	VectorScalarOperation(const VectorScalarOperation &) = delete;
@@ -341,98 +345,123 @@ struct MatrixMatrixMultiply {
 };
 
 } // namespace Impl
+} // namespace AzCore
 
 template<typename T>
-Vector<T>& operator+=(Vector<T> &lhs, const Vector<T> &rhs);
+az::Vector<T>& operator+=(az::Vector<T> &lhs, const az::Vector<T> &rhs);
 
 template<typename T>
-Vector<T>& operator-=(Vector<T> &lhs, const Vector<T> &rhs);
+az::Vector<T>& operator-=(az::Vector<T> &lhs, const az::Vector<T> &rhs);
 
-template<typename T, Impl::Operation<T> operation, char opname, bool flipped>
-Vector<T>& operator*=(Vector<T> &lhs, Impl::VectorScalarOperation<T, operation, opname, flipped> &&rhs) {
-	rhs.EvalInto<Impl::OperationMul<T>>(lhs);
+template<typename T, az::Impl::Operation<T> operation, char opname, bool flipped>
+az::Vector<T>& operator*=(az::Vector<T> &lhs, az::Impl::VectorScalarOperation<T, operation, opname, flipped> &&rhs) {
+	rhs.EvalInto<az::Impl::OperationMul<T>>(lhs);
 	return lhs;
 }
-template<typename T, Impl::Operation<T> operation, char opname, bool flipped>
-Vector<T>& operator/=(Vector<T> &lhs, Impl::VectorScalarOperation<T, operation, opname, flipped> &&rhs) {
-	rhs.EvalInto<Impl::OperationDiv<T>>(lhs);
+template<typename T, az::Impl::Operation<T> operation, char opname, bool flipped>
+az::Vector<T>& operator/=(az::Vector<T> &lhs, az::Impl::VectorScalarOperation<T, operation, opname, flipped> &&rhs) {
+	rhs.EvalInto<az::Impl::OperationDiv<T>>(lhs);
 	return lhs;
 }
-template<typename T, Impl::Operation<T> operation, char opname, bool flipped>
-Vector<T>& operator+=(Vector<T> &lhs, Impl::VectorScalarOperation<T, operation, opname, flipped> &&rhs) {
-	rhs.EvalInto<Impl::OperationAdd<T>>(lhs);
+template<typename T, az::Impl::Operation<T> operation, char opname, bool flipped>
+az::Vector<T>& operator+=(az::Vector<T> &lhs, az::Impl::VectorScalarOperation<T, operation, opname, flipped> &&rhs) {
+	rhs.EvalInto<az::Impl::OperationAdd<T>>(lhs);
 	return lhs;
 }
-template<typename T, Impl::Operation<T> operation, char opname, bool flipped>
-Vector<T>& operator-=(Vector<T> &lhs, Impl::VectorScalarOperation<T, operation, opname, flipped> &&rhs) {
-	rhs.EvalInto<Impl::OperationSub<T>>(lhs);
+template<typename T, az::Impl::Operation<T> operation, char opname, bool flipped>
+az::Vector<T>& operator-=(az::Vector<T> &lhs, az::Impl::VectorScalarOperation<T, operation, opname, flipped> &&rhs) {
+	rhs.template EvalInto<az::Impl::OperationSub<T>>(lhs);
 	return lhs;
 }
 
-template<typename T, Impl::Operation<T> operation, char opname>
-Vector<T>& operator*=(Vector<T> &lhs, Impl::VectorVectorOperation<T, operation, opname> &&rhs) {
-	rhs.EvalInto<Impl::OperationMul<T>>(lhs);
+template<typename T, az::Impl::Operation<T> operation, char opname>
+az::Vector<T>& operator*=(az::Vector<T> &lhs, az::Impl::VectorVectorOperation<T, operation, opname> &&rhs) {
+	rhs.EvalInto<az::Impl::OperationMul<T>>(lhs);
 	return lhs;
 }
-template<typename T, Impl::Operation<T> operation, char opname>
-Vector<T>& operator/=(Vector<T> &lhs, Impl::VectorVectorOperation<T, operation, opname> &&rhs) {
-	rhs.EvalInto<Impl::OperationDiv<T>>(lhs);
+template<typename T, az::Impl::Operation<T> operation, char opname>
+az::Vector<T>& operator/=(az::Vector<T> &lhs, az::Impl::VectorVectorOperation<T, operation, opname> &&rhs) {
+	rhs.EvalInto<az::Impl::OperationDiv<T>>(lhs);
 	return lhs;
 }
-template<typename T, Impl::Operation<T> operation, char opname>
-Vector<T>& operator+=(Vector<T> &lhs, Impl::VectorVectorOperation<T, operation, opname> &&rhs) {
-	rhs.EvalInto<Impl::OperationAdd<T>>(lhs);
+template<typename T, az::Impl::Operation<T> operation, char opname>
+az::Vector<T>& operator+=(az::Vector<T> &lhs, az::Impl::VectorVectorOperation<T, operation, opname> &&rhs) {
+	rhs.EvalInto<az::Impl::OperationAdd<T>>(lhs);
 	return lhs;
 }
-template<typename T, Impl::Operation<T> operation, char opname>
-Vector<T>& operator-=(Vector<T> &lhs, Impl::VectorVectorOperation<T, operation, opname> &&rhs) {
-	rhs.EvalInto<Impl::OperationSub<T>>(lhs);
+template<typename T, az::Impl::Operation<T> operation, char opname>
+az::Vector<T>& operator-=(az::Vector<T> &lhs, az::Impl::VectorVectorOperation<T, operation, opname> &&rhs) {
+	rhs.EvalInto<az::Impl::OperationSub<T>>(lhs);
 	return lhs;
 }
 
 template<typename T, bool flipped>
-Vector<T>& operator*=(Vector<T> &lhs, Impl::MatrixVectorMultiply<T, flipped> &&rhs) {
-	rhs.EvalInto<Impl::OperationMul<T>>(lhs);
+az::Vector<T>& operator*=(az::Vector<T> &lhs, az::Impl::MatrixVectorMultiply<T, flipped> &&rhs) {
+	rhs.EvalInto<az::Impl::OperationMul<T>>(lhs);
 	return lhs;
 }
 template<typename T, bool flipped>
-Vector<T>& operator/=(Vector<T> &lhs, Impl::MatrixVectorMultiply<T, flipped> &&rhs) {
-	rhs.EvalInto<Impl::OperationDiv<T>>(lhs);
+az::Vector<T>& operator/=(az::Vector<T> &lhs, az::Impl::MatrixVectorMultiply<T, flipped> &&rhs) {
+	rhs.EvalInto<az::Impl::OperationDiv<T>>(lhs);
 	return lhs;
 }
 template<typename T, bool flipped>
-Vector<T>& operator+=(Vector<T> &lhs, Impl::MatrixVectorMultiply<T, flipped> &&rhs) {
-	rhs.EvalInto<Impl::OperationAdd<T>>(lhs);
+az::Vector<T>& operator+=(az::Vector<T> &lhs, az::Impl::MatrixVectorMultiply<T, flipped> &&rhs) {
+	rhs.EvalInto<az::Impl::OperationAdd<T>>(lhs);
 	return lhs;
 }
 template<typename T, bool flipped>
-Vector<T>& operator-=(Vector<T> &lhs, Impl::MatrixVectorMultiply<T, flipped> &&rhs) {
-	rhs.EvalInto<Impl::OperationSub<T>>(lhs);
+az::Vector<T>& operator-=(az::Vector<T> &lhs, az::Impl::MatrixVectorMultiply<T, flipped> &&rhs) {
+	rhs.EvalInto<az::Impl::OperationSub<T>>(lhs);
 	return lhs;
 }
 
-
-
-// template<typename T>
-// Vector<T> operator/(Vector<T> &&lhs, const T &rhs);
-
-// template<typename T>
-// Vector<T> operator/(const Vector<T> &lhs, const T &rhs);
 
 template<typename T>
-Vector<T>& operator*=(Vector<T> &lhs, const T &rhs);
+az::Vector<T>& operator+=(az::Vector<T> &lhs, const az::Vector<T> &rhs);
 
 template<typename T>
-Vector<T>& operator/=(Vector<T> &lhs, const T &rhs);
+az::Vector<T>& operator-=(az::Vector<T> &lhs, const az::Vector<T> &rhs);
 
-template <typename T>
-struct vec2_t;
-template <typename T>
-struct vec3_t;
-template <typename T>
-struct vec4_t;
-template <typename T>
-struct vec5_t;
+template<typename T>
+az::Vector<T>& operator*=(az::Vector<T> &lhs, const T &rhs);
+
+template<typename T>
+az::Vector<T>& operator/=(az::Vector<T> &lhs, const T &rhs);
+
+template<typename T>
+az::Vector<T>&& operator+=(az::Vector<T> &&lhs, const az::Vector<T> &rhs) {
+	return std::move(lhs += rhs);
+}
+
+template<typename T>
+az::Vector<T>&& operator-=(az::Vector<T> &&lhs, const az::Vector<T> &rhs) {
+	return std::move(lhs -= rhs);
+}
+
+template<typename T>
+az::Vector<T>&& operator*=(az::Vector<T> &&lhs, const T &rhs) {
+	return std::move(lhs *= rhs);
+}
+
+template<typename T>
+az::Vector<T>&& operator/=(az::Vector<T> &&lhs, const T &rhs) {
+	return std::move(lhs /= rhs);
+}
+
+template<typename T>
+az::Matrix<T>& operator*=(az::Matrix<T> &lhs, const T &rhs);
+
+template<typename T>
+az::Matrix<T>& operator/=(az::Matrix<T> &lhs, const T &rhs);
+
+template<typename T>
+az::Matrix<T>& operator+=(az::Matrix<T> &lhs, const az::Matrix<T> &rhs);
+
+template<typename T>
+az::Matrix<T>& operator-=(az::Matrix<T> &lhs, const az::Matrix<T> &rhs);
+
+namespace AzCore {
 
 // A memory pool for allocating Matrices and Vectors where you tell it ahead of time how much space you'll need to do all the calculations you need to do. Useful for intermediate steps in an algorithm. Note that this structure MUST be on the stack and not on the heap.
 template<typename T, i32 MAX_BYTES_ON_STACK>
@@ -534,7 +563,14 @@ struct Vector {
 		}
 	}
 
+	void ResetToValue(const T &value) {
+		for (i32 i = 0; i < count; i++) {
+			data[i] = value;
+		}
+	}
+
 	void Resize(i32 _count) {
+		if (_count == count) return;
 		if (count != 0) {
 			AzAssert(capacity != 0, Stringify(VECTOR_INFO_ARGS(*this), ".Resize(", _count, ") error: Pointer Vectors cannot be resized!"));
 		}
@@ -722,7 +758,7 @@ struct Vector {
 		return *this;
 	}
 
-	Vector& Orthogonalize(Vector &other) {
+	Vector& Orthogonalize(const Vector &other) {
 		AzAssert(Count() == other.Count(), Stringify("Orthogonalizing ", VECTOR_INFO_ARGS(*this), " against ", VECTOR_INFO_ARGS(other), " error: Vectors must be the same size!"));
 		T d = dot(*this, other);
 		*this -= other * d;
@@ -801,7 +837,7 @@ struct Matrix {
 		return result;
 	}
 	static Matrix Filled(i32 _cols, i32 _rows, std::initializer_list<T> init) {
-		AzAssert(_cols * _rows == init.size(), Stringify("Expected _cols * _rows to equal the initializer_list size (_cols = ", _cols, ", _rows = ", _rows, ", size = ", init.size(), ")"));
+		AzAssert(_cols * _rows == (i32)init.size(), Stringify("Expected _cols * _rows to equal the initializer_list size (_cols = ", _cols, ", _rows = ", _rows, ", size = ", init.size(), ")"));
 		Matrix result(_cols, _rows);
 		i32 r = 0, c = 0;
 		for (const T &value : init) {
@@ -824,8 +860,8 @@ struct Matrix {
 
 	void Resize(i32 _cols, i32 _rows) {
 		if (cols == _cols && rows == _rows) return;
-		if (cols != 0 && rows != 0) {
-			AzAssert(capacity != 0, Stringify(MATRIX_INFO_ARGS(*this), ".Resize(", _cols, ", ", _rows, ") error: Pointer Matrices cannot be resized!"));
+		if (cols != 0 && rows != 0 && (cols < _cols || rows < _rows)) {
+			AzAssert(capacity != 0, Stringify(MATRIX_INFO_ARGS(*this), ".Resize(", _cols, ", ", _rows, ") error: Pointer Matrices can only be shrunk!"));
 		}
 		MakeOwnedWithSize(_cols, _rows);
 	}
@@ -1183,7 +1219,17 @@ struct Matrix {
 			basis = V.Col(c);
 			T &mag = R[c][c];
 			mag = norm(basis);
-			basis /= mag;
+			if (mag > T(1.0e-12)) {
+				basis /= mag;
+			} else {
+				// Contingency for weird degenerate matrices
+				for (i32 i = 0; i < basis.Count(); i++) {
+					basis[i] = i == c ? T(1) : T(0);
+				}
+				if (c > 0) {
+					basis.Orthogonalize(Q.Col(c-1)).Normalize();
+				}
+			}
 			// Orthogonalize ahead of time
 			for (i32 r = c+1; r < m; r++) {
 				Vector<T> basisNext = V.Col(r);
@@ -1253,7 +1299,6 @@ struct Matrix {
 			vectors[indexLHS] = vectors[indexRHS];
 			vectors[indexRHS] = swapStorage;
 		});
-		//az::io::cout.PrintLn("Took ", i, " iterations\nQ:\n", Q, "\nR:\n", R, "\nA:\n", *A_cur, "\nvectors:\n", vectors, "\nvalues: ", values);
 	}
 
 	// U is a min(cols, rows) x rows left singular matrix
@@ -1265,77 +1310,87 @@ struct Matrix {
 		if (Cols() <= Rows()) {
 			Matrix AAT = *this * AT;
 			AAT.Eigen(U, S, maxIterations, epsilon);
+			S.count = Cols();
+			for (i32 i = 0; i < S.Count(); i++) {
+				if (S[i] > epsilon) {
+					S[i] = sqrt(S[i]);
+				} else {
+					S[i] = T(0);
+				}
+			}
 			U.cols = Cols();
 			for (i32 c = 0; c < U.Cols(); c++) {
 				if (c > 0) {
 					U.Col(c).Orthogonalize(U.Col(c-1));
 				}
-				U.Col(c).Normalize();
-			}
-			S.count = Cols();
-			for (i32 i = 0; i < S.Count(); i++) {
-				S[i] = sqrt(S[i]);
+				if (S[c] != T(0)) {
+					U.Col(c).Normalize();
+				} else {
+					U.Col(c).ResetToValue(T(0));
+				}
 			}
 			Vt.Resize(Cols(), Cols());
 			for (i32 r = 0; r < Vt.Rows(); r++) {
 				Vector<T> row = Vt.Row(r);
 				row = AT * U.Col(r);
-				row /= S[r];
-				// row.Normalize();
+				if (S[r] != T(0)) {
+					row /= S[r];
+				}
 			}
 		} else {
 			Matrix ATA = AT * *this;
 			ATA.Eigen(Vt, S, maxIterations, epsilon);
+			S.count = Rows();
+			for (i32 i = 0; i < S.Count(); i++) {
+				if (S[i] > epsilon) {
+					S[i] = sqrt(S[i]);
+				} else {
+					S[i] = T(0);
+				}
+			}
 			Vt.TransposeSoft();
 			Vt.rows = Rows();
 			for (i32 r = 0; r < Vt.Rows(); r++) {
 				if (r > 0) {
 					Vt.Row(r).Orthogonalize(Vt.Row(r-1));
 				}
-				Vt.Row(r).Normalize();
-			}
-			S.count = Rows();
-			for (i32 i = 0; i < S.Count(); i++) {
-				S[i] = sqrt(S[i]);
+				if (S[r] != T(0)) {
+					Vt.Row(r).Normalize();
+				} else {
+					Vt.Row(r).ResetToValue(T(0));
+				}
 			}
 			U.Resize(Rows(), Rows());
 			for (i32 r = 0; r < U.Rows(); r++) {
 				Vector<T> row = U.Row(r);
 				row = *this * Vt.Row(r);
-				row /= S[r];
-				// row.Normalize();
+				if (S[r] != T(0)) {
+					row /= S[r];
+				}
 			}
 		}
 	}
 
 	// Gives you the Moore-Penrose pseudoinverse (result will have inverted dimensions, like a transpose)
-	Matrix PseudoInverse() const {
-		// WIP: Currently only works 100% correctly when the internal matrix is invertible by the conventional inverse.
-		i32 intermediateDims = min(Cols(), Rows());
-		i32 countNeeded = Count() + square(intermediateDims);
+	Matrix PseudoInverse(i32 maxIterations = 1000, T epsilon = T(0.000001), T damping = T(0)) {
+		i32 M = max(Cols(), Rows());
+		i32 countNeeded = square(M) * 2 + M;
 		AZ_DECLARE_MATRIX_WORKSPACE(workspace, countNeeded, T);
-		Matrix adjusted = workspace.GetMatrixCopy(*this);
-		// This is a hack to ensure t * adjusted is invertible (maybe it still doesn't always work)
-		for (i32 i = 0; i < min(Cols(), Rows()); i++) {
-			T &v = adjusted.Val(i,i);
-			v = sign(v) * max(abs(v), T(0.1));
+		Matrix U = workspace.GetMatrix(M, M);
+		Vector<T> S = workspace.GetVector(M);
+		Matrix Vt = workspace.GetMatrix(M, M);
+		SingularValueDecomposition(U, S, Vt, maxIterations, epsilon);
+		U.TransposeSoft();
+		Vt.TransposeSoft();
+		for (i32 i = 0; i < S.Count(); i++) {
+			if (abs(S[i] + damping) > epsilon) {
+				S[i] = T(1) / (S[i] + damping);
+			} else {
+				S[i] = T(0);
+			}
+			Vt.Col(i) *= S[i];
 		}
-		Matrix t = transpose(&adjusted);
-		Matrix inverted = workspace.GetMatrix(intermediateDims, intermediateDims);
-		Matrix result;
-		if (Cols() < Rows()) {
-			// Use the left inverse
-			inverted = t * adjusted;
-		} else {
-			// Use the right inverse
-			inverted = adjusted * t;
-		}
-		inverted.Inverse();
-		if (Cols() < Rows()) {
-			result.Reassign(inverted * t);
-		} else {
-			result.Reassign(t * inverted);
-		}
+		Matrix result = Vt * U;
 		return result;
 	}
 
@@ -1366,7 +1421,7 @@ T normSqr(const az::Vector<T> &a) {
 }
 
 template<>
-f32 dot(const az::Vector<f32> &a, const az::Vector<f32> &b) {
+inline f32 dot(const az::Vector<f32> &a, const az::Vector<f32> &b) {
 	a.AssertValid();
 	b.AssertValid();
 	using T = f32;
@@ -1386,7 +1441,7 @@ f32 dot(const az::Vector<f32> &a, const az::Vector<f32> &b) {
 }
 
 template<>
-f32 normSqr(const az::Vector<f32> &a) {
+inline f32 normSqr(const az::Vector<f32> &a) {
 	a.AssertValid();
 	f32 result = 0;
 	i32 i;
@@ -1423,8 +1478,10 @@ inline T det(const az::Matrix<T> &a) {
 	return a.Determinant();
 }
 
+} // namespace AzCore
+
 template<typename T>
-Vector<T>& operator+=(Vector<T> &lhs, const Vector<T> &rhs) {
+az::Vector<T>& operator+=(az::Vector<T> &lhs, const az::Vector<T> &rhs) {
 	AzAssert(lhs.Count() == rhs.Count(), Stringify("Adding ", VECTOR_INFO_ARGS(lhs), " and ", VECTOR_INFO_ARGS(rhs), " error: Vector addition can only be done on same-size vectors."));
 	for (i32 i = 0; i < lhs.Count(); i++) {
 		lhs[i] += rhs[i];
@@ -1433,51 +1490,16 @@ Vector<T>& operator+=(Vector<T> &lhs, const Vector<T> &rhs) {
 }
 
 template<typename T>
-Vector<T>& operator-=(Vector<T> &lhs, const Vector<T> &rhs) {
+az::Vector<T>& operator-=(az::Vector<T> &lhs, const az::Vector<T> &rhs) {
 	AzAssert(lhs.Count() == rhs.Count(), Stringify("Subtracting ", VECTOR_INFO_ARGS(lhs), " and ", VECTOR_INFO_ARGS(rhs), " error: Vector subtraction can only be done on same-size vectors."));
 	for (i32 i = 0; i < lhs.Count(); i++) {
 		lhs[i] -= rhs[i];
 	}
 	return lhs;
 }
-/*
 
 template<typename T>
-Vector<T> operator*(Vector<T> &&lhs, const T &rhs) {
-	for (i32 i = 0; i < lhs.Count(); i++) {
-		lhs[i] *= rhs;
-	}
-	return std::move(lhs);
-}
-
-template<typename T>
-Vector<T> operator*(const Vector<T> &lhs, const T &rhs) {
-	Vector<T> result(lhs);
-	for (i32 i = 0; i < result.Count(); i++) {
-		result[i] *= rhs;
-	}
-	return result;
-}
-
-template<typename T>
-Vector<T> operator/(Vector<T> &&lhs, const T &rhs) {
-	for (i32 i = 0; i < lhs.Count(); i++) {
-		lhs[i] /= rhs;
-	}
-	return std::move(lhs);
-}
-
-template<typename T>
-Vector<T> operator/(const Vector<T> &lhs, const T &rhs) {
-	Vector<T> result(lhs);
-	for (i32 i = 0; i < result.Count(); i++) {
-		result[i] /= rhs;
-	}
-	return result;
-}
-*/
-template<typename T>
-Vector<T>& operator*=(Vector<T> &lhs, const T &rhs) {
+az::Vector<T>& operator*=(az::Vector<T> &lhs, const T &rhs) {
 	for (i32 i = 0; i < lhs.Count(); i++) {
 		lhs[i] *= rhs;
 	}
@@ -1485,7 +1507,7 @@ Vector<T>& operator*=(Vector<T> &lhs, const T &rhs) {
 }
 
 template<typename T>
-Vector<T>& operator/=(Vector<T> &lhs, const T &rhs) {
+az::Vector<T>& operator/=(az::Vector<T> &lhs, const T &rhs) {
 	for (i32 i = 0; i < lhs.Count(); i++) {
 		lhs[i] /= rhs;
 	}
@@ -1493,7 +1515,27 @@ Vector<T>& operator/=(Vector<T> &lhs, const T &rhs) {
 }
 
 template<typename T>
-Matrix<T>& operator+=(Matrix<T> &lhs, const Matrix<T> &rhs) {
+az::Matrix<T>& operator*=(az::Matrix<T> &lhs, const T &rhs) {
+	for (i32 c = 0; c < lhs.Cols(); c++) {
+		for (i32 r = 0; r < lhs.Rows(); r++) {
+			lhs.Val(c, r) *= rhs;
+		}
+	}
+	return lhs;
+}
+
+template<typename T>
+az::Matrix<T>& operator/=(az::Matrix<T> &lhs, const T &rhs) {
+	for (i32 c = 0; c < lhs.Cols(); c++) {
+		for (i32 r = 0; r < lhs.Rows(); r++) {
+			lhs.Val(c, r) /= rhs;
+		}
+	}
+	return lhs;
+}
+
+template<typename T>
+az::Matrix<T>& operator+=(az::Matrix<T> &lhs, const az::Matrix<T> &rhs) {
 	AzAssert(lhs.Cols() == rhs.Cols() && lhs.Rows() == rhs.Rows(), Stringify("Adding ", MATRIX_INFO_ARGS(lhs), " and ", MATRIX_INFO_ARGS(rhs), " error: Matrix addition can only be done on same-size matrices."));
 	for (i32 r = 0; r < lhs.Rows(); r++) {
 		for (i32 c = 0; c < lhs.Cols(); c++) {
@@ -1504,7 +1546,7 @@ Matrix<T>& operator+=(Matrix<T> &lhs, const Matrix<T> &rhs) {
 }
 
 template<typename T>
-Matrix<T>& operator-=(Matrix<T> &lhs, const Matrix<T> &rhs) {
+az::Matrix<T>& operator-=(az::Matrix<T> &lhs, const az::Matrix<T> &rhs) {
 	AzAssert(lhs.Cols() == rhs.Cols() && lhs.Rows() == rhs.Rows(), Stringify("Subtracting ", MATRIX_INFO_ARGS(lhs), " and ", MATRIX_INFO_ARGS(rhs), " error: Matrix subtraction can only be done on same-size matrices."));
 	for (i32 r = 0; r < lhs.Rows(); r++) {
 		for (i32 c = 0; c < lhs.Cols(); c++) {
@@ -1513,94 +1555,42 @@ Matrix<T>& operator-=(Matrix<T> &lhs, const Matrix<T> &rhs) {
 	}
 	return lhs;
 }
-/*
-template<typename T>
-Matrix<T> operator*(const Matrix<T> &lhs, const Matrix<T> &rhs) {
-	AzAssert(lhs.Cols() == rhs.Rows(), Stringify("Multiplying ", MATRIX_INFO_ARGS(lhs), " and ", MATRIX_INFO_ARGS(rhs), " error: lhs.Cols() must equal rhs.Rows()."));
-	Matrix<T> result(rhs.Cols(), lhs.Rows());
-	for (i32 c = 0; c < result.Cols(); c++) {
-		for (i32 r = 0; r < result.Rows(); r++) {
-			result[c][r] = dot(rhs.Col(c), lhs.Row(r));
-		}
-	}
-	return result;
-}
-
-template<typename T>
-void Mul(Vector<T> &dst, const Matrix<T> &lhs, const Vector<T> &rhs) {
-	AzAssert(lhs.Cols() == rhs.Count(), Stringify("Multiplying ", MATRIX_INFO_ARGS(lhs), " and ", VECTOR_INFO_ARGS(rhs), " error: lhs.Cols() must equal rhs.Count()."));
-	if (dst.Count() != lhs.Rows()) {
-		dst.Resize(lhs.Rows());
-	}
-	for (i32 i = 0; i < dst.Count(); i++) {
-		dst[i] = dot(rhs, lhs.Row(i));
-	}
-}
-
-template<typename T>
-Vector<T> operator*(const Matrix<T> &lhs, const Vector<T> &rhs) {
-	Vector<T> result(lhs.Rows());
-	Mul(result, lhs, rhs);
-	return result;
-}
-
-template<typename T>
-void Mul(Vector<T> &dst, const Vector<T> &lhs, const Matrix<T> &rhs) {
-	AzAssert(lhs.Count() == rhs.Rows(), Stringify("Multiplying ", VECTOR_INFO_ARGS(lhs), " and ", MATRIX_INFO_ARGS(rhs), " error: lhs.Count() must equal rhs.Rows()."));
-	if (dst.Count() != rhs.Cols()) {
-		AzAssert(dst.capacity != 0, Stringify("Multiplying ", VECTOR_INFO_ARGS(lhs), " and ", MATRIX_INFO_ARGS(rhs), " into ", VECTOR_INFO_ARGS(dst), " error: Since dst doesn't own its entries, dst.Count() must equal rhs.Cols() already."));
-		dst.Resize(rhs.Cols());
-	}
-	for (i32 i = 0; i < dst.Count(); i++) {
-		dst[i] = dot(rhs.Col(i), lhs);
-	}
-}
-
-template<typename T>
-Vector<T> operator*(const Vector<T> &lhs, const Matrix<T> &rhs) {
-	Vector<T> result(rhs.Cols());
-	Mul(result, lhs, rhs);
-	return result;
-}
-*/
-
-
 
 template<
 	class T1, class T,
 	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, Vector<T>>
+		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<T>>
 	>
 >
-inline Impl::VectorScalarOperation<T, Impl::OperationMul<T>, '*', false> operator*(T1 &&lhs, const T &rhs) {
-	return Impl::VectorScalarOperation<T, Impl::OperationMul<T>, '*', false>(std::forward<T1>(lhs), rhs);
+inline az::Impl::VectorScalarOperation<T, az::Impl::OperationMul<T>, '*', false> operator*(T1 &&lhs, const T &rhs) {
+	return az::Impl::VectorScalarOperation<T, az::Impl::OperationMul<T>, '*', false>(std::forward<T1>(lhs), rhs);
 }
 template<
 	class T1, class T,
 	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, Vector<T>>
+		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<T>>
 	>
 >
-inline Impl::VectorScalarOperation<T, Impl::OperationMul<T>, '*', true> operator*(const T &lhs, T1 &&rhs) {
-	return Impl::VectorScalarOperation<T, Impl::OperationMul<T>, '*', true>(std::forward<T1>(rhs), lhs);
+inline az::Impl::VectorScalarOperation<T, az::Impl::OperationMul<T>, '*', true> operator*(const T &lhs, T1 &&rhs) {
+	return az::Impl::VectorScalarOperation<T, az::Impl::OperationMul<T>, '*', true>(std::forward<T1>(rhs), lhs);
 }
 template<
 	class T1, class T,
 	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, Vector<T>>
+		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<T>>
 	>
 >
-inline Impl::VectorScalarOperation<T, Impl::OperationDiv<T>, '/', false> operator/(T1 &&lhs, const T &rhs) {
-	return Impl::VectorScalarOperation<T, Impl::OperationDiv<T>, '/', false>(std::forward<T1>(lhs), rhs);
+inline az::Impl::VectorScalarOperation<T, az::Impl::OperationDiv<T>, '/', false> operator/(T1 &&lhs, const T &rhs) {
+	return az::Impl::VectorScalarOperation<T, az::Impl::OperationDiv<T>, '/', false>(std::forward<T1>(lhs), rhs);
 }
 template<
 	class T1, class T,
 	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, Vector<T>>
+		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<T>>
 	>
 >
-inline Impl::VectorScalarOperation<T, Impl::OperationDiv<T>, '/', true> operator/(const T &lhs, T1 &&rhs) {
-	return Impl::VectorScalarOperation<T, Impl::OperationDiv<T>, '/', true>(std::forward<T1>(rhs), lhs);
+inline az::Impl::VectorScalarOperation<T, az::Impl::OperationDiv<T>, '/', true> operator/(const T &lhs, T1 &&rhs) {
+	return az::Impl::VectorScalarOperation<T, az::Impl::OperationDiv<T>, '/', true>(std::forward<T1>(rhs), lhs);
 }
 
 
@@ -1608,42 +1598,42 @@ inline Impl::VectorScalarOperation<T, Impl::OperationDiv<T>, '/', true> operator
 template<
 	class T1, class T2,
 	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, Vector<typename az::remove_cvref_t<T1>::Scalar_t>> &&
-		std::is_same_v<az::remove_cvref_t<T2>, Vector<typename az::remove_cvref_t<T1>::Scalar_t>>
+		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>> &&
+		std::is_same_v<az::remove_cvref_t<T2>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>>
 	>
 >
-inline Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, Impl::OperationAdd<typename az::remove_cvref_t<T1>::Scalar_t>, '+'> operator+(T1 &&lhs, T2 &&rhs) {
-	return Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, Impl::OperationAdd<typename az::remove_cvref_t<T1>::Scalar_t>, '+'>(std::forward<T1>(lhs), std::forward<T2>(rhs));
+inline az::Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, az::Impl::OperationAdd<typename az::remove_cvref_t<T1>::Scalar_t>, '+'> operator+(T1 &&lhs, T2 &&rhs) {
+	return az::Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, az::Impl::OperationAdd<typename az::remove_cvref_t<T1>::Scalar_t>, '+'>(std::forward<T1>(lhs), std::forward<T2>(rhs));
 }
 template<
 	class T1, class T2,
 	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, Vector<typename az::remove_cvref_t<T1>::Scalar_t>> &&
-		std::is_same_v<az::remove_cvref_t<T2>, Vector<typename az::remove_cvref_t<T1>::Scalar_t>>
+		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>> &&
+		std::is_same_v<az::remove_cvref_t<T2>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>>
 	>
 >
-inline Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, Impl::OperationSub<typename az::remove_cvref_t<T1>::Scalar_t>, '-'> operator-(T1 &&lhs, T2 &&rhs) {
-	return Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, Impl::OperationSub<typename az::remove_cvref_t<T1>::Scalar_t>, '-'>(std::forward<T1>(lhs), std::forward<T2>(rhs));
+inline az::Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, az::Impl::OperationSub<typename az::remove_cvref_t<T1>::Scalar_t>, '-'> operator-(T1 &&lhs, T2 &&rhs) {
+	return az::Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, az::Impl::OperationSub<typename az::remove_cvref_t<T1>::Scalar_t>, '-'>(std::forward<T1>(lhs), std::forward<T2>(rhs));
 }
 template<
 	class T1, class T2,
 	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, Vector<typename az::remove_cvref_t<T1>::Scalar_t>> &&
-		std::is_same_v<az::remove_cvref_t<T2>, Vector<typename az::remove_cvref_t<T1>::Scalar_t>>
+		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>> &&
+		std::is_same_v<az::remove_cvref_t<T2>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>>
 	>
 >
-inline Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, Impl::OperationMul<typename az::remove_cvref_t<T1>::Scalar_t>, '*'> operator*(T1 &&lhs, T2 &&rhs) {
-	return Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, Impl::OperationMul<typename az::remove_cvref_t<T1>::Scalar_t>, '*'>(std::forward<T1>(lhs), std::forward<T2>(rhs));
+inline az::Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, az::Impl::OperationMul<typename az::remove_cvref_t<T1>::Scalar_t>, '*'> operator*(T1 &&lhs, T2 &&rhs) {
+	return az::Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, az::Impl::OperationMul<typename az::remove_cvref_t<T1>::Scalar_t>, '*'>(std::forward<T1>(lhs), std::forward<T2>(rhs));
 }
 template<
 	class T1, class T2,
 	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, Vector<typename az::remove_cvref_t<T1>::Scalar_t>> &&
-		std::is_same_v<az::remove_cvref_t<T2>, Vector<typename az::remove_cvref_t<T1>::Scalar_t>>
+		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>> &&
+		std::is_same_v<az::remove_cvref_t<T2>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>>
 	>
 >
-inline Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, Impl::OperationDiv<typename az::remove_cvref_t<T1>::Scalar_t>, '/'> operator/(T1 &&lhs, T2 &&rhs) {
-	return Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, Impl::OperationDiv<typename az::remove_cvref_t<T1>::Scalar_t>, '/'>(std::forward<T1>(lhs), std::forward<T2>(rhs));
+inline az::Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, az::Impl::OperationDiv<typename az::remove_cvref_t<T1>::Scalar_t>, '/'> operator/(T1 &&lhs, T2 &&rhs) {
+	return az::Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, az::Impl::OperationDiv<typename az::remove_cvref_t<T1>::Scalar_t>, '/'>(std::forward<T1>(lhs), std::forward<T2>(rhs));
 }
 
 
@@ -1651,38 +1641,38 @@ inline Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, Im
 template<
 	class T1, class T,
 	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, Matrix<T>>
+		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<T>>
 	>
 >
-inline Impl::MatrixScalarOperation<T, Impl::OperationMul<T>, '*', false> operator*(T1 &&lhs, const T &rhs) {
-	return Impl::MatrixScalarOperation<T, Impl::OperationMul<T>, '*', false>(std::forward<T>(lhs), rhs);
+inline az::Impl::MatrixScalarOperation<T, az::Impl::OperationMul<T>, '*', false> operator*(T1 &&lhs, const T &rhs) {
+	return az::Impl::MatrixScalarOperation<T, az::Impl::OperationMul<T>, '*', false>(std::forward<T>(lhs), rhs);
 }
 template<
 	class T1, class T,
 	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, Matrix<T>>
+		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<T>>
 	>
 >
-inline Impl::MatrixScalarOperation<T, Impl::OperationMul<T>, '*', true> operator*(const T &lhs, T1 &&rhs) {
-	return Impl::MatrixScalarOperation<T, Impl::OperationMul<T>, '*', true>(std::forward<T>(rhs), lhs);
+inline az::Impl::MatrixScalarOperation<T, az::Impl::OperationMul<T>, '*', true> operator*(const T &lhs, T1 &&rhs) {
+	return az::Impl::MatrixScalarOperation<T, az::Impl::OperationMul<T>, '*', true>(std::forward<T>(rhs), lhs);
 }
 template<
 	class T1, class T,
 	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, Matrix<T>>
+		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<T>>
 	>
 >
-inline Impl::MatrixScalarOperation<T, Impl::OperationDiv<T>, '/', false> operator/(T1 &&lhs, const T &rhs) {
-	return Impl::MatrixScalarOperation<T, Impl::OperationDiv<T>, '/', false>(std::forward<T>(lhs), rhs);
+inline az::Impl::MatrixScalarOperation<T, az::Impl::OperationDiv<T>, '/', false> operator/(T1 &&lhs, const T &rhs) {
+	return az::Impl::MatrixScalarOperation<T, az::Impl::OperationDiv<T>, '/', false>(std::forward<T>(lhs), rhs);
 }
 template<
 	class T1, class T,
 	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, Matrix<T>>
+		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<T>>
 	>
 >
-inline Impl::MatrixScalarOperation<T, Impl::OperationDiv<T>, '/', true> operator/(const T &lhs, T1 &&rhs) {
-	return Impl::MatrixScalarOperation<T, Impl::OperationDiv<T>, '/', true>(std::forward<T>(rhs), lhs);
+inline az::Impl::MatrixScalarOperation<T, az::Impl::OperationDiv<T>, '/', true> operator/(const T &lhs, T1 &&rhs) {
+	return az::Impl::MatrixScalarOperation<T, az::Impl::OperationDiv<T>, '/', true>(std::forward<T>(rhs), lhs);
 }
 
 
@@ -1690,22 +1680,22 @@ inline Impl::MatrixScalarOperation<T, Impl::OperationDiv<T>, '/', true> operator
 template<
 	class T1, class T2,
 	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, Matrix<typename az::remove_cvref_t<T1>::Scalar_t>> &&
-		std::is_same_v<az::remove_cvref_t<T2>, Vector<typename az::remove_cvref_t<T1>::Scalar_t>>
+		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<typename az::remove_cvref_t<T1>::Scalar_t>> &&
+		std::is_same_v<az::remove_cvref_t<T2>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>>
 	>
 >
-inline Impl::MatrixVectorMultiply<typename az::remove_cvref_t<T1>::Scalar_t, false> operator*(T1 &&lhs, T2 &&rhs) {
-	return Impl::MatrixVectorMultiply<typename az::remove_cvref_t<T1>::Scalar_t, false>(std::forward<T1>(lhs), std::forward<T2>(rhs));
+inline az::Impl::MatrixVectorMultiply<typename az::remove_cvref_t<T1>::Scalar_t, false> operator*(T1 &&lhs, T2 &&rhs) {
+	return az::Impl::MatrixVectorMultiply<typename az::remove_cvref_t<T1>::Scalar_t, false>(std::forward<T1>(lhs), std::forward<T2>(rhs));
 }
 template<
 	class T1, class T2,
 	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, Vector<typename az::remove_cvref_t<T1>::Scalar_t>> &&
-		std::is_same_v<az::remove_cvref_t<T2>, Matrix<typename az::remove_cvref_t<T1>::Scalar_t>>
+		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>> &&
+		std::is_same_v<az::remove_cvref_t<T2>, az::Matrix<typename az::remove_cvref_t<T1>::Scalar_t>>
 	>
 >
-inline Impl::MatrixVectorMultiply<typename az::remove_cvref_t<T1>::Scalar_t, true> operator*(T1 &&lhs, T2 &&rhs) {
-	return Impl::MatrixVectorMultiply<typename az::remove_cvref_t<T1>::Scalar_t, true>(std::forward<T2>(rhs), std::forward<T1>(lhs));
+inline az::Impl::MatrixVectorMultiply<typename az::remove_cvref_t<T1>::Scalar_t, true> operator*(T1 &&lhs, T2 &&rhs) {
+	return az::Impl::MatrixVectorMultiply<typename az::remove_cvref_t<T1>::Scalar_t, true>(std::forward<T2>(rhs), std::forward<T1>(lhs));
 }
 
 
@@ -1713,26 +1703,28 @@ inline Impl::MatrixVectorMultiply<typename az::remove_cvref_t<T1>::Scalar_t, tru
 template<
 	class T1, class T2,
 	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, Matrix<typename az::remove_cvref_t<T1>::Scalar_t>> &&
-		std::is_same_v<az::remove_cvref_t<T2>, Matrix<typename az::remove_cvref_t<T1>::Scalar_t>>
+		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<typename az::remove_cvref_t<T1>::Scalar_t>> &&
+		std::is_same_v<az::remove_cvref_t<T2>, az::Matrix<typename az::remove_cvref_t<T1>::Scalar_t>>
 	>
 >
-inline Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t> operator*(T1 &&lhs, T2 &&rhs) {
-	return Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t>(std::forward<T1>(lhs), std::forward<T2>(rhs));
+inline az::Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t> operator*(T1 &&lhs, T2 &&rhs) {
+	return az::Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t>(std::forward<T1>(lhs), std::forward<T2>(rhs));
 }
 
 template<
 	class T1,
 	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, Matrix<typename az::remove_cvref_t<T1>::Scalar_t>>
+		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<typename az::remove_cvref_t<T1>::Scalar_t>>
 	>
 >
-inline Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t> operator*(Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t> &&lhs, T1 &&rhs) {
-	return Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t>((az::remove_cvref_t<T1>)lhs, std::forward<T1>(rhs));
+inline az::Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t> operator*(az::Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t> &&lhs, T1 &&rhs) {
+	return az::Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t>((az::remove_cvref_t<T1>)lhs, std::forward<T1>(rhs));
 }
 
 #undef MATRIX_INFO_ARGS
 #undef VECTOR_INFO_ARGS
+
+namespace AzCore {
 
 template<typename T>
 void AppendToString(String &string, const Vector<T> &vector) {

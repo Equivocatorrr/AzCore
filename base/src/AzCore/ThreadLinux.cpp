@@ -10,6 +10,7 @@
 
 #include <pthread.h>
 #include <sys/sysinfo.h>
+#include <cstring> // strerror
 
 namespace AzCore {
 

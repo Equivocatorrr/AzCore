@@ -14,6 +14,9 @@ namespace AzCore {
 template<typename T>
 using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
 
+template<typename Array_t, typename Index_t>
+using array_subscript_t = remove_cvref_t<decltype(Array_t()[(Index_t)0])>;
+
 } // namespace AzCore
 
 #endif // AZCORE_TEMPLATE_UTIL_HPP

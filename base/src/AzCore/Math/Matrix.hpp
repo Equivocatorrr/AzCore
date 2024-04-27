@@ -1293,8 +1293,8 @@ struct Matrix {
 		Vector<T> swapStorage = workspace.GetVector(dims);
 		BubbleSort(values, 0, values.Count(), [](Vector<T> &array, i64 indexLHS, i64 indexRHS) -> bool {
 			return array[indexLHS] > array[indexRHS];
-		}, [&](Vector<T> &array, i64 indexLHS, i64 indexRHS) {
-			Swap(array[indexLHS], array[indexRHS]);
+		}, [&](Vector<T> &array, i64 indexLHS, i64 indexRHS, T &temp) {
+			Swap(array[indexLHS], array[indexRHS], temp);
 			swapStorage = vectors[indexLHS];
 			vectors[indexLHS] = vectors[indexRHS];
 			vectors[indexRHS] = swapStorage;

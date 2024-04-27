@@ -27,6 +27,29 @@ void Swap(T &a, T &b) {
 	b = std::move(c);
 }
 
+template<typename T>
+void SwapByValue(T &a, T &b) {
+	T c = a;
+	a = b;
+	b = c;
+}
+
+// c is externally-provided temporary storage to perform the swap. This is helpful for algorithms that perform lots of swaps where T's constructor is expensive.
+template<typename T>
+void Swap(T &a, T &b, T &c) {
+	c = std::move(a);
+	a = std::move(b);
+	b = std::move(c);
+}
+
+// c is externally-provided temporary storage to perform the swap. This is helpful for algorithms that perform lots of swaps where T's constructor is expensive.
+template<typename T>
+void SwapByValue(T &a, T &b, T &c) {
+	c = a;
+	a = b;
+	b = c;
+}
+
 constexpr bool IsPowerOfTwo(size_t value) {
 	return (value & (value-1)) == 0;
 }

@@ -12,6 +12,7 @@ add_executable(unit_tests
 	src/tests/CustomMaths.cpp
 	src/tests/Angle.cpp
 	src/tests/Quaternion.cpp
+	src/tests/Sort.cpp
 	src/tests/String.cpp
 	src/tests/StringArena.cpp
 	src/tests/Shuffle.cpp

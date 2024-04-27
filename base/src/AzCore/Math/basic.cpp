@@ -73,30 +73,4 @@ u64 GreatestCommonFactor(std::initializer_list<u64> list) {
 	return val;
 }
 
-// static long long greatest_common_divisor(long long a, long long b) {
-// 	// while (a != b) {
-// 	//     if (a > b) {
-// 	//         a -= b;
-// 	//     } else {
-// 	//         b -= a;
-// 	//     }
-// 	// }
-// 	// return a;
-// 	int shift;
-// 	if (a == 0) return b;
-// 	if (b == 0) return a;
-// 	shift = builtin_ctzll(a | b);
-// 	a >>= builtin_ctzll(a);
-// 	do {
-// 		b >>= __builtin_ctzll(b);
-// 		if (a > b) {
-// 			long long t = b;
-// 			b = a;
-// 			a = t;
-// 		}
-// 		b = b - a;
-// 	} while (b != 0);
-// 	return a << shift;
-// }
-
 } // namespace AzCore

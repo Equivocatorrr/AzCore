@@ -225,6 +225,28 @@ inline void AppendToString(String &string, const char *value) {
 	}
 }
 
+template<typename T>
+inline void AppendToString(String &string, SimpleRange<T> array) {
+	AppendToString(string, "{ ");
+	bool once = true;
+	for (i32 i = 0; i < array.size; i++) {
+		AppendToString(string, array[i]);
+		AppendToString(string, ", ");
+	}
+	if (array.size) string.size -= 2;
+	AppendToString(string, " }");
+}
+
+template<typename T, i32 allocTail>
+inline void AppendToString(String &string, const Array<T, allocTail> &array) {
+	AppendToString(string, SimpleRange<T>(array));
+}
+
+template<typename T, i32 noAllocCount, i32 allocTail>
+inline void AppendToString(String &string, const ArrayWithBucket<T, noAllocCount, allocTail> &array) {
+	AppendToString(string, SimpleRange<T>(array));
+}
+
 inline void AppendToString(String &string, SimpleRange<char> value) {
 	if (_indentState.string.size == 0) {
 		string.Append(value);

@@ -178,17 +178,3 @@ void EquationsTest() {
 }
 
 } // namespace EquationsTestNamespace
-
-namespace AzCore {
-
-template <typename T, i32 allocTail>
-void AppendToString(String &string, Array<T, allocTail> in) {
-	AppendToString(string, "{");
-	for (const T &val : in) {
-		AppendToString(string, val);
-		AppendToString(string, ", ");
-	}
-	if (in.size) string.size -= 2;
-	AppendToString(string, "}");
-}
-} // namespace AzCore

@@ -1,5 +1,6 @@
 #version 460
 #extension GL_ARB_separate_shader_objects : enable
+#extension GL_GOOGLE_include_directive : enable
 
 layout(location=0) in vec3 inPosition;
 layout(location=1) in vec3 inNormal;
@@ -16,48 +17,10 @@ layout(location=4) out int outInstanceIndex;
 layout(location=5) out vec3 outWorldPos;
 layout(location=6) out vec4 outProjPos;
 
-layout(set=0, binding=0) uniform WorldInfo {
-	mat4 proj;
-	mat4 view;
-	mat4 viewProj;
-	mat4 sun;
-	vec3 sunDir;
-	vec3 eyePos;
-} worldInfo;
-
-struct ObjectInfo {
-	mat4 model;
-	// Material must be laid out like this because if it's a struct, it will get padded and bonesOffset will also be padded out, wasting some space.
-	vec4 color;
-	vec3 emit;
-	float normal;
-	vec3 sssColor;
-	float metalness;
-	vec3 sssRadius;
-	float roughness;
-	float sssFactor;
-	uint isFoliage;
-	// Texture indices
-	uint texAlbedo;
-	uint texEmit;
-	uint texNormal;
-	uint texMetalness;
-	uint texRoughness;
-	// BONES
-	uint bonesOffset;
-};
-
-layout(std140, set=0, binding=1) readonly buffer ObjectBuffer {
-	ObjectInfo objects[];
-} objectBuffer;
-
-layout(std140, set=0, binding=2) readonly buffer BonesBuffer {
-	mat4 bones[];
-} bonesBuffer;
-
-float sqrNorm(vec3 a) {
-	return dot(a, a);
-}
+#include "headers/Helpers.glsl"
+#include "headers/WorldInfo.glsl"
+#include "headers/ObjectBuffer.glsl"
+#include "headers/BonesBuffer.glsl"
 
 void main() {
 	mat4 model = objectBuffer.objects[gl_InstanceIndex].model;
@@ -73,9 +36,9 @@ void main() {
 	// With positions being scaled by S, normals must be scaled by 1/S
 	// Scale is represented as the norm of the basis vectors, so scale them by 1/norm(B)^2
 	mat3 modelRotationScale = mat3(
-		model[0].xyz / sqrNorm(model[0].xyz),
-		model[1].xyz / sqrNorm(model[1].xyz),
-		model[2].xyz / sqrNorm(model[2].xyz)
+		model[0].xyz / normSqr(model[0].xyz),
+		model[1].xyz / normSqr(model[1].xyz),
+		model[2].xyz / normSqr(model[2].xyz)
 	);
 	vec4 worldPos = model * vec4(inPosition, 1.0);
 	gl_Position = worldInfo.viewProj * worldPos;

@@ -1,5 +1,6 @@
 #version 460
 #extension GL_ARB_separate_shader_objects : enable
+#extension GL_GOOGLE_include_directive : enable
 
 layout(location=0) in vec2 texCoord;
 layout(location=1) in vec3 inNormal;
@@ -9,125 +10,11 @@ layout(location=4) flat in int inInstanceIndex;
 layout(location=5) in vec3 inWorldPos;
 layout(location=6) in vec4 inProjPos;
 
-layout (location = 0) out vec4 outColor;
+layout(location=0) out vec4 outColor;
 
-layout(set=0, binding=0) uniform WorldInfo {
-	mat4 proj;
-	mat4 view;
-	mat4 viewProj;
-	mat4 sun;
-	vec3 sunDir;
-	vec3 eyePos;
-	vec3 ambientLight;
-	vec3 fogColor;
-} worldInfo;
-
-layout(set=0, binding=3) uniform sampler2D texSampler[1];
-layout(set=0, binding=4) uniform sampler2D shadowMap;
-
-const float PI = 3.1415926535897932;
-
-struct Material {
-	// The following multiply with any texture bound (with default textures having a value of 1)
-	vec4 color;
-	vec3 emit;
-	float normal;
-	vec3 sssColor;
-	float metalness;
-	vec3 sssRadius;
-	float roughness;
-	float sssFactor;
-	uint isFoliage;
-	// Texture indices
-	uint texAlbedo;
-	uint texEmit;
-	uint texNormal;
-	uint texMetalness;
-	uint texRoughness;
-};
-
-struct ObjectInfo {
-	mat4 model;
-	Material material;
-};
-
-layout(std140, set=0, binding=1) readonly buffer ObjectBuffer {
-	ObjectInfo objects[];
-} objectBuffer;
-
-const vec3 lightColor = vec3(1.0, 0.9, 0.8) * 4.0;
-
-float sqr(float a) {
-	return a * a;
-}
-
-float sqrNorm(vec3 a) {
-	return dot(a, a);
-}
-
-vec3 sqr(vec3 a) {
-	return a * a;
-}
-
-float GetZFromDepth(float depth)
-{
-	return worldInfo.proj[2][3] / (depth - worldInfo.proj[2][2]);
-}
-
-float DistributionGGX(float cosThetaHalfViewNorm, float roughness) {
-	roughness = sqr(roughness);
-	float denominator = sqr(cosThetaHalfViewNorm) * (roughness - 1.0) + 1.0;
-	return roughness / (PI * sqr(denominator));
-}
-
-// k is a remapping of roughness that depends on whether it's direct or indirect lighting
-float GeometrySchlickGGX(float cosTheta, float k) {
-	return cosTheta / ((abs(cosTheta) * (1.0 - k)) + k);
-}
-
-float GeometrySmith(float cosThetaView, float cosThetaLight, float k) {
-	return GeometrySchlickGGX(cosThetaView, k) * GeometrySchlickGGX(cosThetaLight, k);
-}
-
-vec3 FresnelSchlick(float cosThetaView, vec3 baseReflectivity) {
-	return baseReflectivity + (1.0 - baseReflectivity) * pow(1.0 - cosThetaView, 5.0);
-}
-
-vec3 FresnelSchlickRoughness(float cosThetaView, vec3 baseReflectivity, float roughness) {
-	return baseReflectivity + (max(vec3(1.0 - roughness), baseReflectivity) - baseReflectivity) * pow(1.0 - cosThetaView, 5.0);
-}
-
-vec3 wrap(float attenuation, vec3 wrapFac) {
-	return clamp((vec3(attenuation) + wrapFac) / sqr(1.0 + wrapFac), 0.0, 1.0);
-}
-
-const float minPenumbraVal = 0.25;
-
-float ChebyshevInequality(vec2 moments, float depth) {
-	float squaredMean = moments.y;
-	float meanSquared = sqr(moments.x);
-	float minVariance = sqr(0.001);
-	float variance = max(squaredMean - meanSquared, minVariance);
-	float pMax = variance / (variance + sqr(moments.x - depth));
-	if (depth < 0.0) return 1.0;
-
-	// Lower bound helps reduce light bleeding
-	return smoothstep(minPenumbraVal, 1.0, pMax);
-}
-
-vec3 TonemapACES(vec3 color)
-{
-	float a = 2.51;
-	float b = 0.03;
-	float c = 2.43;
-	float d = 0.59;
-	float e = 0.14;
-	return clamp((color*(a*color+b))/(color*(c*color+d)+e), 0.0, 1.0);
-}
-
-const float sunRadiusDegrees = 0.6/2.0;
-const float sunRadiusRadians = PI * sunRadiusDegrees / 180.0;
-const float sunTanRadius = tan(sunRadiusRadians);
+#include "headers/CommonFrag.glsl"
+#include "headers/WorldInfo.glsl"
+#include "headers/ObjectBuffer.glsl"
 
 void main() {
 	ObjectInfo info = objectBuffer.objects[inInstanceIndex];
@@ -201,13 +88,13 @@ void main() {
 
 	float sssDistance = (sssDepth - sunCoord.z) / length(worldInfo.sun[2].xyz);
 
-	vec4 albedo = texture(texSampler[info.material.texAlbedo], texCoord) * info.material.color;
-	vec3 emit = texture(texSampler[info.material.texEmit], texCoord).rgb * info.material.emit;
-	vec3 normal = texture(texSampler[info.material.texNormal], texCoord).xyz * 2.0 - 1.0;
-	float metalness = texture(texSampler[info.material.texMetalness], texCoord).x * info.material.metalness;
-	float roughness = texture(texSampler[info.material.texRoughness], texCoord).x * info.material.roughness;
+	vec4 albedo = texture(texSampler[info.texAlbedo], texCoord) * info.color;
+	vec3 emit = texture(texSampler[info.texEmit], texCoord).rgb * info.emit;
+	vec3 normal = texture(texSampler[info.texNormal], texCoord).xyz * 2.0 - 1.0;
+	float metalness = texture(texSampler[info.texMetalness], texCoord).x * info.metalness;
+	float roughness = texture(texSampler[info.texRoughness], texCoord).x * info.roughness;
 	roughness = max(0.001, sqr(roughness));
-	float sssFactor = info.material.sssFactor;
+	float sssFactor = info.sssFactor;
 
 	vec3 surfaceNormal = normalize(inNormal);
 	vec3 surfaceTangent = normalize(inTangent);
@@ -220,7 +107,7 @@ void main() {
 		surfaceNormal = -surfaceNormal;
 	}
 	mat3 invTBN = transpose(mat3(surfaceTangent, surfaceBitangent, surfaceNormal));
-	normal = normalize(mix(surfaceNormal, normal * invTBN, info.material.normal));
+	normal = normalize(mix(surfaceNormal, normal * invTBN, info.normal));
 
 	// Negate viewNormal because reflect expects the ray to be pointing towards the surface
 	vec3 viewReflect = reflect(-viewNormal, normal);
@@ -249,20 +136,20 @@ void main() {
 	vec3 fresnel = FresnelSchlick(cosThetaView, baseReflectivity);
 	vec3 fresnelAmbient = FresnelSchlickRoughness(cosThetaView, baseReflectivity, roughness);
 
-	float isFoliage = float(info.material.isFoliage);
-	vec3 sssWrap = tanh(info.material.sssRadius);
+	float isFoliage = float(info.isFoliage);
+	vec3 sssWrap = tanh(info.sssRadius);
 
 	vec3 wrapFac = wrap(attenuationWrap, sssWrap);
-	vec3 diffuse = albedo.rgb * attenuationLight * (1.0 - sssFactor) * lightColor * attenuationGeometry;
+	vec3 diffuse = albedo.rgb * attenuationLight * (1.0 - sssFactor) * sunLightColor * attenuationGeometry;
 
-	vec3 sssFac = min(1.0 - vec3(sssDistance) / info.material.sssRadius, 1.0);
+	vec3 sssFac = min(1.0 - vec3(sssDistance) / info.sssRadius, 1.0);
 	sssFac = pow(vec3(5.0 - isFoliage*3.0), sssFac - 1.0);
 	sssFac = max(sssFac, 0.0);
 	// 0.5 comes from the fact that light is only coming from one direction, but scattering in all directions
-	vec3 subsurface = (sssFac * lightColor * 0.5 + worldInfo.ambientLight) * attenuationAmbient;
-	subsurface *= info.material.sssColor * sssFactor;
+	vec3 subsurface = (sssFac * sunLightColor * 0.5 + worldInfo.ambientLight) * attenuationAmbient;
+	subsurface *= info.sssColor * sssFactor;
 
-	vec3 specular = lightColor * attenuationSpecular * attenuationLight * attenuationGeometry;
+	vec3 specular = sunLightColor * attenuationSpecular * attenuationLight * attenuationGeometry;
 
 	vec3 ambientDiffuse = albedo.rgb * worldInfo.ambientLight * attenuationAmbient;
 	vec3 ambientSpecular = worldInfo.ambientLight;

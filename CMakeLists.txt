@@ -85,6 +85,9 @@ function(VULKAN_SHADERS target SHADER_SOURCE_DIR SHADER_OUT_DIR)
 	  "${SHADER_SOURCE_DIR}/*.frag"
 	  "${SHADER_SOURCE_DIR}/*.vert"
 	)
+	file(GLOB_RECURSE SHADER_HEADERS
+	  "${SHADER_SOURCE_DIR}/headers/*.glsl"
+	)
 
 	foreach(SHADER ${SHADER_SOURCES})
 	  get_filename_component(FILENAME ${SHADER} NAME)
@@ -94,13 +97,13 @@ function(VULKAN_SHADERS target SHADER_SOURCE_DIR SHADER_OUT_DIR)
 		#   COMMAND echo "Running custom command: \"${GLSL_VALIDATOR} -V ${SHADER} -o ${SPIRV}\""
 		  COMMAND ${CMAKE_COMMAND} -E make_directory "${SHADER_OUT_DIR}/"
 		  COMMAND "${GLSL_VALIDATOR}" -V ${SHADER} -o ${SPIRV}
-		  DEPENDS ${SHADER}
+		  DEPENDS ${SHADER} ${SHADER_HEADERS}
 	  )
 	  list(APPEND SHADER_BINARIES ${SPIRV})
 	endforeach(SHADER)
 
 	set_source_files_properties(${SHADER_BINARIES} PROPERTIES GENERATED TRUE)
-	add_custom_target("${target}_Shaders" DEPENDS ${SHADER_BINARIES})
+	add_custom_target("${target}_Shaders" DEPENDS ${SHADER_BINARIES} ${SHADER_HEADERS})
 	add_dependencies(${target} "${target}_Shaders")
 	# target_sources(${target} PRIVATE ${SHADER_BINARIES})
 endfunction()

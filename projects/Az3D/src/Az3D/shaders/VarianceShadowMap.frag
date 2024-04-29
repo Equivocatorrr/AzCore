@@ -1,5 +1,6 @@
 #version 460
 #extension GL_ARB_separate_shader_objects : enable
+#extension GL_GOOGLE_include_directive : enable
 
 layout(location=0) in vec2 texCoord;
 layout(location=1) flat in int inInstanceIndex;
@@ -7,46 +8,9 @@ layout(location=2) centroid in float inDepth;
 
 layout(location=0) out vec2 outColor;
 
-layout(set=0, binding=0) uniform WorldInfo {
-	mat4 proj;
-	mat4 view;
-	mat4 viewProj;
-	mat4 sun;
-	vec3 sunDir;
-	vec3 eyePos;
-} worldInfo;
-
-layout(set=0, binding=3) uniform sampler2D texSampler[1];
-
-const float PI = 3.1415926535897932;
-
-struct Material {
-	// The following multiply with any texture bound (with default textures having a value of 1)
-	vec4 color;
-	vec3 emit;
-	float normal;
-	vec3 sssColor;
-	float metalness;
-	vec3 sssRadius;
-	float roughness;
-	float sssFactor;
-	uint isFoliage;
-	// Texture indices
-	uint texAlbedo;
-	uint texEmit;
-	uint texNormal;
-	uint texMetalness;
-	uint texRoughness;
-};
-
-struct ObjectInfo {
-	mat4 model;
-	Material material;
-};
-
-layout(std140, set=0, binding=1) readonly buffer ObjectBuffer {
-	ObjectInfo objects[];
-} objectBuffer;
+#include "headers/CommonFrag.glsl"
+#include "headers/WorldInfo.glsl"
+#include "headers/ObjectBuffer.glsl"
 
 void main() {
 	ObjectInfo info = objectBuffer.objects[inInstanceIndex];

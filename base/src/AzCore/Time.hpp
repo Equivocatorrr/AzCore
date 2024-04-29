@@ -24,6 +24,12 @@ using Clock = std::chrono::steady_clock;
 using ClockTime = std::chrono::steady_clock::time_point;
 
 String FormatTime(Nanoseconds time);
+void AppendToString(String &string, Nanoseconds time);
+void AppendToString(String &string, Microseconds time);
+void AppendToString(String &string, Milliseconds time);
+void AppendToString(String &string, Seconds time);
+void AppendToString(String &string, Minutes time);
+void AppendToString(String &string, Hours time);
 
 // Counts frametimes and gives you meaningful information about the last 30 frames.
 // times are measured in milliseconds

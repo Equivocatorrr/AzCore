@@ -1291,7 +1291,7 @@ struct Matrix {
 		}
 		values = A_cur->Diag();
 		Vector<T> swapStorage = workspace.GetVector(dims);
-		BubbleSort(values, 0, values.Count(), [](Vector<T> &array, i64 indexLHS, i64 indexRHS) -> bool {
+		Sort(values, 0, values.Count(), [](Vector<T> &array, i64 indexLHS, i64 indexRHS) -> bool {
 			return array[indexLHS] > array[indexRHS];
 		}, [&](Vector<T> &array, i64 indexLHS, i64 indexRHS, T &temp) {
 			Swap(array[indexLHS], array[indexRHS], temp);

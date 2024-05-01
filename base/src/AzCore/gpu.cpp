@@ -4127,7 +4127,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 				// TODO: It could be nice to print out the final bindings, along with alignment, as working these things out for writing shaders and packing data in our vertex buffer might be annoying.
 			}
 			// TODO: Support multiple simultaneous bindings
-			vertexInputState.vertexBindingDescriptionCount = 1;
+			vertexInputState.vertexBindingDescriptionCount = pipeline->vertexInputs.size ? 1 : 0;
 			vertexInputState.pVertexBindingDescriptions = &vertexInputBindingDescription;
 			vertexInputState.vertexAttributeDescriptionCount = vertexInputAttributeDescriptions.size;
 			vertexInputState.pVertexAttributeDescriptions = vertexInputAttributeDescriptions.data;
@@ -5170,7 +5170,7 @@ void CmdPushConstants(Context *context, const void *src, u32 offset, u32 size) {
 	VkShaderStageFlags stageFlags = 0;
 	// TODO: Is this dumb? Should we just pass in the stage?
 	for (VkPushConstantRange &range : pipeline->pushConstantRanges) {
-		if (range.offset <= offset+size && range.offset+range.size > offset) {
+		if (range.offset < offset+size && range.offset+range.size > offset) {
 			stageFlags |= range.stageFlags;
 		}
 	}

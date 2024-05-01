@@ -317,7 +317,9 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 	}
 	case WM_KILLFOCUS: {
 		thisWindow->focused = false;
-		thisWindow->input->ReleaseAll();
+		if (thisWindow->input != nullptr) {
+			thisWindow->input->ReleaseAll();
+		}
 		break;
 	}
 	case WM_DPICHANGED: {
@@ -337,7 +339,6 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 
 	if (thisWindow->input != nullptr && thisWindow->focused) {
 		if (press) {
-
 			if (keyCode != 0) {
 				thisWindow->input->Press(keyCode);
 			}
@@ -364,7 +365,7 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 bool Window::Open() {
 	data->resizeHack = false;
 	data->moveHack = false;
-	
+
 	data->instance = GetModuleHandle(NULL);
 	data->windowIcon = LoadIcon(data->instance, "icon.ico");
 	data->windowIconSmall = data->windowIcon;

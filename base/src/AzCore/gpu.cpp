@@ -640,11 +640,11 @@ String FormatSize(u64 size) {
 
 #define CHECK_INIT(obj) AzAssert((obj)->initted == false, "Trying to init a " #obj " that's already initted")
 #define CHECK_DEINIT(obj) AzAssert((obj)->initted == true, "Trying to deinit a " #obj " that's not initted")
-#define TRACE_INIT(obj) io::cout.PrintLnDebug("Initializing " #obj " \"", (obj)->tag, "\"");
-#define TRACE_DEINIT(obj) io::cout.PrintLnDebug("Deinitializing " #obj " \"", (obj)->tag, "\"");
+#define TRACE_INIT(obj) io::cout.PrintLnDebug("Initializing ", TypeNameShort<decltype(*obj)>(), " \"", (obj)->tag, "\"");
+#define TRACE_DEINIT(obj) io::cout.PrintLnDebug("Deinitializing ", TypeNameShort<decltype(*obj)>(), " \"", (obj)->tag, "\"");
 
-#define ERROR_RESULT(obj, ...) Stringify(#obj " \"", (obj)->tag, "\" error in ", __FUNCTION__, ":", Indent(), "\n", __VA_ARGS__)
-#define WARNING(obj, ...) io::cout.PrintLn(#obj " \"", (obj)->tag, "\" warning in ", __FUNCTION__, ": ", __VA_ARGS__)
+#define ERROR_RESULT(obj, ...) Stringify(TypeNameShort<decltype(*(obj))>(), " \"", (obj)->tag, "\" error in ", __FUNCTION__, ":", Indent(), "\n", __VA_ARGS__)
+#define WARNING(obj, ...) io::cout.PrintLn(TypeNameShort<decltype(*(obj))>(), " \"", (obj)->tag, "\" warning in ", __FUNCTION__, ": ", __VA_ARGS__)
 
 #define INIT_HEAD(obj) CHECK_INIT(obj); TRACE_INIT(obj)
 #define DEINIT_HEAD(obj) CHECK_DEINIT(obj); TRACE_DEINIT(obj)

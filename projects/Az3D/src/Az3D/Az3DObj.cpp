@@ -6,6 +6,7 @@
 #include "Az3DObj.hpp"
 #include "AzCore/IO/Log.hpp"
 #include "AzCore/Memory/Endian.hpp"
+#include "AzCore/Memory/Util.hpp"
 
 // NOTE: File is little endian, and current target platform is little endian.
 // If this ever changes in the future we can do endian stuff. For now we do the easy thing.
@@ -1018,11 +1019,6 @@ namespace Tables {
 	};
 
 } // namespace Tables
-
-bool StartsWith(Str string, Str test) {
-	if (string.size < test.size) return false;
-	return string.SubRange(0, test.size) == test;
-}
 
 Str StringUntil(Str source, char delimiter) {
 	i32 i = 0;

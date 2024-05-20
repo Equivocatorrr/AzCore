@@ -9,6 +9,7 @@
 
 #include "../basictypes.hpp"
 #include "Range.hpp"
+#include "../TemplateUtil.hpp"
 
 #include <string.h>
 #include <memory>
@@ -130,6 +131,24 @@ Exponent(f32 value) {
 	return exponent;
 }
 
+constexpr bool StartsWith(SimpleRange<char> string, SimpleRange<char> test) {
+	if (string.size < test.size) return false;
+	return string.SubRange(0, test.size) == test;
+}
+
+// cuts the first count chars off of the beginning of string
+constexpr void RemoveFromBeginning(SimpleRange<char> &string, i64 count) {
+	string.str += count;
+	string.size -= count;
+}
+
+// Checks if string starts with test, and if it does, cuts that part off
+constexpr void RemoveFromBeginning(SimpleRange<char> &string, SimpleRange<char> test) {
+	if (StartsWith(string, test)) {
+		RemoveFromBeginning(string, test.size);
+	}
+}
+
 template <typename T>
 constexpr auto TypeName() {
 	SimpleRange<char> name, prefix, suffix;
@@ -145,6 +164,25 @@ constexpr auto TypeName() {
 		suffix = ">(void)";
 	#endif
 	return name.SubRange(prefix.size, name.size - prefix.size - suffix.size);
+}
+
+template<typename T>
+constexpr auto TypeNameBase() {
+	return TypeName<az::remove_cvref_t<T>>();
+}
+
+template<typename T>
+constexpr auto TypeNameShort() {
+	SimpleRange<char> name = TypeNameBase<T>();
+	RemoveFromBeginning(name, "struct ");
+	i64 i;
+	for (i = name.size-1; i > 0; i--) {
+		if (name[i] == ':') break;
+	}
+	if (i != 0) {
+		RemoveFromBeginning(name, i+1);
+	}
+	return name;
 }
 
 } // namespace AzCore

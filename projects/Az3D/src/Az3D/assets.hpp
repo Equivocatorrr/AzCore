@@ -51,13 +51,16 @@ struct Material {
 
 	inline static Material Blank() {
 		return Material{
-			az::vec4(1.0f),
-			az::vec3(0.0f),
-			1.0f,
-			0.0f,
-			0.5f,
-			0,
-			1, 1, 1, 1, 1};
+			az::vec4(1.0f), // color
+			az::vec3(0.0f), // emit
+			1.0f,           // normal
+			az::vec3(1.0f), // sssColor
+			0.0f,           // metalness
+			az::vec3(0.2f), // sssRadius
+			0.5f,           // roughness
+			0.0f,           // sssFactor
+			0,              // isFoliage
+			1, 1, 2, 1, 1};
 	}
 };
 

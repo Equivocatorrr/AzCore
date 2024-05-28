@@ -128,6 +128,7 @@ void Font::Decode() {
 	AZCORE_PROFILING_FUNC_TIMER()
 	font.LoadFromBuffer(std::move(file->data));
 	fontBuilder.font = &font;
+	fontBuilder.resolution = font::FontBuilder::HIGH;
 	fontBuilder.AddRange(0, 128);
 	fontBuilder.Build();
 }
@@ -625,7 +626,7 @@ i32 Manager::FindMapping(SimpleRange<char> filename, Type type) {
 }
 
 f32 Manager::CharacterWidth(char32 c, i32 fontIndex) const {
-	return GameSystems::sys->rendering.CharacterWidth(c, &fonts[fontIndex], &fonts[0]);
+	return Rendering::CharacterWidth(c, &fonts[fontIndex], &fonts[0]);
 }
 
 }

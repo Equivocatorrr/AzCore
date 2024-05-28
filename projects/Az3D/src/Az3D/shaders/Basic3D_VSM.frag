@@ -14,11 +14,10 @@ layout(location=0) out vec2 outColor;
 
 void main() {
 	ObjectInfo info = objectBuffer.objects[inInstanceIndex];
-
-	// float alpha = texture(texSampler[info.material.texAlbedo], texCoord).a * info.material.color.a;
-	// if (alpha < 0.5) {
-	// 	discard;
-	// }
+#if 0
+	float alpha = texture(texSampler[info.material.texAlbedo], texCoord).a * info.material.color.a;
+	if (alpha < 0.5) discard;
+#endif
 	outColor.x = inDepth;
 	outColor.y = inDepth*inDepth;
 }

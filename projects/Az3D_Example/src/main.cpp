@@ -202,6 +202,12 @@ struct Test : public GameSystems::System {
 				Rendering::DrawMesh(contexts[0], meshGround, {transform}, true, true);
 			}
 		}
+		{
+			Assets::Material material = Assets::Material::Blank();
+			material.color = vec4(vec3(0.02f), 1.0f);
+			material.roughness = 0.1f;
+			Rendering::DrawText(contexts[0], 0, vec2(0.5f), ToWString("Hello, you beautiful thing!\nWhat the dog doin?"), Rendering::GetTransform(vec3(1.0f, 3.0f, 0.2f), quat::Rotation(pi, vec3(0.0f, 0.0f, 1.0f)) * quat::Rotation(-halfpi, vec3(1.0f, 0.0f, 0.0f)), vec3(1.0f)), true, material);
+		}
 		Rendering::DrawMesh(contexts[0], meshTree, {Rendering::GetTransform(vec3(-2.0f, 0.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
 		Rendering::DrawMesh(contexts[0], meshFence, {Rendering::GetTransform(vec3(0.0f, 8.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
 		Rendering::DrawMeshAnimated(contexts[0], meshShitman, actionJump, jumpT, {Rendering::GetTransform(vec3(6.0f, 0.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true, &ikParametersShitman);
@@ -240,7 +246,7 @@ struct Test : public GameSystems::System {
 			}
 		}
 		// Rendering::DrawDebugSphere(contexts[0], vec3(0.0f), 1.0f, vec4(1.0f));
-		sys->rendering.uniforms.sunDir = vec3(0.0f, vec2::UnitVecFromAngle(sunAngle.value()));
+		sys->rendering.worldInfo.sunDir = vec3(0.0f, vec2::UnitVecFromAngle(sunAngle.value()));
 	}
 };
 

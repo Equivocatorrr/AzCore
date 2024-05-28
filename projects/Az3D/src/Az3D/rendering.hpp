@@ -40,18 +40,29 @@ extern i32 numBinarySearchIterations;
 
 struct Manager;
 
-enum FontAlign {
-	// Horizontal
-	LEFT,
-	RIGHT,
-	JUSTIFY,
-	// Either
-	MIDDLE,
-	CENTER = MIDDLE,
-	// Vertical
-	TOP,
-	BOTTOM
+struct GlyphInfo {
+	vec2 uvs[2];
+	vec2 offsets[2];
 };
+
+struct FontBuffer {
+	u32 texAtlas;
+	Array<GlyphInfo> glyphs;
+	inline i64 TotalSize() const {
+		return sizeof(u32) * 2 + glyphs.size * sizeof(GlyphInfo);
+	}
+};
+
+struct TextShaderInfo {
+	static constexpr u32 MAX_GLYPHS = 36;
+	mat2 glyphTransforms[MAX_GLYPHS];
+	vec2 glyphOffsets[MAX_GLYPHS];
+	u32 glyphIndices[MAX_GLYPHS];
+	u32 fontIndex;
+	u32 objectIndex;
+	u32 _pad[2];
+};
+static_assert(sizeof(TextShaderInfo) == 256 * 4);
 
 using Vertex = Az3DObj::Vertex;
 
@@ -71,11 +82,16 @@ enum PipelineEnum {
 	PIPELINE_BASIC_3D,
 	// Special pipeline that renders backfaces
 	PIPELINE_FOLIAGE_3D,
+	PIPELINE_BASIC_3D_VSM,
 	PIPELINE_FONT_3D,
+	PIPELINE_FONT_3D_VSM,
 	PIPELINE_COUNT,
 	// Range of pipelines that use Basic3D.vert
 	PIPELINE_3D_RANGE_START=PIPELINE_BASIC_3D,
-	PIPELINE_3D_RANGE_END=PIPELINE_COUNT,
+	PIPELINE_3D_RANGE_END=PIPELINE_FONT_3D,
+	// Range of pipelines that use Font3D.vert
+	PIPELINE_FONT_3D_RANGE_START=PIPELINE_FONT_3D,
+	PIPELINE_FONT_3D_RANGE_END=PIPELINE_COUNT,
 };
 
 typedef u32 PipelineIndex;
@@ -104,7 +120,7 @@ struct LightBin {
 	u8 lightIndices[MAX_LIGHTS_PER_BIN];
 };
 
-struct UniformBuffer {
+struct WorldInfoBuffer {
 	mat4 proj;
 	mat4 view;
 	mat4 viewProj;
@@ -128,12 +144,6 @@ struct Camera {
 	Degrees32 fov = 90.0f;
 };
 
-// I fucking hate Microsoft and every decision they've ever made
-// This should never be fucking necessary
-#ifdef DrawText
-#undef DrawText
-#endif
-
 struct ArmatureAction {
 	Assets::MeshIndex meshIndex;
 	Assets::ActionIndex actionIndex;
@@ -141,9 +151,15 @@ struct ArmatureAction {
 	bool operator==(const ArmatureAction &other) const;
 };
 
+struct DrawTextInfo {
+	TextShaderInfo shaderInfo;
+	u32 glyphCount;
+};
+
 // Contains all the info for a single indexed draw call
 struct DrawCallInfo {
 	ArrayWithBucket<mat4, 1> transforms;
+	Array<DrawTextInfo> textsToDraw;
 	// World-space culling info, also used for depth sorting
 	vec3 boundingSphereCenter;
 	f32 boundingSphereRadius;
@@ -178,15 +194,9 @@ static_assert(sizeof(ObjectShaderInfo) == 40*4);
 
 struct DrawingContext {
 	Array<DrawCallInfo> thingsToDraw;
+	// Array<DrawTextInfo> textsToDraw;
 	Array<DebugVertex> debugLines;
 };
-
-#ifdef near
-#undef near
-#endif
-#ifdef far
-#undef far
-#endif
 
 struct Plane {
 	vec3 normal;
@@ -216,16 +226,16 @@ struct Manager {
 		Array<GPU::Image*> textures;
 		i32 concurrency = 1;
 
-		GPU::Buffer *uniformBuffer;
+		GPU::Buffer *worldInfoBuffer;
 		GPU::Buffer *objectBuffer;
 		GPU::Buffer *bonesBuffer;
+		GPU::Buffer *textBuffer;
 		GPU::Buffer *vertexBuffer;
 		GPU::Buffer *indexBuffer;
 
 		GPU::Context *contextShadowMap;
 		GPU::Image *shadowMapImage;
 		GPU::Framebuffer *framebufferShadowMaps;
-		GPU::Pipeline *pipelineShadowMaps;
 		GPU::Image *shadowMapConvolutionImage;
 		GPU::Framebuffer *framebufferConvolution[2];
 		GPU::Pipeline *pipelineShadowMapConvolution;
@@ -234,8 +244,8 @@ struct Manager {
 		// For debug lines
 		GPU::Buffer *debugVertexBuffer;
 
-		GPU::Buffer *fontVertexBuffer;
-		Array<GPU::Image*> fontImages;
+		Array<GPU::Buffer*> fontBuffers;
+		Array<FontBuffer> fontBufferDatas;
 
 		Array<GPU::Pipeline*> pipelines;
 
@@ -243,19 +253,19 @@ struct Manager {
 		// One for each draw call, sent to the shader
 		Array<ObjectShaderInfo> objectShaderInfos;
 		Array<mat4> bones;
+		Array<TextShaderInfo> textShaderInfos;
 		// One for each thread
 		Array<DrawingContext> drawingContexts;
 		Array<DebugVertex> debugVertices;
 	} data;
 
-	Array<u32> fontIndexOffsets{0};
 	vec2 screenSize = vec2(1280.0f, 720.0f);
 	f32 aspectRatio; // height/width
 	vec3 backgroundHSV = vec3(197.4f/360.0f, 42.6f/100.0f, 92.2f/100.0f);
 	vec3 backgroundRGB; // Derivative of HSV
 	// Emptied at the beginning of every frame
 	Array<Light> lights;
-	UniformBuffer uniforms;
+	WorldInfoBuffer worldInfo;
 	Mutex lightsMutex;
 	Camera camera;
 	Frustum sunFrustum;
@@ -263,27 +273,44 @@ struct Manager {
 	bool Init();
 	bool Deinit();
 	void UpdateLights();
-	bool UpdateFonts();
-	bool UpdateUniforms(GPU::Context *context);
+	bool UpdateFonts(GPU::Context *context);
+	bool UpdateWorldInfo(GPU::Context *context);
 	bool UpdateObjects(GPU::Context *context);
 	bool UpdateDebugLines(GPU::Context *context);
 	bool Draw();
 	bool Present();
 
 	void UpdateBackground();
-
-	f32 CharacterWidth(char32 character, const Assets::Font *fontDesired, const Assets::Font *fontFallback) const;
-	f32 LineWidth(const char32 *string, i32 fontIndex) const;
-	vec2 StringSize(WString string, i32 fontIndex) const;
-	f32 StringWidth(WString string, i32 fontIndex) const;
-	WString StringAddNewlines(WString string, i32 fontIndex, f32 maxWidth) const;
-	void LineCursorStartAndSpaceScale(f32 &dstCursor, f32 &dstSpaceScale, f32 scale, f32 spaceWidth, i32 fontIndex, const char32 *string, f32 maxWidth, FontAlign alignH) const;
-
 };
 
 void DrawMeshPart(DrawingContext &context, Assets::MeshPart *meshPart, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows, az::Optional<ArmatureAction> action=az::Optional<ArmatureAction>());
 void DrawMesh(DrawingContext &context, Assets::MeshIndex mesh, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows);
 void DrawMeshAnimated(DrawingContext &context, Assets::MeshIndex mesh, Assets::ActionIndex action, f32 time, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows, Array<Vector<f32>> *ikParameters);
+
+struct TextJustify {
+	az::Optional<f32> maxWidth;
+	static inline TextJustify Justified(f32 _maxWidth) {
+		return {_maxWidth};
+	}
+	static inline TextJustify Unjustified() {
+		return {};
+	}
+	inline operator bool () const {
+		return maxWidth.Exists();
+	}
+	inline f32 MaxWidth() const {
+		return maxWidth.ValueOrAssert();
+	}
+};
+
+f32 CharacterWidth(char32 character, const Assets::Font *fontDesired, const Assets::Font *fontFallback);
+f32 LineWidth(const char32 *string, Assets::FontIndex fontIndex);
+vec2 StringSize(WString string, Assets::FontIndex fontIndex);
+f32 StringWidth(WString string, Assets::FontIndex fontIndex);
+WString StringAddNewlines(WString string, Assets::FontIndex fontIndex, f32 maxWidth);
+void LineCursorStartAndSpaceScale(f32 &dstCursor, f32 &dstSpaceScale, f32 textOrigin, f32 spaceWidth, Assets::FontIndex fontIndex, const char32 *string, TextJustify justify);
+
+void DrawText(DrawingContext &context, Assets::FontIndex fontIndex, vec2 textOrigin, const WString &string, mat4 transform, bool castsShadows, Assets::Material material = Assets::Material::Blank(), TextJustify justify = TextJustify::Unjustified());
 
 inline void DrawDebugLine(DrawingContext &context, DebugVertex point1, DebugVertex point2) {
 	context.debugLines.Append(point1);

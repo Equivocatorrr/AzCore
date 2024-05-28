@@ -7,24 +7,12 @@
 #include "game_systems.hpp"
 #include "settings.hpp"
 #include "assets.hpp"
-// #include "gui_basics.hpp"
 #include "AzCore/Profiling.hpp"
-// #include "entity_basics.hpp"
 
 #include "AzCore/IO/Log.hpp"
 #include "AzCore/io.hpp"
 #include "AzCore/font.hpp"
 #include "AzCore/QuickSort.hpp"
-
-#ifdef TRANSPARENT
-#undef TRANSPARENT
-#endif
-#ifdef near
-#undef near
-#endif
-#ifdef far
-#undef far
-#endif
 
 namespace Az3D::Rendering {
 
@@ -135,16 +123,19 @@ void BindPipeline(GPU::Context *context, PipelineIndex pipeline) {
 	Manager &r = sys->rendering;
 	GPU::CmdBindPipeline(context, r.data.pipelines[pipeline]);
 	switch (pipeline) {
-		case PIPELINE_DEBUG_LINES: {
+		case PIPELINE_DEBUG_LINES:
 			GPU::CmdBindVertexBuffer(context, r.data.debugVertexBuffer);
-		} break;
+			break;
 		case PIPELINE_BASIC_3D:
-		case PIPELINE_FOLIAGE_3D: {
+		case PIPELINE_BASIC_3D_VSM:
+		case PIPELINE_FOLIAGE_3D:
 			GPU::CmdBindVertexBuffer(context, r.data.vertexBuffer);
-		} break;
-		case PIPELINE_FONT_3D: {
-			GPU::CmdBindVertexBuffer(context, r.data.fontVertexBuffer);
-		} break;
+			break;
+		case PIPELINE_FONT_3D:
+		case PIPELINE_FONT_3D_VSM:
+			GPU::CmdBindUniformBufferArray(context, r.data.fontBuffers, 0, 5);
+			GPU::CmdBindStorageBuffer(context, r.data.textBuffer, 0, 6);
+			break;
 	}
 	GPU::CmdCommitBindings(context).AzUnwrap();
 }
@@ -183,15 +174,12 @@ bool Manager::Init() {
 		GPU::FramebufferAddImage(data.framebuffer, data.depthBuffer);
 	}
 	{ // Concurrency, runtime CPU data pools
-		uniforms.ambientLight = vec3(0.001f);
+		worldInfo.ambientLight = vec3(0.001f);
 		if (data.concurrency < 1) {
 			data.concurrency = 1;
 		}
 		data.drawingContexts.Resize(data.concurrency);
 		data.debugVertices.Resize(MAX_DEBUG_VERTICES);
-		// TODO: Make this resizeable
-		data.objectShaderInfos.Resize(1000000);
-		data.bones.Resize(10000, mat4(1.0f));
 	}
 	{ // Context
 		data.contextGraphics = GPU::NewContext(data.device);
@@ -230,27 +218,32 @@ bool Manager::Init() {
 			vertices.Append(part->vertices);
 		}
 		data.vertexBuffer = GPU::NewVertexBuffer(data.device);
-		GPU::BufferSetSize(data.vertexBuffer, vertices.size * sizeof(Vertex));
+		GPU::BufferSetSize(data.vertexBuffer, vertices.size * sizeof(Vertex)).AzUnwrap();
 		data.indexBuffer = GPU::NewIndexBuffer(data.device, String(), 4);
-		GPU::BufferSetSize(data.indexBuffer, indices.size * sizeof(u32));
+		GPU::BufferSetSize(data.indexBuffer, indices.size * sizeof(u32)).AzUnwrap();
 
 		data.debugVertexBuffer = GPU::NewVertexBuffer(data.device, "DebugLines Vertex Buffer");
-		GPU::BufferSetSize(data.debugVertexBuffer, data.debugVertices.size * sizeof(DebugVertex));
+		GPU::BufferSetSize(data.debugVertexBuffer, data.debugVertices.size * sizeof(DebugVertex)).AzUnwrap();
 	}
 	{ // Load textures/buffers
-		data.uniformBuffer = GPU::NewUniformBuffer(data.device);
-		GPU::BufferSetSize(data.uniformBuffer, sizeof(UniformBuffer));
-		GPU::BufferSetShaderUsage(data.uniformBuffer, (u32)GPU::ShaderStage::VERTEX | (u32)GPU::ShaderStage::FRAGMENT);
+		data.worldInfoBuffer = GPU::NewUniformBuffer(data.device);
+		GPU::BufferSetSize(data.worldInfoBuffer, sizeof(WorldInfoBuffer)).AzUnwrap();
+		GPU::BufferSetShaderUsage(data.worldInfoBuffer, (u32)GPU::ShaderStage::VERTEX | (u32)GPU::ShaderStage::FRAGMENT);
 
-		// TODO: Make the following buffers resizable
-
+		data.objectShaderInfos.Resize(1000);
 		data.objectBuffer = GPU::NewStorageBuffer(data.device);
-		GPU::BufferSetSize(data.objectBuffer, data.objectShaderInfos.size * sizeof(ObjectShaderInfo));
+		GPU::BufferSetSize(data.objectBuffer, data.objectShaderInfos.size * sizeof(ObjectShaderInfo)).AzUnwrap();
 		GPU::BufferSetShaderUsage(data.objectBuffer, (u32)GPU::ShaderStage::VERTEX | (u32)GPU::ShaderStage::FRAGMENT);
 
+		data.bones.Resize(100, mat4(1.0f));
 		data.bonesBuffer = GPU::NewStorageBuffer(data.device);
-		GPU::BufferSetSize(data.bonesBuffer, data.bones.size * sizeof(mat4));
+		GPU::BufferSetSize(data.bonesBuffer, data.bones.size * sizeof(mat4)).AzUnwrap();
 		GPU::BufferSetShaderUsage(data.bonesBuffer, (u32)GPU::ShaderStage::VERTEX);
+
+		data.textShaderInfos.Resize(100);
+		data.textBuffer = GPU::NewStorageBuffer(data.device);
+		GPU::BufferSetSize(data.textBuffer, data.textShaderInfos.size * sizeof(TextShaderInfo)).AzUnwrap();
+		GPU::BufferSetShaderUsage(data.textBuffer, (u32)GPU::ShaderStage::VERTEX);
 
 		data.textures.Resize(sys->assets.textures.size);
 		for (i32 i = 0; i < sys->assets.textures.size; i++) {
@@ -272,8 +265,6 @@ bool Manager::Init() {
 			GPU::ImageSetMipmapping(data.textures[i], true);
 			GPU::ImageSetShaderUsage(data.textures[i], (u32)GPU::ShaderStage::FRAGMENT);
 		}
-		data.fontVertexBuffer = GPU::NewVertexBuffer(data.device, "Font Vertex Buffer");
-		data.fontImages.Resize(sys->assets.fonts.size);
 	}
 	ArrayWithBucket<GPU::ShaderValueType, 8> vertexInputs = {
 		GPU::ShaderValueType::VEC3, // pos
@@ -288,6 +279,7 @@ bool Manager::Init() {
 		GPU::Shader *debugLinesFrag = GPU::NewShader(data.device, "data/Az3D/shaders/DebugLines.frag.spv", GPU::ShaderStage::FRAGMENT);
 		GPU::Shader *basic3DVert = GPU::NewShader(data.device, "data/Az3D/shaders/Basic3D.vert.spv", GPU::ShaderStage::VERTEX);
 		GPU::Shader *basic3DFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Basic3D.frag.spv", GPU::ShaderStage::FRAGMENT);
+		GPU::Shader *font3DVert = GPU::NewShader(data.device, "data/Az3D/shaders/Font3D.vert.spv", GPU::ShaderStage::VERTEX);
 		GPU::Shader *font3DFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Font3D.frag.spv", GPU::ShaderStage::FRAGMENT);
 
 		data.pipelines.Resize(PIPELINE_COUNT);
@@ -327,9 +319,16 @@ bool Manager::Init() {
 		GPU::PipelineSetWinding(data.pipelines[PIPELINE_FOLIAGE_3D], GPU::Winding::COUNTER_CLOCKWISE);
 
 		data.pipelines[PIPELINE_FONT_3D] = GPU::NewGraphicsPipeline(data.device, "Font 3D Pipeline");
-		GPU::PipelineAddShaders(data.pipelines[PIPELINE_FONT_3D], {basic3DVert, font3DFrag});
+		GPU::PipelineAddShaders(data.pipelines[PIPELINE_FONT_3D], {font3DVert, font3DFrag});
+		GPU::PipelineSetTopology(data.pipelines[PIPELINE_FONT_3D], GPU::Topology::TRIANGLE_LIST);
+		GPU::PipelineSetDepthTest(data.pipelines[PIPELINE_FONT_3D], true);
+		GPU::PipelineSetDepthWrite(data.pipelines[PIPELINE_FONT_3D], false);
+		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_FONT_3D], GPU::CompareOp::LESS);
+		GPU::PipelineSetCullingMode(data.pipelines[PIPELINE_FONT_3D], GPU::CullingMode::NONE);
+		GPU::PipelineSetMultisampleShading(data.pipelines[PIPELINE_FONT_3D], true);
 
 		for (i32 i = 1; i < PIPELINE_COUNT; i++) {
+			if (i == PIPELINE_BASIC_3D_VSM || i == PIPELINE_FONT_3D_VSM) continue;
 			GPU::PipelineSetBlendMode(data.pipelines[i], {GPU::BlendMode::TRANSPARENT, true});
 		}
 	}
@@ -351,13 +350,22 @@ bool Manager::Init() {
 		data.framebufferShadowMaps = GPU::NewFramebuffer(data.device, "VSM Framebuffer");
 		GPU::FramebufferAddImageMultisampled(data.framebufferShadowMaps, shadowMapMSAAImage, data.shadowMapImage);
 
-		GPU::Shader *vsmVert = GPU::NewShader(data.device, "data/Az3D/shaders/VarianceShadowMap.vert.spv", GPU::ShaderStage::VERTEX, "VSM Vertex Shader");
-		GPU::Shader *vsmFrag = GPU::NewShader(data.device, "data/Az3D/shaders/VarianceShadowMap.frag.spv", GPU::ShaderStage::FRAGMENT, "VSM Fragment Shader");
-		data.pipelineShadowMaps = GPU::NewGraphicsPipeline(data.device, "VSM Pipeline");
-		GPU::PipelineAddShaders(data.pipelineShadowMaps, {vsmVert, vsmFrag});
-		GPU::PipelineAddVertexInputs(data.pipelineShadowMaps, vertexInputs);
-		GPU::PipelineSetTopology(data.pipelineShadowMaps, GPU::Topology::TRIANGLE_LIST);
-		GPU::PipelineSetBlendMode(data.pipelineShadowMaps, GPU::BlendMode::MAX);
+		GPU::Shader *vsmVert = GPU::NewShader(data.device, "data/Az3D/shaders/Basic3D_VSM.vert.spv", GPU::ShaderStage::VERTEX, "VSM Vertex Shader");
+		GPU::Shader *vsmFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Basic3D_VSM.frag.spv", GPU::ShaderStage::FRAGMENT, "VSM Fragment Shader");
+		data.pipelines[PIPELINE_BASIC_3D_VSM] = GPU::NewGraphicsPipeline(data.device, "VSM Pipeline");
+		GPU::PipelineAddShaders(data.pipelines[PIPELINE_BASIC_3D_VSM], {vsmVert, vsmFrag});
+		GPU::PipelineAddVertexInputs(data.pipelines[PIPELINE_BASIC_3D_VSM], vertexInputs);
+		GPU::PipelineSetTopology(data.pipelines[PIPELINE_BASIC_3D_VSM], GPU::Topology::TRIANGLE_LIST);
+		GPU::PipelineSetBlendMode(data.pipelines[PIPELINE_BASIC_3D_VSM], GPU::BlendMode::MAX);
+
+		GPU::Shader *vsmFontVert = GPU::NewShader(data.device, "data/Az3D/shaders/Font3D_VSM.vert.spv", GPU::ShaderStage::VERTEX, "VSM Font Vertex Shader");
+		GPU::Shader *vsmFontFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Font3D_VSM.frag.spv", GPU::ShaderStage::FRAGMENT, "VSM Font Fragment Shader");
+		data.pipelines[PIPELINE_FONT_3D_VSM] = GPU::NewGraphicsPipeline(data.device, "VSM Font Pipeline");
+		GPU::PipelineAddShaders(data.pipelines[PIPELINE_FONT_3D_VSM], {vsmFontVert, vsmFontFrag});
+		GPU::PipelineSetTopology(data.pipelines[PIPELINE_FONT_3D_VSM], GPU::Topology::TRIANGLE_LIST);
+		GPU::PipelineSetBlendMode(data.pipelines[PIPELINE_FONT_3D_VSM], GPU::BlendMode::MAX);
+		GPU::PipelineSetCullingMode(data.pipelines[PIPELINE_FONT_3D_VSM], GPU::CullingMode::NONE);
+		GPU::PipelineSetMultisampleShading(data.pipelines[PIPELINE_FONT_3D_VSM], true);
 
 		data.shadowMapConvolutionImage = GPU::NewImage(data.device, "VSM Convolution Image");
 		GPU::ImageSetFormat(data.shadowMapConvolutionImage, GPU::ImageBits::R32G32, GPU::ImageComponentType::SFLOAT);
@@ -387,13 +395,13 @@ bool Manager::Init() {
 		return false;
 	}
 
-	uniforms.lights[0].position = vec4(vec3(0.0f), 1.0f);
-	uniforms.lights[0].color = vec3(0.0f);
-	uniforms.lights[0].direction = vec3(0.0f, 0.0f, 1.0f);
-	uniforms.lights[0].angleMin = 0.0f;
-	uniforms.lights[0].angleMax = 0.0f;
-	uniforms.lights[0].distMin = 0.0f;
-	uniforms.lights[0].distMax = 0.0f;
+	worldInfo.lights[0].position = vec4(vec3(0.0f), 1.0f);
+	worldInfo.lights[0].color = vec3(0.0f);
+	worldInfo.lights[0].direction = vec3(0.0f, 0.0f, 1.0f);
+	worldInfo.lights[0].angleMin = 0.0f;
+	worldInfo.lights[0].angleMax = 0.0f;
+	worldInfo.lights[0].distMin = 0.0f;
+	worldInfo.lights[0].distMax = 0.0f;
 
 	GPU::ContextBeginRecording(data.contextTransfer).AzUnwrap();
 	GPU::CmdCopyDataToBuffer(data.contextTransfer, data.bonesBuffer, data.bones.data).AzUnwrap();
@@ -406,14 +414,14 @@ bool Manager::Init() {
 		}
 	}
 
-	GPU::ContextEndRecording(data.contextTransfer).AzUnwrap();
-	GPU::SubmitCommands(data.contextTransfer).AzUnwrap();
-	GPU::ContextWaitUntilFinished(data.contextTransfer).AzUnwrap();
-
-	if (!UpdateFonts()) {
+	if (!UpdateFonts(data.contextTransfer)) {
 		error = "Failed to update fonts: " + error;
 		return false;
 	}
+
+	GPU::ContextEndRecording(data.contextTransfer).AzUnwrap();
+	GPU::SubmitCommands(data.contextTransfer).AzUnwrap();
+	GPU::ContextWaitUntilFinished(data.contextTransfer).AzUnwrap();
 	UpdateBackground();
 
 	return true;
@@ -477,7 +485,7 @@ vec3 InvViewProj(vec3 point, const mat4 &invViewProj) {
 
 void Manager::UpdateLights() {
 	AZCORE_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::UpdateLights)
-	mat4 invView = uniforms.viewProj.Inverse();
+	mat4 invView = worldInfo.viewProj.Inverse();
 	// frustum corners
 	// TODO: This is a very non-linear way to limit the range of shadows. Do something more direct pls.
 	f32 shadowMaxDist = 0.995f;
@@ -493,10 +501,10 @@ void Manager::UpdateLights() {
 	};
 	vec3 center = 0.0f;
 	vec3 boundsMin(100000000.0f), boundsMax(-100000000.0f);
-	uniforms.sun = mat4::Camera(-uniforms.sunDir, uniforms.sunDir, vec3(0.0f, 0.0f, 1.0f));
+	worldInfo.sun = mat4::Camera(-worldInfo.sunDir, worldInfo.sunDir, vec3(0.0f, 0.0f, 1.0f));
 	for (i32 i = 0; i < 8; i++) {
 		center += corners[i];
-		corners[i] = (uniforms.sun * vec4(corners[i], 1.0f)).xyz;
+		corners[i] = (worldInfo.sun * vec4(corners[i], 1.0f)).xyz;
 		boundsMin.x = min(boundsMin.x, corners[i].x);
 		boundsMin.y = min(boundsMin.y, corners[i].y);
 		boundsMin.z = min(boundsMin.z, corners[i].z);
@@ -511,18 +519,18 @@ void Manager::UpdateLights() {
 	// DrawDebugSphere(data.drawingContexts[0], center, 0.1f, vec4(1.0f));
 	vec3 dimensions = boundsMax - boundsMin;
 	// center gives us an implicit 0.5
-	uniforms.sun = mat4::Camera(center + uniforms.sunDir * dimensions.z * 9.5f, -uniforms.sunDir, vec3(0.0f, 0.0f, 1.0f));
-	uniforms.sun = mat4::Ortho(max(0.1f, dimensions.x), max(0.1f, dimensions.y), 0.0f, max(0.1f, dimensions.z*10.0f)) * uniforms.sun;
+	worldInfo.sun = mat4::Camera(center + worldInfo.sunDir * dimensions.z * 9.5f, -worldInfo.sunDir, vec3(0.0f, 0.0f, 1.0f));
+	worldInfo.sun = mat4::Ortho(max(0.1f, dimensions.x), max(0.1f, dimensions.y), 0.0f, max(0.1f, dimensions.z*10.0f)) * worldInfo.sun;
 	sunFrustum = GetOrtho(
-		uniforms.sun.Col<3>().xyz,
-		uniforms.sun.Col<2>().xyz,
-		uniforms.sun.Col<1>().xyz,
-		uniforms.sun.Col<0>().xyz
+		worldInfo.sun.Col<3>().xyz,
+		worldInfo.sun.Col<2>().xyz,
+		worldInfo.sun.Col<1>().xyz,
+		worldInfo.sun.Col<0>().xyz
 	);
 // 	i32 lightCounts[LIGHT_BIN_COUNT] = {0};
 // 	i32 totalLights = 1;
 // 	// By default, they all point to the default light which has no light at all
-// 	memset(uniforms.lightBins, 0, sizeof(uniforms.lightBins));
+// 	memset(worldInfo.lightBins, 0, sizeof(worldInfo.lightBins));
 // #if 1
 // 	for (const Light &light : lights) {
 // 		if (totalLights >= MAX_LIGHTS) break;
@@ -536,12 +544,12 @@ void Manager::UpdateLights() {
 // 		binMax.x = min(binMax.x, LIGHT_BIN_COUNT_X-1);
 // 		binMax.y = min(binMax.y, LIGHT_BIN_COUNT_Y-1);
 // 		i32 lightIndex = totalLights;
-// 		uniforms.lights[lightIndex] = light;
+// 		worldInfo.lights[lightIndex] = light;
 // 		bool atLeastOne = false;
 // 		for (i32 y = binMin.y; y <= binMax.y; y++) {
 // 			for (i32 x = binMin.x; x <= binMax.x; x++) {
 // 				i32 i = LightBinIndex({x, y});
-// 				LightBin &bin = uniforms.lightBins[i];
+// 				LightBin &bin = worldInfo.lightBins[i];
 // 				if (lightCounts[i] >= MAX_LIGHTS_PER_BIN) continue;
 // 				atLeastOne = true;
 // 				bin.lightIndices[lightCounts[i]] = lightIndex;
@@ -555,34 +563,55 @@ void Manager::UpdateLights() {
 // #else
 // 	for (i32 i = 0; i < LIGHT_BIN_COUNT; i++) {
 // 		// for (i32 l = 0; l < MAX_LIGHTS_PER_BIN; l++)
-// 			uniforms.lightBins[i].lightIndices[0] = i;
+// 			worldInfo.lightBins[i].lightIndices[0] = i;
 // 	}
 // #endif
 }
 
-bool Manager::UpdateFonts() {
-	AZCORE_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::UpdateFonts)
-	/*
-	// Will be done on-the-fly
-	if (data.fontStagingMemory->data.initted) {
-		data.fontStagingMemory->Deinit();
+static void GrowBuffer(GPU::Buffer *buffer, i64 size, i64 alignment, i64 numerator, i64 denominator) {
+	AzAssert(numerator > denominator, Stringify("Couldn't possibly grow with a factor of ", numerator, "/", denominator));
+	i64 newSize = max(GPU::BufferGetSize(buffer), (i64)1);
+	if (newSize >= size) return;
+	while (newSize < size) {
+		newSize *= numerator;
+		newSize /= denominator;
+		newSize = alignNonPowerOfTwo(newSize, alignment);
 	}
-	if (data.fontBufferMemory->data.initted) {
-		data.fontBufferMemory->Deinit();
-	}
-	if (data.fontImageMemory->data.initted) {
-		data.fontImageMemory->Deinit();
-	}
+	GPU::BufferSetSize(buffer, newSize).AzUnwrap();
+}
 
-	// Vertex buffer
-	Array<Vertex> fontVertices;
-	fontIndexOffsets = {0};
+bool Manager::UpdateFonts(GPU::Context *context) {
+	AZCORE_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::UpdateFonts)
+	// Will be done on-the-fly
+
+	// FontBuffer
+	data.fontBufferDatas.Resize(max(data.fontBufferDatas.size, sys->assets.fonts.size));
+	data.textures.Resize(max(data.textures.size, sys->assets.textures.size + sys->assets.fonts.size), nullptr);
+	const i32 texIndexOffset = sys->assets.textures.size;
 	for (i32 i = 0; i < sys->assets.fonts.size; i++) {
-		for (font::Glyph& glyph : sys->assets.fonts[i].fontBuilder.glyphs) {
+		static constexpr u32 maxFontImageMipLevels = 3;
+		Assets::Font &font = sys->assets.fonts[i];
+		FontBuffer &fontBuffer = data.fontBufferDatas[i];
+		fontBuffer.texAtlas = i + sys->assets.textures.size;
+		GPU::Image *&image = data.textures[texIndexOffset + i];
+		if (image == nullptr) {
+			image = GPU::NewImage(data.device, Stringify("Font atlas ", i));
+			GPU::ImageSetFormat(image, GPU::ImageBits::R8, GPU::ImageComponentType::UNORM);
+			GPU::ImageSetSize(image, font.fontBuilder.dimensions.x, font.fontBuilder.dimensions.y);
+			GPU::ImageSetMipmapping(image, true, maxFontImageMipLevels);
+			GPU::ImageSetShaderUsage(image, (u32)GPU::ShaderStage::FRAGMENT);
+			if (auto result = GPU::ImageRecreate(image); result.isError) {
+				error = result.error;
+				return false;
+			}
+		}
+		if (fontBuffer.glyphs.size == font.fontBuilder.glyphs.size) continue;
+		fontBuffer.glyphs.ClearSoft();
+		for (font::Glyph& glyph : font.fontBuilder.glyphs) {
 			if (glyph.info.size.x == 0.0f || glyph.info.size.y == 0.0f) {
 				continue;
 			}
-			const f32 boundSquare = sys->assets.fonts[i].fontBuilder.boundSquare;
+			const f32 boundSquare = font.fontBuilder.boundSquare;
 			f32 posTop = -glyph.info.offset.y * boundSquare;
 			f32 posLeft = -glyph.info.offset.x * boundSquare;
 			f32 posBot = -glyph.info.size.y * boundSquare + posTop;
@@ -591,81 +620,47 @@ bool Manager::UpdateFonts() {
 			f32 texBot = glyph.info.pos.y;
 			f32 texRight = (glyph.info.pos.x + glyph.info.size.x);
 			f32 texTop = (glyph.info.pos.y + glyph.info.size.y);
-			Vertex quad[4];
-			quad[0].pos = vec3(posLeft, posTop, 0.0f);
-			quad[0].normal = vec3(0.0f, 0.0f, -1.0f);
-			quad[0].tex = vec2(texLeft, texTop);
-			quad[1].pos = vec3(posLeft, posBot, 0.0f);
-			quad[1].normal = vec3(0.0f, 0.0f, -1.0f);
-			quad[1].tex = vec2(texLeft, texBot);
-			quad[2].pos = vec3(posRight, posBot, 0.0f);
-			quad[2].normal = vec3(0.0f, 0.0f, -1.0f);
-			quad[2].tex = vec2(texRight, texBot);
-			quad[3].pos = vec3(posRight, posTop, 0.0f);
-			quad[3].normal = vec3(0.0f, 0.0f, -1.0f);
-			quad[3].tex = vec2(texRight, texTop);
-			fontVertices.Append(quad[3]);
-			fontVertices.Append(quad[2]);
-			fontVertices.Append(quad[1]);
-			fontVertices.Append(quad[0]);
+			GlyphInfo glyphInfo;
+			glyphInfo.uvs[0] = vec2(texLeft, texTop);
+			glyphInfo.uvs[1] = vec2(texRight, texBot);
+			glyphInfo.offsets[0] = vec2(posLeft, posTop);
+			glyphInfo.offsets[1] = vec2(posRight, posBot);
+			fontBuffer.glyphs.Append(glyphInfo);
 		}
-		fontIndexOffsets.Append(
-			fontIndexOffsets.Back() + sys->assets.fonts[i].fontBuilder.glyphs.size * 4
-		);
+		GPU::Image *fontTexture = data.textures[fontBuffer.texAtlas];
+		if (GPU::ImageSetSize(fontTexture, font.fontBuilder.dimensions.x, font.fontBuilder.dimensions.y, maxFontImageMipLevels)) {
+			if (auto result = GPU::ImageRecreate(image); result.isError) {
+				error = result.error;
+				return false;
+			}
+		}
+		if (auto result = GPU::CmdCopyDataToImage(context, fontTexture, font.fontBuilder.pixels.data); result.isError) {
+			error = result.error;
+			return false;
+		}
 	}
 
-	data.fontStagingVertexBuffer->size = fontVertices.size * sizeof(Vertex);
-	data.fontVertexBuffer->size = data.fontStagingVertexBuffer->size;
-
-	for (i32 i = 0; i < data.fontImages.size; i++) {
-		data.fontImages[i].width = sys->assets.fonts[i].fontBuilder.dimensions.x;
-		data.fontImages[i].height = sys->assets.fonts[i].fontBuilder.dimensions.y;
-		data.fontImages[i].mipLevels = (u32)floor(log2((f32)max(data.fontImages[i].width, data.fontImages[i].height))) + 1;
-
-		data.fontStagingImageBuffers[i].size = data.fontImages[i].width * data.fontImages[i].height;
+	for (i32 i = 0; i < data.fontBufferDatas.size; i++) {
+		if (i >= data.fontBuffers.size) {
+			data.fontBuffers.Append(GPU::NewUniformBuffer(data.device, Stringify("Font buffer ", i)));
+			GPU::BufferSetShaderUsage(data.fontBuffers.Back(), (u32)GPU::ShaderStage::VERTEX);
+		}
+		GPU::Buffer *buffer = data.fontBuffers[i];
+		FontBuffer &bufferData = data.fontBufferDatas[i];
+		i64 copySize = bufferData.TotalSize();
+		GrowBuffer(buffer, copySize, sizeof(GlyphInfo) * 10, 4, 3);
+		u32 *dst;
+		if (auto result = GPU::BufferMapHostMemory(buffer); result.isError) {
+			error = result.error;
+			return false;
+		} else {
+			dst = (u32*)result.value;
+		}
+		*dst = bufferData.texAtlas;
+		memcpy(&dst[2], bufferData.glyphs.data, bufferData.glyphs.size * sizeof(bufferData.glyphs[0]));
+		GPU::BufferUnmapHostMemory(buffer);
+		GPU::CmdCopyHostBufferToDeviceBuffer(context, buffer, 0, copySize).AzUnwrap();
 	}
-
-	// Initialize everything
-	if (!data.fontStagingMemory->Init(&(*data.device))) {
-		return false;
-	}
-	if (!data.fontBufferMemory->Init(&(*data.device))) {
-		return false;
-	}
-	if (!data.fontImageMemory->Init(&(*data.device))) {
-		return false;
-	}
-
-	// Update the descriptors
-	if (!data.descriptors->Update()) {
-		return false;
-	}
-
-	data.fontStagingVertexBuffer->CopyData(fontVertices.data);
-	for (i32 i = 0; i < data.fontStagingImageBuffers.size; i++) {
-		data.fontStagingImageBuffers[i].CopyData(sys->assets.fonts[i].fontBuilder.pixels.data);
-	}
-
-	VkCommandBuffer cmdBufCopy = data.commandBufferGraphicsTransfer->Begin();
-
-	data.fontVertexBuffer->Copy(cmdBufCopy, data.fontStagingVertexBuffer);
-
-	for (i32 i = 0; i < data.fontStagingImageBuffers.size; i++) {
-		data.fontImages[i].TransitionLayout(cmdBufCopy, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-		data.fontImages[i].Copy(cmdBufCopy, data.fontStagingImageBuffers.GetPtr(i));
-		data.fontImages[i].GenerateMipMaps(cmdBufCopy, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	}
-
-	if (!data.commandBufferGraphicsTransfer->End()) {
-		error = "Failed to copy from font staging buffers: " + vk::error;
-		return false;
-	}
-	if (!data.device->SubmitCommandBuffers(data.queueGraphics, {data.queueSubmissionGraphicsTransfer})) {
-		error = "Failed to submit transfer command buffer for fonts: " + vk::error;
-		return false;
-	}
-	vk::QueueWaitIdle(data.queueGraphics);
-*/
 	return true;
 }
 
@@ -689,30 +684,37 @@ bool ArmatureAction::operator==(const ArmatureAction &other) const {
 	return meshIndex == other.meshIndex && actionIndex == other.actionIndex && other.actionTime == other.actionTime;
 }
 
-bool Manager::UpdateUniforms(GPU::Context *context) {
+bool Manager::UpdateWorldInfo(GPU::Context *context) {
 	// Update camera matrix
-	uniforms.view = mat4::Camera(camera.pos, camera.forward, camera.up);
-	// uniforms.proj = mat4::Ortho(10.0f, 10.0f * screenSize.y / screenSize.x, camera.nearClip, camera.farClip);
-	uniforms.proj = mat4::Perspective(camera.fov, screenSize.x / screenSize.y, camera.nearClip, camera.farClip);
-	uniforms.viewProj = uniforms.proj * uniforms.view;
-	uniforms.eyePos = camera.pos;
-	uniforms.fogColor = sRGBToLinear(backgroundRGB);
-	uniforms.ambientLight = uniforms.fogColor * 0.5f;
+	worldInfo.view = mat4::Camera(camera.pos, camera.forward, camera.up);
+	// worldInfo.proj = mat4::Ortho(10.0f, 10.0f * screenSize.y / screenSize.x, camera.nearClip, camera.farClip);
+	worldInfo.proj = mat4::Perspective(camera.fov, screenSize.x / screenSize.y, camera.nearClip, camera.farClip);
+	worldInfo.viewProj = worldInfo.proj * worldInfo.view;
+	worldInfo.eyePos = camera.pos;
+	worldInfo.fogColor = sRGBToLinear(backgroundRGB);
+	worldInfo.ambientLight = worldInfo.fogColor * 0.5f;
 	UpdateLights();
 
-	GPU::CmdCopyDataToBuffer(context, data.uniformBuffer, &uniforms).AzUnwrap();
+	GPU::CmdCopyDataToBuffer(context, data.worldInfoBuffer, &worldInfo).AzUnwrap();
 
 	return true;
 }
 
 bool Manager::UpdateObjects(GPU::Context *context) {
-	i64 copySize = min(data.objectShaderInfos.size, 1000000) * sizeof(ObjectShaderInfo);
+	i64 copySize = data.objectShaderInfos.size * sizeof(ObjectShaderInfo);
+	GrowBuffer(data.objectBuffer, copySize, sizeof(ObjectShaderInfo) * 100, 3, 2);
 	if (copySize) {
 		GPU::CmdCopyDataToBuffer(context, data.objectBuffer, data.objectShaderInfos.data, 0, copySize).AzUnwrap();
 	}
-	copySize = min(data.bones.size, 10000) * sizeof(mat4);
+	copySize = data.bones.size * sizeof(mat4);
+	GrowBuffer(data.bonesBuffer, copySize, sizeof(mat4) * 100, 3, 2);
 	if (copySize) {
 		GPU::CmdCopyDataToBuffer(context, data.bonesBuffer, data.bones.data, 0, copySize).AzUnwrap();
+	}
+	copySize = data.textShaderInfos.size * sizeof(TextShaderInfo);
+	GrowBuffer(data.textBuffer, copySize, sizeof(TextShaderInfo) * 100, 3, 2);
+	if (copySize) {
+		GPU::CmdCopyDataToBuffer(context, data.textBuffer, data.textShaderInfos.data, 0, copySize);
 	}
 	return true;
 }
@@ -1115,54 +1117,15 @@ void AnimateArmature(Array<mat4> &dstBones, ArmatureAction armatureAction, mat4 
 
 bool Manager::Draw() {
 	AZCORE_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::Draw)
-	// if (vk::hadValidationError) {
-	// 	error = "Quitting due to vulkan validation error.";
-	// 	return false;
-	// }
-	// if (sys->window.resized || data.resized || data.zeroExtent) {
-	// 	AZCORE_PROFILING_EXCEPTION_START();
-	// 	GPU::
-	// 	AZCORE_PROFILING_EXCEPTION_END();
-	// 	data.swapchain->UpdateSurfaceCapabilities();
-	// 	VkExtent2D extent = data.swapchain->data.surfaceCapabilities.currentExtent;
-	// 	if (extent.width == 0 || extent.height == 0) {
-	// 		data.zeroExtent = true;
-	// 		return true;
-	// 	}
-	// 	data.zeroExtent = false;
-	// 	if (!data.swapchain->Resize()) {
-	// 		error = "Failed to resize swapchain: " + vk::error;
-	// 		return false;
-	// 	}
-	// 	data.resized = false;
-	// }
-	// if (Settings::ReadBool(Settings::sVSync) != data.swapchain->vsync) {
-	// 	AZCORE_PROFILING_EXCEPTION_START();
-	// 	vk::DeviceWaitIdle(data.device);
-	// 	AZCORE_PROFILING_EXCEPTION_END();
-	// 	data.swapchain->vsync = Settings::ReadBool(Settings::sVSync);
-	// 	if (!data.swapchain->Reconfigure()) {
-	// 		error = "Failed to set VSync: " + vk::error;
-	// 		return false;
-	// 	}
-	// }
 
-	// bool updateFontMemory = false;
-	// for (i32 i = 0; i < sys->assets.fonts.size; i++) {
-	// 	Assets::Font& font = sys->assets.fonts[i];
-	// 	if (font.fontBuilder.indicesToAdd.size != 0) {
-	// 		font.fontBuilder.Build();
-	// 		updateFontMemory = true;
-	// 	}
-	// }
-	// if (updateFontMemory) {
-	// 	AZCORE_PROFILING_EXCEPTION_START();
-	// 	GPU::ContextWaitUntilFinished(data.contextGraphics).AzUnwrap();
-	// 	AZCORE_PROFILING_EXCEPTION_END();
-	// 	if (!UpdateFonts()) {
-	// 		return false;
-	// 	}
-	// }
+	bool updateFontMemory = false;
+	for (i32 i = 0; i < sys->assets.fonts.size; i++) {
+		Assets::Font& font = sys->assets.fonts[i];
+		if (font.fontBuilder.indicesToAdd.size != 0) {
+			font.fontBuilder.Build();
+			updateFontMemory = true;
+		}
+	}
 
 	GPU::SetVSync(data.window, Settings::ReadBool(Settings::sVSync));
 	static az::Profiling::AString sWindowUpdate("GPU::WindowUpdate");
@@ -1176,8 +1139,6 @@ bool Manager::Draw() {
 	timerWindowUpdate.End();
 	AZCORE_PROFILING_EXCEPTION_END();
 
-	// data.buffer = !data.buffer;
-
 	screenSize = vec2((f32)max((u16)1, sys->window.width), (f32)max((u16)1, sys->window.height));
 	aspectRatio = screenSize.y / screenSize.x;
 
@@ -1185,10 +1146,10 @@ bool Manager::Draw() {
 		GPU::ContextBeginRecording(data.contextShadowMap).AzUnwrap();
 		GPU::CmdImageTransitionLayout(data.contextShadowMap, data.shadowMapImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
 		GPU::CmdBindFramebuffer(data.contextShadowMap, data.framebufferShadowMaps);
-		GPU::CmdBindPipeline(data.contextShadowMap, data.pipelineShadowMaps);
+		GPU::CmdBindPipeline(data.contextShadowMap, data.pipelines[PIPELINE_BASIC_3D_VSM]);
 		GPU::CmdBindIndexBuffer(data.contextShadowMap, data.indexBuffer);
 		GPU::CmdBindVertexBuffer(data.contextShadowMap, data.vertexBuffer);
-		GPU::CmdBindUniformBuffer(data.contextShadowMap, data.uniformBuffer, 0, 0);
+		GPU::CmdBindUniformBuffer(data.contextShadowMap, data.worldInfoBuffer, 0, 0);
 		GPU::CmdBindStorageBuffer(data.contextShadowMap, data.objectBuffer, 0, 1);
 		GPU::CmdBindStorageBuffer(data.contextShadowMap, data.bonesBuffer, 0, 2);
 		GPU::CmdBindImageArraySampler(data.contextShadowMap, data.textures, data.textureSampler, 0, 3);
@@ -1201,7 +1162,7 @@ bool Manager::Draw() {
 	GPU::CmdBindFramebuffer(data.contextGraphics, data.framebuffer);
 	GPU::CmdSetViewportAndScissor(data.contextGraphics, (f32)sys->window.width, (f32)sys->window.height);
 	GPU::CmdBindIndexBuffer(data.contextGraphics, data.indexBuffer);
-	GPU::CmdBindUniformBuffer(data.contextGraphics, data.uniformBuffer, 0, 0);
+	GPU::CmdBindUniformBuffer(data.contextGraphics, data.worldInfoBuffer, 0, 0);
 	GPU::CmdBindStorageBuffer(data.contextGraphics, data.objectBuffer, 0, 1);
 	GPU::CmdBindStorageBuffer(data.contextGraphics, data.bonesBuffer, 0, 2);
 	GPU::CmdBindImageArraySampler(data.contextGraphics, data.textures, data.textureSampler, 0, 3);
@@ -1225,10 +1186,14 @@ bool Manager::Draw() {
 	sys->Draw(data.drawingContexts);
 
 	GPU::ContextBeginRecording(data.contextTransfer).AzUnwrap();
-	if (!UpdateUniforms(data.contextTransfer)) return false;
+	if (updateFontMemory) {
+		if (!UpdateFonts(data.contextTransfer)) return false;
+	}
+	if (!UpdateWorldInfo(data.contextTransfer)) return false;
 
 	data.objectShaderInfos.ClearSoft();
 	data.bones.ClearSoft();
+	data.textShaderInfos.ClearSoft();
 	az::HashMap<ArmatureAction, u32> actions;
 	{ // Sorting draw calls
 		Array<DrawCallInfo> allDrawCalls;
@@ -1256,6 +1221,7 @@ bool Manager::Draw() {
 			return false;
 		});
 		PipelineIndex currentPipeline = PIPELINE_NONE;
+		bool shadowPipelineIsForFonts = false;
 		for (DrawCallInfo &drawCall : allDrawCalls) {
 			if (drawCall.culled && !drawCall.castsShadows) continue;
 			u32 bonesOffset = 0;
@@ -1267,21 +1233,45 @@ bool Manager::Draw() {
 				}
 				bonesOffset = dstOffset;
 			}
-			if (drawCall.pipeline != currentPipeline) {
+			if (!drawCall.culled && drawCall.pipeline != currentPipeline) {
 				BindPipeline(data.contextGraphics, drawCall.pipeline);
 				currentPipeline = drawCall.pipeline;
 			}
-			drawCall.instanceStart = data.objectShaderInfos.size;
-			i32 prevSize = data.objectShaderInfos.size;
-			data.objectShaderInfos.Resize(data.objectShaderInfos.size + drawCall.transforms.size);
-			for (i32 i = 0; i < drawCall.transforms.size; i++) {
-				data.objectShaderInfos[prevSize+i] = ObjectShaderInfo{drawCall.transforms[i], drawCall.material, bonesOffset};
-			}
-			if (!drawCall.culled) {
-				GPU::CmdDrawIndexed(data.contextGraphics, drawCall.indexCount, drawCall.indexStart, 0, drawCall.instanceCount, drawCall.instanceStart);
-			}
-			if (drawCall.castsShadows) {
-				GPU::CmdDrawIndexed(data.contextShadowMap, drawCall.indexCount, drawCall.indexStart, 0, drawCall.instanceCount, drawCall.instanceStart);
+			if (drawCall.textsToDraw.size > 0) {
+				if (drawCall.castsShadows && !shadowPipelineIsForFonts) {
+					BindPipeline(data.contextShadowMap, PIPELINE_FONT_3D_VSM);
+					shadowPipelineIsForFonts = true;
+				}
+				i32 objectIndex = data.objectShaderInfos.size;
+				data.objectShaderInfos.Append(ObjectShaderInfo{drawCall.transforms[0], drawCall.material, 0});
+				for (DrawTextInfo &info : drawCall.textsToDraw) {
+					info.shaderInfo.objectIndex = objectIndex;
+					i32 textIndex = data.textShaderInfos.size;
+					data.textShaderInfos.Append(info.shaderInfo);
+					if (!drawCall.culled) {
+						GPU::CmdDraw(data.contextGraphics, info.glyphCount * 6, 0, 1, textIndex);
+					}
+					if (drawCall.castsShadows) {
+						GPU::CmdDraw(data.contextShadowMap, info.glyphCount * 6, 0, 1, textIndex);
+					}
+				}
+			} else {
+				if (drawCall.castsShadows && shadowPipelineIsForFonts) {
+					BindPipeline(data.contextShadowMap, PIPELINE_BASIC_3D_VSM);
+					shadowPipelineIsForFonts = false;
+				}
+				drawCall.instanceStart = data.objectShaderInfos.size;
+				i32 prevSize = data.objectShaderInfos.size;
+				data.objectShaderInfos.Resize(data.objectShaderInfos.size + drawCall.transforms.size);
+				for (i32 i = 0; i < drawCall.transforms.size; i++) {
+					data.objectShaderInfos[prevSize+i] = ObjectShaderInfo{drawCall.transforms[i], drawCall.material, bonesOffset};
+				}
+				if (!drawCall.culled) {
+					GPU::CmdDrawIndexed(data.contextGraphics, drawCall.indexCount, drawCall.indexStart, 0, drawCall.instanceCount, drawCall.instanceStart);
+				}
+				if (drawCall.castsShadows) {
+					GPU::CmdDrawIndexed(data.contextShadowMap, drawCall.indexCount, drawCall.indexStart, 0, drawCall.instanceCount, drawCall.instanceStart);
+				}
 			}
 		}
 	}
@@ -1382,7 +1372,7 @@ void Manager::UpdateBackground() {
 	backgroundRGB = hsvToRgb(backgroundHSV);
 }
 
-f32 Manager::CharacterWidth(char32 character, const Assets::Font *fontDesired, const Assets::Font *fontFallback) const {
+f32 CharacterWidth(char32 character, const Assets::Font *fontDesired, const Assets::Font *fontFallback) {
 	const Assets::Font *actualFont = fontDesired;
 	i32 glyphIndex = fontDesired->font.GetGlyphIndex(character);
 	if (glyphIndex == 0) {
@@ -1396,20 +1386,19 @@ f32 Manager::CharacterWidth(char32 character, const Assets::Font *fontDesired, c
 	return actualFont->fontBuilder.glyphs[glyphId].info.advance.x;
 }
 
-f32 Manager::LineWidth(const char32 *string, i32 fontIndex) const {
+f32 LineWidth(const char32 *string, Assets::FontIndex fontIndex) {
 	const Assets::Font *fontDesired = &sys->assets.fonts[fontIndex];
 	const Assets::Font *fontFallback = &sys->assets.fonts[0];
 	f32 size = 0.0f;
-	for (i32 i = 0; string[i] != '\n' && string[i] != 0; i++) {
+	for (i32 i = 0; string[i] != 0 && string[i] != '\n'; i++) {
 		size += CharacterWidth(string[i], fontDesired, fontFallback);
 	}
 	return size;
 }
 
-vec2 Manager::StringSize(WString string, i32 fontIndex) const {
+vec2 StringSize(WString string, Assets::FontIndex fontIndex) {
 	const Assets::Font *fontDesired = &sys->assets.fonts[fontIndex];
 	const Assets::Font *fontFallback = &sys->assets.fonts[0];
-	// vec2 size = vec2(0.0, lineHeight * 2.0 - 1.0);
 	vec2 size = vec2(0.0f, (1.0f + lineHeight) * 0.5f);
 	f32 lineSize = 0.0f;
 	for (i32 i = 0; i < string.size; i++) {
@@ -1427,25 +1416,11 @@ vec2 Manager::StringSize(WString string, i32 fontIndex) const {
 	return size;
 }
 
-f32 Manager::StringWidth(WString string, i32 fontIndex) const {
+f32 StringWidth(WString string, Assets::FontIndex fontIndex) {
 	return StringSize(string, fontIndex).x;
 }
 
-void DrawDebugSphere(DrawingContext &context, vec3 center, f32 radius, vec4 color) {
-	f32 angleDelta = tau / 32.0f;
-	for (f32 angle = 0.0f; angle < tau; angle += angleDelta) {
-		f32 x1 = sin(angle) * radius;
-		f32 y1 = cos(angle) * radius;
-		f32 x2 = sin(angle+angleDelta) * radius;
-		f32 y2 = cos(angle+angleDelta) * radius;
-		DrawDebugLine(context, {center + vec3(x1, y1, 0.0f), color}, {center + vec3(x2, y2, 0.0f), color});
-		DrawDebugLine(context, {center + vec3(x1, 0.0f, y1), color}, {center + vec3(x2, 0.0f, y2), color});
-		DrawDebugLine(context, {center + vec3(0.0f, x1, y1), color}, {center + vec3(0.0f, x2, y2), color});
-	}
-}
-
 f32 StringHeight(WString string) {
-	// f32 size = lineHeight * 2.0 - 1.0;
 	f32 size = (1.0f + lineHeight) * 0.5f;
 	for (i32 i = 0; i < string.size; i++) {
 		const char32 character = string[i];
@@ -1456,7 +1431,8 @@ f32 StringHeight(WString string) {
 	return size;
 }
 
-WString Manager::StringAddNewlines(WString string, i32 fontIndex, f32 maxWidth) const {
+// TODO: Maybe just mutate a reference instead? Check if we depend on this anywhere.
+WString StringAddNewlines(WString string, Assets::FontIndex fontIndex, f32 maxWidth) {
 	if (maxWidth < 0.0f) {
 		cout.PrintLn("Why are we negative???");
 	}
@@ -1499,29 +1475,150 @@ WString Manager::StringAddNewlines(WString string, i32 fontIndex, f32 maxWidth) 
 	return string;
 }
 
-void Manager::LineCursorStartAndSpaceScale(f32 &dstCursor, f32 &dstSpaceScale, f32 scale, f32 spaceWidth, i32 fontIndex, const char32 *string, f32 maxWidth, FontAlign alignH) const {
-	dstSpaceScale = 1.0f;
-	if (alignH != LEFT) {
-		f32 lineWidth = LineWidth(string, fontIndex) * scale;
-		if (alignH == RIGHT) {
-			dstCursor = -lineWidth;
-		} else if (alignH == MIDDLE) {
-			dstCursor = -lineWidth * 0.5f;
-		} else if (alignH == JUSTIFY) {
-			dstCursor = 0.0f;
-			i32 numSpaces = 0;
-			for (i32 ii = 0; string[ii] != 0 && string[ii] != '\n'; ii++) {
-				if (string[ii] == ' ') {
-					numSpaces++;
-				}
-			}
-			dstSpaceScale = 1.0f + max((maxWidth - lineWidth) / numSpaces / spaceWidth, 0.0f);
-			if (dstSpaceScale > 4.0f) {
-				dstSpaceScale = 1.5f;
+void LineCursorStartAndSpaceScale(f32 &dstCursor, f32 &dstSpaceScale, f32 textOrigin, f32 spaceWidth, Assets::FontIndex fontIndex, const char32 *string, TextJustify justify) {
+	f32 lineWidth = LineWidth(string, fontIndex);
+	dstCursor = -lineWidth * textOrigin;
+	if (justify) {
+		i32 numSpaces = 0;
+		for (i32 i = 0; string[i] != 0 && string[i] != '\n'; i++) {
+			if (string[i] == ' ') {
+				numSpaces++;
 			}
 		}
+		dstSpaceScale = 1.0f + max((justify.MaxWidth() - lineWidth) / numSpaces / spaceWidth, 0.0f);
+		if (dstSpaceScale > 4.0f) {
+			dstSpaceScale = 1.5f;
+		}
 	} else {
-		dstCursor = 0.0f;
+		dstSpaceScale = 1.0f;
+	}
+}
+
+void DrawText(DrawingContext &context, Assets::FontIndex fontIndex, vec2 textOrigin, const WString &string, mat4 transform, bool castsShadows, Assets::Material material, TextJustify justify) {
+	if (string.size == 0) return;
+	DrawCallInfo drawCallInfo;
+	drawCallInfo.transforms = {transform};
+	drawCallInfo.boundingSphereCenter = transform.Col<3>().xyz;
+	drawCallInfo.boundingSphereRadius = 0.0f;
+	drawCallInfo.pipeline = PIPELINE_FONT_3D;
+	drawCallInfo.material = material;
+	// treat text as transparent since the edges will do blending
+	drawCallInfo.opaque = false;
+	drawCallInfo.castsShadows = castsShadows;
+	drawCallInfo.culled = false;
+
+	DrawTextInfo textInfo;
+	textInfo.shaderInfo.fontIndex = (u32)fontIndex;
+	textInfo.shaderInfo.objectIndex = (u32)context.thingsToDraw.size; // TODO: These get set later, yeah? Remove this.
+	textInfo.glyphCount = 0;
+
+	DrawTextInfo textInfoFallback;
+	textInfoFallback.shaderInfo.fontIndex = 0;
+	textInfoFallback.shaderInfo.objectIndex = (u32)context.thingsToDraw.size; // TODO: These get set later, yeah? Remove this.
+	textInfoFallback.glyphCount = 0;
+
+	Assets::Font *fontDesired = &sys->assets.fonts[fontIndex];
+	Assets::Font *fontFallback = &sys->assets.fonts[0];
+
+	vec2 cursor = vec2(0.0f);
+	if (textOrigin.y != 0.0f) {
+		f32 height = StringHeight(string);
+		cursor.y -= height * textOrigin.y;
+	}
+	f32 spaceWidth = CharacterWidth((char32)' ', fontDesired, fontFallback);
+	f32 tabWidth = CharacterWidth((char32)'_', fontDesired, fontFallback) * 4.0f;
+	f32 spaceScale = 1.0f;
+	LineCursorStartAndSpaceScale(cursor.x, spaceScale, textOrigin.x, spaceWidth, fontIndex, &string[0], justify);
+	for (i32 i = 0; i < string.size; i++) {
+		drawCallInfo.boundingSphereRadius = max(normSqr(cursor), drawCallInfo.boundingSphereRadius);
+		char32 character = string[i];
+		if (character == '\n') {
+			if (i+1 < string.size) {
+				LineCursorStartAndSpaceScale(cursor.x, spaceScale, textOrigin.x, spaceWidth, fontIndex, &string[i+1], justify);
+				cursor.y += lineHeight;
+			}
+			continue;
+		}
+		if (character == '\t') {
+			cursor.x = ceil(cursor.x / tabWidth + 0.05f) * tabWidth;
+			continue;
+		}
+
+		Assets::Font *font = fontDesired;
+		DrawTextInfo *text = &textInfo;
+		i32 glyphIndex = fontDesired->font.GetGlyphIndex(character);
+		if (glyphIndex == 0) {
+			const i32 glyphFallback = fontFallback->font.GetGlyphIndex(character);
+			if (glyphFallback != 0) {
+				glyphIndex = glyphFallback;
+				font = fontFallback;
+				text = &textInfoFallback;
+			}
+		}
+		i32 glyphId = font->fontBuilder.indexToId[glyphIndex];
+		if (glyphId == 0) {
+			font->fontBuilder.AddRange(character, character);
+		}
+		font::Glyph& glyph = font->fontBuilder.glyphs[glyphId];
+
+		if (glyph.components.size != 0) {
+			for (const font::Component& component : glyph.components) {
+				i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
+				text->shaderInfo.glyphTransforms[text->glyphCount] = component.transform;
+				text->shaderInfo.glyphOffsets[text->glyphCount] = cursor + component.offset * vec2(1.0f, -1.0f);
+				text->shaderInfo.glyphIndices[text->glyphCount] = componentId; // shader glyphIndex maps to fontBuilder glyphId
+				text->glyphCount++;
+				if (text->glyphCount == TextShaderInfo::MAX_GLYPHS) {
+					drawCallInfo.textsToDraw.Append(*text);
+					text->glyphCount = 0;
+				}
+			}
+		} else {
+			if (character != ' ') {
+				text->shaderInfo.glyphTransforms[text->glyphCount] = mat2::Identity();
+				text->shaderInfo.glyphOffsets[text->glyphCount] = cursor;
+				text->shaderInfo.glyphIndices[text->glyphCount] = glyphId; // shader glyphIndex maps to fontBuilder glyphId
+				text->glyphCount++;
+				if (text->glyphCount == TextShaderInfo::MAX_GLYPHS) {
+					drawCallInfo.textsToDraw.Append(*text);
+					text->glyphCount = 0;
+				}
+			}
+		}
+		if (character == ' ') {
+			cursor += glyph.info.advance * spaceScale;
+		} else {
+			cursor += glyph.info.advance;
+		}
+	}
+	if (textInfo.glyphCount > 0) {
+		drawCallInfo.textsToDraw.Append(textInfo);
+	}
+	if (textInfoFallback.glyphCount > 0) {
+		drawCallInfo.textsToDraw.Append(textInfoFallback);
+	}
+	if (drawCallInfo.textsToDraw.size > 0) {
+		// Add 1.5em to account for not bothering to handle glyph size and offset. This should work in 99% of cases minimum.
+		drawCallInfo.boundingSphereRadius = (sqrt(drawCallInfo.boundingSphereRadius) + 1.5f)
+		* sqrt(max(
+			normSqr(transform.Col<0>().xyz),
+			normSqr(transform.Col<1>().xyz),
+			normSqr(transform.Col<2>().xyz)
+		));
+		context.thingsToDraw.Append(std::move(drawCallInfo));
+	}
+}
+
+void DrawDebugSphere(DrawingContext &context, vec3 center, f32 radius, vec4 color) {
+	f32 angleDelta = tau / 32.0f;
+	for (f32 angle = 0.0f; angle < tau; angle += angleDelta) {
+		f32 x1 = sin(angle) * radius;
+		f32 y1 = cos(angle) * radius;
+		f32 x2 = sin(angle+angleDelta) * radius;
+		f32 y2 = cos(angle+angleDelta) * radius;
+		DrawDebugLine(context, {center + vec3(x1, y1, 0.0f), color}, {center + vec3(x2, y2, 0.0f), color});
+		DrawDebugLine(context, {center + vec3(x1, 0.0f, y1), color}, {center + vec3(x2, 0.0f, y2), color});
+		DrawDebugLine(context, {center + vec3(0.0f, x1, y1), color}, {center + vec3(0.0f, x2, y2), color});
 	}
 }
 
@@ -1600,152 +1697,5 @@ void DrawMeshAnimated(DrawingContext &context, Assets::MeshIndex mesh, Assets::A
 		context.thingsToDraw.Back().ikParameters = ikParameters;
 	}
 }
-
-/*
-void Manager::DrawCharSS(DrawingContext &context, char32 character, i32 fontIndex, vec4 color, vec2 position, vec2 scale) {
-	Assets::Font *fontDesired = &sys->assets.fonts[fontIndex];
-	Assets::Font *fontFallback = &sys->assets.fonts[0];
-	Assets::Font *font = fontDesired;
-	Rendering::PushConstants pc = Rendering::PushConstants();
-	BindPipeline(context, PIPELINE_FONT_2D);
-	color.rgb = sRGBToLinear(color.rgb);
-	pc.frag.mat.color = color;
-	i32 actualFontIndex = fontIndex;
-	i32 glyphIndex = fontDesired->font.GetGlyphIndex(character);
-	if (glyphIndex == 0) {
-		const i32 glyphFallback = fontFallback->font.GetGlyphIndex(character);
-		if (glyphFallback != 0) {
-			glyphIndex = glyphFallback;
-			font = fontFallback;
-			actualFontIndex = 0;
-		}
-	}
-	vec2 fullScale = vec2(aspectRatio * scale.x, scale.y);
-	i32 glyphId = font->fontBuilder.indexToId[glyphIndex];
-	if (glyphId == 0) {
-		font->fontBuilder.AddRange(character, character);
-	}
-	font::Glyph& glyph = font->fontBuilder.glyphs[glyphId];
-	pc.frag.tex.albedo = actualFontIndex;
-	if (glyph.components.size != 0) {
-		for (const font::Component& component : glyph.components) {
-			i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
-			pc.vert.transform = mat2::Scale(fullScale);
-			pc.font_circle.font.edge = 0.5f / (font::sdfDistance * screenSize.y * pc.vert.transform.h.y2);
-			pc.vert.position = position + component.offset * fullScale;
-			pc.PushFont(context.commandBuffer, this);
-			vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + componentId * 4, 0);
-		}
-	} else {
-		pc.font_circle.font.edge = 0.5f / (font::sdfDistance * screenSize.y * scale.y);
-		pc.vert.transform = mat2::Scale(fullScale);
-		pc.vert.position = position;
-		pc.PushFont(context.commandBuffer, this);
-		vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + glyphId * 4, 0);
-	}
-}
-
-void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex, vec4 color, vec2 position, vec2 scale, FontAlign alignH, FontAlign alignV, f32 maxWidth, f32 edge, f32 bounds, Radians32 rotation) {
-	if (string.size == 0) return;
-	Assets::Font *fontDesired = &sys->assets.fonts[fontIndex];
-	Assets::Font *fontFallback = &sys->assets.fonts[0];
-	// scale.x *= aspectRatio;
-	position.x /= aspectRatio;
-	Rendering::PushConstants pc = Rendering::PushConstants();
-	BindPipeline(context, PIPELINE_FONT_2D);
-	color.rgb = sRGBToLinear(color.rgb);
-	pc.frag.mat.color = color;
-	// position.y += scale.y * lineHeight;
-	position.y += scale.y * (lineHeight + 1.0f) * 0.5f;
-	if (alignV != TOP) {
-		f32 height = StringHeight(string) * scale.y;
-		if (alignV == MIDDLE) {
-			position.y -= height * 0.5f;
-		} else {
-			position.y -= height;
-		}
-	}
-	vec2 cursor = position;
-	f32 spaceScale = 1.0f;
-	f32 spaceWidth = CharacterWidth((char32)' ', fontDesired, fontFallback) * scale.x;
-	LineCursorStartAndSpaceScale(cursor.x, spaceScale, scale.x, spaceWidth, fontIndex, &string[0], maxWidth, alignH);
-	f32 tabWidth = CharacterWidth((char32)'_', fontDesired, fontFallback) * scale.x * 4.0f;
-	cursor.x += position.x;
-	for (i32 i = 0; i < string.size; i++) {
-		char32 character = string[i];
-		if (character == '\n') {
-			if (i+1 < string.size) {
-				LineCursorStartAndSpaceScale(cursor.x, spaceScale, scale.x, spaceWidth, fontIndex, &string[i+1], maxWidth, alignH);
-				cursor.x += position.x;
-				cursor.y += scale.y * lineHeight;
-			}
-			continue;
-		}
-		if (character == '\t') {
-			cursor.x = ceil((cursor.x - position.x)/tabWidth+0.05f) * tabWidth + position.x;
-			continue;
-		}
-		pc.frag.tex.albedo = fontIndex;
-		Assets::Font *font = fontDesired;
-		i32 actualFontIndex = fontIndex;
-		i32 glyphIndex = fontDesired->font.GetGlyphIndex(character);
-		if (glyphIndex == 0) {
-			const i32 glyphFallback = fontFallback->font.GetGlyphIndex(character);
-			if (glyphFallback != 0) {
-				glyphIndex = glyphFallback;
-				font = fontFallback;
-				pc.frag.tex.albedo = 0;
-				actualFontIndex = 0;
-			}
-		}
-		i32 glyphId = font->fontBuilder.indexToId[glyphIndex];
-		if (glyphId == 0) {
-			font->fontBuilder.AddRange(character, character);
-		}
-		font::Glyph& glyph = font->fontBuilder.glyphs[glyphId];
-
-		pc.frag.tex.albedo = actualFontIndex;
-		pc.font_circle.font.edge = edge / (font::sdfDistance * screenSize.y * scale.y);
-		pc.font_circle.font.bounds = bounds;
-		pc.vert.transform = mat2::Scale(scale * vec2(aspectRatio, 1.0f));
-		if (rotation != 0.0f) {
-			pc.vert.transform = mat2::Rotation(rotation.value()) * pc.vert.transform;
-		}
-		if (glyph.components.size != 0) {
-			for (const font::Component& component : glyph.components) {
-				i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
-				// const font::Glyph& componentGlyph = font->fontBuilder.glyphs[componentId];
-				pc.vert.transform = component.transform * mat2::Scale(scale * vec2(aspectRatio, 1.0f));
-				if (rotation != 0.0f) {
-					pc.vert.transform = mat2::Rotation(rotation.value()) * pc.vert.transform;
-				}
-				pc.font_circle.font.edge = edge / (font::sdfDistance * screenSize.y * abs(pc.vert.transform.h.y2));
-				pc.vert.position = cursor + component.offset * scale * vec2(1.0f, -1.0f);
-				if (rotation != 0.0f) {
-					pc.vert.position = (pc.vert.position - position) * mat2::Rotation(rotation.value()) + position;
-				}
-				pc.vert.position *= vec2(aspectRatio, 1.0f);
-				pc.PushFont(context.commandBuffer, this);
-				vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + componentId * 4, 0);
-			}
-		} else {
-			if (character != ' ') {
-				pc.vert.position = cursor;
-				if (rotation != 0.0f) {
-					pc.vert.position = (cursor-position) * mat2::Rotation(rotation.value()) + position;
-				}
-				pc.vert.position *= vec2(aspectRatio, 1.0f);
-				pc.PushFont(context.commandBuffer, this);
-				vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + glyphId * 4, 0);
-			}
-		}
-		if (character == ' ') {
-			cursor += glyph.info.advance * spaceScale * scale;
-		} else {
-			cursor += glyph.info.advance * scale;
-		}
-	}
-}
-*/
 
 } // namespace Rendering

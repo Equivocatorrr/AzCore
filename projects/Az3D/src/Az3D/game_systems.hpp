@@ -2,7 +2,6 @@
 	File: game_systems.hpp
 	Author: Philip Haynes
 	Defines an abstract interface and manager for event-driven systems.
-	Helps define interaction between said systems in 
 */
 
 #ifndef AZ3D_GAME_SYSTEMS_HPP
@@ -10,7 +9,6 @@
 
 #include "AzCore/memory.hpp"
 #include "AzCore/io.hpp"
-#include "AzCore/vk.hpp"
 #include "rendering.hpp"
 #include "sound.hpp"
 #include "assets.hpp"
@@ -67,7 +65,7 @@ struct Manager {
 	bool exit = false;
 	bool abort = false;
 	az::String error;
-	
+
 	az::BinaryMap<az::String, az::WString> locale;
 	void LoadLocale();
 	inline az::WString ReadLocale(az::SimpleRange<char> name) {
@@ -76,12 +74,12 @@ struct Manager {
 		else
 			return locale[name];
 	}
-	
+
 	AzCore::io::Input input;
 	AzCore::io::Window window;
 	AzCore::io::RawInput rawInput;
 	AzCore::io::Gamepad *gamepad = nullptr;
-	
+
 	az::Thread threadUpdate;
 	az::Mutex mutexUpdate;
 	az::CondVar condUpdate;
@@ -93,15 +91,15 @@ struct Manager {
 	az::Mutex mutexControl;
 	az::CondVar condControl;
 	bool stopThreads;
-	
+
 	Sound::Manager sound;
 	Assets::Manager assets;
 	Rendering::Manager rendering;
 	bool enableVulkanValidation;
-	
+
 	bool Init();
 	void Deinit();
-	
+
 	// Calls EventAssetsRequest for every type of object.
 	void RequestAssets();
 	// Calls EventInitialize

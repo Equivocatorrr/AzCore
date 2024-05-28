@@ -57,7 +57,7 @@ struct Test : public GameSystems::System {
 	}
 	virtual void EventSync() override {
 		pos.z = 1.5f + sin(hover);
-		hover += Degrees32(sys->timestep * 90.0f);
+		hover += Degrees32(sys->timestep * 9.0f);
 		if (!pause)
 			jumpT += sys->timestep * rate;
 		f32 speed = sys->Down(KC_KEY_LEFTSHIFT) ? 8.0f : 2.0f;
@@ -204,9 +204,9 @@ struct Test : public GameSystems::System {
 		}
 		{
 			Assets::Material material = Assets::Material::Blank();
-			material.color = vec4(vec3(0.02f), 1.0f);
-			material.roughness = 0.1f;
-			Rendering::DrawText(contexts[0], 0, vec2(0.5f), ToWString("Hello, you beautiful thing!\nWhat the dog doin?"), Rendering::GetTransform(vec3(1.0f, 3.0f, 0.2f), quat::Rotation(pi, vec3(0.0f, 0.0f, 1.0f)) * quat::Rotation(-halfpi, vec3(1.0f, 0.0f, 0.0f)), vec3(1.0f)), true, material);
+			material.color = vec4(vec3(1.0f), 1.0f);
+			material.roughness = 0.5f;
+			Rendering::DrawText(contexts[0], 0, vec2(0.5f, 1.0f), ToWString("Hello, you beautiful thing!\nWhat the dog doin?\nキスミー"), Rendering::GetTransform(vec3(1.0f, 6.0f, 0.0f), quat::Rotation(hover.value(), vec3(0.0f, 0.0f, 1.0f)) * quat::Rotation(-halfpi, vec3(1.0f, 0.0f, 0.0f)), vec3(1.0f)), true, material);
 		}
 		Rendering::DrawMesh(contexts[0], meshTree, {Rendering::GetTransform(vec3(-2.0f, 0.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
 		Rendering::DrawMesh(contexts[0], meshFence, {Rendering::GetTransform(vec3(0.0f, 8.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);

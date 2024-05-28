@@ -4,9 +4,11 @@
 #extension GL_EXT_scalar_block_layout : enable
 
 layout(location=0) out vec2 outTexCoord;
-layout(location=1) out uint outObjectIndex;
-layout(location=2) out float outDepth;
-layout(location=3) out uint outTexAtlas;
+layout(location=1) out vec3 outTangent;
+layout(location=2) out vec3 outBitangent;
+layout(location=3) out vec3 outWorldPos;
+layout(location=4) out float outDepth;
+layout(location=5) out uint outTexAtlas;
 
 #include "headers/Helpers.glsl"
 #include "headers/WorldInfo.glsl"
@@ -45,7 +47,11 @@ void main() {
 		glyph.uvs[xIndex[gl_VertexIndex % 6]].x,
 		glyph.uvs[yIndex[gl_VertexIndex % 6]].y
 	);
-	outObjectIndex = textInfo.objectIndex;
+	// X-basis
+	outTangent = normalize(model[0].xyz);
+	// Y-basis
+	outBitangent = normalize(model[1].xyz);
+	outWorldPos = worldPos.xyz;
 	outDepth = 1.0 - gl_Position.z;
 	outTexAtlas = fontBuffer[textInfo.fontIndex].texAtlas;
 }

@@ -34,18 +34,24 @@ vec3 wrap(float attenuation, vec3 wrapFac) {
 	return clamp((vec3(attenuation) + wrapFac) / sqr(1.0 + wrapFac), 0.0, 1.0);
 }
 
-const float minPenumbraVal = 0.25;
+float linstep(float edge0, float edge1, float x)
+{
+	return clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+}
+
+const float minPenumbraVal = 0.5;
+const float maxPenumbraVal = 1.0;
 
 float ChebyshevInequality(vec2 moments, float depth) {
 	float squaredMean = moments.y;
 	float meanSquared = sqr(moments.x);
-	float minVariance = sqr(0.001);
+	float minVariance = sqr(0.001) * depth;
 	float variance = max(squaredMean - meanSquared, minVariance);
 	float pMax = variance / (variance + sqr(moments.x - depth));
 	if (depth < 0.0) return 1.0;
 
 	// Lower bound helps reduce light bleeding
-	return smoothstep(minPenumbraVal, 1.0, pMax);
+	return max(linstep(minPenumbraVal, maxPenumbraVal, pMax), float(depth >= moments.x));
 }
 
 vec3 TonemapACES(vec3 color)

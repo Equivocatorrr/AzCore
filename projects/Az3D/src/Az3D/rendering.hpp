@@ -305,8 +305,8 @@ struct TextJustify {
 
 f32 CharacterWidth(char32 character, const Assets::Font *fontDesired, const Assets::Font *fontFallback);
 f32 LineWidth(const char32 *string, Assets::FontIndex fontIndex);
-vec2 StringSize(WString string, Assets::FontIndex fontIndex);
-f32 StringWidth(WString string, Assets::FontIndex fontIndex);
+vec2 StringSize(const WString &string, Assets::FontIndex fontIndex);
+f32 StringWidth(const WString &string, Assets::FontIndex fontIndex);
 WString StringAddNewlines(WString string, Assets::FontIndex fontIndex, f32 maxWidth);
 void LineCursorStartAndSpaceScale(f32 &dstCursor, f32 &dstSpaceScale, f32 textOrigin, f32 spaceWidth, Assets::FontIndex fontIndex, const char32 *string, TextJustify justify);
 
@@ -319,7 +319,7 @@ inline void DrawDebugLine(DrawingContext &context, DebugVertex point1, DebugVert
 
 void DrawDebugSphere(DrawingContext &context, vec3 center, f32 radius, vec4 color);
 
-f32 StringHeight(WString string);
+f32 StringHeight(const WString &string);
 
 inline mat4 GetTransform(vec3 pos, quat rotation, vec3 scale) {
 	mat4 transform = mat4(rotation.ToMat3());

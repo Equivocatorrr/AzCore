@@ -5,6 +5,10 @@ float sqr(float a) {
 	return a * a;
 }
 
+float normSqr(vec2 a) {
+	return dot(a, a);
+}
+
 float normSqr(vec3 a) {
 	return dot(a, a);
 }

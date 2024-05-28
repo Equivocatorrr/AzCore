@@ -1396,7 +1396,7 @@ f32 LineWidth(const char32 *string, Assets::FontIndex fontIndex) {
 	return size;
 }
 
-vec2 StringSize(WString string, Assets::FontIndex fontIndex) {
+vec2 StringSize(const WString &string, Assets::FontIndex fontIndex) {
 	const Assets::Font *fontDesired = &sys->assets.fonts[fontIndex];
 	const Assets::Font *fontFallback = &sys->assets.fonts[0];
 	vec2 size = vec2(0.0f, (1.0f + lineHeight) * 0.5f);
@@ -1416,11 +1416,11 @@ vec2 StringSize(WString string, Assets::FontIndex fontIndex) {
 	return size;
 }
 
-f32 StringWidth(WString string, Assets::FontIndex fontIndex) {
+f32 StringWidth(const WString &string, Assets::FontIndex fontIndex) {
 	return StringSize(string, fontIndex).x;
 }
 
-f32 StringHeight(WString string) {
+f32 StringHeight(const WString &string) {
 	f32 size = (1.0f + lineHeight) * 0.5f;
 	for (i32 i = 0; i < string.size; i++) {
 		const char32 character = string[i];
@@ -1520,7 +1520,7 @@ void DrawText(DrawingContext &context, Assets::FontIndex fontIndex, vec2 textOri
 	Assets::Font *fontDesired = &sys->assets.fonts[fontIndex];
 	Assets::Font *fontFallback = &sys->assets.fonts[0];
 
-	vec2 cursor = vec2(0.0f);
+	vec2 cursor = vec2(0.0f, lineHeight);
 	if (textOrigin.y != 0.0f) {
 		f32 height = StringHeight(string);
 		cursor.y -= height * textOrigin.y;

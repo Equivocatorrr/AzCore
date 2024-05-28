@@ -50,7 +50,7 @@ void main() {
 		glyph.uvs[yIndex[gl_VertexIndex % 6]].y
 	);
 	// Z-basis
-	outNormal = normalize(model[2].xyz);
+	outNormal = -normalize(model[2].xyz);
 	// X-basis
 	outTangent = normalize(model[0].xyz);
 	// Y-basis

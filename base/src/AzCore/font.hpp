@@ -231,6 +231,8 @@ namespace font {
 		// MEDIUM is good for subtitles/titles and gives a fairly crisp result.
 		// LOW is good for text/subtitles and gives rounded corners only noticed at large scales.
 		enum {
+			ULTRA=128,
+			VERY_HIGH=96,
 			HIGH=64,
 			MEDIUM=48,
 			LOW=32

@@ -93,6 +93,17 @@ struct Font {
 	az::font::Font font;
 	az::font::FontBuilder fontBuilder;
 
+	Font() = default;
+	Font(Font &&other) : file(other.file), font(std::move(other.font)), fontBuilder(std::move(other.fontBuilder)) {
+		fontBuilder.font = &font;
+	}
+	Font& operator=(Font &&other) {
+		file = other.file;
+		font = std::move(other.font);
+		fontBuilder = std::move(other.fontBuilder);
+		fontBuilder.font = &font;
+		return *this;
+	}
 	void Decode();
 };
 

@@ -14,6 +14,7 @@
 #include "String.hpp"
 #include "Range.hpp"
 #include "Optional.hpp"
+#include "../Thread.hpp"
 
 // Quick macro to declare an arena in a header and an AString type that points to it. Must be matched by a call to AZCORE_CREATE_STRING_ARENA_CPP and called inside a namespace.
 #define AZCORE_CREATE_STRING_ARENA_HPP()\
@@ -44,6 +45,7 @@ class StringArena {
 	// Strings are 0-terminated in memory, so you can use them like c-strings if you must.
 	Array<Array<char>> arenas;
 	i32 PAGE_SIZE;
+	mutable Mutex mutex;
 	// Reserves string.size+1 and returns the page
 	Array<char>& ReserveMemory(Str string);
 public:
@@ -51,6 +53,7 @@ public:
 	StringArena(i32 pageSize=DEFAULT_PAGE_SIZE);
 	i32 GetID(const Str string);
 	inline const Str GetString(i32 id) const {
+		ScopedLock lock(mutex);
 		return strings[id];
 	}
 };

@@ -24,6 +24,7 @@ StringArena::StringArena(i32 pageSize) {
 }
 
 i32 StringArena::GetID(const SimpleRange<char> string) {
+	ScopedLock lock(mutex);
 	i32 result = map.ValueOf(string, strings.size);
 	if (result == strings.size) {
 		Array<char> &page = ReserveMemory(string);

@@ -649,6 +649,9 @@ String FormatSize(u64 size) {
 #define INIT_HEAD(obj) CHECK_INIT(obj); TRACE_INIT(obj)
 #define DEINIT_HEAD(obj) CHECK_DEINIT(obj); TRACE_DEINIT(obj)
 
+#define AZ_TRY_ERROR_RESULT(obj, command) AZ_TRY(command) { return ERROR_RESULT(obj, result.error); }
+#define AZ_TRY_ERROR_RESULT_INFO(obj, command, ...) AZ_TRY(command) { return ERROR_RESULT(obj, __VA_ARGS__, result.error); }
+
 #endif
 
 #ifndef Command_Recording
@@ -696,113 +699,67 @@ struct Binding {
 		} indexBuffer;
 		struct {
 			Buffer *object;
+		} anyBufferNonDescriptor;
+		struct {
+			void *_pad;
 			DescriptorIndex binding;
+			ArrayWithBucket<Buffer*, 8> buffers;
 		} uniformBuffer;
 		struct {
-			Buffer *object;
+			void *_pad;
 			DescriptorIndex binding;
+			ArrayWithBucket<Buffer*, 8> buffers;
 		} storageBuffer;
 		struct {
 			Sampler *sampler;
 			DescriptorIndex binding;
 			ArrayWithBucket<Image*, 8> images;
 		} imageSampler;
-		// For generic descriptor access to binding
 		struct {
 			void *object;
 			DescriptorIndex binding;
+			ArrayWithBucket<void*, 8> array;
 		} anyDescriptor;
-		// For generic buffer access
 		struct {
-			Buffer *object;
-		} anyBuffer;
+			void *_pad;
+			DescriptorIndex binding;
+			ArrayWithBucket<Buffer*, 8> buffers;
+		} anyBufferDescriptor;
 	};
-	// Assumes kind matches other.kind
 	inline void _Assign(const Binding &other) {
-		switch (kind) {
-			case FRAMEBUFFER:
-				framebuffer.object = other.framebuffer.object;
-				break;
-			case PIPELINE:
-				pipeline.object = other.pipeline.object;
-				break;
-			case VERTEX_BUFFER:
-			case INDEX_BUFFER:
-				anyBuffer.object = other.anyBuffer.object;
-				break;
-			case UNIFORM_BUFFER:
-			case STORAGE_BUFFER:
-				anyDescriptor.object = other.anyDescriptor.object;
-				anyDescriptor.binding = other.anyDescriptor.binding;
-				break;
-			case IMAGE_SAMPLER:
-				imageSampler.sampler = other.imageSampler.sampler;
-				imageSampler.binding = other.imageSampler.binding;
-				imageSampler.images = other.imageSampler.images;
-				break;
-			default:
-				AzAssert(false, "Unreachable");
-				break;
-		}
+		anyDescriptor.object = other.anyDescriptor.object;
+		anyDescriptor.binding = other.anyDescriptor.binding;
+		anyDescriptor.array = other.anyDescriptor.array;
 	}
-	// Assumes kind matches other kind
 	inline void _Move(Binding &&other) {
-		switch (kind) {
-			case FRAMEBUFFER:
-				framebuffer.object = other.framebuffer.object;
-				break;
-			case PIPELINE:
-				pipeline.object = other.pipeline.object;
-				break;
-			case VERTEX_BUFFER:
-			case INDEX_BUFFER:
-				anyBuffer.object = other.anyBuffer.object;
-				break;
-			case UNIFORM_BUFFER:
-			case STORAGE_BUFFER:
-				anyDescriptor.object = other.anyDescriptor.object;
-				anyDescriptor.binding = other.anyDescriptor.binding;
-				break;
-			case IMAGE_SAMPLER:
-				imageSampler.sampler = other.imageSampler.sampler;
-				imageSampler.binding = other.imageSampler.binding;
-				imageSampler.images = std::move(other.imageSampler.images);
-				break;
-			default:
-				AzAssert(false, "Unreachable");
-				break;
-		}
+		anyDescriptor.object = other.anyDescriptor.object;
+		anyDescriptor.binding = other.anyDescriptor.binding;
+		anyDescriptor.array = std::move(other.anyDescriptor.array);
 	}
 	Binding() {
-		AzPlacementNew(imageSampler.images);
+		AzPlacementNew(anyDescriptor.array);
 	}
 	Binding(const Binding &other) : kind(other.kind) {
-		AzPlacementNew(imageSampler.images);
+		AzPlacementNew(anyDescriptor.array);
 		_Assign(other);
 	}
 	Binding(Binding &&other) : kind(other.kind) {
-		AzPlacementNew(imageSampler.images);
+		AzPlacementNew(anyDescriptor.array);
 		_Move(std::move(other));
 	}
 	~Binding() {
-		if (kind == IMAGE_SAMPLER) {
-			imageSampler.images.~ArrayWithBucket();
-		}
+		anyDescriptor.array.~ArrayWithBucket();
 	}
 	Binding& operator=(const Binding &other) {
 		if (kind != other.kind) {
-			this->~Binding();
 			kind = other.kind;
-			AzPlacementNew(imageSampler.images);
 		}
 		_Assign(other);
 		return *this;
 	}
 	Binding& operator=(Binding &&other) {
 		if (kind != other.kind) {
-			this->~Binding();
 			kind = other.kind;
-			AzPlacementNew(imageSampler.images);
 		}
 		_Move(std::move(other));
 		return *this;
@@ -1046,6 +1003,16 @@ struct Device {
 	HashMap<DescriptorSetLayout, VkDescriptorSetLayout> vkDescriptorSetLayouts;
 	HashMap<DescriptorBindings, DescriptorSet*> descriptorSetsMap;
 
+	// These are all objects that get held for one frame upon recreation to allow pipelining to keep working.
+	// We'll track which context frames depend on these and clean them up once all dependencies are cleared.
+	struct {
+		List<Pipeline> pipelines;
+		List<Buffer> buffers;
+		List<Image> images;
+		List<Sampler> samplers;
+		List<Framebuffer> framebuffers;
+	} holdovers;
+
 	Ptr<PhysicalDevice> physicalDevice;
 
 	VkPhysicalDeviceFeatures2 vk10Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
@@ -1098,6 +1065,8 @@ struct Context {
 	} state = State::NOT_RECORDING;
 	i32 numFrames = 3;
 	i32 currentFrame = 0;
+	// Ticks up every time we go back to frame 0
+	i32 generation = 0;
 
 	Device *device;
 	String tag;
@@ -1110,6 +1079,13 @@ struct Context {
 inline bool ContextIsRecording(Context *context) {
 	return (u32)context->state >= (u32)Context::State::RECORDING_PRIMARY;
 }
+
+// To determine when objects are being used by contexts in-flight, objects keep track of context frames they're used in. This allows us to smartly recreate objects on the fly without destroying the version in use.
+struct DependentContext {
+	Context *context;
+	i32 frame;
+	i32 generation;
+};
 
 struct Shader {
 	String filename;
@@ -1180,6 +1156,8 @@ struct Pipeline {
 		i32 numColorAttachments = 0;
 	};
 
+	ArrayWithBucket<DependentContext, 4> dependentContexts;
+
 	Device *device;
 	String tag;
 	bool initted = false;
@@ -1210,6 +1188,8 @@ struct Buffer {
 	VkMemoryRequirements memoryRequirements;
 	Allocation alloc;
 	Allocation allocHostVisible;
+
+	ArrayWithBucket<DependentContext, 4> dependentContexts;
 
 	// Used to determine when to update descriptors
 	u64 timestamp;
@@ -1248,6 +1228,8 @@ struct Image {
 	Allocation alloc;
 	Allocation allocHostVisible;
 
+	ArrayWithBucket<DependentContext, 4> dependentContexts;
+
 	// Used to determine when to update descriptors
 	u64 timestamp;
 	Device *device;
@@ -1279,6 +1261,8 @@ struct Sampler {
 	VkBorderColor borderColor=VK_BORDER_COLOR_INT_TRANSPARENT_BLACK;
 
 	VkSampler vkSampler;
+
+	ArrayWithBucket<DependentContext, 4> dependentContexts;
 
 	Device *device;
 	String tag;
@@ -1328,6 +1312,8 @@ struct Framebuffer {
 	// width and height will be set automagically, just used for easy access
 	i32 width, height;
 	u32 sampleCount = 1;
+
+	ArrayWithBucket<DependentContext, 4> dependentContexts;
 
 	Device *device;
 	String tag;
@@ -1478,6 +1464,102 @@ void FramebufferDeinit(Framebuffer *framebuffer);
 // Will return nullptr if there is no Window attachment.
 [[nodiscard]] Window* FramebufferGetWindowAttachment(Framebuffer *framebuffer);
 
+static void CleanupDependentContexts(Context *context, ArrayWithBucket<DependentContext, 4> &dependentContexts) {
+	for (i32 i = 0; i < dependentContexts.size; i++) {
+		DependentContext &dep = dependentContexts[i];
+		if (dep.context == context && dep.frame == context->currentFrame && dep.generation < context->generation) {
+			dependentContexts.Erase(i);
+			i--;
+		}
+	}
+}
+
+// Checks all dependencies for all contexts for expiry
+static void CleanupDependentContexts(ArrayWithBucket<DependentContext, 4> &dependentContexts) {
+	for (i32 i = 0; i < dependentContexts.size; i++) {
+		DependentContext &dep = dependentContexts[i];
+		// Newer generation of equal or greater frame means it's definitely completed
+		if ((dep.generation < dep.context->generation && dep.frame <= dep.context->currentFrame)
+		// Same generation of greater frame means we need to check if it's completed
+		|| (dep.generation == dep.context->generation && dep.frame < dep.context->currentFrame && VK_SUCCESS == FenceGetStatus(&dep.context->frames[dep.context->currentFrame].fence))) {
+			dependentContexts.Erase(i);
+			i--;
+		}
+	}
+}
+
+static void CleanupObjectsBeholdenToContext(Context *context) {
+	Device *device = context->device;
+	for (i32 i = 0; i < device->holdovers.pipelines.size; i++) {
+		Pipeline *pipeline = device->holdovers.pipelines[i].RawPtr();
+		CleanupDependentContexts(context, pipeline->dependentContexts);
+		if (pipeline->dependentContexts.size == 0) {
+			PipelineDeinit(pipeline);
+			device->holdovers.pipelines.Erase(i);
+			i--;
+		}
+	}
+	for (i32 i = 0; i < device->holdovers.framebuffers.size; i++) {
+		Framebuffer *framebuffer = device->holdovers.framebuffers[i].RawPtr();
+		CleanupDependentContexts(context, framebuffer->dependentContexts);
+		if (framebuffer->dependentContexts.size == 0) {
+			FramebufferDeinit(framebuffer);
+			device->holdovers.framebuffers.Erase(i);
+			i--;
+		}
+	}
+	for (i32 i = 0; i < device->holdovers.buffers.size; i++) {
+		Buffer *buffer = device->holdovers.buffers[i].RawPtr();
+		CleanupDependentContexts(context, buffer->dependentContexts);
+		if (buffer->dependentContexts.size == 0) {
+			BufferDeinit(buffer);
+			device->holdovers.buffers.Erase(i);
+			i--;
+		}
+	}
+	for (i32 i = 0; i < device->holdovers.images.size; i++) {
+		Image *image = device->holdovers.images[i].RawPtr();
+		CleanupDependentContexts(context, image->dependentContexts);
+		if (image->dependentContexts.size == 0) {
+			ImageDeinit(image);
+			device->holdovers.images.Erase(i);
+			i--;
+		}
+	}
+	for (i32 i = 0; i < device->holdovers.samplers.size; i++) {
+		Sampler *sampler = device->holdovers.samplers[i].RawPtr();
+		CleanupDependentContexts(context, sampler->dependentContexts);
+		if (sampler->dependentContexts.size == 0) {
+			SamplerDeinit(sampler);
+			device->holdovers.samplers.Erase(i);
+			i--;
+		}
+	}
+}
+
+// TODO: Handle edge cases where GPU memory is highly utilized (since holdovers require duplicate memory allocations, which could be a problem for large resources)
+// We may want to synchronize and deinit to free the memory first in memory-limited scenarios. The downside is you may have a stutter, but that beats an out-of-memory crash by a landslide.
+
+// Moves the resources to the holdover buffer and sets src to uninitted
+static Image* MakeHoldover(Image *src) {
+	Image *result = new Image(std::move(*src));
+	src->initted = false;
+	src->hostVisible = false;
+	src->tag = result->tag;
+	src->device->holdovers.images.Append(result);
+	return result;
+}
+
+// Moves the resources to the holdover buffer and sets src to uninitted
+static Buffer* MakeHoldover(Buffer *src) {
+	Buffer *result = new Buffer(std::move(*src));
+	src->initted = false;
+	src->hostVisible = false;
+	src->tag = result->tag;
+	src->device->holdovers.buffers.Append(result);
+	return result;
+}
+
 #endif
 
 #ifndef Global_settings
@@ -1602,13 +1684,11 @@ Result<VoidResult_t, String> Initialize() {
 	}
 
 	for (auto &window : windows) {
-		auto result = WindowSurfaceInit(window.RawPtr());
-		if (result.isError) return result.error;
+		AZ_TRY (WindowSurfaceInit(window.RawPtr())) return result.error;
 	}
 
 	for (auto &device : devices) {
-		auto result = DeviceInit(device.RawPtr());
-		if (result.isError) return result.error;
+		AZ_TRY (DeviceInit(device.RawPtr())) return result.error;
 	}
 
 	return VoidResult_t();
@@ -1976,7 +2056,7 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 		for (i32 i = window->acquireFences.size-1; i >= window->numImages; i--) {
 			// Calling vkQueueWaitIdle does nothing for swapchain image acquisition, so we need to wait on the fence.
 			// This is okay to call on all of them because we only set unsignaled right before asking for the image.
-			if (auto result = FenceWaitForSignal(&window->acquireFences[i]); result.isError) return result.error;
+			AZ_TRY_ERROR_RESULT (window, FenceWaitForSignal(&window->acquireFences[i]));
 			FenceDeinit(&window->acquireFences[i]);
 			SemaphoreDeinit(&window->acquireSemaphores[i]);
 		}
@@ -1987,18 +2067,12 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 		window->acquireFences.Resize(window->numImages, Fence(window->device, Stringify(window->tag, " Fence")));
 		window->acquireSemaphores.Resize(window->numImages, Semaphore(window->device, Stringify(window->tag, " Semaphore")));
 		for (i32 i = previousSize; i < window->numImages; i++) {
-			if (auto result = FenceInit(&window->acquireFences[i], true); result.isError) {
-				return ERROR_RESULT(window, result.error);
-			}
-			if (auto result = SemaphoreInit(&window->acquireSemaphores[i]); result.isError) {
-				return ERROR_RESULT(window, result.error);
-			}
+			AZ_TRY_ERROR_RESULT (window, FenceInit(&window->acquireFences[i], true));
+			AZ_TRY_ERROR_RESULT (window, SemaphoreInit(&window->acquireSemaphores[i]));
 		}
 	}
 	if (window->initted && window->framebuffer) {
-		if (auto result = FramebufferCreate(window->framebuffer); result.isError) {
-			return ERROR_RESULT(window, "Failed to recreate Framebuffer: ", result.error);
-		}
+		AZ_TRY_ERROR_RESULT_INFO (window, FramebufferCreate(window->framebuffer), "Failed to recreate Framebuffer: ");
 	}
 	window->currentSync = 0;
 	window->initted = true;
@@ -2032,9 +2106,7 @@ Result<VoidResult_t, String> WindowUpdate(Window *window) {
 	}
 	if (resize || window->shouldReconfigure) {
 reconfigure:
-		if (auto result = WindowInit(window); result.isError) {
-			return ERROR_RESULT(window, "Failed to reconfigure window: ", result.error);
-		}
+		AZ_TRY_ERROR_RESULT_INFO (window, WindowInit(window), "Failed to reconfigure window: ");
 		window->shouldReconfigure = false;
 	}
 
@@ -2042,12 +2114,8 @@ reconfigure:
 	if (!didCallAcquire) {
 		window->currentSync = (window->currentSync + 1) % window->numImages;
 		fence = &window->acquireFences[window->currentSync];
-		if (auto result = FenceWaitForSignal(fence); result.isError) {
-			return ERROR_RESULT(window, result.error);
-		}
-		if (auto result = FenceResetSignaled(fence); result.isError) {
-			return ERROR_RESULT(window, result.error);
-		}
+		AZ_TRY_ERROR_RESULT (window, FenceWaitForSignal(fence));
+		AZ_TRY_ERROR_RESULT (window, FenceResetSignaled(fence));
 	}
 	Semaphore *semaphore = &window->acquireSemaphores[window->currentSync];
 	u32 currentImage;
@@ -2374,9 +2442,7 @@ Result<Allocation, String> MemoryAllocate(Memory *memory, u32 size, u32 alignmen
 		if (segment != -1) break;
 	}
 	if (page == memory->pages.size) {
-		if (auto result = MemoryAddPage(memory, size); result.isError) {
-			return result.error;
-		}
+		AZ_TRY_ERROR_RESULT (memory, MemoryAddPage(memory, size));
 		segment = 0;
 	}
 	return PageAllocInSegment(memory, page, segment, size, alignment);
@@ -2407,16 +2473,16 @@ void MemoryFree(Allocation allocation) {
 // Allocates memory and binds it to the buffer
 Result<Allocation, String> AllocateBuffer(Device *device, VkBuffer buffer, VkMemoryRequirements memoryRequirements, VkMemoryPropertyFlags memoryPropertyFlags) {
 	u32 memoryType;
-	if (auto result = FindMemoryType(memoryRequirements.memoryTypeBits, memoryPropertyFlags, device->physicalDevice->memoryProperties.memoryProperties); result.isError) {
-		return result.error;
-	} else {
+	AZ_TRY_ERROR_RESULT (device,
+		FindMemoryType(memoryRequirements.memoryTypeBits, memoryPropertyFlags, device->physicalDevice->memoryProperties.memoryProperties)
+	) else {
 		memoryType = result.value;
 	}
 	Memory *memory = DeviceGetMemory(device, memoryType, true);
 	Allocation alloc;
-	if (auto result = MemoryAllocate(memory, memoryRequirements.size, memoryRequirements.alignment); result.isError) {
-		return result.error;
-	} else {
+	AZ_TRY_ERROR_RESULT (device,
+		MemoryAllocate(memory, memoryRequirements.size, memoryRequirements.alignment)
+	) else {
 		alloc = result.value;
 	}
 	if (VkResult result = vkBindBufferMemory(device->vkDevice, buffer, memory->pages[alloc.page].vkMemory, align(alloc.offset, memoryRequirements.alignment)); result != VK_SUCCESS) {
@@ -2427,16 +2493,16 @@ Result<Allocation, String> AllocateBuffer(Device *device, VkBuffer buffer, VkMem
 
 Result<Allocation, String> AllocateImage(Device *device, VkImage image, VkMemoryRequirements memoryRequirements, VkMemoryPropertyFlags memoryPropertyFlags, bool linear) {
 	u32 memoryType;
-	if (auto result = FindMemoryType(memoryRequirements.memoryTypeBits, memoryPropertyFlags, device->physicalDevice->memoryProperties.memoryProperties); result.isError) {
-		return result.error;
-	} else {
+	AZ_TRY_ERROR_RESULT (device,
+		FindMemoryType(memoryRequirements.memoryTypeBits, memoryPropertyFlags, device->physicalDevice->memoryProperties.memoryProperties)
+	) else {
 		memoryType = result.value;
 	}
 	Memory *memory = DeviceGetMemory(device, memoryType, linear);
 	Allocation alloc;
-	if (auto result = MemoryAllocate(memory, memoryRequirements.size, memoryRequirements.alignment); result.isError) {
-		return result.error;
-	} else {
+	AZ_TRY_ERROR_RESULT (device,
+		MemoryAllocate(memory, memoryRequirements.size, memoryRequirements.alignment)
+	) else {
 		alloc = result.value;
 	}
 	if (VkResult result = vkBindImageMemory(device->vkDevice, image, memory->pages[alloc.page].vkMemory, align(alloc.offset, memoryRequirements.alignment)); result != VK_SUCCESS) {
@@ -2614,44 +2680,28 @@ breakout2:
 
 	for (auto &window : windows) {
 		window->device = device;
-		if (auto result = WindowInit(window.RawPtr()); result.isError) {
-			return ERROR_RESULT(device, result.error);
-		}
+		AZ_TRY_ERROR_RESULT (device, WindowInit(window.RawPtr()));
 	}
 	for (auto &buffer : device->buffers) {
-		if (auto result = BufferInit(buffer.RawPtr()); result.isError) {
-			return ERROR_RESULT(device, result.error);
-		}
+		AZ_TRY_ERROR_RESULT (device, BufferInit(buffer.RawPtr()));
 	}
 	for (auto &image : device->images) {
-		if (auto result = ImageInit(image.RawPtr()); result.isError) {
-			return ERROR_RESULT(device, result.error);
-		}
+		AZ_TRY_ERROR_RESULT (device, ImageInit(image.RawPtr()));
 	}
 	for (auto &sampler : device->samplers) {
-		if (auto result = SamplerInit(sampler.RawPtr()); result.isError) {
-			return ERROR_RESULT(device, result.error);
-		}
+		AZ_TRY_ERROR_RESULT (device, SamplerInit(sampler.RawPtr()));
 	}
 	for (auto &framebuffer : device->framebuffers) {
-		if (auto result = FramebufferInit(framebuffer.RawPtr()); result.isError) {
-			return ERROR_RESULT(device, result.error);
-		}
+		AZ_TRY_ERROR_RESULT (device, FramebufferInit(framebuffer.RawPtr()));
 	}
 	for (auto &context : device->contexts) {
-		if (auto result = ContextInit(context.RawPtr()); result.isError) {
-			return ERROR_RESULT(device, result.error);
-		}
+		AZ_TRY_ERROR_RESULT (device, ContextInit(context.RawPtr()));
 	}
 	for (auto &shader : device->shaders) {
-		if (auto result = ShaderInit(shader.RawPtr()); result.isError) {
-			return ERROR_RESULT(device, result.error);
-		}
+		AZ_TRY_ERROR_RESULT (device, ShaderInit(shader.RawPtr()));
 	}
 	for (auto &pipeline : device->pipelines) {
-		if (auto result = PipelineInit(pipeline.RawPtr()); result.isError) {
-			return ERROR_RESULT(device, result.error);
-		}
+		AZ_TRY_ERROR_RESULT (device, PipelineInit(pipeline.RawPtr()));
 	}
 	// TODO: Init everything else
 
@@ -2881,9 +2931,9 @@ Result<VoidResult_t, String> BufferInit(Buffer *buffer) {
 	}
 	SetDebugMarker(buffer->device, buffer->tag, VK_OBJECT_TYPE_BUFFER, (u64)buffer->vkBuffer);
 	vkGetBufferMemoryRequirements(buffer->device->vkDevice, buffer->vkBuffer, &buffer->memoryRequirements);
-	if (auto result = AllocateBuffer(buffer->device, buffer->vkBuffer, buffer->memoryRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT); result.isError) {
-		return result.error;
-	} else {
+	AZ_TRY_ERROR_RESULT (buffer,
+		AllocateBuffer(buffer->device, buffer->vkBuffer, buffer->memoryRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+	) else {
 		buffer->alloc = result.value;
 	}
 	buffer->initted = true;
@@ -2914,9 +2964,10 @@ Result<VoidResult_t, String> BufferHostInit(Buffer *buffer) {
 		return ERROR_RESULT(buffer, "Failed to create staging buffer: ", VkResultString(result));
 	}
 	SetDebugMarker(buffer->device, Stringify(buffer->tag, " host-visible buffer"), VK_OBJECT_TYPE_BUFFER, (u64)buffer->vkBufferHostVisible);
-	if (auto result = AllocateBuffer(buffer->device, buffer->vkBufferHostVisible, buffer->memoryRequirements, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT); result.isError) {
-		return result.error;
-	} else {
+	AZ_TRY_ERROR_RESULT_INFO (buffer,
+		AllocateBuffer(buffer->device, buffer->vkBufferHostVisible, buffer->memoryRequirements, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT),
+		"For host-visible buffer: "
+	) else {
 		buffer->allocHostVisible = result.value;
 	}
 	buffer->hostVisible = true;
@@ -2932,17 +2983,46 @@ void BufferHostDeinit(Buffer *buffer) {
 	buffer->hostVisible = false;
 }
 
-void BufferSetSize(Buffer *buffer, i64 sizeBytes) {
+Result<VoidResult_t, String> BufferSetSize(Buffer *buffer, i64 sizeBytes) {
+	if (sizeBytes == buffer->size) return VoidResult_t();
 	bool initted = buffer->initted;
+	if (initted) {
+		CleanupDependentContexts(buffer->dependentContexts);
+		if (buffer->dependentContexts.size) {
+			MakeHoldover(buffer);
+		} else {
+			BufferDeinit(buffer);
+		}
+	}
 	buffer->size = sizeBytes;
 	if (initted) {
-		// Reinit
-		AzAssertRel(false, "Unimplemented");
+		return BufferInit(buffer);
 	}
+	return VoidResult_t();
+}
+
+Result<VoidResult_t, String> BufferResize(Buffer *buffer, i64 sizeBytes, Context *copyContext) {
+	AzAssert(buffer->initted, Stringify("Trying to resize a buffer \"", buffer->tag, "\" that's not initted"));
+	if (sizeBytes == buffer->size) return VoidResult_t();
+
+	Buffer *oldBuffer = MakeHoldover(buffer);
+
+	AZ_TRY_ERROR_RESULT (buffer, BufferInit(buffer));
+	AZ_TRY_ERROR_RESULT (buffer, ContextWaitUntilFinished(copyContext));
+	AZ_TRY_ERROR_RESULT (buffer, ContextBeginRecording(copyContext));
+	CmdCopyBufferToBuffer(copyContext, buffer, oldBuffer);
+	AZ_TRY_ERROR_RESULT (buffer, ContextEndRecording(copyContext));
+	AZ_TRY_ERROR_RESULT (buffer, SubmitCommands(copyContext));
+
+	return VoidResult_t();
 }
 
 void BufferSetShaderUsage(Buffer *buffer, u32 shaderStages) {
 	buffer->shaderStages = shaderStages;
+}
+
+i64 BufferGetSize(Buffer *buffer) {
+	return buffer->size;
 }
 
 Result<VoidResult_t, String> ImageInit(Image *image) {
@@ -2984,9 +3064,9 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 	}
 	SetDebugMarker(image->device, image->tag, VK_OBJECT_TYPE_IMAGE, (u64)image->vkImage);
 	vkGetImageMemoryRequirements(image->device->vkDevice, image->vkImage, &image->memoryRequirements);
-	if (auto result = AllocateImage(image->device, image->vkImage, image->memoryRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, false); result.isError) {
-		return result.error;
-	} else {
+	AZ_TRY_ERROR_RESULT (image,
+		AllocateImage(image->device, image->vkImage, image->memoryRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, false)
+	) else {
 		image->alloc = result.value;
 	}
 	VkImageViewCreateInfo viewCreateInfo = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
@@ -3031,9 +3111,14 @@ void ImageDeinit(Image *image) {
 }
 
 Result<VoidResult_t, String> ImageRecreate(Image *image) {
-	AzAssert(image->initted, "Cannot Recreate an image that's not initialized");
-	vkDeviceWaitIdle(image->device->vkDevice);
-	ImageDeinit(image);
+	if (image->initted) {
+		CleanupDependentContexts(image->dependentContexts);
+		if (image->dependentContexts.size) {
+			MakeHoldover(image);
+		} else {
+			ImageDeinit(image);
+		}
+	}
 	return ImageInit(image);
 }
 
@@ -3049,9 +3134,9 @@ Result<VoidResult_t, String> ImageHostInit(Image *image) {
 	}
 	SetDebugMarker(image->device, Stringify(image->tag, " host-visible buffer"), VK_OBJECT_TYPE_BUFFER, (u64)image->vkBufferHostVisible);
 	vkGetBufferMemoryRequirements(image->device->vkDevice, image->vkBufferHostVisible, &image->memoryRequirementsHost);
-	if (auto result = AllocateBuffer(image->device, image->vkBufferHostVisible, image->memoryRequirementsHost, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT); result.isError) {
-		return result.error;
-	} else {
+	AZ_TRY_ERROR_RESULT (image,
+		AllocateBuffer(image->device, image->vkBufferHostVisible, image->memoryRequirementsHost, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+	) else {
 		image->allocHostVisible = result.value;
 	}
 	image->hostVisible = true;
@@ -3067,306 +3152,313 @@ void ImageHostDeinit(Image *image) {
 	image->hostVisible = false;
 }
 
-void ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType componentType) {
+bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType componentType) {
+	VkFormat vkFormat;
 	switch (imageBits) {
 		case ImageBits::D16:
 			switch (componentType) {
-				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_D16_UNORM;   break;
+				case ImageComponentType::UNORM:   vkFormat = VK_FORMAT_D16_UNORM;   break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 2;
 			break;
 		case ImageBits::D24:
 			switch (componentType) {
-				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_X8_D24_UNORM_PACK32;   break;
+				case ImageComponentType::UNORM:   vkFormat = VK_FORMAT_X8_D24_UNORM_PACK32;   break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 4;
 			break;
 		case ImageBits::D32:
 			switch (componentType) {
-				case ImageComponentType::SFLOAT:   image->vkFormat = VK_FORMAT_D32_SFLOAT; break;
+				case ImageComponentType::SFLOAT:   vkFormat = VK_FORMAT_D32_SFLOAT; break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 4;
 			break;
 		case ImageBits::R8:
 			switch (componentType) {
-				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_R8_UNORM;   break;
-				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_R8_SNORM;   break;
-				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_R8_USCALED; break;
-				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_R8_SSCALED; break;
-				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_R8_UINT;    break;
-				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_R8_SINT;    break;
-				case ImageComponentType::SRGB:    image->vkFormat = VK_FORMAT_R8_SRGB;    break;
+				case ImageComponentType::UNORM:   vkFormat = VK_FORMAT_R8_UNORM;   break;
+				case ImageComponentType::SNORM:   vkFormat = VK_FORMAT_R8_SNORM;   break;
+				case ImageComponentType::USCALED: vkFormat = VK_FORMAT_R8_USCALED; break;
+				case ImageComponentType::SSCALED: vkFormat = VK_FORMAT_R8_SSCALED; break;
+				case ImageComponentType::UINT:    vkFormat = VK_FORMAT_R8_UINT;    break;
+				case ImageComponentType::SINT:    vkFormat = VK_FORMAT_R8_SINT;    break;
+				case ImageComponentType::SRGB:    vkFormat = VK_FORMAT_R8_SRGB;    break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 1;
 			break;
 		case ImageBits::R8G8:
 			switch (componentType) {
-				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_R8G8_UNORM;   break;
-				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_R8G8_SNORM;   break;
-				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_R8G8_USCALED; break;
-				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_R8G8_SSCALED; break;
-				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_R8G8_UINT;    break;
-				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_R8G8_SINT;    break;
-				case ImageComponentType::SRGB:    image->vkFormat = VK_FORMAT_R8G8_SRGB;    break;
+				case ImageComponentType::UNORM:   vkFormat = VK_FORMAT_R8G8_UNORM;   break;
+				case ImageComponentType::SNORM:   vkFormat = VK_FORMAT_R8G8_SNORM;   break;
+				case ImageComponentType::USCALED: vkFormat = VK_FORMAT_R8G8_USCALED; break;
+				case ImageComponentType::SSCALED: vkFormat = VK_FORMAT_R8G8_SSCALED; break;
+				case ImageComponentType::UINT:    vkFormat = VK_FORMAT_R8G8_UINT;    break;
+				case ImageComponentType::SINT:    vkFormat = VK_FORMAT_R8G8_SINT;    break;
+				case ImageComponentType::SRGB:    vkFormat = VK_FORMAT_R8G8_SRGB;    break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 2;
 			break;
 		case ImageBits::R8G8B8:
 			switch (componentType) {
-				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_R8G8B8_UNORM;   break;
-				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_R8G8B8_SNORM;   break;
-				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_R8G8B8_USCALED; break;
-				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_R8G8B8_SSCALED; break;
-				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_R8G8B8_UINT;    break;
-				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_R8G8B8_SINT;    break;
-				case ImageComponentType::SRGB:    image->vkFormat = VK_FORMAT_R8G8B8_SRGB;    break;
+				case ImageComponentType::UNORM:   vkFormat = VK_FORMAT_R8G8B8_UNORM;   break;
+				case ImageComponentType::SNORM:   vkFormat = VK_FORMAT_R8G8B8_SNORM;   break;
+				case ImageComponentType::USCALED: vkFormat = VK_FORMAT_R8G8B8_USCALED; break;
+				case ImageComponentType::SSCALED: vkFormat = VK_FORMAT_R8G8B8_SSCALED; break;
+				case ImageComponentType::UINT:    vkFormat = VK_FORMAT_R8G8B8_UINT;    break;
+				case ImageComponentType::SINT:    vkFormat = VK_FORMAT_R8G8B8_SINT;    break;
+				case ImageComponentType::SRGB:    vkFormat = VK_FORMAT_R8G8B8_SRGB;    break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 3;
 			break;
 		case ImageBits::R8G8B8A8:
 			switch (componentType) {
-				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_R8G8B8A8_UNORM;   break;
-				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_R8G8B8A8_SNORM;   break;
-				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_R8G8B8A8_USCALED; break;
-				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_R8G8B8A8_SSCALED; break;
-				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_R8G8B8A8_UINT;    break;
-				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_R8G8B8A8_SINT;    break;
-				case ImageComponentType::SRGB:    image->vkFormat = VK_FORMAT_R8G8B8A8_SRGB;    break;
+				case ImageComponentType::UNORM:   vkFormat = VK_FORMAT_R8G8B8A8_UNORM;   break;
+				case ImageComponentType::SNORM:   vkFormat = VK_FORMAT_R8G8B8A8_SNORM;   break;
+				case ImageComponentType::USCALED: vkFormat = VK_FORMAT_R8G8B8A8_USCALED; break;
+				case ImageComponentType::SSCALED: vkFormat = VK_FORMAT_R8G8B8A8_SSCALED; break;
+				case ImageComponentType::UINT:    vkFormat = VK_FORMAT_R8G8B8A8_UINT;    break;
+				case ImageComponentType::SINT:    vkFormat = VK_FORMAT_R8G8B8A8_SINT;    break;
+				case ImageComponentType::SRGB:    vkFormat = VK_FORMAT_R8G8B8A8_SRGB;    break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 4;
 			break;
 		case ImageBits::B8G8R8:
 			switch (componentType) {
-				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_B8G8R8_UNORM;   break;
-				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_B8G8R8_SNORM;   break;
-				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_B8G8R8_USCALED; break;
-				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_B8G8R8_SSCALED; break;
-				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_B8G8R8_UINT;    break;
-				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_B8G8R8_SINT;    break;
-				case ImageComponentType::SRGB:    image->vkFormat = VK_FORMAT_B8G8R8_SRGB;    break;
+				case ImageComponentType::UNORM:   vkFormat = VK_FORMAT_B8G8R8_UNORM;   break;
+				case ImageComponentType::SNORM:   vkFormat = VK_FORMAT_B8G8R8_SNORM;   break;
+				case ImageComponentType::USCALED: vkFormat = VK_FORMAT_B8G8R8_USCALED; break;
+				case ImageComponentType::SSCALED: vkFormat = VK_FORMAT_B8G8R8_SSCALED; break;
+				case ImageComponentType::UINT:    vkFormat = VK_FORMAT_B8G8R8_UINT;    break;
+				case ImageComponentType::SINT:    vkFormat = VK_FORMAT_B8G8R8_SINT;    break;
+				case ImageComponentType::SRGB:    vkFormat = VK_FORMAT_B8G8R8_SRGB;    break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 3;
 			break;
 		case ImageBits::B8G8R8A8:
 			switch (componentType) {
-				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_B8G8R8A8_UNORM;   break;
-				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_B8G8R8A8_SNORM;   break;
-				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_B8G8R8A8_USCALED; break;
-				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_B8G8R8A8_SSCALED; break;
-				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_B8G8R8A8_UINT;    break;
-				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_B8G8R8A8_SINT;    break;
-				case ImageComponentType::SRGB:    image->vkFormat = VK_FORMAT_B8G8R8A8_SRGB;    break;
+				case ImageComponentType::UNORM:   vkFormat = VK_FORMAT_B8G8R8A8_UNORM;   break;
+				case ImageComponentType::SNORM:   vkFormat = VK_FORMAT_B8G8R8A8_SNORM;   break;
+				case ImageComponentType::USCALED: vkFormat = VK_FORMAT_B8G8R8A8_USCALED; break;
+				case ImageComponentType::SSCALED: vkFormat = VK_FORMAT_B8G8R8A8_SSCALED; break;
+				case ImageComponentType::UINT:    vkFormat = VK_FORMAT_B8G8R8A8_UINT;    break;
+				case ImageComponentType::SINT:    vkFormat = VK_FORMAT_B8G8R8A8_SINT;    break;
+				case ImageComponentType::SRGB:    vkFormat = VK_FORMAT_B8G8R8A8_SRGB;    break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 4;
 			break;
 		case ImageBits::R16:
 			switch (componentType) {
-				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_R16_UNORM;   break;
-				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_R16_SNORM;   break;
-				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_R16_USCALED; break;
-				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_R16_SSCALED; break;
-				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_R16_UINT;    break;
-				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_R16_SINT;    break;
-				case ImageComponentType::SFLOAT:  image->vkFormat = VK_FORMAT_R16_SFLOAT;  break;
+				case ImageComponentType::UNORM:   vkFormat = VK_FORMAT_R16_UNORM;   break;
+				case ImageComponentType::SNORM:   vkFormat = VK_FORMAT_R16_SNORM;   break;
+				case ImageComponentType::USCALED: vkFormat = VK_FORMAT_R16_USCALED; break;
+				case ImageComponentType::SSCALED: vkFormat = VK_FORMAT_R16_SSCALED; break;
+				case ImageComponentType::UINT:    vkFormat = VK_FORMAT_R16_UINT;    break;
+				case ImageComponentType::SINT:    vkFormat = VK_FORMAT_R16_SINT;    break;
+				case ImageComponentType::SFLOAT:  vkFormat = VK_FORMAT_R16_SFLOAT;  break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 2;
 			break;
 		case ImageBits::R16G16:
 			switch (componentType) {
-				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_R16G16_UNORM;   break;
-				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_R16G16_SNORM;   break;
-				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_R16G16_USCALED; break;
-				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_R16G16_SSCALED; break;
-				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_R16G16_UINT;    break;
-				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_R16G16_SINT;    break;
-				case ImageComponentType::SFLOAT:  image->vkFormat = VK_FORMAT_R16G16_SFLOAT;  break;
+				case ImageComponentType::UNORM:   vkFormat = VK_FORMAT_R16G16_UNORM;   break;
+				case ImageComponentType::SNORM:   vkFormat = VK_FORMAT_R16G16_SNORM;   break;
+				case ImageComponentType::USCALED: vkFormat = VK_FORMAT_R16G16_USCALED; break;
+				case ImageComponentType::SSCALED: vkFormat = VK_FORMAT_R16G16_SSCALED; break;
+				case ImageComponentType::UINT:    vkFormat = VK_FORMAT_R16G16_UINT;    break;
+				case ImageComponentType::SINT:    vkFormat = VK_FORMAT_R16G16_SINT;    break;
+				case ImageComponentType::SFLOAT:  vkFormat = VK_FORMAT_R16G16_SFLOAT;  break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 4;
 			break;
 		case ImageBits::R16G16B16:
 			switch (componentType) {
-				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_R16G16B16_UNORM;   break;
-				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_R16G16B16_SNORM;   break;
-				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_R16G16B16_USCALED; break;
-				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_R16G16B16_SSCALED; break;
-				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_R16G16B16_UINT;    break;
-				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_R16G16B16_SINT;    break;
-				case ImageComponentType::SFLOAT:  image->vkFormat = VK_FORMAT_R16G16B16_SFLOAT;  break;
+				case ImageComponentType::UNORM:   vkFormat = VK_FORMAT_R16G16B16_UNORM;   break;
+				case ImageComponentType::SNORM:   vkFormat = VK_FORMAT_R16G16B16_SNORM;   break;
+				case ImageComponentType::USCALED: vkFormat = VK_FORMAT_R16G16B16_USCALED; break;
+				case ImageComponentType::SSCALED: vkFormat = VK_FORMAT_R16G16B16_SSCALED; break;
+				case ImageComponentType::UINT:    vkFormat = VK_FORMAT_R16G16B16_UINT;    break;
+				case ImageComponentType::SINT:    vkFormat = VK_FORMAT_R16G16B16_SINT;    break;
+				case ImageComponentType::SFLOAT:  vkFormat = VK_FORMAT_R16G16B16_SFLOAT;  break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 6;
 			break;
 		case ImageBits::R16G16B16A16:
 			switch (componentType) {
-				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_R16G16B16A16_UNORM;   break;
-				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_R16G16B16A16_SNORM;   break;
-				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_R16G16B16A16_USCALED; break;
-				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_R16G16B16A16_SSCALED; break;
-				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_R16G16B16A16_UINT;    break;
-				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_R16G16B16A16_SINT;    break;
-				case ImageComponentType::SFLOAT:  image->vkFormat = VK_FORMAT_R16G16B16A16_SFLOAT;  break;
+				case ImageComponentType::UNORM:   vkFormat = VK_FORMAT_R16G16B16A16_UNORM;   break;
+				case ImageComponentType::SNORM:   vkFormat = VK_FORMAT_R16G16B16A16_SNORM;   break;
+				case ImageComponentType::USCALED: vkFormat = VK_FORMAT_R16G16B16A16_USCALED; break;
+				case ImageComponentType::SSCALED: vkFormat = VK_FORMAT_R16G16B16A16_SSCALED; break;
+				case ImageComponentType::UINT:    vkFormat = VK_FORMAT_R16G16B16A16_UINT;    break;
+				case ImageComponentType::SINT:    vkFormat = VK_FORMAT_R16G16B16A16_SINT;    break;
+				case ImageComponentType::SFLOAT:  vkFormat = VK_FORMAT_R16G16B16A16_SFLOAT;  break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 8;
 			break;
 		case ImageBits::R32:
 			switch (componentType) {
-				case ImageComponentType::UINT:   image->vkFormat = VK_FORMAT_R32_UINT;   break;
-				case ImageComponentType::SINT:   image->vkFormat = VK_FORMAT_R32_SINT;   break;
-				case ImageComponentType::SFLOAT: image->vkFormat = VK_FORMAT_R32_SFLOAT; break;
+				case ImageComponentType::UINT:   vkFormat = VK_FORMAT_R32_UINT;   break;
+				case ImageComponentType::SINT:   vkFormat = VK_FORMAT_R32_SINT;   break;
+				case ImageComponentType::SFLOAT: vkFormat = VK_FORMAT_R32_SFLOAT; break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 4;
 			break;
 		case ImageBits::R32G32:
 			switch (componentType) {
-				case ImageComponentType::UINT:   image->vkFormat = VK_FORMAT_R32G32_UINT;   break;
-				case ImageComponentType::SINT:   image->vkFormat = VK_FORMAT_R32G32_SINT;   break;
-				case ImageComponentType::SFLOAT: image->vkFormat = VK_FORMAT_R32G32_SFLOAT; break;
+				case ImageComponentType::UINT:   vkFormat = VK_FORMAT_R32G32_UINT;   break;
+				case ImageComponentType::SINT:   vkFormat = VK_FORMAT_R32G32_SINT;   break;
+				case ImageComponentType::SFLOAT: vkFormat = VK_FORMAT_R32G32_SFLOAT; break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 8;
 			break;
 		case ImageBits::R32G32B32:
 			switch (componentType) {
-				case ImageComponentType::UINT:   image->vkFormat = VK_FORMAT_R32G32B32_UINT;   break;
-				case ImageComponentType::SINT:   image->vkFormat = VK_FORMAT_R32G32B32_SINT;   break;
-				case ImageComponentType::SFLOAT: image->vkFormat = VK_FORMAT_R32G32B32_SFLOAT; break;
+				case ImageComponentType::UINT:   vkFormat = VK_FORMAT_R32G32B32_UINT;   break;
+				case ImageComponentType::SINT:   vkFormat = VK_FORMAT_R32G32B32_SINT;   break;
+				case ImageComponentType::SFLOAT: vkFormat = VK_FORMAT_R32G32B32_SFLOAT; break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 12;
 			break;
 		case ImageBits::R32G32B32A32:
 			switch (componentType) {
-				case ImageComponentType::UINT:   image->vkFormat = VK_FORMAT_R32G32B32A32_UINT;   break;
-				case ImageComponentType::SINT:   image->vkFormat = VK_FORMAT_R32G32B32A32_SINT;   break;
-				case ImageComponentType::SFLOAT: image->vkFormat = VK_FORMAT_R32G32B32A32_SFLOAT; break;
+				case ImageComponentType::UINT:   vkFormat = VK_FORMAT_R32G32B32A32_UINT;   break;
+				case ImageComponentType::SINT:   vkFormat = VK_FORMAT_R32G32B32A32_SINT;   break;
+				case ImageComponentType::SFLOAT: vkFormat = VK_FORMAT_R32G32B32A32_SFLOAT; break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 16;
 			break;
 		case ImageBits::R64:
 			switch (componentType) {
-				case ImageComponentType::UINT:   image->vkFormat = VK_FORMAT_R64_UINT;   break;
-				case ImageComponentType::SINT:   image->vkFormat = VK_FORMAT_R64_SINT;   break;
-				case ImageComponentType::SFLOAT: image->vkFormat = VK_FORMAT_R64_SFLOAT; break;
+				case ImageComponentType::UINT:   vkFormat = VK_FORMAT_R64_UINT;   break;
+				case ImageComponentType::SINT:   vkFormat = VK_FORMAT_R64_SINT;   break;
+				case ImageComponentType::SFLOAT: vkFormat = VK_FORMAT_R64_SFLOAT; break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 8;
 			break;
 		case ImageBits::R64G64:
 			switch (componentType) {
-				case ImageComponentType::UINT:   image->vkFormat = VK_FORMAT_R64G64_UINT;   break;
-				case ImageComponentType::SINT:   image->vkFormat = VK_FORMAT_R64G64_SINT;   break;
-				case ImageComponentType::SFLOAT: image->vkFormat = VK_FORMAT_R64G64_SFLOAT; break;
+				case ImageComponentType::UINT:   vkFormat = VK_FORMAT_R64G64_UINT;   break;
+				case ImageComponentType::SINT:   vkFormat = VK_FORMAT_R64G64_SINT;   break;
+				case ImageComponentType::SFLOAT: vkFormat = VK_FORMAT_R64G64_SFLOAT; break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 16;
 			break;
 		case ImageBits::R64G64B64:
 			switch (componentType) {
-				case ImageComponentType::UINT:   image->vkFormat = VK_FORMAT_R64G64B64_UINT;   break;
-				case ImageComponentType::SINT:   image->vkFormat = VK_FORMAT_R64G64B64_SINT;   break;
-				case ImageComponentType::SFLOAT: image->vkFormat = VK_FORMAT_R64G64B64_SFLOAT; break;
+				case ImageComponentType::UINT:   vkFormat = VK_FORMAT_R64G64B64_UINT;   break;
+				case ImageComponentType::SINT:   vkFormat = VK_FORMAT_R64G64B64_SINT;   break;
+				case ImageComponentType::SFLOAT: vkFormat = VK_FORMAT_R64G64B64_SFLOAT; break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 24;
 			break;
 		case ImageBits::R64G64B64A64:
 			switch (componentType) {
-				case ImageComponentType::UINT:   image->vkFormat = VK_FORMAT_R64G64B64A64_UINT;   break;
-				case ImageComponentType::SINT:   image->vkFormat = VK_FORMAT_R64G64B64A64_SINT;   break;
-				case ImageComponentType::SFLOAT: image->vkFormat = VK_FORMAT_R64G64B64A64_SFLOAT; break;
+				case ImageComponentType::UINT:   vkFormat = VK_FORMAT_R64G64B64A64_UINT;   break;
+				case ImageComponentType::SINT:   vkFormat = VK_FORMAT_R64G64B64A64_SINT;   break;
+				case ImageComponentType::SFLOAT: vkFormat = VK_FORMAT_R64G64B64A64_SFLOAT; break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 32;
 			break;
 		case ImageBits::R4G4:
 			switch (componentType) {
-				case ImageComponentType::UNORM: image->vkFormat = VK_FORMAT_R4G4_UNORM_PACK8; break;
+				case ImageComponentType::UNORM: vkFormat = VK_FORMAT_R4G4_UNORM_PACK8; break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 1;
 			break;
 		case ImageBits::R4G4B4A4:
 			switch (componentType) {
-				case ImageComponentType::UNORM: image->vkFormat = VK_FORMAT_R4G4B4A4_UNORM_PACK16; break;
+				case ImageComponentType::UNORM: vkFormat = VK_FORMAT_R4G4B4A4_UNORM_PACK16; break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 2;
 			break;
 		case ImageBits::R5G6B5:
 			switch (componentType) {
-				case ImageComponentType::UNORM: image->vkFormat = VK_FORMAT_R5G6B5_UNORM_PACK16; break;
+				case ImageComponentType::UNORM: vkFormat = VK_FORMAT_R5G6B5_UNORM_PACK16; break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 2;
 			break;
 		case ImageBits::R5G5B5A1:
 			switch (componentType) {
-				case ImageComponentType::UNORM: image->vkFormat = VK_FORMAT_R5G5B5A1_UNORM_PACK16; break;
+				case ImageComponentType::UNORM: vkFormat = VK_FORMAT_R5G5B5A1_UNORM_PACK16; break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 2;
 			break;
 		case ImageBits::A2R10G10B10:
 			switch (componentType) {
-				case ImageComponentType::UNORM:   image->vkFormat = VK_FORMAT_A2R10G10B10_UNORM_PACK32;   break;
-				case ImageComponentType::SNORM:   image->vkFormat = VK_FORMAT_A2R10G10B10_SNORM_PACK32;   break;
-				case ImageComponentType::USCALED: image->vkFormat = VK_FORMAT_A2R10G10B10_USCALED_PACK32; break;
-				case ImageComponentType::SSCALED: image->vkFormat = VK_FORMAT_A2R10G10B10_SSCALED_PACK32; break;
-				case ImageComponentType::UINT:    image->vkFormat = VK_FORMAT_A2R10G10B10_UINT_PACK32;    break;
-				case ImageComponentType::SINT:    image->vkFormat = VK_FORMAT_A2R10G10B10_SINT_PACK32;    break;
+				case ImageComponentType::UNORM:   vkFormat = VK_FORMAT_A2R10G10B10_UNORM_PACK32;   break;
+				case ImageComponentType::SNORM:   vkFormat = VK_FORMAT_A2R10G10B10_SNORM_PACK32;   break;
+				case ImageComponentType::USCALED: vkFormat = VK_FORMAT_A2R10G10B10_USCALED_PACK32; break;
+				case ImageComponentType::SSCALED: vkFormat = VK_FORMAT_A2R10G10B10_SSCALED_PACK32; break;
+				case ImageComponentType::UINT:    vkFormat = VK_FORMAT_A2R10G10B10_UINT_PACK32;    break;
+				case ImageComponentType::SINT:    vkFormat = VK_FORMAT_A2R10G10B10_SINT_PACK32;    break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 4;
 			break;
 		case ImageBits::B10G11R11:
 			switch (componentType) {
-				case ImageComponentType::UFLOAT: image->vkFormat = VK_FORMAT_B10G11R11_UFLOAT_PACK32; break;
+				case ImageComponentType::UFLOAT: vkFormat = VK_FORMAT_B10G11R11_UFLOAT_PACK32; break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 4;
 			break;
 		case ImageBits::E5B9G9R9:
 			switch (componentType) {
-				case ImageComponentType::UFLOAT: image->vkFormat = VK_FORMAT_E5B9G9R9_UFLOAT_PACK32; break;
+				case ImageComponentType::UFLOAT: vkFormat = VK_FORMAT_E5B9G9R9_UFLOAT_PACK32; break;
 				default: goto bad_format;
 			}
 			image->bytesPerPixel = 4;
 			break;
 		default: goto bad_format;
 	}
-	if (FormatIsDepth(image->vkFormat)) {
+	bool changed = image->vkFormat != vkFormat;
+	image->vkFormat = vkFormat;
+	if (FormatIsDepth(vkFormat)) {
 		image->vkImageAspect = VK_IMAGE_ASPECT_DEPTH_BIT;
 	} else {
 		image->vkImageAspect = VK_IMAGE_ASPECT_COLOR_BIT;
 	}
-	return;
+	return changed;
 bad_format:
 	AzAssertRel(false, Stringify("Cannot match ", imageBits, " bit layout and component type ", componentType));
+	return false;
 }
 
-void ImageSetSize(Image *image, i32 width, i32 height) {
+bool ImageSetSize(Image *image, i32 width, i32 height, u32 maxMipLevels) {
+	bool changed = image->width != width || image->height != height;
 	image->width = width;
 	image->height = height;
 	if (image->mipmapped) {
-		image->mipLevels = (u32)ceil(log2((f64)max(image->width, image->height)));
+		image->mipLevels = min((u32)ceil(log2((f64)max(image->width, image->height))), maxMipLevels);
 	}
+	return changed;
 }
 
-void ImageSetMipmapping(Image *image, bool enableMipmapping) {
+bool ImageSetMipmapping(Image *image, bool enableMipmapping, u32 maxLevels) {
+	bool changed = image->mipmapped != enableMipmapping;
 	image->mipmapped = enableMipmapping;
 	if (image->mipmapped) {
 		if (image->width == 1 && image->height == 1) {
@@ -3374,22 +3466,27 @@ void ImageSetMipmapping(Image *image, bool enableMipmapping) {
 			image->mipmapped = false;
 			WARNING(image, "Image is too small to use mipmaps (1x1). Ignoring.");
 		} else {
-			image->mipLevels = (u32)ceil(log2((f64)max(image->width, image->height)));
+			image->mipLevels = min((u32)ceil(log2((f64)max(image->width, image->height))), maxLevels);
 		}
 	} else {
 		image->mipLevels = 1;
 	}
+	return changed;
 }
 
-void ImageSetShaderUsage(Image *image, u32 shaderStages) {
+bool ImageSetShaderUsage(Image *image, u32 shaderStages) {
+	bool changed = image->shaderStages != shaderStages;
 	image->shaderStages = shaderStages;
+	return changed;
 }
 
-void ImageSetSampleCount(Image *image, u32 sampleCount) {
+bool ImageSetSampleCount(Image *image, u32 sampleCount) {
 	AzAssert(IsPowerOfTwo(sampleCount), "sampleCount must be a power of 2");
 	AzAssert(sampleCount <= 64, "sampleCount must not be > 64");
 	AzAssert(sampleCount > 0, "sampleCount must be > 0");
+	bool changed = image->sampleCount != sampleCount;
 	image->sampleCount = sampleCount;
+	return changed;
 }
 
 static VkFilter GetVkFilter(Filter filter) {
@@ -3577,9 +3674,9 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 		for (i32 i = 0; i < framebuffer->attachmentRefs.size; i++) {
 			AttachmentRef &attachmentRef = framebuffer->attachmentRefs[i];
 			Attachment &attachment = attachmentRef.attachment;
-			if (auto result = EnsureAttachmentIsInitted(framebuffer, attachment, false, i); result.isError) {
-				return result.error;
-			}
+			AZ_TRY_ERROR_RESULT (framebuffer,
+				EnsureAttachmentIsInitted(framebuffer, attachment, false, i)
+			);
 			bool hasResolve = attachmentRef.resolveAttachment.Exists();
 			VkAttachmentReference ref;
 			ref.attachment = currentAttachment++;
@@ -3616,9 +3713,7 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 				if (baseFormat != resolveFormat) {
 					return ERROR_RESULT(framebuffer, "Multisampled attachment ", i, " format (", VkFormatString(baseFormat), ") doesn't match resolve format (", VkFormatString(resolveFormat), ")");
 				}
-				if (auto result = EnsureAttachmentIsInitted(framebuffer, resolveAttachment, true, i); result.isError) {
-					return result.error;
-				}
+				AZ_TRY_ERROR_RESULT (framebuffer, EnsureAttachmentIsInitted(framebuffer, resolveAttachment, true, i));
 				ref.attachment = currentAttachment++;
 				attachments.Append(GetAttachmentDescription(resolveAttachment, false));
 				ref.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -3701,9 +3796,7 @@ Result<VoidResult_t, String> FramebufferCreate(Framebuffer *framebuffer) {
 	AzAssert(framebuffer->initted, "Framebuffer is not initialized");
 	if (framebuffer->attachmentsDirty) {
 		FramebufferDeinit(framebuffer);
-		if (auto result = FramebufferInit(framebuffer); result.isError) {
-			return result.error;
-		}
+		AZ_TRY_ERROR_RESULT (framebuffer, FramebufferInit(framebuffer));
 	}
 	i32 numFramebuffers = 1;
 	bool resizeAttachmentsAsNeeded = false;
@@ -3744,9 +3837,10 @@ Result<VoidResult_t, String> FramebufferCreate(Framebuffer *framebuffer) {
 			if (resizeAttachmentsAsNeeded) {
 				AzAssert(attachment.kind != Attachment::WINDOW, "This shouldn't be possible");
 				ImageSetSize(attachment.image, framebuffer->width, framebuffer->height);
-				if (auto result = ImageRecreate(attachment.image); result.isError) {
-					return ERROR_RESULT(framebuffer, "Attachment ", i, " attempted to resize, but failed: ", result.error);
-				}
+				AZ_TRY_ERROR_RESULT_INFO (framebuffer,
+					ImageRecreate(attachment.image),
+					"Attachment ", i, " attempted to resize, but failed: "
+				);
 			} else if (i == 0) {
 				framebuffer->width = ourWidth;
 				framebuffer->height = ourHeight;
@@ -3761,9 +3855,10 @@ Result<VoidResult_t, String> FramebufferCreate(Framebuffer *framebuffer) {
 				if (resizeAttachmentsAsNeeded) {
 					AzAssert(resolveAttachment.kind != Attachment::WINDOW, "This shouldn't be possible");
 					ImageSetSize(resolveAttachment.image, framebuffer->width, framebuffer->height);
-					if (auto result = ImageRecreate(resolveAttachment.image); result.isError) {
-						return ERROR_RESULT(framebuffer, "Resolve Attachment ", i, " attempted to resize, but failed: ", result.error);
-					}
+					AZ_TRY_ERROR_RESULT_INFO (framebuffer,
+						ImageRecreate(resolveAttachment.image),
+						"Resolve Attachment ", i, " attempted to resize, but failed: "
+					);
 				} else {
 					return ERROR_RESULT(framebuffer, "Resolve Attachment ", i, " dimensions mismatch. Expected ", framebuffer->width, "x", framebuffer->height, ", but got ", ourWidth, "x", ourHeight);
 				}
@@ -4340,9 +4435,7 @@ Result<VoidResult_t, String> ContextInit(Context *context) {
 		frame.fence.device = context->device;
 		frame.fence.tag = Stringify("Context Fence ", i);
 		// We'll use signaled to mean not executing
-		if (auto result = FenceInit(&frame.fence, true); result.isError) {
-			return ERROR_RESULT(context, result.error);
-		}
+		AZ_TRY_ERROR_RESULT (context, FenceInit(&frame.fence, true));
 	}
 	context->initted = true;
 	return VoidResult_t();
@@ -4370,9 +4463,10 @@ static Result<VoidResult_t, String> ContextEnsureSemaphoreCount(Context *context
 		for (i32 i = prevSize; i < count; i++) {
 			frame.semaphores[i].device = context->device;
 			frame.semaphores[i].tag = Stringify(context->tag, " Frame ", frameIndex, " Semaphore ", i);
-			if (auto result = SemaphoreInit(&frame.semaphores[i]); result.isError) {
-				return ERROR_RESULT(context, "Couldn't ensure we had enough semaphores: ", result.error);
-			}
+			AZ_TRY_ERROR_RESULT_INFO (context,
+				SemaphoreInit(&frame.semaphores[i]),
+				"Couldn't ensure we had enough semaphores: "
+			);
 		}
 	}
 	return VoidResult_t();
@@ -4487,10 +4581,10 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 		Binding &binding = node.value;
 		switch (binding.kind) {
 			case Binding::UNIFORM_BUFFER:
-				numUniformBuffers++;
+				numUniformBuffers += binding.uniformBuffer.buffers.size;
 				break;
 			case Binding::STORAGE_BUFFER:
-				numStorageBuffers++;
+				numStorageBuffers += binding.storageBuffer.buffers.size;
 				break;
 			case Binding::IMAGE_SAMPLER:
 				numImages += binding.imageSampler.images.size;
@@ -4522,14 +4616,14 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 		bindingInfo.descriptorCount = 1;
 		switch (binding.kind) {
 		case Binding::UNIFORM_BUFFER:
-			// TODO: Support all kinds of arrays
 			bindingInfo.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			descriptorBindings.Back().bindings.Append(DescriptorBinding({binding.uniformBuffer.object}));
+			bindingInfo.descriptorCount = binding.uniformBuffer.buffers.size;
+			descriptorBindings.Back().bindings.Append(DescriptorBinding(binding.uniformBuffer.buffers));
 			break;
 		case Binding::STORAGE_BUFFER:
-			// TODO: Support all kinds of arrays
 			bindingInfo.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-			descriptorBindings.Back().bindings.Append(DescriptorBinding({binding.storageBuffer.object}));
+			bindingInfo.descriptorCount = binding.storageBuffer.buffers.size;
+			descriptorBindings.Back().bindings.Append(DescriptorBinding(binding.storageBuffer.buffers));
 			break;
 		case Binding::IMAGE_SAMPLER:
 			bindingInfo.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -4542,12 +4636,16 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 		switch (binding.kind) {
 			case Binding::UNIFORM_BUFFER:
 			case Binding::STORAGE_BUFFER: {
-				bindingInfo.stageFlags = (VkShaderStageFlags)binding.anyBuffer.object->shaderStages;
+				bindingInfo.stageFlags = 0;
 				VkDescriptorBufferInfo bufferInfo;
-				bufferInfo.buffer = binding.anyBuffer.object->vkBuffer;
-				bufferInfo.offset = 0;
-				bufferInfo.range = binding.anyBuffer.object->size;
-				write.pBufferInfo = &descriptorBufferInfos.Append(bufferInfo);
+				write.pBufferInfo = descriptorBufferInfos.data + descriptorBufferInfos.size;
+				for (Buffer *buffer : binding.anyBufferDescriptor.buffers) {
+					bufferInfo.buffer = buffer->vkBuffer;
+					bufferInfo.offset = 0;
+					bufferInfo.range = buffer->size;
+					bindingInfo.stageFlags |= (VkShaderStageFlags)buffer->shaderStages;
+					descriptorBufferInfos.Append(bufferInfo);
+				}
 			} break;
 			case Binding::IMAGE_SAMPLER: {
 				bindingInfo.stageFlags = 0;
@@ -4573,16 +4671,16 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 	frame.descriptorSetsBound.ClearSoft();
 	for (i32 i = 0; i < descriptorSetLayouts.size; i++) {
 		BoundDescriptorSet boundDescriptorSet;
-		if (auto result = DeviceGetDescriptorSetLayout(context->device, descriptorSetLayouts[i]); result.isError) {
-			return result.error;
-		} else {
+		AZ_TRY_ERROR_RESULT (context,
+			DeviceGetDescriptorSetLayout(context->device, descriptorSetLayouts[i])
+		) else {
 			boundDescriptorSet.layout = result.value;
 		}
 		DescriptorSet *set;
 		bool doWrite = false;
-		if (auto result = DeviceGetDescriptorSet(context->device, boundDescriptorSet.layout, descriptorBindings[i], doWrite); result.isError) {
-			return result.error;
-		} else {
+		AZ_TRY_ERROR_RESULT (context,
+			DeviceGetDescriptorSet(context->device, boundDescriptorSet.layout, descriptorBindings[i], doWrite)
+		) else {
 			set = result.value;
 			boundDescriptorSet.set = set->vkDescriptorSet;
 		}
@@ -4601,6 +4699,7 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 			ContextFrame &lastFrame = context->frames[(context->currentFrame+context->numFrames-1)%context->numFrames];
 			FenceWaitForSignal(&lastFrame.fence).AzUnwrap();
 			// NOTE: Descriptor changes should only happen between frames and never within the same command buffer, so this should be okay.
+			// TODO: If the above is not true, pipelining stops working and the API becomes serial. We could extend the holding of resources to descriptor sets as well, but that necessarily involves having duplicates sometimes. Probably not a big deal, so we should just do it.
 			vkUpdateDescriptorSets(context->device->vkDevice, vkWriteDescriptorSets[i].size, vkWriteDescriptorSets[i].data, 0, nullptr);
 		}
 		frame.descriptorSetsBound.Append(boundDescriptorSet);
@@ -4618,20 +4717,18 @@ void ContextResetBindings(Context *context) {
 }
 
 Result<VoidResult_t, String> ContextBeginRecording(Context *context) {
-	context->currentFrame = (context->currentFrame + 1) % context->numFrames;
+	context->currentFrame += 1;
+	context->generation += context->currentFrame / context->numFrames;
+	context->currentFrame = context->currentFrame % context->numFrames;
 	ContextFrame &frame = context->frames[context->currentFrame];
 	AzAssert(context->initted, "Trying to record to a Context that's not initted");
 	if ((u32)context->state >= (u32)Context::State::RECORDING_PRIMARY) {
 		return ERROR_RESULT(context, "Cannot begin recording on a command buffer that's already recording");
 	}
 	ContextResetBindings(context);
-	// TODO: This prevents us from building the next command buffers while the previous ones are running. Switch to double-buffered Contexts
-	if (auto result = FenceWaitForSignal(&frame.fence); result.isError) {
-		return ERROR_RESULT(context, result.error);
-	}
-	if (auto result = FenceResetSignaled(&frame.fence); result.isError) {
-		return ERROR_RESULT(context, result.error);
-	}
+	AZ_TRY_ERROR_RESULT (context, FenceWaitForSignal(&frame.fence));
+	AZ_TRY_ERROR_RESULT (context, FenceResetSignaled(&frame.fence));
+	CleanupObjectsBeholdenToContext(context);
 
 	if (context->state == Context::State::DONE_RECORDING) {
 		vkFreeCommandBuffers(context->device->vkDevice, context->vkCommandPool, 1, &frame.vkCommandBuffer);
@@ -4657,9 +4754,12 @@ Result<VoidResult_t, String> ContextBeginRecordingSecondary(Context *context, Fr
 	if ((u32)context->state >= (u32)Context::State::RECORDING_PRIMARY) {
 		return ERROR_RESULT(context, "Cannot begin recording on a command buffer that's already recording");
 	}
-	context->currentFrame = (context->currentFrame + 1) % context->numFrames;
+	context->currentFrame += 1;
+	context->generation += context->currentFrame / context->numFrames;
+	context->currentFrame = context->currentFrame % context->numFrames;
 	ContextFrame &frame = context->frames[context->currentFrame];
 	ContextResetBindings(context);
+	CleanupObjectsBeholdenToContext(context);
 
 	if (context->state == Context::State::DONE_RECORDING) {
 		vkFreeCommandBuffers(context->device->vkDevice, context->vkCommandPool, 1, &frame.vkCommandBuffer);
@@ -4726,9 +4826,10 @@ Result<VoidResult_t, String> SubmitCommands(Context *context, i32 numSemaphores,
 	}
 	ArrayWithBucket<VkSemaphore, 4> signalVkSemaphores(numSemaphores);
 	if (numSemaphores) {
-		if (auto result = ContextEnsureSemaphoreCount(context, numSemaphores, context->currentFrame); result.isError) {
-			return ERROR_RESULT(context, "Couldn't ensure we had ", numSemaphores, " semaphores");
-		}
+		AZ_TRY_ERROR_RESULT_INFO (context,
+			ContextEnsureSemaphoreCount(context, numSemaphores, context->currentFrame),
+			"Couldn't ensure we had ", numSemaphores, " semaphores"
+		);
 		for (i32 i = 0; i < numSemaphores; i++) {
 			signalVkSemaphores[i] = frame.semaphores[i].vkSemaphore;
 		}
@@ -4768,9 +4869,7 @@ Result<bool, String> ContextWaitUntilFinished(Context *context, Nanoseconds time
 	AzAssert(context->initted, "Context is not initted");
 	AzAssert(timeout.count() >= 0, "Cannot have negative timeout");
 	bool wasTimeout;
-	if (auto result = FenceWaitForSignal(&frame.fence, (u64)timeout.count(), &wasTimeout); result.isError) {
-		return ERROR_RESULT(context, result.error);
-	}
+	AZ_TRY_ERROR_RESULT (context, FenceWaitForSignal(&frame.fence, (u64)timeout.count(), &wasTimeout));
 	return wasTimeout;
 }
 
@@ -4782,18 +4881,16 @@ Result<VoidResult_t, String> CmdExecuteSecondary(Context *primary, Context *seco
 	return String("Unimplemented");
 }
 
-Result<VoidResult_t, String> CmdCopyDataToBuffer(Context *context, Buffer *dst, void *src, i64 dstOffset, i64 size) {
+Result<VoidResult_t, String> CmdCopyDataToBuffer(Context *context, Buffer *buffer, void *src, i64 dstOffset, i64 size) {
 	ContextFrame &frame = context->frames[context->currentFrame];
-	AzAssert(size+dstOffset <= (i64)dst->memoryRequirements.size, "size is bigger than our buffer");
+	AzAssert(size+dstOffset <= (i64)buffer->memoryRequirements.size, "size is bigger than our buffer");
 	AzAssert(ContextIsRecording(context), "Trying to record into a context that's not recording");
 	if (size == 0) {
 		// We do the whole size
-		size = dst->size - dstOffset;
+		size = buffer->size - dstOffset;
 	}
-	if (!dst->hostVisible) {
-		if (auto result = BufferHostInit(dst); result.isError) {
-			return result.error;
-		}
+	if (!buffer->hostVisible) {
+		AZ_TRY_ERROR_RESULT (buffer, BufferHostInit(buffer));
 	} else {
 		// Ensure the last frame completed the copy before we rewrite the staging buffer.
 		i32 prevFrame = context->currentFrame - 1;
@@ -4801,20 +4898,80 @@ Result<VoidResult_t, String> CmdCopyDataToBuffer(Context *context, Buffer *dst, 
 		ContextFrame &framePrevious = context->frames[prevFrame];
 		FenceWaitForSignal(&framePrevious.fence).AzUnwrap();
 	}
-	Allocation alloc = dst->allocHostVisible;
+	Allocation alloc = buffer->allocHostVisible;
 	VkDeviceMemory vkMemory = alloc.memory->pages[alloc.page].vkMemory;
 	void *dstMapped;
-	if (VkResult result = vkMapMemory(dst->device->vkDevice, vkMemory, alloc.offset + dstOffset, size, 0, &dstMapped); result != VK_SUCCESS) {
-		return Stringify("Buffer \"", dst->tag, "\" error: Failed to map memory: ", VkResultString(result));
+	if (VkResult result = vkMapMemory(buffer->device->vkDevice, vkMemory, alloc.offset + dstOffset, size, 0, &dstMapped); result != VK_SUCCESS) {
+		return ERROR_RESULT(buffer, "Failed to map memory: ", VkResultString(result));
 	}
 	memcpy(dstMapped, src, size);
-	vkUnmapMemory(dst->device->vkDevice, vkMemory);
+	vkUnmapMemory(buffer->device->vkDevice, vkMemory);
 	VkBufferCopy vkCopy;
 	vkCopy.dstOffset = dstOffset;
 	vkCopy.srcOffset = dstOffset;
 	vkCopy.size = size;
-	vkCmdCopyBuffer(frame.vkCommandBuffer, dst->vkBufferHostVisible, dst->vkBuffer, 1, &vkCopy);
+	vkCmdCopyBuffer(frame.vkCommandBuffer, buffer->vkBufferHostVisible, buffer->vkBuffer, 1, &vkCopy);
 	return VoidResult_t();
+}
+
+Result<void*, String> BufferMapHostMemory(Buffer *buffer, i64 dstOffset, i64 size) {
+	if (size == 0) {
+		// We do the whole size
+		size = buffer->size - dstOffset;
+	}
+	if (!buffer->initted) {
+		AZ_TRY_ERROR_RESULT (buffer, BufferInit(buffer));
+	}
+	if (!buffer->hostVisible) {
+		AZ_TRY_ERROR_RESULT (buffer, BufferHostInit(buffer));
+	}
+	AzAssert(size+dstOffset <= (i64)buffer->memoryRequirements.size, "size is bigger than our buffer");
+	Allocation alloc = buffer->allocHostVisible;
+	VkDeviceMemory vkMemory = alloc.memory->pages[alloc.page].vkMemory;
+	void *dstMapped;
+	if (VkResult result = vkMapMemory(buffer->device->vkDevice, vkMemory, alloc.offset + dstOffset, size, 0, &dstMapped); result != VK_SUCCESS) {
+		return ERROR_RESULT(buffer, "Failed to map memory: ", VkResultString(result));
+	}
+	return dstMapped;
+}
+
+void BufferUnmapHostMemory(Buffer *buffer) {
+	Allocation alloc = buffer->allocHostVisible;
+	VkDeviceMemory vkMemory = alloc.memory->pages[alloc.page].vkMemory;
+	vkUnmapMemory(buffer->device->vkDevice, vkMemory);
+}
+
+Result<VoidResult_t, String> CmdCopyHostBufferToDeviceBuffer(Context *context, Buffer *buffer, i64 dstOffset, i64 size) {
+	ContextFrame &frame = context->frames[context->currentFrame];
+	AzAssert(size+dstOffset <= (i64)buffer->memoryRequirements.size, "size is bigger than our buffer");
+	AzAssert(buffer->hostVisible, "Trying to copy from host buffer that doesn't exist!");
+	AzAssert(ContextIsRecording(context), "Trying to record into a context that's not recording");
+	if (size == 0) {
+		// We do the whole size
+		size = buffer->size - dstOffset;
+	}
+	VkBufferCopy vkCopy;
+	vkCopy.dstOffset = dstOffset;
+	vkCopy.srcOffset = dstOffset;
+	vkCopy.size = size;
+	vkCmdCopyBuffer(frame.vkCommandBuffer, buffer->vkBufferHostVisible, buffer->vkBuffer, 1, &vkCopy);
+	return VoidResult_t();
+}
+
+void CmdCopyBufferToBuffer(Context *context, Buffer *dst, Buffer *src, i64 dstOffset, i64 srcOffset, i64 size) {
+	ContextFrame &frame = context->frames[context->currentFrame];
+	AzAssert(size+dstOffset <= (i64)dst->memoryRequirements.size, Stringify("size is bigger than our destination buffer with an offset of ", dstOffset));
+	AzAssert(size+srcOffset <= (i64)src->memoryRequirements.size, Stringify("size is bigger than our src buffer with an offset of ", srcOffset));
+	AzAssert(ContextIsRecording(context), "Trying to record into a context that's not recording");
+	if (size == 0) {
+		// We do the minimum size
+		size = min(dst->size - dstOffset, src->size - srcOffset);
+	}
+	VkBufferCopy vkCopy;
+	vkCopy.dstOffset = dstOffset;
+	vkCopy.srcOffset = srcOffset;
+	vkCopy.size = size;
+	vkCmdCopyBuffer(frame.vkCommandBuffer, src->vkBuffer, dst->vkBuffer, 1, &vkCopy);
 }
 
 struct AccessAndStage {
@@ -4962,9 +5119,8 @@ Result<VoidResult_t, String> CmdCopyDataToImage(Context *context, Image *dst, vo
 	ContextFrame &frame = context->frames[context->currentFrame];
 	AzAssert(ContextIsRecording(context), "Trying to record into a context that's not recording");
 	if (!dst->hostVisible) {
-		if (auto result = ImageHostInit(dst); result.isError) {
-			return result.error;
-		}
+		Image *image = dst;
+		AZ_TRY_ERROR_RESULT (image, ImageHostInit(dst));
 	} else {
 		// Ensure the last frame completed the copy before we rewrite the staging buffer.
 		i32 prevFrame = context->currentFrame - 1;
@@ -5037,7 +5193,19 @@ void CmdBindUniformBuffer(Context *context, Buffer *buffer, i32 set, i32 binding
 	AzAssert(buffer->kind == Buffer::UNIFORM_BUFFER, "Binding a buffer as a uniform buffer when it's not one");
 	Binding bind;
 	bind.kind = Binding::UNIFORM_BUFFER;
-	bind.uniformBuffer.object = buffer;
+	bind.uniformBuffer.buffers = {buffer};
+	bind.uniformBuffer.binding.set = set;
+	bind.uniformBuffer.binding.binding = binding;
+	context->bindCommands.Append(bind);
+}
+
+void CmdBindUniformBufferArray(Context *context, const Array<Buffer*> &buffers, i32 set, i32 binding) {
+	for (const Buffer *buffer : buffers) {
+		AzAssert(buffer->kind == Buffer::UNIFORM_BUFFER, Stringify("Binding a buffer[\"", buffer->tag, "\"] as a uniform buffer when it's not one"));
+	}
+	Binding bind;
+	bind.kind = Binding::UNIFORM_BUFFER;
+	bind.uniformBuffer.buffers = buffers;
 	bind.uniformBuffer.binding.set = set;
 	bind.uniformBuffer.binding.binding = binding;
 	context->bindCommands.Append(bind);
@@ -5047,7 +5215,19 @@ void CmdBindStorageBuffer(Context *context, Buffer *buffer, i32 set, i32 binding
 	AzAssert(buffer->kind == Buffer::STORAGE_BUFFER, "Binding a buffer as a storage buffer when it's not one");
 	Binding bind;
 	bind.kind = Binding::STORAGE_BUFFER;
-	bind.storageBuffer.object = buffer;
+	bind.storageBuffer.buffers = {buffer};
+	bind.storageBuffer.binding.set = set;
+	bind.storageBuffer.binding.binding = binding;
+	context->bindCommands.Append(bind);
+}
+
+void CmdBindStorageBufferArray(Context *context, const Array<Buffer*> &buffers, i32 set, i32 binding) {
+	for (const Buffer *buffer : buffers) {
+		AzAssert(buffer->kind == Buffer::STORAGE_BUFFER, Stringify("Binding a buffer[\"", buffer->tag, "\"] as a storage buffer when it's not one"));
+	}
+	Binding bind;
+	bind.kind = Binding::STORAGE_BUFFER;
+	bind.storageBuffer.buffers = buffers;
 	bind.storageBuffer.binding.set = set;
 	bind.storageBuffer.binding.binding = binding;
 	context->bindCommands.Append(bind);
@@ -5073,6 +5253,24 @@ void CmdBindImageArraySampler(Context *context, const Array<Image*> &images, Sam
 	context->bindCommands.Append(bind);
 }
 
+static void AddDependency(Context *context, ArrayWithBucket<DependentContext, 4> &dependentContexts) {
+	bool found = false;
+	for (DependentContext &dep : dependentContexts) {
+		if (dep.context != context) continue;
+		if (dep.frame != context->currentFrame) continue;
+		dep.generation = context->generation;
+		found = true;
+		break;
+	}
+	DependentContext dep;
+	dep.context = context;
+	dep.frame = context->currentFrame;
+	dep.generation = context->generation;
+	if (!found) {
+		dependentContexts.Append(dep);
+	}
+}
+
 Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
 	ContextFrame &frame = context->frames[context->currentFrame];
 	Framebuffer *framebuffer = nullptr;
@@ -5084,27 +5282,40 @@ Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
 		switch (bind.kind) {
 		case Binding::FRAMEBUFFER:
 			framebuffer = bind.framebuffer.object;
+			AddDependency(context, framebuffer->dependentContexts);
 			break;
 		case Binding::PIPELINE:
 			pipeline = bind.pipeline.object;
+			AddDependency(context, pipeline->dependentContexts);
 			break;
 		case Binding::VERTEX_BUFFER:
 			vertexBuffer = bind.vertexBuffer.object;
+			AddDependency(context, vertexBuffer->dependentContexts);
 			break;
 		case Binding::INDEX_BUFFER:
 			indexBuffer = bind.indexBuffer.object;
+			AddDependency(context, indexBuffer->dependentContexts);
 			break;
 		case Binding::UNIFORM_BUFFER:
 			context->bindings.descriptors.Emplace(bind.uniformBuffer.binding, bind);
 			descriptorsChanged = true;
+			for (Buffer *buffer : bind.uniformBuffer.buffers) {
+				AddDependency(context, buffer->dependentContexts);
+			}
 			break;
 		case Binding::STORAGE_BUFFER:
 			context->bindings.descriptors.Emplace(bind.storageBuffer.binding, bind);
 			descriptorsChanged = true;
+			for (Buffer *buffer : bind.storageBuffer.buffers) {
+				AddDependency(context, buffer->dependentContexts);
+			}
 			break;
 		case Binding::IMAGE_SAMPLER:
 			context->bindings.descriptors.Emplace(bind.imageSampler.binding, bind);
 			descriptorsChanged = true;
+			for (Image *image : bind.imageSampler.images) {
+				AddDependency(context, image->dependentContexts);
+			}
 			break;
 		}
 	}
@@ -5122,9 +5333,7 @@ Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
 		vkCmdBeginRenderPass(frame.vkCommandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	}
 	if (descriptorsChanged) {
-		if (auto result = ContextDescriptorsCompose(context); result.isError) {
-			return ERROR_RESULT(context, result.error);
-		}
+		AZ_TRY_ERROR_RESULT (context, ContextDescriptorsCompose(context));
 	}
 	if (vertexBuffer) {
 		context->bindings.vertexBuffer = vertexBuffer;
@@ -5138,9 +5347,7 @@ Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
 	}
 	if (nullptr != pipeline && context->bindings.pipeline != pipeline) {
 		context->bindings.pipeline = pipeline;
-		if (auto result = PipelineCompose(pipeline, context); result.isError) {
-			return ERROR_RESULT(context, "Failed to bind Pipeline: ", result.error);
-		}
+		AZ_TRY_ERROR_RESULT_INFO (context, PipelineCompose(pipeline, context), "Failed to bind Pipeline: ");
 		vkCmdBindPipeline(frame.vkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->vkPipeline);
 	}
 	if (context->bindings.pipeline != nullptr && frame.descriptorSetsBound.size != 0) {

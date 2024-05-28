@@ -22,6 +22,8 @@ namespace AzCore::io {
 	struct Window;
 } // namespace AzCore::io
 
+#define AZ_TRY(command) if (auto result = (command); result.isError)
+
 namespace AzCore::GPU {
 
 // Usable as an enum or as bitfields
@@ -370,26 +372,34 @@ void DeviceWaitIdle(Device *device);
 
 // Buffer, Image
 
-
-void BufferSetSize(Buffer *buffer, i64 sizeBytes);
+// If we're initted, the contents of the buffer are not preserved.
+[[nodiscard]] Result<VoidResult_t, String> BufferSetSize(Buffer *buffer, i64 sizeBytes);
+// If we're initted, the contents of the buffer are preserved.
+[[nodiscard]] Result<VoidResult_t, String> BufferResize(Buffer *buffer, i64 sizeBytes, Context *copyContext);
 
 // shaderStages is a bitmask of ShaderStage
 void BufferSetShaderUsage(Buffer *buffer, u32 shaderStages);
 
+i64 BufferGetSize(Buffer *buffer);
 
-void ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType componentType);
+// returns true if the format changed and you need to call ImageRecreate
+bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType componentType);
 
-void ImageSetSize(Image *image, i32 width, i32 height);
+// returns true if the size changed and you need to call ImageRecreate
+bool ImageSetSize(Image *image, i32 width, i32 height, u32 maxMipLevels=UINT32_MAX);
 
-void ImageSetMipmapping(Image *image, bool enableMipmapping);
+// returns true if the flag changed and you need to call ImageRecreate
+bool ImageSetMipmapping(Image *image, bool enableMipmapping, u32 maxLevels=UINT32_MAX);
 
 // shaderStages is a bitmask of ShaderStage
-void ImageSetShaderUsage(Image *image, u32 shaderStages);
+// returns true if the shader stages changed and you need to call ImageRecreate
+bool ImageSetShaderUsage(Image *image, u32 shaderStages);
 
 // sampleCount must be a power of 2
-void ImageSetSampleCount(Image *image, u32 sampleCount);
+// returns true if the sample count changed and you need to call ImageRecreate
+bool ImageSetSampleCount(Image *image, u32 sampleCount);
 
-// If you change formats, size, mipmapping, shader usage, or sample count after having called GPU::Initialize(), you must use this to recreate the image.
+// If you change formats, size, mipmapping, shader usage, or sample count (or make a new image) after having called GPU::Initialize(), you must use this to recreate the image.
 [[nodiscard]] Result<VoidResult_t, String> ImageRecreate(Image *image);
 
 
@@ -471,7 +481,15 @@ void PipelineAddPushConstantRange(Pipeline *pipeline, u32 offset, u32 size, u32 
 
 [[nodiscard]] Result<VoidResult_t, String> CmdExecuteSecondary(Context *primary, Context *secondary);
 
+// Combines the copy of data to the host buffer and from the host buffer to the device-local buffer
 [[nodiscard]] Result<VoidResult_t, String> CmdCopyDataToBuffer(Context *context, Buffer *dst, void *src, i64 dstOffset=0, i64 size=0);
+
+[[nodiscard]] Result<void*, String> BufferMapHostMemory(Buffer *buffer, i64 offset=0, i64 size=0);
+void BufferUnmapHostMemory(Buffer *buffer);
+
+[[nodiscard]] Result<VoidResult_t, String> CmdCopyHostBufferToDeviceBuffer(Context *context, Buffer *buffer, i64 dstOffset=0, i64 size=0);
+
+void CmdCopyBufferToBuffer(Context *context, Buffer *dst, Buffer *src, i64 dstOffset=0, i64 srcOffset=0, i64 size=0);
 
 [[nodiscard]] Result<VoidResult_t, String> CmdCopyDataToImage(Context *context, Image *dst, void *src);
 
@@ -486,7 +504,11 @@ void CmdBindIndexBuffer(Context *context, Buffer *buffer);
 
 void CmdBindUniformBuffer(Context *context, Buffer *buffer, i32 set, i32 binding);
 
+void CmdBindUniformBufferArray(Context *context, const Array<Buffer*> &buffers, i32 set, i32 binding);
+
 void CmdBindStorageBuffer(Context *context, Buffer *buffer, i32 set, i32 binding);
+
+void CmdBindStorageBufferArray(Context *context, const Array<Buffer*> &buffer, i32 set, i32 binding);
 
 void CmdBindImageSampler(Context *context, Image *image, Sampler *sampler, i32 set, i32 binding);
 

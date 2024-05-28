@@ -676,7 +676,7 @@ bool Font::Load(String filepath) {
 
 bool Font::LoadFromBuffer(Array<char> &&buffer) {
 	data.buffer = std::move(buffer);
-	
+
 	i32 cur = 0;
 
 	data.ttcHeader.Read(data.buffer, cur);
@@ -1241,7 +1241,7 @@ bool FontBuilder::AddRange(char32 min, char32 max) {
 	return true;
 }
 
-bool FontBuilder::AddString(WString string) {
+bool FontBuilder::AddString(const WString &string) {
 	if (font == nullptr) {
 		error = "You didn't give FontBuilder a Font*!";
 		return false;

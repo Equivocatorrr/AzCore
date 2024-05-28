@@ -244,7 +244,7 @@ namespace font {
 		// Adds every available glyph in the range specified.
 		bool AddRange(char32 min, char32 max);
 		// Adds any glyphs in the string that aren't already included
-		bool AddString(WString string);
+		bool AddString(const WString &string);
 		// Assembles the atlas and renders the glyphs into it.
 		bool Build();
 	};

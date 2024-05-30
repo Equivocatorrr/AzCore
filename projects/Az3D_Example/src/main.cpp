@@ -61,7 +61,7 @@ struct Test : public GameSystems::System {
 		if (!pause)
 			jumpT += sys->timestep * rate;
 		f32 speed = sys->Down(KC_KEY_LEFTSHIFT) ? 8.0f : 2.0f;
-		if (sys->Pressed(KC_KEY_ESC)) sys->exit = true;
+		if (sys->Pressed(KC_KEY_ESC, true)) sys->exit = true;
 		if (sys->Pressed(KC_KEY_T)) sunTurning = !sunTurning;
 		if (sys->Pressed(KC_KEY_SPACE)) {
 			pause = !pause;
@@ -98,7 +98,7 @@ struct Test : public GameSystems::System {
 		vec3 camUp = normalize(cross(camera.forward, camRight));
 		{
 			vec2i center = vec2i(sys->window.width / 2, sys->window.height / 2);
-			if (mouseLook) {
+			if (mouseLook && !sys->rendering.IsInDebugFlyCam()) {
 				facingDiff.x += f32(sys->input.cursor.x - center.x) * camera.fov.value() / 60.0f / sys->rendering.screenSize.x;
 				facingDiff.y -= f32(sys->input.cursor.y - center.y) * camera.fov.value() / 60.0f / sys->rendering.screenSize.x;
 				sys->window.MoveCursor(center.x, center.y);
@@ -204,9 +204,11 @@ struct Test : public GameSystems::System {
 		}
 		{
 			Assets::Material material = Assets::Material::Blank();
-			material.color = vec4(vec3(1.0f), 1.0f);
-			material.roughness = 0.5f;
-			Rendering::DrawText(contexts[0], 0, vec2(0.5f, 1.0f), ToWString("Hello, you beautiful thing!\nWhat the dog doin?\nキスミー"), Rendering::GetTransform(vec3(1.0f, 6.0f, 0.0f), quat::Rotation(hover.value(), vec3(0.0f, 0.0f, 1.0f)) * quat::Rotation(-halfpi, vec3(1.0f, 0.0f, 0.0f)), vec3(1.0f)), true, material);
+			material.color.rgb = sRGBToLinear(vec3(0.5f, 0.05f, 0.05f));
+			material.roughness = 0.2f;
+			material.metalness = 0.0f;
+			// material.emit = sRGBToLinear(vec3(1.0f, 0.5f, 0.2f));
+			Rendering::DrawText(contexts[0], 0, vec2(0.5f, 1.0f), ToWString("Hello, you beautiful thing!\nWhat the dog doin?\nキスミー"), Rendering::GetTransform(vec3(1.0f, 6.0f, 0.0f), quat::Rotation(hover.value(), vec3(0.0f, 0.0f, 1.0f)) * quat::Rotation(-halfpi, vec3(1.0f, 0.0f, 0.0f)), vec3(2.0f)), true, material);
 		}
 		Rendering::DrawMesh(contexts[0], meshTree, {Rendering::GetTransform(vec3(-2.0f, 0.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
 		Rendering::DrawMesh(contexts[0], meshFence, {Rendering::GetTransform(vec3(0.0f, 8.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);

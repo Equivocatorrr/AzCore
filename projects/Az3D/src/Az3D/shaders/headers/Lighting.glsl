@@ -9,7 +9,7 @@ vec4 CalculateAllLighting(ObjectInfo info, vec2 texCoord, vec3 surfaceNormal, ve
 	vec4 sunCoord = worldInfo.sun * vec4(inWorldPos, 1.0);
 	sunCoord.z = 1.0 - sunCoord.z;
 	const vec2 shadowMapSize = textureSize(shadowMap, 0);
-	const float boxBlurDimension = 3.0;
+	const float boxBlurDimension = 5.0;
 	// Converts meters to UV-space units
 	const vec2 worldToUV = vec2(
 		length(vec3(
@@ -24,8 +24,8 @@ vec4 CalculateAllLighting(ObjectInfo info, vec2 texCoord, vec3 surfaceNormal, ve
 	);
 	const vec2 lightWidth = max(shadowMapSize.x, shadowMapSize.y) * sunTanRadius * worldToUV;
 	vec2 filterSize = boxBlurDimension / shadowMapSize;
-	const int maxPCFDims = 1;
-	const int maxPCFOffset = 0;
+	const int maxPCFDims = 3;
+	const int maxPCFOffset = 1;
 	vec2 moments[maxPCFDims][maxPCFDims];
 	float momentContributions[maxPCFDims][maxPCFDims];
 	float blockerDepth = 0.0;
@@ -68,8 +68,8 @@ vec4 CalculateAllLighting(ObjectInfo info, vec2 texCoord, vec3 surfaceNormal, ve
 	float shrink = clamp((0.5 - min(penumbraWidth.x, penumbraWidth.y) / boxBlurDimension / 2.0) / (1.0-minPenumbraVal), 0.0, 0.3);
 	float sunFactor;
 	if (avgContributions != 0.0) {
-		sunFactor = ChebyshevInequality(avgMoments, sunCoord.z);
-		// sunFactor = smoothstep(shrink, 1.0 - shrink, ChebyshevInequality(avgMoments, sunCoord.z));
+		// sunFactor = ChebyshevInequality(avgMoments, sunCoord.z);
+		sunFactor = smoothstep(shrink, 1.0 - shrink, ChebyshevInequality(avgMoments, sunCoord.z));
 	} else {
 		sunFactor = 1.0;
 	}

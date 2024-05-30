@@ -112,10 +112,10 @@ struct Manager {
 	void Draw(az::Array<Rendering::DrawingContext>& drawingContexts);
 
 	// Input queries that support gamepads and regular input inline
-	bool Repeated(u8 keyCode);
-	bool Pressed(u8 keyCode);
-	bool Down(u8 keyCode);
-	bool Released(u8 keyCode);
+	bool Repeated(u8 keyCode, bool whileDebugFlyCam=false);
+	bool Pressed(u8 keyCode, bool whileDebugFlyCam=false);
+	bool Down(u8 keyCode, bool whileDebugFlyCam=false);
+	bool Released(u8 keyCode, bool whileDebugFlyCam=false);
 	az::io::ButtonState* GetButtonState(u8 keyCode);
 	void ConsumeInput(u8 keyCode);
 };

@@ -35,7 +35,6 @@ Name sVolumeMusic = "volumeMusic";
 Name sVolumeEffects = "volumeEffects";
 Name sLocaleOverride = "localeOverride";
 Name sDebugLines = "debugLines";
-Name sDebugLinesDepthTest = "debugLinesDepthTest";
 
 AStringMap<Setting> settings = {
 	{sFullscreen, Setting(false)},
@@ -49,7 +48,6 @@ AStringMap<Setting> settings = {
 	{sVolumeEffects, Setting(1.0, 0.0, 1.0)},
 	{sLocaleOverride, Setting(String())},
 	{sDebugLines, Setting(false)},
-	{sDebugLinesDepthTest, Setting(true)},
 };
 
 void Add(Name name, Setting &&defaultValue) {

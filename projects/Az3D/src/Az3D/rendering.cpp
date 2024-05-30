@@ -124,15 +124,33 @@ void BindPipeline(GPU::Context *context, PipelineIndex pipeline) {
 	GPU::CmdBindPipeline(context, r.data.pipelines[pipeline]);
 	switch (pipeline) {
 		case PIPELINE_DEBUG_LINES:
+			GPU::CmdBindIndexBuffer(context, nullptr);
 			GPU::CmdBindVertexBuffer(context, r.data.debugVertexBuffer);
+			GPU::CmdClearDescriptors(context);
+			GPU::CmdBindUniformBuffer(context, r.data.worldInfoBuffer, 0, 0);
 			break;
 		case PIPELINE_BASIC_3D:
 		case PIPELINE_BASIC_3D_VSM:
 		case PIPELINE_FOLIAGE_3D:
 			GPU::CmdBindVertexBuffer(context, r.data.vertexBuffer);
+			GPU::CmdBindIndexBuffer(context, r.data.indexBuffer);
+			GPU::CmdClearDescriptors(context);
+			GPU::CmdBindUniformBuffer(context, r.data.worldInfoBuffer, 0, 0);
+			GPU::CmdBindStorageBuffer(context, r.data.objectBuffer, 0, 1);
+			GPU::CmdBindStorageBuffer(context, r.data.bonesBuffer, 0, 2);
+			GPU::CmdBindImageArraySampler(context, r.data.textures, r.data.textureSampler, 0, 3);
+			GPU::CmdBindImageSampler(context, r.data.shadowMapImage, r.data.shadowMapSampler, 0, 4);
 			break;
 		case PIPELINE_FONT_3D:
 		case PIPELINE_FONT_3D_VSM:
+			GPU::CmdBindVertexBuffer(context, nullptr);
+			GPU::CmdBindIndexBuffer(context, nullptr);
+			GPU::CmdClearDescriptors(context);
+			GPU::CmdBindUniformBuffer(context, r.data.worldInfoBuffer, 0, 0);
+			GPU::CmdBindStorageBuffer(context, r.data.objectBuffer, 0, 1);
+			GPU::CmdBindStorageBuffer(context, r.data.bonesBuffer, 0, 2);
+			GPU::CmdBindImageArraySampler(context, r.data.textures, r.data.textureSampler, 0, 3);
+			GPU::CmdBindImageSampler(context, r.data.shadowMapImage, r.data.shadowMapSampler, 0, 4);
 			GPU::CmdBindUniformBufferArray(context, r.data.fontBuffers, 0, 5);
 			GPU::CmdBindStorageBuffer(context, r.data.textBuffer, 0, 6);
 			break;
@@ -292,8 +310,8 @@ bool Manager::Init() {
 		});
 		GPU::PipelineSetTopology(data.pipelines[PIPELINE_DEBUG_LINES], GPU::Topology::LINE_LIST);
 		GPU::PipelineSetLineWidth(data.pipelines[PIPELINE_DEBUG_LINES], 2.0f);
-		GPU::PipelineSetDepthTest(data.pipelines[PIPELINE_DEBUG_LINES], Settings::ReadBool(Settings::sDebugLinesDepthTest));
 		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_DEBUG_LINES], GPU::CompareOp::LESS);
+		GPU::PipelineAddPushConstantRange(data.pipelines[PIPELINE_DEBUG_LINES], 0, sizeof(f32), (u32)GPU::ShaderStage::VERTEX);
 
 
 		data.pipelines[PIPELINE_BASIC_3D] = GPU::NewGraphicsPipeline(data.device, "Basic 3D Pipeline");
@@ -333,7 +351,7 @@ bool Manager::Init() {
 		}
 	}
 	{ // Shadow maps
-		constexpr i32 dims = 1024;
+		constexpr i32 dims = 2048;
 		data.contextShadowMap = GPU::NewContext(data.device, "VSM Context");
 
 		GPU::Image *shadowMapMSAAImage = GPU::NewImage(data.device, "VSM MSAA Image");
@@ -485,20 +503,13 @@ vec3 InvViewProj(vec3 point, const mat4 &invViewProj) {
 
 void Manager::UpdateLights() {
 	AZCORE_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::UpdateLights)
-	mat4 invView = worldInfo.viewProj.Inverse();
-	// frustum corners
-	// TODO: This is a very non-linear way to limit the range of shadows. Do something more direct pls.
-	f32 shadowMaxDist = 0.995f;
-	vec3 corners[8] = {
-		InvViewProj(vec3(-1.0f, -1.0f, 0.0f), invView),
-		InvViewProj(vec3( 1.0f, -1.0f, 0.0f), invView),
-		InvViewProj(vec3(-1.0f,  1.0f, 0.0f), invView),
-		InvViewProj(vec3( 1.0f,  1.0f, 0.0f), invView),
-		InvViewProj(vec3(-1.0f, -1.0f, shadowMaxDist), invView),
-		InvViewProj(vec3( 1.0f, -1.0f, shadowMaxDist), invView),
-		InvViewProj(vec3(-1.0f,  1.0f, shadowMaxDist), invView),
-		InvViewProj(vec3( 1.0f,  1.0f, shadowMaxDist), invView),
-	};
+	vec3 corners[8];
+	{
+		f32 prevFarClip = camera.farClip;
+		camera.farClip *= 0.5f;
+		GetCameraFrustumCorners(camera, corners, corners+4);
+		camera.farClip = prevFarClip;
+	}
 	vec3 center = 0.0f;
 	vec3 boundsMin(100000000.0f), boundsMax(-100000000.0f);
 	worldInfo.sun = mat4::Camera(-worldInfo.sunDir, worldInfo.sunDir, vec3(0.0f, 0.0f, 1.0f));
@@ -685,11 +696,13 @@ bool ArmatureAction::operator==(const ArmatureAction &other) const {
 }
 
 bool Manager::UpdateWorldInfo(GPU::Context *context) {
+	const Camera &activeCam = debugCameraActive ? debugCamera : camera;
 	// Update camera matrix
-	worldInfo.view = mat4::Camera(camera.pos, camera.forward, camera.up);
+	worldInfo.view = mat4::Camera(activeCam.pos, activeCam.forward, activeCam.up);
 	// worldInfo.proj = mat4::Ortho(10.0f, 10.0f * screenSize.y / screenSize.x, camera.nearClip, camera.farClip);
-	worldInfo.proj = mat4::Perspective(camera.fov, screenSize.x / screenSize.y, camera.nearClip, camera.farClip);
+	worldInfo.proj = mat4::Perspective(activeCam.fov, 1.0f / camera.aspectRatio, activeCam.nearClip, activeCam.farClip);
 	worldInfo.viewProj = worldInfo.proj * worldInfo.view;
+	// Use regular cam to see the lighting as though it was done from the normal camera's POV
 	worldInfo.eyePos = camera.pos;
 	worldInfo.fogColor = sRGBToLinear(backgroundRGB);
 	worldInfo.ambientLight = worldInfo.fogColor * 0.5f;
@@ -714,14 +727,13 @@ bool Manager::UpdateObjects(GPU::Context *context) {
 	copySize = data.textShaderInfos.size * sizeof(TextShaderInfo);
 	GrowBuffer(data.textBuffer, copySize, sizeof(TextShaderInfo) * 100, 3, 2);
 	if (copySize) {
-		GPU::CmdCopyDataToBuffer(context, data.textBuffer, data.textShaderInfos.data, 0, copySize);
+		GPU::CmdCopyDataToBuffer(context, data.textBuffer, data.textShaderInfos.data, 0, copySize).AzUnwrap();
 	}
 	return true;
 }
 
 bool Manager::UpdateDebugLines(GPU::Context *context) {
 	if (!Settings::ReadBool(Settings::sDebugLines)) return true;
-	GPU::PipelineSetDepthTest(data.pipelines[PIPELINE_DEBUG_LINES], Settings::ReadBool(Settings::sDebugLinesDepthTest));
 	data.debugVertices.ClearSoft();
 	for (DrawingContext &context : data.drawingContexts) {
 		data.debugVertices.Append(context.debugLines);
@@ -730,10 +742,81 @@ bool Manager::UpdateDebugLines(GPU::Context *context) {
 
 	BindPipeline(data.contextGraphics, PIPELINE_DEBUG_LINES);
 
+	GPU::CmdSetDepthTestEnable(data.contextGraphics, false);
+	f32 alpha = 0.2f;
+	GPU::CmdPushConstants(data.contextGraphics, &alpha, 0, sizeof(f32));
+	GPU::CmdDraw(data.contextGraphics, data.debugVertices.size, 0);
+	GPU::CmdSetDepthTestEnable(data.contextGraphics, true);
+	alpha = 1.0f;
+	GPU::CmdPushConstants(data.contextGraphics, &alpha, 0, sizeof(f32));
 	GPU::CmdDraw(data.contextGraphics, data.debugVertices.size, 0);
 
 	GPU::CmdCopyDataToBuffer(context, data.debugVertexBuffer, data.debugVertices.data, 0, min(data.debugVertices.size, MAX_DEBUG_VERTICES) * sizeof(DebugVertex)).AzUnwrap();
 	return true;
+}
+
+void Manager::UpdateDebugCamera() {
+	if (sys->Pressed(KC_KEY_F3, true)) {
+		debugCameraActive = !debugCameraActive;
+		if (debugCameraActive) {
+			debugCamera = camera;
+			debugCamera.farClip *= 2.0f;
+			debugCameraFacingDiff = vec2(0.0f);
+		}
+	}
+	if (!debugCameraActive) return;
+	DrawCamera(data.drawingContexts[0], camera, vec4(vec3(0.0f), 1.0f));
+
+	vec2i center = vec2i(sys->window.width / 2, sys->window.height / 2);
+	if (sys->Pressed(KC_KEY_TAB, true)) {
+		debugCameraFly = !debugCameraFly;
+		sys->window.HideCursor(debugCameraFly);
+		sys->input.cursor = center;
+	}
+	if (!debugCameraFly) return;
+	f32 speed = sys->Down(KC_KEY_LEFTSHIFT, true) ? 10.0f : 2.0f;
+	vec3 camRight = normalize(cross(debugCamera.forward, vec3(0.0f, 0.0f, 1.0f)));
+	debugCamera.up = orthogonalize(vec3(0.0f, 0.0f, 1.0f), debugCamera.forward);
+	{
+		f32 sensitivity = debugCamera.fov.value() / 60.0f / screenSize.x;
+		debugCameraFacingDiff.x -= f32(sys->input.cursor.x - center.x) * sensitivity;
+		debugCameraFacingDiff.y -= f32(sys->input.cursor.y - center.y) * sensitivity;
+		sys->window.MoveCursor(center.x, center.y);
+	}
+	{
+		vec2 diff = debugCameraFacingDiff * decayFactor(0.015f, sys->timestep);
+		debugCameraFacingDiff -= diff;
+		quat zRot = quat::Rotation(
+			diff.x,
+			debugCamera.up
+		);
+		quat xRot = quat::Rotation(
+			diff.y,
+			camRight
+		);
+		quat rot = zRot * xRot;
+		debugCamera.forward = rot.RotatePoint(debugCamera.forward);
+		camRight = normalize(cross(debugCamera.forward, vec3(0.0f, 0.0f, 1.0f)));
+		debugCamera.up = orthogonalize(vec3(0.0f, 0.0f, 1.0f), debugCamera.forward);
+	}
+	if (sys->Down(KC_KEY_W, true)) {
+		debugCamera.pos += speed * sys->timestep * debugCamera.forward;
+	}
+	if (sys->Down(KC_KEY_S, true)) {
+		debugCamera.pos -= speed * sys->timestep * debugCamera.forward;
+	}
+	if (sys->Down(KC_KEY_D, true)) {
+		debugCamera.pos += speed * sys->timestep * camRight;
+	}
+	if (sys->Down(KC_KEY_A, true)) {
+		debugCamera.pos -= speed * sys->timestep * camRight;
+	}
+	if (sys->Down(KC_KEY_SPACE, true)) {
+		debugCamera.pos += speed * sys->timestep * debugCamera.up;
+	}
+	if (sys->Down(KC_KEY_V, true)) {
+		debugCamera.pos -= speed * sys->timestep * debugCamera.up;
+	}
 }
 
 struct BoneEvalMetadata {
@@ -1139,6 +1222,8 @@ bool Manager::Draw() {
 	timerWindowUpdate.End();
 	AZCORE_PROFILING_EXCEPTION_END();
 
+	GPU::PipelineSetLineWidth(data.pipelines[PIPELINE_DEBUG_LINES], 2.0f / 96.0f * (f32)sys->window.dpi);
+
 	screenSize = vec2((f32)max((u16)1, sys->window.width), (f32)max((u16)1, sys->window.height));
 	aspectRatio = screenSize.y / screenSize.x;
 
@@ -1161,13 +1246,7 @@ bool Manager::Draw() {
 	GPU::ContextBeginRecording(data.contextGraphics).AzUnwrap();
 	GPU::CmdBindFramebuffer(data.contextGraphics, data.framebuffer);
 	GPU::CmdSetViewportAndScissor(data.contextGraphics, (f32)sys->window.width, (f32)sys->window.height);
-	GPU::CmdBindIndexBuffer(data.contextGraphics, data.indexBuffer);
-	GPU::CmdBindUniformBuffer(data.contextGraphics, data.worldInfoBuffer, 0, 0);
-	GPU::CmdBindStorageBuffer(data.contextGraphics, data.objectBuffer, 0, 1);
-	GPU::CmdBindStorageBuffer(data.contextGraphics, data.bonesBuffer, 0, 2);
-	GPU::CmdBindImageArraySampler(data.contextGraphics, data.textures, data.textureSampler, 0, 3);
-	GPU::CmdBindImageSampler(data.contextGraphics, data.shadowMapImage, data.shadowMapSampler, 0, 4);
-	GPU::CmdCommitBindings(data.contextGraphics).AzUnwrap();
+	BindPipeline(data.contextGraphics, PIPELINE_BASIC_3D);
 	/*{ // Fade
 		DrawQuadSS(commandBuffersSecondary[0], texBlank, vec4(backgroundRGB, 0.2f), vec2(-1.0), vec2(2.0), vec2(1.0));
 	}*/
@@ -1184,6 +1263,8 @@ bool Manager::Draw() {
 	}
 
 	sys->Draw(data.drawingContexts);
+
+	UpdateDebugCamera();
 
 	GPU::ContextBeginRecording(data.contextTransfer).AzUnwrap();
 	if (updateFontMemory) {
@@ -1619,6 +1700,40 @@ void DrawDebugSphere(DrawingContext &context, vec3 center, f32 radius, vec4 colo
 		DrawDebugLine(context, {center + vec3(x1, y1, 0.0f), color}, {center + vec3(x2, y2, 0.0f), color});
 		DrawDebugLine(context, {center + vec3(x1, 0.0f, y1), color}, {center + vec3(x2, 0.0f, y2), color});
 		DrawDebugLine(context, {center + vec3(0.0f, x1, y1), color}, {center + vec3(0.0f, x2, y2), color});
+	}
+}
+
+void DrawCamera(DrawingContext &context, const Camera &camera, vec4 color) {
+	vec3 pointsNear[4], pointsFar[4];
+	GetCameraFrustumCorners(camera, pointsNear, pointsFar);
+	DrawDebugLine(context, DebugVertex(pointsNear[0], color), DebugVertex(pointsFar[0], color));
+	DrawDebugLine(context, DebugVertex(pointsNear[1], color), DebugVertex(pointsFar[1], color));
+	DrawDebugLine(context, DebugVertex(pointsNear[2], color), DebugVertex(pointsFar[2], color));
+	DrawDebugLine(context, DebugVertex(pointsNear[3], color), DebugVertex(pointsFar[3], color));
+	DrawDebugLine(context, DebugVertex(pointsFar[0], color), DebugVertex(pointsFar[1], color));
+	DrawDebugLine(context, DebugVertex(pointsFar[1], color), DebugVertex(pointsFar[2], color));
+	DrawDebugLine(context, DebugVertex(pointsFar[2], color), DebugVertex(pointsFar[3], color));
+	DrawDebugLine(context, DebugVertex(pointsFar[3], color), DebugVertex(pointsFar[0], color));
+	DrawDebugLine(context, DebugVertex(pointsNear[0], color), DebugVertex(pointsNear[1], color));
+	DrawDebugLine(context, DebugVertex(pointsNear[1], color), DebugVertex(pointsNear[2], color));
+	DrawDebugLine(context, DebugVertex(pointsNear[2], color), DebugVertex(pointsNear[3], color));
+	DrawDebugLine(context, DebugVertex(pointsNear[3], color), DebugVertex(pointsNear[0], color));
+}
+
+void GetCameraFrustumCorners(const Camera &camera, vec3 dstPointsNear[4], vec3 dstPointsFar[4]) {
+	f32 fovX = tan(camera.fov * 0.5f);
+	f32 fovY = fovX * camera.aspectRatio;
+	vec3 right = normalize(cross(camera.forward, camera.up)) * fovX;
+	vec3 up = orthogonalize(camera.up, camera.forward) * fovY;
+	vec3 points[4] = {
+		camera.forward + right + up,
+		camera.forward + right - up,
+		camera.forward - right - up,
+		camera.forward - right + up,
+	};
+	for (i32 i = 0; i < 4; i++) {
+		dstPointsNear[i] = points[i] * camera.nearClip + camera.pos;
+		dstPointsFar[i] = points[i] * camera.farClip + camera.pos;
 	}
 }
 

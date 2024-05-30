@@ -96,8 +96,6 @@ void UpdateLoop() {
 		if (sys->input.Pressed(KC_KEY_F12)) {
 			if (sys->input.Down(KC_KEY_LEFTSHIFT) || sys->input.Down(KC_KEY_RIGHTSHIFT)) {
 				Settings::SetBool(Settings::sDebugLines, !Settings::ReadBool(Settings::sDebugLines));
-			} else if (sys->input.Down(KC_KEY_LEFTCTRL) || sys->input.Down(KC_KEY_RIGHTCTRL)) {
-				Settings::SetBool(Settings::sDebugLinesDepthTest, !Settings::ReadBool(Settings::sDebugLinesDepthTest));
 			} else {
 				Settings::SetBool(Settings::sVSync, !Settings::ReadBool(Settings::sVSync));
 			}
@@ -402,25 +400,29 @@ io::ButtonState* Manager::GetButtonState(u8 keyCode) {
 	}
 }
 
-bool Manager::Repeated(u8 keyCode) {
+bool Manager::Repeated(u8 keyCode, bool whileDebugFlyCam) {
+	if (!whileDebugFlyCam && rendering.IsInDebugFlyCam()) return false;
 	io::ButtonState* state = GetButtonState(keyCode);
 	if (!state) return false;
 	return state->Repeated();
 }
 
-bool Manager::Pressed(u8 keyCode) {
+bool Manager::Pressed(u8 keyCode, bool whileDebugFlyCam) {
+	if (!whileDebugFlyCam && rendering.IsInDebugFlyCam()) return false;
 	io::ButtonState* state = GetButtonState(keyCode);
 	if (!state) return false;
 	return state->Pressed();
 }
 
-bool Manager::Down(u8 keyCode) {
+bool Manager::Down(u8 keyCode, bool whileDebugFlyCam) {
+	if (!whileDebugFlyCam && rendering.IsInDebugFlyCam()) return false;
 	io::ButtonState* state = GetButtonState(keyCode);
 	if (!state) return false;
 	return state->Down();
 }
 
-bool Manager::Released(u8 keyCode) {
+bool Manager::Released(u8 keyCode, bool whileDebugFlyCam) {
+	if (!whileDebugFlyCam && rendering.IsInDebugFlyCam()) return false;
 	io::ButtonState* state = GetButtonState(keyCode);
 	if (!state) return false;
 	return state->Released();

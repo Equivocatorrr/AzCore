@@ -9,6 +9,7 @@
 
 #include "AzCore/Math/Matrix.hpp"
 #include "AzCore/Math/mat4_t.hpp"
+#include "AzCore/Math/quat_t.hpp"
 #include "Az3DObj.hpp"
 
 #include "AzCore/basictypes.hpp"
@@ -70,6 +71,8 @@ using Vertex = Az3DObj::Vertex;
 struct DebugVertex {
 	vec3 pos;
 	vec4 color;
+	DebugVertex() = default;
+	DebugVertex(vec3 _pos, vec4 _color) : pos(_pos), color(_color) {}
 };
 
 constexpr i32 texBlank = 1;
@@ -140,6 +143,8 @@ struct Camera {
 	vec3 up = vec3(0.0f, 0.0f, 1.0f);
 	f32 nearClip = 0.1f;
 	f32 farClip = 100.0f;
+	// height / width
+	f32 aspectRatio = 9.0f / 16.0f;
 	// Horizontal field of view
 	Degrees32 fov = 90.0f;
 };
@@ -268,6 +273,10 @@ struct Manager {
 	WorldInfoBuffer worldInfo;
 	Mutex lightsMutex;
 	Camera camera;
+	Camera debugCamera;
+	bool debugCameraActive = false;
+	bool debugCameraFly = false;
+	vec2 debugCameraFacingDiff = vec2(0.0f);
 	Frustum sunFrustum;
 
 	bool Init();
@@ -277,10 +286,15 @@ struct Manager {
 	bool UpdateWorldInfo(GPU::Context *context);
 	bool UpdateObjects(GPU::Context *context);
 	bool UpdateDebugLines(GPU::Context *context);
+	void UpdateDebugCamera();
 	bool Draw();
 	bool Present();
 
 	void UpdateBackground();
+
+	inline bool IsInDebugFlyCam() const {
+		return debugCameraActive && debugCameraFly;
+	}
 };
 
 void DrawMeshPart(DrawingContext &context, Assets::MeshPart *meshPart, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows, az::Optional<ArmatureAction> action=az::Optional<ArmatureAction>());
@@ -318,6 +332,10 @@ inline void DrawDebugLine(DrawingContext &context, DebugVertex point1, DebugVert
 }
 
 void DrawDebugSphere(DrawingContext &context, vec3 center, f32 radius, vec4 color);
+
+void DrawCamera(DrawingContext &context, const Camera &camera, vec4 color);
+
+void GetCameraFrustumCorners(const Camera &camera, vec3 dstPointsNear[4], vec3 dstPointsFar[4]);
 
 f32 StringHeight(const WString &string);
 

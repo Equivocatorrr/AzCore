@@ -1053,7 +1053,7 @@ struct Context {
 		Buffer *vertexBuffer = nullptr;
 		Buffer *indexBuffer = nullptr;
 		BinaryMap<DescriptorIndex, Binding> descriptors;
-		bool damage = false;
+		bool descriptorsCleared = false;
 	} bindings;
 	Array<Binding> bindCommands;
 
@@ -2584,13 +2584,14 @@ breakout:
 				}
 			}
 		} else {
-			for (auto &pipeline : device->pipelines) {
-				if (pipeline->lineWidth != 1.0f) {
+			// for (auto &pipeline : device->pipelines) {
+			// 	if (pipeline->lineWidth != 1.0f) {
+					// It's a dynamic state now, so we have to always request the feature when available
 					featuresEnabled.features.wideLines = VK_TRUE;
-					io::cout.PrintLnDebug("Enabling Wide Lines");
-					break;
-				}
-			}
+			// 		io::cout.PrintLnDebug("Enabling Wide Lines");
+			// 		break;
+			// 	}
+			// }
 		}
 		bool sampleRateShadingAvailable = featuresAvailable.features.sampleRateShading;
 		if (!sampleRateShadingAvailable) {
@@ -3986,22 +3987,22 @@ void PipelineSetDepthBias(Pipeline *pipeline, bool enable, f32 constant, f32 slo
 }
 
 void PipelineSetLineWidth(Pipeline *pipeline, f32 lineWidth) {
-	pipeline->dirty = pipeline->lineWidth != lineWidth;
+	// pipeline->dirty = pipeline->lineWidth != lineWidth; // dynamic
 	pipeline->lineWidth = lineWidth;
 }
 
 void PipelineSetDepthTest(Pipeline *pipeline, bool enabled) {
-	pipeline->dirty = pipeline->depthTest != enabled;
+	// pipeline->dirty = pipeline->depthTest != enabled; // dynamic
 	pipeline->depthTest = BoolOrDefaultFromBool(enabled);
 }
 
 void PipelineSetDepthWrite(Pipeline *pipeline, bool enabled) {
-	pipeline->dirty = pipeline->depthWrite != enabled;
+	// pipeline->dirty = pipeline->depthWrite != enabled; // dynamic
 	pipeline->depthWrite = BoolOrDefaultFromBool(enabled);
 }
 
 void PipelineSetDepthCompareOp(Pipeline *pipeline, CompareOp compareOp) {
-	pipeline->dirty = pipeline->depthCompareOp != compareOp;
+	// pipeline->dirty = pipeline->depthCompareOp != compareOp; // dynamic
 	pipeline->depthCompareOp = compareOp;
 }
 
@@ -4094,6 +4095,7 @@ void PipelineDeinit(Pipeline *pipeline) {
 
 Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *context) {
 	ContextFrame &frame = context->frames[context->currentFrame];
+
 	VkPipelineLayoutCreateInfo layoutCreateInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
 	Array<VkDescriptorSetLayout> vkDescriptorSetLayouts(frame.descriptorSetsBound.size);
 	for (i32 i = 0; i < vkDescriptorSetLayouts.size; i++) {
@@ -4233,6 +4235,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			// TODO: We could use this
 			inputAssemblyState.primitiveRestartEnable = VK_FALSE;
 
+			/* dynamic
 			VkPipelineViewportStateCreateInfo viewportState={VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
 			VkViewport viewport;
 			viewport.width = (f32)context->bindings.framebuffer->width;
@@ -4249,6 +4252,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			scissor.extent.height = context->bindings.framebuffer->height;
 			viewportState.scissorCount = 1;
 			viewportState.pScissors = &scissor;
+			*/
 
 			VkPipelineRasterizationStateCreateInfo rasterizerState{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
 			rasterizerState.depthClampEnable = VK_FALSE;
@@ -4260,7 +4264,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			rasterizerState.depthBiasConstantFactor = pipeline->depthBias.constant;
 			rasterizerState.depthBiasSlopeFactor = pipeline->depthBias.slope;
 			rasterizerState.depthBiasClamp = pipeline->depthBias.clampValue;
-			rasterizerState.lineWidth = pipeline->lineWidth;
+			// rasterizerState.lineWidth = pipeline->lineWidth; // dynamic
 
 			VkPipelineMultisampleStateCreateInfo multisampleState{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
 			multisampleState.rasterizationSamples = (VkSampleCountFlagBits)pipeline->sampleCount;
@@ -4277,12 +4281,12 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			if (pipeline->depthTest == BoolOrDefault::TRUE && !framebufferHasDepthBuffer) {
 				return ERROR_RESULT(pipeline, "Depth test is enabled, but framebuffer doesn't have a depth buffer");
 			}
-			depthStencilState.depthTestEnable = ResolveBoolOrDefault(pipeline->depthTest, framebufferHasDepthBuffer);
+			// depthStencilState.depthTestEnable = ResolveBoolOrDefault(pipeline->depthTest, framebufferHasDepthBuffer); // dynamic
 			if (pipeline->depthWrite == BoolOrDefault::TRUE && !framebufferHasDepthBuffer) {
 				return ERROR_RESULT(pipeline, "Depth write is enabled, but framebuffer doesn't have a depth buffer");
 			}
-			depthStencilState.depthWriteEnable = ResolveBoolOrDefault(pipeline->depthWrite, framebufferHasDepthBuffer);
-			depthStencilState.depthCompareOp = (VkCompareOp)pipeline->depthCompareOp;
+			// depthStencilState.depthWriteEnable = ResolveBoolOrDefault(pipeline->depthWrite, framebufferHasDepthBuffer); // dynamic
+			// depthStencilState.depthCompareOp = (VkCompareOp)pipeline->depthCompareOp; // dynamic
 			depthStencilState.depthBoundsTestEnable = VK_FALSE;
 			// TODO: Support stencil buffers
 			depthStencilState.stencilTestEnable = VK_FALSE;
@@ -4377,6 +4381,14 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 				// // Provided by VK_EXT_vertex_input_dynamic_state
 				// VK_DYNAMIC_STATE_VERTEX_INPUT_EXT,
 			};
+			if (context->device->physicalDevice->vk10Features.features.wideLines) {
+				dynamicStates.Append(VK_DYNAMIC_STATE_LINE_WIDTH);
+			}
+			if (framebufferHasDepthBuffer) {
+				dynamicStates.Append(VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE);
+				dynamicStates.Append(VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE);
+				dynamicStates.Append(VK_DYNAMIC_STATE_DEPTH_COMPARE_OP);
+			}
 			dynamicState.dynamicStateCount = dynamicStates.size;
 			dynamicState.pDynamicStates = dynamicStates.data;
 
@@ -4389,7 +4401,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			createInfo.pStages = shaderStages.data;
 			createInfo.pVertexInputState = &vertexInputState;
 			createInfo.pInputAssemblyState = &inputAssemblyState;
-			createInfo.pViewportState = &viewportState;
+			// createInfo.pViewportState = &viewportState; // dynamic
 			createInfo.pRasterizationState = &rasterizerState;
 			createInfo.pMultisampleState = &multisampleState;
 			createInfo.pDepthStencilState = &depthStencilState;
@@ -4696,10 +4708,10 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 			for (VkWriteDescriptorSet &write : vkWriteDescriptorSets[i]) {
 				write.dstSet = boundDescriptorSet.set;
 			}
-			ContextFrame &lastFrame = context->frames[(context->currentFrame+context->numFrames-1)%context->numFrames];
-			FenceWaitForSignal(&lastFrame.fence).AzUnwrap();
+			// ContextFrame &lastFrame = context->frames[(context->currentFrame+context->numFrames-1)%context->numFrames];
+			// FenceWaitForSignal(&lastFrame.fence).AzUnwrap();
 			// NOTE: Descriptor changes should only happen between frames and never within the same command buffer, so this should be okay.
-			// TODO: If the above is not true, pipelining stops working and the API becomes serial. We could extend the holding of resources to descriptor sets as well, but that necessarily involves having duplicates sometimes. Probably not a big deal, so we should just do it.
+			// TODONE: If the above is not true, pipelining stops working and the API becomes serial. We could extend the holding of resources to descriptor sets as well, but that necessarily involves having duplicates sometimes. Probably not a big deal, so we should just do it.
 			vkUpdateDescriptorSets(context->device->vkDevice, vkWriteDescriptorSets[i].size, vkWriteDescriptorSets[i].data, 0, nullptr);
 		}
 		frame.descriptorSetsBound.Append(boundDescriptorSet);
@@ -5174,7 +5186,9 @@ void CmdBindPipeline(Context *context, Pipeline *pipeline) {
 }
 
 void CmdBindVertexBuffer(Context *context, Buffer *buffer) {
-	AzAssert(buffer->kind == Buffer::VERTEX_BUFFER, "Binding a buffer as a vertex buffer when it's not one");
+	if (buffer) {
+		AzAssert(buffer->kind == Buffer::VERTEX_BUFFER, "Binding a buffer as a vertex buffer when it's not one");
+	}
 	Binding bind;
 	bind.kind = Binding::VERTEX_BUFFER;
 	bind.vertexBuffer.object = buffer;
@@ -5182,11 +5196,18 @@ void CmdBindVertexBuffer(Context *context, Buffer *buffer) {
 }
 
 void CmdBindIndexBuffer(Context *context, Buffer *buffer) {
-	AzAssert(buffer->kind == Buffer::INDEX_BUFFER, "Binding a buffer as an index buffer when it's not one");
+	if (buffer) {
+		AzAssert(buffer->kind == Buffer::INDEX_BUFFER, "Binding a buffer as an index buffer when it's not one");
+	}
 	Binding bind;
 	bind.kind = Binding::INDEX_BUFFER;
 	bind.indexBuffer.object = buffer;
 	context->bindCommands.Append(bind);
+}
+
+void CmdClearDescriptors(Context *context) {
+	context->bindings.descriptors.Clear();
+	context->bindings.descriptorsCleared = true;
 }
 
 void CmdBindUniformBuffer(Context *context, Buffer *buffer, i32 set, i32 binding) {
@@ -5273,28 +5294,36 @@ static void AddDependency(Context *context, ArrayWithBucket<DependentContext, 4>
 
 Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
 	ContextFrame &frame = context->frames[context->currentFrame];
-	Framebuffer *framebuffer = nullptr;
-	Pipeline *pipeline = nullptr;
-	Buffer *vertexBuffer = nullptr;
-	Buffer *indexBuffer = nullptr;
-	bool descriptorsChanged = false;
+	Optional<Framebuffer*> framebuffer;
+	Optional<Pipeline*> pipeline;
+	Optional<Buffer*> vertexBuffer;
+	Optional<Buffer*> indexBuffer;
+	bool descriptorsChanged = context->bindings.descriptorsCleared;
 	for (Binding &bind : context->bindCommands) {
 		switch (bind.kind) {
 		case Binding::FRAMEBUFFER:
 			framebuffer = bind.framebuffer.object;
-			AddDependency(context, framebuffer->dependentContexts);
+			if (framebuffer.ValueUnchecked()) {
+				AddDependency(context, framebuffer.ValueUnchecked()->dependentContexts);
+			}
 			break;
 		case Binding::PIPELINE:
 			pipeline = bind.pipeline.object;
-			AddDependency(context, pipeline->dependentContexts);
+			if (pipeline.ValueUnchecked()) {
+				AddDependency(context, pipeline.ValueUnchecked()->dependentContexts);
+			}
 			break;
 		case Binding::VERTEX_BUFFER:
 			vertexBuffer = bind.vertexBuffer.object;
-			AddDependency(context, vertexBuffer->dependentContexts);
+			if (vertexBuffer.ValueUnchecked()) {
+				AddDependency(context, vertexBuffer.ValueUnchecked()->dependentContexts);
+			}
 			break;
 		case Binding::INDEX_BUFFER:
 			indexBuffer = bind.indexBuffer.object;
-			AddDependency(context, indexBuffer->dependentContexts);
+			if (indexBuffer.ValueUnchecked()) {
+				AddDependency(context, indexBuffer.ValueUnchecked()->dependentContexts);
+			}
 			break;
 		case Binding::UNIFORM_BUFFER:
 			context->bindings.descriptors.Emplace(bind.uniformBuffer.binding, bind);
@@ -5319,36 +5348,52 @@ Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
 			break;
 		}
 	}
-	if (nullptr != framebuffer && context->bindings.framebuffer != framebuffer) {
+	if (framebuffer.Exists() && context->bindings.framebuffer != framebuffer.ValueUnchecked()) {
 		if (context->bindings.framebuffer) {
 			vkCmdEndRenderPass(frame.vkCommandBuffer);
 		}
-		context->bindings.framebuffer = framebuffer;
-		VkRenderPassBeginInfo beginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-		beginInfo.renderPass = context->bindings.framebuffer->vkRenderPass;
-		beginInfo.framebuffer = FramebufferGetCurrentVkFramebuffer(framebuffer);
-		beginInfo.renderArea.offset = {0, 0};
-		beginInfo.renderArea.extent.width = framebuffer->width;
-		beginInfo.renderArea.extent.height = framebuffer->height;
-		vkCmdBeginRenderPass(frame.vkCommandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+		context->bindings.framebuffer = framebuffer.ValueUnchecked();
+		if (context->bindings.framebuffer) {
+			VkRenderPassBeginInfo beginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+			beginInfo.renderPass = context->bindings.framebuffer->vkRenderPass;
+			beginInfo.framebuffer = FramebufferGetCurrentVkFramebuffer(context->bindings.framebuffer);
+			beginInfo.renderArea.offset = {0, 0};
+			beginInfo.renderArea.extent.width = context->bindings.framebuffer->width;
+			beginInfo.renderArea.extent.height = context->bindings.framebuffer->height;
+			vkCmdBeginRenderPass(frame.vkCommandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+		}
 	}
 	if (descriptorsChanged) {
 		AZ_TRY_ERROR_RESULT (context, ContextDescriptorsCompose(context));
 	}
-	if (vertexBuffer) {
-		context->bindings.vertexBuffer = vertexBuffer;
-		VkDeviceSize zero = 0;
-		// TODO: Support multiple vertex buffer bindings
-		vkCmdBindVertexBuffers(frame.vkCommandBuffer, 0, 1, &vertexBuffer->vkBuffer, &zero);
+	if (vertexBuffer.Exists()) {
+		context->bindings.vertexBuffer = vertexBuffer.ValueUnchecked();
+		if (context->bindings.vertexBuffer) {
+			VkDeviceSize zero = 0;
+			// TODO: Support multiple vertex buffer bindings
+			vkCmdBindVertexBuffers(frame.vkCommandBuffer, 0, 1, &context->bindings.vertexBuffer->vkBuffer, &zero);
+		}
 	}
-	if (indexBuffer) {
-		context->bindings.indexBuffer = indexBuffer;
-		vkCmdBindIndexBuffer(frame.vkCommandBuffer, indexBuffer->vkBuffer, 0, indexBuffer->indexType);
+	if (indexBuffer.Exists()) {
+		context->bindings.indexBuffer = indexBuffer.ValueUnchecked();
+		if (context->bindings.indexBuffer) {
+			vkCmdBindIndexBuffer(frame.vkCommandBuffer, context->bindings.indexBuffer->vkBuffer, 0, context->bindings.indexBuffer->indexType);
+		}
 	}
-	if (nullptr != pipeline && context->bindings.pipeline != pipeline) {
-		context->bindings.pipeline = pipeline;
-		AZ_TRY_ERROR_RESULT_INFO (context, PipelineCompose(pipeline, context), "Failed to bind Pipeline: ");
-		vkCmdBindPipeline(frame.vkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->vkPipeline);
+	if (pipeline.Exists() && context->bindings.pipeline != pipeline.ValueUnchecked()) {
+		context->bindings.pipeline = pipeline.ValueUnchecked();
+		if (context->bindings.pipeline) {
+			AZ_TRY_ERROR_RESULT_INFO (context, PipelineCompose(context->bindings.pipeline, context), "Failed to bind Pipeline: ");
+			vkCmdBindPipeline(frame.vkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context->bindings.pipeline->vkPipeline);
+			if (context->device->physicalDevice->vk10Features.features.wideLines) {
+				vkCmdSetLineWidth(frame.vkCommandBuffer, context->bindings.pipeline->lineWidth);
+			}
+			if (context->bindings.pipeline->framebufferHasDepthBuffer) {
+				vkCmdSetDepthTestEnable(frame.vkCommandBuffer, ResolveBoolOrDefault(context->bindings.pipeline->depthTest, context->bindings.pipeline->framebufferHasDepthBuffer));
+				vkCmdSetDepthWriteEnable(frame.vkCommandBuffer, ResolveBoolOrDefault(context->bindings.pipeline->depthWrite, context->bindings.pipeline->framebufferHasDepthBuffer));
+				vkCmdSetDepthCompareOp(frame.vkCommandBuffer, (VkCompareOp)context->bindings.pipeline->depthCompareOp);
+			}
+		}
 	}
 	if (context->bindings.pipeline != nullptr && frame.descriptorSetsBound.size != 0) {
 		Array<VkDescriptorSet> vkDescriptorSets(frame.descriptorSetsBound.size);
@@ -5357,7 +5402,9 @@ Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
 		}
 		vkCmdBindDescriptorSets(frame.vkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context->bindings.pipeline->vkPipelineLayout, 0, vkDescriptorSets.size, vkDescriptorSets.data, 0, nullptr);
 	}
-	CmdSetViewportAndScissor(context, (f32)context->bindings.framebuffer->width, (f32)context->bindings.framebuffer->height);
+	if (context->bindings.framebuffer) {
+		CmdSetViewportAndScissor(context, (f32)context->bindings.framebuffer->width, (f32)context->bindings.framebuffer->height);
+	}
 	context->bindCommands.ClearSoft();
 	return VoidResult_t();
 }
@@ -5405,6 +5452,33 @@ void CmdSetScissor(Context *context, u32 width, u32 height, i32 x, i32 y) {
 	scissor.offset.y = y;
 	vkCmdSetScissor(frame.vkCommandBuffer, 0, 1, &scissor);
 }
+
+void CmdSetLineWidth(Context *context, f32 lineWidth) {
+	ContextFrame &frame = context->frames[context->currentFrame];
+	vkCmdSetLineWidth(frame.vkCommandBuffer, lineWidth);
+}
+
+#define CHECK_DYNAMIC_DEPTH_SETTING() AzAssert(context->bindings.framebuffer != nullptr && FramebufferHasDepthBuffer(context->bindings.framebuffer), Stringify(__FUNCTION__, " called with a framebuffer \"", context->bindings.framebuffer->tag, "\" that doesn't have a depth buffer!"))
+
+void CmdSetDepthTestEnable(Context *context, bool enable) {
+	CHECK_DYNAMIC_DEPTH_SETTING();
+	ContextFrame &frame = context->frames[context->currentFrame];
+	vkCmdSetDepthTestEnable(frame.vkCommandBuffer, enable);
+}
+
+void CmdSetDepthWriteEnable(Context *context, bool enable) {
+	CHECK_DYNAMIC_DEPTH_SETTING();
+	ContextFrame &frame = context->frames[context->currentFrame];
+	vkCmdSetDepthWriteEnable(frame.vkCommandBuffer, enable);
+}
+
+void CmdSetDepthCompareOp(Context *context, CompareOp op) {
+	CHECK_DYNAMIC_DEPTH_SETTING();
+	ContextFrame &frame = context->frames[context->currentFrame];
+	vkCmdSetDepthCompareOp(frame.vkCommandBuffer, (VkCompareOp)op);
+}
+
+#undef CHECK_DYNAMIC_DEPTH_SETTING
 
 void CmdClearColorAttachment(Context *context, vec4 color, i32 attachment) {
 	ContextFrame &frame = context->frames[context->currentFrame];

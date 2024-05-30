@@ -493,14 +493,19 @@ void CmdCopyBufferToBuffer(Context *context, Buffer *dst, Buffer *src, i64 dstOf
 
 [[nodiscard]] Result<VoidResult_t, String> CmdCopyDataToImage(Context *context, Image *dst, void *src);
 
+// if buffer is nullptr, then it removes the framebuffer binding from context, and on commit it will complete the render pass and not begin another one.
 void CmdBindFramebuffer(Context *context, Framebuffer *framebuffer);
-
 
 void CmdBindPipeline(Context *context, Pipeline *pipeline);
 
+// if buffer is nullptr, then it removes any vertex buffer binding from context, preventing it from getting bound automagically later
 void CmdBindVertexBuffer(Context *context, Buffer *buffer);
 
+// if buffer is nullptr, then it removes any index buffer binding from context, preventing it from getting bound automagically later
 void CmdBindIndexBuffer(Context *context, Buffer *buffer);
+
+// Clears all the descriptor bindings, allowing you to specify smaller descriptor sets. Without this, all previous bindings will be combined, even if they're not in use by previous pipelines.
+void CmdClearDescriptors(Context *context);
 
 void CmdBindUniformBuffer(Context *context, Buffer *buffer, i32 set, i32 binding);
 
@@ -537,6 +542,12 @@ inline void CmdSetViewportAndScissor(Context *context, f32 width, f32 height, f3
 	CmdSetViewport(context, width, height, minDepth, maxDepth, x, y);
 	CmdSetScissor(context, (u32)width, (u32)height, (i32)x, (i32)y);
 }
+
+void CmdSetLineWidth(Context *context, f32 lineWidth);
+
+void CmdSetDepthTestEnable(Context *context, bool enable);
+void CmdSetDepthWriteEnable(Context *context, bool enable);
+void CmdSetDepthCompareOp(Context *context, CompareOp op);
 
 void CmdClearColorAttachment(Context *context, vec4 color, i32 attachment=0);
 void CmdClearDepthAttachment(Context *context, f32 depth);

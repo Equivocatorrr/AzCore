@@ -40,10 +40,10 @@ void GetBasisFromCamera(const Camera &camera, vec3 &dstForward, vec3 &dstRight, 
 	dstUp = normalize(cross(dstForward, dstRight));
 }
 
-Frustum GetFrustumFromCamera(const Camera &camera, f32 heightOverWidth) {
+Frustum GetFrustumFromCamera(const Camera &camera) {
 	Frustum result;
 	f32 tanhFOV = tan(Radians32(camera.fov).value() * 0.5f);
-	f32 tanvFOV = tanhFOV * heightOverWidth;
+	f32 tanvFOV = tanhFOV * camera.aspectRatio;
 	vec3 forward, right, up;
 	GetBasisFromCamera(camera, forward, right, up);
 	result.near  = GetPlaneFromRay(camera.pos + camera.nearClip * camera.forward, camera.forward);
@@ -1282,7 +1282,7 @@ bool Manager::Draw() {
 			allDrawCalls.Append(context.thingsToDraw);
 		}
 		// Do frustum-based culling
-		Frustum frustum = GetFrustumFromCamera(camera, screenSize.y / screenSize.x);
+		Frustum frustum = GetFrustumFromCamera(camera);
 		for (DrawCallInfo &drawCall : allDrawCalls) {
 			drawCall.culled = !IsSphereInFrustum(drawCall.boundingSphereCenter, drawCall.boundingSphereRadius, frustum);
 			#if 0

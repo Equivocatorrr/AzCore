@@ -4235,8 +4235,8 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			// TODO: We could use this
 			inputAssemblyState.primitiveRestartEnable = VK_FALSE;
 
-			/* dynamic
 			VkPipelineViewportStateCreateInfo viewportState={VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+			/* dynamic
 			VkViewport viewport;
 			viewport.width = (f32)context->bindings.framebuffer->width;
 			viewport.height = (f32)context->bindings.framebuffer->height;
@@ -4244,15 +4244,15 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			viewport.maxDepth = 1.0f;
 			viewport.x = 0.0f;
 			viewport.y = 0.0f;
-			viewportState.viewportCount = 1;
 			viewportState.pViewports = &viewport;
 			VkRect2D scissor;
 			scissor.offset = {0, 0};
 			scissor.extent.width = context->bindings.framebuffer->width;
 			scissor.extent.height = context->bindings.framebuffer->height;
-			viewportState.scissorCount = 1;
 			viewportState.pScissors = &scissor;
 			*/
+			viewportState.viewportCount = 1;
+			viewportState.scissorCount = 1;
 
 			VkPipelineRasterizationStateCreateInfo rasterizerState{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
 			rasterizerState.depthClampEnable = VK_FALSE;
@@ -4401,7 +4401,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			createInfo.pStages = shaderStages.data;
 			createInfo.pVertexInputState = &vertexInputState;
 			createInfo.pInputAssemblyState = &inputAssemblyState;
-			// createInfo.pViewportState = &viewportState; // dynamic
+			createInfo.pViewportState = &viewportState;
 			createInfo.pRasterizationState = &rasterizerState;
 			createInfo.pMultisampleState = &multisampleState;
 			createInfo.pDepthStencilState = &depthStencilState;

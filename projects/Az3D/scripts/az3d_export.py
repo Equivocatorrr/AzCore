@@ -479,7 +479,7 @@ def write_mesh(context: bpy.types.Context, props: bpy.types.OperatorProperties, 
 	for face in mesh.polygons:
 		material_index = face.material_index
 		assert(material_index < len(materials))
-		mesh_data = mesh_datas.setdefault(material_index, MeshData(hasUVs, materials[material_index]["normalFile"] != '', group_to_bone_indices != None, None if armature == None else armature.name))
+		mesh_data = mesh_datas.setdefault(material_index, MeshData(hasUVs, materials[material_index]["normalFile"][0] != '', group_to_bone_indices != None, None if armature == None else armature.name))
 		def check_vert(vertIndex):
 			mesh_data.numVerts += 1
 			vert = mesh.loops[vertIndex]

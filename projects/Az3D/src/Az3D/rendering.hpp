@@ -130,7 +130,8 @@ struct WorldInfoBuffer {
 	mat4 sun;
 	alignas(16) vec3 sunDir;
 	alignas(16) vec3 eyePos;
-	alignas(16) vec3 ambientLight;
+	alignas(16) vec3 ambientLightUp;
+	alignas(16) vec3 ambientLightDown;
 	alignas(16) vec3 fogColor;
 	LightBin lightBins[LIGHT_BIN_COUNT];
 	// lights[0] is always a zero-brightness light

@@ -192,7 +192,8 @@ bool Manager::Init() {
 		GPU::FramebufferAddImage(data.framebuffer, data.depthBuffer);
 	}
 	{ // Concurrency, runtime CPU data pools
-		worldInfo.ambientLight = vec3(0.001f);
+		worldInfo.ambientLightUp = vec3(0.001f);
+		worldInfo.ambientLightDown = vec3(0.001f);
 		if (data.concurrency < 1) {
 			data.concurrency = 1;
 		}
@@ -705,7 +706,8 @@ bool Manager::UpdateWorldInfo(GPU::Context *context) {
 	// Use regular cam to see the lighting as though it was done from the normal camera's POV
 	worldInfo.eyePos = camera.pos;
 	worldInfo.fogColor = sRGBToLinear(backgroundRGB);
-	worldInfo.ambientLight = worldInfo.fogColor * 0.5f;
+	worldInfo.ambientLightUp = worldInfo.fogColor * 0.5f;
+	worldInfo.ambientLightDown = vec3(0.491f, 0.357f, 0.205f) * 0.5f;
 	UpdateLights();
 
 	GPU::CmdCopyDataToBuffer(context, data.worldInfoBuffer, &worldInfo).AzUnwrap();

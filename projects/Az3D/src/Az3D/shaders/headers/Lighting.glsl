@@ -5,6 +5,10 @@
 #include "WorldInfo.glsl"
 #include "ObjectBuffer.glsl"
 
+vec3 CalculateIncomingAmbientLight(vec3 normal, float roughness) {
+	return mix(worldInfo.ambientLightDown, worldInfo.ambientLightUp, 0.5 + normal.z * 0.5 * (1.0 - roughness * 0.5));
+}
+
 vec4 CalculateAllLighting(ObjectInfo info, vec2 texCoord, vec3 surfaceNormal, vec3 surfaceTangent, vec3 surfaceBitangent) {
 	vec4 sunCoord = worldInfo.sun * vec4(inWorldPos, 1.0);
 	sunCoord.z = 1.0 - sunCoord.z;
@@ -126,17 +130,19 @@ vec4 CalculateAllLighting(ObjectInfo info, vec2 texCoord, vec3 surfaceNormal, ve
 	vec3 wrapFac = wrap(attenuationWrap, sssWrap);
 	vec3 diffuse = albedo.rgb * attenuationLight * (1.0 - sssFactor) * sunLightColor * attenuationGeometry;
 
+	vec3 ambientDiffuseColor = CalculateIncomingAmbientLight(normal, roughness);
+
 	vec3 sssFac = min(1.0 - vec3(sssDistance) / info.sssRadius, 1.0);
 	sssFac = pow(vec3(5.0 - isFoliage*3.0), sssFac - 1.0);
 	sssFac = max(sssFac, 0.0);
 	// 0.5 comes from the fact that light is only coming from one direction, but scattering in all directions
-	vec3 subsurface = (sssFac * sunLightColor * 0.5 + worldInfo.ambientLight) * attenuationAmbient;
+	vec3 subsurface = (sssFac * sunLightColor * 0.5 + ambientDiffuseColor) * attenuationAmbient;
 	subsurface *= info.sssColor * sssFactor;
 
 	vec3 specular = sunLightColor * attenuationSpecular * attenuationLight * attenuationGeometry;
 
-	vec3 ambientDiffuse = albedo.rgb * worldInfo.ambientLight * attenuationAmbient;
-	vec3 ambientSpecular = worldInfo.ambientLight;
+	vec3 ambientDiffuse = albedo.rgb * ambientDiffuseColor * attenuationAmbient;
+	vec3 ambientSpecular = CalculateIncomingAmbientLight(viewReflect, roughness);
 
 	vec4 result;
 	result.rgb = 1.0 / PI * mix(diffuse * (1.0 - metalness), specular, fresnel) * sunFactor + subsurface + mix(ambientDiffuse, ambientSpecular, fresnelAmbient * 0.5 * (1.0 - roughness));

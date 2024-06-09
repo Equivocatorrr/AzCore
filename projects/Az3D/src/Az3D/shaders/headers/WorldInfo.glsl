@@ -10,7 +10,8 @@ layout(set=0, binding=0) uniform WorldInfo {
 	mat4 sun;
 	vec3 sunDir;
 	vec3 eyePos;
-	vec3 ambientLight;
+	vec3 ambientLightUp;
+	vec3 ambientLightDown;
 	vec3 fogColor;
 } worldInfo;
 

@@ -39,7 +39,7 @@ void main() {
 	float sdf2 = texture(texSampler[inTexAtlas], inTexCoord + parallax / (texSize * edgeFactor * 10.0)).r;
 	float backAlpha = SDF(edge, sdf2);
 
-	vec2 edgeDirection = normalize(vec2(-dFdx(sdf), dFdy(sdf)));
+	vec2 edgeDirection = normalizeFallback(vec2(-dFdx(sdf), dFdy(sdf)), 1.0e-12, vec2(1.0, 0.0));
 	float backFaceFac = -float(gl_FrontFacing) * 2.0 + 1.0;
 	edgeDirection.y *= backFaceFac;
 	float cornerAlpha = SDF(edge * 2.0, sdf);

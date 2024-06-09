@@ -936,16 +936,23 @@ struct DescriptorSetLayout {
 
 	// Some housekeeping, since createInfo must reference bindings, moving/copying etc would break createInfo.
 	DescriptorSetLayout() = default;
-	DescriptorSetLayout(const DescriptorSetLayout &other) : bindings(other.bindings) {
+	DescriptorSetLayout(const DescriptorSetLayout &other) :
+		createInfo(other.createInfo),
+		bindings(other.bindings)
+	{
 		createInfo.bindingCount = bindings.size;
 		createInfo.pBindings = bindings.data;
 	}
-	DescriptorSetLayout(DescriptorSetLayout &&other) : bindings(std::move(other.bindings)) {
+	DescriptorSetLayout(DescriptorSetLayout &&other) :
+		createInfo(other.createInfo),
+		bindings(std::move(other.bindings))
+	{
 		createInfo.bindingCount = bindings.size;
 		createInfo.pBindings = bindings.data;
 	}
 	DescriptorSetLayout& operator=(const DescriptorSetLayout&) = delete;
 	DescriptorSetLayout& operator=(DescriptorSetLayout &&other) {
+		createInfo = other.createInfo;
 		bindings = std::move(other.bindings);
 		createInfo.bindingCount = bindings.size;
 		createInfo.pBindings = bindings.data;
@@ -4713,6 +4720,7 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 			// NOTE: Descriptor changes should only happen between frames and never within the same command buffer, so this should be okay.
 			// TODONE: If the above is not true, pipelining stops working and the API becomes serial. We could extend the holding of resources to descriptor sets as well, but that necessarily involves having duplicates sometimes. Probably not a big deal, so we should just do it.
 			vkUpdateDescriptorSets(context->device->vkDevice, vkWriteDescriptorSets[i].size, vkWriteDescriptorSets[i].data, 0, nullptr);
+			set->timestamp = GetTimestamp();
 		}
 		frame.descriptorSetsBound.Append(boundDescriptorSet);
 	}

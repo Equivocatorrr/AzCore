@@ -5,12 +5,28 @@
 */
 
 #include "../UnitTests.hpp"
+#include "../Utilities.hpp"
 #include "AzCore/math.hpp"
 
 namespace BasicMathTestNamespace {
 
+using namespace AzCore;
+
 void BasicMathTest();
 UT::Register basicMath("BasicMath", BasicMathTest);
+
+FPError<f32> fpError;
+
+f32 maxErrorWeak = 10, maxErrorFail = 100;
+
+#define COMPARE_FP(lhs, rhs, magnitude) fpError.Compare(lhs, rhs, magnitude, __LINE__, String(), maxErrorWeak, maxErrorFail)
+
+#define COMPARE_VEC3(lhs, rhs, magnitude) \
+	{ \
+		COMPARE_FP(lhs.x, lhs.x, magnitude); \
+		COMPARE_FP(lhs.y, lhs.y, magnitude); \
+		COMPARE_FP(lhs.z, lhs.z, magnitude); \
+	}
 
 void BasicMathTest() {
 	UTExpectEquals(max(2, 1), 2);
@@ -75,6 +91,13 @@ void BasicMathTest() {
 
 	UTExpectEquals(cubert(27.0f), 3.0f);
 	UTExpectEquals(cubert(-27.0f), -3.0f);
+
+	COMPARE_VEC3(vec3(0.0f, 1.0f, 0.0f), orthogonalize(vec3(1.0f, 1.0f, 0.0f), vec3(1.0f, 0.0f, 0.0f)), 1.0f);
+	COMPARE_FP(abs(dot(vec3(1.0f, 0.0f, 0.0f), orthogonalize(vec3(1.0f, 1.0f, 0.0f), vec3(1.0f, 0.0f, 0.0f)))), 0.0f, 1.0f);
+	COMPARE_FP(abs(dot(vec3(1.0f, 0.0f, 0.0f), orthogonalize(vec3(1.0f, 0.0f, 0.0f), vec3(1.0f, 0.0f, 0.0f)))), 0.0f, 1.0f);
+	COMPARE_FP(abs(dot(vec3(1.0f, 2.0f, 3.0f), orthogonalize(vec3(1.0f, 2.0f, 3.0f), vec3(1.0f, 2.0f, 3.0f)))), 0.0f, 4.0f);
+
+	fpError.Report(__LINE__);
 }
 
 } // namespace BasicMathTestNamespace

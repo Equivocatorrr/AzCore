@@ -177,8 +177,23 @@ inline AzCore::vec3_t<T> normalize(AzCore::vec3_t<T> a, T epsilon=T(1.0e-12), Az
 
 // Returns a adjusted to be orthogonal to ref and normalized
 template <typename T>
-inline AzCore::vec3_t<T> orthogonalize(AzCore::vec3_t<T> a, AzCore::vec3_t<T> ref) {
-	return normalize(a - ref * dot(a, ref));
+inline AzCore::vec3_t<T> orthogonalize(AzCore::vec3_t<T> a, AzCore::vec3_t<T> ref, T epsilon=T(1.0e-7)) {
+	a = normalize(a);
+	ref = normalize(ref);
+	T dp = dot(a, ref);
+	T p = T(1);
+	// For a = ref = (1, 2, 3) or any scaled version, this will need to loop twice. For any other direction this will loop a maximum of once, and probably not at all.
+	while (abs(dp) >= T(1) - epsilon) {
+		a.x = p;
+		p += T(1);
+		a.y = p;
+		p += T(1);
+		a.z = p;
+		p += T(1);
+		a = normalize(a);
+		dp = dot(a, ref);
+	}
+	return normalize(a - ref * dp);
 }
 
 inline AzCore::vec3 min(AzCore::vec3 a, AzCore::vec3 b) {

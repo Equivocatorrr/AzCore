@@ -63,7 +63,7 @@ void DrawProc(Manager *manager) {
 		}
 		manager->doDraw = false;
 		if (!manager->rendering.Draw() || !manager->rendering.Present()) {
-			io::cerr.Lock().PrintLn("Error in Rendering::Manager::Draw or Present: ", Rendering::error).Unlock();
+			io::cerr.PrintLn("Error in Rendering::Manager::Draw or Present: ", Rendering::error);
 			manager->abort = true;
 			goto break_full;
 		};

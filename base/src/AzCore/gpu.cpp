@@ -3162,6 +3162,7 @@ void ImageHostDeinit(Image *image) {
 
 bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType componentType) {
 	VkFormat vkFormat;
+	bool changed = false;
 	switch (imageBits) {
 		case ImageBits::D16:
 			switch (componentType) {
@@ -3442,7 +3443,7 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 			break;
 		default: goto bad_format;
 	}
-	bool changed = image->vkFormat != vkFormat;
+	changed = image->vkFormat != vkFormat;
 	image->vkFormat = vkFormat;
 	if (FormatIsDepth(vkFormat)) {
 		image->vkImageAspect = VK_IMAGE_ASPECT_DEPTH_BIT;

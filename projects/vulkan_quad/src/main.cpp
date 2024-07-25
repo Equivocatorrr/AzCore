@@ -68,10 +68,10 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	Array<u16> indices = {0, 1, 2, 2, 3, 0};
 	
 	GPU::Buffer *vertexBuffer = GPU::NewVertexBuffer(device, "vertex buffer");
-	GPU::BufferSetSize(vertexBuffer, vertices.size * sizeof(Vertex));
+	GPU::BufferSetSize(vertexBuffer, vertices.size * sizeof(Vertex)).AzUnwrap();
 	
 	GPU::Buffer *indexBuffer = GPU::NewIndexBuffer(device, "index buffer", sizeof(indices[0]));
-	GPU::BufferSetSize(indexBuffer, indices.size * sizeof(indices[0]));
+	GPU::BufferSetSize(indexBuffer, indices.size * sizeof(indices[0])).AzUnwrap();
 	
 	GPU::Sampler *sampler = GPU::NewSampler(device);
 	GPU::SamplerSetAnisotropy(sampler, 16);

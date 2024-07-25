@@ -295,8 +295,9 @@ struct SimpleRange {
 	constexpr SimpleRange() : str(nullptr), size(0) {}
 	constexpr SimpleRange(std::nullptr_t) : str(nullptr), size(0) {}
 	constexpr SimpleRange(T *string, i64 length) : str(string), size(length) {}
-	SimpleRange(const T *string) : str((T*)string), size(StringLength(string)) {}
-	SimpleRange(SimpleRange<const T> &other) : str((T*)other.str), size(other.size) {}
+	constexpr SimpleRange(const T *string, i64 length) : str((T*)string), size(length) {}
+	constexpr SimpleRange(const T *string) : str((T*)string), size(StringLength(string)) {}
+	constexpr SimpleRange(SimpleRange<const T> &other) : str((T*)other.str), size(other.size) {}
 	template<i32 allocTail>
 	SimpleRange(const Array<T, allocTail> &array) : str(array.data), size(array.size) {}
 	template<i32 bucketSize, i32 allocTail>

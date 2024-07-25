@@ -46,8 +46,26 @@ public:
 	static az::Profiling::AString _scopedTimerString(#scopeName);\
 	az::Profiling::ScopedTimer _timer(_scopedTimerString);
 
+constexpr az::Str functionNameFromPrettyFunction(const char *pretty) {
+	az::Str out = pretty;
+	for (i32 i = 1; i < out.size; i++) {
+		if (out[i-1] == ' ') {
+			out.str += i;
+			out.size -= i;
+			break;
+		}
+	}
+	for (i32 i = 1; i < out.size; i++) {
+		if (out[i] == '(') {
+			out.size = i;
+			break;
+		}
+	}
+	return out;
+}
+
 #define AZCORE_PROFILING_FUNC_TIMER()\
-	static az::Profiling::AString _funcTimerString(__FUNCTION__);\
+	static az::Profiling::AString _funcTimerString(functionNameFromPrettyFunction(AZCORE_PRETTY_FUNCTION));\
 	az::Profiling::ScopedTimer _timer(_funcTimerString);
 
 #define AZCORE_PROFILING_EXCEPTION_START()\

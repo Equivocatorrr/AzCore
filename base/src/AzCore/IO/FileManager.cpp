@@ -137,7 +137,7 @@ void FileManager::DiskProc(FileManager *manager) {
 				}
 			} else {
 				if (manager->warnFileNotFound) {
-					cerr.Lock().PrintLn("File not found: \"", requested->filepath, "\"").Unlock();
+					cerr.PrintLn("File not found: \"", requested->filepath, "\"");
 				}
 				requested->stage = File::Stage::FILE_NOT_FOUND;
 				DeclareFileCompleteInPipeline(manager);

@@ -85,7 +85,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	GPU::Device *device = GPU::NewDevice();
 
 	GPU::Buffer *vertexBuffer = GPU::NewVertexBuffer(device);
-	GPU::BufferSetSize(vertexBuffer, sizeof(Vertex) * maxVertices);
+	GPU::BufferSetSize(vertexBuffer, sizeof(Vertex) * maxVertices).AzUnwrap();
 	
 	GPU::Image *msaaImage;
 

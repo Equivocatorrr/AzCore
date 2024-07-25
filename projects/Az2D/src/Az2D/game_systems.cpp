@@ -49,7 +49,7 @@ void UpdateProc() {
 
 void DrawProc() {
 	if (!sys->rendering.Draw() || !sys->rendering.Present()) {
-		io::cerr.Lock().PrintLn("Error in Rendering::Manager::Draw or Present: ", Rendering::error).Unlock();
+		io::cerr.PrintLn("Error in Rendering::Manager::Draw or Present: ", Rendering::error);
 		sys->abort = true;
 		return;
 	};

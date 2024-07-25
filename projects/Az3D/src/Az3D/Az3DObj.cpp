@@ -131,7 +131,7 @@ f32 elasticEaseInOut(f32 start, f32 end, f32 time, f32 duration, f32 amp, f32 pe
 }
 
 f32 Action::Curve::Evaluate(f32 time) const {
-	static bool once = true;
+	// static bool once = true;
 	// if (once) {
 	// 	once = false;
 	// 	io::Log out("data.csv", false, true);
@@ -322,7 +322,7 @@ f32 Action::Curve::Evaluate(f32 time) const {
 }
 
 #define COPY_FROM_BUFFER(dst, size)\
-	EXPECT_SPACE_IN_BUFFER(size);\
+	EXPECT_SPACE_IN_BUFFER(i64(size));\
 	memcpy(&(dst), &buffer[cur], (size));\
 	cur += (size);
 
@@ -1002,7 +1002,7 @@ namespace Tables {
 		az::Array<Curve> curves;
 
 		bool FromBuffer(Str buffer, i64 &cur) {
-			i64 startCur = cur - Headers::Table::SIZE;
+			// i64 startCur = cur - Headers::Table::SIZE;
 			if (strncmp(header.ident, "Act0", 4) != 0) {
 				PRINT_ERROR("Parsing a \"", Str(header.ident, 4), "\" as though it's a \"Act0\"");
 				return false;

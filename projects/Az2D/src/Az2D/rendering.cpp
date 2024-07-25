@@ -778,7 +778,8 @@ bool Manager::UpdateUniforms() {
 }
 
 bool Manager::Draw() {
-	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Draw)
+	// AZCORE_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Draw)
+	AZCORE_PROFILING_FUNC_TIMER()
 	if (vk::hadValidationError) {
 		error = "Quitting due to vulkan validation error.";
 		return false;

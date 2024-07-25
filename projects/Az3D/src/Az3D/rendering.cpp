@@ -968,8 +968,6 @@ void LimitParameters(Vector<f32> &parameters, Vector<f32> &parameterMinimums, Ve
 void EvaluateIK(SimpleRange<mat4> transforms, SimpleRange<BoneEvalMetadata> metadatas, SimpleRange<Az3DObj::Bone> bones, i32 boneIndex, Az3DObj::Action &action, f32 time, mat4 &modelTransform, Array<Vector<f32>> &ikParameters, i32 &ikIndex) {
 	AZCORE_PROFILING_FUNC_TIMER()
 	// cout.PrintLn(bone.name, " has target ", bones[bone.ikTarget].name);
-	mat4 &transform = transforms[boneIndex];
-	BoneEvalMetadata &meta = metadatas[boneIndex];
 	Az3DObj::Bone &bone = bones[boneIndex];
 	EvaluateBone(transforms, metadatas, bones, bone.ikTarget, action, time, modelTransform, ikParameters, ikIndex);
 
@@ -987,7 +985,6 @@ void EvaluateIK(SimpleRange<mat4> transforms, SimpleRange<BoneEvalMetadata> meta
 		if (!ik.locked.y) degreesOfFreedom++;
 		if (!ik.locked.z) degreesOfFreedom++;
 		i32 chainBoneIndex = b - &bones[0];
-		mat4 &t = transforms[chainBoneIndex];
 		mat4 &rest = metadatas[chainBoneIndex].restTransformLocal;
 		ikChain.Insert(0, {b, rest.TrimmedMat3(), rest[3].xyz});
 		if (b->parent == 255) break;

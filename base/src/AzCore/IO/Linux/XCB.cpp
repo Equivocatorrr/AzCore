@@ -80,13 +80,17 @@ char* xcbGetProperty(xcb_connection_t *connection, xcb_window_t window, xcb_atom
 
 static i32 GetWindowDpiXCB(Window *window) {
 	char *res = xcbGetProperty(window->data->x11.connection, window->data->x11.screen->root, XCB_ATOM_RESOURCE_MANAGER, XCB_ATOM_STRING, 16*1024);
+	if (nullptr == res) {
+		error = "Couldn't get X Resource Manager property (got nothing back at all)";
+		return 0;
+	}
 	Array<char> resources;
 	resources.data = res;
 	resources.size = StringLength(res);
 	resources.allocated = resources.size;
 	if (0 == resources.size) {
 		error = "Couldn't get X Resource Manager property";
-		return -1;
+		return 0;
 	}
 	i32 dpi = 0;
 	Array<Range<char>> ranges = SeparateByValues(resources, {'\n', ' ', ':', '\t'});

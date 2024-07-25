@@ -228,12 +228,11 @@ inline void AppendToString(String &string, const char *value) {
 template<typename T>
 inline void AppendToString(String &string, SimpleRange<T> array) {
 	AppendToString(string, "{ ");
-	bool once = true;
-	for (i32 i = 0; i < array.size; i++) {
+	for (i32 i = 0;;) {
 		AppendToString(string, array[i]);
+		if (++i >= array.size) break;
 		AppendToString(string, ", ");
 	}
-	if (array.size) string.size -= 2;
 	AppendToString(string, " }");
 }
 

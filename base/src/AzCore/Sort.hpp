@@ -104,28 +104,30 @@ void QuickSort(Array_t &array, i64 indexStart, i64 indexEnd, const LessThanFunc_
 			Swap(mid, hi); // lo < mid < hi
 		indexPivot = mid;
 	}
-	i64 indexLeft = indexStart-1;
-	i64 indexRight = indexEnd;
-	while (true) {
-		do {
-			indexLeft++;
-		} while (indexLeft < indexEnd && lessThan(array, indexLeft, indexPivot));
-		do {
-			indexRight--;
-		} while (indexRight >= indexStart && lessThan(array, indexPivot, indexRight));
-		if (indexLeft >= indexRight) break;
-		if (indexLeft == indexPivot) {
-			indexPivot = indexRight;
-		} else if (indexRight == indexPivot) {
-			indexPivot = indexLeft;
+	{
+		i64 indexLeft = indexStart-1;
+		i64 indexRight = indexEnd;
+		while (true) {
+			do {
+				indexLeft++;
+			} while (indexLeft < indexEnd && lessThan(array, indexLeft, indexPivot));
+			do {
+				indexRight--;
+			} while (indexRight >= indexStart && lessThan(array, indexPivot, indexRight));
+			if (indexLeft >= indexRight) break;
+			if (indexLeft == indexPivot) {
+				indexPivot = indexRight;
+			} else if (indexRight == indexPivot) {
+				indexPivot = indexLeft;
+			}
+			swap(array, indexLeft, indexRight, *temp);
 		}
-		swap(array, indexLeft, indexRight, *temp);
+		if (indexRight == indexStart-1 || indexLeft == indexEnd) goto done;
+		i64 indexSplit = indexRight+1;
+		if (indexSplit == indexEnd) goto done;
+		QuickSort(array, indexStart, indexSplit, lessThan, swap, temp);
+		QuickSort(array, indexSplit, indexEnd, lessThan, swap, temp);
 	}
-	if (indexRight == indexStart-1 || indexLeft == indexEnd) goto done;
-	i64 indexSplit = indexRight+1;
-	if (indexSplit == indexEnd) goto done;
-	QuickSort(array, indexStart, indexSplit, lessThan, swap, temp);
-	QuickSort(array, indexSplit, indexEnd, lessThan, swap, temp);
 done:
 	MAYBE_DESTRUCT_TEMP(temp);
 }

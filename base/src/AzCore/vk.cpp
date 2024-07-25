@@ -178,7 +178,7 @@ namespace vk {
 	}
 
 	void PrintDashed(String str) {
-		i32 width = 80-(i32)str.size;
+		i32 width = 80-str.size;
 		if (width > 0) {
 			for (u32 i = (width+1)/2; i > 0; i--) {
 				cout.Print("-");
@@ -191,6 +191,19 @@ namespace vk {
 			cout.Print(str);
 		}
 		cout.Newline();
+	}
+	
+	String StringDashify(String str) {
+		i32 width = 80-str.size;
+		Str dashes = "--------------------------------------------------------------------------------";
+		if (width > 0) {
+			str.Reserve(80);
+			dashes.size = (width+1)/2;
+			str.Insert(0, dashes);
+			dashes.size = width/2;
+			str.Append(dashes);
+		}
+		return str;
 	}
 
 	String FormatSize(u64 size) {
@@ -231,36 +244,33 @@ namespace vk {
 		const VkDebugUtilsMessengerCallbackDataEXT& data = *pCallbackData;
 
 		hadValidationError = true;
-		cout.Lock();
+		
+		String message = StringDashify("Validation Message Begin");
 
-		PrintDashed("Validation Message Begin");
+		AppendMultipleToString(message, "Message ID Name: \"", data.pMessageIdName, "\"\nMessage: \"", data.pMessage);
 
-		cout.PrintLn("Message ID Name: \"", data.pMessageIdName, "\"\nMessage: \"", data.pMessage);
-
-		cout.PrintLn(data.queueLabelCount, " Queue Labels:");
+		AppendMultipleToString(message, data.queueLabelCount, " Queue Labels:");
 		for (u32 i = 0; i < data.queueLabelCount; i++) {
 			const VkDebugUtilsLabelEXT& label = data.pQueueLabels[i];
-			cout.PrintLn("\t", label.pLabelName, " with color {", label.color[0], ", ", label.color[1], ", ", label.color[2], ", ", label.color[3], "}");
+			AppendMultipleToString(message, "\t", label.pLabelName, " with color {", label.color[0], ", ", label.color[1], ", ", label.color[2], ", ", label.color[3], "}");
 		}
-		cout.PrintLn(data.cmdBufLabelCount, " Command Buffer Labels:");
+		AppendMultipleToString(message, data.cmdBufLabelCount, " Command Buffer Labels:");
 		for (u32 i = 0; i < data.cmdBufLabelCount; i++) {
 			const VkDebugUtilsLabelEXT& label = data.pCmdBufLabels[i];
-			cout.PrintLn("\t", label.pLabelName, " with color {", label.color[0], ", ", label.color[1], ", ", label.color[2], ", ", label.color[3], "}");
+			AppendMultipleToString(message, "\t", label.pLabelName, " with color {", label.color[0], ", ", label.color[1], ", ", label.color[2], ", ", label.color[3], "}");
 		}
-		cout.PrintLn(data.objectCount, " Objects:");
+		AppendMultipleToString(message, data.objectCount, " Objects:");
 		for (u32 i = 0; i < data.objectCount; i++) {
 			const VkDebugUtilsObjectNameInfoEXT& name = data.pObjects[i];
-			cout.Print("\tType: ", ObjectTypeString(name.objectType), " with name: ");
+			AppendMultipleToString(message, "\tType: ", ObjectTypeString(name.objectType), " with name: ");
 			if (name.pObjectName != nullptr) {
-				cout.PrintLn(name.pObjectName, "");
+				AppendMultipleToString(message, name.pObjectName, "");
 			} else {
-				cout.PrintLn("nullptr");
+				AppendMultipleToString(message, "nullptr");
 			}
 		}
 
-		PrintDashed("Validation Message End");
-
-		cout.Unlock();
+		message.Append(StringDashify("Validation Message End"));
 
 		return VK_FALSE;
 	}

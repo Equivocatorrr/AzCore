@@ -82,7 +82,7 @@ vec4 CalculateAllLighting(ObjectInfo info, vec2 texCoord, vec3 surfaceNormal, ve
 
 	vec4 albedo = texture(texSampler[info.texAlbedo], texCoord) * info.color;
 	vec3 emit = texture(texSampler[info.texEmit], texCoord).rgb * info.emit;
-	vec3 normal = texture(texSampler[info.texNormal], texCoord).xyz * 2.0 - 1.0;
+	vec3 textureNormal = texture(texSampler[info.texNormal], texCoord).xyz * 2.0 - 1.0;
 	float metalness = texture(texSampler[info.texMetalness], texCoord).x * info.metalness;
 	float roughness = texture(texSampler[info.texRoughness], texCoord).x * info.roughness;
 	roughness = max(0.001, sqr(roughness));
@@ -95,10 +95,17 @@ vec4 CalculateAllLighting(ObjectInfo info, vec2 texCoord, vec3 surfaceNormal, ve
 		surfaceNormal = -surfaceNormal;
 	}
 	mat3 invTBN = transpose(mat3(surfaceTangent, surfaceBitangent, surfaceNormal));
-	normal = normalize(mix(surfaceNormal, normal * invTBN, info.normal));
+	textureNormal = textureNormal * invTBN;
+	vec3 actualNormal = normalize(mix(surfaceNormal, textureNormal, info.normal));
+	// Treat the surface normal as an occluder for integrating ambient lighting
+	vec3 bentNormal = normalize(mix(surfaceNormal, textureNormal, info.normal * 0.5));
+	// When surface and texture normals are aligned, we have the whole hemisphere to integrate. When they're orthogonal we have a quarter of a sphere, so use this to reduce total incoming light contribution.
+	float bentFactor = max(dot(surfaceNormal, textureNormal), 0.0) * 0.5 + 0.5;
+	// NOTE: This isn't all that physically accurate as it makes the integration function shrink in both axes, as opposed to just the one with the angle between surfaceNormal and textureNormal, but that probably won't make enough difference to matter
+	float roughnessAmbient = roughness * (bentFactor * 0.5 + 0.5);
 
 	// Negate viewNormal because reflect expects the ray to be pointing towards the surface
-	vec3 viewReflect = reflect(-viewNormal, normal);
+	vec3 viewReflect = reflect(-viewNormal, actualNormal);
 
 	vec3 lightNormal = worldInfo.sunDir;
 	// Approximate spherical area lighting by moving our light normal towards the reflection vector
@@ -108,9 +115,9 @@ vec4 CalculateAllLighting(ObjectInfo info, vec2 texCoord, vec3 surfaceNormal, ve
 
 	vec3 halfNormal = normalize(viewNormal + lightNormalAdjusted);
 
-	float cosThetaView = max(dot(normal, viewNormal), 0.0);
-	float cosThetaLight = dot(normal, lightNormal);
-	float cosThetaViewHalfNormal = max(dot(normal, halfNormal), 0.0);
+	float cosThetaView = max(dot(actualNormal, viewNormal), 0.0);
+	float cosThetaLight = dot(actualNormal, lightNormal);
+	float cosThetaViewHalfNormal = max(dot(actualNormal, halfNormal), 0.0);
 	// Roughness remapping for direct lighting
 	float k = sqr(roughness+1.0)/8.0;
 
@@ -118,7 +125,7 @@ vec4 CalculateAllLighting(ObjectInfo info, vec2 texCoord, vec3 surfaceNormal, ve
 	float attenuationGeometry = GeometrySchlickGGX(cosThetaView, k);
 	float attenuationLight = GeometrySchlickGGX(max(cosThetaLight, 0.0), k);
 	float attenuationSpecular = DistributionGGX(cosThetaViewHalfNormal, roughness);
-	float attenuationAmbient = mix(GeometrySchlickGGX(cosThetaView, roughness), 1.0, 0.5);
+	float attenuationAmbient = mix(GeometrySchlickGGX(cosThetaView, roughnessAmbient), 1.0, 0.5);
 	// Linear attenuation looks nicer because it's softer.
 	float attenuationWrap = cosThetaLight; //GeometrySchlickGGX(cosThetaLight, k);
 	vec3 fresnel = FresnelSchlick(cosThetaView, baseReflectivity);
@@ -130,7 +137,9 @@ vec4 CalculateAllLighting(ObjectInfo info, vec2 texCoord, vec3 surfaceNormal, ve
 	vec3 wrapFac = wrap(attenuationWrap, sssWrap);
 	vec3 diffuse = albedo.rgb * attenuationLight * (1.0 - sssFactor) * sunLightColor * attenuationGeometry;
 
-	vec3 ambientDiffuseColor = CalculateIncomingAmbientLight(normal, roughness);
+	vec3 ambientDiffuseColor = CalculateIncomingAmbientLight(bentNormal, roughnessAmbient);
+	// Tint ambient color by albedo to fake a local surface bounce, rather than just darkening.
+	ambientDiffuseColor *= mix(albedo.rgb, vec3(1.0), bentFactor);
 
 	vec3 sssFac = min(1.0 - vec3(sssDistance) / info.sssRadius, 1.0);
 	sssFac = pow(vec3(5.0 - isFoliage*3.0), sssFac - 1.0);

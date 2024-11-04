@@ -160,7 +160,7 @@ void Image::PremultiplyAlpha() {
 	AzAssert(((u64)pixels & 15) == 0, "We're expecting the pixel array to be aligned on a 16-byte boundary");
 	// Premultiply alpha
 	// TODO: Make this work with AVX (AVX2 is too new D: )
-#if 0
+#if __AVX2__
 	static __m256i alphaMask = _mm256_set_epi16(
 		0xff, 0, 0, 0,
 		0xff, 0, 0, 0,

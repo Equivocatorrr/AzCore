@@ -618,9 +618,9 @@ struct Vector {
 		if (capacity != 0) {
 			delete[] data;
 		}
-		data = other.data;
-		count = other.count;
-		stride = other.stride;
+		data = other->data;
+		count = other->count;
+		stride = other->stride;
 		capacity = 0;
 		return *this;
 	}

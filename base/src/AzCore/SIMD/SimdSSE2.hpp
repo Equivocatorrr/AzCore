@@ -6,8 +6,6 @@
 #ifndef AZCORE_SIMD_SSE2_HPP
 #define AZCORE_SIMD_SSE2_HPP
 
-#include <string.h>
-
 #include <mmintrin.h>  // MMX NOTE: These are deprecated in MSVC
 #include <xmmintrin.h> // SSE
 #include <emmintrin.h> // SSE2
@@ -1123,7 +1121,7 @@ horizontalAdd(f32x4 a) {
 	// a.V = 0, 1, 2, 3
 	__m128 shuf = _mm_shuffle_ps(a.V, a.V, _MM_SHUFFLE(2, 3, 0, 1));
 	// shuf = 1, 0, 3, 2
-	__m128 sums = _mm_add_ps(shuf, sums);
+	__m128 sums = _mm_add_ps(shuf, a.V);
 	// sums = 0+1, 0+1, 2+3, 2+3
 	shuf = _mm_movehl_ps(shuf, sums);
 	// shuf = 2+3, 2+3, 3, 2

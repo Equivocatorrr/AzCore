@@ -38,8 +38,9 @@ void Image::_Copy(const Image &other) {
 Image::Image(const char *filename, i32 channelsDesired)
 {
 	pixels = stbi_load(filename, &width, &height, &channels, channelsDesired);
-	channels = channelsDesired;
+	if (channelsDesired != 0) channels = channelsDesired;
 	stride = width * channels;
+	format = RGBA;
 }
 
 Image::~Image() {
@@ -128,6 +129,7 @@ void Image::Reformat(Image::Format newFormat) {
 			Swap(buf[0], buf[2]);
 		}
 	}
+	format = newFormat;
 }
 
 void Image::SetChannels(i32 newChannels) {
@@ -149,8 +151,12 @@ void Image::SetChannels(i32 newChannels) {
 
 bool Image::SavePNG(const char *filename) {
 	AZCORE_PROFILING_FUNC_TIMER()
+	Format oldFormat = format;
 	Reformat(RGBA);
 	return stbi_write_png(filename, width, height, channels, pixels, stride);
+	if (oldFormat != RGBA) {
+		Reformat(oldFormat);
+	}
 }
 
 void Image::PremultiplyAlpha() {

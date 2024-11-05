@@ -30,3 +30,4 @@ projects/*/data/Az3D
 *.patch
 .cache
 compile_commands.json
+docs/untracked

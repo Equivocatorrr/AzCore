@@ -247,22 +247,22 @@ bool Manager::Init() {
 	{ // Load textures/buffers
 		data.worldInfoBuffer = GPU::NewUniformBuffer(data.device);
 		GPU::BufferSetSize(data.worldInfoBuffer, sizeof(WorldInfoBuffer)).AzUnwrap();
-		GPU::BufferSetShaderUsage(data.worldInfoBuffer, (u32)GPU::ShaderStage::VERTEX | (u32)GPU::ShaderStage::FRAGMENT);
+		GPU::BufferSetShaderUsage(data.worldInfoBuffer, GPU::ShaderStage::VERTEX | GPU::ShaderStage::FRAGMENT);
 
 		data.objectShaderInfos.Resize(1000);
 		data.objectBuffer = GPU::NewStorageBuffer(data.device);
 		GPU::BufferSetSize(data.objectBuffer, data.objectShaderInfos.size * sizeof(ObjectShaderInfo)).AzUnwrap();
-		GPU::BufferSetShaderUsage(data.objectBuffer, (u32)GPU::ShaderStage::VERTEX | (u32)GPU::ShaderStage::FRAGMENT);
+		GPU::BufferSetShaderUsage(data.objectBuffer, GPU::ShaderStage::VERTEX | GPU::ShaderStage::FRAGMENT);
 
 		data.bones.Resize(100, mat4(1.0f));
 		data.bonesBuffer = GPU::NewStorageBuffer(data.device);
 		GPU::BufferSetSize(data.bonesBuffer, data.bones.size * sizeof(mat4)).AzUnwrap();
-		GPU::BufferSetShaderUsage(data.bonesBuffer, (u32)GPU::ShaderStage::VERTEX);
+		GPU::BufferSetShaderUsage(data.bonesBuffer, GPU::ShaderStage::VERTEX);
 
 		data.textShaderInfos.Resize(100);
 		data.textBuffer = GPU::NewStorageBuffer(data.device);
 		GPU::BufferSetSize(data.textBuffer, data.textShaderInfos.size * sizeof(TextShaderInfo)).AzUnwrap();
-		GPU::BufferSetShaderUsage(data.textBuffer, (u32)GPU::ShaderStage::VERTEX);
+		GPU::BufferSetShaderUsage(data.textBuffer, GPU::ShaderStage::VERTEX);
 
 		data.textures.Resize(sys->assets.textures.size);
 		for (i32 i = 0; i < sys->assets.textures.size; i++) {
@@ -282,7 +282,7 @@ bool Manager::Init() {
 			GPU::ImageSetFormat(data.textures[i], imageBits, image.colorSpace == Image::LINEAR ? GPU::ImageComponentType::UNORM : GPU::ImageComponentType::SRGB);
 			GPU::ImageSetSize(data.textures[i], image.width, image.height);
 			GPU::ImageSetMipmapping(data.textures[i], true);
-			GPU::ImageSetShaderUsage(data.textures[i], (u32)GPU::ShaderStage::FRAGMENT);
+			GPU::ImageSetShaderUsage(data.textures[i], GPU::ShaderStage::FRAGMENT);
 		}
 	}
 	ArrayWithBucket<GPU::ShaderValueType, 8> vertexInputs = {
@@ -312,7 +312,7 @@ bool Manager::Init() {
 		GPU::PipelineSetTopology(data.pipelines[PIPELINE_DEBUG_LINES], GPU::Topology::LINE_LIST);
 		GPU::PipelineSetLineWidth(data.pipelines[PIPELINE_DEBUG_LINES], 2.0f);
 		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_DEBUG_LINES], GPU::CompareOp::LESS);
-		GPU::PipelineAddPushConstantRange(data.pipelines[PIPELINE_DEBUG_LINES], 0, sizeof(f32), (u32)GPU::ShaderStage::VERTEX);
+		GPU::PipelineAddPushConstantRange(data.pipelines[PIPELINE_DEBUG_LINES], 0, sizeof(f32), GPU::ShaderStage::VERTEX);
 
 
 		data.pipelines[PIPELINE_BASIC_3D] = GPU::NewGraphicsPipeline(data.device, "Basic 3D Pipeline");
@@ -363,7 +363,7 @@ bool Manager::Init() {
 
 		GPU::ImageSetFormat(data.shadowMapImage, GPU::ImageBits::R32G32, GPU::ImageComponentType::SFLOAT);
 		GPU::ImageSetSize(data.shadowMapImage, dims, dims);
-		GPU::ImageSetShaderUsage(data.shadowMapImage, (u32)GPU::ShaderStage::FRAGMENT);
+		GPU::ImageSetShaderUsage(data.shadowMapImage, GPU::ShaderStage::FRAGMENT);
 		GPU::ImageSetMipmapping(data.shadowMapImage, true);
 
 		data.framebufferShadowMaps = GPU::NewFramebuffer(data.device, "VSM Framebuffer");
@@ -389,7 +389,7 @@ bool Manager::Init() {
 		data.shadowMapConvolutionImage = GPU::NewImage(data.device, "VSM Convolution Image");
 		GPU::ImageSetFormat(data.shadowMapConvolutionImage, GPU::ImageBits::R32G32, GPU::ImageComponentType::SFLOAT);
 		GPU::ImageSetSize(data.shadowMapConvolutionImage, dims, dims);
-		GPU::ImageSetShaderUsage(data.shadowMapConvolutionImage, (u32)GPU::ShaderStage::FRAGMENT);
+		GPU::ImageSetShaderUsage(data.shadowMapConvolutionImage, GPU::ShaderStage::FRAGMENT);
 
 		data.framebufferConvolution[0] = GPU::NewFramebuffer(data.device, "VSM Convolution Framebuffer 0");
 		data.framebufferConvolution[1] = GPU::NewFramebuffer(data.device, "VSM Convolution Framebuffer 1");
@@ -402,7 +402,7 @@ bool Manager::Init() {
 		data.pipelineShadowMapConvolution = GPU::NewGraphicsPipeline(data.device, "VSM Convolution Pipeline");
 		GPU::PipelineAddShaders(data.pipelineShadowMapConvolution, {convolutionVert, convolutionFrag});
 		GPU::PipelineSetTopology(data.pipelineShadowMapConvolution, GPU::Topology::TRIANGLE_FAN);
-		GPU::PipelineAddPushConstantRange(data.pipelineShadowMapConvolution, 0, sizeof(vec2), (u32)GPU::ShaderStage::FRAGMENT);
+		GPU::PipelineAddPushConstantRange(data.pipelineShadowMapConvolution, 0, sizeof(vec2), GPU::ShaderStage::FRAGMENT);
 
 		data.shadowMapSampler = GPU::NewSampler(data.device, "VSM Sampler");
 		GPU::SamplerSetAddressMode(data.shadowMapSampler, GPU::AddressMode::CLAMP_TO_BORDER, GPU::AddressMode::CLAMP_TO_BORDER);
@@ -611,7 +611,7 @@ bool Manager::UpdateFonts(GPU::Context *context) {
 			GPU::ImageSetFormat(image, GPU::ImageBits::R8, GPU::ImageComponentType::UNORM);
 			GPU::ImageSetSize(image, font.fontBuilder.dimensions.x, font.fontBuilder.dimensions.y);
 			GPU::ImageSetMipmapping(image, true, maxFontImageMipLevels);
-			GPU::ImageSetShaderUsage(image, (u32)GPU::ShaderStage::FRAGMENT);
+			GPU::ImageSetShaderUsage(image, GPU::ShaderStage::FRAGMENT);
 			if (auto result = GPU::ImageRecreate(image); result.isError) {
 				error = result.error;
 				return false;
@@ -655,7 +655,7 @@ bool Manager::UpdateFonts(GPU::Context *context) {
 	for (i32 i = 0; i < data.fontBufferDatas.size; i++) {
 		if (i >= data.fontBuffers.size) {
 			data.fontBuffers.Append(GPU::NewUniformBuffer(data.device, Stringify("Font buffer ", i)));
-			GPU::BufferSetShaderUsage(data.fontBuffers.Back(), (u32)GPU::ShaderStage::VERTEX);
+			GPU::BufferSetShaderUsage(data.fontBuffers.Back(), GPU::ShaderStage::VERTEX);
 		}
 		GPU::Buffer *buffer = data.fontBuffers[i];
 		FontBuffer &bufferData = data.fontBufferDatas[i];

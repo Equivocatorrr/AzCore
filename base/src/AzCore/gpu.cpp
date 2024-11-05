@@ -1183,7 +1183,7 @@ struct Buffer {
 		UNIFORM_BUFFER,
 	} kind=UNDEFINED;
 
-	u32 shaderStages = 0;
+	ShaderStage shaderStages = 0;
 
 	i64 size = 0;
 
@@ -1212,7 +1212,7 @@ struct Buffer {
 
 struct Image {
 	// Usage flags
-	u32 shaderStages = 0;
+	ShaderStage shaderStages = 0;
 	bool attachment = false;
 	bool transferSrc = false;
 	bool transferDst = true;
@@ -3025,7 +3025,7 @@ Result<VoidResult_t, String> BufferResize(Buffer *buffer, i64 sizeBytes, Context
 	return VoidResult_t();
 }
 
-void BufferSetShaderUsage(Buffer *buffer, u32 shaderStages) {
+void BufferSetShaderUsage(Buffer *buffer, ShaderStage shaderStages) {
 	buffer->shaderStages = shaderStages;
 }
 
@@ -3483,7 +3483,7 @@ bool ImageSetMipmapping(Image *image, bool enableMipmapping, u32 maxLevels) {
 	return changed;
 }
 
-bool ImageSetShaderUsage(Image *image, u32 shaderStages) {
+bool ImageSetShaderUsage(Image *image, ShaderStage shaderStages) {
 	bool changed = image->shaderStages != shaderStages;
 	image->shaderStages = shaderStages;
 	return changed;
@@ -4022,7 +4022,7 @@ void PipelineSetMultisampleShading(Pipeline *pipeline, bool enabled, f32 minFrac
 	pipeline->multisampleShading.minFraction = minFraction;
 }
 
-void PipelineAddPushConstantRange(Pipeline *pipeline, u32 offset, u32 size, u32 shaderStages) {
+void PipelineAddPushConstantRange(Pipeline *pipeline, u32 offset, u32 size, ShaderStage shaderStages) {
 #ifndef NDEBUG
 	for (VkPushConstantRange &range : pipeline->pushConstantRanges) {
 		if (((u32)range.stageFlags & shaderStages) == 0) continue; // Allow overlapping ranges in different stages

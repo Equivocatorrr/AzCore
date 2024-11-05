@@ -49,7 +49,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
 	GPU::Window *gpuWindow = GPU::AddWindow(&ioWindow, "main").AzUnwrap();
 	GPU::SetVSync(gpuWindow, false);
-	
+
 	GPU::Framebuffer *framebuffer = GPU::NewFramebuffer(device, "main");
 
 	GPU::FramebufferAddWindow(framebuffer, gpuWindow);
@@ -66,22 +66,22 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		{vec2( 0.5f, -0.5f), vec2(1.0f, 0.0f)}
 	};
 	Array<u16> indices = {0, 1, 2, 2, 3, 0};
-	
+
 	GPU::Buffer *vertexBuffer = GPU::NewVertexBuffer(device, "vertex buffer");
 	GPU::BufferSetSize(vertexBuffer, vertices.size * sizeof(Vertex)).AzUnwrap();
-	
+
 	GPU::Buffer *indexBuffer = GPU::NewIndexBuffer(device, "index buffer", sizeof(indices[0]));
 	GPU::BufferSetSize(indexBuffer, indices.size * sizeof(indices[0])).AzUnwrap();
-	
+
 	GPU::Sampler *sampler = GPU::NewSampler(device);
 	GPU::SamplerSetAnisotropy(sampler, 16);
-	
+
 	GPU::Image *gpuImage = GPU::NewImage(device, "tex");
 	GPU::ImageSetFormat(gpuImage, GPU::ImageBits::R8G8B8A8, GPU::ImageComponentType::SRGB);
 	GPU::ImageSetSize(gpuImage, image.width, image.height);
 	GPU::ImageSetMipmapping(gpuImage, true);
-	GPU::ImageSetShaderUsage(gpuImage, (u32)GPU::ShaderStage::FRAGMENT);
-	
+	GPU::ImageSetShaderUsage(gpuImage, GPU::ShaderStage::FRAGMENT);
+
 	GPU::Shader *shaderVert = GPU::NewShader(device, "data/shaders/test.vert.spv", GPU::ShaderStage::VERTEX);
 	GPU::Shader *shaderFrag = GPU::NewShader(device, "data/shaders/test.frag.spv", GPU::ShaderStage::FRAGMENT);
 
@@ -92,9 +92,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		GPU::ShaderValueType::VEC2
 	});
 	GPU::PipelineSetBlendMode(pipeline, GPU::BlendMode{GPU::BlendMode::TRANSPARENT, false});
-	
+
 	GPU::Context* context = GPU::NewContext(device, "main");
-	
+
 	if (auto result = GPU::Initialize(); result.isError) {
 		io::cerr.PrintLn("Failed to initialize GPU: ", result.error);
 		return 1;
@@ -167,7 +167,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			io::cerr.PrintLn("Failed to commit bindings: ", result.error);
 			return 1;
 		}
-		
+
 		GPU::CmdClearColorAttachment(context, clearColor);
 
 		GPU::CmdDrawIndexed(context, 6, 0, 0);

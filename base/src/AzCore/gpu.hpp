@@ -27,14 +27,22 @@ namespace AzCore::io {
 namespace AzCore::GPU {
 
 // Usable as an enum or as bitfields
-enum class ShaderStage : u32 {
-	VERTEX          = 0x01,
-	TESS_CONTROL    = 0x02,
-	TESS_EVALUATION = 0x04,
-	GEOMETRY        = 0x08,
-	FRAGMENT        = 0x10,
-	COMPUTE         = 0x20,
-	// TODO: Support VK_KHR_ray_tracing_pipeline
+// Only a class because enum class doesn't allow an implicit conversion to u32 in any way shape or form
+class ShaderStage {
+	u32 value;
+public:
+	enum : u32 {
+		VERTEX          = 0x01,
+		TESS_CONTROL    = 0x02,
+		TESS_EVALUATION = 0x04,
+		GEOMETRY        = 0x08,
+		FRAGMENT        = 0x10,
+		COMPUTE         = 0x20,
+		// TODO: Support VK_KHR_ray_tracing_pipeline
+	};
+	ShaderStage() = default;
+	constexpr ShaderStage(u32 v) : value(v) {}
+	constexpr operator u32() { return value; }
 };
 const Str ShaderStageString(ShaderStage shaderStage);
 
@@ -378,7 +386,7 @@ void DeviceWaitIdle(Device *device);
 [[nodiscard]] Result<VoidResult_t, String> BufferResize(Buffer *buffer, i64 sizeBytes, Context *copyContext);
 
 // shaderStages is a bitmask of ShaderStage
-void BufferSetShaderUsage(Buffer *buffer, u32 shaderStages);
+void BufferSetShaderUsage(Buffer *buffer, ShaderStage shaderStages);
 
 i64 BufferGetSize(Buffer *buffer);
 
@@ -393,7 +401,7 @@ bool ImageSetMipmapping(Image *image, bool enableMipmapping, u32 maxLevels=UINT3
 
 // shaderStages is a bitmask of ShaderStage
 // returns true if the shader stages changed and you need to call ImageRecreate
-bool ImageSetShaderUsage(Image *image, u32 shaderStages);
+bool ImageSetShaderUsage(Image *image, ShaderStage shaderStages);
 
 // sampleCount must be a power of 2
 // returns true if the sample count changed and you need to call ImageRecreate
@@ -455,7 +463,7 @@ void PipelineSetBlendMode(Pipeline *pipeline, BlendMode blendMode, i32 attachmen
 void PipelineSetMultisampleShading(Pipeline *pipeline, bool enabled, f32 minFraction=1.0f);
 
 // shaderStages is a bitmask of ShaderStage values
-void PipelineAddPushConstantRange(Pipeline *pipeline, u32 offset, u32 size, u32 shaderStages);
+void PipelineAddPushConstantRange(Pipeline *pipeline, u32 offset, u32 size, ShaderStage shaderStages);
 
 
 // Context, Commands

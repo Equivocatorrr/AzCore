@@ -13,6 +13,7 @@ layout(location=7) flat in uint inTexAtlas;
 
 layout(location=0) out vec4 outColor;
 
+#include "headers/Bindings3D.glsl"
 #include "headers/CommonFrag.glsl"
 #include "headers/WorldInfo.glsl"
 #include "headers/ObjectBuffer.glsl"
@@ -47,6 +48,6 @@ void main() {
 	vec3 tangent = normalize(mix((inNormal * edgeDirection.x + inTangent * edgeDirection.y) * backFaceFac, inTangent, cornerAlpha));
 	vec3 bitangent = normalize(mix(cross(normal, tangent), inBitangent, cornerAlpha));
 	outColor = CalculateAllLighting(info, inTexCoord, normal, tangent, bitangent);
-	outColor.rgb = TonemapACES(outColor.rgb);
+	// outColor.rgb = TonemapACES(outColor.rgb);
 	outColor *= max(alpha, backAlpha);
 }

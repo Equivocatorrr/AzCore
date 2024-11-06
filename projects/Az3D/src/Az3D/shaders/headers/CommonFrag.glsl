@@ -1,9 +1,6 @@
 #ifndef COMMON_FRAG_GLSL
 #define COMMON_FRAG_GLSL
 
-layout(set=0, binding=3) uniform sampler2D texSampler[1];
-layout(set=0, binding=4) uniform sampler2D shadowMap;
-
 #include "Constants.glsl"
 #include "Helpers.glsl"
 
@@ -32,11 +29,6 @@ vec3 FresnelSchlickRoughness(float cosThetaView, vec3 baseReflectivity, float ro
 
 vec3 wrap(float attenuation, vec3 wrapFac) {
 	return clamp((vec3(attenuation) + wrapFac) / sqr(1.0 + wrapFac), 0.0, 1.0);
-}
-
-float linstep(float edge0, float edge1, float x)
-{
-	return clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
 }
 
 const float minPenumbraVal = 0.5;

@@ -23,4 +23,8 @@ vec2 normalizeFallback(vec2 vector, float epsilon, vec2 fallback) {
 	return vector / len;
 }
 
+float linstep(float edge0, float edge1, float x) {
+	return clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+}
+
 #endif // HELPERS_GLSL

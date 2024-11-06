@@ -12,6 +12,7 @@ layout(location=6) in vec4 inProjPos;
 
 layout(location=0) out vec4 outColor;
 
+#include "headers/Bindings3D.glsl"
 #include "headers/CommonFrag.glsl"
 #include "headers/WorldInfo.glsl"
 #include "headers/ObjectBuffer.glsl"
@@ -22,5 +23,5 @@ void main() {
 
 	outColor = CalculateAllLighting(info, inTexCoord, normalize(inNormal), normalize(inTangent), normalize(inBitangent));
 
-	outColor.rgb = TonemapACES(outColor.rgb);
+	// outColor.rgb = TonemapACES(outColor.rgb);
 }

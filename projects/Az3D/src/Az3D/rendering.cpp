@@ -174,22 +174,31 @@ bool Manager::Init() {
 		GPU::SetVSync(data.window, Settings::ReadBool(Settings::sVSync));
 		// TODO: Probably support differenc color spaces
 	}
-	{ // Framebuffer
-		data.framebuffer = GPU::NewFramebuffer(data.device, "primary");
-		data.depthBuffer = GPU::NewImage(data.device, "depthBuffer");
-		GPU::ImageSetFormat(data.depthBuffer, GPU::ImageBits::D32, GPU::ImageComponentType::SFLOAT);
-		GPU::ImageSetSize(data.depthBuffer, sys->window.width, sys->window.height);
+	{ // Framebuffers
+		data.rawFramebuffer = GPU::NewFramebuffer(data.device, "raw");
+		data.depthImage = GPU::NewImage(data.device, "depthImage");
+		vec2i ssaaNumerator = vec2i(1);
+		vec2i ssaaDenominator = vec2i(1);
+		GPU::ImageSetFormat(data.depthImage, GPU::ImageBits::D32, GPU::ImageComponentType::SFLOAT);
+		GPU::ImageSetSizeToWindow(data.depthImage, data.window, ssaaNumerator, ssaaDenominator);
+		data.rawImage = GPU::NewImage(data.device, "rawImage");
+		GPU::ImageSetFormat(data.rawImage, GPU::ImageBits::R16G16B16A16, GPU::ImageComponentType::SFLOAT);
+		GPU::ImageSetSizeToWindow(data.rawImage, data.window, ssaaNumerator, ssaaDenominator);
+		GPU::ImageSetShaderUsage(data.rawImage, GPU::ShaderStage::FRAGMENT);
 		if (Settings::ReadBool(Settings::sMSAA)) {
 			data.msaaImage = GPU::NewImage(data.device, "msaaImage");
-			GPU::ImageSetFormat(data.msaaImage, GPU::ImageBits::B8G8R8A8, GPU::ImageComponentType::SRGB);
+			GPU::ImageSetFormat(data.msaaImage, GPU::ImageBits::R16G16B16A16, GPU::ImageComponentType::SFLOAT);
 			GPU::ImageSetSampleCount(data.msaaImage, 4);
-			GPU::ImageSetSampleCount(data.depthBuffer, 4);
-			GPU::ImageSetSize(data.msaaImage, sys->window.width, sys->window.height);
-			GPU::FramebufferAddImageMultisampled(data.framebuffer, data.msaaImage, data.window);
+			GPU::ImageSetSampleCount(data.depthImage, 4);
+			GPU::ImageSetSizeToWindow(data.msaaImage, data.window, ssaaNumerator, ssaaDenominator);
+			GPU::FramebufferAddImageMultisampled(data.rawFramebuffer, data.msaaImage, data.rawImage);
 		} else {
-			GPU::FramebufferAddWindow(data.framebuffer, data.window);
+			GPU::FramebufferAddImage(data.rawFramebuffer, data.rawImage);
 		}
-		GPU::FramebufferAddImage(data.framebuffer, data.depthBuffer);
+		GPU::FramebufferAddImage(data.rawFramebuffer, data.depthImage);
+
+		data.windowFramebuffer = GPU::NewFramebuffer(data.device, "window");
+		GPU::FramebufferAddWindow(data.windowFramebuffer, data.window);
 	}
 	{ // Concurrency, runtime CPU data pools
 		worldInfo.ambientLightUp = vec3(0.001f);
@@ -293,6 +302,7 @@ bool Manager::Init() {
 		GPU::ShaderValueType::U32,  // boneIDs (4 u8s packed into a u32)
 		GPU::ShaderValueType::U32,  // boneWeights (4 u8s packed into a u32)
 	};
+	GPU::Shader *fullscreenQuadVert = GPU::NewShader(data.device, "data/Az3D/shaders/FullscreenQuad.vert.spv", GPU::ShaderStage::VERTEX, "fullscreenQuadVert");
 	{ // Pipelines
 		GPU::Shader *debugLinesVert = GPU::NewShader(data.device, "data/Az3D/shaders/DebugLines.vert.spv", GPU::ShaderStage::VERTEX);
 		GPU::Shader *debugLinesFrag = GPU::NewShader(data.device, "data/Az3D/shaders/DebugLines.frag.spv", GPU::ShaderStage::FRAGMENT);
@@ -396,7 +406,7 @@ bool Manager::Init() {
 		GPU::FramebufferAddImage(data.framebufferConvolution[0], data.shadowMapConvolutionImage);
 		GPU::FramebufferAddImage(data.framebufferConvolution[1], data.shadowMapImage);
 
-		GPU::Shader *convolutionVert = GPU::NewShader(data.device, "data/Az3D/shaders/Convolution.vert.spv", GPU::ShaderStage::VERTEX);
+		GPU::Shader *convolutionVert = fullscreenQuadVert;
 		GPU::Shader *convolutionFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Convolution.frag.spv", GPU::ShaderStage::FRAGMENT);
 
 		data.pipelineShadowMapConvolution = GPU::NewGraphicsPipeline(data.device, "VSM Convolution Pipeline");
@@ -407,6 +417,17 @@ bool Manager::Init() {
 		data.shadowMapSampler = GPU::NewSampler(data.device, "VSM Sampler");
 		GPU::SamplerSetAddressMode(data.shadowMapSampler, GPU::AddressMode::CLAMP_TO_BORDER, GPU::AddressMode::CLAMP_TO_BORDER);
 		GPU::SamplerSetBorderColor(data.shadowMapSampler, true, false, true);
+	}
+	{ // Final image composition
+		GPU::Shader *compositionVert = fullscreenQuadVert;
+		GPU::Shader *compositionFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Composition.frag.spv", GPU::ShaderStage::FRAGMENT, "compositionFrag");
+		data.pipelineCompositing = GPU::NewGraphicsPipeline(data.device, "Composition Pipeline");
+		GPU::PipelineAddShaders(data.pipelineCompositing, {compositionVert, compositionFrag});
+		GPU::PipelineSetTopology(data.pipelineCompositing, GPU::Topology::TRIANGLE_FAN);
+
+		data.rawSampler = GPU::NewSampler(data.device, "Raw Image Sampler");
+		GPU::SamplerSetAddressMode(data.rawSampler, GPU::AddressMode::CLAMP_TO_BORDER, GPU::AddressMode::CLAMP_TO_BORDER);
+		GPU::SamplerSetBorderColor(data.rawSampler, true, false, true);
 	}
 
 	if (auto result = GPU::Initialize(); result.isError) {
@@ -640,7 +661,7 @@ bool Manager::UpdateFonts(GPU::Context *context) {
 			fontBuffer.glyphs.Append(glyphInfo);
 		}
 		GPU::Image *fontTexture = data.textures[fontBuffer.texAtlas];
-		if (GPU::ImageSetSize(fontTexture, font.fontBuilder.dimensions.x, font.fontBuilder.dimensions.y, maxFontImageMipLevels)) {
+		if (GPU::ImageSetSize(fontTexture, font.fontBuilder.dimensions.x, font.fontBuilder.dimensions.y)) {
 			if (auto result = GPU::ImageRecreate(image); result.isError) {
 				error = result.error;
 				return false;
@@ -1243,7 +1264,8 @@ bool Manager::Draw() {
 	}
 
 	GPU::ContextBeginRecording(data.contextGraphics).AzUnwrap();
-	GPU::CmdBindFramebuffer(data.contextGraphics, data.framebuffer);
+	GPU::CmdImageTransitionLayout(data.contextGraphics, data.rawImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
+	GPU::CmdBindFramebuffer(data.contextGraphics, data.rawFramebuffer);
 	GPU::CmdSetViewportAndScissor(data.contextGraphics, (f32)sys->window.width, (f32)sys->window.height);
 	BindPipeline(data.contextGraphics, PIPELINE_BASIC_3D);
 	/*{ // Fade
@@ -1429,6 +1451,14 @@ bool Manager::Draw() {
 		error = "Failed to submit shadow map commands: " + result.error;
 		return false;
 	}
+
+	GPU::CmdFinishFramebuffer(data.contextGraphics);
+	GPU::CmdImageTransitionLayout(data.contextGraphics, data.rawImage, GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
+	GPU::CmdBindFramebuffer(data.contextGraphics, data.windowFramebuffer);
+	GPU::CmdBindPipeline(data.contextGraphics, data.pipelineCompositing);
+	GPU::CmdBindImageSampler(data.contextGraphics, data.rawImage, data.rawSampler, 0, 0);
+	GPU::CmdCommitBindings(data.contextGraphics).AzUnwrap();
+	GPU::CmdDraw(data.contextGraphics, 4, 0);
 
 	GPU::ContextEndRecording(data.contextGraphics).AzUnwrap();
 

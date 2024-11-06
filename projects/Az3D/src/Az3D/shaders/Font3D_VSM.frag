@@ -11,7 +11,7 @@ layout(location=5) flat in uint inTexAtlas;
 
 layout(location=0) out vec4 outColor;
 
-
+#include "headers/Bindings3D.glsl"
 #include "headers/CommonFrag.glsl"
 #include "headers/WorldInfo.glsl"
 #include "headers/ObjectBuffer.glsl"

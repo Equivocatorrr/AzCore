@@ -13,7 +13,6 @@
 #include "Az3DObj.hpp"
 
 #include "AzCore/basictypes.hpp"
-#include "AzCore/memory.hpp"
 #include "AzCore/gpu.hpp"
 
 #include "assets.hpp"
@@ -223,22 +222,25 @@ struct Manager {
 	struct {
 		GPU::Device *device;
 		GPU::Window *window;
-		GPU::Image *msaaImage;
-		GPU::Image *depthBuffer;
-		GPU::Framebuffer *framebuffer;
+		GPU::Framebuffer *windowFramebuffer;
 		GPU::Context *contextGraphics;
 		GPU::Context *contextTransfer;
 		GPU::Sampler *textureSampler;
 		Array<GPU::Image*> textures;
 		i32 concurrency = 1;
 
+		// 3D Rendering
 		GPU::Buffer *worldInfoBuffer;
 		GPU::Buffer *objectBuffer;
 		GPU::Buffer *bonesBuffer;
 		GPU::Buffer *textBuffer;
 		GPU::Buffer *vertexBuffer;
 		GPU::Buffer *indexBuffer;
+		Array<GPU::Buffer*> fontBuffers;
+		Array<FontBuffer> fontBufferDatas;
+		Array<GPU::Pipeline*> pipelines;
 
+		// VSM
 		GPU::Context *contextShadowMap;
 		GPU::Image *shadowMapImage;
 		GPU::Framebuffer *framebufferShadowMaps;
@@ -250,10 +252,13 @@ struct Manager {
 		// For debug lines
 		GPU::Buffer *debugVertexBuffer;
 
-		Array<GPU::Buffer*> fontBuffers;
-		Array<FontBuffer> fontBufferDatas;
-
-		Array<GPU::Pipeline*> pipelines;
+		// Post-processing
+		GPU::Image *msaaImage = nullptr;
+		GPU::Image *depthImage;
+		GPU::Image *rawImage;
+		GPU::Framebuffer *rawFramebuffer;
+		GPU::Sampler *rawSampler;
+		GPU::Pipeline *pipelineCompositing;
 
 		Assets::MeshPart *meshPartUnitSquare;
 		// One for each draw call, sent to the shader
@@ -268,7 +273,7 @@ struct Manager {
 	vec2 screenSize = vec2(1280.0f, 720.0f);
 	f32 aspectRatio; // height/width
 	vec3 backgroundHSV = vec3(197.4f/360.0f, 42.6f/100.0f, 92.2f/100.0f);
-	vec3 backgroundRGB; // Derivative of HSV
+	vec3 backgroundRGB; // Calculated from HSV
 	// Emptied at the beginning of every frame
 	Array<Light> lights;
 	WorldInfoBuffer worldInfo;

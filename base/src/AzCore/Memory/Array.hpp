@@ -13,7 +13,6 @@
 #include "StringCommon.hpp"
 #include "Util.hpp"
 #include "../Assert.hpp"
-#include <stdexcept> // std::out_of_range
 #include <initializer_list>
 #include <type_traits> // std::is_trivially_copyable
 
@@ -659,6 +658,32 @@ struct Array {
 			}
 		}
 		_SetTerminator();
+	}
+
+	template<bool eraseAll>
+	bool _EraseValue(const T &value) {
+		bool found = false;
+		for (i32 i = 0; i < size; i++) {
+			if (data[i] == value) {
+				found = true;
+				Erase(i);
+				if constexpr (!eraseAll) {
+					break;
+				}
+				i--;
+			}
+		}
+		return found;
+	}
+
+	// returns true if it found the value, false otherwise.
+	inline bool EraseFirstWithValue(const T &value) {
+		return _EraseValue<false>(value);
+	}
+
+	// returns true if it found the value, false otherwise.
+	inline bool EraseAllWithValue(const T &value) {
+		return _EraseValue<true>(value);
 	}
 
 	Array<T, allocTail> &Reverse() {

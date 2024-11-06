@@ -313,15 +313,17 @@ void Deinitialize();
 	For more complicated rendering with multiple Framebuffers feeding into each other, there will always be the possibility of some undesired scaling for one frame when resizing the window, but at least it won't crash in that case.
 */
 
-void FramebufferAddImage(Framebuffer *framebuffer, Image *image);
-void FramebufferAddWindow(Framebuffer *framebuffer, Window *window);
+// loadContents determines whether we need to load existing contents of the image when the framebuffer is bound.
+// If you plan to immediately clear or completely overwrite the contents, you can leave this as false.
+void FramebufferAddImage(Framebuffer *framebuffer, Image *image, bool loadContents=false, bool storeContents=true);
+void FramebufferAddWindow(Framebuffer *framebuffer, Window *window, bool loadContents=false, bool storeContents=true);
 
 // This will resolve our image into resolveImage after rendering is done.
 // To do multiple passes before resolving, just use FramebufferAddImage and resolve manually.
-void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Image *resolveImage);
+void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Image *resolveImage, bool loadContents=false, bool storeContents=true);
 // This will resolve our image into resolveWindow after rendering is done.
 // To do multiple passes before resolving, just use FramebufferAddImage and resolve manually.
-void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Window *resolveWindow);
+void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Window *resolveWindow, bool loadContents=false, bool storeContents=true);
 
 // If there are any changes to attachments, you must recreate the framebuffer
 [[nodiscard]] Result<VoidResult_t, String> FramebufferCreate(Framebuffer *framebuffer);

@@ -1313,8 +1313,8 @@ struct Attachment {
 	// Whether to keep the data after rendering (depth buffers may not want to bother storing)
 	bool store = true;
 	Attachment() = default;
-	Attachment(Window *_window) : kind(WINDOW), window(_window) {}
-	Attachment(Image *_image, bool isDepth) : kind(isDepth ? DEPTH_BUFFER : IMAGE), image(_image) {}
+	Attachment(Window *_window, bool _load, bool _store) : kind(WINDOW), window(_window), load(_load), store(_store) {}
+	Attachment(Image *_image, bool isDepth, bool _load, bool _store) : kind(isDepth ? DEPTH_BUFFER : IMAGE), image(_image), load(_load), store(_store) {}
 };
 
 struct AttachmentRef {
@@ -1851,8 +1851,8 @@ static bool FormatIsDepth(VkFormat format) {
 	}
 }
 
-void FramebufferAddImage(Framebuffer *framebuffer, Image *image) {
-	framebuffer->config.attachmentRefs.Append(AttachmentRef(Attachment(image, FormatIsDepth(image->vk.format))));
+void FramebufferAddImage(Framebuffer *framebuffer, Image *image, bool loadContents, bool storeContents) {
+	framebuffer->config.attachmentRefs.Append(AttachmentRef(Attachment(image, FormatIsDepth(image->vk.format), loadContents, storeContents)));
 	image->config.attachment = true;
 	image->config.transferDst = false;
 	if (image->config.sampleCount != 1) {
@@ -1860,8 +1860,8 @@ void FramebufferAddImage(Framebuffer *framebuffer, Image *image) {
 	}
 }
 
-void FramebufferAddWindow(Framebuffer *framebuffer, Window *window) {
-	framebuffer->config.attachmentRefs.Append(AttachmentRef(Attachment(window)));
+void FramebufferAddWindow(Framebuffer *framebuffer, Window *window, bool loadContents, bool storeContents) {
+	framebuffer->config.attachmentRefs.Append(AttachmentRef(Attachment(window, loadContents, storeContents)));
 	// TODO: Probably allow multiple framebuffers for the same window
 	AzAssert(window->state.framebuffer == nullptr, "Windows can only have 1 framebuffer assocation");
 	window->state.framebuffer = framebuffer;
@@ -1869,11 +1869,12 @@ void FramebufferAddWindow(Framebuffer *framebuffer, Window *window) {
 	window->config.transferDst = false;
 }
 
-void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Image *resolveImage) {
+void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Image *resolveImage, bool loadContents, bool storeContents) {
 	AzAssert(image->vk.format == resolveImage->vk.format, "Resolving multisampled images requires both images to be the same format");
 	AzAssert(image->config.sampleCount != 1, "Expected image to have a sample count != 1");
 	AzAssert(resolveImage->config.sampleCount == 1, "Expected resolveImage to have a sample count == 1");
-	framebuffer->config.attachmentRefs.Append(AttachmentRef(Attachment(image, false), Attachment(resolveImage, false)));
+	bool isDepth = FormatIsDepth(image->vk.format);
+	framebuffer->config.attachmentRefs.Append(AttachmentRef(Attachment(image, isDepth, loadContents, storeContents), Attachment(resolveImage, isDepth, false, storeContents)));
 	image->config.attachment = true;
 	image->config.transferDst = false;
 	image->config.transferSrc = true;
@@ -1881,9 +1882,9 @@ void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Ima
 	resolveImage->config.transferDst = true;
 }
 
-void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Window *resolveWindow) {
+void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Window *resolveWindow, bool loadContents, bool storeContents) {
 	AzAssert(image->config.sampleCount != 1, "Expected image to have a sample count != 1");
-	framebuffer->config.attachmentRefs.Append(AttachmentRef(Attachment(image, false), Attachment(resolveWindow)));
+	framebuffer->config.attachmentRefs.Append(AttachmentRef(Attachment(image, false, loadContents, storeContents), Attachment(resolveWindow, false, storeContents)));
 	// TODO: Probably allow multiple framebuffers for the same window
 	AzAssert(resolveWindow->state.framebuffer == nullptr, "Windows can only have 1 framebuffer assocation");
 	image->config.attachment = true;

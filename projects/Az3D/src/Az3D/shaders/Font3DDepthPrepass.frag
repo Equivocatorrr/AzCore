@@ -3,13 +3,10 @@
 #extension GL_GOOGLE_include_directive : enable
 
 layout(location=0) in vec2 inTexCoord;
-layout(location=1) flat in vec3 inTangent;
-layout(location=2) flat in vec3 inBitangent;
-layout(location=3) in vec3 inWorldPos;
-layout(location=4) centroid in float inDepth;
-layout(location=5) flat in uint inTexAtlas;
-
-layout(location=0) out vec4 outColor;
+layout(location=2) flat in vec3 inTangent;
+layout(location=3) flat in vec3 inBitangent;
+layout(location=5) in vec3 inWorldPos;
+layout(location=7) flat in uint inTexAtlas;
 
 layout(set=0, binding=3) uniform sampler2D texSampler[1];
 
@@ -23,7 +20,5 @@ void main() {
 	vec3 bitangent;
 	float alpha;
 	Font3DGetGeometry(normal, tangent, bitangent, alpha);
-	if (alpha < 0.5) discard;
-	outColor.x = inDepth;
-	outColor.y = inDepth*inDepth;
+	if (alpha < 0.99) discard;
 }

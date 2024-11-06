@@ -223,7 +223,8 @@ struct Manager {
 		GPU::Device *device;
 		GPU::Window *window;
 		GPU::Framebuffer *windowFramebuffer;
-		GPU::Context *contextGraphics;
+		GPU::Context *contextMainRender;
+		GPU::Context *contextDepthPrepass;
 		GPU::Context *contextTransfer;
 		GPU::Sampler *textureSampler;
 		Array<GPU::Image*> textures;
@@ -239,6 +240,9 @@ struct Manager {
 		Array<GPU::Buffer*> fontBuffers;
 		Array<FontBuffer> fontBufferDatas;
 		Array<GPU::Pipeline*> pipelines;
+		GPU::Pipeline *pipelineBasic3DDepthPrepass;
+		GPU::Pipeline *pipelineFoliage3DDepthPrepass;
+		GPU::Pipeline *pipelineFont3DDepthPrepass;
 
 		// VSM
 		GPU::Context *contextShadowMap;
@@ -255,6 +259,7 @@ struct Manager {
 		// Post-processing
 		GPU::Image *msaaImage = nullptr;
 		GPU::Image *depthImage;
+		GPU::Framebuffer *depthPrepassFramebuffer;
 		GPU::Image *rawImage;
 		GPU::Framebuffer *rawFramebuffer;
 		GPU::Sampler *rawSampler;

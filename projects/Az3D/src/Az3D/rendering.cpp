@@ -157,6 +157,47 @@ void BindPipeline(GPU::Context *context, PipelineIndex pipeline) {
 	GPU::CmdCommitBindings(context).AzUnwrap();
 }
 
+// Translates the main rendering pipeline into the version for the depth prepass
+void BindPipelineDepthPrepass(GPU::Context *context, PipelineIndex pipeline) {
+	Manager &r = sys->rendering;
+	switch (pipeline) {
+		case PIPELINE_BASIC_3D:
+			GPU::CmdBindPipeline(context, r.data.pipelineBasic3DDepthPrepass);
+		case PIPELINE_FOLIAGE_3D:
+			GPU::CmdBindPipeline(context, r.data.pipelineFoliage3DDepthPrepass);
+			break;
+		case PIPELINE_FONT_3D:
+			GPU::CmdBindPipeline(context, r.data.pipelineFont3DDepthPrepass);
+			break;
+		default: break;
+	}
+	switch (pipeline) {
+		case PIPELINE_BASIC_3D:
+		case PIPELINE_FOLIAGE_3D:
+			GPU::CmdBindVertexBuffer(context, r.data.vertexBuffer);
+			GPU::CmdBindIndexBuffer(context, r.data.indexBuffer);
+			GPU::CmdClearDescriptors(context);
+			GPU::CmdBindUniformBuffer(context, r.data.worldInfoBuffer, 0, 0);
+			GPU::CmdBindStorageBuffer(context, r.data.objectBuffer, 0, 1);
+			GPU::CmdBindStorageBuffer(context, r.data.bonesBuffer, 0, 2);
+			GPU::CmdBindImageArraySampler(context, r.data.textures, r.data.textureSampler, 0, 3);
+			break;
+		case PIPELINE_FONT_3D:
+			GPU::CmdBindVertexBuffer(context, nullptr);
+			GPU::CmdBindIndexBuffer(context, nullptr);
+			GPU::CmdClearDescriptors(context);
+			GPU::CmdBindUniformBuffer(context, r.data.worldInfoBuffer, 0, 0);
+			GPU::CmdBindStorageBuffer(context, r.data.objectBuffer, 0, 1);
+			GPU::CmdBindStorageBuffer(context, r.data.bonesBuffer, 0, 2);
+			GPU::CmdBindImageArraySampler(context, r.data.textures, r.data.textureSampler, 0, 3);
+			GPU::CmdBindUniformBufferArray(context, r.data.fontBuffers, 0, 5);
+			GPU::CmdBindStorageBuffer(context, r.data.textBuffer, 0, 6);
+			break;
+		default: break;
+	}
+	GPU::CmdCommitBindings(context).AzUnwrap();
+}
+
 bool Manager::Init() {
 	AZCORE_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::Init)
 
@@ -174,6 +215,7 @@ bool Manager::Init() {
 		// TODO: Probably support differenc color spaces
 	}
 	{ // Framebuffers
+		data.depthPrepassFramebuffer = GPU::NewFramebuffer(data.device, "depthPrepass");
 		data.rawFramebuffer = GPU::NewFramebuffer(data.device, "raw");
 		data.depthImage = GPU::NewImage(data.device, "depthImage");
 		vec2i ssaaNumerator = vec2i(Settings::ReadInt(Settings::sSupersamplingNumerator));
@@ -195,7 +237,8 @@ bool Manager::Init() {
 		} else {
 			GPU::FramebufferAddImage(data.rawFramebuffer, data.rawImage);
 		}
-		GPU::FramebufferAddImage(data.rawFramebuffer, data.depthImage);
+		GPU::FramebufferAddImage(data.depthPrepassFramebuffer, data.depthImage);
+		GPU::FramebufferAddImage(data.rawFramebuffer, data.depthImage, true, false);
 
 		data.windowFramebuffer = GPU::NewFramebuffer(data.device, "window");
 		GPU::FramebufferAddWindow(data.windowFramebuffer, data.window);
@@ -210,7 +253,8 @@ bool Manager::Init() {
 		data.debugVertices.Resize(MAX_DEBUG_VERTICES);
 	}
 	{ // Context
-		data.contextGraphics = GPU::NewContext(data.device);
+		data.contextMainRender = GPU::NewContext(data.device);
+		data.contextDepthPrepass = GPU::NewContext(data.device);
 		data.contextTransfer = GPU::NewContext(data.device);
 	}
 	{ // Texture Samplers
@@ -308,8 +352,11 @@ bool Manager::Init() {
 		GPU::Shader *debugLinesFrag = GPU::NewShader(data.device, "data/Az3D/shaders/DebugLines.frag.spv", GPU::ShaderStage::FRAGMENT);
 		GPU::Shader *basic3DVert = GPU::NewShader(data.device, "data/Az3D/shaders/Basic3D.vert.spv", GPU::ShaderStage::VERTEX);
 		GPU::Shader *basic3DFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Basic3D.frag.spv", GPU::ShaderStage::FRAGMENT);
+		// TODO: If we decide we need texture-alpha-based pixel discards, we need one of these
+		// GPU::Shader *basic3DDepthPrepassFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Basic3DDepthPrepass.frag.spv", GPU::ShaderStage::FRAGMENT);
 		GPU::Shader *font3DVert = GPU::NewShader(data.device, "data/Az3D/shaders/Font3D.vert.spv", GPU::ShaderStage::VERTEX);
 		GPU::Shader *font3DFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Font3D.frag.spv", GPU::ShaderStage::FRAGMENT);
+		GPU::Shader *font3DDepthPrepassFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Font3DDepthPrepass.frag.spv", GPU::ShaderStage::FRAGMENT);
 
 		data.pipelines.Resize(PIPELINE_COUNT);
 
@@ -329,32 +376,59 @@ bool Manager::Init() {
 		GPU::PipelineAddShaders(data.pipelines[PIPELINE_BASIC_3D], {basic3DVert, basic3DFrag});
 		GPU::PipelineAddVertexInputs(data.pipelines[PIPELINE_BASIC_3D], vertexInputs);
 		GPU::PipelineSetTopology(data.pipelines[PIPELINE_BASIC_3D], GPU::Topology::TRIANGLE_LIST);
-		// GPU::PipelineSetMultisampleShading(data.pipelines[PIPELINE_BASIC_3D], true);
 		GPU::PipelineSetDepthTest(data.pipelines[PIPELINE_BASIC_3D], true);
-		GPU::PipelineSetDepthWrite(data.pipelines[PIPELINE_BASIC_3D], true);
-		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_BASIC_3D], GPU::CompareOp::LESS);
+		GPU::PipelineSetDepthWrite(data.pipelines[PIPELINE_BASIC_3D], false);
+		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_BASIC_3D], GPU::CompareOp::LESS_OR_EQUAL);
 		GPU::PipelineSetCullingMode(data.pipelines[PIPELINE_BASIC_3D], GPU::CullingMode::BACK);
 		GPU::PipelineSetWinding(data.pipelines[PIPELINE_BASIC_3D], GPU::Winding::COUNTER_CLOCKWISE);
+
+		data.pipelineBasic3DDepthPrepass = GPU::NewGraphicsPipeline(data.device, "Basic 3D Depth Prepass Pipeline");
+		GPU::PipelineAddShaders(data.pipelineBasic3DDepthPrepass, {basic3DVert /*, basic3DDepthPrepassFrag */});
+		GPU::PipelineAddVertexInputs(data.pipelineBasic3DDepthPrepass, vertexInputs);
+		GPU::PipelineSetTopology(data.pipelineBasic3DDepthPrepass, GPU::Topology::TRIANGLE_LIST);
+		GPU::PipelineSetDepthTest(data.pipelineBasic3DDepthPrepass, true);
+		GPU::PipelineSetDepthWrite(data.pipelineBasic3DDepthPrepass, true);
+		GPU::PipelineSetDepthCompareOp(data.pipelineBasic3DDepthPrepass, GPU::CompareOp::LESS);
+		GPU::PipelineSetCullingMode(data.pipelineBasic3DDepthPrepass, GPU::CullingMode::BACK);
+		GPU::PipelineSetWinding(data.pipelineBasic3DDepthPrepass, GPU::Winding::COUNTER_CLOCKWISE);
 
 		data.pipelines[PIPELINE_FOLIAGE_3D] = GPU::NewGraphicsPipeline(data.device, "Foliage 3D Pipeline");
 		GPU::PipelineAddShaders(data.pipelines[PIPELINE_FOLIAGE_3D], {basic3DVert, basic3DFrag});
 		GPU::PipelineAddVertexInputs(data.pipelines[PIPELINE_FOLIAGE_3D], vertexInputs);
 		GPU::PipelineSetTopology(data.pipelines[PIPELINE_FOLIAGE_3D], GPU::Topology::TRIANGLE_LIST);
-		// GPU::PipelineSetMultisampleShading(data.pipelines[PIPELINE_FOLIAGE_3D], true);
 		GPU::PipelineSetDepthTest(data.pipelines[PIPELINE_FOLIAGE_3D], true);
-		GPU::PipelineSetDepthWrite(data.pipelines[PIPELINE_FOLIAGE_3D], true);
-		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_FOLIAGE_3D], GPU::CompareOp::LESS);
+		GPU::PipelineSetDepthWrite(data.pipelines[PIPELINE_FOLIAGE_3D], false);
+		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_FOLIAGE_3D], GPU::CompareOp::LESS_OR_EQUAL);
 		GPU::PipelineSetCullingMode(data.pipelines[PIPELINE_FOLIAGE_3D], GPU::CullingMode::NONE);
 		GPU::PipelineSetWinding(data.pipelines[PIPELINE_FOLIAGE_3D], GPU::Winding::COUNTER_CLOCKWISE);
+
+		data.pipelineFoliage3DDepthPrepass = GPU::NewGraphicsPipeline(data.device, "Foliage 3D Depth Prepass Pipeline");
+		GPU::PipelineAddShaders(data.pipelineFoliage3DDepthPrepass, {basic3DVert/*, basic3DDepthPrepassFrag */});
+		GPU::PipelineAddVertexInputs(data.pipelineFoliage3DDepthPrepass, vertexInputs);
+		GPU::PipelineSetTopology(data.pipelineFoliage3DDepthPrepass, GPU::Topology::TRIANGLE_LIST);
+		GPU::PipelineSetDepthTest(data.pipelineFoliage3DDepthPrepass, true);
+		GPU::PipelineSetDepthWrite(data.pipelineFoliage3DDepthPrepass, true);
+		GPU::PipelineSetDepthCompareOp(data.pipelineFoliage3DDepthPrepass, GPU::CompareOp::LESS_OR_EQUAL);
+		GPU::PipelineSetCullingMode(data.pipelineFoliage3DDepthPrepass, GPU::CullingMode::NONE);
+		GPU::PipelineSetWinding(data.pipelineFoliage3DDepthPrepass, GPU::Winding::COUNTER_CLOCKWISE);
 
 		data.pipelines[PIPELINE_FONT_3D] = GPU::NewGraphicsPipeline(data.device, "Font 3D Pipeline");
 		GPU::PipelineAddShaders(data.pipelines[PIPELINE_FONT_3D], {font3DVert, font3DFrag});
 		GPU::PipelineSetTopology(data.pipelines[PIPELINE_FONT_3D], GPU::Topology::TRIANGLE_LIST);
 		GPU::PipelineSetDepthTest(data.pipelines[PIPELINE_FONT_3D], true);
 		GPU::PipelineSetDepthWrite(data.pipelines[PIPELINE_FONT_3D], false);
-		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_FONT_3D], GPU::CompareOp::LESS);
+		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_FONT_3D], GPU::CompareOp::LESS_OR_EQUAL);
 		GPU::PipelineSetCullingMode(data.pipelines[PIPELINE_FONT_3D], GPU::CullingMode::NONE);
 		GPU::PipelineSetMultisampleShading(data.pipelines[PIPELINE_FONT_3D], true);
+
+		data.pipelineFont3DDepthPrepass = GPU::NewGraphicsPipeline(data.device, "Font 3D Depth Prepass Pipeline");
+		GPU::PipelineAddShaders(data.pipelineFont3DDepthPrepass, {font3DVert, font3DDepthPrepassFrag});
+		GPU::PipelineSetTopology(data.pipelineFont3DDepthPrepass, GPU::Topology::TRIANGLE_LIST);
+		GPU::PipelineSetDepthTest(data.pipelineFont3DDepthPrepass, true);
+		GPU::PipelineSetDepthWrite(data.pipelineFont3DDepthPrepass, true);
+		GPU::PipelineSetDepthCompareOp(data.pipelineFont3DDepthPrepass, GPU::CompareOp::LESS);
+		GPU::PipelineSetCullingMode(data.pipelineFont3DDepthPrepass, GPU::CullingMode::NONE);
+		GPU::PipelineSetMultisampleShading(data.pipelineFont3DDepthPrepass, true);
 
 		for (i32 i = 1; i < PIPELINE_COUNT; i++) {
 			if (i == PIPELINE_BASIC_3D_VSM || i == PIPELINE_FONT_3D_VSM) continue;
@@ -763,16 +837,16 @@ bool Manager::UpdateDebugLines(GPU::Context *context) {
 	}
 	if (data.debugVertices.size < 2) return true;
 
-	BindPipeline(data.contextGraphics, PIPELINE_DEBUG_LINES);
+	BindPipeline(data.contextMainRender, PIPELINE_DEBUG_LINES);
 
-	GPU::CmdSetDepthTestEnable(data.contextGraphics, false);
+	GPU::CmdSetDepthTestEnable(data.contextMainRender, false);
 	f32 alpha = 0.2f;
-	GPU::CmdPushConstants(data.contextGraphics, &alpha, 0, sizeof(f32));
-	GPU::CmdDraw(data.contextGraphics, data.debugVertices.size, 0);
-	GPU::CmdSetDepthTestEnable(data.contextGraphics, true);
+	GPU::CmdPushConstants(data.contextMainRender, &alpha, 0, sizeof(f32));
+	GPU::CmdDraw(data.contextMainRender, data.debugVertices.size, 0);
+	GPU::CmdSetDepthTestEnable(data.contextMainRender, true);
 	alpha = 1.0f;
-	GPU::CmdPushConstants(data.contextGraphics, &alpha, 0, sizeof(f32));
-	GPU::CmdDraw(data.contextGraphics, data.debugVertices.size, 0);
+	GPU::CmdPushConstants(data.contextMainRender, &alpha, 0, sizeof(f32));
+	GPU::CmdDraw(data.contextMainRender, data.debugVertices.size, 0);
 
 	GPU::CmdCopyDataToBuffer(context, data.debugVertexBuffer, data.debugVertices.data, 0, min(data.debugVertices.size, MAX_DEBUG_VERTICES) * sizeof(DebugVertex)).AzUnwrap();
 	return true;
@@ -1247,34 +1321,6 @@ bool Manager::Draw() {
 	screenSize = vec2((f32)max((u16)1, sys->window.width), (f32)max((u16)1, sys->window.height));
 	aspectRatio = screenSize.y / screenSize.x;
 
-	{ // Shadow Map
-		GPU::ContextBeginRecording(data.contextShadowMap).AzUnwrap();
-		GPU::CmdImageTransitionLayout(data.contextShadowMap, data.shadowMapImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
-		GPU::CmdBindFramebuffer(data.contextShadowMap, data.framebufferShadowMaps);
-		GPU::CmdBindPipeline(data.contextShadowMap, data.pipelines[PIPELINE_BASIC_3D_VSM]);
-		GPU::CmdBindIndexBuffer(data.contextShadowMap, data.indexBuffer);
-		GPU::CmdBindVertexBuffer(data.contextShadowMap, data.vertexBuffer);
-		GPU::CmdBindUniformBuffer(data.contextShadowMap, data.worldInfoBuffer, 0, 0);
-		GPU::CmdBindStorageBuffer(data.contextShadowMap, data.objectBuffer, 0, 1);
-		GPU::CmdBindStorageBuffer(data.contextShadowMap, data.bonesBuffer, 0, 2);
-		GPU::CmdBindImageArraySampler(data.contextShadowMap, data.textures, data.textureSampler, 0, 3);
-		GPU::CmdCommitBindings(data.contextShadowMap).AzUnwrap();
-
-		GPU::CmdClearColorAttachment(data.contextShadowMap, vec4(0.0));
-	}
-
-	GPU::ContextBeginRecording(data.contextGraphics).AzUnwrap();
-	GPU::CmdImageTransitionLayout(data.contextGraphics, data.rawImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
-	GPU::CmdBindFramebuffer(data.contextGraphics, data.rawFramebuffer);
-	GPU::CmdSetViewportAndScissor(data.contextGraphics, (f32)sys->window.width, (f32)sys->window.height);
-	BindPipeline(data.contextGraphics, PIPELINE_BASIC_3D);
-	/*{ // Fade
-		DrawQuadSS(commandBuffersSecondary[0], texBlank, vec4(backgroundRGB, 0.2f), vec2(-1.0), vec2(2.0), vec2(1.0));
-	}*/
-	{ // Clear
-		GPU::CmdClearColorAttachment(data.contextGraphics, vec4(sRGBToLinear(backgroundRGB), 1.0f));
-		GPU::CmdClearDepthAttachment(data.contextGraphics, 1.0f);
-	}
 	// Clear lights so we get new ones this frame
 	lights.size = 0;
 
@@ -1282,7 +1328,7 @@ bool Manager::Draw() {
 		context.thingsToDraw.ClearSoft();
 		context.debugLines.ClearSoft();
 	}
-
+	// Gather all the thingsToDraw
 	sys->Draw(data.drawingContexts);
 
 	UpdateDebugCamera();
@@ -1322,7 +1368,34 @@ bool Manager::Draw() {
 			if (lhs.depth < rhs.depth) return lhs.opaque;
 			return false;
 		});
-		PipelineIndex currentPipeline = PIPELINE_NONE;
+		// Actually draw them
+
+		// Shadow Maps
+		GPU::ContextBeginRecording(data.contextShadowMap).AzUnwrap();
+		GPU::CmdImageTransitionLayout(data.contextShadowMap, data.shadowMapImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
+		GPU::CmdBindFramebuffer(data.contextShadowMap, data.framebufferShadowMaps);
+		BindPipeline(data.contextShadowMap, PIPELINE_BASIC_3D_VSM);
+		GPU::CmdClearColorAttachment(data.contextShadowMap, vec4(0.0));
+
+		// Depth Prepass
+		GPU::ContextBeginRecording(data.contextDepthPrepass).AzUnwrap();
+		GPU::CmdImageTransitionLayout(data.contextDepthPrepass, data.depthImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
+		GPU::CmdBindFramebuffer(data.contextDepthPrepass, data.depthPrepassFramebuffer);
+		BindPipelineDepthPrepass(data.contextDepthPrepass, PIPELINE_BASIC_3D);
+		GPU::CmdSetViewportAndScissor(data.contextDepthPrepass, (f32)sys->window.width, (f32)sys->window.height);
+		GPU::CmdClearDepthAttachment(data.contextDepthPrepass, 1.0f);
+
+		// Full scene render
+		GPU::ContextBeginRecording(data.contextMainRender).AzUnwrap();
+		GPU::CmdImageTransitionLayout(data.contextMainRender, data.rawImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
+		GPU::CmdBindFramebuffer(data.contextMainRender, data.rawFramebuffer);
+		BindPipeline(data.contextMainRender, PIPELINE_BASIC_3D);
+		GPU::CmdSetViewportAndScissor(data.contextMainRender, (f32)sys->window.width, (f32)sys->window.height);
+		GPU::CmdClearColorAttachment(data.contextMainRender, vec4(sRGBToLinear(backgroundRGB), 1.0f));
+		// We specifically DON'T clear the depth attachment, because the values from the depth prepass help reduce fragment overdraw.
+
+		PipelineIndex currentPipelineDepthPrepass = PIPELINE_BASIC_3D;
+		PipelineIndex currentPipeline = PIPELINE_BASIC_3D;
 		bool shadowPipelineIsForFonts = false;
 		for (DrawCallInfo &drawCall : allDrawCalls) {
 			if (drawCall.culled && !drawCall.castsShadows) continue;
@@ -1336,8 +1409,12 @@ bool Manager::Draw() {
 				bonesOffset = dstOffset;
 			}
 			if (!drawCall.culled && drawCall.pipeline != currentPipeline) {
-				BindPipeline(data.contextGraphics, drawCall.pipeline);
+				BindPipeline(data.contextMainRender, drawCall.pipeline);
 				currentPipeline = drawCall.pipeline;
+			}
+			if (!drawCall.culled && drawCall.opaque && drawCall.pipeline != currentPipelineDepthPrepass) {
+				BindPipelineDepthPrepass(data.contextDepthPrepass, drawCall.pipeline);
+				currentPipelineDepthPrepass = drawCall.pipeline;
 			}
 			if (drawCall.textsToDraw.size > 0) {
 				if (drawCall.castsShadows && !shadowPipelineIsForFonts) {
@@ -1351,7 +1428,10 @@ bool Manager::Draw() {
 					i32 textIndex = data.textShaderInfos.size;
 					data.textShaderInfos.Append(info.shaderInfo);
 					if (!drawCall.culled) {
-						GPU::CmdDraw(data.contextGraphics, info.glyphCount * 6, 0, 1, textIndex);
+						if (drawCall.opaque) {
+							GPU::CmdDraw(data.contextDepthPrepass, info.glyphCount * 6, 0, 1, textIndex);
+						}
+						GPU::CmdDraw(data.contextMainRender, info.glyphCount * 6, 0, 1, textIndex);
 					}
 					if (drawCall.castsShadows) {
 						GPU::CmdDraw(data.contextShadowMap, info.glyphCount * 6, 0, 1, textIndex);
@@ -1369,7 +1449,10 @@ bool Manager::Draw() {
 					data.objectShaderInfos[prevSize+i] = ObjectShaderInfo{drawCall.transforms[i], drawCall.material, bonesOffset};
 				}
 				if (!drawCall.culled) {
-					GPU::CmdDrawIndexed(data.contextGraphics, drawCall.indexCount, drawCall.indexStart, 0, drawCall.instanceCount, drawCall.instanceStart);
+					if (drawCall.opaque) {
+						GPU::CmdDrawIndexed(data.contextDepthPrepass, drawCall.indexCount, drawCall.indexStart, 0, drawCall.instanceCount, drawCall.instanceStart);
+					}
+					GPU::CmdDrawIndexed(data.contextMainRender, drawCall.indexCount, drawCall.indexStart, 0, drawCall.instanceCount, drawCall.instanceStart);
 				}
 				if (drawCall.castsShadows) {
 					GPU::CmdDrawIndexed(data.contextShadowMap, drawCall.indexCount, drawCall.indexStart, 0, drawCall.instanceCount, drawCall.instanceStart);
@@ -1412,9 +1495,10 @@ bool Manager::Draw() {
 		if (once) {
 			once = false;
 		} else {
-			waitSemaphores.Append(GPU::ContextGetPreviousSemaphore(data.contextGraphics, 1));
+			waitSemaphores.Append(GPU::ContextGetPreviousSemaphore(data.contextMainRender, 1));
 		}
-		if (auto result = GPU::SubmitCommands(data.contextTransfer, 1, waitSemaphores); result.isError) {
+		// Signal 2 semaphores, one for the shadow map, and the second for the depth prepass
+		if (auto result = GPU::SubmitCommands(data.contextTransfer, 2, waitSemaphores); result.isError) {
 			error = "Failed to submit transfer commands: " + result.error;
 			return false;
 		}
@@ -1447,22 +1531,35 @@ bool Manager::Draw() {
 
 	GPU::ContextEndRecording(data.contextShadowMap).AzUnwrap();
 
+	// Signal 1 semaphore for the main render
+	// Wait on 1st transfer semaphore
 	if (auto result = GPU::SubmitCommands(data.contextShadowMap, 1, {GPU::ContextGetCurrentSemaphore(data.contextTransfer)}); result.isError) {
 		error = "Failed to submit shadow map commands: " + result.error;
 		return false;
 	}
 
-	GPU::CmdFinishFramebuffer(data.contextGraphics);
-	GPU::CmdImageTransitionLayout(data.contextGraphics, data.rawImage, GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
-	GPU::CmdBindFramebuffer(data.contextGraphics, data.windowFramebuffer);
-	GPU::CmdBindPipeline(data.contextGraphics, data.pipelineCompositing);
-	GPU::CmdBindImageSampler(data.contextGraphics, data.rawImage, data.rawSampler, 0, 0);
-	GPU::CmdCommitBindings(data.contextGraphics).AzUnwrap();
-	GPU::CmdDraw(data.contextGraphics, 4, 0);
+	GPU::ContextEndRecording(data.contextDepthPrepass).AzUnwrap();
 
-	GPU::ContextEndRecording(data.contextGraphics).AzUnwrap();
+	// Signal 1 semaphore for the main render
+	// Wait on the 2nd transfer semaphore
+	if (auto result = GPU::SubmitCommands(data.contextDepthPrepass, 1, {GPU::ContextGetCurrentSemaphore(data.contextTransfer, 1)}); result.isError) {
+		error = "Failed to draw depth prepass: " + result.error;
+		return false;
+	}
 
-	if (auto result = GPU::SubmitCommands(data.contextGraphics, 2, {GPU::ContextGetCurrentSemaphore(data.contextShadowMap)}); result.isError) {
+	GPU::CmdFinishFramebuffer(data.contextMainRender);
+	GPU::CmdImageTransitionLayout(data.contextMainRender, data.rawImage, GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
+	GPU::CmdBindFramebuffer(data.contextMainRender, data.windowFramebuffer);
+	GPU::CmdBindPipeline(data.contextMainRender, data.pipelineCompositing);
+	GPU::CmdBindImageSampler(data.contextMainRender, data.rawImage, data.rawSampler, 0, 0);
+	GPU::CmdCommitBindings(data.contextMainRender).AzUnwrap();
+	GPU::CmdDraw(data.contextMainRender, 4, 0);
+
+	GPU::ContextEndRecording(data.contextMainRender).AzUnwrap();
+
+	// Signal 2 semaphores: one for present and the other for the next frame's data transfer
+	// Wait on the depth prepass and shadow map semaphores
+	if (auto result = GPU::SubmitCommands(data.contextMainRender, 2, {GPU::ContextGetCurrentSemaphore(data.contextDepthPrepass), GPU::ContextGetCurrentSemaphore(data.contextShadowMap)}); result.isError) {
 		error = "Failed to draw commands: " + result.error;
 		return false;
 	}
@@ -1471,7 +1568,7 @@ bool Manager::Draw() {
 
 bool Manager::Present() {
 	AZCORE_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::Present)
-	if (auto result = GPU::WindowPresent(data.window, {GPU::ContextGetCurrentSemaphore(data.contextGraphics)}); result.isError) {
+	if (auto result = GPU::WindowPresent(data.window, {GPU::ContextGetCurrentSemaphore(data.contextMainRender)}); result.isError) {
 		error = "Failed to present: " + result.error;
 		return false;
 	}
@@ -1612,8 +1709,7 @@ void DrawText(DrawingContext &context, Assets::FontIndex fontIndex, vec2 textOri
 	drawCallInfo.boundingSphereRadius = 0.0f;
 	drawCallInfo.pipeline = PIPELINE_FONT_3D;
 	drawCallInfo.material = material;
-	// treat text as transparent since the edges will do blending
-	drawCallInfo.opaque = false;
+	drawCallInfo.opaque = material.color.a >= 1.0f;
 	drawCallInfo.castsShadows = castsShadows;
 	drawCallInfo.culled = false;
 

@@ -176,19 +176,20 @@ bool Manager::Init() {
 	{ // Framebuffers
 		data.rawFramebuffer = GPU::NewFramebuffer(data.device, "raw");
 		data.depthImage = GPU::NewImage(data.device, "depthImage");
-		vec2i ssaaNumerator = vec2i(1);
-		vec2i ssaaDenominator = vec2i(1);
+		vec2i ssaaNumerator = vec2i(Settings::ReadInt(Settings::sSupersamplingNumerator));
+		vec2i ssaaDenominator = vec2i(Settings::ReadInt(Settings::sSupersamplingDenominator));
 		GPU::ImageSetFormat(data.depthImage, GPU::ImageBits::D32, GPU::ImageComponentType::SFLOAT);
 		GPU::ImageSetSizeToWindow(data.depthImage, data.window, ssaaNumerator, ssaaDenominator);
 		data.rawImage = GPU::NewImage(data.device, "rawImage");
 		GPU::ImageSetFormat(data.rawImage, GPU::ImageBits::R16G16B16A16, GPU::ImageComponentType::SFLOAT);
 		GPU::ImageSetSizeToWindow(data.rawImage, data.window, ssaaNumerator, ssaaDenominator);
 		GPU::ImageSetShaderUsage(data.rawImage, GPU::ShaderStage::FRAGMENT);
-		if (Settings::ReadBool(Settings::sMSAA)) {
+		i64 msaaSamples = Settings::ReadInt(Settings::sMultisamplingSamples);
+		if (msaaSamples > 1) {
 			data.msaaImage = GPU::NewImage(data.device, "msaaImage");
 			GPU::ImageSetFormat(data.msaaImage, GPU::ImageBits::R16G16B16A16, GPU::ImageComponentType::SFLOAT);
-			GPU::ImageSetSampleCount(data.msaaImage, 4);
-			GPU::ImageSetSampleCount(data.depthImage, 4);
+			GPU::ImageSetSampleCount(data.msaaImage, msaaSamples);
+			GPU::ImageSetSampleCount(data.depthImage, msaaSamples);
 			GPU::ImageSetSizeToWindow(data.msaaImage, data.window, ssaaNumerator, ssaaDenominator);
 			GPU::FramebufferAddImageMultisampled(data.rawFramebuffer, data.msaaImage, data.rawImage);
 		} else {

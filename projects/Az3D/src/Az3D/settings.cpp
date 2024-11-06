@@ -24,7 +24,9 @@ const char *Setting::typeStrings[5] = {
 
 Name sFullscreen = "fullscreen";
 Name sVSync = "vsync";
-Name sMSAA = "msaa";
+Name sMultisamplingSamples = "multisamplingSamples";
+Name sSupersamplingNumerator = "supersamplingNumerator";
+Name sSupersamplingDenominator = "supersamplingDenominator";
 Name sDebugInfo = "debugInfo";
 Name sFramerateLimitEnabled = "framerateLimitEnabled";
 Name sFramerateLimit = "framerateLimit";
@@ -37,7 +39,9 @@ Name sDebugLines = "debugLines";
 AStringMap<Setting> settings = {
 	{sFullscreen, Setting(false)},
 	{sVSync, Setting(true)},
-	{sMSAA, Setting(false)},
+	{sMultisamplingSamples, Setting((i64)4, (i64)1, (i64)64)},
+	{sSupersamplingNumerator, Setting(1, 1, INT64_MAX)},
+	{sSupersamplingDenominator, Setting(1, 1, INT64_MAX)},
 	{sDebugInfo, Setting(false)},
 	{sFramerateLimitEnabled, Setting(false)},
 	{sFramerateLimit, Setting(60.0, 30.0, 1000.0)},

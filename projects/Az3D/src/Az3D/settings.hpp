@@ -184,7 +184,9 @@ public:
 
 extern Name sFullscreen;
 extern Name sVSync;
-extern Name sMSAA;
+extern Name sMultisamplingSamples;
+extern Name sSupersamplingNumerator;
+extern Name sSupersamplingDenominator;
 extern Name sDebugInfo;
 extern Name sFramerateLimitEnabled;
 extern Name sFramerateLimit;

@@ -39,7 +39,7 @@ Name sDebugLines = "debugLines";
 AStringMap<Setting> settings = {
 	{sFullscreen, Setting(false)},
 	{sVSync, Setting(true)},
-	{sMultisamplingSamples, Setting((i64)4, (i64)1, (i64)64)},
+	{sMultisamplingSamples, Setting((i64)4, (i64)1, (i64)8)},
 	{sSupersamplingNumerator, Setting(1, 1, INT64_MAX)},
 	{sSupersamplingDenominator, Setting(1, 1, INT64_MAX)},
 	{sDebugInfo, Setting(false)},

@@ -145,6 +145,11 @@ public:
 			return def;
 		}
 	}
+	// Destructs the value in-place. AzAsserts that the value does, in fact, exist.
+	void Destroy() {
+		AzAssert(exists, "Optional value does not exist to be Destroyed.");
+		_Value().~T();
+	}
 };
 
 } // namespace AzCore

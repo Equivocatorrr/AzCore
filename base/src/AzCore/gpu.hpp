@@ -394,7 +394,15 @@ i64 BufferGetSize(Buffer *buffer);
 bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType componentType);
 
 // returns true if the size changed and you need to call ImageRecreate
-bool ImageSetSize(Image *image, i32 width, i32 height, u32 maxMipLevels=UINT32_MAX);
+bool ImageSetSize(Image *image, i32 width, i32 height);
+
+// returns true if the size changed and you need to call ImageRecreate
+// From this point on, if the window resizes, this image will also resize to match it.
+bool ImageSetSizeToWindow(Image *image, Window *window, vec2i sizeNumerator=vec2i(1), vec2i sizeDenominator=vec2i(1));
+
+// Stops a window from setting image size, as initiated by ImageSetSizeToWindow.
+// Included for completeness, prolly extremely niche.
+void ImageStopSettingSizeToWindow(Image *image);
 
 // returns true if the flag changed and you need to call ImageRecreate
 bool ImageSetMipmapping(Image *image, bool enableMipmapping, u32 maxLevels=UINT32_MAX);

@@ -638,13 +638,13 @@ String FormatSize(u64 size) {
 	return str;
 }
 
-#define CHECK_INIT(obj) AzAssert((obj)->initted == false, "Trying to init a " #obj " that's already initted")
-#define CHECK_DEINIT(obj) AzAssert((obj)->initted == true, "Trying to deinit a " #obj " that's not initted")
-#define TRACE_INIT(obj) io::cout.PrintLnDebug("Initializing ", TypeNameShort<decltype(*obj)>(), " \"", (obj)->tag, "\"");
-#define TRACE_DEINIT(obj) io::cout.PrintLnDebug("Deinitializing ", TypeNameShort<decltype(*obj)>(), " \"", (obj)->tag, "\"");
+#define CHECK_INIT(obj) AzAssert((obj)->header.initted == false, "Trying to init a " #obj " that's already initted")
+#define CHECK_DEINIT(obj) AzAssert((obj)->header.initted == true, "Trying to deinit a " #obj " that's not initted")
+#define TRACE_INIT(obj) io::cout.PrintLnDebug("Initializing ", TypeNameShort<decltype(*obj)>(), " \"", (obj)->header.tag, "\"");
+#define TRACE_DEINIT(obj) io::cout.PrintLnDebug("Deinitializing ", TypeNameShort<decltype(*obj)>(), " \"", (obj)->header.tag, "\"");
 
-#define ERROR_RESULT(obj, ...) Stringify(TypeNameShort<decltype(*(obj))>(), " \"", (obj)->tag, "\" error in ", __FUNCTION__, ":", Indent(), "\n", __VA_ARGS__)
-#define WARNING(obj, ...) io::cout.PrintLn(TypeNameShort<decltype(*(obj))>(), " \"", (obj)->tag, "\" warning in ", __FUNCTION__, ": ", __VA_ARGS__)
+#define ERROR_RESULT(obj, ...) Stringify(TypeNameShort<decltype(*(obj))>(), " \"", (obj)->header.tag, "\" error in ", __FUNCTION__, ":", Indent(), "\n", __VA_ARGS__)
+#define WARNING(obj, ...) io::cout.PrintLn(TypeNameShort<decltype(*(obj))>(), " \"", (obj)->header.tag, "\" warning in ", __FUNCTION__, ": ", __VA_ARGS__)
 
 #define INIT_HEAD(obj) CHECK_INIT(obj); TRACE_INIT(obj)
 #define DEINIT_HEAD(obj) CHECK_DEINIT(obj); TRACE_DEINIT(obj)
@@ -773,67 +773,79 @@ struct Binding {
 template <typename T>
 using List = Array<UniquePtr<T>>;
 
-struct Fence {
-	VkFence vkFence;
-
+struct Header {
 	Device *device;
 	String tag;
+	u64 timestamp;
 	bool initted = false;
 
+	Header() = default;
+	Header(Device *_device, String _tag): device(_device), tag(_tag) {}
+	// Generates a timestamp and sets initted to true
+	void OnInit() {
+		timestamp = GetTimestamp();
+		initted = true;
+	}
+};
+
+struct Fence {
+	Header header;
+	struct {
+		VkFence fence;
+	} vk;
+
 	Fence() = default;
-	Fence(Device *_device, String _tag) : device(_device), tag(_tag) {}
+	Fence(Device *_device, String _tag) : header(_device, _tag) {}
 };
 
 struct Semaphore {
-	VkSemaphore vkSemaphore;
-
-	Device *device;
-	String tag;
-	bool initted = false;
+	Header header;
+	struct {
+		VkSemaphore semaphore;
+	} vk;
 
 	Semaphore() = default;
-	Semaphore(Device *_device, String _tag) : device(_device), tag(_tag) {}
+	Semaphore(Device *_device, String _tag): header(_device, _tag) {}
 };
 
 struct Window {
-	bool vsync = false;
-	bool attachment = true;
-	bool transferDst = false;
-
-	bool shouldReconfigure = false;
-
-	io::Window *window;
-
-	Framebuffer *framebuffer = nullptr;
-
-	VkSurfaceCapabilitiesKHR surfaceCaps;
-	Array<VkSurfaceFormatKHR> surfaceFormatsAvailable;
-	Array<VkPresentModeKHR> presentModesAvailable;
-	VkSurfaceFormatKHR surfaceFormat;
-	VkPresentModeKHR presentMode;
-	VkExtent2D extent;
-	i32 numImages;
 	struct SwapchainImage {
-		VkImage vkImage;
-		VkImageView vkImageView;
+		VkImage image;
+		VkImageView imageView;
 	};
-	Array<SwapchainImage> swapchainImages;
-	Array<Fence> acquireFences;
-	Array<Semaphore> acquireSemaphores;
-	// We get this one from vkAcquireNextImageKHR
-	i32 currentImage;
-	// We increment this one ourselves
-	i32 currentSync;
-
-	VkSurfaceKHR vkSurface;
-	VkSwapchainKHR vkSwapchain;
-
-	Device *device;
-	String tag;
-	bool initted = false;
+	Header header;
+	struct {
+		io::Window *window;
+		bool vsync = false;
+		bool attachment = true;
+		bool transferDst = false;
+	} config;
+	struct {
+		bool shouldReconfigure = false;
+		Framebuffer *framebuffer = nullptr;
+		Array<Image*> imagesWithSizeMatching;
+		Array<Fence> acquireFences;
+		Array<Semaphore> acquireSemaphores;
+		// We get this one from vkAcquireNextImageKHR
+		i32 currentImage;
+		// We increment this one ourselves
+		i32 currentSync;
+		VkExtent2D extent;
+	} state;
+	struct {
+		VkSurfaceCapabilitiesKHR surfaceCaps;
+		Array<VkSurfaceFormatKHR> surfaceFormatsAvailable;
+		Array<VkPresentModeKHR> presentModesAvailable;
+		VkSurfaceFormatKHR surfaceFormat;
+		VkPresentModeKHR presentMode;
+		i32 numImages;
+		Array<SwapchainImage> swapchainImages;
+		VkSurfaceKHR surface;
+		VkSwapchainKHR swapchain;
+	} vk;
 
 	Window() = default;
-	Window(io::Window *_window, String _tag) : window(_window), tag(_tag) {}
+	Window(io::Window *_window, String _tag) : header(nullptr, _tag) { config.window = _window; }
 };
 
 struct PhysicalDevice {
@@ -911,16 +923,15 @@ struct Memory {
 		};
 		Array<Segment> segments;
 	};
+	Header header;
 	Array<Page> pages;
 	// 64MiB sounds reasonable right?
 	u32 pageSizeMin = 1024*1024*64;
 
 	u32 memoryTypeIndex;
-	Device *device = nullptr;
-	String tag;
 
 	Memory() = default;
-	Memory(Device *_device, u32 _memoryTypeIndex, String _tag=Str()) : memoryTypeIndex(_memoryTypeIndex), device(_device), tag(_tag) {}
+	Memory(Device *_device, u32 _memoryTypeIndex, String _tag=Str()) : header(_device, _tag), memoryTypeIndex(_memoryTypeIndex) {}
 };
 
 struct Allocation {
@@ -997,6 +1008,10 @@ struct DescriptorSet {
 };
 
 struct Device {
+	struct {
+		String tag;
+		bool initted = false;
+	} header;
 	List<Context> contexts;
 	List<Shader> shaders;
 	List<Pipeline> pipelines;
@@ -1007,8 +1022,6 @@ struct Device {
 	List<DescriptorSet> descriptorSets;
 	// Map from memoryType to Memory
 	HashMap<u32, Memory> memory;
-	HashMap<DescriptorSetLayout, VkDescriptorSetLayout> vkDescriptorSetLayouts;
-	HashMap<DescriptorBindings, DescriptorSet*> descriptorSetsMap;
 
 	// These are all objects that get held for one frame upon recreation to allow pipelining to keep working.
 	// We'll track which context frames depend on these and clean them up once all dependencies are cleared.
@@ -1020,22 +1033,21 @@ struct Device {
 		List<Framebuffer> framebuffers;
 	} holdovers;
 
-	Ptr<PhysicalDevice> physicalDevice;
-
-	VkPhysicalDeviceFeatures2 vk10Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-	VkPhysicalDeviceVulkan11Features vk11Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
-	VkPhysicalDeviceVulkan12Features vk12Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
-	VkPhysicalDeviceVulkan13Features vk13Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
-
-	VkDevice vkDevice;
-	VkQueue vkQueue;
-	i32 queueFamilyIndex;
-
-	String tag;
-	bool initted = false;
+	struct {
+		Ptr<PhysicalDevice> physicalDevice;
+		VkPhysicalDeviceFeatures2 vk10Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+		VkPhysicalDeviceVulkan11Features vk11Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
+		VkPhysicalDeviceVulkan12Features vk12Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+		VkPhysicalDeviceVulkan13Features vk13Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+		VkDevice device;
+		VkQueue queue;
+		i32 queueFamilyIndex;
+		HashMap<DescriptorSetLayout, VkDescriptorSetLayout> descriptorSetLayouts;
+		HashMap<DescriptorBindings, DescriptorSet*> descriptorSetsMap;
+	} vk;
 
 	Device() = default;
-	Device(String _tag) : tag(_tag) {}
+	Device(String _tag) : header{_tag} {}
 };
 
 struct BoundDescriptorSet {
@@ -1043,48 +1055,48 @@ struct BoundDescriptorSet {
 	VkDescriptorSet set;
 };
 
-struct ContextFrame {
-	VkCommandBuffer vkCommandBuffer;
-	Fence fence;
-	Array<Semaphore> semaphores;
-	ArrayWithBucket<BoundDescriptorSet, 4> descriptorSetsBound;
-};
-
 struct Context {
-	VkCommandPool vkCommandPool;
-	Array<ContextFrame> frames;
-
+	struct Frame {
+		VkCommandBuffer vkCommandBuffer;
+		Fence fence;
+		Array<Semaphore> semaphores;
+		ArrayWithBucket<BoundDescriptorSet, 4> descriptorSetsBound;
+	};
+	Header header;
 	struct {
-		Framebuffer *framebuffer = nullptr;
-		Pipeline *pipeline = nullptr;
-		Buffer *vertexBuffer = nullptr;
-		Buffer *indexBuffer = nullptr;
-		BinaryMap<DescriptorIndex, Binding> descriptors;
-		bool descriptorsCleared = false;
-	} bindings;
-	Array<Binding> bindCommands;
-
-	enum class State {
+		VkCommandPool commandPool;
+		Array<Frame> frames;
+	} vk;
+	enum class Stage {
 		NOT_RECORDING = 0,
 		DONE_RECORDING = 1,
 		RECORDING_PRIMARY = 2,
 		RECORDING_SECONDARY = 3,
-	} state = State::NOT_RECORDING;
-	i32 numFrames = 3;
-	i32 currentFrame = 0;
-	// Ticks up every time we go back to frame 0
-	i32 generation = 0;
+	};
+	struct {
+		struct {
+			Framebuffer *framebuffer = nullptr;
+			Pipeline *pipeline = nullptr;
+			Buffer *vertexBuffer = nullptr;
+			Buffer *indexBuffer = nullptr;
+			BinaryMap<DescriptorIndex, Binding> descriptors;
+			bool descriptorsCleared = false;
+		} bindings;
+		Array<Binding> bindCommands;
 
-	Device *device;
-	String tag;
-	bool initted = false;
+		Stage stage = Stage::NOT_RECORDING;
+		i32 numFrames = 3;
+		i32 currentFrame = 0;
+		// Ticks up every time we go back to frame 0
+		i32 generation = 0;
+	} state;
 
 	Context() = default;
-	Context(Device *_device, String _tag) : device(_device), tag(_tag) {}
+	Context(Device *_device, String _tag): header(_device, _tag) {}
 };
 
 inline bool ContextIsRecording(Context *context) {
-	return (u32)context->state >= (u32)Context::State::RECORDING_PRIMARY;
+	return (u32)context->state.stage >= (u32)Context::Stage::RECORDING_PRIMARY;
 }
 
 // To determine when objects are being used by contexts in-flight, objects keep track of context frames they're used in. This allows us to smartly recreate objects on the fly without destroying the version in use.
@@ -1095,29 +1107,25 @@ struct DependentContext {
 };
 
 struct Shader {
-	String filename;
-	ShaderStage stage;
-
+	Header header;
+	struct {
+		String filename;
+		ShaderStage stage;
+	} config;
 	// TODO: Specialization constants
-
-	VkShaderModule vkShaderModule;
-
-	Device *device;
-	String tag; // defaults to filename if not given
-	bool initted = false;
+	struct {
+		VkShaderModule shaderModule;
+	} vk;
 
 	Shader() = default;
-	Shader(Device *_device, String _filename, ShaderStage _stage, String _tag) : filename(_filename), stage(_stage), device(_device), tag(_tag) {}
+	Shader(Device *_device, String _filename, ShaderStage _stage, String _tag) : header(_device, _tag), config{_filename, _stage} {}
 };
 
 struct Pipeline {
-	Array<Shader*> shaders;
-	ArrayWithBucket<ShaderValueType, 8> vertexInputs;
-
-	Topology topology = Topology::TRIANGLE_LIST;
-
-	CullingMode cullingMode = CullingMode::NONE;
-	Winding winding = Winding::COUNTER_CLOCKWISE;
+	enum Kind {
+		GRAPHICS,
+		COMPUTE,
+	};
 	// depthBias is calculated as (constant + slope*m) where m can either be sqrt(dFdx(z)^2 + dFdy(z)^2) or fwidth(z) depending on the implementation.
 	// for clampValue > 0, depthBias = min(depthBias, clampValue)
 	// for clampValue < 0, depthBias = max(depthBias, clampValue)
@@ -1129,49 +1137,53 @@ struct Pipeline {
 		f32 constant = 0.0f;
 		f32 slope = 0.0f;
 		f32 clampValue = 0.0f;
-	} depthBias;
-	f32 lineWidth = 1.0f;
-
-	// DEFAULT means true if we have a depth buffer, else false
-	BoolOrDefault depthTest = BoolOrDefault::DEFAULT;
-	BoolOrDefault depthWrite = BoolOrDefault::DEFAULT;
-	CompareOp depthCompareOp = CompareOp::LESS;
-
-	// One for each possible color attachment
-	BlendMode blendModes[8];
-
-	struct {
-		bool enabled = false;
-		f32 minFraction = 1.0f;
-	} multisampleShading;
-
-	Array<VkPushConstantRange> pushConstantRanges;
-
-	enum Kind {
-		GRAPHICS,
-		COMPUTE,
-	} kind=GRAPHICS;
-
-	// Keep track of current layout properties so we don't have to recreate everything all the time
-	VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo{};
-	VkPipelineLayout vkPipelineLayout = VK_NULL_HANDLE;
-	VkPipeline vkPipeline = VK_NULL_HANDLE;
-	// Used only to check if framebuffer changed
-	struct {
-		u32 sampleCount = 1;
-		bool framebufferHasDepthBuffer = false;
-		i32 numColorAttachments = 0;
 	};
+	Header header;
+	struct {
+		Array<Shader*> shaders;
+		ArrayWithBucket<ShaderValueType, 8> vertexInputs;
 
-	ArrayWithBucket<DependentContext, 4> dependentContexts;
+		Topology topology = Topology::TRIANGLE_LIST;
 
-	Device *device;
-	String tag;
-	bool initted = false;
-	bool dirty = true;
+		CullingMode cullingMode = CullingMode::NONE;
+		Winding winding = Winding::COUNTER_CLOCKWISE;
+		DepthBias depthBias;
+		f32 lineWidth = 1.0f;
+
+		// DEFAULT means true if we have a depth buffer, else false
+		BoolOrDefault depthTest = BoolOrDefault::DEFAULT;
+		BoolOrDefault depthWrite = BoolOrDefault::DEFAULT;
+		CompareOp depthCompareOp = CompareOp::LESS;
+
+		// One for each possible color attachment
+		BlendMode blendModes[8];
+
+		struct {
+			bool enabled = false;
+			f32 minFraction = 1.0f;
+		} multisampleShading;
+		Kind kind=GRAPHICS;
+	} config;
+	struct {
+		Array<VkPushConstantRange> pushConstantRanges;
+		// Keep track of current layout properties so we don't have to recreate everything all the time
+		VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
+		VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+		VkPipeline pipeline = VK_NULL_HANDLE;
+	} vk;
+	struct {
+		// Used only to check if framebuffer changed
+		struct {
+			u32 sampleCount = 1;
+			bool framebufferHasDepthBuffer = false;
+			i32 numColorAttachments = 0;
+		};
+		ArrayWithBucket<DependentContext, 4> dependentContexts;
+		bool dirty = true;
+	} state;
 
 	Pipeline() = default;
-	Pipeline(Device *_device, Kind _kind, String _tag) : kind(_kind), device(_device), tag(_tag) {}
+	Pipeline(Device *_device, Kind _kind, String _tag) : header(_device, _tag) { config.kind = _kind; }
 };
 
 struct Buffer {
@@ -1181,102 +1193,108 @@ struct Buffer {
 		INDEX_BUFFER,
 		STORAGE_BUFFER,
 		UNIFORM_BUFFER,
-	} kind=UNDEFINED;
-
-	ShaderStage shaderStages = 0;
-
-	i64 size = 0;
-
-	// Used only for index buffers
-	VkIndexType indexType = VK_INDEX_TYPE_UINT16;
-
-	VkBuffer vkBuffer;
-	VkBuffer vkBufferHostVisible;
-	VkMemoryRequirements memoryRequirements;
-	Allocation alloc;
-	Allocation allocHostVisible;
-
-	ArrayWithBucket<DependentContext, 4> dependentContexts;
-
-	// Used to determine when to update descriptors
-	u64 timestamp;
-	Device *device;
-	String tag;
-	bool initted = false;
-	// Whether our host-visible buffer is active
-	bool hostVisible = false;
+	};
+	Header header;
+	struct {
+		Kind kind=UNDEFINED;
+		ShaderStage shaderStages = 0;
+		i64 size = 0;
+		// Used only for index buffers
+		VkIndexType indexType = VK_INDEX_TYPE_UINT16;
+	} config;
+	struct {
+		VkBuffer buffer;
+		VkBuffer bufferHostVisible;
+		VkMemoryRequirements memoryRequirements;
+		Allocation alloc;
+		Allocation allocHostVisible;
+	} vk;
+	struct {
+		ArrayWithBucket<DependentContext, 4> dependentContexts;
+		// Whether our host-visible buffer is active
+		bool hostVisible = false;
+	} state;
 
 	Buffer() = default;
-	Buffer(Kind _kind, Device *_device, String _tag) : kind(_kind), device(_device), tag(_tag) {}
+	Buffer(Kind _kind, Device *_device, String _tag) : header(_device, _tag) { config.kind = _kind; }
 };
 
 struct Image {
-	// Usage flags
-	ShaderStage shaderStages = 0;
-	bool attachment = false;
-	bool transferSrc = false;
-	bool transferDst = true;
-	bool mipmapped = false;
+	struct WindowSizeTracking {
+		Window *window;
+		vec2i numerator;
+		vec2i denominator;
+	};
+	Header header;
+	struct {
+		// Usage flags
+		ShaderStage shaderStages = 0;
+		bool attachment = false;
+		bool transferSrc = false;
+		bool transferDst = true;
+		bool mipmapped = false;
 
-	i32 width=1, height=1;
-	i32 bytesPerPixel=4;
+		i32 width=1, height=1;
+		i32 bytesPerPixel=4;
 
-	u32 mipLevels = 1;
-	u32 sampleCount = 1;
-
-	VkImage vkImage;
-	VkImageView vkImageView;
-	VkImageView vkImageViewAttachment;
-	VkBuffer vkBufferHostVisible;
-	VkFormat vkFormat = VK_FORMAT_R8G8B8A8_UNORM;
-	VkImageAspectFlags vkImageAspect = VK_IMAGE_ASPECT_COLOR_BIT;
-	VkMemoryRequirements memoryRequirements;
-	VkMemoryRequirements memoryRequirementsHost;
-	Allocation alloc;
-	Allocation allocHostVisible;
-
-	ArrayWithBucket<DependentContext, 4> dependentContexts;
-
-	// Used to determine when to update descriptors
-	u64 timestamp;
-	Device *device;
-	String tag;
-	bool initted = false;
-	// Whether our host-visible buffer is active
-	bool hostVisible = false;
+		u32 mipLevels = 1;
+		u32 mipLevelsMax = UINT32_MAX;
+		u32 sampleCount = 1;
+		// If we're beholden to a Window's size, our size will be window->state.extent * numerator / denominator.
+		// We can use whether this value Exists() to determine if we already follow a Window's size.
+		Optional<WindowSizeTracking> windowSizeTracking;
+	} config;
+	struct {
+		VkImage image;
+		VkImageView imageView;
+		VkImageView imageViewAttachment;
+		VkBuffer bufferHostVisible;
+		VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
+		VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT;
+		VkMemoryRequirements memoryRequirements;
+		VkMemoryRequirements memoryRequirementsHost;
+		Allocation alloc;
+		Allocation allocHostVisible;
+	} vk;
+	struct {
+		ArrayWithBucket<DependentContext, 4> dependentContexts;
+		// Whether our host-visible buffer is active
+		bool hostVisible = false;
+	} state;
 
 	Image() = default;
-	Image(Device *_device, String _tag) : device(_device), tag(_tag) {}
+	Image(Device *_device, String _tag): header(_device, _tag) {}
 };
 
 struct Sampler {
-	Filter magFilter = Filter::LINEAR;
-	Filter minFilter = Filter::LINEAR;
-	bool mipmapInterpolation = false;
-	AddressMode addressModeU = AddressMode::CLAMP_TO_BORDER;
-	AddressMode addressModeV = AddressMode::CLAMP_TO_BORDER;
-	AddressMode addressModeW = AddressMode::CLAMP_TO_BORDER;
-	f32 lodMin = 0.0f;
-	f32 lodMax = VK_LOD_CLAMP_NONE;
-	f32 lodBias = 0.0f;
-	i32 anisotropy = 1;
-	// Used for shadow maps
+	Header header;
 	struct {
-		bool enable = false;
-		CompareOp op = CompareOp::ALWAYS_TRUE;
-	} compare;
-	VkBorderColor borderColor=VK_BORDER_COLOR_INT_TRANSPARENT_BLACK;
-
-	VkSampler vkSampler;
-
-	ArrayWithBucket<DependentContext, 4> dependentContexts;
-
-	Device *device;
-	String tag;
-	bool initted = false;
+		Filter magFilter = Filter::LINEAR;
+		Filter minFilter = Filter::LINEAR;
+		bool mipmapInterpolation = false;
+		AddressMode addressModeU = AddressMode::CLAMP_TO_BORDER;
+		AddressMode addressModeV = AddressMode::CLAMP_TO_BORDER;
+		AddressMode addressModeW = AddressMode::CLAMP_TO_BORDER;
+		f32 lodMin = 0.0f;
+		f32 lodMax = VK_LOD_CLAMP_NONE;
+		f32 lodBias = 0.0f;
+		i32 anisotropy = 1;
+		// Used for shadow maps
+		struct {
+			bool enable = false;
+			CompareOp op = CompareOp::ALWAYS_TRUE;
+		} compare;
+		VkBorderColor borderColor=VK_BORDER_COLOR_INT_TRANSPARENT_BLACK;
+	} config;
+	struct {
+		VkSampler sampler;
+	} vk;
+	struct {
+		ArrayWithBucket<DependentContext, 4> dependentContexts;
+	} state;
 
 	Sampler() = default;
-	Sampler(Device *_device, String _tag) : device(_device), tag(_tag) {}
+	Sampler(Device *_device, String _tag): header(_device, _tag) {}
 };
 
 struct Attachment {
@@ -1308,26 +1326,27 @@ struct AttachmentRef {
 };
 
 struct Framebuffer {
-	Array<AttachmentRef> attachmentRefs;
-	// Used to determine whether we need to recreate renderpass
-	bool attachmentsDirty = false;
+	Header header;
+	struct {
+		Array<AttachmentRef> attachmentRefs;
+	} config;
+	struct {
+		// If we have a WINDOW attachment, this will match the number of swapchain images, else it will just be size 1
+		Array<VkFramebuffer> framebuffers;
+		VkRenderPass renderPass;
+	} vk;
+	struct {
+		// Used to determine whether we need to recreate renderpass
+		bool attachmentsDirty = false;
+		// width and height will be set automagically, just used for easy access
+		i32 width, height;
+		u32 sampleCount = 1;
 
-	// If we have a WINDOW attachment, this will match the number of swapchain images, else it will just be size 1
-	Array<VkFramebuffer> vkFramebuffers;
-	VkRenderPass vkRenderPass;
-
-	// width and height will be set automagically, just used for easy access
-	i32 width, height;
-	u32 sampleCount = 1;
-
-	ArrayWithBucket<DependentContext, 4> dependentContexts;
-
-	Device *device;
-	String tag;
-	bool initted = false;
+		ArrayWithBucket<DependentContext, 4> dependentContexts;
+	} state;
 
 	Framebuffer() = default;
-	Framebuffer(Device *_device, String _tag) : device(_device), tag(_tag) {}
+	Framebuffer(Device *_device, String _tag): header(_device, _tag) {}
 };
 
 Instance instance;
@@ -1337,7 +1356,7 @@ List<Window> windows;
 
 DescriptorBinding::DescriptorBinding(const ArrayWithBucket<Buffer*, 8> buffers) : objects(buffers.size) {
 	AzAssert(buffers.size > 0, "Cannot create a DescriptorBinding with zero descriptors");
-	switch (buffers[0]->kind) {
+	switch (buffers[0]->config.kind) {
 	case Buffer::UNIFORM_BUFFER:
 		kind = UNIFORM_BUFFER;
 		break;
@@ -1345,7 +1364,7 @@ DescriptorBinding::DescriptorBinding(const ArrayWithBucket<Buffer*, 8> buffers) 
 		kind = STORAGE_BUFFER;
 		break;
 	default:
-		AzAssert(false, Stringify("Invalid buffer type for descriptor: ", (u32)buffers[0]->kind));
+		AzAssert(false, Stringify("Invalid buffer type for descriptor: ", (u32)buffers[0]->config.kind));
 		break;
 	}
 	memcpy(objects.data, buffers.data, buffers.size * sizeof(void*));
@@ -1402,7 +1421,7 @@ static void SetDebugMarker(Device *device, const String &debugMarker, VkObjectTy
 		nameInfo.objectType = objectType;
 		nameInfo.objectHandle = objectHandle;
 		nameInfo.pObjectName = debugMarker.data;
-		instance.fpSetDebugUtilsObjectNameEXT(device->vkDevice, &nameInfo);
+		instance.fpSetDebugUtilsObjectNameEXT(device->vk.device, &nameInfo);
 	}
 }
 
@@ -1474,7 +1493,7 @@ void FramebufferDeinit(Framebuffer *framebuffer);
 static void CleanupDependentContexts(Context *context, ArrayWithBucket<DependentContext, 4> &dependentContexts) {
 	for (i32 i = 0; i < dependentContexts.size; i++) {
 		DependentContext &dep = dependentContexts[i];
-		if (dep.context == context && dep.frame == context->currentFrame && dep.generation < context->generation) {
+		if (dep.context == context && dep.frame == context->state.currentFrame && dep.generation < context->state.generation) {
 			dependentContexts.Erase(i);
 			i--;
 		}
@@ -1486,9 +1505,9 @@ static void CleanupDependentContexts(ArrayWithBucket<DependentContext, 4> &depen
 	for (i32 i = 0; i < dependentContexts.size; i++) {
 		DependentContext &dep = dependentContexts[i];
 		// Newer generation of equal or greater frame means it's definitely completed
-		if ((dep.generation < dep.context->generation && dep.frame <= dep.context->currentFrame)
+		if ((dep.generation < dep.context->state.generation && dep.frame <= dep.context->state.currentFrame)
 		// Same generation of greater frame means we need to check if it's completed
-		|| (dep.generation == dep.context->generation && dep.frame < dep.context->currentFrame && VK_SUCCESS == FenceGetStatus(&dep.context->frames[dep.context->currentFrame].fence))) {
+		|| (dep.generation == dep.context->state.generation && dep.frame < dep.context->state.currentFrame && VK_SUCCESS == FenceGetStatus(&dep.context->vk.frames[dep.context->state.currentFrame].fence))) {
 			dependentContexts.Erase(i);
 			i--;
 		}
@@ -1496,11 +1515,11 @@ static void CleanupDependentContexts(ArrayWithBucket<DependentContext, 4> &depen
 }
 
 static void CleanupObjectsBeholdenToContext(Context *context) {
-	Device *device = context->device;
+	Device *device = context->header.device;
 	for (i32 i = 0; i < device->holdovers.pipelines.size; i++) {
 		Pipeline *pipeline = device->holdovers.pipelines[i].RawPtr();
-		CleanupDependentContexts(context, pipeline->dependentContexts);
-		if (pipeline->dependentContexts.size == 0) {
+		CleanupDependentContexts(context, pipeline->state.dependentContexts);
+		if (pipeline->state.dependentContexts.size == 0) {
 			PipelineDeinit(pipeline);
 			device->holdovers.pipelines.Erase(i);
 			i--;
@@ -1508,8 +1527,8 @@ static void CleanupObjectsBeholdenToContext(Context *context) {
 	}
 	for (i32 i = 0; i < device->holdovers.framebuffers.size; i++) {
 		Framebuffer *framebuffer = device->holdovers.framebuffers[i].RawPtr();
-		CleanupDependentContexts(context, framebuffer->dependentContexts);
-		if (framebuffer->dependentContexts.size == 0) {
+		CleanupDependentContexts(context, framebuffer->state.dependentContexts);
+		if (framebuffer->state.dependentContexts.size == 0) {
 			FramebufferDeinit(framebuffer);
 			device->holdovers.framebuffers.Erase(i);
 			i--;
@@ -1517,8 +1536,8 @@ static void CleanupObjectsBeholdenToContext(Context *context) {
 	}
 	for (i32 i = 0; i < device->holdovers.buffers.size; i++) {
 		Buffer *buffer = device->holdovers.buffers[i].RawPtr();
-		CleanupDependentContexts(context, buffer->dependentContexts);
-		if (buffer->dependentContexts.size == 0) {
+		CleanupDependentContexts(context, buffer->state.dependentContexts);
+		if (buffer->state.dependentContexts.size == 0) {
 			BufferDeinit(buffer);
 			device->holdovers.buffers.Erase(i);
 			i--;
@@ -1526,8 +1545,8 @@ static void CleanupObjectsBeholdenToContext(Context *context) {
 	}
 	for (i32 i = 0; i < device->holdovers.images.size; i++) {
 		Image *image = device->holdovers.images[i].RawPtr();
-		CleanupDependentContexts(context, image->dependentContexts);
-		if (image->dependentContexts.size == 0) {
+		CleanupDependentContexts(context, image->state.dependentContexts);
+		if (image->state.dependentContexts.size == 0) {
 			ImageDeinit(image);
 			device->holdovers.images.Erase(i);
 			i--;
@@ -1535,8 +1554,8 @@ static void CleanupObjectsBeholdenToContext(Context *context) {
 	}
 	for (i32 i = 0; i < device->holdovers.samplers.size; i++) {
 		Sampler *sampler = device->holdovers.samplers[i].RawPtr();
-		CleanupDependentContexts(context, sampler->dependentContexts);
-		if (sampler->dependentContexts.size == 0) {
+		CleanupDependentContexts(context, sampler->state.dependentContexts);
+		if (sampler->state.dependentContexts.size == 0) {
 			SamplerDeinit(sampler);
 			device->holdovers.samplers.Erase(i);
 			i--;
@@ -1549,21 +1568,39 @@ static void CleanupObjectsBeholdenToContext(Context *context) {
 
 // Moves the resources to the holdover buffer and sets src to uninitted
 static Image* MakeHoldover(Image *src) {
-	Image *result = new Image(std::move(*src));
-	src->initted = false;
-	src->hostVisible = false;
-	src->tag = result->tag;
-	src->device->holdovers.images.Append(result);
+	Image *result = new Image();
+	result->header = src->header;
+	result->config = src->config;
+	result->vk = std::move(src->vk);
+	result->state = std::move(src->state);
+	src->header.initted = false;
+	src->state.hostVisible = false;
+	src->header.device->holdovers.images.Append(result);
 	return result;
 }
 
 // Moves the resources to the holdover buffer and sets src to uninitted
 static Buffer* MakeHoldover(Buffer *src) {
-	Buffer *result = new Buffer(std::move(*src));
-	src->initted = false;
-	src->hostVisible = false;
-	src->tag = result->tag;
-	src->device->holdovers.buffers.Append(result);
+	Buffer *result = new Buffer();
+	result->header = src->header;
+	result->config = src->config;
+	result->vk = std::move(src->vk);
+	result->state = std::move(src->state);
+	src->header.initted = false;
+	src->state.hostVisible = false;
+	src->header.device->holdovers.buffers.Append(result);
+	return result;
+}
+
+// Moves the resources to the holdover buffer and sets src to uninitted
+static Framebuffer* MakeHoldover(Framebuffer *src) {
+	Framebuffer *result = new Framebuffer();
+	result->header = src->header;
+	result->config = src->config;
+	result->vk = std::move(src->vk);
+	result->state = std::move(src->state);
+	src->header.initted = false;
+	src->header.device->holdovers.framebuffers.Append(result);
 	return result;
 }
 
@@ -1723,33 +1760,33 @@ Result<VoidResult_t, String> FenceInit(Fence *fence, bool startSignaled) {
 	if (startSignaled) {
 		createInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 	}
-	if (VkResult result = vkCreateFence(fence->device->vkDevice, &createInfo, nullptr, &fence->vkFence); result != VK_SUCCESS) {
+	if (VkResult result = vkCreateFence(fence->header.device->vk.device, &createInfo, nullptr, &fence->vk.fence); result != VK_SUCCESS) {
 		return ERROR_RESULT(fence, "Failed to create Fence: ", VkResultString(result));
 	}
-	SetDebugMarker(fence->device, fence->tag, VK_OBJECT_TYPE_FENCE, (u64)fence->vkFence);
-	fence->initted = true;
+	SetDebugMarker(fence->header.device, fence->header.tag, VK_OBJECT_TYPE_FENCE, (u64)fence->vk.fence);
+	fence->header.OnInit();
 	return VoidResult_t();
 }
 
 void FenceDeinit(Fence *fence) {
 	DEINIT_HEAD(fence);
-	vkDestroyFence(fence->device->vkDevice, fence->vkFence, nullptr);
-	fence->initted = false;
+	vkDestroyFence(fence->header.device->vk.device, fence->vk.fence, nullptr);
+	fence->header.initted = false;
 }
 
 VkResult FenceGetStatus(Fence *fence) {
-	return vkGetFenceStatus(fence->device->vkDevice, fence->vkFence);
+	return vkGetFenceStatus(fence->header.device->vk.device, fence->vk.fence);
 }
 
 Result<VoidResult_t, String> FenceResetSignaled(Fence *fence) {
-	if (VkResult result = vkResetFences(fence->device->vkDevice, 1, &fence->vkFence); result != VK_SUCCESS) {
+	if (VkResult result = vkResetFences(fence->header.device->vk.device, 1, &fence->vk.fence); result != VK_SUCCESS) {
 		return ERROR_RESULT(fence, "vkResetFences failed with ", VkResultString(result));
 	}
 	return VoidResult_t();
 }
 
 Result<VoidResult_t, String> FenceWaitForSignal(Fence *fence, u64 timeout, bool *dstWasTimeout) {
-	VkResult result = vkWaitForFences(fence->device->vkDevice, 1, &fence->vkFence, VK_TRUE, timeout);
+	VkResult result = vkWaitForFences(fence->header.device->vk.device, 1, &fence->vk.fence, VK_TRUE, timeout);
 	bool wasTimeout;
 	if (result == VK_SUCCESS) {
 		wasTimeout = false;
@@ -1767,18 +1804,18 @@ Result<VoidResult_t, String> FenceWaitForSignal(Fence *fence, u64 timeout, bool 
 Result<VoidResult_t, String> SemaphoreInit(Semaphore *semaphore) {
 	INIT_HEAD(semaphore);
 	VkSemaphoreCreateInfo createInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-	if (VkResult result = vkCreateSemaphore(semaphore->device->vkDevice, &createInfo, nullptr, &semaphore->vkSemaphore); result != VK_SUCCESS) {
+	if (VkResult result = vkCreateSemaphore(semaphore->header.device->vk.device, &createInfo, nullptr, &semaphore->vk.semaphore); result != VK_SUCCESS) {
 		return ERROR_RESULT(semaphore, "Failed to create semaphore: ", VkResultString(result));
 	}
-	SetDebugMarker(semaphore->device, semaphore->tag, VK_OBJECT_TYPE_SEMAPHORE, (u64)semaphore->vkSemaphore);
-	semaphore->initted = true;
+	SetDebugMarker(semaphore->header.device, semaphore->header.tag, VK_OBJECT_TYPE_SEMAPHORE, (u64)semaphore->vk.semaphore);
+	semaphore->header.OnInit();
 	return VoidResult_t();
 }
 
 void SemaphoreDeinit(Semaphore *semaphore) {
 	DEINIT_HEAD(semaphore);
-	vkDestroySemaphore(semaphore->device->vkDevice, semaphore->vkSemaphore, nullptr);
-	semaphore->initted = false;
+	vkDestroySemaphore(semaphore->header.device->vk.device, semaphore->vk.semaphore, nullptr);
+	semaphore->header.initted = false;
 }
 
 #endif
@@ -1787,6 +1824,8 @@ void SemaphoreDeinit(Semaphore *semaphore) {
 
 Result<Window*, String> AddWindow(io::Window *window, String tag) {
 	Window *result = windows.Append(new Window(window, tag)).RawPtr();
+	result->state.extent.width = window->width;
+	result->state.extent.height = window->height;
 	if (windows.size == 1 && instance.initted) {
 		// To add window surface extensions
 		Deinitialize();
@@ -1813,61 +1852,61 @@ static bool FormatIsDepth(VkFormat format) {
 }
 
 void FramebufferAddImage(Framebuffer *framebuffer, Image *image) {
-	framebuffer->attachmentRefs.Append(AttachmentRef(Attachment(image, FormatIsDepth(image->vkFormat))));
-	image->attachment = true;
-	image->transferDst = false;
-	if (image->sampleCount != 1) {
-		image->transferSrc = true;
+	framebuffer->config.attachmentRefs.Append(AttachmentRef(Attachment(image, FormatIsDepth(image->vk.format))));
+	image->config.attachment = true;
+	image->config.transferDst = false;
+	if (image->config.sampleCount != 1) {
+		image->config.transferSrc = true;
 	}
 }
 
 void FramebufferAddWindow(Framebuffer *framebuffer, Window *window) {
-	framebuffer->attachmentRefs.Append(AttachmentRef(Attachment(window)));
+	framebuffer->config.attachmentRefs.Append(AttachmentRef(Attachment(window)));
 	// TODO: Probably allow multiple framebuffers for the same window
-	AzAssert(window->framebuffer == nullptr, "Windows can only have 1 framebuffer assocation");
-	window->framebuffer = framebuffer;
-	window->attachment = true;
-	window->transferDst = false;
+	AzAssert(window->state.framebuffer == nullptr, "Windows can only have 1 framebuffer assocation");
+	window->state.framebuffer = framebuffer;
+	window->config.attachment = true;
+	window->config.transferDst = false;
 }
 
 void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Image *resolveImage) {
-	AzAssert(image->vkFormat == resolveImage->vkFormat, "Resolving multisampled images requires both images to be the same format");
-	AzAssert(image->sampleCount != 1, "Expected image to have a sample count != 1");
-	AzAssert(resolveImage->sampleCount == 1, "Expected resolveImage to have a sample count == 1");
-	framebuffer->attachmentRefs.Append(AttachmentRef(Attachment(image, false), Attachment(resolveImage, false)));
-	image->attachment = true;
-	image->transferDst = false;
-	image->transferSrc = true;
-	resolveImage->attachment = true;
-	resolveImage->transferDst = true;
+	AzAssert(image->vk.format == resolveImage->vk.format, "Resolving multisampled images requires both images to be the same format");
+	AzAssert(image->config.sampleCount != 1, "Expected image to have a sample count != 1");
+	AzAssert(resolveImage->config.sampleCount == 1, "Expected resolveImage to have a sample count == 1");
+	framebuffer->config.attachmentRefs.Append(AttachmentRef(Attachment(image, false), Attachment(resolveImage, false)));
+	image->config.attachment = true;
+	image->config.transferDst = false;
+	image->config.transferSrc = true;
+	resolveImage->config.attachment = true;
+	resolveImage->config.transferDst = true;
 }
 
 void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Window *resolveWindow) {
-	AzAssert(image->sampleCount != 1, "Expected image to have a sample count != 1");
-	framebuffer->attachmentRefs.Append(AttachmentRef(Attachment(image, false), Attachment(resolveWindow)));
+	AzAssert(image->config.sampleCount != 1, "Expected image to have a sample count != 1");
+	framebuffer->config.attachmentRefs.Append(AttachmentRef(Attachment(image, false), Attachment(resolveWindow)));
 	// TODO: Probably allow multiple framebuffers for the same window
-	AzAssert(resolveWindow->framebuffer == nullptr, "Windows can only have 1 framebuffer assocation");
-	image->attachment = true;
-	image->transferDst = false;
-	image->transferSrc = true;
-	resolveWindow->framebuffer = framebuffer;
-	resolveWindow->attachment = true;
-	resolveWindow->transferDst = true;
+	AzAssert(resolveWindow->state.framebuffer == nullptr, "Windows can only have 1 framebuffer assocation");
+	image->config.attachment = true;
+	image->config.transferDst = false;
+	image->config.transferSrc = true;
+	resolveWindow->state.framebuffer = framebuffer;
+	resolveWindow->config.attachment = true;
+	resolveWindow->config.transferDst = true;
 }
 
 void SetVSync(Window *window, bool enable) {
-	if (window->initted) {
-		window->shouldReconfigure = enable != window->vsync;
+	if (window->header.initted) {
+		window->state.shouldReconfigure = enable != window->config.vsync;
 	}
-	window->vsync = enable;
+	window->config.vsync = enable;
 }
 
 bool GetVSyncEnabled(Window *window) {
-	return window->vsync;
+	return window->config.vsync;
 }
 
 Result<VoidResult_t, String> WindowSurfaceInit(Window *window) {
-	if (!window->window->open) {
+	if (!window->config.window->open) {
 		return String("InitWindowSurface was called before the window was created!");
 	}
 #ifdef __unix
@@ -1875,7 +1914,7 @@ Result<VoidResult_t, String> WindowSurfaceInit(Window *window) {
 		VkWaylandSurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR};
 		createInfo.display = window->window->data->wayland.display;
 		createInfo.surface = window->window->data->wayland.surface;
-		VkResult result = vkCreateWaylandSurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->vkSurface);
+		VkResult result = vkCreateWaylandSurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->vk.surface);
 		if (result != VK_SUCCESS) {
 			return ERROR_RESULT(window, "Failed to create Vulkan Wayland surface: ", VkResultString(result));
 		}
@@ -1883,16 +1922,16 @@ Result<VoidResult_t, String> WindowSurfaceInit(Window *window) {
 		VkXcbSurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
 		createInfo.connection = window->window->data->x11.connection;
 		createInfo.window = window->window->data->x11.window;
-		VkResult result = vkCreateXcbSurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->vkSurface);
+		VkResult result = vkCreateXcbSurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->vk.surface);
 		if (result != VK_SUCCESS) {
 			return ERROR_RESULT(window, "Failed to create Vulkan XCB surface: ", VkResultString(result));
 		}
 	}
 #elif defined(_WIN32)
 	VkWin32SurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
-	createInfo.hinstance = window->window->data->instance;
-	createInfo.hwnd = window->window->data->window;
-	VkResult result = vkCreateWin32SurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->vkSurface);
+	createInfo.hinstance = window->config.window->data->instance;
+	createInfo.hwnd = window->config.window->data->window;
+	VkResult result = vkCreateWin32SurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->vk.surface);
 	if (result != VK_SUCCESS) {
 		return ERROR_RESULT(window, "Failed to create Win32 Surface: ", VkResultString(result));
 	}
@@ -1903,57 +1942,57 @@ Result<VoidResult_t, String> WindowSurfaceInit(Window *window) {
 
 
 void WindowSurfaceDeinit(Window *window) {
-	vkDestroySurfaceKHR(instance.vkInstance, window->vkSurface, nullptr);
+	vkDestroySurfaceKHR(instance.vkInstance, window->vk.surface, nullptr);
 }
 
 Result<VoidResult_t, String> WindowInit(Window *window) {
 	TRACE_INIT(window);
-	vkQueueWaitIdle(window->device->vkQueue);
-	SetDebugMarker(window->device, window->tag, VK_OBJECT_TYPE_SURFACE_KHR, (u64)window->vkSurface);
+	vkQueueWaitIdle(window->header.device->vk.queue);
+	SetDebugMarker(window->header.device, window->header.tag, VK_OBJECT_TYPE_SURFACE_KHR, (u64)window->vk.surface);
 	{ // Query surface capabilities
-		VkPhysicalDevice vkPhysicalDevice = window->device->physicalDevice->vkPhysicalDevice;
-		VkSurfaceKHR vkSurface = window->vkSurface;
-		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vkPhysicalDevice, vkSurface, &window->surfaceCaps);
+		VkPhysicalDevice vkPhysicalDevice = window->header.device->vk.physicalDevice->vkPhysicalDevice;
+		VkSurfaceKHR vkSurface = window->vk.surface;
+		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vkPhysicalDevice, vkSurface, &window->vk.surfaceCaps);
 		u32 count;
 		vkGetPhysicalDeviceSurfaceFormatsKHR(vkPhysicalDevice, vkSurface, &count, nullptr);
 		AzAssertRel(count > 0, "Vulkan Spec violation: vkGetPhysicalDeviceSurfaceFormatsKHR must support >= 1 surface formats.");
-		window->surfaceFormatsAvailable.Resize(count);
-		vkGetPhysicalDeviceSurfaceFormatsKHR(vkPhysicalDevice, vkSurface, &count, window->surfaceFormatsAvailable.data);
+		window->vk.surfaceFormatsAvailable.Resize(count);
+		vkGetPhysicalDeviceSurfaceFormatsKHR(vkPhysicalDevice, vkSurface, &count, window->vk.surfaceFormatsAvailable.data);
 		vkGetPhysicalDeviceSurfacePresentModesKHR(vkPhysicalDevice, vkSurface, &count, nullptr);
 		AzAssertRel(count > 0, "Vulkan Spec violation: vkGetPhysicalDeviceSurfacePresentModesKHR must support >= 1 present modes.");
-		window->presentModesAvailable.Resize(count);
-		vkGetPhysicalDeviceSurfacePresentModesKHR(vkPhysicalDevice, vkSurface, &count, window->presentModesAvailable.data);
+		window->vk.presentModesAvailable.Resize(count);
+		vkGetPhysicalDeviceSurfacePresentModesKHR(vkPhysicalDevice, vkSurface, &count, window->vk.presentModesAvailable.data);
 	}
 	{ // Choose surface format
 		bool found = false;
-		for (const VkSurfaceFormatKHR& fmt : window->surfaceFormatsAvailable) {
+		for (const VkSurfaceFormatKHR& fmt : window->vk.surfaceFormatsAvailable) {
 			if (fmt.format == VK_FORMAT_B8G8R8A8_SRGB && fmt.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-				window->surfaceFormat = fmt;
+				window->vk.surfaceFormat = fmt;
 				found = true;
 			}
 		}
 		if (!found) {
 			WARNING(window, "Desired Window surface format unavailable, falling back to what is.");
-			window->surfaceFormat = window->surfaceFormatsAvailable[0];
+			window->vk.surfaceFormat = window->vk.surfaceFormatsAvailable[0];
 		}
 	}
 	u32 imageCountPreferred = 3;
 	{ // Choose present mode
 		bool found = false;
-		if (window->vsync) {
+		if (window->config.vsync) {
 			// The Vulkan Spec requires this present mode to exist
-			window->presentMode = VK_PRESENT_MODE_FIFO_KHR;
+			window->vk.presentMode = VK_PRESENT_MODE_FIFO_KHR;
 			imageCountPreferred = 3;
 			found = true;
 		} else {
-			for (const VkPresentModeKHR& mode : window->presentModesAvailable) {
+			for (const VkPresentModeKHR& mode : window->vk.presentModesAvailable) {
 				if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
-					window->presentMode = mode;
+					window->vk.presentMode = mode;
 					found = true;
 					imageCountPreferred = 2;
 					// Acceptable choice, but keep looking
 				} else if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
-					window->presentMode = mode;
+					window->vk.presentMode = mode;
 					found = true;
 					imageCountPreferred = 3;
 					break; // Ideal choice, don't keep looking
@@ -1962,10 +2001,10 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 		}
 		if (!found) {
 			WARNING(window, "Defaulting to FIFO present mode since we don't have a choice.");
-			window->presentMode = VK_PRESENT_MODE_FIFO_KHR;
+			window->vk.presentMode = VK_PRESENT_MODE_FIFO_KHR;
 		} else {
 			io::cout.PrintDebug("Present Mode: ");
-			switch(window->presentMode) {
+			switch(window->vk.presentMode) {
 				case VK_PRESENT_MODE_FIFO_KHR:
 					io::cout.PrintLnDebug("VK_PRESENT_MODE_FIFO_KHR");
 					break;
@@ -1979,127 +2018,139 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 					io::cout.PrintLnDebug("VK_PRESENT_MODE_IMMEDIATE_KHR");
 					break;
 				default:
-					io::cout.PrintLnDebug("Unknown present mode 0x", FormatInt((u32)window->presentMode, 16));
+					io::cout.PrintLnDebug("Unknown present mode 0x", FormatInt((u32)window->vk.presentMode, 16));
 					break;
 			}
 		}
 	}
-	if (window->surfaceCaps.currentExtent.width != UINT32_MAX) {
-		window->extent = window->surfaceCaps.currentExtent;
+	if (window->vk.surfaceCaps.currentExtent.width != UINT32_MAX) {
+		window->state.extent = window->vk.surfaceCaps.currentExtent;
 	} else {
-		window->extent.width = clamp((u32)window->window->width, window->surfaceCaps.minImageExtent.width, window->surfaceCaps.maxImageExtent.width);
-		window->extent.height = clamp((u32)window->window->height, window->surfaceCaps.minImageExtent.height, window->surfaceCaps.maxImageExtent.height);
+		window->state.extent.width = clamp((u32)window->config.window->width, window->vk.surfaceCaps.minImageExtent.width, window->vk.surfaceCaps.maxImageExtent.width);
+		window->state.extent.height = clamp((u32)window->config.window->height, window->vk.surfaceCaps.minImageExtent.height, window->vk.surfaceCaps.maxImageExtent.height);
 	}
-	io::cout.PrintLnDebug("Extent: ", window->extent.width, "x", window->extent.height);
-	window->numImages = (i32)clamp(imageCountPreferred, window->surfaceCaps.minImageCount, window->surfaceCaps.maxImageCount != 0 ? window->surfaceCaps.maxImageCount : UINT32_MAX);
+	io::cout.PrintLnDebug("Extent: ", window->state.extent.width, "x", window->state.extent.height);
+	window->vk.numImages = (i32)clamp(imageCountPreferred, window->vk.surfaceCaps.minImageCount, window->vk.surfaceCaps.maxImageCount != 0 ? window->vk.surfaceCaps.maxImageCount : UINT32_MAX);
 	{ // Create the swapchain
 		VkSwapchainCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
-		createInfo.surface = window->vkSurface;
-		createInfo.minImageCount = window->numImages;
-		createInfo.imageFormat = window->surfaceFormat.format;
-		createInfo.imageColorSpace = window->surfaceFormat.colorSpace;
-		createInfo.imageExtent = window->extent;
+		createInfo.surface = window->vk.surface;
+		createInfo.minImageCount = window->vk.numImages;
+		createInfo.imageFormat = window->vk.surfaceFormat.format;
+		createInfo.imageColorSpace = window->vk.surfaceFormat.colorSpace;
+		createInfo.imageExtent = window->state.extent;
 		createInfo.imageArrayLayers = 1;
-		if (window->attachment) {
+		if (window->config.attachment) {
 			createInfo.imageUsage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		}
-		if (window->transferDst) {
+		if (window->config.transferDst) {
 			createInfo.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 		}
 		// TODO: If we need to use multiple queues, we need to be smarter about this.
 		createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		createInfo.preTransform = window->surfaceCaps.currentTransform;
+		createInfo.preTransform = window->vk.surfaceCaps.currentTransform;
 		// TODO: Maybe support transparent windows
 		createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-		createInfo.presentMode = window->presentMode;
+		createInfo.presentMode = window->vk.presentMode;
 		// TODO: This may not play nicely with window capture software?
 		createInfo.clipped = VK_TRUE;
-		if (window->initted) {
-			createInfo.oldSwapchain = window->vkSwapchain;
+		if (window->header.initted) {
+			createInfo.oldSwapchain = window->vk.swapchain;
 		}
 		VkSwapchainKHR newSwapchain;
-		if (VkResult result = vkCreateSwapchainKHR(window->device->vkDevice, &createInfo, nullptr, &newSwapchain); result != VK_SUCCESS) {
-			window->initted = false;
+		if (VkResult result = vkCreateSwapchainKHR(window->header.device->vk.device, &createInfo, nullptr, &newSwapchain); result != VK_SUCCESS) {
+			window->header.initted = false;
 			return ERROR_RESULT(window, "Failed to create swapchain: ", VkResultString(result));
 		}
-		if (window->initted) {
-			vkDestroySwapchainKHR(window->device->vkDevice, window->vkSwapchain, nullptr);
+		if (window->header.initted) {
+			vkDestroySwapchainKHR(window->header.device->vk.device, window->vk.swapchain, nullptr);
 		}
-		window->vkSwapchain = newSwapchain;
-		SetDebugMarker(window->device, Stringify(window->tag, " swapchain"), VK_OBJECT_TYPE_SWAPCHAIN_KHR, (u64)window->vkSwapchain);
+		window->vk.swapchain = newSwapchain;
+		SetDebugMarker(window->header.device, Stringify(window->header.tag, " swapchain"), VK_OBJECT_TYPE_SWAPCHAIN_KHR, (u64)window->vk.swapchain);
 	}
 	{ // Get Images and create Image Views
-		if (window->initted) {
-			for (Window::SwapchainImage &image : window->swapchainImages) {
-				vkDestroyImageView(window->device->vkDevice, image.vkImageView, nullptr);
+		if (window->header.initted) {
+			for (Window::SwapchainImage &swapchainImage : window->vk.swapchainImages) {
+				vkDestroyImageView(window->header.device->vk.device, swapchainImage.imageView, nullptr);
 			}
 		}
 		Array<VkImage> images;
 		u32 numImages;
-		vkGetSwapchainImagesKHR(window->device->vkDevice, window->vkSwapchain, &numImages, nullptr);
+		vkGetSwapchainImagesKHR(window->header.device->vk.device, window->vk.swapchain, &numImages, nullptr);
 		images.Resize(numImages);
-		vkGetSwapchainImagesKHR(window->device->vkDevice, window->vkSwapchain, &numImages, images.data);
-		window->numImages = (i32)numImages;
-		window->swapchainImages.Resize(images.size);
+		vkGetSwapchainImagesKHR(window->header.device->vk.device, window->vk.swapchain, &numImages, images.data);
+		window->vk.numImages = (i32)numImages;
+		window->vk.swapchainImages.Resize(images.size);
 		VkImageViewCreateInfo createInfo = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
 		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		createInfo.format = window->surfaceFormat.format;
+		createInfo.format = window->vk.surfaceFormat.format;
 		createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		createInfo.subresourceRange.levelCount = 1;
 		createInfo.subresourceRange.layerCount = 1;
 		for (i32 i = 0; i < images.size; i++) {
-			window->swapchainImages[i].vkImage = images[i];
+			window->vk.swapchainImages[i].image = images[i];
 			createInfo.image = images[i];
-			SetDebugMarker(window->device, Stringify(window->tag, " swapchain image ", i), VK_OBJECT_TYPE_IMAGE, (u64)window->swapchainImages[i].vkImage);
+			SetDebugMarker(window->header.device, Stringify(window->header.tag, " swapchain image ", i), VK_OBJECT_TYPE_IMAGE, (u64)window->vk.swapchainImages[i].image);
 
-			if (VkResult result = vkCreateImageView(window->device->vkDevice, &createInfo, nullptr, &window->swapchainImages[i].vkImageView); result != VK_SUCCESS) {
+			if (VkResult result = vkCreateImageView(window->header.device->vk.device, &createInfo, nullptr, &window->vk.swapchainImages[i].imageView); result != VK_SUCCESS) {
 				return ERROR_RESULT(window, "Failed to create Image View for Swapchain image ", i, ":", VkResultString(result));
 			}
-			SetDebugMarker(window->device, Stringify(window->tag, " swapchain image view ", i), VK_OBJECT_TYPE_IMAGE_VIEW, (u64)window->swapchainImages[i].vkImageView);
+			SetDebugMarker(window->header.device, Stringify(window->header.tag, " swapchain image view ", i), VK_OBJECT_TYPE_IMAGE_VIEW, (u64)window->vk.swapchainImages[i].imageView);
 		}
 	}
-	io::cout.PrintLnDebug("Number of images: ", window->numImages);
-	if (window->acquireFences.size > window->numImages) {
-		for (i32 i = window->acquireFences.size-1; i >= window->numImages; i--) {
+	io::cout.PrintLnDebug("Number of images: ", window->vk.numImages);
+	if (window->state.acquireFences.size > window->vk.numImages) {
+		for (i32 i = window->state.acquireFences.size-1; i >= window->vk.numImages; i--) {
 			// Calling vkQueueWaitIdle does nothing for swapchain image acquisition, so we need to wait on the fence.
 			// This is okay to call on all of them because we only set unsignaled right before asking for the image.
-			AZ_TRY_ERROR_RESULT (window, FenceWaitForSignal(&window->acquireFences[i]));
-			FenceDeinit(&window->acquireFences[i]);
-			SemaphoreDeinit(&window->acquireSemaphores[i]);
+			AZ_TRY_ERROR_RESULT (window, FenceWaitForSignal(&window->state.acquireFences[i]));
+			FenceDeinit(&window->state.acquireFences[i]);
+			SemaphoreDeinit(&window->state.acquireSemaphores[i]);
 		}
-		window->acquireFences.Resize(window->numImages);
-		window->acquireSemaphores.Resize(window->numImages);
-	} else if (window->acquireFences.size < window->numImages) {
-		i32 previousSize = window->acquireFences.size;
-		window->acquireFences.Resize(window->numImages, Fence(window->device, Stringify(window->tag, " Fence")));
-		window->acquireSemaphores.Resize(window->numImages, Semaphore(window->device, Stringify(window->tag, " Semaphore")));
-		for (i32 i = previousSize; i < window->numImages; i++) {
-			AZ_TRY_ERROR_RESULT (window, FenceInit(&window->acquireFences[i], true));
-			AZ_TRY_ERROR_RESULT (window, SemaphoreInit(&window->acquireSemaphores[i]));
+		window->state.acquireFences.Resize(window->vk.numImages);
+		window->state.acquireSemaphores.Resize(window->vk.numImages);
+	} else if (window->state.acquireFences.size < window->vk.numImages) {
+		i32 previousSize = window->state.acquireFences.size;
+		window->state.acquireFences.Resize(window->vk.numImages, Fence(window->header.device, Stringify(window->header.tag, " Fence")));
+		window->state.acquireSemaphores.Resize(window->vk.numImages, Semaphore(window->header.device, Stringify(window->header.tag, " Semaphore")));
+		for (i32 i = previousSize; i < window->vk.numImages; i++) {
+			AZ_TRY_ERROR_RESULT (window, FenceInit(&window->state.acquireFences[i], true));
+			AZ_TRY_ERROR_RESULT (window, SemaphoreInit(&window->state.acquireSemaphores[i]));
 		}
 	}
-	if (window->initted && window->framebuffer) {
-		AZ_TRY_ERROR_RESULT_INFO (window, FramebufferCreate(window->framebuffer), "Failed to recreate Framebuffer: ");
+	if (window->header.initted) {
+		for (Image* image : window->state.imagesWithSizeMatching) {
+			Image::WindowSizeTracking &tracking = image->config.windowSizeTracking.ValueOrAssert();
+			if (ImageSetSize(
+				image,
+				window->state.extent.width  * tracking.numerator.x / tracking.denominator.x,
+				window->state.extent.height * tracking.numerator.y / tracking.denominator.y
+			)) {
+				AZ_TRY_ERROR_RESULT_INFO (window, ImageRecreate(image), "Failed to recreate an image with size matching: ");
+			}
+		}
+		if (window->state.framebuffer) {
+			AZ_TRY_ERROR_RESULT_INFO (window, FramebufferCreate(window->state.framebuffer), "Failed to recreate Framebuffer: ");
+		}
 	}
-	window->currentSync = 0;
-	window->initted = true;
+	window->state.currentSync = 0;
+	window->header.OnInit();
 	return VoidResult_t();
 }
 
 void WindowDeinit(Window *window) {
 	DEINIT_HEAD(window);
-	for (Fence &fence : window->acquireFences) {
+	for (Fence &fence : window->state.acquireFences) {
 		FenceWaitForSignal(&fence).AzUnwrap();
 		FenceDeinit(&fence);
 	}
-	for (Semaphore &semaphore : window->acquireSemaphores) {
+	for (Semaphore &semaphore : window->state.acquireSemaphores) {
 		SemaphoreDeinit(&semaphore);
 	}
-	for (Window::SwapchainImage &image : window->swapchainImages) {
-		vkDestroyImageView(window->device->vkDevice, image.vkImageView, nullptr);
+	for (Window::SwapchainImage &swapchainImage : window->vk.swapchainImages) {
+		vkDestroyImageView(window->header.device->vk.device, swapchainImage.imageView, nullptr);
 	}
-	vkDestroySwapchainKHR(window->device->vkDevice, window->vkSwapchain, nullptr);
-	window->initted = false;
+	vkDestroySwapchainKHR(window->header.device->vk.device, window->vk.swapchain, nullptr);
+	window->header.initted = false;
 }
 
 
@@ -2107,26 +2158,26 @@ Result<VoidResult_t, String> WindowUpdate(Window *window) {
 	bool resize = false;
 	bool didCallAcquire = false;
 	Fence *fence;
-	if (window->window->width != window->extent.width
-	 || window->window->height != window->extent.height) {
+	if (window->config.window->width != window->state.extent.width
+	 || window->config.window->height != window->state.extent.height) {
 		resize = true;
 	}
-	if (resize || window->shouldReconfigure) {
+	if (resize || window->state.shouldReconfigure) {
 reconfigure:
 		AZ_TRY_ERROR_RESULT_INFO (window, WindowInit(window), "Failed to reconfigure window: ");
-		window->shouldReconfigure = false;
+		window->state.shouldReconfigure = false;
 	}
 
 	// Swapchain::AcquireNextImage
 	if (!didCallAcquire) {
-		window->currentSync = (window->currentSync + 1) % window->numImages;
-		fence = &window->acquireFences[window->currentSync];
+		window->state.currentSync = (window->state.currentSync + 1) % window->vk.numImages;
+		fence = &window->state.acquireFences[window->state.currentSync];
 		AZ_TRY_ERROR_RESULT (window, FenceWaitForSignal(fence));
 		AZ_TRY_ERROR_RESULT (window, FenceResetSignaled(fence));
 	}
-	Semaphore *semaphore = &window->acquireSemaphores[window->currentSync];
+	Semaphore *semaphore = &window->state.acquireSemaphores[window->state.currentSync];
 	u32 currentImage;
-	VkResult result = vkAcquireNextImageKHR(window->device->vkDevice, window->vkSwapchain, UINT64_MAX, semaphore->vkSemaphore, fence->vkFence, &currentImage);
+	VkResult result = vkAcquireNextImageKHR(window->header.device->vk.device, window->vk.swapchain, UINT64_MAX, semaphore->vk.semaphore, fence->vk.fence, &currentImage);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
 		didCallAcquire = true;
 		goto reconfigure;
@@ -2135,27 +2186,27 @@ reconfigure:
 		return ERROR_RESULT(window, "Unreachable");
 	} else if (result == VK_SUBOPTIMAL_KHR) {
 		// Let it go, we'll resize next time
-		window->shouldReconfigure = true;
+		window->state.shouldReconfigure = true;
 	} else if (result != VK_SUCCESS) {
 		return ERROR_RESULT(window, "Failed to acquire swapchain image: ", VkResultString(result));
 	}
-	window->currentImage = (i32)currentImage;
+	window->state.currentImage = (i32)currentImage;
 	return VoidResult_t();
 }
 
 Result<VoidResult_t, String> WindowPresent(Window *window, ArrayWithBucket<Semaphore*, 4> waitSemaphores) {
 	ArrayWithBucket<VkSemaphore, 4> waitVkSemaphores(waitSemaphores.size);
 	for (i32 i = 0; i < waitVkSemaphores.size; i++) {
-		waitVkSemaphores[i] = waitSemaphores[i]->vkSemaphore;
+		waitVkSemaphores[i] = waitSemaphores[i]->vk.semaphore;
 	}
 	VkPresentInfoKHR presentInfo{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
 	presentInfo.waitSemaphoreCount = waitVkSemaphores.size;
 	presentInfo.pWaitSemaphores = waitVkSemaphores.data;
 	presentInfo.swapchainCount = 1;
-	presentInfo.pSwapchains = &window->vkSwapchain;
-	presentInfo.pImageIndices = (u32*)&window->currentImage;
+	presentInfo.pSwapchains = &window->vk.swapchain;
+	presentInfo.pImageIndices = (u32*)&window->state.currentImage;
 
-	VkResult result = vkQueuePresentKHR(window->device->vkQueue, &presentInfo);
+	VkResult result = vkQueuePresentKHR(window->header.device->vk.queue, &presentInfo);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
 		io::cout.PrintLnDebug("WindowPresent got ", VkResultString(result));
 	} else if (result != VK_SUCCESS) {
@@ -2197,10 +2248,10 @@ Buffer* NewIndexBuffer(Device *device, String tag, u32 bytesPerIndex) {
 	switch (bytesPerIndex) {
 	// TODO: Probably support 8-bit indices
 	case 2:
-		result->indexType = VK_INDEX_TYPE_UINT16;
+		result->config.indexType = VK_INDEX_TYPE_UINT16;
 		break;
 	case 4:
-		result->indexType = VK_INDEX_TYPE_UINT32;
+		result->config.indexType = VK_INDEX_TYPE_UINT32;
 		break;
 	default:
 		AzAssert(false, Stringify("Can only have 2 or 4 byte indices in an index buffer (had ", bytesPerIndex, ")"));
@@ -2325,7 +2376,7 @@ void PrintPhysicalDeviceInfo(PhysicalDevice *physicalDevice) {
 		VkBool32 presentSupport = false;
 		bool first = true;
 		for (i32 j = 0; j < windows.size; j++) {
-			vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice->vkPhysicalDevice, i, windows[j]->vkSurface, &presentSupport);
+			vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice->vkPhysicalDevice, i, windows[j]->vk.surface, &presentSupport);
 			if (presentSupport) {
 				if (!first)
 					presentString += ", ";
@@ -2371,16 +2422,16 @@ Result<u32, String> FindMemoryType(u32 memoryTypeBits, VkMemoryPropertyFlags pro
 }
 
 Result<VoidResult_t, String> MemoryAddPage(Memory *memory, u32 minSize) {
-	AzAssert(memory->device->initted, "Device not initted!");
+	AzAssert(memory->header.device->header.initted, "Device not initted!");
 	minSize = max(minSize, memory->pageSizeMin);
 	Memory::Page &newPage = memory->pages.Append(Memory::Page());
 	VkMemoryAllocateInfo allocInfo = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
 	allocInfo.memoryTypeIndex = memory->memoryTypeIndex;
 	allocInfo.allocationSize = minSize;
-	if (VkResult result = vkAllocateMemory(memory->device->vkDevice, &allocInfo, nullptr, &newPage.vkMemory); result != VK_SUCCESS) {
+	if (VkResult result = vkAllocateMemory(memory->header.device->vk.device, &allocInfo, nullptr, &newPage.vkMemory); result != VK_SUCCESS) {
 		return ERROR_RESULT(memory, "Failed to allocate a new page: ", VkResultString(result));
 	}
-	SetDebugMarker(memory->device, Stringify(memory->tag, " page ", memory->pages.size-1), VK_OBJECT_TYPE_DEVICE_MEMORY, (u64)newPage.vkMemory);
+	SetDebugMarker(memory->header.device, Stringify(memory->header.tag, " page ", memory->pages.size-1), VK_OBJECT_TYPE_DEVICE_MEMORY, (u64)newPage.vkMemory);
 	newPage.segments.Append(Memory::Page::Segment{0, minSize, false});
 	return VoidResult_t();
 }
@@ -2388,7 +2439,7 @@ Result<VoidResult_t, String> MemoryAddPage(Memory *memory, u32 minSize) {
 // Cleans up and destroys all memory pages
 void MemoryClear(Memory *memory) {
 	for (Memory::Page &page : memory->pages) {
-		vkFreeMemory(memory->device->vkDevice, page.vkMemory, nullptr);
+		vkFreeMemory(memory->header.device->vk.device, page.vkMemory, nullptr);
 	}
 }
 
@@ -2481,7 +2532,7 @@ void MemoryFree(Allocation allocation) {
 Result<Allocation, String> AllocateBuffer(Device *device, VkBuffer buffer, VkMemoryRequirements memoryRequirements, VkMemoryPropertyFlags memoryPropertyFlags) {
 	u32 memoryType;
 	AZ_TRY_ERROR_RESULT (device,
-		FindMemoryType(memoryRequirements.memoryTypeBits, memoryPropertyFlags, device->physicalDevice->memoryProperties.memoryProperties)
+		FindMemoryType(memoryRequirements.memoryTypeBits, memoryPropertyFlags, device->vk.physicalDevice->memoryProperties.memoryProperties)
 	) else {
 		memoryType = result.value;
 	}
@@ -2492,7 +2543,7 @@ Result<Allocation, String> AllocateBuffer(Device *device, VkBuffer buffer, VkMem
 	) else {
 		alloc = result.value;
 	}
-	if (VkResult result = vkBindBufferMemory(device->vkDevice, buffer, memory->pages[alloc.page].vkMemory, align(alloc.offset, memoryRequirements.alignment)); result != VK_SUCCESS) {
+	if (VkResult result = vkBindBufferMemory(device->vk.device, buffer, memory->pages[alloc.page].vkMemory, align(alloc.offset, memoryRequirements.alignment)); result != VK_SUCCESS) {
 		return ERROR_RESULT(memory, "Failed to bind Buffer to Memory: ", VkResultString(result));
 	}
 	return alloc;
@@ -2501,7 +2552,7 @@ Result<Allocation, String> AllocateBuffer(Device *device, VkBuffer buffer, VkMem
 Result<Allocation, String> AllocateImage(Device *device, VkImage image, VkMemoryRequirements memoryRequirements, VkMemoryPropertyFlags memoryPropertyFlags, bool linear) {
 	u32 memoryType;
 	AZ_TRY_ERROR_RESULT (device,
-		FindMemoryType(memoryRequirements.memoryTypeBits, memoryPropertyFlags, device->physicalDevice->memoryProperties.memoryProperties)
+		FindMemoryType(memoryRequirements.memoryTypeBits, memoryPropertyFlags, device->vk.physicalDevice->memoryProperties.memoryProperties)
 	) else {
 		memoryType = result.value;
 	}
@@ -2512,7 +2563,7 @@ Result<Allocation, String> AllocateImage(Device *device, VkImage image, VkMemory
 	) else {
 		alloc = result.value;
 	}
-	if (VkResult result = vkBindImageMemory(device->vkDevice, image, memory->pages[alloc.page].vkMemory, align(alloc.offset, memoryRequirements.alignment)); result != VK_SUCCESS) {
+	if (VkResult result = vkBindImageMemory(device->vk.device, image, memory->pages[alloc.page].vkMemory, align(alloc.offset, memoryRequirements.alignment)); result != VK_SUCCESS) {
 		return ERROR_RESULT(memory, "Failed to bind Image to Memory: ", VkResultString(result));
 	}
 	return alloc;
@@ -2529,7 +2580,7 @@ Result<VoidResult_t, String> DeviceInit(Device *device) {
 	bool needsGraphics = false;
 	bool needsCompute = false;
 	for (auto &pipeline : device->pipelines) {
-		switch (pipeline->kind) {
+		switch (pipeline->config.kind) {
 			case Pipeline::GRAPHICS:
 				needsGraphics = true;
 				break;
@@ -2541,7 +2592,7 @@ Result<VoidResult_t, String> DeviceInit(Device *device) {
 	Array<const char*> extensions;
 	{ // Add and check availability of extensions to pick a physical device
 		for (auto &fb : device->framebuffers) {
-			for (AttachmentRef &attachmentRef : fb->attachmentRefs) {
+			for (AttachmentRef &attachmentRef : fb->config.attachmentRefs) {
 				if (attachmentRef.attachment.kind == Attachment::WINDOW || (attachmentRef.resolveAttachment.Exists() && attachmentRef.resolveAttachment.ValueOrAssert().kind == Attachment::WINDOW)) {
 					// If even one framebuffer outputs to a Window, we use a Swapchain
 					extensions.Append(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
@@ -2557,25 +2608,25 @@ breakout:
 		}
 		auto physicalDevice = FindBestPhysicalDeviceWithExtensions(extensions);
 		if (physicalDevice.isError) return physicalDevice.error;
-		device->physicalDevice = physicalDevice.value;
-		if (device->tag.size == 0) {
-			device->tag = device->physicalDevice->properties.properties.deviceName;
+		device->vk.physicalDevice = physicalDevice.value;
+		if (device->header.tag.size == 0) {
+			device->header.tag = device->vk.physicalDevice->properties.properties.deviceName;
 		}
 	}
-	VkPhysicalDeviceFeatures2 featuresAvailable = device->physicalDevice->vk10Features;
-	VkPhysicalDeviceFeatures2 featuresEnabled = device->vk10Features;
+	VkPhysicalDeviceFeatures2 featuresAvailable = device->vk.physicalDevice->vk10Features;
+	VkPhysicalDeviceFeatures2 featuresEnabled = device->vk.vk10Features;
 	{ // Select needed features based on what we use
 		bool anisotropyAvailable = featuresAvailable.features.samplerAnisotropy;
 		if (!anisotropyAvailable) {
 			for (auto &sampler : device->samplers) {
-				if (sampler->anisotropy != 1) {
+				if (sampler->config.anisotropy != 1) {
 					WARNING(sampler, "Sampler Anisotropy unavailable, so anisotropy is being reset to 1");
-					sampler->anisotropy = 1;
+					sampler->config.anisotropy = 1;
 				}
 			}
 		} else {
 			for (auto &sampler : device->samplers) {
-				if (sampler->anisotropy != 1) {
+				if (sampler->config.anisotropy != 1) {
 					featuresEnabled.features.samplerAnisotropy = VK_TRUE;
 					io::cout.PrintLnDebug("Enabling Sampler Anisotropy");
 					break;
@@ -2585,14 +2636,14 @@ breakout:
 		bool wideLinesAvailable = featuresAvailable.features.wideLines;
 		if (!wideLinesAvailable) {
 			for (auto &pipeline : device->pipelines) {
-				if (pipeline->lineWidth != 1.0f) {
+				if (pipeline->config.lineWidth != 1.0f) {
 					WARNING(pipeline, "Wide lines unavailable, so lineWidth is being reset to 1.0f");
-					pipeline->lineWidth = 1.0f;
+					pipeline->config.lineWidth = 1.0f;
 				}
 			}
 		} else {
 			// for (auto &pipeline : device->pipelines) {
-			// 	if (pipeline->lineWidth != 1.0f) {
+			// 	if (pipeline->config.lineWidth != 1.0f) {
 					// It's a dynamic state now, so we have to always request the feature when available
 					featuresEnabled.features.wideLines = VK_TRUE;
 			// 		io::cout.PrintLnDebug("Enabling Wide Lines");
@@ -2603,14 +2654,14 @@ breakout:
 		bool sampleRateShadingAvailable = featuresAvailable.features.sampleRateShading;
 		if (!sampleRateShadingAvailable) {
 			for (auto &pipeline : device->pipelines) {
-				if (pipeline->multisampleShading.enabled) {
+				if (pipeline->config.multisampleShading.enabled) {
 					WARNING(pipeline, "Multisample Shading unavailable, disabling");
-					pipeline->multisampleShading.enabled = false;
+					pipeline->config.multisampleShading.enabled = false;
 				}
 			}
 		} else {
 			for (auto &pipeline : device->pipelines) {
-				if (pipeline->multisampleShading.enabled) {
+				if (pipeline->config.multisampleShading.enabled) {
 					featuresEnabled.features.sampleRateShading = VK_TRUE;
 					io::cout.PrintLnDebug("Enabling Multisample Shading");
 					break;
@@ -2618,11 +2669,11 @@ breakout:
 			}
 		}
 	}
-	featuresEnabled.pNext = &device->vk11Features;
-	device->vk11Features.pNext = &device->vk12Features;
-	device->vk12Features.pNext = &device->vk13Features;
+	featuresEnabled.pNext = &device->vk.vk11Features;
+	device->vk.vk11Features.pNext = &device->vk.vk12Features;
+	device->vk.vk12Features.pNext = &device->vk.vk13Features;
 	if ((u32)io::logLevel >= (u32)io::LogLevel::DEBUG) {
-		PrintPhysicalDeviceInfo(device->physicalDevice.RawPtr());
+		PrintPhysicalDeviceInfo(device->vk.physicalDevice.RawPtr());
 	}
 	// NOTE: This is stupid and probably won't work in the general case, but let's see.
 	VkDeviceQueueCreateInfo queueInfo = {VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
@@ -2630,21 +2681,21 @@ breakout:
 	f32 one = 1.0f;
 	queueInfo.pQueuePriorities = &one;
 	bool found = false;
-	for (i32 i = 0; i < device->physicalDevice->queueFamiliesAvailable.size; i++) {
-		VkQueueFamilyProperties2 props = device->physicalDevice->queueFamiliesAvailable[i];
+	for (i32 i = 0; i < device->vk.physicalDevice->queueFamiliesAvailable.size; i++) {
+		VkQueueFamilyProperties2 props = device->vk.physicalDevice->queueFamiliesAvailable[i];
 		if (props.queueFamilyProperties.queueCount == 0) continue;
 		if (needsPresent) {
 			VkBool32 supportsPresent = VK_FALSE;
 			for (auto &framebuffer : device->framebuffers) {
-				for (AttachmentRef &attachmentRef : framebuffer->attachmentRefs) {
+				for (AttachmentRef &attachmentRef : framebuffer->config.attachmentRefs) {
 					if (attachmentRef.attachment.kind == Attachment::WINDOW) {
-						vkGetPhysicalDeviceSurfaceSupportKHR(device->physicalDevice->vkPhysicalDevice, i, attachmentRef.attachment.window->vkSurface, &supportsPresent);
+						vkGetPhysicalDeviceSurfaceSupportKHR(device->vk.physicalDevice->vkPhysicalDevice, i, attachmentRef.attachment.window->vk.surface, &supportsPresent);
 						if (!supportsPresent) goto breakout2;
 					}
 					if (attachmentRef.resolveAttachment.Exists()) {
 						Attachment &attachment = attachmentRef.resolveAttachment.ValueOrAssert();
 						if (attachment.kind == Attachment::WINDOW) {
-							vkGetPhysicalDeviceSurfaceSupportKHR(device->physicalDevice->vkPhysicalDevice, i, attachment.window->vkSurface, &supportsPresent);
+							vkGetPhysicalDeviceSurfaceSupportKHR(device->vk.physicalDevice->vkPhysicalDevice, i, attachment.window->vk.surface, &supportsPresent);
 							if (!supportsPresent) goto breakout2;
 						}
 					}
@@ -2660,7 +2711,7 @@ breakout2:
 			if (!(props.queueFamilyProperties.queueFlags & VK_QUEUE_COMPUTE_BIT)) continue;
 		}
 		if (!(props.queueFamilyProperties.queueFlags & VK_QUEUE_TRANSFER_BIT)) continue;
-		device->queueFamilyIndex = i;
+		device->vk.queueFamilyIndex = i;
 		found = true;
 		break;
 	}
@@ -2668,7 +2719,7 @@ breakout2:
 		// NOTE: If we ever see this, we probably need to break up our single queue into multiple specialized queues.
 		return ERROR_RESULT(device, "There were no queues available that had everything we needed");
 	}
-	queueInfo.queueFamilyIndex = device->queueFamilyIndex;
+	queueInfo.queueFamilyIndex = device->vk.queueFamilyIndex;
 
 	VkDeviceCreateInfo createInfo = {VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
 	createInfo.pQueueCreateInfos = &queueInfo;
@@ -2677,17 +2728,17 @@ breakout2:
 	createInfo.enabledExtensionCount = extensions.size;
 	createInfo.ppEnabledExtensionNames = extensions.data;
 
-	VkResult result = vkCreateDevice(device->physicalDevice->vkPhysicalDevice, &createInfo, nullptr, &device->vkDevice);
+	VkResult result = vkCreateDevice(device->vk.physicalDevice->vkPhysicalDevice, &createInfo, nullptr, &device->vk.device);
 	if (result != VK_SUCCESS) {
 		return ERROR_RESULT(device, "Failed to create Device: ", VkResultString(result));
 	}
-	SetDebugMarker(device, device->tag, VK_OBJECT_TYPE_DEVICE, (u64)device->vkDevice);
-	device->initted = true;
+	SetDebugMarker(device, device->header.tag, VK_OBJECT_TYPE_DEVICE, (u64)device->vk.device);
+	device->header.initted = true;
 
-	vkGetDeviceQueue(device->vkDevice, device->queueFamilyIndex, 0, &device->vkQueue);
+	vkGetDeviceQueue(device->vk.device, device->vk.queueFamilyIndex, 0, &device->vk.queue);
 
 	for (auto &window : windows) {
-		window->device = device;
+		window->header.device = device;
 		AZ_TRY_ERROR_RESULT (device, WindowInit(window.RawPtr()));
 	}
 	for (auto &buffer : device->buffers) {
@@ -2717,9 +2768,9 @@ breakout2:
 }
 
 void DeviceDeinit(Device *device) {
-	AzAssert(device->initted, "Trying to Deinit a Device that isn't initted");
-	vkDeviceWaitIdle(device->vkDevice);
-	io::cout.PrintLnTrace("Deinitializing Device \"", device->tag, "\"");
+	AzAssert(device->header.initted, "Trying to Deinit a Device that isn't initted");
+	vkDeviceWaitIdle(device->vk.device);
+	io::cout.PrintLnTrace("Deinitializing Device \"", device->header.tag, "\"");
 	for (auto &window : windows) {
 		WindowDeinit(window.RawPtr());
 	}
@@ -2745,158 +2796,158 @@ void DeviceDeinit(Device *device) {
 		PipelineDeinit(pipeline.RawPtr());
 	}
 	for (auto &descriptorSet : device->descriptorSets) {
-		vkDestroyDescriptorPool(device->vkDevice, descriptorSet->vkDescriptorPool, nullptr);
+		vkDestroyDescriptorPool(device->vk.device, descriptorSet->vkDescriptorPool, nullptr);
 	}
-	for (auto &vkDescriptorSetLayout : device->vkDescriptorSetLayouts) {
-		vkDestroyDescriptorSetLayout(device->vkDevice, vkDescriptorSetLayout.value, nullptr);
+	for (auto &vkDescriptorSetLayout : device->vk.descriptorSetLayouts) {
+		vkDestroyDescriptorSetLayout(device->vk.device, vkDescriptorSetLayout.value, nullptr);
 	}
 	for (auto node : device->memory) {
 		Memory &memory = node.value;
 		MemoryClear(&memory);
 	}
-	vkDestroyDevice(device->vkDevice, nullptr);
+	vkDestroyDevice(device->vk.device, nullptr);
 }
 
 void DeviceWaitIdle(Device *device) {
-	if (!device->initted) return;
-	vkDeviceWaitIdle(device->vkDevice);
+	if (!device->header.initted) return;
+	vkDeviceWaitIdle(device->vk.device);
 }
 
 void DeviceRequireFeatures(Device *device, const ArrayWithBucket<Str, 8> &features) {
 	static BinaryMap<Str, u64> featureByteOffsets = {
 		// Vulkan 1.0 Features
-		{"robustBufferAccess", (u64)&device->vk10Features.features.robustBufferAccess - (u64)&device},
-		{"fullDrawIndexUint32", (u64)&device->vk10Features.features.fullDrawIndexUint32 - (u64)&device},
-		{"imageCubeArray", (u64)&device->vk10Features.features.imageCubeArray - (u64)&device},
-		{"independentBlend", (u64)&device->vk10Features.features.independentBlend - (u64)&device},
-		{"geometryShader", (u64)&device->vk10Features.features.geometryShader - (u64)&device},
-		{"tessellationShader", (u64)&device->vk10Features.features.tessellationShader - (u64)&device},
-		{"sampleRateShading", (u64)&device->vk10Features.features.sampleRateShading - (u64)&device},
-		{"dualSrcBlend", (u64)&device->vk10Features.features.dualSrcBlend - (u64)&device},
-		{"logicOp", (u64)&device->vk10Features.features.logicOp - (u64)&device},
-		{"multiDrawIndirect", (u64)&device->vk10Features.features.multiDrawIndirect - (u64)&device},
-		{"drawIndirectFirstInstance", (u64)&device->vk10Features.features.drawIndirectFirstInstance - (u64)&device},
-		{"depthClamp", (u64)&device->vk10Features.features.depthClamp - (u64)&device},
-		{"depthBiasClamp", (u64)&device->vk10Features.features.depthBiasClamp - (u64)&device},
-		{"fillModeNonSolid", (u64)&device->vk10Features.features.fillModeNonSolid - (u64)&device},
-		{"depthBounds", (u64)&device->vk10Features.features.depthBounds - (u64)&device},
-		{"wideLines", (u64)&device->vk10Features.features.wideLines - (u64)&device},
-		{"largePoints", (u64)&device->vk10Features.features.largePoints - (u64)&device},
-		{"alphaToOne", (u64)&device->vk10Features.features.alphaToOne - (u64)&device},
-		{"multiViewport", (u64)&device->vk10Features.features.multiViewport - (u64)&device},
-		{"samplerAnisotropy", (u64)&device->vk10Features.features.samplerAnisotropy - (u64)&device},
-		{"textureCompressionETC2", (u64)&device->vk10Features.features.textureCompressionETC2 - (u64)&device},
-		{"textureCompressionASTC_LDR", (u64)&device->vk10Features.features.textureCompressionASTC_LDR - (u64)&device},
-		{"textureCompressionBC", (u64)&device->vk10Features.features.textureCompressionBC - (u64)&device},
-		{"occlusionQueryPrecise", (u64)&device->vk10Features.features.occlusionQueryPrecise - (u64)&device},
-		{"pipelineStatisticsQuery", (u64)&device->vk10Features.features.pipelineStatisticsQuery - (u64)&device},
-		{"vertexPipelineStoresAndAtomics", (u64)&device->vk10Features.features.vertexPipelineStoresAndAtomics - (u64)&device},
-		{"fragmentStoresAndAtomics", (u64)&device->vk10Features.features.fragmentStoresAndAtomics - (u64)&device},
-		{"shaderTessellationAndGeometryPointSize", (u64)&device->vk10Features.features.shaderTessellationAndGeometryPointSize - (u64)&device},
-		{"shaderImageGatherExtended", (u64)&device->vk10Features.features.shaderImageGatherExtended - (u64)&device},
-		{"shaderStorageImageExtendedFormats", (u64)&device->vk10Features.features.shaderStorageImageExtendedFormats - (u64)&device},
-		{"shaderStorageImageMultisample", (u64)&device->vk10Features.features.shaderStorageImageMultisample - (u64)&device},
-		{"shaderStorageImageReadWithoutFormat", (u64)&device->vk10Features.features.shaderStorageImageReadWithoutFormat - (u64)&device},
-		{"shaderStorageImageWriteWithoutFormat", (u64)&device->vk10Features.features.shaderStorageImageWriteWithoutFormat - (u64)&device},
-		{"shaderUniformBufferArrayDynamicIndexing", (u64)&device->vk10Features.features.shaderUniformBufferArrayDynamicIndexing - (u64)&device},
-		{"shaderSampledImageArrayDynamicIndexing", (u64)&device->vk10Features.features.shaderSampledImageArrayDynamicIndexing - (u64)&device},
-		{"shaderStorageBufferArrayDynamicIndexing", (u64)&device->vk10Features.features.shaderStorageBufferArrayDynamicIndexing - (u64)&device},
-		{"shaderStorageImageArrayDynamicIndexing", (u64)&device->vk10Features.features.shaderStorageImageArrayDynamicIndexing - (u64)&device},
-		{"shaderClipDistance", (u64)&device->vk10Features.features.shaderClipDistance - (u64)&device},
-		{"shaderCullDistance", (u64)&device->vk10Features.features.shaderCullDistance - (u64)&device},
-		{"shaderFloat64", (u64)&device->vk10Features.features.shaderFloat64 - (u64)&device},
-		{"shaderInt64", (u64)&device->vk10Features.features.shaderInt64 - (u64)&device},
-		{"shaderInt16", (u64)&device->vk10Features.features.shaderInt16 - (u64)&device},
-		{"shaderResourceResidency", (u64)&device->vk10Features.features.shaderResourceResidency - (u64)&device},
-		{"shaderResourceMinLod", (u64)&device->vk10Features.features.shaderResourceMinLod - (u64)&device},
-		{"sparseBinding", (u64)&device->vk10Features.features.sparseBinding - (u64)&device},
-		{"sparseResidencyBuffer", (u64)&device->vk10Features.features.sparseResidencyBuffer - (u64)&device},
-		{"sparseResidencyImage2D", (u64)&device->vk10Features.features.sparseResidencyImage2D - (u64)&device},
-		{"sparseResidencyImage3D", (u64)&device->vk10Features.features.sparseResidencyImage3D - (u64)&device},
-		{"sparseResidency2Samples", (u64)&device->vk10Features.features.sparseResidency2Samples - (u64)&device},
-		{"sparseResidency4Samples", (u64)&device->vk10Features.features.sparseResidency4Samples - (u64)&device},
-		{"sparseResidency8Samples", (u64)&device->vk10Features.features.sparseResidency8Samples - (u64)&device},
-		{"sparseResidency16Samples", (u64)&device->vk10Features.features.sparseResidency16Samples - (u64)&device},
-		{"sparseResidencyAliased", (u64)&device->vk10Features.features.sparseResidencyAliased - (u64)&device},
-		{"variableMultisampleRate", (u64)&device->vk10Features.features.variableMultisampleRate - (u64)&device},
-		{"inheritedQueries", (u64)&device->vk10Features.features.inheritedQueries - (u64)&device},
+		{"robustBufferAccess", (u64)&device->vk.vk10Features.features.robustBufferAccess - (u64)&device},
+		{"fullDrawIndexUint32", (u64)&device->vk.vk10Features.features.fullDrawIndexUint32 - (u64)&device},
+		{"imageCubeArray", (u64)&device->vk.vk10Features.features.imageCubeArray - (u64)&device},
+		{"independentBlend", (u64)&device->vk.vk10Features.features.independentBlend - (u64)&device},
+		{"geometryShader", (u64)&device->vk.vk10Features.features.geometryShader - (u64)&device},
+		{"tessellationShader", (u64)&device->vk.vk10Features.features.tessellationShader - (u64)&device},
+		{"sampleRateShading", (u64)&device->vk.vk10Features.features.sampleRateShading - (u64)&device},
+		{"dualSrcBlend", (u64)&device->vk.vk10Features.features.dualSrcBlend - (u64)&device},
+		{"logicOp", (u64)&device->vk.vk10Features.features.logicOp - (u64)&device},
+		{"multiDrawIndirect", (u64)&device->vk.vk10Features.features.multiDrawIndirect - (u64)&device},
+		{"drawIndirectFirstInstance", (u64)&device->vk.vk10Features.features.drawIndirectFirstInstance - (u64)&device},
+		{"depthClamp", (u64)&device->vk.vk10Features.features.depthClamp - (u64)&device},
+		{"depthBiasClamp", (u64)&device->vk.vk10Features.features.depthBiasClamp - (u64)&device},
+		{"fillModeNonSolid", (u64)&device->vk.vk10Features.features.fillModeNonSolid - (u64)&device},
+		{"depthBounds", (u64)&device->vk.vk10Features.features.depthBounds - (u64)&device},
+		{"wideLines", (u64)&device->vk.vk10Features.features.wideLines - (u64)&device},
+		{"largePoints", (u64)&device->vk.vk10Features.features.largePoints - (u64)&device},
+		{"alphaToOne", (u64)&device->vk.vk10Features.features.alphaToOne - (u64)&device},
+		{"multiViewport", (u64)&device->vk.vk10Features.features.multiViewport - (u64)&device},
+		{"samplerAnisotropy", (u64)&device->vk.vk10Features.features.samplerAnisotropy - (u64)&device},
+		{"textureCompressionETC2", (u64)&device->vk.vk10Features.features.textureCompressionETC2 - (u64)&device},
+		{"textureCompressionASTC_LDR", (u64)&device->vk.vk10Features.features.textureCompressionASTC_LDR - (u64)&device},
+		{"textureCompressionBC", (u64)&device->vk.vk10Features.features.textureCompressionBC - (u64)&device},
+		{"occlusionQueryPrecise", (u64)&device->vk.vk10Features.features.occlusionQueryPrecise - (u64)&device},
+		{"pipelineStatisticsQuery", (u64)&device->vk.vk10Features.features.pipelineStatisticsQuery - (u64)&device},
+		{"vertexPipelineStoresAndAtomics", (u64)&device->vk.vk10Features.features.vertexPipelineStoresAndAtomics - (u64)&device},
+		{"fragmentStoresAndAtomics", (u64)&device->vk.vk10Features.features.fragmentStoresAndAtomics - (u64)&device},
+		{"shaderTessellationAndGeometryPointSize", (u64)&device->vk.vk10Features.features.shaderTessellationAndGeometryPointSize - (u64)&device},
+		{"shaderImageGatherExtended", (u64)&device->vk.vk10Features.features.shaderImageGatherExtended - (u64)&device},
+		{"shaderStorageImageExtendedFormats", (u64)&device->vk.vk10Features.features.shaderStorageImageExtendedFormats - (u64)&device},
+		{"shaderStorageImageMultisample", (u64)&device->vk.vk10Features.features.shaderStorageImageMultisample - (u64)&device},
+		{"shaderStorageImageReadWithoutFormat", (u64)&device->vk.vk10Features.features.shaderStorageImageReadWithoutFormat - (u64)&device},
+		{"shaderStorageImageWriteWithoutFormat", (u64)&device->vk.vk10Features.features.shaderStorageImageWriteWithoutFormat - (u64)&device},
+		{"shaderUniformBufferArrayDynamicIndexing", (u64)&device->vk.vk10Features.features.shaderUniformBufferArrayDynamicIndexing - (u64)&device},
+		{"shaderSampledImageArrayDynamicIndexing", (u64)&device->vk.vk10Features.features.shaderSampledImageArrayDynamicIndexing - (u64)&device},
+		{"shaderStorageBufferArrayDynamicIndexing", (u64)&device->vk.vk10Features.features.shaderStorageBufferArrayDynamicIndexing - (u64)&device},
+		{"shaderStorageImageArrayDynamicIndexing", (u64)&device->vk.vk10Features.features.shaderStorageImageArrayDynamicIndexing - (u64)&device},
+		{"shaderClipDistance", (u64)&device->vk.vk10Features.features.shaderClipDistance - (u64)&device},
+		{"shaderCullDistance", (u64)&device->vk.vk10Features.features.shaderCullDistance - (u64)&device},
+		{"shaderFloat64", (u64)&device->vk.vk10Features.features.shaderFloat64 - (u64)&device},
+		{"shaderInt64", (u64)&device->vk.vk10Features.features.shaderInt64 - (u64)&device},
+		{"shaderInt16", (u64)&device->vk.vk10Features.features.shaderInt16 - (u64)&device},
+		{"shaderResourceResidency", (u64)&device->vk.vk10Features.features.shaderResourceResidency - (u64)&device},
+		{"shaderResourceMinLod", (u64)&device->vk.vk10Features.features.shaderResourceMinLod - (u64)&device},
+		{"sparseBinding", (u64)&device->vk.vk10Features.features.sparseBinding - (u64)&device},
+		{"sparseResidencyBuffer", (u64)&device->vk.vk10Features.features.sparseResidencyBuffer - (u64)&device},
+		{"sparseResidencyImage2D", (u64)&device->vk.vk10Features.features.sparseResidencyImage2D - (u64)&device},
+		{"sparseResidencyImage3D", (u64)&device->vk.vk10Features.features.sparseResidencyImage3D - (u64)&device},
+		{"sparseResidency2Samples", (u64)&device->vk.vk10Features.features.sparseResidency2Samples - (u64)&device},
+		{"sparseResidency4Samples", (u64)&device->vk.vk10Features.features.sparseResidency4Samples - (u64)&device},
+		{"sparseResidency8Samples", (u64)&device->vk.vk10Features.features.sparseResidency8Samples - (u64)&device},
+		{"sparseResidency16Samples", (u64)&device->vk.vk10Features.features.sparseResidency16Samples - (u64)&device},
+		{"sparseResidencyAliased", (u64)&device->vk.vk10Features.features.sparseResidencyAliased - (u64)&device},
+		{"variableMultisampleRate", (u64)&device->vk.vk10Features.features.variableMultisampleRate - (u64)&device},
+		{"inheritedQueries", (u64)&device->vk.vk10Features.features.inheritedQueries - (u64)&device},
 		// Vulkan 1.1 Features
-		{"storageBuffer16BitAccess", (u64)&device->vk11Features.storageBuffer16BitAccess - (u64)&device},
-		{"uniformAndStorageBuffer16BitAccess", (u64)&device->vk11Features.uniformAndStorageBuffer16BitAccess - (u64)&device},
-		{"storagePushConstant16", (u64)&device->vk11Features.storagePushConstant16 - (u64)&device},
-		{"storageInputOutput16", (u64)&device->vk11Features.storageInputOutput16 - (u64)&device},
-		{"multiview", (u64)&device->vk11Features.multiview - (u64)&device},
-		{"multiviewGeometryShader", (u64)&device->vk11Features.multiviewGeometryShader - (u64)&device},
-		{"multiviewTessellationShader", (u64)&device->vk11Features.multiviewTessellationShader - (u64)&device},
-		{"variablePointersStorageBuffer", (u64)&device->vk11Features.variablePointersStorageBuffer - (u64)&device},
-		{"variablePointers", (u64)&device->vk11Features.variablePointers - (u64)&device},
-		{"protectedMemory", (u64)&device->vk11Features.protectedMemory - (u64)&device},
-		{"samplerYcbcrConversion", (u64)&device->vk11Features.samplerYcbcrConversion - (u64)&device},
-		{"shaderDrawParameters", (u64)&device->vk11Features.shaderDrawParameters - (u64)&device},
+		{"storageBuffer16BitAccess", (u64)&device->vk.vk11Features.storageBuffer16BitAccess - (u64)&device},
+		{"uniformAndStorageBuffer16BitAccess", (u64)&device->vk.vk11Features.uniformAndStorageBuffer16BitAccess - (u64)&device},
+		{"storagePushConstant16", (u64)&device->vk.vk11Features.storagePushConstant16 - (u64)&device},
+		{"storageInputOutput16", (u64)&device->vk.vk11Features.storageInputOutput16 - (u64)&device},
+		{"multiview", (u64)&device->vk.vk11Features.multiview - (u64)&device},
+		{"multiviewGeometryShader", (u64)&device->vk.vk11Features.multiviewGeometryShader - (u64)&device},
+		{"multiviewTessellationShader", (u64)&device->vk.vk11Features.multiviewTessellationShader - (u64)&device},
+		{"variablePointersStorageBuffer", (u64)&device->vk.vk11Features.variablePointersStorageBuffer - (u64)&device},
+		{"variablePointers", (u64)&device->vk.vk11Features.variablePointers - (u64)&device},
+		{"protectedMemory", (u64)&device->vk.vk11Features.protectedMemory - (u64)&device},
+		{"samplerYcbcrConversion", (u64)&device->vk.vk11Features.samplerYcbcrConversion - (u64)&device},
+		{"shaderDrawParameters", (u64)&device->vk.vk11Features.shaderDrawParameters - (u64)&device},
 		// Vulkan 1.2 Features
-		{"samplerMirrorClampToEdge", (u64)&device->vk12Features.samplerMirrorClampToEdge - (u64)&device},
-		{"drawIndirectCount", (u64)&device->vk12Features.drawIndirectCount - (u64)&device},
-		{"storageBuffer8BitAccess", (u64)&device->vk12Features.storageBuffer8BitAccess - (u64)&device},
-		{"uniformAndStorageBuffer8BitAccess", (u64)&device->vk12Features.uniformAndStorageBuffer8BitAccess - (u64)&device},
-		{"storagePushConstant8", (u64)&device->vk12Features.storagePushConstant8 - (u64)&device},
-		{"shaderBufferInt64Atomics", (u64)&device->vk12Features.shaderBufferInt64Atomics - (u64)&device},
-		{"shaderSharedInt64Atomics", (u64)&device->vk12Features.shaderSharedInt64Atomics - (u64)&device},
-		{"shaderFloat16", (u64)&device->vk12Features.shaderFloat16 - (u64)&device},
-		{"shaderInt8", (u64)&device->vk12Features.shaderInt8 - (u64)&device},
-		{"descriptorIndexing", (u64)&device->vk12Features.descriptorIndexing - (u64)&device},
-		{"shaderInputAttachmentArrayDynamicIndexing", (u64)&device->vk12Features.shaderInputAttachmentArrayDynamicIndexing - (u64)&device},
-		{"shaderUniformTexelBufferArrayDynamicIndexing", (u64)&device->vk12Features.shaderUniformTexelBufferArrayDynamicIndexing - (u64)&device},
-		{"shaderStorageTexelBufferArrayDynamicIndexing", (u64)&device->vk12Features.shaderStorageTexelBufferArrayDynamicIndexing - (u64)&device},
-		{"shaderUniformBufferArrayNonUniformIndexing", (u64)&device->vk12Features.shaderUniformBufferArrayNonUniformIndexing - (u64)&device},
-		{"shaderSampledImageArrayNonUniformIndexing", (u64)&device->vk12Features.shaderSampledImageArrayNonUniformIndexing - (u64)&device},
-		{"shaderStorageBufferArrayNonUniformIndexing", (u64)&device->vk12Features.shaderStorageBufferArrayNonUniformIndexing - (u64)&device},
-		{"shaderStorageImageArrayNonUniformIndexing", (u64)&device->vk12Features.shaderStorageImageArrayNonUniformIndexing - (u64)&device},
-		{"shaderInputAttachmentArrayNonUniformIndexing", (u64)&device->vk12Features.shaderInputAttachmentArrayNonUniformIndexing - (u64)&device},
-		{"shaderUniformTexelBufferArrayNonUniformIndexing", (u64)&device->vk12Features.shaderUniformTexelBufferArrayNonUniformIndexing - (u64)&device},
-		{"shaderStorageTexelBufferArrayNonUniformIndexing", (u64)&device->vk12Features.shaderStorageTexelBufferArrayNonUniformIndexing - (u64)&device},
-		{"descriptorBindingUniformBufferUpdateAfterBind", (u64)&device->vk12Features.descriptorBindingUniformBufferUpdateAfterBind - (u64)&device},
-		{"descriptorBindingSampledImageUpdateAfterBind", (u64)&device->vk12Features.descriptorBindingSampledImageUpdateAfterBind - (u64)&device},
-		{"descriptorBindingStorageImageUpdateAfterBind", (u64)&device->vk12Features.descriptorBindingStorageImageUpdateAfterBind - (u64)&device},
-		{"descriptorBindingStorageBufferUpdateAfterBind", (u64)&device->vk12Features.descriptorBindingStorageBufferUpdateAfterBind - (u64)&device},
-		{"descriptorBindingUniformTexelBufferUpdateAfterBind", (u64)&device->vk12Features.descriptorBindingUniformTexelBufferUpdateAfterBind - (u64)&device},
-		{"descriptorBindingStorageTexelBufferUpdateAfterBind", (u64)&device->vk12Features.descriptorBindingStorageTexelBufferUpdateAfterBind - (u64)&device},
-		{"descriptorBindingUpdateUnusedWhilePending", (u64)&device->vk12Features.descriptorBindingUpdateUnusedWhilePending - (u64)&device},
-		{"descriptorBindingPartiallyBound", (u64)&device->vk12Features.descriptorBindingPartiallyBound - (u64)&device},
-		{"descriptorBindingVariableDescriptorCount", (u64)&device->vk12Features.descriptorBindingVariableDescriptorCount - (u64)&device},
-		{"runtimeDescriptorArray", (u64)&device->vk12Features.runtimeDescriptorArray - (u64)&device},
-		{"samplerFilterMinmax", (u64)&device->vk12Features.samplerFilterMinmax - (u64)&device},
-		{"scalarBlockLayout", (u64)&device->vk12Features.scalarBlockLayout - (u64)&device},
-		{"imagelessFramebuffer", (u64)&device->vk12Features.imagelessFramebuffer - (u64)&device},
-		{"uniformBufferStandardLayout", (u64)&device->vk12Features.uniformBufferStandardLayout - (u64)&device},
-		{"shaderSubgroupExtendedTypes", (u64)&device->vk12Features.shaderSubgroupExtendedTypes - (u64)&device},
-		{"separateDepthStencilLayouts", (u64)&device->vk12Features.separateDepthStencilLayouts - (u64)&device},
-		{"hostQueryReset", (u64)&device->vk12Features.hostQueryReset - (u64)&device},
-		{"timelineSemaphore", (u64)&device->vk12Features.timelineSemaphore - (u64)&device},
-		{"bufferDeviceAddress", (u64)&device->vk12Features.bufferDeviceAddress - (u64)&device},
-		{"bufferDeviceAddressCaptureReplay", (u64)&device->vk12Features.bufferDeviceAddressCaptureReplay - (u64)&device},
-		{"bufferDeviceAddressMultiDevice", (u64)&device->vk12Features.bufferDeviceAddressMultiDevice - (u64)&device},
-		{"vulkanMemoryModel", (u64)&device->vk12Features.vulkanMemoryModel - (u64)&device},
-		{"vulkanMemoryModelDeviceScope", (u64)&device->vk12Features.vulkanMemoryModelDeviceScope - (u64)&device},
-		{"vulkanMemoryModelAvailabilityVisibilityChains", (u64)&device->vk12Features.vulkanMemoryModelAvailabilityVisibilityChains - (u64)&device},
-		{"shaderOutputViewportIndex", (u64)&device->vk12Features.shaderOutputViewportIndex - (u64)&device},
-		{"shaderOutputLayer", (u64)&device->vk12Features.shaderOutputLayer - (u64)&device},
-		{"subgroupBroadcastDynamicId", (u64)&device->vk12Features.subgroupBroadcastDynamicId - (u64)&device},
+		{"samplerMirrorClampToEdge", (u64)&device->vk.vk12Features.samplerMirrorClampToEdge - (u64)&device},
+		{"drawIndirectCount", (u64)&device->vk.vk12Features.drawIndirectCount - (u64)&device},
+		{"storageBuffer8BitAccess", (u64)&device->vk.vk12Features.storageBuffer8BitAccess - (u64)&device},
+		{"uniformAndStorageBuffer8BitAccess", (u64)&device->vk.vk12Features.uniformAndStorageBuffer8BitAccess - (u64)&device},
+		{"storagePushConstant8", (u64)&device->vk.vk12Features.storagePushConstant8 - (u64)&device},
+		{"shaderBufferInt64Atomics", (u64)&device->vk.vk12Features.shaderBufferInt64Atomics - (u64)&device},
+		{"shaderSharedInt64Atomics", (u64)&device->vk.vk12Features.shaderSharedInt64Atomics - (u64)&device},
+		{"shaderFloat16", (u64)&device->vk.vk12Features.shaderFloat16 - (u64)&device},
+		{"shaderInt8", (u64)&device->vk.vk12Features.shaderInt8 - (u64)&device},
+		{"descriptorIndexing", (u64)&device->vk.vk12Features.descriptorIndexing - (u64)&device},
+		{"shaderInputAttachmentArrayDynamicIndexing", (u64)&device->vk.vk12Features.shaderInputAttachmentArrayDynamicIndexing - (u64)&device},
+		{"shaderUniformTexelBufferArrayDynamicIndexing", (u64)&device->vk.vk12Features.shaderUniformTexelBufferArrayDynamicIndexing - (u64)&device},
+		{"shaderStorageTexelBufferArrayDynamicIndexing", (u64)&device->vk.vk12Features.shaderStorageTexelBufferArrayDynamicIndexing - (u64)&device},
+		{"shaderUniformBufferArrayNonUniformIndexing", (u64)&device->vk.vk12Features.shaderUniformBufferArrayNonUniformIndexing - (u64)&device},
+		{"shaderSampledImageArrayNonUniformIndexing", (u64)&device->vk.vk12Features.shaderSampledImageArrayNonUniformIndexing - (u64)&device},
+		{"shaderStorageBufferArrayNonUniformIndexing", (u64)&device->vk.vk12Features.shaderStorageBufferArrayNonUniformIndexing - (u64)&device},
+		{"shaderStorageImageArrayNonUniformIndexing", (u64)&device->vk.vk12Features.shaderStorageImageArrayNonUniformIndexing - (u64)&device},
+		{"shaderInputAttachmentArrayNonUniformIndexing", (u64)&device->vk.vk12Features.shaderInputAttachmentArrayNonUniformIndexing - (u64)&device},
+		{"shaderUniformTexelBufferArrayNonUniformIndexing", (u64)&device->vk.vk12Features.shaderUniformTexelBufferArrayNonUniformIndexing - (u64)&device},
+		{"shaderStorageTexelBufferArrayNonUniformIndexing", (u64)&device->vk.vk12Features.shaderStorageTexelBufferArrayNonUniformIndexing - (u64)&device},
+		{"descriptorBindingUniformBufferUpdateAfterBind", (u64)&device->vk.vk12Features.descriptorBindingUniformBufferUpdateAfterBind - (u64)&device},
+		{"descriptorBindingSampledImageUpdateAfterBind", (u64)&device->vk.vk12Features.descriptorBindingSampledImageUpdateAfterBind - (u64)&device},
+		{"descriptorBindingStorageImageUpdateAfterBind", (u64)&device->vk.vk12Features.descriptorBindingStorageImageUpdateAfterBind - (u64)&device},
+		{"descriptorBindingStorageBufferUpdateAfterBind", (u64)&device->vk.vk12Features.descriptorBindingStorageBufferUpdateAfterBind - (u64)&device},
+		{"descriptorBindingUniformTexelBufferUpdateAfterBind", (u64)&device->vk.vk12Features.descriptorBindingUniformTexelBufferUpdateAfterBind - (u64)&device},
+		{"descriptorBindingStorageTexelBufferUpdateAfterBind", (u64)&device->vk.vk12Features.descriptorBindingStorageTexelBufferUpdateAfterBind - (u64)&device},
+		{"descriptorBindingUpdateUnusedWhilePending", (u64)&device->vk.vk12Features.descriptorBindingUpdateUnusedWhilePending - (u64)&device},
+		{"descriptorBindingPartiallyBound", (u64)&device->vk.vk12Features.descriptorBindingPartiallyBound - (u64)&device},
+		{"descriptorBindingVariableDescriptorCount", (u64)&device->vk.vk12Features.descriptorBindingVariableDescriptorCount - (u64)&device},
+		{"runtimeDescriptorArray", (u64)&device->vk.vk12Features.runtimeDescriptorArray - (u64)&device},
+		{"samplerFilterMinmax", (u64)&device->vk.vk12Features.samplerFilterMinmax - (u64)&device},
+		{"scalarBlockLayout", (u64)&device->vk.vk12Features.scalarBlockLayout - (u64)&device},
+		{"imagelessFramebuffer", (u64)&device->vk.vk12Features.imagelessFramebuffer - (u64)&device},
+		{"uniformBufferStandardLayout", (u64)&device->vk.vk12Features.uniformBufferStandardLayout - (u64)&device},
+		{"shaderSubgroupExtendedTypes", (u64)&device->vk.vk12Features.shaderSubgroupExtendedTypes - (u64)&device},
+		{"separateDepthStencilLayouts", (u64)&device->vk.vk12Features.separateDepthStencilLayouts - (u64)&device},
+		{"hostQueryReset", (u64)&device->vk.vk12Features.hostQueryReset - (u64)&device},
+		{"timelineSemaphore", (u64)&device->vk.vk12Features.timelineSemaphore - (u64)&device},
+		{"bufferDeviceAddress", (u64)&device->vk.vk12Features.bufferDeviceAddress - (u64)&device},
+		{"bufferDeviceAddressCaptureReplay", (u64)&device->vk.vk12Features.bufferDeviceAddressCaptureReplay - (u64)&device},
+		{"bufferDeviceAddressMultiDevice", (u64)&device->vk.vk12Features.bufferDeviceAddressMultiDevice - (u64)&device},
+		{"vulkanMemoryModel", (u64)&device->vk.vk12Features.vulkanMemoryModel - (u64)&device},
+		{"vulkanMemoryModelDeviceScope", (u64)&device->vk.vk12Features.vulkanMemoryModelDeviceScope - (u64)&device},
+		{"vulkanMemoryModelAvailabilityVisibilityChains", (u64)&device->vk.vk12Features.vulkanMemoryModelAvailabilityVisibilityChains - (u64)&device},
+		{"shaderOutputViewportIndex", (u64)&device->vk.vk12Features.shaderOutputViewportIndex - (u64)&device},
+		{"shaderOutputLayer", (u64)&device->vk.vk12Features.shaderOutputLayer - (u64)&device},
+		{"subgroupBroadcastDynamicId", (u64)&device->vk.vk12Features.subgroupBroadcastDynamicId - (u64)&device},
 		// Vulkan 1.3 Features
-		{"robustImageAccess", (u64)&device->vk13Features.robustImageAccess - (u64)&device},
-		{"inlineUniformBlock", (u64)&device->vk13Features.inlineUniformBlock - (u64)&device},
-		{"descriptorBindingInlineUniformBlockUpdateAfterBind", (u64)&device->vk13Features.descriptorBindingInlineUniformBlockUpdateAfterBind - (u64)&device},
-		{"pipelineCreationCacheControl", (u64)&device->vk13Features.pipelineCreationCacheControl - (u64)&device},
-		{"privateData", (u64)&device->vk13Features.privateData - (u64)&device},
-		{"shaderDemoteToHelperInvocation", (u64)&device->vk13Features.shaderDemoteToHelperInvocation - (u64)&device},
-		{"shaderTerminateInvocation", (u64)&device->vk13Features.shaderTerminateInvocation - (u64)&device},
-		{"subgroupSizeControl", (u64)&device->vk13Features.subgroupSizeControl - (u64)&device},
-		{"computeFullSubgroups", (u64)&device->vk13Features.computeFullSubgroups - (u64)&device},
-		{"synchronization2", (u64)&device->vk13Features.synchronization2 - (u64)&device},
-		{"textureCompressionASTC_HDR", (u64)&device->vk13Features.textureCompressionASTC_HDR - (u64)&device},
-		{"shaderZeroInitializeWorkgroupMemory", (u64)&device->vk13Features.shaderZeroInitializeWorkgroupMemory - (u64)&device},
-		{"dynamicRendering", (u64)&device->vk13Features.dynamicRendering - (u64)&device},
-		{"shaderIntegerDotProduct", (u64)&device->vk13Features.shaderIntegerDotProduct - (u64)&device},
-		{"maintenance4", (u64)&device->vk13Features.maintenance4 - (u64)&device},
+		{"robustImageAccess", (u64)&device->vk.vk13Features.robustImageAccess - (u64)&device},
+		{"inlineUniformBlock", (u64)&device->vk.vk13Features.inlineUniformBlock - (u64)&device},
+		{"descriptorBindingInlineUniformBlockUpdateAfterBind", (u64)&device->vk.vk13Features.descriptorBindingInlineUniformBlockUpdateAfterBind - (u64)&device},
+		{"pipelineCreationCacheControl", (u64)&device->vk.vk13Features.pipelineCreationCacheControl - (u64)&device},
+		{"privateData", (u64)&device->vk.vk13Features.privateData - (u64)&device},
+		{"shaderDemoteToHelperInvocation", (u64)&device->vk.vk13Features.shaderDemoteToHelperInvocation - (u64)&device},
+		{"shaderTerminateInvocation", (u64)&device->vk.vk13Features.shaderTerminateInvocation - (u64)&device},
+		{"subgroupSizeControl", (u64)&device->vk.vk13Features.subgroupSizeControl - (u64)&device},
+		{"computeFullSubgroups", (u64)&device->vk.vk13Features.computeFullSubgroups - (u64)&device},
+		{"synchronization2", (u64)&device->vk.vk13Features.synchronization2 - (u64)&device},
+		{"textureCompressionASTC_HDR", (u64)&device->vk.vk13Features.textureCompressionASTC_HDR - (u64)&device},
+		{"shaderZeroInitializeWorkgroupMemory", (u64)&device->vk.vk13Features.shaderZeroInitializeWorkgroupMemory - (u64)&device},
+		{"dynamicRendering", (u64)&device->vk.vk13Features.dynamicRendering - (u64)&device},
+		{"shaderIntegerDotProduct", (u64)&device->vk.vk13Features.shaderIntegerDotProduct - (u64)&device},
+		{"maintenance4", (u64)&device->vk.vk13Features.maintenance4 - (u64)&device},
 	};
 	for (Str feature : features) {
 		if (auto *node = featureByteOffsets.Find(feature)) {
@@ -2912,13 +2963,13 @@ void DeviceRequireFeatures(Device *device, const ArrayWithBucket<Str, 8> &featur
 #ifndef Resources
 
 Result<VoidResult_t, String> BufferInit(Buffer *buffer) {
-	// AzAssert(buffer->size > 0, "Cannot allocate a buffer with size <= 0");
-	if (buffer->size <= 0) buffer->size = 1;
+	// AzAssert(buffer->config.size > 0, "Cannot allocate a buffer with size <= 0");
+	if (buffer->config.size <= 0) buffer->config.size = 1;
 	INIT_HEAD(buffer);
 	VkBufferCreateInfo createInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-	createInfo.size = buffer->size;
+	createInfo.size = buffer->config.size;
 	createInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	switch (buffer->kind) {
+	switch (buffer->config.kind) {
 		case Buffer::VERTEX_BUFFER:
 			createInfo.usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 			break;
@@ -2934,75 +2985,74 @@ Result<VoidResult_t, String> BufferInit(Buffer *buffer) {
 		default:
 			return ERROR_RESULT(buffer, "Cannot initialize buffer with undefined Kind");
 	}
-	if (VkResult result = vkCreateBuffer(buffer->device->vkDevice, &createInfo, nullptr, &buffer->vkBuffer); result != VK_SUCCESS) {
+	if (VkResult result = vkCreateBuffer(buffer->header.device->vk.device, &createInfo, nullptr, &buffer->vk.buffer); result != VK_SUCCESS) {
 		return ERROR_RESULT(buffer, "Failed to create buffer: ", VkResultString(result));
 	}
-	SetDebugMarker(buffer->device, buffer->tag, VK_OBJECT_TYPE_BUFFER, (u64)buffer->vkBuffer);
-	vkGetBufferMemoryRequirements(buffer->device->vkDevice, buffer->vkBuffer, &buffer->memoryRequirements);
+	SetDebugMarker(buffer->header.device, buffer->header.tag, VK_OBJECT_TYPE_BUFFER, (u64)buffer->vk.buffer);
+	vkGetBufferMemoryRequirements(buffer->header.device->vk.device, buffer->vk.buffer, &buffer->vk.memoryRequirements);
 	AZ_TRY_ERROR_RESULT (buffer,
-		AllocateBuffer(buffer->device, buffer->vkBuffer, buffer->memoryRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+		AllocateBuffer(buffer->header.device, buffer->vk.buffer, buffer->vk.memoryRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 	) else {
-		buffer->alloc = result.value;
+		buffer->vk.alloc = result.value;
 	}
-	buffer->initted = true;
-	buffer->timestamp = GetTimestamp();
+	buffer->header.OnInit();
 	return VoidResult_t();
 }
 
 void BufferDeinit(Buffer *buffer) {
 	DEINIT_HEAD(buffer);
-	vkDestroyBuffer(buffer->device->vkDevice, buffer->vkBuffer, nullptr);
-	MemoryFree(buffer->alloc);
-	if (buffer->hostVisible) {
-		vkDestroyBuffer(buffer->device->vkDevice, buffer->vkBufferHostVisible, nullptr);
-		MemoryFree(buffer->allocHostVisible);
-		buffer->hostVisible = false;
+	vkDestroyBuffer(buffer->header.device->vk.device, buffer->vk.buffer, nullptr);
+	MemoryFree(buffer->vk.alloc);
+	if (buffer->state.hostVisible) {
+		vkDestroyBuffer(buffer->header.device->vk.device, buffer->vk.bufferHostVisible, nullptr);
+		MemoryFree(buffer->vk.allocHostVisible);
+		buffer->state.hostVisible = false;
 	}
-	buffer->initted = false;
+	buffer->header.initted = false;
 }
 
 Result<VoidResult_t, String> BufferHostInit(Buffer *buffer) {
-	AzAssert(buffer->initted == true, "Trying to init staging buffer for buffer that's not initted");
-	AzAssert(buffer->hostVisible == false, "Trying to init staging buffer that's already initted");
+	AzAssert(buffer->header.initted == true, "Trying to init staging buffer for buffer that's not initted");
+	AzAssert(buffer->state.hostVisible == false, "Trying to init staging buffer that's already initted");
 	TRACE_INIT(buffer);
 	VkBufferCreateInfo createInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-	createInfo.size = buffer->size;
+	createInfo.size = buffer->config.size;
 	createInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-	if (VkResult result = vkCreateBuffer(buffer->device->vkDevice, &createInfo, nullptr, &buffer->vkBufferHostVisible); result != VK_SUCCESS) {
+	if (VkResult result = vkCreateBuffer(buffer->header.device->vk.device, &createInfo, nullptr, &buffer->vk.bufferHostVisible); result != VK_SUCCESS) {
 		return ERROR_RESULT(buffer, "Failed to create staging buffer: ", VkResultString(result));
 	}
-	SetDebugMarker(buffer->device, Stringify(buffer->tag, " host-visible buffer"), VK_OBJECT_TYPE_BUFFER, (u64)buffer->vkBufferHostVisible);
+	SetDebugMarker(buffer->header.device, Stringify(buffer->header.tag, " host-visible buffer"), VK_OBJECT_TYPE_BUFFER, (u64)buffer->vk.bufferHostVisible);
 	AZ_TRY_ERROR_RESULT_INFO (buffer,
-		AllocateBuffer(buffer->device, buffer->vkBufferHostVisible, buffer->memoryRequirements, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT),
+		AllocateBuffer(buffer->header.device, buffer->vk.bufferHostVisible, buffer->vk.memoryRequirements, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT),
 		"For host-visible buffer: "
 	) else {
-		buffer->allocHostVisible = result.value;
+		buffer->vk.allocHostVisible = result.value;
 	}
-	buffer->hostVisible = true;
+	buffer->state.hostVisible = true;
 	return VoidResult_t();
 }
 
 void BufferHostDeinit(Buffer *buffer) {
-	AzAssert(buffer->initted == true, "Trying to deinit staging buffer for buffer that's not initted");
-	AzAssert(buffer->hostVisible == true, "Trying to deinit staging buffer that's not initted");
+	AzAssert(buffer->header.initted == true, "Trying to deinit staging buffer for buffer that's not initted");
+	AzAssert(buffer->state.hostVisible == true, "Trying to deinit staging buffer that's not initted");
 	TRACE_DEINIT(buffer);
-	vkDestroyBuffer(buffer->device->vkDevice, buffer->vkBufferHostVisible, nullptr);
-	MemoryFree(buffer->allocHostVisible);
-	buffer->hostVisible = false;
+	vkDestroyBuffer(buffer->header.device->vk.device, buffer->vk.bufferHostVisible, nullptr);
+	MemoryFree(buffer->vk.allocHostVisible);
+	buffer->state.hostVisible = false;
 }
 
 Result<VoidResult_t, String> BufferSetSize(Buffer *buffer, i64 sizeBytes) {
-	if (sizeBytes == buffer->size) return VoidResult_t();
-	bool initted = buffer->initted;
+	if (sizeBytes == buffer->config.size) return VoidResult_t();
+	bool initted = buffer->header.initted;
 	if (initted) {
-		CleanupDependentContexts(buffer->dependentContexts);
-		if (buffer->dependentContexts.size) {
+		CleanupDependentContexts(buffer->state.dependentContexts);
+		if (buffer->state.dependentContexts.size) {
 			MakeHoldover(buffer);
 		} else {
 			BufferDeinit(buffer);
 		}
 	}
-	buffer->size = sizeBytes;
+	buffer->config.size = sizeBytes;
 	if (initted) {
 		return BufferInit(buffer);
 	}
@@ -3010,8 +3060,8 @@ Result<VoidResult_t, String> BufferSetSize(Buffer *buffer, i64 sizeBytes) {
 }
 
 Result<VoidResult_t, String> BufferResize(Buffer *buffer, i64 sizeBytes, Context *copyContext) {
-	AzAssert(buffer->initted, Stringify("Trying to resize a buffer \"", buffer->tag, "\" that's not initted"));
-	if (sizeBytes == buffer->size) return VoidResult_t();
+	AzAssert(buffer->header.initted, Stringify("Trying to resize a buffer \"", buffer->header.tag, "\" that's not initted"));
+	if (sizeBytes == buffer->config.size) return VoidResult_t();
 
 	Buffer *oldBuffer = MakeHoldover(buffer);
 
@@ -3026,39 +3076,39 @@ Result<VoidResult_t, String> BufferResize(Buffer *buffer, i64 sizeBytes, Context
 }
 
 void BufferSetShaderUsage(Buffer *buffer, ShaderStage shaderStages) {
-	buffer->shaderStages = shaderStages;
+	buffer->config.shaderStages = shaderStages;
 }
 
 i64 BufferGetSize(Buffer *buffer) {
-	return buffer->size;
+	return buffer->config.size;
 }
 
 Result<VoidResult_t, String> ImageInit(Image *image) {
 	INIT_HEAD(image);
 	VkImageCreateInfo createInfo = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
 	createInfo.imageType = VK_IMAGE_TYPE_2D;
-	createInfo.format = image->vkFormat;
-	createInfo.extent.width = image->width;
-	createInfo.extent.height = image->height;
+	createInfo.format = image->vk.format;
+	createInfo.extent.width = image->config.width;
+	createInfo.extent.height = image->config.height;
 	createInfo.extent.depth = 1;
-	createInfo.mipLevels = image->mipLevels;
+	createInfo.mipLevels = image->config.mipLevels;
 	createInfo.arrayLayers = 1;
-	createInfo.samples = (VkSampleCountFlagBits)image->sampleCount;
+	createInfo.samples = (VkSampleCountFlagBits)image->config.sampleCount;
 	createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-	if (image->transferSrc) {
+	if (image->config.transferSrc) {
 		createInfo.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	}
-	if (image->transferDst) {
+	if (image->config.transferDst) {
 		createInfo.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	}
-	if (image->mipmapped) {
+	if (image->config.mipmapped) {
 		createInfo.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	}
-	if (image->shaderStages) {
+	if (image->config.shaderStages) {
 		createInfo.usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
 	}
-	if (image->attachment) {
-		if (FormatIsDepth(image->vkFormat)) {
+	if (image->config.attachment) {
+		if (FormatIsDepth(image->vk.format)) {
 			createInfo.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 		} else {
 			createInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
@@ -3067,61 +3117,60 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 	createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	createInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
 
-	if (VkResult result = vkCreateImage(image->device->vkDevice, &createInfo, nullptr, &image->vkImage); result != VK_SUCCESS) {
+	if (VkResult result = vkCreateImage(image->header.device->vk.device, &createInfo, nullptr, &image->vk.image); result != VK_SUCCESS) {
 		return ERROR_RESULT(image, "Failed to create image: ", VkResultString(result));
 	}
-	SetDebugMarker(image->device, image->tag, VK_OBJECT_TYPE_IMAGE, (u64)image->vkImage);
-	vkGetImageMemoryRequirements(image->device->vkDevice, image->vkImage, &image->memoryRequirements);
+	SetDebugMarker(image->header.device, image->header.tag, VK_OBJECT_TYPE_IMAGE, (u64)image->vk.image);
+	vkGetImageMemoryRequirements(image->header.device->vk.device, image->vk.image, &image->vk.memoryRequirements);
 	AZ_TRY_ERROR_RESULT (image,
-		AllocateImage(image->device, image->vkImage, image->memoryRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, false)
+		AllocateImage(image->header.device, image->vk.image, image->vk.memoryRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, false)
 	) else {
-		image->alloc = result.value;
+		image->vk.alloc = result.value;
 	}
 	VkImageViewCreateInfo viewCreateInfo = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-	viewCreateInfo.image = image->vkImage;
+	viewCreateInfo.image = image->vk.image;
 	viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	viewCreateInfo.format = image->vkFormat;
-	viewCreateInfo.subresourceRange.aspectMask = image->vkImageAspect;
-	viewCreateInfo.subresourceRange.levelCount = image->mipLevels;
+	viewCreateInfo.format = image->vk.format;
+	viewCreateInfo.subresourceRange.aspectMask = image->vk.imageAspect;
+	viewCreateInfo.subresourceRange.levelCount = image->config.mipLevels;
 	viewCreateInfo.subresourceRange.layerCount = 1;
 
-	if (VkResult result = vkCreateImageView(image->device->vkDevice, &viewCreateInfo, nullptr, &image->vkImageView); result != VK_SUCCESS) {
+	if (VkResult result = vkCreateImageView(image->header.device->vk.device, &viewCreateInfo, nullptr, &image->vk.imageView); result != VK_SUCCESS) {
 		return ERROR_RESULT(image, "Failed to create image view: ", VkResultString(result));
 	}
-	if (image->attachment && image->mipmapped && image->mipLevels > 1) {
+	if (image->config.attachment && image->config.mipmapped && image->config.mipLevels > 1) {
 		viewCreateInfo.subresourceRange.levelCount = 1;
-		if (VkResult result = vkCreateImageView(image->device->vkDevice, &viewCreateInfo, nullptr, &image->vkImageViewAttachment); result != VK_SUCCESS) {
+		if (VkResult result = vkCreateImageView(image->header.device->vk.device, &viewCreateInfo, nullptr, &image->vk.imageViewAttachment); result != VK_SUCCESS) {
 			return ERROR_RESULT(image, "Failed to create image view: ", VkResultString(result));
 		}
 	} else {
-		image->vkImageViewAttachment = image->vkImageView;
+		image->vk.imageViewAttachment = image->vk.imageView;
 	}
-	SetDebugMarker(image->device, Stringify(image->tag, " image view"), VK_OBJECT_TYPE_IMAGE_VIEW, (u64)image->vkImageView);
-	image->initted = true;
-	image->timestamp = GetTimestamp();
+	SetDebugMarker(image->header.device, Stringify(image->header.tag, " image view"), VK_OBJECT_TYPE_IMAGE_VIEW, (u64)image->vk.imageView);
+	image->header.OnInit();
 	return VoidResult_t();
 }
 
 void ImageDeinit(Image *image) {
 	DEINIT_HEAD(image);
-	vkDestroyImageView(image->device->vkDevice, image->vkImageView, nullptr);
-	if (image->vkImageViewAttachment != image->vkImageView) {
-		vkDestroyImageView(image->device->vkDevice, image->vkImageViewAttachment, nullptr);
+	vkDestroyImageView(image->header.device->vk.device, image->vk.imageView, nullptr);
+	if (image->vk.imageViewAttachment != image->vk.imageView) {
+		vkDestroyImageView(image->header.device->vk.device, image->vk.imageViewAttachment, nullptr);
 	}
-	vkDestroyImage(image->device->vkDevice, image->vkImage, nullptr);
-	MemoryFree(image->alloc);
-	if (image->hostVisible) {
-		vkDestroyBuffer(image->device->vkDevice, image->vkBufferHostVisible, nullptr);
-		MemoryFree(image->allocHostVisible);
-		image->hostVisible = false;
+	vkDestroyImage(image->header.device->vk.device, image->vk.image, nullptr);
+	MemoryFree(image->vk.alloc);
+	if (image->state.hostVisible) {
+		vkDestroyBuffer(image->header.device->vk.device, image->vk.bufferHostVisible, nullptr);
+		MemoryFree(image->vk.allocHostVisible);
+		image->state.hostVisible = false;
 	}
-	image->initted = false;
+	image->header.initted = false;
 }
 
 Result<VoidResult_t, String> ImageRecreate(Image *image) {
-	if (image->initted) {
-		CleanupDependentContexts(image->dependentContexts);
-		if (image->dependentContexts.size) {
+	if (image->header.initted) {
+		CleanupDependentContexts(image->state.dependentContexts);
+		if (image->state.dependentContexts.size) {
 			MakeHoldover(image);
 		} else {
 			ImageDeinit(image);
@@ -3131,33 +3180,33 @@ Result<VoidResult_t, String> ImageRecreate(Image *image) {
 }
 
 Result<VoidResult_t, String> ImageHostInit(Image *image) {
-	AzAssert(image->initted == true, "Trying to init image staging buffer that's not initted");
-	AzAssert(image->hostVisible == false, "Trying to init image staging buffer that's already initted");
+	AzAssert(image->header.initted == true, "Trying to init image staging buffer that's not initted");
+	AzAssert(image->state.hostVisible == false, "Trying to init image staging buffer that's already initted");
 	TRACE_INIT(image);
 	VkBufferCreateInfo createInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-	createInfo.size = image->width * image->height * image->bytesPerPixel;
+	createInfo.size = image->config.width * image->config.height * image->config.bytesPerPixel;
 	createInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-	if (VkResult result = vkCreateBuffer(image->device->vkDevice, &createInfo, nullptr, &image->vkBufferHostVisible); result != VK_SUCCESS) {
+	if (VkResult result = vkCreateBuffer(image->header.device->vk.device, &createInfo, nullptr, &image->vk.bufferHostVisible); result != VK_SUCCESS) {
 		return ERROR_RESULT(image, "Failed to create image staging buffer: ", VkResultString(result));
 	}
-	SetDebugMarker(image->device, Stringify(image->tag, " host-visible buffer"), VK_OBJECT_TYPE_BUFFER, (u64)image->vkBufferHostVisible);
-	vkGetBufferMemoryRequirements(image->device->vkDevice, image->vkBufferHostVisible, &image->memoryRequirementsHost);
+	SetDebugMarker(image->header.device, Stringify(image->header.tag, " host-visible buffer"), VK_OBJECT_TYPE_BUFFER, (u64)image->vk.bufferHostVisible);
+	vkGetBufferMemoryRequirements(image->header.device->vk.device, image->vk.bufferHostVisible, &image->vk.memoryRequirementsHost);
 	AZ_TRY_ERROR_RESULT (image,
-		AllocateBuffer(image->device, image->vkBufferHostVisible, image->memoryRequirementsHost, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+		AllocateBuffer(image->header.device, image->vk.bufferHostVisible, image->vk.memoryRequirementsHost, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
 	) else {
-		image->allocHostVisible = result.value;
+		image->vk.allocHostVisible = result.value;
 	}
-	image->hostVisible = true;
+	image->state.hostVisible = true;
 	return VoidResult_t();
 }
 
 void ImageHostDeinit(Image *image) {
-	AzAssert(image->initted == true, "Trying to deinit image staging buffer that's not initted");
-	AzAssert(image->hostVisible == true, "Trying to deinit image staging buffer that's not initted");
+	AzAssert(image->header.initted == true, "Trying to deinit image staging buffer that's not initted");
+	AzAssert(image->state.hostVisible == true, "Trying to deinit image staging buffer that's not initted");
 	TRACE_DEINIT(image);
-	vkDestroyBuffer(image->device->vkDevice, image->vkBufferHostVisible, nullptr);
-	MemoryFree(image->allocHostVisible);
-	image->hostVisible = false;
+	vkDestroyBuffer(image->header.device->vk.device, image->vk.bufferHostVisible, nullptr);
+	MemoryFree(image->vk.allocHostVisible);
+	image->state.hostVisible = false;
 }
 
 bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType componentType) {
@@ -3169,21 +3218,21 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::UNORM:   vkFormat = VK_FORMAT_D16_UNORM;   break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 2;
+			image->config.bytesPerPixel = 2;
 			break;
 		case ImageBits::D24:
 			switch (componentType) {
 				case ImageComponentType::UNORM:   vkFormat = VK_FORMAT_X8_D24_UNORM_PACK32;   break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 4;
+			image->config.bytesPerPixel = 4;
 			break;
 		case ImageBits::D32:
 			switch (componentType) {
 				case ImageComponentType::SFLOAT:   vkFormat = VK_FORMAT_D32_SFLOAT; break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 4;
+			image->config.bytesPerPixel = 4;
 			break;
 		case ImageBits::R8:
 			switch (componentType) {
@@ -3196,7 +3245,7 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SRGB:    vkFormat = VK_FORMAT_R8_SRGB;    break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 1;
+			image->config.bytesPerPixel = 1;
 			break;
 		case ImageBits::R8G8:
 			switch (componentType) {
@@ -3209,7 +3258,7 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SRGB:    vkFormat = VK_FORMAT_R8G8_SRGB;    break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 2;
+			image->config.bytesPerPixel = 2;
 			break;
 		case ImageBits::R8G8B8:
 			switch (componentType) {
@@ -3222,7 +3271,7 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SRGB:    vkFormat = VK_FORMAT_R8G8B8_SRGB;    break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 3;
+			image->config.bytesPerPixel = 3;
 			break;
 		case ImageBits::R8G8B8A8:
 			switch (componentType) {
@@ -3235,7 +3284,7 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SRGB:    vkFormat = VK_FORMAT_R8G8B8A8_SRGB;    break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 4;
+			image->config.bytesPerPixel = 4;
 			break;
 		case ImageBits::B8G8R8:
 			switch (componentType) {
@@ -3248,7 +3297,7 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SRGB:    vkFormat = VK_FORMAT_B8G8R8_SRGB;    break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 3;
+			image->config.bytesPerPixel = 3;
 			break;
 		case ImageBits::B8G8R8A8:
 			switch (componentType) {
@@ -3261,7 +3310,7 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SRGB:    vkFormat = VK_FORMAT_B8G8R8A8_SRGB;    break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 4;
+			image->config.bytesPerPixel = 4;
 			break;
 		case ImageBits::R16:
 			switch (componentType) {
@@ -3274,7 +3323,7 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SFLOAT:  vkFormat = VK_FORMAT_R16_SFLOAT;  break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 2;
+			image->config.bytesPerPixel = 2;
 			break;
 		case ImageBits::R16G16:
 			switch (componentType) {
@@ -3287,7 +3336,7 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SFLOAT:  vkFormat = VK_FORMAT_R16G16_SFLOAT;  break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 4;
+			image->config.bytesPerPixel = 4;
 			break;
 		case ImageBits::R16G16B16:
 			switch (componentType) {
@@ -3300,7 +3349,7 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SFLOAT:  vkFormat = VK_FORMAT_R16G16B16_SFLOAT;  break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 6;
+			image->config.bytesPerPixel = 6;
 			break;
 		case ImageBits::R16G16B16A16:
 			switch (componentType) {
@@ -3313,7 +3362,7 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SFLOAT:  vkFormat = VK_FORMAT_R16G16B16A16_SFLOAT;  break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 8;
+			image->config.bytesPerPixel = 8;
 			break;
 		case ImageBits::R32:
 			switch (componentType) {
@@ -3322,7 +3371,7 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SFLOAT: vkFormat = VK_FORMAT_R32_SFLOAT; break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 4;
+			image->config.bytesPerPixel = 4;
 			break;
 		case ImageBits::R32G32:
 			switch (componentType) {
@@ -3331,7 +3380,7 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SFLOAT: vkFormat = VK_FORMAT_R32G32_SFLOAT; break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 8;
+			image->config.bytesPerPixel = 8;
 			break;
 		case ImageBits::R32G32B32:
 			switch (componentType) {
@@ -3340,7 +3389,7 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SFLOAT: vkFormat = VK_FORMAT_R32G32B32_SFLOAT; break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 12;
+			image->config.bytesPerPixel = 12;
 			break;
 		case ImageBits::R32G32B32A32:
 			switch (componentType) {
@@ -3349,7 +3398,7 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SFLOAT: vkFormat = VK_FORMAT_R32G32B32A32_SFLOAT; break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 16;
+			image->config.bytesPerPixel = 16;
 			break;
 		case ImageBits::R64:
 			switch (componentType) {
@@ -3358,7 +3407,7 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SFLOAT: vkFormat = VK_FORMAT_R64_SFLOAT; break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 8;
+			image->config.bytesPerPixel = 8;
 			break;
 		case ImageBits::R64G64:
 			switch (componentType) {
@@ -3367,7 +3416,7 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SFLOAT: vkFormat = VK_FORMAT_R64G64_SFLOAT; break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 16;
+			image->config.bytesPerPixel = 16;
 			break;
 		case ImageBits::R64G64B64:
 			switch (componentType) {
@@ -3376,7 +3425,7 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SFLOAT: vkFormat = VK_FORMAT_R64G64B64_SFLOAT; break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 24;
+			image->config.bytesPerPixel = 24;
 			break;
 		case ImageBits::R64G64B64A64:
 			switch (componentType) {
@@ -3385,35 +3434,35 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SFLOAT: vkFormat = VK_FORMAT_R64G64B64A64_SFLOAT; break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 32;
+			image->config.bytesPerPixel = 32;
 			break;
 		case ImageBits::R4G4:
 			switch (componentType) {
 				case ImageComponentType::UNORM: vkFormat = VK_FORMAT_R4G4_UNORM_PACK8; break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 1;
+			image->config.bytesPerPixel = 1;
 			break;
 		case ImageBits::R4G4B4A4:
 			switch (componentType) {
 				case ImageComponentType::UNORM: vkFormat = VK_FORMAT_R4G4B4A4_UNORM_PACK16; break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 2;
+			image->config.bytesPerPixel = 2;
 			break;
 		case ImageBits::R5G6B5:
 			switch (componentType) {
 				case ImageComponentType::UNORM: vkFormat = VK_FORMAT_R5G6B5_UNORM_PACK16; break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 2;
+			image->config.bytesPerPixel = 2;
 			break;
 		case ImageBits::R5G5B5A1:
 			switch (componentType) {
 				case ImageComponentType::UNORM: vkFormat = VK_FORMAT_R5G5B5A1_UNORM_PACK16; break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 2;
+			image->config.bytesPerPixel = 2;
 			break;
 		case ImageBits::A2R10G10B10:
 			switch (componentType) {
@@ -3425,30 +3474,30 @@ bool ImageSetFormat(Image *image, ImageBits imageBits, ImageComponentType compon
 				case ImageComponentType::SINT:    vkFormat = VK_FORMAT_A2R10G10B10_SINT_PACK32;    break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 4;
+			image->config.bytesPerPixel = 4;
 			break;
 		case ImageBits::B10G11R11:
 			switch (componentType) {
 				case ImageComponentType::UFLOAT: vkFormat = VK_FORMAT_B10G11R11_UFLOAT_PACK32; break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 4;
+			image->config.bytesPerPixel = 4;
 			break;
 		case ImageBits::E5B9G9R9:
 			switch (componentType) {
 				case ImageComponentType::UFLOAT: vkFormat = VK_FORMAT_E5B9G9R9_UFLOAT_PACK32; break;
 				default: goto bad_format;
 			}
-			image->bytesPerPixel = 4;
+			image->config.bytesPerPixel = 4;
 			break;
 		default: goto bad_format;
 	}
-	changed = image->vkFormat != vkFormat;
-	image->vkFormat = vkFormat;
+	changed = image->vk.format != vkFormat;
+	image->vk.format = vkFormat;
 	if (FormatIsDepth(vkFormat)) {
-		image->vkImageAspect = VK_IMAGE_ASPECT_DEPTH_BIT;
+		image->vk.imageAspect = VK_IMAGE_ASPECT_DEPTH_BIT;
 	} else {
-		image->vkImageAspect = VK_IMAGE_ASPECT_COLOR_BIT;
+		image->vk.imageAspect = VK_IMAGE_ASPECT_COLOR_BIT;
 	}
 	return changed;
 bad_format:
@@ -3456,36 +3505,66 @@ bad_format:
 	return false;
 }
 
-bool ImageSetSize(Image *image, i32 width, i32 height, u32 maxMipLevels) {
-	bool changed = image->width != width || image->height != height;
-	image->width = width;
-	image->height = height;
-	if (image->mipmapped) {
-		image->mipLevels = min((u32)ceil(log2((f64)max(image->width, image->height))), maxMipLevels);
+bool ImageSetSize(Image *image, i32 width, i32 height) {
+	bool changed = image->config.width != width || image->config.height != height;
+	image->config.width = width;
+	image->config.height = height;
+	if (image->config.mipmapped) {
+		image->config.mipLevels = min((u32)ceil(log2((f64)max(image->config.width, image->config.height))), image->config.mipLevelsMax);
 	}
 	return changed;
 }
 
-bool ImageSetMipmapping(Image *image, bool enableMipmapping, u32 maxLevels) {
-	bool changed = image->mipmapped != enableMipmapping;
-	image->mipmapped = enableMipmapping;
-	if (image->mipmapped) {
-		if (image->width == 1 && image->height == 1) {
-			image->mipLevels = 1;
-			image->mipmapped = false;
-			WARNING(image, "Image is too small to use mipmaps (1x1). Ignoring.");
+bool ImageSetSizeToWindow(Image *image, Window *window, vec2i sizeNumerator, vec2i sizeDenominator) {
+	if (image->config.windowSizeTracking.Exists()) {
+		Image::WindowSizeTracking &tracking = image->config.windowSizeTracking.ValueUnchecked();
+		if (tracking.window == window) {
+			// We just need to update size factors
 		} else {
-			image->mipLevels = min((u32)ceil(log2((f64)max(image->width, image->height))), maxLevels);
+			bool found = tracking.window->state.imagesWithSizeMatching.EraseFirstWithValue(image);
+			AzAssert(found, "Something bwoke o.o");
+			window->state.imagesWithSizeMatching.Append(image);
 		}
 	} else {
-		image->mipLevels = 1;
+		window->state.imagesWithSizeMatching.Append(image);
+	}
+	image->config.windowSizeTracking = Image::WindowSizeTracking{window, sizeNumerator, sizeDenominator};
+	return ImageSetSize(
+		image,
+		window->state.extent.width  * sizeNumerator.x / sizeDenominator.x,
+		window->state.extent.height * sizeNumerator.y / sizeDenominator.y
+	);
+}
+
+void ImageStopSettingSizeToWindow(Image *image) {
+	AzAssert(image->config.windowSizeTracking.Exists(), Stringify("Called ", __FUNCTION__, " on an image \"", image->header.tag, "\" which is not tracking a Window's size."));
+	Image::WindowSizeTracking &tracking = image->config.windowSizeTracking.ValueUnchecked();
+	bool found = tracking.window->state.imagesWithSizeMatching.EraseFirstWithValue(image);
+	AzAssert(found, "Something bwoke -.-");
+	image->config.windowSizeTracking.Destroy();
+}
+
+bool ImageSetMipmapping(Image *image, bool enableMipmapping, u32 maxLevels) {
+	bool changed = image->config.mipmapped != enableMipmapping;
+	image->config.mipmapped = enableMipmapping;
+	image->config.mipLevelsMax = maxLevels;
+	if (image->config.mipmapped) {
+		if (image->config.width == 1 && image->config.height == 1) {
+			image->config.mipLevels = 1;
+			image->config.mipmapped = false;
+			WARNING(image, "Image is too small to use mipmaps (1x1). Ignoring.");
+		} else {
+			image->config.mipLevels = min((u32)ceil(log2((f64)max(image->config.width, image->config.height))), maxLevels);
+		}
+	} else {
+		image->config.mipLevels = 1;
 	}
 	return changed;
 }
 
 bool ImageSetShaderUsage(Image *image, ShaderStage shaderStages) {
-	bool changed = image->shaderStages != shaderStages;
-	image->shaderStages = shaderStages;
+	bool changed = image->config.shaderStages != shaderStages;
+	image->config.shaderStages = shaderStages;
 	return changed;
 }
 
@@ -3493,8 +3572,8 @@ bool ImageSetSampleCount(Image *image, u32 sampleCount) {
 	AzAssert(IsPowerOfTwo(sampleCount), "sampleCount must be a power of 2");
 	AzAssert(sampleCount <= 64, "sampleCount must not be > 64");
 	AzAssert(sampleCount > 0, "sampleCount must be > 0");
-	bool changed = image->sampleCount != sampleCount;
-	image->sampleCount = sampleCount;
+	bool changed = image->config.sampleCount != sampleCount;
+	image->config.sampleCount = sampleCount;
 	return changed;
 }
 
@@ -3516,86 +3595,86 @@ Result<VoidResult_t, String> SamplerInit(Sampler *sampler) {
 	INIT_HEAD(sampler);
 	VkSamplerCreateInfo samplerCreateInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
 	// TODO: Make controls for all of these
-	samplerCreateInfo.magFilter = GetVkFilter(sampler->magFilter);
-	samplerCreateInfo.minFilter = GetVkFilter(sampler->minFilter);
+	samplerCreateInfo.magFilter = GetVkFilter(sampler->config.magFilter);
+	samplerCreateInfo.minFilter = GetVkFilter(sampler->config.minFilter);
 	// TODO: Support trilinear filtering
-	samplerCreateInfo.mipmapMode = sampler->mipmapInterpolation ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
-	samplerCreateInfo.addressModeU = (VkSamplerAddressMode)sampler->addressModeU;
-	samplerCreateInfo.addressModeV = (VkSamplerAddressMode)sampler->addressModeV;
-	samplerCreateInfo.addressModeW = (VkSamplerAddressMode)sampler->addressModeW;
-	samplerCreateInfo.mipLodBias = sampler->lodBias;
-	samplerCreateInfo.minLod = sampler->lodMin;
-	samplerCreateInfo.maxLod = sampler->lodMax;
-	samplerCreateInfo.anisotropyEnable = sampler->anisotropy != 1 ? VK_TRUE : VK_FALSE;
-	samplerCreateInfo.maxAnisotropy = sampler->anisotropy;
-	samplerCreateInfo.compareEnable = sampler->compare.enable;
-	samplerCreateInfo.compareOp = (VkCompareOp)sampler->compare.op;
-	samplerCreateInfo.borderColor = sampler->borderColor;
+	samplerCreateInfo.mipmapMode = sampler->config.mipmapInterpolation ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	samplerCreateInfo.addressModeU = (VkSamplerAddressMode)sampler->config.addressModeU;
+	samplerCreateInfo.addressModeV = (VkSamplerAddressMode)sampler->config.addressModeV;
+	samplerCreateInfo.addressModeW = (VkSamplerAddressMode)sampler->config.addressModeW;
+	samplerCreateInfo.mipLodBias = sampler->config.lodBias;
+	samplerCreateInfo.minLod = sampler->config.lodMin;
+	samplerCreateInfo.maxLod = sampler->config.lodMax;
+	samplerCreateInfo.anisotropyEnable = sampler->config.anisotropy != 1 ? VK_TRUE : VK_FALSE;
+	samplerCreateInfo.maxAnisotropy = sampler->config.anisotropy;
+	samplerCreateInfo.compareEnable = sampler->config.compare.enable;
+	samplerCreateInfo.compareOp = (VkCompareOp)sampler->config.compare.op;
+	samplerCreateInfo.borderColor = sampler->config.borderColor;
 	samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
-	if (VkResult result = vkCreateSampler(sampler->device->vkDevice, &samplerCreateInfo, nullptr, &sampler->vkSampler); result != VK_SUCCESS) {
+	if (VkResult result = vkCreateSampler(sampler->header.device->vk.device, &samplerCreateInfo, nullptr, &sampler->vk.sampler); result != VK_SUCCESS) {
 		return ERROR_RESULT(sampler, "Failed to create sampler: ", VkResultString(result));
 	}
-	sampler->initted = true;
+	sampler->header.OnInit();
 	return VoidResult_t();
 }
 
 void SamplerDeinit(Sampler *sampler) {
 	DEINIT_HEAD(sampler);
-	vkDestroySampler(sampler->device->vkDevice, sampler->vkSampler, nullptr);
-	sampler->initted = false;
+	vkDestroySampler(sampler->header.device->vk.device, sampler->vk.sampler, nullptr);
+	sampler->header.initted = false;
 }
 
 void SamplerSetMipmapFiltering(Sampler *sampler, bool enabled) {
-	sampler->mipmapInterpolation = enabled;
+	sampler->config.mipmapInterpolation = enabled;
 }
 
 void SamplerSetFiltering(Sampler *sampler, Filter magFilter, Filter minFilter) {
-	sampler->magFilter = magFilter;
-	sampler->minFilter = minFilter;
+	sampler->config.magFilter = magFilter;
+	sampler->config.minFilter = minFilter;
 }
 
 void SamplerSetAddressMode(Sampler *sampler, AddressMode addressModeU, AddressMode addressModeV, AddressMode addressModeW) {
-	sampler->addressModeU = addressModeU;
-	sampler->addressModeV = addressModeV;
-	sampler->addressModeW = addressModeW;
+	sampler->config.addressModeU = addressModeU;
+	sampler->config.addressModeV = addressModeV;
+	sampler->config.addressModeW = addressModeW;
 }
 
 void SamplerSetLod(Sampler *sampler, f32 bias, f32 minimum, f32 maximum) {
-	sampler->lodBias = bias;
-	sampler->lodMin = minimum;
-	sampler->lodMax = maximum;
+	sampler->config.lodBias = bias;
+	sampler->config.lodMin = minimum;
+	sampler->config.lodMax = maximum;
 }
 
 void SamplerSetAnisotropy(Sampler *sampler, i32 anisotropy) {
-	sampler->anisotropy = anisotropy;
+	sampler->config.anisotropy = anisotropy;
 }
 
 void SamplerSetCompare(Sampler *sampler, bool enable, CompareOp op) {
-	sampler->compare.enable = enable;
-	sampler->compare.op = op;
+	sampler->config.compare.enable = enable;
+	sampler->config.compare.op = op;
 }
 
 void SamplerSetBorderColor(Sampler *sampler, bool isFloat, bool white, bool opaque) {
 	if (isFloat) {
 		if (white) {
 			AzAssert(opaque, "Cannot have transparent white");
-			sampler->borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+			sampler->config.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 		} else {
 			if (opaque) {
-				sampler->borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+				sampler->config.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
 			} else {
-				sampler->borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+				sampler->config.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
 			}
 		}
 	} else {
 		if (white) {
 			AzAssert(opaque, "Cannot have transparent white");
-			sampler->borderColor = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
+			sampler->config.borderColor = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
 		} else {
 			if (opaque) {
-				sampler->borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+				sampler->config.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
 			} else {
-				sampler->borderColor = VK_BORDER_COLOR_INT_TRANSPARENT_BLACK;
+				sampler->config.borderColor = VK_BORDER_COLOR_INT_TRANSPARENT_BLACK;
 			}
 		}
 	}
@@ -3608,13 +3687,13 @@ void SamplerSetBorderColor(Sampler *sampler, bool isFloat, bool white, bool opaq
 static Result<VoidResult_t, String> EnsureAttachmentIsInitted(Framebuffer *framebuffer, Attachment &attachment, bool isResolve, i32 index) {
 	switch (attachment.kind) {
 	case Attachment::WINDOW:
-		if (!attachment.window->initted) return ERROR_RESULT(framebuffer, "Cannot init Framebuffer when ", isResolve ? "resolve attachment " : "attachment ", index, " (Window) is not initialized");
+		if (!attachment.window->header.initted) return ERROR_RESULT(framebuffer, "Cannot init Framebuffer when ", isResolve ? "resolve attachment " : "attachment ", index, " (Window) is not initialized");
 		break;
 	case Attachment::IMAGE:
-		if (!attachment.image->initted) return ERROR_RESULT(framebuffer, "Cannot init Framebuffer when ", isResolve ? "resolve attachment " : "attachment ", index, " (Image) is not initialized");
+		if (!attachment.image->header.initted) return ERROR_RESULT(framebuffer, "Cannot init Framebuffer when ", isResolve ? "resolve attachment " : "attachment ", index, " (Image) is not initialized");
 		break;
 	case Attachment::DEPTH_BUFFER:
-		if (!attachment.depthBuffer->initted) return ERROR_RESULT(framebuffer, "Cannot init Framebuffer when ", isResolve ? "resolve attachment " : "attachment ", index, " (depth buffer Image) is not initialized");
+		if (!attachment.depthBuffer->header.initted) return ERROR_RESULT(framebuffer, "Cannot init Framebuffer when ", isResolve ? "resolve attachment " : "attachment ", index, " (depth buffer Image) is not initialized");
 		break;
 	}
 	return VoidResult_t();
@@ -3623,11 +3702,11 @@ static Result<VoidResult_t, String> EnsureAttachmentIsInitted(Framebuffer *frame
 static VkAttachmentDescription GetAttachmentDescription(Attachment &attachment, bool willBeResolved) {
 	VkAttachmentDescription desc{};
 	if (attachment.kind == Attachment::WINDOW) {
-		desc.format = attachment.window->surfaceFormat.format;
+		desc.format = attachment.window->vk.surfaceFormat.format;
 		desc.samples = VK_SAMPLE_COUNT_1_BIT;
 	} else {
-		desc.format = attachment.image->vkFormat;
-		desc.samples = (VkSampleCountFlagBits)attachment.image->sampleCount;
+		desc.format = attachment.image->vk.format;
+		desc.samples = (VkSampleCountFlagBits)attachment.image->config.sampleCount;
 	}
 	desc.storeOp = attachment.store ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	switch (attachment.kind) {
@@ -3656,12 +3735,12 @@ static VkAttachmentDescription GetAttachmentDescription(Attachment &attachment, 
 static VkFormat GetAttachmentFormat(Attachment &attachment) {
 	switch (attachment.kind) {
 	case Attachment::WINDOW:
-		AzAssert(attachment.window->initted, "Cannot get format from an uninitialized Window");
-		return attachment.window->surfaceFormat.format;
+		AzAssert(attachment.window->header.initted, "Cannot get format from an uninitialized Window");
+		return attachment.window->vk.surfaceFormat.format;
 	case Attachment::IMAGE:
 	case Attachment::DEPTH_BUFFER:
-		AzAssert(attachment.image->initted, "Cannot get format from an uninitialized Image");
-		return attachment.image->vkFormat;
+		AzAssert(attachment.image->header.initted, "Cannot get format from an uninitialized Image");
+		return attachment.image->vk.format;
 	}
 	AzAssert(false, "Unreachable");
 	return (VkFormat)0;
@@ -3669,7 +3748,7 @@ static VkFormat GetAttachmentFormat(Attachment &attachment) {
 
 Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 	INIT_HEAD(framebuffer);
-	if (framebuffer->attachmentRefs.size == 0) {
+	if (framebuffer->config.attachmentRefs.size == 0) {
 		return ERROR_RESULT(framebuffer, "We have no attachments!");
 	}
 	{ // RenderPass
@@ -3680,8 +3759,8 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 		VkAttachmentReference attachmentRefDepth;
 		Array<u32> preserveAttachments;
 		i32 currentAttachment = 0;
-		for (i32 i = 0; i < framebuffer->attachmentRefs.size; i++) {
-			AttachmentRef &attachmentRef = framebuffer->attachmentRefs[i];
+		for (i32 i = 0; i < framebuffer->config.attachmentRefs.size; i++) {
+			AttachmentRef &attachmentRef = framebuffer->config.attachmentRefs[i];
 			Attachment &attachment = attachmentRef.attachment;
 			AZ_TRY_ERROR_RESULT (framebuffer,
 				EnsureAttachmentIsInitted(framebuffer, attachment, false, i)
@@ -3750,37 +3829,37 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 		createInfo.dependencyCount = 0;
 		createInfo.pDependencies = nullptr;
 
-		if (VkResult result = vkCreateRenderPass(framebuffer->device->vkDevice, &createInfo, nullptr, &framebuffer->vkRenderPass); result != VK_SUCCESS) {
+		if (VkResult result = vkCreateRenderPass(framebuffer->header.device->vk.device, &createInfo, nullptr, &framebuffer->vk.renderPass); result != VK_SUCCESS) {
 			return ERROR_RESULT(framebuffer, "Failed to create RenderPass: ", VkResultString(result));
 		}
-		SetDebugMarker(framebuffer->device, Stringify(framebuffer->tag, " render pass"), VK_OBJECT_TYPE_RENDER_PASS, (u64)framebuffer->vkRenderPass);
+		SetDebugMarker(framebuffer->header.device, Stringify(framebuffer->header.tag, " render pass"), VK_OBJECT_TYPE_RENDER_PASS, (u64)framebuffer->vk.renderPass);
 	}
-	framebuffer->initted = true;
-	framebuffer->attachmentsDirty = false;
+	framebuffer->header.initted = true;
+	framebuffer->state.attachmentsDirty = false;
 	return FramebufferCreate(framebuffer);
 }
 
 void FramebufferDeinit(Framebuffer *framebuffer) {
 	DEINIT_HEAD(framebuffer);
-	vkDestroyRenderPass(framebuffer->device->vkDevice, framebuffer->vkRenderPass, nullptr);
-	for (VkFramebuffer fb : framebuffer->vkFramebuffers) {
-		vkDestroyFramebuffer(framebuffer->device->vkDevice, fb, nullptr);
+	vkDestroyRenderPass(framebuffer->header.device->vk.device, framebuffer->vk.renderPass, nullptr);
+	for (VkFramebuffer fb : framebuffer->vk.framebuffers) {
+		vkDestroyFramebuffer(framebuffer->header.device->vk.device, fb, nullptr);
 	}
 }
 
 static void GetAttachmentDimensions(Attachment &attachment, i32 &dstWidth, i32 &dstHeight, u32 &dstSampleCount, i32 &dstNumFramebuffers) {
 	switch (attachment.kind) {
 	case Attachment::WINDOW:
-		dstNumFramebuffers = attachment.window->numImages;
-		dstWidth = attachment.window->extent.width;
-		dstHeight = attachment.window->extent.height;
+		dstNumFramebuffers = attachment.window->vk.numImages;
+		dstWidth = attachment.window->state.extent.width;
+		dstHeight = attachment.window->state.extent.height;
 		dstSampleCount = 1;
 		break;
 	case Attachment::IMAGE:
 	case Attachment::DEPTH_BUFFER:
-		dstWidth = attachment.image->width;
-		dstHeight = attachment.image->height;
-		dstSampleCount = attachment.image->sampleCount;
+		dstWidth = attachment.image->config.width;
+		dstHeight = attachment.image->config.height;
+		dstSampleCount = attachment.image->config.sampleCount;
 		break;
 	}
 }
@@ -3788,157 +3867,201 @@ static void GetAttachmentDimensions(Attachment &attachment, i32 &dstWidth, i32 &
 static VkImageView GetAttachmentImageView(Attachment &attachment, i32 framebufferIndex) {
 	switch (attachment.kind) {
 	case Attachment::WINDOW:
-		return attachment.window->swapchainImages[framebufferIndex].vkImageView;
+		return attachment.window->vk.swapchainImages[framebufferIndex].imageView;
 		break;
 	case Attachment::IMAGE:
-		return attachment.image->vkImageViewAttachment;
+		return attachment.image->vk.imageViewAttachment;
 		break;
 	case Attachment::DEPTH_BUFFER:
-		return attachment.depthBuffer->vkImageViewAttachment;
+		return attachment.depthBuffer->vk.imageViewAttachment;
 		break;
 	}
 	AzAssert(false, "Unreachable");
 	return VK_NULL_HANDLE;
 }
 
+Result<VoidResult_t, String> FramebufferRecreate(Framebuffer *framebuffer) {
+	if (framebuffer->header.initted) {
+		CleanupDependentContexts(framebuffer->state.dependentContexts);
+		if (framebuffer->state.dependentContexts.size) {
+			MakeHoldover(framebuffer);
+		} else {
+			FramebufferDeinit(framebuffer);
+		}
+	}
+	return FramebufferInit(framebuffer);
+}
+
+// Unlike FramebufferRecreate, this doesn't make a holdover and doesn't touch the vkRenderPass, only the actual vkFramebuffers
 Result<VoidResult_t, String> FramebufferCreate(Framebuffer *framebuffer) {
-	AzAssert(framebuffer->initted, "Framebuffer is not initialized");
-	if (framebuffer->attachmentsDirty) {
+	AzAssert(framebuffer->header.initted, "Framebuffer is not initialized");
+	if (framebuffer->state.attachmentsDirty) {
 		FramebufferDeinit(framebuffer);
 		AZ_TRY_ERROR_RESULT (framebuffer, FramebufferInit(framebuffer));
 	}
 	i32 numFramebuffers = 1;
 	bool resizeAttachmentsAsNeeded = false;
-	for (i32 i = 0; i < framebuffer->attachmentRefs.size; i++) {
-		AttachmentRef &attachmentRef = framebuffer->attachmentRefs[i];
+	for (i32 i = 0; i < framebuffer->config.attachmentRefs.size; i++) {
+		AttachmentRef &attachmentRef = framebuffer->config.attachmentRefs[i];
 		Attachment &attachment = attachmentRef.attachment;
 		if (attachment.kind == Attachment::WINDOW) {
-			framebuffer->width = attachment.window->extent.width;
-			framebuffer->height = attachment.window->extent.height;
+			framebuffer->state.width = attachment.window->state.extent.width;
+			framebuffer->state.height = attachment.window->state.extent.height;
 			resizeAttachmentsAsNeeded = true;
 			break;
 		}
 		if (attachmentRef.resolveAttachment.Exists()) {
 			Attachment &resolveAttachment = attachmentRef.resolveAttachment.ValueOrAssert();
 			if (resolveAttachment.kind == Attachment::WINDOW) {
-				framebuffer->width = resolveAttachment.window->extent.width;
-				framebuffer->height = resolveAttachment.window->extent.height;
+				framebuffer->state.width = resolveAttachment.window->state.extent.width;
+				framebuffer->state.height = resolveAttachment.window->state.extent.height;
 				resizeAttachmentsAsNeeded = true;
 				break;
 			}
 		}
 	}
-	for (i32 i = 0; i < framebuffer->attachmentRefs.size; i++) {
-		AttachmentRef &attachmentRef = framebuffer->attachmentRefs[i];
+	for (i32 i = 0; i < framebuffer->config.attachmentRefs.size; i++) {
+		AttachmentRef &attachmentRef = framebuffer->config.attachmentRefs[i];
 		Attachment &attachment = attachmentRef.attachment;
 		i32 ourWidth = 1;
 		i32 ourHeight = 1;
 		u32 ourSampleCount = 1;
 		GetAttachmentDimensions(attachment, ourWidth, ourHeight, ourSampleCount, numFramebuffers);
 		if (i == 0) {
-			framebuffer->sampleCount = ourSampleCount;
+			framebuffer->state.sampleCount = ourSampleCount;
 		} else {
-			if (framebuffer->sampleCount != ourSampleCount) {
-				return ERROR_RESULT(framebuffer, "Attachment ", i, " sample count mismatch. Expected ", framebuffer->sampleCount, ", but got ", ourSampleCount);
+			if (framebuffer->state.sampleCount != ourSampleCount) {
+				return ERROR_RESULT(framebuffer, "Attachment ", i, " sample count mismatch. Expected ", framebuffer->state.sampleCount, ", but got ", ourSampleCount);
 			}
 		}
-		if (framebuffer->width != ourWidth || framebuffer->height != ourHeight) {
+		if (framebuffer->state.width != ourWidth || framebuffer->state.height != ourHeight) {
 			if (resizeAttachmentsAsNeeded) {
 				AzAssert(attachment.kind != Attachment::WINDOW, "This shouldn't be possible");
-				ImageSetSize(attachment.image, framebuffer->width, framebuffer->height);
+				ImageSetSize(attachment.image, framebuffer->state.width, framebuffer->state.height);
 				AZ_TRY_ERROR_RESULT_INFO (framebuffer,
 					ImageRecreate(attachment.image),
 					"Attachment ", i, " attempted to resize, but failed: "
 				);
 			} else if (i == 0) {
-				framebuffer->width = ourWidth;
-				framebuffer->height = ourHeight;
+				framebuffer->state.width = ourWidth;
+				framebuffer->state.height = ourHeight;
 			} else {
-				return ERROR_RESULT(framebuffer, "Attachment ", i, " dimensions mismatch. Expected ", framebuffer->width, "x", framebuffer->height, ", but got ", ourWidth, "x", ourHeight);
+				return ERROR_RESULT(framebuffer, "Attachment ", i, " dimensions mismatch. Expected ", framebuffer->state.width, "x", framebuffer->state.height, ", but got ", ourWidth, "x", ourHeight);
 			}
 		}
 		if (attachmentRef.resolveAttachment.Exists()) {
 			Attachment &resolveAttachment = attachmentRef.resolveAttachment.ValueOrAssert();
 			GetAttachmentDimensions(resolveAttachment, ourWidth, ourHeight, ourSampleCount, numFramebuffers);
-			if (framebuffer->width != ourWidth || framebuffer->height != ourHeight) {
+			if (framebuffer->state.width != ourWidth || framebuffer->state.height != ourHeight) {
 				if (resizeAttachmentsAsNeeded) {
 					AzAssert(resolveAttachment.kind != Attachment::WINDOW, "This shouldn't be possible");
-					ImageSetSize(resolveAttachment.image, framebuffer->width, framebuffer->height);
+					ImageSetSize(resolveAttachment.image, framebuffer->state.width, framebuffer->state.height);
 					AZ_TRY_ERROR_RESULT_INFO (framebuffer,
 						ImageRecreate(resolveAttachment.image),
 						"Resolve Attachment ", i, " attempted to resize, but failed: "
 					);
 				} else {
-					return ERROR_RESULT(framebuffer, "Resolve Attachment ", i, " dimensions mismatch. Expected ", framebuffer->width, "x", framebuffer->height, ", but got ", ourWidth, "x", ourHeight);
+					return ERROR_RESULT(framebuffer, "Resolve Attachment ", i, " dimensions mismatch. Expected ", framebuffer->state.width, "x", framebuffer->state.height, ", but got ", ourWidth, "x", ourHeight);
 				}
 			}
 		}
 	}
-	for (VkFramebuffer fb : framebuffer->vkFramebuffers) {
-		vkDestroyFramebuffer(framebuffer->device->vkDevice, fb, nullptr);
+	for (VkFramebuffer fb : framebuffer->vk.framebuffers) {
+		vkDestroyFramebuffer(framebuffer->header.device->vk.device, fb, nullptr);
 	}
-	framebuffer->vkFramebuffers.Resize(numFramebuffers);
+	framebuffer->vk.framebuffers.Resize(numFramebuffers);
 	Array<VkImageView> imageViews;
 	for (i32 i = 0; i < numFramebuffers; i++) {
-		VkFramebuffer &vkFramebuffer = framebuffer->vkFramebuffers[i];
+		VkFramebuffer &vkFramebuffer = framebuffer->vk.framebuffers[i];
 		imageViews.ClearSoft();
-		for (i32 j = 0; j < framebuffer->attachmentRefs.size; j++) {
-			AttachmentRef &attachmentRef = framebuffer->attachmentRefs[j];
+		for (i32 j = 0; j < framebuffer->config.attachmentRefs.size; j++) {
+			AttachmentRef &attachmentRef = framebuffer->config.attachmentRefs[j];
 			imageViews.Append(GetAttachmentImageView(attachmentRef.attachment, i));
 			if (attachmentRef.resolveAttachment.Exists()) {
 				imageViews.Append(GetAttachmentImageView(attachmentRef.resolveAttachment.ValueOrAssert(), i));
 			}
 		}
 		VkFramebufferCreateInfo createInfo{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-		createInfo.renderPass = framebuffer->vkRenderPass;
-		createInfo.width = framebuffer->width;
-		createInfo.height = framebuffer->height;
+		createInfo.renderPass = framebuffer->vk.renderPass;
+		createInfo.width = framebuffer->state.width;
+		createInfo.height = framebuffer->state.height;
 		createInfo.layers = 1;
 		createInfo.attachmentCount = imageViews.size;
 		createInfo.pAttachments = imageViews.data;
-		if (VkResult result = vkCreateFramebuffer(framebuffer->device->vkDevice, &createInfo, nullptr, &vkFramebuffer); result != VK_SUCCESS) {
+		if (VkResult result = vkCreateFramebuffer(framebuffer->header.device->vk.device, &createInfo, nullptr, &vkFramebuffer); result != VK_SUCCESS) {
 			return ERROR_RESULT(framebuffer, "Failed to create framebuffer ", i, "/", numFramebuffers, ": ", VkResultString(result));
 		}
-		SetDebugMarker(framebuffer->device, Stringify(framebuffer->tag, " framebuffer"), VK_OBJECT_TYPE_FRAMEBUFFER, (u64)vkFramebuffer);
+		SetDebugMarker(framebuffer->header.device, Stringify(framebuffer->header.tag, " framebuffer"), VK_OBJECT_TYPE_FRAMEBUFFER, (u64)vkFramebuffer);
+	}
+	framebuffer->header.timestamp = GetTimestamp();
+	return VoidResult_t();
+}
+
+bool AttachmentIsNewerThan(const Attachment &attachment, u64 timestamp) {
+	switch (attachment.kind) {
+		case Attachment::IMAGE:
+		case Attachment::DEPTH_BUFFER:
+			if (attachment.image->header.timestamp > timestamp) return true;
+			break;
+		default:
+			break;
+	}
+	return false;
+}
+
+[[nodiscard]] Result<VoidResult_t, String> MaybeRecreateFramebuffer(Framebuffer *framebuffer) {
+	bool recreate = false;
+	for (AttachmentRef &attachmentRef : framebuffer->config.attachmentRefs) {
+		if (AttachmentIsNewerThan(attachmentRef.attachment, framebuffer->header.timestamp)) {
+			recreate = true;
+			break;
+		}
+		if (attachmentRef.resolveAttachment.Exists() && AttachmentIsNewerThan(attachmentRef.resolveAttachment.ValueUnchecked(), framebuffer->header.timestamp)) {
+			recreate = true;
+			break;
+		}
+	}
+	if (recreate) {
+		AZ_TRY_ERROR_RESULT(framebuffer, FramebufferRecreate(framebuffer));
 	}
 	return VoidResult_t();
 }
 
 VkFramebuffer FramebufferGetCurrentVkFramebuffer(Framebuffer *framebuffer) {
-	AzAssert(framebuffer->vkFramebuffers.size >= 1, "Didn't have any framebuffers???");
-	if (framebuffer->vkFramebuffers.size == 1) {
-		return framebuffer->vkFramebuffers[0];
-	} else if (framebuffer->vkFramebuffers.size > 1) {
+	AzAssert(framebuffer->vk.framebuffers.size >= 1, "Didn't have any framebuffers???");
+	if (framebuffer->vk.framebuffers.size == 1) {
+		return framebuffer->vk.framebuffers[0];
+	} else if (framebuffer->vk.framebuffers.size > 1) {
 		i32 currentFramebuffer = -1;
-		for (i32 i = 0; i < framebuffer->attachmentRefs.size; i++) {
-			AttachmentRef &attachmentRef = framebuffer->attachmentRefs[i];
+		for (i32 i = 0; i < framebuffer->config.attachmentRefs.size; i++) {
+			AttachmentRef &attachmentRef = framebuffer->config.attachmentRefs[i];
 			if (attachmentRef.attachment.kind == Attachment::WINDOW) {
-				currentFramebuffer = attachmentRef.attachment.window->currentImage;
+				currentFramebuffer = attachmentRef.attachment.window->state.currentImage;
 				break;
 			}
 			if (attachmentRef.resolveAttachment.Exists()) {
 				Attachment &attachment = attachmentRef.resolveAttachment.ValueOrAssert();
 				if (attachment.kind == Attachment::WINDOW) {
-					currentFramebuffer = attachment.window->currentImage;
+					currentFramebuffer = attachment.window->state.currentImage;
 					break;
 				}
 			}
 		}
 		AzAssert(currentFramebuffer != -1, "Unreachable");
-		return framebuffer->vkFramebuffers[currentFramebuffer];
+		return framebuffer->vk.framebuffers[currentFramebuffer];
 	}
 	return 0; // Unnecessary, but shushes the warning
 }
 
 bool FramebufferHasDepthBuffer(Framebuffer *framebuffer) {
-	for (AttachmentRef &attachmentRef : framebuffer->attachmentRefs) {
+	for (AttachmentRef &attachmentRef : framebuffer->config.attachmentRefs) {
 		if (attachmentRef.attachment.kind == Attachment::DEPTH_BUFFER) return true;
 	}
 	return false;
 }
 
 Window* FramebufferGetWindowAttachment(Framebuffer *framebuffer) {
-	for (AttachmentRef &attachmentRef : framebuffer->attachmentRefs) {
+	for (AttachmentRef &attachmentRef : framebuffer->config.attachmentRefs) {
 		if (attachmentRef.attachment.kind == Attachment::WINDOW) return attachmentRef.attachment.window;
 		if (attachmentRef.resolveAttachment.Exists()) {
 			Attachment &attachment = attachmentRef.resolveAttachment.ValueOrAssert();
@@ -3953,78 +4076,78 @@ Window* FramebufferGetWindowAttachment(Framebuffer *framebuffer) {
 #ifndef Pipeline
 
 void PipelineAddShaders(Pipeline *pipeline, ArrayWithBucket<Shader*, 4> shaders) {
-	pipeline->shaders.Append(shaders);
-	pipeline->dirty = true;
+	pipeline->config.shaders.Append(shaders);
+	pipeline->state.dirty = true;
 }
 
 void PipelineAddVertexInputs(Pipeline *pipeline, const ArrayWithBucket<ShaderValueType, 8> &inputs) {
-	pipeline->vertexInputs.Append(inputs);
-	pipeline->dirty = true;
+	pipeline->config.vertexInputs.Append(inputs);
+	pipeline->state.dirty = true;
 }
 
 void PipelineSetBlendMode(Pipeline *pipeline, BlendMode blendMode, i32 attachment) {
-	pipeline->dirty = pipeline->blendModes[attachment] != blendMode;
-	pipeline->blendModes[attachment] = blendMode;
+	pipeline->state.dirty = pipeline->config.blendModes[attachment] != blendMode;
+	pipeline->config.blendModes[attachment] = blendMode;
 }
 
 void PipelineSetTopology(Pipeline *pipeline, Topology topology) {
-	pipeline->dirty = pipeline->topology != topology;
-	pipeline->topology = topology;
+	pipeline->state.dirty = pipeline->config.topology != topology;
+	pipeline->config.topology = topology;
 }
 
 void PipelineSetCullingMode(Pipeline *pipeline, CullingMode cullingMode) {
-	pipeline->dirty = pipeline->cullingMode != cullingMode;
-	pipeline->cullingMode = cullingMode;
+	pipeline->state.dirty = pipeline->config.cullingMode != cullingMode;
+	pipeline->config.cullingMode = cullingMode;
 }
 
 void PipelineSetWinding(Pipeline *pipeline, Winding winding) {
-	pipeline->dirty = pipeline->winding != winding;
-	pipeline->winding = winding;
+	pipeline->state.dirty = pipeline->config.winding != winding;
+	pipeline->config.winding = winding;
 }
 
 void PipelineSetDepthBias(Pipeline *pipeline, bool enable, f32 constant, f32 slope, f32 clampValue) {
-	pipeline->dirty =
-		pipeline->depthBias.enable != enable ||
-		pipeline->depthBias.constant != constant ||
-		pipeline->depthBias.slope != slope ||
-		pipeline->depthBias.clampValue != clampValue;
-	pipeline->depthBias.enable = enable;
-	pipeline->depthBias.constant = constant;
-	pipeline->depthBias.slope = slope;
-	pipeline->depthBias.clampValue = clampValue;
+	pipeline->state.dirty =
+		pipeline->config.depthBias.enable != enable ||
+		pipeline->config.depthBias.constant != constant ||
+		pipeline->config.depthBias.slope != slope ||
+		pipeline->config.depthBias.clampValue != clampValue;
+	pipeline->config.depthBias.enable = enable;
+	pipeline->config.depthBias.constant = constant;
+	pipeline->config.depthBias.slope = slope;
+	pipeline->config.depthBias.clampValue = clampValue;
 }
 
 void PipelineSetLineWidth(Pipeline *pipeline, f32 lineWidth) {
-	// pipeline->dirty = pipeline->lineWidth != lineWidth; // dynamic
-	pipeline->lineWidth = lineWidth;
+	// pipeline->state.dirty = pipeline->config.lineWidth != lineWidth; // dynamic
+	pipeline->config.lineWidth = lineWidth;
 }
 
 void PipelineSetDepthTest(Pipeline *pipeline, bool enabled) {
-	// pipeline->dirty = pipeline->depthTest != enabled; // dynamic
-	pipeline->depthTest = BoolOrDefaultFromBool(enabled);
+	// pipeline->state.dirty = pipeline->depthTest != enabled; // dynamic
+	pipeline->config.depthTest = BoolOrDefaultFromBool(enabled);
 }
 
 void PipelineSetDepthWrite(Pipeline *pipeline, bool enabled) {
-	// pipeline->dirty = pipeline->depthWrite != enabled; // dynamic
-	pipeline->depthWrite = BoolOrDefaultFromBool(enabled);
+	// pipeline->state.dirty = pipeline->depthWrite != enabled; // dynamic
+	pipeline->config.depthWrite = BoolOrDefaultFromBool(enabled);
 }
 
 void PipelineSetDepthCompareOp(Pipeline *pipeline, CompareOp compareOp) {
-	// pipeline->dirty = pipeline->depthCompareOp != compareOp; // dynamic
-	pipeline->depthCompareOp = compareOp;
+	// pipeline->state.dirty = pipeline->depthCompareOp != compareOp; // dynamic
+	pipeline->config.depthCompareOp = compareOp;
 }
 
 void PipelineSetMultisampleShading(Pipeline *pipeline, bool enabled, f32 minFraction) {
-	pipeline->dirty =
-		pipeline->multisampleShading.enabled != enabled ||
-		pipeline->multisampleShading.minFraction != minFraction;
-	pipeline->multisampleShading.enabled = enabled;
-	pipeline->multisampleShading.minFraction = minFraction;
+	pipeline->state.dirty =
+		pipeline->config.multisampleShading.enabled != enabled ||
+		pipeline->config.multisampleShading.minFraction != minFraction;
+	pipeline->config.multisampleShading.enabled = enabled;
+	pipeline->config.multisampleShading.minFraction = minFraction;
 }
 
 void PipelineAddPushConstantRange(Pipeline *pipeline, u32 offset, u32 size, ShaderStage shaderStages) {
 #ifndef NDEBUG
-	for (VkPushConstantRange &range : pipeline->pushConstantRanges) {
+	for (VkPushConstantRange &range : pipeline->vk.pushConstantRanges) {
 		if (((u32)range.stageFlags & shaderStages) == 0) continue; // Allow overlapping ranges in different stages
 		AzAssert(range.offset > offset+size || range.offset+range.size <= offset, Stringify("Found an overlapping Push Constant Range: [ ", offset, "...", offset+size, "] incoming, [", range.offset, "...", range.offset+range.size, "] existing"));
 	}
@@ -4033,8 +4156,8 @@ void PipelineAddPushConstantRange(Pipeline *pipeline, u32 offset, u32 size, Shad
 	range.offset = offset;
 	range.size = size;
 	range.stageFlags = (VkShaderStageFlags)shaderStages;
-	pipeline->pushConstantRanges.Append(range);
-	pipeline->dirty = true;
+	pipeline->vk.pushConstantRanges.Append(range);
+	pipeline->state.dirty = true;
 }
 
 bool VkPipelineLayoutCreateInfoMatches(VkPipelineLayoutCreateInfo a, VkPipelineLayoutCreateInfo b) {
@@ -4056,53 +4179,53 @@ bool VkPipelineLayoutCreateInfoMatches(VkPipelineLayoutCreateInfo a, VkPipelineL
 
 Result<VoidResult_t, String> ShaderInit(Shader *shader) {
 	INIT_HEAD(shader);
-	Array<char> code = FileContents(shader->filename);
+	Array<char> code = FileContents(shader->config.filename);
 	if (code.size == 0) {
-		return ERROR_RESULT(shader, "Failed to open shader source \"", shader->filename, "\"");
+		return ERROR_RESULT(shader, "Failed to open shader source \"", shader->config.filename, "\"");
 	}
 	VkShaderModuleCreateInfo createInfo{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
 	createInfo.codeSize = code.size;
 	createInfo.pCode = (u32*)code.data;
-	if (VkResult result = vkCreateShaderModule(shader->device->vkDevice, &createInfo, nullptr, &shader->vkShaderModule); result != VK_SUCCESS) {
-		return ERROR_RESULT(shader, "Failed to create shader module for \"", shader->filename, "\": ", VkResultString(result));
+	if (VkResult result = vkCreateShaderModule(shader->header.device->vk.device, &createInfo, nullptr, &shader->vk.shaderModule); result != VK_SUCCESS) {
+		return ERROR_RESULT(shader, "Failed to create shader module for \"", shader->config.filename, "\": ", VkResultString(result));
 	}
-	if (shader->tag.size == 0) {
-		shader->tag = Stringify(ShaderStageString(shader->stage), " shader \"", shader->filename, "\"");
+	if (shader->header.tag.size == 0) {
+		shader->header.tag = Stringify(ShaderStageString(shader->config.stage), " shader \"", shader->config.filename, "\"");
 	}
-	SetDebugMarker(shader->device, shader->tag, VK_OBJECT_TYPE_SHADER_MODULE, (u64)shader->vkShaderModule);
-	shader->initted = true;
+	SetDebugMarker(shader->header.device, shader->header.tag, VK_OBJECT_TYPE_SHADER_MODULE, (u64)shader->vk.shaderModule);
+	shader->header.OnInit();
 	return VoidResult_t();
 }
 
 void ShaderDeinit(Shader *shader) {
 	DEINIT_HEAD(shader);
-	vkDestroyShaderModule(shader->device->vkDevice, shader->vkShaderModule, nullptr);
-	shader->initted = false;
+	vkDestroyShaderModule(shader->header.device->vk.device, shader->vk.shaderModule, nullptr);
+	shader->header.initted = false;
 }
 
 Result<VoidResult_t, String> PipelineInit(Pipeline *pipeline) {
 	// TODO: Maybe just delete this
 	INIT_HEAD(pipeline);
-	pipeline->initted = true;
+	pipeline->header.initted = true;
 	return VoidResult_t();
 }
 
 void PipelineDeinit(Pipeline *pipeline) {
 	DEINIT_HEAD(pipeline);
-	if (pipeline->vkPipelineLayout != VK_NULL_HANDLE) {
-		vkDestroyPipelineLayout(pipeline->device->vkDevice, pipeline->vkPipelineLayout, nullptr);
-		pipeline->vkPipelineLayout = VK_NULL_HANDLE;
+	if (pipeline->vk.pipelineLayout != VK_NULL_HANDLE) {
+		vkDestroyPipelineLayout(pipeline->header.device->vk.device, pipeline->vk.pipelineLayout, nullptr);
+		pipeline->vk.pipelineLayout = VK_NULL_HANDLE;
 	}
-	if (pipeline->vkPipeline != VK_NULL_HANDLE) {
-		vkDestroyPipeline(pipeline->device->vkDevice, pipeline->vkPipeline, nullptr);
-		pipeline->vkPipeline = VK_NULL_HANDLE;
+	if (pipeline->vk.pipeline != VK_NULL_HANDLE) {
+		vkDestroyPipeline(pipeline->header.device->vk.device, pipeline->vk.pipeline, nullptr);
+		pipeline->vk.pipeline = VK_NULL_HANDLE;
 	}
-	pipeline->vkPipelineLayoutCreateInfo = {};
-	pipeline->initted = false;
+	pipeline->vk.pipelineLayoutCreateInfo = {};
+	pipeline->header.initted = false;
 }
 
 Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *context) {
-	ContextFrame &frame = context->frames[context->currentFrame];
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 
 	VkPipelineLayoutCreateInfo layoutCreateInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
 	Array<VkDescriptorSetLayout> vkDescriptorSetLayouts(frame.descriptorSetsBound.size);
@@ -4111,76 +4234,76 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 	}
 	layoutCreateInfo.setLayoutCount = vkDescriptorSetLayouts.size;
 	layoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts.data;
-	layoutCreateInfo.pPushConstantRanges = pipeline->pushConstantRanges.data;
-	layoutCreateInfo.pushConstantRangeCount = pipeline->pushConstantRanges.size;
+	layoutCreateInfo.pPushConstantRanges = pipeline->vk.pushConstantRanges.data;
+	layoutCreateInfo.pushConstantRangeCount = pipeline->vk.pushConstantRanges.size;
 
-	bool create = pipeline->dirty;
+	bool create = pipeline->state.dirty;
 
-	if (context->bindings.framebuffer->sampleCount != pipeline->sampleCount) {
-		pipeline->sampleCount = context->bindings.framebuffer->sampleCount;
+	if (context->state.bindings.framebuffer->state.sampleCount != pipeline->state.sampleCount) {
+		pipeline->state.sampleCount = context->state.bindings.framebuffer->state.sampleCount;
 		create = true;
 	}
-	bool framebufferHasDepthBuffer = FramebufferHasDepthBuffer(context->bindings.framebuffer);
-	if (framebufferHasDepthBuffer != pipeline->framebufferHasDepthBuffer) {
-		pipeline->framebufferHasDepthBuffer = framebufferHasDepthBuffer;
+	bool framebufferHasDepthBuffer = FramebufferHasDepthBuffer(context->state.bindings.framebuffer);
+	if (framebufferHasDepthBuffer != pipeline->state.framebufferHasDepthBuffer) {
+		pipeline->state.framebufferHasDepthBuffer = framebufferHasDepthBuffer;
 		create = true;
 	}
 	{
 		i32 numColorAttachments = 0;
-		for (AttachmentRef &attachmentRef : context->bindings.framebuffer->attachmentRefs) {
+		for (AttachmentRef &attachmentRef : context->state.bindings.framebuffer->config.attachmentRefs) {
 			if (attachmentRef.attachment.kind != Attachment::DEPTH_BUFFER) {
 				numColorAttachments++;
 				// We don't care about resolveAttachments because we don't draw into them
 			}
 		}
-		if (numColorAttachments != pipeline->numColorAttachments) {
-			pipeline->numColorAttachments = numColorAttachments;
+		if (numColorAttachments != pipeline->state.numColorAttachments) {
+			pipeline->state.numColorAttachments = numColorAttachments;
 			create = true;
 		}
 	}
 
-	if (!VkPipelineLayoutCreateInfoMatches(layoutCreateInfo, pipeline->vkPipelineLayoutCreateInfo)) {
-		pipeline->vkPipelineLayoutCreateInfo = layoutCreateInfo;
+	if (!VkPipelineLayoutCreateInfoMatches(layoutCreateInfo, pipeline->vk.pipelineLayoutCreateInfo)) {
+		pipeline->vk.pipelineLayoutCreateInfo = layoutCreateInfo;
 		create = true;
-		if (pipeline->vkPipelineLayout != VK_NULL_HANDLE) {
+		if (pipeline->vk.pipelineLayout != VK_NULL_HANDLE) {
 			// TODO: Probably just cache it
-			vkDestroyPipelineLayout(pipeline->device->vkDevice, pipeline->vkPipelineLayout, nullptr);
+			vkDestroyPipelineLayout(pipeline->header.device->vk.device, pipeline->vk.pipelineLayout, nullptr);
 		}
-		if (VkResult result = vkCreatePipelineLayout(pipeline->device->vkDevice, &layoutCreateInfo, nullptr, &pipeline->vkPipelineLayout); result != VK_SUCCESS) {
+		if (VkResult result = vkCreatePipelineLayout(pipeline->header.device->vk.device, &layoutCreateInfo, nullptr, &pipeline->vk.pipelineLayout); result != VK_SUCCESS) {
 			return ERROR_RESULT(pipeline, "Failed to create pipeline layout: ", VkResultString(result));
 		}
-		SetDebugMarker(pipeline->device, Stringify(pipeline->tag, " pipeline layout"), VK_OBJECT_TYPE_PIPELINE_LAYOUT, (u64)pipeline->vkPipelineLayout);
+		SetDebugMarker(pipeline->header.device, Stringify(pipeline->header.tag, " pipeline layout"), VK_OBJECT_TYPE_PIPELINE_LAYOUT, (u64)pipeline->vk.pipelineLayout);
 	}
 	if (create) {
-		Array<VkPipelineShaderStageCreateInfo> shaderStages(pipeline->shaders.size);
+		Array<VkPipelineShaderStageCreateInfo> shaderStages(pipeline->config.shaders.size);
 		io::cout.PrintLnDebug("Composing Pipeline with ", shaderStages.size, " shader", shaderStages.size != 1 ? "s:" : ":");
 		io::cout.IndentMore();
-		for (i32 i = 0; i < pipeline->shaders.size; i++) {
-			Shader *shader = pipeline->shaders[i];
-			AzAssert(shader->initted, "Expected Shader to be initted");
+		for (i32 i = 0; i < pipeline->config.shaders.size; i++) {
+			Shader *shader = pipeline->config.shaders[i];
+			AzAssert(shader->header.initted, "Expected Shader to be initted");
 			VkPipelineShaderStageCreateInfo &createInfo = shaderStages[i];
 			createInfo = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
-			switch (shader->stage) {
+			switch (shader->config.stage) {
 			case ShaderStage::COMPUTE:
-				io::cout.PrintLnDebug("Compute shader \"", shader->filename, "\"");
+				io::cout.PrintLnDebug("Compute shader \"", shader->config.filename, "\"");
 				createInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
 				break;
 			case ShaderStage::VERTEX:
-				io::cout.PrintLnDebug("Vertex shader \"", shader->filename, "\"");
+				io::cout.PrintLnDebug("Vertex shader \"", shader->config.filename, "\"");
 				createInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
 				break;
 			case ShaderStage::FRAGMENT:
-				io::cout.PrintLnDebug("Fragment shader \"", shader->filename, "\"");
+				io::cout.PrintLnDebug("Fragment shader \"", shader->config.filename, "\"");
 				createInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 				break;
 			default: return ERROR_RESULT(pipeline, "Unimplemented");
 			}
-			createInfo.module = shader->vkShaderModule;
+			createInfo.module = shader->vk.shaderModule;
 			// The Vulkan API pretends we can use something other than "main", but we really can't :(
 			createInfo.pName = "main";
 		}
 		io::cout.IndentLess();
-		if (pipeline->kind == Pipeline::GRAPHICS) {
+		if (pipeline->config.kind == Pipeline::GRAPHICS) {
 			VkPipelineVertexInputStateCreateInfo vertexInputState{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
 			Array<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions;
 			VkVertexInputBindingDescription vertexInputBindingDescription;
@@ -4189,8 +4312,8 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 				vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 				u32 offset = 0;
 				i32 location = 0;
-				for (i32 i = 0; i < pipeline->vertexInputs.size; i++) {
-					ShaderValueType inputType = pipeline->vertexInputs[i];
+				for (i32 i = 0; i < pipeline->config.vertexInputs.size; i++) {
+					ShaderValueType inputType = pipeline->config.vertexInputs[i];
 					i32 numLocations = ShaderValueNumLocations[(u16)inputType];
 					for (i32 j = 0; j < numLocations; j++) {
 						VkVertexInputAttributeDescription attributeDescription;
@@ -4199,7 +4322,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 						i64 myStride, myAlignment;
 						if (inputType == ShaderValueType::DVEC3 && j == 1) {
 							// Handle our special case, as DVEC3 is the only input type that takes multiple locations with different strides/formats
-							if (pipeline->device->vk12Features.scalarBlockLayout) {
+							if (pipeline->header.device->vk.vk12Features.scalarBlockLayout) {
 								myStride = ShaderValueTypeStrideScalarBlockLayout[(u16)inputType]/2;
 								myAlignment = ShaderValueTypeAlignmentScalarBlockLayout[(u16)inputType];
 							} else {
@@ -4208,7 +4331,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 							}
 							attributeDescription.format = VK_FORMAT_R64_SFLOAT;
 						} else {
-							if (pipeline->device->vk12Features.scalarBlockLayout) {
+							if (pipeline->header.device->vk.vk12Features.scalarBlockLayout) {
 								myStride = ShaderValueTypeStrideScalarBlockLayout[(u16)inputType];
 								myAlignment = ShaderValueTypeAlignmentScalarBlockLayout[(u16)inputType];
 							} else {
@@ -4222,32 +4345,32 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 						vertexInputAttributeDescriptions.Append(attributeDescription);
 					}
 				}
-				if (pipeline->vertexInputs.size == 0) {
+				if (pipeline->config.vertexInputs.size == 0) {
 					vertexInputBindingDescription.stride = 0;
 				} else {
-					// vertexInputBindingDescription.stride = align(offset, ShaderValueTypeStride[(u16)pipeline->vertexInputs[0]]);
+					// vertexInputBindingDescription.stride = align(offset, ShaderValueTypeStride[(u16)pipeline->config.vertexInputs[0]]);
 					// Vertex buffers can be densely-packed I guess
 					vertexInputBindingDescription.stride = offset;
 				}
 				// TODO: It could be nice to print out the final bindings, along with alignment, as working these things out for writing shaders and packing data in our vertex buffer might be annoying.
 			}
 			// TODO: Support multiple simultaneous bindings
-			vertexInputState.vertexBindingDescriptionCount = pipeline->vertexInputs.size ? 1 : 0;
+			vertexInputState.vertexBindingDescriptionCount = pipeline->config.vertexInputs.size ? 1 : 0;
 			vertexInputState.pVertexBindingDescriptions = &vertexInputBindingDescription;
 			vertexInputState.vertexAttributeDescriptionCount = vertexInputAttributeDescriptions.size;
 			vertexInputState.pVertexAttributeDescriptions = vertexInputAttributeDescriptions.data;
 
 			VkPipelineInputAssemblyStateCreateInfo inputAssemblyState{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
 			// This is a 1-to-1 mapping
-			inputAssemblyState.topology = (VkPrimitiveTopology)pipeline->topology;
+			inputAssemblyState.topology = (VkPrimitiveTopology)pipeline->config.topology;
 			// TODO: We could use this
 			inputAssemblyState.primitiveRestartEnable = VK_FALSE;
 
 			VkPipelineViewportStateCreateInfo viewportState={VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
 			/* dynamic
 			VkViewport viewport;
-			viewport.width = (f32)context->bindings.framebuffer->width;
-			viewport.height = (f32)context->bindings.framebuffer->height;
+			viewport.width = (f32)context->state.bindings.framebuffer->state.width;
+			viewport.height = (f32)context->state.bindings.framebuffer->state.height;
 			viewport.minDepth = 0.0f;
 			viewport.maxDepth = 1.0f;
 			viewport.x = 0.0f;
@@ -4255,8 +4378,8 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			viewportState.pViewports = &viewport;
 			VkRect2D scissor;
 			scissor.offset = {0, 0};
-			scissor.extent.width = context->bindings.framebuffer->width;
-			scissor.extent.height = context->bindings.framebuffer->height;
+			scissor.extent.width = context->state.bindings.framebuffer->state.width;
+			scissor.extent.height = context->state.bindings.framebuffer->state.height;
 			viewportState.pScissors = &scissor;
 			*/
 			viewportState.viewportCount = 1;
@@ -4266,19 +4389,19 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			rasterizerState.depthClampEnable = VK_FALSE;
 			rasterizerState.rasterizerDiscardEnable = VK_FALSE;
 			rasterizerState.polygonMode = VK_POLYGON_MODE_FILL;
-			rasterizerState.cullMode = (VkCullModeFlagBits)pipeline->cullingMode;
-			rasterizerState.frontFace = (VkFrontFace)pipeline->winding;
-			rasterizerState.depthBiasEnable = pipeline->depthBias.enable;
-			rasterizerState.depthBiasConstantFactor = pipeline->depthBias.constant;
-			rasterizerState.depthBiasSlopeFactor = pipeline->depthBias.slope;
-			rasterizerState.depthBiasClamp = pipeline->depthBias.clampValue;
-			// rasterizerState.lineWidth = pipeline->lineWidth; // dynamic
+			rasterizerState.cullMode = (VkCullModeFlagBits)pipeline->config.cullingMode;
+			rasterizerState.frontFace = (VkFrontFace)pipeline->config.winding;
+			rasterizerState.depthBiasEnable = pipeline->config.depthBias.enable;
+			rasterizerState.depthBiasConstantFactor = pipeline->config.depthBias.constant;
+			rasterizerState.depthBiasSlopeFactor = pipeline->config.depthBias.slope;
+			rasterizerState.depthBiasClamp = pipeline->config.depthBias.clampValue;
+			// rasterizerState.lineWidth = pipeline->config.lineWidth; // dynamic
 
 			VkPipelineMultisampleStateCreateInfo multisampleState{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-			multisampleState.rasterizationSamples = (VkSampleCountFlagBits)pipeline->sampleCount;
-			multisampleState.sampleShadingEnable = pipeline->multisampleShading.enabled;
+			multisampleState.rasterizationSamples = (VkSampleCountFlagBits)pipeline->state.sampleCount;
+			multisampleState.sampleShadingEnable = pipeline->config.multisampleShading.enabled;
 			// Controls what fraction of samples get shaded with the above turned on. No effect otherwise.
-			multisampleState.minSampleShading = pipeline->multisampleShading.minFraction;
+			multisampleState.minSampleShading = pipeline->config.multisampleShading.minFraction;
 			multisampleState.pSampleMask = nullptr;
 			multisampleState.alphaToCoverageEnable = VK_FALSE;
 			multisampleState.alphaToOneEnable = VK_FALSE;
@@ -4286,11 +4409,11 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			VkPipelineDepthStencilStateCreateInfo depthStencilState{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
 			// depthStencilState.flags; // VkPipelineDepthStencilStateCreateFlags
 
-			if (pipeline->depthTest == BoolOrDefault::TRUE && !framebufferHasDepthBuffer) {
+			if (pipeline->config.depthTest == BoolOrDefault::TRUE && !framebufferHasDepthBuffer) {
 				return ERROR_RESULT(pipeline, "Depth test is enabled, but framebuffer doesn't have a depth buffer");
 			}
 			// depthStencilState.depthTestEnable = ResolveBoolOrDefault(pipeline->depthTest, framebufferHasDepthBuffer); // dynamic
-			if (pipeline->depthWrite == BoolOrDefault::TRUE && !framebufferHasDepthBuffer) {
+			if (pipeline->config.depthWrite == BoolOrDefault::TRUE && !framebufferHasDepthBuffer) {
 				return ERROR_RESULT(pipeline, "Depth write is enabled, but framebuffer doesn't have a depth buffer");
 			}
 			// depthStencilState.depthWriteEnable = ResolveBoolOrDefault(pipeline->depthWrite, framebufferHasDepthBuffer); // dynamic
@@ -4312,15 +4435,15 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			colorBlendState.blendConstants[3] = 1.0f;
 			Array<VkPipelineColorBlendAttachmentState> blendModes;
 			{ // Attachment blend modes
-				for (i32 i = 0; i < context->bindings.framebuffer->attachmentRefs.size; i++) {
-					Attachment &attachment = context->bindings.framebuffer->attachmentRefs[i].attachment;
+				for (i32 i = 0; i < context->state.bindings.framebuffer->config.attachmentRefs.size; i++) {
+					Attachment &attachment = context->state.bindings.framebuffer->config.attachmentRefs[i].attachment;
 					if (attachment.kind == Attachment::IMAGE || attachment.kind == Attachment::WINDOW) {
 						VkPipelineColorBlendAttachmentState state;
 						state.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 						state.blendEnable = VK_TRUE;
 						state.colorBlendOp = VK_BLEND_OP_ADD;
 						state.alphaBlendOp = VK_BLEND_OP_ADD;
-						BlendMode blendMode = pipeline->blendModes[blendModes.size];
+						BlendMode blendMode = pipeline->config.blendModes[blendModes.size];
 						switch (blendMode.kind) {
 						case BlendMode::OPAQUE:
 							state.blendEnable = VK_FALSE;
@@ -4389,7 +4512,7 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 				// // Provided by VK_EXT_vertex_input_dynamic_state
 				// VK_DYNAMIC_STATE_VERTEX_INPUT_EXT,
 			};
-			if (context->device->physicalDevice->vk10Features.features.wideLines) {
+			if (context->header.device->vk.physicalDevice->vk10Features.features.wideLines) {
 				dynamicStates.Append(VK_DYNAMIC_STATE_LINE_WIDTH);
 			}
 			if (framebufferHasDepthBuffer) {
@@ -4400,9 +4523,9 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			dynamicState.dynamicStateCount = dynamicStates.size;
 			dynamicState.pDynamicStates = dynamicStates.data;
 
-			if (pipeline->vkPipeline != VK_NULL_HANDLE) {
+			if (pipeline->vk.pipeline != VK_NULL_HANDLE) {
 				// TODO: Probably cache
-				vkDestroyPipeline(pipeline->device->vkDevice, pipeline->vkPipeline, nullptr);
+				vkDestroyPipeline(pipeline->header.device->vk.device, pipeline->vk.pipeline, nullptr);
 			}
 			VkGraphicsPipelineCreateInfo createInfo{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
 			createInfo.stageCount = shaderStages.size;
@@ -4415,23 +4538,23 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 			createInfo.pDepthStencilState = &depthStencilState;
 			createInfo.pColorBlendState = &colorBlendState;
 			createInfo.pDynamicState = &dynamicState;
-			createInfo.layout = pipeline->vkPipelineLayout;
-			if (context->bindings.framebuffer == nullptr) {
+			createInfo.layout = pipeline->vk.pipelineLayout;
+			if (context->state.bindings.framebuffer == nullptr) {
 				return ERROR_RESULT(pipeline, "Cannot create a graphics Pipeline with no Framebuffer bound!");
 			}
-			createInfo.renderPass = context->bindings.framebuffer->vkRenderPass;
+			createInfo.renderPass = context->state.bindings.framebuffer->vk.renderPass;
 			createInfo.subpass = 0;
 			createInfo.basePipelineHandle = VK_NULL_HANDLE;
 			createInfo.basePipelineIndex = -1;
 
-			if (VkResult result = vkCreateGraphicsPipelines(pipeline->device->vkDevice, VK_NULL_HANDLE, 1, &createInfo, nullptr, &pipeline->vkPipeline); result != VK_SUCCESS) {
+			if (VkResult result = vkCreateGraphicsPipelines(pipeline->header.device->vk.device, VK_NULL_HANDLE, 1, &createInfo, nullptr, &pipeline->vk.pipeline); result != VK_SUCCESS) {
 				return ERROR_RESULT(pipeline, "Failed to create graphics pipeline: ", VkResultString(result));
 			}
-			SetDebugMarker(pipeline->device, Stringify(pipeline->tag, " graphics pipeline"), VK_OBJECT_TYPE_PIPELINE, (u64)pipeline->vkPipeline);
+			SetDebugMarker(pipeline->header.device, Stringify(pipeline->header.tag, " graphics pipeline"), VK_OBJECT_TYPE_PIPELINE, (u64)pipeline->vk.pipeline);
 		} else {
 			return ERROR_RESULT(pipeline, "Compute pipelines are not implemented yet");
 		}
-		pipeline->dirty = false;
+		pipeline->state.dirty = false;
 	}
 	return VoidResult_t();
 }
@@ -4443,46 +4566,46 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 Result<VoidResult_t, String> ContextInit(Context *context) {
 	INIT_HEAD(context);
 	VkCommandPoolCreateInfo poolCreateInfo = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
-	poolCreateInfo.queueFamilyIndex = context->device->queueFamilyIndex;
-	if (VkResult result = vkCreateCommandPool(context->device->vkDevice, &poolCreateInfo, nullptr, &context->vkCommandPool); result != VK_SUCCESS) {
+	poolCreateInfo.queueFamilyIndex = context->header.device->vk.queueFamilyIndex;
+	if (VkResult result = vkCreateCommandPool(context->header.device->vk.device, &poolCreateInfo, nullptr, &context->vk.commandPool); result != VK_SUCCESS) {
 		return ERROR_RESULT(context, "Failed to create command pool: ", VkResultString(result));
 	}
-	SetDebugMarker(context->device, Stringify(context->tag, " command pool"), VK_OBJECT_TYPE_COMMAND_POOL, (u64)context->vkCommandPool);
-	context->frames.Resize(context->numFrames);
-	for (i32 i = 0; i < context->numFrames; i++) {
-		ContextFrame &frame = context->frames[i];
+	SetDebugMarker(context->header.device, Stringify(context->header.tag, " command pool"), VK_OBJECT_TYPE_COMMAND_POOL, (u64)context->vk.commandPool);
+	context->vk.frames.Resize(context->state.numFrames);
+	for (i32 i = 0; i < context->state.numFrames; i++) {
+		Context::Frame &frame = context->vk.frames[i];
 		frame.vkCommandBuffer = VK_NULL_HANDLE;
-		frame.fence.device = context->device;
-		frame.fence.tag = Stringify("Context Fence ", i);
+		frame.fence.header.device = context->header.device;
+		frame.fence.header.tag = Stringify("Context Fence ", i);
 		// We'll use signaled to mean not executing
 		AZ_TRY_ERROR_RESULT (context, FenceInit(&frame.fence, true));
 	}
-	context->initted = true;
+	context->header.OnInit();
 	return VoidResult_t();
 }
 
 void ContextDeinit(Context *context) {
 	DEINIT_HEAD(context);
-	vkDestroyCommandPool(context->device->vkDevice, context->vkCommandPool, nullptr);
-	for (i32 i = 0; i < context->numFrames; i++) {
-		ContextFrame &frame = context->frames[i];
+	vkDestroyCommandPool(context->header.device->vk.device, context->vk.commandPool, nullptr);
+	for (i32 i = 0; i < context->state.numFrames; i++) {
+		Context::Frame &frame = context->vk.frames[i];
 		FenceDeinit(&frame.fence);
 		for (Semaphore &semaphore : frame.semaphores) {
 			SemaphoreDeinit(&semaphore);
 		}
 	}
-	context->initted = false;
+	context->header.initted = false;
 }
 
 
 static Result<VoidResult_t, String> ContextEnsureSemaphoreCount(Context *context, i32 count, i32 frameIndex) {
-	ContextFrame &frame = context->frames[frameIndex];
+	Context::Frame &frame = context->vk.frames[frameIndex];
 	if (frame.semaphores.size < count) {
 		i32 prevSize = frame.semaphores.size;
 		frame.semaphores.Resize(count);
 		for (i32 i = prevSize; i < count; i++) {
-			frame.semaphores[i].device = context->device;
-			frame.semaphores[i].tag = Stringify(context->tag, " Frame ", frameIndex, " Semaphore ", i);
+			frame.semaphores[i].header.device = context->header.device;
+			frame.semaphores[i].header.tag = Stringify(context->header.tag, " Frame ", frameIndex, " Semaphore ", i);
 			AZ_TRY_ERROR_RESULT_INFO (context,
 				SemaphoreInit(&frame.semaphores[i]),
 				"Couldn't ensure we had enough semaphores: "
@@ -4493,26 +4616,26 @@ static Result<VoidResult_t, String> ContextEnsureSemaphoreCount(Context *context
 }
 
 Semaphore* ContextGetCurrentSemaphore(Context *context, i32 index) {
-	ContextFrame &frame = context->frames[context->currentFrame];
-	ContextEnsureSemaphoreCount(context, index+1, context->currentFrame).AzUnwrap();
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
+	ContextEnsureSemaphoreCount(context, index+1, context->state.currentFrame).AzUnwrap();
 	return &frame.semaphores[index];
 }
 
 Semaphore* ContextGetPreviousSemaphore(Context *context, i32 index) {
-	i32 lastFrame = context->currentFrame - 1;
-	if (lastFrame < 0) lastFrame = context->numFrames-1;
-	ContextFrame &frame = context->frames[lastFrame];
+	i32 lastFrame = context->state.currentFrame - 1;
+	if (lastFrame < 0) lastFrame = context->state.numFrames-1;
+	Context::Frame &frame = context->vk.frames[lastFrame];
 	ContextEnsureSemaphoreCount(context, index+1, lastFrame).AzUnwrap();
 	return &frame.semaphores[index];
 }
 
 Result<VkDescriptorSetLayout, String> DeviceGetDescriptorSetLayout(Device *device, DescriptorSetLayout &layout) {
-	VkDescriptorSetLayout &dst = device->vkDescriptorSetLayouts.ValueOf(layout, VK_NULL_HANDLE);
+	VkDescriptorSetLayout &dst = device->vk.descriptorSetLayouts.ValueOf(layout, VK_NULL_HANDLE);
 	if (dst == VK_NULL_HANDLE) {
 		// Make the layout
 		layout.createInfo.bindingCount = layout.bindings.size;
 		layout.createInfo.pBindings = layout.bindings.data;
-		if (VkResult result = vkCreateDescriptorSetLayout(device->vkDevice, &layout.createInfo, nullptr, &dst); result != VK_SUCCESS) {
+		if (VkResult result = vkCreateDescriptorSetLayout(device->vk.device, &layout.createInfo, nullptr, &dst); result != VK_SUCCESS) {
 			return ERROR_RESULT(device, "Failed to create descriptor set layout: ", VkResultString(result));
 		}
 	}
@@ -4520,7 +4643,7 @@ Result<VkDescriptorSetLayout, String> DeviceGetDescriptorSetLayout(Device *devic
 }
 
 Result<DescriptorSet*, String> DeviceGetDescriptorSet(Device *device, VkDescriptorSetLayout vkDescriptorSetLayout, const DescriptorBindings &bindings, bool &dstDoWrite) {
-	DescriptorSet* &dst = device->descriptorSetsMap.ValueOf(bindings, nullptr);
+	DescriptorSet* &dst = device->vk.descriptorSetsMap.ValueOf(bindings, nullptr);
 	if (dst == nullptr) {
 		dstDoWrite = true;
 		dst = device->descriptorSets.Append(new DescriptorSet()).RawPtr();
@@ -4533,19 +4656,19 @@ Result<DescriptorSet*, String> DeviceGetDescriptorSet(Device *device, VkDescript
 				case DescriptorBinding::UNIFORM_BUFFER:
 					numUniformBuffers += binding.objects.size;
 					for (void* obj : binding.objects) {
-						dst->descriptorTimestamps.Append(&((Buffer*)obj)->timestamp);
+						dst->descriptorTimestamps.Append(&((Buffer*)obj)->header.timestamp);
 					}
 					break;
 				case DescriptorBinding::STORAGE_BUFFER:
 					numStorageBuffers += binding.objects.size;
 					for (void* obj : binding.objects) {
-						dst->descriptorTimestamps.Append(&((Buffer*)obj)->timestamp);
+						dst->descriptorTimestamps.Append(&((Buffer*)obj)->header.timestamp);
 					}
 					break;
 				case DescriptorBinding::IMAGE_SAMPLER:
 					numImages += binding.objects.size;
 					for (void* obj : binding.objects) {
-						dst->descriptorTimestamps.Append(&((Image*)obj)->timestamp);
+						dst->descriptorTimestamps.Append(&((Image*)obj)->header.timestamp);
 					}
 					break;
 				default:
@@ -4576,7 +4699,7 @@ Result<DescriptorSet*, String> DeviceGetDescriptorSet(Device *device, VkDescript
 		}
 		createInfo.poolSizeCount = poolSizes.size;
 		createInfo.pPoolSizes = poolSizes.data;
-		if (VkResult result = vkCreateDescriptorPool(device->vkDevice, &createInfo, nullptr, &dst->vkDescriptorPool); result != VK_SUCCESS) {
+		if (VkResult result = vkCreateDescriptorPool(device->vk.device, &createInfo, nullptr, &dst->vkDescriptorPool); result != VK_SUCCESS) {
 			return ERROR_RESULT(device, "Failed to create descriptor pool: ", VkResultString(result));
 		}
 		// Make the descriptor set
@@ -4584,7 +4707,7 @@ Result<DescriptorSet*, String> DeviceGetDescriptorSet(Device *device, VkDescript
 		allocInfo.descriptorPool = dst->vkDescriptorPool;
 		allocInfo.descriptorSetCount = 1;
 		allocInfo.pSetLayouts = &vkDescriptorSetLayout;
-		if (VkResult result = vkAllocateDescriptorSets(device->vkDevice, &allocInfo, &dst->vkDescriptorSet); result != VK_SUCCESS) {
+		if (VkResult result = vkAllocateDescriptorSets(device->vk.device, &allocInfo, &dst->vkDescriptorSet); result != VK_SUCCESS) {
 			return ERROR_RESULT(device, "Failed to allocate descriptor set: ", VkResultString(result));
 		}
 		dst->timestamp = GetTimestamp();
@@ -4593,11 +4716,11 @@ Result<DescriptorSet*, String> DeviceGetDescriptorSet(Device *device, VkDescript
 }
 
 Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
-	ContextFrame &frame = context->frames[context->currentFrame];
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	u32 numUniformBuffers = 0;
 	u32 numStorageBuffers = 0;
 	u32 numImages = 0;
-	for (auto &node : context->bindings.descriptors) {
+	for (auto &node : context->state.bindings.descriptors) {
 		Binding &binding = node.value;
 		switch (binding.kind) {
 			case Binding::UNIFORM_BUFFER:
@@ -4621,7 +4744,7 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 	descriptorBufferInfos.Reserve(numUniformBuffers + numStorageBuffers);
 	Array<VkDescriptorImageInfo> descriptorImageInfos;
 	descriptorImageInfos.Reserve(numImages);
-	for (auto &node : context->bindings.descriptors) {
+	for (auto &node : context->state.bindings.descriptors) {
 		Binding &binding = node.value;
 		i32 set = binding.anyDescriptor.binding.set;
 		// NOTE: These are necessarily sorted by set first, then binding. This code will break if that is no longer the case.
@@ -4660,10 +4783,10 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 				VkDescriptorBufferInfo bufferInfo;
 				write.pBufferInfo = descriptorBufferInfos.data + descriptorBufferInfos.size;
 				for (Buffer *buffer : binding.anyBufferDescriptor.buffers) {
-					bufferInfo.buffer = buffer->vkBuffer;
+					bufferInfo.buffer = buffer->vk.buffer;
 					bufferInfo.offset = 0;
-					bufferInfo.range = buffer->size;
-					bindingInfo.stageFlags |= (VkShaderStageFlags)buffer->shaderStages;
+					bufferInfo.range = buffer->config.size;
+					bindingInfo.stageFlags |= (VkShaderStageFlags)buffer->config.shaderStages;
 					descriptorBufferInfos.Append(bufferInfo);
 				}
 			} break;
@@ -4671,11 +4794,11 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 				bindingInfo.stageFlags = 0;
 				VkDescriptorImageInfo imageInfo;
 				imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				imageInfo.sampler = binding.imageSampler.sampler->vkSampler;
+				imageInfo.sampler = binding.imageSampler.sampler->vk.sampler;
 				write.pImageInfo = descriptorImageInfos.data + descriptorImageInfos.size;
 				for (Image *image : binding.imageSampler.images) {
-					imageInfo.imageView = image->vkImageView;
-					bindingInfo.stageFlags |= (VkShaderStageFlags)image->shaderStages;
+					imageInfo.imageView = image->vk.imageView;
+					bindingInfo.stageFlags |= (VkShaderStageFlags)image->config.shaderStages;
 					descriptorImageInfos.Append(imageInfo);
 				}
 			} break;
@@ -4692,14 +4815,14 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 	for (i32 i = 0; i < descriptorSetLayouts.size; i++) {
 		BoundDescriptorSet boundDescriptorSet;
 		AZ_TRY_ERROR_RESULT (context,
-			DeviceGetDescriptorSetLayout(context->device, descriptorSetLayouts[i])
+			DeviceGetDescriptorSetLayout(context->header.device, descriptorSetLayouts[i])
 		) else {
 			boundDescriptorSet.layout = result.value;
 		}
 		DescriptorSet *set;
 		bool doWrite = false;
 		AZ_TRY_ERROR_RESULT (context,
-			DeviceGetDescriptorSet(context->device, boundDescriptorSet.layout, descriptorBindings[i], doWrite)
+			DeviceGetDescriptorSet(context->header.device, boundDescriptorSet.layout, descriptorBindings[i], doWrite)
 		) else {
 			set = result.value;
 			boundDescriptorSet.set = set->vkDescriptorSet;
@@ -4716,11 +4839,11 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 			for (VkWriteDescriptorSet &write : vkWriteDescriptorSets[i]) {
 				write.dstSet = boundDescriptorSet.set;
 			}
-			// ContextFrame &lastFrame = context->frames[(context->currentFrame+context->numFrames-1)%context->numFrames];
+			// Context::Frame &lastFrame = context->vk.frames[(context->state.currentFrame+context->state.numFrames-1)%context->state.numFrames];
 			// FenceWaitForSignal(&lastFrame.fence).AzUnwrap();
 			// NOTE: Descriptor changes should only happen between frames and never within the same command buffer, so this should be okay.
 			// TODONE: If the above is not true, pipelining stops working and the API becomes serial. We could extend the holding of resources to descriptor sets as well, but that necessarily involves having duplicates sometimes. Probably not a big deal, so we should just do it.
-			vkUpdateDescriptorSets(context->device->vkDevice, vkWriteDescriptorSets[i].size, vkWriteDescriptorSets[i].data, 0, nullptr);
+			vkUpdateDescriptorSets(context->header.device->vk.device, vkWriteDescriptorSets[i].size, vkWriteDescriptorSets[i].data, 0, nullptr);
 			set->timestamp = GetTimestamp();
 		}
 		frame.descriptorSetsBound.Append(boundDescriptorSet);
@@ -4729,21 +4852,21 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 }
 
 void ContextResetBindings(Context *context) {
-	context->bindings.framebuffer = nullptr;
-	context->bindings.pipeline = nullptr;
-	context->bindings.vertexBuffer = nullptr;
-	context->bindings.indexBuffer = nullptr;
-	context->bindings.descriptors.Clear();
-	context->bindCommands.ClearSoft();
+	context->state.bindings.framebuffer = nullptr;
+	context->state.bindings.pipeline = nullptr;
+	context->state.bindings.vertexBuffer = nullptr;
+	context->state.bindings.indexBuffer = nullptr;
+	context->state.bindings.descriptors.Clear();
+	context->state.bindCommands.ClearSoft();
 }
 
 Result<VoidResult_t, String> ContextBeginRecording(Context *context) {
-	context->currentFrame += 1;
-	context->generation += context->currentFrame / context->numFrames;
-	context->currentFrame = context->currentFrame % context->numFrames;
-	ContextFrame &frame = context->frames[context->currentFrame];
-	AzAssert(context->initted, "Trying to record to a Context that's not initted");
-	if ((u32)context->state >= (u32)Context::State::RECORDING_PRIMARY) {
+	context->state.currentFrame += 1;
+	context->state.generation += context->state.currentFrame / context->state.numFrames;
+	context->state.currentFrame = context->state.currentFrame % context->state.numFrames;
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
+	AzAssert(context->header.initted, "Trying to record to a Context that's not initted");
+	if ((u32)context->state.stage >= (u32)Context::Stage::RECORDING_PRIMARY) {
 		return ERROR_RESULT(context, "Cannot begin recording on a command buffer that's already recording");
 	}
 	ContextResetBindings(context);
@@ -4751,52 +4874,52 @@ Result<VoidResult_t, String> ContextBeginRecording(Context *context) {
 	AZ_TRY_ERROR_RESULT (context, FenceResetSignaled(&frame.fence));
 	CleanupObjectsBeholdenToContext(context);
 
-	if (context->state == Context::State::DONE_RECORDING) {
-		vkFreeCommandBuffers(context->device->vkDevice, context->vkCommandPool, 1, &frame.vkCommandBuffer);
+	if (context->state.stage == Context::Stage::DONE_RECORDING) {
+		vkFreeCommandBuffers(context->header.device->vk.device, context->vk.commandPool, 1, &frame.vkCommandBuffer);
 	}
 
 	VkCommandBufferAllocateInfo bufferAllocInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-	bufferAllocInfo.commandPool = context->vkCommandPool;
+	bufferAllocInfo.commandPool = context->vk.commandPool;
 	bufferAllocInfo.commandBufferCount = 1;
 	bufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	if (VkResult result = vkAllocateCommandBuffers(context->device->vkDevice, &bufferAllocInfo, &frame.vkCommandBuffer); result != VK_SUCCESS) {
+	if (VkResult result = vkAllocateCommandBuffers(context->header.device->vk.device, &bufferAllocInfo, &frame.vkCommandBuffer); result != VK_SUCCESS) {
 		return ERROR_RESULT(context, "Failed to allocate primary command buffer: ", VkResultString(result));
 	}
 	VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
 	if (VkResult result = vkBeginCommandBuffer(frame.vkCommandBuffer, &beginInfo); result != VK_SUCCESS) {
 		return ERROR_RESULT(context, "Failed to begin primary command buffer: ", VkResultString(result));
 	}
-	context->state = Context::State::RECORDING_PRIMARY;
+	context->state.stage = Context::Stage::RECORDING_PRIMARY;
 	return VoidResult_t();
 }
 
 Result<VoidResult_t, String> ContextBeginRecordingSecondary(Context *context, Framebuffer *framebuffer, i32 subpass) {
-	AzAssert(context->initted, "Trying to record to a Context that's not initted");
-	if ((u32)context->state >= (u32)Context::State::RECORDING_PRIMARY) {
+	AzAssert(context->header.initted, "Trying to record to a Context that's not initted");
+	if ((u32)context->state.stage >= (u32)Context::Stage::RECORDING_PRIMARY) {
 		return ERROR_RESULT(context, "Cannot begin recording on a command buffer that's already recording");
 	}
-	context->currentFrame += 1;
-	context->generation += context->currentFrame / context->numFrames;
-	context->currentFrame = context->currentFrame % context->numFrames;
-	ContextFrame &frame = context->frames[context->currentFrame];
+	context->state.currentFrame += 1;
+	context->state.generation += context->state.currentFrame / context->state.numFrames;
+	context->state.currentFrame = context->state.currentFrame % context->state.numFrames;
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	ContextResetBindings(context);
 	CleanupObjectsBeholdenToContext(context);
 
-	if (context->state == Context::State::DONE_RECORDING) {
-		vkFreeCommandBuffers(context->device->vkDevice, context->vkCommandPool, 1, &frame.vkCommandBuffer);
+	if (context->state.stage == Context::Stage::DONE_RECORDING) {
+		vkFreeCommandBuffers(context->header.device->vk.device, context->vk.commandPool, 1, &frame.vkCommandBuffer);
 	}
 
 	VkCommandBufferAllocateInfo bufferAllocInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-	bufferAllocInfo.commandPool = context->vkCommandPool;
+	bufferAllocInfo.commandPool = context->vk.commandPool;
 	bufferAllocInfo.commandBufferCount = 1;
 	bufferAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
-	if (VkResult result = vkAllocateCommandBuffers(context->device->vkDevice, &bufferAllocInfo, &frame.vkCommandBuffer); result != VK_SUCCESS) {
+	if (VkResult result = vkAllocateCommandBuffers(context->header.device->vk.device, &bufferAllocInfo, &frame.vkCommandBuffer); result != VK_SUCCESS) {
 		return ERROR_RESULT(context, "Failed to allocate secondary command buffer: ", VkResultString(result));
 	}
 	VkCommandBufferInheritanceInfo inheritanceInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO};
 	if (framebuffer != nullptr) {
-		AzAssert(framebuffer->initted, "Trying to use a Framebuffer that isn't initted for recording a secondary command buffer");
-		inheritanceInfo.renderPass = framebuffer->vkRenderPass;
+		AzAssert(framebuffer->header.initted, "Trying to use a Framebuffer that isn't initted for recording a secondary command buffer");
+		inheritanceInfo.renderPass = framebuffer->vk.renderPass;
 		inheritanceInfo.subpass = subpass;
 		inheritanceInfo.framebuffer = FramebufferGetCurrentVkFramebuffer(framebuffer);
 	}
@@ -4806,53 +4929,53 @@ Result<VoidResult_t, String> ContextBeginRecordingSecondary(Context *context, Fr
 	if (VkResult result = vkBeginCommandBuffer(frame.vkCommandBuffer, &beginInfo); result != VK_SUCCESS) {
 		return ERROR_RESULT(context, "Failed to begin secondary command buffer: ", VkResultString(result));
 	}
-	context->state = Context::State::RECORDING_SECONDARY;
+	context->state.stage = Context::Stage::RECORDING_SECONDARY;
 	return VoidResult_t();
 }
 
 Result<VoidResult_t, String> ContextEndRecording(Context *context) {
-	ContextFrame &frame = context->frames[context->currentFrame];
-	AzAssert(context->initted, "Context not initted");
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
+	AzAssert(context->header.initted, "Context not initted");
 	if (!ContextIsRecording(context)) {
 		return ERROR_RESULT(context, "Trying to End Recording but we haven't started recording.");
 	}
-	if (context->bindings.framebuffer) {
+	if (context->state.bindings.framebuffer) {
 		CmdFinishFramebuffer(context);
 	}
 	if (VkResult result = vkEndCommandBuffer(frame.vkCommandBuffer); result != VK_SUCCESS) {
 		return ERROR_RESULT(context, "Failed to End Recording: ", VkResultString(result));
 	}
-	context->state = Context::State::DONE_RECORDING;
+	context->state.stage = Context::Stage::DONE_RECORDING;
 	return VoidResult_t();
 }
 
 Result<VoidResult_t, String> SubmitCommands(Context *context, i32 numSemaphores, ArrayWithBucket<Semaphore*, 4> waitSemaphores) {
-	ContextFrame &frame = context->frames[context->currentFrame];
-	if (context->state != Context::State::DONE_RECORDING) {
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
+	if (context->state.stage != Context::Stage::DONE_RECORDING) {
 		return ERROR_RESULT(context, "Trying to SubmitCommands without anything recorded.");
 	}
 	ArrayWithBucket<VkSemaphore, 4> waitVkSemaphores(waitSemaphores.size);
 	ArrayWithBucket<VkPipelineStageFlags, 4> waitStages(waitSemaphores.size);
 	for (i32 i = 0; i < waitSemaphores.size; i++) {
-		waitVkSemaphores[i] = waitSemaphores[i]->vkSemaphore;
+		waitVkSemaphores[i] = waitSemaphores[i]->vk.semaphore;
 		// TODO: This is a safe assumption, but we could probably be more specific.
 		waitStages[i] = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 	}
-	if (context->bindings.framebuffer) {
-		Window *window = FramebufferGetWindowAttachment(context->bindings.framebuffer);
+	if (context->state.bindings.framebuffer) {
+		Window *window = FramebufferGetWindowAttachment(context->state.bindings.framebuffer);
 		if (window) {
-			waitVkSemaphores.Append(window->acquireSemaphores[window->currentSync].vkSemaphore);
+			waitVkSemaphores.Append(window->state.acquireSemaphores[window->state.currentSync].vk.semaphore);
 			waitStages.Append(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 		}
 	}
 	ArrayWithBucket<VkSemaphore, 4> signalVkSemaphores(numSemaphores);
 	if (numSemaphores) {
 		AZ_TRY_ERROR_RESULT_INFO (context,
-			ContextEnsureSemaphoreCount(context, numSemaphores, context->currentFrame),
+			ContextEnsureSemaphoreCount(context, numSemaphores, context->state.currentFrame),
 			"Couldn't ensure we had ", numSemaphores, " semaphores"
 		);
 		for (i32 i = 0; i < numSemaphores; i++) {
-			signalVkSemaphores[i] = frame.semaphores[i].vkSemaphore;
+			signalVkSemaphores[i] = frame.semaphores[i].vk.semaphore;
 		}
 	}
 	VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
@@ -4863,15 +4986,15 @@ Result<VoidResult_t, String> SubmitCommands(Context *context, i32 numSemaphores,
 	submitInfo.waitSemaphoreCount = waitVkSemaphores.size;
 	submitInfo.pWaitSemaphores = waitVkSemaphores.data;
 	submitInfo.pWaitDstStageMask = waitStages.data;
-	if (VkResult result = vkQueueSubmit(context->device->vkQueue, 1, &submitInfo, frame.fence.vkFence); result != VK_SUCCESS) {
+	if (VkResult result = vkQueueSubmit(context->header.device->vk.queue, 1, &submitInfo, frame.fence.vk.fence); result != VK_SUCCESS) {
 		return ERROR_RESULT(context, "Failed to submit to queue: ", VkResultString(result));
 	}
 	return VoidResult_t();
 }
 
 Result<bool, String> ContextIsExecuting(Context *context) {
-	ContextFrame &frame = context->frames[context->currentFrame];
-	AzAssert(context->initted, "Context is not initted");
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
+	AzAssert(context->header.initted, "Context is not initted");
 	VkResult result = FenceGetStatus(&frame.fence);
 	switch (result) {
 		case VK_SUCCESS:
@@ -4879,15 +5002,15 @@ Result<bool, String> ContextIsExecuting(Context *context) {
 		case VK_NOT_READY:
 			return true;
 		case VK_ERROR_DEVICE_LOST:
-			return Stringify("Device \"", context->device->tag, "\" error: Device Lost");
+			return Stringify("Device \"", context->header.device->header.tag, "\" error: Device Lost");
 		default:
 			return ERROR_RESULT(context, "IsExecuting returned ", VkResultString(result));
 	}
 }
 
 Result<bool, String> ContextWaitUntilFinished(Context *context, Nanoseconds timeout) {
-	ContextFrame &frame = context->frames[context->currentFrame];
-	AzAssert(context->initted, "Context is not initted");
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
+	AzAssert(context->header.initted, "Context is not initted");
 	AzAssert(timeout.count() >= 0, "Cannot have negative timeout");
 	bool wasTimeout;
 	AZ_TRY_ERROR_RESULT (context, FenceWaitForSignal(&frame.fence, (u64)timeout.count(), &wasTimeout));
@@ -4903,96 +5026,96 @@ Result<VoidResult_t, String> CmdExecuteSecondary(Context *primary, Context *seco
 }
 
 Result<VoidResult_t, String> CmdCopyDataToBuffer(Context *context, Buffer *buffer, void *src, i64 dstOffset, i64 size) {
-	ContextFrame &frame = context->frames[context->currentFrame];
-	AzAssert(size+dstOffset <= (i64)buffer->memoryRequirements.size, "size is bigger than our buffer");
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
+	AzAssert(size+dstOffset <= (i64)buffer->vk.memoryRequirements.size, "size is bigger than our buffer");
 	AzAssert(ContextIsRecording(context), "Trying to record into a context that's not recording");
 	if (size == 0) {
 		// We do the whole size
-		size = buffer->size - dstOffset;
+		size = buffer->config.size - dstOffset;
 	}
-	if (!buffer->hostVisible) {
+	if (!buffer->state.hostVisible) {
 		AZ_TRY_ERROR_RESULT (buffer, BufferHostInit(buffer));
 	} else {
 		// Ensure the last frame completed the copy before we rewrite the staging buffer.
-		i32 prevFrame = context->currentFrame - 1;
-		if (prevFrame < 0) prevFrame = context->numFrames - 1;
-		ContextFrame &framePrevious = context->frames[prevFrame];
+		i32 prevFrame = context->state.currentFrame - 1;
+		if (prevFrame < 0) prevFrame = context->state.numFrames - 1;
+		Context::Frame &framePrevious = context->vk.frames[prevFrame];
 		FenceWaitForSignal(&framePrevious.fence).AzUnwrap();
 	}
-	Allocation alloc = buffer->allocHostVisible;
+	Allocation alloc = buffer->vk.allocHostVisible;
 	VkDeviceMemory vkMemory = alloc.memory->pages[alloc.page].vkMemory;
 	void *dstMapped;
-	if (VkResult result = vkMapMemory(buffer->device->vkDevice, vkMemory, alloc.offset + dstOffset, size, 0, &dstMapped); result != VK_SUCCESS) {
+	if (VkResult result = vkMapMemory(buffer->header.device->vk.device, vkMemory, alloc.offset + dstOffset, size, 0, &dstMapped); result != VK_SUCCESS) {
 		return ERROR_RESULT(buffer, "Failed to map memory: ", VkResultString(result));
 	}
 	memcpy(dstMapped, src, size);
-	vkUnmapMemory(buffer->device->vkDevice, vkMemory);
+	vkUnmapMemory(buffer->header.device->vk.device, vkMemory);
 	VkBufferCopy vkCopy;
 	vkCopy.dstOffset = dstOffset;
 	vkCopy.srcOffset = dstOffset;
 	vkCopy.size = size;
-	vkCmdCopyBuffer(frame.vkCommandBuffer, buffer->vkBufferHostVisible, buffer->vkBuffer, 1, &vkCopy);
+	vkCmdCopyBuffer(frame.vkCommandBuffer, buffer->vk.bufferHostVisible, buffer->vk.buffer, 1, &vkCopy);
 	return VoidResult_t();
 }
 
 Result<void*, String> BufferMapHostMemory(Buffer *buffer, i64 dstOffset, i64 size) {
 	if (size == 0) {
 		// We do the whole size
-		size = buffer->size - dstOffset;
+		size = buffer->config.size - dstOffset;
 	}
-	if (!buffer->initted) {
+	if (!buffer->header.initted) {
 		AZ_TRY_ERROR_RESULT (buffer, BufferInit(buffer));
 	}
-	if (!buffer->hostVisible) {
+	if (!buffer->state.hostVisible) {
 		AZ_TRY_ERROR_RESULT (buffer, BufferHostInit(buffer));
 	}
-	AzAssert(size+dstOffset <= (i64)buffer->memoryRequirements.size, "size is bigger than our buffer");
-	Allocation alloc = buffer->allocHostVisible;
+	AzAssert(size+dstOffset <= (i64)buffer->vk.memoryRequirements.size, "size is bigger than our buffer");
+	Allocation alloc = buffer->vk.allocHostVisible;
 	VkDeviceMemory vkMemory = alloc.memory->pages[alloc.page].vkMemory;
 	void *dstMapped;
-	if (VkResult result = vkMapMemory(buffer->device->vkDevice, vkMemory, alloc.offset + dstOffset, size, 0, &dstMapped); result != VK_SUCCESS) {
+	if (VkResult result = vkMapMemory(buffer->header.device->vk.device, vkMemory, alloc.offset + dstOffset, size, 0, &dstMapped); result != VK_SUCCESS) {
 		return ERROR_RESULT(buffer, "Failed to map memory: ", VkResultString(result));
 	}
 	return dstMapped;
 }
 
 void BufferUnmapHostMemory(Buffer *buffer) {
-	Allocation alloc = buffer->allocHostVisible;
+	Allocation alloc = buffer->vk.allocHostVisible;
 	VkDeviceMemory vkMemory = alloc.memory->pages[alloc.page].vkMemory;
-	vkUnmapMemory(buffer->device->vkDevice, vkMemory);
+	vkUnmapMemory(buffer->header.device->vk.device, vkMemory);
 }
 
 Result<VoidResult_t, String> CmdCopyHostBufferToDeviceBuffer(Context *context, Buffer *buffer, i64 dstOffset, i64 size) {
-	ContextFrame &frame = context->frames[context->currentFrame];
-	AzAssert(size+dstOffset <= (i64)buffer->memoryRequirements.size, "size is bigger than our buffer");
-	AzAssert(buffer->hostVisible, "Trying to copy from host buffer that doesn't exist!");
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
+	AzAssert(size+dstOffset <= (i64)buffer->vk.memoryRequirements.size, "size is bigger than our buffer");
+	AzAssert(buffer->state.hostVisible, "Trying to copy from host buffer that doesn't exist!");
 	AzAssert(ContextIsRecording(context), "Trying to record into a context that's not recording");
 	if (size == 0) {
 		// We do the whole size
-		size = buffer->size - dstOffset;
+		size = buffer->config.size - dstOffset;
 	}
 	VkBufferCopy vkCopy;
 	vkCopy.dstOffset = dstOffset;
 	vkCopy.srcOffset = dstOffset;
 	vkCopy.size = size;
-	vkCmdCopyBuffer(frame.vkCommandBuffer, buffer->vkBufferHostVisible, buffer->vkBuffer, 1, &vkCopy);
+	vkCmdCopyBuffer(frame.vkCommandBuffer, buffer->vk.bufferHostVisible, buffer->vk.buffer, 1, &vkCopy);
 	return VoidResult_t();
 }
 
 void CmdCopyBufferToBuffer(Context *context, Buffer *dst, Buffer *src, i64 dstOffset, i64 srcOffset, i64 size) {
-	ContextFrame &frame = context->frames[context->currentFrame];
-	AzAssert(size+dstOffset <= (i64)dst->memoryRequirements.size, Stringify("size is bigger than our destination buffer with an offset of ", dstOffset));
-	AzAssert(size+srcOffset <= (i64)src->memoryRequirements.size, Stringify("size is bigger than our src buffer with an offset of ", srcOffset));
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
+	AzAssert(size+dstOffset <= (i64)dst->vk.memoryRequirements.size, Stringify("size is bigger than our destination buffer with an offset of ", dstOffset));
+	AzAssert(size+srcOffset <= (i64)src->vk.memoryRequirements.size, Stringify("size is bigger than our src buffer with an offset of ", srcOffset));
 	AzAssert(ContextIsRecording(context), "Trying to record into a context that's not recording");
 	if (size == 0) {
 		// We do the minimum size
-		size = min(dst->size - dstOffset, src->size - srcOffset);
+		size = min(dst->config.size - dstOffset, src->config.size - srcOffset);
 	}
 	VkBufferCopy vkCopy;
 	vkCopy.dstOffset = dstOffset;
 	vkCopy.srcOffset = srcOffset;
 	vkCopy.size = size;
-	vkCmdCopyBuffer(frame.vkCommandBuffer, src->vkBuffer, dst->vkBuffer, 1, &vkCopy);
+	vkCmdCopyBuffer(frame.vkCommandBuffer, src->vk.buffer, dst->vk.buffer, 1, &vkCopy);
 }
 
 struct AccessAndStage {
@@ -5048,7 +5171,7 @@ static AccessAndStage AccessAndStageFromImageLayout(VkImageLayout layout) {
 }
 
 static void CmdImageTransitionLayout(Context *context, Image *image, VkImageLayout from, VkImageLayout to, VkImageSubresourceRange subresourceRange) {
-	ContextFrame &frame = context->frames[context->currentFrame];
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	AccessAndStage srcAccessAndStage = AccessAndStageFromImageLayout(from);
 	AccessAndStage dstAccessAndStage = AccessAndStageFromImageLayout(to);
 	VkImageMemoryBarrier barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
@@ -5058,14 +5181,14 @@ static void CmdImageTransitionLayout(Context *context, Image *image, VkImageLayo
 	barrier.newLayout = to;
 	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier.image = image->vkImage;
+	barrier.image = image->vk.image;
 	barrier.subresourceRange = subresourceRange;
 	vkCmdPipelineBarrier(frame.vkCommandBuffer, srcAccessAndStage.stageFlags, dstAccessAndStage.stageFlags, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 
 static void CmdImageTransitionLayout(Context *context, Image *image, VkImageLayout from, VkImageLayout to, u32 baseMipLevel=0, u32 mipLevelCount=1) {
 	VkImageSubresourceRange subresourceRange = {};
-	subresourceRange.aspectMask = image->vkImageAspect;
+	subresourceRange.aspectMask = image->vk.imageAspect;
 	subresourceRange.baseArrayLayer = 0;
 	subresourceRange.layerCount = 1;
 	subresourceRange.baseMipLevel = baseMipLevel;
@@ -5083,7 +5206,7 @@ VkImageLayout GetVkImageLayout(Image *image, ImageLayout layout) {
 		case ImageLayout::TRANSFER_SRC:
 			return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 		case ImageLayout::ATTACHMENT:
-			if (FormatIsDepth(image->vkFormat)) {
+			if (FormatIsDepth(image->vk.format)) {
 				return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 			} else {
 				return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -5097,39 +5220,39 @@ VkImageLayout GetVkImageLayout(Image *image, ImageLayout layout) {
 
 void CmdImageTransitionLayout(Context *context, Image *image, ImageLayout from, ImageLayout to, i32 baseMipLevel, i32 mipLevelCount) {
 	if (mipLevelCount == -1) {
-		mipLevelCount = (i32)image->mipLevels;
+		mipLevelCount = (i32)image->config.mipLevels;
 	}
 	CmdImageTransitionLayout(context, image, GetVkImageLayout(image, from), GetVkImageLayout(image, to), baseMipLevel, mipLevelCount);
 }
 
 static void CmdImageGenerateMipmaps(Context *context, Image *image, VkImageLayout startingLayout, VkImageLayout finalLayout, VkFilter filter=VK_FILTER_LINEAR) {
-	ContextFrame &frame = context->frames[context->currentFrame];
-	AzAssert(image->mipLevels > 1, "Calling CmdImageGenerateMipmaps on an image without mipmaps");
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
+	AzAssert(image->config.mipLevels > 1, "Calling CmdImageGenerateMipmaps on an image without mipmaps");
 	if (startingLayout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
 		CmdImageTransitionLayout(context, image, startingLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 	}
-	for (u32 mip = 1; mip < image->mipLevels; mip++) {
+	for (u32 mip = 1; mip < image->config.mipLevels; mip++) {
 		VkImageBlit imageBlit = {};
-		imageBlit.srcSubresource.aspectMask = image->vkImageAspect;
+		imageBlit.srcSubresource.aspectMask = image->vk.imageAspect;
 		imageBlit.srcSubresource.layerCount = 1;
 		imageBlit.srcSubresource.mipLevel = mip-1;
-		imageBlit.srcOffsets[1].x = (i32)max(image->width >> (mip-1), 1);
-		imageBlit.srcOffsets[1].y = (i32)max(image->height >> (mip-1), 1);
+		imageBlit.srcOffsets[1].x = (i32)max(image->config.width >> (mip-1), 1);
+		imageBlit.srcOffsets[1].y = (i32)max(image->config.height >> (mip-1), 1);
 		imageBlit.srcOffsets[1].z = 1;
 
-		imageBlit.dstSubresource.aspectMask = image->vkImageAspect;
+		imageBlit.dstSubresource.aspectMask = image->vk.imageAspect;
 		imageBlit.dstSubresource.layerCount = 1;
 		imageBlit.dstSubresource.mipLevel = mip;
-		imageBlit.dstOffsets[1].x = (i32)max(image->width >> mip, 1);
-		imageBlit.dstOffsets[1].y = (i32)max(image->height >> mip, 1);
+		imageBlit.dstOffsets[1].x = (i32)max(image->config.width >> mip, 1);
+		imageBlit.dstOffsets[1].y = (i32)max(image->config.height >> mip, 1);
 		imageBlit.dstOffsets[1].z = 1;
 
 		CmdImageTransitionLayout(context, image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mip);
-		vkCmdBlitImage(frame.vkCommandBuffer, image->vkImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image->vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageBlit, filter);
+		vkCmdBlitImage(frame.vkCommandBuffer, image->vk.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image->vk.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageBlit, filter);
 		CmdImageTransitionLayout(context, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, mip);
 	}
 
-	CmdImageTransitionLayout(context, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, finalLayout, 0, image->mipLevels);
+	CmdImageTransitionLayout(context, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, finalLayout, 0, image->config.mipLevels);
 }
 
 void CmdImageGenerateMipmaps(Context *context, Image *image, ImageLayout from, ImageLayout to) {
@@ -5137,42 +5260,42 @@ void CmdImageGenerateMipmaps(Context *context, Image *image, ImageLayout from, I
 }
 
 Result<VoidResult_t, String> CmdCopyDataToImage(Context *context, Image *dst, void *src) {
-	ContextFrame &frame = context->frames[context->currentFrame];
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	AzAssert(ContextIsRecording(context), "Trying to record into a context that's not recording");
-	if (!dst->hostVisible) {
+	if (!dst->state.hostVisible) {
 		Image *image = dst;
 		AZ_TRY_ERROR_RESULT (image, ImageHostInit(dst));
 	} else {
 		// Ensure the last frame completed the copy before we rewrite the staging buffer.
-		i32 prevFrame = context->currentFrame - 1;
-		if (prevFrame < 0) prevFrame = context->numFrames - 1;
-		ContextFrame &framePrevious = context->frames[prevFrame];
+		i32 prevFrame = context->state.currentFrame - 1;
+		if (prevFrame < 0) prevFrame = context->state.numFrames - 1;
+		Context::Frame &framePrevious = context->vk.frames[prevFrame];
 		FenceWaitForSignal(&framePrevious.fence).AzUnwrap();
 	}
 	CmdImageTransitionLayout(context, dst, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	Allocation alloc = dst->allocHostVisible;
+	Allocation alloc = dst->vk.allocHostVisible;
 	VkDeviceMemory vkMemory = alloc.memory->pages[alloc.page].vkMemory;
 	void *dstMapped;
-	if (VkResult result = vkMapMemory(dst->device->vkDevice, vkMemory, alloc.offset, dst->memoryRequirementsHost.size, 0, &dstMapped); result != VK_SUCCESS) {
-		return Stringify("Image \"", dst->tag, "\" error: Failed to map memory: ", VkResultString(result));
+	if (VkResult result = vkMapMemory(dst->header.device->vk.device, vkMemory, alloc.offset, dst->vk.memoryRequirementsHost.size, 0, &dstMapped); result != VK_SUCCESS) {
+		return Stringify("Image \"", dst->header.tag, "\" error: Failed to map memory: ", VkResultString(result));
 	}
-	memcpy(dstMapped, src, dst->width * dst->height * dst->bytesPerPixel);
-	vkUnmapMemory(dst->device->vkDevice, vkMemory);
+	memcpy(dstMapped, src, dst->config.width * dst->config.height * dst->config.bytesPerPixel);
+	vkUnmapMemory(dst->header.device->vk.device, vkMemory);
 	VkBufferImageCopy vkCopy = {};
-	vkCopy.imageSubresource.aspectMask = dst->vkImageAspect;
+	vkCopy.imageSubresource.aspectMask = dst->vk.imageAspect;
 	vkCopy.imageSubresource.mipLevel = 0;
 	vkCopy.imageSubresource.baseArrayLayer = 0;
 	vkCopy.imageSubresource.layerCount = 1;
 	vkCopy.imageOffset = {0, 0, 0};
-	vkCopy.imageExtent = {(u32)dst->width, (u32)dst->height, 1};
-	vkCmdCopyBufferToImage(frame.vkCommandBuffer, dst->vkBufferHostVisible, dst->vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &vkCopy);
+	vkCopy.imageExtent = {(u32)dst->config.width, (u32)dst->config.height, 1};
+	vkCmdCopyBufferToImage(frame.vkCommandBuffer, dst->vk.bufferHostVisible, dst->vk.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &vkCopy);
 	VkImageLayout finalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	if (dst->shaderStages) {
+	if (dst->config.shaderStages) {
 		finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	} else if (dst->attachment) {
+	} else if (dst->config.attachment) {
 		finalLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
 	}
-	if (dst->mipmapped && dst->mipLevels > 1) {
+	if (dst->config.mipmapped && dst->config.mipLevels > 1) {
 		CmdImageGenerateMipmaps(context, dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, finalLayout);
 	} else {
 		CmdImageTransitionLayout(context, dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, finalLayout);
@@ -5184,83 +5307,83 @@ void CmdBindFramebuffer(Context *context, Framebuffer *framebuffer) {
 	Binding bind;
 	bind.kind = Binding::FRAMEBUFFER;
 	bind.framebuffer.object = framebuffer;
-	context->bindCommands.Append(bind);
+	context->state.bindCommands.Append(bind);
 }
 
 void CmdBindPipeline(Context *context, Pipeline *pipeline) {
 	Binding bind;
 	bind.kind = Binding::PIPELINE;
 	bind.pipeline.object = pipeline;
-	context->bindCommands.Append(bind);
+	context->state.bindCommands.Append(bind);
 }
 
 void CmdBindVertexBuffer(Context *context, Buffer *buffer) {
 	if (buffer) {
-		AzAssert(buffer->kind == Buffer::VERTEX_BUFFER, "Binding a buffer as a vertex buffer when it's not one");
+		AzAssert(buffer->config.kind == Buffer::VERTEX_BUFFER, "Binding a buffer as a vertex buffer when it's not one");
 	}
 	Binding bind;
 	bind.kind = Binding::VERTEX_BUFFER;
 	bind.vertexBuffer.object = buffer;
-	context->bindCommands.Append(bind);
+	context->state.bindCommands.Append(bind);
 }
 
 void CmdBindIndexBuffer(Context *context, Buffer *buffer) {
 	if (buffer) {
-		AzAssert(buffer->kind == Buffer::INDEX_BUFFER, "Binding a buffer as an index buffer when it's not one");
+		AzAssert(buffer->config.kind == Buffer::INDEX_BUFFER, "Binding a buffer as an index buffer when it's not one");
 	}
 	Binding bind;
 	bind.kind = Binding::INDEX_BUFFER;
 	bind.indexBuffer.object = buffer;
-	context->bindCommands.Append(bind);
+	context->state.bindCommands.Append(bind);
 }
 
 void CmdClearDescriptors(Context *context) {
-	context->bindings.descriptors.Clear();
-	context->bindings.descriptorsCleared = true;
+	context->state.bindings.descriptors.Clear();
+	context->state.bindings.descriptorsCleared = true;
 }
 
 void CmdBindUniformBuffer(Context *context, Buffer *buffer, i32 set, i32 binding) {
-	AzAssert(buffer->kind == Buffer::UNIFORM_BUFFER, "Binding a buffer as a uniform buffer when it's not one");
+	AzAssert(buffer->config.kind == Buffer::UNIFORM_BUFFER, "Binding a buffer as a uniform buffer when it's not one");
 	Binding bind;
 	bind.kind = Binding::UNIFORM_BUFFER;
 	bind.uniformBuffer.buffers = {buffer};
 	bind.uniformBuffer.binding.set = set;
 	bind.uniformBuffer.binding.binding = binding;
-	context->bindCommands.Append(bind);
+	context->state.bindCommands.Append(bind);
 }
 
 void CmdBindUniformBufferArray(Context *context, const Array<Buffer*> &buffers, i32 set, i32 binding) {
 	for (const Buffer *buffer : buffers) {
-		AzAssert(buffer->kind == Buffer::UNIFORM_BUFFER, Stringify("Binding a buffer[\"", buffer->tag, "\"] as a uniform buffer when it's not one"));
+		AzAssert(buffer->config.kind == Buffer::UNIFORM_BUFFER, Stringify("Binding a buffer[\"", buffer->header.tag, "\"] as a uniform buffer when it's not one"));
 	}
 	Binding bind;
 	bind.kind = Binding::UNIFORM_BUFFER;
 	bind.uniformBuffer.buffers = buffers;
 	bind.uniformBuffer.binding.set = set;
 	bind.uniformBuffer.binding.binding = binding;
-	context->bindCommands.Append(bind);
+	context->state.bindCommands.Append(bind);
 }
 
 void CmdBindStorageBuffer(Context *context, Buffer *buffer, i32 set, i32 binding) {
-	AzAssert(buffer->kind == Buffer::STORAGE_BUFFER, "Binding a buffer as a storage buffer when it's not one");
+	AzAssert(buffer->config.kind == Buffer::STORAGE_BUFFER, "Binding a buffer as a storage buffer when it's not one");
 	Binding bind;
 	bind.kind = Binding::STORAGE_BUFFER;
 	bind.storageBuffer.buffers = {buffer};
 	bind.storageBuffer.binding.set = set;
 	bind.storageBuffer.binding.binding = binding;
-	context->bindCommands.Append(bind);
+	context->state.bindCommands.Append(bind);
 }
 
 void CmdBindStorageBufferArray(Context *context, const Array<Buffer*> &buffers, i32 set, i32 binding) {
 	for (const Buffer *buffer : buffers) {
-		AzAssert(buffer->kind == Buffer::STORAGE_BUFFER, Stringify("Binding a buffer[\"", buffer->tag, "\"] as a storage buffer when it's not one"));
+		AzAssert(buffer->config.kind == Buffer::STORAGE_BUFFER, Stringify("Binding a buffer[\"", buffer->header.tag, "\"] as a storage buffer when it's not one"));
 	}
 	Binding bind;
 	bind.kind = Binding::STORAGE_BUFFER;
 	bind.storageBuffer.buffers = buffers;
 	bind.storageBuffer.binding.set = set;
 	bind.storageBuffer.binding.binding = binding;
-	context->bindCommands.Append(bind);
+	context->state.bindCommands.Append(bind);
 }
 
 void CmdBindImageSampler(Context *context, Image *image, Sampler *sampler, i32 set, i32 binding) {
@@ -5270,7 +5393,7 @@ void CmdBindImageSampler(Context *context, Image *image, Sampler *sampler, i32 s
 	bind.imageSampler.sampler = sampler;
 	bind.imageSampler.binding.set = set;
 	bind.imageSampler.binding.binding = binding;
-	context->bindCommands.Append(bind);
+	context->state.bindCommands.Append(bind);
 }
 
 void CmdBindImageArraySampler(Context *context, const Array<Image*> &images, Sampler *sampler, i32 set, i32 binding) {
@@ -5280,95 +5403,96 @@ void CmdBindImageArraySampler(Context *context, const Array<Image*> &images, Sam
 	bind.imageSampler.sampler = sampler;
 	bind.imageSampler.binding.set = set;
 	bind.imageSampler.binding.binding = binding;
-	context->bindCommands.Append(bind);
+	context->state.bindCommands.Append(bind);
 }
 
 static void AddDependency(Context *context, ArrayWithBucket<DependentContext, 4> &dependentContexts) {
 	bool found = false;
 	for (DependentContext &dep : dependentContexts) {
 		if (dep.context != context) continue;
-		if (dep.frame != context->currentFrame) continue;
-		dep.generation = context->generation;
+		if (dep.frame != context->state.currentFrame) continue;
+		dep.generation = context->state.generation;
 		found = true;
 		break;
 	}
 	DependentContext dep;
 	dep.context = context;
-	dep.frame = context->currentFrame;
-	dep.generation = context->generation;
+	dep.frame = context->state.currentFrame;
+	dep.generation = context->state.generation;
 	if (!found) {
 		dependentContexts.Append(dep);
 	}
 }
 
 Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
-	ContextFrame &frame = context->frames[context->currentFrame];
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	Optional<Framebuffer*> framebuffer;
 	Optional<Pipeline*> pipeline;
 	Optional<Buffer*> vertexBuffer;
 	Optional<Buffer*> indexBuffer;
-	bool descriptorsChanged = context->bindings.descriptorsCleared;
-	for (Binding &bind : context->bindCommands) {
+	bool descriptorsChanged = context->state.bindings.descriptorsCleared;
+	for (Binding &bind : context->state.bindCommands) {
 		switch (bind.kind) {
 		case Binding::FRAMEBUFFER:
 			framebuffer = bind.framebuffer.object;
 			if (framebuffer.ValueUnchecked()) {
-				AddDependency(context, framebuffer.ValueUnchecked()->dependentContexts);
+				AddDependency(context, framebuffer.ValueUnchecked()->state.dependentContexts);
 			}
 			break;
 		case Binding::PIPELINE:
 			pipeline = bind.pipeline.object;
 			if (pipeline.ValueUnchecked()) {
-				AddDependency(context, pipeline.ValueUnchecked()->dependentContexts);
+				AddDependency(context, pipeline.ValueUnchecked()->state.dependentContexts);
 			}
 			break;
 		case Binding::VERTEX_BUFFER:
 			vertexBuffer = bind.vertexBuffer.object;
 			if (vertexBuffer.ValueUnchecked()) {
-				AddDependency(context, vertexBuffer.ValueUnchecked()->dependentContexts);
+				AddDependency(context, vertexBuffer.ValueUnchecked()->state.dependentContexts);
 			}
 			break;
 		case Binding::INDEX_BUFFER:
 			indexBuffer = bind.indexBuffer.object;
 			if (indexBuffer.ValueUnchecked()) {
-				AddDependency(context, indexBuffer.ValueUnchecked()->dependentContexts);
+				AddDependency(context, indexBuffer.ValueUnchecked()->state.dependentContexts);
 			}
 			break;
 		case Binding::UNIFORM_BUFFER:
-			context->bindings.descriptors.Emplace(bind.uniformBuffer.binding, bind);
+			context->state.bindings.descriptors.Emplace(bind.uniformBuffer.binding, bind);
 			descriptorsChanged = true;
 			for (Buffer *buffer : bind.uniformBuffer.buffers) {
-				AddDependency(context, buffer->dependentContexts);
+				AddDependency(context, buffer->state.dependentContexts);
 			}
 			break;
 		case Binding::STORAGE_BUFFER:
-			context->bindings.descriptors.Emplace(bind.storageBuffer.binding, bind);
+			context->state.bindings.descriptors.Emplace(bind.storageBuffer.binding, bind);
 			descriptorsChanged = true;
 			for (Buffer *buffer : bind.storageBuffer.buffers) {
-				AddDependency(context, buffer->dependentContexts);
+				AddDependency(context, buffer->state.dependentContexts);
 			}
 			break;
 		case Binding::IMAGE_SAMPLER:
-			context->bindings.descriptors.Emplace(bind.imageSampler.binding, bind);
+			context->state.bindings.descriptors.Emplace(bind.imageSampler.binding, bind);
 			descriptorsChanged = true;
 			for (Image *image : bind.imageSampler.images) {
-				AddDependency(context, image->dependentContexts);
+				AddDependency(context, image->state.dependentContexts);
 			}
 			break;
 		}
 	}
-	if (framebuffer.Exists() && context->bindings.framebuffer != framebuffer.ValueUnchecked()) {
-		if (context->bindings.framebuffer) {
+	if (framebuffer.Exists() && context->state.bindings.framebuffer != framebuffer.ValueUnchecked()) {
+		if (context->state.bindings.framebuffer) {
 			vkCmdEndRenderPass(frame.vkCommandBuffer);
 		}
-		context->bindings.framebuffer = framebuffer.ValueUnchecked();
-		if (context->bindings.framebuffer) {
+		context->state.bindings.framebuffer = framebuffer.ValueUnchecked();
+		if (context->state.bindings.framebuffer) {
+			AZ_TRY_ERROR_RESULT (context, MaybeRecreateFramebuffer(context->state.bindings.framebuffer));
 			VkRenderPassBeginInfo beginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-			beginInfo.renderPass = context->bindings.framebuffer->vkRenderPass;
-			beginInfo.framebuffer = FramebufferGetCurrentVkFramebuffer(context->bindings.framebuffer);
+			beginInfo.renderPass = context->state.bindings.framebuffer->vk.renderPass;
+			beginInfo.framebuffer = FramebufferGetCurrentVkFramebuffer(context->state.bindings.framebuffer);
 			beginInfo.renderArea.offset = {0, 0};
-			beginInfo.renderArea.extent.width = context->bindings.framebuffer->width;
-			beginInfo.renderArea.extent.height = context->bindings.framebuffer->height;
+			beginInfo.renderArea.extent.width = context->state.bindings.framebuffer->state.width;
+			beginInfo.renderArea.extent.height = context->state.bindings.framebuffer->state.height;
 			vkCmdBeginRenderPass(frame.vkCommandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
 		}
 	}
@@ -5376,72 +5500,72 @@ Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
 		AZ_TRY_ERROR_RESULT (context, ContextDescriptorsCompose(context));
 	}
 	if (vertexBuffer.Exists()) {
-		context->bindings.vertexBuffer = vertexBuffer.ValueUnchecked();
-		if (context->bindings.vertexBuffer) {
+		context->state.bindings.vertexBuffer = vertexBuffer.ValueUnchecked();
+		if (context->state.bindings.vertexBuffer) {
 			VkDeviceSize zero = 0;
 			// TODO: Support multiple vertex buffer bindings
-			vkCmdBindVertexBuffers(frame.vkCommandBuffer, 0, 1, &context->bindings.vertexBuffer->vkBuffer, &zero);
+			vkCmdBindVertexBuffers(frame.vkCommandBuffer, 0, 1, &context->state.bindings.vertexBuffer->vk.buffer, &zero);
 		}
 	}
 	if (indexBuffer.Exists()) {
-		context->bindings.indexBuffer = indexBuffer.ValueUnchecked();
-		if (context->bindings.indexBuffer) {
-			vkCmdBindIndexBuffer(frame.vkCommandBuffer, context->bindings.indexBuffer->vkBuffer, 0, context->bindings.indexBuffer->indexType);
+		context->state.bindings.indexBuffer = indexBuffer.ValueUnchecked();
+		if (context->state.bindings.indexBuffer) {
+			vkCmdBindIndexBuffer(frame.vkCommandBuffer, context->state.bindings.indexBuffer->vk.buffer, 0, context->state.bindings.indexBuffer->config.indexType);
 		}
 	}
-	if (pipeline.Exists() && context->bindings.pipeline != pipeline.ValueUnchecked()) {
-		context->bindings.pipeline = pipeline.ValueUnchecked();
-		if (context->bindings.pipeline) {
-			AZ_TRY_ERROR_RESULT_INFO (context, PipelineCompose(context->bindings.pipeline, context), "Failed to bind Pipeline: ");
-			vkCmdBindPipeline(frame.vkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context->bindings.pipeline->vkPipeline);
-			if (context->device->physicalDevice->vk10Features.features.wideLines) {
-				vkCmdSetLineWidth(frame.vkCommandBuffer, context->bindings.pipeline->lineWidth);
+	if (pipeline.Exists() && context->state.bindings.pipeline != pipeline.ValueUnchecked()) {
+		context->state.bindings.pipeline = pipeline.ValueUnchecked();
+		if (context->state.bindings.pipeline) {
+			AZ_TRY_ERROR_RESULT_INFO (context, PipelineCompose(context->state.bindings.pipeline, context), "Failed to bind Pipeline: ");
+			vkCmdBindPipeline(frame.vkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context->state.bindings.pipeline->vk.pipeline);
+			if (context->header.device->vk.physicalDevice->vk10Features.features.wideLines) {
+				vkCmdSetLineWidth(frame.vkCommandBuffer, context->state.bindings.pipeline->config.lineWidth);
 			}
-			if (context->bindings.pipeline->framebufferHasDepthBuffer) {
-				vkCmdSetDepthTestEnable(frame.vkCommandBuffer, ResolveBoolOrDefault(context->bindings.pipeline->depthTest, context->bindings.pipeline->framebufferHasDepthBuffer));
-				vkCmdSetDepthWriteEnable(frame.vkCommandBuffer, ResolveBoolOrDefault(context->bindings.pipeline->depthWrite, context->bindings.pipeline->framebufferHasDepthBuffer));
-				vkCmdSetDepthCompareOp(frame.vkCommandBuffer, (VkCompareOp)context->bindings.pipeline->depthCompareOp);
+			if (context->state.bindings.pipeline->state.framebufferHasDepthBuffer) {
+				vkCmdSetDepthTestEnable(frame.vkCommandBuffer, ResolveBoolOrDefault(context->state.bindings.pipeline->config.depthTest, context->state.bindings.pipeline->state.framebufferHasDepthBuffer));
+				vkCmdSetDepthWriteEnable(frame.vkCommandBuffer, ResolveBoolOrDefault(context->state.bindings.pipeline->config.depthWrite, context->state.bindings.pipeline->state.framebufferHasDepthBuffer));
+				vkCmdSetDepthCompareOp(frame.vkCommandBuffer, (VkCompareOp)context->state.bindings.pipeline->config.depthCompareOp);
 			}
 		}
 	}
-	if (context->bindings.pipeline != nullptr && frame.descriptorSetsBound.size != 0) {
+	if (context->state.bindings.pipeline != nullptr && frame.descriptorSetsBound.size != 0) {
 		Array<VkDescriptorSet> vkDescriptorSets(frame.descriptorSetsBound.size);
 		for (i32 i = 0; i < vkDescriptorSets.size; i++) {
 			vkDescriptorSets[i] = frame.descriptorSetsBound[i].set;
 		}
-		vkCmdBindDescriptorSets(frame.vkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context->bindings.pipeline->vkPipelineLayout, 0, vkDescriptorSets.size, vkDescriptorSets.data, 0, nullptr);
+		vkCmdBindDescriptorSets(frame.vkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context->state.bindings.pipeline->vk.pipelineLayout, 0, vkDescriptorSets.size, vkDescriptorSets.data, 0, nullptr);
 	}
-	if (context->bindings.framebuffer) {
-		CmdSetViewportAndScissor(context, (f32)context->bindings.framebuffer->width, (f32)context->bindings.framebuffer->height);
+	if (context->state.bindings.framebuffer) {
+		CmdSetViewportAndScissor(context, (f32)context->state.bindings.framebuffer->state.width, (f32)context->state.bindings.framebuffer->state.height);
 	}
-	context->bindCommands.ClearSoft();
+	context->state.bindCommands.ClearSoft();
 	return VoidResult_t();
 }
 
 void CmdFinishFramebuffer(Context *context, bool doGenMipmaps) {
-	Framebuffer *framebuffer = context->bindings.framebuffer;
+	Framebuffer *framebuffer = context->state.bindings.framebuffer;
 	AzAssert(framebuffer != nullptr, "Expected a framebuffer to be bound and committed, but there wasn't one!");
-	ContextFrame &frame = context->frames[context->currentFrame];
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	vkCmdEndRenderPass(frame.vkCommandBuffer);
 	ContextResetBindings(context);
 }
 
 void CmdPushConstants(Context *context, const void *src, u32 offset, u32 size) {
-	AzAssert(context->bindings.pipeline != nullptr, "Cannot Push Constants without a Pipeline bound and committed.");
-	Pipeline *pipeline = context->bindings.pipeline;
-	ContextFrame &frame = context->frames[context->currentFrame];
+	AzAssert(context->state.bindings.pipeline != nullptr, "Cannot Push Constants without a Pipeline bound and committed.");
+	Pipeline *pipeline = context->state.bindings.pipeline;
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	VkShaderStageFlags stageFlags = 0;
 	// TODO: Is this dumb? Should we just pass in the stage?
-	for (VkPushConstantRange &range : pipeline->pushConstantRanges) {
+	for (VkPushConstantRange &range : pipeline->vk.pushConstantRanges) {
 		if (range.offset < offset+size && range.offset+range.size > offset) {
 			stageFlags |= range.stageFlags;
 		}
 	}
-	vkCmdPushConstants(frame.vkCommandBuffer, context->bindings.pipeline->vkPipelineLayout, stageFlags, offset, size, src);
+	vkCmdPushConstants(frame.vkCommandBuffer, context->state.bindings.pipeline->vk.pipelineLayout, stageFlags, offset, size, src);
 }
 
 void CmdSetViewport(Context *context, f32 width, f32 height, f32 minDepth, f32 maxDepth, f32 x, f32 y) {
-	ContextFrame &frame = context->frames[context->currentFrame];
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	VkViewport viewport;
 	viewport.width = width;
 	viewport.height = height;
@@ -5453,7 +5577,7 @@ void CmdSetViewport(Context *context, f32 width, f32 height, f32 minDepth, f32 m
 }
 
 void CmdSetScissor(Context *context, u32 width, u32 height, i32 x, i32 y) {
-	ContextFrame &frame = context->frames[context->currentFrame];
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	VkRect2D scissor;
 	scissor.extent.width = width;
 	scissor.extent.height = height;
@@ -5463,35 +5587,35 @@ void CmdSetScissor(Context *context, u32 width, u32 height, i32 x, i32 y) {
 }
 
 void CmdSetLineWidth(Context *context, f32 lineWidth) {
-	ContextFrame &frame = context->frames[context->currentFrame];
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	vkCmdSetLineWidth(frame.vkCommandBuffer, lineWidth);
 }
 
-#define CHECK_DYNAMIC_DEPTH_SETTING() AzAssert(context->bindings.framebuffer != nullptr && FramebufferHasDepthBuffer(context->bindings.framebuffer), Stringify(__FUNCTION__, " called with a framebuffer \"", context->bindings.framebuffer->tag, "\" that doesn't have a depth buffer!"))
+#define CHECK_DYNAMIC_DEPTH_SETTING() AzAssert(context->state.bindings.framebuffer != nullptr && FramebufferHasDepthBuffer(context->state.bindings.framebuffer), Stringify(__FUNCTION__, " called with a framebuffer \"", context->state.bindings.framebuffer->header.tag, "\" that doesn't have a depth buffer!"))
 
 void CmdSetDepthTestEnable(Context *context, bool enable) {
 	CHECK_DYNAMIC_DEPTH_SETTING();
-	ContextFrame &frame = context->frames[context->currentFrame];
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	vkCmdSetDepthTestEnable(frame.vkCommandBuffer, enable);
 }
 
 void CmdSetDepthWriteEnable(Context *context, bool enable) {
 	CHECK_DYNAMIC_DEPTH_SETTING();
-	ContextFrame &frame = context->frames[context->currentFrame];
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	vkCmdSetDepthWriteEnable(frame.vkCommandBuffer, enable);
 }
 
 void CmdSetDepthCompareOp(Context *context, CompareOp op) {
 	CHECK_DYNAMIC_DEPTH_SETTING();
-	ContextFrame &frame = context->frames[context->currentFrame];
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	vkCmdSetDepthCompareOp(frame.vkCommandBuffer, (VkCompareOp)op);
 }
 
 #undef CHECK_DYNAMIC_DEPTH_SETTING
 
 void CmdClearColorAttachment(Context *context, vec4 color, i32 attachment) {
-	ContextFrame &frame = context->frames[context->currentFrame];
-	AzAssert(context->bindings.framebuffer != nullptr, "Cannot CmdClearColorAttachment without a Framebuffer bound");
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
+	AzAssert(context->state.bindings.framebuffer != nullptr, "Cannot CmdClearColorAttachment without a Framebuffer bound");
 	VkClearValue clearValue;
 	clearValue.color.float32[0] = color.r;
 	clearValue.color.float32[1] = color.g;
@@ -5500,8 +5624,8 @@ void CmdClearColorAttachment(Context *context, vec4 color, i32 attachment) {
 	VkClearRect clearRect;
 	clearRect.baseArrayLayer = 0;
 	clearRect.layerCount = 1;
-	clearRect.rect.extent.width = (u32)context->bindings.framebuffer->width;
-	clearRect.rect.extent.height = (u32)context->bindings.framebuffer->height;
+	clearRect.rect.extent.width = (u32)context->state.bindings.framebuffer->state.width;
+	clearRect.rect.extent.height = (u32)context->state.bindings.framebuffer->state.height;
 	clearRect.rect.offset.x = 0;
 	clearRect.rect.offset.y = 0;
 	VkClearAttachment clearAttachment;
@@ -5512,17 +5636,17 @@ void CmdClearColorAttachment(Context *context, vec4 color, i32 attachment) {
 }
 
 void CmdClearDepthAttachment(Context *context, f32 depth) {
-	ContextFrame &frame = context->frames[context->currentFrame];
-	AzAssert(context->bindings.framebuffer != nullptr, "Cannot CmdClearDepthAttachment without a Framebuffer bound");
-	AzAssert(FramebufferHasDepthBuffer(context->bindings.framebuffer), "Cannot CmdClearDepthAttachment when Framebuffer doesn't have a depth attachment");
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
+	AzAssert(context->state.bindings.framebuffer != nullptr, "Cannot CmdClearDepthAttachment without a Framebuffer bound");
+	AzAssert(FramebufferHasDepthBuffer(context->state.bindings.framebuffer), "Cannot CmdClearDepthAttachment when Framebuffer doesn't have a depth attachment");
 	VkClearValue clearValue;
 	clearValue.depthStencil.depth = depth;
 	clearValue.depthStencil.stencil = 0;
 	VkClearRect clearRect;
 	clearRect.baseArrayLayer = 0;
 	clearRect.layerCount = 1;
-	clearRect.rect.extent.width = (u32)context->bindings.framebuffer->width;
-	clearRect.rect.extent.height = (u32)context->bindings.framebuffer->height;
+	clearRect.rect.extent.width = (u32)context->state.bindings.framebuffer->state.width;
+	clearRect.rect.extent.height = (u32)context->state.bindings.framebuffer->state.height;
 	clearRect.rect.offset.x = 0;
 	clearRect.rect.offset.y = 0;
 	VkClearAttachment clearAttachment;
@@ -5532,13 +5656,13 @@ void CmdClearDepthAttachment(Context *context, f32 depth) {
 }
 
 void CmdDraw(Context *context, i32 count, i32 vertexOffset, i32 instanceCount, i32 instanceOffset) {
-	ContextFrame &frame = context->frames[context->currentFrame];
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	vkCmdDraw(frame.vkCommandBuffer, count, instanceCount, vertexOffset, instanceOffset);
 }
 
 void CmdDrawIndexed(Context *context, i32 count, i32 indexOffset, i32 vertexOffset, i32 instanceCount, i32 instanceOffset) {
-	ContextFrame &frame = context->frames[context->currentFrame];
-	AzAssert(context->bindings.indexBuffer != nullptr, "Cannot use CmdDrawIndexed without an index buffer bound");
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
+	AzAssert(context->state.bindings.indexBuffer != nullptr, "Cannot use CmdDrawIndexed without an index buffer bound");
 	vkCmdDrawIndexed(frame.vkCommandBuffer, count, instanceCount, indexOffset, vertexOffset, instanceOffset);
 }
 

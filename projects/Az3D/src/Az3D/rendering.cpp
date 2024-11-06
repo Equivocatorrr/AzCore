@@ -10,7 +10,6 @@
 #include "AzCore/Profiling.hpp"
 
 #include "AzCore/IO/Log.hpp"
-#include "AzCore/io.hpp"
 #include "AzCore/font.hpp"
 #include "AzCore/QuickSort.hpp"
 

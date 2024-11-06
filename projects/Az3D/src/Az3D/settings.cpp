@@ -4,10 +4,8 @@
 */
 
 #include "settings.hpp"
-#include "AzCore/memory.hpp"
 #include "AzCore/IO/Log.hpp"
 #include <cstdio>
-#include <locale>
 
 namespace Az3D {
 namespace Settings {

@@ -2,7 +2,6 @@
 	File: HashSet.hpp
 	Author: Philip Haynes
 	A map implemented as a hash table.
-	Requires u8 HashSetHash(T) to be defined for T.
 */
 
 #ifndef AZCORE_HASH_SET_HPP
@@ -13,7 +12,6 @@
 #include "IndexHash.hpp"
 #include <utility>
 #include <initializer_list>
-#include <stdexcept>
 
 namespace AzCore {
 

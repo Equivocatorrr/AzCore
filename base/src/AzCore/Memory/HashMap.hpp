@@ -2,7 +2,6 @@
 	File: HashMap.hpp
 	Author: Philip Haynes
 	A map implemented as a hash table.
-	Requires u8 HashMapHash(T) to be defined for T.
 */
 
 #ifndef AZCORE_HASH_MAP_HPP

@@ -1637,7 +1637,7 @@ Result<VoidResult_t, String> Initialize() {
 		if (windows.size) {
 			extensions.Append("VK_KHR_surface");
 	#ifdef __unix
-			if (windows[0]->window->data->useWayland) {
+			if (windows[0]->config.window->data->useWayland) {
 				extensions.Append("VK_KHR_wayland_surface");
 			} else {
 				extensions.Append("VK_KHR_xcb_surface");
@@ -1896,8 +1896,8 @@ void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Win
 }
 
 void SetVSync(Window *window, bool enable) {
-	if (window->header.initted) {
-		window->state.shouldReconfigure = enable != window->config.vsync;
+	if (window->header.initted && enable != window->config.vsync) {
+		window->state.shouldReconfigure = true;
 	}
 	window->config.vsync = enable;
 }
@@ -1911,18 +1911,18 @@ Result<VoidResult_t, String> WindowSurfaceInit(Window *window) {
 		return String("InitWindowSurface was called before the window was created!");
 	}
 #ifdef __unix
-	if (window->window->data->useWayland) {
+	if (window->config.window->data->useWayland) {
 		VkWaylandSurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR};
-		createInfo.display = window->window->data->wayland.display;
-		createInfo.surface = window->window->data->wayland.surface;
+		createInfo.display = window->config.window->data->wayland.display;
+		createInfo.surface = window->config.window->data->wayland.surface;
 		VkResult result = vkCreateWaylandSurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->vk.surface);
 		if (result != VK_SUCCESS) {
 			return ERROR_RESULT(window, "Failed to create Vulkan Wayland surface: ", VkResultString(result));
 		}
 	} else {
 		VkXcbSurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
-		createInfo.connection = window->window->data->x11.connection;
-		createInfo.window = window->window->data->x11.window;
+		createInfo.connection = window->config.window->data->x11.connection;
+		createInfo.window = window->config.window->data->x11.window;
 		VkResult result = vkCreateXcbSurfaceKHR(instance.vkInstance, &createInfo, nullptr, &window->vk.surface);
 		if (result != VK_SUCCESS) {
 			return ERROR_RESULT(window, "Failed to create Vulkan XCB surface: ", VkResultString(result));
@@ -2031,6 +2031,38 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 		window->state.extent.height = clamp((u32)window->config.window->height, window->vk.surfaceCaps.minImageExtent.height, window->vk.surfaceCaps.maxImageExtent.height);
 	}
 	io::cout.PrintLnDebug("Extent: ", window->state.extent.width, "x", window->state.extent.height);
+	switch (window->vk.surfaceCaps.currentTransform) {
+		case VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR:
+			io::cout.PrintLnDebug("Transform: VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR");
+			break;
+		case VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR:
+			io::cout.PrintLnDebug("Transform: VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR");
+			break;
+		case VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR:
+			io::cout.PrintLnDebug("Transform: VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR");
+			break;
+		case VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR:
+			io::cout.PrintLnDebug("Transform: VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR");
+			break;
+		case VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_BIT_KHR:
+			io::cout.PrintLnDebug("Transform: VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_BIT_KHR");
+			break;
+		case VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_90_BIT_KHR:
+			io::cout.PrintLnDebug("Transform: VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_90_BIT_KHR");
+			break;
+		case VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_180_BIT_KHR:
+			io::cout.PrintLnDebug("Transform: VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_180_BIT_KHR");
+			break;
+		case VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_270_BIT_KHR:
+			io::cout.PrintLnDebug("Transform: VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_270_BIT_KHR");
+			break;
+		case VK_SURFACE_TRANSFORM_INHERIT_BIT_KHR:
+			io::cout.PrintLnDebug("Transform: VK_SURFACE_TRANSFORM_INHERIT_BIT_KHR");
+			break;
+		default:
+			io::cout.PrintLnDebug("Transform: unknown (", (u32)window->vk.surfaceCaps.currentTransform, ")");
+			break;
+	}
 	window->vk.numImages = (i32)clamp(imageCountPreferred, window->vk.surfaceCaps.minImageCount, window->vk.surfaceCaps.maxImageCount != 0 ? window->vk.surfaceCaps.maxImageCount : UINT32_MAX);
 	{ // Create the swapchain
 		VkSwapchainCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
@@ -2209,7 +2241,8 @@ Result<VoidResult_t, String> WindowPresent(Window *window, ArrayWithBucket<Semap
 
 	VkResult result = vkQueuePresentKHR(window->header.device->vk.queue, &presentInfo);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-		io::cout.PrintLnDebug("WindowPresent got ", VkResultString(result));
+		io::cout.PrintLnDebug("WindowPresent got ", VkResultString(result), "... will reconfigure at the nearest convenience.");
+		window->state.shouldReconfigure = true;
 	} else if (result != VK_SUCCESS) {
 		return ERROR_RESULT(window, "Failed to Queue Present: ", VkResultString(result));
 	}

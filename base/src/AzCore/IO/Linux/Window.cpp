@@ -165,7 +165,7 @@ bool Window::Update() {
 	}
 	if (_setCursor) {
 		if (data->useWayland) {
-			AzAssert(false, "Unimplemented");
+			// AzAssert(false, "Unimplemented");
 		} else {
 			MoveCursorXCB(this, _setCursorX, _setCursorY);
 		}

@@ -153,10 +153,11 @@ bool Image::SavePNG(const char *filename) {
 	AZCORE_PROFILING_FUNC_TIMER()
 	Format oldFormat = format;
 	Reformat(RGBA);
-	return stbi_write_png(filename, width, height, channels, pixels, stride);
+	bool result = stbi_write_png(filename, width, height, channels, pixels, stride);
 	if (oldFormat != RGBA) {
 		Reformat(oldFormat);
 	}
+	return result;
 }
 
 void Image::PremultiplyAlpha() {

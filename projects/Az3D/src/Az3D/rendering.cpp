@@ -1013,7 +1013,7 @@ void EvaluateJacobian(Matrix<f32> &jacobian, Array<IkEvalMetadata> &ikChain, Vec
 	for (i32 i = 0, p = 0; i < ikChain.size; i++) {
 		auto *b = ikChain[i].bone;
 		auto &ik = b->ikInfo;
-		vec3 tip;
+		vec3 tip = vec3(0.0f);
 		if (showDerivatives) {
 			tip = (modelTransform * ikChain[i].transformEvalAccum * vec4(0.0f, b->length, 0.0f, 1.0f)).xyz;
 		}

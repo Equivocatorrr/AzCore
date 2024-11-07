@@ -92,11 +92,15 @@ struct StaticArray {
 		return *this;
 	}
 
+#pragma GCC diagnostic push
+// GCC gives erroneous warnings because it thinks size can be any value an i32 can be, which is not the case.
+#pragma GCC diagnostic ignored "-Warray-bounds"
+
 	StaticArray<T, count> &operator=(const T *string) {
 		size = StringLength(string);
 		AzAssert(size <= count, "StaticArray assigned with a size bigger than count");
 		if constexpr (std::is_trivially_copyable<T>::value) {
-			memcpy((void *)data, (void *)string, sizeof(T) * size);
+			memcpy((void *)data, (void *)string, sizeof(T) * (u32)size);
 		} else {
 			for (i32 i = 0; i < size; i++) {
 				data[i] = string[i];
@@ -109,7 +113,7 @@ struct StaticArray {
 		size = range.size;
 		AzAssert(size <= count, "StaticArray assigned with a size bigger than count");
 		if constexpr (std::is_trivially_copyable<T>::value) {
-			memcpy((void *)data, (void *)range.str, sizeof(T) * size);
+			memcpy((void *)data, (void *)range.str, sizeof(T) * (u32)size);
 		} else {
 			for (i32 i = 0; i < size; i++) {
 				data[i] = range[i];
@@ -121,7 +125,7 @@ struct StaticArray {
 	StaticArray<T, count> &operator=(const StaticArray<T, count> &other) {
 		size = other.size;
 		if constexpr (std::is_trivially_copyable<T>::value) {
-			memcpy((void *)data, (void *)other.data, sizeof(T) * size);
+			memcpy((void *)data, (void *)other.data, sizeof(T) * (u32)size);
 		} else {
 			for (i32 i = 0; i < size; i++) {
 				data[i] = other.data[i];
@@ -133,7 +137,7 @@ struct StaticArray {
 	StaticArray<T, count> &operator=(StaticArray<T, count> &&other) {
 		size = other.size;
 		if constexpr (std::is_trivially_copyable<T>::value) {
-			memcpy((void *)data, (void *)other.data, sizeof(T) * size);
+			memcpy((void *)data, (void *)other.data, sizeof(T) * (u32)size);
 		} else {
 			for (i32 i = 0; i < size; i++) {
 				data[i] = std::move(other.data[i]);
@@ -142,6 +146,8 @@ struct StaticArray {
 		other.size = 0;
 		return *this;
 	}
+
+#pragma GCC diagnostic pop
 
 	bool operator==(const StaticArray<T, count> &other) const {
 		if (size != other.size) {

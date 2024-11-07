@@ -40,23 +40,26 @@ inline F whiteNoise(u64 x, u64 seed) {
 	return hashedToFloat<F>(hash(x, seed));
 }
 
+// This way we don't break strict aliasing or alignment rules.
+constexpr u64 BitCastVec2iToU64(vec2i vec) {
+	// Cast to u32 first because otherwise it sign-extends to 64-bits
+	u64 value = (u64)(u32)vec.x | ((u64)(u32)vec.y << 32);
+	return value;
+}
+
 template <typename F>
 inline F whiteNoise(vec2i pos, u64 seed) {
-	static_assert(sizeof(pos) == sizeof(u64));
-	return hashedToFloat<F>(hash(*((u64*)&pos), seed));
+	return hashedToFloat<F>(hash(BitCastVec2iToU64(pos), seed));
 }
 
 template <typename F>
 inline F whiteNoise(vec3i pos, u64 seed) {
-	static_assert(sizeof(pos.xy) == sizeof(u64));
-	return hashedToFloat<F>(hash(*((u64*)&pos.xy), (u64)pos.z, seed));
+	return hashedToFloat<F>(hash(BitCastVec2iToU64(pos.xy), (u64)pos.z, seed));
 }
 
 template <typename F>
 inline F whiteNoise(vec4i pos, u64 seed) {
-	static_assert(sizeof(pos.xy) == sizeof(u64));
-	static_assert(sizeof(pos.zw) == sizeof(u64));
-	return hashedToFloat<F>(hash(*((u64*)&pos.xy), *((u64*)&pos.zw), seed));
+	return hashedToFloat<F>(hash(BitCastVec2iToU64(pos.xy), BitCastVec2iToU64(pos.zw), seed));
 }
 
 template <typename F>

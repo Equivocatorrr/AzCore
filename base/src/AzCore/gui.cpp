@@ -10,6 +10,7 @@ namespace AzCore::GuiGeneric {
 
 #define CALL_EVENT_FUNCTION(event) if(_system->functions.event) _system->functions.event(_system->data, data);
 
+[[maybe_unused]]
 static bool IsWidgetIsAlreadyTracked(System *system, Widget *widget) {
 	for (UniquePtr<Widget> &w : system->_allWidgets) {
 		if (w.RawPtr() == widget) {

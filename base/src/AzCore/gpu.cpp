@@ -3555,7 +3555,7 @@ bool ImageSetSizeToWindow(Image *image, Window *window, vec2i sizeNumerator, vec
 		if (tracking.window == window) {
 			// We just need to update size factors
 		} else {
-			bool found = tracking.window->state.imagesWithSizeMatching.EraseFirstWithValue(image);
+			[[maybe_unused]] bool found = tracking.window->state.imagesWithSizeMatching.EraseFirstWithValue(image);
 			AzAssert(found, "Something bwoke o.o");
 			window->state.imagesWithSizeMatching.Append(image);
 		}
@@ -3573,7 +3573,7 @@ bool ImageSetSizeToWindow(Image *image, Window *window, vec2i sizeNumerator, vec
 void ImageStopSettingSizeToWindow(Image *image) {
 	AzAssert(image->config.windowSizeTracking.Exists(), Stringify("Called ", __FUNCTION__, " on an image \"", image->header.tag, "\" which is not tracking a Window's size."));
 	Image::WindowSizeTracking &tracking = image->config.windowSizeTracking.ValueUnchecked();
-	bool found = tracking.window->state.imagesWithSizeMatching.EraseFirstWithValue(image);
+	[[maybe_unused]] bool found = tracking.window->state.imagesWithSizeMatching.EraseFirstWithValue(image);
 	AzAssert(found, "Something bwoke -.-");
 	image->config.windowSizeTracking.Destroy();
 }
@@ -5387,9 +5387,11 @@ void CmdBindUniformBuffer(Context *context, Buffer *buffer, i32 set, i32 binding
 }
 
 void CmdBindUniformBufferArray(Context *context, const Array<Buffer*> &buffers, i32 set, i32 binding) {
+#ifndef NDEBUG
 	for (const Buffer *buffer : buffers) {
 		AzAssert(buffer->config.kind == Buffer::UNIFORM_BUFFER, Stringify("Binding a buffer[\"", buffer->header.tag, "\"] as a uniform buffer when it's not one"));
 	}
+#endif
 	Binding bind;
 	bind.kind = Binding::UNIFORM_BUFFER;
 	bind.uniformBuffer.buffers = buffers;
@@ -5409,9 +5411,11 @@ void CmdBindStorageBuffer(Context *context, Buffer *buffer, i32 set, i32 binding
 }
 
 void CmdBindStorageBufferArray(Context *context, const Array<Buffer*> &buffers, i32 set, i32 binding) {
+#ifndef NDEBUG
 	for (const Buffer *buffer : buffers) {
 		AzAssert(buffer->config.kind == Buffer::STORAGE_BUFFER, Stringify("Binding a buffer[\"", buffer->header.tag, "\"] as a storage buffer when it's not one"));
 	}
+#endif
 	Binding bind;
 	bind.kind = Binding::STORAGE_BUFFER;
 	bind.storageBuffer.buffers = buffers;
@@ -5577,8 +5581,7 @@ Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
 }
 
 void CmdFinishFramebuffer(Context *context, bool doGenMipmaps) {
-	Framebuffer *framebuffer = context->state.bindings.framebuffer;
-	AzAssert(framebuffer != nullptr, "Expected a framebuffer to be bound and committed, but there wasn't one!");
+	AzAssert(context->state.bindings.framebuffer != nullptr, "Expected a framebuffer to be bound and committed, but there wasn't one!");
 	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	vkCmdEndRenderPass(frame.vkCommandBuffer);
 	ContextResetBindings(context);

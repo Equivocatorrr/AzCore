@@ -8,6 +8,10 @@
 
 namespace AzCore {
 
+#pragma GCC diagnostic push
+// GCC gives erroneous warnings because it thinks BigInt::words.size can be zero, which it cannot.
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+
 BigInt::BigInt(const String& string, bool neg, const u32 base) : words(), negative(false) {
 	BigInt mul(1u);
 	u64 mulCache = 1;
@@ -769,5 +773,7 @@ String BigInt::HexString() const {
 	}
 	return string;
 }
+
+#pragma GCC diagnostic pop
 
 } // namespace AzCore

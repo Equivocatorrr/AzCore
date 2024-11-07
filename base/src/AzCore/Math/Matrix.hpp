@@ -467,9 +467,9 @@ namespace AzCore {
 template<typename T, i32 MAX_BYTES_ON_STACK>
 struct MatrixWorkspace {
 	static constexpr i32 MAX_STACK_CAPACITY = MAX_BYTES_ON_STACK / sizeof(T);
-	T *data;
-	i32 capacity;
-	i32 taken;
+	T *data=nullptr;
+	i32 capacity=0;
+	i32 taken=0;
 
 	MatrixWorkspace() = default;
 	MatrixWorkspace(const MatrixWorkspace &) = delete;
@@ -1057,7 +1057,7 @@ struct Matrix {
 		static thread_local ArrayWithBucket<bool, 16> touched;
 		touched.ClearSoft();
 		touched.Resize(Count(), false);
-		T hold;
+		T hold = T(0);
 		for (i32 i = 1; i < Count()-1;) {
 			i32 row = i % Rows();
 			i32 col = i / Rows();
@@ -1424,8 +1424,10 @@ template<>
 inline f32 dot(const az::Vector<f32> &a, const az::Vector<f32> &b) {
 	a.AssertValid();
 	b.AssertValid();
+#ifndef NDEBUG
 	using T = f32;
 	AzAssert(a.Count() == b.Count(), az::Stringify("dot product of ", VECTOR_INFO_ARGS(a), " and ", VECTOR_INFO_ARGS(b), " error: Vectors must have the same number of components."));
+#endif
 	f32 result = 0;
 	i32 i;
 	for (i = 0; i <= a.Count()-4; i+=4) {

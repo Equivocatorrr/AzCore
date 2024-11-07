@@ -511,6 +511,7 @@ namespace Types {
 					dstStride = 1;
 				} else {
 					io::cout.PrintLn("Warning: Vert Format string has tag \"", tag, "\" of ", count, " ", SrcScalar::KindString(kind), count == 1 ? " which is": "s which are", " unused.");
+					dstOffset = 0;
 					maxInDst = 0;
 				}
 				for (i32 j = 0; j < count; j++) {

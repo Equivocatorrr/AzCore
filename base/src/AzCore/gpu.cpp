@@ -1990,7 +1990,7 @@ Result<VoidResult_t, String> WindowInit(Window *window) {
 				if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
 					window->vk.presentMode = mode;
 					found = true;
-					imageCountPreferred = 2;
+					imageCountPreferred = 3;
 					// Acceptable choice, but keep looking
 				} else if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
 					window->vk.presentMode = mode;

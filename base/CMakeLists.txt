@@ -141,6 +141,10 @@ if (CMAKE_SYSTEM MATCHES Linux)
 		src/AzCore/IO/Linux/Wayland.cpp
 		src/AzCore/IO/Linux/WaylandProtocols/xdg-shell.c
 		src/AzCore/IO/Linux/WaylandProtocols/xdg-shell.h
+		src/AzCore/IO/Linux/WaylandProtocols/pointer-constraints-unstable-v1.c
+		src/AzCore/IO/Linux/WaylandProtocols/pointer-constraints-unstable-v1.h
+		src/AzCore/IO/Linux/WaylandProtocols/relative-pointer-manager-unstable-v1.c
+		src/AzCore/IO/Linux/WaylandProtocols/relative-pointer-manager-unstable-v1.h
 	)
 	set_source_files_properties(
 		src/AzCore/IO/Linux/Wayland.cpp

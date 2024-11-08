@@ -35,6 +35,8 @@
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include "WaylandProtocols/xdg-shell.h"
+#include "WaylandProtocols/pointer-constraints-unstable-v1.h"
+#include "WaylandProtocols/relative-pointer-manager-unstable-v1.h"
 
 namespace AzCore {
 
@@ -110,6 +112,11 @@ struct WindowData {
 			wl_keyboard *keyboard;
 			wl_touch *touch;
 			wl_region *region;
+			zwp_pointer_constraints_v1 *pointerConstraints;
+			zwp_relative_pointer_manager_v1 *relativePointerManager;
+			zwp_relative_pointer_v1 *relativePointer;
+			// Accumulates relative motions that get rounded down (as such this value represents 1/256th of a pixel motion, to match wl_fixed_t)
+			vec2i relativePointerAccum;
 			i32 scale;
 			i32 touchId;
 			struct {

@@ -158,19 +158,18 @@ bool Window::Resize(u32 w, u32 h) {
 bool Window::Update() {
 	bool changeFullscreen = false;
 	resized = false;
+	if (_setCursor && data->useWayland) {
+		MoveCursorWayland(this, _setCursorX, _setCursorY);
+	}
 	if (data->useWayland) {
 		if (!windowUpdateWayland(this, changeFullscreen)) return false;
 	} else {
 		if (!windowUpdateXCB(this, changeFullscreen)) return false;
 	}
-	if (_setCursor) {
-		if (data->useWayland) {
-			// AzAssert(false, "Unimplemented");
-		} else {
-			MoveCursorXCB(this, _setCursorX, _setCursorY);
-		}
-		_setCursor = false;
+	if (_setCursor && !data->useWayland) {
+		MoveCursorXCB(this, _setCursorX, _setCursorY);
 	}
+	_setCursor = false;
 
 	if (changeFullscreen) {
 		Fullscreen(!fullscreen);

@@ -10,10 +10,14 @@
 #include "../Window.hpp"
 #include "../../io.hpp"
 #include "../../keycodes.hpp"
+#include "WaylandProtocols/pointer-constraints-unstable-v1.h"
+#include "WaylandProtocols/relative-pointer-manager-unstable-v1.h"
 #include "WindowData.hpp"
 #include <sys/mman.h>
 #include <poll.h>
 #include <unistd.h>
+#include <wayland-client-protocol.h>
+#include <wayland-util.h>
 
 #ifndef NDEBUG
 	#define AZCORE_WAYLAND_VERBOSE 0
@@ -30,6 +34,16 @@
 namespace AzCore {
 
 namespace io {
+
+static inline float wl_fixed_to_float(wl_fixed_t fixed) {
+	float result = (float)fixed / 256.0f;
+	return result;
+}
+
+static inline wl_fixed_t wl_fixed_from_float(float value) {
+	wl_fixed_t result = value * 256.0f;
+	return result;
+}
 
 static wlCursor* GetSystemCursorWayland(Window *window, i32 scale) {
 	i32 cursorSize = 0;
@@ -72,6 +86,24 @@ void SetCursorWayland(Window *window) {
 		wl_cursor_image *image = cursor->cursor->images[0];
 		wl_pointer_set_cursor(window->data->wayland.pointer, window->data->wayland.pointerEnterSerial, cursor->surface, image->hotspot_x / scale, image->hotspot_y / scale);
 	}
+}
+
+void MoveCursorWayland(Window *window, i32 x, i32 y) {
+	if (window->data->wayland.pointerConstraints == nullptr) {
+		// Extension unavailable, bail out :(
+		return;
+	}
+	if (window->input) {
+		window->input->cursor = vec2i(x, y);
+	}
+	zwp_locked_pointer_v1 *lockedPointer = zwp_pointer_constraints_v1_lock_pointer(window->data->wayland.pointerConstraints, window->data->wayland.surface, window->data->wayland.pointer, window->data->wayland.region, ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_ONESHOT);
+	i32 scale = window->data->wayland.scale;
+	wl_fixed_t surfaceX = wl_fixed_from_int(x) / scale;
+	wl_fixed_t surfaceY = wl_fixed_from_int(y) / scale;
+	// DEBUG_PRINTLN("Locking cursor to ", surfaceX, ", ", surfaceY);
+	zwp_locked_pointer_v1_set_cursor_position_hint(lockedPointer, surfaceX, surfaceY);
+	wl_surface_commit(window->data->wayland.surface);
+	zwp_locked_pointer_v1_destroy(lockedPointer);
 }
 
 // Sets width, height, and resized so the buffer will be resized at the end of an update
@@ -280,11 +312,6 @@ static const xdg_toplevel_listener xdgToplevelListener = {
 	.wm_capabilities = xdgToplevelWMCapabilities
 };
 
-float wl_fixed_to_float(wl_fixed_t fixed) {
-	float result = (float)fixed / 256.0f;
-	return result;
-}
-
 static void pointerEnter(void *data, wl_pointer *pointer, u32 serial, wl_surface *surface, wl_fixed_t surface_x, wl_fixed_t surface_y) {
 	Window *window = (Window*)data;
 	window->data->wayland.pointerEnterSerial = serial;
@@ -304,11 +331,16 @@ static void pointerLeave(void *data, wl_pointer *pointer, u32 serial, wl_surface
 
 static void pointerMotion(void *data, wl_pointer *pointer, u32 time, wl_fixed_t surface_x, wl_fixed_t surface_y) {
 	Window *window = (Window*)data;
+	if (window->_setCursor) return; // Ignore pointer motion if we set the cursor position this frame
 	if (window->input) {
-		window->input->cursor = vec2i(wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y)) * window->data->wayland.scale;
+		float scale = window->data->wayland.scale;
+		window->input->cursor = vec2i(
+			round(wl_fixed_to_float(surface_x) * scale),
+			round(wl_fixed_to_float(surface_y) * scale)
+		);
 	}
 	// this is spammy af
-	// DEBUG_PRINTLN("pointerMotion x = ", wl_fixed_to_float(surface_x), ", y = ", wl_fixed_to_float(surface_y));
+	// DEBUG_PRINTLN("pointerMotion x = ", wl_fixed_to_float(surface_x), ", y = ", wl_fixed_to_float(surface_y), ", cursor.x = ", window->input->cursor.x, ", cursor.y = ", window->input->cursor.y);
 }
 
 static void HandleKCState(Input *input, u8 keycode, u32 state) {
@@ -426,7 +458,23 @@ static const wl_pointer_listener pointerListener = {
 	.frame = pointerFrame,
 	.axis_source = pointerAxisSource,
 	.axis_stop = pointerAxisStop,
-	.axis_discrete = pointerAxisDiscrete
+	.axis_discrete = pointerAxisDiscrete,
+};
+
+void relativePointerMotion(void *data, struct zwp_relative_pointer_v1 *zwp_relative_pointer_v1, uint32_t utime_hi, uint32_t utime_lo, wl_fixed_t dx, wl_fixed_t dy, wl_fixed_t dx_unaccel, wl_fixed_t dy_unaccel) {
+	Window *window = (Window*)data;
+	if (!window->input) return;
+	if (!window->_setCursor) return; // Ignore relative events unless we set the cursor this frame
+	i32 scale = window->data->wayland.scale;
+	vec2i totalMotion = vec2i(dx * scale, dy * scale) + window->data->wayland.relativePointerAccum;
+	vec2i scaledMotion = totalMotion / 256;
+	window->input->cursor += scaledMotion;
+	window->data->wayland.relativePointerAccum = totalMotion - scaledMotion * 256;
+	// DEBUG_PRINTLN("relativePointerMotion: dx = ", dx, ", dy = ", dy, "\naccum: x = ", window->data->wayland.relativePointerAccum.x, ", y = ", window->data->wayland.relativePointerAccum.y);
+}
+
+static const zwp_relative_pointer_v1_listener relativePointerListener = {
+	.relative_motion = relativePointerMotion,
 };
 
 // NOTE: I don't actually have a touch device to test this on so fingers crossed I'm not doing something dum.
@@ -598,6 +646,9 @@ static void seatCapabilities(void *data, wl_seat *seat, u32 caps) {
 	Window *window = (Window*)data;
 	if (window->data->wayland.pointer) {
 		wl_pointer_destroy(window->data->wayland.pointer);
+		if (window->data->wayland.relativePointerManager && window->data->wayland.relativePointer) {
+			zwp_relative_pointer_v1_destroy(window->data->wayland.relativePointer);
+		}
 	}
 	if (window->data->wayland.keyboard) {
 		wl_keyboard_destroy(window->data->wayland.keyboard);
@@ -609,8 +660,13 @@ static void seatCapabilities(void *data, wl_seat *seat, u32 caps) {
 		window->data->wayland.pointer = wl_seat_get_pointer(window->data->wayland.seat);
 		wl_pointer_add_listener(window->data->wayland.pointer, &pointerListener, window);
 		DEBUG_PRINTLN("Display has a pointer.");
+		if (window->data->wayland.relativePointerManager) {
+			window->data->wayland.relativePointer = zwp_relative_pointer_manager_v1_get_relative_pointer(window->data->wayland.relativePointerManager, window->data->wayland.pointer);
+			zwp_relative_pointer_v1_add_listener(window->data->wayland.relativePointer, &relativePointerListener, window);
+		}
 	} else {
 		window->data->wayland.pointer = nullptr;
+		window->data->wayland.relativePointer = nullptr;
 	}
 	if (caps & WL_SEAT_CAPABILITY_KEYBOARD) {
 		window->data->wayland.keyboard = wl_seat_get_keyboard(window->data->wayland.seat);
@@ -709,6 +765,8 @@ static constexpr u32 outputInterfaceVersion = 2;
 static constexpr u32 xdgWMBaseInterfaceVersion = 4;
 static constexpr u32 seatInterfaceVersion = 5;
 static constexpr u32 shmInterfaceVersion = 1;
+static constexpr u32 pointerConstrainstInterfaceVersion = 1;
+static constexpr u32 relativePointerManagerInterfaceVersion = 1;
 
 static void globalRegistryAdd(void *data, wl_registry *registry, u32 id, const char *interface, u32 version) {
 	Window *window = (Window*)data;
@@ -727,6 +785,10 @@ static void globalRegistryAdd(void *data, wl_registry *registry, u32 id, const c
 		wl_output *output = (wl_output*)wl_registry_bind(registry, id, &wl_output_interface, outputInterfaceVersion);
 		window->data->wayland.outputs.Emplace(output, wlOutputInfo());
 		wl_output_add_listener(output, &outputListener, window);
+	} else if (equals(interface, zwp_pointer_constraints_v1_interface.name)) {
+		window->data->wayland.pointerConstraints = (zwp_pointer_constraints_v1*)wl_registry_bind(registry, id, &zwp_pointer_constraints_v1_interface, pointerConstrainstInterfaceVersion);
+	} else if (equals(interface, zwp_relative_pointer_manager_v1_interface.name)) {
+		window->data->wayland.relativePointerManager = (zwp_relative_pointer_manager_v1*)wl_registry_bind(registry, id, &zwp_relative_pointer_manager_v1_interface, relativePointerManagerInterfaceVersion);
 	}
 }
 

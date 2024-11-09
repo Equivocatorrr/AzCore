@@ -92,9 +92,9 @@ struct Widget {
 	virtual bool Selectable() const;
 	bool MouseOver() const;
 	void FindMouseoverDepth(i32 actualDepth);
-	
+
 	// Helpers to make it easier to read and edit GUI definitions
-	
+
 	inline void SetWidthPixel(f32 width) {
 		AzAssert(width > 0.0f, "Pixel width must be > 0");
 		size.x = width;
@@ -105,7 +105,7 @@ struct Widget {
 		size.x = width;
 		fractionWidth = true;
 	}
-	
+
 	inline void SetWidthContents() {
 		size.x = 0.0f;
 	}
@@ -119,7 +119,7 @@ struct Widget {
 		size.y = height;
 		fractionHeight = true;
 	}
-	
+
 	inline void SetHeightContents() {
 		size.y = 0.0f;
 	}
@@ -137,7 +137,7 @@ struct Widget {
 		fractionWidth = true;
 		fractionHeight = true;
 	}
-	
+
 	inline void SetSizeContents() {
 		size = 0.0f;
 	}
@@ -491,7 +491,7 @@ struct Slider : public Widget {
 	~Slider() = default;
 	void Update(vec2 pos, bool selected) override;
 	void Draw(Any &dataDrawCall) const override;
-	
+
 	void SetValue(f32 newValue);
 	f32 GetActualValue();
 	void UpdateMirror();
@@ -521,7 +521,7 @@ struct Scissor {
 // External functions necessary for our function
 struct Functions {
 	// Basic commands. These must be set.
-	
+
 	// Set the drawable region
 	typedef void (*fp_SetScissor) (Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 position, vec2 size);
 	typedef void (*fp_DrawQuad)   (Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 position, vec2 size, vec4 color);
@@ -539,7 +539,7 @@ struct Functions {
 	typedef vec2    (*fp_GetPositionFromCursorInText)(Any &dataGlobal, Any &dataWidget, vec2 position, vec2 area, vec2 fontSize, const SimpleRange<char32> text, i32 cursor, vec2 charUV);
 	// Returns the height of one line for the given fontSize for the given widget.
 	typedef f32     (*fp_GetLineHeight)(Any &dataGlobal, Any &dataWidget, f32 fontSize);
-	
+
 	fp_SetScissor SetScissor = nullptr;
 	fp_DrawQuad DrawQuad = nullptr;
 	fp_DrawImage DrawImage = nullptr;
@@ -550,33 +550,33 @@ struct Functions {
 	fp_GetCursorFromPositionInText GetCursorFromPositionInText = nullptr;
 	fp_GetPositionFromCursorInText GetPositionFromCursorInText = nullptr;
 	fp_GetLineHeight GetLineHeight = nullptr;
-	
+
 	// Input functions. These must be set.
-	
+
 	typedef bool (*fp_GetKeycodeState)(Any &dataGlobal, Any &dataWidget, u8 keycode);
-	
+
 	fp_GetKeycodeState KeycodePressed = nullptr;
 	fp_GetKeycodeState KeycodeRepeated = nullptr;
 	fp_GetKeycodeState KeycodeDown = nullptr;
 	fp_GetKeycodeState KeycodeReleased = nullptr;
-	
+
 	// Returns any characters that were typed since the last call
 	typedef WString (*fp_ConsumeTypingString)(Any &dataGlobal, Any &dataWidget);
-	
+
 	// Required for Textbox input
 	fp_ConsumeTypingString ConsumeTypingString = nullptr;
-	
+
 	// Event Callbacks (used for custom behavior). These are optional.
 	// NOTE: For responding to Button inputs use Button::state instead.
-	
+
 	// dataWidget CAN be nullptr, which means it's being called by System
 	typedef void (*fp_Event)(Any &dataGlobal, Any &dataWidget);
-	
+
 	fp_Event OnButtonPressed     = nullptr;
 	fp_Event OnButtonRepeated    = nullptr;
 	fp_Event OnButtonReleased    = nullptr;
 	fp_Event OnButtonHighlighted = nullptr;
-	
+
 	fp_Event OnCheckboxTurnedOn  = nullptr;
 	fp_Event OnCheckboxTurnedOff = nullptr;
 };
@@ -605,12 +605,12 @@ enum class InputMethod {
 struct System {
 	Array<UniquePtr<Widget>> _allWidgets;
 	Array<Scissor> stackScissors = {Scissor{vec2i(0), vec2i(INT32_MAX)}};
-	
+
 	Functions functions;
 	Defaults defaults;
 	// Passed into the various external functions
-	Any data = Any::None();
-	
+	Any data = None;
+
 	bool _goneBack = false;
 	i32 controlDepth = 0;
 	f32 scale = 1.0f;
@@ -624,17 +624,17 @@ struct System {
 	i32 mouseoverDepth;
 	vec2 selectedCenter;
 	f32 timestep = 1.0f / 60.0f;
-	
+
 	System() = default;
 	System(const System &system) = delete;
 	System(System &&system) = delete;
-	
+
 	void Update(vec2 newMouseCursor, vec2 _canvasSize, f32 _timestep);
-	
+
 	// Create functions use defaults, so be sure to set up defaults before calling these.
-	
+
 	Screen*   CreateScreen();
-	
+
 	Spacer*   CreateSpacer  (ListH *parent, f32 fraction);
 	Spacer*   CreateSpacer  (ListV *parent, f32 fraction);
 	ListV*    CreateListV   (Widget *parent, bool deeper=false);
@@ -648,9 +648,9 @@ struct System {
 	Slider*   CreateSlider  (Widget *parent, bool deeper=false);
 	Hideable* CreateHideable(Widget *parent, Widget *child, bool deeper=false);
 	Hideable* CreateHideable(Widget *parent, Switch *child, bool deeper=false);
-	
+
 	// Create From functions use template objects instead of the defaults
-	
+
 	ListV*    CreateListVFrom   (Widget *parent, const ListV &src, bool deeper=false);
 	ListH*    CreateListHFrom   (Widget *parent, const ListH &src, bool deeper=false);
 	Switch*   CreateSwitchFrom  (Widget *parent, const Switch &src);
@@ -660,7 +660,7 @@ struct System {
 	Checkbox* CreateCheckboxFrom(Widget *parent, const Checkbox &src, bool deeper=false);
 	Textbox*  CreateTextboxFrom (Widget *parent, const Textbox &src, bool deeper=false);
 	Slider*   CreateSliderFrom  (Widget *parent, const Slider &src, bool deeper=false);
-	
+
 	inline ListV*    CreateListVAsDefault   (List *parent, bool deeper=false) {
 		parent->selectionDefault = parent->children.size;
 		return CreateListV(parent, deeper);
@@ -741,7 +741,7 @@ struct System {
 		parent->selectionDefault = parent->children.size;
 		return CreateSliderFrom(parent, src, deeper);
 	}
-	
+
 	void AddWidget(Widget *parent, Widget *newWidget, bool deeper=false);
 	void AddWidget(Widget *parent, Switch *newWidget);
 	void AddWidgetAsDefault(List *parent, Widget *newWidget, bool deeper=false);

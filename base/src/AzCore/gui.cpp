@@ -236,7 +236,7 @@ void System::Update(vec2 newMouseCursor, vec2 _canvasSize, f32 _timestep) {
 	timestep = _timestep;
 	mouseoverWidget = nullptr;
 	mouseoverDepth = -1;
-	Any anyNone = Any::None();
+	Any anyNone = None;
 	if (newMouseCursor != mouseCursor) {
 		inputMethod = InputMethod::MOUSE;
 	} else if (false /* TODO: Implement this somehow: functions.KeycodePressed(data, nullptr, KC_GP_ANY) */) {
@@ -1113,7 +1113,7 @@ void Checkbox::Draw(Any &dataDrawCall) const {
 	const vec4 &colorBGOffActual = highlighted ? colorBGHighlightOff : colorBGOff;
 	vec4 colorBGActual = lerp(colorBGOffActual, colorBGOnActual, transition);
 	_system->functions.DrawQuad(_system->data, const_cast<Any&>(data), dataDrawCall, positionAbsolute * _system->scale, sizeAbsolute * _system->scale, colorBGActual);
-	
+
 	const vec4 &colorKnobOnActual = highlighted ? colorKnobHighlightOn : colorKnobOn;
 	const vec4 &colorKnobOffActual = highlighted ? colorKnobHighlightOff : colorKnobOff;
 	vec4 colorKnobActual = lerp(colorKnobOffActual, colorKnobOnActual, transition);
@@ -1509,7 +1509,7 @@ void Textbox::Draw(Any &dataDrawCall) const {
 	vec2 textScale = vec2(fontSize * _system->scale) * scale;
 	vec2 textArea = (sizeAbsolute - padding * 2.0f * scale) * _system->scale;
 	_system->functions.DrawQuad(_system->data, const_cast<Any&>(data), dataDrawCall, positionAbsolute * _system->scale, sizeAbsolute * _system->scale, colorBGActual);
-	_system->functions.DrawText(_system->data, const_cast<Any&>(data), dataDrawCall, textPos, textArea, textScale, stringFormatted, colorTextActual, vec4(0.0f), false); 
+	_system->functions.DrawText(_system->data, const_cast<Any&>(data), dataDrawCall, textPos, textArea, textScale, stringFormatted, colorTextActual, vec4(0.0f), false);
 	if (cursorBlinkTimer < 0.5f && entry) {
 		vec2 cursorPos = _system->functions.GetPositionFromCursorInText(_system->data, const_cast<Any&>(data), textPos / _system->scale, textArea / _system->scale, textScale / _system->scale, SimpleRange<char32>(stringFormatted.data, stringFormatted.size - stringSuffix.size), CursorFromSourceToFormatted(cursor, string, stringFormatted), vec2(0.0f, 0.0f));
 		_system->functions.DrawQuad(_system->data, const_cast<Any&>(data), dataDrawCall, cursorPos, vec2(ceil(_system->scale), textScale.y), colorTextActual);

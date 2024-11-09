@@ -94,6 +94,7 @@ add_library(AzCore STATIC
 		src/AzCore/Memory/HashSet.hpp
 		src/AzCore/Memory/IndexHash.hpp
 		src/AzCore/Memory/List.hpp
+		src/AzCore/Memory/None.hpp
 		src/AzCore/Memory/Optional.hpp
 		src/AzCore/Memory/Ptr.hpp
 		src/AzCore/Memory/RAIIHacks.hpp

@@ -6,6 +6,7 @@
 #ifndef AZCORE_OPTIONAL_HPP
 #define AZCORE_OPTIONAL_HPP
 
+#include "None.hpp"
 #include "../Assert.hpp"
 #include <utility> // std::move
 #include <stdexcept>
@@ -26,6 +27,7 @@ class Optional {
 	}
 public:
 	constexpr Optional() : exists(false) {}
+	constexpr Optional(None_t) : exists(false) {}
 	constexpr Optional(const T &in) : exists(true) {
 		new(bytes) T(in);
 	}

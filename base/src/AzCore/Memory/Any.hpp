@@ -7,10 +7,10 @@
 #ifndef AZCORE_ANY_HPP
 #define AZCORE_ANY_HPP
 
-#include <type_traits>
-
+#include "None.hpp"
 #include "../Assert.hpp"
 #include "TypeHash.hpp"
+#include <type_traits>
 
 namespace AzCore {
 
@@ -23,11 +23,8 @@ struct Any {
 	u32 typeHash = 0;
 	bool owned = false;
 	Any() = default;
-	
-	static inline Any None() {
-		return Any();
-	}
-	
+	constexpr Any(None_t) {}
+
 	inline Any(Any &&other) : data(other.data), deleter(other.deleter), copyer(other.copyer), typeHash(other.typeHash), owned(other.owned) {
 		other.data = nullptr;
 		other.deleter = nullptr;
@@ -35,7 +32,7 @@ struct Any {
 		other.typeHash = 0;
 		other.owned = false;
 	}
-	
+
 	inline Any(const Any &other) {
 		if (other.data) {
 			if (other.owned) {
@@ -50,7 +47,7 @@ struct Any {
 			owned = other.owned;
 		}
 	}
-	
+
 	// This should allow you to compare deleters to determine whether the types are the same.
 	template <typename T>
 	static fp_Deleter MakeDeleter() {
@@ -66,7 +63,7 @@ struct Any {
 			return nullptr;
 		}
 	}
-	
+
 	template <typename T>
 	Any(T &&value) :
 		data(new T(std::move(value))),
@@ -74,7 +71,7 @@ struct Any {
 		copyer(MakeCopyer<T>()),
 		typeHash(TypeHash<T>()),
 		owned(true) {}
-	
+
 	template <typename T>
 	Any(const T &value) :
 		data(new T(value)),
@@ -82,7 +79,7 @@ struct Any {
 		copyer(MakeCopyer<T>()),
 		typeHash(TypeHash<T>()),
 		owned(true) {}
-	
+
 	template <typename T>
 	Any(T *value) :
 		data(value),
@@ -90,7 +87,7 @@ struct Any {
 		copyer(nullptr),
 		typeHash(TypeHash<T>()),
 		owned(false) {}
-	
+
 	template <typename T>
 	Any& operator=(T &&value) {
 		if (data && owned) {
@@ -108,7 +105,7 @@ struct Any {
 		owned = true;
 		return *this;
 	}
-	
+
 	template <typename T>
 	Any& operator=(const T &value) {
 		if (data && owned) {
@@ -126,7 +123,7 @@ struct Any {
 		owned = true;
 		return *this;
 	}
-	
+
 	template <typename T>
 	Any& operator=(T *value) {
 		if (data && owned) {
@@ -139,33 +136,33 @@ struct Any {
 		owned = false;
 		return *this;
 	}
-	
+
 	inline ~Any() {
 		if (data && owned) {
 			AzAssert(nullptr != deleter, "We have data but no deleter!");
 			deleter(data);
 		}
 	}
-	
+
 	template <typename T>
 	T& Get() {
 		AzAssert(nullptr != data, "Trying to Get() data that doesn't exist");
 		AzAssert(IsType<T>(), "Trying to Get() with a type that doesn't match what we are");
 		return *(T*)data;
 	}
-	
+
 	template <typename T>
 	const T& Get() const {
 		AzAssert(nullptr != data, "Trying to Get() data that doesn't exist");
 		AzAssert(IsType<T>(), "Trying to Get() with a type that doesn't match what we are");
 		return *(T*)data;
 	}
-	
+
 	template <typename T>
 	bool IsType() const {
 		return typeHash == TypeHash<T>();
 	}
-	
+
 	// NOTE: Only use this when you don't know or care what the type is. IsType<T>() will only return true if this is also true, so that should be preferred when the expected type is known.
 	bool IsSomething() const {
 		return data != nullptr;

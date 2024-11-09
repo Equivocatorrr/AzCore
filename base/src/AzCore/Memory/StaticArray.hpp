@@ -10,7 +10,6 @@
 #include "../Assert.hpp"
 #include "TemplateForwardDeclares.hpp"
 #include "StringCommon.hpp"
-#include <stdexcept> // std::out_of_range
 #include <initializer_list>
 #include <type_traits> // std::is_trivially_copyable
 #include <cstring>     // memcpy
@@ -92,9 +91,11 @@ struct StaticArray {
 		return *this;
 	}
 
-#pragma GCC diagnostic push
-// GCC gives erroneous warnings because it thinks size can be any value an i32 can be, which is not the case.
-#pragma GCC diagnostic ignored "-Warray-bounds"
+#ifdef __GNUG__
+	#pragma GCC diagnostic push
+	// GCC gives erroneous warnings because it thinks size can be any value an i32 can be, which is not the case.
+	#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
 
 	StaticArray<T, count> &operator=(const T *string) {
 		size = StringLength(string);
@@ -147,7 +148,9 @@ struct StaticArray {
 		return *this;
 	}
 
-#pragma GCC diagnostic pop
+#ifdef __GNUG__
+	#pragma GCC diagnostic pop
+#endif
 
 	bool operator==(const StaticArray<T, count> &other) const {
 		if (size != other.size) {

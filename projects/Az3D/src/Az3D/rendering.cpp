@@ -1382,7 +1382,8 @@ bool Manager::Draw() {
 		GPU::CmdImageTransitionLayout(data.contextDepthPrepass, data.depthImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
 		GPU::CmdBindFramebuffer(data.contextDepthPrepass, data.depthPrepassFramebuffer);
 		BindPipelineDepthPrepass(data.contextDepthPrepass, PIPELINE_BASIC_3D);
-		GPU::CmdSetViewportAndScissor(data.contextDepthPrepass, (f32)sys->window.width, (f32)sys->window.height);
+		vec2 viewport = GPU::ImageGetSize(data.depthImage);
+		GPU::CmdSetViewportAndScissor(data.contextDepthPrepass, viewport.x, viewport.y);
 		GPU::CmdClearDepthAttachment(data.contextDepthPrepass, 1.0f);
 
 		// Full scene render
@@ -1390,7 +1391,7 @@ bool Manager::Draw() {
 		GPU::CmdImageTransitionLayout(data.contextMainRender, data.rawImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
 		GPU::CmdBindFramebuffer(data.contextMainRender, data.rawFramebuffer);
 		BindPipeline(data.contextMainRender, PIPELINE_BASIC_3D);
-		GPU::CmdSetViewportAndScissor(data.contextMainRender, (f32)sys->window.width, (f32)sys->window.height);
+		GPU::CmdSetViewportAndScissor(data.contextMainRender, viewport.x, viewport.y);
 		GPU::CmdClearColorAttachment(data.contextMainRender, vec4(sRGBToLinear(backgroundRGB), 1.0f));
 		// We specifically DON'T clear the depth attachment, because the values from the depth prepass help reduce fragment overdraw.
 

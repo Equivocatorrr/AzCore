@@ -417,6 +417,9 @@ bool ImageSetShaderUsage(Image *image, ShaderStage shaderStages);
 // returns true if the sample count changed and you need to call ImageRecreate
 bool ImageSetSampleCount(Image *image, u32 sampleCount);
 
+// Returns the dimensions of the image, ignoring multisampling
+vec2i ImageGetSize(Image *image);
+
 // If you change formats, size, mipmapping, shader usage, or sample count (or make a new image) after having called GPU::Initialize(), you must use this to recreate the image.
 [[nodiscard]] Result<VoidResult_t, String> ImageRecreate(Image *image);
 

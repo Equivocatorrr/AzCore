@@ -3611,6 +3611,10 @@ bool ImageSetSampleCount(Image *image, u32 sampleCount) {
 	return changed;
 }
 
+vec2i ImageGetSize(Image *image) {
+	return vec2i(image->config.width, image->config.height);
+}
+
 static VkFilter GetVkFilter(Filter filter) {
 	switch (filter) {
 		case Filter::NEAREST:

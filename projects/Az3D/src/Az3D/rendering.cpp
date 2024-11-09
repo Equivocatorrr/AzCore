@@ -131,6 +131,7 @@ void BindPipeline(GPU::Context *context, PipelineIndex pipeline) {
 		case PIPELINE_BASIC_3D:
 		case PIPELINE_BASIC_3D_VSM:
 		case PIPELINE_FOLIAGE_3D:
+		case PIPELINE_FOLIAGE_3D_VSM:
 			GPU::CmdBindVertexBuffer(context, r.data.vertexBuffer);
 			GPU::CmdBindIndexBuffer(context, r.data.indexBuffer);
 			GPU::CmdClearDescriptors(context);
@@ -432,7 +433,7 @@ bool Manager::Init() {
 		GPU::PipelineSetMultisampleShading(data.pipelineFont3DDepthPrepass, true);
 
 		for (i32 i = 1; i < PIPELINE_COUNT; i++) {
-			if (i == PIPELINE_BASIC_3D_VSM || i == PIPELINE_FONT_3D_VSM) continue;
+			if (i == PIPELINE_BASIC_3D_VSM || i == PIPELINE_FONT_3D_VSM || i == PIPELINE_FOLIAGE_3D_VSM) continue;
 			GPU::PipelineSetBlendMode(data.pipelines[i], {GPU::BlendMode::TRANSPARENT, true});
 		}
 	}
@@ -456,11 +457,19 @@ bool Manager::Init() {
 
 		GPU::Shader *vsmVert = GPU::NewShader(data.device, "data/Az3D/shaders/Basic3D_VSM.vert.spv", GPU::ShaderStage::VERTEX, "VSM Vertex Shader");
 		GPU::Shader *vsmFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Basic3D_VSM.frag.spv", GPU::ShaderStage::FRAGMENT, "VSM Fragment Shader");
-		data.pipelines[PIPELINE_BASIC_3D_VSM] = GPU::NewGraphicsPipeline(data.device, "VSM Pipeline");
+		data.pipelines[PIPELINE_BASIC_3D_VSM] = GPU::NewGraphicsPipeline(data.device, "VSM Basic Pipeline");
 		GPU::PipelineAddShaders(data.pipelines[PIPELINE_BASIC_3D_VSM], {vsmVert, vsmFrag});
 		GPU::PipelineAddVertexInputs(data.pipelines[PIPELINE_BASIC_3D_VSM], vertexInputs);
 		GPU::PipelineSetTopology(data.pipelines[PIPELINE_BASIC_3D_VSM], GPU::Topology::TRIANGLE_LIST);
+		GPU::PipelineSetCullingMode(data.pipelines[PIPELINE_BASIC_3D_VSM], GPU::CullingMode::BACK);
+		GPU::PipelineSetWinding(data.pipelines[PIPELINE_BASIC_3D_VSM], GPU::Winding::COUNTER_CLOCKWISE);
 		GPU::PipelineSetBlendMode(data.pipelines[PIPELINE_BASIC_3D_VSM], GPU::BlendMode::MAX);
+
+		data.pipelines[PIPELINE_FOLIAGE_3D_VSM] = GPU::NewGraphicsPipeline(data.device, "VSM Foliage Pipeline");
+		GPU::PipelineAddShaders(data.pipelines[PIPELINE_FOLIAGE_3D_VSM], {vsmVert, vsmFrag});
+		GPU::PipelineAddVertexInputs(data.pipelines[PIPELINE_FOLIAGE_3D_VSM], vertexInputs);
+		GPU::PipelineSetTopology(data.pipelines[PIPELINE_FOLIAGE_3D_VSM], GPU::Topology::TRIANGLE_LIST);
+		GPU::PipelineSetBlendMode(data.pipelines[PIPELINE_FOLIAGE_3D_VSM], GPU::BlendMode::MAX);
 
 		GPU::Shader *vsmFontVert = GPU::NewShader(data.device, "data/Az3D/shaders/Font3D_VSM.vert.spv", GPU::ShaderStage::VERTEX, "VSM Font Vertex Shader");
 		GPU::Shader *vsmFontFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Font3D_VSM.frag.spv", GPU::ShaderStage::FRAGMENT, "VSM Font Fragment Shader");
@@ -1452,9 +1461,9 @@ bool Manager::Draw() {
 		GPU::CmdClearColorAttachment(data.contextMainRender, vec4(sRGBToLinear(backgroundRGB), 1.0f));
 		// We specifically DON'T clear the depth attachment, because the values from the depth prepass help reduce fragment overdraw.
 
+		PipelineIndex currentPipelineVSM = PIPELINE_BASIC_3D_VSM;
 		PipelineIndex currentPipelineDepthPrepass = PIPELINE_BASIC_3D;
 		PipelineIndex currentPipeline = PIPELINE_BASIC_3D;
-		bool shadowPipelineIsForFonts = false;
 		for (DrawCallInfo &drawCall : allDrawCalls) {
 			if (drawCall.culled && !drawCall.castsShadows) continue;
 			u32 bonesOffset = 0;
@@ -1474,11 +1483,11 @@ bool Manager::Draw() {
 				BindPipelineDepthPrepass(data.contextDepthPrepass, drawCall.pipeline);
 				currentPipelineDepthPrepass = drawCall.pipeline;
 			}
+			if (drawCall.castsShadows && drawCall.pipeline != currentPipelineVSM) {
+				BindPipeline(data.contextShadowMap, drawCall.pipeline+1);
+				currentPipelineVSM = drawCall.pipeline;
+			}
 			if (drawCall.textsToDraw.size > 0) {
-				if (drawCall.castsShadows && !shadowPipelineIsForFonts) {
-					BindPipeline(data.contextShadowMap, PIPELINE_FONT_3D_VSM);
-					shadowPipelineIsForFonts = true;
-				}
 				i32 objectIndex = data.objectShaderInfos.size;
 				data.objectShaderInfos.Append(ObjectShaderInfo{drawCall.transforms[0], drawCall.material, 0});
 				for (DrawTextInfo &info : drawCall.textsToDraw) {
@@ -1496,10 +1505,6 @@ bool Manager::Draw() {
 					}
 				}
 			} else {
-				if (drawCall.castsShadows && shadowPipelineIsForFonts) {
-					BindPipeline(data.contextShadowMap, PIPELINE_BASIC_3D_VSM);
-					shadowPipelineIsForFonts = false;
-				}
 				drawCall.instanceStart = data.objectShaderInfos.size;
 				i32 prevSize = data.objectShaderInfos.size;
 				data.objectShaderInfos.Resize(data.objectShaderInfos.size + drawCall.transforms.size);

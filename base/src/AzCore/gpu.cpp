@@ -3602,6 +3602,15 @@ bool ImageSetShaderUsage(Image *image, ShaderStage shaderStages) {
 	return changed;
 }
 
+bool ImageSetTransferUsage(Image *image, Optional<bool> asDst, Optional<bool> asSrc) {
+	bool asDstActual = asDst.ValueOrDefault(image->config.transferDst);
+	bool asSrcActual = asSrc.ValueOrDefault(image->config.transferSrc);
+	bool changed = image->config.transferDst != asDstActual || image->config.transferSrc != asSrcActual;
+	image->config.transferDst = asDstActual;
+	image->config.transferSrc = asSrcActual;
+	return changed;
+}
+
 bool ImageSetSampleCount(Image *image, u32 sampleCount) {
 	AzAssert(IsPowerOfTwo(sampleCount), "sampleCount must be a power of 2");
 	AzAssert(sampleCount <= 64, "sampleCount must not be > 64");
@@ -3805,7 +3814,7 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 			);
 			bool hasResolve = attachmentRef.resolveAttachment.Exists();
 			VkAttachmentReference ref;
-			ref.attachment = currentAttachment++;
+			ref.attachment = currentAttachment;
 			attachments.Append(GetAttachmentDescription(attachment, hasResolve));
 			switch (attachment.kind) {
 			case Attachment::WINDOW:
@@ -3828,9 +3837,11 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 				attachmentRefDepth = ref;
 				break;
 			}
-			if (attachment.load && attachment.store) {
-				preserveAttachments.Append(currentAttachment);
-			}
+			// NOTE: This is not what preserve attachments is for... They're for preserving attachments not used in a subpass. If we ever do multiple subpasses in the future this will be relevant again, but for now it's just wrong.
+			// if (attachment.load && attachment.store) {
+			// 	preserveAttachments.Append(currentAttachment);
+			// }
+			currentAttachment++;
 			if (hasResolve) {
 				// By god we're gonna make this happen
 				Attachment &resolveAttachment = attachmentRef.resolveAttachment.ValueOrAssert();
@@ -5290,11 +5301,52 @@ static void CmdImageGenerateMipmaps(Context *context, Image *image, VkImageLayou
 		CmdImageTransitionLayout(context, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, mip);
 	}
 
-	CmdImageTransitionLayout(context, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, finalLayout, 0, image->config.mipLevels);
+	if (finalLayout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+		CmdImageTransitionLayout(context, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, finalLayout, 0, image->config.mipLevels);
+	}
 }
 
-void CmdImageGenerateMipmaps(Context *context, Image *image, ImageLayout from, ImageLayout to) {
-	CmdImageGenerateMipmaps(context, image, GetVkImageLayout(image, from), GetVkImageLayout(image, to));
+void CmdImageGenerateMipmaps(Context *context, Image *image, ImageLayout startingLayout, ImageLayout finalLayout) {
+	CmdImageGenerateMipmaps(context, image, GetVkImageLayout(image, startingLayout), GetVkImageLayout(image, finalLayout));
+}
+
+static force_inline(void) CmdImageBlit(Context *context, Image *dst, i32 dstMipLevel, VkImageLayout dstStartingLayout, VkImageLayout dstFinalLayout, Image *src, i32 srcMipLevel, VkImageLayout srcStartingLayout, VkImageLayout srcFinalLayout, VkFilter filter=VK_FILTER_LINEAR) {
+	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
+	AzAssert((i32)dst->config.mipLevels > dstMipLevel, Stringify("For dst Image \"", dst->header.tag, "\": dstMipLevel (", dstMipLevel, ") is out of bounds of dst mipLevels(", dst->config.mipLevels, ")"));
+	AzAssert((i32)src->config.mipLevels > srcMipLevel, Stringify("For src Image \"", src->header.tag, "\": srcMipLevel (", srcMipLevel, ") is out of bounds of src mipLevels(", src->config.mipLevels, ")"));
+	AzAssert(dst->config.transferDst, Stringify("dst Image \"", dst->header.tag, "\" is not allowed to be used as a transfer dst! You must use ImageSetTransferUsage to change this."));
+	AzAssert(src->config.transferSrc, Stringify("src Image \"", src->header.tag, "\" is not allowed to be used as a transfer src! You must use ImageSetTransferUsage to change this."));
+	if (dstStartingLayout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+		CmdImageTransitionLayout(context, dst, dstStartingLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	}
+	if (srcStartingLayout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+		CmdImageTransitionLayout(context, src, srcStartingLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+	}
+	VkImageBlit imageBlit = {};
+	imageBlit.dstSubresource.aspectMask = dst->vk.imageAspect;
+	imageBlit.dstSubresource.layerCount = 1;
+	imageBlit.dstSubresource.mipLevel = dstMipLevel;
+	imageBlit.dstOffsets[1].x = (i32)max(dst->config.width >> dstMipLevel, 1);
+	imageBlit.dstOffsets[1].y = (i32)max(dst->config.height >> dstMipLevel, 1);
+	imageBlit.dstOffsets[1].z = 1;
+
+	imageBlit.srcSubresource.aspectMask = src->vk.imageAspect;
+	imageBlit.srcSubresource.layerCount = 1;
+	imageBlit.srcSubresource.mipLevel = srcMipLevel;
+	imageBlit.srcOffsets[1].x = (i32)max(src->config.width >> srcMipLevel, 1);
+	imageBlit.srcOffsets[1].y = (i32)max(src->config.height >> srcMipLevel, 1);
+	imageBlit.srcOffsets[1].z = 1;
+	vkCmdBlitImage(frame.vkCommandBuffer, src->vk.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dst->vk.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageBlit, filter);
+	if (dstFinalLayout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+		CmdImageTransitionLayout(context, dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, dstFinalLayout);
+	}
+	if (srcFinalLayout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+		CmdImageTransitionLayout(context, src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, srcFinalLayout);
+	}
+}
+
+void CmdImageBlit(Context *context, Image *dst, i32 dstMipLevel, ImageLayout dstStartingLayout, ImageLayout dstFinalLayout, Image *src, i32 srcMipLevel, ImageLayout srcStartingLayout, ImageLayout srcFinalLayout) {
+	CmdImageBlit(context, dst, dstMipLevel, GetVkImageLayout(dst, dstStartingLayout), GetVkImageLayout(dst, dstFinalLayout), src, srcMipLevel, GetVkImageLayout(src, srcStartingLayout), GetVkImageLayout(src, srcFinalLayout));
 }
 
 Result<VoidResult_t, String> CmdCopyDataToImage(Context *context, Image *dst, void *src) {

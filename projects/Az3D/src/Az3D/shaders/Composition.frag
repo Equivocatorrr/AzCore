@@ -7,13 +7,17 @@ layout(location=0) in vec2 inTexCoord;
 layout(location=0) out vec4 outColor;
 
 layout(set=0, binding=0) uniform sampler2D rawSampler;
+layout(set=0, binding=1) uniform sampler2D bloomSampler;
 
 #include "headers/CommonFrag.glsl"
 // #include "headers/WorldInfo.glsl"
 
 void main() {
 	vec4 rawColor = texture(rawSampler, inTexCoord);
+	vec3 bloomColor = texture(bloomSampler, inTexCoord).rgb;
 
-	outColor.rgb = TonemapACES(rawColor.rgb);
+	outColor.rgb = rawColor.rgb + bloomColor * 0.1;
+
+	outColor.rgb = TonemapACES(outColor.rgb);
 	outColor.a = rawColor.a;
 }

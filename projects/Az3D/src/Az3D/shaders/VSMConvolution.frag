@@ -11,18 +11,15 @@ layout(push_constant) uniform PushConstants {
 	vec2 direction;
 } constants;
 
-const uint numSamples = 5;
-const float offsets[numSamples] = float[numSamples](-2.0, -1.0, 0.0, 1.0, 2.0);
-const float amounts[numSamples] = float[numSamples](1.0, 1.0, 1.0, 1.0, 1.0);
+const uint numSamples = 3;
+const float offsets[numSamples] = float[numSamples](-1.5, 0.0, 1.5);
+const float amounts[numSamples] = float[numSamples](2.0/5.0, 1.0/5.0, 2.0/5.0);
 
 void main() {
 	vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
 	vec2 final = vec2(0.0);
-	float totalContribution = 0.0;
 	for (int i = 0; i < numSamples; i++) {
 		final += texture(shadowMap, inTexCoord + texelSize * constants.direction * offsets[i]).xy * amounts[i];
-		totalContribution += amounts[i];
 	}
-	final /= totalContribution;
 	outColor = final;
 }

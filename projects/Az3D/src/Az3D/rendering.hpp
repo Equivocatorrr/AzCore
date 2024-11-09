@@ -219,6 +219,7 @@ struct Frustum {
 };
 
 struct Manager {
+	static constexpr u32 bloomLayers = 6;
 	struct {
 		GPU::Device *device;
 		GPU::Window *window;
@@ -256,6 +257,7 @@ struct Manager {
 		// For debug lines
 		GPU::Buffer *debugVertexBuffer;
 
+
 		// Post-processing
 		GPU::Image *msaaImage = nullptr;
 		GPU::Image *depthImage;
@@ -263,6 +265,11 @@ struct Manager {
 		GPU::Image *rawImage;
 		GPU::Framebuffer *rawFramebuffer;
 		GPU::Sampler *rawSampler;
+		GPU::Image *bloomImage[2 * bloomLayers];
+		GPU::Framebuffer *bloomFramebuffer[2 * bloomLayers];
+		GPU::Sampler *bloomSampler;
+		GPU::Pipeline *pipelineBloomConvolution;
+		GPU::Pipeline *pipelineBloomCombine;
 		GPU::Pipeline *pipelineCompositing;
 
 		Assets::MeshPart *meshPartUnitSquare;

@@ -163,6 +163,7 @@ void BindPipelineDepthPrepass(GPU::Context *context, PipelineIndex pipeline) {
 	switch (pipeline) {
 		case PIPELINE_BASIC_3D:
 			GPU::CmdBindPipeline(context, r.data.pipelineBasic3DDepthPrepass);
+			break;
 		case PIPELINE_FOLIAGE_3D:
 			GPU::CmdBindPipeline(context, r.data.pipelineFoliage3DDepthPrepass);
 			break;
@@ -369,7 +370,7 @@ bool Manager::Init() {
 		GPU::PipelineSetTopology(data.pipelines[PIPELINE_DEBUG_LINES], GPU::Topology::LINE_LIST);
 		GPU::PipelineSetLineWidth(data.pipelines[PIPELINE_DEBUG_LINES], 2.0f);
 		GPU::PipelineSetDepthCompareOp(data.pipelines[PIPELINE_DEBUG_LINES], GPU::CompareOp::LESS);
-		GPU::PipelineAddPushConstantRange(data.pipelines[PIPELINE_DEBUG_LINES], 0, sizeof(f32), GPU::ShaderStage::VERTEX);
+		GPU::PipelineAddPushConstantRange(data.pipelines[PIPELINE_DEBUG_LINES], 0, sizeof(f32), GPU::ShaderStage::FRAGMENT);
 
 
 		data.pipelines[PIPELINE_BASIC_3D] = GPU::NewGraphicsPipeline(data.device, "Basic 3D Pipeline");
@@ -481,7 +482,7 @@ bool Manager::Init() {
 		GPU::FramebufferAddImage(data.framebufferConvolution[1], data.shadowMapImage);
 
 		GPU::Shader *convolutionVert = fullscreenQuadVert;
-		GPU::Shader *convolutionFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Convolution.frag.spv", GPU::ShaderStage::FRAGMENT);
+		GPU::Shader *convolutionFrag = GPU::NewShader(data.device, "data/Az3D/shaders/VSMConvolution.frag.spv", GPU::ShaderStage::FRAGMENT);
 
 		data.pipelineShadowMapConvolution = GPU::NewGraphicsPipeline(data.device, "VSM Convolution Pipeline");
 		GPU::PipelineAddShaders(data.pipelineShadowMapConvolution, {convolutionVert, convolutionFrag});
@@ -491,6 +492,43 @@ bool Manager::Init() {
 		data.shadowMapSampler = GPU::NewSampler(data.device, "VSM Sampler");
 		GPU::SamplerSetAddressMode(data.shadowMapSampler, GPU::AddressMode::CLAMP_TO_BORDER, GPU::AddressMode::CLAMP_TO_BORDER);
 		GPU::SamplerSetBorderColor(data.shadowMapSampler, true, false, true);
+	}
+	{ // Bloom
+		i32 scaleDenominator = 1;
+		for (i32 layer = 0; layer < bloomLayers; layer++) {
+			for (i32 j = 0; j < 2; j++) {
+				i32 i = layer * 2 + j;
+				data.bloomImage[i] = GPU::NewImage(data.device, Stringify("bloomImg", layer, "[", j, "]"));
+				GPU::ImageSetSize(
+					data.bloomImage[i],
+					900 * sys->window.width / sys->window.height / scaleDenominator,
+					900 / scaleDenominator
+				);
+				GPU::ImageSetFormat(data.bloomImage[i], GPU::ImageBits::B10G11R11, GPU::ImageComponentType::UFLOAT);
+				GPU::ImageSetShaderUsage(data.bloomImage[i], GPU::ShaderStage::FRAGMENT);
+				data.bloomFramebuffer[i] = GPU::NewFramebuffer(data.device, Stringify("bloomFB", layer, "[", j, "]"));
+				GPU::FramebufferAddImage(data.bloomFramebuffer[i], data.bloomImage[i], true);
+			}
+			scaleDenominator *= 2;
+			GPU::ImageSetTransferUsage(data.bloomImage[layer * 2], true, true);
+		}
+		GPU::ImageSetTransferUsage(data.rawImage, None, true);
+		data.bloomSampler = GPU::NewSampler(data.device, "Bloom Sampler");
+
+		GPU::Shader *bloomBlurVert = fullscreenQuadVert;
+		GPU::Shader *bloomBlurFrag = GPU::NewShader(data.device, "data/Az3D/shaders/BloomConvolution.frag.spv", GPU::ShaderStage::FRAGMENT);
+		data.pipelineBloomConvolution = GPU::NewGraphicsPipeline(data.device, "Bloom Convolution Pipeline");
+		GPU::PipelineAddShaders(data.pipelineBloomConvolution, {bloomBlurVert, bloomBlurFrag});
+		GPU::PipelineSetTopology(data.pipelineBloomConvolution, GPU::Topology::TRIANGLE_FAN);
+		GPU::PipelineAddPushConstantRange(data.pipelineBloomConvolution, 0, sizeof(vec2), GPU::ShaderStage::FRAGMENT);
+
+		GPU::Shader *bloomCombineVert = fullscreenQuadVert;
+		GPU::Shader *bloomCombineFrag = GPU::NewShader(data.device, "data/Az3D/shaders/BloomCombine.frag.spv", GPU::ShaderStage::FRAGMENT);
+		data.pipelineBloomCombine = GPU::NewGraphicsPipeline(data.device, "Bloom Combine Pipeline");
+		GPU::PipelineAddShaders(data.pipelineBloomCombine, {bloomCombineVert, bloomCombineFrag});
+		GPU::PipelineSetTopology(data.pipelineBloomCombine, GPU::Topology::TRIANGLE_FAN);
+		GPU::PipelineAddPushConstantRange(data.pipelineBloomCombine, 0, sizeof(u32), GPU::ShaderStage::FRAGMENT);
+		GPU::PipelineSetBlendMode(data.pipelineBloomCombine, GPU::BlendMode::ADDITION);
 	}
 	{ // Final image composition
 		GPU::Shader *compositionVert = fullscreenQuadVert;
@@ -792,7 +830,7 @@ bool ArmatureAction::operator==(const ArmatureAction &other) const {
 }
 
 bool Manager::UpdateWorldInfo(GPU::Context *context) {
-	const Camera &activeCam = debugCameraActive ? debugCamera : camera;
+	Camera &activeCam = debugCameraActive ? debugCamera : camera;
 	// Update camera matrix
 	worldInfo.view = mat4::Camera(activeCam.pos, activeCam.forward, activeCam.up);
 	// worldInfo.proj = mat4::Ortho(10.0f, 10.0f * screenSize.y / screenSize.x, camera.nearClip, camera.farClip);
@@ -1320,6 +1358,25 @@ bool Manager::Draw() {
 
 	screenSize = vec2((f32)max((u16)1, sys->window.width), (f32)max((u16)1, sys->window.height));
 	aspectRatio = screenSize.y / screenSize.x;
+	camera.aspectRatio = aspectRatio;
+	debugCamera.aspectRatio = aspectRatio;
+
+	{ // Bloom images aspect ratio
+		i32 scaleDenominator = 1;
+		for (i32 layer = 0; layer < bloomLayers; layer++) {
+			for (i32 j = 0; j < 2; j++) {
+				i32 i = layer * 2 + j;
+				if (GPU::ImageSetSize(
+					data.bloomImage[i],
+					900 * sys->window.width / sys->window.height / scaleDenominator,
+					900 / scaleDenominator
+				)) {
+					GPU::ImageRecreate(data.bloomImage[i]).AzUnwrap();
+				}
+			}
+			scaleDenominator *= 2;
+		}
+	}
 
 	// Clear lights so we get new ones this frame
 	lights.size = 0;
@@ -1549,10 +1606,55 @@ bool Manager::Draw() {
 	}
 
 	GPU::CmdFinishFramebuffer(data.contextMainRender);
-	GPU::CmdImageTransitionLayout(data.contextMainRender, data.rawImage, GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
+
+	{ // Bloom
+		vec2 right = vec2(1.0f, 0.0f);
+		vec2 down = vec2(0.0f, 1.0f);
+		GPU::Image *lastImage = data.rawImage;
+		// Blit and blur all the layers
+		for (i32 layer = 0; layer < bloomLayers; layer++) {
+			i32 i0 = layer * 2;
+			i32 i1 = layer * 2 + 1;
+			GPU::CmdImageBlit(data.contextMainRender, data.bloomImage[i0], 0, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::SHADER_READ, lastImage, 0, GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
+			GPU::CmdImageTransitionLayout(data.contextMainRender, data.bloomImage[i1], GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
+			GPU::CmdBindFramebuffer(data.contextMainRender, data.bloomFramebuffer[i1]);
+			GPU::CmdBindPipeline(data.contextMainRender, data.pipelineBloomConvolution);
+			GPU::CmdBindImageSampler(data.contextMainRender, data.bloomImage[i0], data.bloomSampler, 0, 0);
+			GPU::CmdCommitBindings(data.contextMainRender).AzUnwrap();
+			GPU::CmdPushConstants(data.contextMainRender, &right, 0, sizeof(vec2));
+			GPU::CmdDraw(data.contextMainRender, 4, 0);
+			GPU::CmdFinishFramebuffer(data.contextMainRender);
+			GPU::CmdImageTransitionLayout(data.contextMainRender, data.bloomImage[i0], GPU::ImageLayout::SHADER_READ, GPU::ImageLayout::ATTACHMENT);
+			GPU::CmdImageTransitionLayout(data.contextMainRender, data.bloomImage[i1], GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
+			GPU::CmdBindFramebuffer(data.contextMainRender, data.bloomFramebuffer[i0]);
+			GPU::CmdBindPipeline(data.contextMainRender, data.pipelineBloomConvolution);
+			GPU::CmdBindImageSampler(data.contextMainRender, data.bloomImage[i1], data.bloomSampler, 0, 0);
+			GPU::CmdCommitBindings(data.contextMainRender).AzUnwrap();
+			GPU::CmdPushConstants(data.contextMainRender, &down, 0, sizeof(vec2));
+			GPU::CmdDraw(data.contextMainRender, 4, 0);
+			GPU::CmdFinishFramebuffer(data.contextMainRender);
+			lastImage = data.bloomImage[i0];
+		}
+		// Combine images up from the smallest so we can sample one image in Composition
+		for (i32 layer = bloomLayers-2; layer >= 0; layer--) {
+			i32 i0 = layer * 2;
+			i32 i2 = (layer + 1) * 2;
+			GPU::CmdImageTransitionLayout(data.contextMainRender, data.bloomImage[i2], GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
+			GPU::CmdImageTransitionLayout(data.contextMainRender, data.bloomImage[i0], GPU::ImageLayout::SHADER_READ, GPU::ImageLayout::ATTACHMENT);
+			GPU::CmdBindFramebuffer(data.contextMainRender, data.bloomFramebuffer[i0]);
+			GPU::CmdBindPipeline(data.contextMainRender, data.pipelineBloomCombine);
+			GPU::CmdBindImageSampler(data.contextMainRender, data.bloomImage[i2], data.bloomSampler, 0, 0);
+			GPU::CmdCommitBindings(data.contextMainRender).AzUnwrap();
+			GPU::CmdDraw(data.contextMainRender, 4, 0);
+			GPU::CmdFinishFramebuffer(data.contextMainRender);
+		}
+		GPU::CmdImageTransitionLayout(data.contextMainRender, data.bloomImage[0], GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
+	}
+
 	GPU::CmdBindFramebuffer(data.contextMainRender, data.windowFramebuffer);
 	GPU::CmdBindPipeline(data.contextMainRender, data.pipelineCompositing);
 	GPU::CmdBindImageSampler(data.contextMainRender, data.rawImage, data.rawSampler, 0, 0);
+	GPU::CmdBindImageSampler(data.contextMainRender, data.bloomImage[0], data.bloomSampler, 0, 1);
 	GPU::CmdCommitBindings(data.contextMainRender).AzUnwrap();
 	GPU::CmdDraw(data.contextMainRender, 4, 0);
 

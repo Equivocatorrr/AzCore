@@ -13,6 +13,7 @@
 #include "Memory/Result.hpp"
 #include "Memory/Array.hpp"
 #include "Memory/ArrayWithBucket.hpp"
+#include "Memory/Optional.hpp"
 #include "Math/vec4_t.hpp"
 
 #include "Time.hpp"
@@ -413,6 +414,11 @@ bool ImageSetMipmapping(Image *image, bool enableMipmapping, u32 maxLevels=UINT3
 // returns true if the shader stages changed and you need to call ImageRecreate
 bool ImageSetShaderUsage(Image *image, ShaderStage shaderStages);
 
+// Declares to the backend that the image will be used in transfer operations in the given ways.
+// CmdImageBlit counts.
+// returns true if something changed and you need to call ImageRecreate
+bool ImageSetTransferUsage(Image *image, Optional<bool> asDst, Optional<bool> asSrc);
+
 // sampleCount must be a power of 2
 // returns true if the sample count changed and you need to call ImageRecreate
 bool ImageSetSampleCount(Image *image, u32 sampleCount);
@@ -549,9 +555,14 @@ void CmdBindImageArraySampler(Context *context, const Array<Image*> &images, Sam
 // Also resets all the bindings on the context, so you must bind things again if necessary.
 void CmdFinishFramebuffer(Context *context, bool doGenMipmaps=true);
 
-void CmdImageTransitionLayout(Context *context, Image *image, ImageLayout from, ImageLayout to, i32 baseMipLevel=0, i32 mipLevelCount=-1);
+void CmdImageTransitionLayout(Context *context, Image *image, ImageLayout startingLayout, ImageLayout finalLayout, i32 baseMipLevel=0, i32 mipLevelCount=-1);
 
-void CmdImageGenerateMipmaps(Context *context, Image *image, ImageLayout from, ImageLayout to);
+void CmdImageGenerateMipmaps(Context *context, Image *image, ImageLayout startingLayout, ImageLayout finalLayout);
+
+// Copies the entire contents of src image to the dst image at their specified respective mip levels.
+// Performs bilinear filtering if the image sizes aren't equal.
+// Each image comes in with a specified ImageLayout, and will be put into another specified ImageLayout after the blit is done.
+void CmdImageBlit(Context *context, Image *dst, i32 dstMipLevel, ImageLayout dstStartingLayout, ImageLayout dstFinalLayout, Image *src, i32 srcMipLevel, ImageLayout srcStartingLayout, ImageLayout srcFinalLayout);
 
 void CmdPushConstants(Context *context, const void *src, u32 offset, u32 size);
 

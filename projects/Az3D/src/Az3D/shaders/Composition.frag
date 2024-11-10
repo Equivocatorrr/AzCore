@@ -9,6 +9,10 @@ layout(location=0) out vec4 outColor;
 layout(set=0, binding=0) uniform sampler2D rawSampler;
 layout(set=0, binding=1) uniform sampler2D bloomSampler;
 
+layout(push_constant) uniform PushConstants {
+	float bloomIntensity;
+} constants;
+
 #include "headers/CommonFrag.glsl"
 // #include "headers/WorldInfo.glsl"
 
@@ -16,7 +20,7 @@ void main() {
 	vec4 rawColor = texture(rawSampler, inTexCoord);
 	vec3 bloomColor = texture(bloomSampler, inTexCoord).rgb;
 
-	outColor.rgb = rawColor.rgb + bloomColor * 0.1;
+	outColor.rgb = rawColor.rgb + bloomColor * constants.bloomIntensity;
 
 	outColor.rgb = TonemapACES(outColor.rgb);
 	outColor.a = rawColor.a;

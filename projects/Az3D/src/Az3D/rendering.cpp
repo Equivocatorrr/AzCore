@@ -545,6 +545,7 @@ bool Manager::Init() {
 		data.pipelineCompositing = GPU::NewGraphicsPipeline(data.device, "Composition Pipeline");
 		GPU::PipelineAddShaders(data.pipelineCompositing, {compositionVert, compositionFrag});
 		GPU::PipelineSetTopology(data.pipelineCompositing, GPU::Topology::TRIANGLE_FAN);
+		GPU::PipelineAddPushConstantRange(data.pipelineCompositing, 0, sizeof(float), GPU::ShaderStage::FRAGMENT);
 
 		data.rawSampler = GPU::NewSampler(data.device, "Raw Image Sampler");
 		GPU::SamplerSetAddressMode(data.rawSampler, GPU::AddressMode::CLAMP_TO_BORDER, GPU::AddressMode::CLAMP_TO_BORDER);
@@ -1655,13 +1656,16 @@ bool Manager::Draw() {
 		}
 		GPU::CmdImageTransitionLayout(data.contextMainRender, data.bloomImage[0], GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
 	}
-
-	GPU::CmdBindFramebuffer(data.contextMainRender, data.windowFramebuffer);
-	GPU::CmdBindPipeline(data.contextMainRender, data.pipelineCompositing);
-	GPU::CmdBindImageSampler(data.contextMainRender, data.rawImage, data.rawSampler, 0, 0);
-	GPU::CmdBindImageSampler(data.contextMainRender, data.bloomImage[0], data.bloomSampler, 0, 1);
-	GPU::CmdCommitBindings(data.contextMainRender).AzUnwrap();
-	GPU::CmdDraw(data.contextMainRender, 4, 0);
+	{ // Composition
+		f32 bloomIntensity = (f32)Settings::ReadReal(Settings::sBloomIntensity) * 0.1f;
+		GPU::CmdBindFramebuffer(data.contextMainRender, data.windowFramebuffer);
+		GPU::CmdBindPipeline(data.contextMainRender, data.pipelineCompositing);
+		GPU::CmdBindImageSampler(data.contextMainRender, data.rawImage, data.rawSampler, 0, 0);
+		GPU::CmdBindImageSampler(data.contextMainRender, data.bloomImage[0], data.bloomSampler, 0, 1);
+		GPU::CmdCommitBindings(data.contextMainRender).AzUnwrap();
+		GPU::CmdPushConstants(data.contextMainRender, &bloomIntensity, 0, sizeof(f32));
+		GPU::CmdDraw(data.contextMainRender, 4, 0);
+	}
 
 	GPU::ContextEndRecording(data.contextMainRender).AzUnwrap();
 

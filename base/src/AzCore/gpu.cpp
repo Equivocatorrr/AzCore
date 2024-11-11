@@ -3747,8 +3747,8 @@ static Result<VoidResult_t, String> EnsureAttachmentIsInitted(Framebuffer *frame
 	return VoidResult_t();
 }
 
-static VkAttachmentDescription GetAttachmentDescription(Attachment &attachment, bool willBeResolved) {
-	VkAttachmentDescription desc{};
+static VkAttachmentDescription2 GetAttachmentDescription(Attachment &attachment, bool willBeResolved) {
+	VkAttachmentDescription2 desc = {VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2};
 	if (attachment.kind == Attachment::WINDOW) {
 		desc.format = attachment.window->vk.surfaceFormat.format;
 		desc.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -3800,11 +3800,15 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 		return ERROR_RESULT(framebuffer, "We have no attachments!");
 	}
 	{ // RenderPass
-		bool hasDepth = false;
-		Array<VkAttachmentDescription> attachments;
-		Array<VkAttachmentReference> attachmentRefsColor;
-		Array<VkAttachmentReference> attachmentRefsResolve;
-		VkAttachmentReference attachmentRefDepth;
+		bool hasDepth = false, hasDepthResolve = false;
+		Array<VkAttachmentDescription2> attachments;
+		Array<VkAttachmentReference2> attachmentRefsColor;
+		Array<VkAttachmentReference2> attachmentRefsResolve;
+		VkAttachmentReference2 attachmentRefDepth = {VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2};
+		VkAttachmentReference2 attachmentRefDepthResolve = {VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2};
+		VkSubpassDescriptionDepthStencilResolve depthStencilResolve = {VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE};
+		depthStencilResolve.depthResolveMode = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT;
+		depthStencilResolve.pDepthStencilResolveAttachment = &attachmentRefDepthResolve;
 		Array<u32> preserveAttachments;
 		i32 currentAttachment = 0;
 		for (i32 i = 0; i < framebuffer->config.attachmentRefs.size; i++) {
@@ -3814,7 +3818,7 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 				EnsureAttachmentIsInitted(framebuffer, attachment, false, i)
 			);
 			bool hasResolve = attachmentRef.resolveAttachment.Exists();
-			VkAttachmentReference ref;
+			VkAttachmentReference2 ref = {VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2};
 			ref.attachment = currentAttachment;
 			attachments.Append(GetAttachmentDescription(attachment, hasResolve));
 			switch (attachment.kind) {
@@ -3827,9 +3831,9 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 				attachmentRefsColor.Append(ref);
 				break;
 			case Attachment::DEPTH_BUFFER:
-				if (hasResolve) {
-					return ERROR_RESULT(framebuffer, "Cannot resolve depth attachments");
-				}
+				// if (hasResolve) {
+				// 	return ERROR_RESULT(framebuffer, "Cannot resolve depth attachments");
+				// }
 				if (hasDepth) {
 					return ERROR_RESULT(framebuffer, "Cannot have more than one depth attachment");
 				}
@@ -3855,11 +3859,19 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 				ref.attachment = currentAttachment++;
 				attachments.Append(GetAttachmentDescription(resolveAttachment, false));
 				ref.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-				attachmentRefsResolve.Append(ref);
+				if (attachment.kind == Attachment::DEPTH_BUFFER) {
+					attachmentRefDepthResolve = ref;
+					hasDepthResolve = true;
+				} else {
+					attachmentRefsResolve.Append(ref);
+				}
 			}
 		}
 		AzAssert(attachmentRefsResolve.size == 0 || attachmentRefsColor.size == attachmentRefsResolve.size, "Either all color attachments must be resolved, or none of them.");
-		VkSubpassDescription subpass{};
+		VkSubpassDescription2 subpass = {VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2};
+		if (hasDepthResolve) {
+			subpass.pNext = &depthStencilResolve;
+		}
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpass.colorAttachmentCount = attachmentRefsColor.size;
 		subpass.pColorAttachments = attachmentRefsColor.data;
@@ -3870,7 +3882,7 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 		subpass.inputAttachmentCount = 0;
 		subpass.pInputAttachments = nullptr;
 
-		VkRenderPassCreateInfo createInfo = {VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
+		VkRenderPassCreateInfo2 createInfo = {VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2};
 		createInfo.attachmentCount = attachments.size;
 		createInfo.pAttachments = attachments.data;
 		createInfo.subpassCount = 1;
@@ -3879,7 +3891,7 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 		createInfo.dependencyCount = 0;
 		createInfo.pDependencies = nullptr;
 
-		if (VkResult result = vkCreateRenderPass(framebuffer->header.device->vk.device, &createInfo, nullptr, &framebuffer->vk.renderPass); result != VK_SUCCESS) {
+		if (VkResult result = vkCreateRenderPass2(framebuffer->header.device->vk.device, &createInfo, nullptr, &framebuffer->vk.renderPass); result != VK_SUCCESS) {
 			return ERROR_RESULT(framebuffer, "Failed to create RenderPass: ", VkResultString(result));
 		}
 		SetDebugMarker(framebuffer->header.device, Stringify(framebuffer->header.tag, " render pass"), VK_OBJECT_TYPE_RENDER_PASS, (u64)framebuffer->vk.renderPass);

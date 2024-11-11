@@ -667,6 +667,7 @@ struct DescriptorIndex {
 	constexpr DescriptorIndex(i32 _set, i32 _binding) : set(_set), binding(_binding) {}
 	inline bool operator<(DescriptorIndex other) {
 		if (set < other.set) return true;
+		if (set > other.set) return false;
 		return binding < other.binding;
 	}
 	inline bool operator==(DescriptorIndex other) {

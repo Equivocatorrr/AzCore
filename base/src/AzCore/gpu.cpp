@@ -1321,9 +1321,10 @@ struct Attachment {
 struct AttachmentRef {
 	Attachment attachment;
 	Optional<Attachment> resolveAttachment;
+	ResolveMode depthResolveMode;
 	AttachmentRef() = default;
 	AttachmentRef(Attachment _attachment) : attachment(_attachment) {}
-	AttachmentRef(Attachment _attachment, Attachment _resolveAttachment) : attachment(_attachment), resolveAttachment(_resolveAttachment) {}
+	AttachmentRef(Attachment _attachment, Attachment _resolveAttachment, ResolveMode _depthResolveMode=ResolveMode::SAMPLE_ZERO) : attachment(_attachment), resolveAttachment(_resolveAttachment), depthResolveMode(_depthResolveMode) {}
 };
 
 struct Framebuffer {
@@ -1870,12 +1871,13 @@ void FramebufferAddWindow(Framebuffer *framebuffer, Window *window, bool loadCon
 	window->config.transferDst = false;
 }
 
-void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Image *resolveImage, bool loadContents, bool storeContents) {
+void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Image *resolveImage, bool loadContents, bool storeContents, Optional<ResolveMode> resolveMode) {
 	AzAssert(image->vk.format == resolveImage->vk.format, "Resolving multisampled images requires both images to be the same format");
 	AzAssert(image->config.sampleCount != 1, "Expected image to have a sample count != 1");
 	AzAssert(resolveImage->config.sampleCount == 1, "Expected resolveImage to have a sample count == 1");
 	bool isDepth = FormatIsDepth(image->vk.format);
-	framebuffer->config.attachmentRefs.Append(AttachmentRef(Attachment(image, isDepth, loadContents, storeContents), Attachment(resolveImage, isDepth, false, storeContents)));
+	AzAssert(!(resolveMode.Exists() && !isDepth), "resolveMode can only be used for depth images");
+	framebuffer->config.attachmentRefs.Append(AttachmentRef(Attachment(image, isDepth, loadContents, storeContents), Attachment(resolveImage, isDepth, false, storeContents), resolveMode.ValueOrDefault(ResolveMode::SAMPLE_ZERO)));
 	image->config.attachment = true;
 	image->config.transferDst = false;
 	image->config.transferSrc = true;
@@ -3861,6 +3863,7 @@ Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
 				ref.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 				if (attachment.kind == Attachment::DEPTH_BUFFER) {
 					attachmentRefDepthResolve = ref;
+					depthStencilResolve.depthResolveMode = (VkResolveModeFlagBits)attachmentRef.depthResolveMode;
 					hasDepthResolve = true;
 				} else {
 					attachmentRefsResolve.Append(ref);

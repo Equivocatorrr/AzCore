@@ -254,6 +254,14 @@ enum class ImageLayout {
 	SHADER_READ,
 };
 
+enum class ResolveMode {
+	NONE = 0,
+	SAMPLE_ZERO = 1,
+	AVERAGE = 2,
+	MIN = 4,
+	MAX = 8,
+};
+
 // Base device from which everything else is allocated
 struct Device;
 
@@ -321,7 +329,8 @@ void FramebufferAddWindow(Framebuffer *framebuffer, Window *window, bool loadCon
 
 // This will resolve our image into resolveImage after rendering is done.
 // To do multiple passes before resolving, just use FramebufferAddImage and resolve manually.
-void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Image *resolveImage, bool loadContents=false, bool storeContents=true);
+// You can pass in a ResolveMode for depth buffers only.
+void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Image *resolveImage, bool loadContents=false, bool storeContents=true, Optional<ResolveMode> resolveMode=None);
 // This will resolve our image into resolveWindow after rendering is done.
 // To do multiple passes before resolving, just use FramebufferAddImage and resolve manually.
 void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Window *resolveWindow, bool loadContents=false, bool storeContents=true);

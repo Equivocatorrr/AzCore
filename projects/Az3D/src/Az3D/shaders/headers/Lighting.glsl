@@ -153,10 +153,15 @@ vec4 CalculateAllLighting(ObjectInfo info, vec2 texCoord, vec3 surfaceNormal, ve
 	vec3 ambientDiffuse = albedo.rgb * ambientDiffuseColor * attenuationAmbient;
 	vec3 ambientSpecular = CalculateIncomingAmbientLight(viewReflect, roughness);
 
+	float ambientAmount = texture(aoSampler, inProjPos.xy / inProjPos.w * 0.5 + 0.5).r;
+
+	vec3 ambient = mix(ambientDiffuse, ambientSpecular, fresnelAmbient * 0.5 * (1.0 - roughness)) * ambientAmount;
+
 	vec4 result;
-	result.rgb = 1.0 / PI * mix(diffuse * (1.0 - metalness), specular, fresnel) * sunFactor + subsurface + mix(ambientDiffuse, ambientSpecular, fresnelAmbient * 0.5 * (1.0 - roughness));
+	result.rgb = 1.0 / PI * mix(diffuse * (1.0 - metalness), specular, fresnel) * sunFactor + subsurface + ambient;
 	result.a = albedo.a;
 	result.rgb += emit;
+	// result.rgb = vec3(ambientAmount);
 	return result;
 }
 

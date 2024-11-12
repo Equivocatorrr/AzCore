@@ -187,6 +187,8 @@ extern Name sVSync;
 extern Name sMultisamplingSamples;
 extern Name sSupersamplingNumerator;
 extern Name sSupersamplingDenominator;
+extern Name sSSAONumerator;
+extern Name sSSAODenominator;
 extern Name sBloomIntensity;
 extern Name sDebugInfo;
 extern Name sFramerateLimitEnabled;

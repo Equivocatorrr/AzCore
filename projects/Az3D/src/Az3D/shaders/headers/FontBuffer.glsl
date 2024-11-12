@@ -8,7 +8,7 @@ struct GlyphInfo {
 	vec2 offsets[2];
 };
 
-layout(scalar, set=0, binding=5) uniform FontBuffer {
+layout(scalar, set=1, binding=0) uniform FontBuffer {
 	uint texAtlas;
 	uint _pad; // Force alignment of glyphs to an 8-byte boundary even when using scalarBlockLayout
 	GlyphInfo glyphs[1];
@@ -24,7 +24,7 @@ struct TextInfo {
 	uint _pad[2];
 };
 // 36 * 7 + 2 = 254
-layout(std430, set=0, binding=6) readonly buffer TextBuffer {
+layout(std430, set=1, binding=1) readonly buffer TextBuffer {
 	TextInfo texts[];
 } textBuffer;
 

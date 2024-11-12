@@ -2,6 +2,7 @@
 #define WORLD_INFO_GLSL
 
 #include "Constants.glsl"
+#include "Helpers.glsl"
 
 layout(set=0, binding=0) uniform WorldInfo {
 	mat4 proj;
@@ -14,11 +15,6 @@ layout(set=0, binding=0) uniform WorldInfo {
 	vec3 ambientLightDown;
 	vec3 fogColor;
 } worldInfo;
-
-float GetZFromDepth(float depth)
-{
-	return worldInfo.proj[2][3] / (depth - worldInfo.proj[2][2]);
-}
 
 const float sunRadiusDegrees = 5.0;
 const float sunRadiusRadians = PI * sunRadiusDegrees / 180.0;

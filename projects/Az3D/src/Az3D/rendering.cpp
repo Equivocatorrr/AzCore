@@ -139,7 +139,8 @@ void BindPipeline(GPU::Context *context, PipelineIndex pipeline) {
 			GPU::CmdBindStorageBuffer(context, r.data.objectBuffer, 0, 1);
 			GPU::CmdBindStorageBuffer(context, r.data.bonesBuffer, 0, 2);
 			GPU::CmdBindImageArraySampler(context, r.data.textures, r.data.textureSampler, 0, 3);
-			GPU::CmdBindImageSampler(context, r.data.shadowMapImage, r.data.shadowMapSampler, 0, 4);
+			GPU::CmdBindImageSampler(context, r.data.aoSmoothedImage, r.data.aoImageSampler, 0, 4);
+			GPU::CmdBindImageSampler(context, r.data.shadowMapImage, r.data.shadowMapSampler, 0, 5);
 			break;
 		case PIPELINE_FONT_3D:
 		case PIPELINE_FONT_3D_VSM:
@@ -150,9 +151,10 @@ void BindPipeline(GPU::Context *context, PipelineIndex pipeline) {
 			GPU::CmdBindStorageBuffer(context, r.data.objectBuffer, 0, 1);
 			GPU::CmdBindStorageBuffer(context, r.data.bonesBuffer, 0, 2);
 			GPU::CmdBindImageArraySampler(context, r.data.textures, r.data.textureSampler, 0, 3);
-			GPU::CmdBindImageSampler(context, r.data.shadowMapImage, r.data.shadowMapSampler, 0, 4);
-			GPU::CmdBindUniformBufferArray(context, r.data.fontBuffers, 0, 5);
-			GPU::CmdBindStorageBuffer(context, r.data.textBuffer, 0, 6);
+			GPU::CmdBindImageSampler(context, r.data.aoSmoothedImage, r.data.aoImageSampler, 0, 4);
+			GPU::CmdBindImageSampler(context, r.data.shadowMapImage, r.data.shadowMapSampler, 0, 5);
+			GPU::CmdBindUniformBufferArray(context, r.data.fontBuffers, 1, 0);
+			GPU::CmdBindStorageBuffer(context, r.data.textBuffer, 1, 1);
 			break;
 	}
 	GPU::CmdCommitBindings(context).AzUnwrap();
@@ -192,8 +194,8 @@ void BindPipelineDepthPrepass(GPU::Context *context, PipelineIndex pipeline) {
 			GPU::CmdBindStorageBuffer(context, r.data.objectBuffer, 0, 1);
 			GPU::CmdBindStorageBuffer(context, r.data.bonesBuffer, 0, 2);
 			GPU::CmdBindImageArraySampler(context, r.data.textures, r.data.textureSampler, 0, 3);
-			GPU::CmdBindUniformBufferArray(context, r.data.fontBuffers, 0, 5);
-			GPU::CmdBindStorageBuffer(context, r.data.textBuffer, 0, 6);
+			GPU::CmdBindUniformBufferArray(context, r.data.fontBuffers, 1, 0);
+			GPU::CmdBindStorageBuffer(context, r.data.textBuffer, 1, 1);
 			break;
 		default: break;
 	}
@@ -230,17 +232,24 @@ bool Manager::Init() {
 		GPU::ImageSetShaderUsage(data.rawImage, GPU::ShaderStage::FRAGMENT);
 		i64 msaaSamples = Settings::ReadInt(Settings::sMultisamplingSamples);
 		if (msaaSamples > 1) {
-			data.msaaImage = GPU::NewImage(data.device, "msaaImage");
-			GPU::ImageSetFormat(data.msaaImage, GPU::ImageBits::R16G16B16A16, GPU::ImageComponentType::SFLOAT);
-			GPU::ImageSetSampleCount(data.msaaImage, msaaSamples);
-			GPU::ImageSetSampleCount(data.depthImage, msaaSamples);
-			GPU::ImageSetSizeToWindow(data.msaaImage, data.window, ssaaNumerator, ssaaDenominator);
-			GPU::FramebufferAddImageMultisampled(data.rawFramebuffer, data.msaaImage, data.rawImage);
+			data.msaaRawImage = GPU::NewImage(data.device, "msaaRawImage");
+			GPU::ImageSetFormat(data.msaaRawImage, GPU::ImageBits::R16G16B16A16, GPU::ImageComponentType::SFLOAT);
+			GPU::ImageSetSampleCount(data.msaaRawImage, msaaSamples);
+			GPU::ImageSetSizeToWindow(data.msaaRawImage, data.window, ssaaNumerator, ssaaDenominator);
+			data.msaaDepthImage = GPU::NewImage(data.device, "msaaDepthImage");
+			GPU::ImageSetFormat(data.msaaDepthImage, GPU::ImageBits::D32, GPU::ImageComponentType::SFLOAT);
+			GPU::ImageSetSampleCount(data.msaaDepthImage, msaaSamples);
+			GPU::ImageSetSizeToWindow(data.msaaDepthImage, data.window, ssaaNumerator, ssaaDenominator);
+
+			// We use MAX here to minimize edge artifacts involving our surface-aware AO denoise.
+			GPU::FramebufferAddImageMultisampled(data.depthPrepassFramebuffer, data.msaaDepthImage, data.depthImage, false, true, GPU::ResolveMode::MAX);
+			GPU::FramebufferAddImageMultisampled(data.rawFramebuffer, data.msaaRawImage, data.rawImage);
+			GPU::FramebufferAddImage(data.rawFramebuffer, data.msaaDepthImage, true, false);
 		} else {
+			GPU::FramebufferAddImage(data.depthPrepassFramebuffer, data.depthImage);
 			GPU::FramebufferAddImage(data.rawFramebuffer, data.rawImage);
+			GPU::FramebufferAddImage(data.rawFramebuffer, data.depthImage, true, false);
 		}
-		GPU::FramebufferAddImage(data.depthPrepassFramebuffer, data.depthImage);
-		GPU::FramebufferAddImage(data.rawFramebuffer, data.depthImage, true, false);
 
 		data.windowFramebuffer = GPU::NewFramebuffer(data.device, "window");
 		GPU::FramebufferAddWindow(data.windowFramebuffer, data.window);
@@ -502,23 +511,60 @@ bool Manager::Init() {
 		GPU::SamplerSetAddressMode(data.shadowMapSampler, GPU::AddressMode::CLAMP_TO_BORDER, GPU::AddressMode::CLAMP_TO_BORDER);
 		GPU::SamplerSetBorderColor(data.shadowMapSampler, true, false, true);
 	}
+	{ // Ambient Occlusion
+		vec2i sizeNumerator = Settings::ReadInt(Settings::sSSAONumerator);
+		vec2i sizeDenominator = Settings::ReadInt(Settings::sSSAODenominator);
+
+		GPU::ImageSetShaderUsage(data.depthImage, GPU::ShaderStage::FRAGMENT);
+		data.aoDepthImageSampler = GPU::NewSampler(data.device, "aoDepthImageSampler");
+		GPU::SamplerSetFiltering(data.aoDepthImageSampler, GPU::Filter::NEAREST, GPU::Filter::NEAREST);
+		GPU::SamplerSetAddressMode(data.aoDepthImageSampler, GPU::AddressMode::CLAMP_TO_EDGE, GPU::AddressMode::CLAMP_TO_EDGE);
+
+		data.aoImage = GPU::NewImage(data.device, "aoImage");
+		GPU::ImageSetFormat(data.aoImage, GPU::ImageBits::R8, GPU::ImageComponentType::UNORM);
+		GPU::ImageSetSizeToWindow(data.aoImage, data.window, sizeNumerator, sizeDenominator);
+		GPU::ImageSetShaderUsage(data.aoImage, GPU::ShaderStage::FRAGMENT);
+
+		data.aoFramebuffer = GPU::NewFramebuffer(data.device, "aoFramebuffer");
+		GPU::FramebufferAddImage(data.aoFramebuffer, data.aoImage);
+
+		data.aoSmoothedImage = GPU::NewImage(data.device, "aoSmoothedImage");
+		GPU::ImageSetFormat(data.aoSmoothedImage, GPU::ImageBits::R8, GPU::ImageComponentType::UNORM);
+		GPU::ImageSetSizeToWindow(data.aoSmoothedImage, data.window, sizeNumerator, sizeDenominator);
+		GPU::ImageSetShaderUsage(data.aoSmoothedImage, GPU::ShaderStage::FRAGMENT);
+
+		data.aoSmoothedFramebuffer = GPU::NewFramebuffer(data.device, "aoSmoothedFramebuffer");
+		GPU::FramebufferAddImage(data.aoSmoothedFramebuffer, data.aoSmoothedImage);
+
+		data.aoImageSampler = GPU::NewSampler(data.device, "aoImageSampler");
+		GPU::SamplerSetAddressMode(data.aoImageSampler, GPU::AddressMode::CLAMP_TO_BORDER, GPU::AddressMode::CLAMP_TO_BORDER);
+		GPU::SamplerSetBorderColor(data.aoImageSampler, false, true, true);
+
+		GPU::Shader *aoFromDepthVert = fullscreenQuadVert;
+		GPU::Shader *aoFromDepthFrag = GPU::NewShader(data.device, "data/Az3D/shaders/AOFromDepth.frag.spv", GPU::ShaderStage::FRAGMENT);
+		data.pipelineAOFromDepth = GPU::NewGraphicsPipeline(data.device, "AO From Depth Pipeline");
+		GPU::PipelineAddShaders(data.pipelineAOFromDepth, {aoFromDepthVert, aoFromDepthFrag});
+		GPU::PipelineSetTopology(data.pipelineAOFromDepth, GPU::Topology::TRIANGLE_FAN);
+
+		GPU::Shader *aoConvolutionVert = fullscreenQuadVert;
+		GPU::Shader *aoConvolutionFrag = GPU::NewShader(data.device, "data/Az3D/shaders/AOConvolution.frag.spv", GPU::ShaderStage::FRAGMENT);
+		data.pipelineAOConvolution = GPU::NewGraphicsPipeline(data.device, "AO Convolution Pipeline");
+		GPU::PipelineAddShaders(data.pipelineAOConvolution, {aoConvolutionVert, aoConvolutionFrag});
+		GPU::PipelineSetTopology(data.pipelineAOConvolution, GPU::Topology::TRIANGLE_FAN);
+	}
 	{ // Bloom
-		i32 scaleDenominator = 1;
+		constexpr i32 startingHeight = 900;
+		vec2i baseSize = vec2i(startingHeight * sys->window.width / sys->window.height, startingHeight);
 		for (i32 layer = 0; layer < bloomLayers; layer++) {
 			for (i32 j = 0; j < 2; j++) {
 				i32 i = layer * 2 + j;
 				data.bloomImage[i] = GPU::NewImage(data.device, Stringify("bloomImg", layer, "[", j, "]"));
-				GPU::ImageSetSize(
-					data.bloomImage[i],
-					900 * sys->window.width / sys->window.height / scaleDenominator,
-					900 / scaleDenominator
-				);
+				GPU::ImageSetSize(data.bloomImage[i], baseSize.x >> layer, baseSize.y >> layer);
 				GPU::ImageSetFormat(data.bloomImage[i], GPU::ImageBits::B10G11R11, GPU::ImageComponentType::UFLOAT);
 				GPU::ImageSetShaderUsage(data.bloomImage[i], GPU::ShaderStage::FRAGMENT);
 				data.bloomFramebuffer[i] = GPU::NewFramebuffer(data.device, Stringify("bloomFB", layer, "[", j, "]"));
 				GPU::FramebufferAddImage(data.bloomFramebuffer[i], data.bloomImage[i], true);
 			}
-			scaleDenominator *= 2;
 			GPU::ImageSetTransferUsage(data.bloomImage[layer * 2], true, true);
 		}
 		GPU::ImageSetTransferUsage(data.rawImage, None, true);
@@ -1366,6 +1412,8 @@ bool Manager::Draw() {
 
 	GPU::PipelineSetLineWidth(data.pipelines[PIPELINE_DEBUG_LINES], 2.0f / 96.0f * (f32)sys->window.dpi);
 
+	GPU::Context *cmr = data.contextMainRender;
+
 	screenSize = vec2((f32)max((u16)1, sys->window.width), (f32)max((u16)1, sys->window.height));
 	aspectRatio = screenSize.y / screenSize.x;
 	camera.aspectRatio = aspectRatio;
@@ -1453,16 +1501,44 @@ bool Manager::Draw() {
 		GPU::CmdSetViewportAndScissor(data.contextDepthPrepass, viewport.x, viewport.y);
 		GPU::CmdClearDepthAttachment(data.contextDepthPrepass, 1.0f);
 
+		GPU::ContextBeginRecording(cmr).AzUnwrap();
+		// Ambient Occlusion
+		GPU::CmdImageTransitionLayout(cmr, data.aoImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
+		GPU::CmdImageTransitionLayout(cmr, data.depthImage, GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
+		GPU::CmdBindFramebuffer(cmr, data.aoFramebuffer);
+		GPU::CmdBindUniformBuffer(cmr, data.worldInfoBuffer, 0, 0);
+		GPU::CmdBindImageSampler(cmr, data.depthImage, data.aoDepthImageSampler, 0, 1);
+		GPU::CmdBindPipeline(cmr, data.pipelineAOFromDepth);
+		GPU::CmdCommitBindings(cmr).AzUnwrap();
+		GPU::CmdDraw(cmr, 4, 0);
+		GPU::CmdFinishFramebuffer(cmr);
+		// AO Denoise
+		GPU::CmdImageTransitionLayout(cmr, data.aoSmoothedImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
+		GPU::CmdImageTransitionLayout(cmr, data.aoImage, GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
+		GPU::CmdBindFramebuffer(cmr, data.aoSmoothedFramebuffer);
+		GPU::CmdBindUniformBuffer(cmr, data.worldInfoBuffer, 0, 0);
+		GPU::CmdBindImageSampler(cmr, data.depthImage, data.aoDepthImageSampler, 0, 1);
+		GPU::CmdBindImageSampler(cmr, data.aoImage, data.aoImageSampler, 0, 2);
+		GPU::CmdBindPipeline(cmr, data.pipelineAOConvolution);
+		GPU::CmdCommitBindings(cmr).AzUnwrap();
+		GPU::CmdDraw(cmr, 4, 0);
+		GPU::CmdFinishFramebuffer(cmr);
+
 		// Full scene render
-		GPU::ContextBeginRecording(data.contextMainRender).AzUnwrap();
-		GPU::CmdImageTransitionLayout(data.contextMainRender, data.rawImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
-		GPU::CmdBindFramebuffer(data.contextMainRender, data.rawFramebuffer);
-		BindPipeline(data.contextMainRender, PIPELINE_BASIC_3D);
-		GPU::CmdSetViewportAndScissor(data.contextMainRender, viewport.x, viewport.y);
-		GPU::CmdClearColorAttachment(data.contextMainRender, vec4(sRGBToLinear(backgroundRGB), 1.0f));
+		GPU::CmdImageTransitionLayout(cmr, data.depthImage, GPU::ImageLayout::SHADER_READ, GPU::ImageLayout::ATTACHMENT);
+		if (data.msaaDepthImage) {
+			// We're in TRANSFER_SRC because the depth pre-pass resolves the multisampled image
+			GPU::CmdImageTransitionLayout(cmr, data.msaaDepthImage, GPU::ImageLayout::TRANSFER_SRC, GPU::ImageLayout::ATTACHMENT);
+		}
+		GPU::CmdImageTransitionLayout(cmr, data.rawImage, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
+		GPU::CmdImageTransitionLayout(cmr, data.aoSmoothedImage, GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
+		GPU::CmdBindFramebuffer(cmr, data.rawFramebuffer);
+		BindPipeline(cmr, PIPELINE_BASIC_3D);
+		GPU::CmdSetViewportAndScissor(cmr, viewport.x, viewport.y);
+		GPU::CmdClearColorAttachment(cmr, vec4(sRGBToLinear(backgroundRGB), 1.0f));
 		// We specifically DON'T clear the depth attachment, because the values from the depth prepass help reduce fragment overdraw.
 
-		PipelineIndex currentPipelineVSM = PIPELINE_BASIC_3D_VSM;
+		PipelineIndex currentPipelineVSM = PIPELINE_BASIC_3D;
 		PipelineIndex currentPipelineDepthPrepass = PIPELINE_BASIC_3D;
 		PipelineIndex currentPipeline = PIPELINE_BASIC_3D;
 		for (DrawCallInfo &drawCall : allDrawCalls) {
@@ -1477,7 +1553,7 @@ bool Manager::Draw() {
 				bonesOffset = dstOffset;
 			}
 			if (!drawCall.culled && drawCall.pipeline != currentPipeline) {
-				BindPipeline(data.contextMainRender, drawCall.pipeline);
+				BindPipeline(cmr, drawCall.pipeline);
 				currentPipeline = drawCall.pipeline;
 			}
 			if (!drawCall.culled && drawCall.opaque && drawCall.pipeline != currentPipelineDepthPrepass) {
@@ -1499,7 +1575,7 @@ bool Manager::Draw() {
 						if (drawCall.opaque) {
 							GPU::CmdDraw(data.contextDepthPrepass, info.glyphCount * 6, 0, 1, textIndex);
 						}
-						GPU::CmdDraw(data.contextMainRender, info.glyphCount * 6, 0, 1, textIndex);
+						GPU::CmdDraw(cmr, info.glyphCount * 6, 0, 1, textIndex);
 					}
 					if (drawCall.castsShadows) {
 						GPU::CmdDraw(data.contextShadowMap, info.glyphCount * 6, 0, 1, textIndex);
@@ -1516,7 +1592,7 @@ bool Manager::Draw() {
 					if (drawCall.opaque) {
 						GPU::CmdDrawIndexed(data.contextDepthPrepass, drawCall.indexCount, drawCall.indexStart, 0, drawCall.instanceCount, drawCall.instanceStart);
 					}
-					GPU::CmdDrawIndexed(data.contextMainRender, drawCall.indexCount, drawCall.indexStart, 0, drawCall.instanceCount, drawCall.instanceStart);
+					GPU::CmdDrawIndexed(cmr, drawCall.indexCount, drawCall.indexStart, 0, drawCall.instanceCount, drawCall.instanceStart);
 				}
 				if (drawCall.castsShadows) {
 					GPU::CmdDrawIndexed(data.contextShadowMap, drawCall.indexCount, drawCall.indexStart, 0, drawCall.instanceCount, drawCall.instanceStart);
@@ -1559,7 +1635,7 @@ bool Manager::Draw() {
 		if (once) {
 			once = false;
 		} else {
-			waitSemaphores.Append(GPU::ContextGetPreviousSemaphore(data.contextMainRender, 1));
+			waitSemaphores.Append(GPU::ContextGetPreviousSemaphore(cmr, 1));
 		}
 		// Signal 2 semaphores, one for the shadow map, and the second for the depth prepass
 		if (auto result = GPU::SubmitCommands(data.contextTransfer, 2, waitSemaphores); result.isError) {
@@ -1611,7 +1687,7 @@ bool Manager::Draw() {
 		return false;
 	}
 
-	GPU::CmdFinishFramebuffer(data.contextMainRender);
+	GPU::CmdFinishFramebuffer(cmr);
 
 	{ // Bloom
 		vec2 right = vec2(1.0f, 0.0f);
@@ -1621,57 +1697,57 @@ bool Manager::Draw() {
 		for (i32 layer = 0; layer < bloomLayers; layer++) {
 			i32 i0 = layer * 2;
 			i32 i1 = layer * 2 + 1;
-			GPU::CmdImageBlit(data.contextMainRender, data.bloomImage[i0], 0, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::SHADER_READ, lastImage, 0, GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
-			GPU::CmdImageTransitionLayout(data.contextMainRender, data.bloomImage[i1], GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
-			GPU::CmdBindFramebuffer(data.contextMainRender, data.bloomFramebuffer[i1]);
-			GPU::CmdBindPipeline(data.contextMainRender, data.pipelineBloomConvolution);
-			GPU::CmdBindImageSampler(data.contextMainRender, data.bloomImage[i0], data.bloomSampler, 0, 0);
-			GPU::CmdCommitBindings(data.contextMainRender).AzUnwrap();
-			GPU::CmdPushConstants(data.contextMainRender, &right, 0, sizeof(vec2));
-			GPU::CmdDraw(data.contextMainRender, 4, 0);
-			GPU::CmdFinishFramebuffer(data.contextMainRender);
-			GPU::CmdImageTransitionLayout(data.contextMainRender, data.bloomImage[i0], GPU::ImageLayout::SHADER_READ, GPU::ImageLayout::ATTACHMENT);
-			GPU::CmdImageTransitionLayout(data.contextMainRender, data.bloomImage[i1], GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
-			GPU::CmdBindFramebuffer(data.contextMainRender, data.bloomFramebuffer[i0]);
-			GPU::CmdBindPipeline(data.contextMainRender, data.pipelineBloomConvolution);
-			GPU::CmdBindImageSampler(data.contextMainRender, data.bloomImage[i1], data.bloomSampler, 0, 0);
-			GPU::CmdCommitBindings(data.contextMainRender).AzUnwrap();
-			GPU::CmdPushConstants(data.contextMainRender, &down, 0, sizeof(vec2));
-			GPU::CmdDraw(data.contextMainRender, 4, 0);
-			GPU::CmdFinishFramebuffer(data.contextMainRender);
+			GPU::CmdImageBlit(cmr, data.bloomImage[i0], 0, GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::SHADER_READ, lastImage, 0, GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
+			GPU::CmdImageTransitionLayout(cmr, data.bloomImage[i1], GPU::ImageLayout::UNDEFINED, GPU::ImageLayout::ATTACHMENT);
+			GPU::CmdBindFramebuffer(cmr, data.bloomFramebuffer[i1]);
+			GPU::CmdBindPipeline(cmr, data.pipelineBloomConvolution);
+			GPU::CmdBindImageSampler(cmr, data.bloomImage[i0], data.bloomSampler, 0, 0);
+			GPU::CmdCommitBindings(cmr).AzUnwrap();
+			GPU::CmdPushConstants(cmr, &right, 0, sizeof(vec2));
+			GPU::CmdDraw(cmr, 4, 0);
+			GPU::CmdFinishFramebuffer(cmr);
+			GPU::CmdImageTransitionLayout(cmr, data.bloomImage[i0], GPU::ImageLayout::SHADER_READ, GPU::ImageLayout::ATTACHMENT);
+			GPU::CmdImageTransitionLayout(cmr, data.bloomImage[i1], GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
+			GPU::CmdBindFramebuffer(cmr, data.bloomFramebuffer[i0]);
+			GPU::CmdBindPipeline(cmr, data.pipelineBloomConvolution);
+			GPU::CmdBindImageSampler(cmr, data.bloomImage[i1], data.bloomSampler, 0, 0);
+			GPU::CmdCommitBindings(cmr).AzUnwrap();
+			GPU::CmdPushConstants(cmr, &down, 0, sizeof(vec2));
+			GPU::CmdDraw(cmr, 4, 0);
+			GPU::CmdFinishFramebuffer(cmr);
 			lastImage = data.bloomImage[i0];
 		}
 		// Combine images up from the smallest so we can sample one image in Composition
 		for (i32 layer = bloomLayers-2; layer >= 0; layer--) {
 			i32 i0 = layer * 2;
 			i32 i2 = (layer + 1) * 2;
-			GPU::CmdImageTransitionLayout(data.contextMainRender, data.bloomImage[i2], GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
-			GPU::CmdImageTransitionLayout(data.contextMainRender, data.bloomImage[i0], GPU::ImageLayout::SHADER_READ, GPU::ImageLayout::ATTACHMENT);
-			GPU::CmdBindFramebuffer(data.contextMainRender, data.bloomFramebuffer[i0]);
-			GPU::CmdBindPipeline(data.contextMainRender, data.pipelineBloomCombine);
-			GPU::CmdBindImageSampler(data.contextMainRender, data.bloomImage[i2], data.bloomSampler, 0, 0);
-			GPU::CmdCommitBindings(data.contextMainRender).AzUnwrap();
-			GPU::CmdDraw(data.contextMainRender, 4, 0);
-			GPU::CmdFinishFramebuffer(data.contextMainRender);
+			GPU::CmdImageTransitionLayout(cmr, data.bloomImage[i2], GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
+			GPU::CmdImageTransitionLayout(cmr, data.bloomImage[i0], GPU::ImageLayout::SHADER_READ, GPU::ImageLayout::ATTACHMENT);
+			GPU::CmdBindFramebuffer(cmr, data.bloomFramebuffer[i0]);
+			GPU::CmdBindPipeline(cmr, data.pipelineBloomCombine);
+			GPU::CmdBindImageSampler(cmr, data.bloomImage[i2], data.bloomSampler, 0, 0);
+			GPU::CmdCommitBindings(cmr).AzUnwrap();
+			GPU::CmdDraw(cmr, 4, 0);
+			GPU::CmdFinishFramebuffer(cmr);
 		}
-		GPU::CmdImageTransitionLayout(data.contextMainRender, data.bloomImage[0], GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
+		GPU::CmdImageTransitionLayout(cmr, data.bloomImage[0], GPU::ImageLayout::ATTACHMENT, GPU::ImageLayout::SHADER_READ);
 	}
 	{ // Composition
 		f32 bloomIntensity = (f32)Settings::ReadReal(Settings::sBloomIntensity) * 0.1f;
-		GPU::CmdBindFramebuffer(data.contextMainRender, data.windowFramebuffer);
-		GPU::CmdBindPipeline(data.contextMainRender, data.pipelineCompositing);
-		GPU::CmdBindImageSampler(data.contextMainRender, data.rawImage, data.rawSampler, 0, 0);
-		GPU::CmdBindImageSampler(data.contextMainRender, data.bloomImage[0], data.bloomSampler, 0, 1);
-		GPU::CmdCommitBindings(data.contextMainRender).AzUnwrap();
-		GPU::CmdPushConstants(data.contextMainRender, &bloomIntensity, 0, sizeof(f32));
-		GPU::CmdDraw(data.contextMainRender, 4, 0);
+		GPU::CmdBindFramebuffer(cmr, data.windowFramebuffer);
+		GPU::CmdBindPipeline(cmr, data.pipelineCompositing);
+		GPU::CmdBindImageSampler(cmr, data.rawImage, data.rawSampler, 0, 0);
+		GPU::CmdBindImageSampler(cmr, data.bloomImage[0], data.bloomSampler, 0, 1);
+		GPU::CmdCommitBindings(cmr).AzUnwrap();
+		GPU::CmdPushConstants(cmr, &bloomIntensity, 0, sizeof(f32));
+		GPU::CmdDraw(cmr, 4, 0);
 	}
 
-	GPU::ContextEndRecording(data.contextMainRender).AzUnwrap();
+	GPU::ContextEndRecording(cmr).AzUnwrap();
 
 	// Signal 2 semaphores: one for present and the other for the next frame's data transfer
 	// Wait on the depth prepass and shadow map semaphores
-	if (auto result = GPU::SubmitCommands(data.contextMainRender, 2, {GPU::ContextGetCurrentSemaphore(data.contextDepthPrepass), GPU::ContextGetCurrentSemaphore(data.contextShadowMap)}); result.isError) {
+	if (auto result = GPU::SubmitCommands(cmr, 2, {GPU::ContextGetCurrentSemaphore(data.contextDepthPrepass), GPU::ContextGetCurrentSemaphore(data.contextShadowMap)}); result.isError) {
 		error = "Failed to draw commands: " + result.error;
 		return false;
 	}

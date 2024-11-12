@@ -27,6 +27,8 @@ Name sVSync = "vsync";
 Name sMultisamplingSamples = "multisamplingSamples";
 Name sSupersamplingNumerator = "supersamplingNumerator";
 Name sSupersamplingDenominator = "supersamplingDenominator";
+Name sSSAONumerator = "SSAONumerator";
+Name sSSAODenominator = "SSAODenominator";
 Name sBloomIntensity = "bloomIntensity";
 Name sDebugInfo = "debugInfo";
 Name sFramerateLimitEnabled = "framerateLimitEnabled";
@@ -43,6 +45,8 @@ AStringMap<Setting> settings = {
 	{sMultisamplingSamples, Setting((i64)4, (i64)1, (i64)8)},
 	{sSupersamplingNumerator, Setting((i64)1, (i64)1, INT64_MAX)},
 	{sSupersamplingDenominator, Setting((i64)1, (i64)1, INT64_MAX)},
+	{sSSAONumerator, Setting((i64)1, (i64)1, INT64_MAX)},
+	{sSSAODenominator, Setting((i64)2, (i64)1, INT64_MAX)},
 	{sBloomIntensity, Setting(1.0, 0.0, 10.0)},
 	{sDebugInfo, Setting(false)},
 	{sFramerateLimitEnabled, Setting(false)},

@@ -260,15 +260,24 @@ struct Manager {
 
 
 		// Post-processing
-		GPU::Image *msaaImage = nullptr;
+		GPU::Image *msaaDepthImage = nullptr;
+		GPU::Image *msaaRawImage = nullptr;
 		GPU::Image *depthImage;
 		GPU::Framebuffer *depthPrepassFramebuffer;
+		GPU::Sampler *aoDepthImageSampler;
+		GPU::Image *aoImage;
+		GPU::Image *aoSmoothedImage;
+		GPU::Sampler *aoImageSampler; // One sampler for both AO images
+		GPU::Framebuffer *aoFramebuffer;
+		GPU::Framebuffer *aoSmoothedFramebuffer;
 		GPU::Image *rawImage;
 		GPU::Framebuffer *rawFramebuffer;
 		GPU::Sampler *rawSampler;
 		GPU::Image *bloomImage[2 * bloomLayers];
 		GPU::Framebuffer *bloomFramebuffer[2 * bloomLayers];
 		GPU::Sampler *bloomSampler;
+		GPU::Pipeline *pipelineAOFromDepth;
+		GPU::Pipeline *pipelineAOConvolution;
 		GPU::Pipeline *pipelineBloomConvolution;
 		GPU::Pipeline *pipelineBloomCombine;
 		GPU::Pipeline *pipelineCompositing;

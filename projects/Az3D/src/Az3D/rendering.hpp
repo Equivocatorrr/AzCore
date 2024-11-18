@@ -11,6 +11,7 @@
 #include "AzCore/Math/mat4_t.hpp"
 #include "AzCore/Math/quat_t.hpp"
 #include "Az3DObj.hpp"
+#include "animation.hpp"
 
 #include "AzCore/basictypes.hpp"
 #include "AzCore/gpu.hpp"
@@ -34,9 +35,6 @@ using namespace AzCore;
 // void AddLight(vec3 pos, vec3 color, vec3 direction, f32 angleMin, f32 angleMax, f32 distMin, f32 distMax);
 
 constexpr f32 lineHeight = 1.3f;
-
-extern i32 numNewtonIterations;
-extern i32 numBinarySearchIterations;
 
 struct Manager;
 
@@ -150,13 +148,6 @@ struct Camera {
 	Degrees32 fov = 90.0f;
 };
 
-struct ArmatureAction {
-	Assets::MeshIndex meshIndex;
-	Assets::ActionIndex actionIndex;
-	f32 actionTime;
-	bool operator==(const ArmatureAction &other) const;
-};
-
 struct DrawTextInfo {
 	TextShaderInfo shaderInfo;
 	u32 glyphCount;
@@ -180,7 +171,7 @@ struct DrawCallInfo {
 	u32 instanceCount;
 	Assets::Material material;
 	PipelineIndex pipeline;
-	Optional<ArmatureAction> armatureAction;
+	Optional<Animation::ArmatureAction> armatureAction;
 	Array<Vector<f32>> *ikParameters = nullptr;
 	// If this is false, this call gets sorted later than opaque calls
 	bool opaque;
@@ -325,7 +316,7 @@ struct Manager {
 	}
 };
 
-void DrawMeshPart(DrawingContext &context, Assets::MeshPart *meshPart, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows, az::Optional<ArmatureAction> action=az::Optional<ArmatureAction>());
+void DrawMeshPart(DrawingContext &context, Assets::MeshPart *meshPart, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows, Optional<Animation::ArmatureAction> action=None);
 void DrawMesh(DrawingContext &context, Assets::MeshIndex mesh, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows);
 void DrawMeshAnimated(DrawingContext &context, Assets::MeshIndex mesh, Assets::ActionIndex action, f32 time, const ArrayWithBucket<mat4, 1> &transforms, bool opaque, bool castsShadows, Array<Vector<f32>> *ikParameters);
 
@@ -376,6 +367,13 @@ inline mat4 GetTransform(vec3 pos, quat rotation, vec3 scale) {
 	transform[3][1] = pos.y;
 	transform[3][2] = pos.z;
 	return transform;
+}
+
+inline mat4 GetMat4(quat orientation, vec3 offset) {
+	mat3 rotation = normalize(orientation).ToMat3();
+	mat4 result = mat4(rotation);
+	result[3].xyz = offset;
+	return result;
 }
 
 } // namespace Az3D::Rendering

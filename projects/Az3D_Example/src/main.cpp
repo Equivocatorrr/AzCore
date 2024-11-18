@@ -68,18 +68,18 @@ struct Test : public GameSystems::System {
 		}
 		if (sys->Repeated(KC_KEY_UP)) {
 			if (sys->Down(KC_KEY_LEFTSHIFT)) {
-				Az3D::Rendering::numNewtonIterations++;
+				Az3D::Animation::numNewtonIterations++;
 			} else if (sys->Down(KC_KEY_LEFTCTRL)) {
-				Az3D::Rendering::numBinarySearchIterations++;
+				Az3D::Animation::numBinarySearchIterations++;
 			} else {
 				rate *= 2.0f;
 			}
 		}
 		if (sys->Repeated(KC_KEY_DOWN)) {
 			if (sys->Down(KC_KEY_LEFTSHIFT)) {
-				Az3D::Rendering::numNewtonIterations--;
+				Az3D::Animation::numNewtonIterations--;
 			} else if (sys->Down(KC_KEY_LEFTCTRL)) {
-				Az3D::Rendering::numBinarySearchIterations--;
+				Az3D::Animation::numBinarySearchIterations--;
 			} else {
 				rate /= 2.0f;
 			}

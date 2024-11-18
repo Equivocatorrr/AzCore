@@ -1,4 +1,6 @@
 add_library(Az3D STATIC
+	src/Az3D/animation.cpp
+	src/Az3D/animation.hpp
 	src/Az3D/assets.cpp
 	src/Az3D/assets.hpp
 	src/Az3D/Az3DObj.cpp
@@ -7,8 +9,6 @@ add_library(Az3D STATIC
 	# src/Az3D/entity_basics.hpp
 	src/Az3D/settings.cpp
 	src/Az3D/settings.hpp
-	# src/Az3D/gui_basics.cpp
-	# src/Az3D/gui_basics.hpp
 	src/Az3D/game_systems.cpp
 	src/Az3D/game_systems.hpp
 	src/Az3D/rendering.cpp

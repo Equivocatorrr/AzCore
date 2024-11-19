@@ -211,7 +211,7 @@ struct Frustum {
 };
 
 struct Manager {
-	static constexpr u32 bloomLayers = 6;
+	static constexpr i32 bloomLayers = 6;
 	struct {
 		GPU::Device *device;
 		GPU::Window *window;

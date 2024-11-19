@@ -13,6 +13,7 @@
 #include <initializer_list>
 #include <type_traits> // std::is_trivially_copyable
 #include <cstring>     // memcpy
+#include <utility>     // std::move
 
 namespace AzCore {
 

@@ -445,7 +445,7 @@ bool Manager::Init() {
 		}
 	}
 	{ // Shadow maps
-		constexpr i32 dims = 2048;
+		i32 dims = Settings::ReadInt(Settings::sShadowMapSize);
 		data.contextShadowMap = GPU::NewContext(data.device, "VSM Context");
 
 		GPU::Image *shadowMapMSAAImage = GPU::NewImage(data.device, "VSM MSAA Image");

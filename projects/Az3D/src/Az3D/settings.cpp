@@ -27,6 +27,7 @@ Name sVSync = "vsync";
 Name sMultisamplingSamples = "multisamplingSamples";
 Name sSupersamplingNumerator = "supersamplingNumerator";
 Name sSupersamplingDenominator = "supersamplingDenominator";
+Name sShadowMapSize = "shadowMapSize";
 Name sSSAONumerator = "SSAONumerator";
 Name sSSAODenominator = "SSAODenominator";
 Name sBloomIntensity = "bloomIntensity";
@@ -43,6 +44,7 @@ AStringMap<Setting> settings = {
 	{sFullscreen, Setting(false)},
 	{sVSync, Setting(true)},
 	{sMultisamplingSamples, Setting((i64)4, (i64)1, (i64)8)},
+	{sShadowMapSize, Setting((i64)2048, (i64)512, (i64)8192)},
 	{sSupersamplingNumerator, Setting((i64)1, (i64)1, INT64_MAX)},
 	{sSupersamplingDenominator, Setting((i64)1, (i64)1, INT64_MAX)},
 	{sSSAONumerator, Setting((i64)1, (i64)1, INT64_MAX)},

@@ -185,6 +185,7 @@ public:
 extern Name sFullscreen;
 extern Name sVSync;
 extern Name sMultisamplingSamples;
+extern Name sShadowMapSize;
 extern Name sSupersamplingNumerator;
 extern Name sSupersamplingDenominator;
 extern Name sSSAONumerator;

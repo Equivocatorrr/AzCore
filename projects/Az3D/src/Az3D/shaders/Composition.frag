@@ -22,6 +22,7 @@ void main() {
 
 	outColor.rgb = rawColor.rgb + bloomColor * constants.bloomIntensity;
 
-	outColor.rgb = TonemapACES(outColor.rgb);
+	// outColor.rgb = TonemapACES(outColor.rgb);
+	outColor.rgb = TonemapCustom(outColor.rgb);
 	outColor.a = rawColor.a;
 }

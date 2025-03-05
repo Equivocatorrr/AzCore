@@ -61,4 +61,23 @@ vec3 TonemapACES(vec3 color)
 	return clamp((color*(a*color+b))/(color*(c*color+d)+e), 0.0, 1.0);
 }
 
+const vec3 luminanceFactors = vec3(0.2126, 0.7152, 0.0722);
+
+vec3 TonemapCustom(vec3 color)
+{
+	vec3 aces = TonemapACES(color);
+	// return color/max(aces, vec3(0.2));
+	float overbrightness = length(color/max(aces, vec3(0.5))) / 2.0;
+	// float luminance = dot(color, luminanceFactors);
+	float colorMax = max(aces.r, max(aces.g, aces.b));
+	float a = 2.0;
+	float b = 0.0;
+	float c = 2.0;
+	float d = 0.25;
+	float e = 1.0;
+	// (a*l^2 + b*l) / (c*l^2 + d*l + e)
+	float desaturation = (overbrightness*(a*overbrightness+b))/(overbrightness*(c*overbrightness+d)+e);
+	return mix(aces, vec3(1.0), sqr(smoothstep(0.0, 1.0, desaturation)));
+}
+
 #endif // COMMON_FRAG_GLSL

@@ -9,23 +9,32 @@ layout(location=0) out float outColor;
 layout(set=0, binding=1) uniform sampler2D depthImage;
 
 #include "headers/DepthBufferGeometry.glsl"
+#include "headers/CommonFrag.glsl"
 
-const uint numSteps = 12;
+const uint numSteps = 24;
 const uint numDirs = 4;
 
 const vec2 directions[25] = vec2[25](
-	vec2( 0.0, 2.0), vec2( 2.0, 1.0), vec2( 2.0,-1.0), vec2( 1.0,-3.0), vec2(-2.0,-2.0),
-	vec2(-3.0, 0.0), vec2(-2.0, 2.0), vec2( 1.0, 3.0), vec2( 3.0, 1.0), vec2( 3.0,-2.0),
-	vec2( 0.0,-3.0), vec2(-3.0,-2.0), vec2(-3.0, 1.0), vec2(-1.0, 3.0), vec2( 2.0, 3.0),
-	vec2( 2.0, 0.0), vec2( 3.0,-3.0), vec2(-1.0,-4.0), vec2(-4.0,-2.0), vec2(-3.0, 2.0),
-	vec2(-1.0, 4.0), vec2( 3.0, 3.0), vec2( 4.0,-1.0), vec2( 2.0,-4.0), vec2(-2.0,-4.0)
+	vec2( 0.0, 1.0), vec2( 1.0, 0.5), vec2( 1.0,-0.5), vec2( 1.0/3.0,-1.0), vec2(-1.0,-1.0),
+	vec2(-1.0, 0.0), vec2(-1.0, 1.0), vec2( 1.0/3.0, 1.0), vec2( 1.0, 1.0/3.0), vec2( 1.0,-2.0/3.0),
+	vec2( 0.0,-1.0), vec2(-1.0,-2.0/3.0), vec2(-1.0, 1.0/3.0), vec2(-0.5, 1.0), vec2( 2.0/3.0, 1.0),
+	vec2( 1.0, 0.0), vec2( 1.0,-1.0), vec2(-0.5,-1.0), vec2(-1.0,-0.5), vec2(-1.0, 2.0/3.0),
+	vec2(-1.0/3.0, 1.0), vec2( 1.0, 1.0), vec2( 1.0,-0.5), vec2( 0.5,-1.0), vec2(-0.5,-1.0)
 );
+
+// const vec2 directions[25] = vec2[25](
+// 	vec2( 0.0, 1.0), vec2( 2.0, 1.0), vec2( 2.0,-1.0), vec2( 1.0,-3.0), vec2(-1.0,-1.0),
+// 	vec2(-1.0, 0.0), vec2(-1.0, 1.0), vec2( 1.0, 3.0), vec2( 3.0, 1.0), vec2( 3.0,-2.0),
+// 	vec2( 0.0,-1.0), vec2(-3.0,-2.0), vec2(-3.0, 1.0), vec2(-1.0, 2.0), vec2( 2.0, 3.0),
+// 	vec2( 1.0, 0.0), vec2( 1.0,-1.0), vec2(-1.0,-2.0), vec2(-2.0,-1.0), vec2(-3.0, 2.0),
+// 	vec2(-1.0, 3.0), vec2( 1.0, 1.0), vec2( 2.0,-1.0), vec2( 1.0,-2.0), vec2(-1.0,-2.0)
+// );
 
 float tanToSin(float tangent) {
 	return tangent * inversesqrt(sqr(tangent) + 1.0);
 }
 
-const float tanBias = tan(15.0 * PI / 180.0);
+const float tanBias = tan(10.0 * PI / 180.0);
 
 float tanToSinBiased(float tangent) {
 	return tanToSin(max(tangent - tanBias, 0.0));
@@ -34,8 +43,11 @@ float tanToSinBiased(float tangent) {
 void main() {
 	vec2 viewUVScale = vec2(worldInfo.proj[0][0], -worldInfo.proj[2][1]) * 0.5;
 	vec2 texelSize = 1.0 / textureSize(depthImage, 0);
+	vec2 framebufferDims = round(gl_FragCoord.xy / inTexCoord);
+	vec2 relativeSize = framebufferDims * texelSize;
 	// Aim for the center of the texels, since we might be off due to scaling, and fp error can be a problem if you're on a texel edge.
-	vec2 centerUV = (round(inTexCoord * textureSize(depthImage, 0)) + 0.5) / textureSize(depthImage, 0);
+	// vec2 centerUV = UVCenteredInTexel(inTexCoord, depthImage);
+	vec2 centerUV = UVCenteredInTexel((floor(inTexCoord * framebufferDims) + 1.5 * relativeSize) / framebufferDims, depthImage);
 	outColor = 0.0;
 	int directionIndex = (int(gl_FragCoord.x) % 5) + (int(gl_FragCoord.y) % 5) * 5;
 	vec3 centerPosView = GetViewPosFromDepthTexture(centerUV);
@@ -72,12 +84,12 @@ void main() {
 	GetViewBasisFromDepthTexture(centerPosView, centerUV, centerBasis[0], centerBasis[1], centerBasis[2]);
 	// mat3 viewToHorizonSpace = centerBasis;
 	mat3 viewToHorizonSpace = transpose(centerBasis);
+	const float maxDist = 3.0 * float(numSteps) * length(texelSize / viewUVScale * centerPosView.z);
 	for (uint dir = 0; dir < numDirs; dir++) {
-		vec2 stepOffsetDepthTexel = directions[(directionIndex + dir * 16) % 25];
+		vec2 stepOffsetDepthTexel = directions[(directionIndex + dir * 4) % 25];
 		vec2 stepOffsetUV = stepOffsetDepthTexel * texelSize;
 		vec2 stepOffsetView = stepOffsetUV / viewUVScale * centerPosView.z;
 		float distPerStep = length(stepOffsetView);
-		float maxDist = distPerStep * float(numSteps);
 		vec2 offset = centerUV;
 		float dist = 0.0;
 		float horizonTangent = 0.0;
@@ -86,23 +98,28 @@ void main() {
 		for (uint i = 0; i < numSteps; i++) {
 			offset += stepOffsetUV;
 			dist += distPerStep;
-			vec3 posView = GetViewPosFromDepthTexture(offset);
+			vec3 posView = GetViewPosFromDepthTextureInterpolated(offset);
 			vec3 delta = (centerPosView - posView);
 			vec3 posHorizon = viewToHorizonSpace * delta;
-			float tangent = posHorizon.z / dist;
-			float amount = clamp(maxDist / length(delta), 0.0, 1.0);
-			if (tangent > horizonTangent) {
+			float tangent = posHorizon.z / length(posHorizon.xy);
+			float myDist = length(delta);
+			// float amount = clamp((2.0 - myDist / maxDist), 0.0, 1.0);
+			// float amount = clamp((2.0 - myDist / maxDist - float(i)/float(numSteps)), 0.0, 1.0);
+			float amount = clamp(sqrt((1.0 - myDist / maxDist) * (1.0 - float(i)/float(numSteps))), 0.0, 1.0);
+			// float amount = 1.0;
+			if (myDist < maxDist && tangent > horizonTangent) {
 				horizonTangent = tangent;
 				horizonSin += amount * (tanToSinBiased(tangent) - horizonSin);
 			}
 		}
 
 		outColor += 1.0 - horizonSin;
+		// outColor += max(1.0 - sqr(horizonSin) * 2.0, 0.0);
 	}
 #endif
 	outColor /= float(numDirs);
 	// Store the inverted color so we can do a root-mean-square in AOConvolution instead of the square-mean-root, which would require 25 sqrts per pixel
-	// outColor *= outColor;
+	outColor *= outColor;
 	outColor = 1.0 - outColor;
 	// outColor = clamp(abs(2.0 / mix(mix(PI/2.0, atan(minSlope[0]), confidence[0]), -mix(PI, atan(minSlope[1]), confidence[1]), confidence[1] / (confidence[0] + confidence[1])) / PI), 0.0, 1.0);
 }

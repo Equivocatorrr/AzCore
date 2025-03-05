@@ -239,8 +239,8 @@ bool Manager::Init() {
 			GPU::ImageSetSampleCount(data.msaaDepthImage, msaaSamples);
 			GPU::ImageSetSizeToWindow(data.msaaDepthImage, data.window, ssaaNumerator, ssaaDenominator);
 
-			// We use MAX here to minimize edge artifacts involving our surface-aware AO denoise.
-			GPU::FramebufferAddImageMultisampled(data.depthPrepassFramebuffer, data.msaaDepthImage, data.depthImage, false, true, GPU::ResolveMode::MAX);
+			// We use MIN here to minimize edge artifacts involving our surface-aware AO denoise.
+			GPU::FramebufferAddImageMultisampled(data.depthPrepassFramebuffer, data.msaaDepthImage, data.depthImage, false, true, GPU::ResolveMode::MIN);
 			GPU::FramebufferAddImageMultisampled(data.rawFramebuffer, data.msaaRawImage, data.rawImage);
 			GPU::FramebufferAddImage(data.rawFramebuffer, data.msaaDepthImage, true, false);
 		} else {
@@ -628,8 +628,6 @@ bool Manager::Init() {
 	GPU::ContextEndRecording(data.contextTransfer).AzUnwrap();
 	GPU::SubmitCommands(data.contextTransfer).AzUnwrap();
 	GPU::ContextWaitUntilFinished(data.contextTransfer).AzUnwrap();
-	UpdateBackground();
-
 	return true;
 }
 
@@ -880,6 +878,7 @@ vec4 PerspectiveNormalize(vec4 point) {
 }
 
 bool Manager::UpdateWorldInfo(GPU::Context *context) {
+	UpdateBackground();
 	Camera &activeCam = debugCameraActive ? debugCamera : camera;
 	// Update camera matrix
 	worldInfo.view = mat4::Camera(activeCam.pos, activeCam.forward, activeCam.up);
@@ -890,7 +889,7 @@ bool Manager::UpdateWorldInfo(GPU::Context *context) {
 	worldInfo.eyePos = camera.pos;
 	worldInfo.fogColor = sRGBToLinear(backgroundRGB);
 	worldInfo.ambientLightUp = worldInfo.fogColor * 0.5f;
-	worldInfo.ambientLightDown = vec3(0.491f, 0.357f, 0.205f) * 0.5f;
+	worldInfo.ambientLightDown = vec3(0.491f, 0.357f, 0.205f) * worldInfo.fogColor * 0.5f;
 	UpdateLights();
 
 	GPU::CmdCopyDataToBuffer(context, data.worldInfoBuffer, &worldInfo).AzUnwrap();

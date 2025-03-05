@@ -31,6 +31,11 @@ vec3 wrap(float attenuation, vec3 wrapFac) {
 	return clamp((vec3(attenuation) + wrapFac) / sqr(1.0 + wrapFac), 0.0, 1.0);
 }
 
+vec2 UVCenteredInTexel(vec2 uv, sampler2D image) {
+	vec2 size = textureSize(image, 0);
+	return (floor(uv * size) + 0.5) / size;
+}
+
 const float minPenumbraVal = 0.5;
 const float maxPenumbraVal = 1.0;
 

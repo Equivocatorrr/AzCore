@@ -7,9 +7,7 @@
 #ifndef AZCORE_WAYLAND_CPP
 #define AZCORE_WAYLAND_CPP
 
-#include "../Window.hpp"
-#include "../../io.hpp"
-#include "../../keycodes.hpp"
+#include "../io.hpp"
 #include "WaylandProtocols/pointer-constraints-unstable-v1.h"
 #include "WaylandProtocols/relative-pointer-manager-unstable-v1.h"
 #include "WindowData.hpp"
@@ -30,6 +28,8 @@
 #else
 #define DEBUG_PRINTLN(...)
 #endif
+
+using namespace AzCore::io::kc;
 
 namespace AzCore {
 
@@ -204,7 +204,7 @@ static bool CreateShmImageWayland(i32 width, i32 height, i32 *dstFD, u32 **dstSh
 	pool = wl_shm_create_pool(window->data->wayland.shm, *dstFD, *dstSize);
 	*dstBuffer = wl_shm_pool_create_buffer(pool, 0, width, height, stride, WL_SHM_FORMAT_ARGB8888);
 	wl_shm_pool_destroy(pool);
-	
+
 	wl_surface_attach(window->data->wayland.surface, *dstBuffer, 0, 0);
 	return true;
 }
@@ -850,7 +850,7 @@ bool windowOpenWayland(Window *window) {
 		return false;
 	}
 	wl_surface_add_listener(window->data->wayland.surface, &wl::events::surfaceListener, window);
-	
+
 
 	if (window->data->wayland.wmBase == nullptr) {
 		error = "We don't have an xdg_wm_base";
@@ -861,14 +861,14 @@ bool windowOpenWayland(Window *window) {
 		error = "Can't create an xdg_surface";
 		return false;
 	}
-	
+
 	xdg_surface_add_listener(window->data->wayland.xdgSurface, &wl::events::xdgSurfaceListener, window);
-	
+
 	if (nullptr == (window->data->wayland.xdgToplevel = xdg_surface_get_toplevel(window->data->wayland.xdgSurface))) {
 		error = "Can't create an xdg_toplevel";
 		return false;
 	}
-	
+
 	xdg_toplevel_set_app_id(window->data->wayland.xdgToplevel, window->name.data);
 	xdg_toplevel_set_title(window->data->wayland.xdgToplevel, window->name.data);
 	xdg_toplevel_add_listener(window->data->wayland.xdgToplevel, &wl::events::xdgToplevelListener, window);
@@ -885,7 +885,7 @@ bool windowOpenWayland(Window *window) {
 	wl_surface_commit(window->data->wayland.surface);
 
 	xkbSetupKeyboardWayland(&window->data->xkb);
-	
+
 	// We need to know which surface we're on to get the DPI
 	i32 tries = 0;
 	while (window->data->wayland.outputsWeTouch.size == 0) {

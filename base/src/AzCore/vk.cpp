@@ -2,9 +2,12 @@
 	File: vk.cpp
 	Author: Philip Haynes
 */
-#include "io.hpp"
 #include "vk.hpp"
+
 #include "IO/Log.hpp"
+#include "IO/Window.hpp"
+#include "Memory/BinarySet.hpp"
+
 #include <cstring>
 #include <cstdlib>
 #include <fstream>
@@ -192,7 +195,7 @@ namespace vk {
 		}
 		cout.Newline();
 	}
-	
+
 	String StringDashify(String str) {
 		i32 width = 80-str.size;
 		Str dashes = "--------------------------------------------------------------------------------";
@@ -244,7 +247,7 @@ namespace vk {
 		const VkDebugUtilsMessengerCallbackDataEXT& data = *pCallbackData;
 
 		hadValidationError = true;
-		
+
 		String message = StringDashify("Validation Message Begin");
 
 		AppendMultipleToString(message, "Message ID Name: \"", data.pMessageIdName, "\"\nMessage: \"", data.pMessage);
@@ -929,14 +932,14 @@ namespace vk {
 		return data.buffers.GetPtr(data.buffers.size-1);
 	}
 
-	Range<Image> Memory::AddImages(u32 count, Image image) {
+	SmartRange<Image> Memory::AddImages(u32 count, Image image) {
 		data.images.Resize(data.images.size+count, image);
-		return data.images.GetRange(data.images.size-count, count);
+		return data.images.GetSmartRange(data.images.size-count, count);
 	}
 
-	Range<Buffer> Memory::AddBuffers(u32 count, Buffer buffer) {
+	SmartRange<Buffer> Memory::AddBuffers(u32 count, Buffer buffer) {
 		data.buffers.Resize(data.buffers.size+count, buffer);
-		return data.buffers.GetRange(data.buffers.size-count, count);
+		return data.buffers.GetSmartRange(data.buffers.size-count, count);
 	}
 
 	bool Memory::Init(Device *device, String debugMarker) {
@@ -1090,7 +1093,7 @@ failure:
 			return -1;
 		}
 		data.memoryTypeBits = memReqs.memoryTypeBits;
-		
+
 		data.offsets.Back() = align(data.offsets.Back(), memReqs.alignment);
 
 		data.offsets.Append(data.offsets.Back() + memReqs.size);
@@ -1353,7 +1356,7 @@ failure:
 		}
 	}
 
-	bool DescriptorSet::AddDescriptor(Range<Buffer> buffers, i32 binding) {
+	bool DescriptorSet::AddDescriptor(SmartRange<Buffer> buffers, i32 binding) {
 		for (i32 i = 0; i < data.layout->bindings.size; i++) {
 			if (data.layout->bindings[i].binding == binding) {
 				if (data.layout->bindings[i].count != buffers.size) {
@@ -1368,7 +1371,7 @@ failure:
 		return true;
 	}
 
-	bool DescriptorSet::AddDescriptor(Range<Image> images, Ptr<Sampler> sampler, i32 binding) {
+	bool DescriptorSet::AddDescriptor(SmartRange<Image> images, Ptr<Sampler> sampler, i32 binding) {
 		// TODO: Support other types of descriptors
 		for (i32 i = 0; i < data.layout->bindings.size; i++) {
 			if (data.layout->bindings[i].binding == binding) {
@@ -1394,11 +1397,11 @@ failure:
 	}
 
 	bool DescriptorSet::AddDescriptor(Ptr<Buffer> buffer, i32 binding) {
-		return AddDescriptor(Range<Buffer>((Array<Buffer>*)buffer.ptr, buffer.index, 1), binding);
+		return AddDescriptor(SmartRange<Buffer>((Array<Buffer>*)buffer.ptr, buffer.index, 1), binding);
 	}
 
 	bool DescriptorSet::AddDescriptor(Ptr<Image> image, Ptr<Sampler> sampler, i32 binding) {
-		return AddDescriptor(Range<Image>((Array<Image>*)image.ptr, image.index, 1), sampler, binding);
+		return AddDescriptor(SmartRange<Image>((Array<Image>*)image.ptr, image.index, 1), sampler, binding);
 	}
 
 	Descriptors::~Descriptors() {
@@ -2413,7 +2416,7 @@ failure:
 		data.initted = false;
 		return true;
 	}
-	
+
 	bool Framebuffer::Recreate() {
 #ifndef AZCORE_VK_SANITY_CHECKS_MINIMAL
 		if (!data.created) {
@@ -2437,7 +2440,7 @@ failure:
 #endif
 		data.device = dev;
 		data.debugMarker = debugMarker;
-		
+
 		VkFenceCreateInfo info = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
 		if (startSignaled) {
 			info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
@@ -3120,7 +3123,7 @@ failure:
 		}
 		return true;
 	}
-	
+
 	void Swapchain:: UpdateSurfaceCapabilities() {
 		vkDeviceWaitIdle(data.device->data.device);
 		VkPhysicalDevice physicalDevice = data.device->data.physicalDevice.physicalDevice;
@@ -3523,9 +3526,9 @@ failure:
 		return Ptr<Shader>(&data.shaders, data.shaders.size-1);
 	}
 
-	Range<Shader> Device::AddShaders(u32 count) {
+	SmartRange<Shader> Device::AddShaders(u32 count) {
 		data.shaders.Resize(data.shaders.size+count);
-		return Range<Shader>(&data.shaders, data.shaders.size-count, count);
+		return SmartRange<Shader>(&data.shaders, data.shaders.size-count, count);
 	}
 
 	Ptr<Pipeline> Device::AddPipeline() {
@@ -3547,7 +3550,7 @@ failure:
 		data.semaphores.Append(Semaphore());
 		return Ptr<Semaphore>(&data.semaphores, data.semaphores.size-1);
 	}
-	
+
 	Ptr<Fence> Device::AddFence() {
 		data.fences.Append(Fence());
 		return Ptr<Fence>(&data.fences, data.fences.size-1);
@@ -3605,7 +3608,7 @@ failure:
 		// TODO: Right now we just choose the first in the pre-sorted list. We should instead select
 		//	   them based on whether they have our desired features.
 		data.physicalDevice = data.instance->data.physicalDevices[0];
-		
+
 		// for (i32 i = 0; i < data.physicalDevice.extensionsAvailable.size; i++) {
 		// 	cout.PrintLn(data.physicalDevice.extensionsAvailable[i].extensionName);
 		// }

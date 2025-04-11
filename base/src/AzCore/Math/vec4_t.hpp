@@ -8,7 +8,7 @@
 
 #include "vec3_t.hpp"
 
-#include "basic.hpp"
+#include "Basic.hpp"
 
 namespace AzCore {
 

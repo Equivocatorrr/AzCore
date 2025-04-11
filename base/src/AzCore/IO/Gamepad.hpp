@@ -13,7 +13,7 @@
 #include "ButtonState.hpp"
 #include "RawInput.hpp"
 #include "../Memory/Ptr.hpp"
-#include "../math.hpp"
+#include "../Math/vec2_t.hpp"
 
 namespace AzCore {
 

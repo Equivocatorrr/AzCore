@@ -4,8 +4,8 @@
 	Finds the coefficients of a polynomial to approximate a function.
 */
 
-#include "AzCore/io.hpp"
-#include "AzCore/math.hpp"
+#include "AzCore/IO/io.hpp"
+#include "AzCore/Math/Math.hpp"
 #include "AzCore/Memory/Array.hpp"
 
 using namespace AzCore;

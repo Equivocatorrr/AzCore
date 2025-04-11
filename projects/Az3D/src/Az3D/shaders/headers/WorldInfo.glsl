@@ -19,6 +19,7 @@ layout(set=0, binding=0) uniform WorldInfo {
 const float sunRadiusDegrees = 5.0;
 const float sunRadiusRadians = PI * sunRadiusDegrees / 180.0;
 const float sunTanRadius = tan(sunRadiusRadians);
+// const vec3 sunLightColor = vec3(1.0, 0.05, 0.01) * 8.0;
 const vec3 sunLightColor = vec3(1.0, 0.9, 0.8) * 4.0;
 
 #endif // WORLD_INFO_GLSL

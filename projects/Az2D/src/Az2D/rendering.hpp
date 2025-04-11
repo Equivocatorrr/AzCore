@@ -7,8 +7,10 @@
 #ifndef AZ2D_RENDERING_HPP
 #define AZ2D_RENDERING_HPP
 
-#include "AzCore/memory.hpp"
 #include "AzCore/vk.hpp"
+#include "AzCore/Thread.hpp"
+#include "AzCore/Math/mat2_t.hpp"
+#include "AzCore/Math/Angle.hpp"
 
 namespace AzCore {
 namespace io {
@@ -169,12 +171,6 @@ struct UniformBuffer {
 	Light lights[MAX_LIGHTS];
 };
 
-// I fucking hate Microsoft and every decision they've ever made
-// This should never be fucking necessary
-#ifdef DrawText
-#undef DrawText
-#endif
-
 struct Manager {
 	struct {
 		vk::Instance instance;
@@ -220,9 +216,9 @@ struct Manager {
 		Ptr<vk::Memory> fontImageMemory;
 
 		Ptr<vk::Buffer> fontStagingVertexBuffer;
-		Range<vk::Buffer> fontStagingImageBuffers;
+		SmartRange<vk::Buffer> fontStagingImageBuffers;
 		Ptr<vk::Buffer> fontVertexBuffer;
-		Range<vk::Image> fontImages;
+		SmartRange<vk::Image> fontImages;
 
 		Array<Ptr<vk::Pipeline>> pipelines;
 		Array<StaticArray<Ptr<vk::DescriptorSet>, 4>> pipelineDescriptorSets;

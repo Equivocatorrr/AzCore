@@ -8,11 +8,9 @@
 
 #include "ButtonState.hpp"
 #include "../Memory/String.hpp"
-#include "../math.hpp"
+#include "../Math/vec2_t.hpp"
 
-namespace AzCore {
-
-namespace io {
+namespace AzCore::io {
 
 /*  struct: Input
 	Author: Philip Haynes
@@ -62,8 +60,6 @@ struct Input {
 	}
 };
 
-} // namespace io
-
-} // namespace AzCore
+} // namespace AzCore::io
 
 #endif // AZCORE_INPUT_HPP

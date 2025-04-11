@@ -6,7 +6,7 @@
 #ifndef AZCORE_MATH_VEC5_HPP
 #define AZCORE_MATH_VEC5_HPP
 
-#include "basic.hpp"
+#include "Basic.hpp"
 #include "vec4_t.hpp"
 
 namespace AzCore {

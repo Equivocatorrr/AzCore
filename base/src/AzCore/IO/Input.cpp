@@ -4,7 +4,9 @@
 */
 
 #include "Input.hpp"
-#include "../keycodes.hpp"
+#include "KeyCodes.hpp"
+
+using namespace AzCore::io::kc;
 
 namespace AzCore {
 

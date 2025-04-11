@@ -4,11 +4,13 @@
 	Description: High-level definition of the structure of our program.
 */
 
-#include "AzCore/io.hpp"
+#include "AzCore/IO/io.hpp"
 #include "AzCore/gpu.hpp"
-#include "AzCore/Math/Color.hpp"
+#include "AzCore/Math/Math.hpp"
 
 using namespace AzCore;
+
+using namespace AzCore::io::kc;
 
 const u32 maxVertices = 8192;
 
@@ -77,16 +79,16 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	ioWindow.Resize(u32((f32)ioWindow.width * scale), u32((u32)ioWindow.height * scale));
 
 	rawInput.window = &ioWindow;
-	
+
 	GPU::SetAppName("AzCore Tesseract");
-	
+
 	GPU::Window *gpuWindow = GPU::AddWindow(&ioWindow, "Main window").AzUnwrap();
 
 	GPU::Device *device = GPU::NewDevice();
 
 	GPU::Buffer *vertexBuffer = GPU::NewVertexBuffer(device);
 	GPU::BufferSetSize(vertexBuffer, sizeof(Vertex) * maxVertices).AzUnwrap();
-	
+
 	GPU::Image *msaaImage;
 
 	GPU::Framebuffer *framebuffer = GPU::NewFramebuffer(device);
@@ -99,12 +101,12 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	} else {
 		GPU::FramebufferAddWindow(framebuffer, gpuWindow);
 	}
-	
+
 	vec4 clearColor = vec4(sRGBToLinear(vec3(0.0f, 0.1f, 0.2f)), 1.0f);
-	
+
 	GPU::Shader *shaderVert = GPU::NewShader(device, "data/shaders/2D.vert.spv", GPU::ShaderStage::VERTEX);
 	GPU::Shader *shaderFrag = GPU::NewShader(device, "data/shaders/2D.frag.spv", GPU::ShaderStage::FRAGMENT);
-	
+
 
 	GPU::Pipeline *pipelineLines = GPU::NewGraphicsPipeline(device, "Lines pipeline");
 	GPU::PipelineAddShaders(pipelineLines, {shaderVert, shaderFrag});
@@ -115,7 +117,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	GPU::PipelineSetBlendMode(pipelineLines, {GPU::BlendMode::ADDITION, false});
 	GPU::PipelineSetTopology(pipelineLines, GPU::Topology::LINE_LIST);
 	GPU::PipelineSetLineWidth(pipelineLines, 4.0f * scale);
-	
+
 	GPU::Pipeline *pipelineTriangleFan = GPU::NewGraphicsPipeline(device, "TriangleFan pipeline");
 	GPU::PipelineAddShaders(pipelineTriangleFan, {shaderVert, shaderFrag});
 	GPU::PipelineAddVertexInputs(pipelineTriangleFan, {
@@ -124,7 +126,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 	});
 	GPU::PipelineSetBlendMode(pipelineTriangleFan, {GPU::BlendMode::ADDITION, false});
 	GPU::PipelineSetTopology(pipelineTriangleFan, GPU::Topology::TRIANGLE_FAN);
-	
+
 	GPU::Context *contextTransfer = GPU::NewContext(device, "Transfer context");
 	GPU::Context *contextDrawing = GPU::NewContext(device, "Drawing context");
 
@@ -261,7 +263,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		if (input.PressedChar('V')) {
 			GPU::SetVSync(gpuWindow, !GPU::GetVSyncEnabled(gpuWindow));
 		}
-		
+
 		if (auto result = GPU::WindowUpdate(gpuWindow); result.isError) {
 			io::cerr.PrintLn("Failed to GPU::WindowUpdate: ", result.error);
 			return 1;
@@ -489,7 +491,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 			io::cerr.PrintLn("Failed to end recording drawing: ", result.error);
 			return 1;
 		}
-		
+
 		if (auto result = GPU::ContextBeginRecording(contextTransfer); result.isError) {
 			io::cerr.PrintLn("Failed to begin recording transfer: ", result.error);
 			return 1;

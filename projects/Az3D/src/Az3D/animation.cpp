@@ -8,11 +8,12 @@
 #include "rendering.hpp"
 #include "settings.hpp"
 
-#include "AzCore/Profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
 
 namespace Az3D::Animation {
 
 using namespace AzCore;
+using namespace io::kc;
 
 using GameSystems::sys;
 
@@ -52,9 +53,9 @@ struct IkEvalMetadata {
 	vec3 axisAngles = 0.0f;
 };
 
-void EvaluateBone(SimpleRange<mat4> transforms, SimpleRange<BoneEvalMetadata> metadatas, SimpleRange<Az3DObj::Bone> bones, i32 boneIndex, Az3DObj::Action &action, f32 time, mat4 &modelTransform, Array<Vector<f32>>& ikParameters, i32& ikIndex);
+void EvaluateBone(Range<mat4> transforms, Range<BoneEvalMetadata> metadatas, Range<Az3DObj::Bone> bones, i32 boneIndex, Az3DObj::Action &action, f32 time, mat4 &modelTransform, Array<Vector<f32>>& ikParameters, i32& ikIndex);
 
-void EvaluateParameters(Array<IkEvalMetadata> &ikChain, Vector<f32> &parameters, SimpleRange<mat4> transforms, SimpleRange<BoneEvalMetadata> metadatas, SimpleRange<Az3DObj::Bone> bones, mat4 &modelTransform) {
+void EvaluateParameters(Array<IkEvalMetadata> &ikChain, Vector<f32> &parameters, Range<mat4> transforms, Range<BoneEvalMetadata> metadatas, Range<Az3DObj::Bone> bones, mat4 &modelTransform) {
 	AZCORE_PROFILING_FUNC_TIMER()
 	for (i32 i = 0, p = 0; i < ikChain.size; i++) {
 		auto *b = ikChain[i].bone;
@@ -108,7 +109,7 @@ void EvaluateParameters(Array<IkEvalMetadata> &ikChain, Vector<f32> &parameters,
 	}
 }
 
-void EvaluateJacobian(Matrix<f32> &jacobian, Array<IkEvalMetadata> &ikChain, Vector<f32> &parameters, Vector<f32> &stiffness, SimpleRange<mat4> transforms, SimpleRange<BoneEvalMetadata> metadatas, SimpleRange<Az3DObj::Bone> bones, mat4 &modelTransform, bool showDerivatives) {
+void EvaluateJacobian(Matrix<f32> &jacobian, Array<IkEvalMetadata> &ikChain, Vector<f32> &parameters, Vector<f32> &stiffness, Range<mat4> transforms, Range<BoneEvalMetadata> metadatas, Range<Az3DObj::Bone> bones, mat4 &modelTransform, bool showDerivatives) {
 	AZCORE_PROFILING_FUNC_TIMER()
 	for (i32 i = 0, p = 0; i < ikChain.size; i++) {
 		auto *b = ikChain[i].bone;
@@ -160,7 +161,7 @@ void LimitParameters(Vector<f32> &parameters, Vector<f32> &parameterMinimums, Ve
 	}
 }
 
-void EvaluateIK(SimpleRange<mat4> transforms, SimpleRange<BoneEvalMetadata> metadatas, SimpleRange<Az3DObj::Bone> bones, i32 boneIndex, Az3DObj::Action &action, f32 time, mat4 &modelTransform, Array<Vector<f32>> &ikParameters, i32 &ikIndex) {
+void EvaluateIK(Range<mat4> transforms, Range<BoneEvalMetadata> metadatas, Range<Az3DObj::Bone> bones, i32 boneIndex, Az3DObj::Action &action, f32 time, mat4 &modelTransform, Array<Vector<f32>> &ikParameters, i32 &ikIndex) {
 	AZCORE_PROFILING_FUNC_TIMER()
 	// cout.PrintLn(bone.name, " has target ", bones[bone.ikTarget].name);
 	Az3DObj::Bone &bone = bones[boneIndex];
@@ -308,7 +309,7 @@ void EvaluateIK(SimpleRange<mat4> transforms, SimpleRange<BoneEvalMetadata> meta
 	}
 }
 
-void EvaluateBone(SimpleRange<mat4> transforms, SimpleRange<BoneEvalMetadata> metadatas, SimpleRange<Az3DObj::Bone> bones, i32 boneIndex, Az3DObj::Action &action, f32 time, mat4 &modelTransform, Array<Vector<f32>> &ikParameters, i32 &ikIndex) {
+void EvaluateBone(Range<mat4> transforms, Range<BoneEvalMetadata> metadatas, Range<Az3DObj::Bone> bones, i32 boneIndex, Az3DObj::Action &action, f32 time, mat4 &modelTransform, Array<Vector<f32>> &ikParameters, i32 &ikIndex) {
 	AZCORE_PROFILING_FUNC_TIMER()
 	mat4 &transform = transforms[boneIndex];
 	BoneEvalMetadata &meta = metadatas[boneIndex];
@@ -371,7 +372,7 @@ void AnimateArmature(Array<mat4> &dstBones, ArmatureAction armatureAction, mat4 
 	for (auto &armature : mesh.armatures) {
 		i32 boneStart = dstBones.size;
 		dstBones.Resize(dstBones.size + armature.bones.size, mat4::Identity());
-		SimpleRange<mat4> transforms(&dstBones[boneStart], armature.bones.size);
+		Range<mat4> transforms(&dstBones[boneStart], armature.bones.size);
 		Array<BoneEvalMetadata> metadatas(armature.bones.size);
 		// Evaluate the hierarchy in bone space, also getting the model-space rest transforms
 		for (i32 i = 0; i < transforms.size; i++) {

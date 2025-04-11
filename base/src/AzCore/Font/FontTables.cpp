@@ -2,13 +2,11 @@
 	File: FontTables.cpp
 	Author: Philip Haynes
 */
-#include "../font.hpp"
-
+#include "FontTables.hpp"
 #include "CFF.cpp"
 
-namespace AzCore {
+namespace AzCore::font {
 
-namespace font {
 f32 ToF32(const F2Dot14_t& in) {
 	f32 out;
 	if (in & 0x8000) {
@@ -99,7 +97,7 @@ void Offset::Read(Array<char> &buffer, i32 &cur) {
 	cur += 2;
 	rangeShift = bytesToU16(&buffer[cur], SysEndian.little);
 	cur += 2;
-	tables = SimpleRange<Record>((Record*)&buffer[cur], numTables);
+	tables = Range<Record>((Record*)&buffer[cur], numTables);
 	for (u32 i = 0; i < numTables; i++) {
 		// Read in-place performs endian swap
 		tables[i].Read(buffer, cur);
@@ -116,7 +114,7 @@ bool TTCHeader::Read(Array<char> &buffer, i32 &cur) {
 			numFonts = bytesToU32(&buffer[cur], SysEndian.little);
 			cur += 4;
 		}
-		offsetTables = SimpleRange<u32>((u32*)&buffer[cur], numFonts);
+		offsetTables = Range<u32>((u32*)&buffer[cur], numFonts);
 		cur += 4 * numFonts;
 		if (SysEndian.little) {
 			for (u32 i = 0; i < numFonts; i++) {
@@ -138,7 +136,7 @@ bool TTCHeader::Read(Array<char> &buffer, i32 &cur) {
 		version.major = 0;
 		numFonts = 1;
 		static u32 zero = 0;
-		offsetTables = SimpleRange<u32>(&zero, 1);
+		offsetTables = Range<u32>(&zero, 1);
 	}
 	return true;
 }
@@ -355,11 +353,11 @@ void glyf_header::EndianSwap() {
 }
 
 void glyf::EndianSwap(loca *loc, u16 numGlyphs, bool longOffsets) {
-	#define DO_SWAP()   header->EndianSwap();                   \
-						if (header->numberOfContours >= 0) {    \
-							EndianSwapSimple(header);           \
-						} else {                                \
-							EndianSwapCompound(header);         \
+	#define DO_SWAP()   header->EndianSwap();\
+						if (header->numberOfContours >= 0) {\
+							EndianSwapSimple(header);\
+						} else {\
+							EndianSwapCompound(header);\
 						}
 	if (longOffsets) {
 		// TODO: Make better hash tables FFS
@@ -478,9 +476,7 @@ void glyf::EndianSwapSimple(glyf_header *header) {
 void glyf::EndianSwapCompound(glyf_header *header) {
 	char *ptr = (char*)(header+1);
 	u16 *flags;
-	u16 components = 0;
 	do {
-		components++;
 		flags = (u16*)ptr;
 		ENDIAN_SWAP(*flags);
 		ptr += 2;
@@ -993,5 +989,5 @@ GlyphInfo cffParsed::GetGlyphInfo(u32 glyphIndex) const {
 }
 
 } // namespace tables
-} // namespace font
-} // namespace AzCore
+
+} // namespace AzCore::font

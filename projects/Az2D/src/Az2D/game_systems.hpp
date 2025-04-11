@@ -2,19 +2,24 @@
 	File: game_systems.hpp
 	Author: Philip Haynes
 	Defines an abstract interface and manager for event-driven systems.
-	Helps define interaction between said systems in 
+	Helps define interaction between said systems in
 */
 
 #ifndef AZ2D_GAME_SYSTEMS_HPP
 #define AZ2D_GAME_SYSTEMS_HPP
 
-#include "AzCore/memory.hpp"
-#include "AzCore/io.hpp"
-#include "AzCore/vk.hpp"
+#include "assets.hpp"
 #include "rendering.hpp"
 #include "sound.hpp"
-#include "assets.hpp"
-#include <atomic>
+
+#include "AzCore/vk.hpp"
+#include "AzCore/Utility/Time.hpp"
+#include "AzCore/Memory/BinaryMap.hpp"
+#include "AzCore/IO/Window.hpp"
+#include "AzCore/IO/Input.hpp"
+#include "AzCore/IO/RawInput.hpp"
+#include "AzCore/IO/Gamepad.hpp"
+
 
 namespace Az2D::Assets {
 struct Manager;
@@ -31,7 +36,7 @@ struct System;
 extern Manager *sys;
 
 // Initializes the engine
-bool Init(az::SimpleRange<char> windowTitle, az::Array<System*> systemsToRegister, bool enableVulkanValidation);
+bool Init(az::Range<char> windowTitle, az::Array<System*> systemsToRegister, bool enableVulkanValidation);
 // Does the loop internally
 void UpdateLoop();
 // Cleans up and saves stuff
@@ -67,29 +72,29 @@ struct Manager {
 	bool exit = false;
 	bool abort = false;
 	az::String error;
-	
+
 	az::BinaryMap<az::String, az::WString> locale;
 	void LoadLocale();
-	inline az::WString ReadLocale(az::SimpleRange<char> name) {
+	inline az::WString ReadLocale(az::Range<char> name) {
 		if (!locale.Exists(name))
 			return az::ToWString(name);
 		else
 			return locale[name];
 	}
-	
+
 	AzCore::io::Input input;
 	AzCore::io::Window window;
 	AzCore::io::RawInput rawInput;
 	AzCore::io::Gamepad *gamepad = nullptr;
-	
+
 	Sound::Manager sound;
 	Assets::Manager assets;
 	Rendering::Manager rendering;
 	bool enableVulkanValidation;
-	
+
 	bool Init();
 	void Deinit();
-	
+
 	static void RenderCallback(void *userdata, Rendering::Manager *rendering, az::Array<Rendering::DrawingContext>& drawingContexts);
 
 	// Registers the rendering callbacks

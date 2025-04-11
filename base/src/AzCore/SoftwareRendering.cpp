@@ -4,7 +4,6 @@
 */
 
 #include "SoftwareRendering.hpp"
-#include "IO/Log.hpp"
 
 #ifdef __unix
 	#define AZCORE_IO_NO_XLIB
@@ -94,32 +93,60 @@ void SoftwareRenderer::DrawBoxBlended(vec2i p1, vec2i p2, Color<u8> color) {
 	}
 }
 
-void SoftwareRenderer::DrawImage(vec2i p1, Image *image) {
-	vec2i p2 = p1 + vec2i(image->width-1, image->height-1);
+void SoftwareRenderer::DrawImage(vec2i p1, const Image &image) {
+	vec2i p2 = p1 + vec2i(image.width-1, image.height-1);
 	if (!CheckBounds(p1, p2, width, height)) return;
 	i32 imgY = 0;
 	for (i32 y = p1.y; y <= p2.y; y++) {
 		i32 imgX = 0;
 		u8 *line = &framebuffer[y*stride];
-		u8 *imgLine = &image->pixels[imgY * image->stride];
+		const u8 *imgLine = &image.pixels[imgY * image.stride];
 		for (i32 x = p1.x; x <= p2.x; x++) {
-			Color<u8> color = *((Color<u8>*)&imgLine[imgX*image->channels]);
+			Color<u8> color;
+			switch (image.format.channels) {
+				case 1:
+					color = Color<u8>(vec3_t<u8>(imgLine[imgX*image.format.channels]), 255);
+					break;
+				case 2:
+					color = Color<u8>(
+						imgLine[imgX*image.format.channels],
+						imgLine[imgX*image.format.channels+1],
+						0, 255
+					);
+					break;
+				case 3:
+					color = Color<u8>(
+						imgLine[imgX*image.format.channels],
+						imgLine[imgX*image.format.channels+1],
+						imgLine[imgX*image.format.channels+2],
+						255
+					);
+					break;
+				default:
+					color = Color<u8>(
+						imgLine[imgX*image.format.channels],
+						imgLine[imgX*image.format.channels+1],
+						imgLine[imgX*image.format.channels+2],
+						imgLine[imgX*image.format.channels+3]
+					);
+					break;
+			}
 			AzCore::ColorPixel(line + x*depth, color);
 			imgX++;
 		}
 		imgY++;
 	}
 }
-void SoftwareRenderer::DrawImageBlended(vec2i p1, Image *image) {
-	vec2i p2 = p1 + vec2i(image->width-1, image->height-1);
+void SoftwareRenderer::DrawImageBlended(vec2i p1, const Image &image) {
+	vec2i p2 = p1 + vec2i(image.width-1, image.height-1);
 	if (!CheckBounds(p1, p2, width, height)) return;
 	i32 imgY = 0;
 	for (i32 y = p1.y; y <= p2.y; y++) {
 		i32 imgX = 0;
 		u8 *line = &framebuffer[y*stride];
-		u8 *imgLine = &image->pixels[imgY * image->stride];
+		const u8 *imgLine = &image.pixels[imgY * image.stride];
 		for (i32 x = p1.x; x <= p2.x; x++) {
-			Color<u8> color = *((Color<u8>*)&imgLine[imgX*image->channels]);
+			Color<u8> color = *((const Color<u8>*)&imgLine[imgX*image.format.channels]);
 			ColorPixelBlended(line + x*depth, color);
 			imgX++;
 		}
@@ -227,7 +254,7 @@ bool SoftwareRenderer::Present() {
 }
 bool SoftwareRenderer::Deinit() {
 	if (window->data->useWayland) {
-		
+
 	} else {
 		xcb_connection_t *connection = window->data->x11.connection;
 		DestroyShmImageXCB(data, window);
@@ -237,9 +264,13 @@ bool SoftwareRenderer::Deinit() {
 	return true;
 }
 
-bool SoftwareRenderer::FramebufferToImage(Image *dst) {
-	dst->Alloc(width, height, 3);
-	return dst->Copy(framebuffer, width, height, depth, Image::BGRA, stride, 255);
+void SoftwareRenderer::FramebufferToImage(Image &dst) {
+	dst.width = width;
+	dst.height = height;
+	dst.format.channels = 3;
+	dst.Alloc();
+	Image src = Image::PointingToBuffer(framebuffer, width, height, Image::Format{4, 8, Image::Format::UNORM, Image::Format::BGRA, Image::Format::SRGB}, stride);
+	dst.Copy(src);
 }
 
 #elif defined(_WIN32)
@@ -320,6 +351,7 @@ void DestroyFramebufferImage(SWData *data, io::Window *window) {
 }
 
 bool SoftwareRenderer::Init() {
+	AzAssert(window, "SoftwareRenderer must have a window associated. Set it directly if you're using the default constructor.");
 	if (!window->open) return false;
 	width = window->width;
 	height = window->height;
@@ -352,13 +384,20 @@ bool SoftwareRenderer::Deinit() {
 	return true;
 }
 
-bool SoftwareRenderer::FramebufferToImage(Image *dst) {
-	dst->Alloc(width, height, 3);
-	return dst->Copy(framebuffer, width, height, depth, Image::BGRA, stride, 255);
+void SoftwareRenderer::FramebufferToImage(Image &dst) {
+	dst.width = width;
+	dst.height = height;
+	dst.format.channels = 3;
+	dst.Alloc();
+	Image src = Image::PointingToBuffer(framebuffer, width, height, Image::Format{4, 8, Image::Format::UNORM, Image::Format::BGRA, Image::Format::SRGB}, stride);
+	dst.Copy(src);
 }
 
 #endif
 
+SoftwareRenderer::SoftwareRenderer() {
+	data = new SWData;
+}
 SoftwareRenderer::SoftwareRenderer(io::Window *inWindow) : window(inWindow), initted(false) {
 	data = new SWData;
 }

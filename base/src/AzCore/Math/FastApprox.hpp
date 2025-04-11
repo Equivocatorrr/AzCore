@@ -7,7 +7,7 @@
 #ifndef AZCORE_MATH_FAST_APPROX
 #define AZCORE_MATH_FAST_APPROX
 
-#include "basic.hpp"
+#include "Basic.hpp"
 
 namespace AzCore {
 

@@ -9,9 +9,9 @@
 #define AZ2D_ENTITY_BASICS_HPP
 
 #include "game_systems.hpp"
+
 #include "AzCore/Thread.hpp"
-#include "AzCore/math.hpp"
-#include "rendering.hpp"
+
 #include <type_traits> // is_base_of
 
 namespace Az2D {
@@ -177,7 +177,7 @@ TypeID GenTypeId(void *ptr);
 struct IdGeneric {
 	Id id;
 	TypeID type=UINT64_MAX;
-	
+
 	const struct Entity& GetConst() const;
 	struct Entity& GetMut() const;
 	bool Valid() const;
@@ -214,7 +214,11 @@ struct Entity {
 	// void Draw(Rendering::DrawingContext &context);
 	void EventDestroy() {};
 };
+#ifndef __clang__
+// clang is dum about this apparently
+// "static assertion expression is not an integral constant expression"
 static_assert(offsetof(Entity, id) == offsetof(Entity, idGeneric) && offsetof(IdGeneric, IdGeneric::id) == 0);
+#endif
 
 typedef void (*fpUpdateCallback)(void*,i32,i32);
 typedef void (*fpDrawCallback)(void*,Rendering::DrawingContext*,i32,i32);
@@ -250,12 +254,12 @@ struct DoubleBufferArray {
 	i32 claimedNew = 0;
 	bool buffer = false;
 	i32 granularity = 10;
-	
+
 	DoubleBufferArray() = default;
 	// Delete these because _DoubleBufferArrays will be invalidated if we move
 	DoubleBufferArray(const DoubleBufferArray&) = delete;
 	DoubleBufferArray(DoubleBufferArray&&) = delete;
-	
+
 	inline az::Array<T>& ArrayConst() {
 		return array[!buffer];
 	}
@@ -274,7 +278,7 @@ struct DoubleBufferArray {
 	inline T& EntityMut(Id id) {
 		return ArrayMut()[id.index];
 	}
-	
+
 	static void Update(void *theThisPointer, i32 threadIndex, i32 concurrency);
 	static void Draw(void *theThisPointer, Rendering::DrawingContext *context, i32 threadIndex, i32 concurrency) {
 		DoubleBufferArray<T> *theActualThisPointer = (DoubleBufferArray<T>*)theThisPointer;

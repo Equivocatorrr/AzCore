@@ -4,7 +4,7 @@
 */
 
 #include "settings.hpp"
-#include "AzCore/memory.hpp"
+#include "AzCore/Memory/Memory.hpp"
 #include "AzCore/IO/Log.hpp"
 #include <cstdio>
 #include <locale>
@@ -89,7 +89,7 @@ void SetString(Name name, az::String &&value) {
 }
 
 
-bool ReadBoolFromStr(SimpleRange<char> val, bool def) {
+bool ReadBoolFromStr(Range<char> val, bool def) {
 	if (val == "true") {
 		return true;
 	} else if (val == "false") {
@@ -99,7 +99,7 @@ bool ReadBoolFromStr(SimpleRange<char> val, bool def) {
 	}
 }
 
-i64 ReadIntFromStr(SimpleRange<char> val, i64 def) {
+i64 ReadIntFromStr(Range<char> val, i64 def) {
 	i64 result;
 	if (!StringToI64(val, &result)) {
 		result = def;
@@ -107,7 +107,7 @@ i64 ReadIntFromStr(SimpleRange<char> val, i64 def) {
 	return result;
 }
 
-f64 ReadRealFromStr(SimpleRange<char> val, f64 def) {
+f64 ReadRealFromStr(Range<char> val, f64 def) {
 	f64 result;
 	if (!StringToF64(val, &result)) {
 		result = def;
@@ -115,7 +115,7 @@ f64 ReadRealFromStr(SimpleRange<char> val, f64 def) {
 	return result;
 }
 
-bool GetKeyValuePair(SimpleRange<char> line, SimpleRange<char> &outKey, SimpleRange<char> &outValue) {
+bool GetKeyValuePair(Range<char> line, Range<char> &outKey, Range<char> &outValue) {
 	i64 space = -1;
 	for (i64 i = 0; i < line.size; i++) {
 		if (line[i] == ' ') {
@@ -125,7 +125,7 @@ bool GetKeyValuePair(SimpleRange<char> line, SimpleRange<char> &outKey, SimpleRa
 	}
 	if (space == -1) {
 		outKey = line;
-		outValue = SimpleRange<char>();
+		outValue = Range<char>();
 		return false;
 	} else {
 		outKey = line.SubRange(0, space);
@@ -140,9 +140,9 @@ bool Load() {
 		az::io::cout.PrintLn("Failed to load settings.conf, using defaults");
 		return false;
 	}
-	Array<SimpleRange<char>> lines = SeparateByNewlines(buffer);
+	Array<Range<char>> lines = SeparateByNewlines(buffer);
 	for (i32 i = 0; i < lines.size; i++) {
-		SimpleRange<char> key, value;
+		Range<char> key, value;
 		if (!GetKeyValuePair(lines[i], key, value)) continue;
 		Name string = key;
 		if (!settings.Exists(string)) continue;

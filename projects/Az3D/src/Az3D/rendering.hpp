@@ -13,7 +13,7 @@
 #include "Az3DObj.hpp"
 #include "animation.hpp"
 
-#include "AzCore/basictypes.hpp"
+#include "AzCore/BasicTypes.hpp"
 #include "AzCore/gpu.hpp"
 
 #include "assets.hpp"

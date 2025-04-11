@@ -24,5 +24,6 @@ void main() {
 
 	// outColor.rgb = TonemapACES(outColor.rgb);
 	outColor.rgb = TonemapCustom(outColor.rgb);
+	// outColor.rgb = TonemapArcade(outColor.rgb);
 	outColor.a = rawColor.a;
 }

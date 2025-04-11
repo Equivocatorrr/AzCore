@@ -6,7 +6,7 @@
 #ifndef AZCORE_WINDOW_HPP
 #define AZCORE_WINDOW_HPP
 
-#include "../basictypes.hpp"
+#include "../BasicTypes.hpp"
 #include "../Memory/String.hpp"
 
 namespace AzCore {
@@ -30,6 +30,7 @@ struct Window {
 	// Opaque type for clean cross-platform implementation
 	struct WindowData *data = nullptr;
 	bool open = false;
+	bool visible = false;
 	bool resized = false;
 	bool focused = true;
 	bool fullscreen = false;
@@ -54,7 +55,10 @@ struct Window {
 	Window();
 	~Window();
 	bool Open();
-	bool Show();
+	bool Show(bool shown=true);
+	inline bool Hide() {
+		return Show(false);
+	}
 	bool Fullscreen(bool fullscreen);
 	bool Resize(u32 w, u32 h);
 	bool Update();

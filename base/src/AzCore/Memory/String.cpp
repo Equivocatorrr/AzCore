@@ -4,8 +4,7 @@
 */
 
 #include "String.hpp"
-#include "../math.hpp"
-#include "../memory.hpp"
+#include "../Math/Basic.hpp"
 
 AZCORE_STRING_TERMINATOR(char, '\0');
 AZCORE_STRING_TERMINATOR(char32, 0u);
@@ -42,7 +41,7 @@ WString operator+(const char32 *cString, WString &&string) {
 }
 
 template <typename T>
-void Reverse(SimpleRange<T> range) {
+void Reverse(Range<T> range) {
 	for (i32 i = 0, j = range.size-1; i < j; i++, j--) {
 		Swap(range[i], range[j]);
 	}
@@ -66,7 +65,7 @@ void AppendToStringWithBase(String &string, u32 value, i32 base) {
 		}
 		remaining = quot;
 	}
-	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
+	Reverse(Range(string.data+startSize, string.size-startSize));
 }
 
 void AppendToStringWithBase(String &string, u64 value, i32 base) {
@@ -87,7 +86,7 @@ void AppendToStringWithBase(String &string, u64 value, i32 base) {
 		}
 		remaining = quot;
 	}
-	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
+	Reverse(Range(string.data+startSize, string.size-startSize));
 }
 
 #if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
@@ -109,7 +108,7 @@ void AppendToStringWithBase(String &string, u128 value, i32 base) {
 		}
 		remaining = quot;
 	}
-	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
+	Reverse(Range(string.data+startSize, string.size-startSize));
 }
 #endif
 
@@ -135,7 +134,7 @@ void AppendToStringWithBase(String &string, i32 value, i32 base) {
 	if (negative) {
 		string += '-';
 	}
-	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
+	Reverse(Range(string.data+startSize, string.size-startSize));
 }
 
 void AppendToStringWithBase(String &string, i64 value, i32 base) {
@@ -160,7 +159,7 @@ void AppendToStringWithBase(String &string, i64 value, i32 base) {
 	if (negative) {
 		string += '-';
 	}
-	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
+	Reverse(Range(string.data+startSize, string.size-startSize));
 }
 
 #if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
@@ -186,7 +185,7 @@ void AppendToStringWithBase(String &string, i128 value, i32 base) {
 	if (negative) {
 		string += '-';
 	}
-	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
+	Reverse(Range(string.data+startSize, string.size-startSize));
 }
 #endif
 
@@ -484,7 +483,7 @@ void AppendToStringWithBase(String &string, f128 value, i32 base, i32 precision)
 		return;
 	}
 	if (precision == 0) {
-		AppendToStringWithBase(string, (i128)roundf128(value), base);
+		AppendToStringWithBase(string, (i128)round(value), base);
 		return;
 	}
 	exponent -= 16383;
@@ -500,7 +499,7 @@ void AppendToStringWithBase(String &string, f128 value, i32 base, i32 precision)
 #include <stdio.h>
 
 template<typename Int, typename Char>
-bool _StringToInt(SimpleRange<Char> string, Int *dst, i32 base) {
+bool _StringToInt(Range<Char> string, Int *dst, i32 base) {
 	Int multiplier = 1;
 	Int result = 0;
 	for (i32 i = string.size-1; i >= 0; i--) {
@@ -555,7 +554,7 @@ bool _StringToFloat(StringBase<Char> string, Float *dst, i32 base) {
 	for (i32 i = 0; i < string.size-2; i++) {
 		if (string[i] == 'e' && (string[i+1] == '+' || string[i+1] == '-')) {
 			i32 exp;
-			if (!_StringToInt<i32, Char>(SimpleRange<Char>(&string[i+1], string.size-i-1), &exp, base)) return false;
+			if (!_StringToInt<i32, Char>(Range<Char>(&string[i+1], string.size-i-1), &exp, base)) return false;
 			exponent = exp;
 			/*
 			if (exp > 0) {
@@ -782,9 +781,9 @@ void TrimWhitespace(String &string) {
 	string.Resize(string.size - trailing);
 }
 
-String Join(const Array<SimpleRange<char>> &values, SimpleRange<char> joiner) {
+String Join(const Array<Range<char>> &values, Range<char> joiner) {
 	String output;
-	for (const SimpleRange<char> &value : values) {
+	for (const Range<char> &value : values) {
 		if (value.size) {
 			output.Append(value);
 			output.Append(joiner);
@@ -796,14 +795,14 @@ String Join(const Array<SimpleRange<char>> &values, SimpleRange<char> joiner) {
 }
 
 template<typename char_t>
-Array<SimpleRange<char_t>> _SeparateByNewlines(SimpleRange<char_t> string, bool allowEmpty) {
-	Array<SimpleRange<char_t>> result;
+Array<Range<char_t>> _SeparateByNewlines(Range<char_t> string, bool allowEmpty) {
+	Array<Range<char_t>> result;
 	i64 rangeStart = 0;
 	for (i64 i = 0; i < string.size; i++) {
 		char_t c = string[i];
 		if (c == '\r' || c == '\n') {
 			if (allowEmpty || i-rangeStart > 0) {
-				result.Append(SimpleRange(&string[rangeStart], i-rangeStart));
+				result.Append(Range(&string[rangeStart], i-rangeStart));
 			}
 			if (c == '\r' && string.size > i+1 && string[i+1] == '\n') {
 				++i;
@@ -812,7 +811,7 @@ Array<SimpleRange<char_t>> _SeparateByNewlines(SimpleRange<char_t> string, bool 
 		}
 	}
 	if (rangeStart < string.size) {
-		result.Append(SimpleRange(&string[rangeStart], string.size-rangeStart));
+		result.Append(Range(&string[rangeStart], string.size-rangeStart));
 	}
 	return result;
 }

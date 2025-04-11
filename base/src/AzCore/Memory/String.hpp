@@ -8,7 +8,7 @@
 
 #define AZCORE_STRING_WITH_BUCKET
 
-#include "Util.hpp"
+#include "../Utility/Memory.hpp"
 #include "Range.hpp"
 #ifdef AZCORE_STRING_WITH_BUCKET
 	#include "ArrayWithBucket.hpp"
@@ -19,8 +19,8 @@ namespace AzCore {
 
 // You can use Str in place of String as long as you're aware of the lifetime of the memory it points to since it has no storage of its own.
 // Also useful for making a common interface for both const char literals and String lvalues.
-using Str = SimpleRange<char>;
-using Str32 = SimpleRange<char32>;
+using Str = Range<char>;
+using Str32 = Range<char32>;
 
 #ifdef AZCORE_STRING_WITH_BUCKET
 	template<typename T>
@@ -101,10 +101,23 @@ inline void AppendToString(String &string, u32 value) {
 inline void AppendToString(String &string, u64 value) {
 	AppendToStringWithBase(string, value, 10);
 }
+
 // Because unsigned long is considered a distinct type from unsigned long long even if they're the same width
-inline void AppendToString(String &string, unsigned long value) {
-	AppendToStringWithBase(string, (u64)value, 10);
+inline void AppendToStringWithBase(String &string, unsigned long value, i32 base) {
+	AppendToStringWithBase(string, (u64)value, base);
 }
+inline void AppendToString(String &string, unsigned long value) {
+	AppendToStringWithBase(string, value, 10);
+}
+
+// Because long is considered a distinct type from long long even if they're the same width
+inline void AppendToStringWithBase(String &string, long value, i32 base) {
+	AppendToStringWithBase(string, (i64)value, base);
+}
+inline void AppendToString(String &string, long value) {
+	AppendToStringWithBase(string, value, 10);
+}
+
 inline void AppendToString(String &string, i32 value) {
 	AppendToStringWithBase(string, value, 10);
 }
@@ -226,7 +239,7 @@ inline void AppendToString(String &string, const char *value) {
 }
 
 template<typename T>
-inline void AppendToString(String &string, SimpleRange<T> array) {
+inline void AppendToString(String &string, Range<T> array) {
 	AppendToString(string, "{ ");
 	for (i32 i = 0;;) {
 		AppendToString(string, array[i]);
@@ -238,15 +251,15 @@ inline void AppendToString(String &string, SimpleRange<T> array) {
 
 template<typename T, i32 allocTail>
 inline void AppendToString(String &string, const Array<T, allocTail> &array) {
-	AppendToString(string, SimpleRange<T>(array));
+	AppendToString(string, Range<T>(array));
 }
 
 template<typename T, i32 noAllocCount, i32 allocTail>
 inline void AppendToString(String &string, const ArrayWithBucket<T, noAllocCount, allocTail> &array) {
-	AppendToString(string, SimpleRange<T>(array));
+	AppendToString(string, Range<T>(array));
 }
 
-inline void AppendToString(String &string, SimpleRange<char> value) {
+inline void AppendToString(String &string, Range<char> value) {
 	if (_indentState.string.size == 0) {
 		string.Append(value);
 	} else {
@@ -263,8 +276,8 @@ inline void AppendToString(String &string, const String &value) {
 	AppendToString(string, Str(value));
 }
 
-inline void AppendToString(String &string, Range<char> value) {
-	AppendToString(string, SimpleRange(value));
+inline void AppendToString(String &string, SmartRange<char> value) {
+	AppendToString(string, Str(value));
 }
 
 inline void AppendToString(String &string, String &&value) {
@@ -474,6 +487,25 @@ template<typename T, i32 allocTail, i32 noAllocCount>
 }
 
 template<typename T, i32 allocTail=0>
+[[nodiscard]] Array<SmartRange<T>, 0> SeparateByValues(SmartRange<T> &range,
+		const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values, bool allowEmpty=false) {
+	Array<SmartRange<T>, 0> result;
+	i32 rangeStart = 0;
+	for (i32 i = 0; i < range.size; i++) {
+		if (values.Contains(range[i])) {
+			if (allowEmpty || i-rangeStart > 0) {
+				result.Append(range.SubRange(rangeStart, i-rangeStart));
+			}
+			rangeStart = i+1;
+		}
+	}
+	if (rangeStart < range.size) {
+		result.Append(range.SubRange(rangeStart, range.size-rangeStart));
+	}
+	return result;
+}
+
+template<typename T, i32 allocTail=0>
 [[nodiscard]] Array<Range<T>, 0> SeparateByValues(Range<T> &range,
 		const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values, bool allowEmpty=false) {
 	Array<Range<T>, 0> result;
@@ -513,12 +545,12 @@ template<typename T, i32 allocTail=0>
 
 template<typename T, i32 allocTail=0>
 [[nodiscard]] Array<Range<T>, 0> SeparateByStrings(Array<T, allocTail> &array,
-		const ArrayWithBucket<SimpleRange<T>, 16/sizeof(SimpleRange<T>), 0> &strings, bool allowEmpty=false) {
+		const ArrayWithBucket<Range<T>, 16/sizeof(Range<T>), 0> &strings, bool allowEmpty=false) {
 	Array<Range<T>, 0> result;
 	i32 rangeStart = 0;
 	for (i32 i = 0; i < array.size;) {
 		i32 foundLen = 0;
-		for (const SimpleRange<T> &r : strings) {
+		for (const Range<T> &r : strings) {
 			i32 len = 0;
 			while (len < r.size && i+len < array.size && r[len] == array[i+len]) {
 				len++;

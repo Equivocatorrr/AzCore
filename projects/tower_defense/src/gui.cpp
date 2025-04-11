@@ -8,7 +8,8 @@
 
 #include "Az2D/game_systems.hpp"
 #include "Az2D/settings.hpp"
-#include "AzCore/Profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
+#include "AzCore/IO/KeyCodes.hpp"
 
 namespace Az2D::Gui {
 
@@ -16,6 +17,7 @@ using Entities::entities;
 using GameSystems::sys;
 
 using namespace AzCore;
+using namespace io::kc;
 
 Gui *gui = nullptr;
 
@@ -108,9 +110,9 @@ void MainMenu::Initialize() {
 	listV->padding = vec2(40.0f);
 	listV->color = 0.0f;
 	listV->colorHighlighted = 0.0f;
-	
+
 	constexpr f32 slant = 32.0f;
-	
+
 	azgui::Text *title = gui->system.CreateText(listV);
 	title->position.x = 4.0f * slant;
 	title->data = TextMetadata();
@@ -123,9 +125,9 @@ void MainMenu::Initialize() {
 	title->string = sys->ReadLocale("AzCore Tower Defense");
 	title->SetWidthPixel(256.0f);
 	title->SetHeightContents();
-	
+
 	gui->system.CreateSpacer(listV, 1.0f);
-	
+
 	azgui::Button buttonTemplate;
 	buttonTemplate.SetSizePixel(vec2(256.0f, 64.0f));
 	buttonTemplate.margin = vec2(16.0f);
@@ -214,7 +216,7 @@ void SettingsMenu::Initialize() {
 	title->string = sys->ReadLocale("Settings");
 	title->SetWidthFraction(1.0f);
 	title->SetHeightContents();
-	
+
 	gui->system.CreateSpacer(listV, 1.0f);
 
 	azgui::Text settingTextTemplate;
@@ -224,7 +226,7 @@ void SettingsMenu::Initialize() {
 
 	checkFullscreen = gui->system.CreateCheckbox(nullptr);
 	checkFullscreen->checked = Settings::ReadBool(Settings::sFullscreen);
-	
+
 	checkVSync = gui->system.CreateCheckbox(nullptr);
 	checkVSync->checked = Settings::ReadBool(Settings::sVSync);
 
@@ -264,7 +266,7 @@ void SettingsMenu::Initialize() {
 		textboxVolumes[i]->textValidate = azgui::TextValidateDecimalsNegativeAndInfinity;
 		sliderVolumes[i]->mirror = textboxVolumes[i];
 	}
-	
+
 	f32 guiScale = Settings::ReadReal(Settings::sGuiScale);
 	textboxGuiScale = gui->system.CreateTextboxFrom(nullptr, textboxTemplate);
 	textboxGuiScale->textFilter = azgui::TextFilterDigits;
@@ -339,7 +341,7 @@ void SettingsMenu::Initialize() {
 	buttonList->padding = vec2(0.0f);
 	buttonList->color = vec4(0.0f);
 	buttonList->colorHighlighted = vec4(0.0f);
-	
+
 	azgui::Button buttonTemplate;
 	buttonTemplate.SetWidthFraction(1.0f / 2.0f);
 	buttonTemplate.SetHeightPixel(64.0f);
@@ -450,7 +452,7 @@ void UpgradesMenu::Initialize() {
 		priorityText->data = TextMetadata{Rendering::LEFT, Rendering::CENTER};
 		priorityText->string = sys->ReadLocale(Entities::Tower::priorityStrings[i]);
 	}
-	
+
 	selectedTowerStats = gui->system.CreateText(listStats);
 	selectedTowerStats->SetWidthFraction(1.0f);
 	selectedTowerStats->color = 1.0f;
@@ -561,7 +563,7 @@ void UpgradesMenu::Update() {
 		}
 		WString costString = "\n" + sys->ReadLocale("Cost:") + ' ';
 		if (upgradeables.data[0]) { // Range
-			i64 cost = tower.sunkCost / 2;
+			i64 cost = tower.sunkCost / 4;
 			f32 newRange = tower.range * 1.25f;
 			bool canUpgrade = cost <= entities->money;
 			upgradeStatus[0]->string =
@@ -637,8 +639,9 @@ void UpgradesMenu::Update() {
 			}
 		}
 		selectedTowerStats->string =
-			sys->ReadLocale("Kills") + ": " + ToString(tower.kills) + "\n"
-			+ sys->ReadLocale("Damage") + ": " + ToString(tower.damageDone);
+			  sys->ReadLocale("Kills") + ": " + ToString(tower.kills) + "\n"
+			+ sys->ReadLocale("Damage") + ": " + ToString(tower.damageDone) + "\n"
+			+ sys->ReadLocale("Cost-Effectiveness") + ": " + ToString(100.0f * (f32)tower.damageDone / max((f32)tower.sunkCost, 1.0f), 10, 1) + "%";
 		if (towerPriority->changed) {
 			tower.priority = (Entities::Tower::TargetPriority)(towerPriority->choice);
 		}
@@ -655,7 +658,7 @@ void UpgradesMenu::Draw(Rendering::DrawingContext &context) {
 
 void PlayMenu::Initialize() {
 	screen = gui->system.CreateScreen();
-	
+
 	list = gui->system.CreateListV(screen);
 	list->SetWidthPixel(300.0f);
 	list->SetHeightFraction(1.0f);
@@ -702,7 +705,7 @@ void PlayMenu::Initialize() {
 	towerInfo->color = vec4(1.0f);
 	towerInfo->fontSize = 18.0f;
 	towerInfo->string = ToWString("$MONEY");
-	
+
 	gui->system.CreateSpacer(list, 1.0f);
 
 	azgui::Button fullWidth;
@@ -722,7 +725,7 @@ void PlayMenu::Initialize() {
 	// waveTitle->bold = true;
 	waveTitle->margin.y = 0.0f;
 	waveTitle->string = ToWString("Nothing");
-	
+
 	buttonStartWave = gui->system.CreateButtonAsDefaultFrom(waveList, halfWidth);
 	buttonTextStartWave = buttonStartWave->AddDefaultText(sys->ReadLocale("Start Wave"));
 	buttonTextStartWave->fontSize = 20.0f;

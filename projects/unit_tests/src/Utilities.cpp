@@ -1,9 +1,8 @@
 #include "Utilities.hpp"
 #include "UnitTests.hpp"
 
-#include "AzCore/math.hpp"
-#include "AzCore/IO/Log.hpp"
-#include "AzCore/QuickSort.hpp"
+#include "AzCore/Math/Basic.hpp"
+#include "AzCore/Utility/Sort.hpp"
 
 template <typename FP>
 void FPError<FP>::Compare(FP lhs, FP rhs, FP magnitude, i32 line, az::String info, FP maxErrorWeak, FP maxErrorFail) {
@@ -26,7 +25,7 @@ void FPError<FP>::Compare(FP lhs, FP rhs, FP magnitude, i32 line, az::String inf
 
 template <typename FP>
 void FPError<FP>::Report(i32 line) {
-	az::QuickSort(errors);
+	az::Sort(errors);
 	f32 medianError = errors[errors.size/2];
 	if ((errors.size % 2) == 0) {
 		medianError += errors[errors.size/2 + 1];

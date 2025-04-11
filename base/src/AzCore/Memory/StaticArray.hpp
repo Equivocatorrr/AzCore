@@ -6,7 +6,7 @@
 #ifndef AZCORE_STATICARRAY_HPP
 #define AZCORE_STATICARRAY_HPP
 
-#include "../basictypes.hpp"
+#include "../BasicTypes.hpp"
 #include "../Assert.hpp"
 #include "TemplateForwardDeclares.hpp"
 #include "StringCommon.hpp"
@@ -57,7 +57,7 @@ struct StaticArray {
 			}
 		}
 	}
-	StaticArray(const SimpleRange<T> &range) : size(range.size) {
+	StaticArray(const Range<T> &range) : size(range.size) {
 		AzAssert(size <= count, "StaticArray initialized with a size bigger than count");
 		if constexpr (std::is_trivially_copyable<T>::value) {
 			memcpy((void *)data, (void *)range.str, sizeof(T) * size);
@@ -111,7 +111,7 @@ struct StaticArray {
 		return *this;
 	}
 
-	StaticArray<T, count> &operator=(const SimpleRange<T> &range) {
+	StaticArray<T, count> &operator=(const Range<T> &range) {
 		size = range.size;
 		AzAssert(size <= count, "StaticArray assigned with a size bigger than count");
 		if constexpr (std::is_trivially_copyable<T>::value) {
@@ -165,7 +165,7 @@ struct StaticArray {
 		return true;
 	}
 
-	bool operator==(const SimpleRange<T> &other) const {
+	bool operator==(const Range<T> &other) const {
 		if (size != other.size) {
 			return false;
 		}

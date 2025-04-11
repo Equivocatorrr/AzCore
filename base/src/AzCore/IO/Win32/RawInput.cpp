@@ -3,16 +3,19 @@
 	Author: Philip Haynes
 */
 
-#include "../../basictypes.hpp"
+#include "../../BasicTypes.hpp"
 
+#include "../../Utility/WindowsHeaderPredefines.h"
 #include <windows.h>
 #include <dinput.h>
-#include "../RawInput.hpp"
-#include "../../io.hpp"
-#include "../../keycodes.hpp"
+#include "../../Utility/WindowsHeaderCleanup.h"
+
+#include "../io.hpp"
 #include "../../Memory/String.hpp"
 
 #define WS_WINDOWED (WS_OVERLAPPEDWINDOW | WS_VISIBLE)
+
+using namespace AzCore::io::kc;
 
 namespace AzCore {
 

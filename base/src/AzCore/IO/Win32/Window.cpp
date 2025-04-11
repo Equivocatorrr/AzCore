@@ -3,10 +3,11 @@
 	Author: Philip Haynes
 */
 
-#include "../../io.hpp"
-#include "WindowData.hpp"
-
+#include "../../Utility/WindowsHeaderPredefines.h"
 #include <dinput.h>
+#include "WindowData.hpp"
+#include "../../Utility/WindowsHeaderCleanup.h"
+
 
 #define WS_FULLSCREEN (WS_SYSMENU | WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_VISIBLE)
 #define WS_WINDOWED (WS_OVERLAPPEDWINDOW | WS_VISIBLE)
@@ -19,11 +20,11 @@
 #define WM_DPICHANGED 0x02E0
 #endif
 
-#include "../RawInput.hpp"
-#include "../../io.hpp"
-#include "../../basictypes.hpp"
-#include "../../keycodes.hpp"
+#include "../io.hpp"
+#include "../../BasicTypes.hpp"
 #include "../../Memory/String.hpp"
+
+using namespace AzCore::io::kc;
 
 namespace AzCore {
 
@@ -306,7 +307,7 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 			} else {
 				SetCursor(basicCursor);
 			}
-			return TRUE;
+			return true;
 		} else {
 			return DefWindowProc(hWnd, uMsg, wParam, lParam);
 		}
@@ -357,7 +358,7 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 	}
 
 	if (keyCode == KC_MOUSE_XTWO || keyCode == KC_MOUSE_XONE)
-		return TRUE;
+		return true;
 
 	return 0;
 }
@@ -395,7 +396,7 @@ bool Window::Open() {
 	rect.right = width;
 	rect.top = 0;
 	rect.bottom = height;
-	AdjustWindowRect(&rect, WS_WINDOWED, FALSE);
+	AdjustWindowRect(&rect, WS_WINDOWED, false);
 	focusedWindow = this;
 	data->window = CreateWindowEx(0, data->windowClassName.data, name.data, WS_WINDOWED, CW_USEDEFAULT, CW_USEDEFAULT, rect.right - rect.left, rect.bottom - rect.top, NULL, NULL, data->instance, 0);
 	if (data->window == NULL) {
@@ -409,13 +410,14 @@ bool Window::Open() {
 	return true;
 }
 
-bool Window::Show() {
+bool Window::Show(bool shown) {
 	if (!open) {
 		error = "Window hasn't been created yet";
 		return false;
 	}
-	ShowWindow(data->window, SW_SHOWNORMAL);
-
+	if (visible == shown) return true;
+	ShowWindow(data->window, shown ? SW_SHOWNORMAL : SW_HIDE);
+	visible = shown;
 	return true;
 }
 
@@ -428,6 +430,7 @@ bool Window::Close() {
 	UnregisterClass(data->windowClass.lpszClassName, data->instance);
 
 	open = false;
+	visible = false;
 	return true;
 }
 
@@ -470,7 +473,7 @@ bool Window::Fullscreen(bool fs) {
 		rect.right = windowedX + width;
 		rect.bottom = windowedY + height;
 		SetWindowLongPtr(data->window, GWL_STYLE, WS_WINDOWED);
-		AdjustWindowRectExForDpi(&rect, WS_WINDOWED, FALSE, 0, dpi);
+		AdjustWindowRectExForDpi(&rect, WS_WINDOWED, false, 0, dpi);
 		SetWindowPos(data->window, nullptr, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOZORDER);
 		x = rect.left;
 		y = rect.top;
@@ -493,7 +496,7 @@ bool Window::Resize(u32 w, u32 h) {
 	rect.top = 0;
 	rect.right = w;
 	rect.bottom = h;
-	AdjustWindowRect(&rect, WS_WINDOWED, FALSE);
+	AdjustWindowRect(&rect, WS_WINDOWED, false);
 	SetWindowPos(data->window, 0, 0, 0, rect.right - rect.left, rect.bottom - rect.top, SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
 	resized = true;
 	return true;

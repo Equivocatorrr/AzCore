@@ -9,13 +9,13 @@
 
 #include "Az2D/game_systems.hpp"
 #include "Az2D/settings.hpp"
-#include "AzCore/Profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
 
 i32 main(i32 argumentCount, char** argumentValues) {
 
 	Az2D::Entities::Manager entities;
 	Az2D::Gui::Gui gui;
-	
+
 	Az2D::Settings::Name sTest = "testSetting";
 	Az2D::Settings::Add(sTest, Az2D::Settings::Setting(az::String("HEY! You there!")));
 

@@ -5,10 +5,10 @@
 */
 
 #include "../UnitTests.hpp"
-#include "AzCore/Sort.hpp"
+#include "AzCore/Utility/Sort.hpp"
 #include "AzCore/Memory/Array.hpp"
 #include "AzCore/Math/RandomNumberGenerator.hpp"
-#include "AzCore/Time.hpp"
+#include "AzCore/Utility/Time.hpp"
 
 namespace SortTestNamespace {
 

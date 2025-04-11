@@ -6,7 +6,7 @@
 #ifndef AZCORE_ANGLE_HPP
 #define AZCORE_ANGLE_HPP
 
-#include "basic.hpp"
+#include "Basic.hpp"
 
 namespace AzCore {
 

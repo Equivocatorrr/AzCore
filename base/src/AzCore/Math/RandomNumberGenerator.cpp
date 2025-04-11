@@ -4,8 +4,8 @@
 */
 
 #include "RandomNumberGenerator.hpp"
-#include "../Time.hpp"
-#include "../memory.hpp"
+#include "../Utility/Time.hpp"
+#include "../Memory/HashMap.hpp"
 
 namespace AzCore {
 

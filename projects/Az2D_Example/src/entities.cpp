@@ -6,14 +6,16 @@
 #include "entities.hpp"
 #include "gui.hpp"
 
-#include "AzCore/Profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
 
 #include "AzCore/Thread.hpp"
 #include "AzCore/IO/Log.hpp"
+#include "AzCore/IO/KeyCodes.hpp"
 
 namespace Az2D::Entities {
 
 using namespace AzCore;
+using namespace io::kc;
 
 constexpr bool DEBUG_COLLISIONS = true;
 
@@ -46,7 +48,7 @@ void Manager::EventAssetsRequest() {
 void Manager::EventAssetsAvailable() {
 	sprGuy.AssetsAcquire();
 	sprGuy.origin = vec2(6.5f, 7.5f);
-	
+
 	sndScream.Create(sys->assets.FindSound("scream.ogg"));
 
 	sndMusic.Create(sys->assets.FindStream("music.ogg"));
@@ -82,7 +84,7 @@ void Manager::Reset() {
 
 bool TypedCode(String code) {
 	if (code.size > sys->input.typingString.size) return false;
-	Range<char> end = sys->input.typingString.GetRange(sys->input.typingString.size-code.size, code.size);
+	SmartRange<char> end = sys->input.typingString.GetRange(sys->input.typingString.size-code.size, code.size);
 	if (code == end) {
 		sys->input.typingString.Clear();
 		return true;
@@ -110,7 +112,7 @@ void Manager::EventSync() {
 	if (Gui::gui->currentMenu == Gui::Gui::Menu::PLAY) {
 		HandleUI();
 	}
-	
+
 	for (Tail &tail : tails.ArrayMut()) {
 		tail.UpdateSync(timestep);
 	}
@@ -161,7 +163,7 @@ void Player::Update(f32 timestep) {
 	if (buttonDown) {
 		physical.ImpulseY(2000.0f, timestep);
 	}
-	
+
 	vec2 nextPos = physical.pos + physical.vel * timestep;
 	vec2 topLeft = entities->CamTopLeft();
 	vec2 bottomRight = entities->CamBottomRight();
@@ -173,10 +175,10 @@ void Player::Update(f32 timestep) {
 		physical.vel.y *= -0.5f;
 		physical.pos.y = clamp(physical.pos.y, topLeft.y, bottomRight.y);
 	}
-	
+
 	physical.Update(timestep);
 	physical.UpdateActual();
-	
+
 	screamTimer = max(0.0f, screamTimer - timestep);
 	if (sys->Pressed(KC_KEY_SPACE)) {
 		entities->sndScream.Play();
@@ -292,7 +294,7 @@ void Tail::Draw(Rendering::DrawingContext &context) {
 	vec2 pos = entities->WorldPosToScreen(physical.pos);
 	vec2 scale = vec2(16.0f * entities->camZoom);
 	sys->rendering.DrawQuad(context, pos, vec2(1.0f), scale, vec2(0.5f), 0.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), entities->texPlayer);
-	
+
 	if constexpr (DEBUG_COLLISIONS) {
 		physical.Draw(context, vec4(0.5));
 	}

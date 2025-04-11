@@ -6,9 +6,7 @@
 
 #include "../UnitTests.hpp"
 #include "AzCore/Memory/BinarySet.hpp"
-#include "AzCore/Memory/Array.hpp"
-#include "AzCore/math.hpp"
-#include "AzCore/IO/Log.hpp"
+#include "AzCore/Math/Basic.hpp"
 
 namespace BinarySetTestNamespace {
 

@@ -8,12 +8,7 @@
 
 #include <system_error>
 
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
+#include "Utility/WindowsHeaderPredefines.h"
 #include <windows.h>
 #include <synchapi.h>
 #include <handleapi.h>
@@ -23,6 +18,8 @@
 #if defined(_MSC_VER)
 	#include <timeapi.h>
 #endif
+// Here as well because I don't trust all those other Win32 headers...
+#include "Utility/WindowsHeaderCleanup.h"
 
 #include <cstdio>
 
@@ -112,7 +109,7 @@ unsigned Thread::HardwareConcurrency() {
 	return sysinfo.dwNumberOfProcessors;
 }
 
-static inline void _SetProcessorAffinity(HANDLE hThread, SimpleRange<u16> cpus) {
+static inline void _SetProcessorAffinity(HANDLE hThread, Range<u16> cpus) {
 	DWORD_PTR mask = 0;
 	for (u16 cpu : cpus) {
 		if (cpu >= 64) {
@@ -133,12 +130,12 @@ static inline void _ResetProcessorAffinity(HANDLE hThread) {
 	}
 }
 
-void Thread::SetProcessorAffinity(SimpleRange<u16> cpus) {
+void Thread::SetProcessorAffinity(Range<u16> cpus) {
 	HANDLE hThread = GetCurrentThread();
 	_SetProcessorAffinity(hThread, cpus);
 }
 
-void Thread::SetProcessorAffinity(Thread &thread, SimpleRange<u16> cpus) {
+void Thread::SetProcessorAffinity(Thread &thread, Range<u16> cpus) {
 	ThreadData &threadData = GetThreadData(thread.data);
 	_SetProcessorAffinity(threadData.threadHandle, cpus);
 }
@@ -164,18 +161,18 @@ void Thread::_SleepPrecise(i64 nanoseconds) {
 	static ::HANDLE timer;
 	static bool madeTimer = false;
 	DWORD result;
-	
+
 	if (failedOnce) goto fallback;
-	
+
 	if (!madeTimer) {
-		if (!(timer = ::CreateWaitableTimer(NULL, TRUE, NULL))) goto failure;
+		if (!(timer = ::CreateWaitableTimer(NULL, true, NULL))) goto failure;
 		// We don't need to close the handle because it will be closed automatically on process shutdown
 		madeTimer = true;
 	}
-	
+
 	::LARGE_INTEGER time;
 	time.QuadPart = -nanoseconds/100;
-	if (!SetWaitableTimer(timer, &time, 0, NULL, NULL, FALSE)) {
+	if (!SetWaitableTimer(timer, &time, 0, NULL, NULL, false)) {
 		goto failure;
 	}
 	AZ_MSVC_ONLY(timeBeginPeriod(1));
@@ -192,9 +189,6 @@ fallback:
 	_Sleep(nanoseconds);
 }
 
-#ifdef Yield
-#undef Yield
-#endif // I don't know who the fuck did this but I'm gonna scream I swear to god
 void Thread::Yield() {
 	::Sleep(0);
 }

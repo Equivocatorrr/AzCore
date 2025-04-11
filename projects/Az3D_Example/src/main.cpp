@@ -5,12 +5,14 @@
 
 #include "Az3D/game_systems.hpp"
 #include "Az3D/settings.hpp"
-#include "AzCore/Profiling.hpp"
 #include "Az3D/rendering.hpp"
+#include "AzCore/Utility/Profiling.hpp"
+#include "AzCore/Math/Color.hpp"
 
 using namespace AzCore;
 using namespace Az3D;
 using GameSystems::sys;
+using namespace io::kc;
 
 Settings::Name sLookSmoothing;
 Settings::Name sFlickTilting;
@@ -56,6 +58,24 @@ struct Test : public GameSystems::System {
 		meshGround  = sys->assets.RequestMesh("ground.az3d");
 	}
 	virtual void EventSync() override {
+		// auto &suzanneMat = sys->assets.meshes[meshes[0]].parts[0]->material;
+		// suzanneMat.color.rgb = vec3(0.0f, 0.0f, 0.0f);
+		// suzanneMat.sssColor = vec3(0.1f, 0.0f, 0.0f);
+		// // suzanneMat.sssColor = vec3(0.03f, 0.06f, 0.125f);
+		// suzanneMat.sssRadius = vec3(0.2f);
+		// suzanneMat.roughness = 0.6f;
+		// auto &eagleMat = sys->assets.meshes[meshes[1]].parts[0]->material;
+		// eagleMat.emit = vec3(1.0f);
+		// auto &transportMat = sys->assets.meshes[meshes[2]].parts[0]->material;
+		// transportMat.emit = vec3(200.0f);
+		// TODO: Support runtime mesh generation/editing
+		// if (sys->assets.meshes[meshes[1]].file->stage == io::File::Stage::READY) {
+		// 	auto &eaglePart = *sys->assets.meshes[meshes[1]].parts[0];
+		// 	eaglePart.boundingSphereRadius *= 2.0f;
+		// 	for (Az3DObj::Vertex &vert : eaglePart.vertices) {
+		// 		vert.pos *= 2.0f;
+		// 	}
+		// }
 		pos.z = 1.5f + sin(hover);
 		hover += Degrees32(sys->timestep * 9.0f);
 		if (!pause)
@@ -195,6 +215,8 @@ struct Test : public GameSystems::System {
 		camera.fov = decay(camera.fov.value(), targetFOV.value(), 0.2f, sys->timestep);
 	}
 	virtual void EventDraw(Array<Rendering::DrawingContext> &contexts) override {
+		// sys->rendering.backgroundHSV = vec3(0.0f / 360.0f, 0.6f, 0.3f);
+		// sys->rendering.backgroundHSV = vec3(240.0f / 360.0f, 0.1f, 0.2f);
 		for (i32 y = -5; y <= 5; y++) {
 			for (i32 x = -5; x <= 5; x++) {
 				const f32 scale = 5.0f;
@@ -204,17 +226,17 @@ struct Test : public GameSystems::System {
 		}
 		{
 			Assets::Material material = Assets::Material::Blank();
-			material.color.rgb = sRGBToLinear(vec3(0.5f, 0.05f, 0.05f));
-			material.roughness = 0.2f;
+			material.color.rgb = sRGBToLinear(vec3(0.5f));
+			material.roughness = 0.3f;
 			material.metalness = 0.0f;
-			// material.emit = sRGBToLinear(vec3(1.0f, 0.5f, 0.2f));
-			Rendering::DrawText(contexts[0], 0, vec2(0.5f, 1.0f), ToWString("Hello, you beautiful thing!\nWhat the dog doin?\nキスミー"), Rendering::GetTransform(vec3(1.0f, 6.0f, 0.0f), quat::Rotation(hover.value(), vec3(0.0f, 0.0f, 1.0f)) * quat::Rotation(-halfpi, vec3(1.0f, 0.0f, 0.0f)), vec3(2.0f)), true, material);
+			material.emit = sRGBToLinear(vec3(0.0f, 2.5f, 5.0f));
+			Rendering::DrawText(contexts[0], 0, vec2(0.5f, 1.0f), ToWString("Oh Dear GOD"), Rendering::GetTransform(vec3(1.0f, 6.0f, 0.0f), quat::Rotation(hover.value(), vec3(0.0f, 0.0f, 1.0f)) * quat::Rotation(-halfpi, vec3(1.0f, 0.0f, 0.0f)), vec3(2.0f)), true, material);
 		}
 		Rendering::DrawMesh(contexts[0], meshTree, {Rendering::GetTransform(vec3(-2.0f, 0.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
 		Rendering::DrawMesh(contexts[0], meshFence, {Rendering::GetTransform(vec3(0.0f, 8.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true);
 		Rendering::DrawMeshAnimated(contexts[0], meshShitman, actionJump, jumpT, {Rendering::GetTransform(vec3(6.0f, 0.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true, &ikParametersShitman);
 		Rendering::DrawMeshAnimated(contexts[0], meshTube, actionWiggle, jumpT, {Rendering::GetTransform(vec3(6.0f, 6.0f, 0.0f), quat(1.0f), vec3(1.0f))}, true, true, &ikParametersTube);
-		mat4 transform = Rendering::GetTransform(pos, objectOrientation, vec3(1.0f));
+		mat4 transform = Rendering::GetTransform(pos, objectOrientation, vec3(currentMesh == 1 ? 10.0f : 2.0f));
 		// mat4 transform = Rendering::GetTransform(pos, objectOrientation, vec3(3.0f, 0.5f, 1.0f));
 		Rendering::DrawMesh(contexts[0], meshes[currentMesh], {transform}, true, true);
 		for (i32 i = -10; i <= 10; i++) {
@@ -231,17 +253,22 @@ struct Test : public GameSystems::System {
 		}
 		RandomNumberGenerator rng(69420);
 		const i32 patchCount = 14;
-		const f32 patchDimension = 2.0f;
+		const f32 patchDimension = 8.0f;
 		ArrayWithBucket<mat4, 1> transforms(square(patchCount));
-		const f32 grassDimensions = 2.0f - patchDimension/2.0f;
-		for (f32 y = -grassDimensions; y <= grassDimensions; y += 2.0f) {
-			for (f32 x = -grassDimensions; x <= grassDimensions; x += 2.0f) {
+		const f32 grassDimensions = 12.0f - patchDimension/2.0f;
+		for (f32 y = -grassDimensions; y <= grassDimensions; y += patchDimension) {
+			for (f32 x = -grassDimensions; x <= grassDimensions; x += patchDimension) {
 				for (i32 yy = -patchCount/2; yy < patchCount/2; yy++) {
 					for (i32 xx = -patchCount/2; xx < patchCount/2; xx++) {
 						mat4 &transform = transforms[(yy+patchCount/2) * patchCount + (xx+patchCount/2)];
-						transform = mat4::RotationBasic(random(0.0f, tau, &rng), Axis::Z);
-						transform[3][0] = x + float(xx) * patchDimension / float(patchCount);
-						transform[3][1] = y + float(yy) * patchDimension / float(patchCount);
+						// transform = mat4::RotationBasic(random(0.0f, tau, &rng), Axis::Z);
+						// transform[3][0] = x + float(xx) * patchDimension / float(patchCount);
+						// transform[3][1] = y + float(yy) * patchDimension / float(patchCount);
+						transform = Rendering::GetTransform(vec3(
+							x + float(xx) * patchDimension / float(patchCount),
+							y + float(yy) * patchDimension / float(patchCount),
+							0.0f
+						), quat::Rotation(random(0.0f, tau, &rng), vec3(0.0f, 0.0f, 1.0f)), vec3(3.0f));
 					}
 				}
 				Rendering::DrawMesh(contexts[0], meshGrass, transforms, true, false);

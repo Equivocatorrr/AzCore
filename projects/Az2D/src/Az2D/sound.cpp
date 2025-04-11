@@ -6,7 +6,7 @@
 #include "sound.hpp"
 #include "game_systems.hpp"
 #include "settings.hpp"
-#include "AzCore/Profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
 
 namespace Az2D::Sound {
 

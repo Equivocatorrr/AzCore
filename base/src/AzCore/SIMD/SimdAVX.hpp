@@ -12,7 +12,7 @@
 
 #include <immintrin.h> // AVX
 
-#include "../basictypes.hpp"
+#include "../BasicTypes.hpp"
 
 #if __AVX2__
 struct u32x8;

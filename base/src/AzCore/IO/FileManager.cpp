@@ -4,9 +4,9 @@
 */
 
 #include "FileManager.hpp"
-#include "../QuickSort.hpp"
+#include "../Utility/Sort.hpp"
 #include "Log.hpp"
-#include "../Math/basic.hpp"
+#include "../Math/Basic.hpp"
 
 namespace AzCore::io {
 
@@ -50,7 +50,7 @@ void FileManager::WaitUntilDone() {
 }
 
 static void SortFiles(Array<File*> &array) {
-	QuickSort(array, [](File *lhs, File *rhs){ return rhs->priority < lhs->priority; });
+	Sort(array, [](Array<File*> &array, i64 indexLHS, i64 indexRHS){ return array[indexRHS]->priority < array[indexLHS]->priority; });
 }
 
 File* FileManager::RequestFile(String filepath, i32 priority, File::fp_Decoder decoder, Any userdata) {
@@ -107,12 +107,12 @@ void FileManager::DiskProc(FileManager *manager) {
 			manager->condRequested.Wait(manager->mutexRequested);
 			if (manager->close) goto full_break;
 		}
-		
+
 		while (!manager->close && manager->filesRequested.size > 0) {
 			File *requested = manager->filesRequested.Back();
 			manager->filesRequested.size--;
 			manager->mutexRequested.Unlock(); // Allow more requests to be made while we load the file
-			
+
 			requested->stage = File::Stage::LOADING;
 			bool found = false;
 			for (const String &dir : manager->searchDirectories) {
@@ -156,13 +156,13 @@ void FileManager::DecodeProc(FileManager *manager) {
 			manager->condToDecode.Wait(manager->mutexToDecode);
 			if (manager->close) goto full_break;
 		}
-		
+
 		while (!manager->close && manager->filesToDecode.size > 0) {
 			File *toDecode = manager->filesToDecode.Back();
 			manager->filesToDecode.size--;
 			manager->availableDecoders--;
 			manager->mutexToDecode.Unlock(); // Allow more decode requests to be made and other decode threads to run while we decode this one
-			
+
 			AzAssert(toDecode->decoder != nullptr, "Somehow we got a file with no decoder to the decoding step");
 			toDecode->stage = File::Stage::DECODING;
 			if (toDecode->decoder(toDecode, toDecode->userdata)) {
@@ -172,7 +172,7 @@ void FileManager::DecodeProc(FileManager *manager) {
 				toDecode->stage = File::Stage::DISCARDED;
 			}
 			DeclareFileCompleteInPipeline(manager);
-			
+
 			manager->mutexToDecode.Lock();
 			manager->availableDecoders++;
 		}

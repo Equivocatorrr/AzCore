@@ -4,7 +4,6 @@
 */
 
 #include "Log.hpp"
-#include "../Environment.hpp"
 
 namespace AzCore {
 
@@ -98,17 +97,14 @@ inline void StringIndent(String &str, i32 indent, String mIndentString) {
 }
 
 template<bool newline>
-void Log::_Print(SimpleRange<char> out) {
-#ifndef NDEBUG
-	if (out == "\n") {
-		out = "\nPlease use Log::Newline() instead of Log::Print(\"\\n\")\n";
+void Log::_Print(Str out) {
+	if (out.size == 1 && out.data[0] == '\n') {
+		Newline(1);
+		return;
 	}
-#endif
 	ScopedLock lock(mMutex);
 	if (!mLogConsole && !mLogFile) return;
 	_HandleFile();
-	static String consoleOut;
-	static String fileOut;
 	if ((!mLogConsole || mPrepend.size == 0) && indent == 0) {
 		lock.Release();
 		if constexpr (newline) {
@@ -118,15 +114,15 @@ void Log::_Print(SimpleRange<char> out) {
 		}
 		return;
 	}
-	consoleOut.ClearSoft();
-	fileOut.ClearSoft();
+	_consoleOut.ClearSoft();
+	_fileOut.ClearSoft();
 	if (mStartOnNewline && out.size && out[0] != '\n' && out[0] != '\r') {
 		if (mLogConsole) {
-			consoleOut = mPrepend;
-			StringIndent(consoleOut, indent, mIndentString);
+			_consoleOut = mPrepend;
+			StringIndent(_consoleOut, indent, mIndentString);
 		}
 		if (mLogFile) {
-			StringIndent(fileOut, indent, mIndentString);
+			StringIndent(_fileOut, indent, mIndentString);
 		}
 	}
 	i32 i = 0;
@@ -134,35 +130,35 @@ void Log::_Print(SimpleRange<char> out) {
 	for (; i < out.size; i++) {
 		char c = out[i];
 		if (c == '\n' || c == '\r') {
-			SimpleRange<char> range = out.SubRange(last, i-last+1);
+			Str range = out.SubRange(last, i-last+1);
 			if (mLogConsole) {
-				consoleOut += range;
+				_consoleOut += range;
 				if (i < out.size-1) {
-					consoleOut += mPrepend;
-					StringIndent(consoleOut, indent, mIndentString);
+					_consoleOut += mPrepend;
+					StringIndent(_consoleOut, indent, mIndentString);
 				}
 			}
 			if (mLogFile) {
-				fileOut += range;
+				_fileOut += range;
 				if (i < out.size-1) {
-					StringIndent(fileOut, indent, mIndentString);
+					StringIndent(_fileOut, indent, mIndentString);
 				}
 			}
 			last = i+1;
 		}
 	}
 	if (i != last) {
-		SimpleRange<char> range = out.SubRange(last, i-last);
+		Str range = out.SubRange(last, i-last);
 		if (mLogConsole) {
-			consoleOut += range;
+			_consoleOut += range;
 			if constexpr (newline) {
-				consoleOut += '\n';
+				_consoleOut += '\n';
 			}
 		}
 		if (mLogFile) {
-			fileOut += range;
+			_fileOut += range;
 			if constexpr (newline) {
-				fileOut += '\n';
+				_fileOut += '\n';
 			}
 		}
 		if constexpr (newline) {
@@ -171,52 +167,52 @@ void Log::_Print(SimpleRange<char> out) {
 			mStartOnNewline = false;
 		}
 	} else {
-		if (mLogConsole) consoleOut += '\n';
-		if (mLogFile) fileOut += '\n';
+		if (mLogConsole) _consoleOut += '\n';
+		if (mLogFile) _fileOut += '\n';
 		mStartOnNewline = true;
 	}
 	if (mFile) {
-		size_t written = fwrite(fileOut.data, sizeof(char), fileOut.size, mFile);
-		if (written != (size_t)fileOut.size) mLogFile = false;
+		size_t written = fwrite(_fileOut.data, sizeof(char), _fileOut.size, mFile);
+		if (written != (size_t)_fileOut.size) mLogFile = false;
 	}
 	if (mLogConsole) {
 		ScopedLock lock(consoleMutex);
-		size_t written = fwrite(consoleOut.data, sizeof(char), consoleOut.size, mConsoleFile);
-		if (written != (size_t)consoleOut.size) mLogConsole = false;
+		size_t written = fwrite(_consoleOut.data, sizeof(char), _consoleOut.size, mConsoleFile);
+		if (written != (size_t)_consoleOut.size) mLogConsole = false;
 	}
 }
 
-template void Log::_Print<false>(SimpleRange<char>);
-template void Log::_Print<true>(SimpleRange<char>);
+template void Log::_Print<false>(Str);
+template void Log::_Print<true>(Str);
 
-Log& Log::PrintPlain(SimpleRange<char> out) {
+Log& Log::PrintPlain(Str out) {
 	ScopedLock lock(mMutex);
 	if (!mLogConsole && !mLogFile) return *this;
 	_HandleFile();
 	if (mFile) {
-		size_t written = fwrite(out.str, sizeof(char), out.size, mFile);
+		size_t written = fwrite(out.data, sizeof(char), out.size, mFile);
 		if (written != (size_t)out.size) mLogFile = false;
 	}
 	if (mLogConsole) {
 		ScopedLock lock(consoleMutex);
-		size_t written = fwrite(out.str, sizeof(char), out.size, mConsoleFile);
+		size_t written = fwrite(out.data, sizeof(char), out.size, mConsoleFile);
 		if (written != (size_t)out.size) mLogConsole = false;
 	}
 	return *this;
 }
 
-Log& Log::PrintLnPlain(SimpleRange<char> out) {
+Log& Log::PrintLnPlain(Str out) {
 	ScopedLock lock(mMutex);
 	if (!mLogConsole && !mLogFile) return *this;
 	_HandleFile();
 	if (mFile) {
-		size_t written = fwrite(out.str, sizeof(char), out.size, mFile);
+		size_t written = fwrite(out.data, sizeof(char), out.size, mFile);
 		if (written != (size_t)out.size) mLogFile = false;
 		fputc('\n', mFile);
 	}
 	if (mLogConsole) {
 		ScopedLock lock(consoleMutex);
-		size_t written = fwrite(out.str, sizeof(char), out.size, mConsoleFile);
+		size_t written = fwrite(out.data, sizeof(char), out.size, mConsoleFile);
 		if (written != (size_t)out.size) mLogConsole = false;
 		fputc('\n', mConsoleFile);
 	}

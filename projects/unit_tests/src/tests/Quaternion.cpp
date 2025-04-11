@@ -5,7 +5,8 @@
 
 #include "../UnitTests.hpp"
 #include "../Utilities.hpp"
-#include "AzCore/math.hpp"
+#include "AzCore/Math/Angle.hpp"
+#include "AzCore/Math/quat_t.hpp"
 
 namespace QuaternionTestNamespace {
 

@@ -6,10 +6,12 @@
 #include "game_systems.hpp"
 // #include "gui_basics.hpp"
 #include "settings.hpp"
-#include "AzCore/Profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
 #include "AzCore/Thread.hpp"
 
 #include <clocale>
+
+using namespace AzCore::io::kc;
 
 namespace Az3D::GameSystems {
 
@@ -24,7 +26,7 @@ void System::EventDraw(Array<Rendering::DrawingContext> &contexts) {}
 void System::EventInitialize() {}
 void System::EventClose() {}
 
-bool Init(SimpleRange<char> windowTitle, Array<System*> systemsToRegister, bool enableVulkanValidation) {
+bool Init(Str windowTitle, Array<System*> systemsToRegister, bool enableVulkanValidation) {
 	AZCORE_PROFILING_FUNC_TIMER()
 	sys = new Manager();
 	for (System *system : systemsToRegister) {
@@ -32,7 +34,7 @@ bool Init(SimpleRange<char> windowTitle, Array<System*> systemsToRegister, bool 
 	}
 	sys->window.name = windowTitle;
 	sys->sound.name = windowTitle;
-	GPU::SetAppName(windowTitle.str);
+	GPU::SetAppName(windowTitle);
 	sys->enableVulkanValidation = enableVulkanValidation;
 	return sys->Init();
 }

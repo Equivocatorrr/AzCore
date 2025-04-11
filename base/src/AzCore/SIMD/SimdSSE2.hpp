@@ -22,7 +22,7 @@
 #include <nmmintrin.h>
 #endif
 
-#include "../basictypes.hpp"
+#include "../BasicTypes.hpp"
 
 // Represents all integer types.
 // Defines bitwise operations that don't depend on lane width

@@ -6,14 +6,16 @@
 #include "entities.hpp"
 #include "gui.hpp"
 
-#include "AzCore/Profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
 
 #include "AzCore/Thread.hpp"
 #include "AzCore/IO/Log.hpp"
+#include "AzCore/IO/KeyCodes.hpp"
 
 namespace Az2D::Entities {
 
 using namespace AzCore;
+using namespace io::kc;
 
 Manager *entities = nullptr;
 
@@ -103,7 +105,7 @@ void Manager::EventAssetsAvailable() {
 void Manager::EventInitialize() {
 	AZCORE_PROFILING_FUNC_TIMER()
 	Array<char> levels = FileContents("data/levels.txt");
-	Array<SimpleRange<char>> lines = SeparateByNewlines(levels);
+	Array<Range<char>> lines = SeparateByNewlines(levels);
 	for (i32 i = 0; i < lines.size; i++) {
 		if (lines[i].size == 0) continue;
 		if (lines[i][0] == '#') continue;
@@ -303,7 +305,7 @@ void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 		sys->rendering.DrawCircle(contexts[0], Rendering::texBlank, color, WorldPosToScreen(goalPos), vec2(2.1f), vec2(scale), vec2(0.5f));
 	}
 	world.Draw(contexts[0], Gui::gui->menuCurrent != Gui::Gui::Menu::EDITOR, true);
-	
+
 	ManagerBasic::EventDraw(contexts);
 
 	world.Draw(contexts.Back(), Gui::gui->menuCurrent != Gui::Gui::Menu::EDITOR, false);

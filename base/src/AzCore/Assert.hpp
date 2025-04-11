@@ -1,7 +1,7 @@
 #ifndef AZCORE_ASSERT_HPP
 #define AZCORE_ASSERT_HPP
 
-#include "basictypes.hpp"
+#include "BasicTypes.hpp"
 
 namespace AzCore {
 

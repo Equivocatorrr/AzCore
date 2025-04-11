@@ -6,7 +6,9 @@
 #ifndef AZCORE_FONT_CFF_HPP
 #define  AZCORE_FONT_CFF_HPP
 
-#include "../common.hpp"
+#include "../BasicTypes.hpp"
+#include "../Memory/Array.hpp"
+#include "../Math/Basic.hpp"
 
 /*
 	Information on the CFF table is courtesy of Adobe:
@@ -18,8 +20,7 @@
 		https://www.adobe.com/content/dam/acom/en/devnet/font/pdfs/5177.Type2.pdf
 */
 
-namespace AzCore {
-namespace font {
+namespace AzCore::font {
 namespace tables {
 namespace cffs {
 
@@ -32,7 +33,7 @@ namespace cffs {
 	typedef u8 Offset8;     // When OffSize is 1
 	typedef u16 Offset16;   // When OffSize is 2
 	struct Offset24 {       // When OffSize is 3
-		u8 bytes[3];        // Always big-endian
+		u8 bytes[3];         // Always big-endian
 		u32 value() const;
 		void set(u32 val);
 	};
@@ -488,9 +489,7 @@ struct cff {
 
 } // namespace tables
 
-} // namespace font
-
-} // namespace AzCore
+} // namespace AzCore::font
 
 inline AzCore::font::tables::cffs::Operand abs(AzCore::font::tables::cffs::Operand in) {
 	switch (in.type) {

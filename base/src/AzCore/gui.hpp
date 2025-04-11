@@ -7,12 +7,15 @@
 #ifndef AZCORE_GUI_HPP
 #define AZCORE_GUI_HPP
 
-#include "memory.hpp"
-#include "math.hpp"
-#include "Math/Color.hpp"
-#include "IO/Input.hpp"
-#include "keycodes.hpp"
+#include "Math/vec2_t.hpp"
+#include "Math/vec4_t.hpp"
 #include "Memory/Any.hpp"
+#include "Memory/Array.hpp"
+#include "Memory/String.hpp"
+#include "Memory/UniquePtr.hpp"
+#include "IO/ButtonState.hpp"
+
+#include <cstdint>
 
 namespace AzCore::GuiGeneric {
 
@@ -229,7 +232,7 @@ struct Switch : public ListV {
 	void Update(vec2 pos, bool selected) override;
 	void Draw(Any &dataDrawCall) const override;
 
-	void OnHide();
+	void OnHide() override;
 };
 
 struct Text : public Widget {
@@ -534,9 +537,9 @@ struct Functions {
 	// Divide the actual width by the font size for the EM size
 	typedef WString (*fp_ApplyTextWrapping)(Any &dataGlobal, Any &dataWidget, const WString &string, f32 maxWidth);
 	// Returns the index into the text to place the cursor based on pickerPosition. It should aim to find the cursor position closest to the left of the character halfway between lines (a UV of {0, 0.5}).
-	typedef i32     (*fp_GetCursorFromPositionInText)(Any &dataGlobal, Any &dataWidget, vec2 position, vec2 area, vec2 fontSize, const SimpleRange<char32> text, vec2 pickerPosition);
+	typedef i32     (*fp_GetCursorFromPositionInText)(Any &dataGlobal, Any &dataWidget, vec2 position, vec2 area, vec2 fontSize, const Range<char32> text, vec2 pickerPosition);
 	// Returns the absolute position of a UV within the character at cursor where a UV of {0, 0} is the top left, and {1, 1} is the bottom right.
-	typedef vec2    (*fp_GetPositionFromCursorInText)(Any &dataGlobal, Any &dataWidget, vec2 position, vec2 area, vec2 fontSize, const SimpleRange<char32> text, i32 cursor, vec2 charUV);
+	typedef vec2    (*fp_GetPositionFromCursorInText)(Any &dataGlobal, Any &dataWidget, vec2 position, vec2 area, vec2 fontSize, const Range<char32> text, i32 cursor, vec2 charUV);
 	// Returns the height of one line for the given fontSize for the given widget.
 	typedef f32     (*fp_GetLineHeight)(Any &dataGlobal, Any &dataWidget, f32 fontSize);
 

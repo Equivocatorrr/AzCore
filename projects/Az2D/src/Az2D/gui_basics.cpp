@@ -6,13 +6,15 @@
 #include "gui_basics.hpp"
 #include "game_systems.hpp"
 #include "settings.hpp"
-#include "AzCore/Profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
 #include "console_commands.hpp"
 #include "AzCore/Math/Color.hpp"
+#include "AzCore/IO/KeyCodes.hpp"
 
 namespace Az2D::Gui {
 
 using namespace AzCore;
+using namespace io::kc;
 using GameSystems::sys;
 
 GuiBasic *guiBasic = nullptr;
@@ -88,14 +90,14 @@ void SetScissor(Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 positi
 		clamp((i64)size.x, (i64)0, i64(INT32_MAX - p.x)),
 		clamp((i64)size.y, (i64)0, i64(INT32_MAX - p.y))
 	);
-	sys->rendering.SetScissor(dataDrawCall.Get<Rendering::DrawingContext>(), p, s);
+	sys->rendering.SetScissor(*dataDrawCall.Get<Rendering::DrawingContext*>(), p, s);
 }
 
 void DrawQuad(Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 position, vec2 size, vec4 color) {
 	(void)dataGlobal;
 	(void)dataWidget;
 	Rendering::Material material(color);
-	sys->rendering.DrawQuad(dataDrawCall.Get<Rendering::DrawingContext>(), position, size, vec2(1.0f), vec2(0.0f), 0.0f, Rendering::PIPELINE_BASIC_2D, material);
+	sys->rendering.DrawQuad(*dataDrawCall.Get<Rendering::DrawingContext*>(), position, size, vec2(1.0f), vec2(0.0f), 0.0f, Rendering::PIPELINE_BASIC_2D, material);
 }
 
 void DrawImage(Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 position, vec2 size, vec4 color) {
@@ -106,11 +108,11 @@ void DrawImage(Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 positio
 	}
 	Rendering::Material material;
 	material.color = color;
-	sys->rendering.DrawQuad(dataDrawCall.Get<Rendering::DrawingContext>(), position, size, vec2(1.0f), vec2(0.0f), 0.0f, metadata.pipeline, material, Rendering::TexIndices(metadata.texIndex));
+	sys->rendering.DrawQuad(*dataDrawCall.Get<Rendering::DrawingContext*>(), position, size, vec2(1.0f), vec2(0.0f), 0.0f, metadata.pipeline, material, Rendering::TexIndices(metadata.texIndex));
 }
 
 void DrawText(Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 position, vec2 area, vec2 fontSize, const WString &text, vec4 color, vec4 colorOutline, bool bold) {
-	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+	GuiBasic &guiBasic = *dataGlobal.Get<GuiBasic*>();
 	TextMetadata metadata;
 	if (dataWidget.IsType<TextMetadata>()) {
 		metadata = dataWidget.Get<TextMetadata>();
@@ -128,16 +130,16 @@ void DrawText(Any &dataGlobal, Any &dataWidget, Any &dataDrawCall, vec2 position
 	}
 	f32 bounds = bold ? 0.425f : 0.525f;
 	if (colorOutline.a > 0.0f) {
-		sys->rendering.DrawText(dataDrawCall.Get<Rendering::DrawingContext>(), text, metadata.fontIndex, colorOutline, position, fontSize, metadata.alignH, metadata.alignV, area.x, 0.05f, bounds - 0.325f - clamp((1.0f - (colorOutline.r + colorOutline.g + colorOutline.b) / 3.0f) * 2.0f, 0.0f, 2.0f)/fontSize.y);
+		sys->rendering.DrawText(*dataDrawCall.Get<Rendering::DrawingContext*>(), text, metadata.fontIndex, colorOutline, position, fontSize, metadata.alignH, metadata.alignV, area.x, 0.05f, bounds - 0.325f - clamp((1.0f - (colorOutline.r + colorOutline.g + colorOutline.b) / 3.0f) * 2.0f, 0.0f, 2.0f)/fontSize.y);
 	}
 	bounds -= clamp((1.0f - (color.r + color.g + color.b) / 3.0f) * 2.0f, 0.0f, 2.0f) / fontSize.y;
-	sys->rendering.DrawText(dataDrawCall.Get<Rendering::DrawingContext>(), text, metadata.fontIndex, color, position, fontSize, metadata.alignH, metadata.alignV, area.x, 0.0f, bounds);
+	sys->rendering.DrawText(*dataDrawCall.Get<Rendering::DrawingContext*>(), text, metadata.fontIndex, color, position, fontSize, metadata.alignH, metadata.alignV, area.x, 0.0f, bounds);
 }
 
 // Units are in the font's EM square
 // Multiply this by the font size for the actual dimensions
 vec2 GetTextDimensions(Any &dataGlobal, Any &dataWidget, const WString &string) {
-	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+	GuiBasic &guiBasic = *dataGlobal.Get<GuiBasic*>();
 	Assets::FontIndex fontIndex = -1;
 	if (dataWidget.IsType<TextMetadata>()) {
 		fontIndex = dataWidget.Get<TextMetadata>().fontIndex;
@@ -149,7 +151,7 @@ vec2 GetTextDimensions(Any &dataGlobal, Any &dataWidget, const WString &string) 
 // Units are in the font's EM square
 // Divide the actual width by the font size for the EM size
 WString ApplyTextWrapping(Any &dataGlobal, Any &dataWidget, const WString &string, f32 maxWidth) {
-	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+	GuiBasic &guiBasic = *dataGlobal.Get<GuiBasic*>();
 	Assets::FontIndex fontIndex = -1;
 	if (dataWidget.IsType<TextMetadata>()) {
 		fontIndex = dataWidget.Get<TextMetadata>().fontIndex;
@@ -159,19 +161,19 @@ WString ApplyTextWrapping(Any &dataGlobal, Any &dataWidget, const WString &strin
 }
 
 // Returns the index into the text to place the cursor based on pickerPosition. It should aim to find the cursor position closest to the left of the character halfway between lines (a UV of {0, 0.5}).
-i32 GetCursorFromPositionInText(Any &dataGlobal, Any &dataWidget, vec2 position, vec2 area, vec2 fontSize, const SimpleRange<char32> text, vec2 pickerPosition) {
-	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+i32 GetCursorFromPositionInText(Any &dataGlobal, Any &dataWidget, vec2 position, vec2 area, vec2 fontSize, const Range<char32> text, vec2 pickerPosition) {
+	GuiBasic &guiBasic = *dataGlobal.Get<GuiBasic*>();
 	TextMetadata metadata;
 	if (dataWidget.IsType<TextMetadata>()) {
 		metadata = dataWidget.Get<TextMetadata>();
 	}
 	if (metadata.fontIndex == -1) metadata.fontIndex = guiBasic.fontIndex;
-	
+
 	vec2 cursorPos = 0.0f;
 	f32 spaceScale, spaceWidth, tabWidth;
 	spaceWidth = sys->assets.CharacterWidth(' ', metadata.fontIndex) * fontSize.x;
 	tabWidth = sys->assets.CharacterWidth((char32)'_', metadata.fontIndex) * fontSize.x * 4.0f;
-	const char32 *lineString = text.str;
+	const char32 *lineString = text.data;
 	i32 cursor = 0;
 	// Find which line we're on first
 	cursorPos.y += fontSize.y * Rendering::lineHeight + position.y;
@@ -220,20 +222,20 @@ i32 GetCursorFromPositionInText(Any &dataGlobal, Any &dataWidget, vec2 position,
 }
 
 // Returns the absolute position of a UV within the character at cursor where a UV of {0, 0} is the top left, and {1, 1} is the bottom right.
-vec2 GetPositionFromCursorInText(Any &dataGlobal, Any &dataWidget, vec2 position, vec2 area, vec2 fontSize, const SimpleRange<char32> text, i32 cursor, vec2 charUV) {
-	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+vec2 GetPositionFromCursorInText(Any &dataGlobal, Any &dataWidget, vec2 position, vec2 area, vec2 fontSize, const Range<char32> text, i32 cursor, vec2 charUV) {
+	GuiBasic &guiBasic = *dataGlobal.Get<GuiBasic*>();
 	TextMetadata metadata;
 	if (dataWidget.IsType<TextMetadata>()) {
 		metadata = dataWidget.Get<TextMetadata>();
 	}
 	if (metadata.fontIndex == -1) metadata.fontIndex = guiBasic.fontIndex;
-	
+
 	vec2 cursorPos = 0.0f;
 	f32 spaceScale, spaceWidth, tabWidth;
 	spaceWidth = sys->assets.CharacterWidth(' ', metadata.fontIndex) * fontSize.x;
 	tabWidth = sys->assets.CharacterWidth((char32)'_', metadata.fontIndex) * fontSize.x * 4.0f;
 	// Get our line start and vertical position
-	const char32 *lineString = text.str;
+	const char32 *lineString = text.data;
 	i32 lineStart = 0;
 	for (i32 i = 0; i < cursor; i++) {
 		const char32 &c = text[i];
@@ -298,7 +300,7 @@ WString ConsumeTypingString(Any &dataGlobal, Any &dataWidget) {
 }
 
 void OnButtonPressed(Any &dataGlobal, Any &dataWidget) {
-	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+	GuiBasic &guiBasic = *dataGlobal.Get<GuiBasic*>();
 	guiBasic.sndClickIn.Play();
 }
 
@@ -307,29 +309,29 @@ void OnButtonRepeated(Any &dataGlobal, Any &dataWidget) {
 }
 
 void OnButtonReleased(Any &dataGlobal, Any &dataWidget) {
-	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+	GuiBasic &guiBasic = *dataGlobal.Get<GuiBasic*>();
 	guiBasic.sndClickOut.Play();
 }
 
 void OnButtonHighlighted(Any &dataGlobal, Any &dataWidget) {
-	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+	GuiBasic &guiBasic = *dataGlobal.Get<GuiBasic*>();
 	guiBasic.sndClickSoft.Play();
 }
 
 void OnCheckboxTurnedOn(Any &dataGlobal, Any &dataWidget) {
-	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+	GuiBasic &guiBasic = *dataGlobal.Get<GuiBasic*>();
 	guiBasic.sndCheckboxOn.Play();
 }
 
 void OnCheckboxTurnedOff(Any &dataGlobal, Any &dataWidget) {
-	GuiBasic &guiBasic = dataGlobal.Get<GuiBasic>();
+	GuiBasic &guiBasic = *dataGlobal.Get<GuiBasic*>();
 	guiBasic.sndCheckboxOff.Play();
 }
 
 
 void GuiBasic::EventInitialize() {
 	system.data = this;
-	
+
 	system.functions.SetScissor = SetScissor;
 	system.functions.DrawQuad = DrawQuad;
 	system.functions.DrawImage = DrawImage;
@@ -339,21 +341,21 @@ void GuiBasic::EventInitialize() {
 	system.functions.GetCursorFromPositionInText = GetCursorFromPositionInText;
 	system.functions.GetPositionFromCursorInText = GetPositionFromCursorInText;
 	system.functions.GetLineHeight = GetLineHeight;
-	
+
 	system.functions.KeycodePressed = KeycodePressed;
 	system.functions.KeycodeRepeated = KeycodeRepeated;
 	system.functions.KeycodeDown = KeycodeDown;
 	system.functions.KeycodeReleased = KeycodeReleased;
-	
+
 	system.functions.ConsumeTypingString = ConsumeTypingString;
-	
+
 	system.functions.OnButtonPressed     = OnButtonPressed;
 	// system.functions.OnButtonRepeated    = OnButtonRepeated;
 	system.functions.OnButtonReleased    = OnButtonReleased;
 	system.functions.OnButtonHighlighted = OnButtonHighlighted;
 	system.functions.OnCheckboxTurnedOn  = OnCheckboxTurnedOn;
 	system.functions.OnCheckboxTurnedOff = OnCheckboxTurnedOff;
-	
+
 	devConsole.Initialize();
 	Dev::AddGlobalVariable(Az2D::Settings::sDebugInfo.GetString(), "Whether to display frame rate and time information.", nullptr, Dev::defaultBoolSettingsGetter, Dev::defaultBoolSettingsSetter);
 	Dev::AddGlobalVariable(Az2D::Settings::sFullscreen.GetString(), "Whether the window should be fullscreen.", nullptr, Dev::defaultBoolSettingsGetter, Dev::defaultBoolSettingsSetter);
@@ -392,20 +394,20 @@ void DevConsole::Initialize() {
 	listV->padding = 4.0f;
 	listV->margin = 0.0f;
 	listV->scrollableY = false;
-	
+
 	az::GuiGeneric::ListV *outputListV = system->CreateListV(listV);
 	outputListV->color = vec4(0.0f);
 	outputListV->colorHighlighted = vec4(0.0f);
 	outputListV->SetSizeFraction(vec2(1.0f));
 	outputListV->padding = 0.0f;
 	outputListV->margin = 4.0f;
-	
+
 	consoleOutput = system->CreateText(outputListV);
 	consoleOutputMeta->alignV = Rendering::BOTTOM;
 	consoleOutput->data = consoleOutputMeta.RawPtr();
 	consoleOutput->fontSize = 16.0f;
 	consoleOutput->margin = 0.0f;
-	
+
 	textboxInput = system->CreateTextbox(listV);
 	textboxInput->minSize.y = 24.0f;
 	textboxInput->SetWidthFraction(1.0f);

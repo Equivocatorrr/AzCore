@@ -7,8 +7,8 @@
 #include "../UnitTests.hpp"
 #include "../Utilities.hpp"
 #include "AzCore/Math/RandomNumberGenerator.hpp"
-#include "AzCore/QuickSort.hpp"
-#include "AzCore/memory.hpp"
+#include "AzCore/Utility/Sort.hpp"
+#include "AzCore/Memory/Memory.hpp"
 
 namespace EquationsTestNamespace {
 
@@ -85,7 +85,7 @@ void EquationsTest() {
 		root[0] = random(Real(-100), Real(100), &rng);
 		root[1] = random(Real(-100), Real(100), &rng);
 		root[2] = random(Real(-100), Real(100), &rng);
-		QuickSort(root);
+		Sort(root);
 		Real scale = random(Real(0.01), Real(100), &rng);
 		if (HasDuplicates(root)) {
 			--i;
@@ -104,7 +104,8 @@ void EquationsTest() {
 			"  a, b, c, d = ", a, ", ", b, ", ", c, ", ", d
 		);
 		if (solution.nReal != 3) continue;
-		QuickSort(SimpleRange<Real>(solution.root, 3));
+		Range<Real> roots(solution.root, 3);
+		Sort(roots);
 		COMPARE_FP(solution.root[0], root[0], magnitude, Stringify(
 			"Actual Roots: ", root,
 			"  a, b, c, d = ", a, ", ", b, ", ", c, ", ", d,
@@ -130,7 +131,7 @@ void EquationsTest() {
 		root[1] = random(Real(-10), Real(10), &rng);
 		root[2] = random(Real(-10), Real(10), &rng);
 		root[3] = random(Real(-10), Real(10), &rng);
-		QuickSort(root);
+		Sort(root);
 		Real scale = random(Real(0.1), Real(10), &rng);
 		if (HasDuplicates(root)) {
 			--i;
@@ -151,7 +152,8 @@ void EquationsTest() {
 			"  a, b, c, d, e = ", a, ", ", b, ", ", c, ", ", d, ", ", e
 		);
 		if (solution.nReal != 4) continue;
-		QuickSort(SimpleRange<Real>(solution.root, 4));
+		Range<Real> roots(solution.root, 4);
+		Sort(roots);
 		COMPARE_FP(solution.root[0], root[0], magnitude, Stringify(
 			"Actual Roots: ", root,
 			"  a, b, c, d, e = ", a, ", ", b, ", ", c, ", ", d, ", ", e,

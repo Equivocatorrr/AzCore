@@ -7,8 +7,8 @@
 #ifndef AZ3D_GAME_SYSTEMS_HPP
 #define AZ3D_GAME_SYSTEMS_HPP
 
-#include "AzCore/memory.hpp"
-#include "AzCore/io.hpp"
+#include "AzCore/Memory/Memory.hpp"
+#include "AzCore/IO/io.hpp"
 #include "rendering.hpp"
 #include "sound.hpp"
 #include "assets.hpp"
@@ -30,7 +30,7 @@ struct System;
 extern Manager *sys;
 
 // Initializes the engine
-bool Init(az::SimpleRange<char> windowTitle, az::Array<System*> systemsToRegister, bool enableVulkanValidation);
+bool Init(az::Range<char> windowTitle, az::Array<System*> systemsToRegister, bool enableVulkanValidation);
 // Does the loop internally
 void UpdateLoop();
 // Cleans up and saves stuff
@@ -68,7 +68,7 @@ struct Manager {
 
 	az::BinaryMap<az::String, az::WString> locale;
 	void LoadLocale();
-	inline az::WString ReadLocale(az::SimpleRange<char> name) {
+	inline az::WString ReadLocale(az::Range<char> name) {
 		if (!locale.Exists(name))
 			return az::ToWString(name);
 		else

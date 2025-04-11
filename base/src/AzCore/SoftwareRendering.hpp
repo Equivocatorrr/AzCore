@@ -8,9 +8,7 @@
 #define AZCORE_SOFTWARE_RENDERING_HPP
 
 #include "IO/Window.hpp"
-#include "math.hpp"
 #include "Image.hpp"
-#include "memory.hpp"
 #include "Math/Color.hpp"
 
 namespace AzCore {
@@ -25,12 +23,12 @@ struct Pixel {
 
 struct SoftwareRenderer {
 	struct SWData *data;
-	io::Window *window;
+	io::Window *window=nullptr;
 	i32 width, height, depth;
-	u8 *framebuffer;
+	u8 *framebuffer=nullptr;
 	i32 stride;
 	String error;
-	bool initted;
+	bool initted=false;
 
 	inline Pixel& GetPixel(i32 x, i32 y) {
 #ifndef NDEBUG
@@ -40,6 +38,7 @@ struct SoftwareRenderer {
 #endif
 		return *((Pixel*)&framebuffer[y*stride + x*depth]);
 	}
+	SoftwareRenderer();
 	SoftwareRenderer(io::Window *inWindow);
 	SoftwareRenderer(const SoftwareRenderer&) = delete;
 	SoftwareRenderer(SoftwareRenderer &&) = delete;
@@ -50,14 +49,14 @@ struct SoftwareRenderer {
 	bool Present();
 	bool Deinit();
 
-	bool FramebufferToImage(Image *dst);
+	void FramebufferToImage(Image &dst);
 
 	void ColorPixel(i32 x, i32 y, Color<u8> in);
 	void DarkenBox(vec2i p1, vec2i p2, u8 amount);
 	void DrawBox(vec2i p1, vec2i p2, Color<u8> color);
 	void DrawBoxBlended(vec2i p1, vec2i p2, Color<u8> color);
-	void DrawImage(vec2i p1, Image *image);
-	void DrawImageBlended(vec2i p1, Image *image);
+	void DrawImage(vec2i p1, const Image &image);
+	void DrawImageBlended(vec2i p1, const Image &image);
 };
 
 } // namespace AzCore

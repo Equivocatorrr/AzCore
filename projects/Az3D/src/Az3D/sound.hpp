@@ -7,7 +7,9 @@
 #ifndef AZ3D_SOUND_HPP
 #define AZ3D_SOUND_HPP
 
-#include "AzCore/common.hpp"
+#include "AzCore/Memory/String.hpp"
+#include "AzCore/Memory/Ptr.hpp"
+#include "AzCore/Math/RandomNumberGenerator.hpp"
 #include "AzCore/Thread.hpp"
 #include <AL/al.h>
 #include <AL/alc.h>

@@ -7,12 +7,14 @@
 #ifndef AZ3D_AZ3DOBJ_HPP
 #define AZ3D_AZ3DOBJ_HPP
 
-#include "AzCore/memory.hpp"
 #include "AzCore/Image.hpp"
 #include "AzCore/Math/vec2_t.hpp"
 #include "AzCore/Math/vec3_t.hpp"
 #include "AzCore/Math/vec4_t.hpp"
 #include "AzCore/Math/mat3_t.hpp"
+#include "AzCore/Math/Angle.hpp"
+
+#include <cstdint>
 
 namespace Az3D::Az3DObj {
 

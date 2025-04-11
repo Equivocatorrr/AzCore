@@ -3,13 +3,15 @@
 	Author: Philip Haynes
 */
 
-#include "../../io.hpp"
-#include "../../keycodes.hpp"
-#include "../../math.hpp"
+#include "../io.hpp"
+#include "../../Math/Math.hpp"
 
 #include <fcntl.h>
 #include <linux/joystick.h>
 #include <unistd.h>
+#include <errno.h>
+
+using namespace AzCore::io::kc;
 
 namespace AzCore {
 

@@ -7,6 +7,7 @@
 #ifndef AZCORE_COLOR_HPP
 #define AZCORE_COLOR_HPP
 
+#include "../BasicTypes.hpp"
 #include "vec3_t.hpp"
 #include "vec4_t.hpp"
 

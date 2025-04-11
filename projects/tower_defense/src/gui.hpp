@@ -100,7 +100,6 @@ struct Gui : public GuiBasic {
 	PlayMenu menuPlay;
 	
 	Assets::TexIndex texCursor;
-	Assets::FontIndex fontIndex;
 	az::Array<Sound::Source> sndClickInSources;
 	az::Array<Sound::Source> sndClickOutSources;
 	az::Array<Sound::Source> sndClickSoftSources;

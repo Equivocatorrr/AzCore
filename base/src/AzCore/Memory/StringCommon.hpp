@@ -7,7 +7,7 @@
 #ifndef AZCORE_STRINGCOMMON_HPP
 #define AZCORE_STRINGCOMMON_HPP
 
-#include "../basictypes.hpp"
+#include "../BasicTypes.hpp"
 
 namespace AzCore {
 

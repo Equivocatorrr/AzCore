@@ -7,23 +7,23 @@
 #ifndef AZCORE_MATRIX_HPP
 #define AZCORE_MATRIX_HPP
 
-#include "../basictypes.hpp"
+#include "../BasicTypes.hpp"
 #include "../Assert.hpp"
 #include "../Memory/String.hpp" // For more helpful assert messages
-#include "../Memory/RAIIHacks.hpp"
-#include "../IO/Log.hpp"
-#include "../Math/basic.hpp"
+#include "../Utility/RAIIHacks.hpp"
+#include "../Utility/TypeName.hpp"
+#include "../Math/Basic.hpp"
 #include "../Math/vec2_t.hpp"
 #include "../Math/vec3_t.hpp"
 #include "../Math/vec4_t.hpp"
 #include "../Math/vec5_t.hpp"
-#include "../TemplateUtil.hpp"
-#include "../Sort.hpp"
+#include "../Utility/Sort.hpp"
 
-#include "../Simd.hpp"
+#include "../SIMD/Simd.hpp"
 
 #include <initializer_list>
 #include <type_traits>
+#include <cstdint>
 
 #define MATRIX_INFO_ARGS(obj) "Matrix<", az::TypeName<T>(), ((obj).capacity == 0 && (obj).Count() != 0 ? ">*(" : ">("), (obj).cols, ", ", (obj).rows, ")"
 #define VECTOR_INFO_ARGS(obj) "Vector<", az::TypeName<T>(), ((obj).capacity == 0 && (obj).Count() != 0 ? ">*(" : ">("), (obj).count, ")"
@@ -729,7 +729,7 @@ struct Vector {
 
 	vec5_t<T>& AsVec5() const {
 		AssertValid();
-		AzAssert(count == 3, Stringify("Conversion of ", VECTOR_INFO_ARGS(*this), " to a vec5_t<", TypeName<T>(), ">& error: Count (", count, ") is incorrect."));
+		AzAssert(count == 5, Stringify("Conversion of ", VECTOR_INFO_ARGS(*this), " to a vec5_t<", TypeName<T>(), ">& error: Count (", count, ") is incorrect."));
 		AzAssert(stride == 1, Stringify("Conversion of ", VECTOR_INFO_ARGS(*this), " to a vec5_t<", TypeName<T>(), ">& error: stride (", stride, ") must be 1."));
 		return *(vec5_t<T>*)data;
 	};
@@ -771,8 +771,8 @@ struct Matrix {
 	using Scalar_t = T;
 	T *data;
 	u16 cols, rows;
-	u8 colStride, rowStride;
-	u16 capacity;
+	u16 colStride, rowStride;
+	u32 capacity;
 
 	inline void AssertValid() const {
 		AzAssert(data != nullptr, Stringify(MATRIX_INFO_ARGS(*this), " is null!"));
@@ -786,11 +786,25 @@ struct Matrix {
 
 	constexpr Matrix(i32 _cols, i32 _rows) :
 		data(_cols > 0 && _rows > 0 ? new T[_cols * _rows] : nullptr),
-		cols(_cols), rows(_rows), colStride(_rows), rowStride(1), capacity(_cols * _rows) {}
+		cols(_cols), rows(_rows), colStride(_rows), rowStride(1), capacity(_cols * _rows)
+	{
+		AzAssert(_cols <= UINT16_MAX, Stringify("Constructing Matrix<", az::TypeName<T>(), ">(", _cols, ", ", _rows, ") error: Column count would overflow (max ", UINT16_MAX, ")"));
+		AzAssert(_rows <= UINT16_MAX, Stringify("Constructing Matrix<", az::TypeName<T>(), ">(", _cols, ", ", _rows, ") error: Row count would overflow (max ", UINT16_MAX, ")"));
+	}
 
-	constexpr Matrix(T *_data, i32 _cols, i32 _rows) : data(_data), cols(_cols), rows(_rows), colStride(_rows), rowStride(1), capacity(0) {}
+	constexpr Matrix(T *_data, i32 _cols, i32 _rows) : data(_data), cols(_cols), rows(_rows), colStride(_rows), rowStride(1), capacity(0)
+	{
+		AzAssert(_cols <= UINT16_MAX, Stringify("Constructing Matrix<", az::TypeName<T>(), ">(data, ", _cols, ", ", _rows, ") error: Column count would overflow (max ", UINT16_MAX, ")"));
+		AzAssert(_rows <= UINT16_MAX, Stringify("Constructing Matrix<", az::TypeName<T>(), ">(data, ", _cols, ", ", _rows, ") error: Row count would overflow (max ", UINT16_MAX, ")"));
+	}
 
-	constexpr Matrix(T *_data, i32 _cols, i32 _rows, i32 _colStride, i32 _rowStride) : data(_data), cols(_cols), rows(_rows), colStride(_colStride), rowStride(_rowStride), capacity(0) {}
+	constexpr Matrix(T *_data, i32 _cols, i32 _rows, i32 _colStride, i32 _rowStride) : data(_data), cols(_cols), rows(_rows), colStride(_colStride), rowStride(_rowStride), capacity(0)
+	{
+		AzAssert(_cols <= UINT16_MAX, Stringify("Constructing Matrix<", az::TypeName<T>(), ">(data, ", _cols, ", ", _rows, ", ", _colStride, ", ", _rowStride, ") error: Column count would overflow (max ", UINT16_MAX, ")"));
+		AzAssert(_rows <= UINT16_MAX, Stringify("Constructing Matrix<", az::TypeName<T>(), ">(data, ", _cols, ", ", _rows, ", ", _colStride, ", ", _rowStride, ") error: Row count would overflow (max ", UINT16_MAX, ")"));
+		AzAssert(_colStride <= UINT16_MAX, Stringify("Constructing Matrix<", az::TypeName<T>(), ">(data, ", _cols, ", ", _rows, ", ", _colStride, ", ", _rowStride, ") error: Column stride would overflow (max ", UINT16_MAX, ")"));
+		AzAssert(_rowStride <= UINT16_MAX, Stringify("Constructing Matrix<", az::TypeName<T>(), ">(data, ", _cols, ", ", _rows, ", ", _colStride, ", ", _rowStride, ") error: Row stride would overflow (max ", UINT16_MAX, ")"));
+	}
 
 	constexpr Matrix(const Matrix &other) :
 		data(other.cols > 0 && other.rows > 0 ? ArrayNewCopy2D(other.Rows(), other.Cols(), other.data, other.rowStride, other.colStride) : nullptr),
@@ -827,6 +841,8 @@ struct Matrix {
 	static Matrix Diagonal(const Vector<T> &vector, i32 _cols=-1, i32 _rows=-1) {
 		if (_cols == -1) _cols = vector.Count();
 		if (_rows == -1) _rows = vector.Count();
+		AzAssert(_cols <= UINT16_MAX, Stringify("Constructing Matrix<", az::TypeName<T>(), ">::Diagonal(", VECTOR_INFO_ARGS(vector), ", ", _cols, ", ", _rows, ") error: Column count would overflow (max ", UINT16_MAX, ")"));
+		AzAssert(_rows <= UINT16_MAX, Stringify("Constructing Matrix<", az::TypeName<T>(), ">::Diagonal(", VECTOR_INFO_ARGS(vector), ", ", _cols, ", ", _rows, ") error: Row count would overflow (max ", UINT16_MAX, ")"));
 		AzAssert(min(_cols, _rows) <= vector.Count(), Stringify(VECTOR_INFO_ARGS(vector), " too small to fill the diagonals of a ", _cols, " x ", _rows, " matrix."));
 		Matrix result(_cols, _rows);
 		for (i32 c = 0; c < _cols; c++) {
@@ -837,6 +853,8 @@ struct Matrix {
 		return result;
 	}
 	static Matrix Filled(i32 _cols, i32 _rows, std::initializer_list<T> init) {
+		AzAssert(_cols <= UINT16_MAX, Stringify("Constructing Matrix<", az::TypeName<T>(), ">::Filled(", _cols, ", ", _rows, "{...}) error: Column count would overflow (max ", UINT16_MAX, ")"));
+		AzAssert(_rows <= UINT16_MAX, Stringify("Constructing Matrix<", az::TypeName<T>(), ">::Filled(", _cols, ", ", _rows, "{...}) error: Row count would overflow (max ", UINT16_MAX, ")"));
 		AzAssert(_cols * _rows == (i32)init.size(), Stringify("Expected _cols * _rows to equal the initializer_list size (_cols = ", _cols, ", _rows = ", _rows, ", size = ", init.size(), ")"));
 		Matrix result(_cols, _rows);
 		i32 r = 0, c = 0;
@@ -851,6 +869,8 @@ struct Matrix {
 		return result;
 	}
 	static Matrix Filled(i32 _cols, i32 _rows, T value) {
+		AzAssert(_cols <= UINT16_MAX, Stringify("Constructing Matrix<", az::TypeName<T>(), ">::Filled(", _cols, ", ", _rows, ", ", value, ") error: Column count would overflow (max ", UINT16_MAX, ")"));
+		AzAssert(_rows <= UINT16_MAX, Stringify("Constructing Matrix<", az::TypeName<T>(), ">::Filled(", _cols, ", ", _rows, ", ", value, ") error: Row count would overflow (max ", UINT16_MAX, ")"));
 		Matrix result(_cols, _rows);
 		for (i32 i = 0; i < result.Count(); i++) {
 			result.data[i] = value;
@@ -860,14 +880,23 @@ struct Matrix {
 
 	void Resize(i32 _cols, i32 _rows) {
 		if (cols == _cols && rows == _rows) return;
+		AzAssert(_cols <= UINT16_MAX, Stringify(MATRIX_INFO_ARGS(*this), "::Resize(", _cols, ", ", _rows, ") error: Column count would overflow (max ", UINT16_MAX, ")"));
+		AzAssert(_rows <= UINT16_MAX, Stringify(MATRIX_INFO_ARGS(*this), "::Resize(", _cols, ", ", _rows, ") error: Row count would overflow (max ", UINT16_MAX, ")"));
 		if (cols != 0 && rows != 0 && (cols < _cols || rows < _rows)) {
 			AzAssert(capacity != 0, Stringify(MATRIX_INFO_ARGS(*this), ".Resize(", _cols, ", ", _rows, ") error: Pointer Matrices can only be shrunk!"));
 		}
-		MakeOwnedWithSize(_cols, _rows);
+		if (capacity || cols == 0 || rows == 0) {
+			MakeOwnedWithSize(_cols, _rows);
+		} else {
+			cols = _cols;
+			rows = _rows;
+		}
 	}
 
 	void MakeOwnedWithSize(i32 _cols, i32 _rows) {
-		i32 _count = _cols * _rows;
+		AzAssert(_cols <= UINT16_MAX, Stringify(MATRIX_INFO_ARGS(*this), "::MakeOwnedWithSize(", _cols, ", ", _rows, ") error: Column count would overflow (max ", UINT16_MAX, ")"));
+		AzAssert(_rows <= UINT16_MAX, Stringify(MATRIX_INFO_ARGS(*this), "::MakeOwnedWithSize(", _cols, ", ", _rows, ") error: Row count would overflow (max ", UINT16_MAX, ")"));
+		u32 _count = _cols * _rows;
 		if (capacity < _count) {
 			T *newData = new T[_count];
 			for (i32 c = 0; c < min(Cols(), _cols); c++) {
@@ -888,8 +917,10 @@ struct Matrix {
 	}
 
 	T* MakeOwnedWithSizeDeferredDelete(i32 _cols, i32 _rows) {
+		AzAssert(_cols <= UINT16_MAX, Stringify(MATRIX_INFO_ARGS(*this), "::MakeOwnedWithSizeDeferredDelete(", _cols, ", ", _rows, ") error: Column count would overflow (max ", UINT16_MAX, ")"));
+		AzAssert(_rows <= UINT16_MAX, Stringify(MATRIX_INFO_ARGS(*this), "::MakeOwnedWithSizeDeferredDelete(", _cols, ", ", _rows, ") error: Row count would overflow (max ", UINT16_MAX, ")"));
 		T *result = nullptr;
-		i32 _count = _cols * _rows;
+		u32 _count = _cols * _rows;
 		if (capacity < _count) {
 			T *newData = new T[_count];
 			for (i32 c = 0; c < min(Cols(), _cols); c++) {
@@ -931,7 +962,7 @@ struct Matrix {
 	// Makes a new copy of other (so we're no longer pointing at anything else if we were before).
 	Matrix& Reassign(const Matrix &other) {
 		if (capacity) {
-			if (capacity < other.Count()) {
+			if (capacity < (u32)other.Count()) {
 				delete[] data;
 				data = ArrayNewCopy2D(other.Rows(), other.Cols(), other.data, other.rowStride, other.colStride);
 				capacity = other.Count();
@@ -1166,17 +1197,6 @@ struct Matrix {
 		}
 		return result;
 	}
-
-	/*
-		Rant time:
-		Most math literature refers to "orthogonal" matrices as being defined by their transpose equaling their inverse. That is, all basis vectors within the matrix are orthogonal to each other AND unit-length.
-		"Orthogonal" in terms of vectors is a weaker guarantee, ensuring only that two "orthogonal" vectors are perpendicular to each other.
-		"Orthonormal" is a stronger guarantee that states two vectors are orthogonal to each other AND unit-length.
-		Would it not make infinitely more sense for the same pattern to hold for matrices?
-		Define "orthogonal matrix" to mean all basis vectors are orthogonal to each other.
-		Define "orthonormal matrix" to mean all basis vectors are orthogonal to each other AND unit-length.
-		With this more consistent terminology, a matrix inverse would only equal its transpose when it is "orthonormal" and NOT when it's otherwise "orthogonal".
-	*/
 
 	// m = min(cols, rows)
 	// Q is a    m x rows orthonormal matrix

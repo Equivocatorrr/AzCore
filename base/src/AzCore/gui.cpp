@@ -4,7 +4,10 @@
 */
 
 #include "gui.hpp"
-#include "Profiling.hpp"
+#include "Utility/Profiling.hpp"
+#include "IO/KeyCodes.hpp"
+
+using namespace AzCore::io::kc;
 
 namespace AzCore::GuiGeneric {
 
@@ -1383,14 +1386,14 @@ void Textbox::Update(vec2 pos, bool selected) {
 			bool up = _system->functions.KeycodeRepeated(_system->data, data, KC_KEY_UP);
 			bool down = _system->functions.KeycodeRepeated(_system->data, data, KC_KEY_DOWN);
 			if (up || down) {
-				vec2 cursorPos = _system->functions.GetPositionFromCursorInText(_system->data, data, textPos, textArea, fontSize * scale, SimpleRange<char32>(stringFormatted.data, stringFormatted.size - stringSuffix.size), CursorFromSourceToFormatted(cursor, string, stringFormatted), vec2(0.0f, 0.5f));
+				vec2 cursorPos = _system->functions.GetPositionFromCursorInText(_system->data, data, textPos, textArea, fontSize * scale, Range<char32>(stringFormatted.data, stringFormatted.size - stringSuffix.size), CursorFromSourceToFormatted(cursor, string, stringFormatted), vec2(0.0f, 0.5f));
 				if (up) {
 					cursorPos -= _system->functions.GetLineHeight(_system->data, data, fontSize * scale);
 				}
 				if (down) {
 					cursorPos += _system->functions.GetLineHeight(_system->data, data, fontSize * scale);
 				}
-				cursor = _system->functions.GetCursorFromPositionInText(_system->data, data, textPos, textArea, fontSize * scale, SimpleRange<char32>(stringFormatted.data, stringFormatted.size - stringSuffix.size), cursorPos);
+				cursor = _system->functions.GetCursorFromPositionInText(_system->data, data, textPos, textArea, fontSize * scale, Range<char32>(stringFormatted.data, stringFormatted.size - stringSuffix.size), cursorPos);
 				cursor = CursorFromFormattedToSource(cursor, string, stringFormatted);
 				cursorBlinkTimer = 0.0f;
 			}
@@ -1465,7 +1468,7 @@ void Textbox::Update(vec2 pos, bool selected) {
 				_system->controlDepth = depth+1;
 			}
 			const vec2 mouse = vec2(_system->mouseCursor);
-			cursor = _system->functions.GetCursorFromPositionInText(_system->data, data, textPos, textArea, fontSize * scale, SimpleRange<char32>(stringFormatted.data, stringFormatted.size - stringSuffix.size), mouse);
+			cursor = _system->functions.GetCursorFromPositionInText(_system->data, data, textPos, textArea, fontSize * scale, Range<char32>(stringFormatted.data, stringFormatted.size - stringSuffix.size), mouse);
 			cursor = CursorFromFormattedToSource(cursor, string, stringFormatted);
 			cursorBlinkTimer = 0.0f;
 		}
@@ -1511,7 +1514,7 @@ void Textbox::Draw(Any &dataDrawCall) const {
 	_system->functions.DrawQuad(_system->data, const_cast<Any&>(data), dataDrawCall, positionAbsolute * _system->scale, sizeAbsolute * _system->scale, colorBGActual);
 	_system->functions.DrawText(_system->data, const_cast<Any&>(data), dataDrawCall, textPos, textArea, textScale, stringFormatted, colorTextActual, vec4(0.0f), false);
 	if (cursorBlinkTimer < 0.5f && entry) {
-		vec2 cursorPos = _system->functions.GetPositionFromCursorInText(_system->data, const_cast<Any&>(data), textPos / _system->scale, textArea / _system->scale, textScale / _system->scale, SimpleRange<char32>(stringFormatted.data, stringFormatted.size - stringSuffix.size), CursorFromSourceToFormatted(cursor, string, stringFormatted), vec2(0.0f, 0.0f));
+		vec2 cursorPos = _system->functions.GetPositionFromCursorInText(_system->data, const_cast<Any&>(data), textPos / _system->scale, textArea / _system->scale, textScale / _system->scale, Range<char32>(stringFormatted.data, stringFormatted.size - stringSuffix.size), CursorFromSourceToFormatted(cursor, string, stringFormatted), vec2(0.0f, 0.0f));
 		_system->functions.DrawQuad(_system->data, const_cast<Any&>(data), dataDrawCall, cursorPos, vec2(ceil(_system->scale), textScale.y), colorTextActual);
 	}
 	PopScissor(dataDrawCall);

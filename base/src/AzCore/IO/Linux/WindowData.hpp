@@ -12,10 +12,10 @@
 	#define AZCORE_IO_NO_XLIB
 #endif
 
-#include "../../basictypes.hpp"
-#include "../../memory.hpp"
+#include "../../BasicTypes.hpp"
+#include "../../Memory/Memory.hpp"
 #include "../../Thread.hpp"
-#include "../../Memory/RAIIHacks.hpp"
+#include "../../Utility/RAIIHacks.hpp"
 
 #include <xcb/xcb.h>
 #ifndef AZCORE_IO_NO_XLIB

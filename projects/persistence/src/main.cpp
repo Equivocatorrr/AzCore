@@ -1,7 +1,8 @@
 #include "AzCore/IO/Log.hpp"
-#include "AzCore/memory.hpp"
-#include "AzCore/Memory/BigInt.hpp"
+#include "AzCore/Memory/Memory.hpp"
+#include "AzCore/Math/BigInt.hpp"
 #include "AzCore/Math/RandomNumberGenerator.hpp"
+#include "AzCore/Utility/Time.hpp"
 
 using namespace AzCore;
 

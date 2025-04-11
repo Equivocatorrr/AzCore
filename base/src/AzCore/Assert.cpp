@@ -5,13 +5,13 @@
 void AzCore::_AssertFailure(const char *file, const char *line, const char *message) {
 	AzCore::io::cerr.PrintLn("\033[96m", file, "\033[0m:\033[96m", line, "\033[0m Assert failed: \033[91m", message, "\033[0m");
 	AzCore::PrintBacktrace(io::cerr);
-	exit(1);
+	exit_thread_safe(1);
 }
 
 void AzCore::_AssertFailure(const char *file, const char *line, const AzCore::String &message) {
 	AzCore::io::cerr.PrintLn("\033[96m", file, "\033[0m:\033[96m", line, "\033[0m Assert failed: \033[91m", message, "\033[0m");
 	AzCore::PrintBacktrace(io::cerr);
-	exit(1);
+	exit_thread_safe(1);
 }
 
 #ifdef __unix
@@ -92,21 +92,21 @@ void PrintBacktrace(io::Log &log) {
 	void *imageBasePointer = _GetImageBasePointer(hProcess, pid);
 	if (imageBasePointer == nullptr) return;
 	IMAGE_NT_HEADERS *ntHeaders = ImageNtHeader(imageBasePointer);
-	
+
 	if (!SymInitialize(hProcess, NULL, true)) {
 		log.PrintLn("SymInitialize failed :(");
 		return;
 	}
-	
+
 	SymSetOptions(SymGetOptions() | SYMOPT_LOAD_LINES | SYMOPT_UNDNAME);
-	
+
 	CONTEXT context;
 	RtlCaptureContext(&context);
-	
+
 	STACKFRAME64 stackFrame = _GetStackFrame(context);
 	IMAGEHLP_LINE64 line = {0};
 	line.SizeOfStruct = sizeof(IMAGEHLP_LINE64);
-	
+
 	log.PrintLn("Backtrace:");
 	i32 frame = 0;
 	log.IndentMore();

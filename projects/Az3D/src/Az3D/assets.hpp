@@ -7,11 +7,12 @@
 #ifndef AZ3D_ASSETS_HPP
 #define AZ3D_ASSETS_HPP
 
-#include "AzCore/IO/FileManager.hpp"
-#include "AzCore/memory.hpp"
-#include "AzCore/font.hpp"
 #include "sound.hpp"
 #include "Az3DObj.hpp"
+
+#include "AzCore/IO/FileManager.hpp"
+#include "AzCore/Font/Font.hpp"
+#include "AzCore/Memory/UniquePtr.hpp"
 
 struct stb_vorbis;
 

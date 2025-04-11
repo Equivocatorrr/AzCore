@@ -8,12 +8,12 @@
 #include "settings.hpp"
 #include "assets.hpp"
 #include "gui_basics.hpp"
-#include "AzCore/Profiling.hpp"
 #include "entity_basics.hpp"
 
+#include "AzCore/Utility/Profiling.hpp"
 #include "AzCore/IO/Log.hpp"
-#include "AzCore/io.hpp"
-#include "AzCore/font.hpp"
+#include "AzCore/Font/Font.hpp"
+#include "AzCore/Math/Color.hpp"
 
 namespace Az2D::Rendering {
 
@@ -186,7 +186,7 @@ bool Manager::Init() {
 	data.stagingMemory->deviceLocal = false;
 	data.bufferMemory = data.device->AddMemory();
 	data.textureMemory = data.device->AddMemory();
-	
+
 	data.fontStagingMemory = data.device->AddMemory();
 	data.fontStagingMemory->deviceLocal = false;
 	data.fontBufferMemory = data.device->AddMemory();
@@ -205,7 +205,7 @@ bool Manager::Init() {
 	baseBuffer.size = 1;
 	baseBuffer.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
-	Range<vk::Buffer> bufferStagingBuffers = data.stagingMemory->AddBuffers(3, baseBuffer);
+	SmartRange<vk::Buffer> bufferStagingBuffers = data.stagingMemory->AddBuffers(3, baseBuffer);
 	bufferStagingBuffers[0].size = vertices.size * sizeof(Vertex);
 	bufferStagingBuffers[1].size = indices.size * sizeof(u32);
 	data.uniformStagingBuffer = bufferStagingBuffers.GetPtr(2);
@@ -234,7 +234,7 @@ bool Manager::Init() {
 	baseImage.format = VK_FORMAT_R8G8B8A8_SRGB;
 	auto texImages = data.textureMemory->AddImages(sys->assets.textures.size, baseImage);
 	for (i32 i = 0; i < sys->assets.textures.size; i++) {
-		if (sys->assets.textures[i].image.colorSpace == Image::ColorSpace::LINEAR) {
+		if (sys->assets.textures[i].image.format.colorSpace == Image::Format::LINEAR) {
 			data.textureMemory->data.images[i].format = VK_FORMAT_R8G8B8A8_UNORM;
 		}
 	}
@@ -253,7 +253,7 @@ bool Manager::Init() {
 			texStagingBuffers[i].size = 1;
 			continue;
 		}
-		const i32 channels = sys->assets.textures[i].image.channels;
+		const i32 channels = sys->assets.textures[i].image.format.channels;
 		if (channels != 4) {
 			error = Stringify("Invalid channel count (", channels, ") in textures[", i, "]");
 			return false;
@@ -298,7 +298,7 @@ bool Manager::Init() {
 		return false;
 	}
 
-	Range<vk::Shader> shaders = data.device->AddShaders(8);
+	SmartRange<vk::Shader> shaders = data.device->AddShaders(8);
 	shaders[0].filename = "data/Az2D/shaders/Basic2D.vert.spv";
 	shaders[1].filename = "data/Az2D/shaders/Basic2D.frag.spv";
 	shaders[2].filename = "data/Az2D/shaders/Font2D.frag.spv";
@@ -325,7 +325,7 @@ bool Manager::Init() {
 	data.pipelineDescriptorSets[PIPELINE_CIRCLE_2D] = {data.descriptorSet2D};
 	data.pipelineDescriptorSets[PIPELINE_SHADED_2D] = {data.descriptorSet2D};
 	data.pipelineDescriptorSets[PIPELINE_SHADED_2D_PIXEL] = {data.descriptorSet2D};
-	
+
 	data.pipelines[PIPELINE_BASIC_2D] = data.device->AddPipeline();
 	data.pipelines[PIPELINE_BASIC_2D]->renderPass = data.renderPass;
 	data.pipelines[PIPELINE_BASIC_2D]->subpass = 0;
@@ -496,7 +496,7 @@ bool Manager::Init() {
 		error = "Failed to init vk::instance: " + vk::error;
 		return false;
 	}
-	
+
 	uniforms.lights[0].position = vec3(0.0f);
 	uniforms.lights[0].color = vec3(0.0f);
 	uniforms.lights[0].attenuation = 0.0f;
@@ -557,10 +557,10 @@ using Entities::AABB;
 AABB GetAABB(const Light &light) {
 	AABB result;
 	vec2 center = {light.position.x, light.position.y};
-	
+
 	result.minPos = center;
 	result.maxPos = center;
-	
+
 	f32 dist = light.distMax;// * sqrt(1.0f - square(light.direction.z));
 	Angle32 cardinalDirs[4] = {0.0f, halfpi, pi, halfpi * 3.0f};
 	vec2 cardinalVecs[4] = {
@@ -759,7 +759,7 @@ bool Manager::UpdateFonts() {
 
 bool Manager::UpdateUniforms() {
 	UpdateLights();
-	
+
 	data.uniformStagingBuffer->CopyData(&uniforms);
 	VkCommandBuffer cmdBuf = data.commandBufferTransfer->Begin();
 	data.uniformBuffer->Copy(cmdBuf, data.uniformStagingBuffer);
@@ -927,7 +927,7 @@ bool Manager::Draw() {
 	vk::DeviceWaitIdle(data.device);
 	AZCORE_PROFILING_EXCEPTION_END();
 	timerWaitIdle.End();
-	
+
 	uniforms.screenSize = screenSize;
 	if (!UpdateUniforms()) return false;
 
@@ -1246,7 +1246,7 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 			font->fontBuilder.AddRange(character, character);
 		}
 		font::Glyph& glyph = font->fontBuilder.glyphs[glyphId];
-		
+
 		mat2 rotator = mat2::Rotation(rotation.value());
 
 		pc.frag.tex.albedo = actualFontIndex;

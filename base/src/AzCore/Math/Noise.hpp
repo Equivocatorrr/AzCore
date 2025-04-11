@@ -7,9 +7,10 @@
 #ifndef AZCORE_NOISE_HPP
 #define AZCORE_NOISE_HPP
 
-#include "../basictypes.hpp"
-#include "../math.hpp"
-#include "../Memory/ArrayWithBucket.hpp"
+#include "../BasicTypes.hpp"
+#include "../Math/vec2_t.hpp"
+#include "../Math/vec3_t.hpp"
+#include "../Math/vec4_t.hpp"
 
 namespace AzCore {
 

@@ -4,7 +4,7 @@
 */
 
 #include "Color.hpp"
-#include "../math.hpp"
+#include "Basic.hpp"
 #include "../SIMD/SimdSSE2.hpp"
 
 namespace AzCore {

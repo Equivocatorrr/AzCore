@@ -6,7 +6,7 @@
 #include "entity_basics.hpp"
 #include "game_systems.hpp"
 #include "sprite.hpp"
-#include "AzCore/Profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
 
 namespace Az2D::Entities {
 

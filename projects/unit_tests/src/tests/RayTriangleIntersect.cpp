@@ -6,7 +6,7 @@
 #include "../UnitTests.hpp"
 #include "../Utilities.hpp"
 #include "AzCore/Math/RandomNumberGenerator.hpp"
-#include "AzCore/math.hpp"
+#include "AzCore/Math/Math.hpp"
 
 namespace RayToTriangleIntersectTestNamespace {
 

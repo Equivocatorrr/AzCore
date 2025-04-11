@@ -80,4 +80,13 @@ vec3 TonemapCustom(vec3 color)
 	return mix(aces, vec3(1.0), sqr(smoothstep(0.0, 1.0, desaturation)));
 }
 
+vec3 TonemapArcade(vec3 color) {
+	vec3 result = vec3(
+		color.r + (clamp(color.g - 1.0, 0.0, 2.0) + clamp(color.b - 1.0, 0.0, 2.0)) * 0.5,
+		color.g + (clamp(color.r - 1.0, 0.0, 2.0) + clamp(color.b - 1.0, 0.0, 2.0)) * 0.5,
+		color.b + (clamp(color.g - 1.0, 0.0, 2.0) + clamp(color.r - 1.0, 0.0, 2.0)) * 0.5
+	);
+	return clamp(result, 0.0, 1.0);
+}
+
 #endif // COMMON_FRAG_GLSL

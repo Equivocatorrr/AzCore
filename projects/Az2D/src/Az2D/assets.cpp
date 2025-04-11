@@ -5,7 +5,7 @@
 
 #include "assets.hpp"
 #include "game_systems.hpp"
-#include "AzCore/Profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
 
 #include "AzCore/IO/Log.hpp"
 
@@ -97,12 +97,12 @@ Type FilenameToType(String filename) {
 void Texture::Decode() {
 	AZCORE_PROFILING_FUNC_TIMER()
 	image.LoadFromBuffer(file->data);
-	if (image.channels == 4) {
+	if (image.format.channels == 4) {
 		// Only multiply alpha if we actually had an alpha channel in the first place
 		image.PremultiplyAlpha();
 	}
-	if (image.channels == 3) {
-		image.SetChannels(4);
+	if (image.format.channels == 3) {
+		image.SetChannels(4, (u8)255);
 	}
 }
 
@@ -331,7 +331,7 @@ void Manager::Init() {
 #ifndef NDEBUG
 	fileManager.warnFileNotFound = true;
 #endif
-	
+
 	RequestTexture("TextureMissing.png", false);
 	RequestTexture("blank.tga", false);
 	RequestTexture("blank_n.tga", true);
@@ -358,7 +358,7 @@ bool textureDecoder(io::File *file, Any &any) {
 	texture.file = file;
 	texture.Decode();
 	TextureDecodeMetadata &metadata = any.Get<TextureDecodeMetadata>();
-	texture.image.colorSpace = metadata.linear ? Image::LINEAR : Image::SRGB;
+	texture.image.format.colorSpace = metadata.linear ? Image::Format::LINEAR : Image::Format::SRGB;
 	metadata.dstArrayMutex->Lock();
 	metadata.dstArray->Resize(max(metadata.texIndex+1, metadata.dstArray->size));
 	(*metadata.dstArray)[metadata.texIndex] = std::move(texture);
@@ -482,7 +482,7 @@ StreamIndex Manager::RequestStream(az::String filepath, i32 priority) {
 	return result;
 }
 
-i32 Manager::FindMapping(SimpleRange<char> filename, Type type) {
+i32 Manager::FindMapping(Range<char> filename, Type type) {
 	AZCORE_PROFILING_FUNC_TIMER()
 	auto *node = mappings.Find(filename);
 	if (node == nullptr) {

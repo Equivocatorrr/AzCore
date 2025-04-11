@@ -6,7 +6,8 @@
 
 #include "../UnitTests.hpp"
 #include "../Utilities.hpp"
-#include "AzCore/math.hpp"
+#include "AzCore/Math/Basic.hpp"
+#include "AzCore/Math/vec3_t.hpp"
 
 namespace BasicMathTestNamespace {
 

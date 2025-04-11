@@ -1,6 +1,6 @@
 #include "UnitTests.hpp"
 #include "AzCore/IO/Log.hpp"
-#include "AzCore/QuickSort.hpp"
+#include "AzCore/Utility/Sort.hpp"
 #include "AzCore/IO/vt_strings.hpp"
 
 namespace UT {
@@ -51,7 +51,7 @@ void RunTests() {
 				io::cout.PrintLn("Test \"", test.name, "\" doesn't have a valid result!");
 			} break;
 		}
-		QuickSort(test.problems, [](Report lhs, Report rhs) { return lhs.line < rhs.line; });
+		Sort(test.problems, [](Array<Report> &array, i64 indexLHS, i64 indexRHS) { return array[indexLHS].line < array[indexRHS].line; });
 		i32 curLine = 0;
 		i32 countLine = 0;
 		i32 skipCount = 0;

@@ -7,7 +7,7 @@
 #ifndef CONSOLE_COMMANDS_HPP
 #define CONSOLE_COMMANDS_HPP
 
-#include "AzCore/memory.hpp"
+#include "AzCore/Memory/Memory.hpp"
 
 namespace Dev {
 

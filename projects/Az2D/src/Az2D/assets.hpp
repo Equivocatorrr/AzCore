@@ -7,11 +7,11 @@
 #ifndef AZ2D_ASSETS_HPP
 #define AZ2D_ASSETS_HPP
 
-#include "AzCore/IO/FileManager.hpp"
-#include "AzCore/memory.hpp"
-#include "AzCore/font.hpp"
-#include "AzCore/Image.hpp"
 #include "sound.hpp"
+
+#include "AzCore/IO/FileManager.hpp"
+#include "AzCore/Font/Font.hpp"
+#include "AzCore/Image.hpp"
 
 struct stb_vorbis;
 
@@ -58,7 +58,7 @@ struct Font {
 	Font() = default;
 	Font(Font&&);
 
-	Font& operator=(const Font&) = default;
+	// Font& operator=(const Font&) = default;
 	Font& operator=(Font&&);
 
 	void Decode();
@@ -164,7 +164,7 @@ constexpr i32 textureIndexBlank = 1;
 
 struct Manager {
 	az::io::FileManager fileManager;
-	
+
 	az::HashMap<az::String, Mapping> mappings;
 	az::Array<Texture> textures;
 	az::Array<Font> fonts;
@@ -174,41 +174,41 @@ struct Manager {
 	FontIndex nextFontIndex;
 	SoundIndex nextSoundIndex;
 	StreamIndex nextStreamIndex;
-	
+
 	az::Mutex arrayMutex;
-	
+
 	void Init();
 	void Deinit();
-	
+
 	TexIndex    RequestTexture(az::String filepath, bool linear=false, i32 priority=0);
 	FontIndex   RequestFont   (az::String filepath, i32 priority=0);
 	SoundIndex  RequestSound  (az::String filepath, i32 priority=0);
 	StreamIndex RequestStream (az::String filepath, i32 priority=0);
-	
+
 	// filepath is for debugging purposes
 	// if lock is true then it will try to lock arrayMutex, otherwise it's expected you've already locked it.
 	TexIndex    RequestTextureDecode(az::Array<char> &&buffer, az::String filepath, bool linear=false, i32 priority=0, bool lock=true);
 
-	i32 FindMapping(az::SimpleRange<char> filename, Type type);
-	inline TexIndex FindTexture(az::SimpleRange<char> filename) {
+	i32 FindMapping(az::Range<char> filename, Type type);
+	inline TexIndex FindTexture(az::Range<char> filename) {
 		return (TexIndex)FindMapping(filename, Type::TEXTURE);
 	}
-	inline FontIndex FindFont(az::SimpleRange<char> filename) {
+	inline FontIndex FindFont(az::Range<char> filename) {
 		return (FontIndex)FindMapping(filename, Type::FONT);
 	}
-	inline SoundIndex FindSound(az::SimpleRange<char> filename) {
+	inline SoundIndex FindSound(az::Range<char> filename) {
 		return (SoundIndex)FindMapping(filename, Type::SOUND);
 	}
-	inline StreamIndex FindStream(az::SimpleRange<char> filename) {
+	inline StreamIndex FindStream(az::Range<char> filename) {
 		return (StreamIndex)FindMapping(filename, Type::STREAM);
 	}
 	f32 CharacterWidth(char32 c, i32 fontIndex) const;
-	
+
 	az::LockedPtr<Texture> GetTexture(TexIndex    index);
 	az::LockedPtr<Font>    GetFont   (FontIndex   index);
 	az::LockedPtr<Sound>   GetSound  (SoundIndex  index);
 	az::LockedPtr<Stream>  GetStream (StreamIndex index);
-	
+
 	bool IsTextureValid(TexIndex    index, bool lock=true);
 	bool IsFontValid   (FontIndex   index, bool lock=true);
 	bool IsSoundValid  (SoundIndex  index, bool lock=true);

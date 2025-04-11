@@ -6,13 +6,15 @@
 #include "gui.hpp"
 #include "entities.hpp"
 
-#include "Az2D/game_systems.hpp"
-#include "Az2D/settings.hpp"
-#include "AzCore/Profiling.hpp"
+#include <Az2D/game_systems.hpp>
+#include <Az2D/settings.hpp>
+#include <AzCore/Utility/Profiling.hpp>
+#include <AzCore/IO/KeyCodes.hpp>
 
 namespace Az2D::Gui {
 
 using namespace AzCore;
+using namespace io::kc;
 
 using GameSystems::sys;
 
@@ -100,7 +102,7 @@ void MainMenu::Initialize() {
 	title->string = sys->ReadLocale("Az2D Example");
 
 	gui->system.CreateSpacer(listV, 0.4f);
-	
+
 	azgui::ListH *spacingList = gui->system.CreateListHAsDefault(listV);
 	spacingList->color = vec4(0.0f);
 	spacingList->colorHighlighted = vec4(0.0f);
@@ -181,7 +183,7 @@ void SettingsMenu::Initialize() {
 	title->string = sys->ReadLocale("Settings");
 
 	gui->system.CreateSpacer(listV, 0.4f);
-	
+
 	azgui::ListH *spacingList = gui->system.CreateListHAsDefault(listV);
 	spacingList->color = vec4(0.0f);
 	spacingList->colorHighlighted = vec4(0.0f);
@@ -294,7 +296,7 @@ void SettingsMenu::Initialize() {
 	buttonList->padding = vec2(0.0f);
 	buttonList->color = vec4(0.0f);
 	buttonList->colorHighlighted = vec4(0.0f);
-	
+
 	azgui::Button buttonTemplate;
 	buttonTemplate.SetWidthFraction(1.0f / 2.0f);
 	buttonTemplate.SetHeightPixel(64.0f);
@@ -376,7 +378,7 @@ void PlayMenu::Initialize() {
 	screenListV->color = 0.0f;
 	screenListV->colorHighlighted = 0.0f;
 	screenListV->occludes = false;
-	
+
 	azgui::ListH *listTop = gui->system.CreateListH(screenListV);
 	listTop->SetWidthFraction(1.0f);
 	listTop->SetHeightPixel(80.0f);

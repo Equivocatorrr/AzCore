@@ -10,7 +10,7 @@
 #include "assets.hpp"
 #include "rendering.hpp"
 
-#include "AzCore/math.hpp"
+#include "AzCore/Math/Math.hpp"
 
 namespace Az2D {
 
@@ -29,7 +29,7 @@ struct Sprite {
 	// pixel coords of the last frame's bottom right (not inclusive)
 	// the default value of -1 means it will be set to the full size of the sprite in AssetsAcquire
 	vec2i framesEnd = -1;
-	
+
 	// current animation frame
 	f32 frame = 0.0f;
 	inline void Reset() {

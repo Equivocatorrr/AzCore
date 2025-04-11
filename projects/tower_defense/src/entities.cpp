@@ -6,14 +6,17 @@
 #include "entities.hpp"
 #include "gui.hpp"
 
-#include "AzCore/Profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
 
 #include "AzCore/Thread.hpp"
 #include "AzCore/IO/Log.hpp"
+#include "AzCore/IO/KeyCodes.hpp"
+#include "AzCore/Math/Color.hpp"
 
 namespace Az2D::Entities {
 
 using namespace AzCore;
+using namespace io::kc;
 
 Manager *entities = nullptr;
 
@@ -30,7 +33,7 @@ const char* towerStrings[TOWER_MAX_RANGE+1] = {
 	"Flak"
 };
 const i32 towerCosts[TOWER_MAX_RANGE+1] = {
-	2000,
+	1500,
 	3000,
 	5000,
 	15000,
@@ -78,11 +81,11 @@ const Tower towerGunTemplate = Tower(
 	{vec2(0.0f), 320.0f},                       // fieldPhysicalBasis
 	TOWER_GUN,                                  // TowerType
 	320.0f,                                     // range
-	0.25f,                                      // shootInterval
+	0.5f,                                       // shootInterval
 	2.7f,                                       // bulletSpread (degrees)
 	1,                                          // bulletCount
-	18,                                         // damage
-	800.0f,                                     // bulletSpeed
+	40,                                         // damage
+	900.0f,                                     // bulletSpeed
 	50.0f,                                      // bulletSpeedVariability
 	0,                                          // bulletExplosionDamage
 	0.0f,                                       // bulletExplosionRange
@@ -129,7 +132,7 @@ const Tower towerGaussTemplate = Tower(
 	BOX,                                        // CollisionType
 	{vec2(-32.0f), vec2(32.0f)},                // PhysicalBasis
 	CIRCLE,                                     // fieldCollisionType
-	{vec2(0.0f), 480.0f},                       // fieldPhysicalBasis
+	{vec2(0.0f), 400.0f},                       // fieldPhysicalBasis
 	TOWER_GAUSS,                                // TowerType
 	400.0f,                                     // range
 	1.8f,                                       // shootInterval
@@ -147,13 +150,13 @@ const Tower towerShockerTemplate = Tower(
 	CIRCLE,                                     // CollisionType
 	{vec2(0.0f), 16.0f},                        // PhysicalBasis
 	CIRCLE,                                     // fieldCollisionType
-	{vec2(0.0f), 120.0f},                       // fieldPhysicalBasis
+	{vec2(0.0f), 90.0f},                        // fieldPhysicalBasis
 	TOWER_SHOCKWAVE,                            // TowerType
-	120.0f,                                     // range
+	90.0f,                                      // range
 	1.2f,                                       // shootInterval
 	0.0f,                                       // bulletSpread (degrees)
 	1,                                          // bulletCount
-	60,                                         // damage
+	120,                                        // damage
 	1.0f,                                       // bulletSpeed
 	0.0f,                                       // bulletSpeedVariability
 	0,                                          // bulletExplosionDamage
@@ -170,12 +173,12 @@ const Tower towerFlakTemplate = Tower(
 	400.0f,                                     // range
 	1.8f,                                       // shootInterval
 	6.0f,                                       // bulletSpread (degrees)
-	5,                                          // bulletCount
-	25,                                         // damage
-	500.0f,                                     // bulletSpeed
+	10,                                         // bulletCount
+	50,                                         // damage
+	300.0f,                                     // bulletSpeed
 	100.0f,                                     // bulletSpeedVariability
-	50,                                         // bulletExplosionDamage
-	80.0f,                                      // bulletExplosionRange
+	100,                                        // bulletExplosionDamage
+	120.0f,                                     // bulletExplosionRange
 	vec4(1.0f, 0.0f, 0.8f, 1.0f)                // color
 );
 
@@ -323,7 +326,7 @@ inline void Manager::HandleMouseCamera() {
 
 bool TypedCode(String code) {
 	if (code.size > sys->input.typingString.size) return false;
-	Range<char> end = sys->input.typingString.GetRange(sys->input.typingString.size-code.size, code.size);
+	SmartRange<char> end = sys->input.typingString.GetRange(sys->input.typingString.size-code.size, code.size);
 	if (code == end) {
 		sys->input.typingString.Clear();
 		return true;
@@ -573,7 +576,7 @@ void Manager::EventSync() {
 		while (enemyTimer <= 0.0f && hitpointsLeft > 0) {
 			Enemy enemy;
 			for (i32 i = 0; i < 3; i++) {
-				enemy.type = (Enemy::Type)random(0, 3);
+				enemy.type = (Enemy::Type)random(0, 1 + i32(wave >= 10) + i32(wave >= 20));
 				if (enemy.type != Enemy::HONKER) break;
 			}
 			enemies.Create(enemy); // Enemy::EventCreate() increases enemyTimer based on HP
@@ -603,7 +606,7 @@ void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 	// if (Gui::gui->currentMenu != Gui::Menu::PLAY) return;
 
 	ManagerBasic::EventDraw(contexts);
-	
+
 	if (placeMode) {
 		Tower tower(towerType);
 		tower.physical.pos = mouse;
@@ -941,7 +944,7 @@ void Enemy::EventCreate() {
 				multiplier = random(1, 2);
 				break;
 		}
-		hitpoints = multiplier * (i32)floor(80.0f * pow(1.16f, (f32)(entities->wave + 3))) / (entities->wave+7);
+		hitpoints = multiplier * (i32)floor(120.0f * pow(1.16f, (f32)(entities->wave + 3))) / (entities->wave+7);
 		age = 0.0f;
 	}
 	spawnTimer = honkerSpawnInterval;

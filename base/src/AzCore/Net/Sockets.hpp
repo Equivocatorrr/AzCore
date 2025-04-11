@@ -4,7 +4,7 @@
 	Cross-platform network sockets
 */
 
-#include "../basictypes.hpp"
+#include "../BasicTypes.hpp"
 #include "../Memory/String.hpp"
 
 namespace AzCore {

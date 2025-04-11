@@ -7,11 +7,12 @@
 #ifndef AZCORE_THREAD_HPP
 #define AZCORE_THREAD_HPP
 
-#include "basictypes.hpp"
+#include "BasicTypes.hpp"
 #include "Memory/Range.hpp"
 #include <tuple>
 #include <functional>
 #include <chrono>
+#include <cstdio>
 
 void exit_thread_safe(int code);
 
@@ -47,7 +48,7 @@ public:
 
 class Thread {
 	alignas(8) char data[16];
-	
+
 	// This distinction MUST exist in the headers because the alternative is doing 2 heap allocations per thread launch instead of just the 1 we're already doing for the closure.
 #ifdef __unix
 	template<class Call>
@@ -57,7 +58,7 @@ class Thread {
 		delete call;
 		return nullptr;
 	}
-	
+
 	void _Launch(void* (*proc)(void*), void *call, void (*cleanup)(void*));
 #elif defined(_WIN32)
 	template<class Call>
@@ -67,7 +68,7 @@ class Thread {
 		delete call;
 		return 0;
 	}
-	
+
 	void _Launch(unsigned (__stdcall *proc)(void*), void *call, void (*cleanup)(void*));
 #endif
 
@@ -104,11 +105,11 @@ public:
 	Thread& operator=(Thread&& other);
 
 	static unsigned HardwareConcurrency();
-	
+
 	// Sets the processor affinity for the current thread
-	static void SetProcessorAffinity(SimpleRange<u16> cpus);
+	static void SetProcessorAffinity(Range<u16> cpus);
 	// Sets the processor affinity for the given thread
-	static void SetProcessorAffinity(Thread &thread, SimpleRange<u16> cpus);
+	static void SetProcessorAffinity(Thread &thread, Range<u16> cpus);
 	// Sets default processor affinity for the current thread
 	static void ResetProcessorAffinity();
 	// Sets default processor affinity for the given thread

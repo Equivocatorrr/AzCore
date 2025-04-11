@@ -13,6 +13,7 @@ namespace AzCore {
 
 // Can be used for void success/error types
 struct VoidResult_t {};
+constexpr VoidResult_t VoidResult;
 
 template <typename Success_t, typename Error_t>
 struct Result {

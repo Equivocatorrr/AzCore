@@ -8,9 +8,8 @@
 
 #include "TemplateForwardDeclares.hpp"
 #include "StringCommon.hpp"
-#include "Util.hpp"
+#include "../Utility/Memory.hpp"
 #include "../Assert.hpp"
-#include <stdexcept> // std::out_of_range
 #include <initializer_list>
 #include <type_traits> // std::is_trivially_copyable
 #include <cstring>     // memcpy
@@ -240,7 +239,7 @@ struct ArrayWithBucket {
 		_SetTerminator();
 	}
 
-	ArrayWithBucket(const Range<T> &range) {
+	ArrayWithBucket(const SmartRange<T> &range) {
 		_Initialize(range.size);
 		if (range.PointsToArray()) {
 			if constexpr (std::is_trivially_copyable<T>::value) {
@@ -272,11 +271,11 @@ struct ArrayWithBucket {
 		_SetTerminator();
 	}
 
-	ArrayWithBucket(SimpleRange<T> range) {
+	ArrayWithBucket(Range<T> range) {
 		_Initialize(range.size);
 		if constexpr (std::is_trivially_copyable<T>::value) {
 			memcpy((void *)data,
-				(void *)(range.str),
+				(void *)(range.data),
 				sizeof(T) * size);
 		} else {
 			for (i32 i = 0; i < size; i++) {
@@ -360,7 +359,7 @@ struct ArrayWithBucket {
 		return true;
 	}
 
-	bool operator==(const Range<T> &other) const {
+	bool operator==(const SmartRange<T> &other) const {
 		if (size != other.size) {
 			return false;
 		}
@@ -468,12 +467,12 @@ struct ArrayWithBucket {
 	}
 
 	force_inline(ArrayWithBucket<T, noAllocCount, allocTail>&)
-	operator+=(Range<T> range) {
+	operator+=(SmartRange<T> range) {
 		return Append(range);
 	}
 
 	force_inline(ArrayWithBucket<T, noAllocCount, allocTail>&)
-	operator+=(SimpleRange<T> range) {
+	operator+=(Range<T> range) {
 		return Append(range);
 	}
 
@@ -572,7 +571,7 @@ struct ArrayWithBucket {
 	}
 
 	ArrayWithBucket<T, noAllocCount, allocTail>&
-	Append(Range<T> range) {
+	Append(SmartRange<T> range) {
 		i32 newSize = size + range.size;
 		Reserve(newSize);
 		if (range.index == indexIndicatingRaw) {
@@ -592,10 +591,10 @@ struct ArrayWithBucket {
 	}
 
 	ArrayWithBucket<T, noAllocCount, allocTail>&
-	Append(SimpleRange<T> range) {
+	Append(Range<T> range) {
 		i32 newSize = size + range.size;
 		Reserve(newSize);
-		T* it = range.str;
+		T* it = range.data;
 		for (i32 i = size; i < newSize; i++) {
 			data[i] = *(it++);
 		}
@@ -655,14 +654,14 @@ struct ArrayWithBucket {
 		return data[index];
 	}
 
-	Range<T> Insert(i32 index, SimpleRange<T> string) {
-		_DoInsertCopy(index, string.size, string.str);
+	SmartRange<T> Insert(i32 index, Range<T> string) {
+		_DoInsertCopy(index, string.size, string.data);
 		return GetRange(index, string.size);
 	}
 
-	force_inline(Range<T>)
+	force_inline(SmartRange<T>)
 	Insert(i32 index, const T *string) {
-		return Insert(index, SimpleRange<T>(string));
+		return Insert(index, Range<T>(string));
 	}
 
 	T& Insert(i32 index, T &&value) {
@@ -671,13 +670,13 @@ struct ArrayWithBucket {
 		return data[index];
 	}
 
-	Range<T> Insert(i32 index, const ArrayWithBucket<T, noAllocCount, allocTail> &other) {
+	SmartRange<T> Insert(i32 index, const ArrayWithBucket<T, noAllocCount, allocTail> &other) {
 		AzAssert(index >= 0 && index <= size, "ArrayWithBucket::Insert index is out of bounds");
 		_DoInsertCopy(index, other.size, other.data);
 		return GetRange(index, other.size);
 	}
 
-	Range<T> Insert(i32 index, ArrayWithBucket<T, noAllocCount, allocTail> &&other) {
+	SmartRange<T> Insert(i32 index, ArrayWithBucket<T, noAllocCount, allocTail> &&other) {
 		AzAssert(index >= 0 && index <= size, "ArrayWithBucket::Insert index is out of bounds");
 		if (size == 0) {
 			*this = std::move(other);
@@ -768,9 +767,9 @@ struct ArrayWithBucket {
 		}
 	}
 
-	Range<T> GetRange(i32 index, i32 _size) {
+	SmartRange<T> GetRange(i32 index, i32 _size) {
 		AzAssert(index >= 0 && index + _size <= size, "ArrayWithBucket::GetRange index is out of bounds");
-		return Range<T>((Array<T,0>*)this, index, _size);
+		return SmartRange<T>((Array<T,0>*)this, index, _size);
 	}
 };
 

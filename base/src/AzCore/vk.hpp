@@ -40,7 +40,10 @@
 // Having this defined makes keeping track of host memory precisely impossible
 #define VK_NO_ALLOCATION_CALLBACKS
 
-#include "common.hpp"
+#include "Memory/String.hpp"
+#include "Memory/Ptr.hpp"
+#include "Memory/List.hpp"
+#include "Math/vec4_t.hpp"
 
 #ifdef AZCORE_IO_FOR_VULKAN
 	#ifdef __unix
@@ -48,9 +51,11 @@
 		#define VK_USE_PLATFORM_WAYLAND_KHR
 	#elif defined(_WIN32)
 		#define VK_USE_PLATFORM_WIN32_KHR
+		#include "Utility/Windows.h"
 	#endif
 #endif
 #include <vulkan/vulkan.h>
+#include "Utility/WindowsHeaderCleanup.h"
 
 namespace AzCore {
 
@@ -217,8 +222,8 @@ namespace vk {
 
 		Ptr<Image> AddImage(Image image=Image());
 		Ptr<Buffer> AddBuffer(Buffer buffer=Buffer());
-		Range<Image> AddImages(u32 count, Image image=Image());
-		Range<Buffer> AddBuffers(u32 count, Buffer buffer=Buffer());
+		SmartRange<Image> AddImages(u32 count, Image image=Image());
+		SmartRange<Buffer> AddBuffers(u32 count, Buffer buffer=Buffer());
 
 		// Behind the scenes
 		bool Init(Device *device, String debugMarker = String());
@@ -271,11 +276,11 @@ namespace vk {
 	};
 
 	struct BufferDescriptor {
-		Range<Buffer> buffers;
+		SmartRange<Buffer> buffers;
 	};
 
 	struct ImageDescriptor {
-		Range<Image> images;
+		SmartRange<Image> images;
 		Ptr<Sampler> sampler;
 	};
 
@@ -317,8 +322,8 @@ namespace vk {
 			Array<ImageDescriptor> imageDescriptors{};
 		} data;
 
-		bool AddDescriptor(Range<Buffer> buffers, i32 binding);
-		bool AddDescriptor(Range<Image> images, Ptr<Sampler> sampler, i32 binding);
+		bool AddDescriptor(SmartRange<Buffer> buffers, i32 binding);
+		bool AddDescriptor(SmartRange<Image> images, Ptr<Sampler> sampler, i32 binding);
 		bool AddDescriptor(Ptr<Buffer> buffer, i32 binding);
 		bool AddDescriptor(Ptr<Image> image, Ptr<Sampler> sampler, i32 binding);
 	};
@@ -543,7 +548,7 @@ namespace vk {
 		VkSemaphore semaphore = VK_NULL_HANDLE;
 		String debugMarker{};
 	};
-	
+
 	/*  struct: Fence
 		Author: Philip Haynes */
 	struct Fence {
@@ -871,7 +876,7 @@ namespace vk {
 		Ptr<Memory> AddMemory();
 		Ptr<Descriptors> AddDescriptors();
 		Ptr<Shader> AddShader();
-		Range<Shader> AddShaders(u32 count);
+		SmartRange<Shader> AddShaders(u32 count);
 		Ptr<Pipeline> AddPipeline();
 		Ptr<CommandPool> AddCommandPool(Ptr<Queue> queue);
 		Ptr<Framebuffer> AddFramebuffer();

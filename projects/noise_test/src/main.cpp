@@ -4,13 +4,15 @@
 	Description: High-level definition of the structure of our program.
 */
 
-#include "AzCore/io.hpp"
+#include "AzCore/IO/io.hpp"
 #include "AzCore/SoftwareRendering.hpp"
 
 using namespace AzCore;
 
+using namespace io::kc;
+
 #include "AzCore/Math/Noise.hpp"
-#include "AzCore/math.hpp"
+#include "AzCore/Utility/Time.hpp"
 
 io::Log cout("test.log", true, true);
 

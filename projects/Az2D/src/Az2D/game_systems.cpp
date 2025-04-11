@@ -6,15 +6,17 @@
 #include "game_systems.hpp"
 #include "gui_basics.hpp"
 #include "settings.hpp"
-#include "AzCore/Profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
 #include "console_commands.hpp"
 #include "AzCore/Thread.hpp"
+#include "AzCore/IO/io.hpp"
 
 #include <clocale>
 
 namespace Az2D::GameSystems {
 
 using namespace AzCore;
+using namespace io::kc;
 
 Manager *sys = nullptr;
 
@@ -26,7 +28,7 @@ void System::EventDraw(Array<Rendering::DrawingContext> &contexts) {}
 void System::EventInitialize() {}
 void System::EventClose() {}
 
-bool Init(SimpleRange<char> windowTitle, Array<System*> systemsToRegister, bool enableVulkanValidation) {
+bool Init(Str windowTitle, Array<System*> systemsToRegister, bool enableVulkanValidation) {
 	AZCORE_PROFILING_FUNC_TIMER()
 	sys = new Manager();
 	for (System *system : systemsToRegister) {
@@ -34,9 +36,9 @@ bool Init(SimpleRange<char> windowTitle, Array<System*> systemsToRegister, bool 
 	}
 	sys->window.name = windowTitle;
 	sys->sound.name = windowTitle;
-	sys->rendering.data.instance.AppInfo(windowTitle.str, 1, 0, 0);
+	sys->rendering.data.instance.AppInfo(windowTitle.data, 1, 0, 0);
 	sys->enableVulkanValidation = enableVulkanValidation;
-	
+
 	Dev::AddGlobalVariable(Az2D::Settings::sVolumeMain.GetString(), "Main volume setting between 0.0 and 1.0", nullptr, Dev::defaultRealSettingsGetter, Dev::defaultRealSettingsSetter);
 	Dev::AddGlobalVariable(Az2D::Settings::sVolumeEffects.GetString(), "Effects volume setting between 0.0 and 1.0", nullptr, Dev::defaultRealSettingsGetter, Dev::defaultRealSettingsSetter);
 	Dev::AddGlobalVariable(Az2D::Settings::sVolumeMusic.GetString(), "Music volume setting between 0.0 and 1.0", nullptr, Dev::defaultRealSettingsGetter, Dev::defaultRealSettingsSetter);
@@ -132,7 +134,7 @@ void UpdateLoop() {
 		}
 		frame = (frame + 1) % sys->updateIterations;
 	}
-	
+
 	for (System* system : sys->systems) {
 		system->EventClose();
 	}
@@ -170,7 +172,7 @@ bool Manager::Init() {
 	AssetsAvailable();
 	RegisterDrawing();
 	CallInitialize();
-	
+
 	if (enableVulkanValidation) {
 		Array<const char*> layers = {
 			"VK_LAYER_KHRONOS_validation",
@@ -178,7 +180,7 @@ bool Manager::Init() {
 		rendering.data.instance.AddLayers(layers);
 	}
 	rendering.data.concurrency = 4;
-	
+
 	if (!window.Open()) {
 		error = Stringify("Failed to open window: ", io::error);
 		return false;
@@ -189,9 +191,9 @@ bool Manager::Init() {
 		Gui::guiBasic->system.scale = scale * Settings::ReadReal(Settings::sGuiScale);
 		window.Resize(u32((f32)window.width * scale), u32((u32)window.height * scale));
 	}
-	
+
 	rendering.msaa = false;
-	
+
 	if (!rendering.Init()) {
 		error = Stringify("Failed to init Rendering::Manager: ", Rendering::error);
 		return false;
@@ -203,7 +205,7 @@ bool Manager::Init() {
 	}
 
 	window.Fullscreen(Settings::ReadBool(Settings::sFullscreen));
-	
+
 	return true;
 }
 

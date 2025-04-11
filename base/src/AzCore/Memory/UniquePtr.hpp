@@ -9,7 +9,7 @@
 #define AZCORE_UNIQUEPTR_HPP
 
 #include <utility>
-#include "../basictypes.hpp"
+#include "../BasicTypes.hpp"
 
 namespace AzCore {
 

@@ -6,7 +6,7 @@
 #ifndef AZCORE_ARRAYLIST_HPP
 #define AZCORE_ARRAYLIST_HPP
 
-#include "../basictypes.hpp"
+#include "../BasicTypes.hpp"
 #include "Array.hpp"
 
 namespace AzCore {

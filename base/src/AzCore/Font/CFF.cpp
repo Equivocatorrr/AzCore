@@ -4,8 +4,9 @@
 */
 
 #include "CFF.hpp"
-#include "../math.hpp"
-#include "../font.hpp"
+#include "Font.hpp"
+#include "../Utility/Endian.hpp"
+#include "../Math/RandomNumberGenerator.hpp"
 
 namespace AzCore {
 
@@ -44,40 +45,40 @@ const char* boolString[2] = {
 	"true"
 };
 
-#define OPERAND_ARITHMETIC(operator) Operand out;               \
-switch (type) {                                                 \
-	case INTEGER: {                                             \
-		switch (other.type) {                                   \
-			case INTEGER:                                       \
-				out.type = INTEGER;                             \
-				out.integer = integer operator other.integer;   \
-				break;                                          \
-			case REAL:                                          \
-				out.type = REAL;                                \
-				out.real = (f32)integer operator other.real;    \
-				break;                                          \
-			default:                                            \
-				out.type = INVALID;                             \
-		}                                                       \
-	} break;                                                    \
-	case REAL: {                                                \
-		switch (other.type) {                                   \
-			case INTEGER:                                       \
-				out.type = REAL;                                \
-				out.real = real operator (f32)other.integer;    \
-				break;                                          \
-			case REAL:                                          \
-				out.type = REAL;                                \
-				out.real = real operator other.real;            \
-				break;                                          \
-			default:                                            \
-				out.type = INVALID;                             \
-		}                                                       \
-	} break;                                                    \
-	default:                                                    \
-		out.type = INVALID;                                     \
-}                                                               \
-return out;                                                     \
+#define OPERAND_ARITHMETIC(operator) Operand out;\
+switch (type) {\
+	case INTEGER: {\
+		switch (other.type) {\
+			case INTEGER:\
+				out.type = INTEGER;\
+				out.integer = integer operator other.integer;\
+				break;\
+			case REAL:\
+				out.type = REAL;\
+				out.real = (f32)integer operator other.real;\
+				break;\
+			default:\
+				out.type = INVALID;\
+		}\
+	} break;\
+	case REAL: {\
+		switch (other.type) {\
+			case INTEGER:\
+				out.type = REAL;\
+				out.real = real operator (f32)other.integer;\
+				break;\
+			case REAL:\
+				out.type = REAL;\
+				out.real = real operator other.real;\
+				break;\
+			default:\
+				out.type = INVALID;\
+		}\
+	} break;\
+	default:\
+		out.type = INVALID;\
+}\
+return out;\
 
 Operand Operand::operator+(const Operand &other) const {
 	OPERAND_ARITHMETIC(+)

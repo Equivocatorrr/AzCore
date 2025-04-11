@@ -83,7 +83,7 @@ unsigned Thread::HardwareConcurrency() {
 }
 
 
-static inline void _SetProcessorAffinity(pthread_t threadHandle, SimpleRange<u16> cpus) {
+static inline void _SetProcessorAffinity(pthread_t threadHandle, Range<u16> cpus) {
 	cpu_set_t cpuset;
 	CPU_ZERO(&cpuset);
 	for (u16 cpu : cpus) {
@@ -111,12 +111,12 @@ static inline void _ResetProcessorAffinity(pthread_t threadHandle) {
 	}
 }
 
-void Thread::SetProcessorAffinity(SimpleRange<u16> cpus) {
+void Thread::SetProcessorAffinity(Range<u16> cpus) {
 	pthread_t threadHandle = pthread_self();
 	_SetProcessorAffinity(threadHandle, cpus);
 }
 
-void Thread::SetProcessorAffinity(Thread &thread, SimpleRange<u16> cpus) {
+void Thread::SetProcessorAffinity(Thread &thread, Range<u16> cpus) {
 	ThreadData &threadData = GetThreadData(thread.data);
 	_SetProcessorAffinity(threadData.threadHandle, cpus);
 }

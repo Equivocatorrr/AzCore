@@ -6,7 +6,6 @@
 #ifndef AZ2D_GUI_BASICS_HPP
 #define AZ2D_GUI_BASICS_HPP
 
-#include "AzCore/math.hpp"
 #include "AzCore/gui.hpp"
 
 #include "game_systems.hpp"
@@ -41,7 +40,7 @@ struct DevConsole {
 	i32 nextCommand = 0;
 	i32 numCommandsInHistory = 0;
 	az::WString outputLines[CONSOLE_COMMAND_OUTPUT_LINES_CAP];
-	
+
 	void Initialize();
 	void Update();
 	void Draw(Rendering::DrawingContext &context);
@@ -51,7 +50,7 @@ struct GuiBasic : public GameSystems::System {
 	// configuration
 	const char *defaultFontFilename = "DroidSans.ttf";
 	struct SoundDef {
-		az::SimpleRange<char> filename;
+		az::Range<char> filename;
 		f32 gain;
 		f32 pitch;
 		Assets::SoundIndex soundIndex;
@@ -88,7 +87,7 @@ struct GuiBasic : public GameSystems::System {
 
 	bool console = false;
 	DevConsole devConsole;
-	
+
 	az::GuiGeneric::System system;
 
 	GuiBasic();

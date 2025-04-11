@@ -223,8 +223,8 @@ nicely together with `char*` and `char32*` strings.
 - `List<typename T>`, a singly-linked list.
 - `Ptr<typename T>`, polymorphs into either a raw `T *pointer` or an index of an `Array<T, 0>`. Helps in the case of Array data
   moving because of a resize.
-- `Range<typename T>`, like `Ptr<T>` except it has an associated size. This can represent a range inside a List<T>, an Array<T>, or a c-style array.
-- `SimpleRange<typename T>`, points to a c-style array with an associated size. Less versatile than Range, but much simpler and without much (or any?) overhead.
+- `SmartRange<typename T>`, like `Ptr<T>` except it has an associated size. This can represent a range inside a List<T>, an Array<T>, or a c-style array.
+- `Range<typename T>`, points to a c-style array with an associated size. Less versatile than Range, but much simpler and without much (or any?) overhead.
 - `HashMap<typename Key_t, typename Value_t, u16 arraySize>` and `HashSet<typename Key_t, u16 arraySize>` use `constexpr i32 IndexHash<u16 bounds>(T in)` functions to index into an Array of Nodes, which is O(1) for sets of values smaller than arraySize.
 - `BinaryMap<typename Key_t, typename Value_t>` and `BinarySet<typename Key_t>` use `bool operator<(...)` from `Key_t` to sort its Nodes and look them up.
 - `UniquePtr<typename T>` manages a single heap-allocated object in a way that's less restrictive than `std::unique_ptr`

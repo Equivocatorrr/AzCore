@@ -9,10 +9,13 @@
 #include "assets.hpp"
 #include "animation.hpp"
 
-#include "AzCore/Profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
 #include "AzCore/IO/Log.hpp"
-#include "AzCore/font.hpp"
-#include "AzCore/QuickSort.hpp"
+#include "AzCore/Font/Font.hpp"
+#include "AzCore/Utility/Sort.hpp"
+#include "AzCore/Math/Color.hpp"
+
+using namespace AzCore::io::kc;
 
 namespace Az3D::Rendering {
 
@@ -332,16 +335,16 @@ bool Manager::Init() {
 			data.textures[i] = GPU::NewImage(data.device, Stringify("texture ", i));
 			// TODO: Support HDR images
 			GPU::ImageBits imageBits;
-			switch (image.channels) {
+			switch (image.format.channels) {
 				case 1: imageBits = GPU::ImageBits::R8; break;
 				case 2: imageBits = GPU::ImageBits::R8G8; break;
 				case 3: imageBits = GPU::ImageBits::R8G8B8; break;
 				case 4: imageBits = GPU::ImageBits::R8G8B8A8; break;
 				default:
-					error = Stringify("Texture image ", i, " has invalid channel count (", image.channels, ")");
+					error = Stringify("Texture image ", i, " has invalid channel count (", image.format.channels, ")");
 					return false;
 			}
-			GPU::ImageSetFormat(data.textures[i], imageBits, image.colorSpace == Image::LINEAR ? GPU::ImageComponentType::UNORM : GPU::ImageComponentType::SRGB);
+			GPU::ImageSetFormat(data.textures[i], imageBits, image.format.colorSpace == Image::Format::LINEAR ? GPU::ImageComponentType::UNORM : GPU::ImageComponentType::SRGB);
 			GPU::ImageSetSize(data.textures[i], image.width, image.height);
 			GPU::ImageSetMipmapping(data.textures[i], true);
 			GPU::ImageSetShaderUsage(data.textures[i], GPU::ShaderStage::FRAGMENT);
@@ -1091,8 +1094,10 @@ bool Manager::Draw() {
 			// 	drawCall.castsShadows = IsSphereInFrustum(drawCall.boundingSphereCenter, drawCall.boundingSphereRadius, sunFrustum);
 			// }
 		}
-		QuickSort(allDrawCalls, [](const DrawCallInfo &lhs, const DrawCallInfo &rhs) -> bool {
+		Sort(allDrawCalls, [](Array<DrawCallInfo> &array, i64 indexLHS, i64 indexRHS) -> bool {
 			// Place culled objects at the end
+			const DrawCallInfo &lhs = array[indexLHS];
+			const DrawCallInfo &rhs = array[indexRHS];
 			if (lhs.opaque != rhs.opaque) return lhs.opaque;
 			if (lhs.pipeline < rhs.pipeline) return true;
 			// We want opaque objects sorted front to back

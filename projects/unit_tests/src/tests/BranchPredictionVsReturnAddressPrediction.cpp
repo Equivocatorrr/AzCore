@@ -5,7 +5,7 @@
 */
 
 #include "../UnitTests.hpp"
-#include "AzCore/Time.hpp"
+#include "AzCore/Utility/Time.hpp"
 #include "AzCore/Thread.hpp"
 
 // What a mouthful!
@@ -32,12 +32,12 @@ void EventNop(void *data) {}
 void BranchPredictionVsReturnAddressPredictionTest() {
 	volatile fp_Event DoNothing;
 	void *data = nullptr;
-	
+
 	{ // Because __rdtsc can be inaccurate if we change cores midway through
 		u16 cpu = 0;
-		Thread::SetProcessorAffinity(SimpleRange<u16>(&cpu, 1));
+		Thread::SetProcessorAffinity(Range<u16>(&cpu, 1));
 	}
-	
+
 	DoNothing = EventNop;
 	u64 start = __rdtsc();
 	for (i32 i = 0; i < NUM_ITERATIONS; i++) {
@@ -67,7 +67,7 @@ void BranchPredictionVsReturnAddressPredictionTest() {
 	}
 	u64 cyclesCallRet = __rdtsc() - start;
 	UT::ReportInfo(__LINE__, "Took ", cyclesCallRet, " cycles to call an empty function ", NUM_ITERATIONS*NUM_ITERATIONS_INTERNAL, " times (", FormatFloat((f64)cyclesCallRet / (f64)(NUM_ITERATIONS*NUM_ITERATIONS_INTERNAL), 10, 3), " cycles per)");
-	
+
 	Thread::ResetProcessorAffinity();
 }
 

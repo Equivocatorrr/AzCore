@@ -7,9 +7,7 @@
 
 #include "../UnitTests.hpp"
 #include "AzCore/Memory/BinaryMap.hpp"
-#include "AzCore/Memory/Array.hpp"
-#include "AzCore/math.hpp"
-#include "AzCore/IO/Log.hpp"
+#include "AzCore/Math/Basic.hpp"
 
 namespace BinaryMapTestNamespace {
 

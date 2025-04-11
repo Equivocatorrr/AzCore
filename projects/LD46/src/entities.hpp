@@ -8,7 +8,7 @@
 #define ENTITIES_HPP
 
 #include "Az2D/game_systems.hpp"
-#include "AzCore/math.hpp"
+#include "AzCore/Math/Math.hpp"
 
 #include "Az2D/entity_basics.hpp"
 

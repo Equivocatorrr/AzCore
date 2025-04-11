@@ -35,6 +35,8 @@ class Log {
 	Mutex mMutex;
 	String mPrepend;
 	String mFilename;
+	String _consoleOut;
+	String _fileOut;
 
 	inline void _HandleFile();
 

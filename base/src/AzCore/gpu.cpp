@@ -4,8 +4,9 @@
 */
 
 #include "gpu.hpp"
-#include "QuickSort.hpp"
-#include "Memory/RAIIHacks.hpp"
+#include "Utility/Sort.hpp"
+#include "Utility/RAIIHacks.hpp"
+#include "Utility/TypeName.hpp"
 #include "Memory/Ptr.hpp"
 
 namespace AzCore {
@@ -39,20 +40,7 @@ constexpr i32 IndexHash(const GPU::DescriptorBindings&);
 #endif
 #include <vulkan/vulkan.h>
 
-// More WinAPI bullshit
-// These can't be removed because WindowData.hpp and vulkan.h both bring in WinAPI headers
-#ifdef OPAQUE
-#undef OPAQUE
-#endif
-#ifdef TRANSPARENT
-#undef TRANSPARENT
-#endif
-#ifdef TRUE
-#undef TRUE
-#endif
-#ifdef FALSE
-#undef FALSE
-#endif
+#include "Utility/WindowsHeaderCleanup.h"
 
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 0
@@ -2369,8 +2357,8 @@ Result<Ptr<PhysicalDevice>, String> FindBestPhysicalDeviceWithExtensions(Array<c
 			ratings[i].rating -= 100000000;
 		}
 	}
-	QuickSort(ratings, [](Rating &lhs, Rating &rhs) -> bool {
-		return rhs.rating < lhs.rating;
+	Sort(ratings, [](Array<Rating> &array, i64 indexLHS, i64 indexRHS) -> bool {
+		return array[indexRHS].rating < array[indexLHS].rating;
 	});
 	if ((u32)io::logLevel >= (u32)io::LogLevel::DEBUG) {
 		for (i32 i = 0; i < ratings.size; i++) {

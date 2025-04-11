@@ -8,7 +8,6 @@
 #define UTILITIES_HPP
 
 #include "AzCore/Memory/String.hpp"
-#include "AzCore/Memory/Range.hpp"
 
 template <typename FP>
 struct FPError {

@@ -8,11 +8,13 @@
 
 #include "Az2D/game_systems.hpp"
 #include "Az2D/settings.hpp"
-#include "AzCore/Profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
+#include "AzCore/IO/KeyCodes.hpp"
 
 namespace Az2D::Gui {
 
 using namespace AzCore;
+using namespace io::kc;
 
 using GameSystems::sys;
 using Entities::entities;
@@ -157,7 +159,7 @@ void MainMenu::Initialize() {
 	title->string = sys->ReadLocale("Torch Runner");
 
 	gui->system.CreateSpacer(listV, 0.4f);
-	
+
 	azgui::ListH *spacingList = gui->system.CreateListHAsDefault(listV);
 	spacingList->color = vec4(0.0f);
 	spacingList->colorHighlighted = vec4(0.0f);
@@ -245,7 +247,7 @@ void SettingsMenu::Initialize() {
 	title->string = sys->ReadLocale("Settings");
 
 	gui->system.CreateSpacer(listV, 0.4f);
-	
+
 	azgui::ListH *spacingList = gui->system.CreateListHAsDefault(listV);
 	spacingList->color = vec4(0.0f);
 	spacingList->colorHighlighted = vec4(0.0f);
@@ -445,7 +447,7 @@ void CutsceneMenu::Initialize() {
 	text->SetSizePixel(vec2(800.0f, 100.0f));
 	text->margin = 32.0f;
 	text->string = sys->ReadLocale("This is the intro cutscene!");
-	
+
 	buttonSkip = gui->system.CreateButton(listV);
 	buttonSkip->SetSizePixel(vec2(128.0f, 64.0f));
 	buttonSkip->margin.x = 368.0f;
@@ -547,7 +549,7 @@ void PlayMenu::Initialize() {
 	screenListV->color = 0.0f;
 	screenListV->colorHighlighted = 0.0f;
 	screenListV->occludes = false;
-	
+
 	azgui::ListH *listTop = gui->system.CreateListH(screenListV);
 	listTop->SetWidthFraction(1.0f);
 	listTop->SetHeightPixel(80.0f);
@@ -609,7 +611,7 @@ void EditorMenu::Initialize() {
 	screenListV->color = 0.0f;
 	screenListV->colorHighlighted = 0.0f;
 	screenListV->occludes = false;
-	
+
 	azgui::ListH *listTop = gui->system.CreateListH(screenListV);
 	listTop->SetWidthFraction(1.0f);
 	listTop->SetHeightContents();
@@ -673,7 +675,7 @@ void EditorMenu::Initialize() {
 	listBottom->color = 0.0f;
 	listBottom->colorHighlighted = 0.0f;
 	listBottom->margin = 0.0f;
-	
+
 	azgui::Button buttonTemplate;
 	buttonTemplate.SetWidthPixel(120.0f);
 	buttonTemplate.selectable = false;

@@ -5,11 +5,12 @@
 */
 
 #include "../Window.hpp"
-#include "../../io.hpp"
-#include "../../keycodes.hpp"
+#include "../io.hpp"
 #include "WindowData.hpp"
 
 #include <xcb/randr.h>
+
+using namespace AzCore::io::kc;
 
 namespace AzCore::io {
 
@@ -529,8 +530,13 @@ bool windowOpenX11(Window *window) {
 	return true;
 }
 
-void windowShowXCB(Window *window) {
-	xcb_map_window(window->data->x11.connection, window->data->x11.window);
+void windowShowXCB(Window *window, bool shown) {
+	if (shown == window->visible) return;
+	if (shown) {
+		xcb_map_window(window->data->x11.connection, window->data->x11.window);
+	} else {
+		xcb_unmap_window(window->data->x11.connection, window->data->x11.window);
+	}
 	xcb_flush(window->data->x11.connection);
 }
 
@@ -602,7 +608,6 @@ bool windowUpdateXCB(Window *window, bool &changeFullscreen) {
 			if (width != ev->width || height != ev->height) {
 				width = ev->width;
 				height = ev->height;
-				screenSize = vec2((float)width, (float)height);
 				resized = true;
 			}
 		} break;

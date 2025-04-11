@@ -9,13 +9,13 @@
 
 #include "Az2D/game_systems.hpp"
 #include "Az2D/settings.hpp"
-#include "AzCore/Profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
 
 i32 main(i32 argumentCount, char** argumentValues) {
 
 	Az2D::Entities::Manager entities;
 	Az2D::Gui::Gui gui;
-	
+
 	bool enableLayers = false;
 
 	for (i32 i = 0; i < argumentCount; i++) {

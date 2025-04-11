@@ -5,7 +5,7 @@
 
 #include "Az3DObj.hpp"
 #include "AzCore/IO/Log.hpp"
-#include "AzCore/Memory/Util.hpp"
+#include "AzCore/Utility/Memory.hpp"
 
 // NOTE: File is little endian, and current target platform is little endian.
 // If this ever changes in the future we can do endian stuff. For now we do the easy thing.
@@ -334,7 +334,7 @@ namespace Headers {
 		u16 versionMinor;
 		bool FromBuffer(Str buffer, i64 &cur) {
 			EXPECT_SPACE_IN_BUFFER(SIZE);
-			EXPECT_TAG_IN_BUFFER(AZ3D_MAGIC.str, 8);
+			EXPECT_TAG_IN_BUFFER(AZ3D_MAGIC.data, 8);
 			memcpy(this, &buffer[cur], SIZE);
 			cur += SIZE;
 			return true;
@@ -1148,7 +1148,7 @@ bool File::LoadFromBuffer(Str buffer, Array<File::ImageData> *dstImageData) {
 						io::cerr.PrintLn("Failed to decode image data for \"", imagesData.files[i].filename.name, "\" embedded in Az3DObj.");
 						return false;
 					}
-					image.colorSpace = imagesData.files[i].isLinear ? Image::LINEAR : Image::SRGB;
+					image.format.colorSpace = imagesData.files[i].isLinear ? Image::Format::LINEAR : Image::Format::SRGB;
 				}
 			}
 			numTexturesActual += imagesData.count;

@@ -6,7 +6,7 @@
 #ifndef AZCORE_LIST_HPP
 #define AZCORE_LIST_HPP
 
-#include "../basictypes.hpp"
+#include "../BasicTypes.hpp"
 #include "TemplateForwardDeclares.hpp"
 #include <initializer_list>
 #include <utility> // std::move

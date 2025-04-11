@@ -4,9 +4,8 @@
 	For anyone who needs to know about WindowData
 */
 
-#include "../../basictypes.hpp"
-
-#include <windows.h>
+#include "../../Memory/String.hpp"
+#include "../../Utility/Windows.h"
 
 namespace AzCore {
 

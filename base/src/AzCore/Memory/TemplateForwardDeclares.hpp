@@ -8,7 +8,11 @@
 #ifndef AZCORE_MEMORY_TEMPLATE_FORWARD_DECLARES_HPP
 #define AZCORE_MEMORY_TEMPLATE_FORWARD_DECLARES_HPP
 
+#include "../BasicTypes.hpp"
+
 namespace AzCore {
+
+static constexpr i32 indexIndicatingRaw = (i32)0xFFFFFFFF;
 
 template <typename T, i32 allocTail=0>
 struct Array;
@@ -30,12 +34,12 @@ template <typename T>
 struct Ptr;
 
 template <typename T>
-struct Range;
+struct SmartRange;
 template <typename T>
-struct RangeIterator;
+struct SmartRangeIterator;
 
 template <typename T>
-struct SimpleRange;
+struct Range;
 
 template <typename Key_t, typename Value_t>
 struct BinaryMap;

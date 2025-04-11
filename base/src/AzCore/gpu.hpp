@@ -7,7 +7,7 @@
 #ifndef AZCORE_GPU_HPP
 #define AZCORE_GPU_HPP
 
-#include "basictypes.hpp"
+#include "BasicTypes.hpp"
 #include "Assert.hpp"
 #include "Memory/String.hpp"
 #include "Memory/Result.hpp"
@@ -16,7 +16,7 @@
 #include "Memory/Optional.hpp"
 #include "Math/vec4_t.hpp"
 
-#include "Time.hpp"
+#include "Utility/Time.hpp"
 #include "IO/Window.hpp"
 
 namespace AzCore::io {
@@ -100,9 +100,11 @@ enum class Winding {
 };
 
 #ifdef TRUE
+#warning "TRUE has been defined but it's used for an enum in this header. This may have been from a Windows header. Undeffing it... (NOTE you can use AzCore/Utility/Windows.h as a standin for Windows.h to have this dealt with for you.)"
 #undef TRUE
 #endif
 #ifdef FALSE
+#warning "FALSE has been defined but it's used for an enum in this header. This may have been from a Windows header. Undeffing it... (NOTE you can use AzCore/Utility/Windows.h as a standin for Windows.h to have this dealt with for you.)"
 #undef FALSE
 #endif
 
@@ -217,9 +219,11 @@ enum class Filter : u16 {
 extern Str filterStrings[3];
 
 #ifdef OPAQUE
+#warning "OPAQUE has been defined but it's used for an enum in this header. This may have been from a Windows header. Undeffing it... (NOTE you can use AzCore/Utility/Windows.h as a standin for Windows.h to have this dealt with for you.)"
 #undef OPAQUE
 #endif
 #ifdef TRANSPARENT
+#warning "TRANSPARENT has been defined but it's used for an enum in this header. This may have been from a Windows header. Undeffing it... (NOTE you can use AzCore/Utility/Windows.h as a standin for Windows.h to have this dealt with for you.)"
 #undef TRANSPARENT
 #endif
 

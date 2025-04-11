@@ -3,6 +3,7 @@
 setlocal enabledelayedexpansion
 
 set BuildDebug=0
+set BuildRelWithDebInfo=0
 set BuildRelease=0
 set has_args=0
 set run_arg=0
@@ -50,12 +51,16 @@ goto Arg
 :ArgAll
 	set BuildDebug=1
 	set BuildRelease=1
+	set BuildRelWithDebInfo=1
 	goto Done
 :ArgRelease
 	set BuildRelease=1
 	goto Done
 :ArgDebug
 	set BuildDebug=1
+	goto Done
+:ArgRelWithDebInfo
+	set BuildRelWithDebInfo=1
 	goto Done
 :Argrun
 	set run_arg=1
@@ -84,7 +89,7 @@ goto Arg
 	goto Done
 :Arg
 :Arg%arg%
-	echo "Usage: build.bat [clean]? [verbose]? [trace]? [install]? (USER_VULKAN_SDK path_to_sdk)? [All|Debug|Release]? ([run|run_debug] project_name)?"
+	echo "Usage: build.bat [clean]? [verbose]? [trace]? [install]? (USER_VULKAN_SDK path_to_sdk)? [All|Debug|Release|RelWithDebInfo]? ([run|run_debug] project_name)?"
 	goto EndOfScript
 :Done
 set /a argIndex+=1
@@ -133,6 +138,26 @@ if %BuildRelease% == 1 (
 	)
 	if %install% == 1 (
 		cmake --install . %verbose% --config Release
+	)
+	cd ..
+)
+
+if %BuildRelWithDebInfo% == 1 (
+	echo "Building Win32 RelWithDebInfo"
+	md build
+	cd build
+	cmake %trace% %user_vulkan_sdk% ..
+	if ERRORLEVEL 1 (
+		echo "CMake configure failed! Aborting..."
+		goto EndOfScript
+	)
+	cmake --build . %verbose% -j %number_of_processors% --config RelWithDebInfo
+	if ERRORLEVEL 1 (
+		echo "CMake build failed! Aborting..."
+		goto EndOfScript
+	)
+	if %install% == 1 (
+		cmake --install . %verbose% --config RelWithDebInfo
 	)
 	cd ..
 )

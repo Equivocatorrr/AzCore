@@ -4,10 +4,11 @@
 	Description: High-level definition of the structure of our program.
 */
 
-#include "AzCore/io.hpp"
+#include "AzCore/IO/io.hpp"
 #include "AzCore/gpu.hpp"
 #include "AzCore/Image.hpp"
 #include "AzCore/Math/Color.hpp"
+#include "AzCore/Math/RandomNumberGenerator.hpp"
 
 using namespace AzCore;
 

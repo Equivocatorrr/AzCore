@@ -7,9 +7,9 @@
 #ifndef AZCORE_HASH_SET_HPP
 #define AZCORE_HASH_SET_HPP
 
-#include "../basictypes.hpp"
+#include "../BasicTypes.hpp"
+#include "../Utility/IndexHash.hpp"
 #include "StaticArray.hpp"
-#include "IndexHash.hpp"
 #include <utility>
 #include <initializer_list>
 

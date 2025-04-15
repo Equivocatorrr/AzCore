@@ -1416,65 +1416,65 @@ static void SetDebugMarker(Device *device, const String &debugMarker, VkObjectTy
 }
 
 
-[[nodiscard]] Result<VoidResult_t, String> FenceInit(Fence *fence, bool startSignaled=false);
+[[nodiscard]] Result<None_t, String> FenceInit(Fence *fence, bool startSignaled=false);
 void FenceDeinit(Fence *fence);
 // VK_SUCCESS indicates it's signaled
 // VK_NOT_READY indicates it's not signaled
 // VK_ERROR_DEVICE_LOST may also be returned.
 [[nodiscard]] VkResult FenceGetStatus(Fence *fence);
 // Sets fence state to not signaled
-[[nodiscard]] Result<VoidResult_t, String> FenceResetSignaled(Fence *fence);
+[[nodiscard]] Result<None_t, String> FenceResetSignaled(Fence *fence);
 // dstWasTimout will be set to whether the signal timed out
-[[nodiscard]] Result<VoidResult_t, String> FenceWaitForSignal(Fence *fence, u64 timeout=UINT64_MAX, bool *dstWasTimeout=nullptr);
+[[nodiscard]] Result<None_t, String> FenceWaitForSignal(Fence *fence, u64 timeout=UINT64_MAX, bool *dstWasTimeout=nullptr);
 
-[[nodiscard]] Result<VoidResult_t, String> SemaphoreInit(Semaphore *semaphore);
+[[nodiscard]] Result<None_t, String> SemaphoreInit(Semaphore *semaphore);
 void SemaphoreDeinit(Semaphore *semaphore);
 
 
-[[nodiscard]] Result<VoidResult_t, String> WindowSurfaceInit(Window *window);
+[[nodiscard]] Result<None_t, String> WindowSurfaceInit(Window *window);
 void WindowSurfaceDeinit(Window *window);
 
-[[nodiscard]] Result<VoidResult_t, String> WindowInit(Window *window);
+[[nodiscard]] Result<None_t, String> WindowInit(Window *window);
 void WindowDeinit(Window *window);
 
 
-[[nodiscard]] Result<VoidResult_t, String> DeviceInit(Device *device);
+[[nodiscard]] Result<None_t, String> DeviceInit(Device *device);
 void DeviceDeinit(Device *device);
 
 [[nodiscard]] Result<Allocation, String> MemoryAllocate(Memory *memory, u32 size, u32 alignment);
 void MemoryFree(Allocation allocation);
 
 
-[[nodiscard]] Result<VoidResult_t, String> ContextInit(Context *context);
+[[nodiscard]] Result<None_t, String> ContextInit(Context *context);
 void ContextDeinit(Context *context);
 
-[[nodiscard]] Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context);
+[[nodiscard]] Result<None_t, String> ContextDescriptorsCompose(Context *context);
 
 
-[[nodiscard]] Result<VoidResult_t, String> ShaderInit(Shader *shader);
+[[nodiscard]] Result<None_t, String> ShaderInit(Shader *shader);
 void ShaderDeinit(Shader *shader);
 
 
-[[nodiscard]] Result<VoidResult_t, String> PipelineInit(Pipeline *pipeline);
+[[nodiscard]] Result<None_t, String> PipelineInit(Pipeline *pipeline);
 void PipelineDeinit(Pipeline *pipeline);
 
-[[nodiscard]] Result<VoidResult_t, String> BufferInit(Buffer *buffer);
+[[nodiscard]] Result<None_t, String> BufferInit(Buffer *buffer);
 void BufferDeinit(Buffer *buffer);
-[[nodiscard]] Result<VoidResult_t, String> BufferHostInit(Buffer *buffer);
+[[nodiscard]] Result<None_t, String> BufferHostInit(Buffer *buffer);
 void BufferHostDeinit(Buffer *buffer);
 
 
-[[nodiscard]] Result<VoidResult_t, String> ImageInit(Image *image);
+[[nodiscard]] Result<None_t, String> ImageInit(Image *image);
 void ImageDeinit(Image *image);
-[[nodiscard]] Result<VoidResult_t, String> ImageHostInit(Image *image);
+[[nodiscard]] Result<None_t, String> ImageHostInit(Image *image);
 void ImageHostDeinit(Image *image);
 
-[[nodiscard]] Result<VoidResult_t, String> SamplerInit(Sampler *sampler);
+[[nodiscard]] Result<None_t, String> SamplerInit(Sampler *sampler);
 void SamplerDeinit(Sampler *sampler);
 
-[[nodiscard]] Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer);
+[[nodiscard]] Result<None_t, String> FramebufferInit(Framebuffer *framebuffer);
 void FramebufferDeinit(Framebuffer *framebuffer);
-[[nodiscard]] Result<VoidResult_t, String> FramebufferCreate(Framebuffer *framebuffer);
+[[nodiscard]] Result<None_t, String> FramebufferCreate(Framebuffer *framebuffer);
 [[nodiscard]] VkFramebuffer FramebufferGetCurrentVkFramebuffer(Framebuffer *framebuffer);
 [[nodiscard]] bool FramebufferHasDepthBuffer(Framebuffer *framebuffer);
 // Will return nullptr if there is no Window attachment.
@@ -1610,7 +1610,7 @@ void EnableValidationLayers() {
 
 #ifndef API_Initialization
 
-Result<VoidResult_t, String> Initialize() {
+Result<None_t, String> Initialize() {
 	AzAssert(instance.initted == false, "Initializing an instance that's already initialized");
 	VkApplicationInfo appInfo = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
 	appInfo.pApplicationName = instance.appName.data;
@@ -1725,7 +1725,7 @@ Result<VoidResult_t, String> Initialize() {
 		AZ_TRY (DeviceInit(device.RawPtr())) return result.error;
 	}
 
-	return VoidResult_t();
+	return None;
 }
 
 void Deinitialize() {
@@ -1744,7 +1744,7 @@ void Deinitialize() {
 
 #ifndef Synchronization_Primitives
 
-Result<VoidResult_t, String> FenceInit(Fence *fence, bool startSignaled) {
+Result<None_t, String> FenceInit(Fence *fence, bool startSignaled) {
 	INIT_HEAD(fence);
 	VkFenceCreateInfo createInfo = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
 	if (startSignaled) {
@@ -1755,7 +1755,7 @@ Result<VoidResult_t, String> FenceInit(Fence *fence, bool startSignaled) {
 	}
 	SetDebugMarker(fence->header.device, fence->header.tag, VK_OBJECT_TYPE_FENCE, (u64)fence->vk.fence);
 	fence->header.OnInit();
-	return VoidResult_t();
+	return None;
 }
 
 void FenceDeinit(Fence *fence) {
@@ -1768,14 +1768,14 @@ VkResult FenceGetStatus(Fence *fence) {
 	return vkGetFenceStatus(fence->header.device->vk.device, fence->vk.fence);
 }
 
-Result<VoidResult_t, String> FenceResetSignaled(Fence *fence) {
+Result<None_t, String> FenceResetSignaled(Fence *fence) {
 	if (VkResult result = vkResetFences(fence->header.device->vk.device, 1, &fence->vk.fence); result != VK_SUCCESS) {
 		return ERROR_RESULT(fence, "vkResetFences failed with ", VkResultString(result));
 	}
-	return VoidResult_t();
+	return None;
 }
 
-Result<VoidResult_t, String> FenceWaitForSignal(Fence *fence, u64 timeout, bool *dstWasTimeout) {
+Result<None_t, String> FenceWaitForSignal(Fence *fence, u64 timeout, bool *dstWasTimeout) {
 	VkResult result = vkWaitForFences(fence->header.device->vk.device, 1, &fence->vk.fence, VK_TRUE, timeout);
 	bool wasTimeout;
 	if (result == VK_SUCCESS) {
@@ -1786,12 +1786,12 @@ Result<VoidResult_t, String> FenceWaitForSignal(Fence *fence, u64 timeout, bool 
 		return ERROR_RESULT(fence, "vkWaitForFences failed with ", VkResultString(result));
 	}
 	if (dstWasTimeout) *dstWasTimeout = wasTimeout;
-	return VoidResult_t();
+	return None;
 }
 
 
 
-Result<VoidResult_t, String> SemaphoreInit(Semaphore *semaphore) {
+Result<None_t, String> SemaphoreInit(Semaphore *semaphore) {
 	INIT_HEAD(semaphore);
 	VkSemaphoreCreateInfo createInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
 	if (VkResult result = vkCreateSemaphore(semaphore->header.device->vk.device, &createInfo, nullptr, &semaphore->vk.semaphore); result != VK_SUCCESS) {
@@ -1799,7 +1799,7 @@ Result<VoidResult_t, String> SemaphoreInit(Semaphore *semaphore) {
 	}
 	SetDebugMarker(semaphore->header.device, semaphore->header.tag, VK_OBJECT_TYPE_SEMAPHORE, (u64)semaphore->vk.semaphore);
 	semaphore->header.OnInit();
-	return VoidResult_t();
+	return None;
 }
 
 void SemaphoreDeinit(Semaphore *semaphore) {
@@ -1897,7 +1897,7 @@ bool GetVSyncEnabled(Window *window) {
 	return window->config.vsync;
 }
 
-Result<VoidResult_t, String> WindowSurfaceInit(Window *window) {
+Result<None_t, String> WindowSurfaceInit(Window *window) {
 	if (!window->config.window->open) {
 		return String("InitWindowSurface was called before the window was created!");
 	}
@@ -1928,7 +1928,7 @@ Result<VoidResult_t, String> WindowSurfaceInit(Window *window) {
 		return ERROR_RESULT(window, "Failed to create Win32 Surface: ", VkResultString(result));
 	}
 #endif
-	return VoidResult_t();
+	return None;
 }
 
 
@@ -1937,7 +1937,7 @@ void WindowSurfaceDeinit(Window *window) {
 	vkDestroySurfaceKHR(instance.vkInstance, window->vk.surface, nullptr);
 }
 
-Result<VoidResult_t, String> WindowInit(Window *window) {
+Result<None_t, String> WindowInit(Window *window) {
 	TRACE_INIT(window);
 	vkQueueWaitIdle(window->header.device->vk.queue);
 	SetDebugMarker(window->header.device, window->header.tag, VK_OBJECT_TYPE_SURFACE_KHR, (u64)window->vk.surface);
@@ -2178,7 +2178,7 @@ void WindowDeinit(Window *window) {
 }
 
 
-Result<VoidResult_t, String> WindowUpdate(Window *window) {
+Result<None_t, String> WindowUpdate(Window *window) {
 	bool resize = false;
 	bool didCallAcquire = false;
 	Fence *fence;
@@ -2215,10 +2215,10 @@ reconfigure:
 		return ERROR_RESULT(window, "Failed to acquire swapchain image: ", VkResultString(result));
 	}
 	window->state.currentImage = (i32)currentImage;
-	return VoidResult_t();
+	return None;
 }
 
-Result<VoidResult_t, String> WindowPresent(Window *window, ArrayWithBucket<Semaphore*, 4> waitSemaphores) {
+Result<None_t, String> WindowPresent(Window *window, ArrayWithBucket<Semaphore*, 4> waitSemaphores) {
 	ArrayWithBucket<VkSemaphore, 4> waitVkSemaphores(waitSemaphores.size);
 	for (i32 i = 0; i < waitVkSemaphores.size; i++) {
 		waitVkSemaphores[i] = waitSemaphores[i]->vk.semaphore;
@@ -2237,7 +2237,7 @@ Result<VoidResult_t, String> WindowPresent(Window *window, ArrayWithBucket<Semap
 	} else if (result != VK_SUCCESS) {
 		return ERROR_RESULT(window, "Failed to Queue Present: ", VkResultString(result));
 	}
-	return VoidResult_t();
+	return None;
 }
 
 #endif
@@ -2446,7 +2446,7 @@ Result<u32, String> FindMemoryType(u32 memoryTypeBits, VkMemoryPropertyFlags pro
 	return String("Failed to find a suitable memory type!");
 }
 
-Result<VoidResult_t, String> MemoryAddPage(Memory *memory, u32 minSize) {
+Result<None_t, String> MemoryAddPage(Memory *memory, u32 minSize) {
 	AzAssert(memory->header.device->header.initted, "Device not initted!");
 	minSize = max(minSize, memory->pageSizeMin);
 	Memory::Page &newPage = memory->pages.Append(Memory::Page());
@@ -2458,7 +2458,7 @@ Result<VoidResult_t, String> MemoryAddPage(Memory *memory, u32 minSize) {
 	}
 	SetDebugMarker(memory->header.device, Stringify(memory->header.tag, " page ", memory->pages.size-1), VK_OBJECT_TYPE_DEVICE_MEMORY, (u64)newPage.vkMemory);
 	newPage.segments.Append(Memory::Page::Segment{0, minSize, false});
-	return VoidResult_t();
+	return None;
 }
 
 // Cleans up and destroys all memory pages
@@ -2598,7 +2598,7 @@ Result<Allocation, String> AllocateImage(Device *device, VkImage image, VkMemory
 
 #ifndef Device
 
-Result<VoidResult_t, String> DeviceInit(Device *device) {
+Result<None_t, String> DeviceInit(Device *device) {
 	INIT_HEAD(device);
 
 	bool needsPresent = false;
@@ -2789,7 +2789,7 @@ breakout2:
 	}
 	// TODO: Init everything else
 
-	return VoidResult_t();
+	return None;
 }
 
 void DeviceDeinit(Device *device) {
@@ -2987,7 +2987,7 @@ void DeviceRequireFeatures(Device *device, const ArrayWithBucket<Str, 8> &featur
 
 #ifndef Resources
 
-Result<VoidResult_t, String> BufferInit(Buffer *buffer) {
+Result<None_t, String> BufferInit(Buffer *buffer) {
 	// AzAssert(buffer->config.size > 0, "Cannot allocate a buffer with size <= 0");
 	if (buffer->config.size <= 0) buffer->config.size = 1;
 	INIT_HEAD(buffer);
@@ -3021,7 +3021,7 @@ Result<VoidResult_t, String> BufferInit(Buffer *buffer) {
 		buffer->vk.alloc = result.value;
 	}
 	buffer->header.OnInit();
-	return VoidResult_t();
+	return None;
 }
 
 void BufferDeinit(Buffer *buffer) {
@@ -3036,7 +3036,7 @@ void BufferDeinit(Buffer *buffer) {
 	buffer->header.initted = false;
 }
 
-Result<VoidResult_t, String> BufferHostInit(Buffer *buffer) {
+Result<None_t, String> BufferHostInit(Buffer *buffer) {
 	AzAssert(buffer->header.initted == true, "Trying to init staging buffer for buffer that's not initted");
 	AzAssert(buffer->state.hostVisible == false, "Trying to init staging buffer that's already initted");
 	TRACE_INIT(buffer);
@@ -3054,7 +3054,7 @@ Result<VoidResult_t, String> BufferHostInit(Buffer *buffer) {
 		buffer->vk.allocHostVisible = result.value;
 	}
 	buffer->state.hostVisible = true;
-	return VoidResult_t();
+	return None;
 }
 
 void BufferHostDeinit(Buffer *buffer) {
@@ -3066,8 +3066,8 @@ void BufferHostDeinit(Buffer *buffer) {
 	buffer->state.hostVisible = false;
 }
 
-Result<VoidResult_t, String> BufferSetSize(Buffer *buffer, i64 sizeBytes) {
-	if (sizeBytes == buffer->config.size) return VoidResult_t();
+Result<None_t, String> BufferSetSize(Buffer *buffer, i64 sizeBytes) {
+	if (sizeBytes == buffer->config.size) return None;
 	bool initted = buffer->header.initted;
 	if (initted) {
 		CleanupDependentContexts(buffer->state.dependentContexts);
@@ -3081,12 +3081,12 @@ Result<VoidResult_t, String> BufferSetSize(Buffer *buffer, i64 sizeBytes) {
 	if (initted) {
 		return BufferInit(buffer);
 	}
-	return VoidResult_t();
+	return None;
 }
 
-Result<VoidResult_t, String> BufferResize(Buffer *buffer, i64 sizeBytes, Context *copyContext) {
+Result<None_t, String> BufferResize(Buffer *buffer, i64 sizeBytes, Context *copyContext) {
 	AzAssert(buffer->header.initted, Stringify("Trying to resize a buffer \"", buffer->header.tag, "\" that's not initted"));
-	if (sizeBytes == buffer->config.size) return VoidResult_t();
+	if (sizeBytes == buffer->config.size) return None;
 
 	Buffer *oldBuffer = MakeHoldover(buffer);
 
@@ -3097,7 +3097,7 @@ Result<VoidResult_t, String> BufferResize(Buffer *buffer, i64 sizeBytes, Context
 	AZ_TRY_ERROR_RESULT (buffer, ContextEndRecording(copyContext));
 	AZ_TRY_ERROR_RESULT (buffer, SubmitCommands(copyContext));
 
-	return VoidResult_t();
+	return None;
 }
 
 void BufferSetShaderUsage(Buffer *buffer, ShaderStage shaderStages) {
@@ -3108,7 +3108,7 @@ i64 BufferGetSize(Buffer *buffer) {
 	return buffer->config.size;
 }
 
-Result<VoidResult_t, String> ImageInit(Image *image) {
+Result<None_t, String> ImageInit(Image *image) {
 	INIT_HEAD(image);
 	VkImageCreateInfo createInfo = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
 	createInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -3173,7 +3173,7 @@ Result<VoidResult_t, String> ImageInit(Image *image) {
 	}
 	SetDebugMarker(image->header.device, Stringify(image->header.tag, " image view"), VK_OBJECT_TYPE_IMAGE_VIEW, (u64)image->vk.imageView);
 	image->header.OnInit();
-	return VoidResult_t();
+	return None;
 }
 
 void ImageDeinit(Image *image) {
@@ -3192,7 +3192,7 @@ void ImageDeinit(Image *image) {
 	image->header.initted = false;
 }
 
-Result<VoidResult_t, String> ImageRecreate(Image *image) {
+Result<None_t, String> ImageRecreate(Image *image) {
 	if (image->header.initted) {
 		CleanupDependentContexts(image->state.dependentContexts);
 		if (image->state.dependentContexts.size) {
@@ -3204,7 +3204,7 @@ Result<VoidResult_t, String> ImageRecreate(Image *image) {
 	return ImageInit(image);
 }
 
-Result<VoidResult_t, String> ImageHostInit(Image *image) {
+Result<None_t, String> ImageHostInit(Image *image) {
 	AzAssert(image->header.initted == true, "Trying to init image staging buffer that's not initted");
 	AzAssert(image->state.hostVisible == false, "Trying to init image staging buffer that's already initted");
 	TRACE_INIT(image);
@@ -3222,7 +3222,7 @@ Result<VoidResult_t, String> ImageHostInit(Image *image) {
 		image->vk.allocHostVisible = result.value;
 	}
 	image->state.hostVisible = true;
-	return VoidResult_t();
+	return None;
 }
 
 void ImageHostDeinit(Image *image) {
@@ -3629,7 +3629,7 @@ static VkFilter GetVkFilter(Filter filter) {
 	}
 }
 
-Result<VoidResult_t, String> SamplerInit(Sampler *sampler) {
+Result<None_t, String> SamplerInit(Sampler *sampler) {
 	INIT_HEAD(sampler);
 	VkSamplerCreateInfo samplerCreateInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
 	// TODO: Make controls for all of these
@@ -3653,7 +3653,7 @@ Result<VoidResult_t, String> SamplerInit(Sampler *sampler) {
 		return ERROR_RESULT(sampler, "Failed to create sampler: ", VkResultString(result));
 	}
 	sampler->header.OnInit();
-	return VoidResult_t();
+	return None;
 }
 
 void SamplerDeinit(Sampler *sampler) {
@@ -3722,7 +3722,7 @@ void SamplerSetBorderColor(Sampler *sampler, bool isFloat, bool white, bool opaq
 
 #ifndef Framebuffer
 
-static Result<VoidResult_t, String> EnsureAttachmentIsInitted(Framebuffer *framebuffer, Attachment &attachment, bool isResolve, i32 index) {
+static Result<None_t, String> EnsureAttachmentIsInitted(Framebuffer *framebuffer, Attachment &attachment, bool isResolve, i32 index) {
 	switch (attachment.kind) {
 	case Attachment::WINDOW:
 		if (!attachment.window->header.initted) return ERROR_RESULT(framebuffer, "Cannot init Framebuffer when ", isResolve ? "resolve attachment " : "attachment ", index, " (Window) is not initialized");
@@ -3734,7 +3734,7 @@ static Result<VoidResult_t, String> EnsureAttachmentIsInitted(Framebuffer *frame
 		if (!attachment.depthBuffer->header.initted) return ERROR_RESULT(framebuffer, "Cannot init Framebuffer when ", isResolve ? "resolve attachment " : "attachment ", index, " (depth buffer Image) is not initialized");
 		break;
 	}
-	return VoidResult_t();
+	return None;
 }
 
 static VkAttachmentDescription2 GetAttachmentDescription(Attachment &attachment, bool willBeResolved) {
@@ -3784,7 +3784,7 @@ static VkFormat GetAttachmentFormat(Attachment &attachment) {
 	return (VkFormat)0;
 }
 
-Result<VoidResult_t, String> FramebufferInit(Framebuffer *framebuffer) {
+Result<None_t, String> FramebufferInit(Framebuffer *framebuffer) {
 	INIT_HEAD(framebuffer);
 	if (framebuffer->config.attachmentRefs.size == 0) {
 		return ERROR_RESULT(framebuffer, "We have no attachments!");
@@ -3933,7 +3933,7 @@ static VkImageView GetAttachmentImageView(Attachment &attachment, i32 framebuffe
 	return VK_NULL_HANDLE;
 }
 
-Result<VoidResult_t, String> FramebufferRecreate(Framebuffer *framebuffer) {
+Result<None_t, String> FramebufferRecreate(Framebuffer *framebuffer) {
 	if (framebuffer->header.initted) {
 		CleanupDependentContexts(framebuffer->state.dependentContexts);
 		if (framebuffer->state.dependentContexts.size) {
@@ -3946,7 +3946,7 @@ Result<VoidResult_t, String> FramebufferRecreate(Framebuffer *framebuffer) {
 }
 
 // Unlike FramebufferRecreate, this doesn't make a holdover and doesn't touch the vkRenderPass, only the actual vkFramebuffers
-Result<VoidResult_t, String> FramebufferCreate(Framebuffer *framebuffer) {
+Result<None_t, String> FramebufferCreate(Framebuffer *framebuffer) {
 	AzAssert(framebuffer->header.initted, "Framebuffer is not initialized");
 	if (framebuffer->state.attachmentsDirty) {
 		FramebufferDeinit(framebuffer);
@@ -4047,7 +4047,7 @@ Result<VoidResult_t, String> FramebufferCreate(Framebuffer *framebuffer) {
 		SetDebugMarker(framebuffer->header.device, Stringify(framebuffer->header.tag, " framebuffer"), VK_OBJECT_TYPE_FRAMEBUFFER, (u64)vkFramebuffer);
 	}
 	framebuffer->header.timestamp = GetTimestamp();
-	return VoidResult_t();
+	return None;
 }
 
 bool AttachmentIsNewerThan(const Attachment &attachment, u64 timestamp) {
@@ -4062,7 +4062,7 @@ bool AttachmentIsNewerThan(const Attachment &attachment, u64 timestamp) {
 	return false;
 }
 
-[[nodiscard]] Result<VoidResult_t, String> MaybeRecreateFramebuffer(Framebuffer *framebuffer) {
+[[nodiscard]] Result<None_t, String> MaybeRecreateFramebuffer(Framebuffer *framebuffer) {
 	bool recreate = false;
 	for (AttachmentRef &attachmentRef : framebuffer->config.attachmentRefs) {
 		if (AttachmentIsNewerThan(attachmentRef.attachment, framebuffer->header.timestamp)) {
@@ -4077,7 +4077,7 @@ bool AttachmentIsNewerThan(const Attachment &attachment, u64 timestamp) {
 	if (recreate) {
 		AZ_TRY_ERROR_RESULT(framebuffer, FramebufferRecreate(framebuffer));
 	}
-	return VoidResult_t();
+	return None;
 }
 
 VkFramebuffer FramebufferGetCurrentVkFramebuffer(Framebuffer *framebuffer) {
@@ -4230,7 +4230,7 @@ bool VkPipelineLayoutCreateInfoMatches(VkPipelineLayoutCreateInfo a, VkPipelineL
 	return true;
 }
 
-Result<VoidResult_t, String> ShaderInit(Shader *shader) {
+Result<None_t, String> ShaderInit(Shader *shader) {
 	INIT_HEAD(shader);
 	Array<char> code = FileContents(shader->config.filename);
 	if (code.size == 0) {
@@ -4247,7 +4247,7 @@ Result<VoidResult_t, String> ShaderInit(Shader *shader) {
 	}
 	SetDebugMarker(shader->header.device, shader->header.tag, VK_OBJECT_TYPE_SHADER_MODULE, (u64)shader->vk.shaderModule);
 	shader->header.OnInit();
-	return VoidResult_t();
+	return None;
 }
 
 void ShaderDeinit(Shader *shader) {
@@ -4256,11 +4256,11 @@ void ShaderDeinit(Shader *shader) {
 	shader->header.initted = false;
 }
 
-Result<VoidResult_t, String> PipelineInit(Pipeline *pipeline) {
+Result<None_t, String> PipelineInit(Pipeline *pipeline) {
 	// TODO: Maybe just delete this
 	INIT_HEAD(pipeline);
 	pipeline->header.initted = true;
-	return VoidResult_t();
+	return None;
 }
 
 void PipelineDeinit(Pipeline *pipeline) {
@@ -4277,7 +4277,7 @@ void PipelineDeinit(Pipeline *pipeline) {
 	pipeline->header.initted = false;
 }
 
-Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *context) {
+Result<None_t, String> PipelineCompose(Pipeline *pipeline, Context *context) {
 	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 
 	VkPipelineLayoutCreateInfo layoutCreateInfo{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
@@ -4609,14 +4609,14 @@ Result<VoidResult_t, String> PipelineCompose(Pipeline *pipeline, Context *contex
 		}
 		pipeline->state.dirty = false;
 	}
-	return VoidResult_t();
+	return None;
 }
 
 #endif
 
 #ifndef Context
 
-Result<VoidResult_t, String> ContextInit(Context *context) {
+Result<None_t, String> ContextInit(Context *context) {
 	INIT_HEAD(context);
 	VkCommandPoolCreateInfo poolCreateInfo = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
 	poolCreateInfo.queueFamilyIndex = context->header.device->vk.queueFamilyIndex;
@@ -4634,7 +4634,7 @@ Result<VoidResult_t, String> ContextInit(Context *context) {
 		AZ_TRY_ERROR_RESULT (context, FenceInit(&frame.fence, true));
 	}
 	context->header.OnInit();
-	return VoidResult_t();
+	return None;
 }
 
 void ContextDeinit(Context *context) {
@@ -4651,7 +4651,7 @@ void ContextDeinit(Context *context) {
 }
 
 
-static Result<VoidResult_t, String> ContextEnsureSemaphoreCount(Context *context, i32 count, i32 frameIndex) {
+static Result<None_t, String> ContextEnsureSemaphoreCount(Context *context, i32 count, i32 frameIndex) {
 	Context::Frame &frame = context->vk.frames[frameIndex];
 	if (frame.semaphores.size < count) {
 		i32 prevSize = frame.semaphores.size;
@@ -4665,12 +4665,12 @@ static Result<VoidResult_t, String> ContextEnsureSemaphoreCount(Context *context
 			);
 		}
 	}
-	return VoidResult_t();
+	return None;
 }
 
 Semaphore* ContextGetCurrentSemaphore(Context *context, i32 index) {
 	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
-	ContextEnsureSemaphoreCount(context, index+1, context->state.currentFrame).AzUnwrap();
+	ContextEnsureSemaphoreCount(context, index+1, context->state.currentFrame).Unwrap();
 	return &frame.semaphores[index];
 }
 
@@ -4768,7 +4768,7 @@ Result<DescriptorSet*, String> DeviceGetDescriptorSet(Device *device, VkDescript
 	return dst;
 }
 
-Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
+Result<None_t, String> ContextDescriptorsCompose(Context *context) {
 	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	u32 numUniformBuffers = 0;
 	u32 numStorageBuffers = 0;
@@ -4901,7 +4901,7 @@ Result<VoidResult_t, String> ContextDescriptorsCompose(Context *context) {
 		}
 		frame.descriptorSetsBound.Append(boundDescriptorSet);
 	}
-	return VoidResult_t();
+	return None;
 }
 
 void ContextResetBindings(Context *context) {
@@ -4913,7 +4913,7 @@ void ContextResetBindings(Context *context) {
 	context->state.bindCommands.ClearSoft();
 }
 
-Result<VoidResult_t, String> ContextBeginRecording(Context *context) {
+Result<None_t, String> ContextBeginRecording(Context *context) {
 	context->state.currentFrame += 1;
 	context->state.generation += context->state.currentFrame / context->state.numFrames;
 	context->state.currentFrame = context->state.currentFrame % context->state.numFrames;
@@ -4943,10 +4943,10 @@ Result<VoidResult_t, String> ContextBeginRecording(Context *context) {
 		return ERROR_RESULT(context, "Failed to begin primary command buffer: ", VkResultString(result));
 	}
 	context->state.stage = Context::Stage::RECORDING_PRIMARY;
-	return VoidResult_t();
+	return None;
 }
 
-Result<VoidResult_t, String> ContextBeginRecordingSecondary(Context *context, Framebuffer *framebuffer, i32 subpass) {
+Result<None_t, String> ContextBeginRecordingSecondary(Context *context, Framebuffer *framebuffer, i32 subpass) {
 	AzAssert(context->header.initted, "Trying to record to a Context that's not initted");
 	if ((u32)context->state.stage >= (u32)Context::Stage::RECORDING_PRIMARY) {
 		return ERROR_RESULT(context, "Cannot begin recording on a command buffer that's already recording");
@@ -4983,10 +4983,10 @@ Result<VoidResult_t, String> ContextBeginRecordingSecondary(Context *context, Fr
 		return ERROR_RESULT(context, "Failed to begin secondary command buffer: ", VkResultString(result));
 	}
 	context->state.stage = Context::Stage::RECORDING_SECONDARY;
-	return VoidResult_t();
+	return None;
 }
 
-Result<VoidResult_t, String> ContextEndRecording(Context *context) {
+Result<None_t, String> ContextEndRecording(Context *context) {
 	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	AzAssert(context->header.initted, "Context not initted");
 	if (!ContextIsRecording(context)) {
@@ -4999,10 +4999,10 @@ Result<VoidResult_t, String> ContextEndRecording(Context *context) {
 		return ERROR_RESULT(context, "Failed to End Recording: ", VkResultString(result));
 	}
 	context->state.stage = Context::Stage::DONE_RECORDING;
-	return VoidResult_t();
+	return None;
 }
 
-Result<VoidResult_t, String> SubmitCommands(Context *context, i32 numSemaphores, ArrayWithBucket<Semaphore*, 4> waitSemaphores) {
+Result<None_t, String> SubmitCommands(Context *context, i32 numSemaphores, ArrayWithBucket<Semaphore*, 4> waitSemaphores) {
 	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	if (context->state.stage != Context::Stage::DONE_RECORDING) {
 		return ERROR_RESULT(context, "Trying to SubmitCommands without anything recorded.");
@@ -5042,7 +5042,7 @@ Result<VoidResult_t, String> SubmitCommands(Context *context, i32 numSemaphores,
 	if (VkResult result = vkQueueSubmit(context->header.device->vk.queue, 1, &submitInfo, frame.fence.vk.fence); result != VK_SUCCESS) {
 		return ERROR_RESULT(context, "Failed to submit to queue: ", VkResultString(result));
 	}
-	return VoidResult_t();
+	return None;
 }
 
 Result<bool, String> ContextIsExecuting(Context *context) {
@@ -5074,11 +5074,11 @@ Result<bool, String> ContextWaitUntilFinished(Context *context, Nanoseconds time
 
 #ifndef Commands
 
-Result<VoidResult_t, String> CmdExecuteSecondary(Context *primary, Context *secondary) {
+Result<None_t, String> CmdExecuteSecondary(Context *primary, Context *secondary) {
 	return String("Unimplemented");
 }
 
-Result<VoidResult_t, String> CmdCopyDataToBuffer(Context *context, Buffer *buffer, void *src, i64 dstOffset, i64 size) {
+Result<None_t, String> CmdCopyDataToBuffer(Context *context, Buffer *buffer, void *src, i64 dstOffset, i64 size) {
 	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	AzAssert(size+dstOffset <= (i64)buffer->vk.memoryRequirements.size, "size is bigger than our buffer");
 	AzAssert(ContextIsRecording(context), "Trying to record into a context that's not recording");
@@ -5108,7 +5108,7 @@ Result<VoidResult_t, String> CmdCopyDataToBuffer(Context *context, Buffer *buffe
 	vkCopy.srcOffset = dstOffset;
 	vkCopy.size = size;
 	vkCmdCopyBuffer(frame.vkCommandBuffer, buffer->vk.bufferHostVisible, buffer->vk.buffer, 1, &vkCopy);
-	return VoidResult_t();
+	return None;
 }
 
 Result<void*, String> BufferMapHostMemory(Buffer *buffer, i64 dstOffset, i64 size) {
@@ -5138,7 +5138,7 @@ void BufferUnmapHostMemory(Buffer *buffer) {
 	vkUnmapMemory(buffer->header.device->vk.device, vkMemory);
 }
 
-Result<VoidResult_t, String> CmdCopyHostBufferToDeviceBuffer(Context *context, Buffer *buffer, i64 dstOffset, i64 size) {
+Result<None_t, String> CmdCopyHostBufferToDeviceBuffer(Context *context, Buffer *buffer, i64 dstOffset, i64 size) {
 	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	AzAssert(size+dstOffset <= (i64)buffer->vk.memoryRequirements.size, "size is bigger than our buffer");
 	AzAssert(buffer->state.hostVisible, "Trying to copy from host buffer that doesn't exist!");
@@ -5152,7 +5152,7 @@ Result<VoidResult_t, String> CmdCopyHostBufferToDeviceBuffer(Context *context, B
 	vkCopy.srcOffset = dstOffset;
 	vkCopy.size = size;
 	vkCmdCopyBuffer(frame.vkCommandBuffer, buffer->vk.bufferHostVisible, buffer->vk.buffer, 1, &vkCopy);
-	return VoidResult_t();
+	return None;
 }
 
 void CmdCopyBufferToBuffer(Context *context, Buffer *dst, Buffer *src, i64 dstOffset, i64 srcOffset, i64 size) {
@@ -5353,7 +5353,7 @@ void CmdImageBlit(Context *context, Image *dst, i32 dstMipLevel, ImageLayout dst
 	CmdImageBlit(context, dst, dstMipLevel, GetVkImageLayout(dst, dstStartingLayout), GetVkImageLayout(dst, dstFinalLayout), src, srcMipLevel, GetVkImageLayout(src, srcStartingLayout), GetVkImageLayout(src, srcFinalLayout));
 }
 
-Result<VoidResult_t, String> CmdCopyDataToImage(Context *context, Image *dst, void *src) {
+Result<None_t, String> CmdCopyDataToImage(Context *context, Image *dst, void *src) {
 	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	AzAssert(ContextIsRecording(context), "Trying to record into a context that's not recording");
 	if (!dst->state.hostVisible) {
@@ -5394,7 +5394,7 @@ Result<VoidResult_t, String> CmdCopyDataToImage(Context *context, Image *dst, vo
 	} else {
 		CmdImageTransitionLayout(context, dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, finalLayout);
 	}
-	return VoidResult_t();
+	return None;
 }
 
 void CmdBindFramebuffer(Context *context, Framebuffer *framebuffer) {
@@ -5522,7 +5522,7 @@ static void AddDependency(Context *context, ArrayWithBucket<DependentContext, 4>
 	}
 }
 
-Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
+Result<None_t, String> CmdCommitBindings(Context *context) {
 	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
 	Optional<Framebuffer*> framebuffer;
 	Optional<Pipeline*> pipeline;
@@ -5637,7 +5637,7 @@ Result<VoidResult_t, String> CmdCommitBindings(Context *context) {
 		CmdSetViewportAndScissor(context, (f32)context->state.bindings.framebuffer->state.width, (f32)context->state.bindings.framebuffer->state.height);
 	}
 	context->state.bindCommands.ClearSoft();
-	return VoidResult_t();
+	return None;
 }
 
 void CmdFinishFramebuffer(Context *context, bool doGenMipmaps) {

@@ -307,7 +307,7 @@ void EnableValidationLayers();
 
 
 // Initialize the API
-[[nodiscard]] Result<VoidResult_t, String> Initialize();
+[[nodiscard]] Result<None_t, String> Initialize();
 
 void Deinitialize();
 
@@ -340,16 +340,16 @@ void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Ima
 void FramebufferAddImageMultisampled(Framebuffer *framebuffer, Image *image, Window *resolveWindow, bool loadContents=false, bool storeContents=true);
 
 // If there are any changes to attachments, you must recreate the framebuffer
-[[nodiscard]] Result<VoidResult_t, String> FramebufferCreate(Framebuffer *framebuffer);
+[[nodiscard]] Result<None_t, String> FramebufferCreate(Framebuffer *framebuffer);
 
 void SetVSync(Window *window, bool enable);
 
 bool GetVSyncEnabled(Window *window);
 
-[[nodiscard]] Result<VoidResult_t, String> WindowUpdate(Window *window);
+[[nodiscard]] Result<None_t, String> WindowUpdate(Window *window);
 
 // waitContexts are any contexts that the window's resulting image depend on. These only need to be populated if not using external synchronization like ContextWaitUntilFinished().
-[[nodiscard]] Result<VoidResult_t, String> WindowPresent(Window *window, ArrayWithBucket<Semaphore*, 4> waitSemaphores={});
+[[nodiscard]] Result<None_t, String> WindowPresent(Window *window, ArrayWithBucket<Semaphore*, 4> waitSemaphores={});
 
 
 // Creating new objects
@@ -397,9 +397,9 @@ void DeviceWaitIdle(Device *device);
 // Buffer, Image
 
 // If we're initted, the contents of the buffer are not preserved.
-[[nodiscard]] Result<VoidResult_t, String> BufferSetSize(Buffer *buffer, i64 sizeBytes);
+[[nodiscard]] Result<None_t, String> BufferSetSize(Buffer *buffer, i64 sizeBytes);
 // If we're initted, the contents of the buffer are preserved.
-[[nodiscard]] Result<VoidResult_t, String> BufferResize(Buffer *buffer, i64 sizeBytes, Context *copyContext);
+[[nodiscard]] Result<None_t, String> BufferResize(Buffer *buffer, i64 sizeBytes, Context *copyContext);
 
 // shaderStages is a bitmask of ShaderStage
 void BufferSetShaderUsage(Buffer *buffer, ShaderStage shaderStages);
@@ -440,7 +440,7 @@ bool ImageSetSampleCount(Image *image, u32 sampleCount);
 vec2i ImageGetSize(Image *image);
 
 // If you change formats, size, mipmapping, shader usage, or sample count (or make a new image) after having called GPU::Initialize(), you must use this to recreate the image.
-[[nodiscard]] Result<VoidResult_t, String> ImageRecreate(Image *image);
+[[nodiscard]] Result<None_t, String> ImageRecreate(Image *image);
 
 
 // Sampler
@@ -504,14 +504,14 @@ void PipelineAddPushConstantRange(Pipeline *pipeline, u32 offset, u32 size, Shad
 [[nodiscard]] Semaphore* ContextGetCurrentSemaphore(Context *context, i32 semaphoreIndex=0);
 [[nodiscard]] Semaphore* ContextGetPreviousSemaphore(Context *context, i32 semaphoreIndex=0);
 
-[[nodiscard]] Result<VoidResult_t, String> ContextBeginRecording(Context *context);
+[[nodiscard]] Result<None_t, String> ContextBeginRecording(Context *context);
 
-[[nodiscard]] Result<VoidResult_t, String> ContextBeginRecordingSecondary(Context *context, Framebuffer *framebuffer, i32 subpass);
+[[nodiscard]] Result<None_t, String> ContextBeginRecordingSecondary(Context *context, Framebuffer *framebuffer, i32 subpass);
 
-[[nodiscard]] Result<VoidResult_t, String> ContextEndRecording(Context *context);
+[[nodiscard]] Result<None_t, String> ContextEndRecording(Context *context);
 
 // numSemaphores is how many semaphores to signal
-[[nodiscard]] Result<VoidResult_t, String> SubmitCommands(Context *context, i32 numSemaphores=0, ArrayWithBucket<Semaphore*, 4> waitSemaphores={});
+[[nodiscard]] Result<None_t, String> SubmitCommands(Context *context, i32 numSemaphores=0, ArrayWithBucket<Semaphore*, 4> waitSemaphores={});
 
 // Returns true if Context is still executing
 [[nodiscard]] Result<bool, String> ContextIsExecuting(Context *context);
@@ -519,19 +519,19 @@ void PipelineAddPushConstantRange(Pipeline *pipeline, u32 offset, u32 size, Shad
 // Returns true if we timed out
 [[nodiscard]] Result<bool, String> ContextWaitUntilFinished(Context *context, Nanoseconds timeout=Nanoseconds(INT64_MAX));
 
-[[nodiscard]] Result<VoidResult_t, String> CmdExecuteSecondary(Context *primary, Context *secondary);
+[[nodiscard]] Result<None_t, String> CmdExecuteSecondary(Context *primary, Context *secondary);
 
 // Combines the copy of data to the host buffer and from the host buffer to the device-local buffer
-[[nodiscard]] Result<VoidResult_t, String> CmdCopyDataToBuffer(Context *context, Buffer *dst, void *src, i64 dstOffset=0, i64 size=0);
+[[nodiscard]] Result<None_t, String> CmdCopyDataToBuffer(Context *context, Buffer *dst, void *src, i64 dstOffset=0, i64 size=0);
 
 [[nodiscard]] Result<void*, String> BufferMapHostMemory(Buffer *buffer, i64 offset=0, i64 size=0);
 void BufferUnmapHostMemory(Buffer *buffer);
 
-[[nodiscard]] Result<VoidResult_t, String> CmdCopyHostBufferToDeviceBuffer(Context *context, Buffer *buffer, i64 dstOffset=0, i64 size=0);
+[[nodiscard]] Result<None_t, String> CmdCopyHostBufferToDeviceBuffer(Context *context, Buffer *buffer, i64 dstOffset=0, i64 size=0);
 
 void CmdCopyBufferToBuffer(Context *context, Buffer *dst, Buffer *src, i64 dstOffset=0, i64 srcOffset=0, i64 size=0);
 
-[[nodiscard]] Result<VoidResult_t, String> CmdCopyDataToImage(Context *context, Image *dst, void *src);
+[[nodiscard]] Result<None_t, String> CmdCopyDataToImage(Context *context, Image *dst, void *src);
 
 // if buffer is nullptr, then it removes the framebuffer binding from context, and on commit it will complete the render pass and not begin another one.
 void CmdBindFramebuffer(Context *context, Framebuffer *framebuffer);
@@ -560,7 +560,7 @@ void CmdBindImageSampler(Context *context, Image *image, Sampler *sampler, i32 s
 void CmdBindImageArraySampler(Context *context, const Array<Image*> &images, Sampler *sampler, i32 set, i32 binding);
 
 // Before recording draw commands, you have to commit all your bindings at once
-[[nodiscard]] Result<VoidResult_t, String> CmdCommitBindings(Context *context);
+[[nodiscard]] Result<None_t, String> CmdCommitBindings(Context *context);
 
 // Ends the render pass that was started with a CmdBindFramebuffer call followed by CmdCommitBindings.
 // If you need to process the image drawn in the same context, you need to use this, otherwise it'll be automatically called in CmdEndRecording.

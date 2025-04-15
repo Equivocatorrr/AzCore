@@ -8,12 +8,10 @@
 #define AZCORE_RESULT_HPP
 
 #include "../IO/Log.hpp"
+#include "../Utility/RAIIHacks.hpp"
+#include "../Memory/None.hpp"
 
 namespace AzCore {
-
-// Can be used for void success/error types
-struct VoidResult_t {};
-constexpr VoidResult_t VoidResult;
 
 template <typename Success_t, typename Error_t>
 struct Result {
@@ -27,6 +25,46 @@ struct Result {
 	Result(Success_t &&_value) : value(std::move(_value)), isError(false) {}
 	Result(const Error_t &_error) : error(_error), isError(true) {}
 	Result(Error_t &&_error) : error(std::move(_error)), isError(true) {}
+	Result(const Result &other) : isError(other.isError) {
+		if (isError) {
+			AzPlacementNew(error, other.error);
+		} else {
+			AzPlacementNew(value, other.value);
+		}
+	}
+	Result(Result &&other) : isError(other.isError) {
+		if (isError) {
+			AzPlacementNew(error, std::move(other.error));
+		} else {
+			AzPlacementNew(value, std::move(other.value));
+		}
+	}
+	Result& operator=(const Result &other) {
+		if (isError != other.isError) {
+			this->~Result();
+			AzPlacementNew(*this, other);
+		} else {
+			if (isError) {
+				error = other.error;
+			} else {
+				value = other.value;
+			}
+		}
+		return *this;
+	}
+	Result& operator=(Result &&other) {
+		if (isError != other.isError) {
+			this->~Result();
+			AzPlacementNew(*this, std::move(other));
+		} else {
+			if (isError) {
+				error = std::move(other.error);
+			} else {
+				value = std::move(other.value);
+			}
+		}
+		return *this;
+	}
 	~Result() {
 		if (isError) {
 			error.~Error_t();

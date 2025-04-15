@@ -14,6 +14,10 @@
 	#include "ArrayWithBucket.hpp"
 #endif
 #include "Array.hpp"
+#include "StringCommon.hpp"
+
+AZCORE_STRING_TERMINATOR(char, 0);
+AZCORE_STRING_TERMINATOR(char32, 0);
 
 namespace AzCore {
 

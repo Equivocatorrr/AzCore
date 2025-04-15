@@ -6,9 +6,6 @@
 #include "String.hpp"
 #include "../Math/Basic.hpp"
 
-AZCORE_STRING_TERMINATOR(char, '\0');
-AZCORE_STRING_TERMINATOR(char32, 0u);
-
 namespace AzCore {
 
 thread_local IndentState _indentState;

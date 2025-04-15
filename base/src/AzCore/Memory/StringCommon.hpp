@@ -14,15 +14,15 @@ namespace AzCore {
 /*  struct: StringTerminators
 	Author: Philip Haynes
 	If you want to use value-terminated strings with Arrays or StringLength, the correct
-	string terminator must be declared somewhere in a .cpp file. char and char32 are already set.  */
+	string terminator must be declared somewhere in a .cpp file (or in a .hpp for constexpr). char and char32 are already set.  */
 template <typename T>
 struct StringTerminators {
 	static const T value;
 };
-/* Macro to easily set a terminator. Must be called from one and only one .cpp file.
+/* Macro to easily set a terminator. Must be called from one .hpp file before instantiating StringLength or Array types with terminators.
    Definitions for char and char32 are already set. */
 #define AZCORE_STRING_TERMINATOR(TYPE, VAL) template <> \
-	const TYPE AzCore::StringTerminators<TYPE>::value = VAL
+	constexpr TYPE AzCore::StringTerminators<TYPE>::value = VAL
 
 /*  i32 StringLength(const T *string)
 	Author: Philip Haynes

@@ -43,7 +43,7 @@ namespace AzCore::elf {
 	}
 	Str myMagic = binary.GetRange(0, 4);
 	if (myMagic != magic) {
-		return Stringify("Binary is not an ELF file (wrong magic \"", myMagic, "\" != \"", magic, "\"");
+		return Stringify("Binary is not an ELF file (wrong magic \"", EscapeString(myMagic, '"', false), "\" != \"", EscapeString(magic, '"', false), "\")");
 	}
 	ElfClass elfClass = (ElfClass)(u8)binary[4];
 	switch (elfClass) {

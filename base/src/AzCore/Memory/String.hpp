@@ -41,58 +41,6 @@ String operator+(const char *cString, const String &string);
 WString operator+(const char32 *cString, WString &&string);
 WString operator+(const char32 *cString, const WString &string);
 
-struct AlignText {
-	u16 value;
-	char fill;
-	AlignText() = delete;
-	inline AlignText(u16 alignment, char filler=' ') : value(alignment), fill(filler) {}
-};
-
-template<typename T>
-struct FormatFloat {
-	T value;
-	i32 _base;
-	i32 _precision;
-	FormatFloat() = delete;
-	inline FormatFloat(T in, i32 base, i32 precision=-1) : value(in), _base(base), _precision(precision) {}
-};
-
-template<typename T>
-struct FormatInt {
-	T value;
-	i32 _base;
-	bool _addBasePrefix;
-	FormatInt() = delete;
-	inline FormatInt(T in, i32 base, bool addBasePrefix=false) : value(in), _base(base), _addBasePrefix(addBasePrefix) {}
-};
-
-extern thread_local i32 _preciseFloatToStringMode;
-
-// If you need perfectly-reproducible float to string to float conversions, instantiate one of these.
-struct PreciseFloatToStringMode {
-	i32 diff=1;
-	// Use in a Stringify call only!
-	static inline PreciseFloatToStringMode On() {
-		_preciseFloatToStringMode -= 1;
-		return PreciseFloatToStringMode();
-	}
-	// Use in a Stringify call only!
-	static inline PreciseFloatToStringMode Off() {
-		_preciseFloatToStringMode += 1;
-		return PreciseFloatToStringMode(-1);
-	}
-	inline PreciseFloatToStringMode() {
-		_preciseFloatToStringMode += diff;
-	}
-	inline ~PreciseFloatToStringMode() {
-		_preciseFloatToStringMode -= diff;
-	}
-private:
-	inline PreciseFloatToStringMode(i32 _diff) : diff(_diff) {
-		_preciseFloatToStringMode += diff;
-	}
-};
-
 void AppendToStringWithBase(String &string, u32 value, i32 base);
 void AppendToStringWithBase(String &string, u64 value, i32 base);
 void AppendToStringWithBase(String &string, i32 value, i32 base);
@@ -135,6 +83,34 @@ inline void AppendToString(String &string, f32 value) {
 inline void AppendToString(String &string, f64 value) {
 	AppendToStringWithBase(string, value, 10);
 }
+
+extern thread_local i32 _preciseFloatToStringMode;
+
+// If you need perfectly-reproducible float to string to float conversions, instantiate one of these.
+struct PreciseFloatToStringMode {
+	i32 diff=1;
+	// Use in a Stringify call only!
+	static inline PreciseFloatToStringMode On() {
+		_preciseFloatToStringMode -= 1;
+		return PreciseFloatToStringMode();
+	}
+	// Use in a Stringify call only!
+	static inline PreciseFloatToStringMode Off() {
+		_preciseFloatToStringMode += 1;
+		return PreciseFloatToStringMode(-1);
+	}
+	inline PreciseFloatToStringMode() {
+		_preciseFloatToStringMode += diff;
+	}
+	inline ~PreciseFloatToStringMode() {
+		_preciseFloatToStringMode -= diff;
+	}
+private:
+	inline PreciseFloatToStringMode(i32 _diff) : diff(_diff) {
+		_preciseFloatToStringMode += diff;
+	}
+};
+
 inline void AppendToString(String &string, const PreciseFloatToStringMode &mode) {
 	_preciseFloatToStringMode += mode.diff;
 }
@@ -155,11 +131,6 @@ inline void AppendToString(String &string, f128 value) {
 }
 #endif
 
-template<typename T>
-force_inline(void) AppendToString(String &string, FormatFloat<T> fmt) {
-	AppendToStringWithBase(string, fmt.value, fmt._base, fmt._precision);
-}
-
 inline void AppendToStringWithBase(String &string, u16 value, i32 base) {
 	AppendToStringWithBase(string, (u32)value, base);
 }
@@ -172,6 +143,13 @@ inline void AppendToString(String &string, u16 value) {
 inline void AppendToString(String &string, i16 value) {
 	AppendToString(string, (i32)value);
 }
+
+struct AlignText {
+	u16 value;
+	char fill;
+	AlignText() = delete;
+	inline AlignText(u16 alignment, char filler=' ') : value(alignment), fill(filler) {}
+};
 
 inline void AppendToString(String &string, AlignText alignment) {
 	string.Resize(alignNonPowerOfTwo(string.size, alignment.value), alignment.fill);
@@ -294,6 +272,29 @@ inline void AppendToString(String &string, String &&value) {
 }
 
 template<typename T>
+struct FormatFloat {
+	T value;
+	i32 _base;
+	i32 _precision;
+	FormatFloat() = delete;
+	inline FormatFloat(T in, i32 base, i32 precision=-1) : value(in), _base(base), _precision(precision) {}
+};
+
+template<typename T>
+force_inline(void) AppendToString(String &string, FormatFloat<T> fmt) {
+	AppendToStringWithBase(string, fmt.value, fmt._base, fmt._precision);
+}
+
+template<typename T>
+struct FormatInt {
+	T value;
+	i32 _base;
+	bool _addBasePrefix;
+	FormatInt() = delete;
+	inline FormatInt(T in, i32 base, bool addBasePrefix=false) : value(in), _base(base), _addBasePrefix(addBasePrefix) {}
+};
+
+template<typename T>
 force_inline(void) AppendToString(String &string, FormatInt<T> fmt) {
 	if (fmt._addBasePrefix) {
 		switch (fmt._base) {
@@ -316,6 +317,89 @@ force_inline(void) AppendToString(String &string, FormatInt<T> fmt) {
 		}
 	}
 	AppendToStringWithBase(string, fmt.value, fmt._base);
+}
+
+struct EscapeString {
+	Str value;
+	char _quote;
+	bool _utf8;
+	EscapeString() = delete;
+	explicit inline EscapeString(Str in, char quote='"', bool utf8=true) : value(in), _quote(quote), _utf8(utf8) {}
+};
+
+constexpr Str _low32Escapes[32] = {
+	"\\0"  , "\\001", "\\002", "\\003", "\\004", "\\005", "\\006", "\\a"  ,
+	"\\b"  , "\\t"  , "\\n"  , "\\v"  , "\\f"  , "\\r"  , "\\016", "\\017",
+	"\\020", "\\021", "\\022", "\\023", "\\024", "\\025", "\\026", "\\027",
+	"\\030", "\\031", "\\032", "\\e"  , "\\034", "\\035", "\\036", "\\037",
+};
+
+// returns how many bytes in the string make up a single valid UTF-8 code point, or 0 if there is none.
+constexpr i32 Utf8Length(Str str) {
+	if (str.size < 2) return 0;
+	constexpr u8 extMask = 0b1100'0000;
+	constexpr u8 extVal  = 0b1000'0000;
+	u8 c0 = str[0];
+	u8 c1 = str[1];
+	if ((c0 & 0b1110'0000) == 0b1100'0000) {
+		// 2-byte candidate
+		if ((c1 & extMask) == extVal) {
+			return 2;
+		}
+	} else if ((c0 & 0b1111'0000) == 0b1110'0000) {
+		// 3-byte candidate
+		if (str.size >= 3) {
+			u8 c2 = str[2];
+			if ((c1 & extMask) == extVal && (c2 & extMask) == extVal) {
+				return 3;
+			}
+		}
+	} else if ((c0 & 0b1111'1000) == 0b1111'0000) {
+		// 4-byte candidate
+		if (str.size >= 4) {
+			u8 c2 = str[2];
+			u8 c3 = str[3];
+			if ((c1 & extMask) == extVal && (c2 & extMask) == extVal && (c3 & extMask) == extVal) {
+				return 4;
+			}
+		}
+	}
+	return 0;
+}
+
+force_inline(void) AppendToString(String &string, EscapeString value) {
+	i32 utf8ToGo = 0;
+	for (i32 i = 0; i < value.value.size; i++) {
+		char c = value.value[i];
+		if (c >= 0 && c < 32) {
+			AppendToString(string, _low32Escapes[(u32)c]);
+			continue;
+		} else if (c < 0) {
+			if (value._utf8 && utf8ToGo == 0) {
+				utf8ToGo = Utf8Length(value.value.SubRange(i));
+			}
+			if (utf8ToGo == 0) {
+				// Not a valid UTF-8 code sequence (or we only allow ascii)
+				string.Append('\\');
+				// Don't worry about leading zeroes since we can only be here vith values >= 0200
+				AppendToStringWithBase(string, (u32)(u8)c, 8);
+				continue;
+			} else {
+				utf8ToGo--;
+			}
+		} else if (c == value._quote) {
+			string.Append('\\');
+			string.Append(value._quote);
+			continue;
+		} else if (c == '\\') {
+			AppendToString(string, "\\\\");
+			continue;
+		} else if (c == '\177') {
+			AppendToString(string, "\\177");
+			continue;
+		}
+		string.Append(c);
+	}
 }
 
 template<typename... Args>

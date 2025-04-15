@@ -468,7 +468,7 @@ Array<Str32, 0> SeparateByNewlines(Str32 string, bool allowEmpty=false);
 void StrToLower(Str str);
 void StrToUpper(Str str);
 
-[[nodiscard]] Array<char> FileContents(String filename, bool binary=true);
+[[nodiscard]] Array<char> FileContents(String filepath, bool binary=true);
 
 template<typename T, i32 allocTail>
 [[nodiscard]] Array<Range<T>, 0> SeparateByValues(Array<T, allocTail> &array, const ArrayWithBucket<T, 16/sizeof(T), allocTail> &values, bool allowEmpty=false) {

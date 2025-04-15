@@ -836,9 +836,9 @@ void StrToUpper(Str str) {
 	}
 }
 
-Array<char> FileContents(String filename, bool binary) {
+Array<char> FileContents(String filepath, bool binary) {
 	Array<char> result;
-	FILE *file = fopen(filename.data, binary ? "rb" : "r");
+	FILE *file = fopen(filepath.data, binary ? "rb" : "r");
 	if (!file) {
 		return result;
 	}
@@ -846,7 +846,9 @@ Array<char> FileContents(String filename, bool binary) {
 	result.Resize(ftell(file));
 	fseek(file, 0, SEEK_SET);
 	i32 finalSize = (i32)fread(result.data, 1, result.size, file);
-	if (finalSize == 0) return {};
+	if (finalSize == 0) {
+		result.Clear();
+	}
 	if (finalSize < result.size) {
 		result.size = finalSize;
 	}

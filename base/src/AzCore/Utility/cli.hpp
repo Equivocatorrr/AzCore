@@ -11,7 +11,7 @@
 #include "../Memory/Array.hpp"
 #include "../Memory/Range.hpp"
 
-namespace AzCore::CLI {
+namespace AzCore::cli {
 
 // Gives an array of arguments, skipping the first one since it's just the program name.
 inline Array<Str> GetArguments(i32 argc, char *argv[]) {
@@ -27,6 +27,6 @@ inline Array<Str> GetArguments(i32 argc, char *argv[]) {
 
 // TODO: TUI stuff
 
-} // namespace AzCore::CLI
+} // namespace AzCore::cli
 
 #endif // AZCORE_CLI_HPP

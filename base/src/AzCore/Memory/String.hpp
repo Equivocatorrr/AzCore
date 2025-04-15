@@ -57,8 +57,9 @@ template<typename T>
 struct FormatInt {
 	T value;
 	i32 _base;
+	bool _addBasePrefix;
 	FormatInt() = delete;
-	inline FormatInt(T in, i32 base) : value(in), _base(base) {}
+	inline FormatInt(T in, i32 base, bool addBasePrefix=false) : value(in), _base(base), _addBasePrefix(addBasePrefix) {}
 };
 
 extern thread_local i32 _preciseFloatToStringMode;
@@ -153,11 +154,6 @@ inline void AppendToString(String &string, f128 value) {
 template<typename T>
 force_inline(void) AppendToString(String &string, FormatFloat<T> fmt) {
 	AppendToStringWithBase(string, fmt.value, fmt._base, fmt._precision);
-}
-
-template<typename T>
-force_inline(void) AppendToString(String &string, FormatInt<T> fmt) {
-	AppendToStringWithBase(string, fmt.value, fmt._base);
 }
 
 inline void AppendToStringWithBase(String &string, u16 value, i32 base) {
@@ -291,6 +287,31 @@ inline void AppendToString(String &string, String &&value) {
 			}
 		}
 	}
+}
+
+template<typename T>
+force_inline(void) AppendToString(String &string, FormatInt<T> fmt) {
+	if (fmt._addBasePrefix) {
+		switch (fmt._base) {
+			case 2:
+				AppendToString(string, "0b");
+				break;
+			case 8:
+				AppendToString(string, "0o");
+				break;
+			case 10:
+				break;
+			case 16:
+				AppendToString(string, "0x");
+				break;
+			default: // Not sure what else to do tbh
+				AppendToString(string, "0_");
+				AppendToString(string, fmt._base);
+				AppendToString(string, '_');
+				break;
+		}
+	}
+	AppendToStringWithBase(string, fmt.value, fmt._base);
 }
 
 template<typename... Args>

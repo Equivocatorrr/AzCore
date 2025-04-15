@@ -8,6 +8,8 @@
 #define AZCORE_ENDIAN_HPP
 
 #include "../BasicTypes.hpp"
+#include <type_traits>
+#include <byteswap.h>
 
 namespace AzCore {
 
@@ -21,6 +23,33 @@ struct SystemEndianness_t {
 };
 
 extern SystemEndianness_t SysEndian;
+
+inline void EndianSwap(u16 &data) {
+	data = bswap_16(data);
+}
+
+inline void EndianSwap(u32 &data) {
+	data = bswap_32(data);
+}
+
+inline void EndianSwap(u64 &data) {
+	data = bswap_64(data);
+}
+
+template<
+	typename T,
+	typename = std::enable_if_t<std::is_integral_v<T> || std::is_enum_v<T>>
+>
+inline void EndianSwap(T &data) {
+	static_assert(sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8, "What the hell are you doing, boy?");
+	if constexpr (sizeof(T) == 2) {
+		EndianSwap(*(u16*)&data);
+	} else if constexpr (sizeof(T) == 4) {
+		EndianSwap(*(u32*)&data);
+	} else if constexpr (sizeof(T) == 8) {
+		EndianSwap(*(u64*)&data);
+	}
+}
 
 u16 bytesToU16(char bytes[2], bool swapEndian);
 u32 bytesToU32(char bytes[4], bool swapEndian);

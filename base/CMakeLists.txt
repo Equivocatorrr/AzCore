@@ -6,6 +6,11 @@ elseif (CMAKE_SYSTEM MATCHES Linux)
 endif()
 
 add_library(AzCore STATIC
+	# elf
+		src/AzCore/elf/definitions.cpp
+		src/AzCore/elf/definitions.hpp
+		src/AzCore/elf/elf.cpp
+		src/AzCore/elf/elf.hpp
 	# Font
 		src/AzCore/Font/Font.cpp
 		src/AzCore/Font/Font.hpp

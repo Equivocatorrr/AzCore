@@ -157,8 +157,12 @@ inline MutexData& GetMutexData(char *data) {
 }
 
 Mutex::Mutex() {
+	pthread_mutexattr_t attr;
+	pthread_mutexattr_init(&attr);
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
 	MutexData &mutexData = GetMutexData(data);
-	pthread_mutex_init(&mutexData.mutex, nullptr);
+	pthread_mutex_init(&mutexData.mutex, &attr);
+	pthread_mutexattr_destroy(&attr);
 }
 Mutex::~Mutex() {
 	MutexData &mutexData = GetMutexData(data);

@@ -132,6 +132,7 @@ public:
 	static void Yield();
 };
 
+// Mutexes are recursive, meaning the same thread can lock it multiple times without deadlocking, and it must unlock it as many times as it locked it for another thread to be able to lock it.
 class Mutex {
 	alignas(8) char data[48];
 	friend class CondVar;

@@ -2158,7 +2158,7 @@ Result<None_t, String> WindowInit(Window *window) {
 	}
 	window->state.currentSync = 0;
 	window->header.OnInit();
-	return VoidResult_t();
+	return None;
 }
 
 void WindowDeinit(Window *window) {
@@ -4670,7 +4670,7 @@ static Result<None_t, String> ContextEnsureSemaphoreCount(Context *context, i32 
 
 Semaphore* ContextGetCurrentSemaphore(Context *context, i32 index) {
 	Context::Frame &frame = context->vk.frames[context->state.currentFrame];
-	ContextEnsureSemaphoreCount(context, index+1, context->state.currentFrame).Unwrap();
+	ContextEnsureSemaphoreCount(context, index+1, context->state.currentFrame).AzUnwrap();
 	return &frame.semaphores[index];
 }
 

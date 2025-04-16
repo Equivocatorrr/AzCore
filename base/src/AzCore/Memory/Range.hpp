@@ -416,6 +416,37 @@ constexpr i32 IndexHash(const Range<char> &in) {
 	return i32(hash % bounds);
 }
 
+template<typename T>
+constexpr bool StartsWith(Range<T> string, Range<T> test) {
+	if (string.size < test.size) return false;
+	return string.SubRange(0, test.size) == test;
+}
+
+template<typename T>
+constexpr bool StartsWith(Range<T> string, const T *test) {
+	return StartsWith(string, Range<T>(test));
+}
+
+// cuts the first count chars off of the beginning of string
+template<typename T>
+constexpr void RemoveFromBeginning(Range<T> &string, i64 count) {
+	string.data += count;
+	string.size -= count;
+}
+
+// Checks if string starts with test, and if it does, cuts that part off
+template<typename T>
+constexpr void RemoveFromBeginning(Range<T> &string, Range<T> test) {
+	if (StartsWith(string, test)) {
+		RemoveFromBeginning(string, test.size);
+	}
+}
+// Checks if string starts with test, and if it does, cuts that part off
+template<typename T>
+constexpr void RemoveFromBeginning(Range<T> &string, const T *test) {
+	return RemoveFromBeginning(string, Range<T>(test));
+}
+
 } // namespace AzCore
 
 #endif // AZCORE_RANGE_HPP

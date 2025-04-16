@@ -12,24 +12,6 @@
 
 namespace AzCore {
 
-constexpr bool StartsWith(Range<char> string, Range<char> test) {
-	if (string.size < test.size) return false;
-	return string.SubRange(0, test.size) == test;
-}
-
-// cuts the first count chars off of the beginning of string
-constexpr void RemoveFromBeginning(Range<char> &string, i64 count) {
-	string.data += count;
-	string.size -= count;
-}
-
-// Checks if string starts with test, and if it does, cuts that part off
-constexpr void RemoveFromBeginning(Range<char> &string, Range<char> test) {
-	if (StartsWith(string, test)) {
-		RemoveFromBeginning(string, test.size);
-	}
-}
-
 template <typename T>
 constexpr auto TypeName() {
 	Range<char> name, prefix, suffix;

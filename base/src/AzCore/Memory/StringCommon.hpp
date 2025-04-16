@@ -8,6 +8,7 @@
 #define AZCORE_STRINGCOMMON_HPP
 
 #include "../BasicTypes.hpp"
+#include <cstdint>
 
 namespace AzCore {
 
@@ -29,10 +30,11 @@ struct StringTerminators {
 	Finds the length of a value-terminated string. The type T must have an
 	associated StringTerminators declared somewhere. */
 template <typename T>
-constexpr i32 StringLength(const T *string) {
+constexpr i32 StringLength(const T *string, i32 maxLen=INT32_MAX) {
 	i32 length = 0;
 	while (string[length] != StringTerminators<T>::value) {
 		length++;
+		if (length == maxLen) break;
 	}
 	return length;
 }

@@ -24,21 +24,29 @@ struct File {
 	bool parsed = false;
 	bool is64bit;
 	union {
-		void *elfHeader = nullptr;
-		elf32_header *elfHeader32;
-		elf64_header *elfHeader64;
+		struct {
+			void *header;
+		} any;
+		struct {
+			elf32_header *header;
+		} elf32;
+		struct {
+			elf64_header *header;
+		} elf64;
 	};
-	File() = default;
+	Array<char*> programHeaders;
+	Array<char*> sectionHeaders;
+	static_assert(sizeof(any) == sizeof(elf32) && sizeof(any) == sizeof(elf64), "Union struct size mismatch");
 	// Emties all dynamic data and frees associated memory
 	inline void Clear() {
 		binary.Clear();
-		elfHeader = nullptr;
+		any.header = nullptr;
 		parsed = false;
 	}
 	// Empties all dynamic data but hold on to the associated memory (to use it later)
 	inline void ClearSoft() {
 		binary.ClearSoft();
-		elfHeader = nullptr;
+		any.header = nullptr;
 		parsed = false;
 	}
 	[[nodiscard]] inline Result<None_t, String> LoadFile(Str filepath) {
@@ -65,7 +73,7 @@ struct File {
 	[[nodiscard]] Result<None_t, String> ParseElf32();
 	[[nodiscard]] Result<None_t, String> ParseElf64();
 
-	void PrintHeaderInfo(io::Log &log=io::cout);
+	void PrintHeaderInfo(io::Log &log=io::cout, bool programHeaders=false, bool sectionHeaders=false);
 };
 
 } // namespace AzCore::elf

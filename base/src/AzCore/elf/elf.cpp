@@ -71,6 +71,7 @@ namespace AzCore::elf {
 				return Stringify("Section ", i, " data is out of bounds, expecting ", FormatInt(sectionHeader.size, 16, true), " bytes to be available at offset ", FormatInt(sectionHeader.fileOffset, 16, true), " (binary size = ", FormatInt(binary.size, 16, true), ")");
 			}
 		}
+		elf64.sectionHeaderStringTable = (elf64_section_header*)sectionHeaders[header.sectionHeaderStringTableIndex];
 		io::cout.PrintLnTrace("Parsed elf64_section_headers");
 	}
 	parsed = true;
@@ -166,8 +167,7 @@ static void _PrintProgramHeaderInfo64(File &file, io::Log &log) {
 }
 
 static void _PrintSectionHeaderInfo32(File &file, io::Log &log) {
-	elf32_header &fileHeader = *(elf32_header*)file.any.header;
-	elf32_section_header &nameHeader = *(elf32_section_header*)file.sectionHeaders[fileHeader.sectionHeaderStringTableIndex];
+	elf32_section_header &nameHeader = *file.elf32.sectionHeaderStringTable;
 	Str sectionNameTable = file.binary.GetRange(nameHeader.fileOffset, nameHeader.size);
 	log.PrintLn("Section headers (", file.sectionHeaders.size, "):");
 	for (i32 i = 0; i < file.sectionHeaders.size; i++) {
@@ -193,8 +193,7 @@ static void _PrintSectionHeaderInfo32(File &file, io::Log &log) {
 }
 
 static void _PrintSectionHeaderInfo64(File &file, io::Log &log) {
-	elf64_header &fileHeader = *(elf64_header*)file.any.header;
-	elf64_section_header &nameHeader = *(elf64_section_header*)file.sectionHeaders[fileHeader.sectionHeaderStringTableIndex];
+	elf64_section_header &nameHeader = *file.elf64.sectionHeaderStringTable;
 	Str sectionNameTable = file.binary.GetRange(nameHeader.fileOffset, nameHeader.size);
 	log.PrintLn("Section headers (", file.sectionHeaders.size, "):");
 	for (i32 i = 0; i < file.sectionHeaders.size; i++) {

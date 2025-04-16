@@ -26,12 +26,15 @@ struct File {
 	union {
 		struct {
 			void *header;
-		} any;
+			void *sectionHeaderStringTable;
+		} any = {0};
 		struct {
 			elf32_header *header;
+			elf32_section_header *sectionHeaderStringTable;
 		} elf32;
 		struct {
 			elf64_header *header;
+			elf64_section_header *sectionHeaderStringTable;
 		} elf64;
 	};
 	Array<char*> programHeaders;

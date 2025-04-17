@@ -132,11 +132,11 @@ static void _PrintFileHeaderInfo(File &file, io::Log &log) {
 	if (!file.parsed) return;
 	elf_header<Word_t> &header = *(elf_header<Word_t>*)file.any.header;
 	log.PrintLn(
-		"ident_class: ", header.ident_class,
-		"\nident_endian: ", header.ident_endian,
-		"\nident_version: ", header.ident_version,
-		"\nident_abi: ", header.ident_abi,
-		"\nident_abi_version: ", header.ident_abi_version,
+		"class: ", header.ident_class,
+		"\nendian: ", header.ident_endian,
+		"\nversion: ", header.ident_version,
+		"\nabi: ", header.ident_abi,
+		"\nabi_version: ", header.ident_abi_version,
 		"\ntype: ", header.type,
 		"\nisa: ", header.isa,
 		"\nversion: ", header.version,
@@ -153,95 +153,48 @@ static void _PrintFileHeaderInfo(File &file, io::Log &log) {
 	);
 }
 
-static void _PrintProgramHeaderInfo32(File &file, io::Log &log) {
+constexpr u64 align1 = 36;
+constexpr u64 align2 = 68;
+
+template<typename Word_t>
+static void _PrintProgramHeaderInfo(File &file, io::Log &log) {
+	using program_header_t = program_header<Word_t>;
 	log.PrintLn("Program headers (", file.programHeaders.size, "):");
 	for (i32 i = 0; i < file.programHeaders.size; i++) {
-		elf32_program_header &header = *(elf32_program_header*)file.programHeaders[i];
-		log.PrintLn(i);
-		log.IndentMore();
+		program_header_t &header = *(program_header_t*)file.programHeaders[i];
+		log.PrintLn(i, AlignText(4, "─"), " type: ", header.type, AlignText(align1), " flags: ", (SegmentFlags)header.flags);
 		log.PrintLn(
-			"type: ", header.type,
-			"\nfileOffset: ", FormatInt(header.fileOffset, 16, true),
-			"\nvirtualAddress: ", FormatInt(header.virtualAddress, 16, true),
-			"\nphysicalAddress: ", FormatInt(header.physicalAddress, 16, true),
-			"\nfileSize: ", FormatInt(header.fileSize, 16, true),
-			"\nmemSize: ", FormatInt(header.memSize, 16, true),
-			"\nflags: ", (SegmentFlags)header.flags,
-			"\nalignment: ", FormatInt(header.alignment, 16, true)
+			"│    fileOffset: ", FormatInt(header.fileOffset, 16, true), AlignText(align1),
+			" virtualAddress: ", FormatInt(header.virtualAddress, 16, true), AlignText(align2),
+			" physicalAddress: ", FormatInt(header.physicalAddress, 16, true)
 		);
-		log.IndentLess();
+		log.PrintLn(
+			"└─── fileSize: ", FormatInt(header.fileSize, 16, true), AlignText(align1),
+			" memSize: ", FormatInt(header.memSize, 16, true), AlignText(align2),
+			" alignment: ", FormatInt(header.alignment, 16, true)
+		);
 	}
 }
 
-static void _PrintProgramHeaderInfo64(File &file, io::Log &log) {
-	log.PrintLn("Program headers (", file.programHeaders.size, "):");
-	for (i32 i = 0; i < file.programHeaders.size; i++) {
-		elf64_program_header &header = *(elf64_program_header*)file.programHeaders[i];
-		log.PrintLn(i);
-		log.IndentMore();
-		log.PrintLn(
-			"type: ", header.type,
-			"\nflags: ", (SegmentFlags)header.flags,
-			"\nfileOffset: ", FormatInt(header.fileOffset, 16, true),
-			"\nvirtualAddress: ", FormatInt(header.virtualAddress, 16, true),
-			"\nphysicalAddress: ", FormatInt(header.physicalAddress, 16, true),
-			"\nfileSize: ", FormatInt(header.fileSize, 16, true),
-			"\nmemSize: ", FormatInt(header.memSize, 16, true),
-			"\nalignment: ", FormatInt(header.alignment, 16, true)
-		);
-		log.IndentLess();
-	}
-}
-
-static void _PrintSectionHeaderInfo32(File &file, io::Log &log) {
-	elf32_section_header &nameHeader = *file.elf32.sectionHeaderStringTable;
+template<typename Word_t>
+static void _PrintSectionHeaderInfo(File &file, io::Log &log) {
+	using section_header_t = section_header<Word_t>;
+	section_header_t &nameHeader = *(section_header_t*)file.any.sectionHeaderStringTable;
 	Str sectionNameTable = file.binary.GetRange(nameHeader.fileOffset, nameHeader.size);
 	log.PrintLn("Section headers (", file.sectionHeaders.size, "):");
 	for (i32 i = 0; i < file.sectionHeaders.size; i++) {
-		elf32_section_header &header = *(elf32_section_header*)file.sectionHeaders[i];
+		section_header_t &header = *(section_header_t*)file.sectionHeaders[i];
 		Str name = sectionNameTable.SubRange(header.name);
 		name.size = (i64)StringLength(name.data, name.size);
-		log.PrintLn(i);
-		log.IndentMore();
+		log.PrintLn(i, AlignText(4, "─"), " name: \"", EscapeString(name), '"');
+		log.PrintLn("│    type: ", header.type, AlignText(align1), " flags: ", (SectionFlags)header.flags);
 		log.PrintLn(
-			"name: \"", EscapeString(name), '"',
-			"\ntype: ", header.type,
-			"\nflags: ", (SectionFlags)header.flags,
-			"\nvirtualAddress: ", FormatInt(header.virtualAddress, 16, true),
-			"\nfileOffset: ", FormatInt(header.fileOffset, 16, true),
-			"\nsize: ", FormatInt(header.size, 16, true),
-			"\nlink: ", header.link,
-			"\ninfo: ", FormatInt(header.info, 16, true),
-			"\nalignment: ", FormatInt(header.alignment, 16, true),
-			"\nentrySize: ", FormatInt(header.entrySize, 16, true)
+			"│    virtualAddress: ", FormatInt(header.virtualAddress, 16, true), AlignText(align1),
+			" fileOffset: ", FormatInt(header.fileOffset, 16, true), AlignText(align2),
+			" size: ", FormatInt(header.size, 16, true)
 		);
-		log.IndentLess();
-	}
-}
-
-static void _PrintSectionHeaderInfo64(File &file, io::Log &log) {
-	elf64_section_header &nameHeader = *file.elf64.sectionHeaderStringTable;
-	Str sectionNameTable = file.binary.GetRange(nameHeader.fileOffset, nameHeader.size);
-	log.PrintLn("Section headers (", file.sectionHeaders.size, "):");
-	for (i32 i = 0; i < file.sectionHeaders.size; i++) {
-		elf64_section_header &header = *(elf64_section_header*)file.sectionHeaders[i];
-		Str name = sectionNameTable.SubRange(header.name);
-		name.size = (i64)StringLength(name.data, name.size);
-		log.PrintLn(i);
-		log.IndentMore();
-		log.PrintLn(
-			"name: \"", EscapeString(name), '"',
-			"\ntype: ", header.type,
-			"\nflags: ", (SectionFlags)header.flags,
-			"\nvirtualAddress: ", FormatInt(header.virtualAddress, 16, true),
-			"\nfileOffset: ", FormatInt(header.fileOffset, 16, true),
-			"\nsize: ", FormatInt(header.size, 16, true),
-			"\nlink: ", header.link,
-			"\ninfo: ", FormatInt(header.info, 16, true),
-			"\nalignment: ", FormatInt(header.alignment, 16, true),
-			"\nentrySize: ", FormatInt(header.entrySize, 16, true)
-		);
-		log.IndentLess();
+		log.PrintLn("│    link: ", header.link, AlignText(align1), " info: ", FormatInt(header.info, 16, true));
+		log.PrintLn("└─── alignment: ", FormatInt(header.alignment, 16, true), AlignText(align1), " entrySize: ", FormatInt(header.entrySize, 16, true));
 	}
 }
 
@@ -249,18 +202,18 @@ void File::PrintHeaderInfo(io::Log &log, bool programHeaders, bool sectionHeader
 	if (is64bit) {
 		_PrintFileHeaderInfo<u64>(*this, log);
 		if (programHeaders) {
-			_PrintProgramHeaderInfo64(*this, log);
+			_PrintProgramHeaderInfo<u64>(*this, log);
 		}
 		if (sectionHeaders) {
-			_PrintSectionHeaderInfo64(*this, log);
+			_PrintSectionHeaderInfo<u64>(*this, log);
 		}
 	} else {
 		_PrintFileHeaderInfo<u32>(*this, log);
 		if (programHeaders) {
-			_PrintProgramHeaderInfo32(*this, log);
+			_PrintProgramHeaderInfo<u32>(*this, log);
 		}
 		if (sectionHeaders) {
-			_PrintSectionHeaderInfo32(*this, log);
+			_PrintSectionHeaderInfo<u32>(*this, log);
 		}
 	}
 }

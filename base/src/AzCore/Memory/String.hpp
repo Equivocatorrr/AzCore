@@ -26,6 +26,49 @@ namespace AzCore {
 using Str = Range<char>;
 using Str32 = Range<char32>;
 
+// returns how many bytes in the string make up a single valid UTF-8 code point, or 0 if there is none.
+constexpr i32 Utf8LengthSingle(Str str, i32 outputOnSingleOrInvalid=1) {
+	if (str.size < 2) return outputOnSingleOrInvalid;
+	constexpr u8 extMask = 0b1100'0000;
+	constexpr u8 extVal  = 0b1000'0000;
+	u8 c0 = str[0];
+	u8 c1 = str[1];
+	if ((c0 & 0b1110'0000) == 0b1100'0000) {
+		// 2-byte candidate
+		if ((c1 & extMask) == extVal) {
+			return 2;
+		}
+	} else if ((c0 & 0b1111'0000) == 0b1110'0000) {
+		// 3-byte candidate
+		if (str.size >= 3) {
+			u8 c2 = str[2];
+			if ((c1 & extMask) == extVal && (c2 & extMask) == extVal) {
+				return 3;
+			}
+		}
+	} else if ((c0 & 0b1111'1000) == 0b1111'0000) {
+		// 4-byte candidate
+		if (str.size >= 4) {
+			u8 c2 = str[2];
+			u8 c3 = str[3];
+			if ((c1 & extMask) == extVal && (c2 & extMask) == extVal && (c3 & extMask) == extVal) {
+				return 4;
+			}
+		}
+	}
+	return outputOnSingleOrInvalid;
+}
+
+// returns how many total characters there are in a string, making sure to count multi-byte characters as single.
+constexpr i32 Utf8CharCount(Str str) {
+	i32 count = 0;
+	for (i64 i = 0; i < str.size;) {
+		count += 1;
+		i += Utf8LengthSingle(str.SubRange(i));
+	}
+	return count;
+}
+
 #ifdef AZCORE_STRING_WITH_BUCKET
 	template<typename T>
 	using StringBase = ArrayWithBucket<T, 16/sizeof(T), 1>;
@@ -145,14 +188,18 @@ inline void AppendToString(String &string, i16 value) {
 }
 
 struct AlignText {
-	u16 value;
-	char fill;
+	u64 value;
+	Str fill;
 	AlignText() = delete;
-	inline AlignText(u16 alignment, char filler=' ') : value(alignment), fill(filler) {}
+	inline AlignText(u64 alignment, Str filler=" ") : value(alignment), fill(filler) {}
 };
 
 inline void AppendToString(String &string, AlignText alignment) {
-	string.Resize(alignNonPowerOfTwo(string.size, alignment.value), alignment.fill);
+	i32 oldSize = Utf8CharCount(string);
+	i32 newSize = alignNonPowerOfTwo(oldSize, alignment.value);
+	for (i32 i = oldSize; i < newSize; i++) {
+		string.Append(alignment.fill);
+	}
 }
 
 struct IndentState {
@@ -334,39 +381,6 @@ constexpr Str _low32Escapes[32] = {
 	"\\030", "\\031", "\\032", "\\e"  , "\\034", "\\035", "\\036", "\\037",
 };
 
-// returns how many bytes in the string make up a single valid UTF-8 code point, or 0 if there is none.
-constexpr i32 Utf8Length(Str str) {
-	if (str.size < 2) return 0;
-	constexpr u8 extMask = 0b1100'0000;
-	constexpr u8 extVal  = 0b1000'0000;
-	u8 c0 = str[0];
-	u8 c1 = str[1];
-	if ((c0 & 0b1110'0000) == 0b1100'0000) {
-		// 2-byte candidate
-		if ((c1 & extMask) == extVal) {
-			return 2;
-		}
-	} else if ((c0 & 0b1111'0000) == 0b1110'0000) {
-		// 3-byte candidate
-		if (str.size >= 3) {
-			u8 c2 = str[2];
-			if ((c1 & extMask) == extVal && (c2 & extMask) == extVal) {
-				return 3;
-			}
-		}
-	} else if ((c0 & 0b1111'1000) == 0b1111'0000) {
-		// 4-byte candidate
-		if (str.size >= 4) {
-			u8 c2 = str[2];
-			u8 c3 = str[3];
-			if ((c1 & extMask) == extVal && (c2 & extMask) == extVal && (c3 & extMask) == extVal) {
-				return 4;
-			}
-		}
-	}
-	return 0;
-}
-
 force_inline(void) AppendToString(String &string, EscapeString value) {
 	i32 utf8ToGo = 0;
 	for (i32 i = 0; i < value.value.size; i++) {
@@ -376,7 +390,7 @@ force_inline(void) AppendToString(String &string, EscapeString value) {
 			continue;
 		} else if (c < 0) {
 			if (value._utf8 && utf8ToGo == 0) {
-				utf8ToGo = Utf8Length(value.value.SubRange(i));
+				utf8ToGo = Utf8LengthSingle(value.value.SubRange(i), 0);
 			}
 			if (utf8ToGo == 0) {
 				// Not a valid UTF-8 code sequence (or we only allow ascii)

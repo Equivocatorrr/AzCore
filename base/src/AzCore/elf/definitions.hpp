@@ -266,7 +266,7 @@ enum class ElfISA : u16 {
 	LOONG_ARCH                = 0x102,
 };
 
-template<typename PTR_T>
+template<typename Word_t>
 struct elf_header {
 	// 0     1    2    3    4      5       6        7      8           9..15
 	// 0x7f, 'E', 'L', 'F', class, endian, version, osabi, abiversion, padding
@@ -281,14 +281,14 @@ struct elf_header {
 			u8 ident_abi_version;
 		};
 	};
-	ElfType type;               // object file type
-	ElfISA isa;                 // Instruction Set Architecture
-	u32 version;                // object file version (should be 1)
-	PTR_T entry;                // entry point virtual address
-	PTR_T programHeadersOffset; // file offset
-	PTR_T sectionHeadersOffset; // file offset
-	u32 flags;                  // processor-specific flags
-	u16 elfHeaderSize;          // total size of this struct (should be 52 for 32-bit and 64 for 64-bit)
+	ElfType type;                // object file type
+	ElfISA isa;                  // Instruction Set Architecture
+	u32 version;                 // object file version (should be 1)
+	Word_t entry;                // entry point virtual address
+	Word_t programHeadersOffset; // file offset
+	Word_t sectionHeadersOffset; // file offset
+	u32 flags;                   // processor-specific flags
+	u16 elfHeaderSize;           // total size of this struct (should be 52 for 32-bit and 64 for 64-bit)
 	u16 programHeaderEntrySize;
 	u16 programHeaderCount;
 	u16 sectionHeaderEntrySize;
@@ -336,7 +336,13 @@ enum SegmentFlags : u32 {
 	PF_R = 0x04,
 };
 
-struct elf32_program_header {
+template<typename Word_t>
+struct program_header {
+	static_assert(std::is_same_v<Word_t, u32> || std::is_same_v<Word_t, u64>, "program_header<Word_t> must have a Word_t of u32 or u64");
+};
+
+template<>
+struct program_header<u32> {
 	ProgramType type;
 	u32 fileOffset;
 	u32 virtualAddress;
@@ -346,9 +352,11 @@ struct elf32_program_header {
 	u32 flags;
 	u32 alignment; // 0 and 1 specify no alignment. Powers of 2. virtualAddress % alignment == fileOffset % alignment
 };
+using elf32_program_header = program_header<u32>;
 static_assert(sizeof(elf32_program_header) == 32);
 
-struct elf64_program_header {
+template<>
+struct program_header<u64> {
 	ProgramType type;
 	u32 flags;
 	u64 fileOffset;
@@ -358,6 +366,7 @@ struct elf64_program_header {
 	u64 memSize;   // Size in bytes of the segment in memory.
 	u64 alignment; // 0 and 1 specify no alignment. Powers of 2. virtualAddress % alignment == fileOffset % alignment
 };
+using elf64_program_header = program_header<u64>;
 static_assert(sizeof(elf64_program_header) == 56);
 
 //
@@ -416,32 +425,23 @@ enum SectionFlags : u64 {
 	SHF_EXCLUDE      = 0x8000000, // Section is excluded unless referenced or allocated
 };
 
-struct elf32_section_header {
+template<typename Word_t>
+struct section_header {
 	u32 name;
 	SectionType type;
-	u32 flags;
-	u32 virtualAddress;
-	u32 fileOffset;
-	u32 size;
+	Word_t flags;
+	Word_t virtualAddress;
+	Word_t fileOffset;
+	Word_t size;
 	u32 link;      // Section index of an associated section.
 	u32 info;
-	u32 alignment; // Required alignment of the section (must be a power of 2)
-	u32 entrySize; // Size of entries for segments that contain fixed-size entries.
+	Word_t alignment; // Required alignment of the section (must be a power of 2)
+	Word_t entrySize; // Size of entries for segments that contain fixed-size entries.
 };
-static_assert(sizeof(elf32_section_header) == 40);
 
-struct elf64_section_header {
-	u32 name;
-	SectionType type;
-	u64 flags;
-	u64 virtualAddress;
-	u64 fileOffset;
-	u64 size;
-	u32 link;      // Section index of an associated section.
-	u32 info;
-	u64 alignment; // Required alignment of the section (must be a power of 2)
-	u64 entrySize; // Size of entries for segments that contain fixed-size entries.
-};
+using elf32_section_header = section_header<u32>;
+static_assert(sizeof(elf32_section_header) == 40);
+using elf64_section_header = section_header<u64>;
 static_assert(sizeof(elf64_section_header) == 64);
 
 } // namespace AzCore::elf

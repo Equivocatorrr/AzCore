@@ -5,77 +5,104 @@
 
 #include "elf.hpp"
 #include "definitions.hpp"
+#include <type_traits>
 
 namespace AzCore::elf {
 
-#define ENSURE_BUFFER(bytes, offset) if ((i64)binary.size < (((i64)bytes) + ((i64)offset))) {\
-	return Stringify("Expected ", FormatInt(bytes, 16, true), " bytes to be available at offset ", FormatInt(offset, 16, true), " (binary size = ", FormatInt(binary.size, 16, true), ")");\
+#define ENSURE_BUFFER(bytes, offset) if ((i64)file.binary.size < (((i64)bytes) + ((i64)offset))) {\
+	return Stringify("Expected ", FormatInt(bytes, 16, true), " bytes to be available at offset ", FormatInt(offset, 16, true), " (binary size = ", FormatInt(file.binary.size, 16, true), ")");\
 }
 
-[[nodiscard]] Result<None_t, String> File::ParseElf32() {
-	if (parsed) return None;
-	return String("ParseElf32 is not yet implemented.");
-	// TODO: When ParseElf64 is fully implemented, it should basically just be a copy for most of it
-	return None;
-}
-
-[[nodiscard]] Result<None_t, String> File::ParseElf64() {
-	if (parsed) return None;
-	is64bit = true;
-	ENSURE_BUFFER(sizeof(elf64_header), 0);
-	elf64_header &header = *(elf64_header*)&binary[0];
+template<typename Word_t>
+inline Result<None_t, String> _ParseElf(File &file) {
+	constexpr Str ELF_HEADER_NAME = std::is_same_v<u64, Word_t> ? "elf64_header" : "elf32_header";
+	constexpr Str PROGRAM_HEADER_NAME = std::is_same_v<u64, Word_t> ? "elf64_program_header" : "elf32_program_header";
+	constexpr Str SECTION_HEADER_NAME = std::is_same_v<u64, Word_t> ? "elf64_section_header" : "elf32_section_header";
+	using elf_header_t = elf_header<Word_t>;
+	using program_header_t = program_header<Word_t>;
+	using section_header_t = section_header<Word_t>;
+	if (file.parsed) return None;
+	file.is64bit = std::is_same_v<u64, Word_t>;
+	ENSURE_BUFFER(sizeof(elf_header_t), 0);
+	elf_header_t &header = *(elf_header_t*)&file.binary[0];
 	const bool doEndianSwap = (header.ident_endian == ElfEndian::MSB && SysEndian.little) || (header.ident_endian == ElfEndian::LSB && SysEndian.big);
 	if (doEndianSwap) {
 		EndianSwap(header);
 	}
-	elf64.header = &header;
-	io::cout.PrintLnTrace("Parsed elf64_header");
+	file.any.header = &header;
+	io::cout.PrintLnTrace("Parsed ", ELF_HEADER_NAME);
 	if (header.programHeaderCount) {
 		// Parse programs
-		if (header.programHeaderEntrySize < sizeof(elf64_program_header)) {
-			return Stringify("programHeaderEntrySize (", FormatInt(header.programHeaderEntrySize,16, true), " bytes) is too small! (Expected ", FormatInt(sizeof(elf64_program_header), 16, true), " bytes)");
+		if (header.programHeaderEntrySize < sizeof(program_header_t)) {
+			return Stringify("programHeaderEntrySize (", FormatInt(header.programHeaderEntrySize,16, true), " bytes) is too small! (Expected ", FormatInt(sizeof(program_header_t), 16, true), " bytes)");
 		} // We're probably okay with bigger than expected, just not sure what to do with the rest yet if there is any.
+
+		// Check alignment
+		// TODO: If this becomes a problem we'll have to copy the data out.
+		if (header.programHeaderEntrySize % alignof(program_header_t) != 0) {
+			return Stringify("programHeaderEntrySize (", header.programHeaderEntrySize, ") is not adequately aligned (", alignof(program_header_t), ")");
+		}
+		if (header.programHeadersOffset % alignof(program_header_t) != 0) {
+			return Stringify("programHeadersOffset (", header.programHeadersOffset, ") is not adequately aligned (", alignof(program_header_t), ")");
+		}
 		ENSURE_BUFFER(header.programHeaderEntrySize * header.programHeaderCount, header.programHeadersOffset);
-		char *programHeadersStart = &binary[header.programHeadersOffset];
-		programHeaders.Resize(header.programHeaderCount);
+		char *programHeadersStart = &file.binary[header.programHeadersOffset];
+		file.programHeaders.Resize(header.programHeaderCount);
 		for (i32 i = 0; i < header.programHeaderCount; i++) {
-			elf64_program_header &programHeader = *(elf64_program_header*)(programHeadersStart + header.programHeaderEntrySize * i);
-			programHeaders[i] = (char*)&programHeader;
+			program_header_t &programHeader = *(program_header_t*)(programHeadersStart + header.programHeaderEntrySize * i);
+			file.programHeaders[i] = (char*)&programHeader;
 			if (doEndianSwap) {
 				EndianSwap(programHeader);
 			}
-			if ((u64)binary.size < (programHeader.fileSize + programHeader.fileOffset)) {
-				return Stringify("Program ", i, " data is out of bounds, expecting ", FormatInt(programHeader.fileSize, 16, true), " bytes to be available at offset ", FormatInt(programHeader.fileOffset, 16, true), " (binary size = ", FormatInt(binary.size, 16, true), ")");
+			if ((u64)file.binary.size < (programHeader.fileSize + programHeader.fileOffset)) {
+				return Stringify("Program ", i, " data is out of bounds, expecting ", FormatInt(programHeader.fileSize, 16, true), " bytes to be available at offset ", FormatInt(programHeader.fileOffset, 16, true), " (binary size = ", FormatInt(file.binary.size, 16, true), ")");
 			}
 		}
-		io::cout.PrintLnTrace("Parsed elf64_program_headers");
+		io::cout.PrintLnTrace("Parsed ", PROGRAM_HEADER_NAME);
 	}
 	if (header.sectionHeaderCount) {
 		if (header.sectionHeaderStringTableIndex >= header.sectionHeaderCount) {
 			return Stringify("sectionHeaderStringTableIndex (", header.sectionHeaderStringTableIndex, ") is out of bounds (we have ", header.sectionHeaderCount, " sections)");
 		}
 		// Parse sections
-		if (header.sectionHeaderEntrySize < sizeof(elf64_section_header)) {
-			return Stringify("sectionHeaderEntrySize (", FormatInt(header.sectionHeaderEntrySize,16, true), " bytes) is too small! (Expected ", FormatInt(sizeof(elf64_section_header), 16, true), " bytes)");
+		if (header.sectionHeaderEntrySize < sizeof(section_header_t)) {
+			return Stringify("sectionHeaderEntrySize (", FormatInt(header.sectionHeaderEntrySize,16, true), " bytes) is too small! (Expected ", FormatInt(sizeof(section_header_t), 16, true), " bytes)");
 		} // We're probably okay with bigger than expected, just not sure what to do with the rest yet if there is any.
+
+		// Check alignment
+		// TODO: If this becomes a problem we'll have to copy the data out.
+		if (header.sectionHeaderEntrySize % alignof(section_header_t) != 0) {
+			return Stringify("sectionHeaderEntrySize (", header.sectionHeaderEntrySize, ") is not adequately aligned (", alignof(section_header_t), ")");
+		}
+		if (header.sectionHeadersOffset % alignof(section_header_t) != 0) {
+			return Stringify("sectionHeadersOffset (", header.sectionHeadersOffset, ") is not adequately aligned (", alignof(section_header_t), ")");
+		}
 		ENSURE_BUFFER(header.sectionHeaderEntrySize * header.sectionHeaderCount, header.programHeadersOffset);
-		char *sectionHeadersStart = &binary[header.sectionHeadersOffset];
-		sectionHeaders.Resize(header.sectionHeaderCount);
+		char *sectionHeadersStart = &file.binary[header.sectionHeadersOffset];
+		file.sectionHeaders.Resize(header.sectionHeaderCount);
 		for (i32 i = 0; i < header.sectionHeaderCount; i++) {
-			elf64_section_header &sectionHeader = *(elf64_section_header*)(sectionHeadersStart + header.sectionHeaderEntrySize * i);
-			sectionHeaders[i] = (char*)&sectionHeader;
+			section_header_t &sectionHeader = *(section_header_t*)(sectionHeadersStart + header.sectionHeaderEntrySize * i);
+			file.sectionHeaders[i] = (char*)&sectionHeader;
 			if (doEndianSwap) {
 				EndianSwap(sectionHeader);
 			}
-			if ((u64)binary.size < (sectionHeader.size + sectionHeader.fileOffset)) {
-				return Stringify("Section ", i, " data is out of bounds, expecting ", FormatInt(sectionHeader.size, 16, true), " bytes to be available at offset ", FormatInt(sectionHeader.fileOffset, 16, true), " (binary size = ", FormatInt(binary.size, 16, true), ")");
+			if (sectionHeader.type != SectionType::NOBITS && (u64)file.binary.size < (sectionHeader.size + sectionHeader.fileOffset)) {
+				return Stringify("Section ", i, " data is out of bounds, expecting ", FormatInt(sectionHeader.size, 16, true), " bytes to be available at offset ", FormatInt(sectionHeader.fileOffset, 16, true), " (binary size = ", FormatInt(file.binary.size, 16, true), ")");
 			}
 		}
-		elf64.sectionHeaderStringTable = (elf64_section_header*)sectionHeaders[header.sectionHeaderStringTableIndex];
-		io::cout.PrintLnTrace("Parsed elf64_section_headers");
+		file.any.sectionHeaderStringTable = file.sectionHeaders[header.sectionHeaderStringTableIndex];
+		io::cout.PrintLnTrace("Parsed ", SECTION_HEADER_NAME);
 	}
-	parsed = true;
+	file.parsed = true;
 	return None;
+}
+
+[[nodiscard]] Result<None_t, String> File::ParseElf32() {
+	return _ParseElf<u32>(*this);
+}
+
+[[nodiscard]] Result<None_t, String> File::ParseElf64() {
+	return _ParseElf<u64>(*this);
 }
 
 [[nodiscard]] Result<None_t, String> File::Parse() {
@@ -100,10 +127,10 @@ namespace AzCore::elf {
 	}
 }
 
-template<typename PTR_T>
+template<typename Word_t>
 static void _PrintFileHeaderInfo(File &file, io::Log &log) {
 	if (!file.parsed) return;
-	elf_header<PTR_T> &header = *(elf_header<PTR_T>*)file.any.header;
+	elf_header<Word_t> &header = *(elf_header<Word_t>*)file.any.header;
 	log.PrintLn(
 		"ident_class: ", header.ident_class,
 		"\nident_endian: ", header.ident_endian,

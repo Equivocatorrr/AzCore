@@ -60,10 +60,16 @@ constexpr i32 Utf8LengthSingle(Str str, i32 outputOnSingleOrInvalid=1) {
 }
 
 // returns how many total characters there are in a string, making sure to count multi-byte characters as single.
-constexpr i32 Utf8CharCount(Str str) {
+constexpr i32 Utf8CharCount(Str str, i32 *dstLastLineStart=nullptr) {
 	i32 count = 0;
+	if (dstLastLineStart) {
+		*dstLastLineStart = 0;
+	}
 	for (i64 i = 0; i < str.size;) {
 		count += 1;
+		if (dstLastLineStart && str[i] == '\n') {
+			*dstLastLineStart = count;
+		}
 		i += Utf8LengthSingle(str.SubRange(i));
 	}
 	return count;
@@ -187,18 +193,54 @@ inline void AppendToString(String &string, i16 value) {
 	AppendToString(string, (i32)value);
 }
 
+// Not persistent, only aligns once per instance.
 struct AlignText {
-	u64 value;
+	enum ModeBits {
+		// Counts UTF-8 characters instead of bytes and aligns to the start of each line instead of the whole string
+		DEFAULT=0,
+		// Will align to the start of the string, not each line.
+		STRING_START = 0x01,
+		// Will ignore UTF-8 encoding and just use bytes (efficient, but alignment will be wrong with multi-byte UTF-8 code points)
+		ASCII = 0x02,
+	};
+	u32 value;
+	u32 modeBits;
 	Str fill;
 	AlignText() = delete;
-	inline AlignText(u64 alignment, Str filler=" ") : value(alignment), fill(filler) {}
+	inline AlignText(u32 alignment, Str filler=" ", u32 _modeBits=DEFAULT) : value(alignment), modeBits(_modeBits), fill(filler) {}
 };
 
 inline void AppendToString(String &string, AlignText alignment) {
-	i32 oldSize = Utf8CharCount(string);
-	i32 newSize = alignNonPowerOfTwo(oldSize, alignment.value);
-	for (i32 i = oldSize; i < newSize; i++) {
-		string.Append(alignment.fill);
+	i32 oldSize, newSize;
+	if (alignment.modeBits & AlignText::ASCII) {
+		char fill = alignment.fill.size ? alignment.fill[0] : '\0';
+		if (alignment.modeBits & AlignText::STRING_START) {
+			oldSize = string.size;
+			newSize = alignNonPowerOfTwo(oldSize, alignment.value);
+		} else {
+			i32 lastLineStart = 0;
+			for (i32 i = string.size-1; i >= 0; i--) {
+				if (string[i] == '\n') {
+					lastLineStart = i+1;
+					break;
+				}
+			}
+			oldSize = string.size;
+			newSize = lastLineStart + alignNonPowerOfTwo(oldSize-lastLineStart, alignment.value);
+		}
+		string.Resize(newSize, fill);
+	} else {
+		if (alignment.modeBits & AlignText::STRING_START) {
+			oldSize = Utf8CharCount(string);
+			newSize = alignNonPowerOfTwo(oldSize, alignment.value);
+		} else {
+			i32 lastLineStart;
+			oldSize = Utf8CharCount(string, &lastLineStart);
+			newSize = lastLineStart + alignNonPowerOfTwo(oldSize-lastLineStart, alignment.value);
+		}
+		for (i32 i = oldSize; i < newSize; i++) {
+			string.Append(alignment.fill);
+		}
 	}
 }
 

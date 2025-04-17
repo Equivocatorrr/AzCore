@@ -162,14 +162,13 @@ static void _PrintProgramHeaderInfo(File &file, io::Log &log) {
 	log.PrintLn("Program headers (", file.programHeaders.size, "):");
 	for (i32 i = 0; i < file.programHeaders.size; i++) {
 		program_header_t &header = *(program_header_t*)file.programHeaders[i];
-		log.PrintLn(i, AlignText(4, "─"), " type: ", header.type, AlignText(align1), " flags: ", (SegmentFlags)header.flags);
 		log.PrintLn(
-			"│    fileOffset: ", FormatInt(header.fileOffset, 16, true), AlignText(align1),
+			i, AlignText(4, "─"), " type: ", header.type, AlignText(align1),
+			" flags: ", (SegmentFlags)header.flags,
+			"\n│    fileOffset: ", FormatInt(header.fileOffset, 16, true), AlignText(align1),
 			" virtualAddress: ", FormatInt(header.virtualAddress, 16, true), AlignText(align2),
-			" physicalAddress: ", FormatInt(header.physicalAddress, 16, true)
-		);
-		log.PrintLn(
-			"└─── fileSize: ", FormatInt(header.fileSize, 16, true), AlignText(align1),
+			" physicalAddress: ", FormatInt(header.physicalAddress, 16, true),
+			"\n└─── fileSize: ", FormatInt(header.fileSize, 16, true), AlignText(align1),
 			" memSize: ", FormatInt(header.memSize, 16, true), AlignText(align2),
 			" alignment: ", FormatInt(header.alignment, 16, true)
 		);
@@ -186,15 +185,17 @@ static void _PrintSectionHeaderInfo(File &file, io::Log &log) {
 		section_header_t &header = *(section_header_t*)file.sectionHeaders[i];
 		Str name = sectionNameTable.SubRange(header.name);
 		name.size = (i64)StringLength(name.data, name.size);
-		log.PrintLn(i, AlignText(4, "─"), " name: \"", EscapeString(name), '"');
-		log.PrintLn("│    type: ", header.type, AlignText(align1), " flags: ", (SectionFlags)header.flags);
 		log.PrintLn(
-			"│    virtualAddress: ", FormatInt(header.virtualAddress, 16, true), AlignText(align1),
+			i, AlignText(4, "─"), " name: \"", EscapeString(name), '"',
+			"\n│    type: ", header.type, AlignText(align1), " flags: ", (SectionFlags)header.flags,
+			"\n│    virtualAddress: ", FormatInt(header.virtualAddress, 16, true), AlignText(align1),
 			" fileOffset: ", FormatInt(header.fileOffset, 16, true), AlignText(align2),
-			" size: ", FormatInt(header.size, 16, true)
+			" size: ", FormatInt(header.size, 16, true),
+			"\n│    link: ", header.link, AlignText(align1),
+			" info: ", FormatInt(header.info, 16, true),
+			"\n└─── alignment: ", FormatInt(header.alignment, 16, true), AlignText(align1),
+			" entrySize: ", FormatInt(header.entrySize, 16, true)
 		);
-		log.PrintLn("│    link: ", header.link, AlignText(align1), " info: ", FormatInt(header.info, 16, true));
-		log.PrintLn("└─── alignment: ", FormatInt(header.alignment, 16, true), AlignText(align1), " entrySize: ", FormatInt(header.entrySize, 16, true));
 	}
 }
 

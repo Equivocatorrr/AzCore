@@ -53,8 +53,9 @@ i32 random(i32 min, i32 max, RandomNumberGenerator *rng) {
 	if (nullptr == rng) rng = &globalRNG;
 	AzAssert(min <= max, "random() min must be <= max");
 	u32 span = max - min + 1;
-	AzAssert(span != 0, "random() min and max are invalid!");
-	return i32(rng->Generate() % span) + min;
+	// return i32(rng->Generate() % span) + min;
+	// the following not only avoids the modulo, but is also more uniformly-distributed over the span.
+	return i32(((u64)rng->Generate() * span) >> 32) + min;
 }
 
 i32 genShuffleId() {

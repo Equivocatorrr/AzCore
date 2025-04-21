@@ -13,6 +13,7 @@
 #include "None.hpp"
 
 #include <cstddef> // std::nullptr_t
+#include <type_traits>
 
 namespace AzCore {
 
@@ -304,6 +305,14 @@ struct Range {
 	constexpr Range(const T *string, i64 length) : data((T*)string), size(length) {}
 	constexpr Range(const T *string) : data((T*)string), size(StringLength(string)) {}
 	constexpr Range(Range<const T> &other) : data((T*)other.data), size(other.size) {}
+	template<
+		typename Other_t,
+		typename = std::enable_if_t<
+			std::is_integral_v<T> && std::is_integral_v<Other_t> &&
+			sizeof(T) == sizeof(Other_t)
+		>
+	>
+	explicit constexpr Range(Range<Other_t> &other) : data((T*)other.data), size(other.size) {}
 	template<i32 allocTail>
 	Range(const Array<T, allocTail> &array) : data(array.data), size(array.size) {}
 	template<i32 bucketSize, i32 allocTail>

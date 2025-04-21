@@ -6,6 +6,11 @@ elseif (CMAKE_SYSTEM MATCHES Linux)
 endif()
 
 add_library(AzCore STATIC
+	# dwarf
+		src/AzCore/dwarf/definitions.cpp
+		src/AzCore/dwarf/definitions.hpp
+		src/AzCore/dwarf/dwarf.cpp
+		src/AzCore/dwarf/dwarf.hpp
 	# elf
 		src/AzCore/elf/definitions.cpp
 		src/AzCore/elf/definitions.hpp

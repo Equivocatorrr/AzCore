@@ -76,7 +76,11 @@ struct File {
 	[[nodiscard]] Result<None_t, String> ParseElf32();
 	[[nodiscard]] Result<None_t, String> ParseElf64();
 
+	Str GetSectionName(i32 sectionIndex);
+
 	void PrintHeaderInfo(io::Log &log=io::cout, bool programHeaders=false, bool sectionHeaders=false);
+	void PrintSectionHeaderInfo(io::Log &log, i32 sectionIndex);
+	void PrintDWARFInfo(io::Log &log=io::cout);
 };
 
 } // namespace AzCore::elf

@@ -10,6 +10,7 @@ add_executable(unit_tests
 	src/tests/BinaryMap.cpp
 	src/tests/BasicMath.cpp
 	src/tests/CustomMaths.cpp
+	src/tests/dwarf.cpp
 	src/tests/Angle.cpp
 	src/tests/Quaternion.cpp
 	src/tests/Sort.cpp

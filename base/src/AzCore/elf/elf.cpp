@@ -5,6 +5,7 @@
 
 #include "elf.hpp"
 #include "definitions.hpp"
+#include "../dwarf/dwarf.hpp"
 #include <type_traits>
 
 namespace AzCore::elf {
@@ -128,6 +129,34 @@ inline Result<None_t, String> _ParseElf(File &file) {
 }
 
 template<typename Word_t>
+static inline Str _GetSectionName(File &file, i32 sectionIndex) {
+	using section_header_t = section_header<Word_t>;
+	section_header_t &nameHeader = *(section_header_t*)file.any.sectionHeaderStringTable;
+	Str sectionNameTable = file.binary.GetRange(nameHeader.fileOffset, nameHeader.size);
+	section_header_t &header = *(section_header_t*)file.sectionHeaders[sectionIndex];
+	Str name = sectionNameTable.SubRange(header.name);
+	name.size = (i64)StringLength(name.data, name.size);
+	return name;
+}
+
+Str File::GetSectionName(i32 sectionIndex) {
+	if (is64bit) {
+		return _GetSectionName<u64>(*this, sectionIndex);
+	} else {
+		return _GetSectionName<u32>(*this, sectionIndex);
+	}
+}
+
+template<typename Word_t>
+static inline Range<u8> _GetSectionContents(File &file, i32 sectionIndex) {
+	using section_header_t = section_header<Word_t>;
+	section_header_t &header = *(section_header_t*)file.sectionHeaders[sectionIndex];
+	AzAssert(header.type != SectionType::NOBITS, "NOBITS sections don't have actual contents!");
+	Str result = file.binary.GetRange(header.fileOffset, header.size);
+	return Range<u8>(result);
+}
+
+template<typename Word_t>
 static void _PrintFileHeaderInfo(File &file, io::Log &log) {
 	if (!file.parsed) return;
 	elf_header<Word_t> &header = *(elf_header<Word_t>*)file.any.header;
@@ -176,26 +205,28 @@ static void _PrintProgramHeaderInfo(File &file, io::Log &log) {
 }
 
 template<typename Word_t>
-static void _PrintSectionHeaderInfo(File &file, io::Log &log) {
+static void _PrintSectionHeaderInfo(File &file, io::Log &log, i32 sectionIndex) {
 	using section_header_t = section_header<Word_t>;
-	section_header_t &nameHeader = *(section_header_t*)file.any.sectionHeaderStringTable;
-	Str sectionNameTable = file.binary.GetRange(nameHeader.fileOffset, nameHeader.size);
-	log.PrintLn("Section headers (", file.sectionHeaders.size, "):");
-	for (i32 i = 0; i < file.sectionHeaders.size; i++) {
-		section_header_t &header = *(section_header_t*)file.sectionHeaders[i];
-		Str name = sectionNameTable.SubRange(header.name);
-		name.size = (i64)StringLength(name.data, name.size);
-		log.PrintLn(
-			i, AlignText(4, "─"), " name: \"", EscapeString(name), '"',
-			"\n│    type: ", header.type, AlignText(align1), " flags: ", (SectionFlags)header.flags,
-			"\n│    virtualAddress: ", FormatInt(header.virtualAddress, 16, true), AlignText(align1),
-			" fileOffset: ", FormatInt(header.fileOffset, 16, true), AlignText(align2),
-			" size: ", FormatInt(header.size, 16, true),
-			"\n│    link: ", header.link, AlignText(align1),
-			" info: ", FormatInt(header.info, 16, true),
-			"\n└─── alignment: ", FormatInt(header.alignment, 16, true), AlignText(align1),
-			" entrySize: ", FormatInt(header.entrySize, 16, true)
-		);
+	section_header_t &header = *(section_header_t*)file.sectionHeaders[sectionIndex];
+	Str name = _GetSectionName<Word_t>(file, sectionIndex);
+	log.PrintLn(
+		sectionIndex, AlignText(4, "─"), " name: \"", EscapeString(name), '"',
+		"\n│    type: ", header.type, AlignText(align1), " flags: ", (SectionFlags)header.flags,
+		"\n│    virtualAddress: ", FormatInt(header.virtualAddress, 16, true), AlignText(align1),
+		" fileOffset: ", FormatInt(header.fileOffset, 16, true), AlignText(align2),
+		" size: ", FormatInt(header.size, 16, true),
+		"\n│    link: ", header.link, AlignText(align1),
+		" info: ", FormatInt(header.info, 16, true),
+		"\n└─── alignment: ", FormatInt(header.alignment, 16, true), AlignText(align1),
+		" entrySize: ", FormatInt(header.entrySize, 16, true)
+	);
+}
+
+void File::PrintSectionHeaderInfo(io::Log &log, i32 sectionIndex) {
+	if (is64bit) {
+		_PrintSectionHeaderInfo<u64>(*this, log, sectionIndex);
+	} else {
+		_PrintSectionHeaderInfo<u32>(*this, log, sectionIndex);
 	}
 }
 
@@ -206,7 +237,10 @@ void File::PrintHeaderInfo(io::Log &log, bool programHeaders, bool sectionHeader
 			_PrintProgramHeaderInfo<u64>(*this, log);
 		}
 		if (sectionHeaders) {
-			_PrintSectionHeaderInfo<u64>(*this, log);
+			log.PrintLn("Section headers (", this->sectionHeaders.size, "):");
+			for (i32 i = 0; i < this->sectionHeaders.size; i++) {
+				_PrintSectionHeaderInfo<u64>(*this, log, i);
+			}
 		}
 	} else {
 		_PrintFileHeaderInfo<u32>(*this, log);
@@ -214,7 +248,42 @@ void File::PrintHeaderInfo(io::Log &log, bool programHeaders, bool sectionHeader
 			_PrintProgramHeaderInfo<u32>(*this, log);
 		}
 		if (sectionHeaders) {
-			_PrintSectionHeaderInfo<u32>(*this, log);
+			log.PrintLn("Section headers (", this->sectionHeaders.size, "):");
+			for (i32 i = 0; i < this->sectionHeaders.size; i++) {
+				_PrintSectionHeaderInfo<u32>(*this, log, i);
+			}
+		}
+	}
+}
+
+void File::PrintDWARFInfo(io::Log &log) {
+	for (i32 i = 0; i < sectionHeaders.size; i++) {
+		Str name = GetSectionName(i);
+		if (name == ".debug_info") {
+			PrintSectionHeaderInfo(log, i);
+			Range<u8> section = _GetSectionContents<u64>(*this, i);
+			i64 cur = 0;
+			i32 cu = 0;
+			while (cur < section.size) {
+				Range<u8> remaining = section.SubRange(cur);
+				dwarf::ComputeUnitHeader header;
+				if (auto result = header.Parse(remaining); result.isError) {
+					io::cerr.PrintLn("Failed to parse CU header: ", result.error);
+					break;
+				}
+				cur += header.GetTotalBinarySize();
+				log.PrintLn("CU ", cu);
+				log.IndentMore();
+				log.PrintLn(
+					"unit_length: ", AlignText(22), FormatInt(header.unit_length, 16, true), AlignText(32),
+					" version: ", AlignText(54), header.version,
+					"\nunit_type: ", AlignText(22), header.unit_type, AlignText(32),
+					" address_size: ", AlignText(54), header.address_size,
+					"\ndebug_abbrev_offset: ", AlignText(22), FormatInt(header.debug_abbrev_offset, 16, true)
+				);
+				log.IndentLess();
+				cu++;
+			}
 		}
 	}
 }

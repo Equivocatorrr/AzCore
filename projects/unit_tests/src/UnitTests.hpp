@@ -42,7 +42,8 @@ struct Register {
 	Register() = delete;
 	Register(String name, fp_UnitTest function);
 };
-void RunTests();
+void ListAllTests();
+void RunTests(const Array<Str> &tests={}, i32 failLimit = 5, i32 weakLimit = 5, i32 infoLimit = 0);
 
 template <typename... Args>
 inline void ReportProblem(i32 line, bool fail, Args... what) {

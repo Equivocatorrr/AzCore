@@ -22,13 +22,29 @@ void EndTest() {
 	}
 }
 
-void RunTests() {
-	io::cout.PrintLn("Running ", allTests.size, " tests...");
+void ListAllTests() {
+	io::cout.PrintLn("The available tests are:");
+	io::cout.IndentMore();
+	for (TestInfo &test : allTests) {
+		// TODO: Add explanations of all the tests.
+		io::cout.PrintLn(test.name);
+	}
+	io::cout.IndentLess();
+}
+
+void RunTests(const Array<Str> &tests, i32 failLimit, i32 weakLimit, i32 infoLimit) {
+	if (failLimit <= 0) failLimit = INT32_MAX;
+	if (weakLimit <= 0) weakLimit = INT32_MAX;
+	if (infoLimit <= 0) infoLimit = INT32_MAX;
+	io::cout.PrintLn("Running ", tests.size ? tests.size : allTests.size, " tests...");
 	i32 testsRun = 0;
 	i32 testsSucceeded = 0;
-	i32 testsFailed = 0;
-	i32 testsWeak = 0;
+	Array<Str> testsFailed;
+	Array<Str> testsWeak;
 	for (TestInfo &test : allTests) {
+		if (tests.size && !tests.Contains(test.name)) {
+			continue;
+		}
 		currentTestInfo = &test;
 		io::cout.PrintLn("\nRunning \"", test.name, "\"");
 		test.function();
@@ -37,11 +53,11 @@ void RunTests() {
 		switch (test.result) {
 			case Result::FAILURE: {
 				io::cout.PrintLn("Test \"", test.name, "\" failed with ", test.problems.size, " problems.");
-				testsFailed++;
+				testsFailed.Append(test.name);
 			} break;
 			case Result::WEAK: {
 				io::cout.PrintLn("Test \"", test.name, "\" weak with ", test.problems.size, " problems.");
-				testsWeak++;
+				testsWeak.Append(test.name);
 			} break;
 			case Result::SUCCESS: {
 				io::cout.PrintLn("Test \"", test.name, "\" succeeded with ", test.problems.size, " problems.");
@@ -64,7 +80,7 @@ void RunTests() {
 				curLine = problem.line;
 				countLine = 0;
 				io::cout.PrintLn("On line ", curLine);
-			} else if (countLine >= 5) {
+			} else if (countLine >= (problem.fail ? failLimit : weakLimit)) {
 				skipCount++;
 				continue;
 			}
@@ -86,26 +102,32 @@ void RunTests() {
 		countLine = 0;
 		for (Report &info : test.infos) {
 			if (info.line > curLine) {
-				// if (skipCount) {
-				// 	io::cout.PrintLn("Skipped ", skipCount, " infos from the same line.");
-				// 	skipCount = 0;
-				// }
+				if (skipCount) {
+					io::cout.PrintLn("Skipped ", skipCount, " infos from the same line.");
+					skipCount = 0;
+				}
 				curLine = info.line;
 				countLine = 0;
 				io::cout.PrintLn("On line ", curLine);
-			} /*else if (countLine >= 5) {
+			} else if (countLine >= infoLimit) {
 				skipCount++;
 				continue;
-			}*/
+			}
 			io::cout.PrintLn("\t", vt_span(VT_FG_BLUE, info.message));
 			countLine++;
 		}
-		// if (skipCount) {
-		// 	io::cout.PrintLn("Skipped ", skipCount, " infos from the same line.");
-		// 	skipCount = 0;
-		// }
+		if (skipCount) {
+			io::cout.PrintLn("Skipped ", skipCount, " infos from the same line.");
+			skipCount = 0;
+		}
 	}
-	io::cout.PrintLn("Ran ", testsRun, " tests. ", testsSucceeded, " succeeded, ", testsFailed, " failed, and ", testsWeak, " were weak.");
+	io::cout.PrintLn(testsSucceeded, "/", testsRun, " succeeded. ", testsFailed.size, " failed, and ", testsWeak.size, " were weak.");
+	if (testsFailed.size) {
+		io::cout.PrintLn("Failed tests: ", testsFailed);
+	}
+	if (testsWeak.size) {
+		io::cout.PrintLn("Weak tests: ", testsWeak);
+	}
 }
 
 } // namespace UT

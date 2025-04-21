@@ -9,56 +9,35 @@
 
 using namespace AzCore;
 
-void Usage(Str name) {
-	io::cout.PrintLn(
-		"Usage:\n$ ", name, " flags path/to/elf_binary"
-		"\nFlags:"
-		"\n\t-p --program    Print info for each program header."
-		"\n\t-s --section    Print info for each section header."
-	);
-}
-
 i32 main(i32 argc, char** argv) {
-	Str name = argv[0];
-	Array<Str> args = cli::GetArguments(argc, argv);
 	Str path;
 	bool programHeaders = false;
 	bool sectionHeaders = false;
-	for (Str &arg : args) {
-		if (StartsWith(arg, "--")) {
-			if (arg == "--program") {
+	cli::defs.flags = {
+		{ 'p', "program", "Print info for each program header.",
+			[&programHeaders](Str arg) {
 				programHeaders = true;
-			} else if (arg == "--section") {
+				return false;
+			}
+		},
+		{ 's', "section", "Print info for each section header.",
+			[&sectionHeaders](Str arg) {
 				sectionHeaders = true;
-			} else {
-				io::cerr.PrintLn("Unknown flag ", arg);
-				Usage(name);
-				return 1;
+				return false;
 			}
-		} else if (StartsWith(arg, "-")) {
-			for (i32 i = 1; i < arg.size; i++) {
-				char c = arg[i];
-				switch (c) {
-					case 'p':
-						programHeaders = true;
-						break;
-					case 's':
-						sectionHeaders = true;
-						break;
-					default:
-						io::cerr.PrintLn("Unknown flag ", c);
-						Usage(name);
-						return 1;
-				}
-			}
-		} else {
-			if (path.size) {
-				io::cerr.PrintLn("Expected only one binary (got ", path, ", and then ", arg, ")...");
-				Usage(name);
-				return 1;
-			}
-			path = arg;
+		},
+	};
+	cli::defs.defaultHandler = [&path](Str arg) {
+		if (path.size) {
+			io::cerr.PrintLn("Expected only one binary (got ", path, ", and then ", arg, ")...");
+			return false;
 		}
+		path = arg;
+		return true;
+	};
+	cli::defs.explanation = "path/to/elf_binary";
+	if (!cli::ParseArguments(argc, argv)) {
+		return 1;
 	}
 	if (path.size) {
 		elf::File binary;
@@ -68,7 +47,8 @@ i32 main(i32 argc, char** argv) {
 		}
 		binary.PrintHeaderInfo(io::cout, programHeaders, sectionHeaders);
 	} else {
-		Usage(name);
+		io::cerr.PrintLn("No path given");
+		cli::PrintUsage();
 	}
 	return 0;
 }

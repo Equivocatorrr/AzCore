@@ -10,6 +10,7 @@
 #include "TemplateForwardDeclares.hpp"
 #include "StringCommon.hpp"
 #include "../Assert.hpp"
+#include "None.hpp"
 
 #include <cstddef> // std::nullptr_t
 
@@ -298,6 +299,7 @@ struct Range {
 	// Range(Range<T> &&) = default;
 	constexpr Range() : data(nullptr), size(0) {}
 	constexpr Range(std::nullptr_t) : data(nullptr), size(0) {}
+	constexpr Range(None_t) : data(nullptr), size(0) {}
 	constexpr Range(T *string, i64 length) : data(string), size(length) {}
 	constexpr Range(const T *string, i64 length) : data((T*)string), size(length) {}
 	constexpr Range(const T *string) : data((T*)string), size(StringLength(string)) {}

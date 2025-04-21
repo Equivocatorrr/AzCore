@@ -102,6 +102,7 @@ add_library(AzCore STATIC
 		src/AzCore/SIMD/SimdSSE2.hpp
 	# Utility
 		src/AzCore/Utility/ByteHash.hpp
+		src/AzCore/Utility/cli.cpp
 		src/AzCore/Utility/cli.hpp
 		src/AzCore/Utility/Endian.cpp
 		src/AzCore/Utility/Endian.hpp

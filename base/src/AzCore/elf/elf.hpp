@@ -77,6 +77,8 @@ struct File {
 	[[nodiscard]] Result<None_t, String> ParseElf64();
 
 	Str GetSectionName(i32 sectionIndex);
+	Range<u8> GetSection(i32 sectionIndex);
+	Range<u8> GetSectionByName(Str name);
 
 	void PrintHeaderInfo(io::Log &log=io::cout, bool programHeaders=false, bool sectionHeaders=false);
 	void PrintSectionHeaderInfo(io::Log &log, i32 sectionIndex);

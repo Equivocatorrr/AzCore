@@ -10,6 +10,7 @@
 #include "../BasicTypes.hpp"
 #include "../Memory/String.hpp"
 #include "../Memory/StaticArray.hpp"
+#include "../Memory/Result.hpp"
 
 namespace AzCore::dwarf {
 //
@@ -33,11 +34,15 @@ inline bool operator==(const az::dwarf::SLEB &lhs, const az::dwarf::SLEB &rhs) {
 	return lhs.value == rhs.value && lhs.binary == rhs.binary;
 }
 
-// binary range can be to the end of the actual binary and the result will only read as many bytes as the encoding requires. ULEB::binary.size will hold the total byte length of the value.
-ULEB DecodeULEB(Range<u8> binary);
+// binary range can be to the end of the actual binary and the result will only read as many bytes as the encoding requires.
+// ULEB::binary.size will hold the total byte length of the value.
+// If cur is given, it will be progressed by the number of bytes consumed.
+Result<ULEB, String> DecodeULEB(Range<u8> binary, i64 *cur=nullptr);
 ULEB EncodeULEB(u64 value);
-// binary range can be to the end of the actual binary and the result will only read as many bytes as the encoding requires. SLEB::binary.size will hold the total byte length of the value.
-SLEB DecodeSLEB(Range<u8> binary);
+// binary range can be to the end of the actual binary and the result will only read as many bytes as the encoding requires.
+// SLEB::binary.size will hold the total byte length of the value.
+// If cur is given, it will be progressed by the number of bytes consumed.
+Result<SLEB, String> DecodeSLEB(Range<u8> binary, i64 *cur=nullptr);
 SLEB EncodeSLEB(i64 value);
 
 enum class TAG : u64 {
@@ -134,8 +139,7 @@ enum class ComputeUnitType : u8 {
 constexpr u8 ComputeUnitType_LO_USER = 0x80;
 constexpr u8 ComputeUnitType_HI_USER = 0xff;
 
-// Attribute names
-enum class Attribute : u64 {
+enum class AttribName : u64 {
 	SIBLING                 = 0x01,
 	LOCATION                = 0x02,
 	NAME                    = 0x03,
@@ -273,57 +277,57 @@ enum class Attribute : u64 {
 	DEFAULTED               = 0x8B,
 	LOCLISTS_BASE           = 0x8C,
 };
-constexpr u64 Attribute_LO_USER = 0x2000;
-constexpr u64 Attribute_HI_USER = 0x3fff;
+constexpr u64 AttribName_LO_USER = 0x2000;
+constexpr u64 AttribName_HI_USER = 0x3fff;
 
 enum class Form : u64 {
-	ADDR           = 0x10,
+	ADDR           = 0x01,
 	// 0x02 reserved
-	BLOCK2         = 0x12,
-	BLOCK4         = 0x13,
-	DATA2          = 0x14,
-	DATA4          = 0x15,
-	DATA8          = 0x16,
-	STRING         = 0x17,
-	BLOCK          = 0x18,
-	BLOCK1         = 0x19,
-	DATA1          = 0x1A,
-	FLAG           = 0x1B,
-	SDATA          = 0x1C,
-	STRP           = 0x1D,
-	UDATA          = 0x1E,
-	REF_ADDR       = 0x1F,
-	REF1           = 0x20,
-	REF2           = 0x21,
-	REF4           = 0x22,
-	REF8           = 0x23,
-	REF_UDATA      = 0x24,
-	INDIRECT       = 0x25,
-	SEC_OFFSET     = 0x26, // An offset into a sector. Which sector is context-dependent.
-	EXPRLOC        = 0x27,
-	FLAG_PRESENT   = 0x28,
+	BLOCK2         = 0x03,
+	BLOCK4         = 0x04,
+	DATA2          = 0x05,
+	DATA4          = 0x06,
+	DATA8          = 0x07,
+	STRING         = 0x08,
+	BLOCK          = 0x09,
+	BLOCK1         = 0x0A,
+	DATA1          = 0x0B,
+	FLAG           = 0x0C,
+	SDATA          = 0x0D,
+	STRP           = 0x0E,
+	UDATA          = 0x0F,
+	REF_ADDR       = 0x10,
+	REF1           = 0x11,
+	REF2           = 0x12,
+	REF4           = 0x13,
+	REF8           = 0x14,
+	REF_UDATA      = 0x15,
+	INDIRECT       = 0x16,
+	SEC_OFFSET     = 0x17, // An offset into a sector. Which sector is context-dependent.
+	EXPRLOC        = 0x18,
+	FLAG_PRESENT   = 0x19,
 
 	// New in DWARF 5
 
-	STRX           = 0x29,
-	ADDRX          = 0x2A,
-	REF_SUP4       = 0x2B,
-	STRP_SUP       = 0x2C,
-	DATA16         = 0x2D,
-	LINE_STRP      = 0x2E,
-	REF_SIG8       = 0x2F,
-	IMPLICIT_CONST = 0x30,
-	LOCLISTX       = 0x31,
-	RNGLISTX       = 0x32,
-	REF_SUP8       = 0x33,
-	STRX1          = 0x34,
-	STRX2          = 0x35,
-	STRX3          = 0x36,
-	STRX4          = 0x37,
-	ADDRX1         = 0x38,
-	ADDRX2         = 0x39,
-	ADDRX3         = 0x3A,
-	ADDRX4         = 0x3B,
+	STRX           = 0x1A,
+	ADDRX          = 0x1B,
+	REF_SUP4       = 0x1C,
+	STRP_SUP       = 0x1D,
+	DATA16         = 0x1E,
+	LINE_STRP      = 0x1F,
+	REF_SIG8       = 0x20,
+	IMPLICIT_CONST = 0x21,
+	LOCLISTX       = 0x22,
+	RNGLISTX       = 0x23,
+	REF_SUP8       = 0x24,
+	STRX1          = 0x25,
+	STRX2          = 0x26,
+	STRX3          = 0x27,
+	STRX4          = 0x28,
+	ADDRX1         = 0x29,
+	ADDRX2         = 0x2A,
+	ADDRX3         = 0x2B,
+	ADDRX4         = 0x2C,
 };
 
 } // namespace AzCore::dwarf
@@ -334,7 +338,7 @@ void AppendToString(String &string, const az::dwarf::ULEB &uleb);
 void AppendToString(String &string, const az::dwarf::SLEB &sleb);
 void AppendToString(String &string, dwarf::TAG tag);
 void AppendToString(String &string, dwarf::ComputeUnitType value);
-void AppendToString(String &string, dwarf::Attribute value);
+void AppendToString(String &string, dwarf::AttribName value);
 void AppendToString(String &string, dwarf::Form value);
 
 } // namespace AzCore

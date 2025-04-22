@@ -48,7 +48,7 @@ void dwarfTest() {
 		ulebTest = ulebTests[i];
 		ulebGen = EncodeULEB(ulebTest.value);
 		UTExpectEquals(ulebGen, ulebTest, " EncodeULEB ", i);
-		ulebGen = DecodeULEB(ulebTest.binary);
+		ulebGen = DecodeULEB(ulebTest.binary).AzUnwrap();
 		UTExpectEquals(ulebGen, ulebTest, " DecodeULEB ", i);
 	}
 
@@ -57,7 +57,7 @@ void dwarfTest() {
 		slebTest = slebTests[i];
 		slebGen = EncodeSLEB(slebTest.value);
 		UTExpectEquals(slebGen, slebTest, " EncodeSLEB ", i);
-		slebGen = DecodeSLEB(slebTest.binary);
+		slebGen = DecodeSLEB(slebTest.binary).AzUnwrap();
 		UTExpectEquals(slebGen, slebTest, " DecodeSLEB ", i);
 	}
 	UT::ReportInfo(__LINE__, "There were ", ulebTestsCount, " ULEB tests and ", slebTestsCount, " SLEB tests!");

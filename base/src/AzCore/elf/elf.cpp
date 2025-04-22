@@ -148,6 +148,40 @@ Str File::GetSectionName(i32 sectionIndex) {
 }
 
 template<typename Word_t>
+static inline Range<u8> _GetSection(File &file, i32 sectionIndex) {
+	using section_header_t = section_header<Word_t>;
+	section_header_t &header = *(section_header_t*)file.sectionHeaders[sectionIndex];
+	return Range<u8>(file.binary.GetRange(header.fileOffset, header.size));
+}
+
+Range<u8> File::GetSection(i32 sectionIndex) {
+	if (is64bit) {
+		return _GetSection<u64>(*this, sectionIndex);
+	} else {
+		return _GetSection<u32>(*this, sectionIndex);
+	}
+}
+
+Range<u8> File::GetSectionByName(Str name) {
+	if (is64bit) {
+		for (i32 i = 0; i < sectionHeaders.size; i++) {
+			Str sectionName = _GetSectionName<u64>(*this, i);
+			if (sectionName == name) {
+				return _GetSection<u64>(*this, i);
+			}
+		}
+	} else {
+		for (i32 i = 0; i < sectionHeaders.size; i++) {
+			Str sectionName = _GetSectionName<u32>(*this, i);
+			if (sectionName == name) {
+				return _GetSection<u32>(*this, i);
+			}
+		}
+	}
+	return None;
+}
+
+template<typename Word_t>
 static inline Range<u8> _GetSectionContents(File &file, i32 sectionIndex) {
 	using section_header_t = section_header<Word_t>;
 	section_header_t &header = *(section_header_t*)file.sectionHeaders[sectionIndex];
@@ -257,34 +291,30 @@ void File::PrintHeaderInfo(io::Log &log, bool programHeaders, bool sectionHeader
 }
 
 void File::PrintDWARFInfo(io::Log &log) {
-	for (i32 i = 0; i < sectionHeaders.size; i++) {
-		Str name = GetSectionName(i);
-		if (name == ".debug_info") {
-			PrintSectionHeaderInfo(log, i);
-			Range<u8> section = _GetSectionContents<u64>(*this, i);
-			i64 cur = 0;
-			i32 cu = 0;
-			while (cur < section.size) {
-				Range<u8> remaining = section.SubRange(cur);
-				dwarf::ComputeUnitHeader header;
-				if (auto result = header.Parse(remaining); result.isError) {
-					io::cerr.PrintLn("Failed to parse CU header: ", result.error);
-					break;
+	dwarf::DebuggerInfo info;
+	if (auto result = info.ParseFromELF(*this); result.isError) {
+		io::cerr.PrintLn("Failed to parse DWARF data: ", result.error);
+		return;
+	}
+	for (i32 cu = 0; cu < info.abbrev_units.size; cu++) {
+		dwarf::AbbrevUnit &abbrev_unit = info.abbrev_units[cu];
+		log.PrintLn("Abbrev CU ", cu);
+		log.IndentMore();
+		for (i32 d = 0; d < abbrev_unit.decls.size; d++) {
+			dwarf::AbbrevDecl &decl = abbrev_unit.decls[d];
+			log.PrintLn("decl(abbrev_code=", decl.abbrev_code, ", tag=", decl.tag, ", has_children=", decl.has_children, ")");
+			log.IndentMore();
+			for (i32 i = 0; i < decl.attributes.size; i++) {
+				dwarf::AbbrevAttrib &attrib = decl.attributes[i];
+				log.Print(attrib.name, AlignText(32), attrib.form);
+				if (attrib.form == dwarf::Form::IMPLICIT_CONST) {
+					log.Print(": ", attrib.constant);
 				}
-				cur += header.GetTotalBinarySize();
-				log.PrintLn("CU ", cu);
-				log.IndentMore();
-				log.PrintLn(
-					"unit_length: ", AlignText(22), FormatInt(header.unit_length, 16, true), AlignText(32),
-					" version: ", AlignText(54), header.version,
-					"\nunit_type: ", AlignText(22), header.unit_type, AlignText(32),
-					" address_size: ", AlignText(54), header.address_size,
-					"\ndebug_abbrev_offset: ", AlignText(22), FormatInt(header.debug_abbrev_offset, 16, true)
-				);
-				log.IndentLess();
-				cu++;
+				log.Newline();
 			}
+			log.IndentLess();
 		}
+		log.IndentLess();
 	}
 }
 

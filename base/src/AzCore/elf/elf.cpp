@@ -290,31 +290,61 @@ void File::PrintHeaderInfo(io::Log &log, bool programHeaders, bool sectionHeader
 	}
 }
 
-void File::PrintDWARFInfo(io::Log &log) {
+static void PrintDWARFDIE(io::Log &log, dwarf::DIE &die) {
+	log.PrintLn("DIE(abbrev_code=", die.abbrev_code, ", tag=", die.abbrev->tag, ")");
+	log.IndentMore();
+	for (i32 i = 0; i < die.attribs.size; i++) {
+		dwarf::Attrib &attrib = die.attribs[i];
+		log.PrintLn(attrib);
+	}
+	if (die.children.size) {
+		log.PrintLn("Children(", die.children.size, "):");
+	}
+	for (i32 i = 0; i < die.children.size; i++) {
+		PrintDWARFDIE(log, die.children[i]);
+	}
+	log.IndentLess();
+}
+
+void File::PrintDWARFInfo(io::Log &log, bool debug_abbrev, bool debug_info) {
 	dwarf::DebuggerInfo info;
 	if (auto result = info.ParseFromELF(*this); result.isError) {
 		io::cerr.PrintLn("Failed to parse DWARF data: ", result.error);
 		return;
 	}
-	for (i32 cu = 0; cu < info.abbrev_units.size; cu++) {
-		dwarf::AbbrevUnit &abbrev_unit = info.abbrev_units[cu];
-		log.PrintLn("Abbrev CU ", cu);
-		log.IndentMore();
-		for (i32 d = 0; d < abbrev_unit.decls.size; d++) {
-			dwarf::AbbrevDecl &decl = abbrev_unit.decls[d];
-			log.PrintLn("decl(abbrev_code=", decl.abbrev_code, ", tag=", decl.tag, ", has_children=", decl.has_children, ")");
+	if (debug_abbrev) {
+		for (i32 cu = 0; cu < info.abbrev_units.size; cu++) {
+			dwarf::AbbrevUnit &abbrev_unit = info.abbrev_units[cu];
+			log.PrintLn("Abbrev CU ", cu);
 			log.IndentMore();
-			for (i32 i = 0; i < decl.attributes.size; i++) {
-				dwarf::AbbrevAttrib &attrib = decl.attributes[i];
-				log.Print(attrib.name, AlignText(32), attrib.form);
-				if (attrib.form == dwarf::Form::IMPLICIT_CONST) {
-					log.Print(": ", attrib.constant);
+			for (i32 d = 0; d < abbrev_unit.decls.size; d++) {
+				dwarf::AbbrevDecl &decl = abbrev_unit.decls[d];
+				log.PrintLn("decl(abbrev_code=", decl.abbrev_code, ", tag=", decl.tag, ", has_children=", decl.has_children, ")");
+				log.IndentMore();
+				for (i32 i = 0; i < decl.attribs.size; i++) {
+					dwarf::AbbrevAttrib &attrib = decl.attribs[i];
+					log.Print(attrib.name, AlignText(32), attrib.form);
+					if (attrib.form == dwarf::Form::IMPLICIT_CONST) {
+						log.Print(": ", attrib.constant);
+					}
+					log.Newline();
 				}
-				log.Newline();
+				log.IndentLess();
 			}
 			log.IndentLess();
 		}
-		log.IndentLess();
+	}
+	if (debug_info) {
+		for (i32 cu = 0; cu < info.info_units.size; cu++) {
+			dwarf::InfoUnit &info_unit = info.info_units[cu];
+			log.PrintLn("Abbrev CU ", cu);
+			log.IndentMore();
+			for (i32 d = 0; d < info_unit.dies.size; d++) {
+				dwarf::DIE &die = info_unit.dies[d];
+				PrintDWARFDIE(log, die);
+			}
+			log.IndentLess();
+		}
 	}
 }
 

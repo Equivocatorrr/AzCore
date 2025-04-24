@@ -12,7 +12,7 @@ Result<ULEB, String> DecodeULEB(Range<u8> binary, i64 *cur) {
 	i64 _myCur = 0;
 	if (!cur) cur = &_myCur;
 	if (*cur >= binary.size) {
-		return Stringify("No bytes to decode in binary (size ", binary.size, ") at offset ", *cur);
+		return Stringify("No bytes to decode ULEB in binary (size ", binary.size, ") at offset ", *cur);
 	}
 	binary = binary.SubRange(*cur);
 	i64 minSize = min(binary.size, (i64)LEB128_MAX_BYTES_COUNT);
@@ -54,7 +54,7 @@ Result<SLEB, String> DecodeSLEB(Range<u8> binary, i64 *cur) {
 	i64 _myCur = 0;
 	if (!cur) cur = &_myCur;
 	if (*cur >= binary.size) {
-		return Stringify("No bytes to decode in binary (size ", binary.size, ") at offset ", *cur);
+		return Stringify("No bytes to decode SLEB in binary (size ", binary.size, ") at offset ", *cur);
 	}
 	binary = binary.SubRange(*cur);
 	i64 minSize = min(binary.size, (i64)LEB128_MAX_BYTES_COUNT);
@@ -99,6 +99,198 @@ SLEB EncodeSLEB(i64 value) {
 	}
 	return result;
 }
+
+StaticArray<Class, 4> AttribNameClasses[0x8D] = {
+	{}, // 0x00
+	{ Class::REFERENCE }, // 0x01 SIBLING
+	{ Class::EXPRLOC, Class::LOCLIST }, // 0x02 LOCATION
+	{ Class::STRING }, // 0x03 NAME
+	{}, // 0x04 reserved
+	{}, // 0x05 reserved
+	{}, // 0x06 reserved
+	{}, // 0x07 reserved
+	{}, // 0x08 reserved
+	{ Class::CONSTANT }, // 0x09 ORDERING
+	{}, // 0x0A reserved
+	{ Class::CONSTANT, Class::EXPRLOC, Class::REFERENCE }, // 0x0B BYTE_SIZE
+	{ Class::CONSTANT, Class::EXPRLOC, Class::REFERENCE }, // 0x0C DWARF3_BIT_OFFSET
+	{ Class::CONSTANT, Class::EXPRLOC, Class::REFERENCE }, // 0x0D BIT_SIZE
+	{}, // 0x0E reserved
+	{}, // 0x0F reserved
+	{ Class::LINEPTR }, // 0x10 STMT_LIST
+	{ Class::ADDRESS }, // 0x11 LOW_PC
+	{ Class::ADDRESS, Class::CONSTANT }, // 0x12 HIGH_PC
+	{ Class::CONSTANT }, // 0x13 LANGUAGE
+	{}, // 0x14 reserved
+	{ Class::REFERENCE }, // 0x15 DISCR
+	{ Class::CONSTANT }, // 0x16 DISCR_VALUE
+	{ Class::CONSTANT }, // 0x17 VISIBILITY
+	{ Class::REFERENCE }, // 0x18 IMPORT
+	{ Class::EXPRLOC, Class::LOCLIST, Class::REFERENCE }, // 0x19 STRING_LENGTH
+	{ Class::REFERENCE }, // 0x1A COMMON_REFERENCE
+	{ Class::STRING }, // 0x1B COMP_DIR
+	{ Class::BLOCK, Class::CONSTANT, Class::FLAG }, // 0x1C CONST_VALUE
+	{ Class::REFERENCE }, // 0x1D CONTAINING_TYPE
+	{ Class::CONSTANT, Class::REFERENCE, Class::FLAG }, // 0x1E DEFAULT_VALUE
+	{}, // 0x1F reserved
+	{ Class::CONSTANT }, // 0x20 INLINE
+	{ Class::FLAG }, // 0x21 IS_OPTIONAL
+	{ Class::CONSTANT, Class::EXPRLOC, Class::REFERENCE }, // 0x22 LOWER_BOUND
+	{}, // 0x23 reserved
+	{}, // 0x24 reserved
+	{ Class::STRING }, // 0x25 PRODUCER
+	{}, // 0x26 reserved
+	{ Class::FLAG }, // 0x27 PROTOTYPED
+	{}, // 0x28 reserved
+	{}, // 0x29 reserved
+	{ Class::EXPRLOC, Class::LOCLIST }, // 0x2A RETURN_ADDR
+	{}, // 0x2B reserved
+	{ Class::CONSTANT, Class::RNGLIST }, // 0x2C START_SCOPE
+	{}, // 0x2D reserved
+	{ Class::CONSTANT, Class::EXPRLOC, Class::REFERENCE }, // 0x2E BIT_STRIDE
+	{ Class::CONSTANT, Class::EXPRLOC, Class::REFERENCE }, // 0x2F UPPER_BOUND
+	{}, // 0x30 reserved
+	{ Class::REFERENCE }, // 0x31 ABSTRACT_ORIGIN
+	{ Class::CONSTANT }, // 0x32 ACCESSIBILITY
+	{ Class::CONSTANT }, // 0x33 ADDRESS_CLASS
+	{ Class::FLAG }, // 0x34 ARTIFICIAL
+	{ Class::REFERENCE }, // 0x35 BASE_TYPES
+	{ Class::CONSTANT }, // 0x36 CALLING_CONVENTION
+	{ Class::CONSTANT, Class::EXPRLOC, Class::REFERENCE }, // 0x37 COUNT
+	{ Class::CONSTANT, Class::EXPRLOC, Class::LOCLIST }, // 0x38 DATA_MEMBER_LOCATION
+	{ Class::CONSTANT }, // 0x39 DECL_COLUMN
+	{ Class::CONSTANT }, // 0x3A DECL_FILE
+	{ Class::CONSTANT }, // 0x3B DECL_LINE
+	{ Class::FLAG }, // 0x3C DECLARATION
+	{ Class::BLOCK }, // 0x3D DISCR_LIST
+	{ Class::CONSTANT }, // 0x3E ENCODING
+	{ Class::FLAG }, // 0x3F EXTERNAL
+	{ Class::EXPRLOC, Class::LOCLIST }, // 0x40 FRAME_BASE
+	{ Class::REFERENCE }, // 0x41 FRIEND
+	{ Class::CONSTANT }, // 0x42 IDENTIFIER_CASE
+	{ Class::MACPTR }, // 0x43 DWARF4_MACRO_INFO
+	{ Class::REFERENCE }, // 0x44 NAMELIST_ITEM
+	{ Class::REFERENCE }, // 0x45 PRIORITY
+	{ Class::EXPRLOC, Class::LOCLIST }, // 0x46 SEGMENT
+	{ Class::REFERENCE }, // 0x47 SPECIFICATION
+	{ Class::EXPRLOC, Class::LOCLIST }, // 0x48 STATIC_LINK
+	{ Class::REFERENCE }, // 0x49 TYPE
+	{ Class::EXPRLOC, Class::LOCLIST }, // 0x4A USE_LOCATION
+	{ Class::FLAG }, // 0x4B VARIABLE_PARAMETER
+	{ Class::CONSTANT }, // 0x4C VIRTUALITY
+	{ Class::EXPRLOC, Class::LOCLIST }, // 0x4D VTABLE_ELEM_LOCATION
+	{ Class::CONSTANT, Class::EXPRLOC, Class::REFERENCE }, // 0x4E ALLOCATED
+	{ Class::CONSTANT, Class::EXPRLOC, Class::REFERENCE }, // 0x4F ASSOCIATED
+	{ Class::EXPRLOC }, // 0x50 DATA_LOCATION
+	{ Class::CONSTANT, Class::EXPRLOC, Class::REFERENCE }, // 0x51 BYTE_STRIDE
+	{ Class::ADDRESS, Class::CONSTANT }, // 0x52 ENTRY_PC
+	{ Class::FLAG }, // 0x53 USE_UTF8
+	{ Class::REFERENCE }, // 0x54 EXTENSION
+	{ Class::RNGLIST }, // 0x55 RANGES
+	{ Class::ADDRESS, Class::FLAG, Class::REFERENCE, Class::STRING }, // 0x56 TRAMPOLINE
+	{ Class::CONSTANT }, // 0x57 CALL_COLUMN
+	{ Class::CONSTANT }, // 0x58 CALL_FILE
+	{ Class::CONSTANT }, // 0x59 CALL_LINE
+	{ Class::STRING }, // 0x5A DESCRIPTION
+	{ Class::CONSTANT }, // 0x5B BINARY_SCALE
+	{ Class::CONSTANT }, // 0x5C DECIMAL_SCALE
+	{ Class::REFERENCE }, // 0x5D SMALL
+	{ Class::CONSTANT }, // 0x5E DECIMAL_SIGN
+	{ Class::CONSTANT }, // 0x5F DIGIT_COUNT
+	{ Class::STRING }, // 0x60 PICTURE_STRING
+	{ Class::FLAG }, // 0x61 MUTABLE
+	{ Class::FLAG }, // 0x62 THREADS_SCALED
+	{ Class::FLAG }, // 0x63 EXPLICIT
+	{ Class::REFERENCE }, // 0x64 OBJECT_POINTER
+	{ Class::CONSTANT }, // 0x65 ENDIANITY
+	{ Class::FLAG }, // 0x66 ELEMENTAL
+	{ Class::FLAG }, // 0x67 PURE
+	{ Class::FLAG }, // 0x68 RECURSIVE
+	{ Class::REFERENCE }, // 0x69 SIGNATURE
+	{ Class::FLAG }, // 0x6A MAIN_SUBPROGRAM
+	{ Class::CONSTANT }, // 0x6B DATA_BIT_OFFSET
+	{ Class::FLAG }, // 0x6C CONST_EXPR
+	{ Class::FLAG }, // 0x6D ENUM_CLASS
+	{ Class::STRING }, // 0x6E LINKAGE_NAME
+	{ Class::CONSTANT }, // 0x6F STRING_LENGTH_BIT_SIZE
+	{ Class::CONSTANT }, // 0x70 STRING_LENGTH_BYTE_SIZE
+	{ Class::CONSTANT, Class::EXPRLOC }, // 0x71 RANK
+	{ Class::STROFFSETSPTR }, // 0x72 STR_OFFSETS_BASE
+	{ Class::ADDRPTR }, // 0x73 ADDR_BASE
+	{ Class::RNGLISTPTR }, // 0x74 RNGLISTS_BASE
+	{}, // 0x75 reserved
+	{ Class::STRING }, // 0x76 DWO_NAME
+	{ Class::FLAG }, // 0x77 REFERENCE
+	{ Class::FLAG }, // 0x78 RVALUE_REFERENCE
+	{ Class::MACPTR }, // 0x79 MACROS
+	{ Class::FLAG }, // 0x7A CALL_ALL_CALLS
+	{ Class::FLAG }, // 0x7B CALL_ALL_SOURCE_CALLS
+	{ Class::FLAG }, // 0x7C CALL_ALL_TAIL_CALLS
+	{ Class::ADDRESS }, // 0x7D CALL_RETURN_PC
+	{ Class::EXPRLOC }, // 0x7E CALL_VALUE
+	{ Class::EXPRLOC }, // 0x7F CALL_ORIGIN
+	{ Class::REFERENCE }, // 0x80 CALL_PARAMETER
+	{ Class::ADDRESS }, // 0x81 CALL_PC
+	{ Class::FLAG }, // 0x82 CALL_TAIL_CALL
+	{ Class::EXPRLOC }, // 0x83 CALL_TARGET
+	{ Class::EXPRLOC }, // 0x84 CALL_TARGET_CLOBBERED
+	{ Class::EXPRLOC }, // 0x85 CALL_DATA_LOCATION
+	{ Class::EXPRLOC }, // 0x86 CALL_DATA_VALUE
+	{ Class::FLAG }, // 0x87 NORETURN
+	{ Class::CONSTANT }, // 0x88 ALIGNMENT
+	{ Class::FLAG }, // 0x89 EXPORT_SYMBOLS
+	{ Class::FLAG }, // 0x8A DELETED
+	{ Class::CONSTANT }, // 0x8B DEFAULTED
+	{ Class::LOCLISTPTR }, // 0x8C LOCLISTS_BASE
+};
+
+StaticArray<Class, 8> FormClasses[0x2D] = {
+	{}, // 0x00
+	{ Class::ADDRESS }, // 0x01 ADDR
+	{}, // 0x02 reserved
+	{ Class::BLOCK }, // 0x03 BLOCK2
+	{ Class::BLOCK }, // 0x04 BLOCK4
+	{ Class::CONSTANT }, // 0x05 DATA2
+	{ Class::CONSTANT }, // 0x06 DATA4
+	{ Class::CONSTANT }, // 0x07 DATA8
+	{ Class::STRING }, // 0x08 STRING
+	{ Class::BLOCK }, // 0x09 BLOCK
+	{ Class::BLOCK }, // 0x0A BLOCK1
+	{ Class::CONSTANT }, // 0x0B DATA1
+	{ Class::FLAG }, // 0x0C FLAG
+	{ Class::CONSTANT }, // 0x0D SDATA
+	{ Class::STRING }, // 0x0E STRP
+	{ Class::CONSTANT }, // 0x0F UDATA
+	{ Class::REFERENCE }, // 0x10 REF_ADDR
+	{ Class::REFERENCE }, // 0x11 REF1
+	{ Class::REFERENCE }, // 0x12 REF2
+	{ Class::REFERENCE }, // 0x13 REF4
+	{ Class::REFERENCE }, // 0x14 REF8
+	{ Class::REFERENCE }, // 0x15 REF_UDATA
+	{ /* Just the specialest little boy */ }, // 0x16 INDIRECT
+	{ Class::ADDRPTR, Class::LINEPTR, Class::LOCLIST, Class::LOCLISTPTR, Class::MACPTR, Class::RNGLIST, Class::RNGLISTPTR, Class::STROFFSETSPTR}, // 0x17 SEC_OFFSET
+	{ Class::EXPRLOC }, // 0x18 EXPRLOC
+	{ Class::FLAG }, // 0x19 FLAG_PRESENT
+	{ Class::STRING }, // 0x1A STRX
+	{ Class::ADDRESS }, // 0x1B ADDRX
+	{ Class::REFERENCE }, // 0x1C REF_SUP4
+	{ Class::STRING }, // 0x1D STRP_SUP
+	{ Class::CONSTANT }, // 0x1E DATA16
+	{ Class::STRING }, // 0x1F LINE_STRP
+	{ Class::REFERENCE }, // 0x20 REF_SIG8
+	{ Class::CONSTANT }, // 0x21 IMPLICIT_CONST
+	{ Class::LOCLIST }, // 0x22 LOCLISTX
+	{ Class::RNGLIST }, // 0x23 RNGLISTX
+	{ Class::REFERENCE}, // 0x24 REF_SUP8
+	{ Class::STRING }, // 0x25 STRX1
+	{ Class::STRING }, // 0x26 STRX2
+	{ Class::STRING }, // 0x27 STRX3
+	{ Class::STRING }, // 0x28 STRX4
+	{ Class::ADDRESS }, // 0x29 ADDRX1
+	{ Class::ADDRESS }, // 0x2A ADDRX2
+	{ Class::ADDRESS }, // 0x2B ADDRX3
+	{ Class::ADDRESS }, // 0x2C ADDRX4
+};
 
 } // namespace AzCore::dwarf
 
@@ -360,6 +552,59 @@ void AppendToString(String &string, dwarf::ComputeUnitType value) {
 			break;
 		case dwarf::ComputeUnitType::SPLIT_TYPE:
 			AppendToString(string, "SPLIT_TYPE");
+			break;
+		default:
+			AppendToString(string, FormatInt((u32)value, 16, true));
+			break;
+	}
+}
+
+void AppendToString(String &string, dwarf::Class value) {
+	switch (value) {
+		case dwarf::Class::ADDRESS:
+			AppendToString(string, "ADDRESS");
+			break;
+		case dwarf::Class::ADDRPTR:
+			AppendToString(string, "ADDRPTR");
+			break;
+		case dwarf::Class::BLOCK:
+			AppendToString(string, "BLOCK");
+			break;
+		case dwarf::Class::CONSTANT:
+			AppendToString(string, "CONSTANT");
+			break;
+		case dwarf::Class::EXPRLOC:
+			AppendToString(string, "EXPRLOC");
+			break;
+		case dwarf::Class::FLAG:
+			AppendToString(string, "FLAG");
+			break;
+		case dwarf::Class::LINEPTR:
+			AppendToString(string, "LINEPTR");
+			break;
+		case dwarf::Class::LOCLIST:
+			AppendToString(string, "LOCLIST");
+			break;
+		case dwarf::Class::LOCLISTPTR:
+			AppendToString(string, "LOCLISTPTR");
+			break;
+		case dwarf::Class::MACPTR:
+			AppendToString(string, "MACPTR");
+			break;
+		case dwarf::Class::RNGLIST:
+			AppendToString(string, "RNGLIST");
+			break;
+		case dwarf::Class::RNGLISTPTR:
+			AppendToString(string, "RNGLISTPTR");
+			break;
+		case dwarf::Class::REFERENCE:
+			AppendToString(string, "REFERENCE");
+			break;
+		case dwarf::Class::STRING:
+			AppendToString(string, "STRING");
+			break;
+		case dwarf::Class::STROFFSETSPTR:
+			AppendToString(string, "STROFFSETSPTR");
 			break;
 		default:
 			AppendToString(string, FormatInt((u32)value, 16, true));

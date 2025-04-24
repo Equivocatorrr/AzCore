@@ -16,6 +16,8 @@
 #include "Array.hpp"
 #include "StringCommon.hpp"
 
+#include <type_traits>
+
 AZCORE_STRING_TERMINATOR(char, 0);
 AZCORE_STRING_TERMINATOR(char32, 0);
 
@@ -310,6 +312,34 @@ inline void AppendToString(String &string, Range<T> array) {
 	AppendToString(string, "{ ");
 	for (i32 i = 0;;) {
 		AppendToString(string, array[i]);
+		if (++i >= array.size) break;
+		AppendToString(string, ", ");
+	}
+	AppendToString(string, " }");
+}
+
+template<
+	typename T,
+	typename = std::enable_if_t<std::is_integral_v<T>>
+>
+inline void AppendToStringWithBase(String &string, Range<T> array, i32 base) {
+	AppendToString(string, "{ ");
+	for (i32 i = 0;;) {
+		AppendToStringWithBase(string, array[i], base);
+		if (++i >= array.size) break;
+		AppendToString(string, ", ");
+	}
+	AppendToString(string, " }");
+}
+
+template<
+	typename T,
+	typename = std::enable_if_t<std::is_floating_point_v<T>>
+>
+inline void AppendToStringWithBase(String &string, Range<T> array, i32 base, i32 precision) {
+	AppendToString(string, "{ ");
+	for (i32 i = 0;;) {
+		AppendToStringWithBase(string, array[i], base, precision);
 		if (++i >= array.size) break;
 		AppendToString(string, ", ");
 	}

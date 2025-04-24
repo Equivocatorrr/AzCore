@@ -139,6 +139,52 @@ enum class ComputeUnitType : u8 {
 constexpr u8 ComputeUnitType_LO_USER = 0x80;
 constexpr u8 ComputeUnitType_HI_USER = 0xff;
 
+enum class Class : u8 {
+	// Can mean 2 different things:
+	// - An index into .debug_addr relative to the ADDR_BASE attribute of the associated CU (Form::ADDRX_)
+	// - A location in the address space of the described program (value will need to be relocated) (Form::ADDR)
+	ADDRESS,
+	// Offset into .debug_addr encoded as a target ptr (Form::SEC_OFFSET)
+	ADDRPTR,
+	// A chunk of data (size may be implicit or specified by a ULEB, non-inclusive)
+	BLOCK,
+	// 1, 2, 4, 8, or 16 bytes or an LEB128 value (Form::DATA_ and Form::_DATA)
+	CONSTANT,
+	// A DWARF expression (size is specified by a ULEB, non-inclusive) (Form::EXPRLOC)
+	EXPRLOC,
+	// Encoded as a u8 with Form::FLAG, or implicit with Form::FLAG_PRESENT
+	FLAG,
+	// Offset into .debug_line encoded as a target ptr (Form::SEC_OFFSET)
+	LINEPTR,
+	// Can mean 2 different things:
+	// - An index into .debug_loclists encoded as a ULEB, relative to the location of the first offset in the section (Form::LOCLISTX)
+	// - An offset into .debug_loclists encoded as a target ptr (Form::SEC_OFFSET)
+	LOCLIST,
+	// Offset into .debug_loc encoded as a target ptr (Form::SEC_OFFSET)
+	LOCLISTPTR,
+	// Offset into .debug_macro encoded as a target ptr (Form::SEC_OFFSET)
+	MACPTR,
+	// Can mean 2 different things:
+	// - An index into .debug_rnglists encoded as a ULEB (Form::RNGLISTX)
+	// - An offset into .debug_rnglists encoded as a target ptr (Form::SEC_OFFSET)
+	RNGLIST, // New in DWARF 5
+	// Offset into .debug_rnglists encoded as a target ptr (Form::SEC_OFFSET)
+	RNGLISTPTR, // New in DWARF 5
+	// refers to one of the DIEs. Can be one of four types:
+	// - Offset relative to the beginning of the current CU, encoded as 1-, 2-, 4-, or 8-byte, or ULEB (Form::REF_ and Form::REF_UDATA)
+	// - Offset of a DIE in any CU encoded as a target ptr (Form::REF_ADDR)
+	// - Indirect ref to a type def using an 8-byte signature (Form::REF_SIG8)
+	// - Reference to an external DIE (in a separate file) (Form::REF_SUP_)
+	REFERENCE,
+	// Can mean 3 different things:
+	// - Null-terminated string encoded directly (Form::STRING)
+	// - An offset into .debug_str (Form::STRP) or .debug_line_str (Form::LINE_STRP), or an offset into a separate file .debug_str (Form::STRP_SUP), encoded as a target ptr
+	// - An index into .debug_str_offsets encoded as 1-, 2-, 3-, or 4-byte, or ULEB (Form::STRX_), whose values are interpreted as an offset into .debug_str
+	STRING,
+	// Offset into .debug_str_offsets encoded as a target ptr (Form::SEC_OFFSET)
+	STROFFSETSPTR, // New in DWARF 5
+};
+
 enum class AttribName : u64 {
 	SIBLING                 = 0x01,
 	LOCATION                = 0x02,
@@ -279,6 +325,7 @@ enum class AttribName : u64 {
 };
 constexpr u64 AttribName_LO_USER = 0x2000;
 constexpr u64 AttribName_HI_USER = 0x3fff;
+extern StaticArray<Class, 4> AttribNameClasses[0x8D];
 
 enum class Form : u64 {
 	ADDR           = 0x01,
@@ -329,6 +376,7 @@ enum class Form : u64 {
 	ADDRX3         = 0x2B,
 	ADDRX4         = 0x2C,
 };
+extern StaticArray<Class, 8> FormClasses[0x2D];
 
 } // namespace AzCore::dwarf
 
@@ -338,6 +386,7 @@ void AppendToString(String &string, const az::dwarf::ULEB &uleb);
 void AppendToString(String &string, const az::dwarf::SLEB &sleb);
 void AppendToString(String &string, dwarf::TAG tag);
 void AppendToString(String &string, dwarf::ComputeUnitType value);
+void AppendToString(String &string, dwarf::Class value);
 void AppendToString(String &string, dwarf::AttribName value);
 void AppendToString(String &string, dwarf::Form value);
 

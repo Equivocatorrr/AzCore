@@ -14,37 +14,6 @@
 
 namespace AzCore::dwarf {
 
-struct Attrib {
-	AttribName name;
-	enum Kind {
-		NONE=0, // uninitialized
-		ADDRESS, // A location in the address space of the described program (no idea what this means for PIEs)
-		ADDRPTR, // Offset into either .debug_ranges or .debug_aranges (not sure which yet)
-		BLOCK, // A chunk of data (size may be implicit or specified by a ULEB, non-inclusive)
-		CONSTANT, // 1, 2, 4, 8, or 16 bytes or an LEB128 value
-		EXPRLOC, // A DWARF expression (size is specified by a ULEB, non-inclusive)
-		FLAG, // Encoded as a u8 with Form::FLAG, or implicit with Form::FLAG_PRESENT
-		LINEPTR, // Offset into .debug_line
-		LOCLISTPTR, // Offset into .debug_loc
-		MACPTR, // Offset into .debug_macinfo
-		// refers to one of the DIEs. Can be one of four types:
-		// - Offset relative to the beginning of the current CU
-		// - Offset of a DIE in any CU
-		// - Indirect ref to a type def using an 8-byte signature
-		// - Reference to an external DIE (in a separate file)
-		REFERENCE,
-		RNGLISTPTR, // Offset into .debug_rnglists
-		STRING, // Null-terminated string
-		STROFFSETSPTR, // Offset into .debug_str (probably, the documentation is especially weird here)
-	} kind;
-	union {
-		Str string; // Used for inline STRING
-		Range<u8> data; // Used for any other weirdly-sized inline data
-		u64 addr; // Used for addresses and offsets
-	};
-	constexpr Attrib() : name((AttribName)0), kind(NONE), string(nullptr) {}
-};
-
 // Attribute specification
 struct AbbrevAttrib {
 	AttribName name; // Encoded as a ULEB (special value 0 denotes the end of attributes for this decl)
@@ -58,7 +27,7 @@ struct AbbrevDecl {
 	u64 abbrev_code; // Encoded as a ULEB (special value 0 denotes end of decls for this CU)
 	TAG tag; // Encoded as a ULEB
 	bool has_children; // Encoded as a u8
-	Array<AbbrevAttrib> attributes;
+	Array<AbbrevAttrib> attribs;
 };
 
 // One whole CU from .debug_abbrev
@@ -67,6 +36,25 @@ struct AbbrevUnit {
 	Array<AbbrevDecl> decls;
 
 	[[nodiscard]] Result<None_t, String> Parse(Range<u8> debug_abbrev);
+	// the return value won't be Valid() if we don't find the code.
+	[[nodiscard]] Ptr<AbbrevDecl> GetDecl(u64 abbrev_code);
+};
+
+struct Attrib {
+	AttribName name;
+	Form form;
+	Class _class;
+	union {
+		Str string;
+		Range<u8> block;
+		u64 addr; // Used for addresses, offsets, and indexes
+		struct {
+			u64 lo, hi;
+		} constant;
+		bool flag;
+	};
+	constexpr Attrib() : name((AttribName)0), form((Form)0), _class((Class)0), string(nullptr) {}
+	[[nodiscard]] Result<None_t, String> Parse(Range<u8> binary, i64 &cur, const AbbrevAttrib &spec, u8 dwarfPtrSize, u8 targetArchPtrSize);
 };
 
 // Debugging Information Entry
@@ -75,6 +63,7 @@ struct DIE {
 	u64 abbrev_code; // Maps to an abbrev_code in the CU's AbbrevUnit (should match one AbbrevDecl), Encoded as a ULEB
 	Ptr<AbbrevDecl> abbrev;
 	Array<Attrib> attribs;
+	Array<DIE> children;
 };
 
 // Header for CU found in .debug_info
@@ -125,7 +114,7 @@ struct InfoUnit {
 
 	// debug_info should be offset into the actual section
 	// abbrev_unit should point to an already-parsed AbbrevUnit
-	[[nodiscard]] Result<None_t, String> Parse(Range<u8> debug_info, Ptr<AbbrevUnit> abbrev_unit);
+	[[nodiscard]] Result<None_t, String> Parse(Range<u8> debug_info, Ptr<AbbrevUnit> abbrev_unit, u8 targetArchPtrSize);
 };
 
 struct DebuggerInfo {
@@ -149,5 +138,11 @@ struct DebuggerInfo {
 };
 
 } // namespace AzCore::dwarf
+
+namespace AzCore {
+
+void AppendToString(String &string, const az::dwarf::Attrib &value);
+
+} // namespace AzCore
 
 #endif // AZCORE_DWARF_HPP

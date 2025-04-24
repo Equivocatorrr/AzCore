@@ -10,10 +10,13 @@
 using namespace AzCore;
 
 i32 main(i32 argc, char** argv) {
+	// io::logLevel = io::LogLevel::TRACE;
+	io::cout.IndentString("| ");
 	Str path;
 	bool programHeaders = false;
 	bool sectionHeaders = false;
-	bool dwarf = false;
+	bool dwarf_info = false;
+	bool dwarf_abbrevs = false;
 	cli::defs.flags = {
 		{ 'p', "program", "Print info for each program header.",
 			[&programHeaders](Str arg) {
@@ -27,9 +30,15 @@ i32 main(i32 argc, char** argv) {
 				return false;
 			}
 		},
-		{ 'd', "dwarf", "Print info about DWARF sections.",
-			[&dwarf](Str arg) {
-				dwarf = true;
+		{ 'i', "dwarf-info", "Print info about DWARF .debug_info (DIEs)",
+			[&dwarf_info](Str arg) {
+				dwarf_info = true;
+				return false;
+			}
+		},
+		{ 'a', "dwarf-abbrevs", "Print info about DWARF .debug_abbrev (DIE specs)",
+			[&dwarf_abbrevs](Str arg) {
+				dwarf_abbrevs = true;
 				return false;
 			}
 		},
@@ -53,8 +62,8 @@ i32 main(i32 argc, char** argv) {
 			return 1;
 		}
 		binary.PrintHeaderInfo(io::cout, programHeaders, sectionHeaders);
-		if (dwarf) {
-			binary.PrintDWARFInfo(io::cout);
+		if (dwarf_info || dwarf_abbrevs) {
+			binary.PrintDWARFInfo(io::cout, dwarf_abbrevs, dwarf_info);
 		}
 	} else {
 		io::cerr.PrintLn("No path given");

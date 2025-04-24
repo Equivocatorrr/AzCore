@@ -82,7 +82,7 @@ struct File {
 
 	void PrintHeaderInfo(io::Log &log=io::cout, bool programHeaders=false, bool sectionHeaders=false);
 	void PrintSectionHeaderInfo(io::Log &log, i32 sectionIndex);
-	void PrintDWARFInfo(io::Log &log=io::cout);
+	void PrintDWARFInfo(io::Log &log=io::cout, bool debug_abbrev=false, bool debug_info=false);
 };
 
 } // namespace AzCore::elf

@@ -123,7 +123,7 @@ void RawInputDeviceInit(RawInputDevice *rid, i32 fd, String &&path, RawInputFeat
 	rid->data->fd = fd;
 	rid->data->retryTimer = -1.0;
 	rid->data->path = std::move(path);
-	rid->data->name.Resize(128);
+	rid->data->name.Resize(128, 0);
 	if (-1 == ioctl(fd, JSIOCGNAME(rid->data->name.size), rid->data->name.data)) {
 		rid->data->name = "Error Retrieving Name";
 	}
@@ -228,6 +228,7 @@ bool RawInput::Init(RawInputFeatureBits enableMask) {
 
 void RawInput::Update(f32 timestep) {
 	// TODO: The rest of the raw input device types.
+	// TODO: Handle device disconnects and reconnects, as well as new devices dynamically.
 	AnyGP.Tick(timestep);
 	if (window != nullptr) {
 		if (!window->focused)

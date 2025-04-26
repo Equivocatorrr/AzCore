@@ -40,6 +40,8 @@ float tanToSinBiased(float tangent) {
 	return tanToSin(max(tangent - tanBias, 0.0));
 }
 
+#define USE_RMS 0
+
 void main() {
 	vec2 viewUVScale = vec2(worldInfo.proj[0][0], -worldInfo.proj[2][1]) * 0.5;
 	vec2 texelSize = 1.0 / textureSize(depthImage, 0);
@@ -118,8 +120,10 @@ void main() {
 	}
 #endif
 	outColor /= float(numDirs);
+#if USE_RMS
 	// Store the inverted color so we can do a root-mean-square in AOConvolution instead of the square-mean-root, which would require 25 sqrts per pixel
 	outColor *= outColor;
+#endif
 	outColor = 1.0 - outColor;
 	// outColor = clamp(abs(2.0 / mix(mix(PI/2.0, atan(minSlope[0]), confidence[0]), -mix(PI, atan(minSlope[1]), confidence[1]), confidence[1] / (confidence[0] + confidence[1])) / PI), 0.0, 1.0);
 }

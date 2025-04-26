@@ -15,7 +15,9 @@ layout(set=0, binding=2) uniform sampler2D noisyImage;
 const int numSamples = 5;
 const float maxNormalDiff = 0.05;
 
-#define USE_RMS 1
+const float aoStrength = 0.75;
+
+#define USE_RMS 0
 
 void main() {
 	vec2 texSizeImage = textureSize(noisyImage, 0);
@@ -55,9 +57,9 @@ void main() {
 	}
 #if USE_RMS
 	// Root mean square helps deal with our undersampling erring on the side of allowing ambient light through, so we want the darker pixels to matter more (which in this case are brighter pixels because we inverted it).
-	outColor = 1.0 - sqrt(final / totalContribution);
+	outColor = 1.0 - sqrt(final / totalContribution) * aoStrength;
 #else
-	outColor = 1.0 - final / totalContribution;
+	outColor = 1.0 - final / totalContribution * aoStrength;
 #endif
 	// outColor *= outColor;
 }

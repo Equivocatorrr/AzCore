@@ -19,6 +19,7 @@
 #include "AzCore/IO/Input.hpp"
 #include "AzCore/IO/RawInput.hpp"
 #include "AzCore/IO/Gamepad.hpp"
+#include "AzCore/IO/KeyCodes.hpp"
 
 
 namespace Az2D::Assets {

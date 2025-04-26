@@ -10,7 +10,6 @@
 
 #include "AzCore/Thread.hpp"
 #include "AzCore/IO/Log.hpp"
-#include "AzCore/IO/KeyCodes.hpp"
 #include "AzCore/Math/Color.hpp"
 
 namespace Az2D::Entities {

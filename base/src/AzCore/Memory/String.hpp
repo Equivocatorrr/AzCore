@@ -18,9 +18,6 @@
 
 #include <type_traits>
 
-AZCORE_STRING_TERMINATOR(char, 0);
-AZCORE_STRING_TERMINATOR(char32, 0);
-
 namespace AzCore {
 
 // You can use Str in place of String as long as you're aware of the lifetime of the memory it points to since it has no storage of its own.

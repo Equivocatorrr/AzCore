@@ -11,12 +11,13 @@ using namespace AzCore;
 
 int main(int argc, char **argv) {
 	bool names = false;
+	bool help = false;
 	Str test;
 	i32 failLimit = 5;
 	i32 weakLimit = 5;
 	i32 infoLimit = 0;
 	cli::defs.flags = {
-		{ 'h', "help", "Print this help", [](Str arg) { cli::PrintUsage(); return false; } },
+		{ 'h', "help", "Print this help", [&help](Str arg) { help = true; return false; } },
 		{ 'n', "names", "List the name of each test", [&names](Str arg) { names = true; return false; } },
 		{ 't', "test", "Choose a specific test to run", [&test](Str arg) { test = arg; return true; } },
 		{ 'f', "fail-limit", "Specify how many 'fail' reports to show from one line (where 0 means no limit)",
@@ -53,10 +54,15 @@ int main(int argc, char **argv) {
 	if (!cli::ParseArguments(argc, argv)) {
 		return 1;
 	}
+	if (help) {
+		cli::PrintUsage();
+	}
 	if (names) {
 		UT::ListAllTests();
 		return 0;
 	}
-	UT::RunTests(test.size ? Array<Str>{test} : Array<Str>{}, failLimit, weakLimit, infoLimit);
+	if (!help && !names) {
+		UT::RunTests(test.size ? Array<Str>{test} : Array<Str>{}, failLimit, weakLimit, infoLimit);
+	}
 	return 0;
 }

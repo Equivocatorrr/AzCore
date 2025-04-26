@@ -17,6 +17,7 @@ i32 main(i32 argc, char** argv) {
 	bool sectionHeaders = false;
 	bool dwarf_info = false;
 	bool dwarf_abbrevs = false;
+	bool dwarf_aranges = false;
 	cli::defs.flags = {
 		{ 'p', "program", "Print info for each program header.",
 			[&programHeaders](Str arg) {
@@ -42,6 +43,12 @@ i32 main(i32 argc, char** argv) {
 				return false;
 			}
 		},
+		{ 'r', "dwarf-aranges", "Print info about DWARF .debug_aranges",
+			[&dwarf_aranges](Str arg) {
+				dwarf_aranges = true;
+				return false;
+			}
+		},
 	};
 	cli::defs.defaultHandler = [&path](Str arg) {
 		if (path.size) {
@@ -62,8 +69,8 @@ i32 main(i32 argc, char** argv) {
 			return 1;
 		}
 		binary.PrintHeaderInfo(io::cout, programHeaders, sectionHeaders);
-		if (dwarf_info || dwarf_abbrevs) {
-			binary.PrintDWARFInfo(io::cout, dwarf_abbrevs, dwarf_info);
+		if (dwarf_info || dwarf_abbrevs || dwarf_aranges) {
+			binary.PrintDWARFInfo(io::cout, dwarf_abbrevs, dwarf_info, dwarf_aranges);
 		}
 	} else {
 		io::cerr.PrintLn("No path given");

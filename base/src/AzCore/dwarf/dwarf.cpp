@@ -5,6 +5,7 @@
 
 #include "dwarf.hpp"
 #include "definitions.hpp"
+#include "../Utility/TypeName.hpp"
 
 #include <type_traits>
 
@@ -25,6 +26,14 @@
 		(dst) = static_cast<decltype(dst)>(_proxy);\
 		cur += sizeof(proxyType);\
 	}
+
+// TODO: This only works on little-endian systems
+#define GET_DATA_SIZED(dst, src, size)\
+	ENSURE_BUFFER(src, (size), cur);\
+	AzAssert(sizeof(dst) >= (size), Stringify("Trying to put ", (size), " bytes into a ", TypeName<decltype(dst)>(), " (size ", sizeof(dst), ")"));\
+	memset(&(dst), 0, sizeof(dst));\
+	memcpy(&(dst), &(src)[cur], (size));\
+	cur += (size);
 
 #define GET_ULEB(dst, src) {\
 	ULEB _uleb;\
@@ -277,32 +286,37 @@ static_assert(sizeof(u24) == 3);
 	return None;
 }
 
-[[nodiscard]] Result<None_t, String> InfoUnitHeader::Parse(Range<u8> _binary) {
-	binary = _binary;
-	bool is64bit = false;
-	i64 cur = 0;
+[[nodiscard]] Result<None_t, String> InitialLength::Parse(Range<u8> binary, i64 &cur) {
 	GET_DATA(initial_length, binary);
 	if (initial_length < 0xfffffff0) {
 		unit_length = initial_length;
 	} else if (initial_length == 0xffffffff) {
-		is64bit = true;
 		GET_DATA(unit_length, binary);
 	} else {
 		return Stringify("Unknown special initial_length ", FormatInt(initial_length, 16, true));
 	}
-	GET_DATA(version, binary);
+	return None;
+}
+
+[[nodiscard]] Result<None_t, String> InfoUnitHeader::Parse(Range<u8> debug_info, i64 &cur) {
+	binary = debug_info.SubRange(cur);
+	if (auto result = unit_length.Parse(debug_info, cur); result.isError) {
+		return result.error;
+	}
+	bool is64bit = unit_length.Is64Bit();
+	GET_DATA(version, debug_info);
 	if (version != 5) { // TODO: Support older versions maybe?
 		return Stringify("Unsupported DWARF version ", version);
 	}
-	GET_DATA(unit_type, binary);
-	GET_DATA(address_size, binary);
+	GET_DATA(unit_type, debug_info);
+	GET_DATA(address_size, debug_info);
 	if (address_size != 4 && address_size != 8) {
 		return Stringify("Invalid address_size ", address_size);
 	}
 	if (is64bit) {
-		GET_DATA(debug_abbrev_offset, binary);
+		GET_DATA(debug_abbrev_offset, debug_info);
 	} else {
-		GET_DATA_PROXY(debug_abbrev_offset, binary, u32);
+		GET_DATA_PROXY(debug_abbrev_offset, debug_info, u32);
 	}
 	switch (unit_type) {
 		case ComputeUnitType::COMPILE:
@@ -310,15 +324,15 @@ static_assert(sizeof(u24) == 3);
 			break; // No additional fields
 		case ComputeUnitType::SKELETON:
 		case ComputeUnitType::SPLIT_COMPILE: {
-			GET_DATA(dwo_id, binary);
+			GET_DATA(dwo_id, debug_info);
 		} break;
 		case ComputeUnitType::TYPE:
 		case ComputeUnitType::SPLIT_TYPE: {
-			GET_DATA(type_signature, binary);
+			GET_DATA(type_signature, debug_info);
 			if (is64bit) {
-				GET_DATA(type_offset, binary);
+				GET_DATA(type_offset, debug_info);
 			} else {
-				GET_DATA_PROXY(type_offset, binary, u32);
+				GET_DATA_PROXY(type_offset, debug_info, u32);
 			}
 		} break;
 	}
@@ -330,15 +344,15 @@ static_assert(sizeof(u24) == 3);
 	return None;
 }
 
-[[nodiscard]] static Result<None_t, String> _ParseDIEs(Array<DIE> &dst, Range<u8> binary, Ptr<AbbrevUnit> abbrev_unit, u8 dwarfPtrSize, u8 targetArchPtrSize, i64 &cur) {
+[[nodiscard]] static Result<None_t, String> _ParseDIEs(Array<DIE> &dst, Range<u8> debug_info, Ptr<AbbrevUnit> abbrev_unit, u8 dwarfPtrSize, u8 targetArchPtrSize, i64 &cur, i64 endCur) {
 	io::cout.PrintLnTrace("cur = ", FormatInt(cur, 16), AlignText(16), "_ParseDIEs");
-	while (cur < binary.size) {
+	while (cur < endCur) {
 		i64 startCur = cur;
 		// The humble Reaper:
 		DIE die; // die
 
-		GET_ULEB(die.abbrev_code, binary);
-		io::cout.PrintLnTrace("cur = ", FormatInt(cur, 16), AlignText(16), "Abbrev Code: ", die.abbrev_code);
+		GET_ULEB(die.abbrev_code, debug_info);
+		io::cout.PrintLnTrace("cur = ", FormatInt(startCur, 16), AlignText(16), "Abbrev Code: ", die.abbrev_code);
 		if (die.abbrev_code == 0) break;
 		Ptr<AbbrevDecl> decl = abbrev_unit->GetDecl(die.abbrev_code);
 		if (!decl.Valid()) {
@@ -349,40 +363,89 @@ static_assert(sizeof(u24) == 3);
 		for (i32 i = 0; i < die.attribs.size; i++) {
 			Attrib &attrib = die.attribs[i];
 			const AbbrevAttrib &spec = decl->attribs[i];
-			if (auto result = attrib.Parse(binary, cur, spec, dwarfPtrSize, targetArchPtrSize); result.isError) {
+			if (auto result = attrib.Parse(debug_info, cur, spec, dwarfPtrSize, targetArchPtrSize); result.isError) {
 				return result.error;
 			}
 		}
 		if (decl->has_children) {
 			io::cout.IndentMore();
-			if (auto result = _ParseDIEs(die.children, binary, abbrev_unit, dwarfPtrSize, targetArchPtrSize, cur); result.isError) {
+			if (auto result = _ParseDIEs(die.children, debug_info, abbrev_unit, dwarfPtrSize, targetArchPtrSize, cur, endCur); result.isError) {
 				return result.error;
 			}
 			io::cout.IndentLess();
 		}
-		die.binary = binary.SubRange(startCur, cur-startCur);
+		die.binary = debug_info.SubRange(startCur, cur-startCur);
 		dst.Append(std::move(die));
 	}
 	return None;
 }
 
-[[nodiscard]] Result<None_t, String> InfoUnit::Parse(Range<u8> debug_info, Ptr<AbbrevUnit> abbrev_unit, u8 targetArchPtrSize) {
+[[nodiscard]] Result<None_t, String> InfoUnit::Parse(Range<u8> debug_info, i64 &cur, Ptr<AbbrevUnit> abbrev_unit, u8 targetArchPtrSize) {
 	io::cout.PrintLnTrace(AZCORE_PRETTY_FUNCTION);
+	i64 startCur = cur;
 	AzAssert(abbrev_unit.Valid(), "We need an abbrev_unit, man!");
-	if (auto result = header.Parse(debug_info); result.isError) {
+	if (auto result = header.Parse(debug_info, cur); result.isError) {
 		return result.error;
 	}
-	u8 dwarfPtrSize = header.initial_length == 0xffffffff ? 8 : 4;
-	binary = debug_info.SubRange(0, header.GetTotalBinarySize());
-	i64 cur = header.binary.size;
-	if (auto result = _ParseDIEs(dies, binary, abbrev_unit, dwarfPtrSize, targetArchPtrSize, cur); result.isError) {
+	u8 dwarfPtrSize = header.unit_length.Is64Bit() ? 8 : 4;
+	binary = debug_info.SubRange(startCur, header.GetTotalBinarySize());
+	if (auto result = _ParseDIEs(dies, debug_info, abbrev_unit, dwarfPtrSize, targetArchPtrSize, cur, startCur+binary.size); result.isError) {
 		return result.error;
+	}
+	if (cur != startCur+binary.size) {
+		return Stringify("Our cursor didn't line up with the expected size (cur = ", FormatInt(cur, 16, true), ", expected ", FormatInt(startCur+binary.size, 16, true), ")");
+	}
+	return None;
+}
+
+[[nodiscard]] Result<None_t, String> ARangeUnit::Parse(Range<u8> debug_aranges, i64 &cur, Ptr<InfoUnit> info_unit) {
+	io::cout.PrintLnTrace("cur = ", FormatInt(cur, 16), AlignText(16), "ARangeUnit::Parse");
+	i64 startCur = cur;
+	AzAssert(info_unit.Valid(), "We need an info_unit, man!");
+	debug_info_unit = info_unit;
+	if (auto result = unit_length.Parse(debug_aranges, cur); result.isError) {
+		return result.error;
+	}
+	bool is64bit = unit_length.Is64Bit();
+	binary = debug_aranges.SubRange(startCur, unit_length.GetTotalLength());
+	GET_DATA(version, debug_aranges);
+	if (is64bit) {
+		GET_DATA(debug_info_offset, debug_aranges);
+	} else {
+		GET_DATA_PROXY(debug_info_offset, debug_aranges, u32);
+	}
+	GET_DATA(address_size, debug_aranges);
+	if (address_size == 0) {
+		return String("address_size was zero!");
+	}
+	GET_DATA(segment_selector_size, debug_aranges);
+	cur = alignNonPowerOfTwo(cur, segment_selector_size + address_size*2);
+	if (segment_selector_size) {
+		while (cur < startCur+binary.size) {
+			ARangeDescriptor descriptor;
+			GET_DATA_SIZED(descriptor.segment_selector, debug_aranges, segment_selector_size);
+			GET_DATA_SIZED(descriptor.offset, debug_aranges, address_size);
+			GET_DATA_SIZED(descriptor.length, debug_aranges, address_size);
+			if (descriptor.segment_selector == 0 && descriptor.offset == 0 && descriptor.length == 0) break;
+			ranges.Append(descriptor);
+		}
+	} else {
+		while (cur < startCur+binary.size) {
+			ARangeDescriptor descriptor;
+			descriptor.segment_selector = 0;
+			GET_DATA_SIZED(descriptor.offset, debug_aranges, address_size);
+			GET_DATA_SIZED(descriptor.length, debug_aranges, address_size);
+			if (descriptor.offset == 0 && descriptor.length == 0) break;
+			ranges.Append(descriptor);
+		}
+	}
+	if (cur != startCur+binary.size) {
+		return Stringify("Exected cur to end at ", FormatInt(startCur+binary.size, 16), " but it was ", FormatInt(cur, 16), " instead!");
 	}
 	return None;
 }
 
 [[nodiscard]] Result<None_t, String> DebuggerInfo::ParseFromELF(elf::File &file) {
-	debug_aranges = file.GetSectionByName(".debug_aranges");
 	debug_info = file.GetSectionByName(".debug_info");
 	if (debug_info.size == 0) {
 		return String("There is no .debug_info section in the file.");
@@ -390,6 +453,10 @@ static_assert(sizeof(u24) == 3);
 	debug_abbrev = file.GetSectionByName(".debug_abbrev");
 	if (debug_abbrev.size == 0) {
 		return String("There is no .debug_abbrev section in the file.");
+	}
+	debug_aranges = file.GetSectionByName(".debug_aranges");
+	if (debug_aranges.size == 0) {
+		return String("There is no .debug_aranges section in the file.");
 	}
 	debug_line = file.GetSectionByName(".debug_line");
 	debug_str = file.GetSectionByName(".debug_str");
@@ -414,11 +481,22 @@ static_assert(sizeof(u24) == 3);
 		if (cu >= abbrev_units.size) {
 			return Stringify("Trying to parse a ", cu, "th compute unit from .debug_info when we only have ", abbrev_units.size, " CUs from .debug_abbrev");
 		}
-		if (auto result = info_unit.Parse(debug_info.SubRange(cur), abbrev_units.GetPtr(cu), file.is64bit ? 8 : 4); result.isError) {
+		if (auto result = info_unit.Parse(debug_info, cur, abbrev_units.GetPtr(cu), file.is64bit ? 8 : 4); result.isError) {
 			return result.error;
 		}
-		cur += info_unit.binary.size;
 		info_units.Append(std::move(info_unit));
+	}
+
+	cur = 0;
+	for (i32 cu = 0; cur < debug_aranges.size; cu++) {
+		ARangeUnit arange_unit;
+		if (cu >= info_units.size) {
+			return Stringify("Trying to parse a ", cu, "th arange unit from .debug_aranges when we only have ", info_units.size, " CUs from .debug_info");
+		}
+		if (auto result = arange_unit.Parse(debug_aranges, cur, info_units.GetPtr(cu)); result.isError) {
+			return result.error;
+		}
+		arange_units.Append(std::move(arange_unit));
 	}
 	return None;
 }
@@ -436,6 +514,13 @@ void AppendToString(String &string, const az::dwarf::Attrib &_value) {
 	for (i32 i = 0; i < countToAdd; i++) {
 		string.Append(' ');
 	}
+	startLen = endLen + countToAdd;
+	AppendToString(string, value.form);
+	endLen = Utf8CharCount(string);
+	countToAdd = 16-(endLen-startLen);
+	for (i32 i = 0; i < countToAdd; i++) {
+		string.Append(' ');
+	}
 	switch(value._class) {
 		case az::dwarf::Class::STRING:
 			if (value.form == az::dwarf::Form::STRING) {
@@ -445,6 +530,7 @@ void AppendToString(String &string, const az::dwarf::Attrib &_value) {
 			}
 			break;
 		case az::dwarf::Class::BLOCK:
+		case az::dwarf::Class::EXPRLOC:
 			AppendMultipleToString(string, "Block[", value.block.size, ']');
 			if (value.block.size <= 32) {
 				AppendToString(string, " = ");
@@ -453,7 +539,6 @@ void AppendToString(String &string, const az::dwarf::Attrib &_value) {
 			break;
 		case az::dwarf::Class::ADDRESS:
 		case az::dwarf::Class::ADDRPTR:
-		case az::dwarf::Class::EXPRLOC:
 		case az::dwarf::Class::LINEPTR:
 		case az::dwarf::Class::LOCLIST:
 		case az::dwarf::Class::LOCLISTPTR:

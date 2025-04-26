@@ -306,7 +306,7 @@ static void PrintDWARFDIE(io::Log &log, dwarf::DIE &die) {
 	log.IndentLess();
 }
 
-void File::PrintDWARFInfo(io::Log &log, bool debug_abbrev, bool debug_info) {
+void File::PrintDWARFInfo(io::Log &log, bool debug_abbrev, bool debug_info, bool debug_aranges) {
 	dwarf::DebuggerInfo info;
 	if (auto result = info.ParseFromELF(*this); result.isError) {
 		io::cerr.PrintLn("Failed to parse DWARF data: ", result.error);
@@ -337,11 +337,27 @@ void File::PrintDWARFInfo(io::Log &log, bool debug_abbrev, bool debug_info) {
 	if (debug_info) {
 		for (i32 cu = 0; cu < info.info_units.size; cu++) {
 			dwarf::InfoUnit &info_unit = info.info_units[cu];
-			log.PrintLn("Abbrev CU ", cu);
+			log.PrintLn("Info CU ", cu);
 			log.IndentMore();
 			for (i32 d = 0; d < info_unit.dies.size; d++) {
 				dwarf::DIE &die = info_unit.dies[d];
 				PrintDWARFDIE(log, die);
+			}
+			log.IndentLess();
+		}
+	}
+	if (debug_aranges) {
+		for (i32 cu = 0; cu < info.arange_units.size; cu++) {
+			dwarf::ARangeUnit &arange_unit = info.arange_units[cu];
+			log.PrintLn("ARanges CU ", cu, " with ", arange_unit.ranges.size, " ranges...");
+			log.IndentMore();
+			for (i32 r = 0; r < arange_unit.ranges.size; r++) {
+				dwarf::ARangeDescriptor &arange = arange_unit.ranges[r];
+				if (arange_unit.segment_selector_size) {
+					log.PrintLn("Segment: ", arange.segment_selector, AlignText(24), "Offset: ", FormatInt(arange.offset, 16, true), AlignText(48), "Length: ", FormatInt(arange.length, 16, true));
+				} else {
+					log.PrintLn("Offset: ", FormatInt(arange.offset, 16, true), AlignText(24), "Length: ", FormatInt(arange.length, 16, true));
+				}
 			}
 			log.IndentLess();
 		}

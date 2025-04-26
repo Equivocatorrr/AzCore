@@ -66,13 +66,35 @@ struct DIE {
 	Array<DIE> children;
 };
 
-// Header for CU found in .debug_info
-struct InfoUnitHeader {
-	Range<u8> binary;
+struct InitialLength {
 	// For the 32-bit DWARF format this will be < 0xfffffff0, and will represent unit_length
 	// For the 64-bit DWARF format this will be = 0xffffffff, and unit_length will come immediately after (unpadded and therefore unaligned)
 	u32 initial_length;
+	// This will always contain the actual length
 	u64 unit_length;
+
+	[[nodiscard]] Result<None_t, String> Parse(Range<u8> binary, i64 &cur);
+
+	inline bool Is64Bit() const {
+		return initial_length == 0xffffffff;
+	}
+	// Since unit_length's value doesn't include itself, we need to handle that.
+	inline u64 GetTotalLength() const {
+		u64 result = unit_length;
+		if (initial_length == 0xffffffff) {
+			result += 12;
+		} else {
+			result += 4;
+		}
+		return result;
+	}
+};
+
+// Header for CU found in .debug_info
+struct InfoUnitHeader {
+	Range<u8> binary;
+
+	InitialLength unit_length;
 	u16 version; // 5 for DWARF version 5
 	ComputeUnitType unit_type; // New in DWARF 5
 	u8 address_size; // byte size of an address on the target architecture
@@ -91,17 +113,11 @@ struct InfoUnitHeader {
 	u64 type_signature; // Unique 8-byte signature of the type described.
 	u64 type_offset; // Offset (relative to start of this header) to the DIE that describes the type. binary is a u32 on 32-bit DWARF, u64 on 64-bit DWARF.
 
-	[[nodiscard]] Result<None_t, String> Parse(Range<u8> _binary);
+	[[nodiscard]] Result<None_t, String> Parse(Range<u8> debug_info, i64 &cur);
 
 	// How many bytes in the source binary does this entire entry take up, including the header?
 	inline u64 GetTotalBinarySize() const {
-		u64 result = unit_length;
-		if (initial_length == 0xffffffff) {
-			result += 12;
-		} else {
-			result += 4;
-		}
-		return result;
+		return unit_length.GetTotalLength();
 	}
 };
 
@@ -114,7 +130,27 @@ struct InfoUnit {
 
 	// debug_info should be offset into the actual section
 	// abbrev_unit should point to an already-parsed AbbrevUnit
-	[[nodiscard]] Result<None_t, String> Parse(Range<u8> debug_info, Ptr<AbbrevUnit> abbrev_unit, u8 targetArchPtrSize);
+	[[nodiscard]] Result<None_t, String> Parse(Range<u8> debug_info, i64 &cur, Ptr<AbbrevUnit> abbrev_unit, u8 targetArchPtrSize);
+};
+
+struct ARangeDescriptor {
+	u64 segment_selector; // This isn't here if segment_selector_size is 0
+	u64 offset;
+	u64 length;
+};
+
+// CU found in .debug_aranges
+struct ARangeUnit {
+	Range<u8> binary;
+	InitialLength unit_length;
+	u16 version;
+	u64 debug_info_offset; // Offset into .debug_info of the CU we're referencing
+	u8 address_size;
+	u8 segment_selector_size;
+	Ptr<InfoUnit> debug_info_unit;
+	Array<ARangeDescriptor> ranges;
+
+	[[nodiscard]] Result<None_t, String> Parse(Range<u8> debug_aranges, i64 &cur, Ptr<InfoUnit> info_unit);
 };
 
 struct DebuggerInfo {
@@ -133,6 +169,7 @@ struct DebuggerInfo {
 
 	Array<InfoUnit> info_units;
 	Array<AbbrevUnit> abbrev_units;
+	Array<ARangeUnit> arange_units;
 
 	[[nodiscard]] Result<None_t, String> ParseFromELF(elf::File &file);
 };

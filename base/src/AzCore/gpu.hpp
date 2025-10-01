@@ -481,6 +481,8 @@ void PipelineSetWinding(Pipeline *pipeline, Winding winding);
 
 void PipelineSetDepthBias(Pipeline *pipeline, bool enable, f32 constant=0.0f, f32 slope=0.0f, f32 clampValue=0.0f);
 
+void PipelineSetDepthClamp(Pipeline *pipeline, bool enable);
+
 void PipelineSetLineWidth(Pipeline *pipeline, f32 lineWidth);
 
 void PipelineSetDepthTest(Pipeline *pipeline, bool enabled);

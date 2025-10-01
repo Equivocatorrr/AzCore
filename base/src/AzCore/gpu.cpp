@@ -1137,6 +1137,7 @@ struct Pipeline {
 		CullingMode cullingMode = CullingMode::NONE;
 		Winding winding = Winding::COUNTER_CLOCKWISE;
 		DepthBias depthBias;
+		bool depthClamp = false;
 		f32 lineWidth = 1.0f;
 
 		// DEFAULT means true if we have a depth buffer, else false
@@ -4170,6 +4171,11 @@ void PipelineSetDepthBias(Pipeline *pipeline, bool enable, f32 constant, f32 slo
 	pipeline->config.depthBias.clampValue = clampValue;
 }
 
+void PipelineSetDepthClamp(Pipeline *pipeline, bool enable) {
+	pipeline->state.dirty = pipeline->config.depthClamp != enable;
+	pipeline->config.depthClamp = enable;
+}
+
 void PipelineSetLineWidth(Pipeline *pipeline, f32 lineWidth) {
 	// pipeline->state.dirty = pipeline->config.lineWidth != lineWidth; // dynamic
 	pipeline->config.lineWidth = lineWidth;
@@ -4439,7 +4445,7 @@ Result<None_t, String> PipelineCompose(Pipeline *pipeline, Context *context) {
 			viewportState.scissorCount = 1;
 
 			VkPipelineRasterizationStateCreateInfo rasterizerState{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
-			rasterizerState.depthClampEnable = VK_FALSE;
+			rasterizerState.depthClampEnable = (VkBool32)pipeline->config.depthClamp;
 			rasterizerState.rasterizerDiscardEnable = VK_FALSE;
 			rasterizerState.polygonMode = VK_POLYGON_MODE_FILL;
 			rasterizerState.cullMode = (VkCullModeFlagBits)pipeline->config.cullingMode;

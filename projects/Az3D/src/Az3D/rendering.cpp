@@ -474,12 +474,15 @@ bool Manager::Init() {
 		GPU::PipelineSetCullingMode(data.pipelines[PIPELINE_BASIC_3D_VSM], GPU::CullingMode::BACK);
 		GPU::PipelineSetWinding(data.pipelines[PIPELINE_BASIC_3D_VSM], GPU::Winding::COUNTER_CLOCKWISE);
 		GPU::PipelineSetBlendMode(data.pipelines[PIPELINE_BASIC_3D_VSM], GPU::BlendMode::MAX);
+		// Since we're doing an orthographic camera, this prevents objects from popping out of existence when they're outside of the frustum
+		GPU::PipelineSetDepthClamp(data.pipelines[PIPELINE_BASIC_3D_VSM], true);
 
 		data.pipelines[PIPELINE_FOLIAGE_3D_VSM] = GPU::NewGraphicsPipeline(data.device, "VSM Foliage Pipeline");
 		GPU::PipelineAddShaders(data.pipelines[PIPELINE_FOLIAGE_3D_VSM], {vsmVert, vsmFrag});
 		GPU::PipelineAddVertexInputs(data.pipelines[PIPELINE_FOLIAGE_3D_VSM], vertexInputs);
 		GPU::PipelineSetTopology(data.pipelines[PIPELINE_FOLIAGE_3D_VSM], GPU::Topology::TRIANGLE_LIST);
 		GPU::PipelineSetBlendMode(data.pipelines[PIPELINE_FOLIAGE_3D_VSM], GPU::BlendMode::MAX);
+		GPU::PipelineSetDepthClamp(data.pipelines[PIPELINE_FOLIAGE_3D_VSM], true);
 
 		GPU::Shader *vsmFontVert = GPU::NewShader(data.device, "data/Az3D/shaders/Font3D_VSM.vert.spv", GPU::ShaderStage::VERTEX, "VSM Font Vertex Shader");
 		GPU::Shader *vsmFontFrag = GPU::NewShader(data.device, "data/Az3D/shaders/Font3D_VSM.frag.spv", GPU::ShaderStage::FRAGMENT, "VSM Font Fragment Shader");
@@ -489,6 +492,7 @@ bool Manager::Init() {
 		GPU::PipelineSetBlendMode(data.pipelines[PIPELINE_FONT_3D_VSM], GPU::BlendMode::MAX);
 		GPU::PipelineSetCullingMode(data.pipelines[PIPELINE_FONT_3D_VSM], GPU::CullingMode::NONE);
 		GPU::PipelineSetMultisampleShading(data.pipelines[PIPELINE_FONT_3D_VSM], true);
+		GPU::PipelineSetDepthClamp(data.pipelines[PIPELINE_FONT_3D_VSM], true);
 
 		data.shadowMapConvolutionImage = GPU::NewImage(data.device, "VSM Convolution Image");
 		GPU::ImageSetFormat(data.shadowMapConvolutionImage, GPU::ImageBits::R32G32, GPU::ImageComponentType::SFLOAT);
@@ -694,10 +698,10 @@ void Manager::UpdateLights() {
 	AZCORE_PROFILING_SCOPED_TIMER(Az3D::Rendering::Manager::UpdateLights)
 	vec3 corners[8];
 	{
-		f32 prevFarClip = camera.farClip;
-		camera.farClip *= 0.5f;
+		// f32 prevFarClip = camera.farClip;
+		// camera.farClip *= 0.5f;
 		GetCameraFrustumCorners(camera, corners, corners+4);
-		camera.farClip = prevFarClip;
+		// camera.farClip = prevFarClip;
 	}
 	vec3 center = 0.0f;
 	vec3 boundsMin(100000000.0f), boundsMax(-100000000.0f);
@@ -719,8 +723,8 @@ void Manager::UpdateLights() {
 	// DrawDebugSphere(data.drawingContexts[0], center, 0.1f, vec4(1.0f));
 	vec3 dimensions = boundsMax - boundsMin;
 	// center gives us an implicit 0.5
-	worldInfo.sun = mat4::Camera(center + worldInfo.sunDir * dimensions.z * 9.5f, -worldInfo.sunDir, vec3(0.0f, 0.0f, 1.0f));
-	worldInfo.sun = mat4::Ortho(max(0.1f, dimensions.x), max(0.1f, dimensions.y), 0.0f, max(0.1f, dimensions.z*10.0f)) * worldInfo.sun;
+	worldInfo.sun = mat4::Camera(center + worldInfo.sunDir * dimensions.z * 0.5f, -worldInfo.sunDir, vec3(0.0f, 0.0f, 1.0f));
+	worldInfo.sun = mat4::Ortho(max(0.1f, dimensions.x), max(0.1f, dimensions.y), 0.0f, max(0.1f, dimensions.z)) * worldInfo.sun;
 	sunFrustum = GetOrtho(
 		worldInfo.sun.Col<3>().xyz,
 		worldInfo.sun.Col<2>().xyz,

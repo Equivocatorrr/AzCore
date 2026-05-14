@@ -9,6 +9,7 @@
 #define AZCORE_MEMORY_TEMPLATE_FORWARD_DECLARES_HPP
 
 #include "../BasicTypes.hpp"
+#include <type_traits>
 
 namespace AzCore {
 
@@ -38,7 +39,10 @@ struct SmartRange;
 template <typename T>
 struct SmartRangeIterator;
 
-template <typename T>
+template <
+	typename T,
+	typename std::enable_if_t<!std::is_const_v<T>, int> = 0
+>
 struct Range;
 
 template <typename Key_t, typename Value_t>

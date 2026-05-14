@@ -873,12 +873,15 @@ bool windowOpenWayland(Window *window) {
 	xdg_toplevel_set_title(window->data->wayland.xdgToplevel, window->name.data);
 	xdg_toplevel_add_listener(window->data->wayland.xdgToplevel, &wl::events::xdgToplevelListener, window);
 
+	wl_surface_commit(window->data->wayland.surface); // initial commit
+	wl_display_roundtrip(window->data->wayland.display); // To ack xdg_surface initial configure
+
 	if (window->data->wayland.seat == nullptr) {
 		error = "We don't have a Wayland seat";
 		return false;
 	}
 	if (!CreateShmImageWayland(window->width, window->height, &window->data->wayland.image.fd, &window->data->wayland.image.shmData, &window->data->wayland.image.size, &window->data->wayland.image.buffer, error, window)) return false;
-
+	
 	window->data->wayland.region = wl_compositor_create_region(window->data->wayland.compositor);
 	wl_region_add(window->data->wayland.region, 0, 0, window->width, window->height);
 	wl_surface_set_opaque_region(window->data->wayland.surface, window->data->wayland.region);

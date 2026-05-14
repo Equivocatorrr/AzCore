@@ -355,17 +355,17 @@ az::Vector<T>& operator-=(az::Vector<T> &lhs, const az::Vector<T> &rhs);
 
 template<typename T, az::Impl::Operation<T> operation, char opname, bool flipped>
 az::Vector<T>& operator*=(az::Vector<T> &lhs, az::Impl::VectorScalarOperation<T, operation, opname, flipped> &&rhs) {
-	rhs.EvalInto<az::Impl::OperationMul<T>>(lhs);
+	rhs.template EvalInto<az::Impl::OperationMul<T>>(lhs);
 	return lhs;
 }
 template<typename T, az::Impl::Operation<T> operation, char opname, bool flipped>
 az::Vector<T>& operator/=(az::Vector<T> &lhs, az::Impl::VectorScalarOperation<T, operation, opname, flipped> &&rhs) {
-	rhs.EvalInto<az::Impl::OperationDiv<T>>(lhs);
+	rhs.template EvalInto<az::Impl::OperationDiv<T>>(lhs);
 	return lhs;
 }
 template<typename T, az::Impl::Operation<T> operation, char opname, bool flipped>
 az::Vector<T>& operator+=(az::Vector<T> &lhs, az::Impl::VectorScalarOperation<T, operation, opname, flipped> &&rhs) {
-	rhs.EvalInto<az::Impl::OperationAdd<T>>(lhs);
+	rhs.template EvalInto<az::Impl::OperationAdd<T>>(lhs);
 	return lhs;
 }
 template<typename T, az::Impl::Operation<T> operation, char opname, bool flipped>
@@ -376,43 +376,43 @@ az::Vector<T>& operator-=(az::Vector<T> &lhs, az::Impl::VectorScalarOperation<T,
 
 template<typename T, az::Impl::Operation<T> operation, char opname>
 az::Vector<T>& operator*=(az::Vector<T> &lhs, az::Impl::VectorVectorOperation<T, operation, opname> &&rhs) {
-	rhs.EvalInto<az::Impl::OperationMul<T>>(lhs);
+	rhs.template EvalInto<az::Impl::OperationMul<T>>(lhs);
 	return lhs;
 }
 template<typename T, az::Impl::Operation<T> operation, char opname>
 az::Vector<T>& operator/=(az::Vector<T> &lhs, az::Impl::VectorVectorOperation<T, operation, opname> &&rhs) {
-	rhs.EvalInto<az::Impl::OperationDiv<T>>(lhs);
+	rhs.template EvalInto<az::Impl::OperationDiv<T>>(lhs);
 	return lhs;
 }
 template<typename T, az::Impl::Operation<T> operation, char opname>
 az::Vector<T>& operator+=(az::Vector<T> &lhs, az::Impl::VectorVectorOperation<T, operation, opname> &&rhs) {
-	rhs.EvalInto<az::Impl::OperationAdd<T>>(lhs);
+	rhs.template EvalInto<az::Impl::OperationAdd<T>>(lhs);
 	return lhs;
 }
 template<typename T, az::Impl::Operation<T> operation, char opname>
 az::Vector<T>& operator-=(az::Vector<T> &lhs, az::Impl::VectorVectorOperation<T, operation, opname> &&rhs) {
-	rhs.EvalInto<az::Impl::OperationSub<T>>(lhs);
+	rhs.template EvalInto<az::Impl::OperationSub<T>>(lhs);
 	return lhs;
 }
 
 template<typename T, bool flipped>
 az::Vector<T>& operator*=(az::Vector<T> &lhs, az::Impl::MatrixVectorMultiply<T, flipped> &&rhs) {
-	rhs.EvalInto<az::Impl::OperationMul<T>>(lhs);
+	rhs.template EvalInto<az::Impl::OperationMul<T>>(lhs);
 	return lhs;
 }
 template<typename T, bool flipped>
 az::Vector<T>& operator/=(az::Vector<T> &lhs, az::Impl::MatrixVectorMultiply<T, flipped> &&rhs) {
-	rhs.EvalInto<az::Impl::OperationDiv<T>>(lhs);
+	rhs.template EvalInto<az::Impl::OperationDiv<T>>(lhs);
 	return lhs;
 }
 template<typename T, bool flipped>
 az::Vector<T>& operator+=(az::Vector<T> &lhs, az::Impl::MatrixVectorMultiply<T, flipped> &&rhs) {
-	rhs.EvalInto<az::Impl::OperationAdd<T>>(lhs);
+	rhs.template EvalInto<az::Impl::OperationAdd<T>>(lhs);
 	return lhs;
 }
 template<typename T, bool flipped>
 az::Vector<T>& operator-=(az::Vector<T> &lhs, az::Impl::MatrixVectorMultiply<T, flipped> &&rhs) {
-	rhs.EvalInto<az::Impl::OperationSub<T>>(lhs);
+	rhs.template EvalInto<az::Impl::OperationSub<T>>(lhs);
 	return lhs;
 }
 
@@ -758,12 +758,7 @@ struct Vector {
 		return *this;
 	}
 
-	Vector& Orthogonalize(const Vector &other) {
-		AzAssert(Count() == other.Count(), Stringify("Orthogonalizing ", VECTOR_INFO_ARGS(*this), " against ", VECTOR_INFO_ARGS(other), " error: Vectors must be the same size!"));
-		T d = dot(*this, other);
-		*this -= other * d;
-		return *this;
-	}
+	Vector& Orthogonalize(const Vector &other);
 };
 
 template<typename T>
@@ -1202,217 +1197,19 @@ struct Matrix {
 	// Q is a    m x rows orthonormal matrix
 	// R is a cols x m    upper-triangular matrix
 	// Q * R is our original matrix
-	void QRDecomposition(Matrix &Q, Matrix &R) const {
-		// Uses the Gram-Schmidt process as described here: https://www.math.ucla.edu/~yanovsky/Teaching/Math151B/handouts/GramSchmidt.pdf
-		i32 m = min(cols, rows);
-		Q.Resize(m, Rows());
-		R.Resize(Cols(), m);
-	#if 0
-		// Work forward orthogonalizing each basis vector against all previous basis vectors
-		for (i32 c = 0; c < m; c++) {
-			Vector<T> basis = Q.Col(c);
-			basis = Col(c);
-			// Orthogonalize against all previous orthogonal basis vectors
-			for (i32 r = 0; r < c; r++) {
-				Vector<T> basisPrev = Q.Col(r);
-				// This also gives us all entries above the diagonal in R
-				T &dstDot = R[c][r];
-				dstDot = dot(basis, basisPrev);
-				basis -= basisPrev * dstDot;
-			}
-			basis.Normalize();
-			R[c][c] = dot(basis, Col(c));
-			// Zero the bottom triangle of R
-			for (i32 r = c+1; r < m; r++) {
-				R[c][r] = T(0);
-			}
-		}
-	#else
-		// Modified Gram-Schmidt that has better numerical stability at the cost of increased memory usage
-		AZ_DECLARE_MATRIX_WORKSPACE(workspace, m * Q.Rows(), T);
-		Matrix V = workspace.GetMatrix(m, Q.Rows());
-		for (i32 c = 0; c < m; c++) {
-			V.Col(c) = Col(c);
-		}
-		for (i32 c = 0; c < m; c++) {
-			Vector<T> basis = Q.Col(c);
-			basis = V.Col(c);
-			T &mag = R[c][c];
-			mag = norm(basis);
-			if (mag > T(1.0e-12)) {
-				basis /= mag;
-			} else {
-				// Contingency for weird degenerate matrices
-				for (i32 i = 0; i < basis.Count(); i++) {
-					basis[i] = i == c ? T(1) : T(0);
-				}
-				if (c > 0) {
-					basis.Orthogonalize(Q.Col(c-1)).Normalize();
-				}
-			}
-			// Orthogonalize ahead of time
-			for (i32 r = c+1; r < m; r++) {
-				Vector<T> basisNext = V.Col(r);
-				// This also gives us all entries above the diagonal in R
-				T &dstDot = R[r][c];
-				dstDot = dot(basis, basisNext);
-				basisNext -= basis * dstDot;
-			}
-			// Zero the bottom triangle of R
-			for (i32 r = c+1; r < m; r++) {
-				R[c][r] = T(0);
-			}
-		}
-	#endif
-		// m can be less than cols, so we have to fill in the rest of R in that case
-		for (i32 c = m; c < Cols(); c++) {
-			Vector<T> basis = Col(c);
-			for (i32 r = 0; r < m; r++) {
-				Vector<T> basisPrev = Q.Col(r);
-				R[c][r] = dot(basis, basisPrev);
-			}
-		}
-	}
+	void QRDecomposition(Matrix &Q, Matrix &R) const;
 
 	// This always works on symmetric matrices. Non-symmetric ones are a bit more tricky.
-	void Eigen(Matrix &vectors, Vector<T> &values, i32 maxIterations = 1000, T epsilon = T(0.000001)) const {
-		// Do a naive QR iteration for now
-		AzAssert(Cols() == Rows(), Stringify(MATRIX_INFO_ARGS(*this), " error: Eigen-decomposition is only defined for square matrices."));
-		i32 dims = Cols();
-		vectors.Resize(dims, dims);
-		vectors.ResetToIdentity();
-		values.Resize(dims);
-		AZ_DECLARE_MATRIX_WORKSPACE(workspace, square(dims) * 4 + dims, T);
-		T epsilonSqr = square(epsilon); // Since we compare to normSqr and not norm
-		Matrix A_1 = workspace.GetMatrixCopy(*this);
-		Matrix A_2 = workspace.GetMatrix(dims, dims);
-		Matrix Q = workspace.GetMatrix(dims, dims);
-		Matrix R = workspace.GetMatrix(dims, dims);
-		Matrix *A_next = &A_2;
-		Matrix *A_cur = &A_1;
-		i32 i;
-		for (i = 0; i < maxIterations; i++) {
-			A_cur->QRDecomposition(Q, R);
-			*A_next = R * Q;
-			vectors = vectors * Q;
-			T deltaSqr = T(0);
-			T delta2Sqr = T(0);
-			for (i32 c = 0; c < dims; c++) {
-				for (i32 r = 0; r < dims; r++) {
-					if (c != r) // Remove the diagonal
-						deltaSqr += square(A_next->Val(c, r));
-					delta2Sqr += square(abs(A_next->Val(c, r)) - abs(A_cur->Val(c, r)));
-				}
-			}
-			Swap(A_cur, A_next);
-			if (deltaSqr < epsilonSqr) break;
-			// We're not really changing by iterating, so just bail out.
-			if (delta2Sqr < epsilonSqr) break;
-		}
-		values = A_cur->Diag();
-		Vector<T> swapStorage = workspace.GetVector(dims);
-		Sort(values, 0, values.Count(), [](Vector<T> &array, i64 indexLHS, i64 indexRHS) -> bool {
-			return array[indexLHS] > array[indexRHS];
-		}, [&](Vector<T> &array, i64 indexLHS, i64 indexRHS, T &temp) {
-			Swap(array[indexLHS], array[indexRHS], temp);
-			swapStorage = vectors[indexLHS];
-			vectors[indexLHS] = vectors[indexRHS];
-			vectors[indexRHS] = swapStorage;
-		});
-	}
+	void Eigen(Matrix &vectors, Vector<T> &values, i32 maxIterations = 1000, T epsilon = T(0.000001)) const;
 
 	// U is a min(cols, rows) x rows left singular matrix
 	// S is a min(cols, rows) length vector that contains all the singular values (represents a diagonal matrix)
 	// Vt is a cols x min(cols,rows) matrix, the transpose of the right singular matrix
 	// U * Diagonal(S) * Vt is our original matrix
-	void SingularValueDecomposition(Matrix &U, Vector<T> &S, Matrix &Vt, i32 maxIterations = 1000, T epsilon = T(0.000001)) {
-		Matrix AT = transpose(this);
-		if (Cols() <= Rows()) {
-			Matrix AAT = *this * AT;
-			AAT.Eigen(U, S, maxIterations, epsilon);
-			S.count = Cols();
-			for (i32 i = 0; i < S.Count(); i++) {
-				if (S[i] > epsilon) {
-					S[i] = sqrt(S[i]);
-				} else {
-					S[i] = T(0);
-				}
-			}
-			U.cols = Cols();
-			for (i32 c = 0; c < U.Cols(); c++) {
-				if (c > 0) {
-					U.Col(c).Orthogonalize(U.Col(c-1));
-				}
-				if (S[c] != T(0)) {
-					U.Col(c).Normalize();
-				} else {
-					U.Col(c).ResetToValue(T(0));
-				}
-			}
-			Vt.Resize(Cols(), Cols());
-			for (i32 r = 0; r < Vt.Rows(); r++) {
-				Vector<T> row = Vt.Row(r);
-				row = AT * U.Col(r);
-				if (S[r] != T(0)) {
-					row /= S[r];
-				}
-			}
-		} else {
-			Matrix ATA = AT * *this;
-			ATA.Eigen(Vt, S, maxIterations, epsilon);
-			S.count = Rows();
-			for (i32 i = 0; i < S.Count(); i++) {
-				if (S[i] > epsilon) {
-					S[i] = sqrt(S[i]);
-				} else {
-					S[i] = T(0);
-				}
-			}
-			Vt.TransposeSoft();
-			Vt.rows = Rows();
-			for (i32 r = 0; r < Vt.Rows(); r++) {
-				if (r > 0) {
-					Vt.Row(r).Orthogonalize(Vt.Row(r-1));
-				}
-				if (S[r] != T(0)) {
-					Vt.Row(r).Normalize();
-				} else {
-					Vt.Row(r).ResetToValue(T(0));
-				}
-			}
-			U.Resize(Rows(), Rows());
-			for (i32 r = 0; r < U.Rows(); r++) {
-				Vector<T> row = U.Row(r);
-				row = *this * Vt.Row(r);
-				if (S[r] != T(0)) {
-					row /= S[r];
-				}
-			}
-		}
-	}
+	void SingularValueDecomposition(Matrix &U, Vector<T> &S, Matrix &Vt, i32 maxIterations = 1000, T epsilon = T(0.000001));
 
 	// Gives you the Moore-Penrose pseudoinverse (result will have inverted dimensions, like a transpose)
-	Matrix PseudoInverse(i32 maxIterations = 1000, T epsilon = T(0.000001), T damping = T(0)) {
-		i32 M = max(Cols(), Rows());
-		i32 countNeeded = square(M) * 2 + M;
-		AZ_DECLARE_MATRIX_WORKSPACE(workspace, countNeeded, T);
-		Matrix U = workspace.GetMatrix(M, M);
-		Vector<T> S = workspace.GetVector(M);
-		Matrix Vt = workspace.GetMatrix(M, M);
-		SingularValueDecomposition(U, S, Vt, maxIterations, epsilon);
-		U.TransposeSoft();
-		Vt.TransposeSoft();
-		for (i32 i = 0; i < S.Count(); i++) {
-			if (abs(S[i] + damping) > epsilon) {
-				S[i] = T(1) / (S[i] + damping);
-			} else {
-				S[i] = T(0);
-			}
-			Vt.Col(i) *= S[i];
-		}
-		Matrix result = Vt * U;
-		return result;
-	}
+	Matrix PseudoInverse(i32 maxIterations = 1000, T epsilon = T(0.000001), T damping = T(0));
 
 };
 
@@ -1579,37 +1376,37 @@ az::Matrix<T>& operator-=(az::Matrix<T> &lhs, const az::Matrix<T> &rhs) {
 }
 
 template<
-	class T1, class T,
-	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<T>>
-	>
+class T1, class T,
+	std::enable_if_t<
+		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<T>>,
+	bool> = true
 >
 inline az::Impl::VectorScalarOperation<T, az::Impl::OperationMul<T>, '*', false> operator*(T1 &&lhs, const T &rhs) {
 	return az::Impl::VectorScalarOperation<T, az::Impl::OperationMul<T>, '*', false>(std::forward<T1>(lhs), rhs);
 }
 template<
 	class T1, class T,
-	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<T>>
-	>
+	std::enable_if_t<
+		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<T>>,
+	bool> = true
 >
 inline az::Impl::VectorScalarOperation<T, az::Impl::OperationMul<T>, '*', true> operator*(const T &lhs, T1 &&rhs) {
 	return az::Impl::VectorScalarOperation<T, az::Impl::OperationMul<T>, '*', true>(std::forward<T1>(rhs), lhs);
 }
 template<
 	class T1, class T,
-	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<T>>
-	>
+	std::enable_if_t<
+		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<T>>,
+	bool> = true
 >
 inline az::Impl::VectorScalarOperation<T, az::Impl::OperationDiv<T>, '/', false> operator/(T1 &&lhs, const T &rhs) {
 	return az::Impl::VectorScalarOperation<T, az::Impl::OperationDiv<T>, '/', false>(std::forward<T1>(lhs), rhs);
 }
 template<
 	class T1, class T,
-	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<T>>
-	>
+	std::enable_if_t<
+		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<T>>,
+	bool> = true
 >
 inline az::Impl::VectorScalarOperation<T, az::Impl::OperationDiv<T>, '/', true> operator/(const T &lhs, T1 &&rhs) {
 	return az::Impl::VectorScalarOperation<T, az::Impl::OperationDiv<T>, '/', true>(std::forward<T1>(rhs), lhs);
@@ -1619,40 +1416,40 @@ inline az::Impl::VectorScalarOperation<T, az::Impl::OperationDiv<T>, '/', true> 
 
 template<
 	class T1, class T2,
-	typename = std::enable_if_t<
+	std::enable_if_t<
 		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>> &&
-		std::is_same_v<az::remove_cvref_t<T2>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>>
-	>
+		std::is_same_v<az::remove_cvref_t<T2>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>>,
+	bool> = true
 >
 inline az::Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, az::Impl::OperationAdd<typename az::remove_cvref_t<T1>::Scalar_t>, '+'> operator+(T1 &&lhs, T2 &&rhs) {
 	return az::Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, az::Impl::OperationAdd<typename az::remove_cvref_t<T1>::Scalar_t>, '+'>(std::forward<T1>(lhs), std::forward<T2>(rhs));
 }
 template<
 	class T1, class T2,
-	typename = std::enable_if_t<
+	std::enable_if_t<
 		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>> &&
-		std::is_same_v<az::remove_cvref_t<T2>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>>
-	>
+		std::is_same_v<az::remove_cvref_t<T2>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>>,
+	bool> = true
 >
 inline az::Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, az::Impl::OperationSub<typename az::remove_cvref_t<T1>::Scalar_t>, '-'> operator-(T1 &&lhs, T2 &&rhs) {
 	return az::Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, az::Impl::OperationSub<typename az::remove_cvref_t<T1>::Scalar_t>, '-'>(std::forward<T1>(lhs), std::forward<T2>(rhs));
 }
 template<
 	class T1, class T2,
-	typename = std::enable_if_t<
+	std::enable_if_t<
 		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>> &&
-		std::is_same_v<az::remove_cvref_t<T2>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>>
-	>
+		std::is_same_v<az::remove_cvref_t<T2>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>>,
+	bool> = true
 >
 inline az::Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, az::Impl::OperationMul<typename az::remove_cvref_t<T1>::Scalar_t>, '*'> operator*(T1 &&lhs, T2 &&rhs) {
 	return az::Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, az::Impl::OperationMul<typename az::remove_cvref_t<T1>::Scalar_t>, '*'>(std::forward<T1>(lhs), std::forward<T2>(rhs));
 }
 template<
 	class T1, class T2,
-	typename = std::enable_if_t<
+	std::enable_if_t<
 		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>> &&
-		std::is_same_v<az::remove_cvref_t<T2>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>>
-	>
+		std::is_same_v<az::remove_cvref_t<T2>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>>,
+	bool> = true
 >
 inline az::Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, az::Impl::OperationDiv<typename az::remove_cvref_t<T1>::Scalar_t>, '/'> operator/(T1 &&lhs, T2 &&rhs) {
 	return az::Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t, az::Impl::OperationDiv<typename az::remove_cvref_t<T1>::Scalar_t>, '/'>(std::forward<T1>(lhs), std::forward<T2>(rhs));
@@ -1662,36 +1459,36 @@ inline az::Impl::VectorVectorOperation<typename az::remove_cvref_t<T1>::Scalar_t
 
 template<
 	class T1, class T,
-	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<T>>
-	>
+	std::enable_if_t<
+		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<T>>,
+	bool> = true
 >
 inline az::Impl::MatrixScalarOperation<T, az::Impl::OperationMul<T>, '*', false> operator*(T1 &&lhs, const T &rhs) {
 	return az::Impl::MatrixScalarOperation<T, az::Impl::OperationMul<T>, '*', false>(std::forward<T>(lhs), rhs);
 }
 template<
 	class T1, class T,
-	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<T>>
-	>
+	std::enable_if_t<
+		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<T>>,
+	bool> = true
 >
 inline az::Impl::MatrixScalarOperation<T, az::Impl::OperationMul<T>, '*', true> operator*(const T &lhs, T1 &&rhs) {
 	return az::Impl::MatrixScalarOperation<T, az::Impl::OperationMul<T>, '*', true>(std::forward<T>(rhs), lhs);
 }
 template<
 	class T1, class T,
-	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<T>>
-	>
+	std::enable_if_t<
+		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<T>>,
+	bool> = true
 >
 inline az::Impl::MatrixScalarOperation<T, az::Impl::OperationDiv<T>, '/', false> operator/(T1 &&lhs, const T &rhs) {
 	return az::Impl::MatrixScalarOperation<T, az::Impl::OperationDiv<T>, '/', false>(std::forward<T>(lhs), rhs);
 }
 template<
 	class T1, class T,
-	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<T>>
-	>
+	std::enable_if_t<
+		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<T>>,
+	bool> = true
 >
 inline az::Impl::MatrixScalarOperation<T, az::Impl::OperationDiv<T>, '/', true> operator/(const T &lhs, T1 &&rhs) {
 	return az::Impl::MatrixScalarOperation<T, az::Impl::OperationDiv<T>, '/', true>(std::forward<T>(rhs), lhs);
@@ -1701,20 +1498,20 @@ inline az::Impl::MatrixScalarOperation<T, az::Impl::OperationDiv<T>, '/', true> 
 
 template<
 	class T1, class T2,
-	typename = std::enable_if_t<
+	std::enable_if_t<
 		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<typename az::remove_cvref_t<T1>::Scalar_t>> &&
-		std::is_same_v<az::remove_cvref_t<T2>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>>
-	>
+		std::is_same_v<az::remove_cvref_t<T2>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>>,
+	bool> = true
 >
 inline az::Impl::MatrixVectorMultiply<typename az::remove_cvref_t<T1>::Scalar_t, false> operator*(T1 &&lhs, T2 &&rhs) {
 	return az::Impl::MatrixVectorMultiply<typename az::remove_cvref_t<T1>::Scalar_t, false>(std::forward<T1>(lhs), std::forward<T2>(rhs));
 }
 template<
 	class T1, class T2,
-	typename = std::enable_if_t<
+	std::enable_if_t<
 		std::is_same_v<az::remove_cvref_t<T1>, az::Vector<typename az::remove_cvref_t<T1>::Scalar_t>> &&
-		std::is_same_v<az::remove_cvref_t<T2>, az::Matrix<typename az::remove_cvref_t<T1>::Scalar_t>>
-	>
+		std::is_same_v<az::remove_cvref_t<T2>, az::Matrix<typename az::remove_cvref_t<T1>::Scalar_t>>,
+	bool> = true
 >
 inline az::Impl::MatrixVectorMultiply<typename az::remove_cvref_t<T1>::Scalar_t, true> operator*(T1 &&lhs, T2 &&rhs) {
 	return az::Impl::MatrixVectorMultiply<typename az::remove_cvref_t<T1>::Scalar_t, true>(std::forward<T2>(rhs), std::forward<T1>(lhs));
@@ -1724,10 +1521,10 @@ inline az::Impl::MatrixVectorMultiply<typename az::remove_cvref_t<T1>::Scalar_t,
 
 template<
 	class T1, class T2,
-	typename = std::enable_if_t<
+	std::enable_if_t<
 		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<typename az::remove_cvref_t<T1>::Scalar_t>> &&
-		std::is_same_v<az::remove_cvref_t<T2>, az::Matrix<typename az::remove_cvref_t<T1>::Scalar_t>>
-	>
+		std::is_same_v<az::remove_cvref_t<T2>, az::Matrix<typename az::remove_cvref_t<T1>::Scalar_t>>,
+	bool> = true
 >
 inline az::Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t> operator*(T1 &&lhs, T2 &&rhs) {
 	return az::Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t>(std::forward<T1>(lhs), std::forward<T2>(rhs));
@@ -1735,18 +1532,239 @@ inline az::Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t>
 
 template<
 	class T1,
-	typename = std::enable_if_t<
-		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<typename az::remove_cvref_t<T1>::Scalar_t>>
-	>
+	std::enable_if_t<
+		std::is_same_v<az::remove_cvref_t<T1>, az::Matrix<typename az::remove_cvref_t<T1>::Scalar_t>>,
+	bool> = true
 >
 inline az::Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t> operator*(az::Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t> &&lhs, T1 &&rhs) {
 	return az::Impl::MatrixMatrixMultiply<typename az::remove_cvref_t<T1>::Scalar_t>((az::remove_cvref_t<T1>)lhs, std::forward<T1>(rhs));
 }
 
-#undef MATRIX_INFO_ARGS
-#undef VECTOR_INFO_ARGS
 
 namespace AzCore {
+
+
+template<typename T>
+Vector<T>& Vector<T>::Orthogonalize(const Vector<T> &other) {
+	AzAssert(Count() == other.Count(), Stringify("Orthogonalizing ", VECTOR_INFO_ARGS(*this), " against ", VECTOR_INFO_ARGS(other), " error: Vectors must be the same size!"));
+	T d = dot(*this, other);
+	*this -= other * d;
+	return *this;
+}
+
+
+
+template<typename T>
+void Matrix<T>::QRDecomposition(Matrix<T> &Q, Matrix<T> &R) const {
+	// Uses the Gram-Schmidt process as described here: https://www.math.ucla.edu/~yanovsky/Teaching/Math151B/handouts/GramSchmidt.pdf
+	i32 m = min(cols, rows);
+	Q.Resize(m, Rows());
+	R.Resize(Cols(), m);
+#if 0
+	// Work forward orthogonalizing each basis vector against all previous basis vectors
+	for (i32 c = 0; c < m; c++) {
+		Vector<T> basis = Q.Col(c);
+		basis = Col(c);
+		// Orthogonalize against all previous orthogonal basis vectors
+		for (i32 r = 0; r < c; r++) {
+			Vector<T> basisPrev = Q.Col(r);
+			// This also gives us all entries above the diagonal in R
+			T &dstDot = R[c][r];
+			dstDot = dot(basis, basisPrev);
+			basis -= basisPrev * dstDot;
+		}
+		basis.Normalize();
+		R[c][c] = dot(basis, Col(c));
+		// Zero the bottom triangle of R
+		for (i32 r = c+1; r < m; r++) {
+			R[c][r] = T(0);
+		}
+	}
+#else
+	// Modified Gram-Schmidt that has better numerical stability at the cost of increased memory usage
+	AZ_DECLARE_MATRIX_WORKSPACE(workspace, m * Q.Rows(), T);
+	Matrix<T> V = workspace.GetMatrix(m, Q.Rows());
+	for (i32 c = 0; c < m; c++) {
+		V.Col(c) = Col(c);
+	}
+	for (i32 c = 0; c < m; c++) {
+		Vector<T> basis = Q.Col(c);
+		basis = V.Col(c);
+		T &mag = R[c][c];
+		mag = norm(basis);
+		if (mag > T(1.0e-12)) {
+			basis /= mag;
+		} else {
+			// Contingency for weird degenerate matrices
+			for (i32 i = 0; i < basis.Count(); i++) {
+				basis[i] = i == c ? T(1) : T(0);
+			}
+			if (c > 0) {
+				basis.Orthogonalize(Q.Col(c-1)).Normalize();
+			}
+		}
+		// Orthogonalize ahead of time
+		for (i32 r = c+1; r < m; r++) {
+			Vector<T> basisNext = V.Col(r);
+			// This also gives us all entries above the diagonal in R
+			T &dstDot = R[r][c];
+			dstDot = dot(basis, basisNext);
+			basisNext -= basis * dstDot;
+		}
+		// Zero the bottom triangle of R
+		for (i32 r = c+1; r < m; r++) {
+			R[c][r] = T(0);
+		}
+	}
+#endif
+	// m can be less than cols, so we have to fill in the rest of R in that case
+	for (i32 c = m; c < Cols(); c++) {
+		Vector<T> basis = Col(c);
+		for (i32 r = 0; r < m; r++) {
+			Vector<T> basisPrev = Q.Col(r);
+			R[c][r] = dot(basis, basisPrev);
+		}
+	}
+}
+
+template<typename T>
+void Matrix<T>::Eigen(Matrix<T> &vectors, Vector<T> &values, i32 maxIterations, T epsilon) const {
+	// Do a naive QR iteration for now
+	AzAssert(Cols() == Rows(), Stringify(MATRIX_INFO_ARGS(*this), " error: Eigen-decomposition is only defined for square matrices."));
+	i32 dims = Cols();
+	vectors.Resize(dims, dims);
+	vectors.ResetToIdentity();
+	values.Resize(dims);
+	AZ_DECLARE_MATRIX_WORKSPACE(workspace, square(dims) * 4 + dims, T);
+	T epsilonSqr = square(epsilon); // Since we compare to normSqr and not norm
+	Matrix<T> A_1 = workspace.GetMatrixCopy(*this);
+	Matrix<T> A_2 = workspace.GetMatrix(dims, dims);
+	Matrix<T> Q = workspace.GetMatrix(dims, dims);
+	Matrix<T> R = workspace.GetMatrix(dims, dims);
+	Matrix<T> *A_next = &A_2;
+	Matrix<T> *A_cur = &A_1;
+	i32 i;
+	for (i = 0; i < maxIterations; i++) {
+		A_cur->QRDecomposition(Q, R);
+		*A_next = R * Q;
+		vectors = vectors * Q;
+		T deltaSqr = T(0);
+		T delta2Sqr = T(0);
+		for (i32 c = 0; c < dims; c++) {
+			for (i32 r = 0; r < dims; r++) {
+				if (c != r) // Remove the diagonal
+					deltaSqr += square(A_next->Val(c, r));
+				delta2Sqr += square(abs(A_next->Val(c, r)) - abs(A_cur->Val(c, r)));
+			}
+		}
+		Swap(A_cur, A_next);
+		if (deltaSqr < epsilonSqr) break;
+		// We're not really changing by iterating, so just bail out.
+		if (delta2Sqr < epsilonSqr) break;
+	}
+	values = A_cur->Diag();
+	Vector<T> swapStorage = workspace.GetVector(dims);
+	Sort(values, 0, values.Count(), [](Vector<T> &array, i64 indexLHS, i64 indexRHS) -> bool {
+		return array[indexLHS] > array[indexRHS];
+	}, [&](Vector<T> &array, i64 indexLHS, i64 indexRHS, T &temp) {
+		Swap(array[indexLHS], array[indexRHS], temp);
+		swapStorage = vectors[indexLHS];
+		vectors[indexLHS] = vectors[indexRHS];
+		vectors[indexRHS] = swapStorage;
+	});
+}
+
+template<typename T>
+void Matrix<T>::SingularValueDecomposition(Matrix<T> &U, Vector<T> &S, Matrix<T> &Vt, i32 maxIterations, T epsilon) {
+	Matrix<T> AT = transpose(this);
+	if (Cols() <= Rows()) {
+		Matrix<T> AAT = *this * AT;
+		AAT.Eigen(U, S, maxIterations, epsilon);
+		S.count = Cols();
+		for (i32 i = 0; i < S.Count(); i++) {
+			if (S[i] > epsilon) {
+				S[i] = sqrt(S[i]);
+			} else {
+				S[i] = T(0);
+			}
+		}
+		U.cols = Cols();
+		for (i32 c = 0; c < U.Cols(); c++) {
+			if (c > 0) {
+				U.Col(c).Orthogonalize(U.Col(c-1));
+			}
+			if (S[c] != T(0)) {
+				U.Col(c).Normalize();
+			} else {
+				U.Col(c).ResetToValue(T(0));
+			}
+		}
+		Vt.Resize(Cols(), Cols());
+		for (i32 r = 0; r < Vt.Rows(); r++) {
+			Vector<T> row = Vt.Row(r);
+			row = AT * U.Col(r);
+			if (S[r] != T(0)) {
+				row /= S[r];
+			}
+		}
+	} else {
+		Matrix<T> ATA = AT * *this;
+		ATA.Eigen(Vt, S, maxIterations, epsilon);
+		S.count = Rows();
+		for (i32 i = 0; i < S.Count(); i++) {
+			if (S[i] > epsilon) {
+				S[i] = sqrt(S[i]);
+			} else {
+				S[i] = T(0);
+			}
+		}
+		Vt.TransposeSoft();
+		Vt.rows = Rows();
+		for (i32 r = 0; r < Vt.Rows(); r++) {
+			if (r > 0) {
+				Vt.Row(r).Orthogonalize(Vt.Row(r-1));
+			}
+			if (S[r] != T(0)) {
+				Vt.Row(r).Normalize();
+			} else {
+				Vt.Row(r).ResetToValue(T(0));
+			}
+		}
+		U.Resize(Rows(), Rows());
+		for (i32 r = 0; r < U.Rows(); r++) {
+			Vector<T> row = U.Row(r);
+			row = *this * Vt.Row(r);
+			if (S[r] != T(0)) {
+				row /= S[r];
+			}
+		}
+	}
+}
+
+template<typename T>
+Matrix<T> Matrix<T>::PseudoInverse(i32 maxIterations, T epsilon, T damping) {
+	i32 M = max(Cols(), Rows());
+	i32 countNeeded = square(M) * 2 + M;
+	AZ_DECLARE_MATRIX_WORKSPACE(workspace, countNeeded, T);
+	Matrix<T> U = workspace.GetMatrix(M, M);
+	Vector<T> S = workspace.GetVector(M);
+	Matrix<T> Vt = workspace.GetMatrix(M, M);
+	SingularValueDecomposition(U, S, Vt, maxIterations, epsilon);
+	U.TransposeSoft();
+	Vt.TransposeSoft();
+	for (i32 i = 0; i < S.Count(); i++) {
+		if (abs(S[i] + damping) > epsilon) {
+			S[i] = T(1) / (S[i] + damping);
+		} else {
+			S[i] = T(0);
+		}
+		Vt.Col(i) *= S[i];
+	}
+	Matrix<T> result = Vt * U;
+	return result;
+}
+
+
 
 template<typename T>
 void AppendToString(String &string, const Vector<T> &vector) {
@@ -1796,5 +1814,8 @@ void AppendToString(String &string, const Matrix<T> &matrix) {
 }
 
 } // namespace AzCore
+
+#undef MATRIX_INFO_ARGS
+#undef VECTOR_INFO_ARGS
 
 #endif // AZCORE_MATRIX_HPP

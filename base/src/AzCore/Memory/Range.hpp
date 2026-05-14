@@ -11,9 +11,9 @@
 #include "StringCommon.hpp"
 #include "../Assert.hpp"
 #include "None.hpp"
+#include "../Utility/Template.hpp"
 
 #include <cstddef> // std::nullptr_t
-#include <type_traits>
 
 namespace AzCore {
 
@@ -291,7 +291,10 @@ struct SmartRange {
 
 // Like SmartRange above, but with fewer bells and whistles.
 // Because sometimes simplicity is best.
-template <typename T>
+template <
+	typename T,
+	typename std::enable_if_t<!std::is_const_v<T>, int>
+>
 struct Range {
 	T *data;
 	i64 size;
@@ -304,7 +307,7 @@ struct Range {
 	constexpr Range(T *string, i64 length) : data(string), size(length) {}
 	constexpr Range(const T *string, i64 length) : data((T*)string), size(length) {}
 	constexpr Range(const T *string) : data((T*)string), size(StringLength(string)) {}
-	constexpr Range(Range<const T> &other) : data((T*)other.data), size(other.size) {}
+	//constexpr Range(Range<const T> &other) : data((T*)other.data), size(other.size) {}
 	template<
 		typename Other_t,
 		typename = std::enable_if_t<

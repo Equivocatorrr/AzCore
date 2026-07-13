@@ -9,7 +9,14 @@
 
 #include "../BasicTypes.hpp"
 #include <type_traits>
-#include <byteswap.h>
+#ifndef _MSC_VER
+	#include <byteswap.h>
+#else
+	#include <cstdlib>
+	#define bswap_16(a) _byteswap_ushort(a)
+	#define bswap_32(a) _byteswap_ulong(a)
+	#define bswap_64(a) _byteswap_uint64(a)
+#endif
 
 namespace AzCore {
 
@@ -35,6 +42,12 @@ inline void EndianSwap(u32 &data) {
 inline void EndianSwap(u64 &data) {
 	data = bswap_64(data);
 }
+
+#ifdef _MSC_VER
+	#undef bswap_16
+	#undef bswap_32
+	#undef bswap_64
+#endif
 
 template<
 	typename T,

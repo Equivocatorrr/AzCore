@@ -60,7 +60,7 @@ struct StaticArray {
 	StaticArray(const Range<T> &range) : size(range.size) {
 		AzAssert(size <= count, "StaticArray initialized with a size bigger than count");
 		if constexpr (std::is_trivially_copyable<T>::value) {
-			memcpy((void *)data, (void *)range.str, sizeof(T) * size);
+			memcpy((void *)data, (void *)range.data, sizeof(T) * size);
 		} else {
 			for (i32 i = 0; i < size; i++) {
 				data[i] = range[i];
@@ -115,7 +115,7 @@ struct StaticArray {
 		size = range.size;
 		AzAssert(size <= count, "StaticArray assigned with a size bigger than count");
 		if constexpr (std::is_trivially_copyable<T>::value) {
-			memcpy((void *)data, (void *)range.str, sizeof(T) * (u32)size);
+			memcpy((void *)data, (void *)range.data, sizeof(T) * (u32)size);
 		} else {
 			for (i32 i = 0; i < size; i++) {
 				data[i] = range[i];

@@ -16,6 +16,7 @@ using namespace io::kc;
 
 Settings::Name sLookSmoothing;
 Settings::Name sFlickTilting;
+Settings::Name sGrassShadows;
 
 struct Test : public GameSystems::System {
 	vec3 pos = vec3(1.0f, 1.0f, 1.0f);
@@ -256,6 +257,7 @@ struct Test : public GameSystems::System {
 		const f32 patchDimension = 8.0f;
 		ArrayWithBucket<mat4, 1> transforms(square(patchCount));
 		const f32 grassDimensions = 12.0f - patchDimension/2.0f;
+		bool grassShadows = Settings::ReadBool(sGrassShadows);
 		for (f32 y = -grassDimensions; y <= grassDimensions; y += patchDimension) {
 			for (f32 x = -grassDimensions; x <= grassDimensions; x += patchDimension) {
 				for (i32 yy = -patchCount/2; yy < patchCount/2; yy++) {
@@ -271,7 +273,7 @@ struct Test : public GameSystems::System {
 						), quat::Rotation(random(0.0f, tau, &rng), vec3(0.0f, 0.0f, 1.0f)), vec3(3.0f));
 					}
 				}
-				Rendering::DrawMesh(contexts[0], meshGrass, transforms, true, false);
+				Rendering::DrawMesh(contexts[0], meshGrass, transforms, true, grassShadows);
 			}
 		}
 		// Rendering::DrawDebugSphere(contexts[0], vec3(0.0f), 1.0f, vec4(1.0f));
@@ -286,6 +288,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
 	sLookSmoothing = "lookSmoothing";
 	sFlickTilting = "flickTilting";
+	sGrassShadows = "grassShadows";
 
 	for (i32 i = 0; i < argumentCount; i++) {
 		io::cout.PrintLn(i, ": ", argumentValues[i]);
@@ -300,6 +303,7 @@ i32 main(i32 argumentCount, char** argumentValues) {
 
 	Settings::Add(sLookSmoothing, Settings::Setting(true));
 	Settings::Add(sFlickTilting, Settings::Setting(true));
+	Settings::Add(sGrassShadows, Settings::Setting(false));
 
 	if (!GameSystems::Init("Az3D Example", {&test}, enableLayers)) {
 		io::cerr.PrintLn("Failed to Init: ", GameSystems::sys->error);

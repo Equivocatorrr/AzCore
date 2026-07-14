@@ -2397,7 +2397,13 @@ void PrintPhysicalDeviceInfo(PhysicalDevice *physicalDevice) {
 	for (i32 i = 0; i < physicalDevice->queueFamiliesAvailable.size; i++) {
 		const VkQueueFamilyProperties2 &props = physicalDevice->queueFamiliesAvailable[i];
 		VkQueueFlags queueFlags = props.queueFamilyProperties.queueFlags;
-		io::cout.Print("\n\tFamily[", i, "] Queue count: ", props.queueFamilyProperties.queueCount, "\tSupports: ", ((queueFlags & VK_QUEUE_COMPUTE_BIT) ? "COMPUTE " : ""), ((queueFlags & VK_QUEUE_GRAPHICS_BIT) ? "GRAPHICS " : ""), ((queueFlags & VK_QUEUE_TRANSFER_BIT) ? "TRANSFER " : ""));
+		io::cout.Print("\n\tFamily[", i, "] Queue count: ", props.queueFamilyProperties.queueCount, "\tSupports: ",
+			((queueFlags & VK_QUEUE_COMPUTE_BIT) ? "COMPUTE " : ""),
+			((queueFlags & VK_QUEUE_GRAPHICS_BIT) ? "GRAPHICS " : ""),
+			((queueFlags & VK_QUEUE_TRANSFER_BIT) ? "TRANSFER " : ""),
+			((queueFlags & VK_QUEUE_VIDEO_DECODE_BIT_KHR) ? "VIDEO_DECODE " : ""),
+			((queueFlags & VK_QUEUE_VIDEO_ENCODE_BIT_KHR) ? "VIDEO_ENCODE " : "")
+		);
 		String presentString = "PRESENT on windows {";
 		VkBool32 presentSupport = false;
 		bool first = true;

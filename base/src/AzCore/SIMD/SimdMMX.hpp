@@ -6,7 +6,7 @@
 #ifndef AZCORE_SIMD_MMX_HPP
 #define AZCORE_SIMD_MMX_HPP
 
-#include <string.h>
+#include <cstring>
 
 #include <mmintrin.h>  // MMX
 
@@ -14,7 +14,7 @@
 #warning "Using MMX when SSE2 is available is probably not advisable."
 #endif
 
-#include "../basictypes.hpp"
+#include "../BasicTypes.hpp"
 
 struct u32x2;
 struct i32x2;

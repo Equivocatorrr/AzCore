@@ -6,8 +6,6 @@
 #ifndef AZCORE_SIMD_SSE2_HPP
 #define AZCORE_SIMD_SSE2_HPP
 
-#include <string.h>
-
 #include <mmintrin.h>  // MMX NOTE: These are deprecated in MSVC
 #include <xmmintrin.h> // SSE
 #include <emmintrin.h> // SSE2
@@ -24,7 +22,7 @@
 #include <nmmintrin.h>
 #endif
 
-#include "../basictypes.hpp"
+#include "../BasicTypes.hpp"
 
 // Represents all integer types.
 // Defines bitwise operations that don't depend on lane width
@@ -86,7 +84,7 @@ struct _si128 {
 		_mm_storeu_si128((__m128i*)dst, V);
 	}
 	force_inline(void)
-	SetValues(char *src) {
+	SetValues(const char *src) {
 		V = _mm_loadu_si128((__m128i*)src);
 	}
 
@@ -328,7 +326,7 @@ struct _int32x4 : public _si128 {
 		_mm_storeu_si128((__m128i*)dst, V);
 	}
 	force_inline(void)
-	SetValues(u32 *src) {
+	SetValues(const u32 *src) {
 		V = _mm_loadu_si128((const __m128i*)src);
 	}
 	force_inline(void)
@@ -336,7 +334,7 @@ struct _int32x4 : public _si128 {
 		_mm_storeu_si128((__m128i*)dst, V);
 	}
 	force_inline(void)
-	SetValues(i32 *src) {
+	SetValues(const i32 *src) {
 		V = _mm_loadu_si128((const __m128i*)src);
 	}
 
@@ -598,7 +596,7 @@ struct _int64x2 : public _si128 {
 		_mm_storeu_si128((__m128i*)dst, V);
 	}
 	force_inline(void)
-	SetValues(u64 *src) {
+	SetValues(const u64 *src) {
 		V = _mm_loadu_si128((const __m128i*)src);
 	}
 	force_inline(void)
@@ -606,7 +604,7 @@ struct _int64x2 : public _si128 {
 		_mm_storeu_si128((__m128i*)dst, V);
 	}
 	force_inline(void)
-	SetValues(i64 *src) {
+	SetValues(const i64 *src) {
 		V = _mm_loadu_si128((const __m128i*)src);
 	}
 
@@ -818,7 +816,7 @@ struct f64x2 {
 	}
 	// Loads 2 values from src
 	force_inline(void)
-	SetValues(f64 *src) {
+	SetValues(const f64 *src) {
 		V = _mm_loadu_pd(src);
 	}
 
@@ -973,7 +971,7 @@ struct f32x4 {
 	}
 	// Loads 4 values from src
 	force_inline(void)
-	SetValues(f32 *src) {
+	SetValues(const f32 *src) {
 		V = _mm_loadu_ps(src);
 	}
 
@@ -1123,7 +1121,7 @@ horizontalAdd(f32x4 a) {
 	// a.V = 0, 1, 2, 3
 	__m128 shuf = _mm_shuffle_ps(a.V, a.V, _MM_SHUFFLE(2, 3, 0, 1));
 	// shuf = 1, 0, 3, 2
-	__m128 sums = _mm_add_ps(shuf, sums);
+	__m128 sums = _mm_add_ps(shuf, a.V);
 	// sums = 0+1, 0+1, 2+3, 2+3
 	shuf = _mm_movehl_ps(shuf, sums);
 	// shuf = 2+3, 2+3, 3, 2

@@ -4,16 +4,16 @@
 	Description: High-level definition of the structure of our program.
 */
 
-#include "AzCore/io.hpp"
+#include "AzCore/IO/io.hpp"
 #include "AzCore/SoftwareRendering.hpp"
-
-using namespace AzCore;
-
 #include "AzCore/SIMD/SimdAVX.hpp"
 #include "AzCore/Image.hpp"
-#include "AzCore/math.hpp"
-#include "AzCore/Time.hpp"
-#include "AzCore/keycodes.hpp"
+#include "AzCore/Math/Math.hpp"
+#include "AzCore/Utility/Time.hpp"
+#include "AzCore/IO/KeyCodes.hpp"
+
+using namespace AzCore;
+using namespace io::kc;
 
 io::Log cout("test.log", true, true);
 
@@ -206,7 +206,7 @@ void Render(SoftwareRenderer &renderer, vec2_t<Float> pos, bool julia, Complex j
 				color = hsvToRgb(vec3(hue, sat, val)) * 255.0f;
 				vec2i p1(x, y + i*stride.y);
 				p1 += offset;
-				renderer.DrawBox(p1, p1+scale, Color((u8)color.r, (u8)color.g, (u8)color.b, 255));
+				renderer.DrawBox(p1, p1+scale, Color<u8>((u8)color.r, (u8)color.g, (u8)color.b, 255));
 			}
 		}
 	}
@@ -393,12 +393,9 @@ i32 main(i32 argumentCount, char** argumentValues) {
 		}
 		if (input.Pressed(KC_KEY_F12)) {
 			Image screenshot;
-			if (!renderer.FramebufferToImage(&screenshot)) {
-				cout.PrintLn("Failed to get framebuffer for screenshot.");
-			} else {
-				if (!screenshot.SavePNG("screenshot.png")) {
-					cout.PrintLn("Failed to save screenshot.");
-				}
+			renderer.FramebufferToImage(screenshot);
+			if (!screenshot.SavePNG("screenshot.png")) {
+				cout.PrintLn("Failed to save screenshot.");
 			}
 		}
 		if (renderJulia) {

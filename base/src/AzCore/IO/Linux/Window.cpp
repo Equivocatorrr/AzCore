@@ -5,11 +5,13 @@
 
 // #include "../Window.hpp"
 // #include "../../io.hpp"
-// #include "../../keycodes.hpp"
+// #include "../../KeyCodes.hpp"
 // #include "WindowData.hpp"
 // ^these are included by Wayland.cpp
 #include "Wayland.cpp"
 #include "XCB.cpp"
+
+using namespace AzCore::io::kc;
 
 namespace AzCore::io {
 
@@ -86,15 +88,17 @@ bool Window::Open() {
 	return true;
 }
 
-bool Window::Show() {
+bool Window::Show(bool shown) {
 	if (!open) {
 		error = "Window hasn't been created yet";
 		return false;
 	}
 	if (data->useWayland) {
 		// We show in Open because otherwise we can't get DPI
+		visible = shown; // Spoof it for now in case anything depends on us storing this value as expected.
+		// TODO: Find a way to do what we want here
 	} else {
-		windowShowXCB(this);
+		windowShowXCB(this, shown);
 	}
 	return true;
 }
@@ -110,6 +114,7 @@ bool Window::Close() {
 		windowCloseXCB(this);
 	}
 	open = false;
+	visible = false;
 	return true;
 }
 
@@ -151,17 +156,25 @@ bool Window::Resize(u32 w, u32 h) {
 	} else {
 		windowResizeX11(this);
 	}
+	resized = true;
 	return true;
 }
 
 bool Window::Update() {
 	bool changeFullscreen = false;
 	resized = false;
+	if (_setCursor && data->useWayland) {
+		MoveCursorWayland(this, _setCursorX, _setCursorY);
+	}
 	if (data->useWayland) {
 		if (!windowUpdateWayland(this, changeFullscreen)) return false;
 	} else {
 		if (!windowUpdateXCB(this, changeFullscreen)) return false;
 	}
+	if (_setCursor && !data->useWayland) {
+		MoveCursorXCB(this, _setCursorX, _setCursorY);
+	}
+	_setCursor = false;
 
 	if (changeFullscreen) {
 		Fullscreen(!fullscreen);
@@ -177,6 +190,12 @@ void Window::HideCursor(bool hide) {
 	} else {
 		SetCursorXCB(this);
 	}
+}
+
+void Window::MoveCursor(i32 x, i32 y) {
+	_setCursor = true;
+	_setCursorX = x;
+	_setCursorY = y;
 }
 
 String Window::InputName(u8 keyCode) const {

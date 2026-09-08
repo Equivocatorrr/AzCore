@@ -8,42 +8,16 @@
 #include "settings.hpp"
 #include "assets.hpp"
 #include "gui_basics.hpp"
-#include "profiling.hpp"
 #include "entity_basics.hpp"
 
+#include "AzCore/Utility/Profiling.hpp"
 #include "AzCore/IO/Log.hpp"
-#include "AzCore/io.hpp"
-#include "AzCore/font.hpp"
+#include "AzCore/Font/Font.hpp"
+#include "AzCore/Math/Color.hpp"
 
 namespace Az2D::Rendering {
 
-vec3i lessThan(vec3 lhs, vec3 rhs) {
-	vec3i result;
-	result.x = lhs.x < rhs.x;
-	result.y = lhs.y < rhs.y;
-	result.z = lhs.z < rhs.z;
-	return result;
-}
-vec3 pow(vec3 a, f32 b) {
-	vec3 result;
-	result.x = ::pow(a.x, b);
-	result.y = ::pow(a.y, b);
-	result.z = ::pow(a.z, b);
-	return result;
-}
-vec3 mix(vec3 a, vec3 b, vec3 t) {
-	return a + (b - a) * t;
-}
-
-vec3 sRGBToLinear(vec3 sRGB) {
-	vec3i cutoff = lessThan(sRGB, vec3(0.04045f));
-	vec3 higher = pow((sRGB + vec3(0.055f))/vec3(1.055f), 2.4f);
-	vec3 lower = sRGB/vec3(12.92f);
-	return mix(higher, lower, cutoff);
-}
-
 using GameSystems::sys;
-
 
 io::Log cout("rendering.log");
 
@@ -119,7 +93,8 @@ void PushConstants::PushCircle(VkCommandBuffer commandBuffer, const Manager *ren
 }
 
 bool Manager::Init() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Init)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Init)
+	ScopedLock lock(sys->assets.arrayMutex);
 	data.device = data.instance.AddDevice();
 	data.device->data.vk12FeaturesRequired.scalarBlockLayout = VK_TRUE;
 	data.device->data.vk12FeaturesRequired.uniformAndStorageBuffer8BitAccess = VK_TRUE;
@@ -211,7 +186,7 @@ bool Manager::Init() {
 	data.stagingMemory->deviceLocal = false;
 	data.bufferMemory = data.device->AddMemory();
 	data.textureMemory = data.device->AddMemory();
-	
+
 	data.fontStagingMemory = data.device->AddMemory();
 	data.fontStagingMemory->deviceLocal = false;
 	data.fontBufferMemory = data.device->AddMemory();
@@ -230,7 +205,7 @@ bool Manager::Init() {
 	baseBuffer.size = 1;
 	baseBuffer.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
-	Range<vk::Buffer> bufferStagingBuffers = data.stagingMemory->AddBuffers(3, baseBuffer);
+	SmartRange<vk::Buffer> bufferStagingBuffers = data.stagingMemory->AddBuffers(3, baseBuffer);
 	bufferStagingBuffers[0].size = vertices.size * sizeof(Vertex);
 	bufferStagingBuffers[1].size = indices.size * sizeof(u32);
 	data.uniformStagingBuffer = bufferStagingBuffers.GetPtr(2);
@@ -259,7 +234,7 @@ bool Manager::Init() {
 	baseImage.format = VK_FORMAT_R8G8B8A8_SRGB;
 	auto texImages = data.textureMemory->AddImages(sys->assets.textures.size, baseImage);
 	for (i32 i = 0; i < sys->assets.textures.size; i++) {
-		if (sys->assets.textures[i].linear) {
+		if (sys->assets.textures[i].image.format.colorSpace == Image::Format::LINEAR) {
 			data.textureMemory->data.images[i].format = VK_FORMAT_R8G8B8A8_UNORM;
 		}
 	}
@@ -270,13 +245,21 @@ bool Manager::Init() {
 	data.fontImages = data.fontImageMemory->AddImages(sys->assets.fonts.size, baseImage);
 
 	for (i32 i = 0; i < texImages.size; i++) {
-		const i32 channels = sys->assets.textures[i].channels;
+		if (!sys->assets.IsTextureValid(i, false)) {
+			texImages[i].width = 1;
+			texImages[i].height = 1;
+			texImages[i].mipLevels = 1;
+			texImages[i].format = VK_FORMAT_R8_UNORM;
+			texStagingBuffers[i].size = 1;
+			continue;
+		}
+		const i32 channels = sys->assets.textures[i].image.format.channels;
 		if (channels != 4) {
 			error = Stringify("Invalid channel count (", channels, ") in textures[", i, "]");
 			return false;
 		}
-		texImages[i].width = sys->assets.textures[i].width;
-		texImages[i].height = sys->assets.textures[i].height;
+		texImages[i].width = sys->assets.textures[i].image.width;
+		texImages[i].height = sys->assets.textures[i].image.height;
 		texImages[i].mipLevels = (u32)floor(log2((f32)max(texImages[i].width, texImages[i].height))) + 1;
 
 		texStagingBuffers[i].size = channels * texImages[i].width * texImages[i].height;
@@ -315,7 +298,7 @@ bool Manager::Init() {
 		return false;
 	}
 
-	Range<vk::Shader> shaders = data.device->AddShaders(8);
+	SmartRange<vk::Shader> shaders = data.device->AddShaders(8);
 	shaders[0].filename = "data/Az2D/shaders/Basic2D.vert.spv";
 	shaders[1].filename = "data/Az2D/shaders/Basic2D.frag.spv";
 	shaders[2].filename = "data/Az2D/shaders/Font2D.frag.spv";
@@ -342,7 +325,7 @@ bool Manager::Init() {
 	data.pipelineDescriptorSets[PIPELINE_CIRCLE_2D] = {data.descriptorSet2D};
 	data.pipelineDescriptorSets[PIPELINE_SHADED_2D] = {data.descriptorSet2D};
 	data.pipelineDescriptorSets[PIPELINE_SHADED_2D_PIXEL] = {data.descriptorSet2D};
-	
+
 	data.pipelines[PIPELINE_BASIC_2D] = data.device->AddPipeline();
 	data.pipelines[PIPELINE_BASIC_2D]->renderPass = data.renderPass;
 	data.pipelines[PIPELINE_BASIC_2D]->subpass = 0;
@@ -455,8 +438,8 @@ bool Manager::Init() {
 		},
 		{
 			/* stage flags */ VK_SHADER_STAGE_FRAGMENT_BIT,
-			/* offset */ 48,
-			/* size */ sizeof(Material) + 4
+			/* offset */ offsetof(PushConstants, frag),
+			/* size */ sizeof(PushConstants::frag_t)
 		}
 	};
 	data.pipelines[PIPELINE_BASIC_2D_PIXEL]->pushConstantRanges = data.pipelines[PIPELINE_BASIC_2D]->pushConstantRanges;
@@ -513,7 +496,7 @@ bool Manager::Init() {
 		error = "Failed to init vk::instance: " + vk::error;
 		return false;
 	}
-	
+
 	uniforms.lights[0].position = vec3(0.0f);
 	uniforms.lights[0].color = vec3(0.0f);
 	uniforms.lights[0].attenuation = 0.0f;
@@ -526,7 +509,12 @@ bool Manager::Init() {
 	bufferStagingBuffers[0].CopyData(vertices.data);
 	bufferStagingBuffers[1].CopyData(indices.data);
 	for (i32 i = 0; i < texStagingBuffers.size; i++) {
-		texStagingBuffers[i].CopyData(sys->assets.textures[i].pixels);
+		if (sys->assets.IsTextureValid(i, false)) {
+			texStagingBuffers[i].CopyData(sys->assets.textures[i].image.pixels);
+		} else {
+			u8 black = 0;
+			texStagingBuffers[i].CopyData(&black);
+		}
 	}
 
 	VkCommandBuffer cmdBufCopy = data.commandBufferGraphicsTransfer->Begin();
@@ -569,10 +557,10 @@ using Entities::AABB;
 AABB GetAABB(const Light &light) {
 	AABB result;
 	vec2 center = {light.position.x, light.position.y};
-	
+
 	result.minPos = center;
 	result.maxPos = center;
-	
+
 	f32 dist = light.distMax;// * sqrt(1.0f - square(light.direction.z));
 	Angle32 cardinalDirs[4] = {0.0f, halfpi, pi, halfpi * 3.0f};
 	vec2 cardinalVecs[4] = {
@@ -588,7 +576,7 @@ AABB GetAABB(const Light &light) {
 		result.Extend(center + vec2(cos(dirMin), sin(dirMin)) * dist);
 		result.Extend(center + vec2(cos(dirMax), sin(dirMax)) * dist);
 		for (i32 i = 0; i < 4; i++) {
-			if (abs(cardinalDirs[i] - dir) < light.angleMax) {
+			if (abs((cardinalDirs[i] - dir).value()) < light.angleMax) {
 				result.Extend(center + cardinalVecs[i]);
 			}
 		}
@@ -612,7 +600,7 @@ i32 LightBinIndex(vec2i bin) {
 }
 
 void Manager::UpdateLights() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::UpdateLights)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::UpdateLights)
 	i32 lightCounts[LIGHT_BIN_COUNT] = {0};
 	i32 totalLights = 1;
 	// By default, they all point to the default light which has no light at all
@@ -655,7 +643,7 @@ void Manager::UpdateLights() {
 }
 
 bool Manager::UpdateFonts() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::UpdateFonts)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::UpdateFonts)
 	// Will be done on-the-fly
 	if (data.fontStagingMemory->data.initted) {
 		data.fontStagingMemory->Deinit();
@@ -707,9 +695,15 @@ bool Manager::UpdateFonts() {
 	data.fontVertexBuffer->size = data.fontStagingVertexBuffer->size;
 
 	for (i32 i = 0; i < data.fontImages.size; i++) {
-		data.fontImages[i].width = sys->assets.fonts[i].fontBuilder.dimensions.x;
-		data.fontImages[i].height = sys->assets.fonts[i].fontBuilder.dimensions.y;
-		data.fontImages[i].mipLevels = (u32)floor(log2((f32)max(data.fontImages[i].width, data.fontImages[i].height))) + 1;
+		if (!sys->assets.IsFontValid(i, false)) {
+			data.fontImages[i].width = 1;
+			data.fontImages[i].height = 1;
+			data.fontImages[i].mipLevels = 1;
+		} else {
+			data.fontImages[i].width = sys->assets.fonts[i].fontBuilder.dimensions.x;
+			data.fontImages[i].height = sys->assets.fonts[i].fontBuilder.dimensions.y;
+			data.fontImages[i].mipLevels = (u32)floor(log2((f32)max(data.fontImages[i].width, data.fontImages[i].height))) + 1;
+		}
 
 		data.fontStagingImageBuffers[i].size = data.fontImages[i].width * data.fontImages[i].height;
 	}
@@ -732,7 +726,12 @@ bool Manager::UpdateFonts() {
 
 	data.fontStagingVertexBuffer->CopyData(fontVertices.data);
 	for (i32 i = 0; i < data.fontStagingImageBuffers.size; i++) {
-		data.fontStagingImageBuffers[i].CopyData(sys->assets.fonts[i].fontBuilder.pixels.data);
+		if (!sys->assets.IsFontValid(i, false)) {
+			u8 black = 0;
+			data.fontStagingImageBuffers[i].CopyData(&black);
+		} else {
+			data.fontStagingImageBuffers[i].CopyData(sys->assets.fonts[i].fontBuilder.pixels.data);
+		}
 	}
 
 	VkCommandBuffer cmdBufCopy = data.commandBufferGraphicsTransfer->Begin();
@@ -760,7 +759,7 @@ bool Manager::UpdateFonts() {
 
 bool Manager::UpdateUniforms() {
 	UpdateLights();
-	
+
 	data.uniformStagingBuffer->CopyData(&uniforms);
 	VkCommandBuffer cmdBuf = data.commandBufferTransfer->Begin();
 	data.uniformBuffer->Copy(cmdBuf, data.uniformStagingBuffer);
@@ -779,15 +778,16 @@ bool Manager::UpdateUniforms() {
 }
 
 bool Manager::Draw() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Draw)
+	// AZCORE_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Draw)
+	AZCORE_PROFILING_FUNC_TIMER()
 	if (vk::hadValidationError) {
 		error = "Quitting due to vulkan validation error.";
 		return false;
 	}
 	if (sys->window.resized || data.resized || data.zeroExtent) {
-		AZ2D_PROFILING_EXCEPTION_START();
+		AZCORE_PROFILING_EXCEPTION_START();
 		vk::DeviceWaitIdle(data.device);
-		AZ2D_PROFILING_EXCEPTION_END();
+		AZCORE_PROFILING_EXCEPTION_END();
 		data.swapchain->UpdateSurfaceCapabilities();
 		VkExtent2D extent = data.swapchain->data.surfaceCapabilities.currentExtent;
 		if (extent.width == 0 || extent.height == 0) {
@@ -802,9 +802,9 @@ bool Manager::Draw() {
 		data.resized = false;
 	}
 	if (Settings::ReadBool(Settings::sVSync) != data.swapchain->vsync) {
-		AZ2D_PROFILING_EXCEPTION_START();
+		AZCORE_PROFILING_EXCEPTION_START();
 		vk::DeviceWaitIdle(data.device);
-		AZ2D_PROFILING_EXCEPTION_END();
+		AZCORE_PROFILING_EXCEPTION_END();
 		data.swapchain->vsync = Settings::ReadBool(Settings::sVSync);
 		if (!data.swapchain->Reconfigure()) {
 			error = "Failed to set VSync: " + vk::error;
@@ -816,26 +816,32 @@ bool Manager::Draw() {
 	for (i32 i = 0; i < sys->assets.fonts.size; i++) {
 		Assets::Font& font = sys->assets.fonts[i];
 		if (font.fontBuilder.indicesToAdd.size != 0) {
-			font.fontBuilder.Build();
+			if (font.file->stage != az::io::File::Stage::READY) {
+				continue;
+			}
+			if (!font.fontBuilder.Build()) {
+				error = Stringify("Failed to update font \"", font.file->filepath, "\": ", az::font::error);
+				return false;
+			}
 			updateFontMemory = true;
 		}
 	}
 	if (updateFontMemory) {
-		AZ2D_PROFILING_EXCEPTION_START();
+		AZCORE_PROFILING_EXCEPTION_START();
 		vk::DeviceWaitIdle(data.device);
-		AZ2D_PROFILING_EXCEPTION_END();
+		AZCORE_PROFILING_EXCEPTION_END();
 		if (!UpdateFonts()) {
 			return false;
 		}
 	}
 
-	static Az2D::Profiling::AString sAcquisition("Swapchain::AcquireNextImage");
-	Az2D::Profiling::Timer timerAcquisition(sAcquisition);
+	static az::Profiling::AString sAcquisition("Swapchain::AcquireNextImage");
+	az::Profiling::Timer timerAcquisition(sAcquisition);
 	timerAcquisition.Start();
-	AZ2D_PROFILING_EXCEPTION_START();
+	AZCORE_PROFILING_EXCEPTION_START();
 	VkResult acquisitionResult = data.swapchain->AcquireNextImage();
 	timerAcquisition.End();
-	AZ2D_PROFILING_EXCEPTION_END();
+	AZCORE_PROFILING_EXCEPTION_END();
 
 	if (acquisitionResult == VK_ERROR_OUT_OF_DATE_KHR || acquisitionResult == VK_NOT_READY) {
 		cout.PrintLn("Skipping a frame because acquisition returned: ", vk::ErrorString(acquisitionResult));
@@ -893,7 +899,7 @@ bool Manager::Draw() {
 			f32 msMin = sys->frametimes.Min();
 			f32 msDiff = msMax - msMin;
 			f32 fps = 1000.0f / msAvg;
-			DrawQuad(commandBuffersSecondary.Back(), 0.0f, vec2(500.0f, 20.0f) * Gui::guiBasic->scale, 1.0f, 0.0f, 0.0f, PIPELINE_BASIC_2D, vec4(vec3(0.0f), 0.5f));
+			DrawQuad(commandBuffersSecondary.Back(), 0.0f, vec2(500.0f, 20.0f) * Gui::guiBasic->system.scale, 1.0f, 0.0f, 0.0f, PIPELINE_BASIC_2D, vec4(vec3(0.0f), 0.5f));
 			WString strings[] = {
 				ToWString(Stringify("fps: ", FormatFloat(fps, 10, 1))),
 				ToWString(Stringify("avg: ", FormatFloat(msAvg, 10, 1), "ms")),
@@ -903,8 +909,8 @@ bool Manager::Draw() {
 				ToWString(Stringify("timestep: ", FormatFloat(sys->timestep * 1000.0f, 10, 1), "ms")),
 			};
 			for (i32 i = 0; i < (i32)(sizeof(strings)/sizeof(WString)); i++) {
-				vec2 pos = vec2(4.0f + f32(i*80), 4.0f) * Gui::guiBasic->scale;
-				DrawText(commandBuffersSecondary.Back(), strings[i], 0, vec4(1.0f), pos, vec2(12.0f * Gui::guiBasic->scale), LEFT, TOP);
+				vec2 pos = vec2(4.0f + f32(i*80), 4.0f) * Gui::guiBasic->system.scale;
+				DrawText(commandBuffersSecondary.Back(), strings[i], 0, vec4(1.0f), pos, vec2(12.0f * Gui::guiBasic->system.scale), LEFT, TOP);
 			}
 		}
 	}
@@ -914,14 +920,14 @@ bool Manager::Draw() {
 		commandBuffer->End();
 	}
 
-	static Az2D::Profiling::AString sWaitIdle("vk::DeviceWaitIdle()");
-	Az2D::Profiling::Timer timerWaitIdle(sWaitIdle);
+	static az::Profiling::AString sWaitIdle("vk::DeviceWaitIdle()");
+	az::Profiling::Timer timerWaitIdle(sWaitIdle);
 	timerWaitIdle.Start();
-	AZ2D_PROFILING_EXCEPTION_START();
+	AZCORE_PROFILING_EXCEPTION_START();
 	vk::DeviceWaitIdle(data.device);
-	AZ2D_PROFILING_EXCEPTION_END();
+	AZCORE_PROFILING_EXCEPTION_END();
 	timerWaitIdle.End();
-	
+
 	uniforms.screenSize = screenSize;
 	if (!UpdateUniforms()) return false;
 
@@ -957,7 +963,10 @@ bool Manager::Present() {
 		Thread::Sleep(Milliseconds(clamp((i32)sys->frametimes.AverageWithoutOutliers(), 5, 50)));
 		return true;
 	}
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Present)
+	if (data.resized) {
+		return true;
+	}
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Rendering::Manager::Present)
 	if (!data.swapchain->Present(data.queuePresent, {data.semaphoreRenderComplete->semaphore})) {
 		error = "Failed to present: " + vk::error;
 		return false;
@@ -979,6 +988,12 @@ void Manager::BindPipeline(DrawingContext &context, PipelineIndex pipeline) cons
 	}
 }
 
+void Manager::SetScissor(DrawingContext &context, vec2i min, vec2i size) {
+	AzAssert(min.x >= 0 && min.y >= 0, "SetScissor min must be >= 0");
+	AzAssert((i64)min.x+(i64)size.x <= INT32_MAX && (i64)min.y+(i64)size.y <= INT32_MAX, "SetScissor min+size must be <= INT32_MAX");
+	vk::CmdSetScissor(context.commandBuffer, size.x, size.y, min.x, min.y);
+}
+
 void Manager::PushScissor(DrawingContext &context, vec2i min, vec2i max) {
 	const ScissorState &prev = context.scissorStack.Back();
 	ScissorState state;
@@ -987,13 +1002,17 @@ void Manager::PushScissor(DrawingContext &context, vec2i min, vec2i max) {
 	state.max.x = ::min(max.x, prev.max.x);
 	state.max.y = ::min(max.y, prev.max.y);
 	context.scissorStack.Append(state);
-	vk::CmdSetScissor(context.commandBuffer, (u32)::max(state.max.x-state.min.x, 0), (u32)::max(state.max.y-state.min.y, 0), state.min.x, state.min.y);
+	SetScissor(context, state.min, vec2i(::max(state.max.x-state.min.x, 0), ::max(state.max.y-state.min.y, 0)));
 }
 
 void Manager::PopScissor(DrawingContext &context) {
 	context.scissorStack.Erase(context.scissorStack.size-1);
 	const ScissorState &state = context.scissorStack.Back();
-	vk::CmdSetScissor(context.commandBuffer, (u32)(state.max.x-state.min.x), (u32)(state.max.y-state.min.y), state.min.x, state.min.y);
+	SetScissor(context, state.min, vec2i(::max(state.max.x-state.min.x, 0), ::max(state.max.y-state.min.y, 0)));
+}
+
+void Manager::UpdateBackground() {
+	backgroundRGB = hsvToRgb(backgroundHSV);
 }
 
 f32 Manager::CharacterWidth(char32 character, const Assets::Font *fontDesired, const Assets::Font *fontFallback) const {
@@ -1154,15 +1173,15 @@ void Manager::DrawCharSS(DrawingContext &context, char32 character, i32 fontInde
 	if (glyph.components.size != 0) {
 		for (const font::Component& component : glyph.components) {
 			i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
-			pc.vert.transform = mat2::Scaler(fullScale);
-			pc.font_circle.font.edge = 0.5f / (font::sdfDistance * screenSize.y * pc.vert.transform.h.y2);
+			pc.vert.transform = mat2::Scale(fullScale);
+			pc.font_circle.font.edge = 0.5f / (font::sdfDistance * screenSize.y * pc.vert.transform[1][1]);
 			pc.vert.position = position + component.offset * fullScale;
 			pc.PushFont(context.commandBuffer, this);
 			vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + componentId * 4, 0);
 		}
 	} else {
 		pc.font_circle.font.edge = 0.5f / (font::sdfDistance * screenSize.y * scale.y);
-		pc.vert.transform = mat2::Scaler(fullScale);
+		pc.vert.transform = mat2::Scale(fullScale);
 		pc.vert.position = position;
 		pc.PushFont(context.commandBuffer, this);
 		vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + glyphId * 4, 0);
@@ -1228,27 +1247,29 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 		}
 		font::Glyph& glyph = font->fontBuilder.glyphs[glyphId];
 
+		mat2 rotator = mat2::Rotation(rotation.value());
+
 		pc.frag.tex.albedo = actualFontIndex;
 		pc.font_circle.font.edge = edge / (font::sdfDistance * screenSize.y * scale.y);
 		pc.font_circle.font.bounds = bounds;
-		pc.vert.transform = mat2::Scaler(scale * vec2(aspectRatio, 1.0f));
+		pc.vert.transform = mat2::Scale(scale);
 		if (rotation != 0.0f) {
-			pc.vert.transform = mat2::Rotation(rotation.value()) * pc.vert.transform;
+			pc.vert.transform = rotator * pc.vert.transform;
 		}
+		pc.vert.transform = mat2::Scale(vec2(aspectRatio, 1.0f)) * pc.vert.transform;
 		if (glyph.components.size != 0) {
 			for (const font::Component& component : glyph.components) {
 				i32 componentId = font->fontBuilder.indexToId[component.glyphIndex];
 				// const font::Glyph& componentGlyph = font->fontBuilder.glyphs[componentId];
-				pc.vert.transform = component.transform * mat2::Scaler(scale * vec2(aspectRatio, 1.0f));
-				if (rotation != 0.0f) {
-					pc.vert.transform = mat2::Rotation(rotation.value()) * pc.vert.transform;
-				}
-				pc.font_circle.font.edge = edge / (font::sdfDistance * screenSize.y * abs(pc.vert.transform.h.y2));
+				pc.vert.transform = mat2::Scale(scale) * component.transform;
 				pc.vert.position = cursor + component.offset * scale * vec2(1.0f, -1.0f);
 				if (rotation != 0.0f) {
-					pc.vert.position = (pc.vert.position - position) * mat2::Rotation(rotation.value()) + position;
+					pc.vert.transform = rotator * pc.vert.transform;
+					pc.vert.position = rotator * (pc.vert.position - position) + position;
 				}
+				pc.vert.transform = mat2::Scale(vec2(aspectRatio, 1.0f)) * pc.vert.transform;
 				pc.vert.position *= vec2(aspectRatio, 1.0f);
+				pc.font_circle.font.edge = edge / (font::sdfDistance * screenSize.y * abs(pc.vert.transform[1][1]));
 				pc.PushFont(context.commandBuffer, this);
 				vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, fontIndexOffsets[actualFontIndex] + componentId * 4, 0);
 			}
@@ -1256,7 +1277,7 @@ void Manager::DrawTextSS(DrawingContext &context, WString string, i32 fontIndex,
 			if (character != ' ') {
 				pc.vert.position = cursor;
 				if (rotation != 0.0f) {
-					pc.vert.position = (cursor-position) * mat2::Rotation(rotation.value()) + position;
+					pc.vert.position = rotator * (cursor-position) + position;
 				}
 				pc.vert.position *= vec2(aspectRatio, 1.0f);
 				pc.PushFont(context.commandBuffer, this);
@@ -1280,13 +1301,13 @@ void Manager::DrawQuadSS(DrawingContext &context, vec2 position, vec2 scalePre, 
 	pc.vert.position = position;
 	pc.vert.zShear = zShear;
 	pc.vert.z = zPos;
-	pc.vert.transform = mat2::Scaler(scalePre);
+	pc.vert.transform = mat2::Scale(scalePre);
 	pc.vert.texScale = texScale;
 	pc.vert.texOffset = texOffset;
 	if (rotation != 0.0f) {
-		pc.vert.transform = pc.vert.transform * mat2::Rotation(rotation.value());
+		pc.vert.transform = mat2::Rotation(rotation.value()) * pc.vert.transform;
 	}
-	pc.vert.transform = pc.vert.transform * mat2::Scaler(scalePost);
+	pc.vert.transform = mat2::Scale(scalePost) * pc.vert.transform;
 	pc.vert.origin = origin;
 	pc.Push2D(context.commandBuffer, this);
 	vkCmdDrawIndexed(context.commandBuffer, 6, 1, 0, 0, 0);
@@ -1299,11 +1320,11 @@ void Manager::DrawCircleSS(DrawingContext &context, i32 texIndex, vec4 color, ve
 	pc.frag.mat = Material(color);
 	pc.frag.tex = TexIndices(texIndex);
 	pc.vert.position = position;
-	pc.vert.transform = mat2::Scaler(scalePre);
+	pc.vert.transform = mat2::Scale(scalePre);
 	if (rotation != 0.0f) {
-		pc.vert.transform = pc.vert.transform * mat2::Rotation(rotation.value());
+		pc.vert.transform = mat2::Rotation(rotation.value()) * pc.vert.transform;
 	}
-	pc.vert.transform = pc.vert.transform * mat2::Scaler(scalePost);
+	pc.vert.transform = mat2::Scale(scalePost) * pc.vert.transform;
 	pc.vert.origin = origin;
 	pc.font_circle.circle.edge = edge;
 	pc.PushCircle(context.commandBuffer, this);

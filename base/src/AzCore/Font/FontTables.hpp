@@ -8,12 +8,13 @@
 #ifndef AZCORE_FONT_TABLES_HPP
 #define AZCORE_FONT_TABLES_HPP
 
-#include "../common.hpp"
-
 #include "CFF.hpp"
 
-namespace AzCore {
-namespace font {
+#include "../BasicTypes.hpp"
+#include "../Math/vec2_t.hpp"
+#include "../Memory/Range.hpp"
+
+namespace AzCore::font {
 
 struct Glyph;
 struct GlyphInfo;
@@ -78,7 +79,7 @@ struct Record {
 	u32 offset; // Offset from beginning of the font file.
 	u32 length;
 
-	void Read(std::ifstream &file);
+	void Read(Array<char> &buffer, i32 &cur);
 };
 static_assert(sizeof(Record) == 16);
 
@@ -95,10 +96,10 @@ struct Offset {
 	u16 searchRange; // (maximum power of 2 that's <= numTables) * 16
 	u16 entrySelector; // log2(maximum power of 2 that's <= numTables)
 	u16 rangeShift; // numTables * 16 - searchRange
-	Array<Record> tables;
-	void Read(std::ifstream &file);
+	Range<Record> tables;
+	void Read(Array<char> &buffer, i32 &cur);
 };
-static_assert(sizeof(Offset) == 12 + sizeof(Array<Record>));
+static_assert(sizeof(Offset) == 12 + sizeof(Range<Record>));
 
 /*  struct: TTCHeader
 	Author: Philip Haynes
@@ -107,13 +108,13 @@ struct TTCHeader {
 	Tag_t ttcTag;
 	Fixed_t version;
 	u32 numFonts;
-	Array<u32> offsetTables; // Offsets to the individial offset tables
+	Range<u32> offsetTables; // Offsets to the individial offset tables
 	Tag_t dsigTag;
 	u32 dsigLength;
 	u32 dsigOffset;
-	bool Read(std::ifstream &file);
+	bool Read(Array<char> &buffer, i32 &cur);
 };
-static_assert(sizeof(TTCHeader) == 24 + sizeof(Array<u32>));
+static_assert(sizeof(TTCHeader) == 24 + sizeof(Range<u32>));
 
 struct cmap_encoding {
 	u16 platformID;
@@ -495,7 +496,7 @@ struct glyfParsed {
 };
 
 } // namespace tables
-} // namespace font
-} // namespace AzCore
+
+} // namespace AzCore::font
 
 #endif // AZCORE_FONT_TABLES_HPP

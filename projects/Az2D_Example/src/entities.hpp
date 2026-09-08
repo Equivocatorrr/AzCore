@@ -7,11 +7,11 @@
 #ifndef ENTITIES_HPP
 #define ENTITIES_HPP
 
-#include "Az2D/game_systems.hpp"
-#include "Az2D/sprite.hpp"
-#include "AzCore/math.hpp"
+#include <Az2D/game_systems.hpp>
+#include <Az2D/sprite.hpp>
+#include <AzCore/Math/Math.hpp>
 
-#include "Az2D/entity_basics.hpp"
+#include <Az2D/entity_basics.hpp>
 
 namespace Az2D::Entities {
 
@@ -51,8 +51,8 @@ struct Manager : public ManagerBasic {
 
 	Manager();
 
-	void EventAssetsQueue() override;
-	void EventAssetsAcquire() override;
+	void EventAssetsRequest() override;
+	void EventAssetsAvailable() override;
 	void EventSync() override;
 	void EventClose() override;
 

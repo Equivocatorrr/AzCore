@@ -2,25 +2,21 @@
 	File: HashMap.hpp
 	Author: Philip Haynes
 	A map implemented as a hash table.
-	Requires u8 HashMapHash(T) to be defined for T.
 */
 
 #ifndef AZCORE_HASH_MAP_HPP
 #define AZCORE_HASH_MAP_HPP
 
-#include "../basictypes.hpp"
-#include "Array.hpp"
-#include "IndexHash.hpp"
+#include "../BasicTypes.hpp"
+#include "../Utility/IndexHash.hpp"
+#include "StaticArray.hpp"
 #include <utility>
 #include <initializer_list>
 #include <stdexcept>
 
 namespace AzCore {
 
-template <typename Node_t, u16 arraySize>
-class HashMapIterator;
-
-template <typename Key_t, typename Value_t, u16 arraySize=256>
+template <typename Key_t, typename Value_t, u16 arraySize>
 struct HashMap {
 	struct Node {
 		Key_t key;
@@ -135,7 +131,7 @@ struct HashMap {
 			}
 		}
 	};
-	Array<Node*> nodes;
+	StaticArray<Node*, arraySize> nodes;
 
 	force_inline() HashMap() : nodes(arraySize, nullptr) {}
 
@@ -296,14 +292,14 @@ struct HashMap {
 
 template <typename Node_t, u16 arraySize>
 class HashMapIterator {
-	const Array<Node_t*> *nodes;
+	const StaticArray<Node_t*, arraySize> *nodes;
 	i32 index;
 	Node_t *node;
 
 public:
-	HashMapIterator(const Array<Node_t*> *nodesArray, i32 i, Node_t *n) :
+	HashMapIterator(const StaticArray<Node_t*, arraySize> *nodesArray, i32 i, Node_t *n) :
 	nodes(nodesArray), index(i), node(n) {}
-	void Rebase(const Array<Node_t*> *nodesArray) {
+	void Rebase(const StaticArray<Node_t*, arraySize> *nodesArray) {
 		nodes = nodesArray;
 	}
 	force_inline(bool)

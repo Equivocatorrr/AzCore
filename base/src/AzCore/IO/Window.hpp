@@ -6,7 +6,7 @@
 #ifndef AZCORE_WINDOW_HPP
 #define AZCORE_WINDOW_HPP
 
-#include "../basictypes.hpp"
+#include "../BasicTypes.hpp"
 #include "../Memory/String.hpp"
 
 namespace AzCore {
@@ -30,12 +30,18 @@ struct Window {
 	// Opaque type for clean cross-platform implementation
 	struct WindowData *data = nullptr;
 	bool open = false;
+	bool visible = false;
 	bool resized = false;
 	bool focused = true;
 	bool fullscreen = false;
 	bool quit = false;
 	bool cursorHidden = false;
+	bool _setCursor = false;
+	i32 _setCursorX;
+	i32 _setCursorY;
 	u16 dpi = 96;
+	// current monitor refresh rate in mHz
+	u32 refreshRate = 60000;
 	u16 width = 1280;
 	u16 height = 720;
 	u16 windowedWidth = 1280;
@@ -49,12 +55,17 @@ struct Window {
 	Window();
 	~Window();
 	bool Open();
-	bool Show();
+	bool Show(bool shown=true);
+	inline bool Hide() {
+		return Show(false);
+	}
 	bool Fullscreen(bool fullscreen);
 	bool Resize(u32 w, u32 h);
 	bool Update();
 	bool Close();
 	void HideCursor(bool hide = true);
+	// Moves the cursor to a point relative to the top left of the window
+	void MoveCursor(i32 x, i32 y);
 	String InputName(u8 keyCode) const;
 	u8 KeyCodeFromChar(char character) const;
 

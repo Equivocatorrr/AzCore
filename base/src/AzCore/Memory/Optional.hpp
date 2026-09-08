@@ -6,7 +6,8 @@
 #ifndef AZCORE_OPTIONAL_HPP
 #define AZCORE_OPTIONAL_HPP
 
-#include "../basictypes.hpp"
+#include "None.hpp"
+#include "../Assert.hpp"
 #include <utility> // std::move
 #include <stdexcept>
 
@@ -14,7 +15,7 @@ namespace AzCore {
 
 template<typename T>
 class Optional {
-	char bytes[sizeof(T)];
+	alignas(alignof(T)) char bytes[sizeof(T)];
 	bool exists;
 	// Returns the type-punned bytes without initializing anything
 	inline const T& _Value() const {
@@ -25,11 +26,12 @@ class Optional {
 		return *(T*)bytes;
 	}
 public:
-	Optional() : exists(false) {}
-	Optional(const T &in) : exists(true) {
+	constexpr Optional() : exists(false) {}
+	constexpr Optional(None_t) : exists(false) {}
+	constexpr Optional(const T &in) : exists(true) {
 		new(bytes) T(in);
 	}
-	Optional(T &&in) : exists(true) {
+	constexpr Optional(T &&in) : exists(true) {
 		new(bytes) T(std::move(in));
 	}
 	~Optional() {
@@ -38,7 +40,7 @@ public:
 			value.~T();
 		}
 	}
-	Optional(const Optional &other) : exists(other.exists) {
+	constexpr Optional(const Optional &other) : exists(other.exists) {
 		if (exists) {
 			new(bytes) T(other._Value());
 		}
@@ -107,7 +109,7 @@ public:
 	inline bool Exists() const {
 		return exists;
 	}
-	// This makes sure the value exists. If you need to check, use Exists().
+	// This creates the value if it doesn't exist. If you need to check, use Exists().
 	T& Value() {
 		if (!exists) {
 			new(bytes) T();
@@ -123,13 +125,31 @@ public:
 	T& ValueOrAssert() {
 		return *(T*)&std::as_const(*this).ValueOrAssert();
 	}
-	// This throws std:bad_optional_access if the value doesn't exist.
+	// This throws a std:runtime_error if the value doesn't exist.
 	const T& ValueOrThrow() const {
 		if (!exists) throw std::runtime_error("Optional value does not exist.");
 		return _Value();
 	}
 	T& ValueOrThrow() {
 		return *(T*)&std::as_const(*this).ValueOrThrow();
+	}
+	const T& ValueUnchecked() const {
+		return _Value();
+	}
+	T& ValueUnchecked() {
+		return _Value();
+	}
+	T ValueOrDefault(T def) const {
+		if (exists) {
+			return _Value();
+		} else {
+			return def;
+		}
+	}
+	// Destructs the value in-place. AzAsserts that the value does, in fact, exist.
+	void Destroy() {
+		AzAssert(exists, "Optional value does not exist to be Destroyed.");
+		_Value().~T();
 	}
 };
 

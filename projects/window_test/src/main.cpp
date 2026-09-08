@@ -4,11 +4,12 @@
 	A basic test of io::Window and its interplay with io::Input
 */
 
-#include "AzCore/io.hpp"
+#include "AzCore/IO/io.hpp"
 #include "AzCore/Thread.hpp"
-#include "AzCore/Time.hpp"
+#include "AzCore/Utility/Time.hpp"
 
 using namespace AzCore;
+using namespace io::kc;
 
 io::Log cout("test.log");
 

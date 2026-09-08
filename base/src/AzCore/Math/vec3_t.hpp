@@ -8,7 +8,7 @@
 
 #include "vec2_t.hpp"
 
-#include "basic.hpp"
+#include "Basic.hpp"
 
 namespace AzCore {
 
@@ -57,7 +57,8 @@ struct vec3_t {
 	inline vec3_t<T> operator/(T a) const { return vec3_t<T>(x / a, y / a, z / a); }
 	inline bool operator==(vec3_t<T> a) const { return x == a.x && y == a.y && z == a.z; }
 	inline bool operator!=(vec3_t<T> a) const { return x != a.x || y != a.y || z != a.z; }
-	inline T &operator[](u32 i) { return data[i]; }
+	inline T& operator[](i32 i) { return data[i]; }
+	inline const T& operator[](i32 i) const { return data[i]; }
 	inline vec3_t<T> operator+=(vec3_t<T> a) {
 		x += a.x;
 		y += a.y;
@@ -94,14 +95,29 @@ struct vec3_t {
 		z *= a;
 		return *this;
 	}
+	inline vec3_t<T> RotatedXPos90() const {
+		return vec3_t<T>(x, -z, y);
+	}
+	inline vec3_t<T> RotatedXNeg90() const {
+		return vec3_t<T>(x, z, -y);
+	}
+	inline vec3_t<T> RotatedYPos90() const {
+		return vec3_t<T>(z, y, -x);
+	}
+	inline vec3_t<T> RotatedYNeg90() const {
+		return vec3_t<T>(-z, y, x);
+	}
+	inline vec3_t<T> RotatedZPos90() const {
+		return vec3_t<T>(-y, x, z);
+	}
+	inline vec3_t<T> RotatedZNeg90() const {
+		return vec3_t<T>(y, -x, z);
+	}
 };
 
-
-template <typename T>
-vec3_t<T> hsvToRgb(vec3_t<T> hsv);
-
-template <typename T>
-vec3_t<T> rgbToHsv(vec3_t<T> rgb);
+typedef vec3_t<f32> vec3;
+typedef vec3_t<f64> vec3d;
+typedef vec3_t<i32> vec3i;
 
 } // namespace AzCore
 
@@ -157,6 +173,57 @@ template <typename T>
 inline AzCore::vec3_t<T> normalize(AzCore::vec3_t<T> a, T epsilon=T(1.0e-12), AzCore::vec3_t<T> def={T(1), T(0), T(0)}) {
 	T mag = norm(a);
 	return mag < epsilon ? def : a / mag;
+}
+
+// Returns a adjusted to be orthogonal to ref and normalized
+template <typename T>
+inline AzCore::vec3_t<T> orthogonalize(AzCore::vec3_t<T> a, AzCore::vec3_t<T> ref, T epsilon=T(1.0e-7)) {
+	a = normalize(a);
+	ref = normalize(ref);
+	T dp = dot(a, ref);
+	T p = T(1);
+	// For a = ref = (1, 2, 3) or any scaled version, this will need to loop twice. For any other direction this will loop a maximum of once, and probably not at all.
+	while (abs(dp) >= T(1) - epsilon) {
+		a.x = p;
+		p += T(1);
+		a.y = p;
+		p += T(1);
+		a.z = p;
+		p += T(1);
+		a = normalize(a);
+		dp = dot(a, ref);
+	}
+	return normalize(a - ref * dp);
+}
+
+inline AzCore::vec3 min(AzCore::vec3 a, AzCore::vec3 b) {
+	alignas(16) f32 data[8] = {a[0], a[1], a[2], 0.0f, b[0], b[1], b[2], 0.0f};
+	_mm_store_ps(data, _mm_min_ps(_mm_load_ps(data), _mm_load_ps(data+4)));
+	return AzCore::vec3(data[0], data[1], data[2]);
+}
+
+inline AzCore::vec3 max(AzCore::vec3 a, AzCore::vec3 b) {
+	alignas(16) f32 data[8] = {a[0], a[1], a[2], 0.0f, b[0], b[1], b[2], 0.0f};
+	_mm_store_ps(data, _mm_max_ps(_mm_load_ps(data), _mm_load_ps(data+4)));
+	return AzCore::vec3(data[0], data[1], data[2]);
+}
+
+inline AzCore::vec3 abs(AzCore::vec3 a) {
+	alignas(16) f32 data[8] = {a[0], a[1], a[2], 0.0f, -a[0], -a[1], -a[2], 0.0f};
+	_mm_store_ps(data, _mm_max_ps(_mm_load_ps(data), _mm_load_ps(data+4)));
+	return AzCore::vec3(data[0], data[1], data[2]);
+}
+
+inline AzCore::vec3d min(AzCore::vec3d a, AzCore::vec3d b) {
+	_mm_store_pd(a.data, _mm_min_pd(_mm_set_pd(a[0], a[1]), _mm_set_pd(b[0], b[1])));
+	a.z = min(a.z, b.z);
+	return a;
+}
+
+inline AzCore::vec3d max(AzCore::vec3d a, AzCore::vec3d b) {
+	_mm_store_pd(a.data, _mm_max_pd(_mm_set_pd(a[0], a[1]), _mm_set_pd(b[0], b[1])));
+	a.z = max(a.z, b.z);
+	return a;
 }
 
 #endif // AZCORE_MATH_VEC3_HPP

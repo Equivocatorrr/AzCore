@@ -6,25 +6,17 @@
 #ifndef AZCORE_ARRAYWITHBUCKET_HPP
 #define AZCORE_ARRAYWITHBUCKET_HPP
 
-#include "../basictypes.hpp"
+#include "TemplateForwardDeclares.hpp"
 #include "StringCommon.hpp"
-#include <stdexcept> // std::out_of_range
+#include "../Utility/Memory.hpp"
+#include "../Assert.hpp"
 #include <initializer_list>
 #include <type_traits> // std::is_trivially_copyable
 #include <cstring>     // memcpy
 
 namespace AzCore {
 
-template <typename T>
-struct Ptr;
-template <typename T>
-struct Range;
-template<typename T>
-struct SimpleRange;
-template <typename T, i32 allocTail>
-struct Array;
-
-template <typename T, i32 noAllocCount, i32 allocTail=0>
+template <typename T, i32 noAllocCount, i32 allocTail>
 struct ArrayWithBucket {
 	static_assert(noAllocCount > 0);
 	T *data;
@@ -123,6 +115,56 @@ struct ArrayWithBucket {
 			_SetTerminator();
 		}
 	}
+	force_inline(void)
+	_MakeSpaceForInsert(i32 index, i32 count) {
+		if (size+count > allocated && size+count > noAllocCount) {
+			const bool doDelete = allocated != 0;
+			allocated += (allocated >> 1) + 2;
+			if (allocated < size+count) allocated = size+count;
+			T *temp = new T[allocated + allocTail];
+			if constexpr (std::is_trivially_copyable<T>::value) {
+				if (index > 0) {
+					memcpy((void *)temp, (void *)data, sizeof(T) * index);
+				}
+				if (size - index > 0) {
+					memcpy((void *)(temp + index + count), (void *)(data + index),
+						sizeof(T) * (size - index));
+				}
+			} else {
+				for (i32 i = 0; i < index; i++) {
+					temp[i] = std::move(data[i]);
+				}
+				for (i32 i = index; i < size; i++) {
+					temp[i+count] = std::move(data[i]);
+				}
+			}
+			if (doDelete) {
+				delete[] data;
+			}
+			data = temp;
+			size += count;
+		} else {
+			size += count;
+			for (i32 i = size - 1; i >= index+count; i--) {
+				data[i] = std::move(data[i - count]);
+			}
+		}
+		_SetTerminator();
+	}
+	force_inline(void)
+	_DoInsertCopy(i32 index, i32 count, const T *otherData) {
+		_MakeSpaceForInsert(index, count);
+		for (i32 i = 0; i < count; i++) {
+			data[index + i] = otherData[i];
+		}
+	}
+	force_inline(void)
+	_DoInsertMove(i32 index, i32 count, T *otherData) {
+		_MakeSpaceForInsert(index, count);
+		for (i32 i = 0; i < count; i++) {
+			data[index + i] = std::move(otherData[i]);
+		}
+	}
 	// Deallocates
 	void Clear() {
 		_Deinitialize();
@@ -139,11 +181,11 @@ struct ArrayWithBucket {
 		_Initialize(0);
 		_SetTerminator();
 	}
-	ArrayWithBucket(i32 newSize) {
+	explicit ArrayWithBucket(i32 newSize) {
 		_Initialize(newSize);
 		_SetTerminator();
 	}
-	ArrayWithBucket(i32 newSize, const T &value) {
+	explicit ArrayWithBucket(i32 newSize, const T &value) {
 		_Initialize(newSize);
 		for (i32 i = 0; i < size; i++) {
 			data[i] = value;
@@ -151,9 +193,9 @@ struct ArrayWithBucket {
 		_SetTerminator();
 	}
 	force_inline()
-	ArrayWithBucket(u32 newSize) : ArrayWithBucket((i32)newSize) {}
+	explicit ArrayWithBucket(u32 newSize) : ArrayWithBucket((i32)newSize) {}
 	force_inline()
-	ArrayWithBucket(u32 newSize, const T &value) : ArrayWithBucket((i32)newSize, value) {}
+	explicit ArrayWithBucket(u32 newSize, const T &value) : ArrayWithBucket((i32)newSize, value) {}
 
 	ArrayWithBucket(const std::initializer_list<T> &init) {
 		_Initialize(init.size());
@@ -197,7 +239,7 @@ struct ArrayWithBucket {
 		_SetTerminator();
 	}
 
-	ArrayWithBucket(const Range<T> &range) {
+	ArrayWithBucket(const SmartRange<T> &range) {
 		_Initialize(range.size);
 		if (range.PointsToArray()) {
 			if constexpr (std::is_trivially_copyable<T>::value) {
@@ -229,11 +271,11 @@ struct ArrayWithBucket {
 		_SetTerminator();
 	}
 
-	ArrayWithBucket(SimpleRange<T> range) {
+	ArrayWithBucket(Range<T> range) {
 		_Initialize(range.size);
 		if constexpr (std::is_trivially_copyable<T>::value) {
 			memcpy((void *)data,
-				(void *)(range.str),
+				(void *)(range.data),
 				sizeof(T) * size);
 		} else {
 			for (i32 i = 0; i < size; i++) {
@@ -317,7 +359,7 @@ struct ArrayWithBucket {
 		return true;
 	}
 
-	bool operator==(const Range<T> &other) const {
+	bool operator==(const SmartRange<T> &other) const {
 		if (size != other.size) {
 			return false;
 		}
@@ -425,12 +467,12 @@ struct ArrayWithBucket {
 	}
 
 	force_inline(ArrayWithBucket<T, noAllocCount, allocTail>&)
-	operator+=(Range<T> range) {
+	operator+=(SmartRange<T> range) {
 		return Append(range);
 	}
 
 	force_inline(ArrayWithBucket<T, noAllocCount, allocTail>&)
-	operator+=(SimpleRange<T> range) {
+	operator+=(Range<T> range) {
 		return Append(range);
 	}
 
@@ -470,7 +512,7 @@ struct ArrayWithBucket {
 	force_inline(void)
 	_Grow(i32 minSize) {
 		if (minSize > allocated && minSize > noAllocCount-allocTail) {
-			i32 growth = minSize + (minSize >> 1) + 4;
+			i32 growth = align((minSize + (minSize >> 1) + 4) * sizeof(T), 128) / sizeof(T);
 			Reserve(growth);
 		}
 	}
@@ -529,7 +571,7 @@ struct ArrayWithBucket {
 	}
 
 	ArrayWithBucket<T, noAllocCount, allocTail>&
-	Append(Range<T> range) {
+	Append(SmartRange<T> range) {
 		i32 newSize = size + range.size;
 		Reserve(newSize);
 		if (range.index == indexIndicatingRaw) {
@@ -549,10 +591,10 @@ struct ArrayWithBucket {
 	}
 
 	ArrayWithBucket<T, noAllocCount, allocTail>&
-	Append(SimpleRange<T> range) {
+	Append(Range<T> range) {
 		i32 newSize = size + range.size;
 		Reserve(newSize);
-		T* it = range.str;
+		T* it = range.data;
 		for (i32 i = size; i < newSize; i++) {
 			data[i] = *(it++);
 		}
@@ -607,123 +649,43 @@ struct ArrayWithBucket {
 		return *this;
 	}
 
-	force_inline(T&)
-	Insert(i32 index, const T &value) {
-		T val(value);
-		return Insert(index, std::move(val));
+	T& Insert(i32 index, const T &value) {
+		_DoInsertCopy(index, 1, &value);
+		return data[index];
 	}
 
-	force_inline(Range<T>)
+	SmartRange<T> Insert(i32 index, Range<T> string) {
+		_DoInsertCopy(index, string.size, string.data);
+		return GetRange(index, string.size);
+	}
+
+	force_inline(SmartRange<T>)
 	Insert(i32 index, const T *string) {
-		ArrayWithBucket<T, noAllocCount, allocTail> array(string);
-		return Insert(index, std::move(array));
+		return Insert(index, Range<T>(string));
 	}
 
 	T& Insert(i32 index, T &&value) {
 		AzAssert(index >= 0 && index <= size, "ArrayWithBucket::Insert index is out of bounds");
-		if (size+allocTail >= allocated && size+allocTail >= noAllocCount) {
-			bool doDelete;
-			if (allocated != 0) {
-				doDelete = true;
-			} else {
-				doDelete = false;
-				allocated = size + allocTail + 1;
-			}
-			allocated += (allocated >> 1) + 4;
-			T *temp = new T[allocated + allocTail];
-			if constexpr (std::is_trivially_copyable<T>::value) {
-				if (index > 0) {
-					memcpy((void *)temp, (void *)data, sizeof(T) * index);
-				}
-				temp[index] = std::move(value);
-				if (size - index > 0) {
-					memcpy((void *)(temp + index + 1), (void *)(data + index),
-						sizeof(T) * (size - index));
-				}
-			} else {
-				for (i32 i = 0; i < index; i++) {
-					temp[i] = std::move(data[i]);
-				}
-				temp[index] = std::move(value);
-				for (i32 i = index + 1; i < size + 1; i++) {
-					temp[i] = std::move(data[i - 1]);
-				}
-			}
-			if (doDelete) {
-				delete[] data;
-			}
-			data = temp;
-			size++;
-			_SetTerminator();
-			return data[index];
-		}
-		// No realloc necessary
-		size++;
-		for (i32 i = size - 1; i > index; i--) {
-			data[i] = std::move(data[i - 1]);
-		}
-		_SetTerminator();
-		return data[index] = std::move(value);
+		_DoInsertMove(index, 1, &value);
+		return data[index];
 	}
 
-	force_inline(Range<T>)
-	Insert(i32 index, const ArrayWithBucket<T, allocTail> &other) {
-		ArrayWithBucket<T, allocTail> array(other);
-		return Insert(index, std::move(array));
+	SmartRange<T> Insert(i32 index, const ArrayWithBucket<T, noAllocCount, allocTail> &other) {
+		AzAssert(index >= 0 && index <= size, "ArrayWithBucket::Insert index is out of bounds");
+		_DoInsertCopy(index, other.size, other.data);
+		return GetRange(index, other.size);
 	}
 
-	Range<T> Insert(i32 index, ArrayWithBucket<T, noAllocCount, allocTail> &&other) {
+	SmartRange<T> Insert(i32 index, ArrayWithBucket<T, noAllocCount, allocTail> &&other) {
 		AzAssert(index >= 0 && index <= size, "ArrayWithBucket::Insert index is out of bounds");
 		if (size == 0) {
 			*this = std::move(other);
 			return GetRange(0, size);
 		}
-		if (size+other.size > allocated) {
-			const bool doDelete = allocated != 0;
-			allocated += (allocated >> 1) + 2;
-			if (allocated < size+other.size) allocated = size+other.size;
-			T *temp = new T[allocated + allocTail];
-			if constexpr (std::is_trivially_copyable<T>::value) {
-				if (index > 0) {
-					memcpy((void *)temp, (void *)data, sizeof(T) * index);
-				}
-				memcpy((void *)(temp + index), (void *)other.data, sizeof(T) * other.size);
-				if (size - index > 0) {
-					memcpy((void *)(temp + index + other.size), (void *)(data + index),
-						sizeof(T) * (size - index));
-				}
-			} else {
-				for (i32 i = 0; i < index; i++) {
-					temp[i] = std::move(data[i]);
-				}
-				for (i32 i = 0; i < other.size; i++) {
-					temp[index+i] = std::move(other[i]);
-				}
-				for (i32 i = index; i < size; i++) {
-					temp[i+other.size] = std::move(data[i]);
-				}
-			}
-			if (doDelete) {
-				delete[] data;
-			}
-			data = temp;
-			size += other.size;
-			Range<T> range = GetRange(index, other.size);
-			other.Clear();
-			_SetTerminator();
-			return range;
-		}
-		size += other.size;
-		for (i32 i = size - 1; i >= index+other.size; i--) {
-			data[i] = std::move(data[i - other.size]);
-		}
-		for (i32 i = 0; i < other.size; i++) {
-			data[index + i] = std::move(other.data[i]);
-		}
-		Range<T> range = GetRange(index, other.size);
-		other.Clear();
-		_SetTerminator();
-		return range;
+		i32 count = other.size;
+		_DoInsertMove(index, count, other.data);
+		other.ClearSoft();
+		return GetRange(index, count);
 	}
 
 	void Erase(i32 index, const i32 count=1) {
@@ -805,9 +767,9 @@ struct ArrayWithBucket {
 		}
 	}
 
-	Range<T> GetRange(i32 index, i32 _size) {
+	SmartRange<T> GetRange(i32 index, i32 _size) {
 		AzAssert(index >= 0 && index + _size <= size, "ArrayWithBucket::GetRange index is out of bounds");
-		return Range<T>((Array<T,0>*)this, index, _size);
+		return SmartRange<T>((Array<T,0>*)this, index, _size);
 	}
 };
 

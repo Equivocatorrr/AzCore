@@ -21,10 +21,10 @@ vulkan_sdk_win32_arg=0
 vulkan_sdk_linux_arg=0
 
 if [ "$WIN32_VULKAN_SDK" != "" ]; then
-	vulkan_sdk_win32="-DVULKAN_SDK=$WIN32_VULKAN_SDK"
+	vulkan_sdk_win32="-DUSER_VULKAN_SDK=$WIN32_VULKAN_SDK"
 fi
 if [ "$LINUX_VULKAN_SDK" != "" ]; then
-	vulkan_sdk_linux="-DVULKAN_SDK=$LINUX_VULKAN_SDK"
+	vulkan_sdk_linux="-DUSER_VULKAN_SDK=$LINUX_VULKAN_SDK"
 fi
 
 usage()
@@ -41,10 +41,10 @@ for arg in "$@"; do
 	elif [ $run_arg -eq 2 ]; then
 		run_args="$run_args $arg"
 	elif [ $vulkan_sdk_linux_arg -ne 0 ]; then
-		vulkan_sdk_linux="-DVULKAN_SDK=$arg"
+		vulkan_sdk_linux="-DUSER_VULKAN_SDK=$arg"
 		vulkan_sdk_linux_arg=0
 	elif [ $vulkan_sdk_win32_arg -ne 0 ]; then
-		vulkan_sdk_win32="-DVULKAN_SDK=$arg"
+		vulkan_sdk_win32="-DUSER_VULKAN_SDK=$arg"
 		vulkan_sdk_win32_arg=0
 	else
 		if [ "$arg" = "All" ]

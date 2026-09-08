@@ -6,14 +6,16 @@
 #include "entities.hpp"
 #include "gui.hpp"
 
-#include "Az2D/profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
 
 #include "AzCore/Thread.hpp"
 #include "AzCore/IO/Log.hpp"
+#include "AzCore/Math/Color.hpp"
 
 namespace Az2D::Entities {
 
 using namespace AzCore;
+using namespace io::kc;
 
 Manager *entities = nullptr;
 
@@ -30,7 +32,7 @@ const char* towerStrings[TOWER_MAX_RANGE+1] = {
 	"Flak"
 };
 const i32 towerCosts[TOWER_MAX_RANGE+1] = {
-	2000,
+	1500,
 	3000,
 	5000,
 	15000,
@@ -78,11 +80,11 @@ const Tower towerGunTemplate = Tower(
 	{vec2(0.0f), 320.0f},                       // fieldPhysicalBasis
 	TOWER_GUN,                                  // TowerType
 	320.0f,                                     // range
-	0.25f,                                      // shootInterval
+	0.5f,                                       // shootInterval
 	2.7f,                                       // bulletSpread (degrees)
 	1,                                          // bulletCount
-	18,                                         // damage
-	800.0f,                                     // bulletSpeed
+	40,                                         // damage
+	900.0f,                                     // bulletSpeed
 	50.0f,                                      // bulletSpeedVariability
 	0,                                          // bulletExplosionDamage
 	0.0f,                                       // bulletExplosionRange
@@ -129,7 +131,7 @@ const Tower towerGaussTemplate = Tower(
 	BOX,                                        // CollisionType
 	{vec2(-32.0f), vec2(32.0f)},                // PhysicalBasis
 	CIRCLE,                                     // fieldCollisionType
-	{vec2(0.0f), 480.0f},                       // fieldPhysicalBasis
+	{vec2(0.0f), 400.0f},                       // fieldPhysicalBasis
 	TOWER_GAUSS,                                // TowerType
 	400.0f,                                     // range
 	1.8f,                                       // shootInterval
@@ -147,13 +149,13 @@ const Tower towerShockerTemplate = Tower(
 	CIRCLE,                                     // CollisionType
 	{vec2(0.0f), 16.0f},                        // PhysicalBasis
 	CIRCLE,                                     // fieldCollisionType
-	{vec2(0.0f), 120.0f},                       // fieldPhysicalBasis
+	{vec2(0.0f), 90.0f},                        // fieldPhysicalBasis
 	TOWER_SHOCKWAVE,                            // TowerType
-	120.0f,                                     // range
+	90.0f,                                      // range
 	1.2f,                                       // shootInterval
 	0.0f,                                       // bulletSpread (degrees)
 	1,                                          // bulletCount
-	60,                                         // damage
+	120,                                        // damage
 	1.0f,                                       // bulletSpeed
 	0.0f,                                       // bulletSpeedVariability
 	0,                                          // bulletExplosionDamage
@@ -170,28 +172,28 @@ const Tower towerFlakTemplate = Tower(
 	400.0f,                                     // range
 	1.8f,                                       // shootInterval
 	6.0f,                                       // bulletSpread (degrees)
-	5,                                          // bulletCount
-	25,                                         // damage
-	500.0f,                                     // bulletSpeed
+	10,                                         // bulletCount
+	50,                                         // damage
+	300.0f,                                     // bulletSpeed
 	100.0f,                                     // bulletSpeedVariability
-	50,                                         // bulletExplosionDamage
-	80.0f,                                      // bulletExplosionRange
+	100,                                        // bulletExplosionDamage
+	120.0f,                                     // bulletExplosionRange
 	vec4(1.0f, 0.0f, 0.8f, 1.0f)                // color
 );
 
-void Manager::EventAssetsQueue() {
-	sys->assets.QueueFile("Money Cursed.ogg");
-	sys->assets.QueueFile("Segment 1.ogg", Assets::Type::STREAM);
-	sys->assets.QueueFile("Segment 2.ogg", Assets::Type::STREAM);
+void Manager::EventAssetsRequest() {
+	sys->assets.RequestSound("Money Cursed.ogg");
+	sys->assets.RequestStream("Segment 1.ogg");
+	sys->assets.RequestStream("Segment 2.ogg");
 }
 
-void Manager::EventAssetsAcquire() {
-	sndMoney.Create("Money Cursed.ogg");
+void Manager::EventAssetsAvailable() {
+	sndMoney.Create(sys->assets.FindSound("Money Cursed.ogg"));
 	sndMoney.SetGain(0.5f);
-	if (!streamSegment1.Create("Segment 1.ogg")) {
+	if (!streamSegment1.Create(sys->assets.FindStream("Segment 1.ogg"))) {
 		io::cerr.PrintLn("Failed to create stream for \"Segment 1.ogg\": ", Sound::error);
 	}
-	if (!streamSegment2.Create("Segment 2.ogg")) {
+	if (!streamSegment2.Create(sys->assets.FindStream("Segment 2.ogg"))) {
 		io::cerr.PrintLn("Failed to create stream for \"Segment 2.ogg\": ", Sound::error);
 	}
 }
@@ -248,7 +250,7 @@ void Manager::Reset() {
 }
 
 inline void Manager::HandleGamepadCamera() {
-	vec2 screenBorder = (vec2(sys->window.width, sys->window.height) - vec2(50.0f * Gui::gui->scale)) / 2.0f / camZoom;
+	vec2 screenBorder = (vec2(sys->window.width, sys->window.height) - vec2(50.0f * Gui::gui->system.scale)) / 2.0f / camZoom;
 	if (CursorVisible() || placeMode) {
 		vec2 mouseMove;
 		if (sys->gamepad) mouseMove = sys->gamepad->axis.vec.RS;
@@ -304,15 +306,12 @@ inline void Manager::HandleGamepadCamera() {
 }
 
 inline void Manager::HandleMouseCamera() {
-	if (Gui::gui->mouseoverDepth > 0) {
+	if (Gui::gui->system.mouseoverDepth > 0) {
 		return;
 	}
 	bool changed = false;
-	if (sys->Pressed(KC_MOUSE_SCROLLUP)) {
-		camZoom *= 1.1f;
-		changed = true;
-	} else if (sys->Pressed(KC_MOUSE_SCROLLDOWN)) {
-		camZoom /= 1.1f;
+	if (sys->input.scroll.y != 0.0f) {
+		camZoom *= pow(1.1f, sys->input.scroll.y);
 		changed = true;
 	}
 	if (changed) {
@@ -326,7 +325,7 @@ inline void Manager::HandleMouseCamera() {
 
 bool TypedCode(String code) {
 	if (code.size > sys->input.typingString.size) return false;
-	Range<char> end = sys->input.typingString.GetRange(sys->input.typingString.size-code.size, code.size);
+	SmartRange<char> end = sys->input.typingString.GetRange(sys->input.typingString.size-code.size, code.size);
 	if (code == end) {
 		sys->input.typingString.Clear();
 		return true;
@@ -335,7 +334,7 @@ bool TypedCode(String code) {
 }
 
 inline void Manager::HandleUI() {
-	if (Gui::gui->usingGamepad) {
+	if (Gui::gui->system.inputMethod == GuiGeneric::InputMethod::GAMEPAD) {
 		HandleGamepadCamera();
 		HandleGamepadUI();
 	} else {
@@ -401,7 +400,7 @@ inline void Manager::HandleUI() {
 }
 
 inline void Manager::HandleGamepadUI() {
-	if (sys->Pressed(KC_GP_BTN_X) && Gui::gui->controlDepth == Gui::gui->menuPlay.list->depth) {
+	if (sys->Pressed(KC_GP_BTN_X) && Gui::gui->system.controlDepth == Gui::gui->menuPlay.list->depth) {
 		focusMenu = !focusMenu;
 		placeMode = false;
 	}
@@ -429,14 +428,14 @@ inline void Manager::HandleGamepadUI() {
 		const Degrees32 increment30(30.0f);
 		const Degrees32 increment5(5.0f);
 		if (sys->Pressed(KC_GP_AXIS_H0_LEFT)) {
-			placingAngle += increment5;
-		} else if (sys->Pressed(KC_GP_AXIS_H0_RIGHT)) {
 			placingAngle += -increment5;
+		} else if (sys->Pressed(KC_GP_AXIS_H0_RIGHT)) {
+			placingAngle += increment5;
 		}
 		if (sys->Pressed(KC_GP_BTN_TL)) {
-			placingAngle += increment30;
-		} else if (sys->Pressed(KC_GP_BTN_TR)) {
 			placingAngle += -increment30;
+		} else if (sys->Pressed(KC_GP_BTN_TR)) {
+			placingAngle += increment30;
 		}
 		HandleTowerPlacement(KC_GP_BTN_A);
 	}
@@ -452,7 +451,7 @@ inline void Manager::HandleMouseUI() {
 	} else {
 		focusMenu = false;
 	}
-	if (Gui::gui->mouseoverDepth > 0) {
+	if (Gui::gui->system.mouseoverDepth > 0) {
 		return;
 	}
 	if (!placeMode) {
@@ -475,9 +474,9 @@ inline void Manager::HandleMouseUI() {
 			increment = increment5;
 		}
 		if (sys->Pressed(KC_KEY_LEFT)) {
-			placingAngle += increment;
-		} else if (sys->Pressed(KC_KEY_RIGHT)) {
 			placingAngle += -increment;
+		} else if (sys->Pressed(KC_KEY_RIGHT)) {
+			placingAngle += increment;
 		}
 		HandleTowerPlacement(KC_MOUSE_LEFT);
 	}
@@ -530,11 +529,11 @@ inline void Manager::HandleMusicLoops(i32 w) {
 }
 
 inline bool Manager::CursorVisible() const {
-	return Gui::gui->currentMenu == Gui::Gui::Menu::PLAY && Gui::gui->usingGamepad && !placeMode && !focusMenu && selectedTower == -1 && sys->gamepad != nullptr;
+	return Gui::gui->currentMenu == Gui::Gui::Menu::PLAY && Gui::gui->system.inputMethod == GuiGeneric::InputMethod::GAMEPAD && !placeMode && !focusMenu && selectedTower == -1 && sys->gamepad != nullptr;
 }
 
 void Manager::EventSync() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Manager::EventSync)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Manager::EventSync)
 	if (Gui::gui->menuMain.buttonNewGame->state.Released()) {
 		Gui::gui->menuMain.buttonNewGame->state.Set(false, false, false);
 		Reset();
@@ -576,7 +575,7 @@ void Manager::EventSync() {
 		while (enemyTimer <= 0.0f && hitpointsLeft > 0) {
 			Enemy enemy;
 			for (i32 i = 0; i < 3; i++) {
-				enemy.type = (Enemy::Type)random(0, 3);
+				enemy.type = (Enemy::Type)random(0, 1 + i32(wave >= 10) + i32(wave >= 20));
 				if (enemy.type != Enemy::HONKER) break;
 			}
 			enemies.Create(enemy); // Enemy::EventCreate() increases enemyTimer based on HP
@@ -602,11 +601,11 @@ void Manager::EventSync() {
 }
 
 void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Manager::EventDraw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Manager::EventDraw)
 	// if (Gui::gui->currentMenu != Gui::Menu::PLAY) return;
 
 	ManagerBasic::EventDraw(contexts);
-	
+
 	if (placeMode) {
 		Tower tower(towerType);
 		tower.physical.pos = mouse;
@@ -626,7 +625,7 @@ void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 	}
 	if (CursorVisible()) {
 		vec2 cursor = WorldPosToScreen(mouse);
-		sys->rendering.DrawQuad(contexts.Back(), cursor, vec2(32.0f * Gui::gui->scale), vec2(1.0f), vec2(0.5f), 0.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), Gui::gui->texCursor);
+		sys->rendering.DrawQuad(contexts.Back(), cursor, vec2(32.0f * Gui::gui->system.scale), vec2(1.0f), vec2(0.5f), 0.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), Gui::gui->texCursor);
 	}
 	if (lives == 0) {
 		failureText.Draw(contexts.Back());
@@ -635,14 +634,14 @@ void Manager::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 
 void Manager::CreateSpawn() {
 	f32 angle = random(0.0f, tau);
-	vec2 place(sin(angle), cos(angle));
+	vec2 place(cos(angle), sin(angle));
 	place *= 1500.0f;
 	Physical newSpawn;
 	newSpawn.type = BOX;
-	newSpawn.basis.box.a = vec2(-128.0f, -32.0f);
-	newSpawn.basis.box.b = vec2(128.0f, 32.0f);
+	newSpawn.basis.box.a = vec2(-32.0f, -128.0f);
+	newSpawn.basis.box.b = vec2(32.0f, 128.0f);
 	newSpawn.pos = place;
-	newSpawn.angle = angle + pi;
+	newSpawn.angle = angle;
 	enemySpawns.Append(newSpawn);
 }
 
@@ -724,7 +723,7 @@ void Tower::EventCreate() {
 }
 
 void Tower::Update(f32 timestep) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Tower::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Tower::Update)
 	physical.Update(timestep);
 	selected = entities->selectedTower == id;
 	// if (shootTimer <= 0.0f) disabled = false;
@@ -835,11 +834,11 @@ void Tower::Update(f32 timestep) {
 					dist = norm(deltaP);
 				}
 				deltaP = other.physical.pos - physical.pos + other.physical.vel * dist / bulletSpeed;
-				Angle32 idealAngle = atan2(-deltaP.y, deltaP.x);
+				Angle32 idealAngle = atan2(deltaP.y, deltaP.x);
 				for (i32 i = 0; i < bulletCount; i++) {
 					Angle32 angle = idealAngle + Degrees32(random(-bulletSpread.value(), bulletSpread.value()));
 					bullet.physical.vel.x = cos(angle);
-					bullet.physical.vel.y = -sin(angle);
+					bullet.physical.vel.y = sin(angle);
 					bullet.physical.vel *= bulletSpeed + random(-bulletSpeedVariability, bulletSpeedVariability);
 					bullet.physical.pos = physical.pos + bullet.physical.vel * timestep;
 					bullet.damage = damage;
@@ -873,11 +872,11 @@ void Tower::Update(f32 timestep) {
 			wind.lifetime = range / bulletSpeed;
 			f32 randomPos = random(-20.0f, 20.0f);
 			wind.physical.pos.x += cos(physical.angle.value() + pi * 0.5f) * randomPos;
-			wind.physical.pos.y -= sin(physical.angle.value() + pi * 0.5f) * randomPos;
+			wind.physical.pos.y += sin(physical.angle.value() + pi * 0.5f) * randomPos;
 			for (i32 i = 0; i < bulletCount; i++) {
 				Angle32 angle = physical.angle + Degrees32(random(-bulletSpread.value(), bulletSpread.value()));
 				wind.physical.vel.x = cos(angle);
-				wind.physical.vel.y = -sin(angle);
+				wind.physical.vel.y = sin(angle);
 				wind.physical.vel *= bulletSpeed + random(-bulletSpeedVariability, bulletSpeedVariability);
 				wind.physical.pos += wind.physical.vel * 0.03f;
 				entities->winds.Create(wind);
@@ -887,7 +886,7 @@ void Tower::Update(f32 timestep) {
 }
 
 void Tower::Draw(Rendering::DrawingContext &context) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Tower::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Tower::Draw)
 	vec4 colorTemp;
 	if (selected) {
 		colorTemp = vec4(0.5f) + color * 0.5f;
@@ -910,9 +909,9 @@ vec2 GetSpawnLocation() {
 	s = sin(entities->enemySpawns[spawnPoint].angle);
 	c = cos(entities->enemySpawns[spawnPoint].angle);
 	vec2 x, y;
-	x = vec2(c, -s) * entities->enemySpawns[spawnPoint].basis.box.b.x
+	x = vec2(c, s) * entities->enemySpawns[spawnPoint].basis.box.b.x
 	  * random(-1.0f, 1.0f);
-	y = vec2(s, c) * entities->enemySpawns[spawnPoint].basis.box.b.y
+	y = vec2(-s, c) * entities->enemySpawns[spawnPoint].basis.box.b.y
 	  * random(-1.0f, 1.0f);
 	return entities->enemySpawns[spawnPoint].pos + x + y;
 }
@@ -944,7 +943,7 @@ void Enemy::EventCreate() {
 				multiplier = random(1, 2);
 				break;
 		}
-		hitpoints = multiplier * (i32)floor(80.0f * pow(1.16f, (f32)(entities->wave + 3))) / (entities->wave+7);
+		hitpoints = multiplier * (i32)floor(120.0f * pow(1.16f, (f32)(entities->wave + 3))) / (entities->wave+7);
 		age = 0.0f;
 	}
 	spawnTimer = honkerSpawnInterval;
@@ -996,7 +995,7 @@ inline i32 DamageOverTime(i32 dps, f32 timestep) {
 }
 
 void Enemy::Update(f32 timestep) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Enemy::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Enemy::Update)
 	age += timestep;
 	if (hitpoints > 0) {
 		size = decay(size, (f32)hitpoints, 0.1f, timestep);
@@ -1020,7 +1019,7 @@ void Enemy::Update(f32 timestep) {
 			newEnemy.child = true;
 			newEnemy.age = age;
 			Angle32 spawnAngle = random(0.0f, tau);
-			vec2 spawnVector = vec2(cos(spawnAngle), -sin(spawnAngle)) * sqrt(random(0.0f, 1.0f));
+			vec2 spawnVector = vec2(cos(spawnAngle), sin(spawnAngle)) * sqrt(random(0.0f, 1.0f));
 			newEnemy.physical.pos = physical.pos + spawnVector * physical.basis.circle.r;
 			newEnemy.physical.vel = physical.vel + spawnVector * 100.0f;
 			newEnemy.color = color;
@@ -1102,7 +1101,7 @@ void Enemy::Update(f32 timestep) {
 }
 
 void Enemy::Draw(Rendering::DrawingContext &context) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Enemy::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Enemy::Draw)
 	physical.Draw(context, color * vec4(vec3(1.0f), clamp01(size)));
 }
 
@@ -1113,7 +1112,7 @@ void Bullet::EventCreate() {
 	physical.type = SEGMENT;
 	physical.basis.segment.a = vec2(-length, -1.0f);
 	physical.basis.segment.b = vec2(length, 1.0f);
-	physical.angle = atan2(-physical.vel.y, physical.vel.x);
+	physical.angle = atan2(physical.vel.y, physical.vel.x);
 }
 
 void Bullet::EventDestroy() {
@@ -1130,7 +1129,7 @@ void Bullet::EventDestroy() {
 }
 
 void Bullet::Update(f32 timestep) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Bullet::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Bullet::Update)
 	physical.Update(timestep);
 	physical.UpdateActual();
 	lifetime -= timestep;
@@ -1140,7 +1139,7 @@ void Bullet::Update(f32 timestep) {
 }
 
 void Bullet::Draw(Rendering::DrawingContext &context) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Bullet::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Bullet::Draw)
 	vec4 color = vec4(1.0f, 1.0f, 0.5f, clamp01(lifetime * 8.0f));
 	if (explosionDamage != 0) {
 		color.rgb = vec3(1.0f, 0.25f, 0.0f);
@@ -1159,7 +1158,7 @@ void Wind::EventCreate() {
 }
 
 void Wind::Update(f32 timestep) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Wind::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Wind::Update)
 	physical.Update(timestep);
 	physical.UpdateActual();
 	lifetime -= timestep;
@@ -1169,7 +1168,7 @@ void Wind::Update(f32 timestep) {
 }
 
 void Wind::Draw(Rendering::DrawingContext &context) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Wind::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Wind::Draw)
 	vec4 color = vec4(1.0f, 1.0f, 1.0f, clamp01(lifetime) * 0.1f);
 	const f32 z = entities->camZoom;
 	const vec2 p = (physical.pos - entities->camPos) * z
@@ -1187,7 +1186,7 @@ void Explosion::EventCreate() {
 }
 
 void Explosion::Update(f32 timestep) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Explosion::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Explosion::Update)
 	// shockwaves have a growth of 5.0
 	// bullet explosions have a growth of 8.0
 	physical.basis.circle.r = decay(physical.basis.circle.r, size, 1.0f / growth, timestep);
@@ -1202,7 +1201,7 @@ void Explosion::Update(f32 timestep) {
 }
 
 void Explosion::Draw(Rendering::DrawingContext &context) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Entities::Explosion::Draw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Entities::Explosion::Draw)
 	f32 prog = physical.basis.circle.r / size / 0.9375f;
 	vec4 color = vec4(
 		hsvToRgb(vec3(

@@ -2,25 +2,20 @@
 	File: HashSet.hpp
 	Author: Philip Haynes
 	A map implemented as a hash table.
-	Requires u8 HashSetHash(T) to be defined for T.
 */
 
 #ifndef AZCORE_HASH_SET_HPP
 #define AZCORE_HASH_SET_HPP
 
-#include "../basictypes.hpp"
-#include "Array.hpp"
-#include "IndexHash.hpp"
+#include "../BasicTypes.hpp"
+#include "../Utility/IndexHash.hpp"
+#include "StaticArray.hpp"
 #include <utility>
 #include <initializer_list>
-#include <stdexcept>
 
 namespace AzCore {
 
-template <typename Node_t, u16 arraySize>
-class HashSetIterator;
-
-template <typename Key_t, u16 arraySize=256>
+template <typename Key_t, u16 arraySize>
 struct HashSet {
 	struct Node {
 		typedef Key_t KeyType;
@@ -102,7 +97,7 @@ struct HashSet {
 			}
 		}
 	};
-	Array<Node*> nodes;
+	StaticArray<Node*, arraySize> nodes;
 
 	force_inline() HashSet() : nodes(arraySize, nullptr) {}
 
@@ -219,14 +214,14 @@ struct HashSet {
 
 template <typename Node_t, u16 arraySize>
 class HashSetIterator {
-	const Array<Node_t*> *nodes;
+	const StaticArray<Node_t*, arraySize> *nodes;
 	i32 index;
 	Node_t *node;
 
 public:
-	HashSetIterator(const Array<Node_t*> *nodesArray, i32 i, Node_t *n) :
+	HashSetIterator(const StaticArray<Node_t*, arraySize> *nodesArray, i32 i, Node_t *n) :
 	nodes(nodesArray), index(i), node(n) {}
-	void Rebase(const Array<Node_t*> *nodesArray) {
+	void Rebase(const StaticArray<Node_t*, arraySize> *nodesArray) {
 		nodes = nodesArray;
 	}
 	force_inline(bool)

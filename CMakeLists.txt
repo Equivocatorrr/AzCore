@@ -1,8 +1,11 @@
 cmake_minimum_required(VERSION 3.25)
 
 set(CMAKE_DEBUG_POSTFIX _debug)
+set(CMAKE_RELWITHDEBINFO_POSTFIX _relwithdebinfo)
 
 project(AzCore)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(GNUInstallDirs)
 
@@ -14,7 +17,7 @@ if (NOT ${CMAKE_INSTALL_PREFIX})
 endif()
 
 if (MSVC)
-	add_compile_options(/W3 /arch:AVX2 -DAZCORE_IO_FOR_VULKAN)
+	add_compile_options(/W3 /arch:AVX -DAZCORE_IO_FOR_VULKAN)
 	# Disable common warnings that we don't care about.
 	# C4267: 'var' : conversion from 'size_t' to 'type', possible loss of data
 	add_compile_options(/wd4267)
@@ -26,7 +29,7 @@ if (MSVC)
 	# Disable generating a manifest in Visual Studio since we provide our own
 	add_link_options(/MANIFEST:NO)
 else()
-	add_compile_options(-Wall -mavx2 -DAZCORE_IO_FOR_VULKAN -g)
+	add_compile_options(-Wall -mavx -DAZCORE_IO_FOR_VULKAN -g -fmax-errors=1)
 	if (CMAKE_SYSTEM MATCHES Windows)
 		add_compile_options(-D_GLIBCXX_USE_NANOSLEEP)
 		add_link_options(-static-libgcc -static-libstdc++ -static -Llibwinpthread-1.dll)
@@ -45,26 +48,26 @@ else()
 	message(FATAL_ERROR "AzCore was made to be built on Linux and Windows. Tried to build for ${CMAKE_SYSTEM}!" )
 endif()
 
-set(VULKAN_SDK CACHE STRING "")
-
-if (EXISTS "${VULKAN_SDK}")
-	message(STATUS "Using '${VULKAN_SDK}' as the path to the Vulkan SDK")
+if (EXISTS "${USER_VULKAN_SDK}")
+	message(STATUS "Using '${USER_VULKAN_SDK}' as the path to the Vulkan SDK")
 	add_library(Vulkan INTERFACE)
 	if (CMAKE_SYSTEM MATCHES Windows)
-		target_link_libraries(Vulkan INTERFACE "${VULKAN_SDK}/Lib/vulkan-1.lib")
+		target_link_libraries(Vulkan INTERFACE "${USER_VULKAN_SDK}/Lib/vulkan-1.lib")
 	elseif (CMAKE_SYSTEM MATCHES Linux)
-		target_link_libraries(Vulkan INTERFACE "${VULKAN_SDK}/x86_64/lib/libvulkan.so")
+		target_link_libraries(Vulkan INTERFACE "${USER_VULKAN_SDK}/x86_64/lib/libvulkan.so")
 	endif()
 	add_library(Vulkan::Vulkan ALIAS Vulkan)
 	if (CMAKE_HOST_SYSTEM MATCHES Windows)
-		set(GLSL_VALIDATOR "${VULKAN_SDK}/Bin/glslangValidator.exe")
+		set(GLSL_VALIDATOR "${USER_VULKAN_SDK}/Bin/glslangValidator.exe")
+		set(VULKAN_INCLUDE_PATH "${USER_VULKAN_SDK}/Include")
 	elseif (CMAKE_HOST_SYSTEM MATCHES Linux)
-		set(GLSL_VALIDATOR "${VULKAN_SDK}/x86_64/bin/glslangValidator")
+		set(GLSL_VALIDATOR "${USER_VULKAN_SDK}/x86_64/bin/glslangValidator")
+		set(VULKAN_INCLUDE_PATH "${USER_VULKAN_SDK}/include")
 	endif()
 else()
 	find_package(Vulkan)
 	if (NOT Vulkan_FOUND)
-		message(FATAL_ERROR "No Vulkan SDK was found. Try specifying one by setting VULKAN_SDK to the path of your SDK.")
+		message(FATAL_ERROR "No Vulkan SDK was found. Try specifying one by setting THE VULKAN_SDK environment variable to the path of your SDK or specifying one with USER_VULKAN_SDK")
 	endif()
 	if (NOT EXISTS Vulkan_GLSLANG_VALIDATOR_EXECUTABLE)
 		find_program(GLSL_VALIDATOR
@@ -85,6 +88,9 @@ function(VULKAN_SHADERS target SHADER_SOURCE_DIR SHADER_OUT_DIR)
 	  "${SHADER_SOURCE_DIR}/*.frag"
 	  "${SHADER_SOURCE_DIR}/*.vert"
 	)
+	file(GLOB_RECURSE SHADER_HEADERS
+	  "${SHADER_SOURCE_DIR}/headers/*.glsl"
+	)
 
 	foreach(SHADER ${SHADER_SOURCES})
 	  get_filename_component(FILENAME ${SHADER} NAME)
@@ -94,27 +100,24 @@ function(VULKAN_SHADERS target SHADER_SOURCE_DIR SHADER_OUT_DIR)
 		#   COMMAND echo "Running custom command: \"${GLSL_VALIDATOR} -V ${SHADER} -o ${SPIRV}\""
 		  COMMAND ${CMAKE_COMMAND} -E make_directory "${SHADER_OUT_DIR}/"
 		  COMMAND "${GLSL_VALIDATOR}" -V ${SHADER} -o ${SPIRV}
-		  DEPENDS ${SHADER}
+		  DEPENDS ${SHADER} ${SHADER_HEADERS}
 	  )
 	  list(APPEND SHADER_BINARIES ${SPIRV})
 	endforeach(SHADER)
 
 	set_source_files_properties(${SHADER_BINARIES} PROPERTIES GENERATED TRUE)
-	add_custom_target("${target}_Shaders" DEPENDS ${SHADER_BINARIES})
+	add_custom_target("${target}_Shaders" DEPENDS ${SHADER_BINARIES} ${SHADER_HEADERS})
 	add_dependencies(${target} "${target}_Shaders")
 	# target_sources(${target} PRIVATE ${SHADER_BINARIES})
 endfunction()
 
 function(AZ2D_DATA_COPY target OUTPUT_DIR)
 	file(GLOB_RECURSE AZ2D_DATA_FILES
-		LIST_DIRECTORIES true
 		RELATIVE "${PROJECT_SOURCE_DIR}/projects/Az2D/data"
 		CONFIGURE_DEPENDS
 		"${PROJECT_SOURCE_DIR}/projects/Az2D/data/*"
 	)
-	# message( STATUS "AZ2D_DATA_FILES: ${AZ2D_DATA_FILES}" )
 	foreach(AZ2D_DATA_FILE ${AZ2D_DATA_FILES})
-		# message( STATUS "AZ2D_DATA_FILE: ${AZ2D_DATA_FILE}" )
 		add_custom_command(OUTPUT "${OUTPUT_DIR}/data/Az2D/${AZ2D_DATA_FILE}"
 			COMMAND echo "Copying Az2D data/${AZ2D_DATA_FILE} to ${target}"
 			COMMAND ${CMAKE_COMMAND} -E copy "${PROJECT_SOURCE_DIR}/projects/Az2D/data/${AZ2D_DATA_FILE}" "${OUTPUT_DIR}/data/Az2D/${AZ2D_DATA_FILE}"
@@ -124,7 +127,25 @@ function(AZ2D_DATA_COPY target OUTPUT_DIR)
 	endforeach(AZ2D_DATA_FILE)
 endfunction()
 
-add_subdirectory(external/Vulkan-Headers)
+function(AZ3D_DATA_COPY target OUTPUT_DIR)
+	file(GLOB_RECURSE AZ3D_DATA_FILES
+		RELATIVE "${PROJECT_SOURCE_DIR}/projects/Az3D/data"
+		CONFIGURE_DEPENDS
+		"${PROJECT_SOURCE_DIR}/projects/Az3D/data/*"
+	)
+	foreach(AZ3D_DATA_FILE ${AZ3D_DATA_FILES})
+		add_custom_command(OUTPUT "${OUTPUT_DIR}/data/Az3D/${AZ3D_DATA_FILE}"
+			COMMAND echo "Copying Az3D data/${AZ3D_DATA_FILE} to ${target}"
+			COMMAND ${CMAKE_COMMAND} -E copy "${PROJECT_SOURCE_DIR}/projects/Az3D/data/${AZ3D_DATA_FILE}" "${OUTPUT_DIR}/data/Az3D/${AZ3D_DATA_FILE}"
+			DEPENDS "${PROJECT_SOURCE_DIR}/projects/Az3D/data/${AZ3D_DATA_FILE}"
+		)
+		target_sources(${target} PRIVATE "${OUTPUT_DIR}/data/Az3D/${AZ3D_DATA_FILE}")
+	endforeach(AZ3D_DATA_FILE)
+endfunction()
+
+if(NOT TARGET Vulkan::Vulkan)
+	add_subdirectory(external/Vulkan-Headers)
+endif()
 find_package(OpenAL)
 if(NOT TARGET OpenAL::OpenAL)
 	add_subdirectory(external/openal-soft)

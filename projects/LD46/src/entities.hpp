@@ -8,7 +8,7 @@
 #define ENTITIES_HPP
 
 #include "Az2D/game_systems.hpp"
-#include "AzCore/math.hpp"
+#include "AzCore/Math/Math.hpp"
 
 #include "Az2D/entity_basics.hpp"
 
@@ -170,8 +170,8 @@ struct Manager : public ManagerBasic {
 
 	Manager();
 
-	void EventAssetsQueue() override;
-	void EventAssetsAcquire() override;
+	void EventAssetsRequest() override;
+	void EventAssetsAvailable() override;
 	void EventInitialize() override;
 	void EventSync() override;
 	void EventDraw(az::Array<Rendering::DrawingContext> &contexts) override;

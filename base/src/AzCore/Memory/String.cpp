@@ -4,13 +4,12 @@
 */
 
 #include "String.hpp"
-#include "../math.hpp"
-#include "../memory.hpp"
-
-AZCORE_STRING_TERMINATOR(char, '\0');
-AZCORE_STRING_TERMINATOR(char32, 0u);
+#include "../Math/Basic.hpp"
 
 namespace AzCore {
+
+thread_local IndentState _indentState;
+thread_local i32 _preciseFloatToStringMode = 0;
 
 String operator+(const char *cString, const String &string) {
 	String value(string);
@@ -39,7 +38,7 @@ WString operator+(const char32 *cString, WString &&string) {
 }
 
 template <typename T>
-void Reverse(SimpleRange<T> range) {
+void Reverse(Range<T> range) {
 	for (i32 i = 0, j = range.size-1; i < j; i++, j--) {
 		Swap(range[i], range[j]);
 	}
@@ -63,7 +62,7 @@ void AppendToStringWithBase(String &string, u32 value, i32 base) {
 		}
 		remaining = quot;
 	}
-	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
+	Reverse(Range(string.data+startSize, string.size-startSize));
 }
 
 void AppendToStringWithBase(String &string, u64 value, i32 base) {
@@ -84,7 +83,7 @@ void AppendToStringWithBase(String &string, u64 value, i32 base) {
 		}
 		remaining = quot;
 	}
-	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
+	Reverse(Range(string.data+startSize, string.size-startSize));
 }
 
 #if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
@@ -106,7 +105,7 @@ void AppendToStringWithBase(String &string, u128 value, i32 base) {
 		}
 		remaining = quot;
 	}
-	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
+	Reverse(Range(string.data+startSize, string.size-startSize));
 }
 #endif
 
@@ -132,7 +131,7 @@ void AppendToStringWithBase(String &string, i32 value, i32 base) {
 	if (negative) {
 		string += '-';
 	}
-	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
+	Reverse(Range(string.data+startSize, string.size-startSize));
 }
 
 void AppendToStringWithBase(String &string, i64 value, i32 base) {
@@ -157,7 +156,7 @@ void AppendToStringWithBase(String &string, i64 value, i32 base) {
 	if (negative) {
 		string += '-';
 	}
-	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
+	Reverse(Range(string.data+startSize, string.size-startSize));
 }
 
 #if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
@@ -183,7 +182,7 @@ void AppendToStringWithBase(String &string, i128 value, i32 base) {
 	if (negative) {
 		string += '-';
 	}
-	Reverse(SimpleRange(string.data+startSize, string.size-startSize));
+	Reverse(Range(string.data+startSize, string.size-startSize));
 }
 #endif
 
@@ -202,13 +201,25 @@ char IncrementedDigit(char digit) {
 template<typename Float>
 Float intPow(i32 base, i32 exponent) {
 	Float result = 1;
-	while (exponent > 0) {
-		result *= base;
-		exponent--;
-	}
-	while (exponent < 0) {
-		result /= base;
-		exponent++;
+	u64 intPart = 1;
+	if (exponent > 0) {
+		while (exponent > 0) {
+			while (exponent > 0 && intPart * base > intPart) {
+				intPart *= base;
+				exponent--;
+			}
+			result *= (Float)intPart;
+			intPart = base;
+		}
+	} else if (exponent < 0) {
+		while (exponent < 0) {
+			while (exponent < 0 && intPart * base > intPart) {
+				intPart *= base;
+				exponent++;
+			}
+			result /= (Float)intPart;
+			intPart = base;
+		}
 	}
 	return result;
 }
@@ -225,7 +236,11 @@ f64 intPow(i32 base, i32 exponent) {
 
 template<typename Float, i32 MAX_SIGNIFICANT_DIGITS>
 void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) {
-	const i32 MAX_SIGNIFICANT_DIGITS_BASED = ceil((f32)MAX_SIGNIFICANT_DIGITS/log2((f32)base));
+	i32 MAX_SIGNIFICANT_DIGITS_BASED = ceil((f32)MAX_SIGNIFICANT_DIGITS/log2((f32)base));
+	if (0 == _preciseFloatToStringMode) {
+		// Make pretty instead of perfect.
+		MAX_SIGNIFICANT_DIGITS_BASED -= MAX_SIGNIFICANT_DIGITS >= 50 ? 2 : 1;
+	}
 	i32 startSize = string.size;
 	string.Reserve(startSize + MAX_SIGNIFICANT_DIGITS_BASED + 4);
 	i32 basisExponent = 0;
@@ -238,7 +253,7 @@ void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) 
 	// Whether our string has the '.' in it already
 	bool point = false;
 	Float basis;
-	
+
 	// Find a basis that's the smallest power of base greater than the number
 	if (remaining >= 1.0f) {
 		while (true) {
@@ -272,7 +287,7 @@ void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) 
 		crossover = intPow<Float>(base, basisExponent-1);
 	} else {
 		// Regular decimal notation
-		if (remaining < 1.0f) {
+		if (remaining < Float(1)) {
 			string += "0.";
 			dot = string.size-1;
 			point = true;
@@ -283,18 +298,27 @@ void _AppendFloatToString(String &string, Float value, i32 base, i32 precision) 
 			}
 		}
 		// No special crossover
-		crossover = 1.0f / base;
+		crossover = Float(1) / base;
 	}
 	char lastDigit = base <= 10 ? '0'+base-1 : 'A'+base-11;
 	// Whether we need to round up
 	bool roundUp = false;
 	basis = intPow<Float>(base, basisExponent);
+	const Float margin = log2((f32)base);
 	for (; count > 0; count--) {
+		if (point && count == 1) {
+			if (abs(nextafter(value, value+1)-value) > remaining * margin) {
+				if (i32(remaining / basis) >= intDivCeil(base, 2)) {
+					roundUp = true;
+				}
+				break;
+			}
+		}
 		i32 digit = i32(remaining / basis);
 		string += DigitToChar(digit);
 		remaining -= basis * (Float)digit;
-		if (remaining < 0.0f)
-			remaining = 0.0f;
+		if (remaining < Float(0))
+			remaining = Float(0);
 		basisExponent--;
 		basis = intPow<Float>(base, basisExponent);
 		if (point && count == 1) {
@@ -360,7 +384,11 @@ void AppendToStringWithBase(String &string, f32 value, i32 base, i32 precision) 
 	u32 significand = (byteCode & 0x007fffff) | (0x00800000); // Get our implicit bit in there.
 	if (exponent == 0x00) {
 		if (significand == 0x00800000) {
-			string.Append(negative ? "-0.0" : "0.0");
+			if (precision == 0) {
+				string.Append(negative ? "-0" : "0");
+			} else {
+				string.Append(negative ? "-0.0" : "0.0");
+			}
 			return;
 		} else {
 			significand &= 0x007fffff; // Get that implicit bit out of here!
@@ -368,10 +396,14 @@ void AppendToStringWithBase(String &string, f32 value, i32 base, i32 precision) 
 	}
 	if (exponent == 0xff) {
 		if (significand == 0x00800000) {
-			string.Append(negative ? "-Infinity" : "Infinity");
+			string.Append(negative ? "-Inf" : "Inf");
 		} else {
 			string.Append(negative ? "-NaN" : "NaN");
 		}
+		return;
+	}
+	if (precision == 0) {
+		AppendToStringWithBase(string, (i64)round(value), base);
 		return;
 	}
 	if (exponent == 150) {
@@ -390,7 +422,11 @@ void AppendToStringWithBase(String &string, f64 value, i32 base, i32 precision) 
 	u64 significand = (byteCode & 0x000fffffffffffff) | (0x0010000000000000); // Get our implicit bit in there.
 	if (exponent == 0x0) {
 		if (significand == 0x0010000000000000) {
-			string.Append(negative ? "-0.0" : "0.0");
+			if (precision == 0) {
+				string.Append(negative ? "-0" : "0");
+			} else {
+				string.Append(negative ? "-0.0" : "0.0");
+			}
 			return;
 		} else {
 			significand &= 0x000fffffffffffff; // Get that implicit bit out of here!
@@ -398,10 +434,14 @@ void AppendToStringWithBase(String &string, f64 value, i32 base, i32 precision) 
 	}
 	if (exponent == 0x7ff) {
 		if (significand == 0x0010000000000000) {
-			string.Append(negative ? "-Infinity" : "Infinity");
+			string.Append(negative ? "-Inf" : "Inf");
 		} else {
 			string.Append(negative ? "-NaN" : "NaN");
 		}
+		return;
+	}
+	if (precision == 0) {
+		AppendToStringWithBase(string, (i64)round(value), base);
 		return;
 	}
 	if (exponent == 1075) {
@@ -421,7 +461,11 @@ void AppendToStringWithBase(String &string, f128 value, i32 base, i32 precision)
 	u128 significand = (byteCode << 16) >> 16 | ((u128)1 << 112); // Get our implicit bit in there.
 	if (exponent == 0x0) {
 		if (significand == (u128)1 << 112) {
-			string.Append(negative ? "-0.0" : "0.0");
+			if (precision == 0) {
+				string.Append(negative ? "-0" : "0");
+			} else {
+				string.Append(negative ? "-0.0" : "0.0");
+			}
 			return;
 		} else {
 			significand = (byteCode << 16) >> 16; // Get that implicit bit out of here!
@@ -429,10 +473,14 @@ void AppendToStringWithBase(String &string, f128 value, i32 base, i32 precision)
 	}
 	if (exponent == 0x7fff) {
 		if (significand == (u128)1 << 112) {
-			string.Append(negative ? "-Infinity" : "Infinity");
+			string.Append(negative ? "-Inf" : "Inf");
 		} else {
 			string.Append(negative ? "-NaN" : "NaN");
 		}
+		return;
+	}
+	if (precision == 0) {
+		AppendToStringWithBase(string, (i128)round(value), base);
 		return;
 	}
 	exponent -= 16383;
@@ -448,7 +496,7 @@ void AppendToStringWithBase(String &string, f128 value, i32 base, i32 precision)
 #include <stdio.h>
 
 template<typename Int, typename Char>
-bool _StringToInt(SimpleRange<Char> string, Int *dst, i32 base) {
+bool _StringToInt(Range<Char> string, Int *dst, i32 base) {
 	Int multiplier = 1;
 	Int result = 0;
 	for (i32 i = string.size-1; i >= 0; i--) {
@@ -503,7 +551,7 @@ bool _StringToFloat(StringBase<Char> string, Float *dst, i32 base) {
 	for (i32 i = 0; i < string.size-2; i++) {
 		if (string[i] == 'e' && (string[i+1] == '+' || string[i+1] == '-')) {
 			i32 exp;
-			if (!_StringToInt<i32, Char>(SimpleRange<Char>(&string[i+1], string.size-i-1), &exp, base)) return false;
+			if (!_StringToInt<i32, Char>(Range<Char>(&string[i+1], string.size-i-1), &exp, base)) return false;
 			exponent = exp;
 			/*
 			if (exp > 0) {
@@ -554,10 +602,10 @@ bool _StringToFloat(StringBase<Char> string, Float *dst, i32 base) {
 }
 
 bool StringToF32(String string, f32 *dst, i32 base) {
-	if (string == "Infinity") {
+	if (string == "Inf") {
 		*dst = INFINITY;
 		return true;
-	} else if (string == "-Infinity") {
+	} else if (string == "-Inf") {
 		*dst = -INFINITY;
 		return true;
 	} else if (string == "NaN") {
@@ -571,10 +619,10 @@ bool StringToF32(String string, f32 *dst, i32 base) {
 }
 
 bool StringToF64(String string, f64 *dst, i32 base) {
-	if (string == "Infinity") {
+	if (string == "Inf") {
 		*dst = INFINITY;
 		return true;
-	} else if (string == "-Infinity") {
+	} else if (string == "-Inf") {
 		*dst = -INFINITY;
 		return true;
 	} else if (string == "NaN") {
@@ -593,8 +641,8 @@ bool StringToF128(String string, f128 *dst, i32 base) {
 }
 #endif
 
-static WString wInfinity = ToWString("Infinity");
-static WString wNInfinity = ToWString("-Infinity");
+static WString wInfinity = ToWString("Inf");
+static WString wNInfinity = ToWString("-Inf");
 static WString wNaN = ToWString("NaN");
 static WString wNNaN = ToWString("-NaN");
 
@@ -615,16 +663,16 @@ bool WStringToF32(WString string, f32 *dst, i32 base) {
 	return _StringToFloat<f32>(string, dst, base);
 }
 
-bool StringToI32(String string, i32 *dst, i32 base) {
+bool StringToI32(Str string, i32 *dst, i32 base) {
 	return _StringToInt<i32, char>(string, dst, base);
 }
 
-bool StringToI64(String string, i64 *dst, i32 base) {
+bool StringToI64(Str string, i64 *dst, i32 base) {
 	return _StringToInt<i64, char>(string, dst, base);
 }
 
 #if AZCORE_COMPILER_SUPPORTS_128BIT_TYPES
-bool StringToI128(String string, i128 *dst, i32 base) {
+bool StringToI128(Str string, i128 *dst, i32 base) {
 	return _StringToInt<i128, char>(string, dst, base);
 }
 #endif
@@ -730,9 +778,9 @@ void TrimWhitespace(String &string) {
 	string.Resize(string.size - trailing);
 }
 
-String Join(const Array<SimpleRange<char>> &values, SimpleRange<char> joiner) {
+String Join(const Array<Range<char>> &values, Range<char> joiner) {
 	String output;
-	for (const SimpleRange<char> &value : values) {
+	for (const Range<char> &value : values) {
 		if (value.size) {
 			output.Append(value);
 			output.Append(joiner);
@@ -744,14 +792,14 @@ String Join(const Array<SimpleRange<char>> &values, SimpleRange<char> joiner) {
 }
 
 template<typename char_t>
-Array<SimpleRange<char_t>> _SeparateByNewlines(SimpleRange<char_t> string, bool allowEmpty) {
-	Array<SimpleRange<char_t>> result;
+Array<Range<char_t>> _SeparateByNewlines(Range<char_t> string, bool allowEmpty) {
+	Array<Range<char_t>> result;
 	i64 rangeStart = 0;
 	for (i64 i = 0; i < string.size; i++) {
 		char_t c = string[i];
 		if (c == '\r' || c == '\n') {
 			if (allowEmpty || i-rangeStart > 0) {
-				result.Append(SimpleRange(&string[rangeStart], i-rangeStart));
+				result.Append(Range(&string[rangeStart], i-rangeStart));
 			}
 			if (c == '\r' && string.size > i+1 && string[i+1] == '\n') {
 				++i;
@@ -760,7 +808,7 @@ Array<SimpleRange<char_t>> _SeparateByNewlines(SimpleRange<char_t> string, bool 
 		}
 	}
 	if (rangeStart < string.size) {
-		result.Append(SimpleRange(&string[rangeStart], string.size-rangeStart));
+		result.Append(Range(&string[rangeStart], string.size-rangeStart));
 	}
 	return result;
 }
@@ -783,6 +831,26 @@ void StrToUpper(Str str) {
 	for (i32 i = 0; i < str.size; i++) {
 		str[i] = CharToUpper(str[i]);
 	}
+}
+
+Array<char> FileContents(String filepath, bool binary) {
+	Array<char> result;
+	FILE *file = fopen(filepath.data, binary ? "rb" : "r");
+	if (!file) {
+		return result;
+	}
+	fseek(file, 0, SEEK_END);
+	result.Resize(ftell(file));
+	fseek(file, 0, SEEK_SET);
+	i32 finalSize = (i32)fread(result.data, 1, result.size, file);
+	if (finalSize == 0) {
+		result.Clear();
+	}
+	if (finalSize < result.size) {
+		result.size = finalSize;
+	}
+	fclose(file);
+	return result;
 }
 
 } // namespace AzCore

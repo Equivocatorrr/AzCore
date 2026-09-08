@@ -4,7 +4,9 @@
 */
 
 #include "Input.hpp"
-#include "../keycodes.hpp"
+#include "KeyCodes.hpp"
+
+using namespace AzCore::io::kc;
 
 namespace AzCore {
 
@@ -30,7 +32,7 @@ void Input::Press(u8 keyCode) {
 		codeAnyMB = keyCode;
 	}
 	if (inputs[keyCode].Released()) {
-		inputs[keyCode].Set(false, true, false);
+		inputs[keyCode].Set(true, true, false);
 	} else if (!inputs[keyCode].Down()) { // De-duplicate
 		inputs[keyCode].Press();
 	}

@@ -8,7 +8,7 @@
 
 #include "vec2_t.hpp"
 
-#include "basic.hpp"
+#include "Basic.hpp"
 
 namespace AzCore {
 
@@ -105,6 +105,9 @@ struct complex_t {
 		return Conjugate() / (x * x + y * y);
 	}
 };
+
+typedef complex_t<f32> complex;
+typedef complex_t<f64> complexd;
 
 } // namespace AzCore
 

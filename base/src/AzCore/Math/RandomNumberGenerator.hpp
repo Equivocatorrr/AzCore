@@ -6,7 +6,7 @@
 #ifndef AZCORE_RANDOMNUMBERGENERATOR_HPP
 #define AZCORE_RANDOMNUMBERGENERATOR_HPP
 
-#include "../basictypes.hpp"
+#include "../BasicTypes.hpp"
 
 namespace AzCore {
 

@@ -7,10 +7,14 @@
 #ifndef AZ2D_SOUND_HPP
 #define AZ2D_SOUND_HPP
 
-#include "AzCore/common.hpp"
+#include "AzCore/Memory/String.hpp"
+#include "AzCore/Memory/Ptr.hpp"
+#include "AzCore/Math/RandomNumberGenerator.hpp"
 #include "AzCore/Thread.hpp"
 #include <AL/al.h>
 #include <AL/alc.h>
+
+#include <atomic>
 
 namespace Az2D::Assets {
 	struct Stream;
@@ -90,7 +94,7 @@ struct SourceBase {
 struct Source : public SourceBase {
 	ALuint buffer;
 	void Create(Buffer *buf);
-	void Create(String filename);
+	void Create(i32 soundIndex);
 };
 
 /*  struct: MultiSource
@@ -114,7 +118,7 @@ struct Stream : public SourceBase {
 	// bool fadeout = false;
 	// Array<ALuint> buffersToQueue{};
 	bool Create(Ptr<Assets::Stream> file_in);
-	bool Create(String filename);
+	bool Create(i32 streamIndex);
 	bool Queue(ALuint buffer);
 	i32 BuffersDone();
 	bool Unqueue(ALuint buffer);

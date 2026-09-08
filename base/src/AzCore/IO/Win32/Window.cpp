@@ -3,10 +3,11 @@
 	Author: Philip Haynes
 */
 
-#include "../../io.hpp"
-#include "WindowData.hpp"
-
+#include "../../Utility/WindowsHeaderPredefines.h"
 #include <dinput.h>
+#include "WindowData.hpp"
+#include "../../Utility/WindowsHeaderCleanup.h"
+
 
 #define WS_FULLSCREEN (WS_SYSMENU | WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_VISIBLE)
 #define WS_WINDOWED (WS_OVERLAPPEDWINDOW | WS_VISIBLE)
@@ -19,15 +20,17 @@
 #define WM_DPICHANGED 0x02E0
 #endif
 
-#include "../RawInput.hpp"
-#include "../../io.hpp"
-#include "../../basictypes.hpp"
-#include "../../keycodes.hpp"
+#include "../io.hpp"
+#include "../../BasicTypes.hpp"
 #include "../../Memory/String.hpp"
+
+using namespace AzCore::io::kc;
 
 namespace AzCore {
 
 namespace io {
+
+HCURSOR basicCursor = LoadCursor(NULL, IDC_ARROW);
 
 u32 windowClassNum = 0;
 
@@ -65,6 +68,28 @@ Window::~Window() {
 }
 
 i32 GetWindowDpi(Window *window);
+
+void UpdateRefreshRate(Window *window) {
+	static bool failed = false;
+	if (failed) return;
+	HMONITOR monitor = MonitorFromWindow(window->data->window, MONITOR_DEFAULTTOPRIMARY);
+	MONITORINFOEX monitorInfo;
+	monitorInfo.cbSize = sizeof(monitorInfo);
+	if (!GetMonitorInfo(monitor, &monitorInfo)) {
+		io::cerr.PrintLnDebug("GetMonitorInfo failed");
+		failed = true;
+		return;
+	}
+	DEVMODE devmode;
+	if (!EnumDisplaySettings(monitorInfo.szDevice, ENUM_CURRENT_SETTINGS, &devmode)) {
+		io::cerr.PrintLnDebug("EnumDisplaySettings failed");
+		failed = true;
+		return;
+	}
+	u32 refreshRateHz = devmode.dmDisplayFrequency;
+	window->refreshRate = refreshRateHz * 1000;
+	io::cout.PrintLnTrace("Got a refresh rate of ", FormatFloat((f32)window->refreshRate / 1000.0f, 10, 2), "Hz");
+}
 
 static void GetInputRepeatInfo(Input *input) {
 	if (input) {
@@ -275,13 +300,27 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 		}
 		break;
 	}
+	case WM_SETCURSOR: {
+		if (LOWORD(lParam) == HTCLIENT) {
+			if (focusedWindow->cursorHidden) {
+				SetCursor(NULL);
+			} else {
+				SetCursor(basicCursor);
+			}
+			return true;
+		} else {
+			return DefWindowProc(hWnd, uMsg, wParam, lParam);
+		}
+	} break;
 	case WM_SETFOCUS: {
 		thisWindow->focused = true;
 		break;
 	}
 	case WM_KILLFOCUS: {
 		thisWindow->focused = false;
-		thisWindow->input->ReleaseAll();
+		if (thisWindow->input != nullptr) {
+			thisWindow->input->ReleaseAll();
+		}
 		break;
 	}
 	case WM_DPICHANGED: {
@@ -301,7 +340,6 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 
 	if (thisWindow->input != nullptr && thisWindow->focused) {
 		if (press) {
-
 			if (keyCode != 0) {
 				thisWindow->input->Press(keyCode);
 			}
@@ -320,7 +358,7 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 	}
 
 	if (keyCode == KC_MOUSE_XTWO || keyCode == KC_MOUSE_XONE)
-		return TRUE;
+		return true;
 
 	return 0;
 }
@@ -328,7 +366,7 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 bool Window::Open() {
 	data->resizeHack = false;
 	data->moveHack = false;
-	
+
 	data->instance = GetModuleHandle(NULL);
 	data->windowIcon = LoadIcon(data->instance, "icon.ico");
 	data->windowIconSmall = data->windowIcon;
@@ -358,10 +396,9 @@ bool Window::Open() {
 	rect.right = width;
 	rect.top = 0;
 	rect.bottom = height;
-	AdjustWindowRect(&rect, WS_WINDOWED, FALSE);
+	AdjustWindowRect(&rect, WS_WINDOWED, false);
 	focusedWindow = this;
-	data->window = CreateWindowEx(0, data->windowClassName.data, name.data, WS_WINDOWED, CW_USEDEFAULT, CW_USEDEFAULT,
-								  rect.right - rect.left, rect.bottom - rect.top, NULL, NULL, data->instance, 0);
+	data->window = CreateWindowEx(0, data->windowClassName.data, name.data, WS_WINDOWED, CW_USEDEFAULT, CW_USEDEFAULT, rect.right - rect.left, rect.bottom - rect.top, NULL, NULL, data->instance, 0);
 	if (data->window == NULL) {
 		error = "Failed to create window: ";
 		error += ToString((u32)GetLastError());
@@ -373,13 +410,14 @@ bool Window::Open() {
 	return true;
 }
 
-bool Window::Show() {
+bool Window::Show(bool shown) {
 	if (!open) {
 		error = "Window hasn't been created yet";
 		return false;
 	}
-	ShowWindow(data->window, SW_SHOWNORMAL);
-
+	if (visible == shown) return true;
+	ShowWindow(data->window, shown ? SW_SHOWNORMAL : SW_HIDE);
+	visible = shown;
 	return true;
 }
 
@@ -392,6 +430,7 @@ bool Window::Close() {
 	UnregisterClass(data->windowClass.lpszClassName, data->instance);
 
 	open = false;
+	visible = false;
 	return true;
 }
 
@@ -434,7 +473,7 @@ bool Window::Fullscreen(bool fs) {
 		rect.right = windowedX + width;
 		rect.bottom = windowedY + height;
 		SetWindowLongPtr(data->window, GWL_STYLE, WS_WINDOWED);
-		AdjustWindowRectExForDpi(&rect, WS_WINDOWED, FALSE, 0, dpi);
+		AdjustWindowRectExForDpi(&rect, WS_WINDOWED, false, 0, dpi);
 		SetWindowPos(data->window, nullptr, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOZORDER);
 		x = rect.left;
 		y = rect.top;
@@ -457,7 +496,7 @@ bool Window::Resize(u32 w, u32 h) {
 	rect.top = 0;
 	rect.right = w;
 	rect.bottom = h;
-	AdjustWindowRect(&rect, WS_WINDOWED, FALSE);
+	AdjustWindowRect(&rect, WS_WINDOWED, false);
 	SetWindowPos(data->window, 0, 0, 0, rect.right - rect.left, rect.bottom - rect.top, SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
 	resized = true;
 	return true;
@@ -487,16 +526,33 @@ bool Window::Update() {
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
+	if (_setCursor) {
+		RECT rect;
+		POINT point;
+		GetClientRect(data->window, &rect);
+		point.x = rect.left;
+		point.y = rect.top;
+		ClientToScreen(data->window, &point);
+		SetCursorPos(point.x + _setCursorX, point.y + _setCursorY);
+		_setCursor = false;
+	}
+	UpdateRefreshRate(this);
 	return true;
 }
 
 void Window::HideCursor(bool hide) {
 	cursorHidden = hide;
 	if (hide) {
-		ShowCursor(false);
+		SetCursor(NULL);
 	} else {
-		ShowCursor(true);
+		SetCursor(basicCursor);
 	}
+}
+
+void Window::MoveCursor(i32 x, i32 y) {
+	_setCursor = true;
+	_setCursorX = x;
+	_setCursorY = y;
 }
 
 String Window::InputName(u8 keyCode) const {

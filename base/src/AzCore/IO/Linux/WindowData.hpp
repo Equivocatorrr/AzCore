@@ -12,9 +12,10 @@
 	#define AZCORE_IO_NO_XLIB
 #endif
 
-#include "../../basictypes.hpp"
-#include "../../memory.hpp"
+#include "../../BasicTypes.hpp"
+#include "../../Memory/Memory.hpp"
 #include "../../Thread.hpp"
+#include "../../Utility/RAIIHacks.hpp"
 
 #include <xcb/xcb.h>
 #ifndef AZCORE_IO_NO_XLIB
@@ -34,6 +35,8 @@
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include "WaylandProtocols/xdg-shell.h"
+#include "WaylandProtocols/pointer-constraints-unstable-v1.h"
+#include "WaylandProtocols/relative-pointer-manager-unstable-v1.h"
 
 namespace AzCore {
 
@@ -85,7 +88,7 @@ struct WindowData {
 			xcb_cursor_t cursorVisible;
 			i32 windowDepth;
 			i32 frameCount;
-			Thread dpiThread;
+			Thread asyncThread;
 		#ifndef AZCORE_IO_NO_XLIB
 			Display *display;
 		#endif
@@ -109,6 +112,11 @@ struct WindowData {
 			wl_keyboard *keyboard;
 			wl_touch *touch;
 			wl_region *region;
+			zwp_pointer_constraints_v1 *pointerConstraints;
+			zwp_relative_pointer_manager_v1 *relativePointerManager;
+			zwp_relative_pointer_v1 *relativePointer;
+			// Accumulates relative motions that get rounded down (as such this value represents 1/256th of a pixel motion, to match wl_fixed_t)
+			vec2i relativePointerAccum;
 			i32 scale;
 			i32 touchId;
 			struct {
@@ -136,7 +144,7 @@ struct WindowData {
 			AzPlacementNew(wayland.cursors);
 			wayland = {0};
 		} else {
-			AzPlacementNew(x11.dpiThread);
+			AzPlacementNew(x11.asyncThread);
 			x11 = {0};
 			x11.windowDepth = 24;
 		}
@@ -147,7 +155,7 @@ struct WindowData {
 			wayland.outputsWeTouch.~Array();
 			wayland.cursors.~BinaryMap();
 		} else {
-			x11.dpiThread.~Thread();
+			x11.asyncThread.~Thread();
 		}
 	}
 }; // struct WindowData

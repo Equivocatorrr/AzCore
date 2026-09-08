@@ -1,9 +1,11 @@
 /*
-	File: basic.cpp
+	File: Basic.cpp
 	Author: Philip Haynes
 */
 
-#include "basic.hpp"
+#include "Basic.hpp"
+
+#include "../Utility/Memory.hpp"
 
 namespace AzCore {
 
@@ -45,6 +47,30 @@ f32 Power(f32 base, f32 exponent) {
 	result1 *= base;
 	f32 result2 = result1 * base;
 	return invExpFrac * result1 + expFrac * result2;
+}
+
+u64 GreatestCommonFactor(u64 a, u64 b) {
+	if (a == 0) return b;
+	if (b == 0) return a;
+	u32 shift = CountTrailingZeroBits(a | b);
+	a >>= CountTrailingZeroBits(a);
+	do {
+		b >>= CountTrailingZeroBits(b);
+		if (a > b) {
+			Swap(a, b);
+		}
+		b -= a;
+	} while (b != 0);
+	return a << shift;
+}
+
+u64 GreatestCommonFactor(std::initializer_list<u64> list) {
+	auto it = list.begin();
+	u64 val = *it++;
+	while (it != list.end()) {
+		val = GreatestCommonFactor(val, *it++);
+	}
+	return val;
 }
 
 } // namespace AzCore

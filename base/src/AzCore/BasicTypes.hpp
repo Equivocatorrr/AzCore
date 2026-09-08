@@ -6,11 +6,14 @@
 #ifndef AZCORE_BASICTYPES_HPP
 #define AZCORE_BASICTYPES_HPP
 
+#include <cstddef>
+using std::size_t;
+
 typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned int u32;
 typedef unsigned long long u64;
-typedef char i8;
+typedef signed char i8;
 typedef short i16;
 typedef int i32;
 typedef long long i64;
@@ -32,11 +35,6 @@ static_assert(sizeof(i64) == 8);
 static_assert(sizeof(f32) == 4);
 static_assert(sizeof(f64) == 8);
 
-namespace AzCore {
-	static constexpr i32 indexIndicatingRaw = (i32)0xFFFFFFFF; // Because MSVC is stupid
-}
-
-// Let's pretend we support compilers other than GCC for a moment.
 #if 1
 #if defined(__clang__)
 	#define f128 static_assert(false && "f128 is not supported in this compiler");
@@ -44,6 +42,7 @@ namespace AzCore {
 	#define i128 static_assert(false && "i128 is not supported in this compiler");
 	#define force_inline(...) inline __VA_ARGS__
 	#define AZCORE_COMPILER_SUPPORTS_128BIT_TYPES 0
+	#define AZCORE_PRETTY_FUNCTION __PRETTY_FUNCTION__
 #elif defined(__GNUG__)
 	typedef __float128 f128;
 	typedef unsigned __int128 u128;
@@ -53,6 +52,7 @@ namespace AzCore {
 	static_assert(sizeof(i128) == 16);
 	#define force_inline(...) inline __VA_ARGS__ __attribute__((always_inline))
 	#define AZCORE_COMPILER_SUPPORTS_128BIT_TYPES 1
+	#define AZCORE_PRETTY_FUNCTION __PRETTY_FUNCTION__
 #elif defined(_MSC_VER)
 	#define f128 static_assert(false && "f128 is not supported in this compiler");
 	#define u128 static_assert(false && "u128 is not supported in this compiler");
@@ -60,6 +60,7 @@ namespace AzCore {
 	#define force_inline(...) __forceinline __VA_ARGS__
 	// #define force_inline(...) inline __VA_ARGS__
 	#define AZCORE_COMPILER_SUPPORTS_128BIT_TYPES 0
+	#define AZCORE_PRETTY_FUNCTION __FUNCSIG__
 #endif
 #else
 	#define force_inline(...) inline __VA_ARGS__
@@ -67,72 +68,12 @@ namespace AzCore {
 #endif
 
 #if defined(_MSC_VER)
-#define AZ_MSVC_ONLY(a) a
+	#define AZ_MSVC_ONLY(a) a
 #else
-#define AZ_MSVC_ONLY(a)
+	#define AZ_MSVC_ONLY(a)
 #endif
-
-// NOTE: Because of how mingw64 works, basictypes.hpp must be included before any system headers
-#ifdef WIN32
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#define WINVER 0x0A00
-#define _WIN32_WINNT 0x0A00
-#endif // WIN32
 
 namespace AzCore {}
 namespace az = AzCore;
 
-#include <stdio.h>
-#include <stdlib.h>
-#ifdef __unix
-#include <execinfo.h>
-inline void PrintBacktrace(FILE *file) {
-	constexpr size_t stackSizeMax = 256;
-	void *array[stackSizeMax];
-	int size;
-
-	size = backtrace(array, stackSizeMax);
-	fprintf(file, "Backtrace:\n");
-	backtrace_symbols_fd(array, size, fileno(file));
-}
-inline void PrintBacktrace() {
-	PrintBacktrace(stderr);
-}
-#else
-inline void PrintBacktrace(FILE* file) { (void)file; }
-inline void PrintBacktrace() {}
-#endif // __unix
-constexpr void _Assert(bool condition, const char *file, const char *line, const char *message) {
-	if (!condition) {
-		fprintf(stderr, "\033[96m%s\033[0m:\033[96m%s\033[0m Assert failed: \033[91m%s\033[0m\n", file, line, message);
-		PrintBacktrace(stderr);
-		abort();
-	}
-}
-constexpr auto* _GetFileName(const char* const path) {
-	const auto* startPosition = path;
-	for (const auto* cur = path; *cur != '\0'; ++cur) {
-		if (*cur == '\\' || *cur == '/') startPosition = cur+1;
-	}
-	return startPosition;
-}
-#define STRINGIFY_DAMMIT(x) #x
-#define STRINGIFY(x) STRINGIFY_DAMMIT(x)
-#ifdef NDEBUG
-	#define AzAssert(condition, message)
-#else
-	#define AzAssert(condition, message) if (!(condition)) {_Assert(false, _GetFileName(__FILE__), STRINGIFY(__LINE__), (message));}
-#endif
-// Assert that persists in release mode
-#define AzAssertRel(condition, message) if (!(condition)) {_Assert(false, _GetFileName(__FILE__), STRINGIFY(__LINE__), (message));}
-
-#define AzPlacementNew(value, ...) new(&(value)) decltype(value)(__VA_ARGS__)
-
 #endif // AZCORE_BASICTYPES_HPP
-
-// Do this so if basictypes is included without AZCORE_DEFINE_ASSERT,
-// and it gets defined later, we can still define Assert
-#if defined(AZCORE_DEFINE_ASSERT) && !defined(Assert)
-	#define Assert(condition, message) AzAssert(condition, message)
-#endif // AZCORE_DEFINE_ASSERT

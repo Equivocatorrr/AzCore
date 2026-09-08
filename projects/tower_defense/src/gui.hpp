@@ -6,23 +6,23 @@
 #ifndef GUI_HPP
 #define GUI_HPP
 
+#include "AzCore/gui.hpp"
 #include "Az2D/gui_basics.hpp"
 
-namespace Az2D::Gui { // Short for Interface
+namespace Az2D::Gui {
 
-using namespace AzCore;
+namespace azgui = az::GuiGeneric;
 
-// Ways to define a GUI with a hierarchy
 struct Gui;
 
 // Now we can have some different screens
 struct MainMenu {
-	Screen screen;
-	Hideable *continueHideable;
-	Button *buttonContinue;
-	Button *buttonNewGame;
-	Button *buttonSettings;
-	Button *buttonExit;
+	azgui::Screen *screen;
+	azgui::Hideable *continueHideable;
+	azgui::Button *buttonContinue;
+	azgui::Button *buttonNewGame;
+	azgui::Button *buttonSettings;
+	azgui::Button *buttonExit;
 
 	void Initialize();
 	void Update();
@@ -30,35 +30,39 @@ struct MainMenu {
 };
 
 struct SettingsMenu {
-	Screen screen;
-	Checkbox *checkFullscreen;
-	Checkbox *checkVSync;
-	Hideable *framerateHideable;
-	TextBox *textboxFramerate;
-	Slider *sliderVolumes[3];
-	TextBox *textboxVolumes[3];
-	Button *buttonApply;
-	Button *buttonBack;
+	azgui::Screen *screen;
+	azgui::Checkbox *checkFullscreen;
+	azgui::Checkbox *checkVSync;
+	azgui::Hideable *framerateHideable;
+	azgui::Textbox *textboxFramerate;
+	azgui::Slider *sliderVolumes[3];
+	azgui::Textbox *textboxVolumes[3];
+	azgui::Slider *sliderGuiScale;
+	azgui::Textbox *textboxGuiScale;
+	azgui::Button *buttonApply;
+	azgui::Button *buttonBack;
 
+	void Reset();
 	void Initialize();
 	void Update();
 	void Draw(Rendering::DrawingContext &context);
 };
 
 struct UpgradesMenu {
-	Screen screen;
-	Hideable *hideable;
+	azgui::Screen *screen;
+	azgui::Hideable *hideable;
+	azgui::Text *towerName;
 	// Information about the currently selected tower
-	Text *selectedTowerStats;
-	Hideable *towerPriorityHideable;
+	azgui::Text *selectedTowerStats;
+	azgui::Hideable *towerPriorityHideable;
 	// How the selected tower prioritizes target selection
-	Switch *towerPriority;
+	azgui::Switch *towerPriority;
 	// Some upgrades aren't available on some towers
-	Hideable *upgradeHideable[5];
+	azgui::Hideable *upgradeHideable[5];
 	// The number indicator for the state of each attribute
-	Text *upgradeStatus[5];
+	azgui::Text *upgradeStatus[5];
 	// Button for purchasing an upgrade
-	Button *upgradeButton[5];
+	azgui::Button *upgradeButton[5];
 
 	void Initialize();
 	void Update();
@@ -66,14 +70,14 @@ struct UpgradesMenu {
 };
 
 struct PlayMenu {
-	Screen screen;
-	ListV *list;
-	Text *waveTitle, *waveInfo, *towerInfo;
-	Array<ListH*> towerButtonLists;
-	Array<Button*> towerButtons;
-	Button *buttonMenu;
-	Button *buttonStartWave;
-	Text *buttonTextStartWave;
+	azgui::Screen *screen;
+	azgui::ListV *list;
+	azgui::Text *waveTitle, *waveInfo, *towerInfo;
+	az::Array<azgui::ListH*> towerButtonLists;
+	az::Array<azgui::Button*> towerButtons;
+	azgui::Button *buttonMenu;
+	azgui::Button *buttonStartWave;
+	azgui::Text *buttonTextStartWave;
 
 	UpgradesMenu upgradesMenu;
 
@@ -89,22 +93,29 @@ struct Gui : public GuiBasic {
 		PLAY
 	};
 	
-	Assets::TexIndex texCursor;
-
 	Menu currentMenu = Menu::MAIN;
 	Menu nextMenu = Menu::MAIN;
 	MainMenu menuMain;
 	SettingsMenu menuSettings;
 	PlayMenu menuPlay;
+	
+	Assets::TexIndex texCursor;
+	az::Array<Sound::Source> sndClickInSources;
+	az::Array<Sound::Source> sndClickOutSources;
+	az::Array<Sound::Source> sndClickSoftSources;
+	Sound::Source sndCheckboxOn, sndCheckboxOff;
+	Sound::MultiSource sndClickIn;
+	Sound::MultiSource sndClickOut;
+	Sound::MultiSource sndClickSoft;
+	Assets::Font *font;
 
 	Gui();
 	~Gui() = default;
 
-	void EventAssetsQueue() override;
-	void EventAssetsAcquire() override;
+	void EventAssetsRequest() override;
 	void EventInitialize() override;
 	void EventSync() override;
-	void EventDraw(Array<Rendering::DrawingContext> &contexts) override;
+	void EventDraw(az::Array<Rendering::DrawingContext> &contexts) override;
 };
 
 extern Gui *gui;

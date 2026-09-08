@@ -6,7 +6,7 @@
 #include "sound.hpp"
 #include "game_systems.hpp"
 #include "settings.hpp"
-#include "profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
 
 namespace Az2D::Sound {
 
@@ -44,7 +44,7 @@ bool ErrorCheck(const char* info) {
 }
 
 bool Manager::Initialize() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Sound::Manager::Initialize)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Sound::Manager::Initialize)
 	if (initialized) return false;
 	device = alcOpenDevice(nullptr);
 	if (!device) {
@@ -93,7 +93,7 @@ bool Manager::DeleteSources() {
 }
 
 bool Manager::Deinitialize() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Sound::Manager::Deinitialize)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Sound::Manager::Deinitialize)
 	if (!initialized) return true;
 	procStop = true;
 	if (streamUpdateProc.Joinable()) {
@@ -112,7 +112,7 @@ Manager::~Manager() {
 }
 
 Array<PriorityIndex> Manager::GetPriorities() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Sound::Manager::GetPriorities)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Sound::Manager::GetPriorities)
 	Array<PriorityIndex> priorities;
 	priorities.Reserve(sounds.size);
 	for (i32 i = 0; i < sounds.size; i++) {
@@ -187,7 +187,7 @@ bool Manager::Activate(SourceBase *sound) {
 			} else {
 				Stream *stream = (Stream*)sound;
 				for (i32 i = 0; i < Assets::numStreamBuffers; i++) {
-					if (!stream->file->Decode(stream->file->data.samplerate/8)) {
+					if (!stream->file->DecodeSamples(stream->file->data.samplerate/8)) {
 						error = "Manager::Activate: Failed to Decode: " + Assets::error;
 						return false;
 					}
@@ -205,7 +205,7 @@ bool Manager::Activate(SourceBase *sound) {
 }
 
 bool Manager::UpdateActiveSound(SourceBase *sound, f32 timestep) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Sound::Manager::UpdateActiveSound)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Sound::Manager::UpdateActiveSound)
 	// alSource3f(sound->source, AL_POSITION, sound->position.x, sound->position.y, sound->position.z);
 	// ErrorCheck("alSource3f(AL_POSITION)");
 	// alSource3f(sound->source, AL_VELOCITY, sound->velocity.x, sound->velocity.y, sound->velocity.z);
@@ -297,7 +297,7 @@ bool Manager::Stop(SourceBase *sound) {
 		}
 		stream->file->SeekStart();
 		for (i32 i = 0; i < Assets::numStreamBuffers; i++) {
-			if (!stream->file->Decode(stream->file->data.samplerate/8)) {
+			if (!stream->file->DecodeSamples(stream->file->data.samplerate/8)) {
 				error = "Manager::Activate: Failed to Decode: " + Assets::error;
 				return false;
 			}
@@ -314,7 +314,7 @@ bool Manager::Stop(SourceBase *sound) {
 }
 
 bool Manager::Update(f32 timestep) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Sound::Manager::Update)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Sound::Manager::Update)
 	if (procFailure) {
 		return false;
 	}
@@ -390,7 +390,7 @@ void Manager::StreamUpdateProc(Manager *theThisPointer) {
 				if (!stream->Unqueue(stream->file->data.currentBuffer)) {
 					goto failure;
 				}
-				i32 decoded = stream->file->Decode(stream->file->data.samplerate/8);
+				i32 decoded = stream->file->DecodeSamples(stream->file->data.samplerate/8);
 				if (decoded < 0) {
 					goto failure;
 				}
@@ -439,9 +439,9 @@ void Source::Create(Buffer *buf) {
 	stream = false;
 }
 
-void Source::Create(String filename) {
-	Assets::SoundIndex soundIndex = sys->assets.FindSound(filename);
-	Create(&sys->assets.sounds[soundIndex].buffer);
+void Source::Create(i32 soundIndex) {
+	LockedPtr<Assets::Sound> sound = sys->assets.GetSound(soundIndex);
+	Create(&sound->buffer);
 	sys->sound.Register(this);
 }
 
@@ -482,8 +482,7 @@ bool Stream::Create(Ptr<Assets::Stream> file_in) {
 	return true;
 }
 
-bool Stream::Create(String filename) {
-	Assets::StreamIndex streamIndex = sys->assets.FindStream(filename);
+bool Stream::Create(i32 streamIndex) {
 	if (!Create(sys->assets.streams.GetPtr(streamIndex))) {
 		return false;
 	}

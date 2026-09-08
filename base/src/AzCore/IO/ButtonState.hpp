@@ -6,7 +6,7 @@
 #ifndef AZCORE_BUTTONSTATE_HPP
 #define AZCORE_BUTTONSTATE_HPP
 
-#include "../basictypes.hpp"
+#include "../BasicTypes.hpp"
 
 namespace AzCore {
 

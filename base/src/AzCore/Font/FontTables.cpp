@@ -2,13 +2,11 @@
 	File: FontTables.cpp
 	Author: Philip Haynes
 */
-#include "../font.hpp"
-
+#include "FontTables.hpp"
 #include "CFF.cpp"
 
-namespace AzCore {
+namespace AzCore::font {
 
-namespace font {
 f32 ToF32(const F2Dot14_t& in) {
 	f32 out;
 	if (in & 0x8000) {
@@ -40,12 +38,6 @@ constexpr Tag_t operator "" _Tag(const char *name, const size_t size) {
 Tag_t operator "" _Tag(const u64 in) {
 	// We keep tags in Big Endian no matter what because they're usually expressed as a string.
 	return Tag_t(endianToB((u32)in));
-}
-
-Tag_t readTag(std::ifstream &file) {
-	Tag_t buffer;
-	file.read(buffer.name, 4);
-	return buffer;
 }
 
 Tag_t bytesToTag(char *buffer) {
@@ -94,42 +86,48 @@ u32 ChecksumV2(u32 *table, u32 length) {
 	return sum;
 }
 
-void Offset::Read(std::ifstream &file) {
-	char buffer[12];
-	file.read(buffer, 12);
-	sfntVersion.data = *(u32*)buffer;
-	numTables = bytesToU16(&buffer[4], SysEndian.little);
-	searchRange = bytesToU16(&buffer[6], SysEndian.little);
-	entrySelector = bytesToU16(&buffer[8], SysEndian.little);
-	rangeShift = bytesToU16(&buffer[10], SysEndian.little);
-	tables.Resize(numTables);
+void Offset::Read(Array<char> &buffer, i32 &cur) {
+	sfntVersion = bytesToTag(&buffer[cur]);
+	cur += 4;
+	numTables = bytesToU16(&buffer[cur], SysEndian.little);
+	cur += 2;
+	searchRange = bytesToU16(&buffer[cur], SysEndian.little);
+	cur += 2;
+	entrySelector = bytesToU16(&buffer[cur], SysEndian.little);
+	cur += 2;
+	rangeShift = bytesToU16(&buffer[cur], SysEndian.little);
+	cur += 2;
+	tables = Range<Record>((Record*)&buffer[cur], numTables);
 	for (u32 i = 0; i < numTables; i++) {
-		tables[i].Read(file);
+		// Read in-place performs endian swap
+		tables[i].Read(buffer, cur);
 	}
 }
 
-bool TTCHeader::Read(std::ifstream &file) {
-	ttcTag = readTag(file);
+bool TTCHeader::Read(Array<char> &buffer, i32 &cur) {
+	ttcTag = bytesToTag(buffer.data);
+	cur += 4;
 	if (ttcTag == "ttcf"_Tag) {
 		{
-			char buffer[8];
-			file.read(buffer, 8);
-			version = bytesToFixed(&buffer[0], SysEndian.little);
-			numFonts = bytesToU32(&buffer[4], SysEndian.little);
+			version = bytesToFixed(&buffer[cur], SysEndian.little);
+			cur += 4;
+			numFonts = bytesToU32(&buffer[cur], SysEndian.little);
+			cur += 4;
 		}
-		offsetTables.Resize(numFonts);
-		file.read((char*)offsetTables.data, numFonts * 4);
+		offsetTables = Range<u32>((u32*)&buffer[cur], numFonts);
+		cur += 4 * numFonts;
 		if (SysEndian.little) {
 			for (u32 i = 0; i < numFonts; i++) {
 				offsetTables[i] = endianSwap(offsetTables[i]);
 			}
 		}
 		if (version.major == 2) {
-			char buffer[12];
-			file.read(buffer, 12);
-			dsigTag.data = bytesToU32(&buffer[0], false);
-			dsigLength = bytesToU32(&buffer[4], SysEndian.little);
-			dsigOffset = bytesToU32(&buffer[8], SysEndian.little);
+			dsigTag = bytesToTag(&buffer[cur]);
+			cur += 4;
+			dsigLength = bytesToU32(&buffer[cur], SysEndian.little);
+			cur += 4;
+			dsigOffset = bytesToU32(&buffer[cur], SysEndian.little);
+			cur += 4;
 		} else if (version.major != 1) {
 			error = "Unknown TTC file version: " + ToString(version.major) + "." + ToString(version.minor);
 			return false;
@@ -137,19 +135,21 @@ bool TTCHeader::Read(std::ifstream &file) {
 	} else {
 		version.major = 0;
 		numFonts = 1;
-		offsetTables.Resize(1);
-		offsetTables[0] = 0;
+		static u32 zero = 0;
+		offsetTables = Range<u32>(&zero, 1);
 	}
 	return true;
 }
 
-void Record::Read(std::ifstream &file) {
-	char buffer[sizeof(Record)];
-	file.read(buffer, sizeof(Record));
-	tableTag.data = *(u32*)buffer;
-	checkSum = bytesToU32(&buffer[4], SysEndian.little);
-	offset = bytesToU32(&buffer[8], SysEndian.little);
-	length = bytesToU32(&buffer[12], SysEndian.little);
+void Record::Read(Array<char> &buffer, i32 &cur) {
+	tableTag = bytesToTag(&buffer[cur]);
+	cur += 4;
+	checkSum = bytesToU32(&buffer[cur], SysEndian.little);
+	cur += 4;
+	offset = bytesToU32(&buffer[cur], SysEndian.little);
+	cur += 4;
+	length = bytesToU32(&buffer[cur], SysEndian.little);
+	cur += 4;
 }
 
 #define ENDIAN_SWAP(in) in = endianSwap((in))
@@ -230,12 +230,14 @@ u32 cmap_format4::GetGlyphIndex(char32 glyph) {
 		if (endCode(i) >= glyph) { // Find the first endCode >= glyph
 			if (startCode(i) <= glyph) { // We're in the range
 				segment = i;
-				break;
+				goto found;
 			} else { // We're not in the range
 				return 0;
 			}
 		}
 	}
+	return 0;
+found:
 	// If we got this far, we have a mapped segment.
 	if (idRangeOffset(segment) == 0) {
 		// cout << "idDelta(" << segment << ") = " << idDelta(segment) << std::endl;
@@ -351,11 +353,11 @@ void glyf_header::EndianSwap() {
 }
 
 void glyf::EndianSwap(loca *loc, u16 numGlyphs, bool longOffsets) {
-	#define DO_SWAP()   header->EndianSwap();                   \
-						if (header->numberOfContours >= 0) {    \
-							EndianSwapSimple(header);           \
-						} else {                                \
-							EndianSwapCompound(header);         \
+	#define DO_SWAP()   header->EndianSwap();\
+						if (header->numberOfContours >= 0) {\
+							EndianSwapSimple(header);\
+						} else {\
+							EndianSwapCompound(header);\
 						}
 	if (longOffsets) {
 		// TODO: Make better hash tables FFS
@@ -474,9 +476,7 @@ void glyf::EndianSwapSimple(glyf_header *header) {
 void glyf::EndianSwapCompound(glyf_header *header) {
 	char *ptr = (char*)(header+1);
 	u16 *flags;
-	u16 components = 0;
 	do {
-		components++;
 		flags = (u16*)ptr;
 		ENDIAN_SWAP(*flags);
 		ptr += 2;
@@ -934,7 +934,7 @@ Glyph cffParsed::GetGlyph(u32 glyphIndex) const {
 		return out;
 	}
 	out.Simplify();
-	out.Scale(mat2::Scaler(vec2(1.0f / (f32)header->unitsPerEm)));
+	out.Scale(mat2::Scale(vec2(1.0f / (f32)header->unitsPerEm)));
 	vec2 minBounds(1000.0), maxBounds(-1000.0);
 	for (Curve2& curve2 : out.curve2s) {
 		if (curve2.p1.x < minBounds.x) { minBounds.x = curve2.p1.x; }
@@ -989,5 +989,5 @@ GlyphInfo cffParsed::GetGlyphInfo(u32 glyphIndex) const {
 }
 
 } // namespace tables
-} // namespace font
-} // namespace AzCore
+
+} // namespace AzCore::font

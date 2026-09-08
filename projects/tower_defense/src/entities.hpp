@@ -8,9 +8,9 @@
 #define ENTITIES_HPP
 
 #include "Az2D/game_systems.hpp"
-#include "AzCore/math.hpp"
-
 #include "Az2D/entity_basics.hpp"
+
+#include "AzCore/Memory/BinarySet.hpp"
 
 namespace Az2D::Entities {
 
@@ -164,7 +164,7 @@ struct Manager : public ManagerBasic {
 	DoubleBufferArray<Bullet> bullets{};
 	DoubleBufferArray<Wind> winds{};
 	DoubleBufferArray<Explosion> explosions{};
-	
+
 	Sound::Source sndMoney;
 	Sound::Stream streamSegment1;
 	Sound::Stream streamSegment2;
@@ -190,15 +190,15 @@ struct Manager : public ManagerBasic {
 	FailureText failureText;
 	Physical basePhysical{};
 	az::Array<Physical> enemySpawns{};
-	
+
 	Manager();
-	
-	void EventAssetsQueue() override;
-	void EventAssetsAcquire() override;
+
+	void EventAssetsRequest() override;
+	void EventAssetsAvailable() override;
 	void EventInitialize() override;
 	void EventSync() override;
 	void EventDraw(az::Array<Rendering::DrawingContext> &contexts) override;
-	
+
 	void CreateSpawn();
 	void Reset();
 

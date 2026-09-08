@@ -6,7 +6,7 @@
 #ifndef AZCORE_MATH_EQUATIONS_HPP
 #define AZCORE_MATH_EQUATIONS_HPP
 
-#include "basic.hpp"
+#include "Basic.hpp"
 
 namespace AzCore {
 

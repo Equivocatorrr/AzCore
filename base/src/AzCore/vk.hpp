@@ -40,7 +40,10 @@
 // Having this defined makes keeping track of host memory precisely impossible
 #define VK_NO_ALLOCATION_CALLBACKS
 
-#include "common.hpp"
+#include "Memory/String.hpp"
+#include "Memory/Ptr.hpp"
+#include "Memory/List.hpp"
+#include "Math/vec4_t.hpp"
 
 #ifdef AZCORE_IO_FOR_VULKAN
 	#ifdef __unix
@@ -48,9 +51,11 @@
 		#define VK_USE_PLATFORM_WAYLAND_KHR
 	#elif defined(_WIN32)
 		#define VK_USE_PLATFORM_WIN32_KHR
+		#include "Utility/Windows.h"
 	#endif
 #endif
 #include <vulkan/vulkan.h>
+#include "Utility/WindowsHeaderCleanup.h"
 
 namespace AzCore {
 
@@ -217,8 +222,8 @@ namespace vk {
 
 		Ptr<Image> AddImage(Image image=Image());
 		Ptr<Buffer> AddBuffer(Buffer buffer=Buffer());
-		Range<Image> AddImages(u32 count, Image image=Image());
-		Range<Buffer> AddBuffers(u32 count, Buffer buffer=Buffer());
+		SmartRange<Image> AddImages(u32 count, Image image=Image());
+		SmartRange<Buffer> AddBuffers(u32 count, Buffer buffer=Buffer());
 
 		// Behind the scenes
 		bool Init(Device *device, String debugMarker = String());
@@ -251,9 +256,9 @@ namespace vk {
 		// Configuration
 		VkFilter magFilter = VK_FILTER_LINEAR;
 		VkFilter minFilter = VK_FILTER_LINEAR;
-		VkSamplerAddressMode addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		VkSamplerAddressMode addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		VkSamplerAddressMode addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		VkSamplerAddressMode addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+		VkSamplerAddressMode addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+		VkSamplerAddressMode addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
 		u32 anisotropy = 1; // 1 is disabled, 4 is low, 8 is medium, and 16 is high
 		VkBorderColor borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
 		bool unnormalizedCoordinates = false;
@@ -262,7 +267,7 @@ namespace vk {
 		f32 mipLodBias = 0.0f;
 		f32 minLod = 0.0f;
 		// Change maxLod to an integer multiple of the number of mip levels you generate
-		f32 maxLod = 0.0f;
+		f32 maxLod = VK_LOD_CLAMP_NONE;
 
 		~Sampler();
 		void Init(Device *device, String debugMarker = String());
@@ -271,11 +276,11 @@ namespace vk {
 	};
 
 	struct BufferDescriptor {
-		Range<Buffer> buffers;
+		SmartRange<Buffer> buffers;
 	};
 
 	struct ImageDescriptor {
-		Range<Image> images;
+		SmartRange<Image> images;
 		Ptr<Sampler> sampler;
 	};
 
@@ -317,8 +322,8 @@ namespace vk {
 			Array<ImageDescriptor> imageDescriptors{};
 		} data;
 
-		bool AddDescriptor(Range<Buffer> buffers, i32 binding);
-		bool AddDescriptor(Range<Image> images, Ptr<Sampler> sampler, i32 binding);
+		bool AddDescriptor(SmartRange<Buffer> buffers, i32 binding);
+		bool AddDescriptor(SmartRange<Image> images, Ptr<Sampler> sampler, i32 binding);
 		bool AddDescriptor(Ptr<Buffer> buffer, i32 binding);
 		bool AddDescriptor(Ptr<Image> image, Ptr<Sampler> sampler, i32 binding);
 	};
@@ -543,7 +548,7 @@ namespace vk {
 		VkSemaphore semaphore = VK_NULL_HANDLE;
 		String debugMarker{};
 	};
-	
+
 	/*  struct: Fence
 		Author: Philip Haynes */
 	struct Fence {
@@ -772,7 +777,7 @@ namespace vk {
 		} data;
 
 		// Configuration
-		VkSurfaceFormatKHR formatPreferred = {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR}; // You probably won't need to change this
+		VkSurfaceFormatKHR formatPreferred = {VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
 		bool vsync = true; // To determine the ideal present mode
 		VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		u32 imageCountPreferred = 2;
@@ -871,7 +876,7 @@ namespace vk {
 		Ptr<Memory> AddMemory();
 		Ptr<Descriptors> AddDescriptors();
 		Ptr<Shader> AddShader();
-		Range<Shader> AddShaders(u32 count);
+		SmartRange<Shader> AddShaders(u32 count);
 		Ptr<Pipeline> AddPipeline();
 		Ptr<CommandPool> AddCommandPool(Ptr<Queue> queue);
 		Ptr<Framebuffer> AddFramebuffer();
@@ -983,6 +988,8 @@ namespace vk {
 	}
 
 	inline void CmdSetScissor(VkCommandBuffer commandBuffer, u32 width, u32 height, i32 x=0, i32 y=0) {
+		AzAssert((i64)width+(i64)x <= INT32_MAX, "CmdSetScissor width+x must be <= INT32_MAX");
+		AzAssert((i64)height+(i64)y <= INT32_MAX, "CmdSetScissor height+y must be <= INT32_MAX");
 		VkRect2D scissor;
 		scissor.extent.width = width;
 		scissor.extent.height = height;
@@ -991,8 +998,7 @@ namespace vk {
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 	}
 
-	inline void CmdSetViewportAndScissor(VkCommandBuffer commandBuffer, f32 width, f32 height,
-										 f32 minDepth=0.0f, f32 maxDepth=0.0f, f32 x=0.0f, f32 y=0.0f) {
+	inline void CmdSetViewportAndScissor(VkCommandBuffer commandBuffer, f32 width, f32 height, f32 minDepth=0.0f, f32 maxDepth=1.0f, f32 x=0.0f, f32 y=0.0f) {
 		CmdSetViewport(commandBuffer, width, height, minDepth, maxDepth, x, y);
 		CmdSetScissor(commandBuffer, static_cast<u32>(width), static_cast<u32>(height),
 					  static_cast<i32>(x), static_cast<i32>(y));

@@ -6,26 +6,25 @@
 #ifndef AZCORE_RANGE_HPP
 #define AZCORE_RANGE_HPP
 
-#include "../basictypes.hpp"
-#include <stdexcept> // std::out_of_range
-#include "Ptr.hpp"
+#include "../BasicTypes.hpp"
+#include "TemplateForwardDeclares.hpp"
 #include "StringCommon.hpp"
-#include "Array.hpp"
-#include "List.hpp"
+#include "../Assert.hpp"
+#include "None.hpp"
+#include "../Utility/Template.hpp"
+
+#include <cstddef> // std::nullptr_t
 
 namespace AzCore {
 
-template <typename T, i32 noAllocCount, i32 allocTail>
-struct ArrayWithBucket;
-
 template <typename T>
-struct RangeIterator {
+struct SmartRangeIterator {
 	void *ptr;
 	i32 iteration;
-	RangeIterator() : ptr(nullptr), iteration(-1) {}
-	RangeIterator(T *arrayPtr) : ptr(arrayPtr), iteration(-1) {}
-	RangeIterator(ListIndex<T> *listIndex, i32 it) : ptr(listIndex), iteration(it) {}
-	bool operator!=(const RangeIterator<T> &other) const {
+	SmartRangeIterator() : ptr(nullptr), iteration(-1) {}
+	SmartRangeIterator(T *arrayPtr) : ptr(arrayPtr), iteration(-1) {}
+	SmartRangeIterator(ListIndex<T> *listIndex, i32 it) : ptr(listIndex), iteration(it) {}
+	bool operator!=(const SmartRangeIterator<T> &other) const {
 		if (iteration == -1) {
 			return ptr != other.ptr;
 		} else {
@@ -61,22 +60,25 @@ struct RangeIterator {
 	}
 };
 
-/*  struct: Range
+/*  struct: SmartRange
 	Author: Philip Haynes
 	Using an index and count, points to a range of values from an Array or a List.        */
 template <typename T>
-struct Range {
-	void *ptr = nullptr;
+struct SmartRange {
+	union {
+		void *ptr = nullptr;
+		T *data;
+	};
 	i32 index = 0;
 	i32 size = 0;
-	Range() = default;
+	SmartRange() = default;
 	template<i32 allocTail>
-	Range(Array<T, allocTail> *a, i32 i, i32 s) {
+	SmartRange(Array<T, allocTail> *a, i32 i, i32 s) {
 		ptr = (void*)a;
 		index = i;
 		size = s;
 	}
-	Range(List<T> *a, i32 i, i32 s) {
+	SmartRange(List<T> *a, i32 i, i32 s) {
 		ListIndex<T> *it = a->first;
 		for (index = 0; index < i; index++) {
 			it = it->next;
@@ -85,7 +87,7 @@ struct Range {
 		index = -1;
 		size = s;
 	}
-	Range(T *raw, i32 s) {
+	SmartRange(T *raw, i32 s) {
 		ptr = (void*)raw;
 		index = indexIndicatingRaw;
 		size = s;
@@ -120,7 +122,7 @@ struct Range {
 		size = s;
 	}
 	Ptr<T> GetPtr(i32 i) {
-		AzAssert(i >= 0 && i < size, "Range::GetPtr index is out of bounds");
+		AzAssert(i >= 0 && i < size, "SmartRange::GetPtr index is out of bounds");
 		if (index >= 0) {
 			return Ptr<T>((Array<T,0> *)ptr, index + i);
 		} else if (index == indexIndicatingRaw) {
@@ -134,19 +136,19 @@ struct Range {
 			return Ptr<T>(&it->value);
 		}
 	}
-	Range<T> SubRange(i32 _index, i32 _size) {
-		AzAssert(_index >= 0 && _index + _size <= size, "Range::SubRange index + size is out of bounds");
+	SmartRange<T> SubRange(i32 _index, i32 _size) {
+		AzAssert(_index >= 0 && _index + _size <= size, "SmartRange::SubRange index + size is out of bounds");
 		if (index >= 0) {
-			return Range<T>((Array<T,0> *)ptr, index + _index, _size);
+			return SmartRange<T>((Array<T,0> *)ptr, index + _index, _size);
 		} else if (index == indexIndicatingRaw) {
-			return Range<T>(((T*)ptr) + _index, _size);
+			return SmartRange<T>(((T*)ptr) + _index, _size);
 		} else {
 			ListIndex<T> *it = (ListIndex<T> *)ptr;
 			for (index = 0; index < _index; index++) {
 				it = it->next;
 			}
 			index = -1;
-			Range<T> newRange;
+			SmartRange<T> newRange;
 			newRange.ptr = it;
 			newRange.index = -1;
 			newRange.size = _size;
@@ -157,7 +159,7 @@ struct Range {
 		return ptr != nullptr;
 	}
 	T &operator[](i32 i) {
-		AzAssert(i >= 0 && i < size, "Range index is out of bounds");
+		AzAssert(i >= 0 && i < size, "SmartRange index is out of bounds");
 		if (index >= 0) {
 			return (*((Array<T,0> *)ptr))[i + index];
 		} else if (index == indexIndicatingRaw) {
@@ -172,7 +174,7 @@ struct Range {
 		}
 	}
 	const T &operator[](i32 i) const {
-		AzAssert(i >= 0 && i < size, "Range index is out of bounds");
+		AzAssert(i >= 0 && i < size, "SmartRange index is out of bounds");
 		if (index >= 0) {
 			return (*((Array<T,0> *)ptr))[i + index];
 		} else if (index == indexIndicatingRaw) {
@@ -186,22 +188,22 @@ struct Range {
 		}
 	}
 
-	RangeIterator<T> begin() const {
+	SmartRangeIterator<T> begin() const {
 		if (index >= 0) {
-			return RangeIterator(&((Array<T,0>*)ptr)->data[index]);
+			return SmartRangeIterator(&((Array<T,0>*)ptr)->data[index]);
 		} else if (index == indexIndicatingRaw) {
-			return RangeIterator((T*)ptr);
+			return SmartRangeIterator((T*)ptr);
 		} else {
-			return RangeIterator((ListIndex<T>*)ptr, 0);
+			return SmartRangeIterator((ListIndex<T>*)ptr, 0);
 		}
 	}
-	RangeIterator<T> end() const {
+	SmartRangeIterator<T> end() const {
 		if (index >= 0) {
-			return RangeIterator(&((Array<T,0>*)ptr)->data[index] + size);
+			return SmartRangeIterator(&((Array<T,0>*)ptr)->data[index] + size);
 		} else if (index == indexIndicatingRaw) {
-			return RangeIterator(((T*)ptr) + size);
+			return SmartRangeIterator(((T*)ptr) + size);
 		} else {
-			return RangeIterator((ListIndex<T>*)nullptr, size);
+			return SmartRangeIterator((ListIndex<T>*)nullptr, size);
 		}
 	}
 
@@ -233,7 +235,7 @@ struct Range {
 		return count;
 	}
 
-	bool operator==(const Range<T> &other) const {
+	bool operator==(const SmartRange<T> &other) const {
 		if (size != other.size) {
 			return false;
 		}
@@ -265,7 +267,7 @@ struct Range {
 		return *other == StringTerminators<T>::value;
 	}
 
-	bool operator<(const Range<T> &other) const {
+	bool operator<(const SmartRange<T> &other) const {
 		auto myIterator = begin();
 		auto myIteratorEnd = end();
 		auto otherIterator = other.begin();
@@ -287,74 +289,105 @@ struct Range {
 	}
 };
 
-// Like Range above, but with fewer bells and whistles.
+// Like SmartRange above, but with fewer bells and whistles.
 // Because sometimes simplicity is best.
-template <typename T>
-struct SimpleRange {
-	T *str;
+template <
+	typename T,
+	typename std::enable_if_t<!std::is_const_v<T>, int>
+>
+struct Range {
+	T *data;
 	i64 size;
 
-	SimpleRange() : str(nullptr), size(0) {}
-	SimpleRange(std::nullptr_t) : str(nullptr), size(0) {}
-	SimpleRange(T *string, i64 length) : str(string), size(length) {}
-	SimpleRange(const T *string) : str((T*)string), size(StringLength(string)) {}
+	// Range(const Range<T> &) = default;
+	// Range(Range<T> &&) = default;
+	constexpr Range() : data(nullptr), size(0) {}
+	constexpr Range(std::nullptr_t) : data(nullptr), size(0) {}
+	constexpr Range(None_t) : data(nullptr), size(0) {}
+	constexpr Range(T *string, i64 length) : data(string), size(length) {}
+	constexpr Range(const T *string, i64 length) : data((T*)string), size(length) {}
+	constexpr Range(const T *string) : data((T*)string), size(StringLength(string)) {}
+	//constexpr Range(Range<const T> &other) : data((T*)other.data), size(other.size) {}
+	template<
+		typename Other_t,
+		typename = std::enable_if_t<
+			std::is_integral_v<T> && std::is_integral_v<Other_t> &&
+			sizeof(T) == sizeof(Other_t)
+		>
+	>
+	explicit constexpr Range(Range<Other_t> &other) : data((T*)other.data), size(other.size) {}
+	template<
+		typename Other_t,
+		typename = std::enable_if_t<
+			std::is_integral_v<T> && std::is_integral_v<Other_t> &&
+			sizeof(T) == sizeof(Other_t)
+		>
+	>
+	explicit constexpr Range(Range<Other_t> &&other) : data((T*)other.data), size(other.size) {}
 	template<i32 allocTail>
-	SimpleRange(const Array<T, allocTail> &array) : str(array.data), size(array.size) {}
+	Range(const Array<T, allocTail> &array) : data(array.data), size(array.size) {}
 	template<i32 bucketSize, i32 allocTail>
-	SimpleRange(const ArrayWithBucket<T, bucketSize, allocTail> &array) : str(array.data), size(array.size) {}
-	SimpleRange(const Range<T> &range) : size(range.size) {
+	Range(const ArrayWithBucket<T, bucketSize, allocTail> &array) : data(array.data), size(array.size) {}
+	template<i32 staticSize>
+	Range(const StaticArray<T, staticSize> &array) : data((T*)&array.data[0]), size(array.size) {}
+	Range(const SmartRange<T> &range) : size(range.size) {
 		if (range.PointsToArray()) {
-			str = &(*((Array<T,0> *)range.ptr))[range.index];
+			data = &(*((Array<T,0> *)range.ptr))[range.index];
 		} else if (range.PointsToRaw()) {
-			str = (T*)range.ptr;
+			data = (T*)range.ptr;
 		} else {
-			AzAssert(false, "Error converting Range to SimpleRange: SimpleRange doesn't work on Lists");
+			AzAssertRel(false, "Error converting SmartRange to Range: Range doesn't work on Lists");
 		}
 	}
 
-	SimpleRange<T> SubRange(i64 index, i64 _size) {
-		AzAssert(index >= 0 && index + _size <= size, "SimpleRange::SubRange index + size is out of bounds");
-		return SimpleRange<T>(str + index, _size);
+	// if _size == 0 then returns the range starting at index and going to the end
+	Range<T> SubRange(i64 index, i64 _size=0) {
+		AzAssert(index >= 0 && index + _size <= size, "Range::SubRange index + size is out of bounds");
+		if (_size > 0) {
+			return Range<T>(data + index, _size);
+		} else {
+			return Range<T>(data + index, size - index);
+		}
 	}
 
 	T* begin() {
-		return str;
+		return data;
 	}
 	T* end() {
-		return str + size;
+		return data + size;
 	}
 	const T* begin() const {
-		return str;
+		return data;
 	}
 	const T* end() const {
-		return str + size;
+		return data + size;
 	}
 
 	inline T& operator[](i64 i) {
-		AzAssert(i >= 0 && i < size, "SimpleRange index is out of bounds");
-		return str[i];
+		AzAssert(i >= 0 && i < size, "Range index is out of bounds");
+		return data[i];
 	}
 	inline const T& operator[](i64 i) const {
-		AzAssert(i >= 0 && i < size, "SimpleRange index is out of bounds");
-		return str[i];
+		AzAssert(i >= 0 && i < size, "Range index is out of bounds");
+		return data[i];
 	}
 
-	inline bool operator==(const SimpleRange<T> other) const {
+	inline bool operator==(const Range<T> other) const {
 		if (size != other.size) return false;
 		for (i64 i = 0; i < size; i++) {
-			if (str[i] != other.str[i]) return false;
+			if (data[i] != other.data[i]) return false;
 		}
 		return true;
 	}
 	inline bool operator==(const T *string) const {
 		for (i64 i = 0; i < size; i++) {
-			if (str[i] != string[i]) return false;
+			if (data[i] != string[i]) return false;
 		}
 		return string[size] == StringTerminators<T>::value;
 	}
 
 	force_inline(bool)
-	operator!=(const SimpleRange<T> other) const {
+	operator!=(const Range<T> other) const {
 		return !operator==(other);
 	}
 	force_inline(bool)
@@ -362,10 +395,10 @@ struct SimpleRange {
 		return !operator==(string);
 	}
 
-	bool operator<(const SimpleRange<T> &other) const {
+	bool operator<(const Range<T> &other) const {
 		if (size != other.size) return size < other.size;
 		for (i64 i = 0; i < size; i++) {
-			if (str[i] != other.str[i]) return str[i] < other.str[i];
+			if (data[i] != other.data[i]) return data[i] < other.data[i];
 		}
 		return false;
 	}
@@ -380,7 +413,7 @@ struct SimpleRange {
 
 	i64 Find(const T &val) const {
 		for (i64 index = 0; index < size; index++) {
-			if (val == str[index])
+			if (val == data[index])
 				return index;
 		}
 		return -1;
@@ -397,12 +430,43 @@ struct SimpleRange {
 };
 
 template<u16 bounds>
-constexpr i32 IndexHash(const SimpleRange<char> &in) {
+constexpr i32 IndexHash(const Range<char> &in) {
 	u32 hash = 0;
 	for (char c : in) {
 		hash = hash * 31 + c;
 	}
 	return i32(hash % bounds);
+}
+
+template<typename T>
+constexpr bool StartsWith(Range<T> string, Range<T> test) {
+	if (string.size < test.size) return false;
+	return string.SubRange(0, test.size) == test;
+}
+
+template<typename T>
+constexpr bool StartsWith(Range<T> string, const T *test) {
+	return StartsWith(string, Range<T>(test));
+}
+
+// cuts the first count chars off of the beginning of string
+template<typename T>
+constexpr void RemoveFromBeginning(Range<T> &string, i64 count) {
+	string.data += count;
+	string.size -= count;
+}
+
+// Checks if string starts with test, and if it does, cuts that part off
+template<typename T>
+constexpr void RemoveFromBeginning(Range<T> &string, Range<T> test) {
+	if (StartsWith(string, test)) {
+		RemoveFromBeginning(string, test.size);
+	}
+}
+// Checks if string starts with test, and if it does, cuts that part off
+template<typename T>
+constexpr void RemoveFromBeginning(Range<T> &string, const T *test) {
+	return RemoveFromBeginning(string, Range<T>(test));
 }
 
 } // namespace AzCore

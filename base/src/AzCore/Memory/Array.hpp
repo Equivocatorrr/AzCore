@@ -7,26 +7,16 @@
 #ifndef AZCORE_ARRAY_HPP
 #define AZCORE_ARRAY_HPP
 
-#include "../basictypes.hpp"
+#include "../BasicTypes.hpp"
 
-namespace AzCore {
-template <typename T, i32 allocTail=0>
-struct Array;
-}
+#include "TemplateForwardDeclares.hpp"
 #include "StringCommon.hpp"
-#include <stdexcept> // std::out_of_range
+#include "../Utility/Memory.hpp"
+#include "../Assert.hpp"
 #include <initializer_list>
 #include <type_traits> // std::is_trivially_copyable
-#include <cstring> // memcpy
 
 namespace AzCore {
-
-template <typename T>
-struct Ptr;
-template <typename T>
-struct Range;
-template <typename T>
-struct SimpleRange;
 
 /*  struct: Array
 	Author: Philip Haynes
@@ -139,11 +129,11 @@ struct Array {
 		_Initialize(0);
 		_SetTerminator();
 	}
-	Array(i32 newSize) {
+	explicit Array(i32 newSize) {
 		_Initialize(newSize);
 		_SetTerminator();
 	}
-	Array(i32 newSize, const T &value) {
+	explicit Array(i32 newSize, const T &value) {
 		_Initialize(newSize);
 		for (i32 i = 0; i < size; i++) {
 			data[i] = value;
@@ -152,10 +142,10 @@ struct Array {
 	}
 
 	force_inline()
-	Array(u32 newSize) : Array((i32)newSize) {}
+	explicit Array(u32 newSize) : Array((i32)newSize) {}
 
 	force_inline()
-	Array(u32 newSize, const T &value) : Array((i32)newSize, value) {}
+	explicit Array(u32 newSize, const T &value) : Array((i32)newSize, value) {}
 
 	Array(const std::initializer_list<T> &init) {
 		_Initialize(init.size());
@@ -198,7 +188,7 @@ struct Array {
 		_SetTerminator();
 	}
 
-	Array(const Range<T> &range) {
+	Array(const SmartRange<T> &range) {
 		_Initialize(range.size);
 		if (range.index >= 0) {
 			if constexpr (std::is_trivially_copyable<T>::value) {
@@ -220,11 +210,11 @@ struct Array {
 		_SetTerminator();
 	}
 
-	Array(const SimpleRange<T> &range) {
+	Array(const Range<T> &range) {
 		_Initialize(range.size);
 		if constexpr (std::is_trivially_copyable<T>::value) {
 			memcpy((void *)data,
-				(void *)range.str,
+				(void *)range.data,
 				sizeof(T) * size);
 		} else {
 			for (i32 i = 0; i < size; i++) {
@@ -310,7 +300,7 @@ struct Array {
 		return true;
 	}
 
-	bool operator==(const Range<T> &other) const {
+	bool operator==(const SmartRange<T> &other) const {
 		if (size != other.size) {
 			return false;
 		}
@@ -348,20 +338,12 @@ struct Array {
 	}
 
 	const T &operator[](i32 index) const {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index >= size || index < 0) {
-			throw std::out_of_range("Array index is out of bounds");
-		}
-#endif
+		AzAssert(index < size && index >= 0, "Array index is out of bounds");
 		return data[index];
 	}
 
 	T &operator[](i32 index) {
-#ifndef MEMORY_NO_BOUNDS_CHECKS
-		if (index >= size || index < 0) {
-			throw std::out_of_range("Array index is out of bounds");
-		}
-#endif
+		AzAssert(index < size && index >= 0, "Array index is out of bounds");
 		return data[index];
 	}
 
@@ -459,8 +441,8 @@ struct Array {
 	}
 
 	inline void _Grow(i32 minSize) {
-	if (minSize > allocated) {
-			i32 growth = minSize + (minSize >> 1) + 4;
+		if (minSize > allocated) {
+			i32 growth = align((minSize + (minSize >> 1) + 4) * sizeof(T), 128) / sizeof(T);
 			Reserve(growth);
 		}
 	}
@@ -517,7 +499,7 @@ struct Array {
 		return *this;
 	}
 	*/
-	Array<T, allocTail> &Append(const SimpleRange<T> string) {
+	Array<T, allocTail> &Append(const Range<T> string) {
 		i32 newSize = size + string.size;
 		Reserve(newSize);
 		for (i32 i = size; i < newSize; i++) {
@@ -526,6 +508,10 @@ struct Array {
 		size = newSize;
 		_SetTerminator();
 		return *this;
+	}
+
+	inline Array<T, allocTail>& Append(const T *string) {
+		return Append(Range<T>(string));
 	}
 
 	Array<T, allocTail>&
@@ -599,12 +585,12 @@ struct Array {
 		return data[index] = std::move(value);
 	}
 
-	Range<T> Insert(i32 index, const Array<T, allocTail> &other) {
+	SmartRange<T> Insert(i32 index, const Array<T, allocTail> &other) {
 		Array<T, allocTail> array(other);
 		return Insert(index, std::move(array));
 	}
 
-	Range<T> Insert(const i32 index, Array &&other) {
+	SmartRange<T> Insert(const i32 index, Array &&other) {
 		AzAssert(index >= 0 && index <= size, "Array::Insert index is out of bounds");
 		if (size == 0) {
 			*this = std::move(other);
@@ -640,7 +626,7 @@ struct Array {
 			}
 			data = temp;
 			size += other.size;
-			Range<T> range = GetRange(index, other.size);
+			SmartRange<T> range = GetRange(index, other.size);
 			other.Clear();
 			_SetTerminator();
 			return range;
@@ -652,7 +638,7 @@ struct Array {
 		for (i32 i = 0; i < other.size; i++) {
 			data[index + i] = std::move(other.data[i]);
 		}
-		Range<T> range = GetRange(index, other.size);
+		SmartRange<T> range = GetRange(index, other.size);
 		other.Clear();
 		_SetTerminator();
 		return range;
@@ -672,6 +658,32 @@ struct Array {
 			}
 		}
 		_SetTerminator();
+	}
+
+	template<bool eraseAll>
+	bool _EraseValue(const T &value) {
+		bool found = false;
+		for (i32 i = 0; i < size; i++) {
+			if (data[i] == value) {
+				found = true;
+				Erase(i);
+				if constexpr (!eraseAll) {
+					break;
+				}
+				i--;
+			}
+		}
+		return found;
+	}
+
+	// returns true if it found the value, false otherwise.
+	inline bool EraseFirstWithValue(const T &value) {
+		return _EraseValue<false>(value);
+	}
+
+	// returns true if it found the value, false otherwise.
+	inline bool EraseAllWithValue(const T &value) {
+		return _EraseValue<true>(value);
 	}
 
 	Array<T, allocTail> &Reverse() {
@@ -733,9 +745,14 @@ struct Array {
 		}
 	}
 
+	SmartRange<T> GetSmartRange(i32 index, i32 _size) {
+		AzAssert(index >= 0 && (index + _size) <= size, "Array::GetSmartRange index is out of bounds");
+		return SmartRange<T>(this, index, _size);
+	}
+
 	Range<T> GetRange(i32 index, i32 _size) {
-		AzAssert(index >= 0 && (index + _size) <= size, "Array::GetPtr index is out of bounds");
-		return Range<T>(this, index, _size);
+		AzAssert(index >= 0 && (index + _size) <= size, "Array::GetRange index is out of bounds");
+		return Range<T>(&data[index], _size);
 	}
 };
 
@@ -749,6 +766,7 @@ operator+(Array<T, allocTail> &&lhs, Array<T, allocTail> &&rhs) {
 
 template<typename T2, i32 allocTail2, typename T1, i32 allocTail1>
 [[nodiscard]] Array<T2, allocTail2> ConvertArrayTo(const Array<T1, allocTail1> &array) {
+	static_assert(!std::is_same_v<T1,T2>);
 	Array<T2, allocTail2> result(array.size);
 	for (i32 i = 0; i < array.size; i++) {
 		const T1 &val = array[i];

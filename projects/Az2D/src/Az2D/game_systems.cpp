@@ -6,33 +6,42 @@
 #include "game_systems.hpp"
 #include "gui_basics.hpp"
 #include "settings.hpp"
-#include "profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
+#include "console_commands.hpp"
 #include "AzCore/Thread.hpp"
+#include "AzCore/IO/io.hpp"
+
+#include <clocale>
 
 namespace Az2D::GameSystems {
 
 using namespace AzCore;
+using namespace io::kc;
 
 Manager *sys = nullptr;
 
-void System::EventAssetsQueue() {}
-void System::EventAssetsAcquire() {}
+void System::EventAssetsRequest() {}
+void System::EventAssetsAvailable() {}
 void System::EventSync() {}
 void System::EventUpdate() {}
 void System::EventDraw(Array<Rendering::DrawingContext> &contexts) {}
 void System::EventInitialize() {}
 void System::EventClose() {}
 
-bool Init(SimpleRange<char> windowTitle, Array<System*> systemsToRegister, bool enableVulkanValidation) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Init)
+bool Init(Str windowTitle, Array<System*> systemsToRegister, bool enableVulkanValidation) {
+	AZCORE_PROFILING_FUNC_TIMER()
 	sys = new Manager();
 	for (System *system : systemsToRegister) {
 		sys->systems.Append(system);
 	}
 	sys->window.name = windowTitle;
 	sys->sound.name = windowTitle;
-	sys->rendering.data.instance.AppInfo(windowTitle.str, 1, 0, 0);
+	sys->rendering.data.instance.AppInfo(windowTitle.data, 1, 0, 0);
 	sys->enableVulkanValidation = enableVulkanValidation;
+
+	Dev::AddGlobalVariable(Az2D::Settings::sVolumeMain.GetString(), "Main volume setting between 0.0 and 1.0", nullptr, Dev::defaultRealSettingsGetter, Dev::defaultRealSettingsSetter);
+	Dev::AddGlobalVariable(Az2D::Settings::sVolumeEffects.GetString(), "Effects volume setting between 0.0 and 1.0", nullptr, Dev::defaultRealSettingsGetter, Dev::defaultRealSettingsSetter);
+	Dev::AddGlobalVariable(Az2D::Settings::sVolumeMusic.GetString(), "Music volume setting between 0.0 and 1.0", nullptr, Dev::defaultRealSettingsGetter, Dev::defaultRealSettingsSetter);
 	return sys->Init();
 }
 
@@ -42,7 +51,7 @@ void UpdateProc() {
 
 void DrawProc() {
 	if (!sys->rendering.Draw() || !sys->rendering.Present()) {
-		io::cerr.Lock().PrintLn("Error in Rendering::Manager::Draw or Present: ", Rendering::error).Unlock();
+		io::cerr.PrintLn("Error in Rendering::Manager::Draw or Present: ", Rendering::error);
 		sys->abort = true;
 		return;
 	};
@@ -73,8 +82,13 @@ void UpdateLoop() {
 		if (frame == 0) {
 			sys->frametimes.Update();
 			if (vsync) {
-				// TODO: switch to polling current monitor refresh rate
-				sys->SetFramerate(clamp(1000.0f / sys->frametimes.AverageWithoutOutliers(), 30.0f, 300.0f), true);
+				f32 targetFramerate = clamp((f32)sys->window.refreshRate / 1000.0f, 30.0f, 300.0f);
+				f32 measuredFramerate = 1000.0f / sys->frametimes.AverageWithoutOutliers();
+				if (abs(measuredFramerate - targetFramerate) / targetFramerate > 0.05f) {
+					// We're not within 5% of our refresh rate, so fallback to measured framerate
+					targetFramerate = measuredFramerate;
+				}
+				sys->SetFramerate(targetFramerate, true);
 			}
 		}
 		if (abs(Nanoseconds(frameNext - Clock::now()).count()) >= 10000000) {
@@ -87,7 +101,7 @@ void UpdateLoop() {
 		{
 			i32 dpi = sys->window.GetDPI();
 			f32 scale = (f32)dpi / 96.0f;
-			Gui::guiBasic->scale = scale;
+			Gui::guiBasic->system.scale = scale * Settings::ReadReal(Settings::sGuiScale);
 		}
 		sys->rawInput.Update(sys->timestep);
 		sys->Sync();
@@ -120,7 +134,7 @@ void UpdateLoop() {
 		}
 		frame = (frame + 1) % sys->updateIterations;
 	}
-	
+
 	for (System* system : sys->systems) {
 		system->EventClose();
 	}
@@ -128,14 +142,15 @@ void UpdateLoop() {
 
 void Deinit() {
 	{
-		AZ2D_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Deinit)
+		AZCORE_PROFILING_FUNC_TIMER()
 		sys->Deinit();
 		delete sys;
 	}
-	Az2D::Profiling::Report();
+	az::Profiling::Report();
 }
 
 bool Manager::Init() {
+	AZCORE_PROFILING_FUNC_TIMER()
 	window.input = &input;
 	rawInput.window = &window;
 	LoadLocale();
@@ -151,15 +166,13 @@ bool Manager::Init() {
 		error = Stringify("Failed to initialize sound: ", Sound::error);
 		return false;
 	}
-	GetAssets();
-	if (!assets.LoadAll()) {
-		error = Stringify("Failed to load assets: ", Assets::error);
-		return false;
-	}
-	UseAssets();
+	assets.Init();
+	AssetsRequest();
+	assets.fileManager.WaitUntilDone();
+	AssetsAvailable();
 	RegisterDrawing();
 	CallInitialize();
-	
+
 	if (enableVulkanValidation) {
 		Array<const char*> layers = {
 			"VK_LAYER_KHRONOS_validation",
@@ -167,7 +180,7 @@ bool Manager::Init() {
 		rendering.data.instance.AddLayers(layers);
 	}
 	rendering.data.concurrency = 4;
-	
+
 	if (!window.Open()) {
 		error = Stringify("Failed to open window: ", io::error);
 		return false;
@@ -175,12 +188,12 @@ bool Manager::Init() {
 	{
 		i32 dpi = window.GetDPI();
 		f32 scale = (f32)dpi / 96.0f;
-		Gui::guiBasic->scale = scale;
+		Gui::guiBasic->system.scale = scale * Settings::ReadReal(Settings::sGuiScale);
 		window.Resize(u32((f32)window.width * scale), u32((u32)window.height * scale));
 	}
-	
+
 	rendering.msaa = false;
-	
+
 	if (!rendering.Init()) {
 		error = Stringify("Failed to init Rendering::Manager: ", Rendering::error);
 		return false;
@@ -192,7 +205,7 @@ bool Manager::Init() {
 	}
 
 	window.Fullscreen(Settings::ReadBool(Settings::sFullscreen));
-	
+
 	return true;
 }
 
@@ -205,8 +218,7 @@ void Manager::Deinit() {
 	if (!sound.DeleteSources()) {
 		io::cerr.PrintLn("Failed to delete sound sources: ", Sound::error);
 	}
-	assets.sounds.Clear(); // Deletes the OpenAL buffers
-	assets.streams.Clear(); // Deletes the OpenAL buffers
+	assets.Deinit();
 	if (!sound.Deinitialize()) {
 		io::cerr.PrintLn("Failed to deinitialize sound: ", Sound::error);
 	}
@@ -214,7 +226,7 @@ void Manager::Deinit() {
 }
 
 void Manager::LoadLocale() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::LoadLocale)
+	AZCORE_PROFILING_FUNC_TIMER()
 	String localeName;
 	localeName.Reserve(21);
 	localeName = "data/locale/";
@@ -307,30 +319,29 @@ void Manager::RegisterDrawing() {
 	rendering.AddRenderCallback(RenderCallback, this);
 }
 
-void Manager::GetAssets() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::GetAssets)
+void Manager::AssetsRequest() {
+	AZCORE_PROFILING_FUNC_TIMER()
 	for (System* system : systems) {
-		system->EventAssetsQueue();
+		system->EventAssetsRequest();
 	}
 }
 
-void Manager::UseAssets() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::UseAssets)
+void Manager::AssetsAvailable() {
+	AZCORE_PROFILING_FUNC_TIMER()
 	for (System* system : systems) {
-		system->EventAssetsAcquire();
+		system->EventAssetsAvailable();
 	}
 }
 
 void Manager::CallInitialize() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::CallInitialize)
+	AZCORE_PROFILING_FUNC_TIMER()
 	for (System* system : systems) {
 		system->EventInitialize();
 	}
 }
 
 void Manager::Sync() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::Sync)
-	buffer = !buffer;
+	AZCORE_PROFILING_FUNC_TIMER()
 	if (!paused) {
 		sys->simulationRate = min(1.0f, sys->simulationRate + sys->timestep * 5.0f);
 	} else {
@@ -345,18 +356,14 @@ void Manager::Sync() {
 }
 
 void Manager::Update() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::Update)
+	AZCORE_PROFILING_FUNC_TIMER()
 	for (System* system : systems) {
 		system->EventUpdate();
 	}
 }
 
-// void DrawThreadProc(System *system, Array<Rendering::DrawingContext> *contexts) {
-//	 system->EventDraw(*contexts);
-// }
-
 void Manager::Draw(Array<Rendering::DrawingContext>& contexts) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::GameSystems::Manager::Draw)
+	AZCORE_PROFILING_FUNC_TIMER()
 	for (System *system : systems) {
 		system->EventDraw(contexts);
 	}

@@ -6,12 +6,10 @@
 #ifndef AZCORE_PTR_HPP
 #define AZCORE_PTR_HPP
 
-#include "../basictypes.hpp"
+#include "../BasicTypes.hpp"
+#include "TemplateForwardDeclares.hpp"
 
 namespace AzCore {
-
-template <typename T, i32 allocTail>
-struct Array;
 
 /*  struct: Ptr
 	Author: Philip Haynes

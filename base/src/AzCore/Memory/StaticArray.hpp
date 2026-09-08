@@ -6,12 +6,14 @@
 #ifndef AZCORE_STATICARRAY_HPP
 #define AZCORE_STATICARRAY_HPP
 
-#include "../basictypes.hpp"
-#include "Array.hpp"
-#include <stdexcept> // std::out_of_range
+#include "../BasicTypes.hpp"
+#include "../Assert.hpp"
+#include "TemplateForwardDeclares.hpp"
+#include "StringCommon.hpp"
 #include <initializer_list>
 #include <type_traits> // std::is_trivially_copyable
 #include <cstring>     // memcpy
+#include <utility>     // std::move
 
 namespace AzCore {
 
@@ -55,6 +57,27 @@ struct StaticArray {
 			}
 		}
 	}
+	StaticArray(const Range<T> &range) : size(range.size) {
+		AzAssert(size <= count, "StaticArray initialized with a size bigger than count");
+		if constexpr (std::is_trivially_copyable<T>::value) {
+			memcpy((void *)data, (void *)range.data, sizeof(T) * size);
+		} else {
+			for (i32 i = 0; i < size; i++) {
+				data[i] = range[i];
+			}
+		}
+	}
+	StaticArray(const StaticArray &other) : size(other.size) {
+		for (i32 i = 0; i < size; i++) {
+			data[i] = other.data[i];
+		}
+	}
+	StaticArray(StaticArray &&other) : size(other.size) {
+		for (i32 i = 0; i < size; i++) {
+			data[i] = std::move(other.data[i]);
+		}
+		other.size = 0;
+	}
 
 	StaticArray<T, count> &operator=(const std::initializer_list<T> &init) {
 		size = init.size();
@@ -69,11 +92,17 @@ struct StaticArray {
 		return *this;
 	}
 
+#ifdef __GNUG__
+	#pragma GCC diagnostic push
+	// GCC gives erroneous warnings because it thinks size can be any value an i32 can be, which is not the case.
+	#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
+
 	StaticArray<T, count> &operator=(const T *string) {
 		size = StringLength(string);
 		AzAssert(size <= count, "StaticArray assigned with a size bigger than count");
 		if constexpr (std::is_trivially_copyable<T>::value) {
-			memcpy((void *)data, (void *)string, sizeof(T) * size);
+			memcpy((void *)data, (void *)string, sizeof(T) * (u32)size);
 		} else {
 			for (i32 i = 0; i < size; i++) {
 				data[i] = string[i];
@@ -82,12 +111,66 @@ struct StaticArray {
 		return *this;
 	}
 
+	StaticArray<T, count> &operator=(const Range<T> &range) {
+		size = range.size;
+		AzAssert(size <= count, "StaticArray assigned with a size bigger than count");
+		if constexpr (std::is_trivially_copyable<T>::value) {
+			memcpy((void *)data, (void *)range.data, sizeof(T) * (u32)size);
+		} else {
+			for (i32 i = 0; i < size; i++) {
+				data[i] = range[i];
+			}
+		}
+		return *this;
+	}
+
+	StaticArray<T, count> &operator=(const StaticArray<T, count> &other) {
+		size = other.size;
+		if constexpr (std::is_trivially_copyable<T>::value) {
+			memcpy((void *)data, (void *)other.data, sizeof(T) * (u32)size);
+		} else {
+			for (i32 i = 0; i < size; i++) {
+				data[i] = other.data[i];
+			}
+		}
+		return *this;
+	}
+
+	StaticArray<T, count> &operator=(StaticArray<T, count> &&other) {
+		size = other.size;
+		if constexpr (std::is_trivially_copyable<T>::value) {
+			memcpy((void *)data, (void *)other.data, sizeof(T) * (u32)size);
+		} else {
+			for (i32 i = 0; i < size; i++) {
+				data[i] = std::move(other.data[i]);
+			}
+		}
+		other.size = 0;
+		return *this;
+	}
+
+#ifdef __GNUG__
+	#pragma GCC diagnostic pop
+#endif
+
 	bool operator==(const StaticArray<T, count> &other) const {
 		if (size != other.size) {
 			return false;
 		}
 		for (i32 i = 0; i < size; i++) {
 			if (data[i] != other.data[i]) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	bool operator==(const Range<T> &other) const {
+		if (size != other.size) {
+			return false;
+		}
+		for (i32 i = 0; i < size; i++) {
+			if (data[i] != other[i]) {
 				return false;
 			}
 		}

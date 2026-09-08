@@ -7,8 +7,10 @@
 #ifndef AZ2D_RENDERING_HPP
 #define AZ2D_RENDERING_HPP
 
-#include "AzCore/memory.hpp"
 #include "AzCore/vk.hpp"
+#include "AzCore/Thread.hpp"
+#include "AzCore/Math/mat2_t.hpp"
+#include "AzCore/Math/Angle.hpp"
 
 namespace AzCore {
 namespace io {
@@ -27,8 +29,6 @@ using namespace AzCore;
 
 void AddPointLight(vec3 pos, vec3 color, f32 distMin, f32 distMax, f32 attenuation=0.0f);
 void AddLight(vec3 pos, vec3 color, vec3 direction, f32 angleMin, f32 angleMax, f32 distMin, f32 distMax, f32 attenuation=0.0f);
-
-vec3 sRGBToLinear(vec3 sRGB);
 
 constexpr f32 lineHeight = 1.3f;
 
@@ -171,12 +171,6 @@ struct UniformBuffer {
 	Light lights[MAX_LIGHTS];
 };
 
-// I fucking hate Microsoft and every decision they've ever made
-// This should never be fucking necessary
-#ifdef DrawText
-#undef DrawText
-#endif
-
 struct Manager {
 	struct {
 		vk::Instance instance;
@@ -222,9 +216,9 @@ struct Manager {
 		Ptr<vk::Memory> fontImageMemory;
 
 		Ptr<vk::Buffer> fontStagingVertexBuffer;
-		Range<vk::Buffer> fontStagingImageBuffers;
+		SmartRange<vk::Buffer> fontStagingImageBuffers;
 		Ptr<vk::Buffer> fontVertexBuffer;
-		Range<vk::Image> fontImages;
+		SmartRange<vk::Image> fontImages;
 
 		Array<Ptr<vk::Pipeline>> pipelines;
 		Array<StaticArray<Ptr<vk::DescriptorSet>, 4>> pipelineDescriptorSets;
@@ -262,12 +256,11 @@ struct Manager {
 
 	void BindPipeline(DrawingContext &context, PipelineIndex pipeline) const;
 
+	void SetScissor(DrawingContext &context, vec2i min, vec2i size);
 	void PushScissor(DrawingContext &context, vec2i min, vec2i max);
 	void PopScissor(DrawingContext &context);
 
-	inline void UpdateBackground() {
-		backgroundRGB = hsvToRgb(backgroundHSV);
-	}
+	void UpdateBackground();
 
 	f32 CharacterWidth(char32 character, const Assets::Font *fontDesired, const Assets::Font *fontFallback) const;
 	f32 LineWidth(const char32 *string, i32 fontIndex) const;

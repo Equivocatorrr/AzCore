@@ -8,7 +8,7 @@
 
 #include "vec3_t.hpp"
 
-#include "basic.hpp"
+#include "Basic.hpp"
 
 namespace AzCore {
 
@@ -76,7 +76,8 @@ struct vec4_t {
 	inline vec4_t<T> operator/(T vec) const { return vec4_t<T>(x / vec, y / vec, z / vec, w / vec); }
 	inline bool operator==(vec4_t<T> a) const { return x == a.x && y == a.y && z == a.z && w == a.w; }
 	inline bool operator!=(vec4_t<T> a) const { return x != a.x || y != a.y || z != a.z || w != a.w; }
-	inline T &operator[](u32 i) { return data[i]; }
+	inline T& operator[](i32 i) { return data[i]; }
+	inline const T& operator[](i32 i) const { return data[i]; }
 	inline vec4_t<T> operator+=(vec4_t<T> vec) {
 		x += vec.x;
 		y += vec.y;
@@ -120,6 +121,10 @@ struct vec4_t {
 		return *this;
 	}
 };
+
+typedef vec4_t<f32> vec4;
+typedef vec4_t<f64> vec4d;
+typedef vec4_t<i32> vec4i;
 
 } // namespace AzCore
 
@@ -167,6 +172,28 @@ template <typename T>
 inline AzCore::vec4_t<T> normalize(AzCore::vec4_t<T> a, T epsilon=T(1.0e-12), AzCore::vec4_t<T> def={T(1), T(0), T(0), T(0)}) {
 	T mag = norm(a);
 	return mag < epsilon ? def : a / mag;
+}
+
+inline AzCore::vec4 min(AzCore::vec4 a, AzCore::vec4 b) {
+	_mm_store_ps(a.data, _mm_min_ps(_mm_load_ps(a.data), _mm_load_ps(b.data)));
+	return a;
+}
+
+inline AzCore::vec4 max(AzCore::vec4 a, AzCore::vec4 b) {
+	_mm_store_ps(a.data, _mm_max_ps(_mm_load_ps(a.data), _mm_load_ps(b.data)));
+	return a;
+}
+
+inline AzCore::vec4d min(AzCore::vec4d a, AzCore::vec4d b) {
+	_mm_store_pd(a.data, _mm_min_pd(_mm_set_pd(a[0], a[1]), _mm_set_pd(b[0], b[1])));
+	_mm_store_pd(a.data+2, _mm_min_pd(_mm_set_pd(a[2], a[3]), _mm_set_pd(b[2], b[3])));
+	return a;
+}
+
+inline AzCore::vec4d max(AzCore::vec4d a, AzCore::vec4d b) {
+	_mm_store_pd(a.data, _mm_max_pd(_mm_set_pd(a[0], a[1]), _mm_set_pd(b[0], b[1])));
+	_mm_store_pd(a.data+2, _mm_max_pd(_mm_set_pd(a[2], a[3]), _mm_set_pd(b[2], b[3])));
+	return a;
 }
 
 #endif // AZCORE_MATH_VEC4_HPP

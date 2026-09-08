@@ -6,16 +6,22 @@ add_executable(unit_tests
 	src/Utilities.hpp
 	# actual tests
 	src/tests/BinarySet.cpp
+	src/tests/BranchPredictionVsReturnAddressPrediction.cpp
 	src/tests/BinaryMap.cpp
 	src/tests/BasicMath.cpp
+	src/tests/CustomMaths.cpp
+	src/tests/dwarf.cpp
 	src/tests/Angle.cpp
 	src/tests/Quaternion.cpp
+	src/tests/Sort.cpp
 	src/tests/String.cpp
 	src/tests/StringArena.cpp
 	src/tests/Shuffle.cpp
 	src/tests/RayTriangleIntersect.cpp
 	src/tests/RandomNumberGenerator.cpp
+	src/tests/Noise.cpp
 	src/tests/Equations.cpp
+	src/tests/Matrix.cpp
 )
 
 target_include_directories(unit_tests PUBLIC "${PROJECT_SOURCE_DIR}/base/src/")

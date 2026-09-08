@@ -10,7 +10,7 @@
 #include "vec3_t.hpp"
 #include "vec4_t.hpp"
 
-#include "basic.hpp"
+#include "Basic.hpp"
 
 namespace AzCore {
 
@@ -61,6 +61,8 @@ struct quat_t {
 	inline quat_t<T> operator+(quat_t<T> a) const {
 		return quat_t<T>(w + a.w, x + a.x, y + a.y, z + a.z);
 	}
+	inline T& operator[](i32 i) { return data[i]; }
+	inline const T& operator[](i32 i) const { return data[i]; }
 	inline quat_t<T>& operator+=(quat_t<T> a) {
 		w += a.w;
 		x += a.x;
@@ -130,11 +132,14 @@ struct quat_t {
 				jj = y * y, jk = y * z,
 				kk = z * z;
 		return mat3_t<T>(
-			1 - 2 * (jj + kk), 2 * (ij - kr), 2 * (ik + jr),
-			2 * (ij + kr), 1 - 2 * (ii + kk), 2 * (jk - ir),
-			2 * (ik - jr), 2 * (jk + ir), 1 - 2 * (ii + jj));
+			1 - 2 * (jj + kk), 2 * (ij + kr), 2 * (ik - jr),
+			2 * (ij - kr), 1 - 2 * (ii + kk), 2 * (jk + ir),
+			2 * (ik + jr), 2 * (jk - ir), 1 - 2 * (ii + jj));
 	}
 };
+
+typedef quat_t<f32> quat;
+typedef quat_t<f64> quatd;
 
 } // namespace AzCore
 
@@ -147,7 +152,7 @@ template <typename T>
 AzCore::quat_t<T> slerp(AzCore::quat_t<T> a, AzCore::quat_t<T> b, T factor) {
 	a = normalize(a);
 	b = normalize(b);
-	T d = dot(a.vector, b.vector);
+	T d = dot(a.wxyz, b.wxyz);
 	if (d < T(0.0)) {
 		b = -b.wxyz;
 		d *= T(-1.0);

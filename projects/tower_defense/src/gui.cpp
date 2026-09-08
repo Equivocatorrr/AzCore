@@ -8,12 +8,16 @@
 
 #include "Az2D/game_systems.hpp"
 #include "Az2D/settings.hpp"
-#include "Az2D/profiling.hpp"
+#include "AzCore/Utility/Profiling.hpp"
+#include "AzCore/IO/KeyCodes.hpp"
 
 namespace Az2D::Gui {
 
 using Entities::entities;
 using GameSystems::sys;
+
+using namespace AzCore;
+using namespace io::kc;
 
 Gui *gui = nullptr;
 
@@ -22,45 +26,65 @@ const vec3 colorHighlightLow = {0.2f, 0.45f, 0.5f};
 const vec3 colorHighlightMedium = {0.4f, 0.9f, 1.0f};
 const vec3 colorHighlightHigh = {0.9f, 0.98f, 1.0f};
 
+const f32 backgroundOpacity = 0.7f;
+const f32 buttonBaseOpacity = 0.4f;
+
 Gui::Gui() {
 	gui = this;
 }
 
-void Gui::EventAssetsQueue() {
-	GuiBasic::EventAssetsQueue();
-	sys->assets.QueueFile("Cursor.png");
-}
-
-void Gui::EventAssetsAcquire() {
-	GuiBasic::EventAssetsAcquire();
-	texCursor = sys->assets.FindTexture("Cursor.png");
+void Gui::EventAssetsRequest() {
+	GuiBasic::EventAssetsRequest();
+	texCursor = sys->assets.RequestTexture("Cursor.png");
 }
 
 void Gui::EventInitialize() {
+	GuiBasic::EventInitialize();
+	system.defaults.buttonText.fontSize = 28.0f;
+	system.defaults.buttonText.color = vec4(vec3(1.0f), 1.0f);
+	system.defaults.buttonText.colorHighlighted = vec4(vec3(0.0f), 1.0f);
+	system.defaults.buttonText.SetHeightFraction(1.0f);
+	system.defaults.buttonText.padding = 0.0f;
+	system.defaults.buttonText.margin = 0.0f;
+	system.defaults.buttonText.data = TextMetadata{Rendering::CENTER, Rendering::CENTER};
 	menuMain.Initialize();
 	menuSettings.Initialize();
 	menuPlay.Initialize();
 }
 
 void Gui::EventSync() {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Gui::EventSync)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Gui::Gui::EventSync)
 	GuiBasic::EventSync();
-	currentMenu = nextMenu;
-	switch (currentMenu) {
-	case Menu::MAIN:
-		menuMain.Update();
-		break;
-	case Menu::SETTINGS:
-		menuSettings.Update();
-		break;
-	case Menu::PLAY:
-		menuPlay.Update();
-		break;
+	static bool wasPaused;
+	static bool once = true;
+	if (console) {
+		if (once) {
+			wasPaused = sys->paused;
+			once = false;
+		}
+		sys->paused = true;
+	} else {
+		if (!once) {
+			sys->paused = wasPaused;
+			once = true;
+		}
+		currentMenu = nextMenu;
+		switch (currentMenu) {
+		case Menu::MAIN:
+			menuMain.Update();
+			break;
+		case Menu::SETTINGS:
+			menuSettings.Update();
+			break;
+		case Menu::PLAY:
+			menuPlay.Update();
+			break;
+		}
 	}
 }
 
 void Gui::EventDraw(Array<Rendering::DrawingContext> &contexts) {
-	AZ2D_PROFILING_SCOPED_TIMER(Az2D::Gui::Gui::EventDraw)
+	AZCORE_PROFILING_SCOPED_TIMER(Az2D::Gui::Gui::EventDraw)
 	switch (currentMenu) {
 	case Menu::MAIN:
 		menuMain.Draw(contexts.Back());
@@ -72,91 +96,67 @@ void Gui::EventDraw(Array<Rendering::DrawingContext> &contexts) {
 		menuPlay.Draw(contexts.Back());
 		break;
 	}
-	if (usingMouse) {
-		sys->rendering.DrawQuad(contexts.Back(), sys->input.cursor, vec2(32.0f * scale), vec2(1.0f), vec2(0.5f), 0.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), texCursor);
+	GuiBasic::EventDraw(contexts);
+	if (system.inputMethod == GuiGeneric::InputMethod::MOUSE) {
+		sys->rendering.DrawQuad(contexts.Back(), sys->input.cursor, vec2(32.0f * system.scale), vec2(1.0f), vec2(0.5f), 0.0f, Rendering::PIPELINE_BASIC_2D, vec4(1.0f), texCursor);
 	}
 }
 
 void MainMenu::Initialize() {
-	ListV *listV = new ListV();
-	listV->color = vec4(0.0f);
-	listV->highlight = vec4(0.0f);
+	screen = gui->system.CreateScreen();
+	azgui::ListV *listV = gui->system.CreateListV(screen);
+	listV->SetWidthContents();
+	listV->SetHeightFraction(1.0f);
+	listV->padding = vec2(40.0f);
+	listV->color = 0.0f;
+	listV->colorHighlighted = 0.0f;
 
-	Widget *spacer = new Widget();
-	spacer->size.y = 0.3f;
-	AddWidget(listV, spacer);
+	constexpr f32 slant = 32.0f;
 
-	Text *title = new Text();
-	title->alignH = Rendering::CENTER;
+	azgui::Text *title = gui->system.CreateText(listV);
+	title->position.x = 4.0f * slant;
+	title->data = TextMetadata();
+	title->data.Get<TextMetadata>().alignH = Rendering::CENTER;
 	title->bold = true;
 	title->color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	title->colorOutline = vec4(1.0f);
 	title->outline = true;
-	title->fontSize = 64.0f;
-	title->fontIndex = guiBasic->fontIndex;
+	title->fontSize = 48.0f;
 	title->string = sys->ReadLocale("AzCore Tower Defense");
-	AddWidget(listV, title);
+	title->SetWidthPixel(256.0f);
+	title->SetHeightContents();
 
-	spacer = new Widget();
-	spacer->size.y = 0.4f;
-	AddWidget(listV, spacer);
+	gui->system.CreateSpacer(listV, 1.0f);
 
-	ListV *buttonList = new ListV();
-	buttonList->fractionWidth = false;
-	buttonList->size = vec2(500.0f, 0.0f);
-	buttonList->padding = vec2(16.0f);
+	azgui::Button buttonTemplate;
+	buttonTemplate.SetSizePixel(vec2(256.0f, 64.0f));
+	buttonTemplate.margin = vec2(16.0f);
+	buttonTemplate.padding = vec2(16.0f);
+	buttonTemplate.color = vec4(vec3(0.0f), buttonBaseOpacity);
 
-	buttonContinue = new Button();
+	buttonContinue = gui->system.CreateButtonFrom(nullptr, buttonTemplate);
+	buttonContinue->position.x = 3.0f * slant;
 	buttonContinue->AddDefaultText(sys->ReadLocale("Continue"));
-	buttonContinue->size.y = 64.0f;
-	buttonContinue->fractionHeight = false;
-	buttonContinue->margin = vec2(16.0f);
 	buttonContinue->keycodeActivators = {KC_KEY_ESC};
 
-	continueHideable = new Hideable(buttonContinue);
+	continueHideable = gui->system.CreateHideable(listV, buttonContinue);
 	continueHideable->hidden = true;
-	AddWidget(buttonList, continueHideable);
 
-	buttonNewGame = new Button();
+	buttonNewGame = gui->system.CreateButtonFrom(listV, buttonTemplate);
+	buttonNewGame->position.x = 2.0f * slant;
 	buttonNewGame->AddDefaultText(sys->ReadLocale("New Game"));
-	buttonNewGame->size.y = 64.0f;
-	buttonNewGame->fractionHeight = false;
-	buttonNewGame->margin = vec2(16.0f);
-	AddWidget(buttonList, buttonNewGame);
 
-	buttonSettings = new Button();
+	buttonSettings = gui->system.CreateButtonFrom(listV, buttonTemplate);
+	buttonSettings->position.x = slant;
 	buttonSettings->AddDefaultText(sys->ReadLocale("Settings"));
-	buttonSettings->size.y = 64.0f;
-	buttonSettings->fractionHeight = false;
-	buttonSettings->margin = vec2(16.0f);
-	AddWidget(buttonList, buttonSettings);
 
-	buttonExit = new Button();
+	buttonExit = gui->system.CreateButtonFrom(listV, buttonTemplate);
 	buttonExit->AddDefaultText(sys->ReadLocale("Exit"));
-	buttonExit->size.y = 64.0f;
-	buttonExit->fractionHeight = false;
-	buttonExit->margin = vec2(16.0f);
-	buttonExit->highlightBG = vec4(colorBack, 0.9f);
-	AddWidget(buttonList, buttonExit);
-
-	ListH *spacingList = new ListH();
-	spacingList->color = vec4(0.0f);
-	spacingList->highlight = vec4(0.0f);
-	spacingList->size.y = 0.0f;
-
-	spacer = new Widget();
-	spacer->size.x = 0.5f;
-	AddWidget(spacingList, spacer);
-
-	AddWidgetAsDefault(spacingList, buttonList);
-
-	AddWidgetAsDefault(listV, spacingList);
-
-	AddWidget(&screen, listV);
+	buttonExit->colorHighlighted = vec4(colorBack, 0.9f);
 }
 
 void MainMenu::Update() {
-	screen.Update(vec2(0.0f), true);
+	screen->Update(vec2(0.0f), true);
 	if (buttonContinue->state.Released()) {
 		gui->nextMenu = Gui::Menu::PLAY;
 	}
@@ -166,6 +166,7 @@ void MainMenu::Update() {
 	}
 	if (buttonSettings->state.Released()) {
 		gui->nextMenu = Gui::Menu::SETTINGS;
+		gui->menuSettings.Reset();
 	}
 	if (buttonExit->state.Released()) {
 		sys->exit = true;
@@ -173,104 +174,134 @@ void MainMenu::Update() {
 }
 
 void MainMenu::Draw(Rendering::DrawingContext &context) {
-	screen.Draw(context);
+	Any anyContext = &context;
+	screen->Draw(anyContext);
+}
+
+void SettingsMenu::Reset() {
+	checkFullscreen->checked = Settings::ReadBool(Settings::sFullscreen);
+	checkVSync->checked = Settings::ReadBool(Settings::sVSync);
+	framerateHideable->hidden = Settings::ReadBool(Settings::sVSync);
+	textboxFramerate->string = ToWString(ToString((i32)Settings::ReadReal(Settings::sFramerate)));
+	f32 volumeMain = (f32)az::ampToDecibels(Settings::ReadReal(Settings::sVolumeMain));
+	f32 volumeMusic = (f32)az::ampToDecibels(Settings::ReadReal(Settings::sVolumeMusic));
+	f32 volumeEffects = (f32)az::ampToDecibels(Settings::ReadReal(Settings::sVolumeEffects));
+	sliderVolumes[0]->SetValue(volumeMain);
+	sliderVolumes[1]->SetValue(volumeMusic);
+	sliderVolumes[2]->SetValue(volumeEffects);
+	for (i32 i = 0; i < 3; i++) {
+		sliderVolumes[i]->UpdateMirror();
+	}
+	f32 guiScale = Settings::ReadReal(Settings::sGuiScale)*100.0f;
+	sliderGuiScale->SetValue(guiScale);
+	sliderGuiScale->UpdateMirror();
 }
 
 void SettingsMenu::Initialize() {
-	ListV *listV = new ListV();
+	screen = gui->system.CreateScreen();
+	azgui::ListV *listV = gui->system.CreateListV(screen);
+	listV->SetWidthPixel(500.0f);
+	listV->SetHeightFraction(1.0f);
+	listV->padding = vec2(40.0f);
 	listV->color = vec4(0.0f);
-	listV->highlight = vec4(0.0f);
+	listV->colorHighlighted = vec4(0.0f);
 
-	Widget *spacer = new Widget();
-	spacer->size.y = 0.3f;
-	AddWidget(listV, spacer);
-
-	Text *title = new Text();
-	title->alignH = Rendering::CENTER;
+	azgui::Text *title = gui->system.CreateText(listV);
+	title->data = TextMetadata{Rendering::CENTER, Rendering::TOP};
 	title->bold = true;
 	title->color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	title->colorOutline = vec4(1.0f);
 	title->outline = true;
 	title->fontSize = 64.0f;
-	title->fontIndex = gui->fontIndex;
 	title->string = sys->ReadLocale("Settings");
-	AddWidget(listV, title);
+	title->SetWidthFraction(1.0f);
+	title->SetHeightContents();
 
-	spacer = new Widget();
-	spacer->size.y = 0.4f;
-	AddWidget(listV, spacer);
+	gui->system.CreateSpacer(listV, 1.0f);
 
-	ListV *actualList = new ListV();
-	actualList->fractionWidth = false;
-	actualList->size.x = 500.0f;
-	actualList->size.y = 0.0f;
-	actualList->padding = vec2(24.0f);
+	azgui::Text settingTextTemplate;
+	settingTextTemplate.fontSize = 20.0f;
+	settingTextTemplate.SetHeightFraction(1.0f);
+	settingTextTemplate.data = TextMetadata{Rendering::LEFT, Rendering::CENTER};
 
-	Text *settingTextTemplate = new Text();
-	settingTextTemplate->fontIndex = gui->fontIndex;
-	settingTextTemplate->fontSize = 20.0f;
-	settingTextTemplate->fractionHeight = true;
-	settingTextTemplate->size.y = 1.0f;
-	settingTextTemplate->alignV = Rendering::CENTER;
-
-	checkFullscreen = new Checkbox();
+	checkFullscreen = gui->system.CreateCheckbox(nullptr);
 	checkFullscreen->checked = Settings::ReadBool(Settings::sFullscreen);
-	
-	checkVSync = new Checkbox();
+
+	checkVSync = gui->system.CreateCheckbox(nullptr);
 	checkVSync->checked = Settings::ReadBool(Settings::sVSync);
 
-	TextBox *textboxTemplate = new TextBox();
-	textboxTemplate->fontIndex = gui->fontIndex;
-	textboxTemplate->size.x = 64.0f;
-	textboxTemplate->alignH = Rendering::RIGHT;
-	textboxTemplate->textFilter = TextFilterDigits;
-	textboxTemplate->textValidate = TextValidateNonempty;
+	azgui::Textbox textboxTemplate;
+	textboxTemplate.SetWidthPixel(64.0f);
+	textboxTemplate.SetHeightFraction(1.0f);
+	textboxTemplate.data = TextMetadata{Rendering::RIGHT, Rendering::CENTER};
+	textboxTemplate.fontSize = 20.0f;
+	textboxTemplate.textFilter = azgui::TextFilterDigits;
+	textboxTemplate.textValidate = azgui::TextValidateNonempty;
+	textboxTemplate.stringSuffix = ToWString("%");
+	textboxTemplate.colorBG = vec4(vec3(0.0f), buttonBaseOpacity);
 
-	Slider *sliderTemplate = new Slider();
-	sliderTemplate->fractionHeight = true;
-	sliderTemplate->fractionWidth = false;
-	sliderTemplate->size = vec2(116.0f, 1.0f);
-	sliderTemplate->valueMax = 100.0f;
+	azgui::Slider sliderTemplate;
+	sliderTemplate.SetWidthPixel(116.0f);
+	sliderTemplate.SetHeightFraction(1.0f);
+	sliderTemplate.valueMin = -60.0f;
+	sliderTemplate.valueMax = 0.0f;
+	sliderTemplate.valueStep = 1.0f;
+	sliderTemplate.valueTick = 3.0f;
+	sliderTemplate.valueTickShiftMult = 1.0f / 3.0f;
+	sliderTemplate.minOverride = true;
+	sliderTemplate.minOverrideValue = -INFINITY;
+	sliderTemplate.maxOverride = true;
+	sliderTemplate.maxOverrideValue = -0.0f;
+	sliderTemplate.mirrorPrecision = 0;
+	sliderTemplate.colorBG = vec4(vec3(0.0f), buttonBaseOpacity);
 
-	textboxFramerate = new TextBox(*textboxTemplate);
-	textboxFramerate->string = ToWString(ToString((i32)Settings::ReadReal(Settings::sFramerate)));
-
+	textboxFramerate = gui->system.CreateTextboxFrom(nullptr, textboxTemplate);
+	textboxFramerate->stringSuffix = ToWString("fps");
 
 	for (i32 i = 0; i < 3; i++) {
-		textboxVolumes[i] = new TextBox(*textboxTemplate);
-		sliderVolumes[i] = new Slider(*sliderTemplate);
-		textboxVolumes[i]->textFilter = TextFilterDecimalsPositive;
-		textboxVolumes[i]->textValidate = TextValidateDecimalsPositive;
+		textboxVolumes[i] = gui->system.CreateTextboxFrom(nullptr, textboxTemplate);
+		sliderVolumes[i] = gui->system.CreateSliderFrom(nullptr, sliderTemplate);
+		textboxVolumes[i]->stringSuffix = ToWString("dB");
+		textboxVolumes[i]->textFilter = azgui::TextFilterBasic;
+		textboxVolumes[i]->textValidate = azgui::TextValidateDecimalsNegativeAndInfinity;
 		sliderVolumes[i]->mirror = textboxVolumes[i];
 	}
-	f32 volumeMain = Settings::ReadReal(Settings::sVolumeMain);
-	f32 volumeMusic = Settings::ReadReal(Settings::sVolumeMusic);
-	f32 volumeEffects = Settings::ReadReal(Settings::sVolumeEffects);
-	textboxVolumes[0]->string = ToWString(ToString(volumeMain*100.0f, 10, 1));
-	textboxVolumes[1]->string = ToWString(ToString(volumeMusic*100.0f, 10, 1));
-	textboxVolumes[2]->string = ToWString(ToString(volumeEffects*100.0f, 10, 1));
-	sliderVolumes[0]->value = volumeMain*100.0f;
-	sliderVolumes[1]->value = volumeMusic*100.0f;
-	sliderVolumes[2]->value = volumeEffects*100.0f;
 
-	ListH *settingListTemplate = new ListH();
-	settingListTemplate->size.y = 0.0f;
-	settingListTemplate->margin = vec2(8.0f);
-	settingListTemplate->padding = vec2(0.0f);
+	f32 guiScale = Settings::ReadReal(Settings::sGuiScale);
+	textboxGuiScale = gui->system.CreateTextboxFrom(nullptr, textboxTemplate);
+	textboxGuiScale->textFilter = azgui::TextFilterDigits;
+	textboxGuiScale->textValidate = azgui::TextValidateNonempty;
+	sliderGuiScale = gui->system.CreateSliderFrom(nullptr, sliderTemplate);
+	sliderGuiScale->minOverride = false;
+	sliderGuiScale->maxOverride = false;
+	sliderGuiScale->value = guiScale*100.0f;
+	sliderGuiScale->valueMax = 300.0f;
+	sliderGuiScale->valueMin = 50.0f;
+	sliderGuiScale->valueTick = 25.0f;
+	sliderGuiScale->valueTickShiftMult = 0.2f;
+	sliderGuiScale->mirror = textboxGuiScale;
 
-	Array<Widget*> settingListItems = {
+	azgui::ListH settingListTemplate;
+	settingListTemplate.SetHeightContents();
+	settingListTemplate.margin = vec2(8.0f);
+	settingListTemplate.padding = vec2(0.0f);
+	settingListTemplate.color = vec4(vec3(0.0f), backgroundOpacity);
+
+	StaticArray<azgui::Widget*, 16> settingListItems = {
 		checkFullscreen, nullptr,
-		checkVSync, nullptr,
 		textboxFramerate, nullptr,
+		checkVSync, nullptr,
+		sliderGuiScale, textboxGuiScale,
 		nullptr, nullptr,
 		sliderVolumes[0], textboxVolumes[0],
 		sliderVolumes[1], textboxVolumes[1],
-		sliderVolumes[2], textboxVolumes[2]
+		sliderVolumes[2], textboxVolumes[2],
 	};
 	const char *settingListNames[] = {
 		"Fullscreen",
-		"VSync",
 		"Framerate",
+		"VSync",
+		"GUI Scale",
 		"Volume",
 		"Main",
 		"Music",
@@ -279,80 +310,53 @@ void SettingsMenu::Initialize() {
 
 	for (i32 i = 0; i < settingListItems.size; i+=2) {
 		if (settingListItems[i] == nullptr) {
-			Text *settingText = new Text(*settingTextTemplate);
+			azgui::Text *settingText = gui->system.CreateTextFrom(listV, settingTextTemplate);
 			settingText->string = sys->ReadLocale(settingListNames[i / 2]);
-			settingText->alignH = Rendering::CENTER;
+			settingText->data = TextMetadata{Rendering::CENTER, Rendering::CENTER};
 			settingText->fontSize = 24.0f;
-			AddWidget(actualList, settingText);
+			settingText->SetHeightContents();
 		} else {
-			ListH *settingList = new ListH(*settingListTemplate);
-			Text *settingText = new Text(*settingTextTemplate);
+			azgui::ListH *settingList = gui->system.CreateListHFrom(nullptr, settingListTemplate);
+			if (i == 2) {
+				// Hideable Framerate
+				framerateHideable = gui->system.CreateHideable(listV, settingList);
+				framerateHideable->hidden = Settings::ReadBool(Settings::sVSync);
+			} else {
+				gui->system.AddWidget(listV, settingList);
+			}
+			azgui::Text *settingText = gui->system.CreateTextFrom(settingList, settingTextTemplate);
 			settingText->string = sys->ReadLocale(settingListNames[i / 2]);
-			AddWidget(settingList, settingText);
-			AddWidgetAsDefault(settingList, settingListItems[i]);
+			gui->system.AddWidgetAsDefault(settingList, settingListItems[i]);
 			if (settingListItems[i+1] != nullptr) {
 				// So we can control the slider with the keyboard and gamepad
 				settingListItems[i+1]->selectable = false;
-				AddWidget(settingList, settingListItems[i+1]);
-			}
-
-			if (i == 4) {
-				// Hideable Framerate
-				framerateHideable = new Hideable(settingList);
-				framerateHideable->hidden = Settings::ReadBool(Settings::sVSync);
-				AddWidget(actualList, framerateHideable);
-			} else {
-				AddWidget(actualList, settingList);
+				gui->system.AddWidget(settingList, settingListItems[i+1]);
 			}
 		}
 	}
 
-	ListH *buttonList = new ListH();
-	buttonList->size.y = 0.0f;
+	azgui::ListH *buttonList = gui->system.CreateListH(listV);
+	buttonList->SetHeightContents();
 	buttonList->margin = vec2(0.0f);
 	buttonList->padding = vec2(0.0f);
 	buttonList->color = vec4(0.0f);
-	buttonList->highlight = vec4(0.0f);
+	buttonList->colorHighlighted = vec4(0.0f);
 
-	buttonBack = new Button();
+	azgui::Button buttonTemplate;
+	buttonTemplate.SetWidthFraction(1.0f / 2.0f);
+	buttonTemplate.SetHeightPixel(64.0f);
+	buttonTemplate.margin = vec2(8.0f);
+	buttonTemplate.color = vec4(vec3(0.0f), buttonBaseOpacity);
+
+	buttonBack = gui->system.CreateButtonFrom(buttonList, buttonTemplate);
 	buttonBack->AddDefaultText(sys->ReadLocale("Back"));
-	buttonBack->size.x = 1.0f / 2.0f;
-	buttonBack->size.y = 64.0f;
-	buttonBack->fractionHeight = false;
-	buttonBack->margin = vec2(8.0f);
-	buttonBack->highlightBG = vec4(colorBack, 0.9f);
+	buttonBack->colorHighlighted = vec4(colorBack, 0.9f);
 	buttonBack->keycodeActivators = {KC_GP_BTN_B, KC_KEY_ESC};
-	AddWidget(buttonList, buttonBack);
 
-	buttonApply = new Button();
+	buttonApply = gui->system.CreateButtonAsDefaultFrom(buttonList, buttonTemplate);
 	buttonApply->AddDefaultText(sys->ReadLocale("Apply"));
-	buttonApply->size.x = 1.0f / 2.0f;
-	buttonApply->size.y = 64.0f;
-	buttonApply->fractionHeight = false;
-	buttonApply->margin = vec2(8.0f);
-	AddWidgetAsDefault(buttonList, buttonApply);
 
-	AddWidget(actualList, buttonList);
-
-	ListH *spacingList = new ListH();
-	spacingList->color = vec4(0.0f);
-	spacingList->highlight = vec4(0.0f);
-	spacingList->size.y = 0.0f;
-
-	spacer = new Widget();
-	spacer->size.x = 0.5f;
-	AddWidget(spacingList, spacer);
-
-	AddWidgetAsDefault(spacingList, actualList);
-
-	AddWidgetAsDefault(listV, spacingList);
-
-	AddWidget(&screen, listV);
-
-	delete settingListTemplate;
-	delete settingTextTemplate;
-	delete sliderTemplate;
-	delete textboxTemplate;
+	Reset();
 }
 
 u64 WStringToU64(WString str) {
@@ -367,7 +371,7 @@ u64 WStringToU64(WString str) {
 
 void SettingsMenu::Update() {
 	framerateHideable->hidden = checkVSync->checked;
-	screen.Update(vec2(0.0f), true);
+	screen->Update(vec2(0.0f), true);
 	if (buttonApply->state.Released()) {
 		sys->window.Fullscreen(checkFullscreen->checked);
 		Settings::SetBool(Settings::sFullscreen, checkFullscreen->checked);
@@ -379,12 +383,10 @@ void SettingsMenu::Update() {
 		}
 		Settings::SetReal(Settings::sFramerate, (f64)framerate);
 		textboxFramerate->string = ToWString(ToString(framerate));
-		Settings::SetReal(Settings::sVolumeMain, f64(sliderVolumes[0]->value / 100.0f));
-		Settings::SetReal(Settings::sVolumeMusic, f64(sliderVolumes[1]->value / 100.0f));
-		Settings::SetReal(Settings::sVolumeEffects, f64(sliderVolumes[2]->value / 100.0f));
-		for (i32 i = 0; i < 3; i++) {
-			textboxVolumes[i]->string = ToWString(ToString(sliderVolumes[i]->value, 10, 1));
-		}
+		Settings::SetReal(Settings::sGuiScale, f64(sliderGuiScale->value / 100.0f));
+		Settings::SetReal(Settings::sVolumeMain, f64(az::decibelsToAmp(sliderVolumes[0]->GetActualValue())));
+		Settings::SetReal(Settings::sVolumeMusic, f64(az::decibelsToAmp(sliderVolumes[1]->GetActualValue())));
+		Settings::SetReal(Settings::sVolumeEffects, f64(az::decibelsToAmp(sliderVolumes[2]->GetActualValue())));
 	}
 	if (buttonBack->state.Released()) {
 		gui->nextMenu = Gui::Menu::MAIN;
@@ -392,110 +394,88 @@ void SettingsMenu::Update() {
 }
 
 void SettingsMenu::Draw(Rendering::DrawingContext &context) {
-	screen.Draw(context);
+	Any anyContext = &context;
+	screen->Draw(anyContext);
 }
 
 void UpgradesMenu::Initialize() {
-	ListH *list = new ListH();
-	list->fractionWidth = false;
-	list->fractionHeight = false;
-	list->size = 0.0f;
-	list->color = vec4(vec3(0.05f), 0.8f);
-	list->highlight = list->color;
+	screen = gui->system.CreateScreen();
+	azgui::ListH *list = gui->system.CreateListH(nullptr);
+	hideable = gui->system.CreateHideable(screen, list);
+	list->SetSizeContents();
+	list->color = vec4(vec3(0.0f), backgroundOpacity);
+	list->colorHighlighted = list->color;
 	list->padding *= 0.5f;
 
-	ListV *listStats = new ListV();
-	listStats->fractionWidth = false;
-	listStats->fractionHeight = false;
-	listStats->size.x = 250.0f;
-	listStats->size.y = 0.0f;
+	azgui::ListV *listStats = gui->system.CreateListVAsDefault(list);
+	listStats->SetWidthPixel(250.0f);
+	listStats->SetHeightContents();
 	listStats->margin = 0.0f;
 	listStats->padding = 0.0f;
 	listStats->color = 0.0f;
-	listStats->highlight = 0.0f;
+	listStats->colorHighlighted = 0.0f;
 
-	Text *titleText = new Text();
-	titleText->fontIndex = gui->fontIndex;
-	titleText->alignH = Rendering::CENTER;
-	titleText->alignV = Rendering::CENTER;
-	titleText->bold = true;
-	titleText->fontSize = 24.0f;
-	titleText->fractionWidth = true;
-	titleText->fractionHeight = false;
-	titleText->size.x = 1.0f;
-	titleText->size.y = 0.0f;
-	titleText->string = sys->ReadLocale("Info");
-	AddWidget(listStats, titleText);
+	towerName = gui->system.CreateText(listStats);
+	towerName->data = TextMetadata{Rendering::CENTER, Rendering::CENTER};
+	towerName->bold = true;
+	towerName->fontSize = 24.0f;
+	towerName->SetWidthFraction(1.0f);
+	towerName->SetHeightContents();
+	towerName->string = sys->ReadLocale("Info");
 
-	ListH *selectedTowerPriorityList = new ListH();
-	selectedTowerPriorityList->fractionWidth = true;
-	selectedTowerPriorityList->size.x = 1.0f;
-	selectedTowerPriorityList->fractionHeight = false;
-	selectedTowerPriorityList->size.y = 0.0f;
+	azgui::ListH *selectedTowerPriorityList = gui->system.CreateListH(nullptr);
+	towerPriorityHideable = gui->system.CreateHideableAsDefault(listStats, selectedTowerPriorityList);
+	selectedTowerPriorityList->SetWidthFraction(1.0f);
+	selectedTowerPriorityList->SetHeightContents();
 	selectedTowerPriorityList->padding = vec2(0.0f);
 	selectedTowerPriorityList->margin = vec2(0.0f);
 	selectedTowerPriorityList->color = 0.0f;
-	selectedTowerPriorityList->highlight = 0.0f;
-	Text *selectedTowerPriorityText = new Text();
+	selectedTowerPriorityList->colorHighlighted = 0.0f;
+	azgui::Text *selectedTowerPriorityText = gui->system.CreateText(selectedTowerPriorityList);
 	selectedTowerPriorityText->color = 1.0f;
-	selectedTowerPriorityText->size.x = 0.5f;
-	selectedTowerPriorityText->size.y = 1.0f;
-	selectedTowerPriorityText->fractionHeight = true;
-	selectedTowerPriorityText->alignV = Rendering::CENTER;
-	selectedTowerPriorityText->fontIndex = gui->fontIndex;
+	selectedTowerPriorityText->SetSizeFraction(vec2(0.5f, 1.0f));
+	selectedTowerPriorityText->data = TextMetadata{Rendering::LEFT, Rendering::CENTER};
 	selectedTowerPriorityText->fontSize = 18.0f;
 	selectedTowerPriorityText->string = sys->ReadLocale("Priority");
-	towerPriority = new Switch();
-	towerPriority->size.x = 0.5f;
-	towerPriority->size.y = 0.0f;
+	towerPriority = gui->system.CreateSwitchAsDefault(selectedTowerPriorityList);
+	towerPriority->SetWidthFraction(0.5f);
+	towerPriority->SetHeightContents();
 	towerPriority->padding = 0.0f;
+	towerPriority->color = vec4(vec3(0.0f), buttonBaseOpacity);
 	for (i32 i = 0; i < 6; i++) {
-		Text *priorityText = new Text();
+		azgui::Text *priorityText = gui->system.CreateText(towerPriority);
 		priorityText->selectable = true;
-		priorityText->size.x = 1.0f;
-		priorityText->size.y = 22.0f;
+		priorityText->SetWidthFraction(1.0f);
+		priorityText->SetHeightPixel(22.0f);
 		priorityText->margin = 2.0f;
-		priorityText->fractionHeight = false;
-		priorityText->fontIndex = gui->fontIndex;
 		priorityText->fontSize = 18.0f;
-		priorityText->alignV = Rendering::CENTER;
+		priorityText->data = TextMetadata{Rendering::LEFT, Rendering::CENTER};
 		priorityText->string = sys->ReadLocale(Entities::Tower::priorityStrings[i]);
-		AddWidget(towerPriority, priorityText);
 	}
-	AddWidget(selectedTowerPriorityList, selectedTowerPriorityText);
-	AddWidgetAsDefault(selectedTowerPriorityList, towerPriority);
-	towerPriorityHideable = new Hideable(selectedTowerPriorityList);
-	AddWidgetAsDefault(listStats, towerPriorityHideable);
-	selectedTowerStats = new Text();
-	selectedTowerStats->size.x = 1.0f;
-	selectedTowerStats->color = 1.0f;
-	selectedTowerStats->fontIndex = gui->fontIndex;
-	selectedTowerStats->fontSize = 18.0f;
-	AddWidget(listStats, selectedTowerStats);
 
-	ListV *listUpgrades = new ListV();
+	selectedTowerStats = gui->system.CreateText(listStats);
+	selectedTowerStats->SetWidthFraction(1.0f);
+	selectedTowerStats->color = 1.0f;
+	selectedTowerStats->fontSize = 18.0f;
+
+	azgui::ListV *listUpgrades = gui->system.CreateListV(list);
 	listUpgrades->fractionWidth = false;
 	listUpgrades->fractionHeight = false;
-	listUpgrades->size.x = 300.0f;
-	listUpgrades->size.y = 0.0f;
+	listUpgrades->SetWidthPixel(300.0f);
+	listUpgrades->SetHeightContents();
 	listUpgrades->margin = 0.0f;
 	listUpgrades->padding = 0.0f;
 	listUpgrades->color = 0.0f;
-	listUpgrades->highlight = 0.0f;
+	listUpgrades->colorHighlighted = 0.0f;
 	listUpgrades->selectionDefault = 1;
 
-	titleText = new Text();
-	titleText->fontIndex = gui->fontIndex;
-	titleText->alignH = Rendering::CENTER;
-	titleText->alignV = Rendering::CENTER;
+	azgui::Text *titleText = gui->system.CreateText(listUpgrades);
+	titleText->data = TextMetadata{Rendering::CENTER, Rendering::CENTER};
 	titleText->bold = true;
 	titleText->fontSize = 24.0f;
-	titleText->fractionWidth = true;
-	titleText->fractionHeight = false;
-	titleText->size.x = 1.0f;
-	titleText->size.y = 0.0f;
+	titleText->SetWidthFraction(1.0f);
+	titleText->SetHeightContents();
 	titleText->string = sys->ReadLocale("Upgrades");
-	AddWidget(listUpgrades, titleText);
 
 	const char *upgradeNameStrings[] = {
 		"Range",
@@ -513,75 +493,52 @@ void UpgradesMenu::Initialize() {
 	};
 
 	for (i32 i = 0; i < 5; i++) {
-		ListV *listV = new ListV();
-		listV->fractionHeight = false;
-		listV->size = vec2(1.0f, 0.0f);
+		azgui::ListV *listV = gui->system.CreateListV(nullptr);
+		upgradeHideable[i] = gui->system.CreateHideable(listUpgrades, listV);
+		listV->SetWidthFraction(1.0f);
+		listV->SetHeightContents();
 		listV->margin *= 0.5f;
 		listV->padding = 0.0f;
 		listV->color = 0.0f;
-		listV->highlight = 0.0f;
+		listV->colorHighlighted = 0.0f;
 
-		ListH *listH = new ListH();
-		listH->fractionHeight = false;
-		listH->size.y = 0.0f;
+		azgui::ListH *listH = gui->system.CreateListHAsDefault(listV);
+		listH->SetHeightContents();
 		listH->margin = 0.0f;
 		listH->padding = 0.0f;
 		listH->color = 0.0f;
-		listH->highlight = 0.0f;
+		listH->colorHighlighted = 0.0f;
 
-		Text *upgradeName = new Text();
-		upgradeName->fractionWidth = true;
-		upgradeName->size.x = 0.35f;
-		upgradeName->fractionHeight = true;
-		upgradeName->size.y = 1.0f;
+		azgui::Text *upgradeName = gui->system.CreateText(listH);
+		upgradeName->SetSizeFraction(vec2(0.35f, 1.0f));
 		upgradeName->margin *= 0.5f;
-		upgradeName->alignV = Rendering::CENTER;
-		upgradeName->fontIndex = gui->fontIndex;
+		upgradeName->data = TextMetadata{Rendering::LEFT, Rendering::CENTER};
 		upgradeName->fontSize = 18.0f;
 		upgradeName->bold = true;
 		upgradeName->string = sys->ReadLocale(upgradeNameStrings[i]);
-		AddWidget(listH, upgradeName);
 
-		upgradeStatus[i] = new Text();
-		upgradeStatus[i]->fractionWidth = true;
-		upgradeStatus[i]->size = vec2(0.4f, 0.0f);
+		upgradeStatus[i] = gui->system.CreateText(listH);
+		upgradeStatus[i]->SetWidthFraction(0.4f);
+		upgradeStatus[i]->SetHeightContents();
 		upgradeStatus[i]->margin *= 0.5f;
-		upgradeStatus[i]->alignV = Rendering::CENTER;
-		upgradeStatus[i]->fontIndex = gui->fontIndex;
+		upgradeStatus[i]->data = TextMetadata{Rendering::LEFT, Rendering::CENTER};
 		upgradeStatus[i]->fontSize = 14.0f;
 		upgradeStatus[i]->string = ToWString("0");
-		AddWidget(listH, upgradeStatus[i]);
 
-		upgradeButton[i] = new Button();
-		upgradeButton[i]->fractionWidth = true;
-		upgradeButton[i]->fractionHeight = true;
-		upgradeButton[i]->size.x = 0.25f;
-		upgradeButton[i]->size.y = 1.0f;
+		upgradeButton[i] = gui->system.CreateButtonAsDefault(listH);
+		upgradeButton[i]->SetSizeFraction(vec2(0.25f, 1.0f));
 		upgradeButton[i]->margin *= 0.5f;
-		Text *buttonText = upgradeButton[i]->AddDefaultText(sys->ReadLocale("Buy"));
-		buttonText->fontIndex = gui->fontIndex;
+		upgradeButton[i]->color = vec4(vec3(0.0f), buttonBaseOpacity);
+		azgui::Text *buttonText = upgradeButton[i]->AddDefaultText(sys->ReadLocale("Buy"));
 		buttonText->fontSize = 18.0f;
-		AddWidgetAsDefault(listH, upgradeButton[i]);
 
-		AddWidgetAsDefault(listV, listH);
-
-		Text *upgradeDescription = new Text();
-		upgradeDescription->alignH = Rendering::CENTER;
-		upgradeDescription->fractionWidth = true;
-		upgradeDescription->size.x = 1.0f;
+		azgui::Text *upgradeDescription = gui->system.CreateText(listV);
+		upgradeDescription->data = TextMetadata{Rendering::LEFT, Rendering::CENTER};
+		upgradeDescription->SetWidthFraction(1.0f);
 		upgradeDescription->margin = 0.0f;
-		upgradeDescription->fontIndex = gui->fontIndex;
 		upgradeDescription->fontSize = 14.0f;
 		upgradeDescription->string = sys->ReadLocale(upgradeDescriptionStrings[i]);
-		AddWidget(listV, upgradeDescription);
-
-		upgradeHideable[i] = new Hideable(listV);
-		AddWidget(listUpgrades, upgradeHideable[i]);
 	}
-	AddWidgetAsDefault(list, listStats);
-	AddWidget(list, listUpgrades);
-	hideable = new Hideable(list);
-	AddWidget(&screen, hideable);
 }
 
 inline String FloatToString(f32 in) {
@@ -590,25 +547,29 @@ inline String FloatToString(f32 in) {
 
 void UpgradesMenu::Update() {
 	if (entities->selectedTower != -1) {
-		hideable->hidden = false;
-		vec2 towerScreenPos = entities->WorldPosToScreen(entities->towers[entities->selectedTower].physical.pos) / gui->scale;
-		hideable->position = towerScreenPos - vec2(hideable->sizeAbsolute.x / 2.0f, 0.0f);
-
 		Entities::Tower &tower = entities->towers.GetMutable(entities->selectedTower);
+		hideable->hidden = false;
+		vec2 towerScreenPos = entities->WorldPosToScreen(tower.physical.pos) / gui->system.scale;
+		hideable->position = towerScreenPos - vec2(hideable->sizeAbsolute.x / 2.0f, 0.0f);
+		// We need to use median because in the case of very large UI scaling min could be > max.
+		hideable->position.x = median(hideable->position.x, gui->menuPlay.list->sizeAbsolute.x, screen->sizeAbsolute.x - hideable->sizeAbsolute.x);
+		hideable->position.y = median(hideable->position.y, 0.0f, screen->sizeAbsolute.y - hideable->sizeAbsolute.y);
+
 		towerPriorityHideable->hidden = !Entities::towerHasPriority[tower.type];
 		const Entities::TowerUpgradeables &upgradeables = Entities::towerUpgradeables[tower.type];
+		towerName->string = sys->ReadLocale(Entities::towerStrings[tower.type]);
 		for (i32 i = 0; i < 5; i++) {
 			upgradeHideable[i]->hidden = !upgradeables.data[i];
 		}
 		WString costString = "\n" + sys->ReadLocale("Cost:") + ' ';
 		if (upgradeables.data[0]) { // Range
-			i64 cost = tower.sunkCost / 2;
+			i64 cost = tower.sunkCost / 4;
 			f32 newRange = tower.range * 1.25f;
 			bool canUpgrade = cost <= entities->money;
 			upgradeStatus[0]->string =
 				FloatToString(tower.range/10.0f) + "m > " + FloatToString(newRange/10.0f) + "m" +
 				costString + ToString(cost);
-			upgradeButton[0]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8f, 0.1f, 0.1f), 1.0f);
+			upgradeButton[0]->colorHighlighted = vec4(canUpgrade? colorHighlightMedium : vec3(0.8f, 0.1f, 0.1f), 1.0f);
 			if (upgradeButton[0]->state.Released() && canUpgrade) {
 				tower.range = newRange;
 				tower.field.basis.circle.r = newRange;
@@ -623,7 +584,7 @@ void UpgradesMenu::Update() {
 			upgradeStatus[1]->string =
 				FloatToString(1.0f/tower.shootInterval) + "r/s > " + FloatToString(1.0f/newFirerate) + "r/s" +
 				costString + ToString(cost);
-			upgradeButton[1]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8f, 0.1f, 0.1f), 1.0f);
+			upgradeButton[1]->colorHighlighted = vec4(canUpgrade? colorHighlightMedium : vec3(0.8f, 0.1f, 0.1f), 1.0f);
 			if (upgradeButton[1]->state.Released() && canUpgrade) {
 				tower.shootInterval = newFirerate;
 				tower.sunkCost += cost;
@@ -637,7 +598,7 @@ void UpgradesMenu::Update() {
 			upgradeStatus[2]->string =
 				FloatToString(tower.bulletSpread.value()) + "° > " + FloatToString(newSpread.value()) + "°" +
 				costString + ToString(cost);
-			upgradeButton[2]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8f, 0.1f, 0.1f), 1.0f);
+			upgradeButton[2]->colorHighlighted = vec4(canUpgrade? colorHighlightMedium : vec3(0.8f, 0.1f, 0.1f), 1.0f);
 			if (upgradeButton[2]->state.Released() && canUpgrade) {
 				tower.bulletSpread = newSpread;
 				tower.sunkCost += cost;
@@ -651,7 +612,7 @@ void UpgradesMenu::Update() {
 			upgradeStatus[3]->string =
 				ToString(tower.damage) + " > " + ToString(newDamage) +
 				costString + ToString(cost);
-			upgradeButton[3]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8f, 0.1f, 0.1f), 1.0f);
+			upgradeButton[3]->colorHighlighted = vec4(canUpgrade? colorHighlightMedium : vec3(0.8f, 0.1f, 0.1f), 1.0f);
 			if (upgradeButton[3]->state.Released() && canUpgrade) {
 				tower.damage = newDamage;
 				tower.bulletExplosionDamage *= 2;
@@ -670,7 +631,7 @@ void UpgradesMenu::Update() {
 			upgradeStatus[4]->string =
 				ToString(tower.bulletCount) + " > " + ToString(newBulletCount) +
 				costString + ToString(cost);
-			upgradeButton[4]->highlightBG = vec4(canUpgrade? colorHighlightMedium : vec3(0.8f, 0.1f, 0.1f), 1.0f);
+			upgradeButton[4]->colorHighlighted = vec4(canUpgrade? colorHighlightMedium : vec3(0.8f, 0.1f, 0.1f), 1.0f);
 			if (upgradeButton[4]->state.Released() && canUpgrade) {
 				tower.bulletCount = newBulletCount;
 				tower.sunkCost += cost;
@@ -678,142 +639,108 @@ void UpgradesMenu::Update() {
 			}
 		}
 		selectedTowerStats->string =
-			sys->ReadLocale("Kills") + ": " + ToString(tower.kills) + "\n"
-			+ sys->ReadLocale("Damage") + ": " + ToString(tower.damageDone);
+			  sys->ReadLocale("Kills") + ": " + ToString(tower.kills) + "\n"
+			+ sys->ReadLocale("Damage") + ": " + ToString(tower.damageDone) + "\n"
+			+ sys->ReadLocale("Cost-Effectiveness") + ": " + ToString(100.0f * (f32)tower.damageDone / max((f32)tower.sunkCost, 1.0f), 10, 1) + "%";
 		if (towerPriority->changed) {
 			tower.priority = (Entities::Tower::TargetPriority)(towerPriority->choice);
 		}
 	} else {
 		hideable->hidden = true;
 	}
-	screen.Update(vec2(0.0f), !entities->focusMenu); // Hideable will handle selection culling
+	screen->Update(vec2(0.0f, 0.0f), !entities->focusMenu); // Hideable will handle selection culling
 }
 
 void UpgradesMenu::Draw(Rendering::DrawingContext &context) {
-	screen.Draw(context);
+	Any anyContext = &context;
+	screen->Draw(anyContext);
 }
 
 void PlayMenu::Initialize() {
-	ListH *screenListH = new ListH();
-	screenListH->fractionWidth = true;
-	screenListH->size.x = 1.0f;
-	screenListH->padding = vec2(0.0f);
-	screenListH->margin = vec2(0.0f);
-	screenListH->color = 0.0f;
-	screenListH->highlight = 0.0f;
-	screenListH->occludes = false;
-	AddWidget(&screen, screenListH);
-	Widget *spacer = new Widget();
-	spacer->fractionWidth = true;
-	spacer->size.x = 1.0f;
-	AddWidget(screenListH, spacer);
-	list = new ListV();
-	list->fractionHeight = true;
-	list->fractionWidth = false;
+	screen = gui->system.CreateScreen();
+
+	list = gui->system.CreateListV(screen);
+	list->SetWidthPixel(300.0f);
+	list->SetHeightFraction(1.0f);
 	list->margin = 0.0f;
-	list->size = vec2(300.0f, 1.0f);
 	list->selectionDefault = 1;
-	AddWidgetAsDefault(screenListH, list);
+	list->color = vec4(vec3(0.0f), backgroundOpacity);
+	list->colorHighlighted = list->color;
 
-	Text *towerHeader = new Text();
-	towerHeader->fontIndex = gui->fontIndex;
-	towerHeader->alignH = Rendering::CENTER;
+	azgui::Text *towerHeader = gui->system.CreateText(list);
+	towerHeader->data = TextMetadata{Rendering::CENTER, Rendering::TOP};
 	towerHeader->string = sys->ReadLocale("Towers");
-	AddWidget(list, towerHeader);
 
-	ListH *gridBase = new ListH();
-	gridBase->fractionWidth = true;
-	gridBase->size.x = 1.0f;
-	gridBase->fractionHeight = false;
-	gridBase->size.y = 0.0f;
-	gridBase->padding = vec2(0.0f);
-	gridBase->margin = vec2(0.0f);
-	gridBase->color = 0.0f;
-	gridBase->highlight = 0.0f;
-	gridBase->selectionDefault = 0;
+	azgui::ListH gridBase;
+	gridBase.SetWidthFraction(1.0f);
+	gridBase.SetHeightContents();
+	gridBase.padding = vec2(0.0f);
+	gridBase.margin = vec2(0.0f);
+	gridBase.color = 0.0f;
+	gridBase.colorHighlighted = 0.0f;
+	gridBase.selectionDefault = 0;
 
-	Button *halfWidth = new Button();
-	halfWidth->fractionWidth = true;
-	halfWidth->size.x = 0.5f;
-	halfWidth->fractionHeight = false;
-	halfWidth->size.y = 32.0f;
+	azgui::Button halfWidth;
+	halfWidth.SetWidthFraction(0.5f);
+	halfWidth.SetHeightPixel(32.0f);
+	halfWidth.color = vec4(vec3(0.0f), buttonBaseOpacity);
 
 	towerButtons.Resize(Entities::TOWER_MAX_RANGE + 1);
 	for (i32 i = 0; i < towerButtons.size; i+=2) {
-		ListH *grid = new ListH(*gridBase);
+		azgui::ListH *grid = gui->system.CreateListHFrom(list, gridBase);
 		for (i32 j = 0; j < 2; j++) {
 			i32 index = i+j;
 			if (index > towerButtons.size) break;
-			towerButtons[index] = new Button(*halfWidth);
-			Text *buttonText = towerButtons[index]->AddDefaultText(sys->ReadLocale(Entities::towerStrings[index]));
+			towerButtons[index] = gui->system.CreateButtonFrom(grid, halfWidth);
+			azgui::Text *buttonText = towerButtons[index]->AddDefaultText(sys->ReadLocale(Entities::towerStrings[index]));
 			buttonText->fontSize = 20.0f;
-			towerButtons[index]->highlightBG = Entities::Tower(Entities::TowerType(index)).color;
-			AddWidget(grid, towerButtons[index]);
+			towerButtons[index]->colorHighlighted = Entities::Tower(Entities::TowerType(index)).color;
 		}
 		towerButtonLists.Append(grid);
-		AddWidget(list, grid);
 	}
 
-	towerInfo = new Text();
-	towerInfo->size.x = 1.0f;
+	towerInfo = gui->system.CreateText(list);
+	towerInfo->SetHeightPixel(96.0f);
+	towerInfo->SetWidthFraction(1.0f);
 	towerInfo->color = vec4(1.0f);
-	towerInfo->fontIndex = gui->fontIndex;
 	towerInfo->fontSize = 18.0f;
 	towerInfo->string = ToWString("$MONEY");
-	AddWidget(list, towerInfo);
 
-	spacer = new Widget();
-	spacer->fractionHeight = true;
-	spacer->size.y = 1.0f;
-	AddWidget(list, spacer);
+	gui->system.CreateSpacer(list, 1.0f);
 
-	Button *fullWidth = new Button();
-	fullWidth->fractionWidth = true;
-	fullWidth->size.x = 1.0f;
-	fullWidth->fractionHeight = false;
-	fullWidth->size.y = 32.0f;
+	azgui::Button fullWidth;
+	fullWidth.SetWidthFraction(1.0f);
+	fullWidth.SetHeightPixel(32.0f);
+	fullWidth.color = vec4(vec3(0.0f), buttonBaseOpacity);
 
-	ListH *waveList = new ListH(*gridBase);
+	azgui::ListH *waveList = gui->system.CreateListHFrom(list, gridBase);
 
-	waveTitle = new Text();
-	waveTitle->size.x = 0.5f;
-	waveTitle->size.y = 1.0f;
-	waveTitle->fractionHeight = true;
-	waveTitle->alignV = Rendering::CENTER;
+	waveTitle = gui->system.CreateText(waveList);
+	waveTitle->SetSizeFraction(vec2(0.5f, 1.0f));
+	waveTitle->data = TextMetadata{Rendering::LEFT, Rendering::CENTER};
 	waveTitle->colorOutline = vec4(1.0f, 0.0f, 0.5f, 1.0f);
 	waveTitle->color = vec4(1.0f);
 	waveTitle->outline = true;
-	waveTitle->fontIndex = gui->fontIndex;
 	waveTitle->fontSize = 30.0f;
 	// waveTitle->bold = true;
 	waveTitle->margin.y = 0.0f;
 	waveTitle->string = ToWString("Nothing");
-	AddWidget(waveList, waveTitle);
-	buttonStartWave = new Button(*halfWidth);
+
+	buttonStartWave = gui->system.CreateButtonAsDefaultFrom(waveList, halfWidth);
 	buttonTextStartWave = buttonStartWave->AddDefaultText(sys->ReadLocale("Start Wave"));
 	buttonTextStartWave->fontSize = 20.0f;
 	buttonStartWave->size.y = 32.0f;
 	buttonStartWave->keycodeActivators = {KC_GP_BTN_START, KC_KEY_SPACE};
-	AddWidgetAsDefault(waveList, buttonStartWave);
 
-	AddWidget(list, waveList);
-
-	waveInfo = new Text();
-	waveInfo->size.x = 1.0f;
+	waveInfo = gui->system.CreateText(list);
+	waveInfo->SetWidthFraction(1.0f);
 	waveInfo->color = vec4(1.0f);
-	waveInfo->fontIndex = gui->fontIndex;
 	waveInfo->fontSize = 20.0f;
 	waveInfo->string = ToWString("Nothing");
-	AddWidget(list, waveInfo);
 
-	buttonMenu = new Button(*fullWidth);
+	buttonMenu = gui->system.CreateButtonFrom(list, fullWidth);
 	buttonMenu->AddDefaultText(sys->ReadLocale("Menu"));
 	buttonMenu->keycodeActivators = {KC_GP_BTN_SELECT, KC_KEY_ESC};
-	AddWidget(list, buttonMenu);
-
-	delete gridBase;
-	delete halfWidth;
-	delete fullWidth;
 
 	upgradesMenu.Initialize();
 }
@@ -833,14 +760,14 @@ void PlayMenu::Update() {
 	}
 	{ // Make the grid work more nicely (hacky)
 		i32 selection = -1;
-		for (ListH *list : towerButtonLists) {
+		for (azgui::ListH *list : towerButtonLists) {
 			if (list->selection >= 0) {
 				selection = list->selection;
 				break;
 			}
 		}
 		if (selection != -1) {
-			for (ListH *list : towerButtonLists) {
+			for (azgui::ListH *list : towerButtonLists) {
 				list->selectionDefault = selection;
 			}
 		}
@@ -853,7 +780,7 @@ void PlayMenu::Update() {
 	waveInfo->string =
 		sys->ReadLocale("Wave Hitpoints Left") + ": " + ToString(entities->hitpointsLeft) + "\n"
 		+ sys->ReadLocale("Lives") + ": " + ToString(entities->lives);
-	screen.Update(vec2(0.0f), entities->focusMenu);
+	screen->Update(vec2(0.0f), entities->focusMenu);
 	if (buttonMenu->state.Released()) {
 		gui->nextMenu = Gui::Menu::MAIN;
 		sys->paused = true;
@@ -865,7 +792,8 @@ void PlayMenu::Update() {
 
 void PlayMenu::Draw(Rendering::DrawingContext &context) {
 	upgradesMenu.Draw(context);
-	screen.Draw(context);
+	Any anyContext = &context;
+	screen->Draw(anyContext);
 }
 
 } // namespace Az2D::Gui

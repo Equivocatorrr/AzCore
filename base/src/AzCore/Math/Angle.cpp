@@ -3,7 +3,7 @@
 	Author: Philip Haynes
 */
 
-#include "../math.hpp"
+#include "Angle.hpp"
 
 namespace AzCore {
 

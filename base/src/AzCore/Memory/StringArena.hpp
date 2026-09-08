@@ -14,6 +14,7 @@
 #include "String.hpp"
 #include "Range.hpp"
 #include "Optional.hpp"
+#include "../Thread.hpp"
 
 // Quick macro to declare an arena in a header and an AString type that points to it. Must be matched by a call to AZCORE_CREATE_STRING_ARENA_CPP and called inside a namespace.
 #define AZCORE_CREATE_STRING_ARENA_HPP()\
@@ -39,18 +40,20 @@ namespace AzCore {
 
 class StringArena {
 	// 0 is guaranteed to be the empty string.
-	BinaryMap<SimpleRange<char>, i32> map;
-	Array<SimpleRange<char>> strings;
+	BinaryMap<Str, i32> map;
+	Array<Str> strings;
 	// Strings are 0-terminated in memory, so you can use them like c-strings if you must.
 	Array<Array<char>> arenas;
 	i32 PAGE_SIZE;
+	mutable Mutex mutex;
 	// Reserves string.size+1 and returns the page
-	Array<char>& ReserveMemory(SimpleRange<char> string);
+	Array<char>& ReserveMemory(Str string);
 public:
 	constexpr static i32 DEFAULT_PAGE_SIZE=1024*64;
 	StringArena(i32 pageSize=DEFAULT_PAGE_SIZE);
-	i32 GetID(const SimpleRange<char> string);
-	inline const SimpleRange<char> GetString(i32 id) const {
+	i32 GetID(const Str string);
+	inline const Str GetString(i32 id) const {
+		ScopedLock lock(mutex);
 		return strings[id];
 	}
 };
@@ -66,13 +69,13 @@ class ArenaString {
 	i32 id;
 public:
 	constexpr ArenaString() : id(0) {}
-	constexpr ArenaString(SimpleRange<char> other) : id(arena->GetID(other)) {}
+	constexpr ArenaString(Str other) : id(arena->GetID(other)) {}
 	constexpr ArenaString(const char *other) : id(arena->GetID(other)) {}
 	constexpr ArenaString(const String &other) : id(arena->GetID(other)) {}
 	constexpr bool operator==(ArenaString other) const {
 		return id == other.id;
 	}
-	constexpr bool operator==(SimpleRange<char> other) const {
+	constexpr bool operator==(Str other) const {
 		return GetString() == other;
 	}
 	constexpr bool operator==(const char *other) const {
@@ -92,7 +95,7 @@ public:
 		id = other.id;
 		return *this;
 	}
-	constexpr ArenaString& operator=(SimpleRange<char> other) {
+	constexpr ArenaString& operator=(Str other) {
 		id = arena->GetID(other);
 		return *this;
 	}
@@ -101,12 +104,12 @@ public:
 		return *this;
 	}
 	constexpr ArenaString& operator=(const char *string) {
-		return operator=(SimpleRange<char>(string));
+		return operator=(Str(string));
 	}
-	constexpr operator const SimpleRange<char>() const {
+	constexpr operator const Str() const {
 		return GetString();
 	}
-	constexpr const SimpleRange<char> GetString() const {
+	constexpr const Str GetString() const {
 		return arena->GetString(id);
 	}
 	// NOTE: Maybe we don't want direct mutators like this. Ideally any String manipulation should be done with String, and the result should THEN be converted to an ArenaString, so we don't have a bunch of intermediate strings in our Arena.

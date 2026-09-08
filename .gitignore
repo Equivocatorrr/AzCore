@@ -24,3 +24,10 @@ obj
 .vscode
 projects/fractal_explorer/*.png
 projects/*/data/Az2D
+projects/*/data/Az3D
+*.rdc
+*.csv
+*.patch
+.cache
+compile_commands.json*
+docs/untracked

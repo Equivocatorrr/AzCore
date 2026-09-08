@@ -8,16 +8,13 @@
 #ifndef AZCORE_BINARY_SET_HPP
 #define AZCORE_BINARY_SET_HPP
 
-#include "../basictypes.hpp"
-#include "../math.hpp"
+#include "../BasicTypes.hpp"
+#include "../Math/Basic.hpp"
 #include "Array.hpp"
 #include <utility>
 #include <initializer_list>
 
 namespace AzCore {
-
-template <typename Key_t>
-class BinarySetIterator;
 
 template <typename Key_t>
 struct BinarySet {
